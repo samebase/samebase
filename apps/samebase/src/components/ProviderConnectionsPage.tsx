@@ -31,7 +31,7 @@ const PROVIDER_KEYS = ["convex", "cloudflare"] as const;
 
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
-  completionEventType: string;
+  completionEventTypes: readonly string[];
   icon: ReactElement;
   label: string;
   oauthButtonLabel: string;
@@ -106,14 +106,14 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
 
 const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
   convex: {
-    completionEventType: "convex-oauth-complete",
+    completionEventTypes: ["convex-oauth-complete"],
     icon: <ConvexProviderLogo />,
     label: "Convex",
     oauthButtonLabel: "Convex OAuth",
     popupName: "convex-oauth",
   },
   cloudflare: {
-    completionEventType: "cloudflare-oauth-complete",
+    completionEventTypes: ["cloudflare-oauth-complete", "cloudflare-mcp-oauth-complete"],
     icon: <CloudflareProviderLogo />,
     label: "Cloudflare",
     oauthButtonLabel: "Cloudflare OAuth",
@@ -732,7 +732,61 @@ export function ProviderConnectionsPageView({
   );
 }
 
-function useProviderOAuthPopupCompletionReload({
+// eslint-disable-next-line react-refresh/only-export-components -- Focused tests exercise this message security boundary directly.
+export function handleProviderOAuthPopupCompletionMessage({
+  event,
+  expectedOrigin,
+  navigate,
+  providerPopupConfig,
+}: {
+  event: MessageEvent;
+  expectedOrigin: string;
+  navigate: (returnTo: string) => void;
+  providerPopupConfig: Record<
+    ProviderKey,
+    {
+      completionEventTypes: readonly string[];
+      popupOriginRef: MutableRefObject<string | null>;
+      popupRef: MutableRefObject<Window | null>;
+    }
+  >;
+}) {
+  if (!isRecord(event.data) || typeof event.data["type"] !== "string") {
+    return;
+  }
+
+  for (const provider of PROVIDER_KEYS) {
+    const popupConfig = providerPopupConfig[provider];
+    if (!popupConfig.completionEventTypes.includes(event.data["type"])) {
+      continue;
+    }
+    if (event.source !== popupConfig.popupRef.current) {
+      return;
+    }
+    if (event.origin !== (popupConfig.popupOriginRef.current ?? expectedOrigin)) {
+      return;
+    }
+
+    const returnTo = event.data["returnTo"];
+    if (typeof returnTo !== "string") {
+      return;
+    }
+    let returnUrl: URL;
+    try {
+      returnUrl = new URL(returnTo);
+    } catch {
+      return;
+    }
+    if (returnUrl.origin !== expectedOrigin) {
+      return;
+    }
+
+    navigate(returnTo);
+    return;
+  }
+}
+
+function useProviderOAuthPopupCompletionNavigation({
   cloudflarePopupOriginRef,
   cloudflarePopupRef,
   convexPopupOriginRef,
@@ -748,41 +802,29 @@ function useProviderOAuthPopupCompletionReload({
     const providerPopupConfig: Record<
       ProviderKey,
       {
-        completionEventType: string;
+        completionEventTypes: readonly string[];
         popupOriginRef: MutableRefObject<string | null>;
         popupRef: MutableRefObject<Window | null>;
       }
     > = {
       convex: {
-        completionEventType: PROVIDER_METADATA.convex.completionEventType,
+        completionEventTypes: PROVIDER_METADATA.convex.completionEventTypes,
         popupOriginRef: convexPopupOriginRef,
         popupRef: convexPopupRef,
       },
       cloudflare: {
-        completionEventType: PROVIDER_METADATA.cloudflare.completionEventType,
+        completionEventTypes: PROVIDER_METADATA.cloudflare.completionEventTypes,
         popupOriginRef: cloudflarePopupOriginRef,
         popupRef: cloudflarePopupRef,
       },
     };
     const handler = (event: MessageEvent) => {
-      if (!isRecord(event.data) || typeof event.data["type"] !== "string") {
-        return;
-      }
-
-      for (const provider of PROVIDER_KEYS) {
-        const popupConfig = providerPopupConfig[provider];
-        if (event.data["type"] !== popupConfig.completionEventType) {
-          continue;
-        }
-        if (event.source !== popupConfig.popupRef.current) {
-          return;
-        }
-        if (event.origin !== (popupConfig.popupOriginRef.current ?? expectedOrigin)) {
-          return;
-        }
-        window.location.reload();
-        return;
-      }
+      handleProviderOAuthPopupCompletionMessage({
+        event,
+        expectedOrigin,
+        navigate: (returnTo) => window.location.replace(returnTo),
+        providerPopupConfig,
+      });
     };
 
     window.addEventListener("message", handler);
@@ -979,7 +1021,7 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
     connectConvexWithApiKey: connectConvexWithApiKeyAndClearAccess,
   });
 
-  useProviderOAuthPopupCompletionReload({
+  useProviderOAuthPopupCompletionNavigation({
     cloudflarePopupOriginRef,
     cloudflarePopupRef,
     convexPopupOriginRef,

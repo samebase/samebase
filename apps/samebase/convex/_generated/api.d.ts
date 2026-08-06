@@ -84,6 +84,7 @@ import type * as oauthUtils from "../oauthUtils.js";
 import type * as organizationAccess from "../organizationAccess.js";
 import type * as organizationAdmin from "../organizationAdmin.js";
 import type * as organizationBilling from "../organizationBilling.js";
+import type * as organizationContextAcceptanceFixtures from "../organizationContextAcceptanceFixtures.js";
 import type * as organizationModel from "../organizationModel.js";
 import type * as organizations from "../organizations.js";
 import type * as polarBillingState from "../polarBillingState.js";
@@ -237,6 +238,7 @@ declare const fullApi: ApiFromModules<{
   organizationAccess: typeof organizationAccess;
   organizationAdmin: typeof organizationAdmin;
   organizationBilling: typeof organizationBilling;
+  organizationContextAcceptanceFixtures: typeof organizationContextAcceptanceFixtures;
   organizationModel: typeof organizationModel;
   organizations: typeof organizations;
   polarBillingState: typeof polarBillingState;

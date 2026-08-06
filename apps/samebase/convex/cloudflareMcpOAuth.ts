@@ -893,9 +893,12 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
         try {
           if (window.opener && !window.opener.closed) {
             try {
-              window.opener.location.reload();
+              window.opener.location.replace(returnTo);
             } catch (error) {
-              window.opener.postMessage({ type: "cloudflare-mcp-oauth-complete" }, returnOrigin);
+              window.opener.postMessage(
+                { type: "cloudflare-mcp-oauth-complete", returnTo },
+                returnOrigin
+              );
             }
             window.close();
             return;

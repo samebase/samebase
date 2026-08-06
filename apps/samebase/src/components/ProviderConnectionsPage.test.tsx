@@ -8,7 +8,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { ProviderConnectionsPage } from "./ProviderConnectionsPage";
+import {
+  handleProviderOAuthPopupCompletionMessage,
+  ProviderConnectionsPage,
+} from "./ProviderConnectionsPage";
 import { ProviderConnectionsPageVisualFixture } from "./ProviderConnectionsPageVisualFixture";
 
 const { act } = React;
@@ -92,6 +95,22 @@ function mountProviderConnectionsPage(selectedOrganization: TestOrganization = o
     );
   });
   return mountedElement;
+}
+
+function providerPopupConfig(popup: Window | null = window) {
+  const popupOriginRef = { current: "https://api.samebase.com" };
+  return {
+    convex: {
+      completionEventTypes: ["convex-oauth-complete"],
+      popupOriginRef,
+      popupRef: { current: popup },
+    },
+    cloudflare: {
+      completionEventTypes: ["cloudflare-oauth-complete", "cloudflare-mcp-oauth-complete"],
+      popupOriginRef,
+      popupRef: { current: popup },
+    },
+  };
 }
 
 describe("ProviderConnectionsPage", () => {
@@ -209,5 +228,86 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).not.toContain("Install GitHub App");
     expect(markup).not.toContain("GitHub OAuth");
     expect(markup).not.toContain("Reauthorize GitHub");
+  });
+
+  it.each(["convex-oauth-complete", "cloudflare-oauth-complete", "cloudflare-mcp-oauth-complete"])(
+    "navigates the opener to the exact scoped URL for %s",
+    (type) => {
+      const navigate = vi.fn();
+      const returnTo = `${window.location.origin}/org/acme/providers?source=oauth#connection`;
+
+      handleProviderOAuthPopupCompletionMessage({
+        event: new MessageEvent("message", {
+          data: { type, returnTo },
+          origin: "https://api.samebase.com",
+          source: window,
+        }),
+        expectedOrigin: window.location.origin,
+        navigate,
+        providerPopupConfig: providerPopupConfig(),
+      });
+
+      expect(navigate).toHaveBeenCalledOnce();
+      expect(navigate).toHaveBeenCalledWith(returnTo);
+    },
+  );
+
+  it.each([
+    {
+      data: { type: "convex-oauth-complete" },
+      label: "missing return URL",
+      origin: "https://api.samebase.com",
+      source: window,
+    },
+    {
+      data: { returnTo: 42, type: "convex-oauth-complete" },
+      label: "non-string return URL",
+      origin: "https://api.samebase.com",
+      source: window,
+    },
+    {
+      data: { returnTo: "not-an-absolute-url", type: "convex-oauth-complete" },
+      label: "invalid return URL",
+      origin: "https://api.samebase.com",
+      source: window,
+    },
+    {
+      data: {
+        returnTo: "https://attacker.example/org/acme/providers",
+        type: "convex-oauth-complete",
+      },
+      label: "cross-origin return URL",
+      origin: "https://api.samebase.com",
+      source: window,
+    },
+    {
+      data: {
+        returnTo: `${window.location.origin}/org/acme/providers`,
+        type: "convex-oauth-complete",
+      },
+      label: "wrong popup source",
+      origin: "https://api.samebase.com",
+      source: null,
+    },
+    {
+      data: {
+        returnTo: `${window.location.origin}/org/acme/providers`,
+        type: "convex-oauth-complete",
+      },
+      label: "wrong callback origin",
+      origin: "https://attacker.example",
+      source: window,
+    },
+  ])("ignores a completion message with $label", ({ data, origin, source }) => {
+    const navigate = vi.fn();
+
+    handleProviderOAuthPopupCompletionMessage({
+      event: new MessageEvent("message", { data, origin, source }),
+      expectedOrigin: window.location.origin,
+      navigate,
+      providerPopupConfig: providerPopupConfig(),
+    });
+
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

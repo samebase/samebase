@@ -44,6 +44,7 @@ const callbackScenarios = [
 
 const storageBoundaryScenarios = [
   {
+    completionEventType: "convex-oauth-complete",
     provider: "convex",
     path: "/oauth/convex/callback",
     tokenEndpoint: "https://api.convex.dev/oauth/token",
@@ -53,6 +54,7 @@ const storageBoundaryScenarios = [
     },
   },
   {
+    completionEventType: "cloudflare-oauth-complete",
     provider: "cloudflare",
     path: "/oauth/cloudflare/callback",
     tokenEndpoint: "https://dash.cloudflare.com/oauth2/token",
@@ -63,6 +65,7 @@ const storageBoundaryScenarios = [
     },
   },
   {
+    completionEventType: "cloudflare-mcp-oauth-complete",
     provider: "cloudflare_mcp",
     path: "/oauth/cloudflare-mcp/callback",
     tokenEndpoint: "https://mcp.cloudflare.com/token",
@@ -224,6 +227,110 @@ describe("provider OAuth callback organization returns", () => {
       expect(response.headers.get("location")).toBe(
         "https://samebase.com/org/oauth-owner/providers",
       );
+    },
+  );
+
+  it.each(storageBoundaryScenarios)(
+    "navigates the opener to the scoped return URL after successful $provider callbacks",
+    async (scenario) => {
+      const t = makeConvexTest();
+      const userId = await t.run(async (ctx) => {
+        return await ctx.db.insert("users", {
+          email: `${scenario.provider}-success@example.com`,
+          isApproved: true,
+        });
+      });
+      const { organizationId } = await t.mutation(
+        internal.organizations.createOrReconnectVerifiedOrganization,
+        {
+          userId,
+          githubOwnerId: `${scenario.provider}-success-owner`,
+          githubOwnerType: "organization",
+          githubOwnerLogin: "OAuth-Owner",
+          githubInstallationId: `${scenario.provider}-success-installation`,
+        },
+      );
+      const state = `${scenario.provider}-success-state`;
+      const now = Date.now();
+      const commonState = {
+        userId,
+        organizationId,
+        state,
+        createdAt: now,
+        expiresAt: now + 60_000,
+      };
+      switch (scenario.provider) {
+        case "convex":
+          await t.mutation(internal.oauthState.createOauthState, {
+            ...commonState,
+            provider: "convex",
+            codeVerifier: "convex-code-verifier",
+          });
+          vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID", "convex-client");
+          vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_SECRET", "convex-secret");
+          vi.stubEnv("PROVIDER_CONVEX_OAUTH_REDIRECT_URL", "https://api.samebase.com/oauth/convex");
+          break;
+        case "cloudflare":
+          await t.mutation(internal.oauthState.createOauthState, {
+            ...commonState,
+            provider: "cloudflare",
+          });
+          vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
+          vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
+          vi.stubEnv(
+            "PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL",
+            "https://api.samebase.com/oauth/cloudflare",
+          );
+          break;
+        case "cloudflare_mcp":
+          await t.mutation(internal.oauthState.createOauthState, {
+            ...commonState,
+            provider: "cloudflare_mcp",
+            clientId: "cloudflare-mcp-client",
+            codeVerifier: "cloudflare-mcp-code-verifier",
+          });
+          vi.stubEnv(
+            "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
+            "https://api.samebase.com/oauth/cloudflare-mcp",
+          );
+          break;
+        default:
+          scenario satisfies never;
+      }
+      vi.stubEnv("SITE_URL", "https://samebase.com");
+
+      const fetch = vi.fn(async (input: RequestInfo | URL) => {
+        const requestUrl =
+          typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        expect(requestUrl).toBe(scenario.tokenEndpoint);
+        return new Response(JSON.stringify(scenario.tokenResponse), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      });
+      vi.stubGlobal("fetch", fetch);
+
+      const response = await t.fetch(`${scenario.path}?code=provider-code&state=${state}`);
+      const html = await response.text();
+      const returnTo = "https://samebase.com/org/oauth-owner/providers";
+
+      expect(response.status).toBe(200);
+      expect(fetch).toHaveBeenCalledOnce();
+      expect(html).toContain(`const returnTo = ${JSON.stringify(returnTo)};`);
+      expect(html).toContain("window.opener.location.replace(returnTo);");
+      expect(html).not.toContain("window.opener.location.reload()");
+      expect(html).toContain(`{ type: "${scenario.completionEventType}", returnTo }`);
+      expect(html).toContain("window.close();");
+      expect(html).toContain("window.location.replace(returnTo);");
+      await expect(
+        t.run(
+          async (ctx) =>
+            await ctx.db
+              .query("providerOAuthCallbackStates")
+              .withIndex("by_state", (query) => query.eq("state", state))
+              .unique(),
+        ),
+      ).resolves.toBeNull();
     },
   );
 
