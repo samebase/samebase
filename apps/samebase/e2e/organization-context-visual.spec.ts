@@ -5,7 +5,9 @@ import {
   createOrganizationContextAcceptanceAccount,
   signInOrganizationContextAcceptanceAccount,
 } from "./organizationContextAcceptance";
+import { signInIfNeeded } from "./liveHelpers";
 import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
+import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 
 const MAIN_HEADER_TEST_ID = "workspace-layout-v2-main-pane-header";
 const screenshotOptions = {
@@ -66,6 +68,13 @@ test("shows the explicit zero-membership global inventory", async ({ page }, tes
     ...screenshotOptions,
     fullPage: true,
   });
+
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  const contextControl = rightPane.getByTestId("organization-context-control");
+  await expect(contextControl.getByText("All vaults", { exact: true })).toBeVisible();
+  await expect(contextControl.getByRole("button", { name: "Install GitHub App" })).toBeVisible();
+  await expect(rightPane.getByRole("navigation", { name: "Organization" })).toHaveCount(0);
 });
 
 test("groups the global inventory and exposes every organization context", async ({
@@ -105,7 +114,10 @@ test("groups the global inventory and exposes every organization context", async
   await expect(page.getByRole("link", { name: /org-context-beta\/inventory-app,/u })).toBeVisible();
   await expect(page.getByRole("link", { name: /org-context-zeta\/web-app,/u })).toBeVisible();
 
-  await page.getByRole("button", { name: "Switch organization" }).click();
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  await expect(rightPane).toBeVisible();
+  await rightPane.getByRole("button", { name: "Switch organization" }).click();
   const contextMenu = page.getByRole("menu");
   await expect(contextMenu.getByRole("menuitem", { name: "All vaults" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-alpha" })).toBeVisible();
@@ -137,6 +149,13 @@ test("keeps one organization static and separates organization and user settings
   const header = page.getByTestId(MAIN_HEADER_TEST_ID);
   await expect(header.getByText("org-context-solo", { exact: true })).toBeVisible();
   await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  const organizationContext = rightPane.getByTestId("organization-context-control");
+  await expect(organizationContext.getByText("org-context-solo", { exact: true })).toBeVisible();
+  await expect(
+    organizationContext.getByRole("button", { name: "Switch organization" }),
+  ).toHaveCount(0);
   const organizationSettings = page.getByTestId("organization-settings-page");
   await expect(
     organizationSettings.getByRole("heading", { name: "Organization settings" }),
@@ -147,6 +166,7 @@ test("keeps one organization static and separates organization and user settings
     ...screenshotOptions,
     fullPage: true,
   });
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
 
   await openRoute(page, "/org/org-context-solo/vaults");
   await expect(page.getByRole("link", { name: /org-context-solo\/solo-app,/u })).toBeVisible();
@@ -171,7 +191,7 @@ test("keeps one organization static and separates organization and user settings
   await expect(mcpSettings.getByText("No authorized MCP clients.", { exact: true })).toBeVisible();
   await expect(
     page.getByTestId(MAIN_HEADER_TEST_ID).getByText("Account", { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(page).toHaveScreenshot("organization-context-mcp-settings.png", {
     ...screenshotOptions,
     fullPage: true,
@@ -212,7 +232,11 @@ test("keeps organization scope across direct links and browser history", async (
   await expect(page).toHaveURL(/\/org\/org-context-history-alpha\/vaults$/u);
 
   await openRoute(page, "/org/org-context-history-alpha/settings?dev");
-  await page.getByRole("button", { name: "Switch organization" }).click();
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  await page
+    .getByTestId("workspace-layout-v2-pane-right")
+    .getByRole("button", { name: "Switch organization" })
+    .click();
   await page.getByRole("menuitem", { name: "org-context-history-beta" }).click();
   await expect(page).toHaveURL(/\/org\/org-context-history-beta\/settings\?dev$/u);
   await expect(
@@ -251,6 +275,16 @@ test("keeps a lost organization route unavailable before its root redirect", asy
     fullPage: true,
   });
 
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  await expect(
+    rightPane
+      .getByTestId("organization-context-control")
+      .getByText("org-context-lost-org", { exact: true }),
+  ).toBeVisible();
+  await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
+  await expect(rightPane.getByRole("navigation", { name: "Organization" })).toHaveCount(0);
+
   await openRoute(page, "/org/org-context-lost-org/settings");
   await expect(page).toHaveURL(/\/org\/org-context-lost-org\/settings$/u);
   await expect(page.getByRole("heading", { name: "Organization unavailable" })).toBeVisible();
@@ -273,6 +307,17 @@ test("shows explicit lost access for a retained vault route", async ({ page }, t
     ...screenshotOptions,
     fullPage: true,
   });
+
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  await expect(
+    rightPane
+      .getByTestId("organization-context-control")
+      .getByText("org-context-lost-vault", { exact: true }),
+  ).toBeVisible();
+  await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
+  await expect(rightPane.getByRole("navigation", { name: "Organization" })).toHaveCount(0);
+  await expect(rightPane.getByText("private-app", { exact: true })).toHaveCount(0);
 });
 
 async function signInFromDirectRoute(args: {
@@ -338,7 +383,9 @@ test("preserves signed-out direct organization and vault routes after sign-in", 
 });
 
 test.describe("small screen organization context", () => {
-  test("keeps the shared context switcher in the main header", async ({ browser }, testInfo) => {
+  test("keeps route context visible and switches from the right pane", async ({
+    browser,
+  }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL;
     if (typeof baseURL !== "string") {
       throw new Error("Playwright baseURL is required for organization context tests.");
@@ -349,18 +396,24 @@ test.describe("small screen organization context", () => {
       reducedMotion: "reduce",
     });
     const signupPage = await signupContext.newPage();
-    await createApprovedAccount(signupPage, testInfo, "mobile", [
-      {
-        access: "retain",
-        ownerLogin: "org-context-mobile-alpha",
-        repositories: [],
-      },
-      {
-        access: "retain",
-        ownerLogin: "org-context-mobile-beta",
-        repositories: [],
-      },
-    ]);
+    await signupPage.goto("/", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(signupPage, "/");
+    await applyOrganizationContextAcceptanceFixture({
+      email: LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
+      organizations: [
+        {
+          access: "retain",
+          ownerLogin: "org-context-mobile-alpha",
+          repositories: ["mobile-app"],
+        },
+        {
+          access: "retain",
+          ownerLogin: "org-context-mobile-beta",
+          repositories: [],
+        },
+      ],
+    });
+    await seedVisualFixtureWorkspaceSidebarState(signupPage);
     const storageState = await signupContext.storageState();
     await signupContext.close();
 
@@ -371,13 +424,32 @@ test.describe("small screen organization context", () => {
       storageState,
     });
     const page = await context.newPage();
-    await seedVisualFixtureWorkspaceSidebarState(page);
+    await seedVisualFixtureWorkspaceSidebarState(page, { rightMobileWidthPx: 96 });
 
     try {
-      await openRoute(page, "/org/org-context-mobile-alpha/vaults");
+      await openRoute(page, "/vault/org-context-mobile-alpha/mobile-app/fs/main/README.md");
       const header = page.getByTestId(MAIN_HEADER_TEST_ID);
-      await expect(header.getByRole("button", { name: "Switch organization" })).toBeVisible();
-      await header.getByRole("button", { name: "Switch organization" }).click();
+      await expect(header.getByText("org-context-mobile-alpha", { exact: true })).toBeVisible();
+      await expect(header.getByRole("button", { name: "Quick Open" })).toBeVisible();
+      await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
+      const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
+      await expect(
+        leftPane.getByText("org-context-mobile-alpha/mobile-app", { exact: true }),
+      ).toBeVisible();
+      await expect(leftPane.getByText("README.md", { exact: true })).toBeVisible();
+      const rightToggle = header.getByRole("button", { name: "Toggle Right Sidebar" });
+      await expect(rightToggle).toBeVisible();
+      await rightToggle.click();
+      await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+        "data-mobile-pane",
+        "right",
+      );
+      const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+      await expect(rightPane).toHaveCSS("width", "96px");
+      await expect
+        .poll(() => rightPane.evaluate((element) => element.scrollWidth <= element.clientWidth))
+        .toBe(true);
+      await rightPane.getByRole("button", { name: "Switch organization" }).click();
       const contextMenu = page.getByRole("menu");
       await expect(contextMenu.getByRole("menuitem", { name: "All vaults" })).toBeVisible();
       await expect(
@@ -390,6 +462,8 @@ test.describe("small screen organization context", () => {
         ...screenshotOptions,
         fullPage: true,
       });
+      await contextMenu.getByRole("menuitem", { name: "org-context-mobile-beta" }).click();
+      await expect(page).toHaveURL(/\/org\/org-context-mobile-beta\/vaults$/u);
     } finally {
       await context.close();
     }

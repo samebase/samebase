@@ -5,7 +5,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { OrganizationContextControl } from "./OrganizationContextControl";
+import { OrganizationContextControl, OrganizationContextLabel } from "./OrganizationContextControl";
 
 const { act } = React;
 
@@ -115,11 +115,11 @@ vi.mock("convex/react", async (importOriginal) => {
 let root: Root | null = null;
 let rootElement: HTMLDivElement | null = null;
 
-async function mountControl() {
+async function mountControl(content: React.ReactNode = <OrganizationContextControl />) {
   rootElement = document.createElement("div");
   document.body.append(rootElement);
   root = createRoot(rootElement);
-  await act(async () => root?.render(<OrganizationContextControl />));
+  await act(async () => root?.render(content));
   return rootElement;
 }
 
@@ -154,8 +154,9 @@ describe("OrganizationContextControl", () => {
     testState.context.organizations = [organization("samebase")];
     const container = await mountControl();
 
+    expect(container.querySelector('[data-testid="organization-context-control"]')).not.toBeNull();
     expect(container.textContent).toContain("All vaults");
-    expect(container.querySelector('[aria-label="Switch organization"]')).toBeNull();
+    expect(container.querySelector('[aria-label^="Switch organization"]')).toBeNull();
     const installButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Install GitHub App",
     );
@@ -203,5 +204,72 @@ describe("OrganizationContextControl", () => {
     expect(testState.navigate).toHaveBeenCalledWith({
       href: "/vault?prod-ui#billing",
     });
+  });
+
+  it("announces the current context from the sidebar trigger", async () => {
+    testState.context.organizations = [organization("zeta"), organization("alpha")];
+    testState.context.surface = {
+      kind: "organization",
+      owner: "zeta",
+      section: "vaults",
+      source: "organization",
+    };
+    const container = await mountControl();
+
+    expect(
+      container.querySelector('[aria-label="Switch organization, current context zeta"]'),
+    ).not.toBeNull();
+  });
+
+  it("leaves a FileView route for the target organization vault list", async () => {
+    testState.context.organizations = [organization("zeta"), organization("alpha")];
+    testState.context.surface = {
+      kind: "organization",
+      owner: "zeta",
+      section: "vaults",
+      source: "vault",
+    };
+    testState.location.hash = "#README";
+    testState.location.search = { "prod-ui": true };
+    const container = await mountControl();
+    const menuItems = [
+      ...container.querySelectorAll('[data-testid="organization-context-menu-item"]'),
+    ];
+
+    await act(async () => {
+      menuItems[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(testState.navigate).toHaveBeenCalledWith({
+      href: "/org/alpha/vaults?prod-ui#README",
+    });
+  });
+
+  it("does not repeat account context below the account section", async () => {
+    testState.context.surface = { kind: "account" };
+    const container = await mountControl(
+      <>
+        <OrganizationContextLabel />
+        <OrganizationContextControl />
+      </>,
+    );
+
+    expect(container.textContent).toBe("");
+    expect(container.querySelector('[data-testid="organization-context-control"]')).toBeNull();
+  });
+
+  it("keeps a passive route context label in the main pane", async () => {
+    testState.context.organizations = [organization("Samebase")];
+    testState.context.surface = {
+      kind: "organization",
+      owner: "samebase",
+      section: "settings",
+      source: "organization",
+    };
+    const container = await mountControl(<OrganizationContextLabel />);
+
+    expect(container.textContent).toBe("Samebase");
+    expect(container.querySelector("button")).toBeNull();
   });
 });

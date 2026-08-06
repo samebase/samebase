@@ -13,7 +13,7 @@ import { useConvexAuth } from "convex/react";
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useAppRightSidebarPane } from "@/components/useAppRightSidebarPane";
 import { OrganizationContextProvider } from "@/components/OrganizationContext";
-import { OrganizationContextControl } from "@/components/OrganizationContextControl";
+import { OrganizationContextLabel } from "@/components/OrganizationContextControl";
 import { useOrganizationContext } from "@/lib/organizationContext";
 import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
@@ -259,11 +259,14 @@ function AppWorkspaceShellFrame({
   const appRightSidebarPane = useAppRightSidebarPane();
   const { surface } = useOrganizationContext();
   const headerAccessory = chrome?.headerAccessory;
-  const contextControl = surface.kind === "none" ? null : <OrganizationContextControl />;
+  const contextLabel =
+    surface.kind === "allVaults" || surface.kind === "organization" ? (
+      <OrganizationContextLabel />
+    ) : null;
   const mainHeader =
-    contextControl === null && headerAccessory === undefined ? undefined : (
+    contextLabel === null && headerAccessory === undefined ? undefined : (
       <div className="flex h-full min-w-0 flex-1 items-center">
-        {contextControl}
+        {contextLabel}
         {headerAccessory === undefined ? null : (
           <div className="min-w-0 flex-1">{headerAccessory}</div>
         )}
@@ -283,7 +286,9 @@ function AppWorkspaceShellFrame({
   const leftToggleVisibility = staticLeftPaneAbsent
     ? "hidden"
     : (chrome?.leftToggleVisibility ?? "desktop");
-  const rightToggleVisibility = chrome?.rightToggleVisibility ?? "desktop";
+  const rightToggleVisibility =
+    chrome?.rightToggleVisibility ??
+    (surface.kind === "allVaults" || surface.kind === "organization" ? "all" : "desktop");
 
   return (
     <WorkspacePaneRuntimeProvider

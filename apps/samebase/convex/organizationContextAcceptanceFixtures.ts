@@ -149,6 +149,24 @@ async function ensureAcceptanceOrganization(
       defaultBranch: "main",
       visibility: "private",
     });
+    await ctx.runMutation(internal.vault.branches.upsertVaultBranchTree, {
+      vaultId,
+      branch: "main",
+      commitSHA: "acceptance-commit:" + ownerLogin + "/" + repositoryName,
+      treeData: {
+        sha: "acceptance-tree:" + ownerLogin + "/" + repositoryName,
+        tree: [
+          {
+            mode: "100644",
+            path: "README.md",
+            sha: "acceptance-blob:" + ownerLogin + "/" + repositoryName + "/README.md",
+            size: 24,
+            type: "blob",
+          },
+        ],
+        truncated: false,
+      },
+    });
 
     const run = await ctx.db.get(runId);
     if (run === null) {

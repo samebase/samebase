@@ -558,6 +558,29 @@ describe("AppWorkspaceShell", () => {
     expect(rightToggle.classList.contains("hidden")).toBe(false);
   });
 
+  it("keeps route context visible and exposes its right pane on mobile", () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    act(() => {
+      root?.render(
+        <TestRouterProvider initialEntries={["/org/samebase/settings"]}>
+          <AppWorkspaceShell>
+            <div>Organization settings</div>
+          </AppWorkspaceShell>
+        </TestRouterProvider>,
+      );
+    });
+
+    const mainHeader = getRequiredElement('[data-testid="workspace-layout-v2-main-pane-header"]');
+    const rightToggle = getRequiredElement('button[aria-label="Toggle Right Sidebar"]');
+
+    expect(mainHeader.textContent).toContain("samebase");
+    expect(mainHeader.querySelector('[aria-label^="Switch organization"]')).toBeNull();
+    expect(rightToggle.classList.contains("hidden")).toBe(false);
+  });
+
   it("mirrors hydrated Convex sidebar state into localStorage", () => {
     useConvexAuthMock.mockReturnValue({
       isAuthenticated: true,

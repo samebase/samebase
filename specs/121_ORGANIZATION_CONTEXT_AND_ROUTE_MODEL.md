@@ -56,8 +56,13 @@ use an owner search parameter.
 
 ## Organization Context
 
-Shared main-pane chrome shows the organization owner login on every organization and vault route.
-The context stays visible on small screens and does not depend on the right navigation pane.
+Shared main-pane chrome shows a static organization owner login on every organization and vault
+route. The global vault route shows `All vaults`. This route context stays visible on small screens
+and does not depend on the right navigation pane. It is not a switch control.
+
+The standard right navigation pane shows the organization context directly below the signed-in
+account section. On small screens, `/vault`, `/org/:owner/*`, and `/vault/:owner/:repo/*` show the
+standard right-pane toggle. User settings do not show an organization context control.
 
 A user with one organization sees a static owner label. A user with several organizations sees a
 switch control with these items:
@@ -70,9 +75,9 @@ The switch keeps the same organization section when the target route supports it
 vault route opens the target organization's vault list. Each switch creates a normal browser history
 entry. Back, Forward, reload, and direct links read the owner from the route.
 
-The right navigation pane uses the route owner. It provides Vaults, Providers, New app, Connect
-repository, and Organization settings. Shared account navigation provides All vaults and Account
-settings. The global vault page always provides Install GitHub App.
+The right navigation pane uses the route owner. Below the context control, it provides Vaults,
+Providers, New app, Connect repository, and Organization settings. Shared account navigation
+provides All vaults and Account settings. The global vault page always provides Install GitHub App.
 
 ## Global Vault Inventory
 

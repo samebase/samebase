@@ -14,6 +14,7 @@ import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { AppRightSidebarContent } from "./AppRightSidebar";
 import type { AppOrganizationSurface, ViewerOrganization } from "@/lib/organizationContext";
+import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 
 const authState = vi.hoisted(() => ({
   isAuthenticated: true,
@@ -507,6 +508,7 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
     expect(hydratedMarkup).not.toContain("/new-app");
+    expect(hydratedMarkup).not.toContain("organization-context-control");
     expectProviderStatusQueriesNotSeen();
   });
 
@@ -540,6 +542,7 @@ describe("AppRightSidebarContent", () => {
     expect(mounted).toContain('role="status"');
     expect(mounted).not.toContain("/settings");
     expect(mounted).not.toContain("/providers");
+    expect(mounted).not.toContain("organization-context-control");
     expectProviderStatusQueriesNotSeen();
   });
 
@@ -582,6 +585,7 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain("/org/");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Sign in or create an account");
+    expect(hydratedMarkup).toContain('data-testid="organization-context-control"');
     expectProviderStatusQueriesNotSeen();
   });
 
@@ -632,6 +636,12 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain("/org/samebase/settings/billing");
     expect(hydratedMarkup).toContain("All vaults");
     expect(hydratedMarkup).toContain("Account settings");
+    const accountIndex = hydratedMarkup.indexOf(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
+    const contextIndex = hydratedMarkup.indexOf('data-testid="organization-context-control"');
+    const organizationNavigationIndex = hydratedMarkup.indexOf('aria-label="Organization"');
+    expect(accountIndex).toBeGreaterThanOrEqual(0);
+    expect(contextIndex).toBeGreaterThan(accountIndex);
+    expect(organizationNavigationIndex).toBeGreaterThan(contextIndex);
   });
 
   it("does not show global links while organization memberships load", async () => {

@@ -79,6 +79,7 @@ describe("organization context acceptance fixtures", () => {
 
     const snapshot = await t.run(async (ctx) => ({
       billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
+      branchTrees: await ctx.db.query("observations_vaultRepository_branchTrees").collect(),
       memberships: await ctx.db.query("organizationMemberships").collect(),
       organizations: await ctx.db.query("organizations").collect(),
       runs: await ctx.db.query("workflow_vaultProvisioning_runs").collect(),
@@ -89,6 +90,13 @@ describe("organization context acceptance fixtures", () => {
     expect(snapshot.user?.isApproved).toBe(true);
     expect(snapshot.organizations).toHaveLength(3);
     expect(snapshot.billingAccounts).toHaveLength(3);
+    expect(snapshot.branchTrees).toHaveLength(2);
+    expect(
+      snapshot.branchTrees.every(
+        (branchTree) =>
+          branchTree.branch === "main" && branchTree.treeData.tree[0]?.path === "README.md",
+      ),
+    ).toBe(true);
     expect(snapshot.memberships).toHaveLength(2);
     expect(snapshot.memberships.every((membership) => membership.userId === userId)).toBe(true);
     expect(snapshot.runs).toHaveLength(2);
