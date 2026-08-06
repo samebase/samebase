@@ -57,7 +57,7 @@ test("shows the explicit zero-membership global inventory", async ({ page }, tes
   await openRoute(page, "/vault");
 
   const header = page.getByTestId(MAIN_HEADER_TEST_ID);
-  await expect(header.getByText("All vaults", { exact: true })).toBeVisible();
+  await expect(header.getByText("All vaults", { exact: true })).toHaveCount(0);
   const emptyInventory = page.getByRole("heading", { name: "No organizations" }).locator("..");
   await expect(emptyInventory).toBeVisible();
   await expect(
@@ -144,14 +144,31 @@ test("keeps one organization static and separates organization and user settings
       repositories: ["solo-app"],
     },
   ]);
-  await openRoute(page, "/org/org-context-solo/settings");
+  await openRoute(page, "/vault");
 
-  const header = page.getByTestId(MAIN_HEADER_TEST_ID);
-  await expect(header.getByText("org-context-solo", { exact: true })).toBeVisible();
-  await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
+  const globalHeader = page.getByTestId(MAIN_HEADER_TEST_ID);
+  await expect(globalHeader.getByText("All vaults", { exact: true })).toHaveCount(0);
+  await expect(globalHeader.getByText("org-context-solo", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
   const organizationContext = rightPane.getByTestId("organization-context-control");
+  await expect(organizationContext.getByText("org-context-solo", { exact: true })).toBeVisible();
+  await expect(
+    organizationContext.getByRole("button", { name: "Switch organization" }),
+  ).toHaveCount(0);
+  await expect(page).toHaveURL(/\/vault$/u);
+  await expect(page).toHaveScreenshot("organization-context-one-organization-inventory.png", {
+    ...screenshotOptions,
+    fullPage: true,
+  });
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+
+  await openRoute(page, "/org/org-context-solo/settings");
+
+  const header = page.getByTestId(MAIN_HEADER_TEST_ID);
+  await expect(header.getByText("org-context-solo", { exact: true })).toHaveCount(0);
+  await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   await expect(organizationContext.getByText("org-context-solo", { exact: true })).toBeVisible();
   await expect(
     organizationContext.getByRole("button", { name: "Switch organization" }),
@@ -240,7 +257,9 @@ test("keeps organization scope across direct links and browser history", async (
   await page.getByRole("menuitem", { name: "org-context-history-beta" }).click();
   await expect(page).toHaveURL(/\/org\/org-context-history-beta\/settings\?dev$/u);
   await expect(
-    page.getByTestId(MAIN_HEADER_TEST_ID).getByText("org-context-history-beta", { exact: true }),
+    page.getByTestId("workspace-layout-v2-pane-right").getByRole("button", {
+      name: "Switch organization, current context org-context-history-beta",
+    }),
   ).toBeVisible();
 
   await page.goBack();
@@ -324,6 +343,8 @@ async function signInFromDirectRoute(args: {
   baseURL: string;
   browser: Browser;
   email: string;
+  mainHeading: string;
+  ownerLogin: string;
   route: string;
 }) {
   const context = await args.browser.newContext({
@@ -336,7 +357,21 @@ async function signInFromDirectRoute(args: {
     await expect(page).toHaveURL(args.route);
     await signInOrganizationContextAcceptanceAccount(page, args.email);
     await expect(page).toHaveURL(args.route);
-    return await page.getByTestId(MAIN_HEADER_TEST_ID).innerText();
+    await expect(
+      page
+        .getByTestId("workspace-layout-v2-pane-main")
+        .getByRole("heading", { name: args.mainHeading }),
+    ).toBeVisible();
+
+    const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+    if (!(await rightPane.isVisible())) {
+      await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+    }
+    await expect(
+      rightPane
+        .getByTestId("organization-context-control")
+        .getByText(args.ownerLogin, { exact: true }),
+    ).toBeVisible();
   } finally {
     await context.close();
   }
@@ -364,26 +399,26 @@ test("preserves signed-out direct organization and vault routes after sign-in", 
   ]);
   await setupContext.close();
 
-  await expect(
-    signInFromDirectRoute({
-      baseURL,
-      browser,
-      email,
-      route: "/org/org-context-signed-out-return/settings",
-    }),
-  ).resolves.toContain("org-context-signed-out-return");
-  await expect(
-    signInFromDirectRoute({
-      baseURL,
-      browser,
-      email,
-      route: "/vault/org-context-signed-out-return/return-app",
-    }),
-  ).resolves.toContain("org-context-signed-out-return");
+  await signInFromDirectRoute({
+    baseURL,
+    browser,
+    email,
+    mainHeading: "Organization settings",
+    ownerLogin: "org-context-signed-out-return",
+    route: "/org/org-context-signed-out-return/settings",
+  });
+  await signInFromDirectRoute({
+    baseURL,
+    browser,
+    email,
+    mainHeading: "return-app",
+    ownerLogin: "org-context-signed-out-return",
+    route: "/vault/org-context-signed-out-return/return-app",
+  });
 });
 
 test.describe("small screen organization context", () => {
-  test("keeps route context visible and switches from the right pane", async ({
+  test("keeps organization switching available from the right pane", async ({
     browser,
   }, testInfo) => {
     const baseURL = testInfo.project.use.baseURL;
@@ -429,7 +464,7 @@ test.describe("small screen organization context", () => {
     try {
       await openRoute(page, "/vault/org-context-mobile-alpha/mobile-app/fs/main/README.md");
       const header = page.getByTestId(MAIN_HEADER_TEST_ID);
-      await expect(header.getByText("org-context-mobile-alpha", { exact: true })).toBeVisible();
+      await expect(header.getByText("org-context-mobile-alpha", { exact: true })).toHaveCount(0);
       await expect(header.getByRole("button", { name: "Quick Open" })).toBeVisible();
       await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
       const leftPane = page.getByTestId("workspace-layout-v2-pane-left");

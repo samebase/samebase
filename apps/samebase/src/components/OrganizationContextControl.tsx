@@ -42,25 +42,10 @@ function readDisplayedContextLabel(
   const selectedOrganization =
     surface.kind === "organization" && organizations
       ? findViewerOrganization(organizations, surface.owner)
-      : null;
+      : surface.kind === "allVaults" && organizations?.length === 1
+        ? organizations[0]
+        : null;
   return selectedOrganization?.githubOwnerLogin ?? label;
-}
-
-export function OrganizationContextLabel() {
-  const { organizations, surface } = useOrganizationContext();
-  const displayedLabel = readDisplayedContextLabel(surface, organizations);
-  if (displayedLabel === null) {
-    return null;
-  }
-
-  return (
-    <span
-      className="block max-w-48 shrink-0 truncate px-2 text-sm font-medium"
-      title={displayedLabel}
-    >
-      {displayedLabel}
-    </span>
-  );
 }
 
 export function OrganizationContextControl() {

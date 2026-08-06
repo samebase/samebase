@@ -5,7 +5,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { OrganizationContextControl, OrganizationContextLabel } from "./OrganizationContextControl";
+import { OrganizationContextControl } from "./OrganizationContextControl";
 
 const { act } = React;
 
@@ -150,12 +150,13 @@ describe("OrganizationContextControl", () => {
     rootElement = null;
   });
 
-  it("shows a static All vaults context and install action for one organization", async () => {
+  it("shows the sole organization and install action on the global vault route", async () => {
     testState.context.organizations = [organization("samebase")];
     const container = await mountControl();
 
     expect(container.querySelector('[data-testid="organization-context-control"]')).not.toBeNull();
-    expect(container.textContent).toContain("All vaults");
+    expect(container.textContent).toContain("samebase");
+    expect(container.textContent).not.toContain("All vaults");
     expect(container.querySelector('[aria-label^="Switch organization"]')).toBeNull();
     const installButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Install GitHub App",
@@ -169,6 +170,23 @@ describe("OrganizationContextControl", () => {
     expect(testState.getInstallationUrl).toHaveBeenCalledWith({
       returnToPath: "/vault?prod-ui",
     });
+  });
+
+  it("shows All vaults for zero organizations", async () => {
+    testState.context.organizations = [];
+    const container = await mountControl();
+
+    expect(container.textContent).toContain("All vaults");
+    expect(container.querySelector('[aria-label^="Switch organization"]')).toBeNull();
+  });
+
+  it("keeps All vaults as the global switch context for multiple organizations", async () => {
+    testState.context.organizations = [organization("zeta"), organization("alpha")];
+    const container = await mountControl();
+
+    expect(
+      container.querySelector('[aria-label="Switch organization, current context All vaults"]'),
+    ).not.toBeNull();
   });
 
   it("keeps backend organization order and cleans billing state for All vaults", async () => {
@@ -248,28 +266,9 @@ describe("OrganizationContextControl", () => {
 
   it("does not repeat account context below the account section", async () => {
     testState.context.surface = { kind: "account" };
-    const container = await mountControl(
-      <>
-        <OrganizationContextLabel />
-        <OrganizationContextControl />
-      </>,
-    );
+    const container = await mountControl();
 
     expect(container.textContent).toBe("");
     expect(container.querySelector('[data-testid="organization-context-control"]')).toBeNull();
-  });
-
-  it("keeps a passive route context label in the main pane", async () => {
-    testState.context.organizations = [organization("Samebase")];
-    testState.context.surface = {
-      kind: "organization",
-      owner: "samebase",
-      section: "settings",
-      source: "organization",
-    };
-    const container = await mountControl(<OrganizationContextLabel />);
-
-    expect(container.textContent).toBe("Samebase");
-    expect(container.querySelector("button")).toBeNull();
   });
 });

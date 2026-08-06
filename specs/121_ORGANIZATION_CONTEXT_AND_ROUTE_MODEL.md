@@ -56,16 +56,14 @@ use an owner search parameter.
 
 ## Organization Context
 
-Shared main-pane chrome shows a static organization owner login on every organization and vault
-route. The global vault route shows `All vaults`. This route context stays visible on small screens
-and does not depend on the right navigation pane. It is not a switch control.
-
 The standard right navigation pane shows the organization context directly below the signed-in
-account section. On small screens, `/vault`, `/org/:owner/*`, and `/vault/:owner/:repo/*` show the
-standard right-pane toggle. User settings do not show an organization context control.
+account section. Shared main-pane chrome does not repeat this context. On small screens, `/vault`,
+`/org/:owner/*`, and `/vault/:owner/:repo/*` show the standard right-pane toggle. User settings do
+not show an organization context control.
 
-A user with one organization sees a static owner label. A user with several organizations sees a
-switch control with these items:
+A user with one organization sees its static owner label, including on the global `/vault` route. A
+user with no organizations sees a static `All vaults` label. A user with several organizations sees
+a switch control with these items:
 
 1. `All vaults`
 2. Current organizations, sorted by owner login

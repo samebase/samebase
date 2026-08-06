@@ -13,7 +13,6 @@ import { useConvexAuth } from "convex/react";
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useAppRightSidebarPane } from "@/components/useAppRightSidebarPane";
 import { OrganizationContextProvider } from "@/components/OrganizationContext";
-import { OrganizationContextLabel } from "@/components/OrganizationContextControl";
 import { useOrganizationContext } from "@/lib/organizationContext";
 import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
@@ -259,17 +258,10 @@ function AppWorkspaceShellFrame({
   const appRightSidebarPane = useAppRightSidebarPane();
   const { surface } = useOrganizationContext();
   const headerAccessory = chrome?.headerAccessory;
-  const contextLabel =
-    surface.kind === "allVaults" || surface.kind === "organization" ? (
-      <OrganizationContextLabel />
-    ) : null;
   const mainHeader =
-    contextLabel === null && headerAccessory === undefined ? undefined : (
+    headerAccessory === undefined ? undefined : (
       <div className="flex h-full min-w-0 flex-1 items-center">
-        {contextLabel}
-        {headerAccessory === undefined ? null : (
-          <div className="min-w-0 flex-1">{headerAccessory}</div>
-        )}
+        <div className="min-w-0 flex-1">{headerAccessory}</div>
       </div>
     );
   const staticLeftPaneAbsent = staticRouteChrome?.leftPane === "none";
