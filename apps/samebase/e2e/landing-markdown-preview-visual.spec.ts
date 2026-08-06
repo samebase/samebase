@@ -195,6 +195,16 @@ test("landing preview route renders the React overview in workspace chrome", asy
   );
   await expect(article).toContainText("No account? You create one in the same flow.");
   await expect(article).toContainText("cost follows real usage");
+  const faq = article.getByRole("region", { name: "Frequently asked questions" });
+  await expect(faq.getByRole("heading", { exact: true, name: "Why Samebase?" })).toBeVisible();
+  await expect(faq).toContainText("Codex already writes Convex well. Why do I need Samebase?");
+  await expect(faq).toContainText("Ok, but can't I just get your template and not use Samebase?");
+  await expect(faq).toContainText(
+    "I can just ask Codex to update my own apps. Why do I need Samebase?",
+  );
+  await expect(faq).toContainText("Wait, so all Samebase is, is a template and a list?");
+  await expect(faq).toContainText("The bet is that you will build tens of apps.");
+  await expect(faq).toContainText("Kinda.");
   await expect(article).not.toContainText("If an AI chat box were really the best way");
   await expect(article).toContainText(
     "If your app builder is so good, why is it not building itself?",
@@ -240,11 +250,23 @@ test("landing preview route renders the React overview in workspace chrome", asy
     .toBe(true);
   // The closing band keeps one accessible fractal mark without logo-lab helper copy.
   await expect(article.getByRole("img", { name: "Samebase logo", exact: true })).toHaveCount(1);
+  const closingLogoStage = article.getByTestId("public-landing-logo-stage");
+  await expect(closingLogoStage).not.toBeInViewport();
+  await closingLogoStage.scrollIntoViewIfNeeded();
+  await expect(closingLogoStage).toBeInViewport();
   const closingLogoCanvas = article
     .getByTestId(PUBLIC_LANDING_LOGO_SCENE_TEST_ID)
     .locator("canvas");
-  await expect(closingLogoCanvas).toHaveAttribute("data-logo-recursive-move-depth", "2");
+  await expect(closingLogoCanvas).toHaveAttribute("data-logo-recursive-move-depth", "2", {
+    timeout: 30_000,
+  });
   await expect(closingLogoCanvas).toHaveAttribute("data-logo-recursive-move-layer-counts", "1,20");
+  await page
+    .locator('[data-scroll-restoration-id="workspace-layout-v2-main"]')
+    .evaluate((element) => {
+      element.scrollTop = 0;
+    });
+  await expect.poll(() => readMainPaneScrollTop(page)).toBe(0);
   await expect(article).not.toContainText("drag it");
   await expect(article.getByRole("link", { name: "open the logo lab" })).toHaveCount(0);
   await expect(article.getByRole("link", { name: "do-it-yourself recipe" })).toBeVisible();
@@ -319,6 +341,107 @@ test("landing preview route renders the React overview in workspace chrome", asy
   await expect
     .poll(() => finalHeading.evaluate((element) => element.getBoundingClientRect().top))
     .toBeLessThan(81);
+});
+
+test("landing preview FAQ answers the direct-agent questions", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await showLandingHeroPoster(page);
+  await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+
+  const faq = page
+    .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
+    .getByRole("region", { name: "Frequently asked questions" });
+  await expect(faq).toContainText("Codex already writes Convex well. Why do I need Samebase?");
+  await expect(faq).toContainText("Ok, but can't I just get your template and not use Samebase?");
+  await expect(faq).toContainText(
+    "I can just ask Codex to update my own apps. Why do I need Samebase?",
+  );
+  await expect(faq).toContainText("Wait, so all Samebase is, is a template and a list?");
+
+  const firstQuestion = faq.getByRole("button", {
+    name: "Codex already writes Convex well. Why do I need Samebase?",
+  });
+  const secondQuestion = faq.getByRole("button", {
+    name: "Ok, but can't I just get your template and not use Samebase?",
+  });
+  const firstAnswer = faq.getByText("You do not need Samebase to make Codex write Convex.", {
+    exact: false,
+  });
+  const secondAnswer = faq.getByText("You can. The template and skills are public.", {
+    exact: false,
+  });
+
+  await expect(firstQuestion).toHaveAttribute("aria-expanded", "false");
+  await expect(firstAnswer).toBeHidden();
+  await firstQuestion.click();
+  await expect(firstQuestion).toHaveAttribute("aria-expanded", "true");
+  await expect(firstAnswer).toBeVisible();
+  await expect(faq).toHaveScreenshot("landing-preview-faq-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+    timeout: 30_000,
+  });
+
+  await firstQuestion.focus();
+  await firstQuestion.press("ArrowDown");
+  await expect(secondQuestion).toBeFocused();
+  await secondQuestion.press("Enter");
+  await expect(secondQuestion).toHaveAttribute("aria-expanded", "true");
+  await expect(secondAnswer).toBeVisible();
+  await expect(firstQuestion).toHaveAttribute("aria-expanded", "false");
+  await expect(firstAnswer).toBeHidden();
+});
+
+test("landing preview FAQ stays responsive while the closing logo is off screen", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await showLandingHeroPoster(page);
+  await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
+    waitUntil: "domcontentloaded",
+  });
+
+  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+  const faq = article.getByRole("region", { name: "Frequently asked questions" });
+  await faq.scrollIntoViewIfNeeded();
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+  await page.waitForTimeout(1_500);
+
+  await expect(article.getByTestId("public-landing-logo-stage")).not.toBeInViewport();
+
+  const devtools = await page.context().newCDPSession(page);
+  await devtools.send("Performance.enable");
+  await devtools.send("Emulation.setCPUThrottlingRate", { rate: 4 });
+  const readScriptDuration = async () => {
+    const { metrics } = await devtools.send("Performance.getMetrics");
+    const scriptDuration = metrics.find((metric) => metric.name === "ScriptDuration");
+    if (!scriptDuration) {
+      throw new Error("Chromium did not report ScriptDuration.");
+    }
+    return scriptDuration.value;
+  };
+
+  const scriptDurationBefore = await readScriptDuration();
+  await faq
+    .getByRole("button", {
+      name: "Codex already writes Convex well. Why do I need Samebase?",
+    })
+    .click();
+  await page.waitForTimeout(450);
+  const scriptDurationAfter = await readScriptDuration();
+
+  expect((scriptDurationAfter - scriptDurationBefore) * 1_000).toBeLessThan(150);
 });
 
 test("landing preview overview adapts to a narrow pane", async ({ page }) => {
@@ -531,7 +654,6 @@ test.describe("mobile landing preview", () => {
         timeout: 30_000,
       },
     );
-
     await article.getByRole("button", { name: "Open Samebase" }).first().click();
 
     await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}(?:\\?prod-ui)?$`));
@@ -542,6 +664,52 @@ test.describe("mobile landing preview", () => {
         .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
         .getByRole("button", { name: "Continue with Google" }),
     ).toBeVisible();
+  });
+
+  test("renders the FAQ for a mobile pane", async ({ page }) => {
+    await page.setViewportSize({ height: 1200, width: 390 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await showLandingHeroPoster(page);
+    await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
+      waitUntil: "domcontentloaded",
+    });
+    await page.waitForLoadState("networkidle");
+    await page.evaluate(async () => {
+      await document.fonts.ready;
+    });
+
+    const faq = page
+      .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
+      .getByRole("region", { name: "Frequently asked questions" });
+    await expect(faq).toContainText("Codex already writes Convex well. Why do I need Samebase?");
+    await expect(faq).toContainText("Ok, but can't I just get your template and not use Samebase?");
+    await expect(faq).toContainText(
+      "I can just ask Codex to update my own apps. Why do I need Samebase?",
+    );
+    await expect(faq).toContainText("Wait, so all Samebase is, is a template and a list?");
+    const thirdQuestion = faq.getByRole("button", {
+      name: "I can just ask Codex to update my own apps. Why do I need Samebase?",
+    });
+    await expect(thirdQuestion).toHaveAttribute("aria-expanded", "false");
+    await thirdQuestion.click();
+    await expect(thirdQuestion).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      faq.getByText("The bet is that you will build tens of apps.", { exact: false }),
+    ).toBeVisible();
+    const fourthQuestion = faq.getByRole("button", {
+      name: "Wait, so all Samebase is, is a template and a list?",
+    });
+    await fourthQuestion.click();
+    await expect(fourthQuestion).toHaveAttribute("aria-expanded", "true");
+    await expect(thirdQuestion).toHaveAttribute("aria-expanded", "false");
+    await expect(faq.getByText("Kinda.", { exact: true })).toBeVisible();
+    await expect(faq).toHaveScreenshot("landing-preview-faq-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+      timeout: 30_000,
+    });
   });
 
   test("opens linked documents at the top of the main pane", async ({ page }) => {

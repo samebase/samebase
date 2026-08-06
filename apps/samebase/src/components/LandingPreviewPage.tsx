@@ -4,6 +4,12 @@ import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LANDING_CLOSING_BAND_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -153,6 +159,28 @@ const LANDING_COST_ROWS = [
     profile: "an app with 10,000 weekly users",
     value: "follows usage · paid to providers",
     zeroCost: false,
+  },
+] as const;
+
+const LANDING_FAQS = [
+  {
+    answer:
+      "You do not need Samebase to make Codex write Convex. Our basic template and skills cover the parts around the code: how to manage separate Convex previews and which hosting setup to use.",
+    question: "Codex already writes Convex well. Why do I need Samebase?",
+  },
+  {
+    answer:
+      "You can. The template and skills are public. We update them as we learn from building Samebase. New Samebase apps get the current versions. Existing apps do not change unless you update them.",
+    question: "Ok, but can't I just get your template and not use Samebase?",
+  },
+  {
+    answer:
+      "For one or two apps, you may not need Samebase. The bet is that you will build tens of apps. Samebase gives you one place to see them, check their setup, and fix problems.",
+    question: "I can just ask Codex to update my own apps. Why do I need Samebase?",
+  },
+  {
+    answer: "Kinda.",
+    question: "Wait, so all Samebase is, is a template and a list?",
   },
 ] as const;
 
@@ -732,6 +760,26 @@ function LandingPreviewOverview() {
               ))}
             </div>
           </div>
+        </LandingSection>
+
+        <LandingSection ariaLabel="Frequently asked questions">
+          <LandingSectionIntro heading="Why Samebase?" kicker="FAQ" />
+          <Accordion keepMounted className="mt-8 max-w-[960px]">
+            {LANDING_FAQS.map((faq) => (
+              <AccordionItem
+                className="border-t border-border not-last:border-b-0"
+                key={faq.question}
+                value={faq.question}
+              >
+                <AccordionTrigger className="gap-6 rounded-none py-5 text-lg font-semibold leading-snug tracking-[-0.01em] hover:no-underline @3xl:py-6 [&_[data-slot=accordion-trigger-icon]]:mt-1 [&_[data-slot=accordion-trigger-icon]]:text-foreground">
+                  <span className="max-w-[44ch]">{faq.question}</span>
+                </AccordionTrigger>
+                <AccordionContent className="max-w-[56ch] pb-6 pr-10 text-[15px] leading-relaxed text-primary @3xl:pb-7">
+                  <p>{faq.answer}</p>
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
         </LandingSection>
 
         <section className="mt-16 @3xl:mt-24">
