@@ -139,6 +139,72 @@ describe("organization-scoped vault folders", () => {
     ).rejects.toThrow("Folder not found");
   });
 
+  it("keeps folder state personal for two current organization members", async () => {
+    const t = makeConvexTest();
+    const firstUserId = await seedUser(t, "ada@example.com");
+    const secondUserId = await seedUser(t, "grace@example.com");
+    const organizationId = await seedOrganization(t, {
+      owner: "samebase",
+      userId: firstUserId,
+    });
+    const vaultId = await seedVault(t, organizationId);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        role: "member",
+        userId: secondUserId,
+      });
+    });
+    const firstViewer = asUser(t, firstUserId);
+    const secondViewer = asUser(t, secondUserId);
+
+    const firstFolderId = await firstViewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Projects",
+      organizationId,
+    });
+    const secondFolderId = await secondViewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Projects",
+      organizationId,
+    });
+    await firstViewer.mutation(api.vault.folders.setVaultFolderCollapsed, {
+      collapsed: true,
+      folderId: firstFolderId,
+    });
+    await firstViewer.mutation(api.vault.folders.moveVaultToFolder, {
+      folderId: firstFolderId,
+      vaultId,
+    });
+    await secondViewer.mutation(api.vault.folders.moveVaultToFolder, {
+      folderId: secondFolderId,
+      vaultId,
+    });
+
+    await expect(firstViewer.query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
+      assignments: [{ folderId: firstFolderId, vaultId }],
+      folders: [
+        {
+          _id: firstFolderId,
+          collapsed: true,
+          name: "Projects",
+          organizationId,
+          position: 0,
+        },
+      ],
+    });
+    await expect(secondViewer.query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
+      assignments: [{ folderId: secondFolderId, vaultId }],
+      folders: [
+        {
+          _id: secondFolderId,
+          collapsed: false,
+          name: "Projects",
+          organizationId,
+          position: 0,
+        },
+      ],
+    });
+  });
+
   it("groups only vaults from the folder organization", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
