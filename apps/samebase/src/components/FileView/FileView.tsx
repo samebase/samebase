@@ -1,4 +1,4 @@
-import { useLocation, useRouter } from "@tanstack/react-router";
+import { Link, useLocation, useRouter } from "@tanstack/react-router";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useAction, useMutation, useQuery as useLiveQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
@@ -114,6 +114,19 @@ type FileViewBranchHydrationFeedback = {
   key: string;
   state: FileViewBranchHydrationState;
 };
+
+export function FileViewVaultUnavailableState() {
+  return (
+    <AppWorkspaceRouteChrome>
+      <main className="grid gap-4 p-4">
+        <h1 className="text-base font-semibold">Vault unavailable</h1>
+        <Button asChild className="w-fit" variant="outline">
+          <Link to="/vault">All vaults</Link>
+        </Button>
+      </main>
+    </AppWorkspaceRouteChrome>
+  );
+}
 
 function FileViewWrapper() {
   const router = useRouter();
@@ -561,7 +574,10 @@ function FileViewWrapper() {
   if (isInvalidVaultRoute) {
     return <FileViewInvalidRouteState />;
   }
-  if (!vault || !owner || !repoName || !branch) {
+  if (vault === null) {
+    return <FileViewVaultUnavailableState />;
+  }
+  if (vault === undefined || !owner || !repoName || !branch) {
     return null;
   }
   if (!hasFileViewVaultTree(vault)) {

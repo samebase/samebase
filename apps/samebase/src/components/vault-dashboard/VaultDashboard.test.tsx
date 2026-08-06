@@ -9,13 +9,12 @@ import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
 import type { VaultPullRequest, VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import type { Id } from "../../../convex/_generated/dataModel";
-import { VaultOverviewVaultPickerPane } from "./VaultOverviewVaultPickerPane";
-import { VaultOverviewPage } from "./VaultOverviewPage";
 import {
-  type VaultFolderCallbacks,
-  type VaultFolderCreate,
-  VaultOverviewSidebar,
-} from "./VaultOverviewSidebar";
+  type VaultOrganization,
+  VaultOverviewVaultPickerPane,
+} from "./VaultOverviewVaultPickerPane";
+import { VaultOverviewPage } from "./VaultOverviewPage";
+import { VaultOverviewSidebar } from "./VaultOverviewSidebar";
 import { PullRequestsSection } from "./VaultPullRequestsSection";
 import { RepositorySettings } from "./VaultRepositorySettings";
 import { VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
@@ -55,37 +54,21 @@ vi.mock("@/components/ui/dialog", () => ({
   DialogTitle: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
 
-const FOLDER_CALLBACKS = {
-  onDeleteVaultFolder: async () => {},
-  onMoveVaultFolder: async () => {},
-  onMoveVaultToFolder: async () => {},
-  onRenameVaultFolder: async () => {},
-  onSetVaultFolderCollapsed: async () => {},
-} satisfies VaultFolderCallbacks;
-const CREATE_VAULT_FOLDER: VaultFolderCreate = async () => {};
-
-const EMPTY_FOLDER_STATE = { assignments: [], folders: [] };
 const FAILED_CLOUDFLARE_BUILDS_OBSERVATIONS = {
   state: "failed",
   reload: () => {},
 } satisfies VaultCloudflareProviderObservationState["builds"];
 
-function fakeVaultId(): Id<"vaults"> {
+function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
   // test only needs a stable vault id for the query args.
-  return "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+  return value;
 }
 
-function fakeOrganizationId(): Id<"organizations"> {
+function fakeOrganizationId(value = "organization-samebase"): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
   // test only needs a stable organization id.
-  return "organization-samebase";
-}
-
-function fakeVaultFolderId(): Id<"ui_vaultFolders"> {
-  // @ts-expect-error Convex ids are strings at runtime; this static render
-  // test only needs a stable folder id for the query result.
-  return "ft7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a";
+  return value;
 }
 
 function fakeCloudflareWorkerId(value = "worker-root"): Id<"vaultCloudflareWorkers"> {
@@ -1208,7 +1191,18 @@ describe("PullRequestsSection", () => {
 });
 
 describe("VaultOverviewVaultPickerPane", () => {
-  it("renders the new root vault picker in the main pane", () => {
+  function organizationForVault(vault: RepositorySettingsBuilderVault): VaultOrganization {
+    return {
+      canCreateRepository: true,
+      githubOwnerId: "github-owner-ada",
+      githubOwnerLogin: vault.ghRepoOwner,
+      githubOwnerType: "user",
+      organizationId: vault.organizationId,
+      role: "owner",
+    };
+  }
+
+  it("groups the global inventory under its organization", () => {
     const vault = makeRepositorySettingsBuilderVault({
       cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({})],
       convexProjects: [makeRepositorySettingsConvexProject({})],
@@ -1219,9 +1213,8 @@ describe("VaultOverviewVaultPickerPane", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
-          {...FOLDER_CALLBACKS}
-          folderState={EMPTY_FOLDER_STATE}
-          onCreateVaultFolder={CREATE_VAULT_FOLDER}
+          globalInventory
+          organizations={[organizationForVault(vault)]}
           sidebarSummaries={{
             state: "loaded",
             summaries: [
@@ -1245,12 +1238,14 @@ describe("VaultOverviewVaultPickerPane", () => {
     );
 
     expect(markup).toContain("Vaults");
+    expect(markup).toContain('href="/org/ada/vaults"');
     expect(markup).toContain("ada/");
     expect(markup).toContain("demo");
     expect(markup).toContain("1/1 passed");
     expect(markup).not.toContain("3 PRs");
     expect(markup).not.toContain("Cloudflare Workers");
     expect(markup).not.toContain("Convex projects");
+    expect(markup).not.toContain("Install GitHub App");
     expect(markup).toContain('href="/vault/ada/demo"');
     expect(markup).toMatch(/<a[^>]+href="\/vault\/ada\/demo"[^>]*>[\s\S]*1\/1 passed[\s\S]*<\/a>/);
     expect(markup).not.toContain(
@@ -1258,13 +1253,79 @@ describe("VaultOverviewVaultPickerPane", () => {
     );
   });
 
+  it("preserves organization order and vault order while grouping in one pass", () => {
+    const zedFirst = makeRepositorySettingsBuilderVault({
+      _id: fakeVaultId("vault-zed-first"),
+      ghRepoName: "first",
+      ghRepoOwner: "zed",
+      organizationId: fakeOrganizationId("organization-zed"),
+      repositoryFullName: "zed/first",
+    });
+    const zedSecond = makeRepositorySettingsBuilderVault({
+      ...zedFirst,
+      _id: fakeVaultId("vault-zed-second"),
+      ghRepoName: "second",
+      repositoryFullName: "zed/second",
+    });
+    const adaFirst = makeRepositorySettingsBuilderVault({
+      _id: fakeVaultId("vault-ada-first"),
+      ghRepoName: "first",
+      ghRepoOwner: "ada",
+      organizationId: fakeOrganizationId("organization-ada"),
+      repositoryFullName: "ada/first",
+    });
+    const adaSecond = makeRepositorySettingsBuilderVault({
+      ...adaFirst,
+      _id: fakeVaultId("vault-ada-second"),
+      ghRepoName: "second",
+      repositoryFullName: "ada/second",
+    });
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/"]}>
+        <VaultOverviewVaultPickerPane
+          globalInventory
+          organizations={[organizationForVault(zedFirst), organizationForVault(adaFirst)]}
+          sidebarSummaries={{ state: "loaded", summaries: [] }}
+          vaults={[adaSecond, zedFirst, adaFirst, zedSecond]}
+        />
+      </TestRouterProvider>,
+    );
+    const orderedMarkers = [
+      'href="/org/zed/vaults"',
+      'href="/vault/zed/first"',
+      'href="/vault/zed/second"',
+      'href="/org/ada/vaults"',
+      'href="/vault/ada/second"',
+      'href="/vault/ada/first"',
+    ];
+
+    for (const marker of orderedMarkers) {
+      expect(markup.indexOf(marker)).toBeGreaterThanOrEqual(0);
+    }
+    for (let index = 1; index < orderedMarkers.length; index += 1) {
+      expect(markup.indexOf(orderedMarkers[index])).toBeGreaterThan(
+        markup.indexOf(orderedMarkers[index - 1]),
+      );
+    }
+  });
+
   it("prioritizes active vault workflows in the root vault picker", () => {
     const settingUpMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
-          {...FOLDER_CALLBACKS}
-          folderState={EMPTY_FOLDER_STATE}
-          onCreateVaultFolder={CREATE_VAULT_FOLDER}
+          globalInventory
+          organizations={[
+            organizationForVault(
+              makeRepositorySettingsBuilderVault({
+                sourceSetup: {
+                  status: "running",
+                  runId: fakeRunId(),
+                  step: "sync_tree",
+                  updatedAt: 30,
+                },
+              }),
+            ),
+          ]}
           sidebarSummaries={{ state: "loading" }}
           vaults={[
             makeRepositorySettingsBuilderVault({
@@ -1282,9 +1343,21 @@ describe("VaultOverviewVaultPickerPane", () => {
     const deletingMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
-          {...FOLDER_CALLBACKS}
-          folderState={EMPTY_FOLDER_STATE}
-          onCreateVaultFolder={CREATE_VAULT_FOLDER}
+          globalInventory
+          organizations={[
+            organizationForVault(
+              makeRepositorySettingsBuilderVault({
+                deletion: {
+                  state: "deleting",
+                  runId: fakeDeletionRunId(),
+                  requestedAt: 20,
+                  currentStep: "delete_cloudflare",
+                  message: "Removing Cloudflare resources.",
+                  updatedAt: 30,
+                },
+              }),
+            ),
+          ]}
           sidebarSummaries={{ state: "loading" }}
           vaults={[
             makeRepositorySettingsBuilderVault({
@@ -1322,8 +1395,6 @@ describe("VaultOverviewVaultPickerPane", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
         <VaultOverviewSidebar
-          {...FOLDER_CALLBACKS}
-          folderState={EMPTY_FOLDER_STATE}
           page="overview"
           selectedVaultId={null}
           sidebarSummaries={{ state: "loading" }}
@@ -1336,11 +1407,13 @@ describe("VaultOverviewVaultPickerPane", () => {
     expect(markup).toContain('aria-label="ada/demo, Setting up"');
   });
 
-  it("renders the root vault picker loading, empty, and empty-folder states", () => {
+  it("renders loading, zero-membership, and empty-organization states", () => {
+    const emptyOrganization = organizationForVault(makeRepositorySettingsBuilderVault({}));
     const loadingMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
-          onCreateVaultFolder={CREATE_VAULT_FOLDER}
+          globalInventory
+          organizations={null}
           sidebarSummaries={{ state: "loading" }}
           vaults={null}
         />
@@ -1349,30 +1422,18 @@ describe("VaultOverviewVaultPickerPane", () => {
     const emptyMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
-          {...FOLDER_CALLBACKS}
-          folderState={EMPTY_FOLDER_STATE}
-          onCreateVaultFolder={CREATE_VAULT_FOLDER}
+          globalInventory
+          organizations={[]}
           sidebarSummaries={{ state: "loaded", summaries: [] }}
           vaults={[]}
         />
       </TestRouterProvider>,
     );
-    const emptyFolderMarkup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/"]}>
+    const emptyOrganizationMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/org/ada/vaults"]}>
         <VaultOverviewVaultPickerPane
-          {...FOLDER_CALLBACKS}
-          folderState={{
-            assignments: [],
-            folders: [
-              {
-                _id: fakeVaultFolderId(),
-                collapsed: false,
-                name: "Fixtures",
-                position: 0,
-              },
-            ],
-          }}
-          onCreateVaultFolder={CREATE_VAULT_FOLDER}
+          globalInventory={false}
+          organizations={[emptyOrganization]}
           sidebarSummaries={{ state: "loaded", summaries: [] }}
           vaults={[]}
         />
@@ -1380,11 +1441,12 @@ describe("VaultOverviewVaultPickerPane", () => {
     );
 
     expect(loadingMarkup).toContain('aria-label="Loading vaults"');
-    expect(emptyMarkup).toContain("No vaults");
-    expect(emptyMarkup).not.toContain("Samebase logo");
-    expect(emptyFolderMarkup).toContain("Fixtures");
-    expect(emptyFolderMarkup).toContain('aria-label="Actions for folder Fixtures"');
-    expect(emptyFolderMarkup).not.toContain("No vaults");
+    expect(emptyMarkup).toContain("No organizations");
+    expect(emptyMarkup).toContain("Install the Samebase GitHub App for a repository owner.");
+    expect(emptyMarkup).toContain("Install GitHub App");
+    expect(emptyOrganizationMarkup).toContain("ada");
+    expect(emptyOrganizationMarkup).toContain("No vaults");
+    expect(emptyOrganizationMarkup).not.toContain("Install GitHub App");
   });
 });
 

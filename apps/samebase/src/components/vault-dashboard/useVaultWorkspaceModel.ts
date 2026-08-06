@@ -22,57 +22,82 @@ function selectVault(
 
 export function useVaultWorkspaceModel(
   selectedRepositoryFullName: string | undefined,
+  organizationOwner?: string,
 ): VaultWorkspaceModel {
   const vaults = useCacheQuery(api.vault.dashboard.getUserVaults);
-  const folderState = useCacheQuery(api.vault.folders.getVaultFolderState);
+  const organizations = useConvexQuery(api.organizations.listForViewer);
   const sidebarSummaries = useVaultSidebarSummaries();
   const selectedVault = useMemo(
     () => selectVault(vaults, selectedRepositoryFullName),
     [selectedRepositoryFullName, vaults],
   );
-  const providerObservations = useVaultProviderObservations(selectedVault);
+  const selectedOrganization = useMemo(
+    () =>
+      selectedVault && organizations
+        ? (organizations.find(
+            (organization) => organization.organizationId === selectedVault.organizationId,
+          ) ?? null)
+        : null,
+    [organizations, selectedVault],
+  );
+  const accessibleSelectedVault = selectedOrganization ? selectedVault : null;
+  const providerObservations = useVaultProviderObservations(accessibleSelectedVault);
   const pullRequests = useVaultPullRequests({
     vault:
-      selectedVault?.hasConnectedGitHubRepository && selectedVault.deletion.state === "not_deleting"
-        ? selectedVault
+      accessibleSelectedVault?.hasConnectedGitHubRepository &&
+      accessibleSelectedVault.deletion.state === "not_deleting"
+        ? accessibleSelectedVault
         : null,
   });
   const viewerAccess = useConvexQuery(api.users.currentViewerAccess);
   const cloudflareConnection = useConvexQuery(
     api.users.getCloudflareConnectionStatus,
-    selectedVault ? { organizationId: selectedVault.organizationId } : "skip",
+    accessibleSelectedVault ? { organizationId: accessibleSelectedVault.organizationId } : "skip",
   );
 
   const model = useMemo<VaultWorkspaceModel>(() => {
-    if (!vaults || !folderState) {
+    if (!vaults || !organizations) {
       return { state: "loading" };
     }
+    const requestedOrganization = organizationOwner
+      ? (organizations.find(
+          (organization) =>
+            organization.githubOwnerLogin.toLowerCase() === organizationOwner.toLowerCase(),
+        ) ?? null)
+      : null;
     if (!selectedRepositoryFullName) {
+      const visibleOrganizations = organizationOwner
+        ? requestedOrganization
+          ? [requestedOrganization]
+          : []
+        : organizations;
+      const visibleOrganizationIds = new Set(
+        visibleOrganizations.map((organization) => organization.organizationId),
+      );
       return {
         state: "ready",
         sidebarSummaries,
-        folderState,
+        organizations: visibleOrganizations,
         selection: { state: "root" },
-        vaults,
+        vaults: vaults.filter((vault) => visibleOrganizationIds.has(vault.organizationId)),
       };
     }
-    if (!selectedVault) {
+    if (!accessibleSelectedVault || !selectedOrganization) {
       return {
         state: "ready",
         sidebarSummaries,
-        folderState,
+        organizations: [],
         selection: {
           state: "missing",
           repositoryFullName: selectedRepositoryFullName,
         },
-        vaults,
+        vaults: [],
       };
     }
-
     return {
       state: "ready",
       sidebarSummaries,
-      folderState,
+      organizations: [selectedOrganization],
       selection: {
         state: "selected",
         workspace: {
@@ -87,24 +112,26 @@ export function useVaultWorkspaceModel(
             ? { state: "ready", connection: cloudflareConnection }
             : { state: "loading" },
           convexObservations: providerObservations.convex,
-          environmentRoots: selectedVault.defaultBranch
+          environmentRoots: accessibleSelectedVault.defaultBranch
             ? buildProductionEnvironmentRoots({
-                branch: selectedVault.defaultBranch,
+                branch: accessibleSelectedVault.defaultBranch,
                 cloudflareObservations: providerObservations.cloudflare,
                 convexObservations: providerObservations.convex,
-                owner: selectedVault.ghRepoOwner,
-                repoName: selectedVault.ghRepoName,
+                owner: accessibleSelectedVault.ghRepoOwner,
+                repoName: accessibleSelectedVault.ghRepoName,
                 schemaGraphEnabled:
                   viewerAccess?.accessKeys.includes("access_schema_graph") === true,
-                vault: selectedVault,
+                vault: accessibleSelectedVault,
               })
             : [],
-          githubRepositoryUrl: `https://github.com/${selectedVault.ghRepoOwner}/${selectedVault.ghRepoName}`,
+          githubRepositoryUrl: `https://github.com/${accessibleSelectedVault.ghRepoOwner}/${accessibleSelectedVault.ghRepoName}`,
           pullRequests,
-          vault: selectedVault,
+          vault: accessibleSelectedVault,
         },
       },
-      vaults,
+      vaults: vaults.filter(
+        (vault) => vault.organizationId === accessibleSelectedVault.organizationId,
+      ),
     };
   }, [
     providerObservations.cloudflare,
@@ -112,9 +139,11 @@ export function useVaultWorkspaceModel(
     cloudflareConnection,
     pullRequests,
     selectedRepositoryFullName,
-    selectedVault,
+    selectedOrganization,
+    accessibleSelectedVault,
     sidebarSummaries,
-    folderState,
+    organizationOwner,
+    organizations,
     vaults,
     viewerAccess,
   ]);

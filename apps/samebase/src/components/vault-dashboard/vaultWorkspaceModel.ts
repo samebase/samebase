@@ -9,7 +9,8 @@ import type {
   VaultConvexProjectObservation,
   VaultProviderObservationState,
 } from "./useVaultProviderObservations";
-import type { VaultFolderState } from "./VaultOverviewSidebar";
+
+export type VaultOrganization = (typeof api.organizations.listForViewer)["_returnType"][number];
 
 export type VaultWorkspaceAccessState =
   | { state: "loading" }
@@ -43,7 +44,7 @@ export type VaultWorkspaceModel =
   | {
       state: "ready";
       sidebarSummaries: VaultSidebarSummariesState;
-      folderState: VaultFolderState;
+      organizations: readonly VaultOrganization[];
       selection: VaultWorkspaceSelection;
       vaults: readonly UserVaultResult[];
     };
