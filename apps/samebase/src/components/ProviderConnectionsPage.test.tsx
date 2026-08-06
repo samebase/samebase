@@ -130,6 +130,14 @@ describe("ProviderConnectionsPage", () => {
     mountedElement = null;
   });
 
+  it("keeps provider rows empty while connection status is loading", () => {
+    const container = mountProviderConnectionsPage();
+
+    expect(container.textContent).toContain("Providers");
+    expect(container.querySelectorAll("[data-provider-key]")).toHaveLength(0);
+    expect(container.textContent).not.toContain("Not connected");
+  });
+
   it("uses the routed organization for every provider query and access check", async () => {
     setProviderQueries();
     const checkConvexAccess = vi.fn(async () => ({
@@ -187,14 +195,26 @@ describe("ProviderConnectionsPage", () => {
       connected: true,
       teamSlug: "samebase",
     });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      accountId: "cloudflare-account",
+      accountName: "Samebase",
+      authMethod: "oauth",
+      connected: true,
+    });
     const container = mountProviderConnectionsPage({ ...organization, role: "member" });
     const convexRow = container.querySelector('[data-provider-key="convex"]');
+    const cloudflareRow = container.querySelector('[data-provider-key="cloudflare"]');
 
     expect(convexRow?.textContent).toContain("Check access");
     expect(convexRow?.textContent).not.toContain("Manage access");
     expect(convexRow?.textContent).not.toContain("Reauthorize");
     expect(convexRow?.textContent).not.toContain("Disconnect");
-    expect(container.textContent).not.toContain("Cloudflare OAuth");
+    expect(cloudflareRow?.textContent).toContain("Connected (OAuth). Account Samebase.");
+    expect(cloudflareRow?.textContent).toContain("Check access");
+    expect(cloudflareRow?.textContent).not.toContain("Manage access");
+    expect(cloudflareRow?.textContent).not.toContain("Reconnect");
+    expect(cloudflareRow?.textContent).not.toContain("Manage account");
+    expect(cloudflareRow?.textContent).not.toContain("Disconnect");
 
     const checkAccessButton = [...(convexRow?.querySelectorAll("button") ?? [])].find(
       (button) => button.textContent === "Check access",

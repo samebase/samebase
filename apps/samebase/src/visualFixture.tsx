@@ -224,6 +224,7 @@ const ROUTE_URL_EDITOR_VISUAL_MODES = [
 ] as const satisfies readonly RouteUrlEditorVisualMode[];
 const PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES = [
   "providers-page-connected",
+  "providers-page-loading",
 ] as const satisfies readonly ProviderConnectionsPageVisualMode[];
 const CONNECT_REPOSITORY_VISUAL_MODES = [
   "connect-repository-loading-more",
@@ -407,8 +408,8 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <RouteUrlEditorVisualFixture />;
   }
 
-  if (mode === "providers-page-connected") {
-    return <ProviderConnectionsPageVisualFixture />;
+  if (mode === "providers-page-connected" || mode === "providers-page-loading") {
+    return <ProviderConnectionsPageVisualFixture mode={mode} />;
   }
 
   if (mode === "connect-repository-loading-more") {

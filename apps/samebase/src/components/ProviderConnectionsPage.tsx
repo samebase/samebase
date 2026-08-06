@@ -701,7 +701,10 @@ export function ProviderConnectionsPageView({
       status: "Not connected",
     };
   }
-  const providerRows = [convexProviderRow, cloudflareProviderRow];
+  const providerRows =
+    convexConnection === undefined || cloudflareConnection === undefined
+      ? []
+      : [convexProviderRow, cloudflareProviderRow];
 
   return (
     <div

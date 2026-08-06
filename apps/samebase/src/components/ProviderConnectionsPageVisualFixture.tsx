@@ -4,7 +4,9 @@ import {
 } from "@/components/ProviderConnectionsPage";
 import type { Id } from "../../convex/_generated/dataModel";
 
-export type ProviderConnectionsPageVisualMode = "providers-page-connected";
+export type ProviderConnectionsPageVisualMode =
+  | "providers-page-connected"
+  | "providers-page-loading";
 
 const PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW = Date.UTC(2026, 5, 22, 12, 0, 0);
 
@@ -155,11 +157,16 @@ const providerConnectionsVisualFixtureState = {
 
 const noop = () => {};
 
-export function ProviderConnectionsPageVisualFixture() {
+export function ProviderConnectionsPageVisualFixture({
+  mode = "providers-page-connected",
+}: {
+  mode?: ProviderConnectionsPageVisualMode;
+}) {
+  const isLoading = mode === "providers-page-loading";
   return (
     <ProviderConnectionsPageView
       apiKeyDialog={null}
-      cloudflareAccess={providerConnectionsVisualFixtureState.cloudflareAccess}
+      cloudflareAccess={isLoading ? null : providerConnectionsVisualFixtureState.cloudflareAccess}
       cloudflareAccessError={null}
       cloudflareAccountDialog={{
         error: null,
@@ -169,10 +176,14 @@ export function ProviderConnectionsPageVisualFixture() {
         options: [],
         selectedAccountId: "",
       }}
-      cloudflareConnection={providerConnectionsVisualFixtureState.cloudflareConnection}
-      convexAccess={providerConnectionsVisualFixtureState.convexAccess}
+      cloudflareConnection={
+        isLoading ? undefined : providerConnectionsVisualFixtureState.cloudflareConnection
+      }
+      convexAccess={isLoading ? null : providerConnectionsVisualFixtureState.convexAccess}
       convexAccessError={null}
-      convexConnection={providerConnectionsVisualFixtureState.convexConnection}
+      convexConnection={
+        isLoading ? undefined : providerConnectionsVisualFixtureState.convexConnection
+      }
       disconnectingProvider={null}
       isAutoCheckingCloudflareToken={false}
       isCheckingCloudflareAccess={false}
