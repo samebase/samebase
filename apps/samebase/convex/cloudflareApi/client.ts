@@ -264,10 +264,10 @@ export async function requestCloudflareApi(
   if (args.recordApiCall) {
     const values: Record<string, unknown> = {};
     if (params) {
-      values.params = params;
+      values["params"] = params;
     }
     if (args.body !== undefined) {
-      values.body = args.body;
+      values["body"] = args.body;
     }
     await args.recordApiCall({
       provider: "Cloudflare",
@@ -595,7 +595,7 @@ function validateCloudflareApiResult(args: {
 
 function readCloudflareApiEnvelopeResult(payload: unknown): unknown {
   if (isRecord(payload) && "result" in payload) {
-    return payload.result;
+    return payload["result"];
   }
   return undefined;
 }

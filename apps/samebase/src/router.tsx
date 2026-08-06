@@ -64,7 +64,7 @@ export function createAppRouter(history?: RouterHistory) {
         scrollY: mainPane.scrollTop,
       };
     }
-    destinationEntries.window = {
+    destinationEntries["window"] = {
       scrollX: window.scrollX,
       scrollY: window.scrollY,
     };

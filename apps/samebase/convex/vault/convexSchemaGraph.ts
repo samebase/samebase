@@ -159,7 +159,7 @@ function readActiveSchemaJson(schemaResponse: unknown): string | undefined {
   if (!isRecord(schemaResponse)) {
     return undefined;
   }
-  const value = schemaResponse.value;
+  const value = schemaResponse["value"];
   if (!isRecord(value)) {
     return undefined;
   }
@@ -203,7 +203,7 @@ function readSystemQueryResponse(response: unknown): ConvexSystemQueryResponse |
   if (!isRecord(response) || !("value" in response)) {
     return null;
   }
-  return { value: response.value };
+  return { value: response["value"] };
 }
 
 function buildConvexInspectionDeployKeyName(deploymentName: string): string {
@@ -322,12 +322,12 @@ async function fetchTableCount(args: {
 }
 
 function readDeclaredTables(schema: unknown): DeclaredTable[] {
-  if (!isRecord(schema) || !Array.isArray(schema.tables)) {
+  if (!isRecord(schema) || !Array.isArray(schema["tables"])) {
     return [];
   }
 
   const tables: DeclaredTable[] = [];
-  for (const value of schema.tables) {
+  for (const value of schema["tables"]) {
     if (!isRecord(value)) {
       continue;
     }
@@ -337,8 +337,8 @@ function readDeclaredTables(schema: unknown): DeclaredTable[] {
     }
     tables.push({
       tableName,
-      documentType: value.documentType,
-      indexes: readDeclaredIndexes(value.indexes),
+      documentType: value["documentType"],
+      indexes: readDeclaredIndexes(value["indexes"]),
     });
   }
   return tables;
@@ -358,7 +358,7 @@ function readDeclaredIndexes(indexes: unknown): ConvexSchemaGraphIndex[] {
     if (!name) {
       continue;
     }
-    const fieldsValue = index.fields;
+    const fieldsValue = index["fields"];
     const fields = Array.isArray(fieldsValue)
       ? fieldsValue.filter((field) => typeof field === "string")
       : [];
@@ -374,7 +374,7 @@ function unwrapConvexFieldType(value: unknown): { optional: boolean; value: unkn
   if (!isRecord(value)) {
     return { optional: false, value };
   }
-  const fieldType = value.fieldType;
+  const fieldType = value["fieldType"];
   if (fieldType !== undefined) {
     const wrappedOptional = readBoolean(value, "optional") ?? false;
     const unwrapped = unwrapConvexFieldType(fieldType);
@@ -383,8 +383,8 @@ function unwrapConvexFieldType(value: unknown): { optional: boolean; value: unkn
       value: unwrapped.value,
     };
   }
-  if (value.type === "optional") {
-    const inner = value.inner ?? value.value;
+  if (value["type"] === "optional") {
+    const inner = value["inner"] ?? value["value"];
     const unwrapped = unwrapConvexFieldType(inner);
     return {
       optional: true,
@@ -406,20 +406,20 @@ function formatDeclaredType(value: unknown): string {
       return `Id<${tableName}>`;
     }
     case "array": {
-      return `array<${formatDeclaredType(unwrapped.value.value)}>`;
+      return `array<${formatDeclaredType(unwrapped.value["value"])}>`;
     }
     case "record": {
-      return `record<${formatDeclaredType(unwrapped.value.value)}>`;
+      return `record<${formatDeclaredType(unwrapped.value["value"])}>`;
     }
     case "union": {
-      const values = unwrapped.value.value;
+      const values = unwrapped.value["value"];
       if (!Array.isArray(values)) {
         return "union";
       }
       return values.map(formatDeclaredType).join(" | ");
     }
     case "literal": {
-      const literalValue = unwrapped.value.value;
+      const literalValue = unwrapped.value["value"];
       return typeof literalValue === "string" ? `"${literalValue}"` : "literal";
     }
     default:
@@ -432,12 +432,12 @@ function readDeclaredTargetTables(value: unknown): string[] {
   if (!isRecord(unwrapped.value)) {
     return [];
   }
-  if (unwrapped.value.type === "id") {
+  if (unwrapped.value["type"] === "id") {
     const tableName = readString(unwrapped.value, "tableName");
     return tableName ? [tableName] : [];
   }
-  if (unwrapped.value.type === "union" && Array.isArray(unwrapped.value.value)) {
-    return uniqueSortedStrings(unwrapped.value.value.flatMap(readDeclaredTargetTables));
+  if (unwrapped.value["type"] === "union" && Array.isArray(unwrapped.value["value"])) {
+    return uniqueSortedStrings(unwrapped.value["value"].flatMap(readDeclaredTargetTables));
   }
   return [];
 }
@@ -469,8 +469,8 @@ function collectDeclaredFields(args: FieldCollectorArgs): void {
     });
   }
 
-  if (type === "object" && isRecord(unwrapped.value.value)) {
-    for (const [name, fieldValue] of Object.entries(unwrapped.value.value)) {
+  if (type === "object" && isRecord(unwrapped.value["value"])) {
+    for (const [name, fieldValue] of Object.entries(unwrapped.value["value"])) {
       const childPath = args.path.length > 0 ? `${args.path}.${name}` : name;
       collectDeclaredFields({
         ...args,
@@ -489,7 +489,7 @@ function collectDeclaredFields(args: FieldCollectorArgs): void {
       optional,
       path: args.path.length > 0 ? `${args.path}[]` : "[]",
       skipCurrentField: false,
-      value: unwrapped.value.value,
+      value: unwrapped.value["value"],
     });
     return;
   }
@@ -500,13 +500,13 @@ function collectDeclaredFields(args: FieldCollectorArgs): void {
       optional,
       path: args.path.length > 0 ? `${args.path}.*` : "*",
       skipCurrentField: false,
-      value: unwrapped.value.value,
+      value: unwrapped.value["value"],
     });
     return;
   }
 
-  if (type === "union" && Array.isArray(unwrapped.value.value)) {
-    for (const member of unwrapped.value.value) {
+  if (type === "union" && Array.isArray(unwrapped.value["value"])) {
+    for (const member of unwrapped.value["value"]) {
       collectDeclaredFields({
         ...args,
         optional: true,
@@ -538,15 +538,15 @@ function formatInferredShapeType(value: unknown): string {
       return `Id<${tableName}>`;
     }
     case "Array":
-      return `array<${formatInferredShapeType(value.shape)}>`;
+      return `array<${formatInferredShapeType(value["shape"])}>`;
     case "Set":
-      return `set<${formatInferredShapeType(value.shape)}>`;
+      return `set<${formatInferredShapeType(value["shape"])}>`;
     case "Map":
-      return `map<${formatInferredShapeType(value.shape)}>`;
+      return `map<${formatInferredShapeType(value["shape"])}>`;
     case "Object":
       return "object";
     case "Union": {
-      const shapes = value.shapes;
+      const shapes = value["shapes"];
       if (!Array.isArray(shapes)) {
         return "union";
       }
@@ -570,8 +570,8 @@ function readInferredTargetTables(value: unknown): string[] {
     const tableName = readString(value, "tableName");
     return tableName ? [tableName] : [];
   }
-  if (type === "Union" && Array.isArray(value.shapes)) {
-    return uniqueSortedStrings(value.shapes.flatMap(readInferredTargetTables));
+  if (type === "Union" && Array.isArray(value["shapes"])) {
+    return uniqueSortedStrings(value["shapes"].flatMap(readInferredTargetTables));
   }
   return [];
 }
@@ -603,8 +603,8 @@ function collectInferredFields(args: FieldCollectorArgs): void {
     });
   }
 
-  if (type === "Object" && Array.isArray(args.value.fields)) {
-    for (const field of args.value.fields) {
+  if (type === "Object" && Array.isArray(args.value["fields"])) {
+    for (const field of args.value["fields"]) {
       if (!isRecord(field)) {
         continue;
       }
@@ -618,7 +618,7 @@ function collectInferredFields(args: FieldCollectorArgs): void {
         optional: args.optional || readBoolean(field, "optional") === true,
         path: childPath,
         skipCurrentField: false,
-        value: field.shape,
+        value: field["shape"],
       });
     }
     return;
@@ -629,7 +629,7 @@ function collectInferredFields(args: FieldCollectorArgs): void {
       ...args,
       path: args.path.length > 0 ? `${args.path}[]` : "[]",
       skipCurrentField: false,
-      value: args.value.shape,
+      value: args.value["shape"],
     });
     return;
   }
@@ -639,13 +639,13 @@ function collectInferredFields(args: FieldCollectorArgs): void {
       ...args,
       path: args.path.length > 0 ? `${args.path}.*` : "*",
       skipCurrentField: false,
-      value: args.value.shape,
+      value: args.value["shape"],
     });
     return;
   }
 
-  if (type === "Union" && Array.isArray(args.value.shapes)) {
-    for (const shape of args.value.shapes) {
+  if (type === "Union" && Array.isArray(args.value["shapes"])) {
+    for (const shape of args.value["shapes"]) {
       collectInferredFields({
         ...args,
         optional: true,

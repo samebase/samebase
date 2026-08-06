@@ -217,8 +217,6 @@ function resolveObservedConvexBuildAccess(
     case "invalid":
       return observation;
   }
-  observation satisfies never;
-  return observation;
 }
 
 async function readObservationContext(

@@ -96,7 +96,7 @@ function readDefaultBranch(repoData: unknown): string {
     return "main";
   }
 
-  const defaultBranch = repoData.default_branch;
+  const defaultBranch = repoData["default_branch"];
   if (typeof defaultBranch === "string" && defaultBranch.length > 0) {
     return defaultBranch;
   }
@@ -572,19 +572,19 @@ function getErrorHeaders(error: unknown): HeaderMap | null {
     return null;
   }
 
-  const response = error.response;
+  const response = error["response"];
   if (!isRecord(response)) {
     return null;
   }
 
-  return toHeaderMap(response.headers);
+  return toHeaderMap(response["headers"]);
 }
 
 function getErrorStatus(error: unknown): number | null {
   if (!isRecord(error)) {
     return null;
   }
-  const status = error.status;
+  const status = error["status"];
   return typeof status === "number" ? status : null;
 }
 
@@ -592,7 +592,7 @@ function getErrorMessage(error: unknown): string {
   if (!isRecord(error)) {
     return "";
   }
-  const message = error.message;
+  const message = error["message"];
   return typeof message === "string" ? message : "";
 }
 

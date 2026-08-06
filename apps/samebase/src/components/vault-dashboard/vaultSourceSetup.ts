@@ -28,6 +28,4 @@ export function formatVaultSourceSetupStep(step: VaultDashboardSourceSetupStep):
     case "sync_tree":
       return "Syncing repository files";
   }
-  step satisfies never;
-  return step;
 }

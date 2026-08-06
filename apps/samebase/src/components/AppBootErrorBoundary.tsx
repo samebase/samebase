@@ -13,7 +13,7 @@ export class AppBootErrorBoundary extends Component<
   AppBootErrorBoundaryProps,
   AppBootErrorBoundaryState
 > {
-  state: AppBootErrorBoundaryState = {
+  override state: AppBootErrorBoundaryState = {
     error: null,
   };
 
@@ -23,11 +23,11 @@ export class AppBootErrorBoundary extends Component<
     };
   }
 
-  componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
+  override componentDidCatch(error: unknown, errorInfo: ErrorInfo) {
     console.error("App boot failure", error, errorInfo);
   }
 
-  render() {
+  override render() {
     if (this.state.error !== null) {
       return <AppBootFailureState error={this.state.error} />;
     }

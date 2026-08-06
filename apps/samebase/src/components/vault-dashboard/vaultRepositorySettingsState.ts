@@ -177,8 +177,6 @@ function formatCloudflareRepositoryState(
         description: "Cloudflare Builds could not be loaded.",
       };
   }
-  repository satisfies never;
-  return { canConnect: false };
 }
 
 function formatCloudflarePreviewState(
@@ -192,8 +190,6 @@ function formatCloudflarePreviewState(
     case "failed":
       return "Preview URL could not be loaded.";
   }
-  observation.workersDev satisfies never;
-  return undefined;
 }
 
 function joinDescriptions(...descriptions: (string | undefined)[]): string | undefined {
@@ -222,8 +218,6 @@ function resolveConvexProjectActionLabel(
     case "unavailable":
       return project.projectId;
   }
-  observation.provider satisfies never;
-  return project.projectId;
 }
 
 function buildConvexBuildAccessActions({
@@ -364,8 +358,6 @@ function formatCloudflareConvexBuildAccessState({
     case "invalid":
       return { actions, description: "The Convex project marker is invalid." };
   }
-  access satisfies never;
-  return {};
 }
 
 function buildCloudflareRow({
@@ -618,12 +610,6 @@ function buildCloudflareRow({
       };
     }
   }
-  observation satisfies never;
-  return {
-    ...base,
-    state: "failed",
-    description: "Could not load this Worker.",
-  };
 }
 
 function buildActionList(
@@ -736,8 +722,6 @@ function buildConvexRow({
           ? "Connect GitHub to verify the Convex code location."
           : "Could not verify the Convex code location.";
     }
-    observation.source satisfies never;
-    return undefined;
   })();
   const changeConfigAction =
     observation.source.state === "missing" && changeConvexProjectConfigPathOnClick
@@ -824,12 +808,6 @@ function buildConvexRow({
         ),
       };
   }
-  observation.provider satisfies never;
-  return {
-    ...base,
-    state: "failed",
-    description: "Could not load this Convex project.",
-  };
 }
 
 function isPlannedConvexAttachment(

@@ -17,7 +17,7 @@ type ReadyEmbeddedDashboardCredentials = Extract<
 >;
 
 function isDashboardCredentialsRequest(data: unknown): boolean {
-  return isRecord(data) && data.type === "dashboard-credentials-request";
+  return isRecord(data) && data["type"] === "dashboard-credentials-request";
 }
 
 function formatVaultDatabaseNotice(
@@ -33,8 +33,6 @@ function formatVaultDatabaseNotice(
     case "missing_connection":
       return "Connect Convex to open deployment data.";
   }
-  result satisfies never;
-  return "Data is unavailable.";
 }
 
 function VaultDatabaseStatus({ children }: { children: ReactNode }) {

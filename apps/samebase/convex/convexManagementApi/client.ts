@@ -192,10 +192,10 @@ export async function requestConvexManagementApi(
   if (recordApiCall) {
     const values: Record<string, unknown> = {};
     if (params) {
-      values.params = params;
+      values["params"] = params;
     }
     if (body !== undefined) {
-      values.body = body;
+      values["body"] = body;
     }
     await recordApiCall({
       provider: "Convex",

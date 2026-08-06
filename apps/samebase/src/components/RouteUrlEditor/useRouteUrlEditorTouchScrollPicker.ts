@@ -90,7 +90,7 @@ function readTouchSuggestionScrollTargets(
   for (const option of scrollport.querySelectorAll<HTMLElement>(
     "[data-route-url-editor-suggestion-index]",
   )) {
-    const suggestionIndex = Number(option.dataset.routeUrlEditorSuggestionIndex);
+    const suggestionIndex = Number(option.dataset["routeUrlEditorSuggestionIndex"]);
     if (!Number.isInteger(suggestionIndex) || suggestionIndex < 0) {
       continue;
     }

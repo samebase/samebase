@@ -89,12 +89,14 @@ function peerExtension({
       private done = false;
       private retryTimer: number | null = null;
       private releasePageLeaveGuard: (() => void) | null = null;
+      private readonly view: EditorView;
 
       private isDestroyed(): boolean {
         return this.done;
       }
 
-      constructor(private view: EditorView) {
+      constructor(view: EditorView) {
+        this.view = view;
         // this.pull();
         setPull(this.pull.bind(this));
       }

@@ -214,7 +214,7 @@ function getErrorStatus(error: unknown): number | null {
     return null;
   }
 
-  const status = error.status;
+  const status = error["status"];
   return typeof status === "number" ? status : null;
 }
 
@@ -223,7 +223,7 @@ function getErrorMessage(error: unknown): string | null {
     return null;
   }
 
-  const message = error.message;
+  const message = error["message"];
   return typeof message === "string" && message.length > 0 ? message : null;
 }
 
@@ -232,12 +232,12 @@ function getErrorHeaders(error: unknown): HeaderMap | null {
     return null;
   }
 
-  const response = error.response;
+  const response = error["response"];
   if (!isRecord(response)) {
     return null;
   }
 
-  return toHeaderMap(response.headers);
+  return toHeaderMap(response["headers"]);
 }
 
 function getHeaderValue(headers: HeaderMap | null, name: string): string | null {
@@ -421,17 +421,17 @@ async function fetchGitHubInstallationRepositoryPage(args: {
   const payload: unknown = response.data;
   if (
     !isRecord(payload) ||
-    typeof payload.total_count !== "number" ||
-    !Number.isSafeInteger(payload.total_count) ||
-    payload.total_count < 0 ||
-    !Array.isArray(payload.repositories)
+    typeof payload["total_count"] !== "number" ||
+    !Number.isSafeInteger(payload["total_count"]) ||
+    payload["total_count"] < 0 ||
+    !Array.isArray(payload["repositories"])
   ) {
     throw new Error("Unexpected GitHub installation repository payload");
   }
 
   return {
-    repositories: normalizeGitHubRepositoryList(payload.repositories),
-    totalCount: payload.total_count,
+    repositories: normalizeGitHubRepositoryList(payload["repositories"]),
+    totalCount: payload["total_count"],
   };
 }
 

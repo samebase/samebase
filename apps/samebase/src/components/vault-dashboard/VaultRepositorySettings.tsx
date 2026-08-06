@@ -30,8 +30,6 @@ function providerIcon(provider: "cloudflare" | "convex" | "github"): ReactNode {
     case "github":
       return <GitHubProviderLogo />;
   }
-  provider satisfies never;
-  return null;
 }
 
 function invokeResourceAction(action: VaultRepositorySettingsAction) {

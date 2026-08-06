@@ -11,32 +11,32 @@ export interface ToolJsonSchema {
 }
 
 function readConvexValidatorJson(validator: unknown) {
-  if (!isRecord(validator) || !isRecord(validator.json)) {
+  if (!isRecord(validator) || !isRecord(validator["json"])) {
     throw new Error("Convex validator metadata is missing.");
   }
-  return validator.json;
+  return validator["json"];
 }
 
 function isOptionalConvexValidator(validator: unknown): boolean {
-  return isRecord(validator) && validator.isOptional === "optional";
+  return isRecord(validator) && validator["isOptional"] === "optional";
 }
 
 function readConvexObjectFieldType(field: unknown): unknown {
   if (!isRecord(field)) {
     throw new Error("Convex object field metadata is invalid.");
   }
-  return field.fieldType;
+  return field["fieldType"];
 }
 
 function isOptionalConvexObjectField(field: unknown): boolean {
-  return isRecord(field) && field.optional === true;
+  return isRecord(field) && field["optional"] === true;
 }
 
 function readConvexJsonType(json: Record<string, unknown>): string {
-  if (typeof json.type !== "string") {
+  if (typeof json["type"] !== "string") {
     throw new Error("Convex validator JSON type is missing.");
   }
-  return json.type;
+  return json["type"];
 }
 
 function convexJsonToToolJsonSchema(json: unknown): Record<string, unknown> {
@@ -60,29 +60,29 @@ function convexJsonToToolJsonSchema(json: unknown): Record<string, unknown> {
     case "null":
       return { type: "null" };
     case "literal":
-      return { const: json.value };
+      return { const: json["value"] };
     case "array":
       return {
         type: "array",
-        items: convexJsonToToolJsonSchema(json.value),
+        items: convexJsonToToolJsonSchema(json["value"]),
       };
     case "record": {
-      if (!isRecord(json.values)) {
+      if (!isRecord(json["values"])) {
         throw new Error("Convex record validator JSON is invalid.");
       }
       return {
         type: "object",
-        additionalProperties: convexJsonToToolJsonSchema(readConvexObjectFieldType(json.values)),
+        additionalProperties: convexJsonToToolJsonSchema(readConvexObjectFieldType(json["values"])),
       };
     }
     case "object": {
-      if (!isRecord(json.value)) {
+      if (!isRecord(json["value"])) {
         throw new Error("Convex object validator JSON is invalid.");
       }
 
       const properties: Record<string, unknown> = {};
       const required: string[] = [];
-      for (const [name, field] of Object.entries(json.value)) {
+      for (const [name, field] of Object.entries(json["value"])) {
         properties[name] = convexJsonToToolJsonSchema(readConvexObjectFieldType(field));
         if (!isOptionalConvexObjectField(field)) {
           required.push(name);
@@ -97,10 +97,10 @@ function convexJsonToToolJsonSchema(json: unknown): Record<string, unknown> {
       };
     }
     case "union": {
-      if (!Array.isArray(json.value)) {
+      if (!Array.isArray(json["value"])) {
         throw new Error("Convex union validator JSON is invalid.");
       }
-      const members = json.value.map((member) => convexJsonToToolJsonSchema(member));
+      const members = json["value"].map((member) => convexJsonToToolJsonSchema(member));
       return { anyOf: members };
     }
     default:

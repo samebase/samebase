@@ -25,10 +25,10 @@ const gitRoot = path.resolve(currentDir, "..", "..");
 const appTsconfigPath = path.resolve(currentDir, "tsconfig.json");
 const slogansPath = path.resolve(gitRoot, "slogans.md");
 const BROWSER_CONVEX_PROXY_PATH = "/__samebase_convex_proxy";
-const devPortRaw = process.env.SAMEBASE_DEV_PORT?.trim();
+const devPortRaw = process.env["SAMEBASE_DEV_PORT"]?.trim();
 const devPort = devPortRaw ? Number(devPortRaw) : undefined;
-const devStrictPort = readBooleanEnv(process.env.SAMEBASE_DEV_STRICT_PORT);
-const devAllowedHosts = readAllowedHostsEnv(process.env.SAMEBASE_DEV_ALLOWED_HOSTS);
+const devStrictPort = readBooleanEnv(process.env["SAMEBASE_DEV_STRICT_PORT"]);
+const devAllowedHosts = readAllowedHostsEnv(process.env["SAMEBASE_DEV_ALLOWED_HOSTS"]);
 
 function readBooleanEnv(value: string | undefined): boolean | undefined {
   if (!value) {
@@ -87,10 +87,11 @@ function runGitCommand(command: string): boolean {
   }
 }
 
-const appCommit = process.env.VITE_APP_COMMIT ?? readGitOutput("git rev-parse HEAD") ?? "unknown";
-process.env.JITI_TSCONFIG_PATHS ??= appTsconfigPath;
+const appCommit =
+  process.env["VITE_APP_COMMIT"] ?? readGitOutput("git rev-parse HEAD") ?? "unknown";
+process.env["JITI_TSCONFIG_PATHS"] ??= appTsconfigPath;
 const appCommitNumber = resolveAppCommitNumber({
-  envCommitNumber: process.env.VITE_APP_COMMIT_NUMBER,
+  envCommitNumber: process.env["VITE_APP_COMMIT_NUMBER"],
   readGitOutput,
   runGitCommand,
 });
@@ -98,13 +99,13 @@ const appCommitNumber = resolveAppCommitNumber({
 const appRepoUrl = "https://github.com/samebase/samebase";
 const localEnvPath = path.resolve(currentDir, ".env.local");
 const browserConvexProxyTarget = resolveBrowserConvexProxyTarget({
-  devOrigin: process.env.DEV_ENV_ORIGIN,
-  envProxyTarget: process.env.SAMEBASE_BROWSER_CONVEX_PROXY_TARGET,
+  devOrigin: process.env["DEV_ENV_ORIGIN"],
+  envProxyTarget: process.env["SAMEBASE_BROWSER_CONVEX_PROXY_TARGET"],
   localEnvConvexUrl: readEnvFileValue(localEnvPath, "VITE_CONVEX_URL"),
 });
 const browserConvexProxyPath = browserConvexProxyTarget ? BROWSER_CONVEX_PROXY_PATH : null;
 const landingPageSlogan = readBuildLandingSlogan({
-  buildSeed: process.env.PLAYWRIGHT === "1" ? "" : `${appCommitNumber ?? appCommit}`,
+  buildSeed: process.env["PLAYWRIGHT"] === "1" ? "" : `${appCommitNumber ?? appCommit}`,
   slogansPath,
 });
 const appBuildConfig: AppBuildConfig = {
@@ -122,7 +123,7 @@ const staticCompactIdentitySvgAssetPaths = [
 const spaShellOutputPath = "/index";
 const spaShellMaskPath = "/#__samebase-spa-shell";
 const publicPrerenderPages = readPublicPrerenderPages();
-const prerenderHeaders = readPrerenderHeaders(process.env.SAMEBASE_PRERENDER_ORIGIN);
+const prerenderHeaders = readPrerenderHeaders(process.env["SAMEBASE_PRERENDER_ORIGIN"]);
 
 function readPrerenderHeaders(originValue: string | undefined) {
   const origin = originValue?.trim();

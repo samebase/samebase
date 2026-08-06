@@ -132,7 +132,7 @@ describe("auth token claims", () => {
   it("round trips the maximum canonical email through token minting and reading", () => {
     const maximumEmail = createEmail(ACCOUNT_EMAIL_MAX_LENGTH);
     const claims = buildAuthTokenProfileCustomClaims({ email: maximumEmail });
-    expect(claims.accountLabel).toHaveLength(ACCOUNT_EMAIL_MAX_LENGTH);
+    expect(claims["accountLabel"]).toHaveLength(ACCOUNT_EMAIL_MAX_LENGTH);
     expect(readAuthTokenProfileClaims(claims)).toEqual({
       accountPresentation: { kind: "email", label: maximumEmail },
     });

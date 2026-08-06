@@ -343,7 +343,7 @@ export const createBrowserHandoffTool = internalAction({
       };
     }
 
-    const siteUrl = process.env.SITE_URL;
+    const siteUrl = process.env["SITE_URL"];
     if (!siteUrl) {
       return {
         status: "error",

@@ -83,7 +83,7 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     ConvexCredentials({
       id: "agent-browser-handoff",
       authorize: async (params, ctx) => {
-        const rawToken = params.token;
+        const rawToken = params["token"];
         if (!isNonEmptyString(rawToken) || !isAgentBrowserHandoffTokenValue(rawToken)) {
           throw new Error("Browser handoff is invalid or no longer available.");
         }
@@ -112,12 +112,12 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
       profile: (params) => {
         assertPasswordAuthLogLevelAllowed(readOptionalEnv("AUTH_LOG_LEVEL"));
         const passwordAuthMode = resolvePasswordAuthMode(resolveDeploymentProfile());
-        const rawFlow = params.flow;
+        const rawFlow = params["flow"];
         if (!isNonEmptyString(rawFlow)) {
           throw new Error("Missing password authentication flow");
         }
         assertPasswordAuthFlowAllowed(passwordAuthMode, rawFlow);
-        const rawEmail = params.email;
+        const rawEmail = params["email"];
         if (!isNonEmptyString(rawEmail)) {
           throw new Error("Missing `email` for password authentication");
         }

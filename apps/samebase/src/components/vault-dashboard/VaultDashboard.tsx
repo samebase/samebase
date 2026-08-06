@@ -154,8 +154,6 @@ export function VaultDashboard({
           />
         );
     }
-    workspaceModel.selection satisfies never;
-    return null;
   })();
 
   return (

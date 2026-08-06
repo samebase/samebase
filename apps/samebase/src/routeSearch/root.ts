@@ -227,7 +227,7 @@ function parseRootRouteSearch(search: Record<string, unknown>): RootRouteSearch 
   if (!parsedSearch[SEARCH_RESET_QUERY_PARAM]) {
     const logoSearch = validateLogoRouteSearch(presenceNormalizedSearch);
     const conflictingThemeModeSearch =
-      presenceNormalizedSearch.light && presenceNormalizedSearch.dark
+      presenceNormalizedSearch["light"] && presenceNormalizedSearch["dark"]
         ? { dark: true as const, light: true as const }
         : {};
     const normalizedSearch = {

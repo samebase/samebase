@@ -108,10 +108,10 @@ export type McpToolInvocation = {
 
 export function buildMcpToolInvocationArgs(invocation: McpToolInvocation) {
   const input = { ...invocation.input };
-  delete input.userId;
-  delete input.grantedScopes;
-  delete input.grantId;
-  delete input.clientId;
+  delete input["userId"];
+  delete input["grantedScopes"];
+  delete input["grantId"];
+  delete input["clientId"];
   return {
     ...input,
     userId: invocation.userId,
@@ -329,7 +329,7 @@ function buildMcpBearerChallenge(args: {
 
 function resolveAppUrl(request: Request): URL | null {
   const requestOrigin = parseOrigin(request);
-  const configuredSiteUrl = process.env.SITE_URL;
+  const configuredSiteUrl = process.env["SITE_URL"];
   if (!configuredSiteUrl) {
     console.error("SITE_URL is not set; cannot redirect MCP OAuth consent to the React app.", {
       requestOrigin,

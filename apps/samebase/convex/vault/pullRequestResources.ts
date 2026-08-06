@@ -340,7 +340,6 @@ function hostingCommentBotNodeId(provider: HostingCommentProvider): string {
     case "netlify":
       return NETLIFY_GITHUB_BOT_NODE_ID;
   }
-  provider satisfies never;
 }
 
 export function normalizeGitHubHostingCommentPage(

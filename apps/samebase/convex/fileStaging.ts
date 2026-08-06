@@ -1554,7 +1554,7 @@ export const reconcileStagingWithTree = internalMutation({
           parentCommitSha: instruction.parentCommitSha,
         };
         if (instruction.initialContent !== undefined) {
-          patch.initialContent = instruction.initialContent;
+          patch["initialContent"] = instruction.initialContent;
         }
         await ctx.db.patch(instruction.stagingId, patch);
       }

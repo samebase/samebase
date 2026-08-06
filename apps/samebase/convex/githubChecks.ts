@@ -102,7 +102,7 @@ function getErrorStatus(error: unknown): number | null {
   if (!isRecord(error)) {
     return null;
   }
-  const status = error.status;
+  const status = error["status"];
   return typeof status === "number" ? status : null;
 }
 
@@ -110,7 +110,7 @@ function getErrorMessage(error: unknown): string {
   if (!isRecord(error)) {
     return "GitHub API rate limit exceeded.";
   }
-  const message = error.message;
+  const message = error["message"];
   if (typeof message === "string" && message.length > 0) {
     return message;
   }
@@ -121,11 +121,11 @@ function getErrorHeaders(error: unknown): HeaderMap | null {
   if (!isRecord(error)) {
     return null;
   }
-  const response = error.response;
+  const response = error["response"];
   if (!isRecord(response)) {
     return null;
   }
-  return toHeaderMap(response.headers);
+  return toHeaderMap(response["headers"]);
 }
 
 function getHeaderValue(headers: HeaderMap | null, name: string): string | null {

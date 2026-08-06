@@ -13,8 +13,11 @@ import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
 
 class FakeHeadElement {
   readonly attributes = new Map<string, string>();
+  readonly tagName: string;
 
-  constructor(readonly tagName: string) {}
+  constructor(tagName: string) {
+    this.tagName = tagName;
+  }
 
   setAttribute(key: string, value: string) {
     this.attributes.set(key, value);

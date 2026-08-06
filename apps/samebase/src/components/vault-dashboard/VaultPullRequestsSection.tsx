@@ -261,8 +261,6 @@ function VaultPullRequestLoadMore({ state }: { state: VaultPullRequestLoadMoreSt
     case "exhausted":
       return null;
   }
-  state satisfies never;
-  return null;
 }
 
 function VaultPullRequestLoadMoreSentinel({ loadMore }: { loadMore: () => void }) {

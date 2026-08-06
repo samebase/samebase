@@ -267,7 +267,7 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
   }
 
   const returnUrl = buildGitHubAppSetupReturnUrl({
-    configuredAppUrl: process.env.SITE_URL ?? process.env.CONVEX_SITE_URL,
+    configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
     requestUrl: request.url,
     returnToPath: setupState.returnToPath,
   });
