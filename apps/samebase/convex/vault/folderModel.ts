@@ -4,16 +4,17 @@ import { v } from "convex/values";
 const { boolean, id, number, object, string } = v;
 
 export const vaultFolderTables = {
-  /** Per-user shallow vault folders for dashboard organization. */
+  /** Per-user shallow vault folders inside one organization. */
   ui_vaultFolders: defineTable({
     userId: id("users"),
+    organizationId: id("organizations"),
     name: string(),
     nameKey: string(),
     position: number(),
     collapsed: boolean(),
   })
-    .index("by_userId_and_nameKey", ["userId", "nameKey"])
-    .index("by_userId_and_position", ["userId", "position"]),
+    .index("by_userId_and_organizationId_and_nameKey", ["userId", "organizationId", "nameKey"])
+    .index("by_userId_and_organizationId_and_position", ["userId", "organizationId", "position"]),
 
   /** One current or stale folder assignment for one user's vault. */
   ui_vaultFolderAssignments: defineTable({
@@ -22,6 +23,7 @@ export const vaultFolderTables = {
     folderId: id("ui_vaultFolders"),
   })
     .index("by_userId_and_vaultId", ["userId", "vaultId"])
+    .index("by_folderId", ["folderId"])
     .index("by_vaultId", ["vaultId"]),
 };
 
@@ -32,6 +34,7 @@ export const vVaultFolder = object({
   _id: id("ui_vaultFolders"),
   collapsed: vaultFolderFields.collapsed,
   name: vaultFolderFields.name,
+  organizationId: vaultFolderFields.organizationId,
   position: vaultFolderFields.position,
 });
 
