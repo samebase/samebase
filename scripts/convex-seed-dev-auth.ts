@@ -31,7 +31,6 @@ const backend = spawn(
   "node",
   [
     samebaseAppFilePath("scripts/convex-dev.ts"),
-    "--until-success",
     "--tail-logs=disable",
     "--typecheck=disable",
     "--codegen=enable",
@@ -163,22 +162,12 @@ try {
   }
 
   const runResult = spawnSync(
-    "npx",
-    [
-      "convex",
-      "run",
-      "devAuth:seedPasswordAccount",
-      "--env-file",
-      localEnvPath,
-      "--typecheck",
-      "disable",
-      "--codegen",
-      "disable",
-    ],
+    process.execPath,
+    [samebaseAppFilePath("scripts/seed-local-password-account.ts")],
     { cwd: appDir, env: localConvexEnv, stdio: "inherit" },
   );
   if (runResult.status !== 0) {
-    exitWithError("Failed to run devAuth:seedPasswordAccount");
+    exitWithError("Failed to seed the local password account");
   }
 } catch (error) {
   exitCode = 1;
@@ -191,7 +180,7 @@ try {
   }
 }
 
-process.exit(exitCode);
+process.exitCode = exitCode;
 
 function resolveBackendPort(vars: Record<string, string | undefined>): number | null {
   for (const key of ["CONVEX_URL", "VITE_CONVEX_URL"]) {
