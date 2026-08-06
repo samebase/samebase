@@ -206,6 +206,86 @@ describe("useVaultWorkspaceModel", () => {
     }
   });
 
+  it("keeps all accessible organization groups in a selected vault picker", async () => {
+    const selectedVault = {
+      ...lostAccessVault(),
+      _id: fakeVaultId("vault-samebase"),
+      ghRepoName: "samebase",
+      ghRepoOwner: "samebase",
+      organizationId: fakeOrganizationId("organization-samebase"),
+      repositoryFullName: "samebase/samebase",
+    } satisfies UserVaultResult;
+    const otherVault = {
+      ...selectedVault,
+      _id: fakeVaultId("vault-noter"),
+      ghRepoName: "guestbook",
+      ghRepoOwner: "noter",
+      organizationId: fakeOrganizationId("organization-noter"),
+      repositoryFullName: "noter/guestbook",
+    } satisfies UserVaultResult;
+    const staleVault = {
+      ...selectedVault,
+      _id: fakeVaultId("vault-stale"),
+      ghRepoName: "private",
+      ghRepoOwner: "lost",
+      organizationId: fakeOrganizationId("organization-lost"),
+      repositoryFullName: "lost/private",
+    } satisfies UserVaultResult;
+    const samebaseOrganization = {
+      canCreateRepository: true,
+      githubOwnerId: "github-owner-samebase",
+      githubOwnerLogin: "samebase",
+      githubOwnerType: "organization",
+      organizationId: selectedVault.organizationId,
+      role: "owner",
+    } as const;
+    const noterOrganization = {
+      canCreateRepository: true,
+      githubOwnerId: "github-owner-noter",
+      githubOwnerLogin: "noter",
+      githubOwnerType: "organization",
+      organizationId: otherVault.organizationId,
+      role: "owner",
+    } as const;
+    testState.cachedQueries.set(getFunctionName(api.vault.dashboard.getUserVaults), [
+      otherVault,
+      staleVault,
+      selectedVault,
+    ]);
+    testState.liveQueries.set(getFunctionName(api.organizations.listForViewer), [
+      noterOrganization,
+      samebaseOrganization,
+    ]);
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    let latest: ReturnType<typeof useVaultWorkspaceModel> | undefined;
+
+    function Probe() {
+      latest = useVaultWorkspaceModel(selectedVault.repositoryFullName);
+      return null;
+    }
+
+    try {
+      await act(async () => root.render(<Probe />));
+
+      expect(latest?.state).toBe("ready");
+      if (latest?.state !== "ready") {
+        throw new Error("Expected the selected vault workspace model to be ready.");
+      }
+      expect(latest.organizations).toEqual([noterOrganization, samebaseOrganization]);
+      expect(latest.vaults).toEqual([otherVault, selectedVault]);
+      expect(latest.selection.state).toBe("selected");
+      if (latest.selection.state !== "selected") {
+        throw new Error("Expected the selected vault workspace.");
+      }
+      expect(latest.selection.workspace.vault).toBe(selectedVault);
+    } finally {
+      await act(async () => root.unmount());
+      rootElement.remove();
+    }
+  });
+
   it("keeps an organization inventory scoped and preserves its vault order", async () => {
     const firstVault = {
       ...lostAccessVault(),

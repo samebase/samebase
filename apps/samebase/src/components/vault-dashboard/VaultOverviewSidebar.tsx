@@ -1,9 +1,14 @@
 import type { VaultOverviewPageKind } from "@/components/vault-dashboard/VaultOverviewPage";
-import type { VaultWorkspaceSelected } from "@/components/vault-dashboard/vaultWorkspaceModel";
+import type {
+  VaultOrganization,
+  VaultWorkspaceSelected,
+} from "@/components/vault-dashboard/vaultWorkspaceModel";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type {
   VaultSidebarSummariesState,
   VaultSidebarSummary,
 } from "@/hooks/useVaultSidebarSummaries";
+import { ChevronDownIcon } from "@/lib/radixIcons";
 import { formatRepositoryCheckSummary, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
 import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRoutes";
 import { Link } from "@tanstack/react-router";
@@ -101,6 +106,7 @@ function VaultRow({
   summary,
   vault,
   workspace,
+  showOwner,
 }: {
   page: VaultOverviewPageKind;
   selected: boolean;
@@ -108,6 +114,7 @@ function VaultRow({
   summary: VaultSidebarSummary | undefined;
   vault: UserVaultResult;
   workspace: VaultWorkspaceSelected | null;
+  showOwner: boolean;
 }) {
   const status = vaultSidebarStatus({ selected, sidebarSummaries, summary, vault, workspace });
   const rowClassName = selected
@@ -125,9 +132,11 @@ function VaultRow({
         to={repositoryRoute(vault, page)}
       >
         <span className="block min-w-0 max-w-full text-sm leading-5">
-          <span className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden">
-            {vault.ghRepoOwner}/
-          </span>
+          {showOwner ? (
+            <span className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden">
+              {vault.ghRepoOwner}/
+            </span>
+          ) : null}
           <span className="block min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
             {vault.ghRepoName}
           </span>
@@ -177,8 +186,81 @@ export function VaultOverviewSidebar({
           summary={summaryByVaultId.get(vault._id)}
           vault={vault}
           workspace={workspace}
+          showOwner
         />
       ))}
+    </nav>
+  );
+}
+
+export function VaultOverviewOrganizationSidebar({
+  organizations,
+  page,
+  selectedVaultId,
+  sidebarSummaries,
+  vaults,
+  workspace,
+}: {
+  organizations: readonly VaultOrganization[];
+  page: VaultOverviewPageKind;
+  selectedVaultId: UserVaultResult["_id"] | null;
+  sidebarSummaries: VaultSidebarSummariesState;
+  vaults: readonly UserVaultResult[];
+  workspace: VaultWorkspaceSelected | null;
+}) {
+  const selectedOrganizationId = vaults.find(
+    (vault) => vault._id === selectedVaultId,
+  )?.organizationId;
+  const summaryByVaultId = new Map(
+    sidebarSummaries.state === "loaded"
+      ? sidebarSummaries.summaries.map((summary) => [summary.vaultId, summary])
+      : [],
+  );
+
+  return (
+    <nav aria-label="Vaults" className="@container min-h-full py-2">
+      {organizations.map((organization) => {
+        const organizationVaults = vaults.filter(
+          (vault) => vault.organizationId === organization.organizationId,
+        );
+        const selected = organization.organizationId === selectedOrganizationId;
+
+        return (
+          <Collapsible key={`${organization.organizationId}:${selected}`} defaultOpen={selected}>
+            <CollapsibleTrigger
+              className="flex w-full min-w-0 items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-muted/60 @max-[200px]:px-2 @max-[120px]:px-1 [&[data-state=open]>svg]:rotate-180"
+              nativeButton
+              type="button"
+            >
+              <span className="min-w-0 truncate">{organization.githubOwnerLogin}</span>
+              <ChevronDownIcon
+                aria-hidden="true"
+                className="h-3.5 w-3.5 shrink-0 transition-transform"
+              />
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              {organizationVaults.length === 0 ? (
+                <p className="px-3 py-2 text-sm text-muted-foreground @max-[200px]:px-2 @max-[120px]:px-1">
+                  No vaults
+                </p>
+              ) : (
+                organizationVaults.map((vault) => (
+                  <VaultRow
+                    key={vault._id}
+                    page={page}
+                    selected={vault._id === selectedVaultId}
+                    sidebarSummaries={sidebarSummaries}
+                    summary={summaryByVaultId.get(vault._id)}
+                    vault={vault}
+                    workspace={workspace}
+                    showOwner={false}
+                  />
+                ))
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      })}
     </nav>
   );
 }

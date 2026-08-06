@@ -9,7 +9,10 @@ import {
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { VaultOverviewLoadingPage, type VaultOverviewPageKind } from "./VaultOverviewPage";
-import { VaultOverviewSidebar, VaultOverviewSidebarLoading } from "./VaultOverviewSidebar";
+import {
+  VaultOverviewOrganizationSidebar,
+  VaultOverviewSidebarLoading,
+} from "./VaultOverviewSidebar";
 import {
   VaultOverviewVaultListHeader,
   VaultOverviewVaultPickerPane,
@@ -103,7 +106,8 @@ export function VaultDashboard({
   const leftPane = {
     header: <VaultOverviewVaultListHeader />,
     content: (
-      <VaultOverviewSidebar
+      <VaultOverviewOrganizationSidebar
+        organizations={workspaceModel.organizations}
         page={page}
         selectedVaultId={selectedWorkspace?.vault._id ?? null}
         sidebarSummaries={workspaceModel.sidebarSummaries}

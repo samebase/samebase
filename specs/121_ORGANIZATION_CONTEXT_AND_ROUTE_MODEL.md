@@ -84,8 +84,11 @@ The section heading links to `/org/:owner/vaults`. Each vault links to `/vault/:
 one-organization user still sees one named section. The page never redirects because of the
 membership count.
 
-A vault detail picker shows vaults only from the route organization. The organization switch is the
-only control that crosses this boundary.
+A vault detail picker groups all current organizations. The route organization is expanded by
+default, and the other organizations are collapsed by default. Expanding a group does not change the
+route or save an active organization. Vaults inside each group keep the existing activity order. An
+empty organization shows `No vaults` when expanded. FileView keeps its file tree instead of this
+picker.
 
 ## User And Organization Settings
 
@@ -178,7 +181,7 @@ exact operator commands and evidence requirements are in `docs/vault-folder-remo
 Focused route, backend, and UI tests must prove:
 
 - one, several, zero, and removed membership states
-- grouped global inventory and organization-scoped vault detail lists
+- grouped global inventory and a vault detail picker with route-derived organization expansion
 - organization access before the `/org/:owner` redirect
 - reload, direct-link, Back, and Forward behavior
 - small-screen access to the shared organization context

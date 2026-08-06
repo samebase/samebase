@@ -65,6 +65,9 @@ export function useVaultWorkspaceModel(
             organization.githubOwnerLogin.toLowerCase() === organizationOwner.toLowerCase(),
         ) ?? null)
       : null;
+    const accessibleOrganizationIds = new Set(
+      organizations.map((organization) => organization.organizationId),
+    );
     if (!selectedRepositoryFullName) {
       const visibleOrganizations = organizationOwner
         ? requestedOrganization
@@ -97,7 +100,7 @@ export function useVaultWorkspaceModel(
     return {
       state: "ready",
       sidebarSummaries,
-      organizations: [selectedOrganization],
+      organizations,
       selection: {
         state: "selected",
         workspace: {
@@ -129,9 +132,7 @@ export function useVaultWorkspaceModel(
           vault: accessibleSelectedVault,
         },
       },
-      vaults: vaults.filter(
-        (vault) => vault.organizationId === accessibleSelectedVault.organizationId,
-      ),
+      vaults: vaults.filter((vault) => accessibleOrganizationIds.has(vault.organizationId)),
     };
   }, [
     providerObservations.cloudflare,

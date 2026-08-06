@@ -5,7 +5,7 @@ import {
   VaultOverviewPage,
 } from "@/components/vault-dashboard/VaultOverviewPage";
 import {
-  VaultOverviewSidebar,
+  VaultOverviewOrganizationSidebar,
   VaultOverviewSidebarLoading,
 } from "@/components/vault-dashboard/VaultOverviewSidebar";
 import { buildProductionEnvironmentRoots } from "@/components/vault-dashboard/vaultEnvironmentRoots";
@@ -470,6 +470,14 @@ type VaultOverviewProvisioningVisualMode = Extract<
 const PROVISIONING_WORKER_ID = fakeCloudflareWorkerId("worker-provisioning-fixture");
 const PROVISIONING_CONVEX_PROJECT_ID = fakeConvexProjectId("convex-project-provisioning-fixture");
 const PROVISIONING_RUN_ID = fakeVaultProvisioningRunId("vault-provisioning-run-fixture");
+const PROVISIONING_ORGANIZATION = {
+  canCreateRepository: true,
+  githubOwnerId: "github-owner-nicu-chiciuc",
+  githubOwnerLogin: "nicu-chiciuc",
+  githubOwnerType: "user",
+  organizationId: VISUAL_ORGANIZATION_ID,
+  role: "owner",
+} satisfies VaultOrganization;
 const PROVISIONING_VAULT = {
   ...LIST_SPACING_VAULT,
   ghRepoOwner: "nicu-chiciuc",
@@ -993,7 +1001,8 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
         left={{
           header: <VaultOverviewVaultListHeader />,
           content: (
-            <VaultOverviewSidebar
+            <VaultOverviewOrganizationSidebar
+              organizations={[PROVISIONING_ORGANIZATION]}
               page="overview"
               selectedVaultId={vault._id}
               sidebarSummaries={sidebarSummaries}
@@ -1119,7 +1128,8 @@ function VaultOverviewProviderSettingsFixture({
         left={{
           header: <VaultOverviewVaultListHeader />,
           content: (
-            <VaultOverviewSidebar
+            <VaultOverviewOrganizationSidebar
+              organizations={[PROVISIONING_ORGANIZATION]}
               page="settings"
               selectedVaultId={vault._id}
               sidebarSummaries={{
@@ -1271,13 +1281,12 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
       left={{
         header: <VaultOverviewVaultListHeader />,
         content: (
-          <VaultOverviewSidebar
+          <VaultOverviewOrganizationSidebar
+            organizations={VISUAL_ORGANIZATIONS}
             page={page}
             selectedVaultId={LIST_SPACING_VAULT_ID}
             sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}
-            vaults={SIDEBAR_LIST_VAULTS.filter(
-              (vault) => vault.organizationId === LIST_SPACING_VAULT.organizationId,
-            )}
+            vaults={SIDEBAR_LIST_VAULTS}
             workspace={workspace}
           />
         ),

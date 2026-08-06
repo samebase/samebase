@@ -113,6 +113,23 @@ test("centers the root vault list in a wide main pane", async ({ page }) => {
 test("shows the shared overview model on desktop", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2");
+  const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
+
+  await expect(vaultNavigation.getByRole("button", { name: "empty-owner" })).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+  await expect(vaultNavigation.getByRole("button", { name: "noter" })).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+  await expect(vaultNavigation.getByRole("button", { name: "samebase" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await expect(
+    vaultNavigation.getByRole("link", { name: "noter/guestbook, 4/4 passed" }),
+  ).toHaveCount(0);
 
   await expect(fixture.getByRole("link", { name: "main", exact: true })).toHaveAttribute(
     "href",
