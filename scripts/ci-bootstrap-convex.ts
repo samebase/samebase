@@ -25,12 +25,7 @@ async function main(): Promise<void> {
   const logFileDescriptor = openSync(convexBootstrapLogPath, "w");
   const bootstrapProcess = spawn(
     process.execPath,
-    [
-      samebaseAppFilePath("scripts/convex-dev.ts"),
-      ...(keepBackendRunning ? [] : ["--until-success"]),
-      "--typecheck=disable",
-      "--tail-logs=disable",
-    ],
+    [samebaseAppFilePath("scripts/convex-dev.ts"), "--typecheck=disable", "--tail-logs=disable"],
     {
       cwd: samebaseAppDirectory,
       env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },

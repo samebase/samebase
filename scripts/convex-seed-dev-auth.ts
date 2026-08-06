@@ -31,7 +31,6 @@ const backend = spawn(
   "node",
   [
     samebaseAppFilePath("scripts/convex-dev.ts"),
-    "--until-success",
     "--tail-logs=disable",
     "--typecheck=disable",
     "--codegen=enable",
