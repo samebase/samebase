@@ -6,7 +6,7 @@
   / `#733`
 - Owner: Samebase existing repository onboarding, vault source setup, and provisioning runs
 - Created: 2026-05-08
-- Last updated: 2026-08-05
+- Last updated: 2026-08-07
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
@@ -48,7 +48,7 @@ repair use the separate vault-level provider flows.
 
 A GitHub failure therefore leaves a visible vault, run, and event history. Connected
 existing-repository vault rows store the `runId` that established the connection. The direct file
-route and `/connect-repo/<owner>` navigate to the dashboard while queued source setup runs.
+route and `/org/<owner>/connect-repo` navigate to the dashboard while queued source setup runs.
 
 ## Goals
 
@@ -287,7 +287,7 @@ controls remain hidden until the default-branch tree exists.
 
 ## Entry Points
 
-### `/connect-repo/<owner>`
+### `/org/<owner>/connect-repo`
 
 When the user clicks Connect:
 
@@ -348,7 +348,7 @@ the landed behavior contract, not as still-open runtime scope.
 
 1. Return source setup summaries for existing-repository setup states.
 2. Render the provisioning log for existing-repository running and failed source setup.
-3. Update `/connect-repo/<owner>` to navigate to the dashboard after queueing.
+3. Update `/org/<owner>/connect-repo` to navigate to the dashboard after queueing.
 4. Update the direct file route to navigate to the dashboard after queueing.
 5. Ensure file-route content stays hidden until branch tree data exists.
 6. Add route-level or production-component tests for dashboard source setup and direct-route
@@ -375,9 +375,9 @@ Backend:
 
 Frontend:
 
-1. `/connect-repo/<owner>` hides a repository once its initializing vault exists
-2. `/connect-repo/<owner>` disables only the pending repository connect action and navigates to the
-   dashboard after queueing
+1. `/org/<owner>/connect-repo` hides a repository once its initializing vault exists
+2. `/org/<owner>/connect-repo` disables only the pending repository connect action and navigates to
+   the dashboard after queueing
 3. dashboard shows running source setup and provisioning logs for existing repositories
 4. dashboard shows failed source setup and the latest event-derived failure message for existing
    repositories

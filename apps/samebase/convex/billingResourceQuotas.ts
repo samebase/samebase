@@ -126,7 +126,7 @@ export const requireBillingResourceCapacityForProviderCreate = internalQuery({
 });
 
 export const getViewerBillingResourceUsage = query({
-  access: "access_user_preferences",
+  access: "access_dashboard",
   args: {
     organizationId: id("organizations"),
   },

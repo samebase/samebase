@@ -28,14 +28,23 @@ const organization = {
 
 const testState = vi.hoisted(() => ({
   actions: new Map<string, (args: unknown) => Promise<unknown>>(),
+  clearedSearches: new Array<Record<string, unknown>>(),
   queries: new Map<string, unknown>(),
   queryCalls: new Array<{ args: unknown; name: string }>(),
-  navigate: vi.fn(async () => undefined),
+  navigate: vi.fn(
+    async (options: { search?: (current: Record<string, unknown>) => Record<string, unknown> }) => {
+      if (options.search) {
+        testState.clearedSearches.push(
+          options.search({ checkout: "success", customer_session_token: true, dev: true }),
+        );
+      }
+    },
+  ),
 }));
 
 vi.mock("@/routing/availability", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/routing/availability")>();
-  return { ...actual, readBrowserRouteEnvironment: () => "local" };
+  return { ...actual, readBrowserRouteEnvironment: () => "production" };
 });
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
@@ -86,12 +95,17 @@ vi.mock("convex/react", async (importOriginal) => {
 let root: Root | null = null;
 let rootElement: HTMLDivElement | null = null;
 
-async function mountBillingSection(selectedOrganization: ViewerOrganization = organization) {
+async function mountBillingSection(
+  selectedOrganization: ViewerOrganization = organization,
+  search: React.ComponentProps<typeof OrganizationBillingSection>["search"] = {},
+) {
   rootElement = document.createElement("div");
   document.body.append(rootElement);
   root = createRoot(rootElement);
   await act(async () =>
-    root?.render(<OrganizationBillingSection organization={selectedOrganization} search={{}} />),
+    root?.render(
+      <OrganizationBillingSection organization={selectedOrganization} search={search} />,
+    ),
   );
   return rootElement;
 }
@@ -111,10 +125,10 @@ function setBillingQueries() {
 describe("OrganizationBillingSection", () => {
   beforeEach(() => {
     testState.actions.clear();
+    testState.clearedSearches = [];
     testState.queries.clear();
     testState.queryCalls = [];
-    testState.navigate.mockReset();
-    testState.navigate.mockResolvedValue(undefined);
+    testState.navigate.mockClear();
     setBillingQueries();
   });
 
@@ -167,5 +181,26 @@ describe("OrganizationBillingSection", () => {
     expect(container.textContent).toContain("Pro");
     expect(container.textContent).not.toContain("Manage subscription");
     expect(container.textContent).not.toContain("Upgrade to Pro");
+  });
+
+  it("clears a checkout success return without showing preview copy to a member", async () => {
+    const container = await mountBillingSection(
+      { ...organization, role: "member" },
+      { checkout: "success", customer_session_token: true },
+    );
+
+    expect(container.textContent).not.toContain(
+      "Checkout confirmation is disabled in this preview.",
+    );
+    expect(testState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({ replace: true, resetScroll: false, to: "." }),
+    );
+    expect(testState.clearedSearches).toEqual([
+      {
+        checkout: undefined,
+        customer_session_token: undefined,
+        dev: true,
+      },
+    ]);
   });
 });

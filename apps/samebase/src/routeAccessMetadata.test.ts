@@ -2,6 +2,10 @@ import { describe, expect, it } from "vite-plus/test";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "./routeAccessMetadata";
 
 describe("route access metadata", () => {
+  it("requires dashboard access for organization settings", () => {
+    expect(ROUTE_ACCESS_METADATA_BY_PATH["/org/$owner/settings"].access).toBe("access_dashboard");
+  });
+
   it("keeps developer logo routes public and developer-only in suggestions", () => {
     const developerLogoRoutes = [
       "/logo/iso",

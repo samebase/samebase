@@ -29,7 +29,7 @@ describe("organization context acceptance fixtures", () => {
       const t = makeConvexTest();
 
       await expect(
-        t.mutation(internal.organizationContextAcceptanceFixtures.apply, {
+        t.mutation(internal.devAuth.applyOrganizationContextAcceptanceFixture, {
           email: "",
           organizations: [
             {
@@ -53,7 +53,7 @@ describe("organization context acceptance fixtures", () => {
     vi.stubEnv("CONVEX_AGENT_MODE", "anonymous");
     const email = "organization-context@example.com";
     const { t, userId } = await insertPasswordAccount(email);
-    const fixture: (typeof internal.organizationContextAcceptanceFixtures.apply)["_args"] = {
+    const fixture: (typeof internal.devAuth.applyOrganizationContextAcceptanceFixture)["_args"] = {
       email,
       organizations: [
         {
@@ -74,8 +74,8 @@ describe("organization context acceptance fixtures", () => {
       ],
     };
 
-    await t.mutation(internal.organizationContextAcceptanceFixtures.apply, fixture);
-    await t.mutation(internal.organizationContextAcceptanceFixtures.apply, fixture);
+    await t.mutation(internal.devAuth.applyOrganizationContextAcceptanceFixture, fixture);
+    await t.mutation(internal.devAuth.applyOrganizationContextAcceptanceFixture, fixture);
 
     const snapshot = await t.run(async (ctx) => ({
       billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),

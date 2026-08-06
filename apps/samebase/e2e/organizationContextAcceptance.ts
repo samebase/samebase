@@ -11,7 +11,7 @@ const LOCAL_CONFIG_PATH = fileURLToPath(
 const ACCEPTANCE_PASSWORD = "organization-context-pass-1234";
 
 type AcceptanceOrganization =
-  (typeof internal.organizationContextAcceptanceFixtures.apply)["_args"]["organizations"][number];
+  (typeof internal.devAuth.applyOrganizationContextAcceptanceFixture)["_args"]["organizations"][number];
 
 export async function createOrganizationContextAcceptanceAccount(page: Page, email: string) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
@@ -40,5 +40,5 @@ export async function applyOrganizationContextAcceptanceFixture(args: {
   organizations: AcceptanceOrganization[];
 }) {
   const client = await createLocalConvexAdminClient(LOCAL_CONFIG_PATH);
-  return await client.mutation(internal.organizationContextAcceptanceFixtures.apply, args);
+  return await client.mutation(internal.devAuth.applyOrganizationContextAcceptanceFixture, args);
 }

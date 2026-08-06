@@ -90,7 +90,7 @@ const routeAccessMetadataByPath = {
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
   "/org/$owner/settings": {
-    access: "access_user_preferences",
+    access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
   "/org/$owner/vaults": {

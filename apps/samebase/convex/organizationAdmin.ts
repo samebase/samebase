@@ -44,6 +44,9 @@ export const addExistingUserToOrganization = internalMutation({
     if (user.accountDeletion !== undefined) {
       throw new Error("A deleting user cannot join an organization.");
     }
+    if (user.isApproved !== true) {
+      throw new Error("An unapproved user cannot join an organization.");
+    }
     if (organization === null) {
       throw new Error("Organization not found.");
     }

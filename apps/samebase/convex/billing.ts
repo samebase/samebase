@@ -153,7 +153,7 @@ function hasStoredProEntitlement(plan: BillingPlan, status: BillingStatus): bool
 }
 
 export const getViewerBillingStatus = query({
-  access: "access_user_preferences",
+  access: "access_dashboard",
   args: {
     organizationId: id("organizations"),
   },
@@ -465,7 +465,7 @@ export const createPolarCustomerPortalSession = action({
 });
 
 export const reconcileViewerBillingFromPolar = action({
-  access: "access_user_preferences",
+  access: "access_dashboard",
   args: {
     organizationId: id("organizations"),
   },

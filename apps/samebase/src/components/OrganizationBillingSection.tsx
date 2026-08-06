@@ -59,16 +59,15 @@ export function OrganizationBillingSection({
   const [billingReconciliationDelayed, setBillingReconciliationDelayed] = useState(false);
   const checkoutReturnState = search[CHECKOUT_QUERY_PARAM];
   const canManageBilling = organization.role === "owner";
-  const billingActionsAvailable = canManageBilling && readBrowserRouteEnvironment() !== "preview";
+  const isPreview = readBrowserRouteEnvironment() === "preview";
+  const billingActionsAvailable = canManageBilling && !isPreview;
   const hasTrustedProBilling = billingStatus?.plan === "pro";
 
   useEffect(() => {
-    if (checkoutReturnState !== "success" || !billingActionsAvailable) {
+    if (checkoutReturnState !== "success") {
       setBillingReconciliationDelayed(false);
       return;
     }
-
-    setBillingReconciliationDelayed(false);
 
     const clearCheckoutReturn = () => {
       void navigate({
@@ -82,6 +81,15 @@ export function OrganizationBillingSection({
         to: ".",
       });
     };
+
+    setBillingReconciliationDelayed(false);
+    if (!canManageBilling) {
+      clearCheckoutReturn();
+      return;
+    }
+    if (!billingActionsAvailable) {
+      return;
+    }
 
     if (hasTrustedProBilling) {
       clearCheckoutReturn();
@@ -114,6 +122,7 @@ export function OrganizationBillingSection({
     };
   }, [
     billingActionsAvailable,
+    canManageBilling,
     checkoutReturnState,
     hasTrustedProBilling,
     navigate,
@@ -254,11 +263,11 @@ export function OrganizationBillingSection({
               Checking your payment and plan...
             </p>
           )
-        ) : (
+        ) : canManageBilling && isPreview ? (
           <p className="mt-4 text-sm text-muted-foreground" role="status">
             Checkout confirmation is disabled in this preview.
           </p>
-        )
+        ) : null
       ) : null}
 
       {canManageBilling && (billingStatus.plan === "pro" || billingStatus.canStartCheckout) ? (
