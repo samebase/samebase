@@ -176,6 +176,28 @@ describe("LandingPreviewPage", () => {
     // Cost and the closing argument.
     expect(markup).toContain("cost follows real usage");
     expect(markup).toContain("an idle idea");
+
+    // FAQ answers the direct-agent objection before the closing question.
+    expect(markup).toContain('aria-label="Frequently asked questions"');
+    expect(markup).toContain("Why Samebase?");
+    expect(markup).toContain("Codex already writes Convex well. Why do I need Samebase?");
+    expect(markup).toContain("Ok, but can&#x27;t I just get your template and not use Samebase?");
+    expect(markup).toContain("Existing apps do not change unless you update them.");
+    expect(markup).toContain("I can just ask Codex to update my own apps. Why do I need Samebase?");
+    expect(markup).toContain("The bet is that you will build tens of apps.");
+    expect(markup).toContain("Wait, so all Samebase is, is a template and a list?");
+    expect(markup).toContain("Kinda.");
+    expect(markup.split('data-slot="accordion-trigger"').length - 1).toBe(4);
+    expect(markup.split('data-slot="accordion-content"').length - 1).toBe(4);
+
+    const costIndex = markup.indexOf("cost follows real usage");
+    const faqIndex = markup.indexOf('aria-label="Frequently asked questions"');
+    const closingQuestionIndex = markup.indexOf(
+      "If your app builder is so good, why is it not building itself?",
+    );
+    expect(faqIndex).toBeGreaterThan(costIndex);
+    expect(closingQuestionIndex).toBeGreaterThan(faqIndex);
+
     expect(markup).toContain("If your app builder is so good, why is it not building itself?");
 
     // Footnote receipts.

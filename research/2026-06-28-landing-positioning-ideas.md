@@ -3,7 +3,7 @@
 ## Status
 
 - Status: Research / idea capture, not an accepted product spec.
-- Last updated: 2026-07-23.
+- Last updated: 2026-08-06.
 - Source: operator landing-preview discussion, especially the June 2026 iteration around
   `/landing-preview` becoming the future `/` page.
 - Related PR: https://github.com/samebase/samebase/pull/1112
@@ -195,6 +195,32 @@ Recommended workflow from the discussion:
 5. Have Codex implement the actual React/Tailwind page in Samebase.
 6. Run a critique pass with Claude Code or a design-review skill.
 7. Verify desktop and mobile screenshots with Playwright.
+
+## FAQ Ideas (2026-08-06)
+
+Status: operator idea, not final copy.
+
+Presentation: show the questions as accordion items. Start with all answers closed and keep only one
+answer open at a time.
+
+1. **Codex can already write Convex well. Why do I need Samebase?**
+   - The starter and its agent guidance explain how to manage isolated Convex environments for the
+     main folder, worktrees, and pull requests.
+   - Samebase also carries the opinionated hosting decision and the setup that joins GitHub, Convex,
+     and Cloudflare.
+2. **Ok, but can't I just get your template and not use Samebase?**
+   - Yes. The starter and agent guidance are public.
+   - Samebase keeps publishing improvements to them as the product evolves, and new Samebase apps
+     use the current starter release.
+   - Accuracy guard: do not claim that updates publish automatically each day or that existing apps
+     update automatically. Plugin exports follow successful `main` pushes, and starter refreshes are
+     part of maintenance or build work.
+3. **I can just ask Codex to update my own apps. Why do I need Samebase?**
+   - Yes, and direct provider tools can be enough for one healthy app.
+   - The main Samebase bet is that the user will build ten apps, not one or two. Samebase gives the
+     coding agent one inventory and one setup, verification, and repair model across them.
+4. **Wait, so all Samebase is, is a template and a list?**
+   - Kinda.
 
 ## Open Copy Questions
 
