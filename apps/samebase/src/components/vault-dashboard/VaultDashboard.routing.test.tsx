@@ -19,6 +19,7 @@ vi.mock("./VaultOverviewPage", () => ({
   VaultOverviewLoadingPage: () => null,
 }));
 vi.mock("./VaultOverviewSidebar", () => ({
+  VaultOverviewOrganizationSidebar: () => null,
   VaultOverviewSidebar: () => null,
   VaultOverviewSidebarLoading: () => null,
 }));

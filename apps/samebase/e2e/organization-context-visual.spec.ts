@@ -212,6 +212,12 @@ test("keeps one organization switchable and separates organization and user sett
     billingSection.getByText("Checkout canceled. Your plan did not change.", { exact: true }),
   ).toBeVisible();
   await expect(page).toHaveURL(/\/org\/org-context-solo\/settings\?checkout=cancel#billing$/u);
+
+  await openRoute(
+    page,
+    "/org/org-context-solo/settings?checkout=cancel&customer_session_token=test-token#billing",
+  );
+  await expect(page).toHaveURL(/\/org\/org-context-solo\/settings\?checkout=cancel#billing$/u);
 });
 
 test("keeps organization scope across direct links and browser history", async ({

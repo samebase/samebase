@@ -78,8 +78,19 @@ Do not copy table rows, access tokens, deploy keys, or provider credentials into
      git worktree list --porcelain |
        awk '$1 == "worktree" { worktree=$2 } $1 == "branch" && $2 == "refs/heads/main" { print worktree; exit }'
    )"
-   cd "$primary_checkout/apps/samebase"
+   if [ -z "$primary_checkout" ]; then
+     echo "Could not resolve the primary main checkout." >&2
+     exit 1
+   fi
+   if ! cd "$primary_checkout/apps/samebase"; then
+     echo "Could not enter the Samebase app in the primary checkout." >&2
+     exit 1
+   fi
    target_convex_deployment="$(node -e "const fs = require('fs'); const line = fs.readFileSync('.env.local', 'utf8').split(/\\n/).find((entry) => entry.trimStart().startsWith('CONVEX_DEPLOYMENT=')); if (!line) process.exit(2); const raw = line.split('=').slice(1).join('='); console.log(raw.replace(/\\s+#.*$/, '').trim().replace(/^['\\\"]|['\\\"]$/g, '')); ")"
+   if [ -z "$target_convex_deployment" ]; then
+     echo "Could not resolve a nonempty CONVEX_DEPLOYMENT from the primary checkout." >&2
+     exit 1
+   fi
    echo "Target deployment: $target_convex_deployment"
    CONVEX_DEPLOYMENT="$target_convex_deployment" CONVEX_DEPLOY_KEY= npx convex dashboard --prod --no-open
    CONVEX_DEPLOYMENT="$target_convex_deployment" CONVEX_DEPLOY_KEY= npx convex data --prod

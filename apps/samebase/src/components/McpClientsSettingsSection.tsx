@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { useNow } from "@/hooks/useNow";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
-import { useMutation, usePaginatedQuery } from "convex/react";
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
 import { KeyRound, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -10,14 +10,20 @@ const MCP_GRANTS_PAGE_SIZE = 20;
 
 export function McpClientsSettingsSection() {
   const now = useNow();
+  const viewerAccess = useQuery(api.users.currentViewerAccess);
+  const hasMcpAccess = viewerAccess?.accessKeys.includes("access_mcp") === true;
   const grants = usePaginatedQuery(
     api.mcp.grants.listCurrentUserGrants,
-    {},
+    hasMcpAccess ? {} : "skip",
     { initialNumItems: MCP_GRANTS_PAGE_SIZE },
   );
   const revokeGrant = useMutation(api.mcp.grants.revokeCurrentUserGrant);
   const [error, setError] = useState<string | null>(null);
   const [revokingGrantId, setRevokingGrantId] = useState<string | null>(null);
+
+  if (!hasMcpAccess) {
+    return null;
+  }
 
   const handleRevoke = async (grantId: string) => {
     if (revokingGrantId !== null) {
