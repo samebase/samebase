@@ -241,13 +241,13 @@ This is short-lived OAuth control state for both providers, not resource identit
 intent:
 
 - `connect`, when no row existed at OAuth start
-- `replace`, with the transient row ID, expected target ID, and a backend-only fingerprint of the
-  complete current auth value
+- `replace`, with the transient row ID, expected target ID, and a backend-only copy of the complete
+  current auth value
 
 A connect callback must still find no row. A replace callback must still find the same row and
-target from OAuth start, and its auth fingerprint must still match. This compare-and-set rule stops
-an older callback from overwriting a newer reauthorization. The beta model does not add a durable
-grant generation.
+target from OAuth start, and its complete auth value must still match. This compare-and-set rule
+stops an older callback from overwriting a newer reauthorization. The expected auth value stays in
+short-lived backend-only OAuth state. The beta model does not add a durable grant generation.
 
 For a new Cloudflare connection, the callback can expose several authorized accounts. Keep the
 pending OAuth credentials only in backend-only, short-lived setup state until the owner chooses one
@@ -416,12 +416,12 @@ replace the local secret and report that upstream removal of the old token is no
 
 Automatic refresh maintains the current grant. It is not a new connection or a reauthorization.
 
-1. Resolve the one Cloudflare row and record its row ID, current target, and a backend-only
-   fingerprint of the complete auth value.
+1. Resolve the one Cloudflare row and record its row ID, current target, and complete backend-only
+   auth value.
 2. Claim the short-lived refresh lease for either direct OAuth or MCP OAuth.
 3. Use the refresh credential only in a backend-only action.
 4. Store the returned access token, refresh token, and expiry only if the row, target, and complete
-   stored auth fingerprint are unchanged.
+   stored auth value are unchanged.
 5. Clear the refresh lease. A stale refresh result must not overwrite a later reauthorization.
 6. Do not change `connectedByUserId`.
 
