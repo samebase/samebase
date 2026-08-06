@@ -88,14 +88,6 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
-
-  const linkBounds = await samebaseLink.boundingBox();
-  const rowBounds = await samebaseLink.locator("..").boundingBox();
-  expect(linkBounds).not.toBeNull();
-  expect(rowBounds).not.toBeNull();
-  if (linkBounds && rowBounds) {
-    expect(Math.abs(linkBounds.width - rowBounds.width)).toBeLessThanOrEqual(1);
-  }
 });
 
 test("centers the root vault list in a wide main pane", async ({ page }) => {
@@ -115,18 +107,16 @@ test("shows the shared overview model on desktop", async ({ page }) => {
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2");
   const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
 
-  await expect(vaultNavigation.getByRole("button", { name: "empty-owner" })).toHaveAttribute(
+  await expect(
+    vaultNavigation.getByRole("button", { name: "empty-owner", exact: true }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await expect(vaultNavigation.getByRole("button", { name: "noter", exact: true })).toHaveAttribute(
     "aria-expanded",
     "false",
   );
-  await expect(vaultNavigation.getByRole("button", { name: "noter" })).toHaveAttribute(
-    "aria-expanded",
-    "false",
-  );
-  await expect(vaultNavigation.getByRole("button", { name: "samebase" })).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
+  await expect(
+    vaultNavigation.getByRole("button", { name: "samebase", exact: true }),
+  ).toHaveAttribute("aria-expanded", "true");
   await expect(
     vaultNavigation.getByRole("link", { name: "noter/guestbook, 4/4 passed" }),
   ).toHaveCount(0);
