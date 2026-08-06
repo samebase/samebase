@@ -72,10 +72,7 @@ operator says them, confirm intent before acting.
   describing them or pointing the user at a UI.
 - Rename auto-generated random `codex/<word>-<word>-<word>` branches early, and always before
   `commit`, `create pr`, or `ship`.
-- After a branch commit has been shown, pushed, reviewed, or attached to a PR, preserve follow-up
-  work as new commits by default. Do not use `git commit --amend`, interactive rebase, squash, or
-  other history-rewriting cleanup for follow-up changes unless the user explicitly asks for that
-  exact rewrite.
+- Prefer new commits over amending existing commits.
 - When the user says `rebase`, treat it as `rebase` plus `push` so the local branch and
   `origin/<branch>` stay aligned after the history rewrite.
 

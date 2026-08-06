@@ -41,49 +41,33 @@ When the user says one of these commands, execute it directly:
 
 ## Workflow Rules
 
-The always-on core; the full protocol (PR bodies, timing, review, labels, archive/clean) lives in
-`docs/agent-workflows.md`.
+The full protocol for PR bodies, review, labels, and cleanup lives in `docs/agent-workflows.md`.
 
 - Always use CLI tools such as `gh` and `git`, and execute requested git/GitHub workflows instead of
   describing them.
-- Rename auto-generated random `codex/<word>-<word>-<word>` branches early, always before `commit`
-  or `create pr`. Do not put `v<N>` build labels in branch names.
-- Before starting implementation on an existing branch or worktree, fetch `origin` and rebase onto
-  the latest `origin/main`. When the user says `rebase`, treat it as `rebase` plus `push`.
+- Rename random `codex/<word>-<word>-<word>` branches before `commit` or `create pr`. Do not put
+  `v<N>` labels in branch names.
+- Keep PR branches linear. Rebase onto the latest `origin/main`; never merge `main` into them. The
+  `rebase` command includes a push.
 - Inspect the diff shape with `git diff --stat` (and `git diff --cached --stat` when relevant)
   before `commit` or `create pr`.
-- For implementation, docs, or research on a meaningful non-`main` branch, commit and push
-  reviewable checkpoints as coherent slices land; do not save one large local diff for the end. Do
-  not send the final response until the branch has a ready GitHub PR unless the user opts out or
-  asks for a draft. PR descriptions explain why the change exists, not just what changed. When a PR
-  originates from research or automation work, include `First Message` and
-  `Requested Codex Runtime`.
-- After a branch commit has been shown, pushed, reviewed, or attached to a PR, preserve follow-up
-  work as new commits. Never amend, rebase, or squash branch history unless the user explicitly asks
-  for that exact rewrite.
-- Every PR title starts with the projected `v<N>:` build label computed from the latest
-  `origin/main`. Run `node ./scripts/pr-build-label.ts` to compute and apply it after creating,
-  updating, rebasing, or marking ready, and again immediately before merge. When creating the final
-  `main` commit through `squash`, prefix the squash commit subject with the freshly recomputed
-  label; prefer an explicit CLI squash subject over the GitHub UI default. Never infer the label
-  from existing branch commit subjects, stale PR titles, or the branch name. Do not consider
-  `create pr`, `create draft`, or `squash` complete until the PR title carries the fresh label.
+- Commit and push meaningful non-`main` work in reviewable checkpoints. Finish with a ready PR
+  unless the user opts out or asks for a draft.
+- Prefer new commits over amending existing commits.
+- Run `node ./scripts/pr-build-label.ts` after PR or branch updates and before merge. The current PR
+  title and final squash commit must use its fresh `v<N>:` label.
 - When work implements a named or numbered phase from a spec, RFC, rollout, or accepted plan,
   include the phase label after the build label, such as
   `v1146: Phase 2: Move app provisioning to Workflow`.
-- When the user says `update PR`, update the PR metadata with `gh pr edit` (title first, then
-  description); this does not mean rewriting branch commit subjects.
+- `update PR` changes the title first, then the description. It does not change commit subjects.
 - Treat actionable Greptile, CodeRabbit, and Codex review comments as required fixes while shipping.
-- Never merge before CI is green. Rebase on the latest `origin/main` immediately before merge.
-  Prefer squash merge by default.
+- Merge only with green CI and a branch rebased on the latest `origin/main`. Prefer squash merge.
 - Use the exact temporary vault prefix `tmp-<worktree-id>-<intent>` for Playwright/manual test repos
   created from a worktree.
 - `clean vaults` must fail closed and only remove matching Samebase-managed vaults through the
   dashboard delete flow.
-- `clean` requires a terminal PR (`MERGED`/`CLOSED`) and must follow
-  `docs/samebase-pr-preview-cleanup.md` first: any branch that ever had a PR (drafts included) must
-  clean both Cloudflare and Convex previews before deleting the branch. Missing env files or
-  metadata gaps block `clean`; they never justify skipping provider cleanup.
+- `clean` requires a merged or closed PR. Follow `docs/samebase-pr-preview-cleanup.md` and fail
+  closed if provider cleanup cannot finish.
 
 ## Worktree Rules
 
@@ -104,8 +88,6 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
   vars, names), give one exact recommendation instead of alternatives.
 - Expect voice-to-text mistakes. Interpret likely transcription errors before asking for
   clarification.
-- Commit meaningful checkpoints instead of letting large local diffs accumulate, and push after
-  commits so work is not stranded only in the local worktree.
 - When a change touches many files or multiple concerns, consider splitting it into two or three
   reviewable commits, such as backend model cleanup, UI wiring, and spec/test updates. This is a
   reviewability preference, not a hard requirement.
@@ -153,13 +135,7 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 - UI affordances (slider drag ranges, preset lists) may suggest values; only a real product
   invariant may reject typed input, URL params, or API values. Never convert a UI convenience into a
   hard limit.
-- For Playwright and browser automation rules (isolated sessions, never steal OS focus, never kill
-  all Chrome, mobile emulation from launch, touch-gesture anchoring), follow
-  `skills/samebase-playwright-live/SKILL.md`.
 - Worktree frontend should avoid port `5173`; prefer the worktree defaults.
-- Treat shadcn-generated files in `apps/samebase/src/components/ui/*` as read-only unless the user
-  explicitly asks to update shadcn output.
-- Do not add speculative env vars, code paths, allowlists, or placeholder config.
 
 ## Communication
 
@@ -200,27 +176,10 @@ The always-on core; the full protocol (PR bodies, timing, review, labels, archiv
 
 ## Sub-Agent Research
 
-- Always load and apply `skills/delegation-orchestrator/SKILL.md` before deciding how to handle
-  implementation, research, review, workflow, or shortcut tasks. It may keep a small task local, but
-  consulting it is not optional.
-- This is a standing repo-level request and permission to use sub-agents whenever they would improve
-  the work; decide by critical path, independence, cost, and expected signal. Do not wait for the
-  user to say "delegate".
-- Treat sub-agent tooling as a cheap default for sidecar research, log/test sweeps, public-doc
-  comparisons, or technical spikes whose details are not needed in the main thread.
-- Choose model and isolation by task: fast models without a worktree for bounded searches or
-  summaries; xhigh agents with their own worktrees for hard design, verification, or implementation
-  probes that need deep reasoning or editable experiments.
-- Keep the main thread on the critical path as supervisor. Give sub-agents narrow scopes and
-  explicit pass/fail criteria, ask for concise findings with file/command evidence, and merge back
-  only the conclusions needed for the next decision. Treat sub-agent output as a context filter;
-  close sub-agent threads once findings are integrated, and do not paste raw logs or bulky detail
-  into the main thread or final response unless the user asks for it.
-- When delegating or testing shortcut commands such as `clean`, `wait`, or `create pr`, start the
-  sub-agent in the intended checkout context and send only the exact command shape the operator used
-  with no expanded checklists.
-- For experiments that may edit files, give each sub-agent an isolated worktree and a disjoint write
-  scope, and keep exploratory changes out of the main worktree until intentionally integrated.
+- Load and follow `skills/delegation-orchestrator/SKILL.md` before implementation, research, review,
+  workflow, or shortcut tasks. This is standing permission to delegate when it improves the work.
+- Keep delegated tasks narrow. For experiments that may edit files, use an isolated worktree and a
+  disjoint write scope. Preserve the user's exact command when delegating a workflow shortcut.
 
 ## Architecture
 
@@ -250,87 +209,65 @@ Key domain entities:
 Use from `apps/samebase` when debugging runtime issues: `npx convex logs` (add `--prod --history 50`
 for production), `npx convex dashboard`, `npx convex env list`.
 
-- When checking production from a worktree, never pass `--env-file` pointing at another checkout. If
-  that env provides `CONVEX_DEPLOY_KEY`, the CLI silently ignores `--prod` and targets the deploy
-  key's deployment. If it prints `Ignoring --prod ... and using deployment from CONVEX_DEPLOY_KEY`,
-  stop and rerun with `CONVEX_DEPLOY_KEY=` cleared from the primary checkout.
-- Follow `docs/convex-production-reads.md` for the exact safe production-read recipe.
+- Follow `docs/convex-production-reads.md` exactly for production reads.
 
 ## Code Guardrails
 
-One-line index; the canonical full wording with rationale and examples lives in
-`docs/code-guardrails.md`; read it before non-trivial implementation work.
+Read `docs/code-guardrails.md` before non-trivial implementation work. This section is only its
+always-loaded index.
 
 Types and validation:
 
-- Type-unsafety must be explicit, searchable, and quarantined: hiding a type gap is worse than
-  declaring one; TypeScript serves the mental model, not the other way around.
-- Never use `any` or type assertions except `as const`; use the narrowest `@ts-expect-error` plus a
-  runtime fact for unavoidable gaps. Rare `any` is limited to type-level generics where
-  `unknown`/`never` cannot express a constraint and needs a next-line lint-disable. Lint exceptions
-  are `eslint-disable-next-line` + reason on the exact offending line; file-top only when a rule
-  saturates the file. Never config-level exemptions; only generated files get config overrides.
-- Never launder type gaps through overloads the implementation cannot prove, `as unknown as`, or
-  type-erasing generics. Overloads may refine truths the implementation guarantees (`map`/`atLeast`
-  in `@samebase/dependent`), never costume types the code cannot earn.
-- Type predicates are unsafe by default (assertion-lite): never hand-write a `value is T` claim TS
-  cannot check. A disconnected predicate keeps narrowing to a stale shape when the source evolves,
-  with no error. Derive predicates with `guard<Input, Target>` from `@samebase/dependent`
-  (generics-first; the callback returns the narrowed value or null; identity-checked); where a sure
-  schema proves the shape, let the validator's own result narrow. Plain local boolean checks may
-  rely on TS-inferred predicates ("disconnected type safety" in `docs/code-guardrails.md`).
-- Absorb recurring TS technicalities into tiny shared wrappers with honest signatures and the
-  `@ts-expect-error` inside (`includes`, `entries`, `pick` in `@samebase/dependent`; `packages/sure`
-  is the philosophy at its extreme). Keep that vocabulary small; no long-named one-line helpers
-  sprawling through app code.
-- No `Reflect.get`/`Reflect.set` workarounds; prefer real narrows, else the narrowest
-  `@ts-expect-error` with a concrete reason. Never `@ts-nocheck`.
-- No `globalThis` in app or test code; use the typed host (`window`, `global`) and add declarations
-  for new globals first.
-- Validate unknown or provider data at runtime; never narrow it with assertions.
+- Keep type gaps explicit and searchable. Never use `any` or assertions except `as const`; use the
+  narrowest `@ts-expect-error` with the runtime fact. Rare type-level `any` needs a local lint
+  reason. Never use `@ts-nocheck` or config-level exemptions.
+- Put lint exceptions on the exact line with a reason. Use a file-level exception only when one rule
+  saturates the file. Only generated files can use config-level overrides.
+- Do not hide type gaps with false overloads, casts, reflection, `globalThis`, hand-written type
+  predicates, or runtime checks added only for TypeScript. Use inference, validation, typed hosts,
+  `guard<Input, Target>`, or a small shared wrapper with an honest signature.
+- Do not hand-write a `value is T` claim that TypeScript cannot check. Use `guard<Input, Target>`
+  for reusable predicates, the validator result when a schema proves the shape, or an inferred local
+  predicate for a simple one-off check.
+- Validate unknown and provider data at runtime.
 - Provider parsers use sourced real payloads; synthetic fixtures only mutate them for negative
   tests.
-- Prefer inference; do not restate types the expression already proves.
-- For generic function members on object types, prefer `fn: <T>(...) => R` over `fn<T>(...): R`
-  unless method semantics are required; this avoids VS Code TextMate tokenization bugs.
-- Put the discriminant property first in union variant shapes.
-- Let `pure(...)`/`sure(...)` infer inline validator inputs; no redundant `unknown` annotations.
-- When a schema exists, derive the type from it; one source-of-truth schema per boundary, with no
-  parallel hand-written types, strict companions, or validator-issue translation.
-- Convex: table names follow `docs/data-modeling-vocabulary.md`; put result validators before
-  handlers, derive types with `Infer`, destructure builders once, reserve `v` for reusable
-  validators, and use system-specific prefixes elsewhere.
-- Required properties and args by default; every optional needs a current justification.
-- Put invariants in the state shape (discriminated unions, required variant fields, closed sets,
-  validators that reject impossible rows); runtime transitions only for db/time/provider-dependent
-  rules. Keep state spaces small and orthogonal; forbid cross-product interactions the product does
-  not need.
+- Prefer inference. Use one source-of-truth schema per boundary and derive its type. Put union
+  discriminants first and let `pure(...)` or `sure(...)` infer inline inputs.
+- Do not add parallel response types, strict companion schemas, or validator-issue translations.
+- For generic function members on object types, prefer `fn: <T>(...) => R` unless method semantics
+  are part of the contract.
+- Overloads can refine a runtime truth. They cannot give an implementation a type it cannot prove.
+- Follow `docs/data-modeling-vocabulary.md` for Convex tables. Put result validators before
+  handlers, derive types with `Infer`, and reserve `v` for reusable Convex value validators.
+- Destructure Convex validator builders once. Use system-specific prefixes for other validators.
+- Make properties and arguments required by default. Put durable invariants in the state shape and
+  keep unsupported state combinations unrepresentable.
+- Use runtime state transitions only for rules that depend on database contents, time, or provider
+  responses. Keep independent state axes small.
 - For important state models, start tests by enumerating state axes and allowed combinations.
-- Deterministic sort order with stable tie-breakers for all returned collections and lists.
+- Give all returned collections and lists a deterministic order with stable tie-breakers.
 
 Simplicity and deletion:
 
-- Delete-first is the default: no helper, wrapper, formatter, class, or generated artifact the final
-  design does not need (including factories parameterized for a single callsite); keep native
-  library value/error shapes.
-- No custom Error subclasses unless production catches or branches on them; tests are not a reason.
-- Run a delete-first reduction pass on every patch-introduced helper/adapter/mirror; rerun it after
-  swapping validation approaches.
-- When changing a helper, inspect every production call site and its tests before keeping it;
-  one-call helpers and tests that only restate the wrapper are delete-first signals.
+- Delete-first is the default. Do not add a helper, wrapper, formatter, class, adapter, mirror, or
+  generated artifact that the final design does not need.
+- Run a delete-first pass on each helper, adapter, mirror, or validator wrapper introduced by a
+  patch. Run it again after a validation approach changes.
+- Before keeping a helper, inspect all production call sites and its tests. One-call helpers and
+  tests that only restate a wrapper are deletion signals.
+- Keep native library value and error shapes. Add a custom Error class only when production catches
+  it, branches on it, or an existing module contract requires it.
 - Generated validation glue is a carrying cost, but do not replace broad OpenAPI coverage with
   hand-written schemas just to shrink generated files.
-- When tests want production mappers or branches for prettier assertions, simplify the test.
-- No speculative helpers, flags, env vars, allowlists, or config the patch does not use end to end;
-  keep config surfaces minimal. Fail closed over placeholder fallbacks.
-- Delete temporary adapters once a native API is viable, transitional helpers unused outside tests,
-  dead scaffolding, and incomplete extractions.
-- App-internal refactors are delete-first: no pass-through props, wrappers, or shims; internal
-  backwards compatibility is a non-goal.
-- No runtime statements whose only job is appeasing the type checker (presence checks, redundant
-  guards). Declare the gap instead.
-- No barrel files for app code; no same-name re-export shims. Update imports directly and delete
-  shims when found.
+- Simplify tests instead of adding production mappers or branches for cleaner assertions.
+- Do not add speculative helpers, flags, env vars, allowlists, compatibility paths, or config. Fail
+  closed instead of using placeholder fallbacks.
+- Delete obsolete adapters, test-only production helpers, pass-through props, re-export shims, and
+  dead scaffolding. App-internal backwards compatibility is a non-goal.
+- Do not add app barrel files or same-name re-export files. Update imports directly.
+- Do not add presence checks, redundant guards, or other runtime statements only to satisfy the type
+  checker. Declare the type gap instead.
 - Separate business logic from generic mechanics; small typed utilities in focused shared modules
   whose path carries the context (`pick` in an object module).
 - Generated files contain only output derived from their named source of truth.
@@ -339,33 +276,30 @@ Simplicity and deletion:
 
 Effects and reads:
 
-- Justify every `useEffect`/`useLayoutEffect`; prefer route lifecycle, data/cache APIs, handlers,
-  derived state, or CSS; collapse duplicate effects. In curated VMs such as the route URL editor,
-  effects, observers, and polling need even stronger proof. Drop nice-to-have features instead.
+- Justify every effect, observer, subscription, and poll. Prefer route lifecycle, data APIs,
+  handlers, derived state, or CSS, especially in curated view models.
+- In a curated view model, drop or narrow a nice-to-have feature before adding unproven reactive
+  machinery.
 - Avoid `"use node"` unless truly required.
-- Truthiness checks for `true | undefined` flags; existence checks when existence is the meaning.
-  Exact `!== undefined`/`typeof` checks only when that exact state is modeled.
+- Use truthiness for `true | undefined` flags and existence checks when existence is the meaning.
 - Use `notEmpty` from `@samebase/dependent` for filtering nullable arrays.
-- Repeated `?.` on one value is a correctness smell: narrow once with an explicit missing branch.
-- Direct conditions over intermediates; no `!!` or named booleans for engineering theater.
+- Narrow a nullable value once instead of repeating `?.`.
+- Prefer direct conditions. Do not add `!!`, named booleans, or wrappers without a readability need.
 
 Comments:
 
-- Comment the constraint or invariant, in the code's own terminology (`draftPath`, not invented
-  labels); JSDoc for functions with non-obvious ownership or timing; name concrete runtime cases.
-- Local-type JSDoc uses the simplest direct vocabulary, multiline blocks without leading `*`
-  prefixes; preserve user-authored wording.
+- Comment current constraints and invariants in the code's terminology. Use JSDoc for non-obvious
+  ownership or timing. Name the concrete runtime case and preserve user-authored comments.
+- Local-type JSDoc uses direct vocabulary and can omit leading `*` prefixes.
 
 UI code:
 
-- Closed styling APIs for app-owned components; no `className` pass-throughs without a shipped need;
-  evolve the component's standard instead of threading overrides.
-- Standardize shared layout chrome structure; no semantic content sub-APIs (`title`, `meta`,
-  `leading`, `trailing`) without a real shared pattern.
+- Keep app-owned styling APIs closed. Change a component standard instead of adding pass-through
+  classes. Standardize shared chrome without speculative content slots.
 - No dynamically built Tailwind/CSS class names; map state to full literal strings.
-- Workspace pane content is pane-responsive: container variants (`@3xl:`, `cqw`) against the pane
-  container from `WorkspaceLayoutV2PaneFrame`, never viewport `sm:`/`md:`/`vw`; viewport-relative
-  styling only for true viewport concerns such as `svh` scroll-end space.
+- Make workspace content respond to the container from `WorkspaceLayoutV2PaneFrame`. Use container
+  variants and `cqw`, not viewport breakpoints or `vw`; use viewport units only for true viewport
+  concerns such as scroll-end space.
 - App-internal navigation goes through TanStack Router `Link`/`navigate`; plain anchors only for
   external URLs, downloads, or deliberate reloads; href-bearing internal actions still SPA-route
   ordinary left-clicks.
@@ -403,19 +337,9 @@ UI code:
 - Temporary ProseMark workaround: prefix a Markdown link label that would equal its URL with `link`
   plus a leading space so the link renders visibly.
 - Add or update screenshot coverage whenever a patch changes shipped UI.
-- For Playwright baselines, live validation, focused-vs-full acceptance runs, session rules, and
-  fixture policy, follow `skills/samebase-playwright-live/SKILL.md` and
-  `docs/playwright-visual-testing.md`. `pnpm test:visual:linux` is the canonical local acceptance
-  command for visual/Playwright validation. Do not substitute host-native
-  `pnpm --filter samebase test:visual`, Playwright shards, or focused specs for acceptance unless
-  the user explicitly asks for that exact non-canonical command; if a non-canonical visual run was
-  used first, say so and run the Docker/Linux wrapper before reporting visual acceptance.
-- For bugs involving scroll, touch, drag, focus, selection, pane layout, auth wiring, or route shell
-  behavior, reproduce and test the real app route first. Do not create fake visual fixtures just to
-  show or approve a behavior screenshot; a fixture must mount the exact production component tree
-  without invented chrome, and a failing route-level or honest production-component repro comes
-  before narrower fixture coverage. Fixture ownership must match the changed product surface
-  (`docs/agent-workflows.md`, Route-First UI Regression Policy).
+- Follow `skills/samebase-playwright-live/SKILL.md` and `docs/playwright-visual-testing.md` for
+  browser rules. `pnpm test:visual:linux` is the canonical acceptance command.
+- Use the route-first policy in `docs/agent-workflows.md` for interaction bugs.
 - Authenticated app routes keep the standard right sidebar for navigation unless a documented
   product requirement removes it.
 - Disable async destructive triggers while pending and show an in-button pending state.
