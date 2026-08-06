@@ -703,6 +703,7 @@ export const trackedFilePaths = [
   "apps/samebase/scripts/normalizeEnvValue.ts",
   "apps/samebase/scripts/predev.ts",
   "apps/samebase/scripts/run-vite-dev.ts",
+  "apps/samebase/scripts/seed-local-password-account.ts",
   "apps/samebase/scripts/setup.ts",
   "apps/samebase/scripts/strip-public-prerender-modulepreloads.test.ts",
   "apps/samebase/scripts/strip-public-prerender-modulepreloads.ts",

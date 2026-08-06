@@ -9,6 +9,9 @@ import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 
 const samebaseAppDirectory = path.join("apps", "samebase");
 const convexCliPath = path.join("node_modules", "convex", "bin", "main.js");
+const seedLocalPasswordAccountScriptPath = samebaseAppFilePath(
+  "scripts/seed-local-password-account.ts",
+);
 const convexBootstrapLogPath = path.join(tmpdir(), "convex-bootstrap.log");
 const envLocalPath = path.join("apps", "samebase", ".env.local");
 const convexEnvSetMaxAttempts = 4;
@@ -96,7 +99,7 @@ async function main(): Promise<void> {
       "Timed out waiting for Convex functions to become ready.",
       bootstrapProcess,
     );
-    await runConvexPasswordAccountSeed();
+    runLocalPasswordAccountSeed();
   } catch (error) {
     await stopProcess(bootstrapProcess);
     await printLogTail();
@@ -171,30 +174,18 @@ function buildConvexAuthEnvEntries(): readonly [string, string][] {
   ];
 }
 
-async function runConvexPasswordAccountSeed(): Promise<void> {
-  const result = spawnSync(
-    process.execPath,
-    [
-      convexCliPath,
-      "run",
-      "devAuth:seedPasswordAccount",
-      "--typecheck",
-      "disable",
-      "--codegen",
-      "disable",
-    ],
-    {
-      cwd: samebaseAppDirectory,
-      encoding: "utf8",
-      env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
-      stdio: ["ignore", "pipe", "pipe"],
-    },
-  );
+function runLocalPasswordAccountSeed(): void {
+  const result = spawnSync(process.execPath, [seedLocalPasswordAccountScriptPath], {
+    cwd: samebaseAppDirectory,
+    encoding: "utf8",
+    env: { ...process.env, CONVEX_AGENT_MODE: "anonymous" },
+    stdio: ["ignore", "pipe", "pipe"],
+  });
 
   writeProcessOutput(result.stdout, result.stderr);
   if (result.status !== 0) {
     throw new Error(
-      `convex run devAuth:seedPasswordAccount failed with exit code ${result.status ?? "unknown"}.`,
+      `Local password account seed failed with exit code ${result.status ?? "unknown"}.`,
     );
   }
 }
