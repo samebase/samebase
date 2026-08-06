@@ -168,9 +168,6 @@ jobs:
     runs-on: blacksmith-4vcpu-windows-2025
     timeout-minutes: 15
     needs: supply_chain
-    # Keep Windows smoke coverage off PRs for now so branch validation stays
-    # within the org Actions budget. Main pushes still exercise the full matrix.
-    if: ${{ github.event_name == 'push' }}
 
     strategy:
       matrix:
@@ -230,16 +227,19 @@ jobs:
             exit 1
           fi
 
+          if [ "${{ needs.windows-smoke.result }}" != "success" ]; then
+            echo "windows-smoke: ${{ needs.windows-smoke.result }}"
+            exit 1
+          fi
+
           if [ "${{ github.event_name }}" = "push" ]; then
-            if [ "${{ needs.playwright.result }}" != "success" ] || [ "${{ needs.windows-smoke.result }}" != "success" ]; then
+            if [ "${{ needs.playwright.result }}" != "success" ]; then
               echo "playwright: ${{ needs.playwright.result }}"
-              echo "windows-smoke: ${{ needs.windows-smoke.result }}"
               exit 1
             fi
           else
             echo "playwright: ${{ needs.playwright.result }}"
-            echo "windows-smoke: ${{ needs.windows-smoke.result }}"
-            echo "Heavy jobs are intentionally skipped on pull requests."
+            echo "Playwright is intentionally skipped on pull requests."
           fi
 
   publish_repository_exports:
