@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase product
-- Last updated: 2026-08-06
+- Last updated: 2026-08-07
 - Depends on: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Supersedes: `archive/118_VAULT_FOLDER_SPEC.md`
 - Approved proposal: <https://github.com/samebase/samebase/pull/1371>
@@ -78,7 +78,8 @@ provides All vaults and Account settings. The global vault page always provides 
 
 `/vault` is always user-global. It shows one section for each current organization, including an
 organization with no vaults. Sections use normalized owner-login order with a stable tie-breaker.
-Vaults inside each section keep the existing activity order.
+Each section shows that user's folders for the organization, followed by vaults that are not in a
+folder. Vaults inside each group keep the existing activity order.
 
 The section heading links to `/org/:owner/vaults`. Each vault links to `/vault/:owner/:repo`. A
 one-organization user still sees one named section. The page never redirects because of the
@@ -86,9 +87,9 @@ membership count.
 
 A vault detail picker groups all current organizations. The route organization is expanded by
 default, and the other organizations are collapsed by default. Expanding a group does not change the
-route or save an active organization. Vaults inside each group keep the existing activity order. An
-empty organization shows `No vaults` when expanded. FileView keeps its file tree instead of this
-picker.
+route or save an active organization. Each organization uses the same folder and ungrouped-vault
+layout as the global inventory. An empty organization shows `No vaults` when expanded. FileView
+keeps its file tree instead of this picker.
 
 ## User And Organization Settings
 
@@ -144,10 +145,19 @@ The server validates the return route and owner. A full-page return checks curre
 it shows organization data. If access changed during the external flow, Samebase keeps the scoped
 return route and shows the organization unavailable state.
 
-## Personal Vault Folders
+## Organization-Scoped Vault Folders
 
-Organization sections replace personal vault folders in the vault inventory. This change adds no
-bulk folder-data cleanup and does not remove the existing folder tables.
+Vault folders are a personal organization aid inside one Samebase organization. Each folder stores
+one organization ID. A folder can contain only vaults owned by that organization. Folder names,
+order, and collapsed state belong to one user and one organization. An empty folder remains visible.
+
+The same folder layout appears in `/vault`, `/org/:owner/vaults`, and the vault detail picker. The
+create action belongs to an organization section because `/vault` has no active organization.
+Deleting a folder makes its vaults ungrouped inside the same organization.
+
+Folders do not own vaults, grant access, change membership, or create a route context. If the user
+loses organization access, its folders and assignments stay stored but do not appear and cannot be
+changed. This rollout adds no automatic migration or compatibility path for old folder rows.
 
 ## Non-Goals
 
@@ -159,7 +169,7 @@ bulk folder-data cleanup and does not remove the existing folder tables.
 - No saved active organization
 - No decorative navigation or empty future page
 - No FileView editor redesign
-- No folder replacement hierarchy
+- No nested folder hierarchy
 - No compatibility shell for retired page-local owner selection
 
 ## Validation
@@ -168,6 +178,7 @@ Focused route, backend, and UI tests must prove:
 
 - one, several, zero, and removed membership states
 - grouped global inventory and a vault detail picker with route-derived organization expansion
+- organization-scoped folders, empty folders, ungrouped vaults, and cross-organization move denial
 - organization access before the `/org/:owner` redirect
 - reload, direct-link, Back, and Forward behavior
 - small-screen access to the shared organization context
