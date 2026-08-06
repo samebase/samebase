@@ -14,7 +14,7 @@ import {
   VaultOverviewVaultPickerPane,
 } from "./VaultOverviewVaultPickerPane";
 import { VaultOverviewPage } from "./VaultOverviewPage";
-import { VaultOverviewSidebar } from "./VaultOverviewSidebar";
+import { type VaultFolderCallbacks, VaultOverviewSidebar } from "./VaultOverviewSidebar";
 import { PullRequestsSection } from "./VaultPullRequestsSection";
 import { RepositorySettings } from "./VaultRepositorySettings";
 import { VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
@@ -53,6 +53,20 @@ vi.mock("@/components/ui/dialog", () => ({
   DialogHeader: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
   DialogTitle: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
 }));
+
+const FOLDER_CALLBACKS = {
+  onDeleteVaultFolder: async () => {},
+  onMoveVaultFolder: async () => {},
+  onMoveVaultToFolder: async () => {},
+  onRenameVaultFolder: async () => {},
+  onSetVaultFolderCollapsed: async () => {},
+} satisfies VaultFolderCallbacks;
+
+const VAULT_PICKER_FOLDER_PROPS = {
+  ...FOLDER_CALLBACKS,
+  folderState: { assignments: [], folders: [] },
+  onCreateVaultFolder: async () => {},
+};
 
 const FAILED_CLOUDFLARE_BUILDS_OBSERVATIONS = {
   state: "failed",
@@ -1213,6 +1227,7 @@ describe("VaultOverviewVaultPickerPane", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
           organizations={[organizationForVault(vault)]}
           sidebarSummaries={{
@@ -1283,6 +1298,7 @@ describe("VaultOverviewVaultPickerPane", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
           organizations={[organizationForVault(zedFirst), organizationForVault(adaFirst)]}
           sidebarSummaries={{ state: "loaded", summaries: [] }}
@@ -1313,6 +1329,7 @@ describe("VaultOverviewVaultPickerPane", () => {
     const settingUpMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
           organizations={[
             organizationForVault(
@@ -1343,6 +1360,7 @@ describe("VaultOverviewVaultPickerPane", () => {
     const deletingMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
           organizations={[
             organizationForVault(
@@ -1395,8 +1413,12 @@ describe("VaultOverviewVaultPickerPane", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
         <VaultOverviewSidebar
+          {...FOLDER_CALLBACKS}
+          folderState={{ assignments: [], folders: [] }}
+          organizationId={vault.organizationId}
           page="overview"
           selectedVaultId={null}
+          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[vault]}
           workspace={null}
@@ -1412,6 +1434,7 @@ describe("VaultOverviewVaultPickerPane", () => {
     const loadingMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
           organizations={null}
           sidebarSummaries={{ state: "loading" }}
@@ -1422,6 +1445,7 @@ describe("VaultOverviewVaultPickerPane", () => {
     const emptyMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/"]}>
         <VaultOverviewVaultPickerPane
+          {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory
           organizations={[]}
           sidebarSummaries={{ state: "loaded", summaries: [] }}
@@ -1432,6 +1456,7 @@ describe("VaultOverviewVaultPickerPane", () => {
     const emptyOrganizationMarkup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/org/ada/vaults"]}>
         <VaultOverviewVaultPickerPane
+          {...VAULT_PICKER_FOLDER_PROPS}
           globalInventory={false}
           organizations={[emptyOrganization]}
           sidebarSummaries={{ state: "loaded", summaries: [] }}

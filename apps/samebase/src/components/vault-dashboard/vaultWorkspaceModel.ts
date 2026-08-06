@@ -10,6 +10,8 @@ import type {
   VaultProviderObservationState,
 } from "./useVaultProviderObservations";
 
+export type VaultFolderState = (typeof api.vault.folders.getVaultFolderState)["_returnType"];
+
 export type VaultOrganization = (typeof api.organizations.listForViewer)["_returnType"][number];
 
 export type VaultWorkspaceAccessState =
@@ -43,6 +45,7 @@ export type VaultWorkspaceModel =
   | { state: "loading" }
   | {
       state: "ready";
+      folderState: VaultFolderState;
       sidebarSummaries: VaultSidebarSummariesState;
       organizations: readonly VaultOrganization[];
       selection: VaultWorkspaceSelection;

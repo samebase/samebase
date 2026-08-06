@@ -28,6 +28,8 @@ const testState = vi.hoisted(
   }),
 );
 
+const EMPTY_FOLDER_STATE = { assignments: [], folders: [] };
+
 vi.mock("@/lib/convexQueryCache", () => ({
   useCacheQuery: (reference: Parameters<typeof getFunctionName>[0]) => {
     const name = getFunctionName(reference);
@@ -107,6 +109,10 @@ function lostAccessVault(): UserVaultResult {
 describe("useVaultWorkspaceModel", () => {
   beforeEach(() => {
     testState.cachedQueries.clear();
+    testState.cachedQueries.set(
+      getFunctionName(api.vault.folders.getVaultFolderState),
+      EMPTY_FOLDER_STATE,
+    );
     testState.cacheQueryCalls.length = 0;
     testState.liveQueries.clear();
     testState.providerVaults.length = 0;
@@ -132,6 +138,7 @@ describe("useVaultWorkspaceModel", () => {
       await act(async () => root.render(<Probe />));
 
       expect(latest).toEqual({
+        folderState: EMPTY_FOLDER_STATE,
         organizations: [],
         selection: { repositoryFullName: "lost/private", state: "missing" },
         sidebarSummaries: { state: "loading" },
@@ -178,6 +185,7 @@ describe("useVaultWorkspaceModel", () => {
       expect(latest).toEqual({ state: "loading" });
       expect(testState.cacheQueryCalls).toEqual([
         getFunctionName(api.vault.dashboard.getUserVaults),
+        getFunctionName(api.vault.folders.getVaultFolderState),
       ]);
       expect(testState.providerVaults).toEqual([null]);
       expect(testState.pullRequestArgs).toEqual([{ vault: null }]);
@@ -348,6 +356,7 @@ describe("useVaultWorkspaceModel", () => {
       await act(async () => root.render(<Probe />));
 
       expect(latest).toEqual({
+        folderState: EMPTY_FOLDER_STATE,
         organizations: [samebaseOrganization],
         selection: { state: "root" },
         sidebarSummaries: { state: "loading" },

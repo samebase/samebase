@@ -1,14 +1,20 @@
+import { useState } from "react";
+import { useMutation } from "convex/react";
+import { Loader2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+
 import { Button } from "@/components/ui/button";
 import type { VaultSidebarSummariesState } from "@/hooks/useVaultSidebarSummaries";
 import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
-import { Link } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
-import { Loader2 } from "lucide-react";
-import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
-import { VaultOverviewSidebar, VaultOverviewSidebarLoading } from "./VaultOverviewSidebar";
-import type { VaultOrganization } from "./vaultWorkspaceModel";
+import {
+  type VaultFolderCallbacks,
+  VaultOverviewSidebar,
+  VaultOverviewSidebarLoading,
+} from "./VaultOverviewSidebar";
+import { VaultFolderCreateButton, type VaultFolderCreate } from "./VaultFolderCreateButton";
+import type { VaultFolderState, VaultOrganization } from "./vaultWorkspaceModel";
 
 export type { VaultOrganization } from "./vaultWorkspaceModel";
 
@@ -53,17 +59,26 @@ function InstallGitHubAppButton() {
 }
 
 export function VaultOverviewVaultPickerPane({
+  folderState,
   globalInventory,
   organizations,
+  onCreateVaultFolder,
+  onDeleteVaultFolder,
+  onMoveVaultFolder,
+  onMoveVaultToFolder,
+  onRenameVaultFolder,
+  onSetVaultFolderCollapsed,
   sidebarSummaries,
   vaults,
 }: {
+  folderState: VaultFolderState | null;
   globalInventory: boolean;
   organizations: readonly VaultOrganization[] | null;
+  onCreateVaultFolder: VaultFolderCreate;
   sidebarSummaries: VaultSidebarSummariesState;
   vaults: readonly UserVaultResult[] | null;
-}) {
-  const loading = organizations === null || vaults === null;
+} & VaultFolderCallbacks) {
+  const loading = folderState === null || organizations === null || vaults === null;
   const vaultsByOrganizationId: Map<VaultOrganization["organizationId"], UserVaultResult[]> =
     new Map(organizations?.map((organization) => [organization.organizationId, []]) ?? []);
   for (const vault of vaults ?? []) {
@@ -92,26 +107,45 @@ export function VaultOverviewVaultPickerPane({
           {organizations.map((organization) => {
             const organizationVaults =
               vaultsByOrganizationId.get(organization.organizationId) ?? [];
+            const organizationHasFolders = folderState.folders.some(
+              (folder) => folder.organizationId === organization.organizationId,
+            );
+
             return (
               <section key={organization.organizationId}>
-                <h2 className="px-3 text-sm font-semibold">
-                  <Link
-                    className="no-underline hover:underline"
-                    params={{ owner: organization.githubOwnerLogin }}
-                    to="/org/$owner/vaults"
-                  >
-                    {organization.githubOwnerLogin}
-                  </Link>
-                </h2>
-                {organizationVaults.length === 0 ? (
+                <div className="flex min-w-0 items-center pr-1 pl-3">
+                  <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
+                    <Link
+                      className="no-underline hover:underline"
+                      params={{ owner: organization.githubOwnerLogin }}
+                      to="/org/$owner/vaults"
+                    >
+                      {organization.githubOwnerLogin}
+                    </Link>
+                  </h2>
+                  <VaultFolderCreateButton
+                    organizationId={organization.organizationId}
+                    organizationName={organization.githubOwnerLogin}
+                    onCreateVaultFolder={onCreateVaultFolder}
+                  />
+                </div>
+                {organizationVaults.length === 0 && !organizationHasFolders ? (
                   <div className="px-3 pt-3 text-sm text-muted-foreground">No vaults</div>
                 ) : (
                   <VaultOverviewSidebar
+                    folderState={folderState}
+                    organizationId={organization.organizationId}
                     page="overview"
                     selectedVaultId={null}
+                    showOwner
                     sidebarSummaries={sidebarSummaries}
                     vaults={organizationVaults}
                     workspace={null}
+                    onDeleteVaultFolder={onDeleteVaultFolder}
+                    onMoveVaultFolder={onMoveVaultFolder}
+                    onMoveVaultToFolder={onMoveVaultToFolder}
+                    onRenameVaultFolder={onRenameVaultFolder}
+                    onSetVaultFolderCollapsed={onSetVaultFolderCollapsed}
                   />
                 )}
               </section>

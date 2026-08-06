@@ -1,19 +1,55 @@
 import type { VaultOverviewPageKind } from "@/components/vault-dashboard/VaultOverviewPage";
+import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { toast } from "@/components/ui/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import type {
+  VaultFolderState,
   VaultOrganization,
   VaultWorkspaceSelected,
 } from "@/components/vault-dashboard/vaultWorkspaceModel";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import type {
   VaultSidebarSummariesState,
   VaultSidebarSummary,
 } from "@/hooks/useVaultSidebarSummaries";
-import { ChevronDownIcon } from "@/lib/radixIcons";
 import { formatRepositoryCheckSummary, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
 import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRoutes";
 import { Link } from "@tanstack/react-router";
-import { Loader2 } from "lucide-react";
+import type { ReactMutation } from "convex/react";
+import type { FunctionReference } from "convex/server";
+import { ChevronDown, ChevronRight, EllipsisVertical, Loader2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
+import { VaultFolderCreateButton, type VaultFolderCreate } from "./VaultFolderCreateButton";
+import { VaultFolderDialog } from "./VaultFolderDialog";
+
+type VaultFolder = VaultFolderState["folders"][number];
+
+type VaultFolderMutation<Mutation extends FunctionReference<"mutation">> = (
+  ...args: Parameters<ReactMutation<Mutation>>
+) => Promise<void | Awaited<ReturnType<ReactMutation<Mutation>>>>;
+
+export type VaultFolderCallbacks = {
+  onDeleteVaultFolder: VaultFolderMutation<typeof api.vault.folders.deleteVaultFolder>;
+  onMoveVaultFolder: VaultFolderMutation<typeof api.vault.folders.moveVaultFolder>;
+  onMoveVaultToFolder: VaultFolderMutation<typeof api.vault.folders.moveVaultToFolder>;
+  onRenameVaultFolder: VaultFolderMutation<typeof api.vault.folders.renameVaultFolder>;
+  onSetVaultFolderCollapsed: VaultFolderMutation<typeof api.vault.folders.setVaultFolderCollapsed>;
+};
+
+type FolderDialogState =
+  | { folder: VaultFolder; kind: "rename" }
+  | { folder: VaultFolder; kind: "delete"; vaultCount: number };
 
 function repositoryRoute(vault: UserVaultResult, page: VaultOverviewPageKind): string {
   const args = { owner: vault.ghRepoOwner, repoName: vault.ghRepoName };
@@ -100,33 +136,47 @@ function vaultSidebarStatus(args: {
 }
 
 function VaultRow({
+  folderState,
+  inFolder,
+  pending,
+  onDirectAction,
   page,
   selected,
   sidebarSummaries,
+  showOwner,
   summary,
   vault,
   workspace,
-  showOwner,
+  onMoveVaultToFolder,
 }: {
+  folderState: VaultFolderState;
+  inFolder: boolean;
+  pending: boolean;
+  onDirectAction: (action: () => Promise<unknown>) => void;
+  onMoveVaultToFolder: VaultFolderCallbacks["onMoveVaultToFolder"];
   page: VaultOverviewPageKind;
   selected: boolean;
   sidebarSummaries: VaultSidebarSummariesState;
+  showOwner: boolean;
   summary: VaultSidebarSummary | undefined;
   vault: UserVaultResult;
   workspace: VaultWorkspaceSelected | null;
-  showOwner: boolean;
 }) {
   const status = vaultSidebarStatus({ selected, sidebarSummaries, summary, vault, workspace });
   const rowClassName = selected
-    ? "min-w-0 bg-muted @max-[200px]:px-1"
-    : "min-w-0 hover:bg-muted/60 @max-[200px]:px-1";
+    ? "flex min-w-0 bg-muted @max-[200px]:px-1"
+    : "flex min-w-0 hover:bg-muted/60 @max-[200px]:px-1";
 
   return (
     <div className={rowClassName}>
       <Link
         aria-current={selected ? "page" : undefined}
         aria-label={`${vault.repositoryFullName}, ${status.label}`}
-        className="block min-w-0 px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
+        className={
+          inFolder
+            ? "block min-w-0 flex-1 py-2.5 pr-3 pl-6 text-left no-underline hover:no-underline @max-[200px]:pr-2 @max-[200px]:pl-5 @max-[120px]:pr-1 @max-[120px]:pl-4"
+            : "block min-w-0 flex-1 px-3 py-2.5 text-left no-underline hover:no-underline @max-[200px]:px-2 @max-[120px]:px-1"
+        }
         data-vault-status={status.label}
         title={vault.repositoryFullName}
         to={repositoryRoute(vault, page)}
@@ -152,70 +202,350 @@ function VaultRow({
           <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">{status.label}</span>
         </span>
       </Link>
+      {folderState.folders.length > 0 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild nativeButton>
+            <Button
+              aria-label={`Actions for ${vault.repositoryFullName}`}
+              className="mt-2 mr-1 h-10 w-8 shrink-0 @max-[120px]:h-8 @max-[120px]:w-7"
+              disabled={pending}
+              size="icon"
+              type="button"
+              variant="ghost"
+            >
+              <EllipsisVertical />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-48">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger disabled={pending}>Move to folder</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                {folderState.folders.map((folder) => (
+                  <DropdownMenuItem
+                    disabled={pending}
+                    key={folder._id}
+                    onClick={() =>
+                      onDirectAction(() =>
+                        onMoveVaultToFolder({ folderId: folder._id, vaultId: vault._id }),
+                      )
+                    }
+                  >
+                    {folder.name}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem
+                  disabled={pending}
+                  onClick={() =>
+                    onDirectAction(() =>
+                      onMoveVaultToFolder({ folderId: null, vaultId: vault._id }),
+                    )
+                  }
+                >
+                  Unfiled
+                </DropdownMenuItem>
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </div>
   );
 }
 
 export function VaultOverviewSidebar({
+  folderState,
+  organizationId,
+  onDeleteVaultFolder,
+  onMoveVaultFolder,
+  onMoveVaultToFolder,
+  onRenameVaultFolder,
+  onSetVaultFolderCollapsed,
   page,
   selectedVaultId,
   sidebarSummaries,
+  showOwner,
   vaults,
   workspace,
 }: {
+  folderState: VaultFolderState;
+  organizationId: Id<"organizations">;
   page: VaultOverviewPageKind;
   selectedVaultId: UserVaultResult["_id"] | null;
   sidebarSummaries: VaultSidebarSummariesState;
+  showOwner: boolean;
   vaults: readonly UserVaultResult[];
   workspace: VaultWorkspaceSelected | null;
-}) {
+} & VaultFolderCallbacks) {
+  const [dialog, setDialog] = useState<FolderDialogState | null>(null);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const directActionPending = useRef(false);
   const summaryByVaultId = new Map(
     sidebarSummaries.state === "loaded"
       ? sidebarSummaries.summaries.map((summary) => [summary.vaultId, summary])
       : [],
   );
+  const organizationFolders = folderState.folders.filter(
+    (folder) => folder.organizationId === organizationId,
+  );
+  const validFolderIds = new Set(organizationFolders.map((folder) => folder._id));
+  const organizationAssignments = folderState.assignments.filter((assignment) =>
+    validFolderIds.has(assignment.folderId),
+  );
+  const organizationFolderState = {
+    assignments: organizationAssignments,
+    folders: organizationFolders,
+  };
+  const folderByVaultId = new Map(
+    organizationAssignments.map((assignment) => [assignment.vaultId, assignment.folderId]),
+  );
+  const vaultsByFolderId = new Map<Id<"ui_vaultFolders">, UserVaultResult[]>();
+  for (const folder of organizationFolders) {
+    vaultsByFolderId.set(folder._id, []);
+  }
+  const unfiledVaults: UserVaultResult[] = [];
+  for (const vault of vaults) {
+    const folderId = folderByVaultId.get(vault._id);
+    const folderVaults = folderId ? vaultsByFolderId.get(folderId) : undefined;
+    if (folderVaults) {
+      folderVaults.push(vault);
+    } else {
+      unfiledVaults.push(vault);
+    }
+  }
+
+  function runDirectAction(action: () => Promise<unknown>) {
+    if (directActionPending.current) {
+      return;
+    }
+
+    directActionPending.current = true;
+    setPendingAction("updating");
+    void action()
+      .catch((error: unknown) => {
+        toast({
+          description: error instanceof Error ? error.message : "Try again.",
+          title: "Could not update vault folders",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        directActionPending.current = false;
+        setPendingAction(null);
+      });
+  }
+
+  function renderVault(vault: UserVaultResult, inFolder: boolean) {
+    return (
+      <VaultRow
+        folderState={organizationFolderState}
+        inFolder={inFolder}
+        key={vault._id}
+        pending={pendingAction !== null}
+        page={page}
+        selected={vault._id === selectedVaultId}
+        sidebarSummaries={sidebarSummaries}
+        showOwner={showOwner}
+        summary={summaryByVaultId.get(vault._id)}
+        vault={vault}
+        workspace={workspace}
+        onMoveVaultToFolder={onMoveVaultToFolder}
+        onDirectAction={runDirectAction}
+      />
+    );
+  }
 
   return (
-    <nav aria-label="Vaults" className="@container min-h-full py-2">
-      {vaults.map((vault) => (
-        <VaultRow
-          key={vault._id}
-          page={page}
-          selected={vault._id === selectedVaultId}
-          sidebarSummaries={sidebarSummaries}
-          summary={summaryByVaultId.get(vault._id)}
-          vault={vault}
-          workspace={workspace}
-          showOwner
+    <>
+      <div className="@container min-h-full py-2">
+        {organizationFolders.length === 0 ? (
+          vaults.map((vault) => renderVault(vault, false))
+        ) : (
+          <>
+            {unfiledVaults.map((vault) => renderVault(vault, false))}
+            {organizationFolders.map((folder, index) => {
+              const folderVaults = vaultsByFolderId.get(folder._id) ?? [];
+              const selectedVault = folderVaults.find((vault) => vault._id === selectedVaultId);
+              const visibleVaults = folder.collapsed ? [] : folderVaults;
+              const hasHiddenFailure =
+                folder.collapsed &&
+                folderVaults.some(
+                  (vault) =>
+                    vaultSidebarStatus({
+                      selected: vault._id === selectedVaultId,
+                      sidebarSummaries,
+                      summary: summaryByVaultId.get(vault._id),
+                      vault,
+                      workspace,
+                    }).kind === "failure",
+                );
+              const disclosureLabel = folder.collapsed
+                ? `Expand ${folder.name}, ${folderVaults.length} ${
+                    folderVaults.length === 1 ? "vault" : "vaults"
+                  }${hasHiddenFailure ? ", has hidden failures" : ""}`
+                : `Collapse ${folder.name}`;
+
+              return (
+                <section
+                  key={folder._id}
+                  aria-label={
+                    folder.collapsed && selectedVault
+                      ? `${folder.name}, contains current vault`
+                      : folder.name
+                  }
+                >
+                  <div
+                    className={
+                      folder.collapsed && selectedVault
+                        ? "flex min-w-0 items-center bg-muted px-1 py-1"
+                        : "flex min-w-0 items-center px-1 py-1"
+                    }
+                  >
+                    <Button
+                      aria-expanded={!folder.collapsed}
+                      aria-label={disclosureLabel}
+                      className="h-10 min-w-0 flex-1 shrink justify-start gap-0 p-0 font-normal whitespace-normal aria-expanded:bg-transparent @max-[120px]:h-8"
+                      disabled={pendingAction !== null}
+                      type="button"
+                      variant="ghost"
+                      onClick={() =>
+                        runDirectAction(() =>
+                          onSetVaultFolderCollapsed({
+                            collapsed: !folder.collapsed,
+                            folderId: folder._id,
+                          }),
+                        )
+                      }
+                    >
+                      <span className="flex w-5 shrink-0 items-center justify-center @max-[120px]:w-4">
+                        {folder.collapsed ? <ChevronRight /> : <ChevronDown />}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-left text-sm font-medium">
+                        {folder.name}
+                      </span>
+                      <span className="px-2 text-xs text-muted-foreground @max-[120px]:hidden">
+                        {folderVaults.length}
+                      </span>
+                      {hasHiddenFailure ? (
+                        <span aria-hidden="true" className="h-2 w-2 rounded-full bg-red-500" />
+                      ) : null}
+                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild nativeButton>
+                        <Button
+                          aria-label={`Actions for folder ${folder.name}`}
+                          className="h-10 w-8 @max-[120px]:h-8 @max-[120px]:w-7"
+                          disabled={pendingAction !== null}
+                          size="icon"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <EllipsisVertical />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-40">
+                        <DropdownMenuItem
+                          disabled={pendingAction !== null}
+                          onClick={() => setDialog({ folder, kind: "rename" })}
+                        >
+                          Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={index === 0 || pendingAction !== null}
+                          onClick={() =>
+                            runDirectAction(() =>
+                              onMoveVaultFolder({ direction: "up", folderId: folder._id }),
+                            )
+                          }
+                        >
+                          Move up
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          disabled={
+                            index === organizationFolders.length - 1 || pendingAction !== null
+                          }
+                          onClick={() =>
+                            runDirectAction(() =>
+                              onMoveVaultFolder({ direction: "down", folderId: folder._id }),
+                            )
+                          }
+                        >
+                          Move down
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          disabled={pendingAction !== null}
+                          onClick={() =>
+                            setDialog({ folder, kind: "delete", vaultCount: folderVaults.length })
+                          }
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  {visibleVaults.map((vault) => renderVault(vault, true))}
+                </section>
+              );
+            })}
+          </>
+        )}
+      </div>
+      {dialog?.kind === "rename" ? (
+        <VaultFolderDialog
+          folderName={dialog.folder.name}
+          kind="rename"
+          onOpenChange={(open) => {
+            if (!open) {
+              setDialog(null);
+            }
+          }}
+          onRename={(name) => onRenameVaultFolder({ folderId: dialog.folder._id, name })}
         />
-      ))}
-    </nav>
+      ) : null}
+      {dialog?.kind === "delete" ? (
+        <VaultFolderDialog
+          folderName={dialog.folder.name}
+          kind="delete"
+          vaultCount={dialog.vaultCount}
+          onDelete={() => onDeleteVaultFolder({ folderId: dialog.folder._id })}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDialog(null);
+            }
+          }}
+        />
+      ) : null}
+    </>
   );
 }
 
 export function VaultOverviewOrganizationSidebar({
+  folderState,
   organizations,
+  onCreateVaultFolder,
+  onDeleteVaultFolder,
+  onMoveVaultFolder,
+  onMoveVaultToFolder,
+  onRenameVaultFolder,
+  onSetVaultFolderCollapsed,
   page,
   selectedVaultId,
   sidebarSummaries,
   vaults,
   workspace,
 }: {
+  folderState: VaultFolderState;
   organizations: readonly VaultOrganization[];
+  onCreateVaultFolder: VaultFolderCreate;
   page: VaultOverviewPageKind;
   selectedVaultId: UserVaultResult["_id"] | null;
   sidebarSummaries: VaultSidebarSummariesState;
   vaults: readonly UserVaultResult[];
   workspace: VaultWorkspaceSelected | null;
-}) {
+} & VaultFolderCallbacks) {
   const selectedOrganizationId = vaults.find(
     (vault) => vault._id === selectedVaultId,
   )?.organizationId;
-  const summaryByVaultId = new Map(
-    sidebarSummaries.state === "loaded"
-      ? sidebarSummaries.summaries.map((summary) => [summary.vaultId, summary])
-      : [],
-  );
 
   return (
     <nav aria-label="Vaults" className="@container min-h-full py-2">
@@ -223,39 +553,52 @@ export function VaultOverviewOrganizationSidebar({
         const organizationVaults = vaults.filter(
           (vault) => vault.organizationId === organization.organizationId,
         );
+        const organizationHasFolders = folderState.folders.some(
+          (folder) => folder.organizationId === organization.organizationId,
+        );
         const selected = organization.organizationId === selectedOrganizationId;
 
         return (
           <Collapsible key={`${organization.organizationId}:${selected}`} defaultOpen={selected}>
-            <CollapsibleTrigger
-              className="flex w-full min-w-0 items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-muted/60 @max-[200px]:px-2 @max-[120px]:px-1 [&[data-state=open]>svg]:rotate-180"
-              nativeButton
-              type="button"
-            >
-              <span className="min-w-0 truncate">{organization.githubOwnerLogin}</span>
-              <ChevronDownIcon
-                aria-hidden="true"
-                className="h-3.5 w-3.5 shrink-0 transition-transform"
+            <div className="flex min-w-0 items-center">
+              <CollapsibleTrigger
+                className="flex min-w-0 flex-1 items-center justify-between gap-2 py-2 pr-1 pl-3 text-left text-sm font-medium text-foreground hover:bg-muted/60 @max-[200px]:pl-2 @max-[120px]:pl-1 [&[data-state=open]>svg]:rotate-180"
+                nativeButton
+                type="button"
+              >
+                <span className="min-w-0 truncate">{organization.githubOwnerLogin}</span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5 shrink-0 transition-transform"
+                />
+              </CollapsibleTrigger>
+              <VaultFolderCreateButton
+                organizationId={organization.organizationId}
+                organizationName={organization.githubOwnerLogin}
+                onCreateVaultFolder={onCreateVaultFolder}
               />
-            </CollapsibleTrigger>
+            </div>
             <CollapsibleContent>
-              {organizationVaults.length === 0 ? (
+              {organizationVaults.length === 0 && !organizationHasFolders ? (
                 <p className="px-3 py-2 text-sm text-muted-foreground @max-[200px]:px-2 @max-[120px]:px-1">
                   No vaults
                 </p>
               ) : (
-                organizationVaults.map((vault) => (
-                  <VaultRow
-                    key={vault._id}
-                    page={page}
-                    selected={vault._id === selectedVaultId}
-                    sidebarSummaries={sidebarSummaries}
-                    summary={summaryByVaultId.get(vault._id)}
-                    vault={vault}
-                    workspace={workspace}
-                    showOwner={false}
-                  />
-                ))
+                <VaultOverviewSidebar
+                  folderState={folderState}
+                  organizationId={organization.organizationId}
+                  page={page}
+                  selectedVaultId={selectedVaultId}
+                  showOwner={false}
+                  sidebarSummaries={sidebarSummaries}
+                  vaults={organizationVaults}
+                  workspace={workspace}
+                  onDeleteVaultFolder={onDeleteVaultFolder}
+                  onMoveVaultFolder={onMoveVaultFolder}
+                  onMoveVaultToFolder={onMoveVaultToFolder}
+                  onRenameVaultFolder={onRenameVaultFolder}
+                  onSetVaultFolderCollapsed={onSetVaultFolderCollapsed}
+                />
               )}
             </CollapsibleContent>
           </Collapsible>

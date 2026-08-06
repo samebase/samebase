@@ -5,12 +5,16 @@ import {
   VaultOverviewPage,
 } from "@/components/vault-dashboard/VaultOverviewPage";
 import {
+  type VaultFolderCallbacks,
   VaultOverviewOrganizationSidebar,
   VaultOverviewSidebarLoading,
 } from "@/components/vault-dashboard/VaultOverviewSidebar";
 import { buildProductionEnvironmentRoots } from "@/components/vault-dashboard/vaultEnvironmentRoots";
 import { buildVaultRepositorySettingsState } from "@/components/vault-dashboard/vaultRepositorySettingsState";
-import type { VaultWorkspaceSelected } from "@/components/vault-dashboard/vaultWorkspaceModel";
+import type {
+  VaultFolderState,
+  VaultWorkspaceSelected,
+} from "@/components/vault-dashboard/vaultWorkspaceModel";
 import {
   type VaultOrganization,
   VaultOverviewVaultListHeader,
@@ -78,6 +82,12 @@ function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
 }
 
 function fakeOrganizationId(value: string): Id<"organizations"> {
+  // @ts-expect-error Convex ids are strings at runtime; this fixture only
+  // needs a stable value for static rendering.
+  return value;
+}
+
+function fakeFolderId(value: string): Id<"ui_vaultFolders"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
   return value;
@@ -270,6 +280,46 @@ const SIDEBAR_LIST_VAULTS = [
     repositoryFullName: "noter/guestbook",
   },
 ] satisfies UserVaultResult[];
+
+const FIXTURE_FOLDER_CALLBACKS = {
+  onDeleteVaultFolder: async () => {},
+  onMoveVaultFolder: async () => {},
+  onMoveVaultToFolder: async () => {},
+  onRenameVaultFolder: async () => {},
+  onSetVaultFolderCollapsed: async () => {},
+} satisfies VaultFolderCallbacks;
+
+const VISUAL_PRODUCTS_FOLDER_ID = fakeFolderId("folder-products");
+const VISUAL_FOLDER_STATE = {
+  assignments: [
+    {
+      folderId: VISUAL_PRODUCTS_FOLDER_ID,
+      vaultId: SIDEBAR_LIST_SELECTED_VAULT_ID,
+    },
+  ],
+  folders: [
+    {
+      _id: VISUAL_PRODUCTS_FOLDER_ID,
+      collapsed: false,
+      name: "Products",
+      organizationId: VISUAL_ORGANIZATION_ID,
+      position: 0,
+    },
+    {
+      _id: fakeFolderId("folder-archive"),
+      collapsed: false,
+      name: "Archive",
+      organizationId: VISUAL_ORGANIZATION_ID,
+      position: 1,
+    },
+  ],
+} satisfies VaultFolderState;
+
+const FIXTURE_VAULT_FOLDER_PROPS = {
+  ...FIXTURE_FOLDER_CALLBACKS,
+  folderState: VISUAL_FOLDER_STATE,
+  onCreateVaultFolder: async () => {},
+};
 
 const VISUAL_ORGANIZATIONS = [
   {
@@ -1002,6 +1052,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
           header: <VaultOverviewVaultListHeader />,
           content: (
             <VaultOverviewOrganizationSidebar
+              {...FIXTURE_VAULT_FOLDER_PROPS}
               organizations={[PROVISIONING_ORGANIZATION]}
               page="overview"
               selectedVaultId={vault._id}
@@ -1129,6 +1180,7 @@ function VaultOverviewProviderSettingsFixture({
           header: <VaultOverviewVaultListHeader />,
           content: (
             <VaultOverviewOrganizationSidebar
+              {...FIXTURE_VAULT_FOLDER_PROPS}
               organizations={[PROVISIONING_ORGANIZATION]}
               page="settings"
               selectedVaultId={vault._id}
@@ -1203,6 +1255,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
           main={{
             content: (
               <VaultOverviewVaultPickerPane
+                {...FIXTURE_VAULT_FOLDER_PROPS}
                 globalInventory
                 organizations={VISUAL_ORGANIZATIONS}
                 sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}
@@ -1282,6 +1335,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
         header: <VaultOverviewVaultListHeader />,
         content: (
           <VaultOverviewOrganizationSidebar
+            {...FIXTURE_VAULT_FOLDER_PROPS}
             organizations={VISUAL_ORGANIZATIONS}
             page={page}
             selectedVaultId={LIST_SPACING_VAULT_ID}

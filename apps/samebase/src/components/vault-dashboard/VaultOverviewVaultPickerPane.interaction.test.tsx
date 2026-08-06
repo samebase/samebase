@@ -37,8 +37,15 @@ describe("VaultOverviewVaultPickerPane organization setup", () => {
         root.render(
           <TestRouterProvider initialEntries={["/vault"]}>
             <VaultOverviewVaultPickerPane
+              folderState={{ assignments: [], folders: [] }}
               globalInventory
               organizations={[]}
+              onCreateVaultFolder={async () => {}}
+              onDeleteVaultFolder={async () => {}}
+              onMoveVaultFolder={async () => {}}
+              onMoveVaultToFolder={async () => {}}
+              onRenameVaultFolder={async () => {}}
+              onSetVaultFolderCollapsed={async () => {}}
               sidebarSummaries={{ state: "loaded", summaries: [] }}
               vaults={[]}
             />

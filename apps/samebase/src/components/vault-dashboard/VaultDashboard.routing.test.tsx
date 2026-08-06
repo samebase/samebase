@@ -12,6 +12,13 @@ import { VaultDashboard } from "./VaultDashboard";
 const workspaceModelMock = vi.hoisted(() => vi.fn());
 const vaultPickerMock = vi.hoisted(() => vi.fn(() => null));
 
+vi.mock("convex/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("convex/react")>();
+  return {
+    ...actual,
+    useMutation: () => vi.fn(),
+  };
+});
 vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({ children }: { children?: ReactNode }) => children ?? null,
 }));
@@ -111,6 +118,7 @@ describe("VaultDashboard dialog route cleanup", () => {
         },
   ) {
     workspaceModelMock.mockReturnValue({
+      folderState: { assignments: [], folders: [] },
       organizations: [],
       state: "ready",
       selection,
@@ -141,6 +149,7 @@ describe("VaultDashboard dialog route cleanup", () => {
 
   it("passes the global organization inventory to the root vault picker", async () => {
     workspaceModelMock.mockReturnValue({
+      folderState: { assignments: [], folders: [] },
       organizations: [],
       selection: { state: "root" },
       sidebarSummaries: { state: "loaded", summaries: [] },

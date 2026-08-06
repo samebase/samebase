@@ -7,8 +7,25 @@ import { describe, expect, it } from "vite-plus/test";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import type { VaultOrganization } from "./vaultWorkspaceModel";
-import { VaultOverviewOrganizationSidebar, VaultOverviewSidebar } from "./VaultOverviewSidebar";
+import type { VaultFolderState, VaultOrganization } from "./vaultWorkspaceModel";
+import {
+  type VaultFolderCallbacks,
+  VaultOverviewOrganizationSidebar,
+  VaultOverviewSidebar,
+} from "./VaultOverviewSidebar";
+
+const FOLDER_CALLBACKS = {
+  onDeleteVaultFolder: async () => {},
+  onMoveVaultFolder: async () => {},
+  onMoveVaultToFolder: async () => {},
+  onRenameVaultFolder: async () => {},
+  onSetVaultFolderCollapsed: async () => {},
+} satisfies VaultFolderCallbacks;
+
+const EMPTY_FOLDER_STATE = {
+  assignments: [],
+  folders: [],
+} satisfies VaultFolderState;
 
 function fakeVaultId(value: string): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; static rendering only needs stable ids.
@@ -17,6 +34,11 @@ function fakeVaultId(value: string): Id<"vaults"> {
 
 function fakeOrganizationId(value = "organization-samebase"): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; static rendering only needs a stable id.
+  return value;
+}
+
+function fakeFolderId(value: string): Id<"ui_vaultFolders"> {
+  // @ts-expect-error Convex ids are strings at runtime; static rendering only needs stable ids.
   return value;
 }
 
@@ -65,12 +87,16 @@ function organization(
 }
 
 describe("VaultOverviewSidebar", () => {
-  it("keeps the supplied vault order and has no personal folder controls", () => {
+  it("keeps the supplied vault order when the organization has no folders", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/samebase/active"]}>
         <VaultOverviewSidebar
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
+          organizationId={fakeOrganizationId()}
           page="overview"
           selectedVaultId={null}
+          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[
             vault("second", fakeVaultId("vault-second")),
@@ -84,7 +110,49 @@ describe("VaultOverviewSidebar", () => {
     expect(markup.indexOf("samebase/second")).toBeLessThan(markup.indexOf("samebase/first"));
     expect(markup).not.toContain("New folder");
     expect(markup).not.toContain("Move to folder");
-    expect(markup).not.toContain("Ungrouped");
+    expect(markup).not.toContain("Unfiled");
+  });
+
+  it("shows empty folders only in their organization", () => {
+    const samebaseOrganizationId = fakeOrganizationId();
+    const otherOrganizationId = fakeOrganizationId("organization-other");
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault"]}>
+        <VaultOverviewSidebar
+          {...FOLDER_CALLBACKS}
+          folderState={{
+            assignments: [],
+            folders: [
+              {
+                _id: fakeFolderId("folder-fixtures"),
+                collapsed: false,
+                name: "Fixtures",
+                organizationId: samebaseOrganizationId,
+                position: 0,
+              },
+              {
+                _id: fakeFolderId("folder-private"),
+                collapsed: false,
+                name: "Private",
+                organizationId: otherOrganizationId,
+                position: 0,
+              },
+            ],
+          }}
+          organizationId={samebaseOrganizationId}
+          page="overview"
+          selectedVaultId={null}
+          showOwner
+          sidebarSummaries={{ state: "loading" }}
+          vaults={[]}
+          workspace={null}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('aria-label="Collapse Fixtures"');
+    expect(markup).toContain("Fixtures");
+    expect(markup).not.toContain("Private");
   });
 
   it("marks the selected vault without hiding it", () => {
@@ -92,8 +160,12 @@ describe("VaultOverviewSidebar", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/samebase/active"]}>
         <VaultOverviewSidebar
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
+          organizationId={selectedVault.organizationId}
           page="overview"
           selectedVaultId={selectedVault._id}
+          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[selectedVault]}
           workspace={null}
@@ -129,7 +201,10 @@ describe("VaultOverviewSidebar", () => {
       return (
         <TestRouterProvider initialEntries={["/vault/samebase/active"]}>
           <VaultOverviewOrganizationSidebar
+            {...FOLDER_CALLBACKS}
+            folderState={EMPTY_FOLDER_STATE}
             organizations={organizations}
+            onCreateVaultFolder={async () => {}}
             page="overview"
             selectedVaultId={selectedVaultId}
             sidebarSummaries={{ state: "loading" }}
@@ -143,7 +218,9 @@ describe("VaultOverviewSidebar", () => {
     try {
       await act(async () => root.render(<Sidebar selectedVaultId={selectedVault._id} />));
 
-      const initialOrganizationButtons = Array.from(rootElement.querySelectorAll("button"));
+      const initialOrganizationButtons = Array.from(
+        rootElement.querySelectorAll<HTMLButtonElement>("button[aria-expanded]"),
+      );
       expect(initialOrganizationButtons.map((button) => button.textContent)).toEqual([
         "empty-owner",
         "noter",
@@ -160,7 +237,9 @@ describe("VaultOverviewSidebar", () => {
 
       await act(async () => root.render(<Sidebar selectedVaultId={guestbookVault._id} />));
 
-      const changedOrganizationButtons = Array.from(rootElement.querySelectorAll("button"));
+      const changedOrganizationButtons = Array.from(
+        rootElement.querySelectorAll<HTMLButtonElement>("button[aria-expanded]"),
+      );
       expect(
         changedOrganizationButtons.map((button) => button.getAttribute("aria-expanded")),
       ).toEqual(["false", "true", "false"]);
