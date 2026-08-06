@@ -1252,7 +1252,7 @@ describe("VaultOverviewVaultPickerPane", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain("Vaults");
+    expect(markup).toContain('<nav aria-label="Vaults"');
     expect(markup).toContain('href="/org/ada/vaults"');
     expect(markup).toContain("ada/");
     expect(markup).toContain("demo");
@@ -1470,6 +1470,7 @@ describe("VaultOverviewVaultPickerPane", () => {
     expect(emptyMarkup).toContain("Install the Samebase GitHub App for a repository owner.");
     expect(emptyMarkup).toContain("Install GitHub App");
     expect(emptyOrganizationMarkup).toContain("ada");
+    expect(emptyOrganizationMarkup).toContain('<nav aria-label="Vaults"');
     expect(emptyOrganizationMarkup).toContain("No vaults");
     expect(emptyOrganizationMarkup).not.toContain("Install GitHub App");
   });

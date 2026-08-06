@@ -103,7 +103,7 @@ export function VaultOverviewVaultPickerPane({
       ) : organizations.length === 0 ? (
         <div className="p-4 text-sm text-muted-foreground">No vaults</div>
       ) : (
-        <div className="grid gap-6 p-4">
+        <nav aria-label="Vaults" className="grid gap-6 p-4">
           {organizations.map((organization) => {
             const organizationVaults =
               vaultsByOrganizationId.get(organization.organizationId) ?? [];
@@ -151,7 +151,7 @@ export function VaultOverviewVaultPickerPane({
               </section>
             );
           })}
-        </div>
+        </nav>
       )}
     </div>
   );
