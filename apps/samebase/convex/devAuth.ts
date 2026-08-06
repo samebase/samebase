@@ -275,6 +275,7 @@ export const seedOrganizationWithProviderConnections = internalMutation({
           organizationId: organization.organizationId,
           connectedByUserId: args.userId,
           providerConnectionId: existingConnection._id,
+          expectedAuth: existingConnection.auth,
           connection,
         });
       }
@@ -309,6 +310,7 @@ export const seedOrganizationWithProviderConnections = internalMutation({
           organizationId: organization.organizationId,
           connectedByUserId: args.userId,
           providerConnectionId: existingConnection._id,
+          expectedAuth: existingConnection.auth,
           connection,
         });
       }

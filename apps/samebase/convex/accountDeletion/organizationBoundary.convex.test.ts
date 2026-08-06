@@ -43,6 +43,18 @@ async function seedRunningDeletion() {
       userId: teammateUserId,
       role: "owner",
     });
+    const teammateOrganizationId = await ctx.db.insert("organizations", {
+      githubOwnerId: "502",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "teammate-example",
+      githubOwnerLoginNormalized: "teammate-example",
+      githubInstallationId: "602",
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId: teammateOrganizationId,
+      userId: teammateUserId,
+      role: "owner",
+    });
     const organizationBillingId = await ctx.db.insert("organizationBillingAccounts", {
       organizationId,
       plan: "free",
@@ -113,7 +125,7 @@ async function seedRunningDeletion() {
     });
     const teammateConnectionId = await ctx.db.insert("providerConnections", {
       kind: "convex",
-      organizationId,
+      organizationId: teammateOrganizationId,
       connectedByUserId: teammateUserId,
       auth: { method: "api_key", credential: "teammate-token" },
       teamId: "teammate-team",

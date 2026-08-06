@@ -12,11 +12,14 @@ import {
   vCloudflareProviderAuth,
   vCloudflareProviderConnection,
   vConvexProviderConnection,
+  vProviderAuth,
   vProviderKind,
   vStandardProviderAuth,
+  providerAuthMatches,
   type ProviderConnection,
   type ProviderKind,
 } from "./providerConnectionModel";
+import { assertProviderTargetCanBeEstablished } from "./providerConnectionTargetSafety";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
@@ -51,6 +54,31 @@ const vCloudflareConnectionWrite = object({
 });
 const vConnectionWrite = union(vConvexConnectionWrite, vCloudflareConnectionWrite);
 type ConnectionWrite = Infer<typeof vConnectionWrite>;
+
+async function assertConnectionTargetCanBeEstablished(
+  db: DatabaseReader,
+  args: { organizationId: Id<"organizations">; connection: ConnectionWrite },
+): Promise<void> {
+  switch (args.connection.kind) {
+    case "convex":
+      await assertProviderTargetCanBeEstablished(db, {
+        organizationId: args.organizationId,
+        target: { kind: "convex", teamId: args.connection.teamId },
+      });
+      return;
+    case "cloudflare":
+      if (args.connection.defaultAccount.state === "selected") {
+        await assertProviderTargetCanBeEstablished(db, {
+          organizationId: args.organizationId,
+          target: {
+            kind: "cloudflare",
+            accountId: args.connection.defaultAccount.accountId,
+          },
+        });
+      }
+      return;
+  }
+}
 
 async function requireActiveOrganizationConnectionMember(
   db: DatabaseReader,
@@ -302,6 +330,7 @@ export const createConnected = internalMutation({
     if (existing !== null) {
       throw new Error("Provider connection already exists. Reauthorize it instead.");
     }
+    await assertConnectionTargetCanBeEstablished(ctx.db, args);
     const now = Date.now();
     return await ctx.db.insert(
       "providerConnections",
@@ -315,6 +344,7 @@ export const reauthorizeConnected = internalMutation({
     organizationId: id("organizations"),
     connectedByUserId: id("users"),
     providerConnectionId: id("providerConnections"),
+    expectedAuth: vProviderAuth,
     connection: vConnectionWrite,
   },
   returns: id("providerConnections"),
@@ -331,12 +361,27 @@ export const reauthorizeConnected = internalMutation({
     if (existing === null) {
       throw new Error("Provider connection not found.");
     }
+    if (!providerAuthMatches(existing.auth, args.expectedAuth)) {
+      throw new Error("Provider connection changed before reauthorization completed.");
+    }
+    const replacement = resolveReplacementConnection(existing, args.connection);
+    if (
+      existing.kind === "cloudflare" &&
+      existing.defaultAccount.state === "not_selected" &&
+      replacement.kind === "cloudflare" &&
+      replacement.defaultAccount.state === "selected"
+    ) {
+      await assertConnectionTargetCanBeEstablished(ctx.db, {
+        organizationId: args.organizationId,
+        connection: replacement,
+      });
+    }
     await ctx.db.replace(
       existing._id,
       buildProviderConnection({
         organizationId: existing.organizationId,
         connectedByUserId: args.connectedByUserId,
-        connection: resolveReplacementConnection(existing, args.connection),
+        connection: replacement,
         createdAt: existing.createdAt,
         updatedAt: Date.now(),
       }),
@@ -377,12 +422,13 @@ export const updateCloudflareConnected = internalMutation({
     organizationId: id("organizations"),
     userId: id("users"),
     providerConnectionId: id("providerConnections"),
-    expectedCredential: string(),
+    expectedAuth: vCloudflareProviderAuth,
     auth: vCloudflareProviderAuth,
     defaultAccount: vCloudflareDefaultAccount,
     tokenHealth: optional(vMcpTokenHealth),
     tokenRefreshStartedAt: optional(number()),
     lastTokenRefreshAt: optional(number()),
+    expectedTokenRefreshStartedAt: optional(number()),
   },
   returns: vNull(),
   handler: async (ctx, args) => {
@@ -395,8 +441,14 @@ export const updateCloudflareConnected = internalMutation({
     if (connection?.kind !== "cloudflare") {
       throw new Error("Cloudflare connection not found.");
     }
-    if (connection.auth.credential !== args.expectedCredential) {
+    if (!providerAuthMatches(connection.auth, args.expectedAuth)) {
       throw new Error("Cloudflare connection changed before the update completed.");
+    }
+    if (
+      args.expectedTokenRefreshStartedAt !== undefined &&
+      connection.tokenRefreshStartedAt !== args.expectedTokenRefreshStartedAt
+    ) {
+      throw new Error("Cloudflare token refresh lease changed before the update completed.");
     }
     const defaultAccount = resolveCloudflareDefaultAccount(
       connection.defaultAccount,
@@ -407,6 +459,16 @@ export const updateCloudflareConnected = internalMutation({
       (connection.defaultAccount.state === "selected" &&
         defaultAccount.state === "selected" &&
         connection.defaultAccount.accountId !== defaultAccount.accountId);
+    if (connection.defaultAccount.state === "not_selected" && defaultAccount.state === "selected") {
+      await assertConnectionTargetCanBeEstablished(ctx.db, {
+        organizationId: args.organizationId,
+        connection: {
+          kind: "cloudflare",
+          auth: args.auth,
+          defaultAccount,
+        },
+      });
+    }
     if (defaultAccountChanged) {
       if (membership.role !== "owner") {
         throw new Error("Organization owner access is required.");
@@ -455,13 +517,20 @@ export const claimCloudflareTokenRefresh = internalMutation({
     organizationId: id("organizations"),
     userId: id("users"),
     providerConnectionId: id("providerConnections"),
+    expectedAuth: vCloudflareProviderAuth,
     force: optional(boolean()),
     debounceMs: optional(number()),
   },
-  returns: object({
-    claimed: boolean(),
-    nextAllowedRefreshAt: optional(number()),
-  }),
+  returns: union(
+    object({
+      claimed: literal(true),
+      tokenRefreshStartedAt: number(),
+    }),
+    object({
+      claimed: literal(false),
+      nextAllowedRefreshAt: optional(number()),
+    }),
+  ),
   handler: async (ctx, args) => {
     await requireActiveOrganizationConnectionMember(ctx.db, args);
     const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
@@ -469,8 +538,14 @@ export const claimCloudflareTokenRefresh = internalMutation({
       providerConnectionId: args.providerConnectionId,
       kind: "cloudflare",
     });
-    if (connection?.kind !== "cloudflare" || connection.auth.method !== "mcp_oauth") {
-      return { claimed: false };
+    if (connection?.kind !== "cloudflare") {
+      return { claimed: false as const };
+    }
+    if (!providerAuthMatches(connection.auth, args.expectedAuth)) {
+      throw new Error("Cloudflare connection changed before token refresh claim.");
+    }
+    if (connection.auth.method !== "oauth" && connection.auth.method !== "mcp_oauth") {
+      return { claimed: false as const };
     }
     const now = Date.now();
     const debounceMs =
@@ -482,7 +557,7 @@ export const claimCloudflareTokenRefresh = internalMutation({
       now - connection.tokenRefreshStartedAt < CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS
     ) {
       return {
-        claimed: false,
+        claimed: false as const,
         nextAllowedRefreshAt:
           connection.tokenRefreshStartedAt + CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
       };
@@ -493,12 +568,12 @@ export const claimCloudflareTokenRefresh = internalMutation({
       now - connection.lastTokenRefreshAt < debounceMs
     ) {
       return {
-        claimed: false,
+        claimed: false as const,
         nextAllowedRefreshAt: connection.lastTokenRefreshAt + debounceMs,
       };
     }
     await ctx.db.patch(connection._id, { tokenRefreshStartedAt: now, updatedAt: now });
-    return { claimed: true };
+    return { claimed: true as const, tokenRefreshStartedAt: now };
   },
 });
 
@@ -507,6 +582,8 @@ export const releaseCloudflareTokenRefresh = internalMutation({
     organizationId: id("organizations"),
     userId: id("users"),
     providerConnectionId: id("providerConnections"),
+    expectedAuth: vCloudflareProviderAuth,
+    expectedTokenRefreshStartedAt: number(),
     recordLastTokenRefreshAt: optional(boolean()),
   },
   returns: object({
@@ -519,8 +596,17 @@ export const releaseCloudflareTokenRefresh = internalMutation({
       providerConnectionId: args.providerConnectionId,
       kind: "cloudflare",
     });
-    if (connection?.kind !== "cloudflare" || connection.auth.method !== "mcp_oauth") {
+    if (connection?.kind !== "cloudflare") {
       return {};
+    }
+    if (!providerAuthMatches(connection.auth, args.expectedAuth)) {
+      throw new Error("Cloudflare connection changed before token refresh release.");
+    }
+    if (connection.auth.method !== "oauth" && connection.auth.method !== "mcp_oauth") {
+      return {};
+    }
+    if (connection.tokenRefreshStartedAt !== args.expectedTokenRefreshStartedAt) {
+      throw new Error("Cloudflare token refresh lease changed before release.");
     }
     const now = Date.now();
     await ctx.db.patch(connection._id, {

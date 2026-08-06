@@ -32,6 +32,7 @@ import {
 } from "./cloudflareResources";
 import {
   normalizeCloudflareAccounts,
+  resolveCloudflareAccountAfterAuthorization,
   selectSingleCloudflareDefaultAccount,
 } from "./cloudflareAccountDiscovery";
 import { isRecord } from "./jsonUtils";
@@ -2186,6 +2187,32 @@ describe("cloudflare resources", () => {
     ).toEqual({
       state: "not_selected",
     });
+  });
+
+  it("keeps the connected account only when a replacement grant can access it", () => {
+    const accounts = normalizeCloudflareAccounts([
+      { id: "account-a", name: "Account A renamed" },
+      { id: "account-b", name: "Account B" },
+    ]);
+
+    expect(
+      resolveCloudflareAccountAfterAuthorization(accounts, {
+        state: "selected",
+        accountId: "account-a",
+        accountName: "Account A",
+      }),
+    ).toEqual({
+      state: "selected",
+      accountId: "account-a",
+      accountName: "Account A renamed",
+    });
+    expect(() =>
+      resolveCloudflareAccountAfterAuthorization(accounts, {
+        state: "selected",
+        accountId: "account-missing",
+        accountName: "Missing account",
+      }),
+    ).toThrow("The new Cloudflare authorization cannot access the connected account.");
   });
 
   it("selects the build token backed by the current Cloudflare token", () => {

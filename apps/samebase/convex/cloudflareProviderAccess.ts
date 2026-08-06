@@ -133,14 +133,17 @@ export const checkCloudflareConnectionAccess = action({
         organizationId: args.organizationId,
       },
     );
-    const providerConnection = await ctx.runQuery(
-      internal.providerConnections.loadForOrganization,
-      {
+    const [providerConnection, role] = await Promise.all([
+      ctx.runQuery(internal.providerConnections.loadForOrganization, {
         organizationId,
         userId: ctx.viewer.userId,
         kind: "cloudflare",
-      },
-    );
+      }),
+      ctx.runQuery(internal.organizationAccess.requireOrganizationRoleForUser, {
+        organizationId,
+        userId: ctx.viewer.userId,
+      }),
+    ]);
     const connection =
       providerConnection?.kind === "cloudflare"
         ? await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
@@ -203,30 +206,50 @@ export const checkCloudflareConnectionAccess = action({
       );
     }
 
-    const accountsProbe = await runCloudflareProbe({
-      key: "accounts",
-      label: "Accounts",
-      run: async () => {
-        return listCloudflareAccountsForToken({
-          token,
-          transport,
-          perPage: 100,
-        });
-      },
-      describe: (accounts) => {
-        if (accounts.length === 0) {
-          return "Probe GET /accounts succeeded and returned no visible accounts.";
-        }
-        if (accounts.length === 1) {
-          return `Probe GET /accounts returned 1 visible account: ${accounts[0].accountName}.`;
-        }
-        return `Probe GET /accounts returned ${accounts.length} visible accounts.`;
-      },
-    });
+    const selectedAccount = readSelectedCloudflareAccount(resolvedConnection.defaultAccount);
+    const accountsProbe: CloudflareProbeResult<CloudflareAccount[]> =
+      selectedAccount === null && role !== "owner"
+        ? {
+            state: "ok",
+            value: [],
+            check: {
+              key: "accounts",
+              label: "Accounts",
+              status: "unknown",
+              message: "Cloudflare account selection is pending for an organization owner.",
+            },
+          }
+        : await runCloudflareProbe({
+            key: "accounts",
+            label: "Accounts",
+            run: async () => {
+              const accounts = await listCloudflareAccountsForToken({
+                token,
+                transport,
+                perPage: 100,
+              });
+              return selectedAccount === null
+                ? accounts
+                : accounts.filter((account) => account.accountId === selectedAccount.accountId);
+            },
+            describe: (accounts) => {
+              if (accounts.length === 0) {
+                return selectedAccount === null
+                  ? "Probe GET /accounts succeeded and returned no visible accounts."
+                  : "The connected Cloudflare account is not visible to this credential.";
+              }
+              if (selectedAccount !== null) {
+                return `Probe GET /accounts confirmed the connected account: ${accounts[0].accountName}.`;
+              }
+              if (accounts.length === 1) {
+                return `Probe GET /accounts returned 1 visible account: ${accounts[0].accountName}.`;
+              }
+              return `Probe GET /accounts returned ${accounts.length} visible accounts.`;
+            },
+          });
     checks.push(accountsProbe.check);
 
     const visibleAccounts = accountsProbe.state === "ok" ? accountsProbe.value : [];
-    const selectedAccount = readSelectedCloudflareAccount(resolvedConnection.defaultAccount);
     const selectedVisibleAccount =
       selectedAccount === null
         ? null

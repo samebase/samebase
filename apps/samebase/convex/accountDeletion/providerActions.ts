@@ -8,6 +8,7 @@ import {
   vCloudflareProviderConnection,
   vConvexProviderConnection,
 } from "../providerConnectionModel";
+import { getProviderConnectionByIdForOrganization } from "../providerConnections";
 import { readOwnedActiveRun } from "./stepContext";
 
 const { array, boolean, id, number, object, string, union } = v;
@@ -44,13 +45,24 @@ export const loadConnectionBatch = internalQuery({
   returns: array(vProviderConnectionForAccountDeletion),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
-    return await ctx.db
+    const connections = await ctx.db
       .query("providerConnections")
       .withIndex("by_connected_by_user", (query) =>
         query.eq("connectedByUserId", run.identity.userId),
       )
       .order("asc")
       .take(PROVIDER_CONNECTION_BATCH_SIZE);
+    for (const connection of connections) {
+      const singleton = await getProviderConnectionByIdForOrganization(ctx.db, {
+        organizationId: connection.organizationId,
+        providerConnectionId: connection._id,
+        kind: connection.kind,
+      });
+      if (singleton === null) {
+        throw new Error("Provider connection changed during account deletion.");
+      }
+    }
+    return connections;
   },
 });
 
@@ -62,9 +74,17 @@ export const deleteRevokedConnection = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
-    const connection = await ctx.db.get(args.providerConnectionId);
-    if (connection === null) {
+    const candidate = await ctx.db.get(args.providerConnectionId);
+    if (candidate === null) {
       return null;
+    }
+    const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
+      organizationId: candidate.organizationId,
+      providerConnectionId: candidate._id,
+      kind: candidate.kind,
+    });
+    if (connection === null) {
+      throw new Error("Provider connection changed during account deletion.");
     }
     if (connection.connectedByUserId !== run.identity.userId) {
       throw new Error("Provider connection belongs to another user.");

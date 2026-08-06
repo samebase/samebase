@@ -92,6 +92,7 @@ import type * as polarClient from "../polarClient.js";
 import type * as polarWebhooks from "../polarWebhooks.js";
 import type * as providerApiLog from "../providerApiLog.js";
 import type * as providerConnectionModel from "../providerConnectionModel.js";
+import type * as providerConnectionTargetSafety from "../providerConnectionTargetSafety.js";
 import type * as providerConnections from "../providerConnections.js";
 import type * as repositoryPullRequests from "../repositoryPullRequests.js";
 import type * as slugUtils from "../slugUtils.js";
@@ -244,6 +245,7 @@ declare const fullApi: ApiFromModules<{
   polarWebhooks: typeof polarWebhooks;
   providerApiLog: typeof providerApiLog;
   providerConnectionModel: typeof providerConnectionModel;
+  providerConnectionTargetSafety: typeof providerConnectionTargetSafety;
   providerConnections: typeof providerConnections;
   repositoryPullRequests: typeof repositoryPullRequests;
   slugUtils: typeof slugUtils;

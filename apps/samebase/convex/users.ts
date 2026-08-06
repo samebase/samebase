@@ -521,6 +521,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       organizationId,
       providerConnectionId: connection._id,
       userId: args.userId,
+      expectedAuth: connection.auth,
       force: forceRefresh,
       debounceMs,
     },
@@ -556,7 +557,10 @@ async function runCloudflareMcpTokenRefresh(args: {
         }),
     });
   }
+  const refreshLeaseStartedAt = claim.tokenRefreshStartedAt;
 
+  let releaseExpectedAuth: Extract<Doc<"providerConnections">, { kind: "cloudflare" }>["auth"] =
+    connection.auth;
   let shouldRecordLastTokenRefreshAt = false;
   try {
     const resolvedConnection = await args.ctx.runAction(
@@ -566,11 +570,16 @@ async function runCloudflareMcpTokenRefresh(args: {
         organizationId,
         providerConnectionId: connection._id,
         forceRefresh: true,
+        refreshLease: {
+          auth: connection.auth,
+          tokenRefreshStartedAt: refreshLeaseStartedAt,
+        },
       },
     );
     if (resolvedConnection === null) {
       return { connected: false } satisfies CloudflareConnectionStatus;
     }
+    releaseExpectedAuth = resolvedConnection.auth;
     shouldRecordLastTokenRefreshAt = true;
     const nowAfterRefresh = Date.now();
     if (resolvedConnection.auth.method !== "mcp_oauth") {
@@ -631,6 +640,8 @@ async function runCloudflareMcpTokenRefresh(args: {
       organizationId,
       providerConnectionId: connection._id,
       userId: args.userId,
+      expectedAuth: releaseExpectedAuth,
+      expectedTokenRefreshStartedAt: refreshLeaseStartedAt,
       recordLastTokenRefreshAt: shouldRecordLastTokenRefreshAt,
     });
   }
@@ -744,6 +755,7 @@ export const connectConvexWithApiKey = action({
         organizationId,
         connectedByUserId: ctx.viewer.userId,
         providerConnectionId: target._id,
+        expectedAuth: target.auth,
         connection,
       });
     } else {

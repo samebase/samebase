@@ -288,6 +288,23 @@ export const attachWorkers = internalMutation({
   returns: array(id("vaultCloudflareWorkers")),
   handler: async (ctx, args): Promise<Array<Id<"vaultCloudflareWorkers">>> => {
     const vault = await requireUserVaultInfrastructureIdle(ctx, args);
+    const firstWorker = args.workers.at(0);
+    if (firstWorker !== undefined) {
+      const connection = await getCloudflareProviderConnectionForAccount(ctx.db, {
+        organizationId: vault.organizationId,
+        accountId: firstWorker.accountId,
+      });
+      if (
+        connection === null ||
+        args.workers.some(
+          (worker) =>
+            connection.defaultAccount.state !== "selected" ||
+            worker.accountId !== connection.defaultAccount.accountId,
+        )
+      ) {
+        throw new Error("Cloudflare connection is required for the Worker account.");
+      }
+    }
 
     const workerNames = new Set<string>();
     const workerTags = new Set<string>();

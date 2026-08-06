@@ -17,6 +17,7 @@ import { normalizeConvexConfigPath } from "../../shared/convexConfigPath";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { requireBillingResourceCapacity } from "../billingResourceQuotas";
 import { requireVaultForUser } from "../organizationAccess";
+import { getConvexProviderConnectionForTeam } from "../providerConnections";
 import { vVaultProviderResourceOrigin, type VaultProviderResourceOrigin } from "./model";
 import {
   requireUserVaultInfrastructureIdle,
@@ -388,6 +389,19 @@ export const attachProjects = internalMutation({
   returns: array(id("vaultConvexProjects")),
   handler: async (ctx, args): Promise<Array<Id<"vaultConvexProjects">>> => {
     const vault = await requireUserVaultInfrastructureIdle(ctx, args);
+    const firstProject = args.projects.at(0);
+    if (firstProject !== undefined) {
+      const connection = await getConvexProviderConnectionForTeam(ctx.db, {
+        organizationId: vault.organizationId,
+        teamId: firstProject.teamId,
+      });
+      if (
+        connection === null ||
+        args.projects.some((project) => project.teamId !== connection.teamId)
+      ) {
+        throw new Error("Convex connection is required for the project team.");
+      }
+    }
 
     const projectIds = new Set<string>();
     const projects = args.projects.map((project) => ({

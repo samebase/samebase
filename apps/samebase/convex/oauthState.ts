@@ -7,6 +7,7 @@ import {
   vOAuthProvider,
   vProviderOAuthCallbackState,
   type OAuthProvider,
+  type ProviderAuth,
   type ProviderKind,
 } from "./providerConnectionModel";
 
@@ -60,6 +61,7 @@ export const createOauthState = internalMutation({
       throw new Error("Organization not found.");
     }
     await requireOrganizationAccessContext(ctx.db, args);
+    let expectedAuth: ProviderAuth | undefined;
     if (args.providerConnectionId !== undefined) {
       const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
         organizationId: args.organizationId,
@@ -69,8 +71,12 @@ export const createOauthState = internalMutation({
       if (connection === null) {
         throw new Error("Provider connection not found.");
       }
+      expectedAuth = connection.auth;
     }
-    return await ctx.db.insert("providerOAuthCallbackStates", args);
+    return await ctx.db.insert("providerOAuthCallbackStates", {
+      ...args,
+      ...(expectedAuth === undefined ? {} : { expectedAuth }),
+    });
   },
 });
 

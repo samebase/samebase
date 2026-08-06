@@ -508,6 +508,67 @@ describe("MCP tools/call access enforcement", () => {
     expect(JSON.stringify(payload)).not.toContain("_creationTime");
   });
 
+  it("limits MCP Cloudflare account listing for a member to the connected account", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error("Member account listing must not discover other Cloudflare accounts.");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { callTool, organizationId, t, userId } = await seedMcpBearer({
+      isApproved: true,
+      scopes: ["access_provider_connections"],
+    });
+    const { providerConnectionId, vaultId } = await t.run(async (ctx) => {
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", organizationId).eq("userId", userId),
+        )
+        .unique();
+      if (membership === null) {
+        throw new Error("Expected an organization membership.");
+      }
+      await ctx.db.patch(membership._id, { role: "member" });
+      const providerConnectionId = await ctx.db.insert("providerConnections", {
+        kind: "cloudflare",
+        organizationId,
+        connectedByUserId: userId,
+        auth: { method: "api_key", credential: "cloudflare-token" },
+        defaultAccount: { state: "not_selected" },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      const vaultId = await ctx.db.insert("vaults", {
+        organizationId,
+        deletion: { state: "not_deleting" },
+        state: "not_connected",
+      });
+      return { providerConnectionId, vaultId };
+    });
+
+    await expect(callTool("vault_cloudflare_listAccounts", { vaultId })).resolves.toMatchObject({
+      result: { structuredContent: { accounts: [] } },
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(providerConnectionId, {
+        defaultAccount: {
+          state: "selected",
+          accountId: "account-a",
+          accountName: "Account A",
+        },
+      });
+    });
+    const selectedPayload = await callTool("vault_cloudflare_listAccounts", { vaultId });
+    expect(selectedPayload).toMatchObject({
+      result: {
+        structuredContent: {
+          accounts: [{ accountId: "account-a", accountName: "Account A" }],
+        },
+      },
+    });
+    expect(JSON.stringify(selectedPayload)).not.toContain("account-b");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("creates and attaches a repository-backed Worker, then returns it in inventory", async () => {
     const { privateKey } = generateKeyPairSync("rsa", { modulusLength: 2048 });
     vi.stubEnv("GITHUB_APP_ID", "123");

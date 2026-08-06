@@ -199,7 +199,7 @@ async function rememberDefaultAccount(
     organizationId: args.connection.organizationId,
     userId: args.userId,
     providerConnectionId: args.connection.providerConnectionId,
-    expectedCredential: args.connection.auth.credential,
+    expectedAuth: args.connection.auth,
     auth: args.connection.auth,
     defaultAccount: {
       state: "selected",
@@ -935,7 +935,19 @@ export async function listCloudflareAccountsForUser(
   ctx: ActionCtx,
   args: { userId: Id<"users">; organizationId: Id<"organizations"> },
 ): Promise<CloudflareAccountResult[]> {
+  const role = await ctx.runQuery(internal.organizationAccess.requireOrganizationRoleForUser, args);
   const connection = await resolveOrganizationCloudflareConnection(ctx, args);
+  if (connection.defaultAccount.state === "selected") {
+    return [
+      {
+        accountId: connection.defaultAccount.accountId,
+        accountName: connection.defaultAccount.accountName,
+      },
+    ];
+  }
+  if (role !== "owner") {
+    return [];
+  }
   return await listAccountsForConnection(connection);
 }
 

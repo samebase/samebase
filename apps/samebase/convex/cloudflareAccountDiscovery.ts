@@ -5,7 +5,10 @@ import { v } from "convex/values";
 
 import { internalAction } from "./_generated/server";
 import { requestCloudflareApi, type CloudflareApiTransport } from "./cloudflareApi/client";
-import { vCloudflareDefaultAccount } from "./providerConnectionModel";
+import {
+  vCloudflareDefaultAccount,
+  type CloudflareDefaultAccount,
+} from "./providerConnectionModel";
 
 const vCloudflareApiTransport = v.union(v.literal("mcp"), v.literal("direct"));
 
@@ -62,6 +65,22 @@ export function selectSingleCloudflareDefaultAccount(
     accountId: account.accountId,
     accountName: account.accountName,
   };
+}
+
+export function resolveCloudflareAccountAfterAuthorization(
+  normalizedAccounts: readonly CloudflareAccount[],
+  currentAccount: CloudflareDefaultAccount | undefined,
+): CloudflareDefaultAccount {
+  if (currentAccount?.state !== "selected") {
+    return selectSingleCloudflareDefaultAccount(normalizedAccounts);
+  }
+  const selectedAccount = normalizedAccounts.find(
+    (account) => account.accountId === currentAccount.accountId,
+  );
+  if (selectedAccount === undefined) {
+    throw new Error("The new Cloudflare authorization cannot access the connected account.");
+  }
+  return { state: "selected", ...selectedAccount };
 }
 
 export async function listCloudflareAccountsForToken(args: {

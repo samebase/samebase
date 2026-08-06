@@ -460,6 +460,59 @@ describe("organization-owned vaults", () => {
       name: "second-app",
       ghRepoId: "repository-502",
     });
+    const firstConvexConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+      organizationId: firstOrganizationId,
+      connectedByUserId: userId,
+      connection: {
+        kind: "convex",
+        auth: { method: "api_key", credential: "first-convex-credential" },
+        teamId: "first-team",
+      },
+    });
+    const secondConvexConnectionId = await t.mutation(
+      internal.providerConnections.createConnected,
+      {
+        organizationId: secondOrganizationId,
+        connectedByUserId: userId,
+        connection: {
+          kind: "convex",
+          auth: { method: "api_key", credential: "second-convex-credential" },
+          teamId: "second-team",
+        },
+      },
+    );
+    const firstCloudflareConnectionId = await t.mutation(
+      internal.providerConnections.createConnected,
+      {
+        organizationId: firstOrganizationId,
+        connectedByUserId: userId,
+        connection: {
+          kind: "cloudflare",
+          auth: { method: "api_key", credential: "first-cloudflare-credential" },
+          defaultAccount: {
+            state: "selected",
+            accountId: "first-account",
+            accountName: "First account",
+          },
+        },
+      },
+    );
+    const secondCloudflareConnectionId = await t.mutation(
+      internal.providerConnections.createConnected,
+      {
+        organizationId: secondOrganizationId,
+        connectedByUserId: userId,
+        connection: {
+          kind: "cloudflare",
+          auth: { method: "api_key", credential: "second-cloudflare-credential" },
+          defaultAccount: {
+            state: "selected",
+            accountId: "second-account",
+            accountName: "Second account",
+          },
+        },
+      },
+    );
     const [firstConvexProjectId] = await t.mutation(internal.vault.convexMutations.attachProjects, {
       vaultId: firstVault.vaultId,
       userId,
@@ -511,6 +564,20 @@ describe("organization-owned vaults", () => {
         },
       ],
     });
+
+    for (const [organizationId, providerConnectionId, kind] of [
+      [firstOrganizationId, firstConvexConnectionId, "convex"],
+      [secondOrganizationId, secondConvexConnectionId, "convex"],
+      [firstOrganizationId, firstCloudflareConnectionId, "cloudflare"],
+      [secondOrganizationId, secondCloudflareConnectionId, "cloudflare"],
+    ] as const) {
+      await t.mutation(internal.providerConnections.disconnect, {
+        organizationId,
+        disconnectedByUserId: userId,
+        providerConnectionId,
+        kind,
+      });
+    }
 
     await expect(
       t.mutation(internal.vault.convexMutations.reconcileProjectTeam, {
@@ -607,5 +674,86 @@ describe("organization-owned vaults", () => {
         accountId: "second-account",
       },
     });
+  });
+
+  it("checks the singleton target again before attaching provider resources", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "attachment-owner@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "503",
+      ownerLogin: "attachment-owner",
+    });
+    const vault = await createConnectedVault(t, {
+      organizationId,
+      userId,
+      owner: "attachment-owner",
+      name: "attachment-app",
+      ghRepoId: "repository-503",
+    });
+    await t.mutation(internal.providerConnections.createConnected, {
+      organizationId,
+      connectedByUserId: userId,
+      connection: {
+        kind: "convex",
+        auth: { method: "api_key", credential: "convex-credential" },
+        teamId: "connected-team",
+      },
+    });
+    await t.mutation(internal.providerConnections.createConnected, {
+      organizationId,
+      connectedByUserId: userId,
+      connection: {
+        kind: "cloudflare",
+        auth: { method: "api_key", credential: "cloudflare-credential" },
+        defaultAccount: {
+          state: "selected",
+          accountId: "connected-account",
+          accountName: "Connected account",
+        },
+      },
+    });
+
+    await expect(
+      t.mutation(internal.vault.convexMutations.attachProjects, {
+        vaultId: vault.vaultId,
+        userId,
+        projects: [
+          {
+            teamId: "stale-team",
+            projectId: "stale-project",
+            codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+            origin: "selected_existing",
+          },
+        ],
+      }),
+    ).rejects.toThrow("Convex connection is required for the project team.");
+    await expect(
+      t.mutation(internal.vault.cloudflareMutations.attachWorkers, {
+        vaultId: vault.vaultId,
+        userId,
+        workers: [
+          {
+            accountId: "stale-account",
+            workerName: "stale-worker",
+            workerTag: "stale-worker-tag",
+            origin: "selected_existing",
+          },
+        ],
+      }),
+    ).rejects.toThrow("Cloudflare connection is required for the Worker account.");
+
+    await expect(
+      t.run(async (ctx) => ({
+        projects: await ctx.db
+          .query("vaultConvexProjects")
+          .withIndex("by_vault", (query) => query.eq("vaultId", vault.vaultId))
+          .collect(),
+        workers: await ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_vault", (query) => query.eq("vaultId", vault.vaultId))
+          .collect(),
+      })),
+    ).resolves.toEqual({ projects: [], workers: [] });
   });
 });
