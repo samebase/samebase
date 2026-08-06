@@ -404,7 +404,7 @@ Documented:
   [GitHub integration](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/).
 - Cloudflare says that a GitHub account should point to only one Cloudflare account. Cloudflare
   presents this as a security consideration and also recommends limiting repository access. It does
-  not document this as an enforced cardinality rule. See
+  not document this as an enforced one-account rule. See
   [GitHub organizational access](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/#organizational-access).
 - Removing the GitHub App removes Cloudflare access to every permitted repository for that GitHub
   owner. Existing deployments continue, but new builds stop.

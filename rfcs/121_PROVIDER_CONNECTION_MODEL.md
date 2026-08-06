@@ -28,10 +28,10 @@ Use model A now:
 - Existing resources keep their stable external identities. A credential replacement for the same
   target does not rewrite a resource row.
 
-This cardinality is a beta product rule. It does not follow from the accepted organization identity
-model, and it is not a permanent claim about either provider. The present product and UI already
-expect one Convex team and one Cloudflare account for an organization, so the database should make
-that current limit explicit.
+This one-target limit is a beta product rule. It does not follow from the accepted organization
+identity model, and it is not a permanent claim about either provider. The present product and UI
+already expect one Convex team and one Cloudflare account for an organization, so the database
+should make that current limit explicit.
 
 The limit is on the provider target, not on resources. One connected Convex team can contain a
 different Convex project for each vault. One connected Cloudflare account can contain a different
