@@ -655,7 +655,11 @@ describe("MCP tools/call access enforcement", () => {
           refreshCredential: "cloudflare-refresh-token",
           credentialExpiresAt: 4_000_000_000_000,
         },
-        defaultAccount: { state: "not_selected" },
+        defaultAccount: {
+          state: "selected",
+          accountId: cloudflareAccountId,
+          accountName: "Test account",
+        },
         createdAt: 1,
         updatedAt: 1,
       });
