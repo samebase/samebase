@@ -20,7 +20,6 @@ function fakeOrganizationId(value: string): Id<"organizations"> {
 }
 
 const ORGANIZATION_ID = fakeOrganizationId("organization_samebase");
-const SECOND_ORGANIZATION_ID = fakeOrganizationId("organization_acme");
 
 const organization = {
   canCreateRepository: true,
@@ -31,17 +30,13 @@ const organization = {
   role: "owner" as const,
 };
 
+type TestOrganization = Parameters<typeof ProviderConnectionsPage>[0]["organization"];
+
 const testState = vi.hoisted(() => ({
   actions: new Map<string, (args: unknown) => Promise<unknown>>(),
-  mcpGrants: {
-    loadMore: vi.fn(),
-    results: new Array<unknown>(),
-    status: "Exhausted",
-  },
   mutations: new Map<string, (args: unknown) => Promise<unknown>>(),
   queries: new Map<string, unknown>(),
   queryCalls: new Array<{ args: unknown; name: string }>(),
-  setupPopup: vi.fn<(getSetupUrl: () => Promise<string>) => Promise<void>>(),
 }));
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -52,7 +47,6 @@ vi.mock("convex/react", async (importOriginal) => {
       testState.actions.get(getFunctionName(reference)) ?? vi.fn(async () => undefined),
     useMutation: (reference: Parameters<typeof actual.useMutation>[0]) =>
       testState.mutations.get(getFunctionName(reference)) ?? vi.fn(async () => undefined),
-    usePaginatedQuery: () => testState.mcpGrants,
     useQuery: (reference: Parameters<typeof actual.useQuery>[0], args: unknown) => {
       const name = getFunctionName(reference);
       testState.queryCalls.push({ args, name });
@@ -72,14 +66,7 @@ vi.mock("@/components/ApiKeyConnectDialog", () => ({
   }),
 }));
 
-vi.mock("@/lib/githubAppSetupFlow", () => ({
-  getCurrentRootRelativeUrl: () => "/providers",
-  openGitHubAppSetupPopup: (getSetupUrl: () => Promise<string>) =>
-    testState.setupPopup(getSetupUrl),
-}));
-
-function setProviderQueries(organizations: unknown[]) {
-  testState.queries.set(getFunctionName(api.organizations.listForViewer), organizations);
+function setProviderQueries() {
   testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
     connected: false,
   });
@@ -91,18 +78,16 @@ function setProviderQueries(organizations: unknown[]) {
 let mountedRoot: Root | null = null;
 let mountedElement: HTMLDivElement | null = null;
 
-function mountProviderConnectionsPage(githubOwnerLogin: string | null = null) {
+function mountProviderConnectionsPage(selectedOrganization: TestOrganization = organization) {
   mountedElement = document.createElement("div");
   document.body.append(mountedElement);
   mountedRoot = createRoot(mountedElement);
   act(() => {
     mountedRoot?.render(
       <TestRouterProvider
-        initialEntries={[
-          githubOwnerLogin === null ? "/providers" : `/providers/${githubOwnerLogin}`,
-        ]}
+        initialEntries={[`/org/${selectedOrganization.githubOwnerLogin}/providers`]}
       >
-        <ProviderConnectionsPage githubOwnerLogin={githubOwnerLogin} />
+        <ProviderConnectionsPage organization={selectedOrganization} />
       </TestRouterProvider>,
     );
   });
@@ -115,15 +100,6 @@ describe("ProviderConnectionsPage", () => {
     testState.mutations.clear();
     testState.queries.clear();
     testState.queryCalls = [];
-    testState.mcpGrants = {
-      loadMore: vi.fn(),
-      results: [],
-      status: "Exhausted",
-    };
-    testState.setupPopup.mockReset();
-    testState.setupPopup.mockImplementation(async (getSetupUrl) => {
-      await getSetupUrl();
-    });
   });
 
   afterEach(() => {
@@ -135,49 +111,8 @@ describe("ProviderConnectionsPage", () => {
     mountedElement = null;
   });
 
-  it("offers GitHub App installation before an organization exists", async () => {
-    setProviderQueries([]);
-    testState.mcpGrants = {
-      loadMore: vi.fn(),
-      results: [
-        {
-          clientId: "mcpc_manual_smoke",
-          clientName: "Manual smoke",
-          createdAt: 1,
-          grantId: "mcpg_manual_smoke",
-          resource: "https://api.samebase.com/mcp",
-          scopes: ["access_browser_login_handoff"],
-        },
-      ],
-      status: "Exhausted",
-    };
-    const getInstallationUrl = vi.fn(
-      async () => "https://github.com/apps/samebase-dev/installations/new",
-    );
-    testState.mutations.set(
-      getFunctionName(api.githubAppInstallation.getGitHubAppInstallationUrl),
-      getInstallationUrl,
-    );
-    const container = mountProviderConnectionsPage();
-
-    expect(container.textContent).toContain("Install GitHub App");
-    expect(container.textContent).not.toContain("Convex OAuth");
-    expect(container.textContent).not.toContain("Cloudflare OAuth");
-    expect(container.textContent).not.toContain("GitHub OAuth");
-    expect(container.textContent).toContain("Manual smoke");
-    expect(container.textContent).toContain("access_browser_login_handoff");
-
-    await act(async () => {
-      container.querySelector("button")?.click();
-      await Promise.resolve();
-    });
-
-    expect(testState.setupPopup).toHaveBeenCalledOnce();
-    expect(getInstallationUrl).toHaveBeenCalledWith({ returnToPath: "/providers" });
-  });
-
-  it("uses the only organization for every provider query and access check", async () => {
-    setProviderQueries([organization]);
+  it("uses the routed organization for every provider query and access check", async () => {
+    setProviderQueries();
     const checkConvexAccess = vi.fn(async () => ({
       checkedAt: Date.now(),
       checks: [],
@@ -217,7 +152,7 @@ describe("ProviderConnectionsPage", () => {
   });
 
   it("keeps provider checks and hides provider management for a member", async () => {
-    setProviderQueries([{ ...organization, role: "member" }]);
+    setProviderQueries();
     const checkConvexAccess = vi.fn(async () => ({
       checkedAt: Date.now(),
       checks: [],
@@ -233,7 +168,7 @@ describe("ProviderConnectionsPage", () => {
       connected: true,
       teamSlug: "samebase",
     });
-    const container = mountProviderConnectionsPage();
+    const container = mountProviderConnectionsPage({ ...organization, role: "member" });
     const convexRow = container.querySelector('[data-provider-key="convex"]');
 
     expect(convexRow?.textContent).toContain("Check access");
@@ -252,50 +187,17 @@ describe("ProviderConnectionsPage", () => {
     expect(checkConvexAccess).toHaveBeenCalledWith({ organizationId: ORGANIZATION_ID });
   });
 
-  it("restores the routed owner case-insensitively and never shows its internal ID", () => {
-    const secondOrganization = {
-      canCreateRepository: true,
-      githubOwnerId: "789",
-      githubOwnerLogin: "acme",
-      githubOwnerType: "organization" as const,
-      organizationId: SECOND_ORGANIZATION_ID,
-      role: "owner" as const,
-    };
-    setProviderQueries([organization, secondOrganization]);
+  it("does not render a page-local owner selector or internal ID", () => {
+    setProviderQueries();
 
-    const container = mountProviderConnectionsPage("SAMEBASE");
+    const container = mountProviderConnectionsPage();
 
     expect(testState.queryCalls).toContainEqual({
       args: { organizationId: ORGANIZATION_ID },
       name: getFunctionName(api.users.getConvexConnectionStatus),
     });
-    const ownerTrigger = container.querySelector('[aria-label="GitHub owner"]');
-    expect(ownerTrigger?.textContent).toContain("samebase");
-    expect(ownerTrigger?.textContent).not.toContain(ORGANIZATION_ID);
-  });
-
-  it("keeps the base route as a chooser when several organizations exist", () => {
-    setProviderQueries([
-      organization,
-      {
-        githubOwnerId: "789",
-        githubOwnerLogin: "acme",
-        githubOwnerType: "organization",
-        organizationId: SECOND_ORGANIZATION_ID,
-        role: "owner",
-      },
-    ]);
-
-    const markup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/providers"]}>
-        <ProviderConnectionsPage githubOwnerLogin={null} />
-      </TestRouterProvider>,
-    );
-
-    expect(markup).toContain("GitHub owner");
-    expect(markup).toContain("Select a GitHub owner.");
-    expect(markup).not.toContain('data-provider-key="convex"');
-    expect(markup).not.toContain('data-provider-key="github"');
+    expect(container.querySelector('[aria-label="GitHub owner"]')).toBeNull();
+    expect(container.textContent).not.toContain(ORGANIZATION_ID);
   });
 
   it("keeps the connected visual fixture free of GitHub credential controls", () => {
@@ -303,9 +205,8 @@ describe("ProviderConnectionsPage", () => {
 
     expect(markup).toContain("Connected to samebase");
     expect(markup).toContain("Connected (OAuth). Account Samebase Preview.");
-    expect(markup).toContain("MCP clients");
-    expect(markup).toContain("access_browser_login_handoff");
-    expect(markup).toContain("Install GitHub App");
+    expect(markup).not.toContain("MCP clients");
+    expect(markup).not.toContain("Install GitHub App");
     expect(markup).not.toContain("GitHub OAuth");
     expect(markup).not.toContain("Reauthorize GitHub");
   });

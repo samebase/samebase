@@ -12,6 +12,7 @@ import {
   type DatabaseReader,
   type DatabaseWriter,
 } from "./_generated/server";
+import { action, query } from "./functions";
 import {
   createGitHubUserOctokit,
   getGitHubAppConfiguration,
@@ -22,6 +23,16 @@ const { id, literal, number, object, string, union } = v;
 
 const GITHUB_USER_TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
 const GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS = 60 * 1000;
+
+const vViewerGitHubUserAuthorizationStatus = union(
+  object({ status: literal("not_connected") }),
+  object({
+    status: literal("authorized"),
+    githubUserLogin: string(),
+    refreshTokenExpiresAt: number(),
+  }),
+);
+type ViewerGitHubUserAuthorizationStatus = Infer<typeof vViewerGitHubUserAuthorizationStatus>;
 
 const vGitHubUserAuthorizationForUse = object({
   authorizationId: id("githubUserAuthorizations"),
@@ -84,6 +95,24 @@ async function getByUser(
     .withIndex("by_user", (query) => query.eq("userId", userId))
     .unique();
 }
+
+export const getViewerStatus = query({
+  access: "access_user_preferences",
+  args: {},
+  returns: vViewerGitHubUserAuthorizationStatus,
+  handler: async (ctx): Promise<ViewerGitHubUserAuthorizationStatus> => {
+    const authorization = await getByUser(ctx.db, ctx.viewer.userId);
+    if (authorization === null) {
+      return { status: "not_connected" };
+    }
+
+    return {
+      status: "authorized",
+      githubUserLogin: authorization.githubUserLogin,
+      refreshTokenExpiresAt: authorization.refreshTokenExpiresAt,
+    };
+  },
+});
 
 export async function upsertGitHubUserAuthorization(
   db: DatabaseWriter,
@@ -273,6 +302,21 @@ export const revokeAndDeleteByUser = internalAction({
       githubUserId: authorization.githubUserId,
     });
     return null;
+  },
+});
+
+export const revokeViewerAuthorization = action({
+  access: "access_user_preferences",
+  args: {},
+  returns: v.null(),
+  handler: async (ctx): Promise<null> => {
+    const result: null = await ctx.runAction(
+      internal.githubUserAuthorizations.revokeAndDeleteByUser,
+      {
+        userId: ctx.viewer.userId,
+      },
+    );
+    return result;
   },
 });
 

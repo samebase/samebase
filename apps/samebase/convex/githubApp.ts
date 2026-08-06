@@ -36,6 +36,11 @@ export type VerifiedGitHubAppInstallation = ExpiringGitHubUserAuthentication & {
   githubUserLogin: string;
 };
 
+export type VerifiedGitHubUserAuthorization = ExpiringGitHubUserAuthentication & {
+  githubUserId: string;
+  githubUserLogin: string;
+};
+
 function requireTrimmed(value: string, label: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) {
@@ -171,6 +176,28 @@ async function exchangeGitHubAppUserCode(args: {
     redirectUrl: args.configuration.oauthCallbackUrl,
   });
   return requireExpiringGitHubUserAuthentication(authentication);
+}
+
+async function verifyGitHubUserAuthorizationWithConfiguration(args: {
+  code: string;
+  state: string;
+  configuration: GitHubAppConfiguration;
+}): Promise<VerifiedGitHubUserAuthorization> {
+  const authentication = await exchangeGitHubAppUserCode(args);
+  const userOctokit = createGitHubUserOctokit(authentication.accessToken);
+  const userResponse = await userOctokit.request("GET /user");
+  const user = parseAuthenticatedGitHubUser(userResponse.data);
+  return { ...authentication, ...user };
+}
+
+export async function verifyGitHubUserAuthorization(args: {
+  code: string;
+  state: string;
+}): Promise<VerifiedGitHubUserAuthorization> {
+  return await verifyGitHubUserAuthorizationWithConfiguration({
+    ...args,
+    configuration: getGitHubAppConfiguration(),
+  });
 }
 
 function parseAuthenticatedGitHubUser(value: unknown): {
@@ -322,14 +349,12 @@ export async function verifyGitHubAppInstallation(args: {
   installationId: number;
 }): Promise<VerifiedGitHubAppInstallation> {
   const configuration = getGitHubAppConfiguration();
-  const authentication = await exchangeGitHubAppUserCode({
+  const userAuthorization = await verifyGitHubUserAuthorizationWithConfiguration({
     code: args.code,
     state: args.state,
     configuration,
   });
-  const userOctokit = createGitHubUserOctokit(authentication.accessToken);
-  const userResponse = await userOctokit.request("GET /user");
-  const user = parseAuthenticatedGitHubUser(userResponse.data);
+  const userOctokit = createGitHubUserOctokit(userAuthorization.accessToken);
   const userInstallation = await findUserVisibleInstallation({
     octokit: userOctokit,
     installationId: args.installationId,
@@ -355,12 +380,10 @@ export async function verifyGitHubAppInstallation(args: {
   }
 
   return {
-    ...authentication,
+    ...userAuthorization,
     installationId: appInstallation.installationId,
     githubOwnerId: appInstallation.githubOwnerId,
     githubOwnerType: appInstallation.githubOwnerType,
     githubOwnerLogin: appInstallation.githubOwnerLogin,
-    githubUserId: user.githubUserId,
-    githubUserLogin: user.githubUserLogin,
   };
 }

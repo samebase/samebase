@@ -1,30 +1,21 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
-import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 import { type AccountPresentation } from "../../shared/accountPresentation";
-import { ACCESS_APP_CREATE } from "../../shared/accessModel";
 import { useAppAuthActions } from "@/authClient";
 import { AccountDeletionDialog } from "@/components/AccountDeletionDialog";
-import { GitHubOwnerSelect } from "@/components/GitHubOwnerSelect";
-import { useGitHubOwnerRouteSelection } from "@/components/useGitHubOwnerRouteSelection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { readCurrentAuthTokenProfileClaims } from "@/lib/authTokenProfileJwt";
-import { getCurrentRootRelativeUrl, openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
+import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
+import { useNow } from "@/hooks/useNow";
 import { getRouteApi, useLocation, useRouter } from "@tanstack/react-router";
-import {
-  CHECKOUT_QUERY_PARAM,
-  DELETE_ACCOUNT_QUERY_PARAM,
-  GITHUB_OWNER_QUERY_PARAM,
-  POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
-} from "@/routeSearch/settings";
-import { readBrowserRouteEnvironment } from "@/routing/availability";
+import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
 import { applySearchPatch } from "@/routing/searchFlags";
 
 const settingsRouteApi = getRouteApi("/settings");
@@ -40,22 +31,13 @@ type SessionRefreshState =
   | { kind: "refreshing" }
   | { kind: "stale"; expectedPresentation: AccountPresentation; message: string };
 
-type BillingRequestState = "idle" | "checkout" | "portal";
-
-const billingDateFormatter = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-});
+type GitHubAuthorizationRequestState = "idle" | "authorizing" | "revoking";
 
 function readErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ConvexError && typeof error.data === "string") {
     return error.data;
   }
   return error instanceof Error ? error.message : fallback;
-}
-
-function formatBillingResourceUsage(usage: BillingResourceUsage["cloudflareWorkers"]) {
-  const used = usage.used.state === "at_least" ? `${usage.used.count}+` : usage.used.count;
-  return `${used} of ${usage.limit}`;
 }
 
 export function UserSettingsPage() {
@@ -66,26 +48,14 @@ export function UserSettingsPage() {
     select: (location) => location.state.settingsDeleteAccountDialog,
   });
   const settings = useQuery(api.users.getUserSettings);
-  const viewerAccess = useQuery(api.users.currentViewerAccess);
-  const { githubOwners, selectedOwner } = useGitHubOwnerRouteSelection(
-    search[GITHUB_OWNER_QUERY_PARAM] ?? null,
-  );
-  const selectedOrganizationId = selectedOwner?.organizationId ?? null;
-  const billingStatus = useQuery(
-    api.billing.getViewerBillingStatus,
-    selectedOrganizationId ? { organizationId: selectedOrganizationId } : "skip",
-  );
-  const billingUsage = useQuery(
-    api.billingResourceQuotas.getViewerBillingResourceUsage,
-    selectedOrganizationId ? { organizationId: selectedOrganizationId } : "skip",
-  );
+  const githubAuthorization = useQuery(api.githubUserAuthorizations.getViewerStatus);
   const setDisplayName = useMutation(api.users.setDisplayName);
-  const getGitHubAppInstallationUrl = useMutation(
-    api.githubAppInstallation.getGitHubAppInstallationUrl,
+  const getGitHubUserAuthorizationUrl = useMutation(
+    api.githubAppInstallation.getGitHubUserAuthorizationUrl,
   );
-  const createCheckoutSession = useAction(api.billing.createPolarCheckoutSession);
-  const createCustomerPortalSession = useAction(api.billing.createPolarCustomerPortalSession);
-  const reconcileBilling = useAction(api.billing.reconcileViewerBillingFromPolar);
+  const revokeGitHubAuthorization = useAction(
+    api.githubUserAuthorizations.revokeViewerAuthorization,
+  );
   const { signOut } = useAppAuthActions();
   const { fetchAccessToken } = useConvexAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -93,86 +63,20 @@ export function UserSettingsPage() {
   const [sessionRefreshState, setSessionRefreshState] = useState<SessionRefreshState>({
     kind: "current",
   });
-  const [billingRequestState, setBillingRequestState] = useState<BillingRequestState>("idle");
-  const [billingReconciliationDelayed, setBillingReconciliationDelayed] = useState(false);
-  const [githubAppSetupError, setGitHubAppSetupError] = useState<string | null>(null);
-  const [isStartingGitHubAppSetup, setIsStartingGitHubAppSetup] = useState(false);
+  const [githubRequestState, setGitHubRequestState] =
+    useState<GitHubAuthorizationRequestState>("idle");
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
-  const checkoutReturnState = search[CHECKOUT_QUERY_PARAM];
-  const canManageBilling = selectedOwner?.role === "owner";
-  const billingActionsAvailable = canManageBilling && readBrowserRouteEnvironment() !== "preview";
-  const hasTrustedProBilling = billingStatus?.plan === "pro";
+  const now = useNow({
+    enabled: githubAuthorization?.status === "authorized",
+    intervalMs: 60_000,
+  });
 
-  // A successful return starts trusted provider reconciliation. The URL alone never grants Pro.
-  useEffect(() => {
-    if (
-      checkoutReturnState !== "success" ||
-      !billingActionsAvailable ||
-      selectedOrganizationId === null
-    ) {
-      setBillingReconciliationDelayed(false);
-      return;
-    }
-
-    setBillingReconciliationDelayed(false);
-
-    const clearCheckoutReturn = () => {
-      void navigate({
-        replace: true,
-        resetScroll: false,
-        search: (currentSearch) =>
-          applySearchPatch(currentSearch, {
-            [CHECKOUT_QUERY_PARAM]: null,
-            [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: null,
-          }),
-        to: ".",
-      });
-    };
-
-    if (hasTrustedProBilling) {
-      clearCheckoutReturn();
-      return;
-    }
-
-    let active = true;
-    const reconcileCheckoutReturn = async () => {
-      try {
-        const reconciled = await reconcileBilling({ organizationId: selectedOrganizationId });
-        if (!active) {
-          return;
-        }
-        if (reconciled.state === "observed" && reconciled.plan === "pro") {
-          clearCheckoutReturn();
-        } else {
-          setBillingReconciliationDelayed(true);
-        }
-      } catch {
-        if (active) {
-          setBillingReconciliationDelayed(true);
-        }
-      }
-    };
-
-    void reconcileCheckoutReturn();
-
-    return () => {
-      active = false;
-    };
-  }, [
-    billingActionsAvailable,
-    checkoutReturnState,
-    hasTrustedProBilling,
-    navigate,
-    reconcileBilling,
-    selectedOrganizationId,
-  ]);
-
-  if (settings === undefined || viewerAccess === undefined || githubOwners === undefined) {
+  if (settings === undefined || githubAuthorization === undefined) {
     return null;
   }
 
-  const canInstallGitHubApp = viewerAccess.accessKeys.includes(ACCESS_APP_CREATE);
-  const showBilling = githubOwners.length > 0 || canInstallGitHubApp;
+  const githubAuthorizationExpired =
+    githubAuthorization.status === "authorized" && githubAuthorization.refreshTokenExpiresAt <= now;
 
   const refreshSession = async (expectedPresentation: AccountPresentation) => {
     const token = await fetchAccessToken({ forceRefreshToken: true });
@@ -257,79 +161,41 @@ export function UserSettingsPage() {
     }
   };
 
-  const pending = saveState.kind === "saving" || sessionRefreshState.kind === "refreshing";
-
-  const buildSettingsBillingUrl = (checkout: "success" | "cancel" | null) => {
-    const location = router.buildLocation({
-      search: (currentSearch) =>
-        applySearchPatch(currentSearch, {
-          [CHECKOUT_QUERY_PARAM]: checkout,
-          [GITHUB_OWNER_QUERY_PARAM]: selectedOwner?.githubOwnerLogin ?? null,
-        }),
-      to: "/settings",
-    });
-    return new URL(location.href, window.location.origin).toString();
-  };
-
-  const handleUpgrade = async () => {
-    if (!billingActionsAvailable || billingRequestState !== "idle") {
+  const authorizeGitHubAccount = () => {
+    if (githubRequestState !== "idle") {
       return;
     }
-
-    setBillingRequestState("checkout");
-    try {
-      const session = await createCheckoutSession({
-        organizationId: selectedOwner.organizationId,
-        returnUrl: buildSettingsBillingUrl("cancel"),
-        successUrl: buildSettingsBillingUrl("success"),
-      });
-      window.location.assign(session.url);
-    } catch (error) {
-      toast({
-        description: readErrorMessage(error, "Please try again."),
-        title: "Could not open checkout",
-        variant: "destructive",
-      });
-      setBillingRequestState("idle");
-    }
-  };
-
-  const handleManageSubscription = async () => {
-    if (!billingActionsAvailable || billingRequestState !== "idle") {
-      return;
-    }
-
-    setBillingRequestState("portal");
-    try {
-      const session = await createCustomerPortalSession({
-        organizationId: selectedOwner.organizationId,
-        returnUrl: buildSettingsBillingUrl(null),
-      });
-      window.location.assign(session.url);
-    } catch (error) {
-      toast({
-        description: readErrorMessage(error, "Please try again."),
-        title: "Could not open subscription settings",
-        variant: "destructive",
-      });
-      setBillingRequestState("idle");
-    }
-  };
-
-  const handleInstallGitHubApp = async () => {
-    if (isStartingGitHubAppSetup) return;
-    setGitHubAppSetupError(null);
-    setIsStartingGitHubAppSetup(true);
-    try {
-      await openGitHubAppSetupPopup(async () => {
-        return await getGitHubAppInstallationUrl({
-          returnToPath: getCurrentRootRelativeUrl(),
+    setGitHubRequestState("authorizing");
+    void openGitHubAppSetupPopup(async () => {
+      return await getGitHubUserAuthorizationUrl({ returnToPath: "/settings" });
+    })
+      .catch((error: unknown) => {
+        toast({
+          description: readErrorMessage(error, "Could not open GitHub App setup."),
+          title: "Could not authorize GitHub account",
+          variant: "destructive",
         });
+      })
+      .finally(() => {
+        setGitHubRequestState("idle");
       });
+  };
+
+  const revokeAuthorization = async () => {
+    if (githubRequestState !== "idle") {
+      return;
+    }
+    setGitHubRequestState("revoking");
+    try {
+      await revokeGitHubAuthorization({});
     } catch (error) {
-      setGitHubAppSetupError(readErrorMessage(error, "Could not open GitHub App setup."));
+      toast({
+        description: readErrorMessage(error, "Could not revoke the GitHub authorization."),
+        title: "Could not revoke GitHub authorization",
+        variant: "destructive",
+      });
     } finally {
-      setIsStartingGitHubAppSetup(false);
+      setGitHubRequestState("idle");
     }
   };
 
@@ -386,19 +252,15 @@ export function UserSettingsPage() {
     });
   };
 
+  const pending = saveState.kind === "saving" || sessionRefreshState.kind === "refreshing";
+
   return (
     <main data-testid="user-settings-page" className="container mx-auto w-full max-w-2xl py-6">
       <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold @2xl:text-2xl">Settings</h1>
+        <h1 className="text-xl font-semibold @2xl:text-2xl">Account settings</h1>
         <Button type="button" variant="outline" disabled={isSigningOut} onClick={handleSignOut}>
-          {isSigningOut ? (
-            <>
-              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              Signing out...
-            </>
-          ) : (
-            "Sign out"
-          )}
+          {isSigningOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+          {isSigningOut ? "Signing out..." : "Sign out"}
         </Button>
       </div>
 
@@ -461,171 +323,55 @@ export function UserSettingsPage() {
         </form>
       </section>
 
-      <section
-        className="mt-8 border-t pt-6"
-        aria-labelledby="settings-billing-heading"
-        hidden={!showBilling}
-      >
-        <h2 id="settings-billing-heading" className="text-base font-semibold">
-          Billing
+      <section className="mt-8 border-t pt-6" aria-labelledby="settings-github-heading">
+        <h2 id="settings-github-heading" className="text-base font-semibold">
+          GitHub authorization
         </h2>
-        {githubOwners.length === 0 ? (
-          <div className="mt-4">
+        <dl className="mt-4 space-y-1">
+          {githubAuthorization.status === "not_connected" ? null : (
+            <>
+              <dt className="text-sm font-medium">GitHub user</dt>
+              <dd className="text-sm text-muted-foreground">
+                {githubAuthorization.githubUserLogin}
+              </dd>
+            </>
+          )}
+          <dt className="text-sm font-medium">Status</dt>
+          <dd className="text-sm text-muted-foreground">
+            {githubAuthorization.status === "not_connected"
+              ? "Not connected"
+              : githubAuthorizationExpired
+                ? "Expired"
+                : "Connected"}
+          </dd>
+        </dl>
+        <div className="mt-4 flex flex-wrap gap-3">
+          {githubAuthorization.status === "not_connected" || githubAuthorizationExpired ? (
             <Button
-              disabled={isStartingGitHubAppSetup}
-              onClick={() => void handleInstallGitHubApp()}
+              disabled={githubRequestState !== "idle"}
+              onClick={authorizeGitHubAccount}
               type="button"
             >
-              {isStartingGitHubAppSetup ? (
-                <>
-                  <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                  Opening...
-                </>
-              ) : (
-                "Install GitHub App"
-              )}
+              {githubRequestState === "authorizing" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {githubRequestState === "authorizing" ? "Opening..." : "Authorize GitHub account"}
             </Button>
-            {githubAppSetupError ? (
-              <p className="mt-3 text-sm text-destructive" role="alert">
-                {githubAppSetupError}
-              </p>
-            ) : null}
-          </div>
-        ) : (
-          <>
-            {githubOwners.length > 1 ? (
-              <div className="mt-4 max-w-xs">
-                <GitHubOwnerSelect
-                  disabled={billingRequestState !== "idle"}
-                  onChange={(owner) => {
-                    void navigate({
-                      replace: true,
-                      resetScroll: false,
-                      search: (currentSearch) =>
-                        applySearchPatch(currentSearch, {
-                          [CHECKOUT_QUERY_PARAM]: null,
-                          [GITHUB_OWNER_QUERY_PARAM]: owner.githubOwnerLogin,
-                          [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: null,
-                        }),
-                      to: ".",
-                    });
-                    setBillingReconciliationDelayed(false);
-                  }}
-                  owners={githubOwners}
-                  selectedOrganizationId={selectedOrganizationId}
-                />
-              </div>
-            ) : null}
-            {billingStatus !== undefined && billingUsage !== undefined ? (
-              <>
-                <dl className="mt-4 space-y-3">
-                  <div className="flex items-baseline justify-between gap-4">
-                    <dt className="text-sm font-medium">Current plan</dt>
-                    <dd className="text-sm text-muted-foreground">
-                      {billingStatus.plan === "pro" ? "Pro" : "Free"}
-                    </dd>
-                  </div>
-                  <div className="flex items-baseline justify-between gap-4">
-                    <dt className="text-sm font-medium">Cloudflare Workers</dt>
-                    <dd className="text-sm text-muted-foreground">
-                      {formatBillingResourceUsage(billingUsage.cloudflareWorkers)}
-                    </dd>
-                  </div>
-                  <div className="flex items-baseline justify-between gap-4">
-                    <dt className="text-sm font-medium">Convex projects</dt>
-                    <dd className="text-sm text-muted-foreground">
-                      {formatBillingResourceUsage(billingUsage.convexProjects)}
-                    </dd>
-                  </div>
-                  {billingStatus.plan === "pro" &&
-                  billingStatus.currentPeriodEndAt !== undefined ? (
-                    <div className="flex items-baseline justify-between gap-4">
-                      <dt className="text-sm font-medium">
-                        {billingStatus.cancelAtPeriodEnd
-                          ? "Access ends"
-                          : billingStatus.status === "past_due"
-                            ? "Billing period end"
-                            : "Next billing date"}
-                      </dt>
-                      <dd className="text-sm text-muted-foreground">
-                        <time dateTime={new Date(billingStatus.currentPeriodEndAt).toISOString()}>
-                          {billingDateFormatter.format(billingStatus.currentPeriodEndAt)}
-                        </time>
-                      </dd>
-                    </div>
-                  ) : null}
-                </dl>
-
-                {billingStatus.status === "past_due" ? (
-                  <p className="mt-4 text-sm text-destructive" role="alert">
-                    Payment needs attention. Manage your subscription to update the payment method.
-                  </p>
-                ) : checkoutReturnState === "cancel" ? (
-                  <p className="mt-4 text-sm text-muted-foreground" role="status">
-                    Checkout canceled. Your plan did not change.
-                  </p>
-                ) : checkoutReturnState === "success" ? (
-                  billingActionsAvailable ? (
-                    billingStatus.plan === "pro" ? (
-                      <p className="mt-4 text-sm text-muted-foreground" role="status">
-                        Your Pro plan is active.
-                      </p>
-                    ) : billingReconciliationDelayed ? (
-                      <p className="mt-4 text-sm text-muted-foreground" role="status">
-                        Plan confirmation is delayed. Refresh this page to check again.
-                      </p>
-                    ) : (
-                      <p className="mt-4 text-sm text-muted-foreground" role="status">
-                        Checking your payment and plan...
-                      </p>
-                    )
-                  ) : (
-                    <p className="mt-4 text-sm text-muted-foreground" role="status">
-                      Checkout confirmation is disabled in this preview.
-                    </p>
-                  )
-                ) : null}
-
-                {canManageBilling &&
-                (billingStatus.plan === "pro" || billingStatus.canStartCheckout) ? (
-                  <div className="mt-6">
-                    {billingStatus.plan === "pro" ? (
-                      <Button
-                        type="button"
-                        disabled={!billingActionsAvailable || billingRequestState !== "idle"}
-                        onClick={() => void handleManageSubscription()}
-                      >
-                        {billingRequestState === "portal" ? (
-                          <>
-                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                            Opening...
-                          </>
-                        ) : (
-                          "Manage subscription"
-                        )}
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        disabled={!billingActionsAvailable || billingRequestState !== "idle"}
-                        onClick={() => void handleUpgrade()}
-                      >
-                        {billingRequestState === "checkout" ? (
-                          <>
-                            <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                            Opening...
-                          </>
-                        ) : (
-                          "Upgrade to Pro, $4/month"
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                ) : null}
-              </>
-            ) : null}
-          </>
-        )}
+          ) : null}
+          {githubAuthorization.status === "authorized" ? (
+            <Button
+              disabled={githubRequestState !== "idle"}
+              onClick={() => void revokeAuthorization()}
+              type="button"
+              variant="outline"
+            >
+              {githubRequestState === "revoking" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {githubRequestState === "revoking" ? "Revoking..." : "Revoke authorization"}
+            </Button>
+          ) : null}
+        </div>
       </section>
 
       <section className="mt-8 border-t pt-6" aria-labelledby="settings-account-heading">

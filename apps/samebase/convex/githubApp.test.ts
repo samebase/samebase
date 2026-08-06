@@ -25,7 +25,7 @@ vi.mock("@octokit/rest", () => ({
   },
 }));
 
-import { verifyGitHubAppInstallation } from "./githubApp";
+import { verifyGitHubAppInstallation, verifyGitHubUserAuthorization } from "./githubApp";
 
 function installation() {
   return {
@@ -149,5 +149,23 @@ describe("GitHub App installation verification", () => {
       "GET /user/memberships/orgs/{org}",
       expect.anything(),
     );
+  });
+
+  it("authorizes a GitHub user without reading or creating an App installation", async () => {
+    await expect(
+      verifyGitHubUserAuthorization({
+        code: "code",
+        state: "state",
+      }),
+    ).resolves.toEqual({
+      githubUserId: "202",
+      githubUserLogin: "alice",
+      accessToken: "access-token",
+      accessTokenExpiresAt: Date.parse("2099-01-01T00:00:00.000Z"),
+      refreshToken: "refresh-token",
+      refreshTokenExpiresAt: Date.parse("2099-02-01T00:00:00.000Z"),
+    });
+    expect(githubMocks.request).toHaveBeenCalledOnce();
+    expect(githubMocks.request).toHaveBeenCalledWith("GET /user");
   });
 });

@@ -82,6 +82,63 @@ describe("GitHub-backed organizations", () => {
     });
   });
 
+  it("resolves a normalized external return coordinate from an organization ID", async () => {
+    const t = makeConvexTest();
+    const ownerUserId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        email: "owner-return@example.com",
+        isApproved: true,
+      });
+    });
+    const { organizationId } = await t.mutation(
+      internal.organizations.createOrReconnectVerifiedOrganization,
+      {
+        userId: ownerUserId,
+        githubOwnerId: "return-owner",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "Return-Owner",
+        githubInstallationId: "return-installation",
+      },
+    );
+    await expect(
+      t.query(internal.organizations.getExternalReturnOwnerLogin, {
+        organizationId,
+      }),
+    ).resolves.toBe("return-owner");
+  });
+
+  it("sorts mixed-case owner logins by normalized login", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        email: "sorted-owner@example.com",
+        isApproved: true,
+      });
+    });
+    for (const githubOwnerLogin of ["Zulu", "beta", "Alpha"]) {
+      await t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
+        userId,
+        githubOwnerId: `${githubOwnerLogin}-id`,
+        githubOwnerType: "organization",
+        githubOwnerLogin,
+        githubInstallationId: `${githubOwnerLogin}-installation`,
+      });
+    }
+
+    const organizations = await t
+      .withIdentity({
+        subject: `${userId}|sorted-owner`,
+        tokenIdentifier: `test:${userId}`,
+      })
+      .query(api.organizations.listForViewer, {});
+
+    expect(organizations.map((organization) => organization.githubOwnerLogin)).toEqual([
+      "Alpha",
+      "beta",
+      "Zulu",
+    ]);
+  });
+
   it("adds or updates one membership and denies owner work to a member", async () => {
     const t = makeConvexTest();
     const { ownerUserId, secondUserId } = await t.run(async (ctx) => {

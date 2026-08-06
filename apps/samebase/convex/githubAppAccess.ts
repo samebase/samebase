@@ -4,6 +4,7 @@ import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalQuery, type ActionCtx } from "./_generated/server";
+import { action } from "./functions";
 import { createGitHubInstallationOctokit } from "./githubApp";
 import { requireOrganizationAccessContext, requireVaultForUser } from "./organizationAccess";
 import { vGitHubOwnerType } from "./organizationModel";
@@ -35,6 +36,12 @@ export const vGitHubAppInstallationAccess = object({
 });
 export type GitHubAppInstallationAccess = Infer<typeof vGitHubAppInstallationAccess>;
 export type GitHubAppAccess = GitHubAppInstallationAccess & { octokit: Octokit };
+
+const vViewerInstallationStatus = union(
+  object({ status: literal("connected") }),
+  object({ status: literal("unavailable") }),
+);
+type ViewerInstallationStatus = Infer<typeof vViewerInstallationStatus>;
 
 export const loadInstallationAccess = internalQuery({
   args: {
@@ -117,6 +124,29 @@ export async function resolveGitHubAppAccess(
     octokit: createGitHubInstallationOctokit(access.githubInstallationId),
   };
 }
+
+export const checkViewerInstallation = action({
+  access: "access_provider_connections",
+  args: {
+    organizationId: id("organizations"),
+  },
+  returns: vViewerInstallationStatus,
+  handler: async (ctx, args): Promise<ViewerInstallationStatus> => {
+    try {
+      const access = await resolveGitHubAppAccess(ctx, {
+        userId: ctx.viewer.userId,
+        target: {
+          kind: "organization",
+          organizationId: args.organizationId,
+        },
+      });
+      await access.octokit.request("GET /installation/repositories", { per_page: 1 });
+      return { status: "connected" };
+    } catch {
+      return { status: "unavailable" };
+    }
+  },
+});
 
 /** Require a GitHub repository response to belong to the selected organization owner. */
 export function requireGitHubRepositoryOwnerId(args: {

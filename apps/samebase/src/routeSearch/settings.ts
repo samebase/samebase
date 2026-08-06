@@ -5,35 +5,12 @@ import {
   readRouteSearchParamMetadata,
   readRouteSearchPresenceKeys,
   readRouteSearchStaticData,
-  routeSearchNonEmptyString,
   routeSearchPresenceParam,
-  routeSearchStringValue,
-  routeSearchValueParam,
 } from "@/routing/searchParamMetadata";
 
-export const CHECKOUT_QUERY_PARAM = "checkout";
 export const DELETE_ACCOUNT_QUERY_PARAM = "delete-account";
-export const GITHUB_OWNER_QUERY_PARAM = "owner";
-export const POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM = "customer_session_token";
 
 const RouteSearchSchema_settings = defineRouteSearchParams({
-  [CHECKOUT_QUERY_PARAM]: routeSearchValueParam(routeSearchStringValue(["success", "cancel"]), {
-    access: "access_user_preferences",
-    sampleValue: "success",
-    suggestion: "hidden",
-    valueSuggestions: ["success", "cancel"],
-    valueType: "options",
-  }),
-  [GITHUB_OWNER_QUERY_PARAM]: routeSearchValueParam(routeSearchNonEmptyString, {
-    access: "access_user_preferences",
-    sampleValue: "samebase",
-    suggestion: "hidden",
-    valueType: "freeform",
-  }),
-  [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: routeSearchPresenceParam({
-    access: "access_user_preferences",
-    suggestion: "hidden",
-  }),
   [DELETE_ACCOUNT_QUERY_PARAM]: routeSearchPresenceParam({
     access: "access_user_preferences",
     suggestion: "route",

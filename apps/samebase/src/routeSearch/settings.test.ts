@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import {
-  CHECKOUT_QUERY_PARAM,
   DELETE_ACCOUNT_QUERY_PARAM,
-  GITHUB_OWNER_QUERY_PARAM,
-  POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
   SETTINGS_ROUTE_SEARCH_STATIC_DATA,
   validateSettingsRouteSearch,
 } from "@/routeSearch/settings";
@@ -16,52 +13,20 @@ describe("settings route search", () => {
     expect(validateSettingsRouteSearch({})).toEqual({});
   });
 
-  it("accepts only supported checkout return states", () => {
-    expect(validateSettingsRouteSearch({ [CHECKOUT_QUERY_PARAM]: "success" })).toEqual({
-      [CHECKOUT_QUERY_PARAM]: "success",
-    });
-    expect(validateSettingsRouteSearch({ [CHECKOUT_QUERY_PARAM]: "cancel" })).toEqual({
-      [CHECKOUT_QUERY_PARAM]: "cancel",
-    });
-    expect(validateSettingsRouteSearch({ [CHECKOUT_QUERY_PARAM]: "paid" })).toEqual({});
-  });
-
-  it("retains only the presence of Polar's customer session token", () => {
+  it("rejects organization billing return keys", () => {
     expect(
       validateSettingsRouteSearch({
-        [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: "private-value",
+        checkout: "success",
+        customer_session_token: "return-state",
+        owner: "samebase",
       }),
-    ).toEqual({ [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: true });
+    ).toEqual({});
   });
 
-  it("accepts a GitHub owner login for billing returns", () => {
-    expect(validateSettingsRouteSearch({ [GITHUB_OWNER_QUERY_PARAM]: "  acme  " })).toEqual({
-      [GITHUB_OWNER_QUERY_PARAM]: "acme",
-    });
-    expect(validateSettingsRouteSearch({ [GITHUB_OWNER_QUERY_PARAM]: "  " })).toEqual({});
-  });
-
-  it("publishes the access-controlled settings params", () => {
+  it("publishes only the account deletion search param", () => {
     expect(SETTINGS_ROUTE_SEARCH_STATIC_DATA).toEqual({
-      acceptedSearchKeys: [
-        CHECKOUT_QUERY_PARAM,
-        GITHUB_OWNER_QUERY_PARAM,
-        POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
-        DELETE_ACCOUNT_QUERY_PARAM,
-      ],
+      acceptedSearchKeys: [DELETE_ACCOUNT_QUERY_PARAM],
       searchParamAccess: [
-        {
-          access: "access_user_preferences",
-          key: CHECKOUT_QUERY_PARAM,
-        },
-        {
-          access: "access_user_preferences",
-          key: GITHUB_OWNER_QUERY_PARAM,
-        },
-        {
-          access: "access_user_preferences",
-          key: POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
-        },
         {
           access: "access_user_preferences",
           key: DELETE_ACCOUNT_QUERY_PARAM,

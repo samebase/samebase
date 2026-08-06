@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 
-import { internalMutation } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { query } from "./functions";
 import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
 import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
@@ -67,9 +67,25 @@ export const listForViewer = query({
 
     return organizations.sort(
       (left, right) =>
-        left.githubOwnerLogin.localeCompare(right.githubOwnerLogin) ||
-        left.organizationId.localeCompare(right.organizationId),
+        normalizeGitHubOwnerLogin(left.githubOwnerLogin).localeCompare(
+          normalizeGitHubOwnerLogin(right.githubOwnerLogin),
+        ) || left.organizationId.localeCompare(right.organizationId),
     );
+  },
+});
+
+export const getExternalReturnOwnerLogin = internalQuery({
+  args: {
+    organizationId: id("organizations"),
+  },
+  returns: string(),
+  handler: async (ctx, args) => {
+    const organization = await ctx.db.get(args.organizationId);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+
+    return organization.githubOwnerLoginNormalized;
   },
 });
 

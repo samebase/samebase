@@ -1,49 +1,18 @@
 // @vitest-environment jsdom
 
 import * as React from "react";
-import { type GitHubOwner } from "@/components/GitHubOwnerSelect";
+import { type ViewerOrganization } from "@/lib/organizationContext";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Id } from "../../convex/_generated/dataModel";
 
-const {
-  appWorkspaceMountMock,
-  appWorkspaceUnmountMock,
-  useConvexAuthMock,
-  useGitHubOwnerRouteSelectionMock,
-} = vi.hoisted(() => ({
+const { appWorkspaceMountMock, appWorkspaceUnmountMock, useConvexAuthMock } = vi.hoisted(() => ({
   appWorkspaceMountMock: vi.fn(),
   appWorkspaceUnmountMock: vi.fn(),
   useConvexAuthMock: vi.fn(),
-  useGitHubOwnerRouteSelectionMock: vi.fn<
-    (githubOwnerLogin: string | null) => {
-      githubOwners: GitHubOwner[] | undefined;
-      selectedOwner: GitHubOwner | null;
-    }
-  >(),
 }));
-
-function fakeOrganizationId(value: string): Id<"organizations"> {
-  // @ts-expect-error Convex ids are strings at runtime; this test only needs
-  // stable values for client route selection.
-  return value;
-}
-
-function githubOwner(githubOwnerLogin: string, organizationId: Id<"organizations">): GitHubOwner {
-  return {
-    canCreateRepository: true,
-    githubOwnerId: organizationId,
-    githubOwnerLogin,
-    githubOwnerType: "organization",
-    organizationId,
-    role: "owner",
-  };
-}
-
-const SAMEBASE_OWNER = githubOwner("samebase", fakeOrganizationId("organization_samebase"));
-const ACME_OWNER = githubOwner("acme", fakeOrganizationId("organization_acme"));
 
 vi.mock("@/components/RootIndexRoutePage", () => ({
   RootIndexRoutePage: () => <div data-testid="root-index-route">Root index route</div>,
@@ -51,13 +20,15 @@ vi.mock("@/components/RootIndexRoutePage", () => ({
 
 vi.mock("@/components/DashboardRoutePage", () => ({
   DashboardRoutePage: ({
+    organizationOwner,
     page = "overview",
     selectedRepositoryFullName,
   }: {
+    organizationOwner?: string;
     page?: "overview" | "settings";
     selectedRepositoryFullName?: string;
   }) => (
-    <div data-testid="dashboard-route" data-page={page}>
+    <div data-testid="dashboard-route" data-owner={organizationOwner} data-page={page}>
       {selectedRepositoryFullName ?? "Dashboard route"}
     </div>
   ),
@@ -160,35 +131,77 @@ vi.mock("@/components/AgentsConnectRoutePage", () => ({
 }));
 
 vi.mock("@/components/ConnectRepository", () => ({
-  ConnectRepository: ({ githubOwnerLogin }: { githubOwnerLogin: string | null }) => (
-    <div data-testid="connect-repository-page" data-owner={githubOwnerLogin ?? undefined}>
+  ConnectRepository: ({ organization }: { organization: ViewerOrganization }) => (
+    <div data-testid="connect-repository-page" data-owner={organization.githubOwnerLogin}>
       Connect repository page
     </div>
   ),
 }));
 
 vi.mock("@/components/NewAppPage", () => ({
-  NewAppPage: ({ githubOwnerLogin }: { githubOwnerLogin: string | null }) => (
-    <div data-testid="new-app-page" data-owner={githubOwnerLogin ?? undefined}>
+  NewAppPage: ({ organization }: { organization: ViewerOrganization }) => (
+    <div data-testid="new-app-page" data-owner={organization.githubOwnerLogin}>
       New app page
     </div>
   ),
 }));
 
 vi.mock("@/components/ProviderConnectionsPage", () => ({
-  ProviderConnectionsPage: ({ githubOwnerLogin }: { githubOwnerLogin: string | null }) => (
-    <div data-testid="providers-page" data-owner={githubOwnerLogin ?? undefined}>
+  ProviderConnectionsPage: ({ organization }: { organization: ViewerOrganization }) => (
+    <div data-testid="providers-page" data-owner={organization.githubOwnerLogin}>
       Providers page
     </div>
   ),
 }));
 
-vi.mock("@/components/useGitHubOwnerRouteSelection", () => ({
-  useGitHubOwnerRouteSelection: useGitHubOwnerRouteSelectionMock,
+vi.mock("@/components/OrganizationRouteBoundary", () => ({
+  AuthenticatedOrganizationRoutePage: ({
+    children,
+    owner,
+  }: {
+    children: (organization: ViewerOrganization) => React.ReactNode;
+    owner: string;
+  }) => {
+    const normalizedOwner = owner.toLowerCase();
+    if (normalizedOwner !== "samebase" && normalizedOwner !== "acme") {
+      return <div data-testid="organization-unavailable">Organization unavailable</div>;
+    }
+    // @ts-expect-error Convex ids are strings at runtime; this test only needs
+    // stable values for client route selection.
+    const organizationId: Id<"organizations"> = `organization_${normalizedOwner}`;
+    return children({
+      canCreateRepository: true,
+      githubOwnerId: organizationId,
+      githubOwnerLogin: normalizedOwner,
+      githubOwnerType: "organization",
+      organizationId,
+      role: "owner",
+    });
+  },
 }));
 
 vi.mock("@/components/UserSettingsPage", () => ({
   UserSettingsPage: () => <div data-testid="settings-page">Settings page</div>,
+}));
+
+vi.mock("@/components/McpClientsSettingsPage", () => ({
+  McpClientsSettingsPage: () => <div data-testid="mcp-clients-page">MCP clients page</div>,
+}));
+
+vi.mock("@/components/OrganizationSettingsPage", () => ({
+  OrganizationSettingsPage: ({ organization }: { organization: ViewerOrganization }) => (
+    <div data-testid="organization-settings-page" data-owner={organization.githubOwnerLogin}>
+      Organization settings page
+    </div>
+  ),
+}));
+
+vi.mock("@/components/OrganizationBillingPage", () => ({
+  OrganizationBillingPage: ({ organization }: { organization: ViewerOrganization }) => (
+    <div data-testid="organization-billing-page" data-owner={organization.githubOwnerLogin}>
+      Organization billing page
+    </div>
+  ),
 }));
 
 vi.mock("@/components/LandingPreviewPage", () => ({
@@ -362,11 +375,6 @@ describe("appRouter", () => {
       isAuthenticated: false,
       isLoading: false,
     });
-    useGitHubOwnerRouteSelectionMock.mockReset();
-    useGitHubOwnerRouteSelectionMock.mockReturnValue({
-      githubOwners: [SAMEBASE_OWNER],
-      selectedOwner: SAMEBASE_OWNER,
-    });
     document.documentElement.className = "";
     window.localStorage.removeItem("theme");
   });
@@ -522,7 +530,7 @@ describe("appRouter", () => {
 
   it("removes conflicting visible theme mode flags through typed root search", async () => {
     const router = await renderRoute("/terms?devtools&light&dark&primary=red-600#top");
-    const searchParams = new URLSearchParams(router.state.location.searchStr);
+    const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/terms");
     expect(searchParams.has("light")).toBe(false);
@@ -554,7 +562,7 @@ describe("appRouter", () => {
     const router = await renderRoute("/logo");
 
     expect(rootElement?.querySelector('[data-testid="logo-page"]')?.textContent).toBe("three");
-    expect(new URLSearchParams(router.state.location.searchStr).has("dev")).toBe(false);
+    expect(new window.URLSearchParams(router.state.location.searchStr).has("dev")).toBe(false);
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
@@ -569,7 +577,7 @@ describe("appRouter", () => {
         hash: "top",
       }),
     );
-    const searchParams = new URLSearchParams(router.state.location.searchStr);
+    const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/logo");
     expect(searchParams.has("dev")).toBe(false);
@@ -599,7 +607,7 @@ describe("appRouter", () => {
       await settleRouterRender();
     });
 
-    const searchParams = new URLSearchParams(router.state.location.searchStr);
+    const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/logo/iso");
     expect(searchParams.has("dev")).toBe(false);
@@ -626,7 +634,7 @@ describe("appRouter", () => {
       await settleRouterRender();
     });
 
-    const searchParams = new URLSearchParams(router.state.location.searchStr);
+    const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/logo/iso");
     expect(searchParams.has("primary")).toBe(false);
@@ -652,7 +660,7 @@ describe("appRouter", () => {
       await settleRouterRender();
     });
 
-    const searchParams = new URLSearchParams(router.state.location.searchStr);
+    const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/logo/iso");
     expect(searchParams.has("dev")).toBe(false);
@@ -700,7 +708,7 @@ describe("appRouter", () => {
       await settleRouterRender();
     });
 
-    const searchParams = new URLSearchParams(router.state.location.searchStr);
+    const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/vault");
     expect(searchParams.get("leftFace")).toBe("striped");
@@ -711,13 +719,13 @@ describe("appRouter", () => {
     const router = await renderRoute("/logo?isoStyle=shaded-edge");
 
     expect(router.state.location.pathname).toBe("/logo");
-    expect(new URLSearchParams(router.state.location.searchStr).has("isoStyle")).toBe(false);
+    expect(new window.URLSearchParams(router.state.location.searchStr).has("isoStyle")).toBe(false);
   });
 
   it("keeps iso renderer params on the iso route on load", async () => {
     const router = await renderRoute("/logo/iso?isoStyle=shaded-edge&isoSide=40");
 
-    const searchParams = new URLSearchParams(router.state.location.searchStr);
+    const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/logo/iso");
     expect(searchParams.get("isoStyle")).toBe("shaded-edge");
@@ -727,7 +735,7 @@ describe("appRouter", () => {
   it("redirects unknown params away from /vault on load", async () => {
     const router = await renderRoute("/vault?stale=1&prod-ui");
 
-    const searchParams = new URLSearchParams(router.state.location.searchStr);
+    const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
     expect(router.state.location.pathname).toBe("/vault");
     expect(searchParams.has("stale")).toBe(false);
@@ -747,14 +755,16 @@ describe("appRouter", () => {
     });
 
     expect(router.state.location.pathname).toBe("/vault/samebase/samebase/settings");
-    expect(new URLSearchParams(router.state.location.searchStr).has("prod-ui")).toBe(true);
+    expect(new window.URLSearchParams(router.state.location.searchStr).has("prod-ui")).toBe(true);
   });
 
   it("keeps the global swipe debug flag on public routes", async () => {
     const router = await renderRoute("/privacy?swipe-debug");
 
     expect(router.state.location.pathname).toBe("/privacy");
-    expect(new URLSearchParams(router.state.location.searchStr).has("swipe-debug")).toBe(true);
+    expect(new window.URLSearchParams(router.state.location.searchStr).has("swipe-debug")).toBe(
+      true,
+    );
   });
 
   it("renders MCP consent through an explicit TanStack route instead of the App fallback", async () => {
@@ -793,71 +803,6 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders connect repository through an explicit TanStack route instead of the App fallback", async () => {
-    await renderRoute("/connect-repo");
-
-    expect(rootElement?.querySelector('[data-testid="connect-repository-page"]')?.textContent).toBe(
-      "Connect repository page",
-    );
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
-
-  it("passes the GitHub owner slug to the connect repository route", async () => {
-    await renderRoute("/connect-repo/Samebase");
-
-    expect(
-      rootElement
-        ?.querySelector('[data-testid="connect-repository-page"]')
-        ?.getAttribute("data-owner"),
-    ).toBe("Samebase");
-  });
-
-  it.each([
-    ["connect repository", "/connect-repo/stale", "/connect-repo/samebase"],
-    ["new app", "/new-app/stale", "/new-app/samebase"],
-    ["providers", "/providers/stale", "/providers/samebase"],
-  ])(
-    "replaces an unmatched %s owner with the only membership and keeps search params",
-    async (_name, sourcePath, destinationPath) => {
-      useGitHubOwnerRouteSelectionMock.mockReturnValue({
-        githubOwners: [SAMEBASE_OWNER],
-        selectedOwner: null,
-      });
-
-      const router = await renderRoute(`${sourcePath}?devtools&primary=red-600&prod-ui`);
-      const searchParams = new URLSearchParams(router.state.location.searchStr);
-
-      expect(router.state.location.pathname).toBe(destinationPath);
-      expect(router.history.canGoBack()).toBe(false);
-      expect(searchParams.has("devtools")).toBe(true);
-      expect(searchParams.get("primary")).toBe("red-600");
-      expect(searchParams.has("prod-ui")).toBe(true);
-    },
-  );
-
-  it.each([
-    ["connect repository", "/connect-repo/stale", "/connect-repo"],
-    ["new app", "/new-app/stale", "/new-app"],
-    ["providers", "/providers/stale", "/providers"],
-  ])(
-    "replaces an unmatched %s owner with the chooser when several memberships exist",
-    async (_name, sourcePath, destinationPath) => {
-      useGitHubOwnerRouteSelectionMock.mockReturnValue({
-        githubOwners: [ACME_OWNER, SAMEBASE_OWNER],
-        selectedOwner: null,
-      });
-
-      const router = await renderRoute(`${sourcePath}?devtools&primary=red-600&prod-ui`);
-      const searchParams = new URLSearchParams(router.state.location.searchStr);
-
-      expect(router.state.location.pathname).toBe(destinationPath);
-      expect(router.history.canGoBack()).toBe(false);
-      expect(searchParams.has("devtools")).toBe(true);
-      expect(searchParams.get("primary")).toBe("red-600");
-      expect(searchParams.has("prod-ui")).toBe(true);
-    },
-  );
-
   it("accepts a trailing slash on the promoted pricing route", async () => {
     await renderRoute("/pricing/");
 
@@ -867,72 +812,64 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("accepts a trailing slash on the promoted connect repository route", async () => {
-    await renderRoute("/connect-repo/");
+  it("redirects the organization index to its vault list and keeps search params", async () => {
+    const router = await renderRoute("/org/Samebase?devtools&prod-ui");
+    const searchParams = new window.URLSearchParams(router.state.location.searchStr);
 
-    expect(rootElement?.querySelector('[data-testid="connect-repository-page"]')?.textContent).toBe(
-      "Connect repository page",
-    );
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+    expect(router.state.location.pathname).toBe("/org/samebase/vaults");
+    expect(router.history.canGoBack()).toBe(false);
+    expect(searchParams.has("devtools")).toBe(true);
+    expect(searchParams.has("prod-ui")).toBe(true);
   });
 
-  it("renders new app through an explicit TanStack route instead of the App fallback", async () => {
-    await renderRoute("/new-app");
-
-    expect(rootElement?.querySelector('[data-testid="new-app-page"]')?.textContent).toBe(
-      "New app page",
-    );
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
-
-  it("passes the GitHub owner slug to the new app route", async () => {
-    await renderRoute("/new-app/Samebase");
+  it.each([
+    ["vaults", "/org/Samebase/vaults", "dashboard-route"],
+    ["providers", "/org/Samebase/providers", "providers-page"],
+    ["new app", "/org/Samebase/new-app", "new-app-page"],
+    ["connect repository", "/org/Samebase/connect-repo", "connect-repository-page"],
+    ["organization settings", "/org/Samebase/settings", "organization-settings-page"],
+    ["organization billing", "/org/Samebase/settings/billing", "organization-billing-page"],
+  ])("renders the organization %s route with its resolved owner", async (_name, path, testId) => {
+    await renderRoute(path);
 
     expect(
-      rootElement?.querySelector('[data-testid="new-app-page"]')?.getAttribute("data-owner"),
-    ).toBe("Samebase");
-  });
-
-  it("accepts a trailing slash on the promoted new app route", async () => {
-    await renderRoute("/new-app/");
-
-    expect(rootElement?.querySelector('[data-testid="new-app-page"]')?.textContent).toBe(
-      "New app page",
-    );
+      rootElement?.querySelector(`[data-testid="${testId}"]`)?.getAttribute("data-owner"),
+    ).toBe("samebase");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders providers through an explicit TanStack route instead of the App fallback", async () => {
-    await renderRoute("/providers");
+  it("keeps an unavailable organization URL and shows the unavailable state", async () => {
+    const router = await renderRoute("/org/stale/providers?prod-ui");
 
-    expect(rootElement?.querySelector('[data-testid="providers-page"]')?.textContent).toBe(
-      "Providers page",
-    );
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
-
-  it("passes the GitHub owner slug to the providers route", async () => {
-    await renderRoute("/providers/Samebase");
-
+    expect(router.state.location.pathname).toBe("/org/stale/providers");
     expect(
-      rootElement?.querySelector('[data-testid="providers-page"]')?.getAttribute("data-owner"),
-    ).toBe("Samebase");
+      rootElement?.querySelector('[data-testid="organization-unavailable"]')?.textContent,
+    ).toBe("Organization unavailable");
   });
 
-  it("accepts a trailing slash on the promoted providers route", async () => {
-    await renderRoute("/providers/");
+  it.each(["/providers", "/new-app", "/connect-repo"])(
+    "does not register the retired route %s",
+    async (path) => {
+      await renderRoute(path);
 
-    expect(rootElement?.querySelector('[data-testid="providers-page"]')?.textContent).toBe(
-      "Providers page",
-    );
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
+      expect(rootElement?.querySelector('[data-testid="not-found-route"]')).not.toBeNull();
+    },
+  );
 
   it("renders Settings through an explicit TanStack route", async () => {
     await renderRoute("/settings");
 
     expect(rootElement?.querySelector('[data-testid="settings-page"]')?.textContent).toBe(
       "Settings page",
+    );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders MCP clients as an account settings route", async () => {
+    await renderRoute("/settings/mcp");
+
+    expect(rootElement?.querySelector('[data-testid="mcp-clients-page"]')?.textContent).toBe(
+      "MCP clients page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });

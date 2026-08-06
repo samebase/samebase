@@ -12,6 +12,9 @@ import {
 import { useConvexAuth } from "convex/react";
 import { useLocation, useRouter } from "@tanstack/react-router";
 import { useAppRightSidebarPane } from "@/components/useAppRightSidebarPane";
+import { OrganizationContextProvider } from "@/components/OrganizationContext";
+import { OrganizationContextControl } from "@/components/OrganizationContextControl";
+import { useOrganizationContext } from "@/lib/organizationContext";
 import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
 import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
 import {
@@ -254,10 +257,21 @@ function AppWorkspaceShellFrame({
 }) {
   const sidebarState = useAppWorkspaceSidebarState();
   const appRightSidebarPane = useAppRightSidebarPane();
+  const { surface } = useOrganizationContext();
   const headerAccessory = chrome?.headerAccessory;
+  const contextControl = surface.kind === "none" ? null : <OrganizationContextControl />;
+  const mainHeader =
+    contextControl === null && headerAccessory === undefined ? undefined : (
+      <div className="flex h-full min-w-0 flex-1 items-center">
+        {contextControl}
+        {headerAccessory === undefined ? null : (
+          <div className="min-w-0 flex-1">{headerAccessory}</div>
+        )}
+      </div>
+    );
   const staticLeftPaneAbsent = staticRouteChrome?.leftPane === "none";
   const mainPane = {
-    header: headerAccessory,
+    header: mainHeader,
     content: <AppWorkspaceMainContent>{children}</AppWorkspaceMainContent>,
   } satisfies WorkspaceLayoutV2PaneFrameProps;
   const leftPane = staticLeftPaneAbsent
@@ -310,11 +324,13 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
 
   return (
     <AppWorkspaceRouteChromeContext.Provider value={chromeContextValue}>
-      <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
-        <AppWorkspaceShellFrame chrome={chrome} staticRouteChrome={staticRouteChrome}>
-          {children}
-        </AppWorkspaceShellFrame>
-      </div>
+      <OrganizationContextProvider>
+        <div className="flex h-full min-h-0 flex-col bg-background text-foreground">
+          <AppWorkspaceShellFrame chrome={chrome} staticRouteChrome={staticRouteChrome}>
+            {children}
+          </AppWorkspaceShellFrame>
+        </div>
+      </OrganizationContextProvider>
     </AppWorkspaceRouteChromeContext.Provider>
   );
 }

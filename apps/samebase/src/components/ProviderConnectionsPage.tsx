@@ -1,6 +1,6 @@
 import { isInIframe } from "@/authClient";
 import { useApiKeyConnectDialog } from "@/components/ApiKeyConnectDialog";
-import { GitHubOwnerSelect, type GitHubOwner } from "@/components/GitHubOwnerSelect";
+import type { ViewerOrganization } from "@/lib/organizationContext";
 import { Button } from "@/components/ui/button";
 import { VaultDashboardCloudflareAccountDialog } from "@/components/vault-dashboard/VaultDashboardCloudflareAccountDialog";
 import { type CloudflareAccountOption } from "@/components/vault-dashboard/vaultDashboardCloudflareAccountOptions";
@@ -10,20 +10,10 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useNow } from "@/hooks/useNow";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
-import { getCurrentRootRelativeUrl, openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
-import { PROVIDERS_OWNER_ROUTE } from "@/lib/providersRoute";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
-import { useGitHubOwnerRouteSelection } from "@/components/useGitHubOwnerRouteSelection";
 import { isRecord, notEmpty } from "@samebase/dependent";
-import { useLocation, useNavigate } from "@tanstack/react-router";
-import {
-  useAction,
-  useMutation,
-  usePaginatedQuery,
-  useQuery as useConvexQuery,
-  type PaginationStatus,
-} from "convex/react";
-import { KeyRound, Loader2 } from "lucide-react";
+import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
+import { Loader2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -38,7 +28,6 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS } from "../../shared/cloudflareTokenRefresh";
 
 const PROVIDER_KEYS = ["convex", "cloudflare"] as const;
-const MCP_GRANTS_PAGE_SIZE = 20;
 
 type ProviderKey = (typeof PROVIDER_KEYS)[number];
 type ProviderMetadata = {
@@ -78,7 +67,6 @@ type AppConvexConnectionAccess =
 type AppCloudflareConnection = (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
 type AppCloudflareConnectionAccess =
   (typeof api.cloudflareProviderAccess.checkCloudflareConnectionAccess)["_returnType"];
-type AppMcpGrant = (typeof api.mcp.grants.listCurrentUserGrants)["_returnType"]["page"][number];
 type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "page_load" | "poll";
 type CloudflareAccountDialogState = {
   error: string | null;
@@ -101,15 +89,10 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   disconnectingProvider: ProviderKey | null;
   cloudflareAccessError: string | null;
   convexAccessError: string | null;
-  githubAppSetupError: string | null;
-  githubOwners: GitHubOwner[];
   isAutoCheckingCloudflareToken: boolean;
   isCheckingCloudflareAccess: boolean;
   isCheckingConvexAccess: boolean;
-  isStartingGitHubAppSetup: boolean;
-  mcpGrantError: string | null;
-  mcpGrants: readonly AppMcpGrant[];
-  mcpGrantPaginationStatus: PaginationStatus;
+  organization: ViewerOrganization;
   onCheckCloudflareAccess: () => void;
   onCheckConvexAccess: () => void;
   onCloudflareAccountChange: (accountId: string) => void;
@@ -117,14 +100,8 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   onCloudflareAccountSubmit: () => void;
   onConnect: (provider: ProviderKey) => void;
   onDisconnect: (provider: ProviderKey) => void;
-  onGitHubOwnerChange: (owner: GitHubOwner) => void;
-  onInstallGitHubApp: () => void;
-  onLoadMoreMcpGrants: () => void;
   onOpenApiKeyDialog: () => void;
   onOpenCloudflareAccountDialog: (accountId: string | undefined) => void;
-  onRevokeMcpGrant: (grantId: string) => void;
-  revokingMcpGrantId: string | null;
-  selectedOrganizationId: Id<"organizations"> | null;
 };
 
 const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
@@ -528,109 +505,6 @@ function ConnectionActions({ actions }: { actions: readonly ProviderConnectionAc
   );
 }
 
-function McpClientGrants({
-  error,
-  grants,
-  now,
-  onLoadMore,
-  onRevoke,
-  paginationStatus,
-  revokingGrantId,
-}: {
-  error: string | null;
-  grants: readonly AppMcpGrant[];
-  now: number;
-  onLoadMore: () => void;
-  onRevoke: (grantId: string) => void;
-  paginationStatus: PaginationStatus;
-  revokingGrantId: string | null;
-}) {
-  return (
-    <section aria-labelledby="mcp-clients-heading" className="mt-8 border-t pt-6">
-      <h2 id="mcp-clients-heading" className="mb-5 text-base font-semibold">
-        MCP clients
-      </h2>
-      <div data-testid="mcp-client-grants" className="space-y-5">
-        {grants.map((grant) => {
-          const clientName = grant.clientName?.trim();
-          const clientLabel = clientName || grant.clientId;
-          const activity =
-            grant.lastUsedAt !== undefined
-              ? `Last used ${formatRelativeTimeAgo(grant.lastUsedAt, now)}`
-              : `Authorized ${formatRelativeTimeAgo(grant.createdAt, now)}`;
-          return (
-            <div
-              key={grant.grantId}
-              data-grant-id={grant.grantId}
-              data-testid="mcp-client-grant-row"
-              className="flex flex-wrap items-start gap-3 border-b border-border/50 pb-5 last:border-b-0"
-            >
-              <div className="flex h-5 w-5 shrink-0 items-center justify-center">
-                <KeyRound className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1 basis-80">
-                <div className="text-sm font-medium">{clientLabel}</div>
-                <div className="min-w-0 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-                  {clientName ? `${grant.clientId}, ${activity}` : activity}
-                </div>
-                <div className="mt-2 min-w-0 text-xs leading-5 text-muted-foreground [overflow-wrap:anywhere]">
-                  <div>{grant.scopes.join(", ")}</div>
-                  <div>{grant.resource}</div>
-                </div>
-              </div>
-              <ConnectionActions
-                actions={[
-                  {
-                    disabled: revokingGrantId !== null,
-                    isPending: revokingGrantId === grant.grantId,
-                    key: "revoke",
-                    label: "Revoke",
-                    onClick: () => onRevoke(grant.grantId),
-                    pendingLabel: "Revoking...",
-                  },
-                ]}
-              />
-            </div>
-          );
-        })}
-        {paginationStatus === "LoadingFirstPage" ? (
-          <div
-            className="flex min-h-10 items-center justify-center"
-            aria-label="Loading MCP clients"
-          >
-            <Loader2 className="h-4 w-4 animate-spin" />
-          </div>
-        ) : grants.length === 0 ? (
-          <div className="text-sm text-muted-foreground">No authorized MCP clients.</div>
-        ) : null}
-      </div>
-      {error ? (
-        <div role="alert" className="mt-3 text-xs text-destructive">
-          {error}
-        </div>
-      ) : null}
-      {paginationStatus === "CanLoadMore" || paginationStatus === "LoadingMore" ? (
-        <Button
-          className="mt-3"
-          disabled={paginationStatus === "LoadingMore"}
-          onClick={onLoadMore}
-          size="sm"
-          variant="outline"
-        >
-          {paginationStatus === "LoadingMore" ? (
-            <>
-              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              Loading...
-            </>
-          ) : (
-            "Load more"
-          )}
-        </Button>
-      ) : null}
-    </section>
-  );
-}
-
 export function ProviderConnectionsPageView({
   apiKeyDialog,
   cloudflareAccess,
@@ -641,16 +515,11 @@ export function ProviderConnectionsPageView({
   convexAccessError,
   convexConnection,
   disconnectingProvider,
-  githubAppSetupError,
-  githubOwners,
   isAutoCheckingCloudflareToken,
   isCheckingCloudflareAccess,
   isCheckingConvexAccess,
-  isStartingGitHubAppSetup,
-  mcpGrantError,
-  mcpGrants,
-  mcpGrantPaginationStatus,
   now,
+  organization,
   onCheckCloudflareAccess,
   onCheckConvexAccess,
   onCloudflareAccountChange,
@@ -658,18 +527,10 @@ export function ProviderConnectionsPageView({
   onCloudflareAccountSubmit,
   onConnect,
   onDisconnect,
-  onGitHubOwnerChange,
-  onInstallGitHubApp,
-  onLoadMoreMcpGrants,
   onOpenApiKeyDialog,
   onOpenCloudflareAccountDialog,
-  onRevokeMcpGrant,
-  revokingMcpGrantId,
-  selectedOrganizationId,
 }: ProviderConnectionsPageViewProps) {
-  const canManageSelectedOrganization = githubOwners.some(
-    (owner) => owner.organizationId === selectedOrganizationId && owner.role === "owner",
-  );
+  const canManageSelectedOrganization = organization.role === "owner";
   const convexProviderRow =
     convexConnection?.connected === true
       ? (() => {
@@ -847,58 +708,12 @@ export function ProviderConnectionsPageView({
       data-testid="provider-connections-page"
       className="container flex min-h-0 flex-1 flex-col py-6"
     >
-      <div className="mb-6 flex flex-shrink-0 flex-wrap items-center justify-between gap-3">
+      <div className="mb-6 flex flex-shrink-0 flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold @2xl:text-2xl">Providers</h1>
-        <Button
-          disabled={isStartingGitHubAppSetup}
-          onClick={onInstallGitHubApp}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          {isStartingGitHubAppSetup ? (
-            <>
-              <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-              Opening...
-            </>
-          ) : (
-            "Install GitHub App"
-          )}
-        </Button>
       </div>
-      {githubAppSetupError ? (
-        <div className="mb-4 text-sm text-destructive" role="alert">
-          {githubAppSetupError}
-        </div>
-      ) : null}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl">
-          {githubOwners.length > 0 ? (
-            <>
-              <div className="mb-6 max-w-xs">
-                <GitHubOwnerSelect
-                  disabled={disconnectingProvider !== null}
-                  onChange={onGitHubOwnerChange}
-                  owners={githubOwners}
-                  selectedOrganizationId={selectedOrganizationId}
-                />
-              </div>
-              {selectedOrganizationId ? (
-                <ProviderConnectionRows providerRows={providerRows} />
-              ) : (
-                <div className="text-sm text-muted-foreground">Select a GitHub owner.</div>
-              )}
-            </>
-          ) : null}
-          <McpClientGrants
-            error={mcpGrantError}
-            grants={mcpGrants}
-            now={now}
-            onLoadMore={onLoadMoreMcpGrants}
-            onRevoke={onRevokeMcpGrant}
-            paginationStatus={mcpGrantPaginationStatus}
-            revokingGrantId={revokingMcpGrantId}
-          />
+          <ProviderConnectionRows providerRows={providerRows} />
         </div>
       </div>
       <VaultDashboardCloudflareAccountDialog
@@ -1079,12 +894,7 @@ function useCloudflareMcpTokenAutoCheck({
   ]);
 }
 
-export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin: string | null }) {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const getGitHubAppInstallationUrl = useMutation(
-    api.githubAppInstallation.getGitHubAppInstallationUrl,
-  );
+export function ProviderConnectionsPage({ organization }: { organization: ViewerOrganization }) {
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getCloudflareOAuthUrl = useAction(api.cloudflareOAuth.getCloudflareOAuthUrl);
   const checkConvexConnectionAccess = useAction(
@@ -1099,22 +909,13 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
   const disconnectConvex = useAction(api.users.disconnectConvex);
   const disconnectCloudflare = useAction(api.users.disconnectCloudflare);
-  const revokeMcpGrant = useMutation(api.mcp.grants.revokeCurrentUserGrant);
-  const { githubOwners, selectedOwner } = useGitHubOwnerRouteSelection(githubOwnerLogin);
-  const selectedOrganizationId = selectedOwner?.organizationId ?? null;
-  const convexConnection = useConvexQuery(
-    api.users.getConvexConnectionStatus,
-    selectedOrganizationId ? { organizationId: selectedOrganizationId } : "skip",
-  );
-  const cloudflareConnection = useConvexQuery(
-    api.users.getCloudflareConnectionStatus,
-    selectedOrganizationId ? { organizationId: selectedOrganizationId } : "skip",
-  );
-  const mcpGrants = usePaginatedQuery(
-    api.mcp.grants.listCurrentUserGrants,
-    {},
-    { initialNumItems: MCP_GRANTS_PAGE_SIZE },
-  );
+  const selectedOrganizationId = organization.organizationId;
+  const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus, {
+    organizationId: selectedOrganizationId,
+  });
+  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
+    organizationId: selectedOrganizationId,
+  });
   const convexPopupRef = useRef<Window | null>(null);
   const cloudflarePopupRef = useRef<Window | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
@@ -1127,12 +928,8 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
   const [cloudflareAccessError, setCloudflareAccessError] = useState<string | null>(null);
   const [convexAccess, setConvexAccess] = useState<AppConvexConnectionAccess | null>(null);
   const [convexAccessError, setConvexAccessError] = useState<string | null>(null);
-  const [githubAppSetupError, setGitHubAppSetupError] = useState<string | null>(null);
-  const [mcpGrantError, setMcpGrantError] = useState<string | null>(null);
-  const [revokingMcpGrantId, setRevokingMcpGrantId] = useState<string | null>(null);
   const [isCheckingConvexAccess, setIsCheckingConvexAccess] = useState(false);
   const [isCheckingCloudflareAccess, setIsCheckingCloudflareAccess] = useState(false);
-  const [isStartingGitHubAppSetup, setIsStartingGitHubAppSetup] = useState(false);
   const [isAutoCheckingCloudflareToken, setIsAutoCheckingCloudflareToken] = useState(false);
   const [cloudflareAccountDialog, setCloudflareAccountDialog] =
     useState<CloudflareAccountDialogState>({
@@ -1146,11 +943,9 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     convex: {
       disconnect: async () => {
-        if (selectedOrganizationId === null) return;
         await disconnectConvex({ organizationId: selectedOrganizationId });
       },
       getOAuthUrl: async () => {
-        if (selectedOrganizationId === null) throw new Error("Select a GitHub owner.");
         return await getConvexOAuthUrl({ organizationId: selectedOrganizationId });
       },
       popupOriginRef: convexPopupOriginRef,
@@ -1158,11 +953,9 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
     },
     cloudflare: {
       disconnect: async () => {
-        if (selectedOrganizationId === null) return;
         await disconnectCloudflare({ organizationId: selectedOrganizationId });
       },
       getOAuthUrl: async () => {
-        if (selectedOrganizationId === null) throw new Error("Select a GitHub owner.");
         return await getCloudflareOAuthUrl({ organizationId: selectedOrganizationId });
       },
       popupOriginRef: cloudflarePopupOriginRef,
@@ -1172,9 +965,6 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
   const now = useNow();
   const connectConvexWithApiKeyAndClearAccess = useCallback(
     async (args: { token: string }) => {
-      if (selectedOrganizationId === null) {
-        throw new Error("Select a GitHub owner.");
-      }
       const result = await connectConvexWithApiKey({
         organizationId: selectedOrganizationId,
         token: args.token,
@@ -1203,7 +993,7 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
   });
 
   const runConvexAccessCheck = useCallback(async () => {
-    if (isCheckingConvexAccess || selectedOrganizationId === null) {
+    if (isCheckingConvexAccess) {
       return;
     }
 
@@ -1223,7 +1013,7 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
   }, [checkConvexConnectionAccess, isCheckingConvexAccess, selectedOrganizationId]);
 
   const runCloudflareAccessCheck = useCallback(async () => {
-    if (isCheckingCloudflareAccess || selectedOrganizationId === null) {
+    if (isCheckingCloudflareAccess) {
       return;
     }
 
@@ -1243,7 +1033,6 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
   }, [checkCloudflareConnectionAccess, isCheckingCloudflareAccess, selectedOrganizationId]);
 
   const loadCloudflareAccountDialogResources = async (preferredAccountId: string | undefined) => {
-    if (selectedOrganizationId === null) return;
     const requestId = cloudflareAccountDialogRequestIdRef.current + 1;
     cloudflareAccountDialogRequestIdRef.current = requestId;
     setCloudflareAccountDialog((current) => ({
@@ -1318,25 +1107,6 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
     }
   };
 
-  const handleInstallGitHubApp = async () => {
-    if (isStartingGitHubAppSetup) return;
-    setGitHubAppSetupError(null);
-    setIsStartingGitHubAppSetup(true);
-    try {
-      await openGitHubAppSetupPopup(async () => {
-        return await getGitHubAppInstallationUrl({
-          returnToPath: getCurrentRootRelativeUrl(),
-        });
-      });
-    } catch (error) {
-      setGitHubAppSetupError(
-        error instanceof Error ? error.message : "Could not open GitHub App setup.",
-      );
-    } finally {
-      setIsStartingGitHubAppSetup(false);
-    }
-  };
-
   const handleDisconnect = async (provider: ProviderKey) => {
     const providerConfig = providerRuntimeConfig[provider];
     const providerMetadata = PROVIDER_METADATA[provider];
@@ -1368,27 +1138,8 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
     setCloudflareAccountDialog((current) => ({ ...current, isOpen }));
   };
 
-  const handleRevokeMcpGrant = async (grantId: string) => {
-    if (revokingMcpGrantId !== null) {
-      return;
-    }
-    setMcpGrantError(null);
-    setRevokingMcpGrantId(grantId);
-    try {
-      await revokeMcpGrant({ grantId });
-    } catch (error) {
-      setMcpGrantError(error instanceof Error ? error.message : "Could not revoke the MCP client.");
-    } finally {
-      setRevokingMcpGrantId(null);
-    }
-  };
-
   const handleSubmitCloudflareAccount = async () => {
-    if (
-      cloudflareAccountDialog.isSubmitting ||
-      !cloudflareAccountDialog.selectedAccountId ||
-      selectedOrganizationId === null
-    ) {
+    if (cloudflareAccountDialog.isSubmitting || !cloudflareAccountDialog.selectedAccountId) {
       return;
     }
     setCloudflareAccountDialog((current) => ({ ...current, error: null, isSubmitting: true }));
@@ -1410,24 +1161,6 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
     }
   };
 
-  const handleGitHubOwnerChange = (owner: GitHubOwner) => {
-    setCloudflareAccess(null);
-    setCloudflareAccessError(null);
-    setConvexAccess(null);
-    setConvexAccessError(null);
-    cloudflareAccountDialogRequestIdRef.current += 1;
-    setCloudflareAccountDialog((current) => ({ ...current, isOpen: false }));
-    void navigate({
-      to: PROVIDERS_OWNER_ROUTE,
-      params: { owner: owner.githubOwnerLogin },
-      search: location.search,
-    });
-  };
-
-  if (githubOwners === undefined) {
-    return null;
-  }
-
   return (
     <ProviderConnectionsPageView
       apiKeyDialog={apiKeyDialog}
@@ -1439,16 +1172,11 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
       convexAccessError={convexAccessError}
       convexConnection={convexConnection}
       disconnectingProvider={disconnectingProvider}
-      githubAppSetupError={githubAppSetupError}
-      githubOwners={githubOwners}
       isAutoCheckingCloudflareToken={isAutoCheckingCloudflareToken}
       isCheckingCloudflareAccess={isCheckingCloudflareAccess}
       isCheckingConvexAccess={isCheckingConvexAccess}
-      isStartingGitHubAppSetup={isStartingGitHubAppSetup}
-      mcpGrantError={mcpGrantError}
-      mcpGrants={mcpGrants.results}
-      mcpGrantPaginationStatus={mcpGrants.status}
       now={now}
+      organization={organization}
       onCheckCloudflareAccess={() => {
         void runCloudflareAccessCheck();
       }}
@@ -1472,21 +1200,11 @@ export function ProviderConnectionsPage({ githubOwnerLogin }: { githubOwnerLogin
       onDisconnect={(provider) => {
         void handleDisconnect(provider);
       }}
-      onGitHubOwnerChange={handleGitHubOwnerChange}
-      onInstallGitHubApp={() => {
-        void handleInstallGitHubApp();
-      }}
-      onLoadMoreMcpGrants={() => mcpGrants.loadMore(MCP_GRANTS_PAGE_SIZE)}
       onOpenApiKeyDialog={openApiKeyDialog}
       onOpenCloudflareAccountDialog={(accountId) => {
         setCloudflareAccountDialog((current) => ({ ...current, isOpen: true }));
         void loadCloudflareAccountDialogResources(accountId);
       }}
-      onRevokeMcpGrant={(grantId) => {
-        void handleRevokeMcpGrant(grantId);
-      }}
-      revokingMcpGrantId={revokingMcpGrantId}
-      selectedOrganizationId={selectedOrganizationId}
     />
   );
 }

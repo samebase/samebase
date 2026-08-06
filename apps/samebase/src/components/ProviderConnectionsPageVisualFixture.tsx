@@ -174,42 +174,18 @@ export function ProviderConnectionsPageVisualFixture() {
       convexAccessError={null}
       convexConnection={providerConnectionsVisualFixtureState.convexConnection}
       disconnectingProvider={null}
-      githubAppSetupError={null}
-      githubOwners={[
-        {
-          canCreateRepository: true,
-          githubOwnerId: "456",
-          githubOwnerLogin: "samebase",
-          githubOwnerType: "organization",
-          organizationId: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID,
-          role: "owner",
-        },
-      ]}
       isAutoCheckingCloudflareToken={false}
       isCheckingCloudflareAccess={false}
       isCheckingConvexAccess={false}
-      isStartingGitHubAppSetup={false}
-      mcpGrantError={null}
-      mcpGrants={[
-        {
-          clientId: "mcpc_codex_local_fixture",
-          clientName: "Codex",
-          createdAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 10 * 24 * 60 * 60_000,
-          grantId: "mcpg_codex_local_fixture",
-          lastUsedAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 2 * 60_000,
-          resource: "https://api.samebase.com/mcp",
-          scopes: ["access_dashboard", "access_browser_login_handoff"],
-        },
-        {
-          clientId: "mcpc_cli_local_fixture",
-          createdAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 24 * 60 * 60_000,
-          grantId: "mcpg_cli_local_fixture",
-          resource: "https://api.samebase.com/mcp",
-          scopes: ["access_dashboard"],
-        },
-      ]}
-      mcpGrantPaginationStatus="Exhausted"
       now={providerConnectionsVisualFixtureState.now}
+      organization={{
+        canCreateRepository: true,
+        githubOwnerId: "456",
+        githubOwnerLogin: "samebase",
+        githubOwnerType: "organization",
+        organizationId: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID,
+        role: "owner",
+      }}
       onCheckCloudflareAccess={noop}
       onCheckConvexAccess={noop}
       onCloudflareAccountChange={noop}
@@ -217,14 +193,8 @@ export function ProviderConnectionsPageVisualFixture() {
       onCloudflareAccountSubmit={noop}
       onConnect={noop}
       onDisconnect={noop}
-      onGitHubOwnerChange={noop}
-      onInstallGitHubApp={noop}
-      onLoadMoreMcpGrants={noop}
       onOpenApiKeyDialog={noop}
       onOpenCloudflareAccountDialog={noop}
-      onRevokeMcpGrant={noop}
-      revokingMcpGrantId={null}
-      selectedOrganizationId={PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID}
     />
   );
 }

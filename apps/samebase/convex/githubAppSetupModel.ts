@@ -1,18 +1,21 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const { id, number, object, optional, string } = v;
+const { id, literal, number, object, optional, string, union } = v;
+
+export const vGitHubAppSetupPurpose = union(literal("installation"), literal("user_authorization"));
 
 export const vGitHubAppSetupState = object({
   userId: id("users"),
   state: string(),
+  purpose: optional(vGitHubAppSetupPurpose),
   returnToPath: optional(string()),
   createdAt: number(),
   expiresAt: number(),
 });
 
 export const githubAppSetupTables = {
-  /** One-use OAuth state created when a Samebase user starts GitHub App installation. */
+  /** One-use state for GitHub App installation or personal user authorization. */
   githubAppSetupStates: defineTable(vGitHubAppSetupState)
     .index("by_state", ["state"])
     .index("by_user", ["userId"]),

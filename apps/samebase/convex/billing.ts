@@ -83,7 +83,27 @@ const vUserBillingAccount = object({
   user: vUserDoc,
 });
 
-function validateReturnUrlPair(args: {
+function isOrganizationBillingPath(url: URL, githubOwnerLoginNormalized: string): boolean {
+  const segments = url.pathname.split("/");
+  if (
+    segments.length !== 5 ||
+    segments[0] !== "" ||
+    segments[1] !== "org" ||
+    segments[3] !== "settings" ||
+    segments[4] !== "billing"
+  ) {
+    return false;
+  }
+
+  try {
+    return decodeURIComponent(segments[2]).toLowerCase() === githubOwnerLoginNormalized;
+  } catch {
+    return false;
+  }
+}
+
+export function validateOrganizationBillingReturnUrls(args: {
+  githubOwnerLogin: string;
   successUrl: string;
   returnUrl: string;
   server: PolarServer;
@@ -99,6 +119,17 @@ function validateReturnUrlPair(args: {
 
   if (success.origin !== ret.origin) {
     throw new ConvexError("Checkout return URLs must share the same origin.");
+  }
+
+  const githubOwnerLogin = args.githubOwnerLogin.trim().toLowerCase();
+  if (githubOwnerLogin.length === 0) {
+    throw new ConvexError("Checkout return URL owner is unavailable.");
+  }
+  if (
+    !isOrganizationBillingPath(success, githubOwnerLogin) ||
+    !isOrganizationBillingPath(ret, githubOwnerLogin)
+  ) {
+    throw new ConvexError("Checkout return URLs must target this organization billing page.");
   }
 
   if (args.server === "production") {
@@ -210,6 +241,12 @@ export const createPolarCheckoutSession = action({
     if (currentBilling.role !== "owner") {
       throw new Error("Organization owner access is required.");
     }
+    const githubOwnerLogin = await ctx.runQuery(
+      internal.organizations.getExternalReturnOwnerLogin,
+      {
+        organizationId,
+      },
+    );
     const storedBilling = readBillingAccountState(currentBilling.account);
 
     const productId = readPolarProMonthlyProductId();
@@ -218,7 +255,8 @@ export const createPolarCheckoutSession = action({
     }
     const polar = createPolarClient();
     const server = resolvePolarServer();
-    const { successUrl, returnUrl } = validateReturnUrlPair({
+    const { successUrl, returnUrl } = validateOrganizationBillingReturnUrls({
+      githubOwnerLogin,
       successUrl: args.successUrl,
       returnUrl: args.returnUrl,
       server,
@@ -389,6 +427,12 @@ export const createPolarCustomerPortalSession = action({
     if (currentBilling.role !== "owner") {
       throw new Error("Organization owner access is required.");
     }
+    const githubOwnerLogin = await ctx.runQuery(
+      internal.organizations.getExternalReturnOwnerLogin,
+      {
+        organizationId: args.organizationId,
+      },
+    );
 
     const externalCustomerId = readBillingAccountState(
       currentBilling.account,
@@ -398,7 +442,8 @@ export const createPolarCustomerPortalSession = action({
     }
 
     const server = resolvePolarServer();
-    const { returnUrl } = validateReturnUrlPair({
+    const { returnUrl } = validateOrganizationBillingReturnUrls({
+      githubOwnerLogin,
       successUrl: args.returnUrl,
       returnUrl: args.returnUrl,
       server,

@@ -28,14 +28,6 @@ const routeAccessMetadataByPath = {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/connect-repo": {
-    access: "access_repo_connect",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-  },
-  "/connect-repo/$owner": {
-    access: "access_repo_connect",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-  },
   "/indexDB": { access: "access_admin" },
   "/landing": { access: "access_public", pathSuggestion: "redirect", prerender: false },
   "/docs/do-it-yourself": { access: "access_public", pathSuggestion: "hidden" },
@@ -81,12 +73,32 @@ const routeAccessMetadataByPath = {
     appWorkspaceRouteChrome: { leftPane: "none" },
     pathSuggestion: "dev",
   },
-  "/new-app": {
+  "/org/$owner": {
+    access: "access_dashboard",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
+  "/org/$owner/connect-repo": {
+    access: "access_repo_connect",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
+  "/org/$owner/new-app": {
     access: "access_app_create",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/new-app/$owner": {
-    access: "access_app_create",
+  "/org/$owner/providers": {
+    access: "access_provider_connections",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
+  "/org/$owner/settings": {
+    access: "access_user_preferences",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
+  "/org/$owner/settings/billing": {
+    access: "access_user_preferences",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
+  "/org/$owner/vaults": {
+    access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
   "/oauth/mcp/consent": {
@@ -102,15 +114,11 @@ const routeAccessMetadataByPath = {
   },
   "/pricing": { access: "access_public", pathSuggestion: "hidden" },
   "/privacy": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
-  "/providers": {
-    access: "access_provider_connections",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-  },
-  "/providers/$owner": {
-    access: "access_provider_connections",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-  },
   "/settings": {
+    access: "access_user_preferences",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
+  "/settings/mcp": {
     access: "access_user_preferences",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
