@@ -17,21 +17,3 @@ test("providers page connected fixture", async ({ page }) => {
     },
   );
 });
-
-test("providers page MCP client grants", async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto("/visual-fixture?mode=providers-page-connected", {
-    waitUntil: "domcontentloaded",
-  });
-  await page.waitForLoadState("networkidle");
-
-  await expect(page.getByRole("region", { name: "MCP clients" })).toHaveScreenshot(
-    "providers-page-mcp-clients-mobile.png",
-    {
-      animations: "disabled",
-      caret: "hide",
-      scale: "css",
-      maxDiffPixelRatio: 0.03,
-    },
-  );
-});

@@ -172,6 +172,10 @@ test("keeps one organization static and separates organization and user settings
   await expect(
     page.getByTestId(MAIN_HEADER_TEST_ID).getByText("Account", { exact: true }),
   ).toBeVisible();
+  await expect(page).toHaveScreenshot("organization-context-mcp-settings.png", {
+    ...screenshotOptions,
+    fullPage: true,
+  });
 
   await openRoute(page, "/org/org-context-solo/settings/billing?checkout=cancel");
   const billingPage = page.getByTestId("organization-billing-page");
