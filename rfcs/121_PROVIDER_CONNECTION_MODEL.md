@@ -182,14 +182,13 @@ Keep one table with a discriminated union.
 
 Common fields:
 
-| Field                | Rule                                                                                                                                |
-| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `organizationId`     | Required. The organization owns the connection.                                                                                     |
-| `kind`               | Required. Only `convex` or `cloudflare`. Put this discriminant first in each variant.                                               |
-| `connectedByUserId`  | Required. The Samebase owner who established the current grant. This is provenance and lifecycle data, not operation authorization. |
-| `createdAt`          | Required. Time when this target connection row was first created.                                                                   |
-| `grantEstablishedAt` | Required. Time when an owner installed the current grant.                                                                           |
-| `grantGeneration`    | Required positive integer. Starts at 1 and increases by 1 for each credential replacement.                                          |
+| Field               | Rule                                                                                                                                |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `organizationId`    | Required. The organization owns the connection.                                                                                     |
+| `kind`              | Required. Only `convex` or `cloudflare`. Put this discriminant first in each variant.                                               |
+| `connectedByUserId` | Required. The Samebase owner who established the current grant. This is provenance and lifecycle data, not operation authorization. |
+| `createdAt`         | Required. Time when this target connection row was first created.                                                                   |
+| `updatedAt`         | Required. Time when the row was last changed, including credential replacement.                                                     |
 
 Convex variant:
 
@@ -242,10 +241,11 @@ This is short-lived OAuth control state for both providers, not resource identit
 intent:
 
 - `connect`, when no row existed at OAuth start
-- `replace`, with the transient row ID, expected target ID, and expected `grantGeneration`
+- `replace`, with the transient row ID and expected target ID
 
-A connect callback must still find no row. A replace callback must still find the row, target, and
-grant generation from OAuth start. It must not overwrite a newer connection after a stale callback.
+A connect callback must still find no row. A replace callback must still find the same row and
+target from OAuth start. The beta model does not add a grant generation only to order two rare,
+overlapping reauthorization callbacks.
 
 For a new Cloudflare connection, the callback can expose several authorized accounts. Keep the
 pending OAuth credentials only in backend-only, short-lived setup state until the owner chooses one
@@ -285,15 +285,12 @@ operation identity.
 7. A target change is permitted only when the organization has no retained dependency for the old
    target and no active provider write for that provider.
 8. A display name or slug change never changes target identity.
-9. Each credential replacement increments `grantGeneration` in the same transaction that installs
-   the new secret.
-10. A Cloudflare token refresh does not change `accountId`, `connectedByUserId`,
-    `grantEstablishedAt`, or `grantGeneration`.
-11. A Cloudflare grant can reach more accounts than `accountId`, but Samebase uses it only for the
+9. A Cloudflare token refresh does not change `accountId` or `connectedByUserId`.
+10. A Cloudflare grant can reach more accounts than `accountId`, but Samebase uses it only for the
     stored `accountId`.
-12. A raw credential is never returned through a public query, action result, log, test fixture,
+11. A raw credential is never returned through a public query, action result, log, test fixture,
     screenshot, or audit row.
-13. Current organization membership authorizes use. `connectedByUserId` does not authorize use.
+12. Current organization membership authorizes use. `connectedByUserId` does not authorize use.
 
 Retained target dependencies include:
 
@@ -387,20 +384,16 @@ actor.
 5. Insert the one row. Do not create a row until Cloudflare has one exact account choice.
 6. For Cloudflare, verify access to the selected account and run non-modifying Workers Scripts and
    Workers CI access probes.
-7. Set `connectedByUserId` and `grantEstablishedAt` to the acting owner and current time. Set
-   `grantGeneration` to 1.
+7. Set `connectedByUserId`, `createdAt`, and `updatedAt` to the acting owner and current time.
 
 ### Reauthorize Or Replace
 
 1. Require organization owner role.
 2. Verify the new credential before changing the row.
 3. Require the same `teamId` or `accountId`.
-4. Require the same `grantGeneration` that the replace operation read before credential
-   verification.
-5. Replace the secret in the same row.
-6. Set `connectedByUserId` to the acting owner and update `grantEstablishedAt`.
-7. Increment `grantGeneration`.
-8. Do not rewrite resource, plan, retry, or write-lock rows.
+4. Replace the secret in the same row.
+5. Set `connectedByUserId` to the acting owner and update `updatedAt`.
+6. Do not rewrite resource, plan, retry, or write-lock rows.
 
 For Cloudflare, the replacement OAuth grant can expose several accounts. Require it to include the
 row's current `accountId`. Do not change the target or show the account selector during
@@ -420,13 +413,14 @@ replace the local secret and report that upstream removal of the old token is no
 
 Automatic refresh maintains the current grant. It is not a new connection or a reauthorization.
 
-1. Resolve the one Cloudflare row and record its `grantGeneration`.
+1. Resolve the one Cloudflare row and record its row ID, current target, and current refresh
+   credential.
 2. Claim the short-lived refresh lease.
 3. Use the refresh credential only in a backend-only action.
-4. Atomically store the returned access token, refresh token, and expiry only if the row and
-   `grantGeneration` are unchanged.
+4. Store the returned access token, refresh token, and expiry only if the row, target, and stored
+   refresh credential are unchanged.
 5. Clear the refresh lease. A stale refresh result must not overwrite a later reauthorization.
-6. Do not change `connectedByUserId`, `grantEstablishedAt`, or `grantGeneration`.
+6. Do not change `connectedByUserId`.
 
 A definitive invalid-refresh result keeps the row and marks the connection as needing owner
 reauthorization. A network or provider error is not proof that the grant is invalid.
@@ -440,8 +434,8 @@ A different team or account is not reauthorization.
 - Reconnect to the same target restores use.
 - To use a different target, remove or reset all old provider resources, plans, and retry state
   first.
-- After the dependencies are gone, disconnect the old target and create a new row with
-  `grantGeneration = 1`. Do not update a target in place.
+- After the dependencies are gone, disconnect the old target and create a new row. Do not update a
+  target in place.
 - Do not move resources silently and do not rewrite stable IDs only to make a new credential fit.
 
 The current explicit Convex project-transfer reconciliation remains a verified resource operation.
@@ -796,24 +790,31 @@ independent multiplicity.
 
 ## Reset Plan
 
-Use a clean pre-beta reset. Do not preserve the hidden-row shape.
+Use a clean pre-beta reset. Do not preserve the hidden-row shape. Use a widen, reset, verify, and
+narrow deployment sequence because Convex validates stored documents against each deployed schema.
 
-1. Stop new provider writes during the reset.
-2. Revoke current direct Cloudflare OAuth grants through the direct revoke endpoint while refresh
+1. Deploy singleton resolution and stop all production reads and writes of the organization selected
+   connection fields. Keep the legacy optional fields and nested Cloudflare account shape in this
+   deploy only so existing documents remain valid.
+2. Stop new provider writes during the reset.
+3. Revoke current direct Cloudflare OAuth grants through the direct revoke endpoint while refresh
    tokens are available. The operator will reconnect through the same direct OAuth flow after the
    reset.
-3. Revoke current Cloudflare MCP OAuth grants through their separate revoke path.
-4. Tell the owner of each current Cloudflare API token to revoke it.
-5. Tell current Convex OAuth connectors to revoke the application authorization in Convex. Tell the
+4. Revoke current Cloudflare MCP OAuth grants through their separate revoke path.
+5. Tell the owner of each current Cloudflare API token to revoke it.
+6. Tell current Convex OAuth connectors to revoke the application authorization in Convex. Tell the
    Convex team member who created a current team token to revoke that token.
-6. Clear `providerConnections` and `providerOAuthCallbackStates`.
-7. Remove both selected connection fields from `organizations`.
-8. Inspect retained provider targets for each organization.
-9. If one organization has more than one Convex `teamId` or Cloudflare `accountId`, clear its
-   disposable vault, provider-resource, provisioning, and deletion-retry rows. Do not add
-   compatibility routing.
-10. Preserve stable resource rows only when all targets already satisfy the new invariant.
-11. Reconnect the exact retained targets with the new methods.
+7. Clear `providerConnections` and `providerOAuthCallbackStates` with bounded migration batches.
+8. Patch both selected connection fields to `undefined` in bounded migration batches.
+9. Inspect retained provider targets for each organization.
+10. If one organization has more than one Convex `teamId` or Cloudflare `accountId`, clear its
+    disposable vault, provider-resource, provisioning, and deletion-retry rows. Do not add
+    compatibility routing.
+11. Preserve stable resource rows only when all targets already satisfy the new invariant.
+12. Verify that no provider row, callback state, or selected connection field remains.
+13. Deploy the narrow schema. Remove the selected connection fields and obsolete indexes. Replace
+    Cloudflare `defaultAccount` with required top-level account fields.
+14. Reconnect the exact retained targets with the new methods.
 
 For the current single-operator development system, a full disposable product-data reset is the
 preferred path if any target conflict exists.
@@ -822,13 +823,22 @@ preferred path if any target conflict exists.
 
 ### Slice 1: One-Row Data Model And Resolution
 
-- Apply the proposed `providerConnections` union and indexes.
-- Remove organization selected IDs and selected-row helpers.
+- Enforce zero or one row for each organization and provider kind.
+- Stop all production reads and writes of organization selected IDs, but keep their optional schema
+  fields for this deploy.
 - Make Convex and Cloudflare resource resolution use the same target-match rule.
 - Remove connection-row validation from post-provider checkpoints.
-- Apply the clean reset and add invariant tests.
+- Keep all current credential methods and the nested Cloudflare selected-account shape.
+- Add invariant tests.
 
-### Slice 2: Credential And Lifecycle Rules
+### Slice 2: Reset And Narrow Schema
+
+- Stop provider writes, revoke current grants when possible, and apply the clean reset.
+- Verify retained targets and the absence of legacy provider state.
+- Remove organization selected IDs and obsolete indexes from the schema.
+- Flatten the required Cloudflare account target after the reset.
+
+### Slice 3: Credential, Lifecycle, And UI Rules
 
 - Keep Convex team OAuth only for product setup.
 - Keep direct Cloudflare OAuth as the only Cloudflare product connection path.
@@ -836,8 +846,6 @@ preferred path if any target conflict exists.
 - Implement replace, disconnect, upstream-result reporting, account deletion, and same-target
   takeover rules.
 - Add `userId` to manual provider write locks and cover credential changes during operations.
-
-### Slice 3: Minimum UI And Live Validation
 
 - Update the provider page and app creation with the minimum copy in this RFC.
 - Remove selected and manage-account controls.
@@ -855,10 +863,9 @@ identity.
 
 ## Decisions That Still Need User Approval
 
-1. Approve removing the redundant selected connection fields and resetting hidden extra rows.
-2. Approve removing the manual Cloudflare API-key and MCP OAuth product paths. Direct Cloudflare
+1. Approve removing the manual Cloudflare API-key and MCP OAuth product paths. Direct Cloudflare
    OAuth remains as the required Cloudflare connection method.
-3. Approve the lifecycle: membership departure keeps the OAuth connection while the provider still
+2. Approve the lifecycle: membership departure keeps the OAuth connection while the provider still
    accepts it, Samebase account deletion removes a grant still established by that user without
    blocking deletion, and Disconnect always removes local access without deleting resources.
 
