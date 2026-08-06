@@ -133,8 +133,8 @@ export const checkCloudflareConnectionAccess = action({
         organizationId: args.organizationId,
       },
     );
-    const selectedConnection = await ctx.runQuery(
-      internal.providerConnections.loadSelectedForOrganization,
+    const providerConnection = await ctx.runQuery(
+      internal.providerConnections.loadForOrganization,
       {
         organizationId,
         userId: ctx.viewer.userId,
@@ -142,10 +142,10 @@ export const checkCloudflareConnectionAccess = action({
       },
     );
     const connection =
-      selectedConnection?.kind === "cloudflare"
+      providerConnection?.kind === "cloudflare"
         ? await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
             organizationId,
-            providerConnectionId: selectedConnection._id,
+            providerConnectionId: providerConnection._id,
             userId: ctx.viewer.userId,
           })
         : null;

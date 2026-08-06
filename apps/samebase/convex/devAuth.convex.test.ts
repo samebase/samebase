@@ -87,7 +87,7 @@ describe("devAuth password account seed", () => {
     await expect(t.run(async (ctx) => (await ctx.db.get(userId))?.isApproved)).resolves.toBe(true);
   });
 
-  it("seeds one repeat-safe organization graph with selected provider connections", async () => {
+  it("seeds one repeat-safe organization graph with singleton provider connections", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -113,7 +113,20 @@ describe("devAuth password account seed", () => {
     } as const;
 
     await t.mutation(internal.devAuth.seedOrganizationWithProviderConnections, seed);
-    await t.mutation(internal.devAuth.seedOrganizationWithProviderConnections, seed);
+    const initialProviderConnections = await t.run(async (ctx) => {
+      return await ctx.db.query("providerConnections").collect();
+    });
+    await t.mutation(internal.devAuth.seedOrganizationWithProviderConnections, {
+      ...seed,
+      convexConnection: {
+        ...seed.convexConnection,
+        credential: "convex-updated-credential",
+      },
+      cloudflareConnection: {
+        ...seed.cloudflareConnection,
+        credential: "cloudflare-updated-credential",
+      },
+    });
 
     const snapshot = await t.run(async (ctx) => {
       return {
@@ -155,20 +168,22 @@ describe("devAuth password account seed", () => {
       (connection) => connection.kind === "cloudflare",
     );
     expect(convexConnection).toMatchObject({
+      _id: initialProviderConnections.find((connection) => connection.kind === "convex")?._id,
       organizationId: organization._id,
       connectedByUserId: userId,
+      auth: { credential: "convex-updated-credential" },
       teamId: seed.convexConnection.teamId,
     });
     expect(cloudflareConnection).toMatchObject({
+      _id: initialProviderConnections.find((connection) => connection.kind === "cloudflare")?._id,
       organizationId: organization._id,
       connectedByUserId: userId,
+      auth: { credential: "cloudflare-updated-credential" },
       defaultAccount: {
         state: "selected",
         accountId: seed.cloudflareConnection.accountId,
       },
     });
-    expect(organization.selectedConvexProviderConnectionId).toBe(convexConnection?._id);
-    expect(organization.selectedCloudflareProviderConnectionId).toBe(cloudflareConnection?._id);
   });
 
   it("uses the preview API key without storing it and repeats organization seeding safely", async () => {

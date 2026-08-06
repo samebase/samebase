@@ -254,10 +254,10 @@ export const validateCreateAppConnections = internalAction({
         organizationId: access.organizationId,
         teamId: plan.convex.teamId,
       }),
-      ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
+      ctx.runQuery(internal.providerConnections.loadCloudflareForOrganizationAccount, {
         userId: args.userId,
         organizationId: access.organizationId,
-        kind: "cloudflare",
+        accountId: plan.cloudflare.accountId,
       }),
     ]);
 

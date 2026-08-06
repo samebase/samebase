@@ -71,25 +71,29 @@ export const deleteCloudflare = internalAction({
     }
 
     const workers = plan.cloudflare.workers;
-    if (workers.length === 0) {
+    const firstWorker = workers.at(0);
+    if (firstWorker === undefined) {
       throw new Error("Cloudflare deletion plan must include at least one Worker.");
     }
-    const selectedConnection = await ctx.runQuery(
-      internal.providerConnections.loadSelectedForOrganization,
+    const providerConnection = await ctx.runQuery(
+      internal.providerConnections.loadCloudflareForOrganizationAccount,
       {
         organizationId: run.organizationId,
         userId: run.userId,
-        kind: "cloudflare",
+        accountId: firstWorker.accountId,
       },
     );
-    if (selectedConnection?.kind !== "cloudflare") {
+    if (
+      providerConnection?.kind !== "cloudflare" ||
+      workers.some((worker) => worker.accountId !== firstWorker.accountId)
+    ) {
       throw new Error("Cloudflare connection is required to remove resources.");
     }
     const connection = await ctx.runAction(
       internal.cloudflareOAuth.resolveConnectionForOrganization,
       {
         organizationId: run.organizationId,
-        providerConnectionId: selectedConnection._id,
+        providerConnectionId: providerConnection._id,
         userId: run.userId,
       },
     );

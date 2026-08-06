@@ -15,8 +15,8 @@ import { isConnectedVault } from "../state";
 import { readVaultDeletionState } from "./state";
 import { requireVaultForUser, requireVaultOrganization } from "../../organizationAccess";
 import {
+  getCloudflareProviderConnectionForAccount,
   getConvexProviderConnectionForTeam,
-  getSelectedProviderConnectionForOrganization,
 } from "../../providerConnections";
 
 const { boolean, id, literal, object, string, union } = v;
@@ -157,12 +157,14 @@ async function buildCloudflarePlan(
     return { action: "skip", reason: "not_recorded" };
   }
 
-  const connection = await getSelectedProviderConnectionForOrganization(ctx.db, {
-    organizationId: vault.organizationId,
-    kind: "cloudflare",
-  });
-  if (connection?.kind !== "cloudflare") {
-    throw new Error("Cloudflare connection is required to remove resources.");
+  for (const worker of provisionedWorkers) {
+    const connection = await getCloudflareProviderConnectionForAccount(ctx.db, {
+      organizationId: vault.organizationId,
+      accountId: worker.accountId,
+    });
+    if (connection === null) {
+      throw new Error("Cloudflare connection is required to remove resources.");
+    }
   }
 
   return {
@@ -285,12 +287,14 @@ async function assertPlanProviderConnections(
   }
 
   if (args.plan.cloudflare.action === "delete_workers") {
-    const connection = await getSelectedProviderConnectionForOrganization(ctx.db, {
-      organizationId: args.organizationId,
-      kind: "cloudflare",
-    });
-    if (connection?.kind !== "cloudflare") {
-      throw new Error("Cloudflare connection is required to remove resources.");
+    for (const worker of args.plan.cloudflare.workers) {
+      const connection = await getCloudflareProviderConnectionForAccount(ctx.db, {
+        organizationId: args.organizationId,
+        accountId: worker.accountId,
+      });
+      if (connection === null) {
+        throw new Error("Cloudflare connection is required to remove resources.");
+      }
     }
   }
 }

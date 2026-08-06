@@ -9,7 +9,7 @@ import {
   findOrganizationMembership,
   requireOrganizationOwnerAccessContext,
 } from "./organizationAccess";
-import { getSelectedProviderConnectionForOrganization } from "./providerConnections";
+import { getProviderConnectionForOrganization } from "./providerConnections";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import {
   createCodeChallenge,
@@ -237,7 +237,7 @@ export const getConvexOAuthUrl = mutation({
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    const connection = await getSelectedProviderConnectionForOrganization(ctx.db, {
+    const connection = await getProviderConnectionForOrganization(ctx.db, {
       organizationId,
       kind: "convex",
     });

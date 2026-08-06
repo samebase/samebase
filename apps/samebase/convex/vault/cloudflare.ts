@@ -134,11 +134,11 @@ async function resolveCloudflareConnection(
   };
 }
 
-async function resolveSelectedCloudflareConnection(
+async function resolveOrganizationCloudflareConnection(
   ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: { userId: Id<"users">; organizationId: Id<"organizations"> },
 ): Promise<CloudflareActionConnection> {
-  const connection = await ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
+  const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
     userId: args.userId,
     organizationId: args.organizationId,
     kind: "cloudflare",
@@ -150,6 +150,18 @@ async function resolveSelectedCloudflareConnection(
     ...args,
     providerConnectionId: connection._id,
   });
+}
+
+function requireCloudflareAccountTarget(
+  connection: CloudflareActionConnection,
+  accountId: string,
+): void {
+  if (
+    connection.defaultAccount.state !== "selected" ||
+    connection.defaultAccount.accountId !== accountId
+  ) {
+    throw new Error("Cloudflare connection is required for this account.");
+  }
 }
 
 async function listAccountsForConnection(args: {
@@ -187,6 +199,7 @@ async function rememberDefaultAccount(
     organizationId: args.connection.organizationId,
     userId: args.userId,
     providerConnectionId: args.connection.providerConnectionId,
+    expectedCredential: args.connection.auth.credential,
     auth: args.connection.auth,
     defaultAccount: {
       state: "selected",
@@ -264,7 +277,7 @@ async function resolveCloudflareRepositoryContext(
     userId: args.userId,
   });
   const [connection, githubAccess] = await Promise.all([
-    resolveSelectedCloudflareConnection(ctx, {
+    resolveOrganizationCloudflareConnection(ctx, {
       userId: args.userId,
       organizationId: context.organizationId,
     }),
@@ -273,6 +286,7 @@ async function resolveCloudflareRepositoryContext(
       target: { kind: "vault", vaultId: args.vaultId },
     }),
   ]);
+  requireCloudflareAccountTarget(connection, accountId);
   const account = await resolveAccount({
     token: connection.token,
     transport: connection.transport,
@@ -362,7 +376,6 @@ export async function attachExistingCloudflareWorkersForUser(
   return await ctx.runMutation(internal.vault.cloudflareMutations.attachWorkers, {
     vaultId: args.vaultId,
     userId: args.userId,
-    providerConnectionId: resolved.connection.providerConnectionId,
     workers: workers.map((worker) => ({
       accountId: resolved.account.accountId,
       ...worker,
@@ -408,10 +421,11 @@ async function createWorkerForManagedWorkflow(
   if (!plan) {
     throw new Error("Infrastructure provisioning plan not found for vault.");
   }
-  const connection = await resolveSelectedCloudflareConnection(ctx, {
+  const connection = await resolveOrganizationCloudflareConnection(ctx, {
     userId: args.userId,
     organizationId: context.organizationId,
   });
+  requireCloudflareAccountTarget(connection, accountId);
   const account = await resolveAccount({
     token: connection.token,
     transport: connection.transport,
@@ -479,7 +493,6 @@ async function createWorkerForManagedWorkflow(
       vaultId: args.vaultId,
       runId: args.runId,
       userId: args.userId,
-      providerConnectionId: connection.providerConnectionId,
       accountId: account.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
@@ -536,6 +549,7 @@ async function prepareWorkersBuildsForGitHub(
       target: { kind: "vault", vaultId: args.vaultId },
     }),
   ]);
+  requireCloudflareAccountTarget(connection, context.accountId);
   await resolveAccount({
     token: connection.token,
     transport: connection.transport,
@@ -707,6 +721,7 @@ async function prepareConvexDeployKeyRotation(
     repo: context.name,
     expectedRepoId: context.ghRepoId,
   });
+  requireCloudflareAccountTarget(connection, context.accountId);
   await resolveAccount({
     token: connection.token,
     transport: connection.transport,
@@ -920,7 +935,7 @@ export async function listCloudflareAccountsForUser(
   ctx: ActionCtx,
   args: { userId: Id<"users">; organizationId: Id<"organizations"> },
 ): Promise<CloudflareAccountResult[]> {
-  const connection = await resolveSelectedCloudflareConnection(ctx, args);
+  const connection = await resolveOrganizationCloudflareConnection(ctx, args);
   return await listAccountsForConnection(connection);
 }
 
@@ -993,7 +1008,7 @@ export const selectDefaultAccount = action({
         organizationId: args.organizationId,
       },
     );
-    const connection = await resolveSelectedCloudflareConnection(ctx, {
+    const connection = await resolveOrganizationCloudflareConnection(ctx, {
       userId: ctx.viewer.userId,
       organizationId,
     });
@@ -1100,7 +1115,6 @@ async function connectWorkerForUser(
         vaultId: args.vaultId,
         userId: args.userId,
         actionId,
-        providerConnectionId: resolved.connection.providerConnectionId,
         accountId,
         workerName,
         workerTag,
@@ -1304,7 +1318,6 @@ export async function createWorkerForUser(
         vaultId: args.vaultId,
         userId: args.userId,
         actionId,
-        providerConnectionId: resolved.connection.providerConnectionId,
         accountId: resolved.account.accountId,
         workerName: validation.value,
         workerTag: worker.workerTag,

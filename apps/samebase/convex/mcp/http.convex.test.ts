@@ -645,7 +645,7 @@ describe("MCP tools/call access enforcement", () => {
       scopes: ["access_dashboard", "access_provider_connections"],
     });
     const vaultId = await t.run(async (ctx) => {
-      const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
+      await ctx.db.insert("providerConnections", {
         kind: "cloudflare",
         organizationId,
         connectedByUserId: userId,
@@ -658,9 +658,6 @@ describe("MCP tools/call access enforcement", () => {
         defaultAccount: { state: "not_selected" },
         createdAt: 1,
         updatedAt: 1,
-      });
-      await ctx.db.patch(organizationId, {
-        selectedCloudflareProviderConnectionId: cloudflareProviderConnectionId,
       });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,

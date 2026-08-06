@@ -1,11 +1,6 @@
 import { Infer, v } from "convex/values";
 
-import {
-  internalMutation,
-  internalQuery,
-  type DatabaseReader,
-  type DatabaseWriter,
-} from "./_generated/server";
+import { internalMutation, internalQuery, type DatabaseReader } from "./_generated/server";
 import type { Doc, Id } from "./_generated/dataModel";
 import { vMcpTokenHealth } from "./mcpTokenHealth";
 import {
@@ -105,61 +100,68 @@ function buildProviderConnection(args: {
   }
 }
 
-function readSelectedProviderConnectionId(
-  organization: Doc<"organizations">,
-  kind: ProviderKind,
-): Id<"providerConnections"> | undefined {
-  switch (kind) {
+function resolveCloudflareDefaultAccount(
+  existing: Extract<Doc<"providerConnections">, { kind: "cloudflare" }>["defaultAccount"],
+  replacement: Extract<ConnectionWrite, { kind: "cloudflare" }>["defaultAccount"],
+) {
+  if (existing.state === "not_selected") {
+    return replacement;
+  }
+  if (replacement.state === "not_selected") {
+    return existing;
+  }
+  if (existing.accountId !== replacement.accountId) {
+    throw new Error("Cloudflare connection account cannot change.");
+  }
+  return replacement;
+}
+
+function resolveReplacementConnection(
+  existing: Doc<"providerConnections">,
+  replacement: ConnectionWrite,
+): ConnectionWrite {
+  switch (existing.kind) {
     case "convex":
-      return organization.selectedConvexProviderConnectionId;
+      if (replacement.kind !== "convex") {
+        throw new Error("Provider connection kind cannot change.");
+      }
+      if (existing.teamId !== replacement.teamId) {
+        throw new Error("Convex connection team cannot change.");
+      }
+      return replacement;
     case "cloudflare":
-      return organization.selectedCloudflareProviderConnectionId;
+      if (replacement.kind !== "cloudflare") {
+        throw new Error("Provider connection kind cannot change.");
+      }
+      return {
+        ...replacement,
+        defaultAccount: resolveCloudflareDefaultAccount(
+          existing.defaultAccount,
+          replacement.defaultAccount,
+        ),
+      };
   }
 }
 
-async function patchSelectedProviderConnection(
-  db: DatabaseWriter,
+export async function getProviderConnectionForOrganization(
+  db: DatabaseReader,
   args: {
     organizationId: Id<"organizations">;
-    providerConnectionId: Id<"providerConnections">;
     kind: ProviderKind;
   },
-): Promise<void> {
-  switch (args.kind) {
-    case "convex":
-      await db.patch(args.organizationId, {
-        selectedConvexProviderConnectionId: args.providerConnectionId,
-      });
-      return;
-    case "cloudflare":
-      await db.patch(args.organizationId, {
-        selectedCloudflareProviderConnectionId: args.providerConnectionId,
-      });
+): Promise<Doc<"providerConnections"> | null> {
+  const connections = await db
+    .query("providerConnections")
+    .withIndex("by_organization_and_kind", (query) =>
+      query.eq("organizationId", args.organizationId).eq("kind", args.kind),
+    )
+    .take(2);
+  if (connections.length > 1) {
+    throw new Error(
+      `Organization has multiple ${args.kind} provider connections. Reset provider connections and retry.`,
+    );
   }
-}
-
-async function clearSelectedProviderConnectionIfMatching(
-  db: DatabaseWriter,
-  args: {
-    organizationId: Id<"organizations">;
-    providerConnectionId: Id<"providerConnections">;
-    kind: ProviderKind;
-  },
-): Promise<void> {
-  const organization = await db.get(args.organizationId);
-  if (
-    organization === null ||
-    readSelectedProviderConnectionId(organization, args.kind) !== args.providerConnectionId
-  ) {
-    return;
-  }
-  switch (args.kind) {
-    case "convex":
-      await db.patch(args.organizationId, { selectedConvexProviderConnectionId: undefined });
-      return;
-    case "cloudflare":
-      await db.patch(args.organizationId, { selectedCloudflareProviderConnectionId: undefined });
-  }
+  return connections[0] ?? null;
 }
 
 export async function getProviderConnectionByIdForOrganization(
@@ -170,55 +172,37 @@ export async function getProviderConnectionByIdForOrganization(
     kind: ProviderKind;
   },
 ): Promise<Doc<"providerConnections"> | null> {
-  const connection = await db.get(args.providerConnectionId);
-  if (
-    connection === null ||
-    connection.organizationId !== args.organizationId ||
-    connection.kind !== args.kind
-  ) {
-    return null;
-  }
-  return connection;
+  const connection = await getProviderConnectionForOrganization(db, args);
+  return connection?._id === args.providerConnectionId ? connection : null;
 }
 
 export async function getConvexProviderConnectionForTeam(
   db: DatabaseReader,
   args: { organizationId: Id<"organizations">; teamId: string },
 ) {
-  const connection = await db
-    .query("providerConnections")
-    .withIndex("by_organization_and_kind_and_team_id", (query) =>
-      query
-        .eq("organizationId", args.organizationId)
-        .eq("kind", "convex")
-        .eq("teamId", args.teamId),
-    )
-    .unique();
-  return connection?.kind === "convex" ? connection : null;
-}
-
-export async function getSelectedProviderConnectionForOrganization(
-  db: DatabaseReader,
-  args: {
-    organizationId: Id<"organizations">;
-    kind: ProviderKind;
-  },
-): Promise<Doc<"providerConnections"> | null> {
-  const organization = await db.get(args.organizationId);
-  if (organization === null) {
-    return null;
-  }
-  const providerConnectionId = readSelectedProviderConnectionId(organization, args.kind);
-  if (providerConnectionId === undefined) {
-    return null;
-  }
-  return await getProviderConnectionByIdForOrganization(db, {
-    ...args,
-    providerConnectionId,
+  const connection = await getProviderConnectionForOrganization(db, {
+    organizationId: args.organizationId,
+    kind: "convex",
   });
+  return connection?.kind === "convex" && connection.teamId === args.teamId ? connection : null;
 }
 
-export const loadSelectedForOrganization = internalQuery({
+export async function getCloudflareProviderConnectionForAccount(
+  db: DatabaseReader,
+  args: { organizationId: Id<"organizations">; accountId: string },
+): Promise<Extract<Doc<"providerConnections">, { kind: "cloudflare" }> | null> {
+  const connection = await getProviderConnectionForOrganization(db, {
+    organizationId: args.organizationId,
+    kind: "cloudflare",
+  });
+  return connection?.kind === "cloudflare" &&
+    connection.defaultAccount.state === "selected" &&
+    connection.defaultAccount.accountId === args.accountId
+    ? connection
+    : null;
+}
+
+export const loadForOrganization = internalQuery({
   args: {
     organizationId: id("organizations"),
     userId: id("users"),
@@ -227,7 +211,7 @@ export const loadSelectedForOrganization = internalQuery({
   returns: union(vProviderConnectionResult, vNull()),
   handler: async (ctx, args) => {
     await requireOrganizationAccessContext(ctx.db, args);
-    return await getSelectedProviderConnectionForOrganization(ctx.db, args);
+    return await getProviderConnectionForOrganization(ctx.db, args);
   },
 });
 
@@ -264,6 +248,25 @@ export const loadConvexForOrganizationTeam = internalQuery({
   },
 });
 
+export const loadCloudflareForOrganizationAccount = internalQuery({
+  args: {
+    organizationId: id("organizations"),
+    userId: id("users"),
+    accountId: string(),
+  },
+  returns: union(
+    vCloudflareProviderConnection.extend({
+      _id: id("providerConnections"),
+      _creationTime: number(),
+    }),
+    vNull(),
+  ),
+  handler: async (ctx, args) => {
+    await requireOrganizationAccessContext(ctx.db, args);
+    return await getCloudflareProviderConnectionForAccount(ctx.db, args);
+  },
+});
+
 export const listByConnectedByUserId = internalQuery({
   args: {
     connectedByUserId: id("users"),
@@ -292,39 +295,18 @@ export const createConnected = internalMutation({
       organizationId: args.organizationId,
       userId: args.connectedByUserId,
     });
-    const now = Date.now();
-    if (args.connection.kind === "convex") {
-      const existing = await getConvexProviderConnectionForTeam(ctx.db, {
-        organizationId: args.organizationId,
-        teamId: args.connection.teamId,
-      });
-      if (existing !== null) {
-        await ctx.db.replace(
-          existing._id,
-          buildProviderConnection({
-            ...args,
-            createdAt: existing.createdAt,
-            updatedAt: now,
-          }),
-        );
-        await patchSelectedProviderConnection(ctx.db, {
-          organizationId: args.organizationId,
-          providerConnectionId: existing._id,
-          kind: args.connection.kind,
-        });
-        return existing._id;
-      }
+    const existing = await getProviderConnectionForOrganization(ctx.db, {
+      organizationId: args.organizationId,
+      kind: args.connection.kind,
+    });
+    if (existing !== null) {
+      throw new Error("Provider connection already exists. Reauthorize it instead.");
     }
-    const providerConnectionId = await ctx.db.insert(
+    const now = Date.now();
+    return await ctx.db.insert(
       "providerConnections",
       buildProviderConnection({ ...args, createdAt: now, updatedAt: now }),
     );
-    await patchSelectedProviderConnection(ctx.db, {
-      organizationId: args.organizationId,
-      providerConnectionId,
-      kind: args.connection.kind,
-    });
-    return providerConnectionId;
   },
 });
 
@@ -349,28 +331,16 @@ export const reauthorizeConnected = internalMutation({
     if (existing === null) {
       throw new Error("Provider connection not found.");
     }
-    if (
-      existing.kind === "convex" &&
-      args.connection.kind === "convex" &&
-      existing.teamId !== args.connection.teamId
-    ) {
-      throw new Error("Convex connection team cannot change during reauthorization.");
-    }
     await ctx.db.replace(
       existing._id,
       buildProviderConnection({
         organizationId: existing.organizationId,
         connectedByUserId: args.connectedByUserId,
-        connection: args.connection,
+        connection: resolveReplacementConnection(existing, args.connection),
         createdAt: existing.createdAt,
         updatedAt: Date.now(),
       }),
     );
-    await patchSelectedProviderConnection(ctx.db, {
-      organizationId: existing.organizationId,
-      providerConnectionId: existing._id,
-      kind: existing.kind,
-    });
     return existing._id;
   },
 });
@@ -407,6 +377,7 @@ export const updateCloudflareConnected = internalMutation({
     organizationId: id("organizations"),
     userId: id("users"),
     providerConnectionId: id("providerConnections"),
+    expectedCredential: string(),
     auth: vCloudflareProviderAuth,
     defaultAccount: vCloudflareDefaultAccount,
     tokenHealth: optional(vMcpTokenHealth),
@@ -424,11 +395,18 @@ export const updateCloudflareConnected = internalMutation({
     if (connection?.kind !== "cloudflare") {
       throw new Error("Cloudflare connection not found.");
     }
+    if (connection.auth.credential !== args.expectedCredential) {
+      throw new Error("Cloudflare connection changed before the update completed.");
+    }
+    const defaultAccount = resolveCloudflareDefaultAccount(
+      connection.defaultAccount,
+      args.defaultAccount,
+    );
     const defaultAccountChanged =
-      connection.defaultAccount.state !== args.defaultAccount.state ||
+      connection.defaultAccount.state !== defaultAccount.state ||
       (connection.defaultAccount.state === "selected" &&
-        args.defaultAccount.state === "selected" &&
-        connection.defaultAccount.accountId !== args.defaultAccount.accountId);
+        defaultAccount.state === "selected" &&
+        connection.defaultAccount.accountId !== defaultAccount.accountId);
     if (defaultAccountChanged) {
       if (membership.role !== "owner") {
         throw new Error("Organization owner access is required.");
@@ -436,7 +414,7 @@ export const updateCloudflareConnected = internalMutation({
     }
     await ctx.db.patch(connection._id, {
       auth: args.auth,
-      defaultAccount: args.defaultAccount,
+      defaultAccount,
       updatedAt: Date.now(),
       ...(args.tokenHealth !== undefined ? { tokenHealth: args.tokenHealth } : {}),
       ...(args.tokenRefreshStartedAt !== undefined
@@ -467,7 +445,6 @@ export const disconnect = internalMutation({
     if (connection === null) {
       throw new Error("Provider connection not found.");
     }
-    await clearSelectedProviderConnectionIfMatching(ctx.db, args);
     await ctx.db.delete(connection._id);
     return null;
   },

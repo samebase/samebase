@@ -40,6 +40,7 @@ export const organizationTables = {
     githubOwnerLogin: string(),
     githubOwnerLoginNormalized: string(),
     githubInstallationId: string(),
+    // Legacy deployment fields. Production code does not read or write them.
     selectedConvexProviderConnectionId: optional(id("providerConnections")),
     selectedCloudflareProviderConnectionId: optional(id("providerConnections")),
   })

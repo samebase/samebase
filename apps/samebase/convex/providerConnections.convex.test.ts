@@ -42,9 +42,9 @@ async function seedOrganizationMembers() {
 }
 
 describe("organization provider connections", () => {
-  it("keeps multiple connections of one kind and resolves selected and exact rows", async () => {
-    const { memberId, organizationId, ownerId, t } = await seedOrganizationMembers();
-    const firstConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+  it("rejects a second connection of each provider kind", async () => {
+    const { organizationId, ownerId, t } = await seedOrganizationMembers();
+    const convexConnectionId = await t.mutation(internal.providerConnections.createConnected, {
       organizationId,
       connectedByUserId: ownerId,
       connection: {
@@ -53,45 +53,222 @@ describe("organization provider connections", () => {
         teamId: "team-a",
       },
     });
-    const selectedConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+    await expect(
+      t.mutation(internal.providerConnections.createConnected, {
+        organizationId,
+        connectedByUserId: ownerId,
+        connection: {
+          kind: "convex",
+          auth: { method: "api_key", credential: "credential-b" },
+          teamId: "team-a",
+        },
+      }),
+    ).rejects.toThrow("Provider connection already exists.");
+
+    const cloudflareConnectionId = await t.mutation(internal.providerConnections.createConnected, {
       organizationId,
       connectedByUserId: ownerId,
       connection: {
-        kind: "convex",
-        auth: { method: "api_key", credential: "credential-b" },
-        teamId: "team-b",
+        kind: "cloudflare",
+        auth: { method: "api_key", credential: "credential-a" },
+        defaultAccount: { state: "not_selected" },
       },
     });
-
     await expect(
-      t.query(internal.providerConnections.loadSelectedForOrganization, {
+      t.mutation(internal.providerConnections.createConnected, {
+        organizationId,
+        connectedByUserId: ownerId,
+        connection: {
+          kind: "cloudflare",
+          auth: { method: "api_key", credential: "credential-b" },
+          defaultAccount: { state: "not_selected" },
+        },
+      }),
+    ).rejects.toThrow("Provider connection already exists.");
+
+    const [convexConnection, cloudflareConnection] = await Promise.all([
+      t.query(internal.providerConnections.loadForOrganization, {
         organizationId,
         userId: ownerId,
         kind: "convex",
       }),
-    ).resolves.toMatchObject({ _id: selectedConnectionId, teamId: "team-b" });
-    await expect(
-      t.query(internal.providerConnections.loadByIdForOrganization, {
+      t.query(internal.providerConnections.loadForOrganization, {
         organizationId,
-        userId: memberId,
-        providerConnectionId: firstConnectionId,
-        kind: "convex",
+        userId: ownerId,
+        kind: "cloudflare",
       }),
-    ).resolves.toMatchObject({ _id: firstConnectionId, teamId: "team-a" });
-
-    const connections = await t.run(async (ctx) => {
-      return await ctx.db
-        .query("providerConnections")
-        .withIndex("by_organization_and_kind", (query) =>
-          query.eq("organizationId", organizationId).eq("kind", "convex"),
-        )
-        .collect();
+    ]);
+    expect({ cloudflareConnection, convexConnection }).toMatchObject({
+      cloudflareConnection: { _id: cloudflareConnectionId },
+      convexConnection: { _id: convexConnectionId },
     });
-    expect(connections).toHaveLength(2);
   });
 
-  it("lets members use connections but not manage them", async () => {
-    const { memberId, organizationId, ownerId, t } = await seedOrganizationMembers();
+  it("reauthorizes the same targets without changing row IDs", async () => {
+    const { organizationId, ownerId, t } = await seedOrganizationMembers();
+    const convexConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+      organizationId,
+      connectedByUserId: ownerId,
+      connection: {
+        kind: "convex",
+        auth: { method: "api_key", credential: "convex-a" },
+        teamId: "team-a",
+      },
+    });
+    const cloudflareConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+      organizationId,
+      connectedByUserId: ownerId,
+      connection: {
+        kind: "cloudflare",
+        auth: { method: "api_key", credential: "cloudflare-a" },
+        defaultAccount: {
+          state: "selected",
+          accountId: "account-a",
+          accountName: "Account A",
+        },
+      },
+    });
+
+    await expect(
+      t.mutation(internal.providerConnections.reauthorizeConnected, {
+        organizationId,
+        connectedByUserId: ownerId,
+        providerConnectionId: convexConnectionId,
+        connection: {
+          kind: "convex",
+          auth: { method: "oauth", credential: "convex-b" },
+          teamId: "team-a",
+        },
+      }),
+    ).resolves.toBe(convexConnectionId);
+    await expect(
+      t.mutation(internal.providerConnections.reauthorizeConnected, {
+        organizationId,
+        connectedByUserId: ownerId,
+        providerConnectionId: cloudflareConnectionId,
+        connection: {
+          kind: "cloudflare",
+          auth: { method: "api_key", credential: "cloudflare-b" },
+          defaultAccount: {
+            state: "selected",
+            accountId: "account-a",
+            accountName: "Account A renamed",
+          },
+        },
+      }),
+    ).resolves.toBe(cloudflareConnectionId);
+
+    await expect(
+      t.query(internal.providerConnections.loadForOrganization, {
+        organizationId,
+        userId: ownerId,
+        kind: "convex",
+      }),
+    ).resolves.toMatchObject({
+      _id: convexConnectionId,
+      auth: { method: "oauth", credential: "convex-b" },
+      teamId: "team-a",
+    });
+    await expect(
+      t.query(internal.providerConnections.loadForOrganization, {
+        organizationId,
+        userId: ownerId,
+        kind: "cloudflare",
+      }),
+    ).resolves.toMatchObject({
+      _id: cloudflareConnectionId,
+      auth: { credential: "cloudflare-b" },
+      defaultAccount: { state: "selected", accountId: "account-a" },
+    });
+  });
+
+  it("rejects a Convex team change", async () => {
+    const { organizationId, ownerId, t } = await seedOrganizationMembers();
+    const providerConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+      organizationId,
+      connectedByUserId: ownerId,
+      connection: {
+        kind: "convex",
+        auth: { method: "api_key", credential: "credential-a" },
+        teamId: "team-a",
+      },
+    });
+
+    await expect(
+      t.mutation(internal.providerConnections.reauthorizeConnected, {
+        organizationId,
+        connectedByUserId: ownerId,
+        providerConnectionId,
+        connection: {
+          kind: "convex",
+          auth: { method: "api_key", credential: "credential-b" },
+          teamId: "team-b",
+        },
+      }),
+    ).rejects.toThrow("Convex connection team cannot change.");
+  });
+
+  it("rejects a Cloudflare account change", async () => {
+    const { organizationId, ownerId, t } = await seedOrganizationMembers();
+    const providerConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+      organizationId,
+      connectedByUserId: ownerId,
+      connection: {
+        kind: "cloudflare",
+        auth: { method: "api_key", credential: "credential-a" },
+        defaultAccount: { state: "not_selected" },
+      },
+    });
+
+    await expect(
+      t.mutation(internal.providerConnections.updateCloudflareConnected, {
+        organizationId,
+        userId: ownerId,
+        providerConnectionId,
+        expectedCredential: "credential-a",
+        auth: { method: "api_key", credential: "credential-a" },
+        defaultAccount: {
+          state: "selected",
+          accountId: "account-a",
+          accountName: "Account A",
+        },
+      }),
+    ).resolves.toBeNull();
+
+    await expect(
+      t.mutation(internal.providerConnections.reauthorizeConnected, {
+        organizationId,
+        connectedByUserId: ownerId,
+        providerConnectionId,
+        connection: {
+          kind: "cloudflare",
+          auth: { method: "api_key", credential: "credential-b" },
+          defaultAccount: {
+            state: "selected",
+            accountId: "account-b",
+            accountName: "Account B",
+          },
+        },
+      }),
+    ).rejects.toThrow("Cloudflare connection account cannot change.");
+    await expect(
+      t.mutation(internal.providerConnections.updateCloudflareConnected, {
+        organizationId,
+        userId: ownerId,
+        providerConnectionId,
+        expectedCredential: "credential-a",
+        auth: { method: "api_key", credential: "credential-a" },
+        defaultAccount: {
+          state: "selected",
+          accountId: "account-b",
+          accountName: "Account B",
+        },
+      }),
+    ).rejects.toThrow("Cloudflare connection account cannot change.");
+  });
+
+  it("preserves a selected Cloudflare account when reauthorization cannot select one", async () => {
+    const { organizationId, ownerId, t } = await seedOrganizationMembers();
     const providerConnectionId = await t.mutation(internal.providerConnections.createConnected, {
       organizationId,
       connectedByUserId: ownerId,
@@ -106,51 +283,157 @@ describe("organization provider connections", () => {
       },
     });
 
+    await t.mutation(internal.providerConnections.reauthorizeConnected, {
+      organizationId,
+      connectedByUserId: ownerId,
+      providerConnectionId,
+      connection: {
+        kind: "cloudflare",
+        auth: { method: "api_key", credential: "credential-b" },
+        defaultAccount: { state: "not_selected" },
+      },
+    });
+
     await expect(
-      t.query(internal.providerConnections.loadSelectedForOrganization, {
+      t.query(internal.providerConnections.loadForOrganization, {
         organizationId,
-        userId: memberId,
+        userId: ownerId,
         kind: "cloudflare",
       }),
+    ).resolves.toMatchObject({
+      _id: providerConnectionId,
+      auth: { credential: "credential-b" },
+      defaultAccount: {
+        state: "selected",
+        accountId: "account-a",
+        accountName: "Account A",
+      },
+    });
+  });
+
+  it("rejects stale Cloudflare updates after reauthorization", async () => {
+    const { organizationId, ownerId, t } = await seedOrganizationMembers();
+    const providerConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+      organizationId,
+      connectedByUserId: ownerId,
+      connection: {
+        kind: "cloudflare",
+        auth: { method: "api_key", credential: "credential-a" },
+        defaultAccount: { state: "not_selected" },
+      },
+    });
+    await t.mutation(internal.providerConnections.reauthorizeConnected, {
+      organizationId,
+      connectedByUserId: ownerId,
+      providerConnectionId,
+      connection: {
+        kind: "cloudflare",
+        auth: { method: "api_key", credential: "credential-b" },
+        defaultAccount: { state: "not_selected" },
+      },
+    });
+
+    await expect(
+      t.mutation(internal.providerConnections.updateCloudflareConnected, {
+        organizationId,
+        userId: ownerId,
+        providerConnectionId,
+        expectedCredential: "credential-a",
+        auth: { method: "api_key", credential: "credential-a" },
+        defaultAccount: {
+          state: "selected",
+          accountId: "account-a",
+          accountName: "Account A",
+        },
+      }),
+    ).rejects.toThrow("Cloudflare connection changed before the update completed.");
+  });
+
+  it("lets members use connections but not manage them", async () => {
+    const { memberId, organizationId, ownerId, t } = await seedOrganizationMembers();
+    const providerConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+      organizationId,
+      connectedByUserId: ownerId,
+      connection: {
+        kind: "convex",
+        auth: { method: "api_key", credential: "credential-a" },
+        teamId: "team-a",
+      },
+    });
+
+    await expect(
+      t.query(internal.providerConnections.loadForOrganization, {
+        organizationId,
+        userId: memberId,
+        kind: "convex",
+      }),
     ).resolves.toMatchObject({ _id: providerConnectionId });
+    await expect(
+      t.mutation(internal.providerConnections.createConnected, {
+        organizationId,
+        connectedByUserId: memberId,
+        connection: {
+          kind: "cloudflare",
+          auth: { method: "api_key", credential: "credential-b" },
+          defaultAccount: { state: "not_selected" },
+        },
+      }),
+    ).rejects.toThrow("Organization owner access is required.");
+    await expect(
+      t.mutation(internal.providerConnections.reauthorizeConnected, {
+        organizationId,
+        connectedByUserId: memberId,
+        providerConnectionId,
+        connection: {
+          kind: "convex",
+          auth: { method: "api_key", credential: "credential-b" },
+          teamId: "team-a",
+        },
+      }),
+    ).rejects.toThrow("Organization owner access is required.");
     await expect(
       t.mutation(internal.providerConnections.disconnect, {
         organizationId,
         disconnectedByUserId: memberId,
         providerConnectionId,
-        kind: "cloudflare",
-      }),
-    ).rejects.toThrow("Organization owner access is required.");
-
-    await expect(
-      t.mutation(internal.providerConnections.updateCloudflareConnected, {
-        organizationId,
-        userId: memberId,
-        providerConnectionId,
-        auth: { method: "api_key", credential: "credential-a" },
-        defaultAccount: {
-          state: "selected",
-          accountId: "account-a",
-          accountName: "Renamed Account A",
-        },
-      }),
-    ).resolves.toBeNull();
-    await expect(
-      t.mutation(internal.providerConnections.updateCloudflareConnected, {
-        organizationId,
-        userId: memberId,
-        providerConnectionId,
-        auth: { method: "api_key", credential: "credential-a" },
-        defaultAccount: {
-          state: "selected",
-          accountId: "account-b",
-          accountName: "Account B",
-        },
+        kind: "convex",
       }),
     ).rejects.toThrow("Organization owner access is required.");
   });
 
-  it("checks membership and deletes a disconnected row and its selected pointer", async () => {
+  it("fails closed when legacy rows contain duplicate provider kinds", async () => {
+    const { organizationId, ownerId, t } = await seedOrganizationMembers();
+    await t.run(async (ctx) => {
+      await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        organizationId,
+        connectedByUserId: ownerId,
+        auth: { method: "api_key", credential: "credential-a" },
+        teamId: "team-a",
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        organizationId,
+        connectedByUserId: ownerId,
+        auth: { method: "api_key", credential: "credential-b" },
+        teamId: "team-a",
+        createdAt: 2,
+        updatedAt: 2,
+      });
+    });
+
+    await expect(
+      t.query(internal.providerConnections.loadForOrganization, {
+        organizationId,
+        userId: ownerId,
+        kind: "convex",
+      }),
+    ).rejects.toThrow("Organization has multiple convex provider connections.");
+  });
+
+  it("checks membership and deletes only the organization row", async () => {
     const { organizationId, otherOrganizationId, outsiderId, ownerId, t } =
       await seedOrganizationMembers();
     const providerConnectionId = await t.mutation(internal.providerConnections.createConnected, {
@@ -196,17 +479,14 @@ describe("organization provider connections", () => {
     });
 
     const connection = await t.run(async (ctx) => await ctx.db.get(providerConnectionId));
-    const selectedConnection = await t.query(
-      internal.providerConnections.loadSelectedForOrganization,
-      {
-        organizationId,
-        userId: ownerId,
-        kind: "cloudflare",
-      },
-    );
-    expect({ connection, selectedConnection }).toEqual({
+    const organizationConnection = await t.query(internal.providerConnections.loadForOrganization, {
+      organizationId,
+      userId: ownerId,
+      kind: "cloudflare",
+    });
+    expect({ connection, organizationConnection }).toEqual({
       connection: null,
-      selectedConnection: null,
+      organizationConnection: null,
     });
   });
 

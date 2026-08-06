@@ -17,7 +17,6 @@ import { normalizeConvexConfigPath } from "../../shared/convexConfigPath";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { requireBillingResourceCapacity } from "../billingResourceQuotas";
 import { requireVaultForUser } from "../organizationAccess";
-import { getProviderConnectionByIdForOrganization } from "../providerConnections";
 import { vVaultProviderResourceOrigin, type VaultProviderResourceOrigin } from "./model";
 import {
   requireUserVaultInfrastructureIdle,
@@ -124,19 +123,10 @@ async function insertProject(
     userId: Id<"users">;
     teamId: string;
     projectId: string;
-    providerConnectionId: Id<"providerConnections">;
     codeLocation: ConvexCodeLocation;
     origin: VaultProviderResourceOrigin;
   },
 ): Promise<Id<"vaultConvexProjects">> {
-  const providerConnection = await getProviderConnectionByIdForOrganization(ctx.db, {
-    organizationId: vault.organizationId,
-    providerConnectionId: args.providerConnectionId,
-    kind: "convex",
-  });
-  if (providerConnection?.kind !== "convex" || providerConnection.teamId !== args.teamId) {
-    throw new Error("Convex provider connection does not match the project team.");
-  }
   const codeLocation = normalizeConvexCodeLocation(args.codeLocation);
   const existing = await readMatchingProject(ctx, {
     vaultId: args.vaultId,
@@ -300,7 +290,6 @@ export const recordManagedProjectCreated = internalMutation({
     runId: id("workflow_vaultProvisioning_runs"),
     convexConfigPath: string(),
     projectName: string(),
-    providerConnectionId: id("providerConnections"),
     teamId: string(),
     projectId: string(),
   },
@@ -361,7 +350,6 @@ export const recordManualProjectCreated = internalMutation({
     vaultId: id("vaults"),
     userId: id("users"),
     actionId: string(),
-    providerConnectionId: id("providerConnections"),
     teamId: string(),
     projectId: string(),
     codeLocation: vConvexCodeLocation,
@@ -376,7 +364,6 @@ export const recordManualProjectCreated = internalMutation({
     return await insertProject(ctx, vault, {
       vaultId: args.vaultId,
       userId: args.userId,
-      providerConnectionId: args.providerConnectionId,
       teamId: args.teamId,
       projectId: args.projectId,
       codeLocation: args.codeLocation,
@@ -389,7 +376,6 @@ export const attachProjects = internalMutation({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
-    providerConnectionId: id("providerConnections"),
     projects: array(
       object({
         teamId: string(),
@@ -421,7 +407,6 @@ export const attachProjects = internalMutation({
         await insertProject(ctx, vault, {
           vaultId: args.vaultId,
           userId: args.userId,
-          providerConnectionId: args.providerConnectionId,
           ...project,
         }),
       );

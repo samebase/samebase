@@ -2,7 +2,7 @@
 
 import { v, type Infer } from "convex/values";
 import { internal } from "../_generated/api";
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { action } from "../functions";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
@@ -234,23 +234,25 @@ async function readCloudflareObservationInput(
   args: {
     organizationId: Id<"organizations">;
     userId: Id<"users">;
+    accountId: string;
   },
 ) {
-  const selectedConnection = await ctx.runQuery(
-    internal.providerConnections.loadSelectedForOrganization,
+  const providerConnection = await ctx.runQuery(
+    internal.providerConnections.loadCloudflareForOrganizationAccount,
     {
       organizationId: args.organizationId,
       userId: args.userId,
-      kind: "cloudflare",
+      accountId: args.accountId,
     },
   );
-  if (selectedConnection?.kind !== "cloudflare") {
+  if (providerConnection?.kind !== "cloudflare") {
     return { state: "failed" as const, reason: "connection_required" as const };
   }
   const connectionResolution = await ctx
     .runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
-      ...args,
-      providerConnectionId: selectedConnection._id,
+      organizationId: args.organizationId,
+      userId: args.userId,
+      providerConnectionId: providerConnection._id,
     })
     .then(
       (connection) => ({ state: "available" as const, connection }),
@@ -317,6 +319,7 @@ export const observeCloudflareWorkers = action({
           const input = await readCloudflareObservationInput(ctx, {
             organizationId: context.organizationId,
             userId: ctx.viewer.userId,
+            accountId: worker.accountId,
           });
           if (input.state === "failed") {
             return { state: "failed" as const, workerId: worker.workerId, reason: input.reason };
@@ -403,6 +406,7 @@ export const observeCloudflareWorkerBuilds = action({
           const input = await readCloudflareObservationInput(ctx, {
             organizationId: context.organizationId,
             userId: ctx.viewer.userId,
+            accountId: worker.accountId,
           });
           if (input.state === "failed") {
             return { state: "failed" as const, workerId: worker.workerId, reason: input.reason };
@@ -513,6 +517,7 @@ export const observeCloudflareWorkerConvexBuildAccess = action({
           const input = await readCloudflareObservationInput(ctx, {
             organizationId: context.organizationId,
             userId: ctx.viewer.userId,
+            accountId: worker.accountId,
           });
           if (input.state === "failed") {
             return { state: "failed" as const, workerId: target.workerId, reason: input.reason };
@@ -613,30 +618,16 @@ export const observeConvexProjects = action({
           }
         }
 
-        const [matchingConnection, selectedConnection] = await Promise.all([
-          ctx.runQuery(internal.providerConnections.loadConvexForOrganizationTeam, {
+        const matchingConnection = await ctx.runQuery(
+          internal.providerConnections.loadConvexForOrganizationTeam,
+          {
             userId: ctx.viewer.userId,
             organizationId: context.organizationId,
             teamId: project.teamId,
-          }),
-          ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
-            userId: ctx.viewer.userId,
-            organizationId: context.organizationId,
-            kind: "convex",
-          }),
-        ]);
-        const connections: Array<Extract<Doc<"providerConnections">, { kind: "convex" }>> = [];
-        if (matchingConnection?.kind === "convex") {
-          connections.push(matchingConnection);
-        }
-        if (
-          selectedConnection?.kind === "convex" &&
-          selectedConnection._id !== matchingConnection?._id
-        ) {
-          connections.push(selectedConnection);
-        }
+          },
+        );
         let provider: ConvexProjectProviderObservation;
-        if (connections.length === 0) {
+        if (matchingConnection?.kind !== "convex") {
           provider = { state: "unavailable", reason: "connection_required" };
           return {
             convexProjectId: project.convexProjectId,
@@ -647,68 +638,48 @@ export const observeConvexProjects = action({
           };
         }
 
-        let requestAttempted = false;
-        let requestFailed = false;
-        for (const connection of connections) {
-          const token = connection.auth.credential.trim();
-          if (!token) {
-            continue;
-          }
-          requestAttempted = true;
-          try {
-            const details = await requestConvexManagementApi(
-              token,
-              "GET",
-              "/projects/{project_id}",
-              {
-                params: { path: { project_id: project.projectId } },
-              },
-            );
-            if (details.id !== project.projectId || details.teamId !== connection.teamId) {
-              throw new Error("Convex returned an inconsistent project identity or team.");
-            }
-            const deployment = await readConvexProductionDeployment({
-              token,
-              projectId: project.projectId,
-            });
-            const providerDetails = {
-              projectSlug: details.slug,
-              teamSlug: details.teamSlug,
-              productionDeployment: deployment
-                ? {
-                    state: "available" as const,
-                    deploymentName: deployment.name,
-                    dashboardUrl: buildConvexDeploymentDashboardUrl({
-                      teamSlug: details.teamSlug,
-                      projectSlug: details.slug,
-                      deploymentName: deployment.name,
-                    }),
-                  }
-                : { state: "missing" as const },
-            };
-            provider =
-              details.teamId === project.teamId
-                ? { state: "current", ...providerDetails }
-                : { state: "moved", ...providerDetails };
-            return {
-              convexProjectId: project.convexProjectId,
-              projectId: project.projectId,
-              codeLocation: project.codeLocation,
-              source,
-              provider,
-            };
-          } catch (error) {
-            if (!isConvexManagementNotFoundError(error)) {
-              requestFailed = true;
-            }
-          }
-        }
-        if (!requestAttempted) {
+        const token = matchingConnection.auth.credential.trim();
+        if (!token) {
           provider = { state: "unavailable", reason: "connection_required" };
-        } else if (requestFailed) {
-          provider = { state: "unavailable", reason: "request_failed" };
-        } else {
-          provider = { state: "missing_ambiguous" };
+          return {
+            convexProjectId: project.convexProjectId,
+            projectId: project.projectId,
+            codeLocation: project.codeLocation,
+            source,
+            provider,
+          };
+        }
+        try {
+          const details = await requestConvexManagementApi(token, "GET", "/projects/{project_id}", {
+            params: { path: { project_id: project.projectId } },
+          });
+          if (details.id !== project.projectId || details.teamId !== matchingConnection.teamId) {
+            throw new Error("Convex returned an inconsistent project identity or team.");
+          }
+          const deployment = await readConvexProductionDeployment({
+            token,
+            projectId: project.projectId,
+          });
+          provider = {
+            state: "current",
+            projectSlug: details.slug,
+            teamSlug: details.teamSlug,
+            productionDeployment: deployment
+              ? {
+                  state: "available",
+                  deploymentName: deployment.name,
+                  dashboardUrl: buildConvexDeploymentDashboardUrl({
+                    teamSlug: details.teamSlug,
+                    projectSlug: details.slug,
+                    deploymentName: deployment.name,
+                  }),
+                }
+              : { state: "missing" },
+          };
+        } catch (error) {
+          provider = isConvexManagementNotFoundError(error)
+            ? { state: "missing_ambiguous" }
+            : { state: "unavailable", reason: "request_failed" };
         }
         return {
           convexProjectId: project.convexProjectId,

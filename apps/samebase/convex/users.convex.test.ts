@@ -139,12 +139,12 @@ describe("organization provider status", () => {
       };
     });
     const [selectedCloudflareConnection, selectedConvexConnection] = await Promise.all([
-      t.query(internal.providerConnections.loadSelectedForOrganization, {
+      t.query(internal.providerConnections.loadForOrganization, {
         organizationId,
         userId,
         kind: "cloudflare",
       }),
-      t.query(internal.providerConnections.loadSelectedForOrganization, {
+      t.query(internal.providerConnections.loadForOrganization, {
         organizationId,
         userId,
         kind: "convex",

@@ -11,7 +11,7 @@ import type { Id } from "./_generated/dataModel";
 import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { vGitHubOwnerType } from "./organizationModel";
-import { getSelectedProviderConnectionForOrganization } from "./providerConnections";
+import { getProviderConnectionForOrganization } from "./providerConnections";
 import type { CloudflareDefaultAccount } from "./providerConnectionModel";
 import { normalizeGitHubOwnerLogin } from "./organizations";
 import { toSafeRepoName } from "../shared/repoName";
@@ -252,18 +252,32 @@ export const seedOrganizationWithProviderConnections = internalMutation({
     );
 
     if (args.convexConnection !== null) {
-      await ctx.runMutation(internal.providerConnections.createConnected, {
+      const existingConnection = await getProviderConnectionForOrganization(ctx.db, {
         organizationId: organization.organizationId,
-        connectedByUserId: args.userId,
-        connection: {
-          kind: "convex",
-          auth: { method: "api_key", credential: args.convexConnection.credential },
-          teamId: args.convexConnection.teamId,
-          ...(args.convexConnection.teamSlug === undefined
-            ? {}
-            : { teamSlug: args.convexConnection.teamSlug }),
-        },
+        kind: "convex",
       });
+      const connection = {
+        kind: "convex",
+        auth: { method: "api_key", credential: args.convexConnection.credential },
+        teamId: args.convexConnection.teamId,
+        ...(args.convexConnection.teamSlug === undefined
+          ? {}
+          : { teamSlug: args.convexConnection.teamSlug }),
+      } as const;
+      if (existingConnection === null) {
+        await ctx.runMutation(internal.providerConnections.createConnected, {
+          organizationId: organization.organizationId,
+          connectedByUserId: args.userId,
+          connection,
+        });
+      } else {
+        await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
+          organizationId: organization.organizationId,
+          connectedByUserId: args.userId,
+          providerConnectionId: existingConnection._id,
+          connection,
+        });
+      }
     }
 
     if (args.cloudflareConnection !== null) {
@@ -275,7 +289,7 @@ export const seedOrganizationWithProviderConnections = internalMutation({
               accountId: args.cloudflareConnection.accountId,
               accountName: args.cloudflareConnection.accountId,
             };
-      const selectedConnection = await getSelectedProviderConnectionForOrganization(ctx.db, {
+      const existingConnection = await getProviderConnectionForOrganization(ctx.db, {
         organizationId: organization.organizationId,
         kind: "cloudflare",
       });
@@ -284,7 +298,7 @@ export const seedOrganizationWithProviderConnections = internalMutation({
         auth: { method: "api_key", credential: args.cloudflareConnection.credential },
         defaultAccount,
       } as const;
-      if (selectedConnection === null) {
+      if (existingConnection === null) {
         await ctx.runMutation(internal.providerConnections.createConnected, {
           organizationId: organization.organizationId,
           connectedByUserId: args.userId,
@@ -294,7 +308,7 @@ export const seedOrganizationWithProviderConnections = internalMutation({
         await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
           organizationId: organization.organizationId,
           connectedByUserId: args.userId,
-          providerConnectionId: selectedConnection._id,
+          providerConnectionId: existingConnection._id,
           connection,
         });
       }

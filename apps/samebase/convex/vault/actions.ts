@@ -314,14 +314,14 @@ async function checkGitHubRepositoryNameAvailability(
   }
 }
 
-async function resolveSelectedConvexProvisioningConnection(
+async function resolveOrganizationConvexProvisioningConnection(
   ctx: Pick<ActionCtx, "runQuery">,
   args: {
     userId: Id<"users">;
     organizationId: Id<"organizations">;
   },
 ) {
-  const connection = await ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
+  const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
     ...args,
     kind: "convex",
   });
@@ -347,7 +347,7 @@ async function resolveSelectedConvexProvisioningConnection(
   };
 }
 
-async function resolveSelectedCloudflareProvisioningConnection(
+async function resolveOrganizationCloudflareProvisioningConnection(
   ctx: Pick<ActionCtx, "runAction" | "runQuery">,
   args: {
     userId: Id<"users">;
@@ -355,7 +355,7 @@ async function resolveSelectedCloudflareProvisioningConnection(
     forceRefresh?: true;
   },
 ) {
-  const connection = await ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
+  const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
     userId: args.userId,
     organizationId: args.organizationId,
     kind: "cloudflare",
@@ -407,7 +407,7 @@ async function resolveSelectedCloudflareProvisioningConnection(
 }
 
 async function checkConvexProjectNameAvailabilityForConnection(args: {
-  connection: Awaited<ReturnType<typeof resolveSelectedConvexProvisioningConnection>>;
+  connection: Awaited<ReturnType<typeof resolveOrganizationConvexProvisioningConnection>>;
   projectName: string;
 }): Promise<AppResourceNameAvailability> {
   const validation = validateCreateResourceName("convex", args.projectName);
@@ -462,7 +462,7 @@ async function checkConvexProjectNameAvailability(
 
   try {
     return await checkConvexProjectNameAvailabilityForConnection({
-      connection: await resolveSelectedConvexProvisioningConnection(ctx, {
+      connection: await resolveOrganizationConvexProvisioningConnection(ctx, {
         userId: args.userId,
         organizationId: args.organizationId,
       }),
@@ -503,7 +503,7 @@ async function buildAvailableCloudflareWorkerNameSuggestion(args: {
 }
 
 async function readCloudflareWorkerNameAvailability(args: {
-  connection: Awaited<ReturnType<typeof resolveSelectedCloudflareProvisioningConnection>>;
+  connection: Awaited<ReturnType<typeof resolveOrganizationCloudflareProvisioningConnection>>;
   workerName: string;
 }): Promise<AppResourceNameAvailability> {
   const available = await isCloudflareWorkerNameAvailable({
@@ -541,7 +541,7 @@ async function checkCloudflareWorkerNameAvailability(
   }
 
   try {
-    const connection = await resolveSelectedCloudflareProvisioningConnection(ctx, args);
+    const connection = await resolveOrganizationCloudflareProvisioningConnection(ctx, args);
     return await checkCloudflareWorkerNameAvailabilityForConnection(ctx, {
       userId: args.userId,
       organizationId: args.organizationId,
@@ -562,7 +562,7 @@ async function checkCloudflareWorkerNameAvailabilityForConnection(
     userId: Id<"users">;
     organizationId: Id<"organizations">;
     workerName: string;
-    connection: Awaited<ReturnType<typeof resolveSelectedCloudflareProvisioningConnection>>;
+    connection: Awaited<ReturnType<typeof resolveOrganizationCloudflareProvisioningConnection>>;
   },
 ): Promise<AppResourceNameAvailability> {
   const validation = validateCreateResourceName("cloudflare", args.workerName);
@@ -581,7 +581,7 @@ async function checkCloudflareWorkerNameAvailabilityForConnection(
         args.connection.cloudflareAuthMethod !== "api_key" &&
         isCloudflareMcpInvalidAccessTokenError(error)
       ) {
-        const connection = await resolveSelectedCloudflareProvisioningConnection(ctx, {
+        const connection = await resolveOrganizationCloudflareProvisioningConnection(ctx, {
           userId: args.userId,
           organizationId: args.organizationId,
           forceRefresh: true,
@@ -744,11 +744,11 @@ export async function createAppForUser(
   }
 
   const [convexConnection, cloudflareConnection] = await Promise.all([
-    resolveSelectedConvexProvisioningConnection(ctx, {
+    resolveOrganizationConvexProvisioningConnection(ctx, {
       userId: args.userId,
       organizationId: githubAccess.organizationId,
     }),
-    resolveSelectedCloudflareProvisioningConnection(ctx, {
+    resolveOrganizationCloudflareProvisioningConnection(ctx, {
       userId: args.userId,
       organizationId: githubAccess.organizationId,
     }),

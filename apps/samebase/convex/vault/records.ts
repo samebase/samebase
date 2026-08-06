@@ -400,6 +400,12 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     if (cloudflareProviderConnection?.kind !== "cloudflare") {
       throw new Error("Cloudflare provider connection not found.");
     }
+    if (
+      cloudflareProviderConnection.defaultAccount.state !== "selected" ||
+      cloudflareProviderConnection.defaultAccount.accountId !== args.cloudflareAccountId
+    ) {
+      throw new Error("Cloudflare account does not match the provider connection.");
+    }
     await assertOrganizationHasNoVaultForRepository(ctx, {
       organizationId: organization._id,
       name,

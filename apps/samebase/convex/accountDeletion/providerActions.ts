@@ -87,26 +87,6 @@ export const deleteRevokedConnection = internalMutation({
       });
     }
 
-    const organization = await ctx.db.get(connection.organizationId);
-    if (organization !== null) {
-      if (
-        connection.kind === "convex" &&
-        organization.selectedConvexProviderConnectionId === connection._id
-      ) {
-        await ctx.db.patch(organization._id, {
-          selectedConvexProviderConnectionId: undefined,
-        });
-      }
-      if (
-        connection.kind === "cloudflare" &&
-        organization.selectedCloudflareProviderConnectionId === connection._id
-      ) {
-        await ctx.db.patch(organization._id, {
-          selectedCloudflareProviderConnectionId: undefined,
-        });
-      }
-    }
-
     await ctx.db.delete(connection._id);
     return null;
   },

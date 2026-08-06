@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { Infer, v } from "convex/values";
 import { vViewerAccess, vViewerRoleResult } from "./accessModelValidators";
-import { getSelectedProviderConnectionForOrganization } from "./providerConnections";
+import { getProviderConnectionForOrganization } from "./providerConnections";
 import { requireOrganizationAccessContext } from "./organizationAccess";
 import { action, mutation, query } from "./functions";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
@@ -382,7 +382,7 @@ export const getConvexConnectionStatus = query({
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    const connection = await getSelectedProviderConnectionForOrganization(ctx.db, {
+    const connection = await getProviderConnectionForOrganization(ctx.db, {
       organizationId: access.organizationId,
       kind: "convex",
     });
@@ -410,10 +410,11 @@ export const disconnectConvex = action({
       internal.organizationAccess.requireOrganizationOwnerIdForUser,
       { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
-    const connection = await ctx.runQuery(
-      internal.providerConnections.loadSelectedForOrganization,
-      { organizationId, userId: ctx.viewer.userId, kind: "convex" },
-    );
+    const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
+      organizationId,
+      userId: ctx.viewer.userId,
+      kind: "convex",
+    });
     if (connection?.kind === "convex") {
       await ctx.runMutation(internal.providerConnections.disconnect, {
         organizationId,
@@ -437,7 +438,7 @@ export const getCloudflareConnectionStatus = query({
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    const connection = await getSelectedProviderConnectionForOrganization(ctx.db, {
+    const connection = await getProviderConnectionForOrganization(ctx.db, {
       organizationId: access.organizationId,
       kind: "cloudflare",
     });
@@ -469,10 +470,11 @@ async function runCloudflareMcpTokenRefresh(args: {
     internal.organizationAccess.requireOrganizationIdForUser,
     { userId: args.userId, organizationId: args.organizationId },
   );
-  const connection = await args.ctx.runQuery(
-    internal.providerConnections.loadSelectedForOrganization,
-    { organizationId, userId: args.userId, kind: "cloudflare" },
-  );
+  const connection = await args.ctx.runQuery(internal.providerConnections.loadForOrganization, {
+    organizationId,
+    userId: args.userId,
+    kind: "cloudflare",
+  });
   if (connection?.kind !== "cloudflare") {
     return { connected: false } satisfies CloudflareConnectionStatus;
   }
@@ -681,10 +683,11 @@ export const disconnectCloudflare = action({
       internal.organizationAccess.requireOrganizationOwnerIdForUser,
       { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
-    const connection = await ctx.runQuery(
-      internal.providerConnections.loadSelectedForOrganization,
-      { organizationId, userId: ctx.viewer.userId, kind: "cloudflare" },
-    );
+    const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
+      organizationId,
+      userId: ctx.viewer.userId,
+      kind: "cloudflare",
+    });
     if (connection?.kind === "cloudflare") {
       await ctx.runAction(internal.cloudflareOAuth.revokeCloudflareOAuthForOrganizationConnection, {
         organizationId,
@@ -721,7 +724,7 @@ export const connectConvexWithApiKey = action({
     const token = normalizeApiToken(args.token);
     const details = await fetchConvexApiKeyTeamDetails(token);
     const target: Doc<"providerConnections"> | null = await ctx.runQuery(
-      internal.providerConnections.loadSelectedForOrganization,
+      internal.providerConnections.loadForOrganization,
       {
         organizationId,
         userId: ctx.viewer.userId,
@@ -736,7 +739,7 @@ export const connectConvexWithApiKey = action({
       },
       teamId: details.teamId,
     };
-    if (target?.kind === "convex" && target.teamId === details.teamId) {
+    if (target?.kind === "convex") {
       await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
         organizationId,
         connectedByUserId: ctx.viewer.userId,

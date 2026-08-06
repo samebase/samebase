@@ -60,11 +60,11 @@ type ProviderAttachmentVaultContext = {
 };
 type ConvexWorkerReference = ConvexAttachmentProject["workerReferences"][number];
 
-async function resolveSelectedConvexConnection(
+async function resolveOrganizationConvexConnection(
   ctx: Pick<ActionCtx, "runQuery">,
   args: { userId: Id<"users">; organizationId: Id<"organizations"> },
 ): Promise<ConvexActionConnection> {
-  const connection = await ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
+  const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
     userId: args.userId,
     organizationId: args.organizationId,
     kind: "convex",
@@ -288,15 +288,15 @@ async function readConvexWorkerReferences(
   },
 ): Promise<Map<string, ConvexWorkerReference[]>> {
   try {
-    const selectedConnection = await ctx.runQuery(
-      internal.providerConnections.loadSelectedForOrganization,
+    const cloudflareConnection = await ctx.runQuery(
+      internal.providerConnections.loadForOrganization,
       {
         userId: args.userId,
         organizationId: args.context.organizationId,
         kind: "cloudflare",
       },
     );
-    if (selectedConnection?.kind !== "cloudflare") {
+    if (cloudflareConnection?.kind !== "cloudflare") {
       return new Map();
     }
     const connection = await ctx.runAction(
@@ -304,7 +304,7 @@ async function readConvexWorkerReferences(
       {
         userId: args.userId,
         organizationId: args.context.organizationId,
-        providerConnectionId: selectedConnection._id,
+        providerConnectionId: cloudflareConnection._id,
       },
     );
     const token = connection?.auth.credential.trim();
@@ -362,7 +362,7 @@ export async function discoverProjectsForUser(
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
 ) {
   const sourceDiscovery = await discoverConvexCodeLocations(ctx, args);
-  const connection = await resolveSelectedConvexConnection(ctx, {
+  const connection = await resolveOrganizationConvexConnection(ctx, {
     userId: args.userId,
     organizationId: sourceDiscovery.context.organizationId,
   });
@@ -404,7 +404,7 @@ export async function attachExistingProjectsForUser(
   }
 
   const sourceDiscovery = await discoverConvexCodeLocations(ctx, args);
-  const connection = await resolveSelectedConvexConnection(ctx, {
+  const connection = await resolveOrganizationConvexConnection(ctx, {
     userId: args.userId,
     organizationId: sourceDiscovery.context.organizationId,
   });
@@ -425,7 +425,6 @@ export async function attachExistingProjectsForUser(
   return await ctx.runMutation(internal.vault.convexMutations.attachProjects, {
     vaultId: args.vaultId,
     userId: args.userId,
-    providerConnectionId: connection.providerConnectionId,
     projects: normalizedProjects.map((project) => ({
       teamId: connection.teamId,
       projectId: project.projectId,
@@ -463,7 +462,7 @@ async function createProjectForUser(
   let projectRecorded = false;
   try {
     const sourceDiscovery = await discoverConvexCodeLocations(ctx, args);
-    const connection = await resolveSelectedConvexConnection(ctx, {
+    const connection = await resolveOrganizationConvexConnection(ctx, {
       userId: args.userId,
       organizationId: sourceDiscovery.context.organizationId,
     });
@@ -503,7 +502,6 @@ async function createProjectForUser(
         vaultId: args.vaultId,
         userId: args.userId,
         actionId,
-        providerConnectionId: connection.providerConnectionId,
         teamId: connection.teamId,
         projectId: created.id,
         codeLocation: removeConvexCodeLocationEvidence(codeLocation),
@@ -640,7 +638,6 @@ async function createProjectForManagedWorkflow(
       projectName: validation.value,
       teamId: connection.teamId,
       projectId,
-      providerConnectionId: connection.providerConnectionId,
     });
   } catch (error) {
     if (
@@ -723,7 +720,7 @@ export const reconcileProjectTeam = action({
         userId: ctx.viewer.userId,
       },
     );
-    const connection = await resolveSelectedConvexConnection(ctx, {
+    const connection = await resolveOrganizationConvexConnection(ctx, {
       userId: ctx.viewer.userId,
       organizationId: attachment.organizationId,
     });

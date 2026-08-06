@@ -83,14 +83,11 @@ export const checkConvexConnectionAccess = action({
         organizationId: args.organizationId,
       },
     );
-    const connection = await ctx.runQuery(
-      internal.providerConnections.loadSelectedForOrganization,
-      {
-        organizationId,
-        userId: ctx.viewer.userId,
-        kind: "convex",
-      },
-    );
+    const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
+      organizationId,
+      userId: ctx.viewer.userId,
+      kind: "convex",
+    });
 
     if (connection?.kind !== "convex") {
       return {

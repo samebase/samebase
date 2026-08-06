@@ -88,7 +88,7 @@ async function seedRunningDeletion() {
       branch: "main",
       version: 1,
     });
-    const convexConnectionId = await ctx.db.insert("providerConnections", {
+    await ctx.db.insert("providerConnections", {
       kind: "convex",
       organizationId,
       connectedByUserId: deletingUserId,
@@ -97,7 +97,7 @@ async function seedRunningDeletion() {
       createdAt: 1,
       updatedAt: 1,
     });
-    const cloudflareConnectionId = await ctx.db.insert("providerConnections", {
+    await ctx.db.insert("providerConnections", {
       kind: "cloudflare",
       organizationId,
       connectedByUserId: deletingUserId,
@@ -119,10 +119,6 @@ async function seedRunningDeletion() {
       teamId: "teammate-team",
       createdAt: 1,
       updatedAt: 1,
-    });
-    await ctx.db.patch(organizationId, {
-      selectedConvexProviderConnectionId: convexConnectionId,
-      selectedCloudflareProviderConnectionId: cloudflareConnectionId,
     });
     await ctx.db.insert("providerOAuthCallbackStates", {
       provider: "convex",
@@ -454,8 +450,6 @@ describe("account deletion organization boundary", () => {
 
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(snapshot.deletingUser).toBeNull();
-    expect(snapshot.organization?.selectedConvexProviderConnectionId).toBeUndefined();
-    expect(snapshot.organization?.selectedCloudflareProviderConnectionId).toBeUndefined();
     expect(snapshot.organizationBilling).not.toBeNull();
     expect(snapshot.vault).not.toBeNull();
     expect(snapshot.stagedFile).not.toBeNull();

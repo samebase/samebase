@@ -466,6 +466,7 @@ export const resolveConnectionForOrganization = internalAction({
         organizationId: args.organizationId,
         userId: args.userId,
         providerConnectionId: args.providerConnectionId,
+        expectedCredential: connection.auth.credential,
         auth: connection.auth,
         defaultAccount: connection.defaultAccount,
         tokenHealth,
@@ -495,6 +496,7 @@ export const resolveConnectionForOrganization = internalAction({
         organizationId: args.organizationId,
         userId: args.userId,
         providerConnectionId: args.providerConnectionId,
+        expectedCredential: connection.auth.credential,
         auth: connection.auth,
         defaultAccount: connection.defaultAccount,
         tokenHealth,
@@ -521,6 +523,7 @@ export const resolveConnectionForOrganization = internalAction({
       organizationId: args.organizationId,
       userId: args.userId,
       providerConnectionId: args.providerConnectionId,
+      expectedCredential: connection.auth.credential,
       auth: refreshedAuth,
       defaultAccount: connection.defaultAccount,
       tokenHealth: refreshedTokenHealth,
@@ -548,14 +551,11 @@ export const getCloudflareOAuthUrl = action({
         organizationId: args.organizationId,
       },
     );
-    const connection = await ctx.runQuery(
-      internal.providerConnections.loadSelectedForOrganization,
-      {
-        organizationId,
-        userId: ctx.viewer.userId,
-        kind: "cloudflare",
-      },
-    );
+    const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
+      organizationId,
+      userId: ctx.viewer.userId,
+      kind: "cloudflare",
+    });
     return await buildCloudflareOAuthUrl(ctx, {
       userId: ctx.viewer.userId,
       organizationId,
