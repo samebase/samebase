@@ -20,6 +20,8 @@ Use model A now:
   that target.
 - The Convex target is one `teamId`.
 - The Cloudflare target is one `accountId`.
+- Convex and Cloudflare both use direct provider OAuth. Keeping the Cloudflare OAuth connection flow
+  is a product invariant.
 - All vaults in the organization use these same two targets.
 - There is no selected provider connection. Remove both selected connection fields from
   `organizations`.
@@ -34,7 +36,7 @@ connection.
 
 The present use case is the shared deployment account:
 
-1. An organization owner connects Convex and Cloudflare once.
+1. An organization owner connects Convex and Cloudflare once through provider OAuth.
 2. Another Samebase organization member creates or operates an app.
 3. Samebase checks that member's organization access.
 4. A backend-only function uses the organization credential.
@@ -54,6 +56,9 @@ A provider connection is both of these facts in one row:
 
 The target is durable while provider resources depend on it. The credential is replaceable.
 
+A Cloudflare OAuth grant can permit access to more than one Cloudflare account. Samebase still binds
+the connection to one exact `accountId`. The grant reach does not become product routing.
+
 This does not mean that the target and credential are the same concept. They have different
 lifecycles. They stay in one row because the product permits one target and one current credential.
 A split into two tables would create a one-to-one join with no current benefit.
@@ -66,6 +71,7 @@ A split into two tables would create a one-to-one join with no current benefit.
 | How many connections can one organization have?                | At most one Convex row and at most one Cloudflare row.                                                                                                                             |
 | Is selected durable?                                           | No. It is a temporary UI and storage workaround. Remove it.                                                                                                                        |
 | What if one Cloudflare credential can access several accounts? | The owner connects one exact account. Samebase does not treat all visible accounts as the organization connection.                                                                 |
+| Which Cloudflare credential method does Samebase use?          | Direct Cloudflare OAuth. This is a product invariant.                                                                                                                              |
 | Can one organization deploy to several teams or accounts?      | No, not now. All retained targets for one provider must agree.                                                                                                                     |
 | Does a vault bind to a provider target?                        | Yes. Plans and resource rows keep stable `teamId` or `accountId` values for future writes and retries.                                                                             |
 | What happens when the credential changes?                      | If the external target is unchanged, existing resources continue without row rewrites.                                                                                             |
@@ -103,41 +109,39 @@ cross-member initiation and production use of the Beta Platform and Management A
 
 ### Cloudflare
 
-Use one narrowly scoped account API token.
+Use direct Cloudflare Authorization Code OAuth. Keeping this flow is a product invariant. Samebase
+did not adopt Cloudflare before Cloudflare offered OAuth, because a manual provider-token setup is
+not an acceptable primary connection experience.
 
-Cloudflare defines an account API token as an account service principal for durable external
-integrations. It can continue when the user who created it leaves the Cloudflare account. This is a
-closer match to organization infrastructure than a user OAuth grant.
+Request only the scopes required by current operations:
 
-Use this exact minimum permission set for current operations:
+- `workers-scripts.read`
+- `workers-scripts.write`
+- `workers-ci.read`
+- `workers-ci.write`
+- `account-settings.read`
+- `offline_access`, so Samebase receives a refresh token
 
-- Workers Scripts Read
-- Workers Scripts Write
-- Workers CI Read
-- Workers CI Write
-- Account Settings Read
+The backend keeps the OAuth client secret, access token, and refresh token. It never returns these
+values to a Samebase user.
 
-Do not request Account API Tokens Write. A Cloudflare actor with account-token management authority,
-normally a Cloudflare Super Administrator, revokes or rolls an account token. The Samebase owner
-role does not give this external authority. Samebase does not need authority to manage other tokens.
+The Cloudflare authorization can cover one account, several accounts, or all accounts. Samebase
+still connects one exact account:
 
-The Samebase owner supplies one Cloudflare `accountId` and an account API token for that account.
-The backend verifies token status through `/accounts/{account_id}/tokens/verify`, reads
-`accountName` separately, and runs the current non-modifying access probes. These checks do not
-return or prove the token's write permissions. The setup UI must give the exact five-permission
-policy above. Provider writes fail closed if the token lacks the needed permission. See the endpoint
-map in `research/2026-08-06-provider-connection-authorization-audit.md`.
+- If the grant exposes one account, use it.
+- If the grant exposes several accounts during a new connection, require the owner to choose one.
+- If retained resources already require an `accountId`, require the grant to include that account
+  and keep it as the target.
+- Never route an operation to another visible account automatically.
 
-Account-token creation requires Cloudflare Super Administrator permission. Treat this as a
-connection requirement, not as a reason to keep a second user-bound credential lifecycle.
+The OAuth grant acts on behalf of the Cloudflare user who authorized it. A Cloudflare membership
+change, role change, or grant revocation can stop organization operations. This is an accepted cost.
+Another Samebase owner can reauthorize through a Cloudflare user who can access the same account.
 
-Remove direct `oauth`, generic `api_key`, and `mcp_oauth` from the Cloudflare product connection
-model. Replace `api_key` with the exact `account_api_token` method. Direct OAuth is user-bound and
-adds refresh, revoke, account-selection, and connector-departure states. MCP OAuth is a
-transport-specific credential with no present benefit over a direct Cloudflare API token.
-
-Do not call an account API token a service token in the UI. Cloudflare uses service token for a
-different Cloudflare Access credential.
+Remove generic `api_key` and `mcp_oauth` from the Cloudflare product connection model. Do not add an
+account API token as a second customer connection method now. Account API tokens have better
+connector-departure behavior, but they do not satisfy the required OAuth setup experience. MCP OAuth
+is a transport-specific credential and does not add a present product capability.
 
 Broad commercial use has an external launch condition. Samebase must get written Cloudflare
 confirmation for member-started actions when a Samebase member is not a Cloudflare account member.
@@ -169,11 +173,17 @@ Convex variant:
 
 Cloudflare variant:
 
-| Field         | Rule                                                                         |
-| ------------- | ---------------------------------------------------------------------------- |
-| `auth`        | Exactly `{ method: "account_api_token", credential: string }`.               |
-| `accountId`   | Required stable external target.                                             |
-| `accountName` | Required display metadata. It never selects a target or proves token access. |
+| Field                   | Rule                                                                                                       |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------- |
+| `auth`                  | Exactly `{ method: "oauth", credential: string, refreshCredential: string, credentialExpiresAt: number }`. |
+| `accountId`             | Required stable external target.                                                                           |
+| `accountName`           | Required display metadata. It never selects a target or proves grant access.                               |
+| `tokenRefreshStartedAt` | Optional short-lived refresh lease. It is operational control, not connection identity.                    |
+| `lastTokenRefreshAt`    | Optional refresh-throttle time. It is operational control, not connection identity.                        |
+
+Remove the MCP-specific `tokenHealth` field with the `mcp_oauth` path. Derive token expiry from
+`auth.credentialExpiresAt`. Use a live access check when the UI or an operation needs current
+provider access status.
 
 Indexes:
 
@@ -200,14 +210,20 @@ the provider is connected to the target in that row.
 
 ### `providerOAuthCallbackStates`
 
-This is short-lived Convex OAuth control state, not resource identity. Remove the Cloudflare
-variant. Use an explicit intent:
+This is short-lived OAuth control state for both providers, not resource identity. Use an explicit
+intent:
 
 - `connect`, when no row existed at OAuth start
-- `replace`, with the transient row ID, expected `teamId`, and expected `grantGeneration`
+- `replace`, with the transient row ID, expected target ID, and expected `grantGeneration`
 
 A connect callback must still find no row. A replace callback must still find the row, target, and
 grant generation from OAuth start. It must not overwrite a newer connection after a stale callback.
+
+For a new Cloudflare connection, the callback can expose several authorized accounts. Keep the
+pending OAuth credentials only in backend-only, short-lived setup state until the owner chooses one
+account. Return only account IDs and names to the setup UI. Create `providerConnections` only after
+the exact `accountId` is selected and verified. Delete expired or completed setup state and its
+pending credentials.
 
 ### Stable Resource And Retry Tables
 
@@ -243,9 +259,13 @@ operation identity.
 8. A display name or slug change never changes target identity.
 9. Each credential replacement increments `grantGeneration` in the same transaction that installs
    the new secret.
-10. A raw credential is never returned through a public query, action result, log, test fixture,
+10. A Cloudflare token refresh does not change `accountId`, `connectedByUserId`,
+    `grantEstablishedAt`, or `grantGeneration`.
+11. A Cloudflare grant can reach more accounts than `accountId`, but Samebase uses it only for the
+    stored `accountId`.
+12. A raw credential is never returned through a public query, action result, log, test fixture,
     screenshot, or audit row.
-11. Current organization membership authorizes use. `connectedByUserId` does not authorize use.
+13. Current organization membership authorizes use. `connectedByUserId` does not authorize use.
 
 Retained target dependencies include:
 
@@ -322,21 +342,22 @@ Keep only audit facts that answer a current operator question:
 Use `workflow_vaultProvisioning_runs.userId` for managed work. Add `userId` to manual write locks.
 Do not add connection IDs to runs or locks. Do not add a provider connection event table now.
 
-Cloudflare account-token audit logs identify the token, not the Samebase member. Convex OAuth also
-acts through the authorizing member's grant. Samebase therefore needs its own operation actor.
+Both provider OAuth grants act through the authorizing provider user. Provider audit data does not
+identify the Samebase member who started the operation. Samebase therefore needs its own operation
+actor.
 
 ## Lifecycle Rules
 
 ### Connect
 
 1. Require organization owner role.
-2. Verify the new credential in a backend-only function.
-3. For Convex, read the exact team from the provider. For Cloudflare, require the owner to supply
-   `accountId`, verify token status against that account path, and read `accountName` separately.
+2. Start and complete the provider OAuth flow with backend-only credential handling.
+3. For Convex, read the exact team from the provider. For Cloudflare, discover the accounts that the
+   OAuth grant exposes and require one exact account choice.
 4. If retained targets exist, require the new target to match all of them.
 5. Insert the one row. Do not create a row until Cloudflare has one exact account choice.
-6. For Cloudflare, run non-modifying Workers Scripts and Workers CI access probes. These checks do
-   not prove write permission. Do not add token-management permission only to inspect the policy.
+6. For Cloudflare, verify access to the selected account and run non-modifying Workers Scripts and
+   Workers CI access probes.
 7. Set `connectedByUserId` and `grantEstablishedAt` to the acting owner and current time. Set
    `grantGeneration` to 1.
 
@@ -352,14 +373,34 @@ acts through the authorizing member's grant. Samebase therefore needs its own op
 7. Increment `grantGeneration`.
 8. Do not rewrite resource, plan, retry, or write-lock rows.
 
-For a Cloudflare account API token, tell the Samebase owner that a Cloudflare actor with
-account-token management authority must roll or revoke the old token. This actor is normally a
-Cloudflare Super Administrator. The Samebase owner role does not give this Cloudflare authority.
+For Cloudflare, the replacement OAuth grant can expose several accounts. Require it to include the
+row's current `accountId`. Do not change the target or show the account selector during
+reauthorization.
+
+Do not revoke the previous Cloudflare refresh credential after the replacement is stored until
+Cloudflare confirms whether that revoke can affect a newer authorization for the same OAuth client.
+The replacement removes the previous credential from Samebase, but upstream removal is not
+confirmed.
 
 Do not tell the previous Convex connector to revoke the old OAuth grant after replacement. Convex
 does not document whether repeated authorization creates independent tokens or one application
 authorization. A manual revoke can also revoke the new grant. Until Convex confirms the safe flow,
 replace the local secret and report that upstream removal of the old token is not confirmed.
+
+### Automatic Cloudflare Token Refresh
+
+Automatic refresh maintains the current grant. It is not a new connection or a reauthorization.
+
+1. Resolve the one Cloudflare row and record its `grantGeneration`.
+2. Claim the short-lived refresh lease.
+3. Use the refresh credential only in a backend-only action.
+4. Atomically store the returned access token, refresh token, and expiry only if the row and
+   `grantGeneration` are unchanged.
+5. Clear the refresh lease. A stale refresh result must not overwrite a later reauthorization.
+6. Do not change `connectedByUserId`, `grantEstablishedAt`, or `grantGeneration`.
+
+A definitive invalid-refresh result keeps the row and marks the connection as needing owner
+reauthorization. A network or provider error is not proof that the grant is invalid.
 
 ### Target Change
 
@@ -392,10 +433,10 @@ Disconnect has this exact promise:
 
 Provider-specific upstream result:
 
-| Method                       | Upstream action                                                                                                                                                                        |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Convex OAuth                 | No app-side revoke endpoint is documented. Remove local access and show the Convex manual-revoke action.                                                                               |
-| Cloudflare account API token | Remove local access. Tell the Samebase owner that a Cloudflare actor with account-token management authority must revoke or roll the token. Samebase does not request that permission. |
+| Method           | Upstream action                                                                                                                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Convex OAuth     | No app-side revoke endpoint is documented. Remove local access and show the Convex manual-revoke action.                                                                                   |
+| Cloudflare OAuth | Call the documented revoke endpoint with the current refresh token before local removal. Report whether Cloudflare confirmed revocation. If not, tell the connector to revoke it manually. |
 
 Local removal is the guaranteed result. Upstream revocation is method-specific. The UI must not say
 that a provider revoked access when Samebase cannot confirm it.
@@ -406,13 +447,13 @@ Do not remove the connection.
 
 - `connectedByUserId` remains provenance for the current grant.
 - Other members continue to use the connection if the provider still accepts it.
-- Another Samebase organization owner can replace the credential for the same target. For Convex,
-  that owner must be able to authorize the same Convex team.
+- Another Samebase organization owner can replace the credential for the same target. That owner
+  must use a provider user who can authorize the same Convex team or Cloudflare account.
 - That replacement changes `connectedByUserId` to the new owner.
 
-Convex permissions follow the external connector. A Convex team removal or role reduction can make
-the token fail. A Cloudflare account API token does not depend on the creating user's later
-membership.
+Provider permissions follow the external connector. A team or account membership removal, a role
+reduction, or an upstream grant revocation can make the OAuth credential fail. The row and stable
+resource data remain until an owner reauthorizes or disconnects.
 
 ### Samebase Account Deletion
 
@@ -427,14 +468,16 @@ Do not block account deletion until provider takeover.
 6. The organization is temporarily unable to use that provider until an owner reconnects the same
    target.
 
-An account API token can survive the creating Cloudflare user's departure, but Samebase does not
-keep a credential after the Samebase identity that introduced the current grant is deleted. This
-avoids an orphan provenance reference and does not make account deletion depend on another person.
+For Cloudflare, attempt upstream OAuth revocation before local removal. Do not block Samebase
+account deletion if Cloudflare cannot confirm revocation. Tell the deleting user to revoke the
+authorization from the Cloudflare profile. This avoids an orphan provenance reference and does not
+make account deletion depend on another person.
 
 ### Revoked, Expired, Or Reduced Upstream Access
 
 - Keep the row and stable resource data.
 - Fail provider operations closed.
+- Try normal Cloudflare token refresh when the access token expires.
 - Show that the connection needs owner attention.
 - Let an owner replace the credential for the same target.
 - Do not automatically change the target or delete resources.
@@ -482,7 +525,7 @@ Owner actions:
 
 - `Check access`
 - `Reauthorize` for Convex
-- `Replace token` for Cloudflare
+- `Reauthorize` for Cloudflare
 - `Disconnect`
 
 Member action:
@@ -493,8 +536,12 @@ If management controls are absent for a member, use one short line only when nee
 
 `An organization owner manages this connection.`
 
-Remove `Select account`, `Manage account`, selected badges, and selected-connection language. The
-Cloudflare account is chosen during connect and becomes the connection target.
+`Connect Cloudflare` always starts the direct OAuth flow. If the new grant exposes several accounts,
+show one account picker as the final setup step. Remove `Select account` and `Manage account` after
+the connection exists. Also remove selected badges and selected-connection language. The account
+chosen during connect becomes the connection target.
+
+Do not ask for or display a Cloudflare API token.
 
 The disconnect confirmation must state the local result and the provider-specific upstream action.
 It must also state that projects, Workers, and vault attachments remain.
@@ -721,9 +768,10 @@ Use a clean pre-beta reset. Do not preserve the hidden-row shape.
 
 1. Stop new provider writes during the reset.
 2. Revoke current direct Cloudflare OAuth grants through the direct revoke endpoint while refresh
-   tokens are available.
+   tokens are available. The operator will reconnect through the same direct OAuth flow after the
+   reset.
 3. Revoke current Cloudflare MCP OAuth grants through their separate revoke path.
-4. Tell a Cloudflare actor with token-management authority to roll or revoke each current API token.
+4. Tell the owner of each current Cloudflare API token to revoke it.
 5. Tell current Convex OAuth connectors to revoke the application authorization in Convex. Tell the
    Convex team member who created a current team token to revoke that token.
 6. Clear `providerConnections` and `providerOAuthCallbackStates`.
@@ -751,8 +799,8 @@ preferred path if any target conflict exists.
 ### Slice 2: Credential And Lifecycle Rules
 
 - Keep Convex team OAuth only for product setup.
-- Add Cloudflare account API token verification.
-- Remove direct OAuth, generic API-key, and MCP OAuth Cloudflare product connection paths.
+- Keep direct Cloudflare OAuth as the only Cloudflare product connection path.
+- Keep access-token refresh and remove generic API-key and MCP OAuth product paths.
 - Implement replace, disconnect, upstream-result reporting, account deletion, and same-target
   takeover rules.
 - Add `userId` to manual provider write locks and cover credential changes during operations.
@@ -770,11 +818,11 @@ preferred path if any target conflict exists.
 
 1. Approve model A: one Convex team and one Cloudflare account for each Samebase organization, with
    no selected connection fields.
-2. Approve the credential methods: Convex team OAuth only and Cloudflare account API token only.
-   Remove direct Cloudflare OAuth, generic API key, and MCP OAuth product paths.
-3. Approve the lifecycle: membership departure keeps the connection, Samebase account deletion
-   removes a grant still established by that user without blocking deletion, and Disconnect always
-   removes local access without deleting resources.
+2. Approve removing the manual Cloudflare API-key and MCP OAuth product paths. Direct Cloudflare
+   OAuth remains as the required Cloudflare connection method.
+3. Approve the lifecycle: membership departure keeps the OAuth connection while the provider still
+   accepts it, Samebase account deletion removes a grant still established by that user without
+   blocking deletion, and Disconnect always removes local access without deleting resources.
 
 The provider confirmation questions are external launch conditions. They do not change the schema
 recommendation.
@@ -783,8 +831,8 @@ recommendation.
 
 Use one provider connection of each kind for one organization. The row binds one stable external
 target to one current replaceable credential. Remove selected IDs. Keep provider resources and retry
-state bound to stable external IDs. Prefer Convex team OAuth and a Cloudflare account API token. Let
-all organization members use the backend-only credential, while only owners manage it. Reconnect to
-the same target restores operations. Disconnect removes local access and keeps resources. Add
-multi-connection behavior only after a real use case proves that the product needs independent
-targets or grants.
+state bound to stable external IDs. Use Convex team OAuth and direct Cloudflare OAuth. Keeping the
+Cloudflare OAuth setup flow is a product invariant. Let all organization members use the
+backend-only credential, while only owners manage it. Reconnect to the same target restores
+operations. Disconnect removes local access and keeps resources. Add multi-connection behavior only
+after a real use case proves that the product needs independent targets or grants.

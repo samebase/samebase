@@ -24,6 +24,16 @@ Code and tests are the source for current Samebase behavior. Only official Conve
 sources support provider and policy claims. This document labels an inference when a provider does
 not state the conclusion directly. It does not give a legal conclusion.
 
+## Confirmed Product Constraint
+
+Samebase must keep direct Cloudflare OAuth as its customer connection flow. Before Cloudflare
+offered OAuth, Samebase chose Netlify instead. A manual Cloudflare token flow is not an acceptable
+replacement, even though an account API token has better connector-departure behavior.
+
+This is a Samebase product constraint. It is not a claim from Cloudflare documentation. The proposed
+model must contain the user-bound OAuth lifecycle and recovery rules instead of selecting a
+different credential method to avoid them.
+
 ## Main Findings
 
 - The schema permits several Convex rows and several Cloudflare rows for one organization.
@@ -45,6 +55,8 @@ not state the conclusion directly. It does not give a legal conclusion.
   durable external integrations and supports them for Workers.
 - Cloudflare OAuth is a user grant. One grant can authorize one, several, or all accounts. The OAuth
   grant and the deployment account are separate facts.
+- Keeping direct Cloudflare OAuth is a confirmed product requirement. One exact `accountId` still
+  limits the Samebase connection and all provider routing.
 
 ## Current-State Data-Flow Map
 
@@ -481,8 +493,9 @@ Inference:
   account API token. No member needs the raw token.
 - An account API token is the closest match to organization infrastructure because the external
   actor is the account, not the connector.
-- User OAuth is technically usable, but it keeps the connector's external identity in the
-  operational dependency chain.
+- User OAuth is technically usable and is the required Samebase product path. It keeps the
+  connector's external identity in the operational dependency chain. Samebase accepts this lifecycle
+  cost and requires owner reauthorization for recovery.
 - Applying Enterprise section 2.3 and section 2.5 to this narrow deployment integration is not clear
   from the terms alone.
 
@@ -509,9 +522,10 @@ external target for each current deployment operation: a Convex `teamId` and a C
 `accountId`.
 
 Provider facts support a small one-target model. Convex OAuth is the correct normal grant, subject
-to written production confirmation. A Cloudflare account API token is the correct durable grant. The
-current product has no need to keep direct user OAuth as a second method. The proposed product and
-data decision is in `rfcs/121_PROVIDER_CONNECTION_MODEL.md`.
+to written production confirmation. An account API token is the most durable Cloudflare grant, but
+credential durability does not override the confirmed product requirement for direct Cloudflare
+OAuth. The Cloudflare connection must use OAuth and accept its user-bound recovery states. The
+proposed product and data decision is in `rfcs/121_PROVIDER_CONNECTION_MODEL.md`.
 
 ## Summary
 
@@ -519,5 +533,6 @@ Stable resources already use the correct external IDs. The temporary multi-row a
 model creates hidden credentials and different routing rules for Convex and Cloudflare. Technical
 sources support one server-side connection for an external integration. They do not explicitly
 approve actions started by Samebase members who are not members of the provider account. Cloudflare
-has a clear account-owned service principal. Convex has a suitable team OAuth grant, but Samebase
-needs written confirmation for cross-member use and production use of the Beta APIs.
+direct OAuth is a confirmed product requirement and binds the upstream grant to the authorizing
+Cloudflare user. Convex has a suitable team OAuth grant, but Samebase needs written confirmation for
+cross-member use and production use of the Beta APIs.
