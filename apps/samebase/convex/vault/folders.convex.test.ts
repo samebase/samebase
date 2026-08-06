@@ -266,15 +266,15 @@ describe("organization-scoped vault folders", () => {
       expect(
         await ctx.db
           .query("ui_vaultFolderAssignments")
-          .withIndex("by_userId_and_vaultId", (query) =>
-            query.eq("userId", userId).eq("vaultId", vaultId),
+          .withIndex("by_userId_and_organizationId_and_vaultId", (query) =>
+            query.eq("userId", userId).eq("organizationId", organizationId).eq("vaultId", vaultId),
           )
           .unique(),
       ).not.toBeNull();
     });
   });
 
-  it("deletes folder assignments with the folder", async () => {
+  it("leaves deleted-folder assignments stale and presents their vaults as ungrouped", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
     const organizationId = await seedOrganization(t, { owner: "samebase", userId });
@@ -292,6 +292,41 @@ describe("organization-scoped vault folders", () => {
       assignments: [],
       folders: [],
     });
+    await t.run(async (ctx) => {
+      expect(
+        await ctx.db
+          .query("ui_vaultFolderAssignments")
+          .withIndex("by_userId_and_organizationId_and_vaultId", (query) =>
+            query.eq("userId", userId).eq("organizationId", organizationId).eq("vaultId", vaultId),
+          )
+          .unique(),
+      ).not.toBeNull();
+    });
+  });
+
+  it("fails closed on duplicate visible assignments", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "ada@example.com");
+    const organizationId = await seedOrganization(t, { owner: "samebase", userId });
+    const vaultId = await seedVault(t, organizationId);
+    const viewer = asUser(t, userId);
+    const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Projects",
+      organizationId,
+    });
+    await viewer.mutation(api.vault.folders.moveVaultToFolder, { folderId, vaultId });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("ui_vaultFolderAssignments", {
+        folderId,
+        organizationId,
+        userId,
+        vaultId,
+      });
+    });
+
+    await expect(viewer.query(api.vault.folders.getVaultFolderState)).rejects.toThrow(
+      "Duplicate vault folder assignments.",
+    );
   });
 
   it("removes a folder assignment during vault deletion", async () => {

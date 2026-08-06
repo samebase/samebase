@@ -19,11 +19,11 @@ export const vaultFolderTables = {
   /** One current or stale folder assignment for one user's vault. */
   ui_vaultFolderAssignments: defineTable({
     userId: id("users"),
+    organizationId: id("organizations"),
     vaultId: id("vaults"),
     folderId: id("ui_vaultFolders"),
   })
-    .index("by_userId_and_vaultId", ["userId", "vaultId"])
-    .index("by_folderId", ["folderId"])
+    .index("by_userId_and_organizationId_and_vaultId", ["userId", "organizationId", "vaultId"])
     .index("by_vaultId", ["vaultId"]),
 };
 

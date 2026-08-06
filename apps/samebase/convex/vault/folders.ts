@@ -50,11 +50,16 @@ async function assertOwnedFolder(
   return folder;
 }
 
-async function readFolderAssignments(ctx: FolderReadCtx, userId: Id<"users">) {
+async function readFolderAssignments(
+  ctx: FolderReadCtx,
+  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
+) {
   const assignments = [];
   for await (const assignment of ctx.db
     .query("ui_vaultFolderAssignments")
-    .withIndex("by_userId_and_vaultId", (q) => q.eq("userId", userId))) {
+    .withIndex("by_userId_and_organizationId_and_vaultId", (q) =>
+      q.eq("userId", args.userId).eq("organizationId", args.organizationId),
+    )) {
     assignments.push(assignment);
   }
 
@@ -79,37 +84,22 @@ async function readFoldersForOrganization(
   );
 }
 
-async function readVisibleFolders(ctx: FolderReadCtx, userId: Id<"users">) {
-  const organizationIds = new Set(await listOrganizationIdsForUser(ctx.db, userId));
-  const folders = [];
-  for await (const folder of ctx.db
-    .query("ui_vaultFolders")
-    .withIndex("by_userId_and_organizationId_and_position", (q) => q.eq("userId", userId))) {
-    if (organizationIds.has(folder.organizationId)) {
-      folders.push(folder);
-    }
-  }
-
-  return folders.sort(
-    (left, right) =>
-      left.organizationId.localeCompare(right.organizationId) ||
-      left.position - right.position ||
-      left._id.localeCompare(right._id),
-  );
-}
-
 async function upsertFolderAssignment(
   ctx: FolderMutationCtx,
   args: {
     folderId: Id<"ui_vaultFolders">;
+    organizationId: Id<"organizations">;
     userId: Id<"users">;
     vaultId: Id<"vaults">;
   },
 ) {
   const assignment = await ctx.db
     .query("ui_vaultFolderAssignments")
-    .withIndex("by_userId_and_vaultId", (q) =>
-      q.eq("userId", args.userId).eq("vaultId", args.vaultId),
+    .withIndex("by_userId_and_organizationId_and_vaultId", (q) =>
+      q
+        .eq("userId", args.userId)
+        .eq("organizationId", args.organizationId)
+        .eq("vaultId", args.vaultId),
     )
     .unique();
 
@@ -126,23 +116,35 @@ export const getVaultFolderState = query({
   args: {},
   returns: vVaultFolderState,
   handler: async (ctx) => {
-    const folders = await readVisibleFolders(ctx, ctx.viewer.userId);
-    const folderById = new Map(folders.map((folder) => [folder._id, folder]));
-    const assignments = await readFolderAssignments(ctx, ctx.viewer.userId);
+    const organizationIds = await listOrganizationIdsForUser(ctx.db, ctx.viewer.userId);
+    const folders = [];
     const visibleAssignments = [];
+    const assignedVaultIds = new Set<Id<"vaults">>();
 
-    for (const assignment of assignments) {
-      const folder = folderById.get(assignment.folderId);
-      if (!folder) {
-        continue;
+    for (const organizationId of organizationIds) {
+      const organizationFolders = await readFoldersForOrganization(ctx, {
+        organizationId,
+        userId: ctx.viewer.userId,
+      });
+      const folderById = new Map(organizationFolders.map((folder) => [folder._id, folder]));
+      const assignments = await readFolderAssignments(ctx, {
+        organizationId,
+        userId: ctx.viewer.userId,
+      });
+
+      folders.push(...organizationFolders);
+      for (const assignment of assignments) {
+        const folder = folderById.get(assignment.folderId);
+        if (!folder || assignment.organizationId !== folder.organizationId) {
+          continue;
+        }
+        if (assignedVaultIds.has(assignment.vaultId)) {
+          throw new Error("Duplicate vault folder assignments.");
+        }
+
+        assignedVaultIds.add(assignment.vaultId);
+        visibleAssignments.push(assignment);
       }
-
-      const vault = await ctx.db.get(assignment.vaultId);
-      if (!vault || vault.organizationId !== folder.organizationId) {
-        continue;
-      }
-
-      visibleAssignments.push(assignment);
     }
 
     return {
@@ -248,7 +250,12 @@ export const moveVaultToFolder = mutation({
     const vault = await requireVaultForUser(ctx.db, { userId, vaultId: args.vaultId });
     const assignment = await ctx.db
       .query("ui_vaultFolderAssignments")
-      .withIndex("by_userId_and_vaultId", (q) => q.eq("userId", userId).eq("vaultId", args.vaultId))
+      .withIndex("by_userId_and_organizationId_and_vaultId", (q) =>
+        q
+          .eq("userId", userId)
+          .eq("organizationId", vault.organizationId)
+          .eq("vaultId", args.vaultId),
+      )
       .unique();
 
     if (args.folderId === null) {
@@ -265,6 +272,7 @@ export const moveVaultToFolder = mutation({
 
     await upsertFolderAssignment(ctx, {
       folderId: folder._id,
+      organizationId: folder.organizationId,
       userId,
       vaultId: vault._id,
     });
@@ -308,16 +316,6 @@ export const deleteVaultFolder = mutation({
       folderId: args.folderId,
       userId: ctx.viewer.userId,
     });
-    const assignments = [];
-    for await (const assignment of ctx.db
-      .query("ui_vaultFolderAssignments")
-      .withIndex("by_folderId", (q) => q.eq("folderId", folder._id))) {
-      assignments.push(assignment);
-    }
-
-    for (const assignment of assignments) {
-      await ctx.db.delete(assignment._id);
-    }
     await ctx.db.delete(folder._id);
     return null;
   },
