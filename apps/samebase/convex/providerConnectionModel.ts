@@ -64,6 +64,15 @@ export function providerAuthMatches(left: ProviderAuth, right: ProviderAuth): bo
       );
   }
 }
+
+export function requireCloudflareAuthUsableDuringRefresh(
+  auth: Infer<typeof vCloudflareProviderAuth>,
+  now: number,
+): void {
+  if ((auth.method === "oauth" || auth.method === "mcp_oauth") && auth.credentialExpiresAt <= now) {
+    throw new Error("Cloudflare token refresh is in progress. Retry shortly.");
+  }
+}
 export const vCloudflareDefaultAccount = union(
   object({
     state: literal("not_selected"),
@@ -75,6 +84,63 @@ export const vCloudflareDefaultAccount = union(
   }),
 );
 export type CloudflareDefaultAccount = Infer<typeof vCloudflareDefaultAccount>;
+
+const vCloudflareProviderTarget = union(
+  object({ state: literal("not_selected") }),
+  object({ state: literal("selected"), accountId: string() }),
+);
+export const vProviderConnectionTarget = union(
+  object({ kind: literal("convex"), teamId: string() }),
+  object({ kind: literal("cloudflare"), account: vCloudflareProviderTarget }),
+);
+export type ProviderConnectionTarget = Infer<typeof vProviderConnectionTarget>;
+
+type ProviderConnectionTargetSource =
+  | { kind: "convex"; teamId: string }
+  | { kind: "cloudflare"; defaultAccount: CloudflareDefaultAccount };
+
+export function readProviderConnectionTarget(
+  connection: ProviderConnectionTargetSource,
+): ProviderConnectionTarget {
+  switch (connection.kind) {
+    case "convex":
+      return { kind: "convex", teamId: connection.teamId };
+    case "cloudflare":
+      return {
+        kind: "cloudflare",
+        account:
+          connection.defaultAccount.state === "not_selected"
+            ? { state: "not_selected" }
+            : {
+                state: "selected",
+                accountId: connection.defaultAccount.accountId,
+              },
+      };
+  }
+}
+
+export function providerConnectionTargetMatches(
+  connection: ProviderConnectionTargetSource,
+  expected: ProviderConnectionTarget,
+): boolean {
+  const current = readProviderConnectionTarget(connection);
+  if (current.kind !== expected.kind) {
+    return false;
+  }
+  switch (current.kind) {
+    case "convex":
+      return expected.kind === "convex" && current.teamId === expected.teamId;
+    case "cloudflare":
+      if (expected.kind !== "cloudflare" || current.account.state !== expected.account.state) {
+        return false;
+      }
+      return (
+        current.account.state === "not_selected" ||
+        (expected.account.state === "selected" &&
+          current.account.accountId === expected.account.accountId)
+      );
+  }
+}
 
 const vProviderConnectionIdentity = {
   organizationId: id("organizations"),
@@ -114,7 +180,8 @@ export const vProviderOAuthCallbackState = object({
   userId: id("users"),
   organizationId: id("organizations"),
   providerConnectionId: optional(id("providerConnections")),
-  expectedAuth: optional(vProviderAuth),
+  expectedAuthFingerprint: optional(string()),
+  expectedTarget: optional(vProviderConnectionTarget),
   state: string(),
   returnToPath: optional(string()),
   codeVerifier: optional(string()),

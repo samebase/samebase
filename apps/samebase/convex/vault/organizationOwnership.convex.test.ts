@@ -433,7 +433,7 @@ describe("organization-owned vaults", () => {
     expect(plan).not.toHaveProperty("githubProviderConnectionId");
   });
 
-  it("keeps post-provider checkpoints inside the vault organization without connection rows", async () => {
+  it("keeps post-provider checkpoints inside the vault organization and checks the reconcile target", async () => {
     const t = makeConvexTest();
     const userId = await createUser(t, "provider-owner@example.com");
     const firstOrganizationId = await createOrganization(t, {
@@ -565,17 +565,38 @@ describe("organization-owned vaults", () => {
       ],
     });
 
-    for (const [organizationId, providerConnectionId, kind] of [
-      [firstOrganizationId, firstConvexConnectionId, "convex"],
-      [secondOrganizationId, secondConvexConnectionId, "convex"],
-      [firstOrganizationId, firstCloudflareConnectionId, "cloudflare"],
-      [secondOrganizationId, secondCloudflareConnectionId, "cloudflare"],
+    for (const [organizationId, providerConnectionId, kind, expectedAuth] of [
+      [
+        firstOrganizationId,
+        firstConvexConnectionId,
+        "convex",
+        { method: "api_key", credential: "first-convex-credential" },
+      ],
+      [
+        secondOrganizationId,
+        secondConvexConnectionId,
+        "convex",
+        { method: "api_key", credential: "second-convex-credential" },
+      ],
+      [
+        firstOrganizationId,
+        firstCloudflareConnectionId,
+        "cloudflare",
+        { method: "api_key", credential: "first-cloudflare-credential" },
+      ],
+      [
+        secondOrganizationId,
+        secondCloudflareConnectionId,
+        "cloudflare",
+        { method: "api_key", credential: "second-cloudflare-credential" },
+      ],
     ] as const) {
       await t.mutation(internal.providerConnections.disconnect, {
         organizationId,
         disconnectedByUserId: userId,
         providerConnectionId,
         kind,
+        expectedAuth,
       });
     }
 
@@ -620,14 +641,42 @@ describe("organization-owned vaults", () => {
       }),
     ).rejects.toThrow("Cloudflare Worker attachment not found.");
 
-    await t.mutation(internal.vault.convexMutations.reconcileProjectTeam, {
+    const reconcileArgs = {
       vaultId: firstVault.vaultId,
       userId,
       convexProjectId: firstConvexProjectId,
       projectId: "first-project",
       expectedTeamId: "first-team",
       nextTeamId: "first-team-refreshed",
+    };
+    await expect(
+      t.mutation(internal.vault.convexMutations.reconcileProjectTeam, reconcileArgs),
+    ).rejects.toThrow("Convex connection is required for the reconciled project team.");
+
+    const reconcileConnectionId = await t.run(async (ctx) => {
+      return await ctx.db.insert("providerConnections", {
+        kind: "convex",
+        organizationId: firstOrganizationId,
+        connectedByUserId: userId,
+        auth: { method: "api_key", credential: "reconcile-credential" },
+        teamId: "first-team-refreshed",
+        createdAt: 1,
+        updatedAt: 1,
+      });
     });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(reconcileConnectionId, { teamId: "team-after-observation" });
+    });
+    await expect(
+      t.mutation(internal.vault.convexMutations.reconcileProjectTeam, reconcileArgs),
+    ).rejects.toThrow("Convex connection is required for the reconciled project team.");
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(firstConvexProjectId)),
+    ).resolves.toMatchObject({ teamId: "first-team" });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(reconcileConnectionId, { teamId: "first-team-refreshed" });
+    });
+    await t.mutation(internal.vault.convexMutations.reconcileProjectTeam, reconcileArgs);
     await t.mutation(internal.vault.convexMutations.reconcileProjectCodeLocation, {
       vaultId: firstVault.vaultId,
       userId,

@@ -14,7 +14,11 @@ import {
   vMcpTokenHealthStatus,
   type McpTokenHealth,
 } from "./mcpTokenHealth";
-import type { CloudflareDefaultAccount } from "./providerConnectionModel";
+import {
+  readProviderConnectionTarget,
+  type CloudflareDefaultAccount,
+} from "./providerConnectionModel";
+import { fingerprintProviderAuth } from "./providerAuthFingerprint";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
@@ -421,6 +425,7 @@ export const disconnectConvex = action({
         disconnectedByUserId: ctx.viewer.userId,
         providerConnectionId: connection._id,
         kind: "convex",
+        expectedAuth: connection.auth,
       });
     }
     return null;
@@ -704,12 +709,14 @@ export const disconnectCloudflare = action({
         organizationId,
         userId: ctx.viewer.userId,
         providerConnectionId: connection._id,
+        expectedAuth: connection.auth,
       });
       await ctx.runMutation(internal.providerConnections.disconnect, {
         organizationId,
         disconnectedByUserId: ctx.viewer.userId,
         providerConnectionId: connection._id,
         kind: "cloudflare",
+        expectedAuth: connection.auth,
       });
     }
     return null;
@@ -755,7 +762,8 @@ export const connectConvexWithApiKey = action({
         organizationId,
         connectedByUserId: ctx.viewer.userId,
         providerConnectionId: target._id,
-        expectedAuth: target.auth,
+        expectedAuthFingerprint: await fingerprintProviderAuth(target.auth),
+        expectedTarget: readProviderConnectionTarget(target),
         connection,
       });
     } else {

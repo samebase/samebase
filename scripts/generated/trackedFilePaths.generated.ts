@@ -284,6 +284,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/polarWebhooks.ts",
   "apps/samebase/convex/providerApiLog.test.ts",
   "apps/samebase/convex/providerApiLog.ts",
+  "apps/samebase/convex/providerAuthFingerprint.ts",
   "apps/samebase/convex/providerConnectionModel.ts",
   "apps/samebase/convex/providerConnectionTargetSafety.ts",
   "apps/samebase/convex/providerConnections.convex.test.ts",

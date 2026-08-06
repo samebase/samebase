@@ -4,12 +4,14 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { requireOrganizationAccessContext } from "./organizationAccess";
 import { getProviderConnectionByIdForOrganization } from "./providerConnections";
 import {
+  readProviderConnectionTarget,
   vOAuthProvider,
   vProviderOAuthCallbackState,
   type OAuthProvider,
-  type ProviderAuth,
+  type ProviderConnectionTarget,
   type ProviderKind,
 } from "./providerConnectionModel";
+import { fingerprintProviderAuth } from "./providerAuthFingerprint";
 
 export { vOAuthProvider, type OAuthProvider } from "./providerConnectionModel";
 
@@ -61,7 +63,8 @@ export const createOauthState = internalMutation({
       throw new Error("Organization not found.");
     }
     await requireOrganizationAccessContext(ctx.db, args);
-    let expectedAuth: ProviderAuth | undefined;
+    let expectedAuthFingerprint: string | undefined;
+    let expectedTarget: ProviderConnectionTarget | undefined;
     if (args.providerConnectionId !== undefined) {
       const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
         organizationId: args.organizationId,
@@ -71,11 +74,13 @@ export const createOauthState = internalMutation({
       if (connection === null) {
         throw new Error("Provider connection not found.");
       }
-      expectedAuth = connection.auth;
+      expectedAuthFingerprint = await fingerprintProviderAuth(connection.auth);
+      expectedTarget = readProviderConnectionTarget(connection);
     }
     return await ctx.db.insert("providerOAuthCallbackStates", {
       ...args,
-      ...(expectedAuth === undefined ? {} : { expectedAuth }),
+      ...(expectedAuthFingerprint === undefined ? {} : { expectedAuthFingerprint }),
+      ...(expectedTarget === undefined ? {} : { expectedTarget }),
     });
   },
 });

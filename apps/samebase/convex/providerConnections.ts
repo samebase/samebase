@@ -13,12 +13,15 @@ import {
   vCloudflareProviderConnection,
   vConvexProviderConnection,
   vProviderAuth,
+  vProviderConnectionTarget,
   vProviderKind,
   vStandardProviderAuth,
+  providerConnectionTargetMatches,
   providerAuthMatches,
   type ProviderConnection,
   type ProviderKind,
 } from "./providerConnectionModel";
+import { fingerprintProviderAuth } from "./providerAuthFingerprint";
 import { assertProviderTargetCanBeEstablished } from "./providerConnectionTargetSafety";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
@@ -344,7 +347,8 @@ export const reauthorizeConnected = internalMutation({
     organizationId: id("organizations"),
     connectedByUserId: id("users"),
     providerConnectionId: id("providerConnections"),
-    expectedAuth: vProviderAuth,
+    expectedAuthFingerprint: string(),
+    expectedTarget: vProviderConnectionTarget,
     connection: vConnectionWrite,
   },
   returns: id("providerConnections"),
@@ -361,8 +365,11 @@ export const reauthorizeConnected = internalMutation({
     if (existing === null) {
       throw new Error("Provider connection not found.");
     }
-    if (!providerAuthMatches(existing.auth, args.expectedAuth)) {
+    if ((await fingerprintProviderAuth(existing.auth)) !== args.expectedAuthFingerprint) {
       throw new Error("Provider connection changed before reauthorization completed.");
+    }
+    if (!providerConnectionTargetMatches(existing, args.expectedTarget)) {
+      throw new Error("Provider connection target changed before reauthorization completed.");
     }
     const replacement = resolveReplacementConnection(existing, args.connection);
     if (
@@ -496,6 +503,7 @@ export const disconnect = internalMutation({
     disconnectedByUserId: id("users"),
     providerConnectionId: id("providerConnections"),
     kind: vProviderKind,
+    expectedAuth: vProviderAuth,
   },
   returns: vNull(),
   handler: async (ctx, args) => {
@@ -506,6 +514,9 @@ export const disconnect = internalMutation({
     const connection = await getProviderConnectionByIdForOrganization(ctx.db, args);
     if (connection === null) {
       throw new Error("Provider connection not found.");
+    }
+    if (!providerAuthMatches(connection.auth, args.expectedAuth)) {
+      throw new Error("Provider connection changed before disconnect completed.");
     }
     await ctx.db.delete(connection._id);
     return null;

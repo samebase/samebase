@@ -17,9 +17,10 @@ import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oaut
 import { findOrganizationMembership } from "./organizationAccess";
 import {
   providerAuthMatches,
+  requireCloudflareAuthUsableDuringRefresh,
   vCloudflareDefaultAccount,
   vCloudflareProviderAuth,
-  vProviderAuth,
+  vProviderConnectionTarget,
   type CloudflareDefaultAccount,
 } from "./providerConnectionModel";
 import {
@@ -409,7 +410,8 @@ const storeCloudflareMcpOauthConnectionArgs = {
   organizationId: id("organizations"),
   connectedByUserId: id("users"),
   providerConnectionId: optional(id("providerConnections")),
-  expectedAuth: optional(vProviderAuth),
+  expectedAuthFingerprint: optional(string()),
+  expectedTarget: optional(vProviderConnectionTarget),
   accessToken: string(),
   refreshToken: string(),
   expiresAt: number(),
@@ -449,14 +451,15 @@ export const storeCloudflareMcpOauthConnection = internalMutation({
       },
     };
     if (args.providerConnectionId !== undefined) {
-      if (args.expectedAuth === undefined) {
-        throw new Error("OAuth state does not include the previous provider authorization.");
+      if (args.expectedAuthFingerprint === undefined || args.expectedTarget === undefined) {
+        throw new Error("OAuth state does not include the previous provider compare state.");
       }
       await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
         organizationId: args.organizationId,
         connectedByUserId: args.connectedByUserId,
         providerConnectionId: args.providerConnectionId,
-        expectedAuth: args.expectedAuth,
+        expectedAuthFingerprint: args.expectedAuthFingerprint,
+        expectedTarget: args.expectedTarget,
         connection,
       });
     } else {
@@ -670,6 +673,7 @@ export const resolveConnectionForOrganization = internalAction({
         if (current?.kind !== "cloudflare") {
           return null;
         }
+        requireCloudflareAuthUsableDuringRefresh(current.auth, Date.now());
         return {
           auth: current.auth,
           defaultAccount: current.defaultAccount,
@@ -953,7 +957,8 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
         organizationId: oauthState.organizationId,
         connectedByUserId: oauthState.userId,
         providerConnectionId: oauthState.providerConnectionId,
-        expectedAuth: oauthState.expectedAuth,
+        expectedAuthFingerprint: oauthState.expectedAuthFingerprint,
+        expectedTarget: oauthState.expectedTarget,
         accessToken: token.access_token,
         refreshToken: token.refresh_token,
         expiresAt,

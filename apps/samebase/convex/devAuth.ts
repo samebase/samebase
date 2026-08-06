@@ -12,7 +12,11 @@ import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { vGitHubOwnerType } from "./organizationModel";
 import { getProviderConnectionForOrganization } from "./providerConnections";
-import type { CloudflareDefaultAccount } from "./providerConnectionModel";
+import {
+  readProviderConnectionTarget,
+  type CloudflareDefaultAccount,
+} from "./providerConnectionModel";
+import { fingerprintProviderAuth } from "./providerAuthFingerprint";
 import { normalizeGitHubOwnerLogin } from "./organizations";
 import { toSafeRepoName } from "../shared/repoName";
 import { discoverPreviewSeedGitHubAppInstallations } from "./githubApp";
@@ -275,7 +279,8 @@ export const seedOrganizationWithProviderConnections = internalMutation({
           organizationId: organization.organizationId,
           connectedByUserId: args.userId,
           providerConnectionId: existingConnection._id,
-          expectedAuth: existingConnection.auth,
+          expectedAuthFingerprint: await fingerprintProviderAuth(existingConnection.auth),
+          expectedTarget: readProviderConnectionTarget(existingConnection),
           connection,
         });
       }
@@ -310,7 +315,8 @@ export const seedOrganizationWithProviderConnections = internalMutation({
           organizationId: organization.organizationId,
           connectedByUserId: args.userId,
           providerConnectionId: existingConnection._id,
-          expectedAuth: existingConnection.auth,
+          expectedAuthFingerprint: await fingerprintProviderAuth(existingConnection.auth),
+          expectedTarget: readProviderConnectionTarget(existingConnection),
           connection,
         });
       }

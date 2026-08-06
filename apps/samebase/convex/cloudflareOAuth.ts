@@ -15,8 +15,11 @@ import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import { findOrganizationMembership } from "./organizationAccess";
 import {
+  providerAuthMatches,
+  requireCloudflareAuthUsableDuringRefresh,
   vCloudflareDefaultAccount,
-  vProviderAuth,
+  vCloudflareProviderAuth,
+  vProviderConnectionTarget,
   type CloudflareDefaultAccount,
 } from "./providerConnectionModel";
 import {
@@ -294,7 +297,8 @@ const storeCloudflareOauthConnectionArgs = {
   organizationId: id("organizations"),
   connectedByUserId: id("users"),
   providerConnectionId: optional(id("providerConnections")),
-  expectedAuth: optional(vProviderAuth),
+  expectedAuthFingerprint: optional(string()),
+  expectedTarget: optional(vProviderConnectionTarget),
   accessToken: string(),
   refreshToken: string(),
   expiresAt: number(),
@@ -333,14 +337,15 @@ export const storeCloudflareOauthConnection = internalMutation({
       },
     };
     if (args.providerConnectionId !== undefined) {
-      if (args.expectedAuth === undefined) {
-        throw new Error("OAuth state does not include the previous provider authorization.");
+      if (args.expectedAuthFingerprint === undefined || args.expectedTarget === undefined) {
+        throw new Error("OAuth state does not include the previous provider compare state.");
       }
       await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
         organizationId: args.organizationId,
         connectedByUserId: args.connectedByUserId,
         providerConnectionId: args.providerConnectionId,
-        expectedAuth: args.expectedAuth,
+        expectedAuthFingerprint: args.expectedAuthFingerprint,
+        expectedTarget: args.expectedTarget,
         connection,
       });
     } else {
@@ -506,6 +511,7 @@ export const resolveConnectionForOrganization = internalAction({
       if (current?.kind !== "cloudflare") {
         return null;
       }
+      requireCloudflareAuthUsableDuringRefresh(current.auth, Date.now());
       return {
         auth: current.auth,
         defaultAccount: current.defaultAccount,
@@ -624,23 +630,29 @@ export const revokeCloudflareOAuthForOrganizationConnection = internalAction({
     organizationId: id("organizations"),
     userId: id("users"),
     providerConnectionId: id("providerConnections"),
+    expectedAuth: vCloudflareProviderAuth,
   },
   returns: nullValue(),
   handler: async (ctx, args) => {
     const connection = await ctx.runQuery(internal.providerConnections.loadByIdForOrganization, {
-      ...args,
+      organizationId: args.organizationId,
+      userId: args.userId,
+      providerConnectionId: args.providerConnectionId,
       kind: "cloudflare",
     });
     if (connection?.kind !== "cloudflare") {
       return null;
     }
+    if (!providerAuthMatches(connection.auth, args.expectedAuth)) {
+      throw new Error("Cloudflare connection changed before disconnect revocation.");
+    }
     try {
-      if (connection.auth.method === "oauth") {
-        await revokeCloudflareOAuthGrant(connection.auth.refreshCredential);
-      } else if (connection.auth.method === "mcp_oauth") {
+      if (args.expectedAuth.method === "oauth") {
+        await revokeCloudflareOAuthGrant(args.expectedAuth.refreshCredential);
+      } else if (args.expectedAuth.method === "mcp_oauth") {
         await revokeCloudflareMcpOAuthGrant({
-          clientId: connection.auth.clientId,
-          refreshToken: connection.auth.refreshCredential,
+          clientId: args.expectedAuth.clientId,
+          refreshToken: args.expectedAuth.refreshCredential,
         });
       }
     } catch (error) {
@@ -778,7 +790,8 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
         organizationId: oauthState.organizationId,
         connectedByUserId: oauthState.userId,
         providerConnectionId: oauthState.providerConnectionId,
-        expectedAuth: oauthState.expectedAuth,
+        expectedAuthFingerprint: oauthState.expectedAuthFingerprint,
+        expectedTarget: oauthState.expectedTarget,
         accessToken: token.accessToken,
         refreshToken: token.refreshToken,
         expiresAt,

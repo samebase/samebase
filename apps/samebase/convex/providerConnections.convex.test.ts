@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
+import { fingerprintProviderAuth } from "./providerAuthFingerprint";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
@@ -183,7 +184,11 @@ describe("organization provider connections", () => {
         organizationId,
         connectedByUserId: ownerId,
         providerConnectionId: convexConnectionId,
-        expectedAuth: { method: "api_key", credential: "convex-a" },
+        expectedAuthFingerprint: await fingerprintProviderAuth({
+          method: "api_key",
+          credential: "convex-a",
+        }),
+        expectedTarget: { kind: "convex", teamId: "team-a" },
         connection: {
           kind: "convex",
           auth: { method: "oauth", credential: "convex-b" },
@@ -196,7 +201,14 @@ describe("organization provider connections", () => {
         organizationId,
         connectedByUserId: ownerId,
         providerConnectionId: cloudflareConnectionId,
-        expectedAuth: { method: "api_key", credential: "cloudflare-a" },
+        expectedAuthFingerprint: await fingerprintProviderAuth({
+          method: "api_key",
+          credential: "cloudflare-a",
+        }),
+        expectedTarget: {
+          kind: "cloudflare",
+          account: { state: "selected", accountId: "account-a" },
+        },
         connection: {
           kind: "cloudflare",
           auth: { method: "api_key", credential: "cloudflare-b" },
@@ -250,7 +262,11 @@ describe("organization provider connections", () => {
         organizationId,
         connectedByUserId: ownerId,
         providerConnectionId,
-        expectedAuth: { method: "api_key", credential: "credential-a" },
+        expectedAuthFingerprint: await fingerprintProviderAuth({
+          method: "api_key",
+          credential: "credential-a",
+        }),
+        expectedTarget: { kind: "convex", teamId: "team-a" },
         connection: {
           kind: "convex",
           auth: { method: "api_key", credential: "credential-b" },
@@ -292,7 +308,14 @@ describe("organization provider connections", () => {
         organizationId,
         connectedByUserId: ownerId,
         providerConnectionId,
-        expectedAuth: { method: "api_key", credential: "credential-a" },
+        expectedAuthFingerprint: await fingerprintProviderAuth({
+          method: "api_key",
+          credential: "credential-a",
+        }),
+        expectedTarget: {
+          kind: "cloudflare",
+          account: { state: "selected", accountId: "account-a" },
+        },
         connection: {
           kind: "cloudflare",
           auth: { method: "api_key", credential: "credential-b" },
@@ -340,7 +363,14 @@ describe("organization provider connections", () => {
       organizationId,
       connectedByUserId: ownerId,
       providerConnectionId,
-      expectedAuth: { method: "api_key", credential: "credential-a" },
+      expectedAuthFingerprint: await fingerprintProviderAuth({
+        method: "api_key",
+        credential: "credential-a",
+      }),
+      expectedTarget: {
+        kind: "cloudflare",
+        account: { state: "selected", accountId: "account-a" },
+      },
       connection: {
         kind: "cloudflare",
         auth: { method: "api_key", credential: "credential-b" },
@@ -424,12 +454,14 @@ describe("organization provider connections", () => {
       disconnectedByUserId: ownerId,
       providerConnectionId: convexConnectionId,
       kind: "convex",
+      expectedAuth: { method: "api_key", credential: "convex-a" },
     });
     await t.mutation(internal.providerConnections.disconnect, {
       organizationId,
       disconnectedByUserId: ownerId,
       providerConnectionId: cloudflareConnectionId,
       kind: "cloudflare",
+      expectedAuth: { method: "api_key", credential: "cloudflare-a" },
     });
 
     await expect(
@@ -650,7 +682,11 @@ describe("organization provider connections", () => {
       organizationId,
       connectedByUserId: ownerId,
       providerConnectionId,
-      expectedAuth: { method: "api_key", credential: "credential-a" },
+      expectedAuthFingerprint: await fingerprintProviderAuth({
+        method: "api_key",
+        credential: "credential-a",
+      }),
+      expectedTarget: { kind: "cloudflare", account: { state: "not_selected" } },
       connection: {
         kind: "cloudflare",
         auth: { method: "api_key", credential: "credential-b" },
@@ -672,6 +708,82 @@ describe("organization provider connections", () => {
         },
       }),
     ).rejects.toThrow("Cloudflare connection changed before the update completed.");
+  });
+
+  it("does not revoke or delete a replacement during a stale disconnect", async () => {
+    const { organizationId, ownerId, t } = await seedOrganizationMembers();
+    const previousAuth = {
+      method: "oauth" as const,
+      credential: "previous-access-token",
+      refreshCredential: "previous-refresh-token",
+      credentialExpiresAt: 100,
+    };
+    const replacementAuth = {
+      method: "oauth" as const,
+      credential: "replacement-access-token",
+      refreshCredential: "replacement-refresh-token",
+      credentialExpiresAt: 200,
+    };
+    const providerConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+      organizationId,
+      connectedByUserId: ownerId,
+      connection: {
+        kind: "cloudflare",
+        auth: previousAuth,
+        defaultAccount: {
+          state: "selected",
+          accountId: "account-a",
+          accountName: "Account A",
+        },
+      },
+    });
+    await t.mutation(internal.providerConnections.reauthorizeConnected, {
+      organizationId,
+      connectedByUserId: ownerId,
+      providerConnectionId,
+      expectedAuthFingerprint: await fingerprintProviderAuth(previousAuth),
+      expectedTarget: {
+        kind: "cloudflare",
+        account: { state: "selected", accountId: "account-a" },
+      },
+      connection: {
+        kind: "cloudflare",
+        auth: replacementAuth,
+        defaultAccount: {
+          state: "selected",
+          accountId: "account-a",
+          accountName: "Account A",
+        },
+      },
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      t.action(internal.cloudflareOAuth.revokeCloudflareOAuthForOrganizationConnection, {
+        organizationId,
+        userId: ownerId,
+        providerConnectionId,
+        expectedAuth: previousAuth,
+      }),
+    ).rejects.toThrow("Cloudflare connection changed before disconnect revocation.");
+    await expect(
+      t.mutation(internal.providerConnections.disconnect, {
+        organizationId,
+        disconnectedByUserId: ownerId,
+        providerConnectionId,
+        kind: "cloudflare",
+        expectedAuth: previousAuth,
+      }),
+    ).rejects.toThrow("Provider connection changed before disconnect completed.");
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(
+      t.query(internal.providerConnections.loadForOrganization, {
+        organizationId,
+        userId: ownerId,
+        kind: "cloudflare",
+      }),
+    ).resolves.toMatchObject({ _id: providerConnectionId, auth: replacementAuth });
   });
 
   it("compares the complete Cloudflare authorization for stale updates", async () => {
@@ -742,7 +854,8 @@ describe("organization provider connections", () => {
       organizationId,
       connectedByUserId: ownerId,
       providerConnectionId,
-      expectedAuth: previousAuth,
+      expectedAuthFingerprint: await fingerprintProviderAuth(previousAuth),
+      expectedTarget: { kind: "convex", teamId: "team-a" },
       accessToken: "newer-token",
       teamId: "team-a",
       oauthStateId: secondStateId,
@@ -752,12 +865,83 @@ describe("organization provider connections", () => {
         organizationId,
         connectedByUserId: ownerId,
         providerConnectionId,
-        expectedAuth: previousAuth,
+        expectedAuthFingerprint: await fingerprintProviderAuth(previousAuth),
+        expectedTarget: { kind: "convex", teamId: "team-a" },
         accessToken: "older-token",
         teamId: "team-a",
         oauthStateId: firstStateId,
       }),
     ).rejects.toThrow("Provider connection changed before reauthorization completed.");
+  });
+
+  it("rejects an OAuth callback after its Cloudflare account target changes", async () => {
+    const { organizationId, ownerId, t } = await seedOrganizationMembers();
+    const auth = { method: "api_key" as const, credential: "cloudflare-token" };
+    const providerConnectionId = await t.mutation(internal.providerConnections.createConnected, {
+      organizationId,
+      connectedByUserId: ownerId,
+      connection: {
+        kind: "cloudflare",
+        auth,
+        defaultAccount: { state: "not_selected" },
+      },
+    });
+    const oauthStateId = await t.mutation(internal.oauthState.createOauthState, {
+      provider: "cloudflare",
+      userId: ownerId,
+      organizationId,
+      providerConnectionId,
+      state: "cloudflare-account-race",
+      createdAt: 1,
+      expiresAt: 100,
+    });
+    const oauthState = await t.query(internal.oauthState.getOauthStateByState, {
+      provider: "cloudflare",
+      state: "cloudflare-account-race",
+    });
+    if (
+      oauthState?.expectedAuthFingerprint === undefined ||
+      oauthState.expectedTarget === undefined
+    ) {
+      throw new Error("Expected OAuth state compare values.");
+    }
+    await t.mutation(internal.providerConnections.updateCloudflareConnected, {
+      organizationId,
+      userId: ownerId,
+      providerConnectionId,
+      expectedAuth: auth,
+      auth,
+      defaultAccount: {
+        state: "selected",
+        accountId: "account-a",
+        accountName: "Account A",
+      },
+    });
+
+    await expect(
+      t.mutation(internal.cloudflareOAuth.storeCloudflareOauthConnection, {
+        organizationId,
+        connectedByUserId: ownerId,
+        providerConnectionId,
+        expectedAuthFingerprint: oauthState.expectedAuthFingerprint,
+        expectedTarget: oauthState.expectedTarget,
+        accessToken: "callback-access-token",
+        refreshToken: "callback-refresh-token",
+        expiresAt: 200,
+        defaultAccount: { state: "not_selected" },
+        oauthStateId,
+      }),
+    ).rejects.toThrow("Provider connection target changed before reauthorization completed.");
+    await expect(
+      t.query(internal.providerConnections.loadForOrganization, {
+        organizationId,
+        userId: ownerId,
+        kind: "cloudflare",
+      }),
+    ).resolves.toMatchObject({
+      auth,
+      defaultAccount: { state: "selected", accountId: "account-a" },
+    });
   });
 
   it("does not start direct or MCP OAuth refresh while another refresh lease is active", async () => {
@@ -795,7 +979,22 @@ describe("organization provider connections", () => {
         userId: direct.ownerId,
         forceRefresh: true,
       }),
-    ).resolves.toMatchObject({ auth: directAuth });
+    ).rejects.toThrow("Cloudflare token refresh is in progress. Retry shortly.");
+    const usableDirectAuth = {
+      ...directAuth,
+      credentialExpiresAt: Date.now() + 60_000,
+    };
+    await direct.t.run(async (ctx) => {
+      await ctx.db.patch(directConnectionId, { auth: usableDirectAuth });
+    });
+    await expect(
+      direct.t.action(internal.cloudflareOAuth.resolveConnectionForOrganization, {
+        organizationId: direct.organizationId,
+        providerConnectionId: directConnectionId,
+        userId: direct.ownerId,
+        forceRefresh: true,
+      }),
+    ).resolves.toMatchObject({ auth: usableDirectAuth });
 
     const mcp = await seedOrganizationMembers();
     const mcpAuth = {
@@ -822,7 +1021,22 @@ describe("organization provider connections", () => {
         userId: mcp.ownerId,
         forceRefresh: true,
       }),
-    ).resolves.toMatchObject({ auth: mcpAuth });
+    ).rejects.toThrow("Cloudflare token refresh is in progress. Retry shortly.");
+    const usableMcpAuth = {
+      ...mcpAuth,
+      credentialExpiresAt: Date.now() + 60_000,
+    };
+    await mcp.t.run(async (ctx) => {
+      await ctx.db.patch(mcpConnectionId, { auth: usableMcpAuth });
+    });
+    await expect(
+      mcp.t.action(internal.cloudflareMcpOAuth.resolveConnectionForOrganization, {
+        organizationId: mcp.organizationId,
+        providerConnectionId: mcpConnectionId,
+        userId: mcp.ownerId,
+        forceRefresh: true,
+      }),
+    ).resolves.toMatchObject({ auth: usableMcpAuth });
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -1048,7 +1262,11 @@ describe("organization provider connections", () => {
         organizationId,
         connectedByUserId: memberId,
         providerConnectionId,
-        expectedAuth: { method: "api_key", credential: "credential-a" },
+        expectedAuthFingerprint: await fingerprintProviderAuth({
+          method: "api_key",
+          credential: "credential-a",
+        }),
+        expectedTarget: { kind: "convex", teamId: "team-a" },
         connection: {
           kind: "convex",
           auth: { method: "api_key", credential: "credential-b" },
@@ -1062,6 +1280,7 @@ describe("organization provider connections", () => {
         disconnectedByUserId: memberId,
         providerConnectionId,
         kind: "convex",
+        expectedAuth: { method: "api_key", credential: "credential-a" },
       }),
     ).rejects.toThrow("Organization owner access is required.");
   });
@@ -1117,6 +1336,7 @@ describe("organization provider connections", () => {
         disconnectedByUserId: outsiderId,
         providerConnectionId,
         kind: "cloudflare",
+        expectedAuth: { method: "api_key", credential: "credential-a" },
       }),
     ).rejects.toThrow("Organization membership is required.");
     await expect(
@@ -1141,6 +1361,7 @@ describe("organization provider connections", () => {
       disconnectedByUserId: ownerId,
       providerConnectionId,
       kind: "cloudflare",
+      expectedAuth: { method: "api_key", credential: "credential-a" },
     });
 
     const connection = await t.run(async (ctx) => await ctx.db.get(providerConnectionId));
@@ -1176,16 +1397,21 @@ describe("organization provider connections", () => {
       expiresAt: 2,
     });
 
-    await expect(
-      t.query(internal.oauthState.getOauthStateByState, {
-        provider: "convex",
-        state: "state-a",
-      }),
-    ).resolves.toMatchObject({
+    const oauthState = await t.query(internal.oauthState.getOauthStateByState, {
+      provider: "convex",
+      state: "state-a",
+    });
+    expect(oauthState).toMatchObject({
       _id: oauthStateId,
       organizationId,
       providerConnectionId,
+      expectedAuthFingerprint: await fingerprintProviderAuth({
+        method: "api_key",
+        credential: "credential-a",
+      }),
+      expectedTarget: { kind: "convex", teamId: "team-a" },
     });
+    expect(JSON.stringify(oauthState)).not.toContain("credential-a");
     await expect(
       t.mutation(internal.oauthState.createOauthState, {
         provider: "cloudflare",

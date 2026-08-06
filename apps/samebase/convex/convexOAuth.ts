@@ -11,7 +11,7 @@ import {
 } from "./organizationAccess";
 import { getProviderConnectionForOrganization } from "./providerConnections";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
-import { vProviderAuth } from "./providerConnectionModel";
+import { vProviderConnectionTarget } from "./providerConnectionModel";
 import {
   createCodeChallenge,
   OAUTH_STATE_TTL_MS,
@@ -185,7 +185,8 @@ export const storeConvexOauthTokens = internalMutation({
     organizationId: v.id("organizations"),
     connectedByUserId: v.id("users"),
     providerConnectionId: v.optional(v.id("providerConnections")),
-    expectedAuth: v.optional(vProviderAuth),
+    expectedAuthFingerprint: v.optional(v.string()),
+    expectedTarget: v.optional(vProviderConnectionTarget),
     accessToken: v.string(),
     teamId: v.string(),
     oauthStateId: v.id("providerOAuthCallbackStates"),
@@ -210,14 +211,15 @@ export const storeConvexOauthTokens = internalMutation({
       teamId: args.teamId,
     };
     if (args.providerConnectionId !== undefined) {
-      if (args.expectedAuth === undefined) {
-        throw new Error("OAuth state does not include the previous provider authorization.");
+      if (args.expectedAuthFingerprint === undefined || args.expectedTarget === undefined) {
+        throw new Error("OAuth state does not include the previous provider compare state.");
       }
       await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
         organizationId: args.organizationId,
         connectedByUserId: args.connectedByUserId,
         providerConnectionId: args.providerConnectionId,
-        expectedAuth: args.expectedAuth,
+        expectedAuthFingerprint: args.expectedAuthFingerprint,
+        expectedTarget: args.expectedTarget,
         connection,
       });
     } else {
@@ -352,7 +354,8 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
         organizationId: oauthState.organizationId,
         connectedByUserId: oauthState.userId,
         providerConnectionId: oauthState.providerConnectionId,
-        expectedAuth: oauthState.expectedAuth,
+        expectedAuthFingerprint: oauthState.expectedAuthFingerprint,
+        expectedTarget: oauthState.expectedTarget,
         accessToken: token.accessToken,
         teamId: details.teamId,
         oauthStateId: oauthState._id,

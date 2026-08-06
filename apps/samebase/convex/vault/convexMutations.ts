@@ -451,6 +451,13 @@ export const reconcileProjectTeam = internalMutation({
     ) {
       throw new Error("Convex project attachment changed before team reconciliation.");
     }
+    const connection = await getConvexProviderConnectionForTeam(ctx.db, {
+      organizationId: vault.organizationId,
+      teamId: args.nextTeamId,
+    });
+    if (connection === null) {
+      throw new Error("Convex connection is required for the reconciled project team.");
+    }
     await ctx.db.patch(project._id, { teamId: args.nextTeamId });
     return null;
   },

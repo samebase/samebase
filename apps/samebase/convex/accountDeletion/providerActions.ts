@@ -5,8 +5,10 @@ import { internalAction, internalMutation, internalQuery } from "../_generated/s
 import { revokeCloudflareMcpOAuthGrant } from "../cloudflareMcpOAuth";
 import { revokeCloudflareOAuthGrant } from "../cloudflareOAuth";
 import {
+  providerAuthMatches,
   vCloudflareProviderConnection,
   vConvexProviderConnection,
+  vProviderAuth,
 } from "../providerConnectionModel";
 import { getProviderConnectionByIdForOrganization } from "../providerConnections";
 import { readOwnedActiveRun } from "./stepContext";
@@ -70,13 +72,14 @@ export const deleteRevokedConnection = internalMutation({
   args: {
     ...workflowArgs,
     providerConnectionId: id("providerConnections"),
+    expectedAuth: vProviderAuth,
   },
-  returns: v.null(),
+  returns: boolean(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
     const candidate = await ctx.db.get(args.providerConnectionId);
     if (candidate === null) {
-      return null;
+      return false;
     }
     const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
       organizationId: candidate.organizationId,
@@ -84,10 +87,13 @@ export const deleteRevokedConnection = internalMutation({
       kind: candidate.kind,
     });
     if (connection === null) {
-      throw new Error("Provider connection changed during account deletion.");
+      return false;
     }
     if (connection.connectedByUserId !== run.identity.userId) {
-      throw new Error("Provider connection belongs to another user.");
+      return false;
+    }
+    if (!providerAuthMatches(connection.auth, args.expectedAuth)) {
+      return false;
     }
 
     if (connection.kind === "convex" && connection.auth.method === "oauth") {
@@ -108,7 +114,7 @@ export const deleteRevokedConnection = internalMutation({
     }
 
     await ctx.db.delete(connection._id);
-    return null;
+    return true;
   },
 });
 
@@ -140,10 +146,20 @@ export const revokeConnectionBatch = internalAction({
         convexManualRevocationRequired = true;
       }
 
-      await ctx.runMutation(internal.accountDeletion.providerActions.deleteRevokedConnection, {
-        ...args,
-        providerConnectionId: connection._id,
-      });
+      const deleted = await ctx.runMutation(
+        internal.accountDeletion.providerActions.deleteRevokedConnection,
+        {
+          ...args,
+          providerConnectionId: connection._id,
+          expectedAuth: connection.auth,
+        },
+      );
+      if (!deleted) {
+        return {
+          done: false,
+          convexManualRevocationRequired,
+        };
+      }
     }
 
     return {

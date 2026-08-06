@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
+import { readUrlSearchParamsRecord } from "../../shared/urlSearchParams";
 
 const workflowId = "account-deletion-organization-boundary";
 
@@ -564,5 +565,84 @@ describe("account deletion organization boundary", () => {
       state: "in_progress",
       convexManualRevocationRequired: true,
     });
+  });
+
+  it("reloads and revokes refreshed Cloudflare auth before deletion", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
+    vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
+    const cloudflareConnectionId = await t.run(async (ctx) => {
+      const connections = await ctx.db
+        .query("providerConnections")
+        .withIndex("by_connected_by_user", (query) =>
+          query.eq("connectedByUserId", ids.deletingUserId),
+        )
+        .collect();
+      const connection = connections.find(({ kind }) => kind === "cloudflare");
+      if (connection?.kind !== "cloudflare") {
+        throw new Error("Expected a Cloudflare connection.");
+      }
+      return connection._id;
+    });
+    const revokedRefreshTokens: string[] = [];
+    const fetch = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
+      if (typeof init?.body !== "string") {
+        throw new Error("Expected a form-encoded revocation request body.");
+      }
+      const refreshToken = readUrlSearchParamsRecord(init.body)["token"];
+      if (typeof refreshToken !== "string") {
+        throw new Error("Expected a refresh token in the revocation request.");
+      }
+      revokedRefreshTokens.push(refreshToken);
+      if (revokedRefreshTokens.length === 1) {
+        await t.run(async (ctx) => {
+          const connection = await ctx.db.get(cloudflareConnectionId);
+          if (connection?.kind !== "cloudflare") {
+            throw new Error("Expected a Cloudflare connection.");
+          }
+          await ctx.db.patch(connection._id, {
+            auth: {
+              method: "oauth",
+              credential: "refreshed-access-token",
+              refreshCredential: "refreshed-refresh-token",
+              credentialExpiresAt: 2_000_000_000_000,
+            },
+            updatedAt: 2,
+          });
+        });
+      }
+      return new Response(null, { status: 204 });
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    await t.mutation(internal.accountDeletion.workflow.startProviderRevocation, {
+      runId: ids.runId,
+      workflowId,
+    });
+    await expect(
+      t.action(internal.accountDeletion.providerActions.revokeConnectionBatch, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ done: false, convexManualRevocationRequired: true });
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(cloudflareConnectionId)),
+    ).resolves.toMatchObject({
+      auth: {
+        credential: "refreshed-access-token",
+        refreshCredential: "refreshed-refresh-token",
+      },
+    });
+    await expect(
+      t.action(internal.accountDeletion.providerActions.revokeConnectionBatch, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ done: true, convexManualRevocationRequired: false });
+
+    expect(revokedRefreshTokens).toEqual(["cloudflare-refresh-token", "refreshed-refresh-token"]);
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(cloudflareConnectionId)),
+    ).resolves.toBeNull();
   });
 });
