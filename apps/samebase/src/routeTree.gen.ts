@@ -24,7 +24,6 @@ import { Route as indexDBRouteImport } from "./routes/indexDB";
 import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
-import { Route as settingsMcpRouteImport } from "./routes/settings-mcp";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
 import { Route as orgRouteImport } from "./routes/org";
 import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
@@ -52,7 +51,6 @@ import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-
 import { Route as logoMengerHoverResearchRouteImport } from "./routes/logo-menger-hover-research";
 import { Route as logoCarpetHoverResearchRouteImport } from "./routes/logo-carpet-hover-research";
 import { Route as vaultSettingsRouteImport } from "./routes/vault-settings";
-import { Route as orgBillingRouteImport } from "./routes/org-billing";
 import { Route as vaultSchemaProjectRouteImport } from "./routes/vault-schema-project";
 import { Route as vaultDatabaseProjectRouteImport } from "./routes/vault-database-project";
 
@@ -129,11 +127,6 @@ const indexRoute = indexRouteImport.update({
 const vaultFileRoute = vaultFileRouteImport.update({
   id: "/vault/$",
   path: "/vault/$",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const settingsMcpRoute = settingsMcpRouteImport.update({
-  id: "/settings/mcp",
-  path: "/settings/mcp",
   getParentRoute: () => rootRouteImport,
 } as any);
 const pitchPrintRoute = pitchPrintRouteImport.update({
@@ -273,11 +266,6 @@ const vaultSettingsRoute = vaultSettingsRouteImport.update({
   path: "/vault/$owner/$repo/settings",
   getParentRoute: () => rootRouteImport,
 } as any);
-const orgBillingRoute = orgBillingRouteImport.update({
-  id: "/org/$owner/settings/billing",
-  path: "/org/$owner/settings/billing",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const vaultSchemaProjectRoute = vaultSchemaProjectRouteImport.update({
   id: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId",
   path: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId",
@@ -318,7 +306,6 @@ export interface FileRoutesByFullPath {
   "/logo/transition": typeof logoTransitionLabRoute;
   "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
-  "/settings/mcp": typeof settingsMcpRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
@@ -332,7 +319,6 @@ export interface FileRoutesByFullPath {
   "/org/$owner/vaults": typeof orgVaultsRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
-  "/org/$owner/settings/billing": typeof orgBillingRoute;
   "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
@@ -366,7 +352,6 @@ export interface FileRoutesByTo {
   "/logo/transition": typeof logoTransitionLabRoute;
   "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
-  "/settings/mcp": typeof settingsMcpRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
@@ -380,7 +365,6 @@ export interface FileRoutesByTo {
   "/org/$owner/vaults": typeof orgVaultsRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
-  "/org/$owner/settings/billing": typeof orgBillingRoute;
   "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
@@ -415,7 +399,6 @@ export interface FileRoutesById {
   "/logo/transition": typeof logoTransitionLabRoute;
   "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
-  "/settings/mcp": typeof settingsMcpRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
@@ -429,7 +412,6 @@ export interface FileRoutesById {
   "/org/$owner/vaults": typeof orgVaultsRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
-  "/org/$owner/settings/billing": typeof orgBillingRoute;
   "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
@@ -465,7 +447,6 @@ export interface FileRouteTypes {
     | "/logo/transition"
     | "/org/$owner"
     | "/pitch/print"
-    | "/settings/mcp"
     | "/vault/$"
     | "/logo/hover/carpet"
     | "/logo/hover/menger"
@@ -479,7 +460,6 @@ export interface FileRouteTypes {
     | "/org/$owner/vaults"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
-    | "/org/$owner/settings/billing"
     | "/vault/$owner/$repo/settings"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -513,7 +493,6 @@ export interface FileRouteTypes {
     | "/logo/transition"
     | "/org/$owner"
     | "/pitch/print"
-    | "/settings/mcp"
     | "/vault/$"
     | "/logo/hover/carpet"
     | "/logo/hover/menger"
@@ -527,7 +506,6 @@ export interface FileRouteTypes {
     | "/org/$owner/vaults"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
-    | "/org/$owner/settings/billing"
     | "/vault/$owner/$repo/settings"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -561,7 +539,6 @@ export interface FileRouteTypes {
     | "/logo/transition"
     | "/org/$owner"
     | "/pitch/print"
-    | "/settings/mcp"
     | "/vault/$"
     | "/logo/hover/carpet"
     | "/logo/hover/menger"
@@ -575,7 +552,6 @@ export interface FileRouteTypes {
     | "/org/$owner/vaults"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
-    | "/org/$owner/settings/billing"
     | "/vault/$owner/$repo/settings"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -610,7 +586,6 @@ export interface RootRouteChildren {
   logoTransitionLabRoute: typeof logoTransitionLabRoute;
   orgRoute: typeof orgRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
-  settingsMcpRoute: typeof settingsMcpRoute;
   vaultFileRoute: typeof vaultFileRoute;
   logoCarpetHoverResearchRoute: typeof logoCarpetHoverResearchRoute;
   logoMengerHoverResearchRoute: typeof logoMengerHoverResearchRoute;
@@ -624,7 +599,6 @@ export interface RootRouteChildren {
   orgVaultsRoute: typeof orgVaultsRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   vaultDashboardRoute: typeof vaultDashboardRoute;
-  orgBillingRoute: typeof orgBillingRoute;
   vaultSettingsRoute: typeof vaultSettingsRoute;
   vaultDatabaseProjectRoute: typeof vaultDatabaseProjectRoute;
   vaultSchemaProjectRoute: typeof vaultSchemaProjectRoute;
@@ -735,13 +709,6 @@ declare module "@tanstack/react-router" {
       path: "/vault/$";
       fullPath: "/vault/$";
       preLoaderRoute: typeof vaultFileRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/settings/mcp": {
-      id: "/settings/mcp";
-      path: "/settings/mcp";
-      fullPath: "/settings/mcp";
-      preLoaderRoute: typeof settingsMcpRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/pitch/print": {
@@ -933,13 +900,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof vaultSettingsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/org/$owner/settings/billing": {
-      id: "/org/$owner/settings/billing";
-      path: "/org/$owner/settings/billing";
-      fullPath: "/org/$owner/settings/billing";
-      preLoaderRoute: typeof orgBillingRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": {
       id: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
       path: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -986,7 +946,6 @@ const rootRouteChildren: RootRouteChildren = {
   logoTransitionLabRoute: logoTransitionLabRoute,
   orgRoute: orgRoute,
   pitchPrintRoute: pitchPrintRoute,
-  settingsMcpRoute: settingsMcpRoute,
   vaultFileRoute: vaultFileRoute,
   logoCarpetHoverResearchRoute: logoCarpetHoverResearchRoute,
   logoMengerHoverResearchRoute: logoMengerHoverResearchRoute,
@@ -1000,7 +959,6 @@ const rootRouteChildren: RootRouteChildren = {
   orgVaultsRoute: orgVaultsRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   vaultDashboardRoute: vaultDashboardRoute,
-  orgBillingRoute: orgBillingRoute,
   vaultSettingsRoute: vaultSettingsRoute,
   vaultDatabaseProjectRoute: vaultDatabaseProjectRoute,
   vaultSchemaProjectRoute: vaultSchemaProjectRoute,

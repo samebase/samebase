@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { ViewerOrganization } from "@/lib/organizationContext";
-import { OrganizationBillingPage } from "./OrganizationBillingPage";
+import { OrganizationBillingSection } from "./OrganizationBillingSection";
 
 const { act } = React;
 
@@ -45,10 +45,12 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
     getRouteApi: () => ({ useNavigate: () => testState.navigate }),
     useRouter: () => ({
       buildLocation: ({
+        hash,
         params,
         search,
         to,
       }: {
+        hash: string;
         params: { owner: string };
         search: (current: Record<string, unknown>) => Record<string, unknown>;
         to: string;
@@ -59,7 +61,9 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
           if (typeof value === "string") searchParams.set(key, value);
         }
         const pathname = to.replace("$owner", params.owner);
-        return { href: `${pathname}${searchParams.size > 0 ? `?${searchParams}` : ""}` };
+        return {
+          href: `${pathname}${searchParams.size > 0 ? `?${searchParams}` : ""}#${hash}`,
+        };
       },
     }),
   };
@@ -82,12 +86,12 @@ vi.mock("convex/react", async (importOriginal) => {
 let root: Root | null = null;
 let rootElement: HTMLDivElement | null = null;
 
-async function mountBillingPage(selectedOrganization: ViewerOrganization = organization) {
+async function mountBillingSection(selectedOrganization: ViewerOrganization = organization) {
   rootElement = document.createElement("div");
   document.body.append(rootElement);
   root = createRoot(rootElement);
   await act(async () =>
-    root?.render(<OrganizationBillingPage organization={selectedOrganization} search={{}} />),
+    root?.render(<OrganizationBillingSection organization={selectedOrganization} search={{}} />),
   );
   return rootElement;
 }
@@ -104,7 +108,7 @@ function setBillingQueries() {
   });
 }
 
-describe("OrganizationBillingPage", () => {
+describe("OrganizationBillingSection", () => {
   beforeEach(() => {
     testState.actions.clear();
     testState.queries.clear();
@@ -126,7 +130,7 @@ describe("OrganizationBillingPage", () => {
   it("reads and starts billing for the routed organization", async () => {
     const createCheckout = vi.fn(() => new Promise<never>(() => undefined));
     testState.actions.set(getFunctionName(api.billing.createPolarCheckoutSession), createCheckout);
-    const container = await mountBillingPage();
+    const container = await mountBillingSection();
 
     expect(testState.queryCalls).toContainEqual({
       args: { organizationId: organization.organizationId },
@@ -146,8 +150,8 @@ describe("OrganizationBillingPage", () => {
 
     expect(createCheckout).toHaveBeenCalledWith({
       organizationId: organization.organizationId,
-      returnUrl: `${window.location.origin}/org/samebase/settings/billing?checkout=cancel`,
-      successUrl: `${window.location.origin}/org/samebase/settings/billing?checkout=success`,
+      returnUrl: `${window.location.origin}/org/samebase/settings?checkout=cancel#billing`,
+      successUrl: `${window.location.origin}/org/samebase/settings?checkout=success#billing`,
     });
   });
 
@@ -157,7 +161,7 @@ describe("OrganizationBillingPage", () => {
       plan: "pro",
       status: "active",
     });
-    const container = await mountBillingPage({ ...organization, role: "member" });
+    const container = await mountBillingSection({ ...organization, role: "member" });
 
     expect(container.textContent).toContain("Current plan");
     expect(container.textContent).toContain("Pro");

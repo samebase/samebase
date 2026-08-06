@@ -29,7 +29,6 @@ describe("organization context", () => {
     ["/org/samebase/new-app", "new-app"],
     ["/org/samebase/connect-repo", "connect-repo"],
     ["/org/samebase/settings", "settings"],
-    ["/org/samebase/settings/billing", "billing"],
   ] as const)("reads %s as an organization %s surface", (pathname, section) => {
     expect(readAppOrganizationSurface(pathname)).toEqual({
       kind: "organization",
@@ -41,7 +40,6 @@ describe("organization context", () => {
 
   it("reads global, account, and vault detail surfaces", () => {
     expect(readAppOrganizationSurface("/vault")).toEqual({ kind: "allVaults" });
-    expect(readAppOrganizationSurface("/settings/mcp")).toEqual({ kind: "account" });
     expect(readAppOrganizationSurface("/vault/Samebase/repo/src/index.ts")).toEqual({
       kind: "organization",
       owner: "Samebase",

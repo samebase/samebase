@@ -1,11 +1,11 @@
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
-import { ORGANIZATION_BILLING_ROUTE } from "@/lib/organizationRoutes";
+import { ORGANIZATION_SETTINGS_ROUTE } from "@/lib/organizationRoutes";
 import {
   CHECKOUT_QUERY_PARAM,
   POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM,
-  type OrganizationBillingRouteSearch,
+  type OrganizationBillingSearch,
 } from "@/routeSearch/organizationBilling";
 import { readBrowserRouteEnvironment } from "@/routing/availability";
 import { applySearchPatch } from "@/routing/searchFlags";
@@ -17,7 +17,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 
-const organizationBillingRouteApi = getRouteApi(ORGANIZATION_BILLING_ROUTE);
+const organizationSettingsRouteApi = getRouteApi(ORGANIZATION_SETTINGS_ROUTE);
 
 type BillingRequestState = "idle" | "checkout" | "portal";
 
@@ -37,15 +37,15 @@ function formatBillingResourceUsage(usage: BillingResourceUsage["cloudflareWorke
   return `${used} of ${usage.limit}`;
 }
 
-export function OrganizationBillingPage({
+export function OrganizationBillingSection({
   organization,
   search,
 }: {
   organization: ViewerOrganization;
-  search: OrganizationBillingRouteSearch;
+  search: OrganizationBillingSearch;
 }) {
   const router = useRouter();
-  const navigate = organizationBillingRouteApi.useNavigate();
+  const navigate = organizationSettingsRouteApi.useNavigate();
   const billingStatus = useQuery(api.billing.getViewerBillingStatus, {
     organizationId: organization.organizationId,
   });
@@ -127,13 +127,14 @@ export function OrganizationBillingPage({
 
   const buildBillingUrl = (checkout: "success" | "cancel" | null) => {
     const location = router.buildLocation({
+      hash: "billing",
       params: { owner: organization.githubOwnerLogin.toLowerCase() },
       search: (currentSearch) =>
         applySearchPatch(currentSearch, {
           [CHECKOUT_QUERY_PARAM]: checkout,
           [POLAR_CUSTOMER_SESSION_TOKEN_QUERY_PARAM]: null,
         }),
-      to: ORGANIZATION_BILLING_ROUTE,
+      to: ORGANIZATION_SETTINGS_ROUTE,
     });
     return new URL(location.href, window.location.origin).toString();
   };
@@ -184,12 +185,16 @@ export function OrganizationBillingPage({
   };
 
   return (
-    <main
-      data-testid="organization-billing-page"
-      className="container mx-auto w-full max-w-2xl py-6"
+    <section
+      aria-labelledby="organization-billing-heading"
+      className="mt-8 border-t pt-6"
+      data-testid="organization-billing-section"
+      id="billing"
     >
-      <h1 className="text-xl font-semibold @2xl:text-2xl">Billing</h1>
-      <dl className="mt-8 space-y-3 border-t pt-6">
+      <h2 id="organization-billing-heading" className="text-base font-semibold">
+        Billing
+      </h2>
+      <dl className="mt-4 space-y-3">
         <div className="flex items-baseline justify-between gap-4">
           <dt className="text-sm font-medium">Current plan</dt>
           <dd className="text-sm text-muted-foreground">
@@ -283,6 +288,6 @@ export function OrganizationBillingPage({
           )}
         </div>
       ) : null}
-    </main>
+    </section>
   );
 }

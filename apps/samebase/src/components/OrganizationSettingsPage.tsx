@@ -1,9 +1,9 @@
 import type { ViewerOrganization } from "@/lib/organizationContext";
+import { OrganizationBillingSection } from "@/components/OrganizationBillingSection";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
 import { getCurrentRootRelativeUrl, openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
-import { ORGANIZATION_BILLING_ROUTE } from "@/lib/organizationRoutes";
-import { Link } from "@tanstack/react-router";
+import type { OrganizationBillingSearch } from "@/routeSearch/organizationBilling";
 import { useAction, useMutation } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
@@ -15,7 +15,13 @@ type InstallationCheckState =
   | { kind: "connected" }
   | { kind: "unavailable" };
 
-export function OrganizationSettingsPage({ organization }: { organization: ViewerOrganization }) {
+export function OrganizationSettingsPage({
+  organization,
+  search,
+}: {
+  organization: ViewerOrganization;
+  search: OrganizationBillingSearch;
+}) {
   const checkViewerInstallation = useAction(api.githubAppAccess.checkViewerInstallation);
   const getGitHubAppInstallationUrl = useMutation(
     api.githubAppInstallation.getGitHubAppInstallationUrl,
@@ -117,18 +123,7 @@ export function OrganizationSettingsPage({ organization }: { organization: Viewe
           ) : null}
         </div>
       </section>
-      <section className="mt-8 border-t pt-6" aria-labelledby="organization-billing-heading">
-        <h2 id="organization-billing-heading" className="text-base font-semibold">
-          Billing
-        </h2>
-        <Link
-          className="mt-4 inline-block text-sm text-primary underline-offset-4 hover:underline"
-          params={{ owner: organization.githubOwnerLogin }}
-          to={ORGANIZATION_BILLING_ROUTE}
-        >
-          Open billing
-        </Link>
-      </section>
+      <OrganizationBillingSection organization={organization} search={search} />
     </main>
   );
 }

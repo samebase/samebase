@@ -184,22 +184,10 @@ vi.mock("@/components/UserSettingsPage", () => ({
   UserSettingsPage: () => <div data-testid="settings-page">Settings page</div>,
 }));
 
-vi.mock("@/components/McpClientsSettingsPage", () => ({
-  McpClientsSettingsPage: () => <div data-testid="mcp-clients-page">MCP clients page</div>,
-}));
-
 vi.mock("@/components/OrganizationSettingsPage", () => ({
   OrganizationSettingsPage: ({ organization }: { organization: ViewerOrganization }) => (
     <div data-testid="organization-settings-page" data-owner={organization.githubOwnerLogin}>
       Organization settings page
-    </div>
-  ),
-}));
-
-vi.mock("@/components/OrganizationBillingPage", () => ({
-  OrganizationBillingPage: ({ organization }: { organization: ViewerOrganization }) => (
-    <div data-testid="organization-billing-page" data-owner={organization.githubOwnerLogin}>
-      Organization billing page
     </div>
   ),
 }));
@@ -828,7 +816,6 @@ describe("appRouter", () => {
     ["new app", "/org/Samebase/new-app", "new-app-page"],
     ["connect repository", "/org/Samebase/connect-repo", "connect-repository-page"],
     ["organization settings", "/org/Samebase/settings", "organization-settings-page"],
-    ["organization billing", "/org/Samebase/settings/billing", "organization-billing-page"],
   ])("renders the organization %s route with its resolved owner", async (_name, path, testId) => {
     await renderRoute(path);
 
@@ -861,15 +848,6 @@ describe("appRouter", () => {
 
     expect(rootElement?.querySelector('[data-testid="settings-page"]')?.textContent).toBe(
       "Settings page",
-    );
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
-  });
-
-  it("renders MCP clients as an account settings route", async () => {
-    await renderRoute("/settings/mcp");
-
-    expect(rootElement?.querySelector('[data-testid="mcp-clients-page"]')?.textContent).toBe(
-      "MCP clients page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });

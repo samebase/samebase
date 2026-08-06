@@ -25,23 +25,21 @@ does not change the organization schema or membership model in Spec 120.
 
 User-owned pages use these routes:
 
-| Route           | Contract                                                                     |
-| --------------- | ---------------------------------------------------------------------------- |
-| `/vault`        | Show all current organizations as sections and their vaults.                 |
-| `/settings`     | Show profile, personal GitHub authorization, sign-out, and account deletion. |
-| `/settings/mcp` | List and revoke user-owned MCP grants.                                       |
+| Route       | Contract                                                                        |
+| ----------- | ------------------------------------------------------------------------------- |
+| `/vault`    | Show all current organizations as sections and their vaults.                    |
+| `/settings` | Show profile, GitHub authorization, MCP grants, sign-out, and account deletion. |
 
 Organization-owned pages use these routes:
 
-| Route                          | Contract                                                                           |
-| ------------------------------ | ---------------------------------------------------------------------------------- |
-| `/org/:owner`                  | Check access, then redirect to `/org/:owner/vaults`.                               |
-| `/org/:owner/vaults`           | Show only vaults owned by this organization.                                       |
-| `/org/:owner/providers`        | Show Convex and Cloudflare connections for this organization.                      |
-| `/org/:owner/new-app`          | Create a repository and provider resources in this organization.                   |
-| `/org/:owner/connect-repo`     | Connect a repository owned by this GitHub owner.                                   |
-| `/org/:owner/settings`         | Show owner identity, Samebase role, and GitHub App installation health.            |
-| `/org/:owner/settings/billing` | Show plan, usage, quota, checkout, and subscription controls for the organization. |
+| Route                      | Contract                                                                          |
+| -------------------------- | --------------------------------------------------------------------------------- |
+| `/org/:owner`              | Check access, then redirect to `/org/:owner/vaults`.                              |
+| `/org/:owner/vaults`       | Show only vaults owned by this organization.                                      |
+| `/org/:owner/providers`    | Show Convex and Cloudflare connections for this organization.                     |
+| `/org/:owner/new-app`      | Create a repository and provider resources in this organization.                  |
+| `/org/:owner/connect-repo` | Connect a repository owned by this GitHub owner.                                  |
+| `/org/:owner/settings`     | Show identity, role, GitHub App health, billing, usage, quota, and plan controls. |
 
 The future members route is `/org/:owner/settings/members`. Samebase must not ship the route until
 member administration has real behavior.
@@ -61,9 +59,8 @@ account section. Shared main-pane chrome does not repeat this context. On small 
 `/org/:owner/*`, and `/vault/:owner/:repo/*` show the standard right-pane toggle. User settings do
 not show an organization context control.
 
-A user with one organization sees its static owner label, including on the global `/vault` route. A
-user with no organizations sees a static `All vaults` label. A user with several organizations sees
-a switch control with these items:
+A user with one or more organizations sees the same switch control. A user with no organizations
+sees a static `All vaults` label. The switch control contains these items:
 
 1. `All vaults`
 2. Current organizations, sorted by owner login
@@ -131,8 +128,7 @@ A missing or inaccessible vault keeps its clean route and shows `Vault unavailab
 When a signed-out user opens a direct link, Samebase preserves the full route through sign-in. It
 checks organization or vault access after authentication is ready.
 
-A user with no memberships can still use `/settings` and `/settings/mcp`. On `/vault`, Samebase
-shows:
+A user with no memberships can still use `/settings`. On `/vault`, Samebase shows:
 
 - Heading: `No organizations`
 - Body: `Install the Samebase GitHub App for a repository owner.`
@@ -141,7 +137,7 @@ shows:
 ## External Returns
 
 Provider OAuth returns to `/org/:owner/providers`. Checkout and billing-portal sessions return to
-`/org/:owner/settings/billing`. The return value carries the GitHub owner login and no internal
+`/org/:owner/settings#billing`. The return value carries the GitHub owner login and no internal
 organization ID.
 
 The server validates the return route and owner. A full-page return checks current membership before

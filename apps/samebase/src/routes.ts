@@ -11,7 +11,6 @@ import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
 import { AGENT_BROWSER_HANDOFF_ROUTE } from "../shared/agentBrowserHandoff";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import {
-  ORGANIZATION_BILLING_ROUTE,
   ORGANIZATION_CONNECT_REPO_ROUTE,
   ORGANIZATION_NEW_APP_ROUTE,
   ORGANIZATION_PROVIDERS_ROUTE,
@@ -20,7 +19,6 @@ import {
   ORGANIZATION_VAULTS_ROUTE,
 } from "./lib/organizationRoutes";
 import { SETTINGS_ROUTE } from "./lib/settingsRoute";
-import { SETTINGS_MCP_ROUTE } from "./lib/settingsMcpRoute";
 import { ACCOUNT_DELETION_ROUTE } from "./lib/accountDeletionRoute";
 
 /**
@@ -64,9 +62,7 @@ export const routes = rootRoute("root.tsx", [
   route(ORGANIZATION_NEW_APP_ROUTE, "org-new-app.tsx"),
   route(ORGANIZATION_CONNECT_REPO_ROUTE, "org-connect-repo.tsx"),
   route(ORGANIZATION_SETTINGS_ROUTE, "org-settings.tsx"),
-  route(ORGANIZATION_BILLING_ROUTE, "org-billing.tsx"),
   route(SETTINGS_ROUTE, "settings.tsx"),
-  route(SETTINGS_MCP_ROUTE, "settings-mcp.tsx"),
   route(ACCOUNT_DELETION_ROUTE, "account-deletion.tsx"),
   route("/admin/account-deletions", "admin-account-deletions.tsx"),
   route(DASHBOARD_ROUTE, [index("vault-dashboard-root.tsx"), route("$", "vault-file.tsx")]),

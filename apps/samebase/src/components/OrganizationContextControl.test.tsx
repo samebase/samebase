@@ -150,19 +150,26 @@ describe("OrganizationContextControl", () => {
     rootElement = null;
   });
 
-  it("shows the sole organization and install action on the global vault route", async () => {
+  it("uses the same switch control for one organization", async () => {
     testState.context.organizations = [organization("samebase")];
     const container = await mountControl();
 
     expect(container.querySelector('[data-testid="organization-context-control"]')).not.toBeNull();
+    expect(container.textContent).toContain("All vaults");
     expect(container.textContent).toContain("samebase");
-    expect(container.textContent).not.toContain("All vaults");
-    expect(container.querySelector('[aria-label^="Switch organization"]')).toBeNull();
-    const installButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Install GitHub App",
-    );
+    expect(
+      container.querySelector('[aria-label="Switch organization, current context All vaults"]'),
+    ).not.toBeNull();
+    const menuItems = [
+      ...container.querySelectorAll('[data-testid="organization-context-menu-item"]'),
+    ];
+    expect(menuItems.map((item) => item.textContent)).toEqual([
+      "All vaults",
+      "samebase",
+      "Install GitHub App",
+    ]);
     await act(async () => {
-      installButton?.click();
+      menuItems[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await Promise.resolve();
     });
 
@@ -194,7 +201,7 @@ describe("OrganizationContextControl", () => {
     testState.context.surface = {
       kind: "organization",
       owner: "zeta",
-      section: "billing",
+      section: "settings",
       source: "organization",
     };
     testState.location.hash = "#billing";

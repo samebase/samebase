@@ -93,10 +93,6 @@ const routeAccessMetadataByPath = {
     access: "access_user_preferences",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
-  "/org/$owner/settings/billing": {
-    access: "access_user_preferences",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-  },
   "/org/$owner/vaults": {
     access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },
@@ -115,10 +111,6 @@ const routeAccessMetadataByPath = {
   "/pricing": { access: "access_public", pathSuggestion: "hidden" },
   "/privacy": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/settings": {
-    access: "access_user_preferences",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-  },
-  "/settings/mcp": {
     access: "access_user_preferences",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },

@@ -3,7 +3,7 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import { McpClientsSettingsPage } from "./McpClientsSettingsPage";
+import { McpClientsSettingsSection } from "./McpClientsSettingsSection";
 
 const { act } = React;
 const testState = vi.hoisted(() => ({
@@ -36,7 +36,7 @@ vi.mock("convex/react", async (importOriginal) => {
 let root: Root | null = null;
 let rootElement: HTMLDivElement | null = null;
 
-describe("McpClientsSettingsPage", () => {
+describe("McpClientsSettingsSection", () => {
   beforeEach(() => {
     testState.revokeGrant.mockReset();
     testState.revokeGrant.mockResolvedValue(null);
@@ -55,7 +55,7 @@ describe("McpClientsSettingsPage", () => {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     root = createRoot(rootElement);
-    await act(async () => root?.render(<McpClientsSettingsPage />));
+    await act(async () => root?.render(<McpClientsSettingsSection />));
 
     expect(rootElement.textContent).toContain("MCP clients");
     expect(rootElement.textContent).toContain("Codex");

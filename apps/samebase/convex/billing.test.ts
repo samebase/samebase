@@ -4,34 +4,35 @@ import { describe, expect, it } from "vite-plus/test";
 import { validateOrganizationBillingReturnUrls } from "./billing";
 
 describe("validateOrganizationBillingReturnUrls", () => {
-  it("accepts the same normalized organization billing path", () => {
+  it("accepts the same normalized organization settings path", () => {
     expect(
       validateOrganizationBillingReturnUrls({
         githubOwnerLogin: "Samebase",
-        successUrl: "https://samebase.com/org/Samebase/settings/billing?checkout=success",
-        returnUrl: "https://samebase.com/org/samebase/settings/billing?checkout=canceled",
+        successUrl: "https://samebase.com/org/Samebase/settings?checkout=success#billing",
+        returnUrl: "https://samebase.com/org/samebase/settings?checkout=canceled#billing",
         server: "production",
       }),
     ).toEqual({
-      successUrl: "https://samebase.com/org/Samebase/settings/billing?checkout=success",
-      returnUrl: "https://samebase.com/org/samebase/settings/billing?checkout=canceled",
+      successUrl: "https://samebase.com/org/Samebase/settings?checkout=success#billing",
+      returnUrl: "https://samebase.com/org/samebase/settings?checkout=canceled#billing",
     });
   });
 
   it.each([
-    "https://samebase.com/org/another-owner/settings/billing",
+    "https://samebase.com/org/another-owner/settings",
     "https://samebase.com/settings",
     "https://samebase.com/org/samebase/providers",
+    "https://samebase.com/org/samebase/settings/billing",
   ])("rejects an out-of-scope return path: %s", (returnUrl) => {
     expect(() =>
       validateOrganizationBillingReturnUrls({
         githubOwnerLogin: "samebase",
-        successUrl: "https://samebase.com/org/samebase/settings/billing",
+        successUrl: "https://samebase.com/org/samebase/settings",
         returnUrl,
         server: "production",
       }),
     ).toThrowError(
-      new ConvexError("Checkout return URLs must target this organization billing page."),
+      new ConvexError("Checkout return URLs must target this organization settings page."),
     );
   });
 
@@ -39,8 +40,8 @@ describe("validateOrganizationBillingReturnUrls", () => {
     expect(() =>
       validateOrganizationBillingReturnUrls({
         githubOwnerLogin: "samebase",
-        successUrl: "https://attacker.example/org/samebase/settings/billing",
-        returnUrl: "https://attacker.example/org/samebase/settings/billing",
+        successUrl: "https://attacker.example/org/samebase/settings",
+        returnUrl: "https://attacker.example/org/samebase/settings",
         server: "production",
       }),
     ).toThrowError(new ConvexError("Checkout return URL origin is not allowed."));
@@ -48,13 +49,13 @@ describe("validateOrganizationBillingReturnUrls", () => {
     expect(
       validateOrganizationBillingReturnUrls({
         githubOwnerLogin: "samebase",
-        successUrl: "http://127.0.0.1:4173/org/samebase/settings/billing",
-        returnUrl: "http://127.0.0.1:4173/org/samebase/settings/billing",
+        successUrl: "http://127.0.0.1:4173/org/samebase/settings#billing",
+        returnUrl: "http://127.0.0.1:4173/org/samebase/settings#billing",
         server: "sandbox",
       }),
     ).toEqual({
-      successUrl: "http://127.0.0.1:4173/org/samebase/settings/billing",
-      returnUrl: "http://127.0.0.1:4173/org/samebase/settings/billing",
+      successUrl: "http://127.0.0.1:4173/org/samebase/settings#billing",
+      returnUrl: "http://127.0.0.1:4173/org/samebase/settings#billing",
     });
   });
 });

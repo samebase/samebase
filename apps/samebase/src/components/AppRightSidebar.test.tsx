@@ -577,10 +577,10 @@ describe("AppRightSidebarContent", () => {
 
     expect(hydratedMarkup).toContain("nicu@samebase.md");
     expect(hydratedMarkup).not.toContain("Nicu");
-    expect(hydratedMarkup).toContain('href="/vault"');
+    expect(hydratedMarkup).not.toContain('href="/vault"');
     expect(hydratedMarkup).toContain("All vaults");
-    expect(hydratedMarkup).toContain('href="/settings/mcp"');
-    expect(hydratedMarkup).toContain("MCP clients");
+    expect(hydratedMarkup).not.toContain("/settings/mcp");
+    expect(hydratedMarkup).not.toContain("MCP clients");
     expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).not.toContain("/org/");
     expect(hydratedMarkup).not.toContain("checking login");

@@ -4,18 +4,15 @@ export const ORGANIZATION_PROVIDERS_ROUTE = "/org/$owner/providers";
 export const ORGANIZATION_NEW_APP_ROUTE = "/org/$owner/new-app";
 export const ORGANIZATION_CONNECT_REPO_ROUTE = "/org/$owner/connect-repo";
 export const ORGANIZATION_SETTINGS_ROUTE = "/org/$owner/settings";
-export const ORGANIZATION_BILLING_ROUTE = "/org/$owner/settings/billing";
 
 export type OrganizationRouteSection =
   | "vaults"
   | "providers"
   | "new-app"
   | "connect-repo"
-  | "settings"
-  | "billing";
+  | "settings";
 
 const ORGANIZATION_ROUTE_SUFFIX_BY_SECTION = {
-  billing: "/settings/billing",
   "connect-repo": "/connect-repo",
   "new-app": "/new-app",
   providers: "/providers",

@@ -83,14 +83,13 @@ const vUserBillingAccount = object({
   user: vUserDoc,
 });
 
-function isOrganizationBillingPath(url: URL, githubOwnerLoginNormalized: string): boolean {
+function isOrganizationSettingsPath(url: URL, githubOwnerLoginNormalized: string): boolean {
   const segments = url.pathname.split("/");
   if (
-    segments.length !== 5 ||
+    segments.length !== 4 ||
     segments[0] !== "" ||
     segments[1] !== "org" ||
-    segments[3] !== "settings" ||
-    segments[4] !== "billing"
+    segments[3] !== "settings"
   ) {
     return false;
   }
@@ -126,10 +125,10 @@ export function validateOrganizationBillingReturnUrls(args: {
     throw new ConvexError("Checkout return URL owner is unavailable.");
   }
   if (
-    !isOrganizationBillingPath(success, githubOwnerLogin) ||
-    !isOrganizationBillingPath(ret, githubOwnerLogin)
+    !isOrganizationSettingsPath(success, githubOwnerLogin) ||
+    !isOrganizationSettingsPath(ret, githubOwnerLogin)
   ) {
-    throw new ConvexError("Checkout return URLs must target this organization billing page.");
+    throw new ConvexError("Checkout return URLs must target this organization settings page.");
   }
 
   if (args.server === "production") {

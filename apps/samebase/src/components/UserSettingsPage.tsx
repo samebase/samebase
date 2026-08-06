@@ -7,6 +7,7 @@ import { api } from "../../convex/_generated/api";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { useAppAuthActions } from "@/authClient";
 import { AccountDeletionDialog } from "@/components/AccountDeletionDialog";
+import { McpClientsSettingsSection } from "@/components/McpClientsSettingsSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -373,6 +374,8 @@ export function UserSettingsPage() {
           ) : null}
         </div>
       </section>
+
+      <McpClientsSettingsSection />
 
       <section className="mt-8 border-t pt-6" aria-labelledby="settings-account-heading">
         <h2 id="settings-account-heading" className="text-base font-semibold">

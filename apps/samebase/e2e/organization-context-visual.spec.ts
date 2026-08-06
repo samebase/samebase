@@ -134,7 +134,7 @@ test("groups the global inventory and exposes every organization context", async
   });
 });
 
-test("keeps one organization static and separates organization and user settings", async ({
+test("keeps one organization switchable and separates organization and user settings", async ({
   page,
 }, testInfo) => {
   const { email } = await createApprovedAccount(page, testInfo, "one", [
@@ -152,10 +152,9 @@ test("keeps one organization static and separates organization and user settings
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
   const organizationContext = rightPane.getByTestId("organization-context-control");
-  await expect(organizationContext.getByText("org-context-solo", { exact: true })).toBeVisible();
   await expect(
     organizationContext.getByRole("button", { name: "Switch organization" }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   await expect(page).toHaveURL(/\/vault$/u);
   await expect(page).toHaveScreenshot("organization-context-one-organization-inventory.png", {
     ...screenshotOptions,
@@ -172,7 +171,7 @@ test("keeps one organization static and separates organization and user settings
   await expect(organizationContext.getByText("org-context-solo", { exact: true })).toBeVisible();
   await expect(
     organizationContext.getByRole("button", { name: "Switch organization" }),
-  ).toHaveCount(0);
+  ).toBeVisible();
   const organizationSettings = page.getByTestId("organization-settings-page");
   await expect(
     organizationSettings.getByRole("heading", { name: "Organization settings" }),
@@ -193,6 +192,9 @@ test("keeps one organization static and separates organization and user settings
   await expect(userSettings.getByRole("heading", { name: "Account settings" })).toBeVisible();
   await expect(userSettings.getByRole("heading", { name: "Profile" })).toBeVisible();
   await expect(userSettings.getByRole("heading", { name: "GitHub authorization" })).toBeVisible();
+  const mcpSettings = userSettings.getByTestId("mcp-clients-settings-section");
+  await expect(mcpSettings.getByRole("heading", { name: "MCP clients" })).toBeVisible();
+  await expect(mcpSettings.getByText("No authorized MCP clients.", { exact: true })).toBeVisible();
   await expect(userSettings.getByRole("heading", { name: "Billing" })).toHaveCount(0);
   await expect(userSettings.getByText("org-context-solo", { exact: true })).toHaveCount(0);
   await expect(page).toHaveScreenshot("organization-context-user-settings.png", {
@@ -202,25 +204,14 @@ test("keeps one organization static and separates organization and user settings
     maskColor: "#d1d5db",
   });
 
-  await openRoute(page, "/settings/mcp");
-  const mcpSettings = page.getByTestId("mcp-clients-settings-page");
-  await expect(mcpSettings.getByRole("heading", { name: "MCP clients" })).toBeVisible();
-  await expect(mcpSettings.getByText("No authorized MCP clients.", { exact: true })).toBeVisible();
+  await openRoute(page, "/org/org-context-solo/settings?checkout=cancel#billing");
+  const settingsWithBilling = page.getByTestId("organization-settings-page");
+  const billingSection = settingsWithBilling.getByTestId("organization-billing-section");
+  await expect(billingSection.getByRole("heading", { name: "Billing" })).toBeVisible();
   await expect(
-    page.getByTestId(MAIN_HEADER_TEST_ID).getByText("Account", { exact: true }),
-  ).toHaveCount(0);
-  await expect(page).toHaveScreenshot("organization-context-mcp-settings.png", {
-    ...screenshotOptions,
-    fullPage: true,
-  });
-
-  await openRoute(page, "/org/org-context-solo/settings/billing?checkout=cancel");
-  const billingPage = page.getByTestId("organization-billing-page");
-  await expect(billingPage.getByRole("heading", { name: "Billing" })).toBeVisible();
-  await expect(
-    billingPage.getByText("Checkout canceled. Your plan did not change.", { exact: true }),
+    billingSection.getByText("Checkout canceled. Your plan did not change.", { exact: true }),
   ).toBeVisible();
-  await expect(page).toHaveURL(/\/org\/org-context-solo\/settings\/billing\?checkout=cancel$/u);
+  await expect(page).toHaveURL(/\/org\/org-context-solo\/settings\?checkout=cancel#billing$/u);
 });
 
 test("keeps organization scope across direct links and browser history", async ({

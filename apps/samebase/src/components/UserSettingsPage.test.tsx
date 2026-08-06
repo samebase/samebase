@@ -42,6 +42,12 @@ vi.mock("@/components/AccountDeletionDialog", () => ({
   ),
 }));
 
+vi.mock("@/components/McpClientsSettingsSection", () => ({
+  McpClientsSettingsSection: () => (
+    <section data-testid="mcp-clients-settings-section">MCP clients</section>
+  ),
+}));
+
 vi.mock("@/components/ui/use-toast", () => ({
   toast: vi.fn(),
 }));
@@ -162,6 +168,7 @@ describe("UserSettingsPage", () => {
     const container = await mountSettingsPage();
 
     expect(container.textContent).toContain("Not connected");
+    expect(container.textContent).toContain("MCP clients");
     expect(container.textContent).not.toContain("Billing");
     await act(async () => {
       findButton(container, "Authorize GitHub account")?.click();

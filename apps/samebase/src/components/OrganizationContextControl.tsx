@@ -1,8 +1,4 @@
-import {
-  findViewerOrganization,
-  useOrganizationContext,
-  type AppOrganizationSurface,
-} from "@/lib/organizationContext";
+import { useOrganizationContext, type AppOrganizationSurface } from "@/lib/organizationContext";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -30,24 +26,6 @@ function readContextLabel(surface: AppOrganizationSurface): string | null {
   return null;
 }
 
-function readDisplayedContextLabel(
-  surface: AppOrganizationSurface,
-  organizations: ReturnType<typeof useOrganizationContext>["organizations"],
-): string | null {
-  const label = readContextLabel(surface);
-  if (label === null) {
-    return null;
-  }
-
-  const selectedOrganization =
-    surface.kind === "organization" && organizations
-      ? findViewerOrganization(organizations, surface.owner)
-      : surface.kind === "allVaults" && organizations?.length === 1
-        ? organizations[0]
-        : null;
-  return selectedOrganization?.githubOwnerLogin ?? label;
-}
-
 export function OrganizationContextControl() {
   const { organizations, surface } = useOrganizationContext();
   const navigate = useNavigate();
@@ -56,12 +34,12 @@ export function OrganizationContextControl() {
     api.githubAppInstallation.getGitHubAppInstallationUrl,
   );
   const [isInstalling, setIsInstalling] = useState(false);
-  const displayedLabel = readDisplayedContextLabel(surface, organizations);
+  const displayedLabel = readContextLabel(surface);
   if (displayedLabel === null) {
     return null;
   }
 
-  const canSwitchOrganizations = (organizations?.length ?? 0) > 1;
+  const hasOrganizations = (organizations?.length ?? 0) > 0;
   const installGitHubApp = () => {
     if (isInstalling) {
       return;
@@ -81,7 +59,7 @@ export function OrganizationContextControl() {
         setIsInstalling(false);
       });
   };
-  if (!canSwitchOrganizations) {
+  if (!hasOrganizations) {
     return (
       <div
         className="vault-dashboard-sidebar-inset flex min-w-0 flex-col items-start gap-3 border-b border-border/50 py-3"

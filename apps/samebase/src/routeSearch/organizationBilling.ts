@@ -27,7 +27,7 @@ const RouteSearchSchema_organizationBilling = defineRouteSearchParams({
   }),
 });
 
-export type OrganizationBillingRouteSearch = InferRouteSearch<
+export type OrganizationBillingSearch = InferRouteSearch<
   typeof RouteSearchSchema_organizationBilling
 >;
 
@@ -39,13 +39,13 @@ const ORGANIZATION_BILLING_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
   organizationBillingRouteSearchParamMetadata,
 );
 
-export const ORGANIZATION_BILLING_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
+export const ORGANIZATION_BILLING_SEARCH_STATIC_DATA = readRouteSearchStaticData(
   organizationBillingRouteSearchParamMetadata,
 );
 
-export function validateOrganizationBillingRouteSearch(
+export function validateOrganizationBillingSearch(
   search: Record<string, unknown>,
-): OrganizationBillingRouteSearch {
+): OrganizationBillingSearch {
   return RouteSearchSchema_organizationBilling.parse(
     normalizeRouteSearchPresenceFlags(search, ORGANIZATION_BILLING_PRESENCE_SEARCH_KEYS),
   );

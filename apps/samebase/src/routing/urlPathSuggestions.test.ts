@@ -147,8 +147,8 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/org/$owner/new-app");
     expect(suggestions).toContain("/org/$owner/providers");
     expect(suggestions).toContain("/org/$owner/settings");
-    expect(suggestions).toContain("/org/$owner/settings/billing");
-    expect(suggestions).toContain("/settings/mcp");
+    expect(suggestions).not.toContain("/org/$owner/settings/billing");
+    expect(suggestions).not.toContain("/settings/mcp");
     expect(suggestions).toContain("/logo/iso");
     expect(suggestions).toContain("/logo/raster");
     expect(suggestions).toContain("/logo/svg");

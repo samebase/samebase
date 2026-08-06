@@ -8,7 +8,7 @@ import { api } from "../../convex/_generated/api";
 
 const MCP_GRANTS_PAGE_SIZE = 20;
 
-export function McpClientsSettingsPage() {
+export function McpClientsSettingsSection() {
   const now = useNow();
   const grants = usePaginatedQuery(
     api.mcp.grants.listCurrentUserGrants,
@@ -37,12 +37,16 @@ export function McpClientsSettingsPage() {
   };
 
   return (
-    <main
-      data-testid="mcp-clients-settings-page"
-      className="container mx-auto w-full max-w-2xl py-6"
+    <section
+      aria-labelledby="settings-mcp-clients-heading"
+      className="mt-8 border-t pt-6"
+      data-testid="mcp-clients-settings-section"
+      id="mcp-clients"
     >
-      <h1 className="text-xl font-semibold @2xl:text-2xl">MCP clients</h1>
-      <div data-testid="mcp-client-grants" className="mt-6 space-y-5">
+      <h2 id="settings-mcp-clients-heading" className="text-base font-semibold">
+        MCP clients
+      </h2>
+      <div data-testid="mcp-client-grants" className="mt-4 space-y-5">
         {grants.results.map((grant) => {
           const clientName = grant.clientName?.trim();
           const clientLabel = clientName || grant.clientId;
@@ -116,6 +120,6 @@ export function McpClientsSettingsPage() {
           {grants.status === "LoadingMore" ? "Loading..." : "Load more"}
         </Button>
       ) : null}
-    </main>
+    </section>
   );
 }

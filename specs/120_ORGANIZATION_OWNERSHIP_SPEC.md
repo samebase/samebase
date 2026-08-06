@@ -153,13 +153,13 @@ opaque `?organization=<id>` parameter. Internal Samebase IDs are database and au
 identities, not URL selectors.
 
 Organization setup pages use the current GitHub owner login in `/org/<owner>/providers`,
-`/org/<owner>/new-app`, and `/org/<owner>/connect-repo`. Organization billing uses
-`/org/<owner>/settings/billing`. A reload resolves the internal organization ID through the viewer's
-current membership. These pages do not store a hidden active organization or expose an internal
-organization ID in the URL or a selector.
+`/org/<owner>/new-app`, and `/org/<owner>/connect-repo`. Organization settings and billing use
+`/org/<owner>/settings`. A reload resolves the internal organization ID through the viewer's current
+membership. These pages do not store a hidden active organization or expose an internal organization
+ID in the URL or a selector.
 
 Provider OAuth returns to `/org/<owner>/providers`. Checkout and subscription returns use
-`/org/<owner>/settings/billing`. The server validates the owner-scoped return route. Return URLs
+`/org/<owner>/settings#billing`. The server validates the owner-scoped return route. Return URLs
 keep the GitHub owner login and never include an internal organization ID.
 
 User settings remain separate from organization administration. They contain personal profile and
@@ -286,7 +286,7 @@ The rollout is ready only when focused tests and real manual checks prove:
 - `/org/<owner>/providers`, `/org/<owner>/new-app`, and `/org/<owner>/connect-repo` reload with the
   same organization and never show an internal organization ID.
 - Provider OAuth returns to `/org/<owner>/providers`. Checkout and billing-portal sessions return to
-  `/org/<owner>/settings/billing`. Both keep the scoped route if membership was removed during the
+  `/org/<owner>/settings#billing`. Both keep the scoped route if membership was removed during the
   external flow.
 - Both members see the same organization vaults, provider status, billing state, and observations.
 - A member can create and reload a GitHub organization repository, Convex project, and Cloudflare

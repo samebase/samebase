@@ -268,7 +268,7 @@ test("signed-in app right sidebar prehydration includes the password provider la
   await expect(
     hydratedAccountSection.getByText("Signed in with Password", { exact: true }),
   ).toBeVisible();
-  for (const linkName of ["Account settings", "All vaults", "MCP clients"]) {
+  for (const linkName of ["Account settings", "All vaults"]) {
     const navigationLink = rightSidebar.getByRole("link", { name: linkName, exact: true });
     await expect(navigationLink).toHaveCSS("font-size", "16px");
     await expect(navigationLink).toHaveCSS("line-height", "24px");

@@ -27,7 +27,6 @@ import {
   ORGANIZATION_VAULTS_ROUTE,
 } from "@/lib/organizationRoutes";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
-import { SETTINGS_MCP_ROUTE } from "@/lib/settingsMcpRoute";
 import { Link } from "@tanstack/react-router";
 import { useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -134,7 +133,11 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
   );
 }
 
-function GlobalAppRightSidebarLinks() {
+function GlobalAppRightSidebarLinks({ showAllVaults }: { showAllVaults: boolean }) {
+  if (!showAllVaults) {
+    return null;
+  }
+
   return (
     <nav
       aria-label="Account"
@@ -143,9 +146,6 @@ function GlobalAppRightSidebarLinks() {
       <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={DASHBOARD_ROUTE}>
         All vaults
       </Link>
-      <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={SETTINGS_MCP_ROUTE}>
-        MCP clients
-      </Link>
     </nav>
   );
 }
@@ -153,56 +153,46 @@ function GlobalAppRightSidebarLinks() {
 function OrganizationAppRightSidebarLinks({ organization }: { organization: ViewerOrganization }) {
   const params = { owner: organization.githubOwnerLogin };
   return (
-    <>
-      <nav
-        aria-label="Organization"
-        className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
+    <nav
+      aria-label="Organization"
+      className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
+    >
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_VAULTS_ROUTE}
       >
-        <Link
-          className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-          params={params}
-          to={ORGANIZATION_VAULTS_ROUTE}
-        >
-          Vaults
-        </Link>
-        <Link
-          className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-          params={params}
-          to={ORGANIZATION_PROVIDERS_ROUTE}
-        >
-          Providers
-        </Link>
-        <Link
-          className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-          params={params}
-          to={ORGANIZATION_NEW_APP_ROUTE}
-        >
-          New app
-        </Link>
-        <Link
-          className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-          params={params}
-          to={ORGANIZATION_CONNECT_REPO_ROUTE}
-        >
-          Connect repository
-        </Link>
-        <Link
-          className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-          params={params}
-          to={ORGANIZATION_SETTINGS_ROUTE}
-        >
-          Organization settings
-        </Link>
-      </nav>
-      <nav
-        aria-label="Account"
-        className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 py-3"
+        Vaults
+      </Link>
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_PROVIDERS_ROUTE}
       >
-        <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={DASHBOARD_ROUTE}>
-          All vaults
-        </Link>
-      </nav>
-    </>
+        Providers
+      </Link>
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_NEW_APP_ROUTE}
+      >
+        New app
+      </Link>
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_CONNECT_REPO_ROUTE}
+      >
+        Connect repository
+      </Link>
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_SETTINGS_ROUTE}
+      >
+        Organization settings
+      </Link>
+    </nav>
   );
 }
 
@@ -214,7 +204,7 @@ function AuthenticatedAppRightSidebarContent({
   const user = useConvexQuery(api.users.viewer);
   const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
   const { organizations, surface } = useOrganizationContext();
-  const organization =
+  const routedOrganization =
     surface.kind === "organization" && organizations
       ? findViewerOrganization(organizations, surface.owner)
       : null;
@@ -228,10 +218,11 @@ function AuthenticatedAppRightSidebarContent({
         user={user}
       />
       <OrganizationContextControl />
-      {organizationContextPending ? null : organization === null ? (
-        <GlobalAppRightSidebarLinks />
-      ) : (
-        <OrganizationAppRightSidebarLinks organization={organization} />
+      {organizationContextPending || routedOrganization === null ? null : (
+        <OrganizationAppRightSidebarLinks organization={routedOrganization} />
+      )}
+      {organizationContextPending ? null : (
+        <GlobalAppRightSidebarLinks showAllVaults={surface.kind !== "allVaults"} />
       )}
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />

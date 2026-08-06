@@ -14,10 +14,10 @@ describe("buildOrganizationSwitchHref", () => {
         target: {
           kind: "organization",
           owner: "Target-Org",
-          section: "billing",
+          section: "settings",
         },
       }),
-    ).toBe("/org/Target-Org/settings/billing?prod-ui#billing");
+    ).toBe("/org/Target-Org/settings?prod-ui#billing");
   });
 
   it("clears billing state when switching to All vaults and keeps unrelated URL state", () => {
