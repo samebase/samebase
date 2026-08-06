@@ -1,7 +1,6 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "exactOptionalPropertyTypes": false,
     "jsx": "react-jsx",
     "types": ["react", "react-dom"]
   },

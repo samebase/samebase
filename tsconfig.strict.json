@@ -1,7 +1,11 @@
 {
   "compilerOptions": {
     "strict": true,
-    "exactOptionalPropertyTypes": true,
+    // TODO: Enable this after Convex component schemas keep exact optional field types.
+    // @convex-dev/auth currently emits optional table fields as `T | undefined`,
+    // which is not assignable to Convex's stored document type.
+    // https://github.com/get-convex/convex-backend/issues/211
+    "exactOptionalPropertyTypes": false,
     "erasableSyntaxOnly": true,
     "noUncheckedIndexedAccess": false,
     "noUncheckedSideEffectImports": true,
