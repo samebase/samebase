@@ -56,9 +56,9 @@ const githubRepositoryPreviewResult = object({
 type GitHubRepositoryPreviewResult = Infer<typeof githubRepositoryPreviewResult>;
 
 type CachedRepositoryBlob = {
-  size?: number | null | undefined;
-  storageId?: string | null | undefined;
-  text?: string | null | undefined;
+  size?: number | null;
+  storageId?: string | null;
+  text?: string | null;
   mime?: string | undefined;
 };
 type HeaderValue = string | number | readonly string[] | undefined;
@@ -419,23 +419,19 @@ async function fetchGitHubInstallationRepositoryPage(args: {
     per_page: args.perPage,
   });
   const payload: unknown = response.data;
-  if (!isRecord(payload)) {
-    throw new Error("Unexpected GitHub installation repository payload");
-  }
-  const totalCount = payload["total_count"];
-  const repositories = payload["repositories"];
   if (
-    typeof totalCount !== "number" ||
-    !Number.isSafeInteger(totalCount) ||
-    totalCount < 0 ||
-    !Array.isArray(repositories)
+    !isRecord(payload) ||
+    typeof payload["total_count"] !== "number" ||
+    !Number.isSafeInteger(payload["total_count"]) ||
+    payload["total_count"] < 0 ||
+    !Array.isArray(payload["repositories"])
   ) {
     throw new Error("Unexpected GitHub installation repository payload");
   }
 
   return {
-    repositories: normalizeGitHubRepositoryList(repositories),
-    totalCount,
+    repositories: normalizeGitHubRepositoryList(payload["repositories"]),
+    totalCount: payload["total_count"],
   };
 }
 
@@ -838,7 +834,7 @@ export const getRepositoryFileContent = action({
         owner: vault.owner,
         repo: vault.name,
         path: args.filePath,
-        ...(requestedBranch !== undefined ? { ref: requestedBranch } : {}),
+        ref: requestedBranch,
       });
 
       if (Array.isArray(file.data) || file.data.type !== "file") {
@@ -886,7 +882,7 @@ export const getRepositoryMediaAsset = action({
     const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
       repositoryFullName: args.repositoryFullName,
       userId,
-      ...(requestedBranch !== undefined ? { branch: requestedBranch } : {}),
+      branch: requestedBranch,
     });
     if (!vault) {
       throw new Error("Vault not found");
@@ -1014,6 +1010,7 @@ export const getRepositoryMediaAsset = action({
         sha: targetFileSha,
         size: buffer.byteLength,
         mime: mimeType,
+        text: undefined,
         storageId,
         ext: getRepositoryMediaExtension(args.filePath),
         debugFilePath: args.filePath,

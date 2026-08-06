@@ -68,10 +68,10 @@ export const saveFileBlob = internalMutation({
       vaultId: args.vaultId,
       sha: args.sha,
       size: args.size,
+      text: args.text,
+      storageId: args.storageId,
       ext: args.ext,
       mime: args.mime,
-      ...(args.text !== undefined ? { text: args.text } : {}),
-      ...(args.storageId !== undefined ? { storageId: args.storageId } : {}),
     });
   },
 });

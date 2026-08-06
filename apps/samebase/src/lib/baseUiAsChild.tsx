@@ -2,7 +2,7 @@ import * as React from "react";
 
 type AsChildElement = React.ReactElement<{ children?: React.ReactNode }>;
 
-function inferNativeButton(element: AsChildElement): boolean {
+function inferNativeButton(element: AsChildElement): boolean | undefined {
   if (typeof element.type !== "string") {
     // Base UI defaults `nativeButton` to true, so composite `render` targets
     // like TanStack Link need an explicit false unless a caller opts in.
@@ -23,17 +23,14 @@ export function resolveBaseUiAsChild({
 }: {
   asChild?: boolean;
   children: React.ReactNode;
-  nativeButton?: boolean | undefined;
+  nativeButton?: boolean;
 }): {
   children: React.ReactNode;
   render?: AsChildElement;
   nativeButton?: boolean;
 } {
   if (!asChild) {
-    return {
-      children,
-      ...(nativeButton === undefined ? {} : { nativeButton }),
-    };
+    return { children, nativeButton };
   }
 
   const child = React.Children.only(children);

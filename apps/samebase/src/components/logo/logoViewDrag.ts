@@ -24,10 +24,10 @@ export type LogoViewState = {
 };
 
 type ResolveDraggedAngleDegreesOptions = {
-  disableSnap?: boolean | undefined;
-  snapDegrees?: readonly number[] | undefined;
-  snapThresholdDegrees?: number | undefined;
-  stepDegrees?: number | undefined;
+  disableSnap?: boolean;
+  snapDegrees?: readonly number[];
+  snapThresholdDegrees?: number;
+  stepDegrees?: number;
   value: number;
 };
 
@@ -87,7 +87,7 @@ export function resolveDraggedAngleDegrees({
 
 function resolveElevationSnapDegrees(args: {
   rotationDegrees: number;
-  snapAngles?: LogoViewDragSnapAngles | undefined;
+  snapAngles?: LogoViewDragSnapAngles;
 }): readonly number[] | undefined {
   const snapAngles = args.snapAngles;
   if (!snapAngles) {
@@ -104,8 +104,8 @@ function resolveElevationSnapDegrees(args: {
 }
 
 export function resolveLogoViewState(args: {
-  config?: LogoViewDragConfig | undefined;
-  disableSnap?: boolean | undefined;
+  config?: LogoViewDragConfig;
+  disableSnap?: boolean;
   view: LogoViewState;
 }): LogoViewState {
   const rotationDegrees = resolveDraggedAngleDegrees({

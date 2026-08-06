@@ -10,7 +10,7 @@ export function SignInWithGoogle({
   authReturn,
   markPublicSignupReturn = false,
 }: {
-  authReturn?: "dashboard" | undefined;
+  authReturn?: "dashboard";
   markPublicSignupReturn?: boolean;
 } = {}) {
   const { signInWithGoogle } = useAppSignInActions();

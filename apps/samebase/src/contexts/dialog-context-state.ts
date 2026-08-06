@@ -1,17 +1,14 @@
 import { createContext } from "react";
 
-type CreationDialogState =
-  | {
-      isOpen: false;
-    }
-  | {
-      isOpen: true;
-      folderPath: string;
-    };
-
 export interface DialogState {
-  fileCreationDialog: CreationDialogState;
-  folderCreationDialog: CreationDialogState;
+  fileCreationDialog: {
+    isOpen: boolean;
+    folderPath?: string;
+  };
+  folderCreationDialog: {
+    isOpen: boolean;
+    folderPath?: string;
+  };
 }
 
 export interface DialogContextType extends DialogState {

@@ -383,12 +383,10 @@ type RecursiveSurfaceGeometryState = {
 };
 
 type NLogoSceneProps = {
-  autoRotation?:
-    | {
-        degreesPerSecond: number;
-        onViewChange: (nextView: LogoViewState) => void;
-      }
-    | undefined;
+  autoRotation?: {
+    degreesPerSecond: number;
+    onViewChange: (nextView: LogoViewState) => void;
+  };
   baseGridSize?: LogoGridSize;
   backgroundColor: string;
   className?: string;
@@ -405,17 +403,17 @@ type NLogoSceneProps = {
   onViewChange: (nextView: { elevationDegrees: number; rotationDegrees: number }) => void;
   onVoxelEdit: (edit: VoxelEdit) => void;
   /** Zero captures the rendered tilt; one renders exact neutral. */
-  presentationTiltNeutralProgress?: number | undefined;
-  presentationTiltTarget?: LogoPresentationTiltTarget | undefined;
+  presentationTiltNeutralProgress?: number;
+  presentationTiltTarget?: LogoPresentationTiltTarget;
   rotationAxisMode?: LogoRotationAxisMode;
   rotationDegrees: number;
   shuffleAnimation: LogoShuffleAnimationConfig;
   animateFaceColors: boolean;
   animateLeftFaceStripes: boolean;
   fractalDepth?: number;
-  voxelGrid?: LogoVoxelGrid | undefined;
+  voxelGrid?: LogoVoxelGrid;
   voxelEditingEnabled?: boolean;
-  viewDragConfig?: LogoViewDragConfig | undefined;
+  viewDragConfig?: LogoViewDragConfig;
   voxelState: string;
 };
 

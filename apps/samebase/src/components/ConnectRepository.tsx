@@ -108,10 +108,7 @@ function renderHighlightedText(target: string, matchedIndices: number[]): ReactE
 export function ConnectRepository({ githubOwnerLogin }: { githubOwnerLogin: string | null }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const vaults = useQuery({
-    args: {},
-    query: api.vault.dashboard.getUserVaults,
-  });
+  const vaults = useQuery(api.vault.dashboard.getUserVaults);
   const [searchQuery, setSearchQuery] = useState("");
   const [retryingFullRepositories, setRetryingFullRepositories] = useState(false);
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);

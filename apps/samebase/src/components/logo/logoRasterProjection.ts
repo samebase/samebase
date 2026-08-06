@@ -47,7 +47,7 @@ export function createLogoRasterProjection({
   rotationAxisMode: LogoRotationAxisMode;
   rotationDegrees: number;
   sizePx: number;
-  worldHalfSize?: number | undefined;
+  worldHalfSize?: number;
 }): LogoRasterProjection {
   const cameraDirection = getWorldCameraVector(elevationDegrees);
   const up = getWorldScreenVerticalAxis(elevationDegrees);

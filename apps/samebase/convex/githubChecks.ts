@@ -59,8 +59,8 @@ type CommitStatusCooldownResult = Infer<typeof commitStatusCooldownResultValidat
 type CommitStatusRateLimitedResult = Infer<typeof commitStatusRateLimitedResultValidator>;
 
 function readSharedCooldownMessage(vault: {
-  treeRefreshFailureKind?: "failed" | "rate_limited" | undefined;
-  treeRefreshFailureMessage?: string | undefined;
+  treeRefreshFailureKind?: "failed" | "rate_limited";
+  treeRefreshFailureMessage?: string;
 }): string {
   if (
     typeof vault.treeRefreshFailureMessage === "string" &&

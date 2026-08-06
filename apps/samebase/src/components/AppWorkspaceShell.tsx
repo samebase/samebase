@@ -38,26 +38,18 @@ type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
 type AppWorkspaceRouteChromePane = WorkspaceLayoutV2PaneFrameProps | null;
 
 type AppWorkspaceRouteChromeConfig = {
-  dataTestId?: string | undefined;
-  headerAccessory?: ReactNode | undefined;
-  left?: AppWorkspaceRouteChromePane | undefined;
-  leftToggleVisibility?: AppWorkspaceShellToggleVisibility | undefined;
-  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior | undefined;
-  right?: AppWorkspaceRouteChromePane | undefined;
-  rightToggleVisibility?: AppWorkspaceShellToggleVisibility | undefined;
-  shortcutPaneSide?: WorkspacePaneSide | undefined;
+  dataTestId?: string;
+  headerAccessory?: ReactNode;
+  left?: AppWorkspaceRouteChromePane;
+  leftToggleVisibility?: AppWorkspaceShellToggleVisibility;
+  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
+  right?: AppWorkspaceRouteChromePane;
+  rightToggleVisibility?: AppWorkspaceShellToggleVisibility;
+  shortcutPaneSide?: WorkspacePaneSide;
 };
 
-type AppWorkspaceRouteChromeSnapshot = {
-  dataTestId: string | undefined;
-  headerAccessory: ReactNode;
-  left: AppWorkspaceRouteChromePane | undefined;
-  leftToggleVisibility: AppWorkspaceShellToggleVisibility | undefined;
-  mobileMinResizeBehavior: WorkspaceLayoutV2MobileMinResizeBehavior | undefined;
+type AppWorkspaceRouteChromeSnapshot = AppWorkspaceRouteChromeConfig & {
   pathname: string;
-  right: AppWorkspaceRouteChromePane | undefined;
-  rightToggleVisibility: AppWorkspaceShellToggleVisibility | undefined;
-  shortcutPaneSide: WorkspacePaneSide | undefined;
 };
 
 type AppWorkspaceRouteChromeRegistration = {

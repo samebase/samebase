@@ -10,7 +10,6 @@ import { MOBILE_SIDEBAR_DEBUG_QUERY_PARAM } from "@/lib/mobileSidebarGestureDebu
 import {
   applySearchPatch,
   normalizeRouteSearchPresenceFlags,
-  type RouteSearchState,
   type SearchPatch,
 } from "@/routing/searchFlags";
 import {
@@ -90,7 +89,7 @@ const RouteSearchSchema_root = defineRouteSearchParams({
   }),
 });
 
-type RootRouteSearchBase = RouteSearchState<InferRouteSearch<typeof RouteSearchSchema_root>>;
+type RootRouteSearchBase = InferRouteSearch<typeof RouteSearchSchema_root>;
 export type RootRouteSearch = RootRouteSearchBase & LogoRouteSearch;
 
 const VAULT_DASHBOARD_DIALOG_CLEAR_PATCHES = {

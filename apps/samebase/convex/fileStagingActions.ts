@@ -46,7 +46,7 @@ const githubRateLimitResetByUser = new Map<string, number>();
 const PULL_REQUEST_COMPARE_FILE_LIST_LIMIT = 3_000;
 
 export function selectBatchReadRepositoryTree(args: {
-  requestedBranch?: string | undefined;
+  requestedBranch?: string;
   branchTree: GithubTree[] | null;
 }): GithubTree[] {
   if (args.branchTree) {
@@ -776,7 +776,7 @@ type DraftSourceStagingRecord = DraftSourceStagingSnapshot & {
 type StagedFileRebaseConflict = StagedFileForCommit & {
   upstreamContent?: string;
   upstreamSha: string;
-  upstreamPath: string | undefined;
+  upstreamPath?: string;
 };
 
 type GitHubCompareFileCandidate = {
@@ -793,7 +793,7 @@ function isBinaryStagedFile(file: Pick<StagedFileForCommit, "kind">): boolean {
 }
 
 export function shouldAdvanceBinaryPullParentCommit(args: {
-  stagedBlobSha: string | null | undefined;
+  stagedBlobSha?: string | null;
   fileDeleted?: boolean;
   upstreamSha: string;
 }): boolean {
@@ -1184,23 +1184,20 @@ export function buildRebaseConflictPreviewFromStagedFiles(args: {
 
     return {
       path: file.filePath,
-      ...(renamed ? { previousPath: file.initialFilePath } : {}),
-      ...(file.upstreamPath !== undefined && file.upstreamPath !== file.filePath
-        ? { upstreamPath: file.upstreamPath }
-        : {}),
+      previousPath: renamed ? file.initialFilePath : undefined,
+      upstreamPath:
+        file.upstreamPath !== undefined && file.upstreamPath !== file.filePath
+          ? file.upstreamPath
+          : undefined,
       isBinary,
-      ...(isBinary && file.mime !== undefined ? { mimeType: file.mime } : {}),
+      mimeType: isBinary ? file.mime : undefined,
       isMarkdown: !isBinary && isMarkdownPath(file.filePath),
-      ...(file.parentCommitSha !== null ? { baseBlobSha: file.parentCommitSha } : {}),
+      baseBlobSha: file.parentCommitSha ?? undefined,
       upstreamBlobSha: file.upstreamSha,
       baseToStagedPatchTruncated: patchPair?.baseToStagedPatch.truncated ?? false,
-      ...(patchPair?.baseToStagedPatch.patch !== undefined
-        ? { baseToStagedPatch: patchPair.baseToStagedPatch.patch }
-        : {}),
+      baseToStagedPatch: patchPair?.baseToStagedPatch.patch,
       baseToUpstreamPatchTruncated: patchPair?.baseToUpstreamPatch.truncated ?? false,
-      ...(patchPair?.baseToUpstreamPatch.patch !== undefined
-        ? { baseToUpstreamPatch: patchPair.baseToUpstreamPatch.patch }
-        : {}),
+      baseToUpstreamPatch: patchPair?.baseToUpstreamPatch.patch,
     };
   });
 
@@ -1346,13 +1343,13 @@ function canHydrateInlineDiffText(path: string, buffer: Uint8Array): boolean {
 function buildCommitPreviewFileFromContents(args: {
   status: CommitPreviewFile["status"];
   path: string;
-  previousPath?: string | undefined;
-  isBinary?: boolean | undefined;
-  mimeType?: string | undefined;
+  previousPath?: string;
+  isBinary?: boolean;
+  mimeType?: string;
   oldContent: string;
   newContent: string;
   includePatch: boolean;
-  hydrateRichContent?: boolean | undefined;
+  hydrateRichContent?: boolean;
 }): CommitPreviewFile {
   const isBinary = args.isBinary ?? false;
   const isMarkdown = !isBinary && isMarkdownPath(args.path);
@@ -1391,19 +1388,19 @@ function buildCommitPreviewFileFromContents(args: {
   return {
     status: args.status,
     path: args.path,
-    ...(args.previousPath !== undefined ? { previousPath: args.previousPath } : {}),
+    previousPath: args.previousPath,
     isBinary,
-    ...(isBinary && args.mimeType !== undefined ? { mimeType: args.mimeType } : {}),
+    mimeType: isBinary ? args.mimeType : undefined,
     additions: lineStats.additions,
     deletions: lineStats.deletions,
     oldLineCount: isBinary ? 0 : countLines(args.oldContent),
     newLineCount: isBinary ? 0 : countLines(args.newContent),
     isMarkdown,
-    ...(richOldContent !== undefined ? { richOldContent } : {}),
-    ...(richNewContent !== undefined ? { richNewContent } : {}),
-    ...(richContentTruncated !== undefined ? { richContentTruncated } : {}),
+    richOldContent,
+    richNewContent,
+    richContentTruncated,
     patchTruncated: false,
-    ...(patch !== undefined ? { patch } : {}),
+    patch,
   };
 }
 
@@ -1556,17 +1553,19 @@ function buildRemoteComparePreviewFileFromMetadata(
   return {
     status: readCommitPreviewFileStatus(file.status),
     path: file.filename,
-    ...(typeof file.previous_filename === "string" && file.previous_filename.length > 0
-      ? { previousPath: file.previous_filename }
-      : {}),
+    previousPath:
+      typeof file.previous_filename === "string" && file.previous_filename.length > 0
+        ? file.previous_filename
+        : undefined,
     isBinary: false,
+    mimeType: undefined,
     additions: typeof file.additions === "number" ? file.additions : 0,
     deletions: typeof file.deletions === "number" ? file.deletions : 0,
     oldLineCount: 0,
     newLineCount: 0,
     isMarkdown: isMarkdownPath(file.filename),
     patchTruncated: false,
-    ...(typeof file.patch === "string" && file.patch.length > 0 ? { patch: file.patch } : {}),
+    patch: typeof file.patch === "string" && file.patch.length > 0 ? file.patch : undefined,
   };
 }
 
@@ -1586,10 +1585,12 @@ export async function buildRemoteComparePreviewFile(args: {
   if (!metadataFile) {
     return null;
   }
-  const metadataFileWithoutPatch = { ...metadataFile };
-  if (!args.includePatch) {
-    delete metadataFileWithoutPatch.patch;
-  }
+  const metadataFileWithoutPatch = args.includePatch
+    ? metadataFile
+    : {
+        ...metadataFile,
+        patch: undefined,
+      };
 
   const basePath =
     metadataFile.status === "renamed" && typeof metadataFile.previousPath === "string"
@@ -2016,6 +2017,7 @@ export const getFileForEditing = action({
           size: file.data.size,
           mime,
           text: buffer.toString("utf-8"),
+          storageId: undefined,
           ext,
           debugFilePath: filePath,
         });
@@ -2029,6 +2031,7 @@ export const getFileForEditing = action({
           sha: fileSha,
           size: file.data.size,
           mime,
+          text: undefined,
           storageId,
           ext,
           debugFilePath: filePath,
@@ -2140,9 +2143,7 @@ export const stageUploadedMedia = action({
     return {
       filePath: stagedFile.filePath,
       branch: stagedFile.branch,
-      ...(stagedFile.parentCommitSha !== null
-        ? { parentCommitSha: stagedFile.parentCommitSha }
-        : {}),
+      parentCommitSha: stagedFile.parentCommitSha ?? undefined,
       replacedExisting: stagedFile.parentCommitSha !== null,
     };
   },
@@ -2173,7 +2174,7 @@ export const commitStaging = action({
     await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
       userId,
       vaultId: vault._id,
-      ...(args.branch !== undefined ? { branch: args.branch } : {}),
+      branch: args.branch,
     });
 
     return null;
@@ -2801,7 +2802,7 @@ export const batchReadFiles = action({
     });
 
     // Build a map of path → tree entry for fast lookups
-    const treeMap = new Map<string, { sha: string; size: number | undefined }>();
+    const treeMap = new Map<string, { sha: string; size?: number }>();
     for (const item of repositoryTree) {
       if (item.type === "blob" && item.sha) {
         treeMap.set(item.path, { sha: item.sha, size: item.size });
@@ -2871,6 +2872,7 @@ export const batchReadFiles = action({
             sha: miss.sha,
             size: buffer.byteLength,
             text,
+            storageId: undefined,
             ext,
             mime: "text/plain; charset=utf-8",
             debugFilePath: miss.path,
@@ -2923,7 +2925,7 @@ export const getCommitPreview = action({
       internal.fileStaging.listAllStagedFiles,
       {
         vaultId: vault._id,
-        ...(args.branch !== undefined ? { branch: args.branch } : {}),
+        branch: args.branch,
       },
     );
 
@@ -2981,7 +2983,7 @@ export const getBranchComparePreview = action({
       internal.fileStaging.listAllStagedFiles,
       {
         vaultId: vault._id,
-        ...(args.branch !== undefined ? { branch: args.branch } : {}),
+        branch: args.branch,
       },
     );
     const stagedBranches = Array.from(
@@ -3100,12 +3102,8 @@ export const getBranchComparePreview = action({
       branch,
       baseBranch,
       source: currentPullRequest ? "pull_request" : "branch_compare",
-      ...(currentPullRequest !== null
-        ? {
-            pullRequestNumber: currentPullRequest.number,
-            pullRequestUrl: currentPullRequest.url,
-          }
-        : {}),
+      pullRequestNumber: currentPullRequest?.number,
+      pullRequestUrl: currentPullRequest?.url,
       sourceFileListTruncated:
         currentPullRequest != null
           ? remoteFileCandidates.length >= PULL_REQUEST_COMPARE_FILE_LIST_LIMIT
@@ -3227,7 +3225,7 @@ export const getRebaseConflictPreview = action({
       internal.fileStaging.listAllStagedFiles,
       {
         vaultId: vault._id,
-        ...(args.branch !== undefined ? { branch: args.branch } : {}),
+        branch: args.branch,
       },
     );
 
@@ -3283,7 +3281,7 @@ export const getRebaseConflictBundle = action({
       internal.fileStaging.listAllStagedFiles,
       {
         vaultId: vault._id,
-        ...(args.branch !== undefined ? { branch: args.branch } : {}),
+        branch: args.branch,
       },
     );
 
@@ -3438,8 +3436,8 @@ export async function createCommitWithMultipleFiles({
           kind: "binary",
           filePath: file.filePath,
           parentCommitSha: file.parentCommitSha,
-          ...(file.storageId !== undefined ? { storageId: file.storageId } : {}),
-          ...(file.stagedBlobSha !== undefined ? { stagedBlobSha: file.stagedBlobSha } : {}),
+          storageId: file.storageId,
+          stagedBlobSha: file.stagedBlobSha,
         });
       } else {
         filesToAdd.push({
@@ -3677,7 +3675,7 @@ export const commitAllStaged = internalAction({
       internal.fileStaging.listAllStagedFiles,
       {
         vaultId: args.vaultId,
-        ...(args.branch !== undefined ? { branch: args.branch } : {}),
+        branch: args.branch,
       },
     );
 
@@ -3768,6 +3766,7 @@ export const commitAllStaged = internalAction({
               vaultId: args.vaultId,
               sha: newSha,
               size: file.size ?? 0,
+              text: undefined,
               storageId: file.storageId,
               ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
               mime: file.mime ?? guessMime(file.filePath),
@@ -3782,6 +3781,7 @@ export const commitAllStaged = internalAction({
               sha: newSha,
               size: Buffer.byteLength(file.content, "utf-8"),
               text: file.content,
+              storageId: undefined,
               ext: file.filePath.split(".").pop()?.toLowerCase() ?? "",
               mime: "text/plain; charset=utf-8",
               debugFilePath: file.filePath,

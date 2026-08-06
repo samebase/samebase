@@ -275,9 +275,9 @@ function stubEnsureCloudflareResourcesFetch(args: {
   triggers: readonly unknown[];
   triggerReads?: readonly (readonly unknown[])[];
   requests: RecordedCloudflareRequest[];
-  createTriggerWithoutIdNumber?: number | undefined;
+  createTriggerWithoutIdNumber?: number;
   dropReadEnvKeys?: Record<string, readonly string[]>;
-  failCreateTriggerNumber?: number | undefined;
+  failCreateTriggerNumber?: number;
   missingWorker?: boolean;
   missingTrigger?: string;
   readEnvVars?: Record<string, RecordedCloudflareEnvironmentVariables>;

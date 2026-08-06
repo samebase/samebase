@@ -21,8 +21,8 @@ import { api } from "../../../convex/_generated/api";
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 
 export type VaultDashboardProps = {
-  page?: VaultOverviewPageKind | undefined;
-  selectedRepositoryFullName?: string | undefined;
+  page?: VaultOverviewPageKind;
+  selectedRepositoryFullName?: string;
 };
 
 export function VaultDashboard({
@@ -63,7 +63,10 @@ export function VaultDashboard({
       resetScroll: false,
       search: (currentSearch) =>
         clearVaultDashboardQueryDialogSearch(currentSearch, unavailableDialog),
-      state: ({ vaultDashboardDialog: _vaultDashboardDialog, ...currentState }) => currentState,
+      state: (currentState) => ({
+        ...currentState,
+        vaultDashboardDialog: undefined,
+      }),
       to: pathname,
     });
   }, [navigate, pathname, unavailableDialog]);
@@ -150,8 +153,6 @@ export function VaultDashboard({
             workspace={workspaceModel.selection.workspace}
           />
         );
-      default:
-        return workspaceModel.selection satisfies never;
     }
   })();
 

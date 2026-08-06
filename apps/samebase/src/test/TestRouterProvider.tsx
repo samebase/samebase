@@ -22,7 +22,7 @@ export function TestRouterProvider({
     const router = createAppRouter(
       createMemoryHistory({
         initialEntries,
-        ...(initialIndex !== undefined ? { initialIndex } : {}),
+        initialIndex,
       }),
     );
 

@@ -260,8 +260,6 @@ function VaultPullRequestLoadMore({ state }: { state: VaultPullRequestLoadMoreSt
       );
     case "exhausted":
       return null;
-    default:
-      return state satisfies never;
   }
 }
 

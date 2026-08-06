@@ -370,9 +370,7 @@ async function buildCloudflareMcpOAuthUrl(
     provider: "cloudflare_mcp",
     userId: args.userId,
     organizationId: args.organizationId,
-    ...(args.providerConnectionId !== undefined
-      ? { providerConnectionId: args.providerConnectionId }
-      : {}),
+    providerConnectionId: args.providerConnectionId,
     state,
     codeVerifier,
     clientId,
@@ -613,13 +611,12 @@ export const resolveConnectionForOrganization = internalAction({
       });
     } catch (error) {
       const invalidToken = isLikelyInvalidCloudflareTokenError(error);
-      const errorMessage = sanitizeTokenHealthError(error);
       const tokenHealth: Infer<typeof vMcpTokenHealth> = {
         status: invalidToken ? "invalid" : derivedTokenHealth.status,
         checkedAt: Date.now(),
         expiresAt,
         source: invalidToken ? "refresh_attempt" : "runtime_error",
-        ...(errorMessage !== undefined ? { errorMessage } : {}),
+        errorMessage: sanitizeTokenHealthError(error),
       };
       console.log("cloudflare:mcp_token:refresh_failed", {
         organizationId: args.organizationId,
@@ -704,7 +701,7 @@ export const getCloudflareMcpOAuthUrl = action({
     return await buildCloudflareMcpOAuthUrl(ctx, {
       userId: ctx.viewer.userId,
       organizationId,
-      ...(connection !== null ? { providerConnectionId: connection._id } : {}),
+      providerConnectionId: connection?._id,
     });
   },
 });
@@ -806,9 +803,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.cloudflareMcpOAuth.storeCloudflareMcpOauthConnection, {
       organizationId: oauthState.organizationId,
       connectedByUserId: oauthState.userId,
-      ...(oauthState.providerConnectionId !== undefined
-        ? { providerConnectionId: oauthState.providerConnectionId }
-        : {}),
+      providerConnectionId: oauthState.providerConnectionId,
       accessToken: token.access_token,
       refreshToken: token.refresh_token,
       expiresAt,

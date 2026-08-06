@@ -106,9 +106,7 @@ async function buildConvexOAuthUrl(
     provider: "convex",
     userId: args.userId,
     organizationId: args.organizationId,
-    ...(args.providerConnectionId !== undefined
-      ? { providerConnectionId: args.providerConnectionId }
-      : {}),
+    providerConnectionId: args.providerConnectionId,
     state,
     codeVerifier,
     createdAt: now,
@@ -233,7 +231,7 @@ export const getConvexOAuthUrl = mutation({
     return await buildConvexOAuthUrl(ctx, {
       userId: ctx.viewer.userId,
       organizationId,
-      ...(connection !== null ? { providerConnectionId: connection._id } : {}),
+      providerConnectionId: connection?._id,
     });
   },
 });
@@ -288,9 +286,7 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.convexOAuth.storeConvexOauthTokens, {
       organizationId: oauthState.organizationId,
       connectedByUserId: oauthState.userId,
-      ...(oauthState.providerConnectionId !== undefined
-        ? { providerConnectionId: oauthState.providerConnectionId }
-        : {}),
+      providerConnectionId: oauthState.providerConnectionId,
       accessToken: token.accessToken,
       teamId: details.teamId,
       oauthStateId: oauthState._id,

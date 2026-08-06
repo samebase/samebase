@@ -87,19 +87,20 @@ function buildPublicLandingLogoRouteSearch({
     rotationDegrees: view.rotationDegrees,
     themeModeSearch: routeSearch,
   });
-
-  if (view.elevationDegrees === defaultView.elevationDegrees) {
-    nextSearch.elev = undefined;
-  } else {
-    nextSearch.elev = Number(view.elevationDegrees.toFixed(1));
-  }
-  if (view.rotationDegrees === defaultView.rotationDegrees) {
-    nextSearch.rot = undefined;
-  } else {
-    nextSearch.rot = Number(view.rotationDegrees.toFixed(1));
-  }
-
-  return preserveLogoRouteDevModeSearch(nextSearch, routeSearch);
+  return preserveLogoRouteDevModeSearch(
+    {
+      ...nextSearch,
+      elev:
+        view.elevationDegrees !== defaultView.elevationDegrees
+          ? Number(view.elevationDegrees.toFixed(1))
+          : undefined,
+      rot:
+        view.rotationDegrees !== defaultView.rotationDegrees
+          ? Number(view.rotationDegrees.toFixed(1))
+          : undefined,
+    },
+    routeSearch,
+  );
 }
 
 function easeOutCubic(value: number) {
@@ -129,8 +130,8 @@ export function PublicLandingLogo({
   enableViewSnapping?: boolean;
   loadInteractiveScene?: boolean;
   /** Zero captures the rendered tilt; one renders exact neutral. */
-  presentationTiltNeutralProgress?: number | undefined;
-  presentationTiltTarget?: LogoPresentationTiltTarget | undefined;
+  presentationTiltNeutralProgress?: number;
+  presentationTiltTarget?: LogoPresentationTiltTarget;
   replaceRouteSearch?: (nextSearch: LogoRouteSearch) => void;
   routeSearch?: LogoRouteSearch;
   /**

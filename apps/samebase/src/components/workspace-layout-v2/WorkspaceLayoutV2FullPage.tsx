@@ -85,13 +85,13 @@ export function WorkspaceLayoutV2FullPage({
   rightToggleVisibility = "desktop",
 }: {
   addressChrome: ReactNode;
-  dataTestId?: string | undefined;
-  left?: WorkspaceLayoutV2PaneFrameProps | undefined;
+  dataTestId?: string;
+  left?: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;
-  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior | undefined;
-  right?: WorkspaceLayoutV2PaneFrameProps | undefined;
-  leftToggleVisibility?: WorkspaceLayoutV2ToggleVisibility | undefined;
-  rightToggleVisibility?: WorkspaceLayoutV2ToggleVisibility | undefined;
+  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
+  right?: WorkspaceLayoutV2PaneFrameProps;
+  leftToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
+  rightToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
 }) {
   const hasDesktopHeaderToggle =
     (left && leftToggleVisibility !== "hidden") || (right && rightToggleVisibility !== "hidden");

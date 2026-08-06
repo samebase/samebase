@@ -4,7 +4,7 @@ export type PullRequestLabelInput = string | { name: string; color?: string };
 
 export type PullRequestLabelDisplay = {
   name: string;
-  color: string | undefined;
+  color?: string;
 };
 
 function getHexColorLuminance(color: string): number {

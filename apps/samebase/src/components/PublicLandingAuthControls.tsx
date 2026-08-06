@@ -17,7 +17,6 @@ import {
   shouldStripVisibleProdUiQuery,
 } from "@/lib/prodUiMode";
 import { readRootRouteSearch } from "@/routeSearch/root";
-import { applySearchPatch } from "@/routing/searchFlags";
 import { SignInWithGoogle } from "@/SignInWithGoogle";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
@@ -159,12 +158,12 @@ export function PublicLandingAuthControls({
             publicSignup
               ? () =>
                   navigate({
-                    search: (currentSearch) =>
-                      applySearchPatch(currentSearch, {
-                        auth: null,
-                        "auth-return": null,
-                        signup: null,
-                      }),
+                    search: (currentSearch) => ({
+                      ...currentSearch,
+                      auth: undefined,
+                      "auth-return": undefined,
+                      signup: undefined,
+                    }),
                     to: DASHBOARD_ROUTE,
                   })
               : undefined
@@ -180,7 +179,7 @@ export function PasswordAuthForm({
   onSignIn,
   surface,
 }: {
-  onSignIn?: (() => Promise<unknown> | void) | undefined;
+  onSignIn?: () => Promise<unknown> | void;
   surface: Exclude<PasswordAuthSurface, "hidden">;
 }) {
   const { signInWithPassword } = useAppSignInActions();

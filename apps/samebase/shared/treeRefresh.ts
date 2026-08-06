@@ -3,8 +3,8 @@ export const TREE_REFRESH_STALE_LOCK_MS = 3 * 60 * 1000;
 export const TREE_REFRESH_FAILURE_COOLDOWN_MS = 60 * 1000;
 
 export function shouldPreserveTreeRefreshFailureAfterSuccess(args: {
-  claimedStartedAt?: number | undefined;
-  lastTreeRefreshFailedAt?: number | undefined;
+  claimedStartedAt?: number;
+  lastTreeRefreshFailedAt?: number;
 }): boolean {
   return (
     typeof args.claimedStartedAt === "number" &&
@@ -14,10 +14,10 @@ export function shouldPreserveTreeRefreshFailureAfterSuccess(args: {
 }
 
 export function shouldPreserveTreeRefreshCooldownAfterSuccess(args: {
-  claimedStartedAt?: number | undefined;
-  lastTreeRefreshFailedAt?: number | undefined;
-  cooldownUntil?: number | undefined;
-  now?: number | undefined;
+  claimedStartedAt?: number;
+  lastTreeRefreshFailedAt?: number;
+  cooldownUntil?: number;
+  now?: number;
 }): boolean {
   const now = args.now ?? Date.now();
   return (
@@ -27,8 +27,8 @@ export function shouldPreserveTreeRefreshCooldownAfterSuccess(args: {
 }
 
 export function doesTreeRefreshClaimMatch(args: {
-  claimedStartedAt?: number | undefined;
-  treeRefreshStartedAt?: number | undefined;
+  claimedStartedAt?: number;
+  treeRefreshStartedAt?: number;
 }): boolean {
   return (
     typeof args.claimedStartedAt === "number" && args.treeRefreshStartedAt === args.claimedStartedAt

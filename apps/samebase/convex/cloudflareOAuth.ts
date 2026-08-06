@@ -111,7 +111,7 @@ function parseCloudflareOAuthTokenResponse(
   }
   return {
     accessToken: result.data.access_token,
-    ...(result.data.refresh_token !== undefined ? { refreshToken: result.data.refresh_token } : {}),
+    refreshToken: result.data.refresh_token,
     expiresIn: result.data.expires_in,
   };
 }
@@ -261,9 +261,7 @@ async function buildCloudflareOAuthUrl(
     provider: "cloudflare",
     userId: args.userId,
     organizationId: args.organizationId,
-    ...(args.providerConnectionId !== undefined
-      ? { providerConnectionId: args.providerConnectionId }
-      : {}),
+    providerConnectionId: args.providerConnectionId,
     state,
     createdAt: now,
     expiresAt: now + OAUTH_STATE_TTL_MS,
@@ -475,13 +473,12 @@ export const resolveConnectionForOrganization = internalAction({
       });
     } catch (error) {
       const invalidToken = isLikelyInvalidCloudflareTokenError(error);
-      const errorMessage = sanitizeTokenHealthError(error);
       const tokenHealth: Infer<typeof vMcpTokenHealth> = {
         status: invalidToken ? "invalid" : derivedTokenHealth.status,
         checkedAt: Date.now(),
         expiresAt,
         source: invalidToken ? "refresh_attempt" : "runtime_error",
-        ...(errorMessage !== undefined ? { errorMessage } : {}),
+        errorMessage: sanitizeTokenHealthError(error),
       };
       await ctx.runMutation(internal.providerConnections.updateCloudflareConnected, {
         organizationId: args.organizationId,
@@ -551,7 +548,7 @@ export const getCloudflareOAuthUrl = action({
     return await buildCloudflareOAuthUrl(ctx, {
       userId: ctx.viewer.userId,
       organizationId,
-      ...(connection !== null ? { providerConnectionId: connection._id } : {}),
+      providerConnectionId: connection?._id,
     });
   },
 });
@@ -669,9 +666,7 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.cloudflareOAuth.storeCloudflareOauthConnection, {
       organizationId: oauthState.organizationId,
       connectedByUserId: oauthState.userId,
-      ...(oauthState.providerConnectionId !== undefined
-        ? { providerConnectionId: oauthState.providerConnectionId }
-        : {}),
+      providerConnectionId: oauthState.providerConnectionId,
       accessToken: token.accessToken,
       refreshToken: token.refreshToken,
       expiresAt,

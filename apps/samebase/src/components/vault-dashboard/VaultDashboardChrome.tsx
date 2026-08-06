@@ -51,7 +51,7 @@ export function VaultDashboardAccountSectionFrame({
   open,
 }: {
   children: ReactNode;
-  dataTestId?: string | undefined;
+  dataTestId?: string;
   label: ReactNode;
   onOpenChange: (isOpen: boolean) => void;
   open: boolean;

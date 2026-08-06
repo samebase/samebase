@@ -90,7 +90,7 @@ export type JsonRpcRequestPayload = {
   jsonrpc: "2.0";
   method: string;
   id?: string | number | null;
-  params?: unknown;
+  params: unknown;
 };
 
 export type McpProtocolValidationOptions = {
@@ -702,8 +702,8 @@ export function validateJsonRpcRequestPayload(
     value: {
       jsonrpc: "2.0",
       method: record["method"],
-      ...(id === undefined ? {} : { id }),
-      ...(record["params"] === undefined ? {} : { params: record["params"] }),
+      id,
+      params: record["params"],
     },
   };
 }

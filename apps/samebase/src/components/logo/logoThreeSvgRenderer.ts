@@ -462,7 +462,7 @@ export function createLogoThreeSvgMarkup({
 }: {
   backgroundColor: string;
   cameraFrustumPadding?: number;
-  depth?: number | undefined;
+  depth?: number;
   elevationDegrees?: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;

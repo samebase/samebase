@@ -52,8 +52,8 @@ type CloudflareBuildEnvVars = components["schemas"]["builds_EnvironmentVariables
 type CloudflareBuildEnvVarsResponse = components["schemas"]["builds_EnvironmentVariablesResponse"];
 type CloudflareApiCallOptions = {
   transport: CloudflareApiTransport;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
-  beforeProviderWrite?: (() => void | Promise<void>) | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
+  beforeProviderWrite?: () => void | Promise<void>;
 };
 
 export type CloudflareBuildToken = {
@@ -759,7 +759,7 @@ export async function createCloudflareWorker(args: {
   accountId: string;
   workerName: string;
   transport: CloudflareApiTransport;
-  beforeProviderWrite?: (() => void | Promise<void>) | undefined;
+  beforeProviderWrite?: () => void | Promise<void>;
 }): Promise<CloudflareWorkerIdentity> {
   const existing = await readWorker({
     token: args.token,
@@ -1376,7 +1376,7 @@ async function upsertBuildTrigger(
     buildTokenUuid: string;
     buildConfig: CloudflareBuildConfig;
     defaultBranch: string;
-    existingTrigger: CloudflareBuildTrigger | undefined;
+    existingTrigger?: CloudflareBuildTrigger;
     kind: CloudflareBuildTriggerKind;
   } & CloudflareApiCallOptions,
 ): Promise<string> {
@@ -1650,8 +1650,8 @@ type ConfigureCloudflareWorkerBuildsArgs = {
   existingBuilds: "preserve_repository" | "require_unconnected";
   buildConfig: CloudflareBuildConfig;
   transport: CloudflareApiTransport;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
-  beforeProviderWrite?: (() => void | Promise<void>) | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
+  beforeProviderWrite?: () => void | Promise<void>;
 };
 
 type ConfigureCloudflareWorkerBuildsForGitHubArgs = {
@@ -1669,8 +1669,8 @@ type ConfigureCloudflareWorkerBuildsForGitHubArgs = {
   cloudflareAuthMethod: CloudflareAuthMethod;
   accountId: string;
   buildConfig: CloudflareBuildConfig;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
-  beforeProviderWrite?: (() => void | Promise<void>) | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
+  beforeProviderWrite?: () => void | Promise<void>;
 };
 
 type RotateConvexDeployKeysForCloudflareWorkerBuildsArgs = {
@@ -1691,8 +1691,8 @@ type RotateConvexDeployKeysForCloudflareWorkerBuildsArgs = {
   };
   convex: CloudflareProvisionConvexState;
   convexProject: SamebaseConvexProjectReference;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
-  beforeProviderWrite?: (() => void | Promise<void>) | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
+  beforeProviderWrite?: () => void | Promise<void>;
 };
 
 function assertExpectedBuildTriggerStillExists(args: {

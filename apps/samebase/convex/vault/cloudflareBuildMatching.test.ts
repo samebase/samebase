@@ -18,10 +18,12 @@ function observedCompletedCloudflareBuild(
     triggerUuid?: string;
   } = {},
 ): CloudflareWorkerBuild {
-  const { build_uuid: baseBuildUuid, ...baseCompletedBuild } = observedCompletedWorkerBuild;
   return {
-    ...baseCompletedBuild,
-    ...(args.buildUuid === null ? {} : { build_uuid: args.buildUuid ?? baseBuildUuid }),
+    ...observedCompletedWorkerBuild,
+    build_uuid:
+      args.buildUuid === null
+        ? undefined
+        : (args.buildUuid ?? observedCompletedWorkerBuild.build_uuid),
     build_trigger_metadata: {
       ...observedCompletedWorkerBuild.build_trigger_metadata,
       deploy_command: args.metadataDeployCommand ?? "pnpm run deploy",

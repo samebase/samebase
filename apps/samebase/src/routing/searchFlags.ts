@@ -22,11 +22,7 @@ export const ROUTE_SEARCH_PRESENCE_FLAG_KEYS = [
 ] as const;
 
 export type SearchPatch<Search extends object> = {
-  [Key in keyof Search]?: Search[Key] | null | undefined;
-};
-
-export type RouteSearchState<Search extends object> = {
-  [Key in keyof Search]?: Search[Key] | undefined;
+  [Key in keyof Search]?: Search[Key] | null;
 };
 
 export function formatRouteSearchPresenceFlagLinkLabel(key: string, enable: boolean): string {

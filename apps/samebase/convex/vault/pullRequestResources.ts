@@ -339,8 +339,6 @@ function hostingCommentBotNodeId(provider: HostingCommentProvider): string {
       return CLOUDFLARE_GITHUB_BOT_NODE_ID;
     case "netlify":
       return NETLIFY_GITHUB_BOT_NODE_ID;
-    default:
-      return provider satisfies never;
   }
 }
 

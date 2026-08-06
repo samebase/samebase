@@ -455,7 +455,7 @@ export default defineConfig({
       "@": path.resolve(currentDir, "./src"),
     },
   },
-  ...(browserConvexProxyServerConfig ? { server: browserConvexProxyServerConfig } : {}),
+  server: browserConvexProxyServerConfig,
   preview: {
     host: "127.0.0.1",
   },

@@ -23,15 +23,15 @@ type LogoViewDragInteraction = {
 
 type UseLogoViewDragOptions<T extends Element> = {
   elevationDegrees: number;
-  onInteractionEnd?: ((finalView: LogoViewState) => void) | undefined;
-  onInteractionStart?: (() => void) | undefined;
+  onInteractionEnd?: (finalView: LogoViewState) => void;
+  onInteractionStart?: () => void;
   onPointerCaptureEnd?: () => void;
   onPointerCaptureStart?: () => void;
   onPress?: (event: PointerEvent<T>) => void;
   onViewChange: (nextView: LogoViewState) => void;
   readCurrentView?: () => LogoViewState;
   rotationDegrees: number;
-  viewDragConfig?: LogoViewDragConfig | undefined;
+  viewDragConfig?: LogoViewDragConfig;
 };
 
 export function useLogoViewDrag<T extends Element>({

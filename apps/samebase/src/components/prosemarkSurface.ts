@@ -49,6 +49,7 @@ export function findInitialSafeSelectionAnchor(docText: string): number {
 export const blurOnOutsidePointerDownExtension = ViewPlugin.fromClass(
   class {
     private blurTimeout: number | null = null;
+    private readonly view: EditorView;
 
     private onPointerDown = (event: PointerEvent) => {
       // If we click/tap on a non-focusable element (for example whitespace),
@@ -69,8 +70,6 @@ export const blurOnOutsidePointerDownExtension = ViewPlugin.fromClass(
         this.view.contentDOM.blur();
       }, 0);
     };
-
-    private readonly view: EditorView;
 
     constructor(view: EditorView) {
       this.view = view;

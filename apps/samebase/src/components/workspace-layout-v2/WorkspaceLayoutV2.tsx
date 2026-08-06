@@ -34,12 +34,12 @@ import { useWorkspaceLayoutV2MobileGripResizeController } from "./useWorkspaceLa
 
 type WorkspaceLayoutV2Props = {
   addressChrome: ReactNode;
-  left?: ReactElement | undefined;
+  left?: ReactElement;
   main: ReactElement;
-  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior | undefined;
-  right?: ReactElement | undefined;
+  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
+  right?: ReactElement;
 
-  dataTestId?: string | undefined;
+  dataTestId?: string;
 };
 
 type WorkspaceLayoutV2RootStyle = CSSProperties & {

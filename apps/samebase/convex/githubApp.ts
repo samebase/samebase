@@ -200,25 +200,24 @@ function parseGitHubInstallation(value: unknown): {
   githubOwnerLogin: string;
   suspended: boolean;
 } {
-  if (!isRecord(value)) {
-    throw new Error("GitHub returned an invalid installation.");
-  }
-  const account = value["account"];
-  if (!isRecord(account)) {
+  if (!isRecord(value) || !isRecord(value["account"])) {
     throw new Error("GitHub returned an invalid installation.");
   }
 
   const installationId = requireProviderPositiveSafeInteger(value["id"], "installation ID");
   const appId = requireProviderPositiveSafeInteger(value["app_id"], "installation App ID");
-  const githubOwnerId = requireProviderPositiveSafeInteger(account["id"], "owner ID");
-  if (typeof account["login"] !== "string" || account["login"].trim().length === 0) {
+  const githubOwnerId = requireProviderPositiveSafeInteger(value["account"]["id"], "owner ID");
+  if (
+    typeof value["account"]["login"] !== "string" ||
+    value["account"]["login"].trim().length === 0
+  ) {
     throw new Error("GitHub returned an invalid installation owner login.");
   }
 
   let githubOwnerType: "organization" | "user";
-  if (account["type"] === "Organization") {
+  if (value["account"]["type"] === "Organization") {
     githubOwnerType = "organization";
-  } else if (account["type"] === "User") {
+  } else if (value["account"]["type"] === "User") {
     githubOwnerType = "user";
   } else {
     throw new Error("GitHub returned an unsupported installation owner type.");
@@ -229,7 +228,7 @@ function parseGitHubInstallation(value: unknown): {
     appId,
     githubOwnerId: String(githubOwnerId),
     githubOwnerType,
-    githubOwnerLogin: account["login"].trim(),
+    githubOwnerLogin: value["account"]["login"].trim(),
     suspended: value["suspended_at"] !== null && value["suspended_at"] !== undefined,
   };
 }
@@ -244,22 +243,18 @@ async function findUserVisibleInstallation(args: {
       page,
     });
     const payload: unknown = response.data;
-    if (!isRecord(payload)) {
-      throw new Error("GitHub returned an invalid user installation list.");
-    }
-    const installations = payload["installations"];
-    if (!Array.isArray(installations)) {
+    if (!isRecord(payload) || !Array.isArray(payload["installations"])) {
       throw new Error("GitHub returned an invalid user installation list.");
     }
 
-    for (const value of installations) {
+    for (const value of payload["installations"]) {
       const installation = parseGitHubInstallation(value);
       if (installation.installationId === String(args.installationId)) {
         return installation;
       }
     }
 
-    if (installations.length < GITHUB_INSTALLATION_PAGE_SIZE) {
+    if (payload["installations"].length < GITHUB_INSTALLATION_PAGE_SIZE) {
       break;
     }
   }
@@ -304,15 +299,14 @@ async function assertGitHubOrganizationAdministrator(args: {
     org: args.githubOwnerLogin,
   });
   const membership: unknown = response.data;
-  if (!isRecord(membership)) {
-    throw new Error("GitHub returned an invalid organization membership.");
-  }
-  const organization = membership["organization"];
-  if (!isRecord(organization)) {
+  if (!isRecord(membership) || !isRecord(membership["organization"])) {
     throw new Error("GitHub returned an invalid organization membership.");
   }
 
-  const githubOwnerId = requireProviderPositiveSafeInteger(organization["id"], "organization ID");
+  const githubOwnerId = requireProviderPositiveSafeInteger(
+    membership["organization"]["id"],
+    "organization ID",
+  );
   if (
     membership["state"] !== "active" ||
     membership["role"] !== "admin" ||

@@ -21,7 +21,7 @@ export function createAppRouter(history?: RouterHistory) {
   const router = createTanStackRouter({
     context: queryClients,
     defaultPreload: false,
-    ...(history === undefined ? {} : { history }),
+    history,
     notFoundMode: "root",
     parseSearch: parseTanStackSearch,
     routeTree,

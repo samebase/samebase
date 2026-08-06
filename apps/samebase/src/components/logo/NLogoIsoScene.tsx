@@ -102,7 +102,7 @@ type NLogoIsoSceneProps = {
   editMode: VoxelEdit["kind"];
   faceColors: FaceColors;
   fractalDepth?: number;
-  isoCubePixelSprite?: LogoIsoCubePixelSprite | undefined;
+  isoCubePixelSprite?: LogoIsoCubePixelSprite;
   isoCubePixelTool?: LogoIsoCubePixelEditKind | null;
   onIsoCubePixelSpritePaint: (paint: LogoIsoCubePixelSpritePaint) => void;
   onVoxelEdit: (edit: VoxelEdit) => void;
@@ -403,7 +403,7 @@ export function LogoIsoThumbnail({
   dataTestId?: string;
   faceColors: FaceColors;
   fractalDepth?: number;
-  isoCubePixelSprite?: LogoIsoCubePixelSprite | undefined;
+  isoCubePixelSprite?: LogoIsoCubePixelSprite;
   size: number;
   styleId?: LogoIsometricStyleId;
   voxelGrid?: LogoVoxelGrid;
@@ -519,7 +519,7 @@ export function LogoIsoCubePixelEditor({
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
   backgroundColor: string;
-  cubePixelSprite?: LogoIsoCubePixelSprite | undefined;
+  cubePixelSprite?: LogoIsoCubePixelSprite;
   cubePixelTool: LogoIsoCubePixelEditKind | null;
   cubeSidePixels?: number;
   disabled?: boolean;

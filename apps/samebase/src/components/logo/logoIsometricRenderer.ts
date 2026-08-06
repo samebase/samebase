@@ -868,7 +868,7 @@ export function createLogoIsometricCubeCanvas({
   faceColors,
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
-  cubePixelSprite?: LogoIsoCubePixelSprite | undefined;
+  cubePixelSprite?: LogoIsoCubePixelSprite;
   cubeSidePixels?: number;
   faceColors: FaceColors;
   styleId?: LogoIsometricStyleId;
@@ -952,7 +952,7 @@ export function createLogoIsometricRecursiveCanvas({
 }: {
   baseGridSize?: LogoGridSize;
   cubeSidePixels?: number;
-  cubePixelSprite?: LogoIsoCubePixelSprite | undefined;
+  cubePixelSprite?: LogoIsoCubePixelSprite;
   depth: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;
@@ -1037,7 +1037,7 @@ export function drawLogoIsometricFrame({
   styleId = DEFAULT_LOGO_ISOMETRIC_STYLE_ID,
 }: {
   backgroundColor: string;
-  cubePixelSprite?: LogoIsoCubePixelSprite | undefined;
+  cubePixelSprite?: LogoIsoCubePixelSprite;
   cubeSidePixels?: number;
   context: CanvasRenderingContext2D;
   faceColors: FaceColors;
@@ -1114,7 +1114,7 @@ export function drawLogoIsometricRecursiveFrame({
   baseGridSize?: LogoGridSize;
   backgroundColor: string;
   context: CanvasRenderingContext2D;
-  cubePixelSprite?: LogoIsoCubePixelSprite | undefined;
+  cubePixelSprite?: LogoIsoCubePixelSprite;
   depth: number;
   faceColors: FaceColors;
   filledVoxels: ReadonlySet<string>;

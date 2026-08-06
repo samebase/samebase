@@ -31,7 +31,7 @@ export function useFileViewInlinePreview({
   commitReviewMode: CommitReviewMode;
   selectedFile: string;
   selectedPreviewBaseContent: string;
-  selectedPreviewRichNewContent: string | undefined;
+  selectedPreviewRichNewContent?: string;
   selectedPreviewStagedFile: StagedFileRecord | null;
   updateStagedFileContent: UpdateStagedFileContent;
 }) {

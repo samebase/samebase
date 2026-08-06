@@ -1,7 +1,7 @@
 import { type RootRouteSearch } from "@/routeSearch/root";
 
 type GoogleRedirectOptions = {
-  authReturn?: "dashboard" | undefined;
+  authReturn?: "dashboard";
   markPublicSignupReturn?: boolean;
 };
 

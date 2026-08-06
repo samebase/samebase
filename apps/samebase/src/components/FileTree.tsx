@@ -58,29 +58,29 @@ interface TreeNode {
   path: string;
   originalPath: string;
   type: "tree" | "blob";
-  label: string | undefined;
-  href: string | undefined;
-  elementId: string | undefined;
-  children: TreeNode[] | undefined;
-  size: number | undefined;
-  deleted: boolean | undefined;
-  status: CommitReviewFileStatus | undefined;
+  label?: string;
+  href?: string;
+  elementId?: string;
+  children?: TreeNode[];
+  size?: number;
+  deleted?: boolean;
+  status?: CommitReviewFileStatus;
 }
 
 interface FileTreeProps {
   items: FileTreeItem[];
-  onFileSelect?: FileTreeFileSelectHandler | undefined;
-  onFileRename?: ((oldPath: string, newPath: string) => void) | undefined;
-  onFileCreate?: ((folderPath: string, fileName: string) => void) | undefined;
-  onMediaUploadRequest?: ((folderPath: string) => void) | undefined;
-  onFileDelete?: ((path: string, originalPath: string) => void) | undefined;
-  onFileRestore?: ((path: string, originalPath: string) => void) | undefined;
-  restoringFilePath?: string | null | undefined;
-  selectedFile?: string | undefined;
+  onFileSelect?: FileTreeFileSelectHandler;
+  onFileRename?: (oldPath: string, newPath: string) => void;
+  onFileCreate?: (folderPath: string, fileName: string) => void;
+  onMediaUploadRequest?: (folderPath: string) => void;
+  onFileDelete?: (path: string, originalPath: string) => void;
+  onFileRestore?: (path: string, originalPath: string) => void;
+  restoringFilePath?: string | null;
+  selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
-  onFolderToggle?: ((folderPath: string, isExpanded: boolean) => void) | undefined;
-  autoExpandedPaths?: string[] | undefined;
-  forceAutoExpandedPaths?: boolean | undefined;
+  onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
+  autoExpandedPaths?: string[];
+  forceAutoExpandedPaths?: boolean;
 }
 
 function buildTree(items: FileTreeItem[]): TreeNode[] {
@@ -162,17 +162,17 @@ function TreeNodeComponent({
   autoExpandedPaths,
 }: {
   node: TreeNode;
-  level?: number | undefined;
-  onFileSelect?: FileTreeFileSelectHandler | undefined;
-  onFileRename?: ((originalPath: string, newPath: string) => void) | undefined;
-  onFileCreate?: ((folderPath: string, fileName: string) => void) | undefined;
-  onMediaUploadRequest?: ((folderPath: string) => void) | undefined;
-  onFileDelete?: ((path: string, originalPath: string) => void) | undefined;
-  onFileRestore?: ((path: string, originalPath: string) => void) | undefined;
-  restoringFilePath?: string | null | undefined;
-  selectedFile?: string | undefined;
+  level?: number;
+  onFileSelect?: FileTreeFileSelectHandler;
+  onFileRename?: (originalPath: string, newPath: string) => void;
+  onFileCreate?: (folderPath: string, fileName: string) => void;
+  onMediaUploadRequest?: (folderPath: string) => void;
+  onFileDelete?: (path: string, originalPath: string) => void;
+  onFileRestore?: (path: string, originalPath: string) => void;
+  restoringFilePath?: string | null;
+  selectedFile?: string;
   folderExpansionStates: FolderExpansionState[];
-  onFolderToggle?: ((folderPath: string, isExpanded: boolean) => void) | undefined;
+  onFolderToggle?: (folderPath: string, isExpanded: boolean) => void;
   autoExpandedPaths: Set<string>;
 }) {
   const dialog = useContext(DialogContext);
@@ -194,8 +194,7 @@ function TreeNodeComponent({
   const longPressTimer = useRef<NodeJS.Timeout | null>(null);
   const didTriggerLongPressRef = useRef(false);
 
-  const children = node.children ?? [];
-  const hasChildren = children.length > 0;
+  const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedFile === node.path;
   const isFolder = node.type === "tree";
   const fileStatus = node.type === "blob" ? node.status : undefined;
@@ -435,7 +434,7 @@ function TreeNodeComponent({
 
         {hasChildren && isOpen && (
           <div>
-            {children.map((child) => (
+            {node.children!.map((child) => (
               <TreeNodeComponent
                 key={child.path}
                 node={child}

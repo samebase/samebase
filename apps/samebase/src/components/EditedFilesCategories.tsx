@@ -167,9 +167,7 @@ export function EditedFilesCategories({
             ...buildFileViewRouteSearch({
               diff: true,
             }),
-            ...(currentFileViewSearch.mobileLineNumbers === undefined
-              ? {}
-              : { mobileLineNumbers: currentFileViewSearch.mobileLineNumbers }),
+            mobileLineNumbers: currentFileViewSearch.mobileLineNumbers,
           }),
         }),
       });
@@ -326,10 +324,10 @@ export function EditedFilesCategoriesPopover({
 }) {
   const [open, setOpen] = useState(false);
   const shouldLoadStagedFiles = open && stagedFiles === undefined && vaultId !== undefined;
-  const stagedFilesFromQuery = useQuery({
-    args: shouldLoadStagedFiles ? { vaultId, branch } : "skip",
-    query: api.fileStaging.listStagedFiles,
-  });
+  const stagedFilesFromQuery = useQuery(
+    api.fileStaging.listStagedFiles,
+    shouldLoadStagedFiles ? { vaultId, branch } : "skip",
+  );
   const resolvedStagedFiles =
     stagedFiles ?? (stagedFilesFromQuery === undefined ? undefined : stagedFilesFromQuery);
   const categories =

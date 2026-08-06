@@ -365,8 +365,6 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
                   </Button>
                   <FileViewPushActions
                     canCreateDraftPullRequest={true}
-                    currentPullRequestNumber={undefined}
-                    currentPullRequestUrl={undefined}
                     draftButtonLabel="draft"
                     hasChangesToCommit={false}
                     isCreatingDraftPullRequest={false}

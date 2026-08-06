@@ -47,7 +47,7 @@ export function resolveAccountPresentation({
   displayName,
   email,
 }: {
-  displayName?: string | undefined;
+  displayName?: string;
   email: string;
 }): AccountPresentation {
   const normalizedEmail = normalizeAccountEmail(email);

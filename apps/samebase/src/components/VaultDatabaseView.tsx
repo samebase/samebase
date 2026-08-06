@@ -32,8 +32,6 @@ function formatVaultDatabaseNotice(
       return "This Convex project has no production deployment.";
     case "missing_connection":
       return "Connect Convex to open deployment data.";
-    default:
-      return result satisfies never;
   }
 }
 

@@ -126,6 +126,6 @@ export function parseVaultPathContext(pathname: string): ParsedVaultPathContext 
     repositoryFullName,
     repoName,
     branch,
-    ...(filePath === undefined ? {} : { filePath }),
+    filePath,
   };
 }

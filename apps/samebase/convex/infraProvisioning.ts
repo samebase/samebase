@@ -55,7 +55,7 @@ async function readDefaultConvexCloudDeployment(args: {
   convexToken: string;
   projectId: string;
   deploymentType: "prod" | "dev";
-  recordApiCall?: ProviderApiCallRecorder | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexCloudDeployment | null> {
   try {
     const deployment = await requestConvexManagementApi(
@@ -91,7 +91,7 @@ async function createConvexCloudDeployment(args: {
   convexToken: string;
   projectId: string;
   deploymentType: "prod" | "dev";
-  recordApiCall?: ProviderApiCallRecorder | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexCloudDeployment> {
   const deployment = await requestConvexManagementApi(
     args.convexToken,
@@ -117,7 +117,7 @@ async function readConvexProjectDetails(args: {
   convexToken: string;
   projectId: string;
   teamId: string;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
 }) {
   const project = await requestConvexManagementApi(
     args.convexToken,
@@ -143,7 +143,7 @@ export async function ensureConvexPreviewResources(args: {
   convexToken: string;
   teamId: string;
   projectId: string;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexPreviewProvisionResult> {
   // Preview deployment creation starts from recorded infrastructure, so prove
   // that project still belongs to the currently connected Convex team first.
@@ -189,7 +189,7 @@ export async function createConvexDeployKey(args: {
   convexAuthMethod: ConvexProvisioningAuthMethod;
   deploymentName: string;
   name: string;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexDeployKeyResult> {
   // Create deploy-key secrets inside provider steps so Workflow journals only
   // safe app metadata, never key material.
@@ -220,7 +220,7 @@ export async function deleteConvexDeployKey(args: {
   convexToken: string;
   deploymentName: string;
   deployKeySecretOrName: string;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
   await requestConvexManagementApi(
     args.convexToken,
@@ -238,7 +238,7 @@ export async function deleteConvexDeployKeyByName(args: {
   convexToken: string;
   deploymentName: string;
   name: string;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
   try {
     await deleteConvexDeployKey({
@@ -258,7 +258,7 @@ export async function createConvexPreviewDeployKey(args: {
   convexToken: string;
   projectId: string;
   name: string;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexDeployKeyResult> {
   // Cloudflare branch builds deploy Convex previews, which require a
   // project-level preview deploy key instead of a dev deployment key.
@@ -282,7 +282,7 @@ export async function deleteConvexPreviewDeployKey(args: {
   convexToken: string;
   projectId: string;
   deployKeySecretOrName: string;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
   await requestConvexManagementApi(
     args.convexToken,
@@ -300,7 +300,7 @@ export async function deleteConvexPreviewDeployKeyByName(args: {
   convexToken: string;
   projectId: string;
   name: string;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
   try {
     await deleteConvexPreviewDeployKey({

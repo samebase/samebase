@@ -216,8 +216,6 @@ function resolveObservedConvexBuildAccess(
     case "inconsistent":
     case "invalid":
       return observation;
-    default:
-      return observation satisfies never;
   }
 }
 

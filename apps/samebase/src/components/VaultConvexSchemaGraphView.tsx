@@ -94,10 +94,7 @@ export function VaultConvexSchemaGraphView({
   repoName,
 }: VaultConvexSchemaGraphViewProps) {
   const repositoryFullName = `${owner}/${repoName}`;
-  const dashboardVaults = useVaultQuery({
-    args: {},
-    query: api.vault.dashboard.getUserVaults,
-  });
+  const dashboardVaults = useVaultQuery(api.vault.dashboard.getUserVaults);
   const attachment = dashboardVaults
     ? findVaultConvexProjectAttachment(dashboardVaults, repositoryFullName, routeConvexProjectId)
     : null;

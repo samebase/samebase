@@ -49,7 +49,7 @@ type DeclaredTable = {
 type TableDraft = {
   declared: boolean;
   declaredFields: ConvexSchemaGraphField[];
-  documentCount: number | undefined;
+  documentCount?: number;
   inferred: boolean;
   inferredFields: ConvexSchemaGraphField[];
   indexes: ConvexSchemaGraphIndex[];
@@ -265,7 +265,7 @@ async function fetchConvexDeploymentJson(args: {
     const response = await fetch(new Request(`${args.deploymentUrl}${args.path}`), {
       method: args.body === undefined ? "GET" : "POST",
       headers,
-      ...(body !== undefined ? { body } : {}),
+      body,
       signal: controller.signal,
     });
     if (!response.ok) {
@@ -315,7 +315,7 @@ async function fetchTableCount(args: {
       path: "_system/cli/tableSize:default",
       queryArgs: { tableName: args.tableName },
     });
-    return typeof response?.["value"] === "number" ? response["value"] : undefined;
+    return typeof response?.value === "number" ? response.value : undefined;
   } catch {
     return undefined;
   }
@@ -689,7 +689,6 @@ function ensureTableDraft(tables: Map<string, TableDraft>, tableName: string): T
     name: tableName,
     declared: false,
     declaredFields: [],
-    documentCount: undefined,
     inferred: false,
     inferredFields: [],
     indexes: [],
@@ -911,7 +910,7 @@ function stringifyJson(value: unknown): string | undefined {
 }
 
 function buildRawSchemaJsonStorage(args: {
-  activeSchemaJson: string | undefined;
+  activeSchemaJson?: string;
   graph: ConvexSchemaGraph;
   inferredShapes: unknown;
   warnings: string[];
@@ -1131,12 +1130,8 @@ export const refresh = action({
         deploymentName: deployment.name,
         schemaHash: buildSchemaHash(graph),
         graph,
-        ...(fetched.declaredSchemaJson !== undefined
-          ? { declaredSchemaJson: fetched.declaredSchemaJson }
-          : {}),
-        ...(fetched.inferredSchemaJson !== undefined
-          ? { inferredSchemaJson: fetched.inferredSchemaJson }
-          : {}),
+        declaredSchemaJson: fetched.declaredSchemaJson,
+        inferredSchemaJson: fetched.inferredSchemaJson,
         fetchedAt: Date.now(),
       });
       return { snapshotId };
@@ -1263,12 +1258,8 @@ export const recordSnapshot = internalMutation({
       deploymentName: args.deploymentName,
       schemaHash: args.schemaHash,
       graph: args.graph,
-      ...(args.declaredSchemaJson !== undefined
-        ? { declaredSchemaJson: args.declaredSchemaJson }
-        : {}),
-      ...(args.inferredSchemaJson !== undefined
-        ? { inferredSchemaJson: args.inferredSchemaJson }
-        : {}),
+      declaredSchemaJson: args.declaredSchemaJson,
+      inferredSchemaJson: args.inferredSchemaJson,
       fetchedAt: args.fetchedAt,
     });
     await pruneSchemaSnapshots(ctx, args.convexProjectId);

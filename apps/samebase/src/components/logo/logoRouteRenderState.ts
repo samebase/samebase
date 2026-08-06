@@ -60,34 +60,6 @@ export const DEFAULT_LOGO_ROUTE_VIEW_STATE: LogoViewState = {
   rotationDegrees: DEFAULT_ROTATION_DEGREES,
 };
 
-export function readLogoRouteLeftFaceStyle(routeSearch: LogoIsoRouteSearch) {
-  const styleSearch: Parameters<typeof readLogoLeftFaceStyle>[0] = {};
-
-  if (routeSearch.leftFace !== undefined) {
-    styleSearch.leftFace = routeSearch.leftFace;
-  }
-  if (routeSearch.stripeA !== undefined) {
-    styleSearch.stripeA = routeSearch.stripeA;
-  }
-  if (routeSearch.stripeBasis !== undefined) {
-    styleSearch.stripeBasis = routeSearch.stripeBasis;
-  }
-  if (routeSearch.stripeG !== undefined) {
-    styleSearch.stripeG = routeSearch.stripeG;
-  }
-  if (routeSearch.stripeLink !== undefined) {
-    styleSearch.stripeLink = routeSearch.stripeLink;
-  }
-  if (routeSearch.stripeO !== undefined) {
-    styleSearch.stripeO = routeSearch.stripeO;
-  }
-  if (routeSearch.stripeW !== undefined) {
-    styleSearch.stripeW = routeSearch.stripeW;
-  }
-
-  return readLogoLeftFaceStyle(styleSearch);
-}
-
 function readRouteGridSize(routeSearch: LogoIsoRouteSearch): LogoGridSize {
   return normalizeLogoGridSize(routeSearch.gridSize);
 }
@@ -286,7 +258,7 @@ export function readLogoRouteRenderState({
     isoCubeSidePixels: readRouteIsoCubeSidePixels(routeSearch),
     isoStyleId: readRouteIsoStyleId(routeSearch),
     leftFaceStripeAnimationEnabled: routeSearch["animate-stripes"] === true,
-    leftFaceStyle: normalizeLogoLeftFaceStyle(readLogoRouteLeftFaceStyle(routeSearch)),
+    leftFaceStyle: normalizeLogoLeftFaceStyle(readLogoLeftFaceStyle(routeSearch)),
     logoOpacity: readRouteLogoOpacity(routeSearch),
     rotationAxisMode: readRouteRotationAxisMode(routeSearch),
     rotationDegrees: view.rotationDegrees,
@@ -310,7 +282,7 @@ export function createLogoRouteVoxelGrid(
 
   return createLogoFractalVoxelGrid({
     depth,
+    filledVoxels,
     gridSize: routeState.gridSize,
-    ...(filledVoxels === undefined ? {} : { filledVoxels }),
   });
 }

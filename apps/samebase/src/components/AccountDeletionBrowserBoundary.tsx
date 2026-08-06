@@ -31,7 +31,7 @@ function AccountDeletionCompletionPage({
   action,
   state,
 }: {
-  action?: { label: string; onClick: () => void } | undefined;
+  action?: { label: string; onClick: () => void };
   state: Exclude<CleanupState, "idle"> | "verifying";
 }) {
   const completed = state === "complete";

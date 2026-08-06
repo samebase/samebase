@@ -72,14 +72,14 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
       </div>
     ),
   };
-  const mobileMinResizeBehavior =
-    mode === "fileview-layout-slide" ? "min_resize_to_slide" : undefined;
 
   return (
     <TestRouterProvider>
       <WorkspaceLayoutV2FixtureFrame
         dataTestId="fileview-layout-visual-fixture"
-        {...(mobileMinResizeBehavior === undefined ? {} : { mobileMinResizeBehavior })}
+        mobileMinResizeBehavior={
+          mode === "fileview-layout-slide" ? "min_resize_to_slide" : undefined
+        }
         shortcutPaneSide="left"
         left={activeSidebar}
         main={{

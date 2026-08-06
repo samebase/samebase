@@ -152,7 +152,7 @@ type WorkspacePaneRuntimeContextValue = {
 type WorkspacePaneRuntimeProviderProps = {
   children: ReactNode;
   controller: WorkspaceSidebarStateController;
-  shortcutPaneSide?: WorkspacePaneSide | undefined;
+  shortcutPaneSide?: WorkspacePaneSide;
 };
 
 const WorkspacePaneRuntimeContext = createContext<WorkspacePaneRuntimeContextValue | null>(null);

@@ -625,7 +625,7 @@ async function getVaultByRepositoryHelper(
   args: {
     userId: Id<"users">;
     repositoryFullName: string;
-    branch?: string | undefined;
+    branch?: string;
   },
 ) {
   const { owner, name } = parseRepositoryFullName(args.repositoryFullName);

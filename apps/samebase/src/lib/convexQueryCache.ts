@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { convexQuery } from "@convex-dev/react-query";
 import { useQuery } from "@tanstack/react-query";
-import type { FunctionArgs, FunctionReference } from "convex/server";
+import type { FunctionReference } from "convex/server";
 import { getFunctionName } from "convex/server";
+import type { OptionalRestArgsOrSkip } from "convex/react";
 import {
   CONVEX_QUERY_CACHE_DB_NAME,
   readConvexQueryCacheNamespace,
@@ -121,28 +122,36 @@ export function clearConvexQueryMemoryCache() {
  * Hashes the query name + stable-stringified args, hydrates from memory/IndexedDB,
  * and returns cached data until the live Convex query resolves.
  */
-export function useCacheQuery<Query extends FunctionReference<"query">>({
-  args,
-  dontCache = false,
-  query,
-}: {
-  args: FunctionArgs<Query> | "skip";
-  dontCache?: boolean | undefined;
-  query: Query;
-}): Query["_returnType"] | undefined {
-  const queryOptions = convexQuery(query, args);
-  const { data: live } = useQuery({
-    ...(queryOptions.queryFn !== undefined ? { queryFn: queryOptions.queryFn } : {}),
-    ...(queryOptions.staleTime !== undefined ? { staleTime: queryOptions.staleTime } : {}),
-    ...("enabled" in queryOptions ? { enabled: queryOptions.enabled } : {}),
-    queryKey: queryOptions.queryKey,
-  });
+export function useCacheQuery<Query extends FunctionReference<"query">>(
+  query: Query,
+  arg?: undefined,
+  options?: {
+    dontCache?: boolean;
+  },
+): Query["_returnType"] | undefined;
+
+export function useCacheQuery<Query extends FunctionReference<"query">>(
+  query: Query,
+  arg: OptionalRestArgsOrSkip<Query>[0],
+  options?: {
+    dontCache?: boolean;
+  },
+): Query["_returnType"] | undefined;
+export function useCacheQuery<Query extends FunctionReference<"query">>(
+  query: Query,
+  arg: OptionalRestArgsOrSkip<Query>[0],
+  options: {
+    dontCache?: boolean;
+  } = {},
+): Query["_returnType"] | undefined {
+  const { data: live } = useQuery(convexQuery(query, arg));
   const queryName = useMemo(() => getFunctionName(query), [query]);
+  const dontCache = options.dontCache === true;
 
   const cacheKey = useMemo(() => {
-    const argsKey = stableStringify(args);
+    const argsKey = stableStringify(arg);
     return `convex:${readConvexQueryCacheNamespace()}:${queryName}:${argsKey}`;
-  }, [args, queryName]);
+  }, [arg, queryName]);
 
   const [cached, setCached] = useState<CachedQueryState<Query["_returnType"]> | undefined>(
     undefined,

@@ -29,8 +29,6 @@ function providerIcon(provider: "cloudflare" | "convex" | "github"): ReactNode {
       return <ConvexProviderLogo />;
     case "github":
       return <GitHubProviderLogo />;
-    default:
-      return provider satisfies never;
   }
 }
 

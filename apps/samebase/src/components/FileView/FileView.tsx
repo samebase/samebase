@@ -144,7 +144,7 @@ function FileViewWrapper() {
     repositoryFullName
       ? {
           repositoryFullName,
-          ...(routeBranch === undefined ? {} : { branch: routeBranch }),
+          branch: routeBranch,
         }
       : "skip",
   );
@@ -163,7 +163,7 @@ function FileViewWrapper() {
     }
 
     return resolveLegacyBranchlessFilePath({
-      ...(routeBranch === undefined ? {} : { branchSegment: routeBranch }),
+      branchSegment: routeBranch,
       selectedFile,
       selectedFileExistsInTree,
       tree: vault.treeData?.tree ?? [],
@@ -187,12 +187,12 @@ function FileViewWrapper() {
     [location.search],
   );
   const navigateByHref = useCallback(
-    (href: string, options?: { replace?: boolean | undefined }) => {
+    (href: string, options?: { replace?: boolean }) => {
       // Preserve current user history state while the `/vault/$` route still
       // depends on the intentionally encoded raw file path boundary.
       void router.navigate({
         href,
-        ...(options?.replace === undefined ? {} : { replace: options.replace }),
+        replace: options?.replace,
         state: true,
       });
     },
@@ -222,7 +222,7 @@ function FileViewWrapper() {
       owner,
       repoName,
       branch,
-      ...(selectedFile.length > 0 ? { filePath: selectedFile } : {}),
+      filePath: selectedFile.length > 0 ? selectedFile : undefined,
     });
     navigateByHref(appendCurrentSearch(nextPath), { replace: true });
   }, [appendCurrentSearch, owner, repoName, branch, branchParam, selectedFile, navigateByHref]);
@@ -443,17 +443,16 @@ function FileViewWrapper() {
     navigateByHref,
   ]);
 
-  const stagedFile = useQuery({
-    args:
-      vault && branch && selectedFile
-        ? {
-            branch,
-            newPath: selectedFile,
-            vaultId: vault._id,
-          }
-        : "skip",
-    query: api.fileStaging.getByNewPath,
-  });
+  const stagedFile = useQuery(
+    api.fileStaging.getByNewPath,
+    vault && branch && selectedFile
+      ? {
+          branch,
+          newPath: selectedFile,
+          vaultId: vault._id,
+        }
+      : "skip",
+  );
 
   /**
    * If the selected file is missing from both staging and the repository tree,
@@ -716,28 +715,20 @@ function FileViewInner({
         search: location.search,
         fileViewSearch: {
           ...fileViewSearch,
-          ...(routeSearch.mobileLineNumbers === undefined
-            ? {}
-            : { mobileLineNumbers: routeSearch.mobileLineNumbers }),
+          mobileLineNumbers: routeSearch.mobileLineNumbers,
         },
         hash: location.hash,
       }),
     [location.hash, location.pathname, location.search, routeSearch.mobileLineNumbers],
   );
   const navigateByHref = useCallback(
-    (
-      href: string,
-      options?: {
-        replace?: boolean | undefined;
-        resetScroll?: boolean | undefined;
-      },
-    ) => {
+    (href: string, options?: { replace?: boolean; resetScroll?: boolean }) => {
       // Preserve current user history state while the `/vault/$` route still
       // depends on the intentionally encoded raw file path boundary.
       void router.navigate({
         href,
-        ...(options?.replace === undefined ? {} : { replace: options.replace }),
-        ...(options?.resetScroll === undefined ? {} : { resetScroll: options.resetScroll }),
+        replace: options?.replace,
+        resetScroll: options?.resetScroll,
         state: true,
       });
     },
@@ -775,9 +766,8 @@ function FileViewInner({
     : `https://github.com/${encodeURIComponent(owner)}/${encodeURIComponent(repoName)}/tree/${encodeGitHubPath(branch)}`;
 
   // Folder expansion state
-  const folderExpansionStates = useQuery({
-    args: { vaultId: vault._id },
-    query: api.folderExpansion.getFolderExpansionStates,
+  const folderExpansionStates = useQuery(api.folderExpansion.getFolderExpansionStates, {
+    vaultId: vault._id,
   });
   const setFolderExpansionState = useMutation(
     api.folderExpansion.setFolderExpansionState,
@@ -882,23 +872,27 @@ function FileViewInner({
   const isDiffRequested = routeSearch.diff ?? false;
 
   // Get count of staged files for this vault
-  const stagedFiles = useQuery({
-    args: {
+  const stagedFiles = useQuery(
+    api.fileStaging.listStagedFiles,
+    {
       vaultId: vault._id,
       branch,
     },
-    dontCache: isDiffRequested,
-    query: api.fileStaging.listStagedFiles,
-  });
-  const stagedSimpleViewConfigFile = useQuery({
-    args: {
+    {
+      dontCache: isDiffRequested,
+    },
+  );
+  const stagedSimpleViewConfigFile = useQuery(
+    api.fileStaging.getByNewPath,
+    {
       branch,
       vaultId: vault._id,
       newPath: SIMPLE_VIEW_CONFIG_PATH,
     },
-    dontCache: true,
-    query: api.fileStaging.getByNewPath,
-  });
+    {
+      dontCache: true,
+    },
+  );
   const [repositorySimpleViewConfigContent, setRepositorySimpleViewConfigContent] = useState<
     string | null
   >(null);
@@ -1095,9 +1089,9 @@ function FileViewInner({
     (
       path: string,
       options?: {
-        branch?: string | undefined;
-        reviewMode?: CommitReviewMode | undefined;
-        compare?: boolean | undefined;
+        branch?: string;
+        reviewMode?: CommitReviewMode;
+        compare?: boolean;
       },
     ) => {
       const targetBranch = options?.branch ?? branch;
@@ -1111,16 +1105,14 @@ function FileViewInner({
         owner,
         repoName,
         branch: targetBranch,
-        ...(path.length > 0 ? { filePath: path } : {}),
+        filePath: path.length > 0 ? path : undefined,
       });
       const nextFileViewSearch = {
         ...buildFileViewRouteSearch({
-          ...(includeDiff === undefined ? {} : { diff: includeDiff }),
-          ...(includeCompare === undefined ? {} : { compare: includeCompare }),
+          diff: includeDiff,
+          compare: includeCompare,
         }),
-        ...(routeSearch.mobileLineNumbers === undefined
-          ? {}
-          : { mobileLineNumbers: routeSearch.mobileLineNumbers }),
+        mobileLineNumbers: routeSearch.mobileLineNumbers,
       };
       return buildPathWithTanStackSearch({
         pathname,
@@ -1165,17 +1157,15 @@ function FileViewInner({
     (
       mode: CommitReviewMode,
       options?: {
-        replace?: boolean | undefined;
-        compare?: boolean | undefined;
+        replace?: boolean;
+        compare?: boolean;
       },
     ) => {
       navigateByHref(
         buildCurrentFileViewHref(
           buildFileViewRouteSearch({
             diff: mode === "review",
-            ...((options?.compare ?? routeSearch.compare) === undefined
-              ? {}
-              : { compare: options?.compare ?? routeSearch.compare }),
+            compare: options?.compare ?? routeSearch.compare,
           }),
         ),
         { replace: options?.replace, resetScroll: false },
@@ -1187,14 +1177,14 @@ function FileViewInner({
     (
       enabled: boolean,
       options?: {
-        replace?: boolean | undefined;
+        replace?: boolean;
       },
     ) => {
       navigateByHref(
         buildCurrentFileViewHref(
           buildFileViewRouteSearch({
             compare: enabled,
-            ...(routeSearch.diff === undefined ? {} : { diff: routeSearch.diff }),
+            diff: routeSearch.diff,
           }),
         ),
         { replace: options?.replace, resetScroll: false },
@@ -1454,11 +1444,8 @@ function FileViewInner({
             repositoryFullName,
             branch,
             filePath,
-            ...(originalPath !== filePath
-              ? { previousPath: originalPath }
-              : comparedDeletedFile.previousPath === undefined
-                ? {}
-                : { previousPath: comparedDeletedFile.previousPath }),
+            previousPath:
+              originalPath !== filePath ? originalPath : comparedDeletedFile.previousPath,
           });
         } else {
           throw new Error("Deleted file is not available to restore.");
@@ -1871,19 +1858,11 @@ function FileViewInner({
       ? selectedComparedFile.richOldContent
       : (selectedPreviewStagedFile?.initialContent ?? selectedPreviewFile?.richOldContent ?? "");
   const selectedPreviewBaseFilePath = getPreviewBaseFilePath({
-    ...(selectedComparedFile?.previousPath === undefined
-      ? {}
-      : { comparedPreviousPath: selectedComparedFile.previousPath }),
+    comparedPreviousPath: selectedComparedFile?.previousPath,
     currentFilePath: selectedFile,
-    ...(selectedPreviewFile?.previousPath === undefined
-      ? {}
-      : { previewPreviousPath: selectedPreviewFile.previousPath }),
-    ...(selectedPreviewStagedFile === null
-      ? {}
-      : {
-          stagedCurrentFilePath: selectedPreviewStagedFile.filePath,
-          stagedInitialFilePath: selectedPreviewStagedFile.initialFilePath,
-        }),
+    previewPreviousPath: selectedPreviewFile?.previousPath,
+    stagedCurrentFilePath: selectedPreviewStagedFile?.filePath,
+    stagedInitialFilePath: selectedPreviewStagedFile?.initialFilePath,
   });
   const selectedComparedFileCanRenderInline = Boolean(
     selectedComparedFile &&
@@ -1933,8 +1912,8 @@ function FileViewInner({
           path,
           originalPath: item.path,
           type: item.type,
-          ...(item.size === undefined ? {} : { size: item.size }),
-          ...(status === null ? {} : { status }),
+          size: item.size,
+          status: status ?? undefined,
         };
       })
       .filter(notEmpty);
@@ -1950,6 +1929,7 @@ function FileViewInner({
         path: staged.filePath,
         originalPath: staged.initialFilePath,
         type: "blob" as const,
+        size: undefined,
         status: "added" as const,
       }));
     const existingPaths = new Set([...treeItems, ...newFiles].map((item) => item.path));
@@ -1963,6 +1943,7 @@ function FileViewInner({
         path: staged.filePath,
         originalPath: staged.initialFilePath,
         type: "blob" as const,
+        size: undefined,
         status: "deleted" as const,
       }));
 
@@ -1974,6 +1955,7 @@ function FileViewInner({
       path: file.path,
       originalPath: file.path,
       type: "blob" as const,
+      size: undefined,
       status: file.status,
     }));
   }, [branchComparePreview]);
@@ -2442,26 +2424,14 @@ function FileViewInner({
               branch={branch}
               owner={owner}
               repoName={repoName}
-              {...(commitSha === undefined ? {} : { commitSha })}
-              {...(vault.treeRefreshStartedAt === undefined
-                ? {}
-                : { treeRefreshStartedAt: vault.treeRefreshStartedAt })}
-              {...(vault.lastTreeRefreshAt === undefined
-                ? {}
-                : { lastTreeRefreshAt: vault.lastTreeRefreshAt })}
-              {...(vault.lastTreeRefreshFailedAt === undefined
-                ? {}
-                : { lastTreeRefreshFailedAt: vault.lastTreeRefreshFailedAt })}
-              {...(vault.treeRefreshFailureKind === undefined
-                ? {}
-                : { treeRefreshFailureKind: vault.treeRefreshFailureKind })}
-              {...(vault.treeRefreshFailureMessage === undefined
-                ? {}
-                : { treeRefreshFailureMessage: vault.treeRefreshFailureMessage })}
-              {...(vault.treeRefreshCooldownUntil === undefined
-                ? {}
-                : { treeRefreshCooldownUntil: vault.treeRefreshCooldownUntil })}
-              {...(stagedFiles === undefined ? {} : { stagedFiles })}
+              commitSha={commitSha}
+              treeRefreshStartedAt={vault.treeRefreshStartedAt}
+              lastTreeRefreshAt={vault.lastTreeRefreshAt}
+              lastTreeRefreshFailedAt={vault.lastTreeRefreshFailedAt}
+              treeRefreshFailureKind={vault.treeRefreshFailureKind}
+              treeRefreshFailureMessage={vault.treeRefreshFailureMessage}
+              treeRefreshCooldownUntil={vault.treeRefreshCooldownUntil}
+              stagedFiles={stagedFiles}
               disableStagedFilesQuery
             />
 
@@ -2869,7 +2839,7 @@ function FileViewInner({
         <FileCreationDialog
           isOpen={true}
           onClose={closeFileCreation}
-          initialFolderPath={fileCreationDialog.folderPath}
+          initialFolderPath={fileCreationDialog.folderPath || ""}
           onFileCreate={handleCreateFileInFolder}
           folders={vault.treeData.tree
             .map((item: GithubTree) => {
@@ -2880,7 +2850,7 @@ function FileViewInner({
               return {
                 path: item.path,
                 type: item.type,
-                ...(item.size === undefined ? {} : { size: item.size }),
+                size: item.size,
               };
             })
             .filter(notEmpty)}
@@ -2892,7 +2862,7 @@ function FileViewInner({
         <FolderCreationDialog
           isOpen={true}
           onClose={closeFolderCreation}
-          initialFolderPath={folderCreationDialog.folderPath}
+          initialFolderPath={folderCreationDialog.folderPath || ""}
           onFolderCreate={handleCreateFolderInFolder}
           folders={finalTreeData}
         />

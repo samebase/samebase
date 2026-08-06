@@ -495,7 +495,7 @@ function renderVisualFixtureModeDirectory({ invalidMode }: { invalidMode?: strin
   );
 }
 
-export function VisualFixturePage(props: { mode?: string | undefined }) {
+export function VisualFixturePage(props: { mode?: string }) {
   const selection = readSelection(props.mode);
 
   return (

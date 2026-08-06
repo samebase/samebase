@@ -7,7 +7,7 @@ import { WorkspacePaneRuntimeProvider } from "./WorkspacePaneRuntime";
 type WorkspaceLayoutV2MemorySidebarProviderProps = {
   children: ReactNode;
   initialState: WorkspaceSidebarState;
-  shortcutPaneSide?: WorkspacePaneSide | undefined;
+  shortcutPaneSide?: WorkspacePaneSide;
 };
 
 export function WorkspaceLayoutV2MemorySidebarProvider({

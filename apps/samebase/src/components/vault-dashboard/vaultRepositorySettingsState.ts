@@ -46,10 +46,10 @@ export type VaultRepositorySettingsPendingAction =
     };
 
 export type VaultRepositorySettingsAction = {
-  disabled?: boolean | undefined;
+  disabled?: boolean;
   kind: VaultRepositorySettingsActionKind;
   label: string;
-  onClick?: (() => void) | undefined;
+  onClick?: () => void;
 };
 
 type VaultRepositorySettingsActionList = readonly [
@@ -58,11 +58,11 @@ type VaultRepositorySettingsActionList = readonly [
 ];
 
 export type VaultRepositorySettingsResource = {
-  actions?: VaultRepositorySettingsActionList | undefined;
-  description?: string | undefined;
-  href?: string | undefined;
+  actions?: VaultRepositorySettingsActionList;
+  description?: string;
+  href?: string;
   name: string;
-  owner?: string | undefined;
+  owner?: string;
   provider: "cloudflare" | "convex";
   resourceId: string;
   state: "available" | "checking" | "failed" | "loading" | "missing" | "setting_up";
@@ -71,11 +71,11 @@ export type VaultRepositorySettingsResource = {
 export type VaultRepositorySettingsState = {
   addCloudflareWorker: {
     disabled: boolean;
-    onClick?: (() => void) | undefined;
+    onClick?: () => void;
   };
   addConvexProject: {
     disabled: boolean;
-    onClick?: (() => void) | undefined;
+    onClick?: () => void;
   };
   attentionResources: readonly VaultRepositorySettingsResource[];
   pendingResources: readonly VaultRepositorySettingsResource[];
@@ -176,8 +176,6 @@ function formatCloudflareRepositoryState(
         canConnect: false,
         description: "Cloudflare Builds could not be loaded.",
       };
-    default:
-      return repository satisfies never;
   }
 }
 
@@ -191,8 +189,6 @@ function formatCloudflarePreviewState(
       return "Preview URL disabled.";
     case "failed":
       return "Preview URL could not be loaded.";
-    default:
-      return observation.workersDev satisfies never;
   }
 }
 
@@ -221,8 +217,6 @@ function resolveConvexProjectActionLabel(
     case "missing_ambiguous":
     case "unavailable":
       return project.projectId;
-    default:
-      return observation.provider satisfies never;
   }
 }
 
@@ -238,9 +232,10 @@ function buildConvexBuildAccessActions({
   convexProjectActionLabels: ReadonlyMap<Id<"vaultConvexProjects">, string>;
   convexProjects: readonly VaultDashboardConvexProject[];
   pendingAction: VaultRepositorySettingsPendingAction | null;
-  rotateConvexDeployKeysForWorkersBuildsOnClick?:
-    | ((workerId: Id<"vaultCloudflareWorkers">, convexProjectId: Id<"vaultConvexProjects">) => void)
-    | undefined;
+  rotateConvexDeployKeysForWorkersBuildsOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
   workerId: Id<"vaultCloudflareWorkers">;
 }): VaultRepositorySettingsActionList | undefined {
   const sortedProjects = [...convexProjects].sort(
@@ -291,14 +286,12 @@ function formatCloudflareConvexBuildAccessState({
   convexProjects: readonly VaultDashboardConvexProject[];
   observation: Extract<VaultCloudflareWorkerConvexBuildAccessObservation, { state: "available" }>;
   pendingAction: VaultRepositorySettingsPendingAction | null;
-  rotateConvexDeployKeysForWorkersBuildsOnClick?:
-    | ((workerId: Id<"vaultCloudflareWorkers">, convexProjectId: Id<"vaultConvexProjects">) => void)
-    | undefined;
+  rotateConvexDeployKeysForWorkersBuildsOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
   workerId: Id<"vaultCloudflareWorkers">;
-}): {
-  actions?: VaultRepositorySettingsActionList | undefined;
-  description?: string | undefined;
-} {
+}): { actions?: VaultRepositorySettingsActionList; description?: string } {
   const access = observation.convexBuildAccess;
   if (
     access.state === "configured" &&
@@ -364,8 +357,6 @@ function formatCloudflareConvexBuildAccessState({
       };
     case "invalid":
       return { actions, description: "The Convex project marker is invalid." };
-    default:
-      return access satisfies never;
   }
 }
 
@@ -389,15 +380,17 @@ function buildCloudflareRow({
     | undefined;
   convexProjectActionLabels: ReadonlyMap<Id<"vaultConvexProjects">, string>;
   convexProjects: readonly VaultDashboardConvexProject[];
-  configureWorkersBuildsForGitHubOnClick?:
-    | ((workerId: Id<"vaultCloudflareWorkers">, rootDirectory: string | undefined) => void)
-    | undefined;
+  configureWorkersBuildsForGitHubOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    rootDirectory: string | undefined,
+  ) => void;
   observationState: VaultCloudflareProviderObservationState;
-  detachCloudflareWorkerOnClick?: ((workerId: Id<"vaultCloudflareWorkers">) => void) | undefined;
+  detachCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   pendingAction: VaultRepositorySettingsPendingAction | null;
-  rotateConvexDeployKeysForWorkersBuildsOnClick?:
-    | ((workerId: Id<"vaultCloudflareWorkers">, convexProjectId: Id<"vaultConvexProjects">) => void)
-    | undefined;
+  rotateConvexDeployKeysForWorkersBuildsOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
   settingUp: boolean;
   worker: VaultDashboardCloudflareWorker;
 }): VaultRepositorySettingsResource {
@@ -616,8 +609,6 @@ function buildCloudflareRow({
         ),
       };
     }
-    default:
-      return observation satisfies never;
   }
 }
 
@@ -647,17 +638,13 @@ function buildConvexRow({
   reconcileConvexProjectTeamOnClick,
   settingUp,
 }: {
-  changeConvexProjectConfigPathOnClick?:
-    | ((convexProjectId: Id<"vaultConvexProjects">) => void)
-    | undefined;
+  changeConvexProjectConfigPathOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   checkingName: string;
-  detachConvexProjectOnClick?: ((convexProjectId: Id<"vaultConvexProjects">) => void) | undefined;
+  detachConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   observationState: VaultProviderObservationState<VaultConvexProjectObservation>;
   pendingAction: VaultRepositorySettingsPendingAction | null;
   project: VaultDashboardConvexProject;
-  reconcileConvexProjectTeamOnClick?:
-    | ((convexProjectId: Id<"vaultConvexProjects">) => void)
-    | undefined;
+  reconcileConvexProjectTeamOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   settingUp: { name: string; owner?: string } | null;
 }): VaultRepositorySettingsResource {
   const base = {
@@ -734,8 +721,6 @@ function buildConvexRow({
         return observation.source.reason === "connection_required"
           ? "Connect GitHub to verify the Convex code location."
           : "Could not verify the Convex code location.";
-      default:
-        return observation.source satisfies never;
     }
   })();
   const changeConfigAction =
@@ -822,8 +807,6 @@ function buildConvexRow({
             : "Could not load from Convex.",
         ),
       };
-    default:
-      return observation.provider satisfies never;
   }
 }
 
@@ -924,32 +907,30 @@ export function buildVaultRepositorySettingsState({
   vault,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
 }: {
-  addCloudflareWorkerOnClick?: (() => void) | undefined;
-  addConvexOnClick?: (() => void) | undefined;
+  addCloudflareWorkerOnClick?: () => void;
+  addConvexOnClick?: () => void;
   connectedCloudflareAccount:
     | {
         accountId: string;
         accountName: string | undefined;
       }
     | undefined;
-  configureWorkersBuildsForGitHubOnClick?:
-    | ((workerId: Id<"vaultCloudflareWorkers">, rootDirectory: string | undefined) => void)
-    | undefined;
-  changeConvexProjectConfigPathOnClick?:
-    | ((convexProjectId: Id<"vaultConvexProjects">) => void)
-    | undefined;
+  configureWorkersBuildsForGitHubOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    rootDirectory: string | undefined,
+  ) => void;
+  changeConvexProjectConfigPathOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   cloudflareObservations: VaultCloudflareProviderObservationState;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
-  detachCloudflareWorkerOnClick?: ((workerId: Id<"vaultCloudflareWorkers">) => void) | undefined;
-  detachConvexProjectOnClick?: ((convexProjectId: Id<"vaultConvexProjects">) => void) | undefined;
+  detachCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
+  detachConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   pendingAction: VaultRepositorySettingsPendingAction | null;
-  reconcileConvexProjectTeamOnClick?:
-    | ((convexProjectId: Id<"vaultConvexProjects">) => void)
-    | undefined;
+  reconcileConvexProjectTeamOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   vault: VaultDashboardVault;
-  rotateConvexDeployKeysForWorkersBuildsOnClick?:
-    | ((workerId: Id<"vaultCloudflareWorkers">, convexProjectId: Id<"vaultConvexProjects">) => void)
-    | undefined;
+  rotateConvexDeployKeysForWorkersBuildsOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
 }): VaultRepositorySettingsState {
   const resourcesByRoot = new Map<string, VaultRepositorySettingsResource[]>();
   const providerActionBlockReason = readVaultProviderActionBlockReason(vault);

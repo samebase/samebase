@@ -74,7 +74,10 @@ export function VaultSelectedWorkspace({
         replace: true,
         resetScroll: false,
         search: (currentSearch) => clearVaultDashboardQueryDialogSearch(currentSearch, dialog),
-        state: ({ vaultDashboardDialog: _vaultDashboardDialog, ...currentState }) => currentState,
+        state: (currentState) => ({
+          ...currentState,
+          vaultDashboardDialog: undefined,
+        }),
         to: ".",
       });
     },
@@ -112,18 +115,14 @@ export function VaultSelectedWorkspace({
         ...currentState,
         vaultDashboardDialog:
           dialog.provider === "convex"
-            ? dialog.repairProjectId === undefined
-              ? { dialog: "add-convex" }
-              : {
-                  dialog: "add-convex",
-                  repairProjectId: dialog.repairProjectId,
-                }
-            : dialog.repairWorkerId === undefined
-              ? { dialog: "add-cloudflare" }
-              : {
-                  dialog: "add-cloudflare",
-                  repairWorkerId: dialog.repairWorkerId,
-                },
+            ? {
+                dialog: "add-convex",
+                repairProjectId: dialog.repairProjectId,
+              }
+            : {
+                dialog: "add-cloudflare",
+                repairWorkerId: dialog.repairWorkerId,
+              },
       }),
     });
   };
@@ -332,8 +331,10 @@ export function VaultSelectedWorkspace({
                   "add-convex": null,
                   delete: null,
                 }),
-              state: ({ vaultDashboardDialog: _vaultDashboardDialog, ...currentState }) =>
-                currentState,
+              state: (currentState) => ({
+                ...currentState,
+                vaultDashboardDialog: undefined,
+              }),
               to: "/vault",
             });
           }}

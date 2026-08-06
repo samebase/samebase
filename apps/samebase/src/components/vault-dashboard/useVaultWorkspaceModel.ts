@@ -23,14 +23,8 @@ function selectVault(
 export function useVaultWorkspaceModel(
   selectedRepositoryFullName: string | undefined,
 ): VaultWorkspaceModel {
-  const vaults = useCacheQuery({
-    args: {},
-    query: api.vault.dashboard.getUserVaults,
-  });
-  const folderState = useCacheQuery({
-    args: {},
-    query: api.vault.folders.getVaultFolderState,
-  });
+  const vaults = useCacheQuery(api.vault.dashboard.getUserVaults);
+  const folderState = useCacheQuery(api.vault.folders.getVaultFolderState);
   const sidebarSummaries = useVaultSidebarSummaries();
   const selectedVault = useMemo(
     () => selectVault(vaults, selectedRepositoryFullName),

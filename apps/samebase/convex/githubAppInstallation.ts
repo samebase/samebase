@@ -57,7 +57,7 @@ async function buildGitHubAppSetupUrl(
   await ctx.runMutation(internal.githubAppInstallation.createSetupState, {
     userId,
     state,
-    ...(normalizedReturnToPath !== undefined ? { returnToPath: normalizedReturnToPath } : {}),
+    returnToPath: normalizedReturnToPath,
     createdAt: now,
     expiresAt: now + OAUTH_STATE_TTL_MS,
   });
@@ -111,7 +111,7 @@ export const getSetupStateByState = internalQuery({
       setupStateId: setupState._id,
       userId: setupState.userId,
       state: setupState.state,
-      ...(setupState.returnToPath !== undefined ? { returnToPath: setupState.returnToPath } : {}),
+      returnToPath: setupState.returnToPath,
       expiresAt: setupState.expiresAt,
     };
   },

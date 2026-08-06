@@ -406,7 +406,7 @@ function readSearchRows(args: {
         : selectedRoute.replacementTokenStart + 1 + selectedTokenText.length,
       previewRouteAddress: finalPreviewRoute.routeAddress,
       previewSelectionRouteIndex: previewRoute.replacementTokenStart + 1,
-      ...(typeof sampleValue === "string" ? { sampleValueStart: selectedValue.length } : {}),
+      sampleValueStart: typeof sampleValue === "string" ? selectedValue.length : undefined,
       selectedRouteAddress: finalSelectedRoute.routeAddress,
       value: previewValue,
     });

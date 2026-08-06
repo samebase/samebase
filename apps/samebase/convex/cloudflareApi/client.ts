@@ -141,8 +141,8 @@ type CloudflareApiPutRequestArgs<Path extends CloudflareApiPutPath> = Cloudflare
   path: Path;
 } & CloudflareApiPutOptions<Path>;
 type CloudflareApiRequestParams = {
-  path: Record<string, unknown> | undefined;
-  query: Record<string, unknown> | undefined;
+  path?: Record<string, unknown>;
+  query?: Record<string, unknown>;
 };
 type CloudflareApiResult =
   | {
@@ -156,7 +156,7 @@ type CloudflareApiResult =
 type CloudflareApiRequestBase = {
   token: string;
   transport: CloudflareApiTransport;
-  recordApiCall?: ProviderApiCallRecorder | undefined;
+  recordApiCall?: ProviderApiCallRecorder;
 };
 
 export class CloudflareApiError extends Error {
@@ -198,14 +198,11 @@ export function resolveCloudflareApiTransport(
 
 function formatCloudflareApiEndpoint(args: {
   path: string;
-  params: CloudflareApiRequestParams | undefined;
+  params?: CloudflareApiRequestParams;
 }): string {
   return createFinalURL(args.path, {
     baseUrl: "",
-    params: {
-      ...(args.params?.path !== undefined ? { path: args.params.path } : {}),
-      ...(args.params?.query !== undefined ? { query: args.params.query } : {}),
-    },
+    params: args.params ?? {},
     querySerializer: createQuerySerializer(),
     pathSerializer: serializeCloudflareApiPath,
   });
@@ -525,7 +522,7 @@ async function executeCloudflareApiDirectRequest(args: {
         Authorization: `Bearer ${token}`,
         ...(args.body === undefined ? {} : { "Content-Type": "application/json" }),
       },
-      ...(args.body === undefined ? {} : { body: JSON.stringify(args.body) }),
+      body: args.body === undefined ? undefined : JSON.stringify(args.body),
       signal: controller.signal,
     });
     text = await response.text();

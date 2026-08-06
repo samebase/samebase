@@ -50,8 +50,6 @@ describe("FileViewPushActions", () => {
     const markup = renderToStaticMarkup(
       <FileViewPushActions
         canCreateDraftPullRequest
-        currentPullRequestNumber={undefined}
-        currentPullRequestUrl={undefined}
         draftButtonLabel="draft"
         hasChangesToCommit
         isCreatingDraftPullRequest={false}
@@ -70,8 +68,6 @@ describe("FileViewPushActions", () => {
     const markup = renderToStaticMarkup(
       <FileViewPushActions
         canCreateDraftPullRequest
-        currentPullRequestNumber={undefined}
-        currentPullRequestUrl={undefined}
         draftButtonLabel="create draft"
         hasChangesToCommit
         isCreatingDraftPullRequest={false}
@@ -110,8 +106,6 @@ describe("FileViewPushActions", () => {
     const markup = renderToStaticMarkup(
       <FileViewPushActions
         canCreateDraftPullRequest
-        currentPullRequestNumber={undefined}
-        currentPullRequestUrl={undefined}
         draftButtonLabel="create draft"
         hasChangesToCommit
         isCreatingDraftPullRequest

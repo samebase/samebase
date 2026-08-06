@@ -64,7 +64,7 @@ type PolarBillingReconciliationResult = Infer<typeof vPolarBillingReconciliation
 const vPolarCustomerSeed = object({
   externalCustomerId: string(),
   name: optional(string()),
-  email: string(),
+  email: optional(string()),
 });
 
 const vUserDoc = schema.tables.users.validator.extend({
@@ -136,15 +136,11 @@ export const getViewerBillingStatus = query({
     const state = readBillingAccountState(billing.account);
 
     return {
-      ...(state.provider !== undefined ? { provider: state.provider } : {}),
+      provider: state.provider,
       plan: state.plan,
       status: state.status,
-      ...(state.currentPeriodEndAt !== undefined
-        ? { currentPeriodEndAt: state.currentPeriodEndAt }
-        : {}),
-      ...(state.cancelAtPeriodEnd !== undefined
-        ? { cancelAtPeriodEnd: state.cancelAtPeriodEnd }
-        : {}),
+      currentPeriodEndAt: state.currentPeriodEndAt,
+      cancelAtPeriodEnd: state.cancelAtPeriodEnd,
       canStartCheckout:
         billing.role === "owner" && ctx.viewer.accessKeys.includes("access_dashboard"),
     };
@@ -175,8 +171,8 @@ export const ensurePolarExternalCustomerId = internalMutation({
     if (existing.length > 0) {
       return {
         externalCustomerId: existing,
+        name: user.name,
         email: user.email,
-        ...(user.name !== undefined ? { name: user.name } : {}),
       };
     }
 
@@ -187,8 +183,8 @@ export const ensurePolarExternalCustomerId = internalMutation({
 
     return {
       externalCustomerId,
+      name: user.name,
       email: user.email,
-      ...(user.name !== undefined ? { name: user.name } : {}),
     };
   },
 });

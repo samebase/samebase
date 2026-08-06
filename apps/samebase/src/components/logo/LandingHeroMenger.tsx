@@ -55,25 +55,25 @@ function buildLandingHeroMengerRouteSearch({
   routeState: Parameters<typeof buildLogoRouteSearch>[0];
   view: LogoViewState;
 }) {
-  const nextSearch = buildLogoRouteSearch({
-    ...routeState,
-    elevationDegrees: view.elevationDegrees,
-    rotationDegrees: view.rotationDegrees,
-    themeModeSearch: rootRouteSearch,
-  });
-
-  if (view.elevationDegrees === LANDING_HERO_DEFAULT_VIEW.elevationDegrees) {
-    delete nextSearch.elev;
-  } else {
-    nextSearch.elev = Number(view.elevationDegrees.toFixed(1));
-  }
-  if (view.rotationDegrees === LANDING_HERO_DEFAULT_VIEW.rotationDegrees) {
-    delete nextSearch.rot;
-  } else {
-    nextSearch.rot = Number(view.rotationDegrees.toFixed(1));
-  }
-
-  return preserveLogoRouteDevModeSearch(nextSearch, rootRouteSearch);
+  return preserveLogoRouteDevModeSearch(
+    {
+      ...buildLogoRouteSearch({
+        ...routeState,
+        elevationDegrees: view.elevationDegrees,
+        rotationDegrees: view.rotationDegrees,
+        themeModeSearch: rootRouteSearch,
+      }),
+      elev:
+        view.elevationDegrees !== LANDING_HERO_DEFAULT_VIEW.elevationDegrees
+          ? Number(view.elevationDegrees.toFixed(1))
+          : undefined,
+      rot:
+        view.rotationDegrees !== LANDING_HERO_DEFAULT_VIEW.rotationDegrees
+          ? Number(view.rotationDegrees.toFixed(1))
+          : undefined,
+    },
+    rootRouteSearch,
+  );
 }
 
 /**
