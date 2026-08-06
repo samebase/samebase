@@ -241,13 +241,14 @@ This is short-lived OAuth control state for both providers, not resource identit
 intent:
 
 - `connect`, when no row existed at OAuth start
-- `replace`, with the transient row ID, expected target ID, and a backend-only copy of the complete
-  current auth value
+- `replace`, with the transient row ID, expected target state, and a backend-only fingerprint of the
+  complete current auth value
 
 A connect callback must still find no row. A replace callback must still find the same row and
-target from OAuth start, and its complete auth value must still match. This compare-and-set rule
-stops an older callback from overwriting a newer reauthorization. The expected auth value stays in
-short-lived backend-only OAuth state. The beta model does not add a durable grant generation.
+target state from OAuth start, and its complete auth fingerprint must still match. This
+compare-and-set rule stops an older callback from overwriting a newer reauthorization or an account
+selection made while OAuth was in progress. Callback state stores no duplicate raw credential. The
+beta model does not add a durable grant generation.
 
 For a new Cloudflare connection, the callback can expose several authorized accounts. Keep the
 pending OAuth credentials only in backend-only, short-lived setup state until the owner chooses one
@@ -467,6 +468,11 @@ Provider-specific upstream result:
 Local removal is the guaranteed result. Upstream revocation is method-specific. The UI must not say
 that a provider revoked access when Samebase cannot confirm it.
 
+The disconnect action captures the current row, target, and complete auth value. Upstream revocation
+uses that captured auth value. Local deletion succeeds only if the same row, target, and auth value
+are still current. A concurrent refresh or replacement leaves the newer connection in place and
+makes the owner retry Disconnect.
+
 ### Connector Role Change Or Organization Departure
 
 Do not remove the connection.
@@ -498,6 +504,11 @@ For Cloudflare, attempt upstream OAuth revocation before local removal. Do not b
 account deletion if Cloudflare cannot confirm revocation. Tell the deleting user to revoke the
 authorization from the Cloudflare profile. This avoids an orphan provenance reference and does not
 make account deletion depend on another person.
+
+Each deletion batch revokes the captured auth value and deletes the row only if that auth value is
+still current. If a member refreshes it, the next bounded batch reloads and revokes the new value.
+If another owner replaces it, the changed `connectedByUserId` removes the connection from the
+deleting user's next batch.
 
 ### Revoked, Expired, Or Reduced Upstream Access
 
