@@ -211,6 +211,7 @@ export function PublicLandingLogo({
   const [isHydratedFallbackVisibilityReady, setIsHydratedFallbackVisibilityReady] = useState(false);
   const [isAutoRotating, setIsAutoRotating] = useState(autoRotate);
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const [isStageIntersecting, setIsStageIntersecting] = useState(false);
   const [view, setView] = useState<RotatedLogoViewState>(() => staticFallbackView);
   const [pointerTiltTarget, setPointerTiltTarget] = useState<LogoPresentationTiltTarget>(
     NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
@@ -225,16 +226,19 @@ export function PublicLandingLogo({
   const isSvgFallbackVisible =
     !isHydratedFallbackVisibilityReady ||
     (isSvgVisible && (!shouldHideQuerySvgFallbackUntilSceneReady || didSceneFail));
-  const isSceneInteractive = isSceneReady && !isSvgFallbackVisible;
+  const isSceneInteractive = isStageIntersecting && isSceneReady && !isSvgFallbackVisible;
   // Continuous rotation is decorative motion, so it follows the same OS
-  // preference as the color and stripe animations.
+  // preference as the color and stripe animations and stops outside the viewport.
   const isAutoRotateRequested =
-    (autoRotate || routeState.autoRotateEnabled) && !prefersReducedMotion;
-  const shouldAnimateFaceColors = routeState.faceColorAnimationEnabled && !prefersReducedMotion;
+    isStageIntersecting && (autoRotate || routeState.autoRotateEnabled) && !prefersReducedMotion;
+  const shouldAnimateFaceColors =
+    isStageIntersecting && routeState.faceColorAnimationEnabled && !prefersReducedMotion;
   const shouldAnimateLeftFaceStripes =
-    (animateLeftFaceStripes || routeState.leftFaceStripeAnimationEnabled) && !prefersReducedMotion;
+    isStageIntersecting &&
+    (animateLeftFaceStripes || routeState.leftFaceStripeAnimationEnabled) &&
+    !prefersReducedMotion;
   const shuffleAnimation = {
-    enabled: routeState.autoShuffleEnabled && !prefersReducedMotion,
+    enabled: isStageIntersecting && routeState.autoShuffleEnabled && !prefersReducedMotion,
     parallelMoves: routeState.shuffleParallelMoves,
   };
   useLayoutEffect(() => {
@@ -284,6 +288,30 @@ export function PublicLandingLogo({
     mediaQuery.addEventListener("change", syncReducedMotionPreference);
     return () => {
       mediaQuery.removeEventListener("change", syncReducedMotionPreference);
+    };
+  }, []);
+
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) {
+      return;
+    }
+    if (typeof window.IntersectionObserver !== "function") {
+      setIsStageIntersecting(true);
+      return;
+    }
+
+    const intersectionObserver = new window.IntersectionObserver((entries) => {
+      const entry = entries.at(-1);
+      if (!entry) {
+        return;
+      }
+      setIsStageIntersecting(entry.isIntersecting);
+    });
+    intersectionObserver.observe(stage);
+
+    return () => {
+      intersectionObserver.disconnect();
     };
   }, []);
 
@@ -473,9 +501,10 @@ export function PublicLandingLogo({
     };
   }, [isAutoRotating, routeState.autoRotationDegreesPerSecond]);
 
-  const activePresentationTiltTarget = prefersReducedMotion
-    ? undefined
-    : (presentationTiltTarget ?? (enablePointerTilt ? pointerTiltTarget : undefined));
+  const activePresentationTiltTarget =
+    prefersReducedMotion || !isStageIntersecting
+      ? undefined
+      : (presentationTiltTarget ?? (enablePointerTilt ? pointerTiltTarget : undefined));
 
   return (
     <div className={PUBLIC_LANDING_LOGO_CONTAINER_CLASS_NAME_BY_STAGE[stage]}>

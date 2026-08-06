@@ -47,6 +47,7 @@ type MockLandingLogoSceneProps = {
   presentationTiltNeutralProgress?: number;
   presentationTiltTarget?: LogoPresentationTiltTarget;
   rotationDegrees: number;
+  shuffleAnimation: { enabled: boolean };
   voxelGrid: unknown;
 };
 
@@ -147,6 +148,47 @@ function installImmediateIdleCallback() {
   });
 }
 
+function installControllableIntersectionObserver() {
+  let notifyIntersection: ((isIntersecting: boolean) => void) | undefined;
+
+  class MockIntersectionObserver implements IntersectionObserver {
+    private readonly callback: IntersectionObserverCallback;
+    readonly root: Element | Document | null = null;
+    readonly rootMargin = "0px";
+    readonly scrollMargin = "0px";
+    readonly thresholds: ReadonlyArray<number> = [];
+
+    constructor(callback: IntersectionObserverCallback) {
+      this.callback = callback;
+      notifyIntersection = (isIntersecting) => this.notify(isIntersecting);
+    }
+
+    disconnect() {}
+
+    observe() {}
+
+    takeRecords() {
+      return [];
+    }
+
+    unobserve() {}
+
+    notify(isIntersecting: boolean) {
+      // @ts-expect-error PublicLandingLogo only reads isIntersecting from this test entry.
+      this.callback([{ isIntersecting }], this);
+    }
+  }
+
+  vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+
+  return (isIntersecting: boolean) => {
+    if (!notifyIntersection) {
+      throw new Error("Expected PublicLandingLogo to observe its stage.");
+    }
+    notifyIntersection(isIntersecting);
+  };
+}
+
 function getLogoImage(rootElement: HTMLElement) {
   const logoImage = rootElement.querySelector(`[data-testid="${PUBLIC_LANDING_LOGO_TEST_ID}"]`);
   if (!(logoImage instanceof HTMLImageElement)) {
@@ -232,7 +274,68 @@ describe("PublicLandingLogo", () => {
       value: originalMatchMedia,
     });
     vi.useRealTimers();
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("pauses decorative animation while its stage is outside the viewport", async () => {
+    installImmediateIdleCallback();
+    installMotionMediaQueries({ finePointer: false, reducedMotion: false });
+    const notifyIntersection = installControllableIntersectionObserver();
+    let nextAnimationFrameId = 1;
+    const requestAnimationFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation(() => nextAnimationFrameId++);
+    const cancelAnimationFrame = vi
+      .spyOn(window, "cancelAnimationFrame")
+      .mockImplementation(() => {});
+
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const localRoot = createRoot(rootElement);
+    root = localRoot;
+
+    await act(async () => {
+      localRoot.render(
+        <PublicLandingLogo
+          routeSearch={{ "auto-rotate": true, "auto-shuffle": true }}
+          routeSearchSource="static"
+        />,
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const offscreenSceneProps = latestLandingLogoSceneProps.current;
+    if (!offscreenSceneProps) {
+      throw new Error("Expected mocked logo scene props while off screen.");
+    }
+    expect(offscreenSceneProps.shuffleAnimation.enabled).toBe(false);
+    expect(requestAnimationFrame).not.toHaveBeenCalled();
+
+    await act(async () => {
+      notifyIntersection(true);
+      await Promise.resolve();
+    });
+
+    const visibleSceneProps = latestLandingLogoSceneProps.current;
+    if (!visibleSceneProps) {
+      throw new Error("Expected mocked logo scene props while visible.");
+    }
+    expect(visibleSceneProps.shuffleAnimation.enabled).toBe(true);
+    expect(requestAnimationFrame).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      notifyIntersection(false);
+      await Promise.resolve();
+    });
+
+    const hiddenSceneProps = latestLandingLogoSceneProps.current;
+    if (!hiddenSceneProps) {
+      throw new Error("Expected mocked logo scene props after leaving the viewport.");
+    }
+    expect(hiddenSceneProps.shuffleAnimation.enabled).toBe(false);
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(1);
   });
 
   it("forwards a normalized mouse target without changing the dragged view", async () => {
