@@ -394,6 +394,51 @@ Cloudflare does not document exact access-token or refresh-token lifetimes on th
 does not document refresh-token rotation or the exact result when the authorizing user loses account
 membership.
 
+### GitHub Integration Topology
+
+Documented:
+
+- Cloudflare Workers Builds uses the Cloudflare Workers & Pages GitHub App. The installation grants
+  Cloudflare access to one GitHub individual or organization and can be limited to selected
+  repositories. See
+  [GitHub integration](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/).
+- Cloudflare says that a GitHub account should point to only one Cloudflare account. Cloudflare
+  presents this as a security consideration and also recommends limiting repository access. It does
+  not document this as an enforced cardinality rule. See
+  [GitHub organizational access](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/#organizational-access).
+- Removing the GitHub App removes Cloudflare access to every permitted repository for that GitHub
+  owner. Existing deployments continue, but new builds stop.
+- A repository connection is account-scoped. The Workers Builds API creates or updates it at
+  `PUT /accounts/{account_id}/builds/repos/connections`. Its data includes the Git provider account
+  ID, repository ID, and a Cloudflare `repo_connection_uuid`. See the
+  [Workers Builds repository connection API](https://developers.cloudflare.com/api/resources/workers_builds/subresources/repos/subresources/connections/).
+- The repository connection API does not expose the GitHub App installation ID. The GitHub App
+  installation and the Cloudflare repository connection are separate external objects.
+- Cloudflare supports more than one Worker connected to one repository, such as a monorepo.
+
+Inference:
+
+- The current Samebase rule of one stable GitHub repository owner for one organization aligns with
+  one Cloudflare account for that organization. It does not prove that Samebase organization
+  identity includes a Cloudflare account.
+- One Cloudflare account can serve repositories from more than one GitHub owner. Therefore several
+  Samebase organizations can use the same Cloudflare account without sharing a Samebase organization
+  or provider row.
+- The Cloudflare GitHub App installation is not a Samebase `providerConnections` credential. Direct
+  Cloudflare OAuth authorizes Samebase management API calls. The Cloudflare GitHub App separately
+  authorizes Cloudflare to read and build repositories.
+- Moving one GitHub owner from one Cloudflare account to another is an organization-level provider
+  target migration. It is not a credential replacement.
+
+Unclear:
+
+- Cloudflare does not document whether it enforces the one-GitHub-account-to-one-Cloudflare-account
+  recommendation.
+- Cloudflare does not document the repository connection behavior after GitHub owner rename,
+  repository transfer, or GitHub App reinstall.
+- Cloudflare does not document whether an upsert for the same repository always preserves the same
+  `repo_connection_uuid`.
+
 ### Documented API Token Facts
 
 - User API tokens act for one user and inherit a subset of that user's permissions.

@@ -28,6 +28,15 @@ Use model A now:
 - Existing resources keep their stable external identities. A credential replacement for the same
   target does not rewrite a resource row.
 
+This cardinality is a beta product rule. It does not follow from the accepted organization identity
+model, and it is not a permanent claim about either provider. The present product and UI already
+expect one Convex team and one Cloudflare account for an organization, so the database should make
+that current limit explicit.
+
+The limit is on the provider target, not on resources. One connected Convex team can contain a
+different Convex project for each vault. One connected Cloudflare account can contain a different
+Worker for each vault.
+
 This is one connection for the organization. It is not one connection for each member. Any member
 can start an authorized provider operation. Only an organization owner can establish or change the
 connection.
@@ -42,10 +51,25 @@ The present use case is the shared deployment account:
 4. A backend-only function uses the organization credential.
 5. The member never receives the raw provider credential.
 
-The product has no current need to deploy one organization across several Convex teams or several
-Cloudflare accounts. The current UI also has no truthful multi-connection management. More rows add
+The product has no current beta flow that deploys one organization across several Convex teams or
+several Cloudflare accounts. The current UI also has no multi-connection management. More rows add
 hidden credentials, target routing, default selection, disconnect choices, and failover rules that
 do not support a current user action.
+
+Cloudflare gives a provider-specific reason for its limit. Cloudflare says that a GitHub account
+should point to only one Cloudflare account and recommends limiting the Cloudflare GitHub App to the
+repositories that it needs. Each Samebase organization already maps to one stable GitHub repository
+owner, and Samebase uses Cloudflare Workers Builds for repositories under that owner. Binding the
+organization to one Cloudflare `accountId` follows that recommendation. See
+[Cloudflare GitHub organizational access](https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/#organizational-access).
+
+This Cloudflare statement is a security recommendation, not a documented platform constraint. It
+supports the beta choice but does not make the Cloudflare account part of Samebase organization
+identity. Cloudflare can still host Git repositories from several owners in one account.
+
+Convex has no equivalent GitHub relationship. One Convex `teamId` is a Samebase beta limit based on
+the present product flow and UI. It is not a Convex requirement and it is not derived from the
+GitHub owner model.
 
 ## Product Mental Model
 
@@ -58,6 +82,10 @@ The target is durable while provider resources depend on it. The credential is r
 
 A Cloudflare OAuth grant can permit access to more than one Cloudflare account. Samebase still binds
 the connection to one exact `accountId`. The grant reach does not become product routing.
+
+The one-target rule can change after beta without redefining a Samebase organization. Stable vault
+resource rows already retain `teamId` or `accountId`, so a later multi-target model can route by
+those external IDs. That future model still needs an accepted target-selection and lifecycle design.
 
 This does not mean that the target and credential are the same concept. They have different
 lifecycles. They stay in one row because the product permits one target and one current credential.
@@ -72,7 +100,7 @@ A split into two tables would create a one-to-one join with no current benefit.
 | Is selected durable?                                           | No. It is a temporary UI and storage workaround. Remove it.                                                                                                                        |
 | What if one Cloudflare credential can access several accounts? | The owner connects one exact account. Samebase does not treat all visible accounts as the organization connection.                                                                 |
 | Which Cloudflare credential method does Samebase use?          | Direct Cloudflare OAuth. This is a product invariant.                                                                                                                              |
-| Can one organization deploy to several teams or accounts?      | No, not now. All retained targets for one provider must agree.                                                                                                                     |
+| Can one organization deploy to several teams or accounts?      | No during beta. All retained targets for one provider must agree. This is a product limit, not organization identity.                                                              |
 | Does a vault bind to a provider target?                        | Yes. Plans and resource rows keep stable `teamId` or `accountId` values for future writes and retries.                                                                             |
 | What happens when the credential changes?                      | If the external target is unchanged, existing resources continue without row rewrites.                                                                                             |
 | What happens when the provider target changes?                 | The change is blocked while retained resources, plans, or retry state depend on the old target.                                                                                    |
@@ -287,8 +315,9 @@ New resources do not select a provider connection.
 4. Put the target `teamId` or `accountId` in the provisioning plan.
 5. Use that same target for provider calls and stable resource checkpoints.
 
-All organization vaults therefore use one Convex team and one Cloudflare account. A new app page has
-no provider-connection selector.
+All organization vaults therefore use one Convex team and one Cloudflare account. Each vault can
+still have its own Convex project and Cloudflare Worker within those targets. A new app page has no
+provider-connection selector.
 
 ## Existing Resource Resolution
 
@@ -608,7 +637,9 @@ Cost and fit:
 
 - Lowest current schema, UI, routing, and lifecycle cost.
 - Supports the shared organization credential and all current app flows.
-- A future multi-target use case needs a new accepted migration, which is an acceptable cost.
+- Expresses the current beta product limit. It does not redefine organization identity.
+- Stable resource target IDs make a later multi-target migration direct, but that migration must add
+  explicit target selection and lifecycle rules.
 
 Decision: Recommend.
 
@@ -749,7 +780,8 @@ Decision: Reject now. Reconsider only after an accepted multi-target or multi-gr
 
 Do not add a second row or connection picker until a later accepted decision defines:
 
-1. The real user action that needs several teams, accounts, or grants.
+1. The real user action that needs several teams, accounts, or grants, such as a vault that must use
+   a different provider target from the other organization vaults.
 2. Whether multiplicity is in external targets, credential grants, or both.
 3. How a new resource selects a target.
 4. How every existing resource resolves a grant.
@@ -814,10 +846,16 @@ preferred path if any target conflict exists.
   reconnect restores an existing resource.
 - Get written Convex and Cloudflare confirmation before broad production use.
 
-## Decisions That Need User Approval
+## Confirmed Review Direction
 
-1. Approve model A: one Convex team and one Cloudflare account for each Samebase organization, with
-   no selected connection fields.
+For beta, enforce zero or one Convex connection and zero or one Cloudflare connection for each
+Samebase organization. This is a current product and UI limit. Cloudflare's GitHub App guidance is
+supporting evidence for the Cloudflare account limit. Neither limit becomes part of organization
+identity.
+
+## Decisions That Still Need User Approval
+
+1. Approve removing the redundant selected connection fields and resetting hidden extra rows.
 2. Approve removing the manual Cloudflare API-key and MCP OAuth product paths. Direct Cloudflare
    OAuth remains as the required Cloudflare connection method.
 3. Approve the lifecycle: membership departure keeps the OAuth connection while the provider still
@@ -829,10 +867,12 @@ recommendation.
 
 ## Summary
 
-Use one provider connection of each kind for one organization. The row binds one stable external
-target to one current replaceable credential. Remove selected IDs. Keep provider resources and retry
-state bound to stable external IDs. Use Convex team OAuth and direct Cloudflare OAuth. Keeping the
-Cloudflare OAuth setup flow is a product invariant. Let all organization members use the
-backend-only credential, while only owners manage it. Reconnect to the same target restores
-operations. Disconnect removes local access and keeps resources. Add multi-connection behavior only
-after a real use case proves that the product needs independent targets or grants.
+Use one provider connection of each kind for one organization during beta. This is a product limit,
+not organization identity. The row binds one stable external target to one current replaceable
+credential. One team or account can contain a separate project or Worker for each vault. Remove
+selected IDs. Keep provider resources and retry state bound to stable external IDs. Use Convex team
+OAuth and direct Cloudflare OAuth. Keeping the Cloudflare OAuth setup flow is a product invariant.
+Let all organization members use the backend-only credential, while only owners manage it. Reconnect
+to the same target restores operations. Disconnect removes local access and keeps resources. Add
+multi-connection behavior only after a real use case proves that the product needs independent
+targets or grants.
