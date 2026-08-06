@@ -155,6 +155,42 @@ describe("VaultOverviewSidebar", () => {
     expect(markup).not.toContain("Private");
   });
 
+  it("shows folders before unfiled vaults", () => {
+    const organizationId = fakeOrganizationId();
+    const folderId = fakeFolderId("folder-projects");
+    const filedVault = vault("filed", fakeVaultId("vault-filed"));
+    const unfiledVault = vault("unfiled", fakeVaultId("vault-unfiled"));
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault"]}>
+        <VaultOverviewSidebar
+          {...FOLDER_CALLBACKS}
+          folderState={{
+            assignments: [{ folderId, vaultId: filedVault._id }],
+            folders: [
+              {
+                _id: folderId,
+                collapsed: false,
+                name: "Projects",
+                organizationId,
+                position: 0,
+              },
+            ],
+          }}
+          organizationId={organizationId}
+          page="overview"
+          selectedVaultId={null}
+          showOwner
+          sidebarSummaries={{ state: "loading" }}
+          vaults={[unfiledVault, filedVault]}
+          workspace={null}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup.indexOf("Projects")).toBeLessThan(markup.indexOf("samebase/filed"));
+    expect(markup.indexOf("samebase/filed")).toBeLessThan(markup.indexOf("samebase/unfiled"));
+  });
+
   it("marks the selected vault without hiding it", () => {
     const selectedVault = vault("active", fakeVaultId("vault-active"));
     const markup = renderToStaticMarkup(

@@ -361,7 +361,6 @@ export function VaultOverviewSidebar({
           vaults.map((vault) => renderVault(vault, false))
         ) : (
           <>
-            {unfiledVaults.map((vault) => renderVault(vault, false))}
             {organizationFolders.map((folder, index) => {
               const folderVaults = vaultsByFolderId.get(folder._id) ?? [];
               const selectedVault = folderVaults.find((vault) => vault._id === selectedVaultId);
@@ -487,6 +486,7 @@ export function VaultOverviewSidebar({
                 </section>
               );
             })}
+            {unfiledVaults.map((vault) => renderVault(vault, false))}
           </>
         )}
       </div>
