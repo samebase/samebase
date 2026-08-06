@@ -651,9 +651,7 @@ export function resolveConvexPreviewDeployment(args: {
   }
 
   const branchMatches = args.deployments.filter(
-    (deployment) =>
-      deployment.previewIdentifier === args.head.headRefName &&
-      deployment.reference === `preview/${args.head.headRefName}`,
+    (deployment) => deployment.previewIdentifier === args.head.headRefName,
   );
   if (branchMatches.length === 0) {
     return { state: "absent" };

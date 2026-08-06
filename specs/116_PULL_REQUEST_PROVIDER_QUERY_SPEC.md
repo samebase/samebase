@@ -154,7 +154,8 @@ pull request Worker API observation exists.
 
 A Convex branch deployment belongs to a row only when the pull request head is in the vault
 repository, the project is directly attached to the vault, the current Convex credential can read
-that exact project, and exactly one provider deployment matches the branch identifier and reference.
+that exact project, and exactly one preview deployment has a `previewIdentifier` equal to the GitHub
+head branch. The provider-owned deployment reference is not reconstructed from the GitHub branch.
 This discovery is independent of Worker build state. The direct attachment proves that the project
 belongs to the vault, while the branch match selects a useful recovery destination. It does not
 prove that the deployment came from the current head or is current. The UI labels this state as
@@ -223,8 +224,8 @@ Tests must prove:
 - resource enrichment derives head identity from a server-side GitHub read, never browser fields;
 - a pull request that leaves the open set during resource enrichment does not fail sibling rows;
 - attached Worker resource state uses an exact Cloudflare comment account-and-name match;
-- one attached-project Convex branch deployment remains reachable independently of Worker state and
-  is visibly branch-scoped;
+- one attached-project Convex branch deployment with a provider-normalized reference remains
+  reachable independently of Worker state and is visibly branch-scoped;
 - a matching Cloudflare comment row exposes its exact provider logs link and its visible status;
 - a matching Cloudflare comment row exposes its branch preview from that same comment;
 - a parsed Cloudflare comment set with no matching Worker row shows only that Worker as unavailable;
