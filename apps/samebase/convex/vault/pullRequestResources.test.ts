@@ -848,7 +848,22 @@ describe("validatePullRequestResourceIds", () => {
 });
 
 describe("resolveConvexPreviewDeployment", () => {
-  it("returns the unique branch deployment independently of Cloudflare build timing", () => {
+  it("returns the branch deployment when the provider normalizes its reference", () => {
+    expect(
+      resolveConvexPreviewDeployment({
+        deployments: [previewDeployment({ reference: "preview/feature-live-truth" })],
+        head,
+      }),
+    ).toMatchObject({
+      state: "branch",
+      deployment: {
+        name: "live-truth-91",
+        reference: "preview/feature-live-truth",
+      },
+    });
+  });
+
+  it("returns the unique branch deployment without comparing its deploy time", () => {
     expect(
       resolveConvexPreviewDeployment({
         deployments: [
@@ -873,12 +888,12 @@ describe("resolveConvexPreviewDeployment", () => {
     ).toEqual({ state: "unavailable", reason: "fork_head" });
   });
 
-  it("reports absence when the deployment reference does not match the branch", () => {
+  it("reports absence when the preview identifier does not match the branch", () => {
     expect(
       resolveConvexPreviewDeployment({
         deployments: [
           previewDeployment({
-            reference: "preview/another-branch",
+            previewIdentifier: "another-branch",
           }),
         ],
         head,
