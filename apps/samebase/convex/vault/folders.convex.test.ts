@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
-async function seedFolderData(t: ReturnType<typeof makeConvexTest>, assignmentCount = 1) {
+async function seedFolderData(t: ReturnType<typeof makeConvexTest>) {
   return await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", { email: "ada@example.com", isApproved: true });
     const organizationId = await ctx.db.insert("organizations", {
@@ -30,9 +30,7 @@ async function seedFolderData(t: ReturnType<typeof makeConvexTest>, assignmentCo
       position: 0,
       userId,
     });
-    for (let index = 0; index < assignmentCount; index += 1) {
-      await ctx.db.insert("ui_vaultFolderAssignments", { folderId, userId, vaultId });
-    }
+    await ctx.db.insert("ui_vaultFolderAssignments", { folderId, userId, vaultId });
     return { folderId, userId, vaultId };
   });
 }
@@ -85,79 +83,23 @@ describe("removed vault folder compatibility", () => {
   });
 });
 
-describe("vault folder data cleanup", () => {
-  it("refuses folder deletion while an assignment remains", async () => {
-    const t = makeConvexTest();
-    const { folderId } = await seedFolderData(t);
-
-    await expect(t.query(internal.vault.folderCleanup.getRemovalStatus, {})).resolves.toEqual({
-      assignmentsEmpty: false,
-      foldersEmpty: false,
-      phase: "assignments",
-    });
-    await expect(t.mutation(internal.vault.folderCleanup.deleteFolderBatch, {})).rejects.toThrow(
-      "Vault folder assignments must be empty before vault folders can be removed.",
-    );
-    await t.run(async (ctx) => {
-      expect(await ctx.db.get(folderId)).not.toBeNull();
-    });
-  });
-
-  it("deletes bounded assignment batches before folders and proves completion", async () => {
-    const t = makeConvexTest();
-    await seedFolderData(t, 101);
-
-    await expect(
-      t.mutation(internal.vault.folderCleanup.deleteAssignmentBatch, {}),
-    ).resolves.toEqual({
-      rowsDeleted: 100,
-      status: { assignmentsEmpty: false, foldersEmpty: false, phase: "assignments" },
-    });
-    await expect(
-      t.mutation(internal.vault.folderCleanup.deleteAssignmentBatch, {}),
-    ).resolves.toEqual({
-      rowsDeleted: 1,
-      status: { assignmentsEmpty: true, foldersEmpty: false, phase: "folders" },
-    });
-    await expect(t.mutation(internal.vault.folderCleanup.deleteFolderBatch, {})).resolves.toEqual({
-      rowsDeleted: 1,
-      status: { assignmentsEmpty: true, foldersEmpty: true, phase: "complete" },
-    });
-    await expect(t.query(internal.vault.folderCleanup.getRemovalStatus, {})).resolves.toEqual({
-      assignmentsEmpty: true,
-      foldersEmpty: true,
-      phase: "complete",
-    });
-    await t.run(async (ctx) => {
-      expect(await ctx.db.query("ui_vaultFolderAssignments").first()).toBeNull();
-      expect(await ctx.db.query("ui_vaultFolders").first()).toBeNull();
-    });
-  });
-
-  it("keeps folder rows through the vault deletion cleanup flow", async () => {
+describe("retired vault folder data", () => {
+  it("removes a vault assignment during vault deletion", async () => {
     const t = makeConvexTest();
     const { folderId, userId, vaultId } = await seedFolderData(t);
 
-    for (const step of [
-      "cleanup_editor_state",
-      "cleanup_source_caches",
-      "cleanup_runtime_state",
-      "cleanup_provisioning_history",
-    ] as const) {
-      await expect(
-        t.mutation(internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch, {
-          step,
-          userId,
-          vaultId,
-        }),
-      ).resolves.toEqual({ state: "done" });
-    }
-    await t.mutation(internal.vault.deletion.cleanup.deleteVaultRow, { userId, vaultId });
+    await expect(
+      t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, { userId, vaultId }),
+    ).resolves.toEqual({
+      rowsChanged: 1,
+      state: "needs_more",
+      table: "ui_vaultFolderAssignments",
+    });
 
     await t.run(async (ctx) => {
-      expect(await ctx.db.get(vaultId)).toBeNull();
+      expect(await ctx.db.get(vaultId)).not.toBeNull();
       expect(await ctx.db.get(folderId)).not.toBeNull();
-      expect(await ctx.db.query("ui_vaultFolderAssignments").first()).not.toBeNull();
+      expect(await ctx.db.query("ui_vaultFolderAssignments").first()).toBeNull();
     });
   });
 });

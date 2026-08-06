@@ -139,7 +139,6 @@ import type * as vault_deletion_providerActions from "../vault/deletion/provider
 import type * as vault_deletion_runs from "../vault/deletion/runs.js";
 import type * as vault_deletion_state from "../vault/deletion/state.js";
 import type * as vault_deletion_workflow from "../vault/deletion/workflow.js";
-import type * as vault_folderCleanup from "../vault/folderCleanup.js";
 import type * as vault_folderModel from "../vault/folderModel.js";
 import type * as vault_folders from "../vault/folders.js";
 import type * as vault_infrastructureOperation from "../vault/infrastructureOperation.js";
@@ -293,7 +292,6 @@ declare const fullApi: ApiFromModules<{
   "vault/deletion/runs": typeof vault_deletion_runs;
   "vault/deletion/state": typeof vault_deletion_state;
   "vault/deletion/workflow": typeof vault_deletion_workflow;
-  "vault/folderCleanup": typeof vault_folderCleanup;
   "vault/folderModel": typeof vault_folderModel;
   "vault/folders": typeof vault_folders;
   "vault/infrastructureOperation": typeof vault_infrastructureOperation;

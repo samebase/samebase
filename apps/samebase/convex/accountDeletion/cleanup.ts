@@ -10,7 +10,6 @@ type AccountDeletionTablePolicy =
   | "auth_finalization"
   | "user_finalization"
   | "receipt"
-  | "manual_cleanup"
   | "organization_preserved"
   | "global";
 
@@ -39,8 +38,8 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   ui_workspaceSidebar_layouts: "account_data",
   ui_vaultPullRequests_filters: "account_data",
   ui_vaultResourceLinks_settings: "account_data",
-  ui_vaultFolders: "manual_cleanup",
-  ui_vaultFolderAssignments: "manual_cleanup",
+  ui_vaultFolders: "account_data",
+  ui_vaultFolderAssignments: "account_data",
   vaults: "organization_preserved",
   vaultCloudflareWorkers: "organization_preserved",
   vaultConvexProjects: "organization_preserved",
@@ -195,6 +194,20 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
     const rows = await ctx.db
       .query("ui_vaultResourceLinks_settings")
       .withIndex("by_user", (query) => query.eq("userId", userId))
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    return await deleteRowsById(ctx, rows);
+  },
+  ui_vaultFolderAssignments: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("ui_vaultFolderAssignments")
+      .withIndex("by_userId_and_vaultId", (query) => query.eq("userId", userId))
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    return await deleteRowsById(ctx, rows);
+  },
+  ui_vaultFolders: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("ui_vaultFolders")
+      .withIndex("by_userId_and_position", (query) => query.eq("userId", userId))
       .take(ACCOUNT_DATA_BATCH_SIZE);
     return await deleteRowsById(ctx, rows);
   },

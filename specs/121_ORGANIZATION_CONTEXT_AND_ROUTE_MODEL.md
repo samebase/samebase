@@ -144,23 +144,10 @@ The server validates the return route and owner. A full-page return checks curre
 it shows organization data. If access changed during the external flow, Samebase keeps the scoped
 return route and shows the organization unavailable state.
 
-## Vault Folder Removal Rollout
+## Personal Vault Folders
 
-Personal vault folders and stored folder assignments are superseded by derived organization
-sections. The application first stops folder reads and writes. Existing folder data is not preserved
-or transformed.
-
-Persistent data cleanup is a separate reviewed operator step after the stopping deployment is live.
-The operator must resolve and verify the exact target deployment before each action. Cleanup deletes
-`ui_vaultFolderAssignments` rows first and verifies zero rows. It then deletes `ui_vaultFolders`
-rows and verifies zero rows. Physical table removal uses the same assignment-first order and
-verifies each table is absent before the schema and old cleanup code are removed in a narrow
-follow-up deployment. The operator must not redeploy the old schema between physical table deletion
-and that follow-up deployment because it can recreate the deleted indexes.
-
-Implementation worktrees must not run this cleanup against production or another shared persistent
-deployment. Tests can mutate only the worktree-local or a temporary development deployment. The
-exact operator commands and evidence requirements are in `docs/vault-folder-removal-rollout.md`.
+Organization sections replace personal vault folders in the vault inventory. This change adds no
+bulk folder-data cleanup and does not remove the existing folder tables.
 
 ## Non-Goals
 
@@ -187,7 +174,6 @@ Focused route, backend, and UI tests must prove:
 - scoped provider OAuth, checkout, and billing-portal returns
 - user-owned MCP clients and personal GitHub authorization in user settings
 - no internal organization ID in public links or messages
-- assignment-first folder cleanup on local or temporary development data
 
 Screenshot coverage must include the global inventory, one-organization and several-organization
 context, organization settings, user settings, zero membership, lost organization access, and lost

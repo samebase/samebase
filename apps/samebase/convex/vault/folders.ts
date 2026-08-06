@@ -16,7 +16,7 @@ function vaultFoldersRemoved(): never {
   throw new ConvexError(VAULT_FOLDERS_REMOVED_ERROR);
 }
 
-/** Compatibility read while stored folder data is removed in a separate rollout. */
+/** Compatibility read after personal folder controls were removed from the vault inventory. */
 export const getVaultFolderState = query({
   access: "access_dashboard",
   args: {},

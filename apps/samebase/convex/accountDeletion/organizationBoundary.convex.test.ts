@@ -287,32 +287,6 @@ describe("account deletion organization boundary", () => {
     ).resolves.toEqual({ state: "done" });
   });
 
-  it("keeps folder rows for the assignment-first stopping cleanup", async () => {
-    const { ids, t } = await seedRunningDeletion();
-    const folderId = await t.run(async (ctx) => {
-      const insertedFolderId = await ctx.db.insert("ui_vaultFolders", {
-        collapsed: false,
-        name: "Old folder",
-        nameKey: "old folder",
-        position: 0,
-        userId: ids.deletingUserId,
-      });
-      await ctx.db.insert("ui_vaultFolderAssignments", {
-        folderId: insertedFolderId,
-        userId: ids.deletingUserId,
-        vaultId: ids.vaultId,
-      });
-      return insertedFolderId;
-    });
-
-    await cleanAccountData(t, ids.runId);
-
-    await t.run(async (ctx) => {
-      expect(await ctx.db.get(folderId)).not.toBeNull();
-      expect(await ctx.db.query("ui_vaultFolderAssignments").first()).not.toBeNull();
-    });
-  });
-
   it("removes the member's credentials and personal access but preserves shared data", async () => {
     const { ids, t } = await seedRunningDeletion();
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");

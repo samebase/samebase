@@ -22,6 +22,7 @@ type DeleteOnlyByVaultCleanupTable = Infer<typeof deleteOnlyByVaultCleanupTables
 
 const vaultLocalCleanupTable = union(
   deleteOnlyByVaultCleanupTables,
+  literal("ui_vaultFolderAssignments"),
   literal("vaultStagedFiles"),
   literal("observations_vaultFiles_blobs"),
   literal("observations_vaultRepository_branchTrees"),
@@ -97,6 +98,22 @@ function deleteByVaultBatch(tableName: DeleteOnlyByVaultCleanupTable): VaultLoca
 
     return rows.length;
   };
+}
+
+async function deleteFolderAssignmentsByVaultBatch(
+  ctx: VaultLocalCleanupCtx,
+  args: VaultLocalCleanupArgs,
+): Promise<number> {
+  const rows = await ctx.db
+    .query("ui_vaultFolderAssignments")
+    .withIndex("by_vaultId", (q) => q.eq("vaultId", args.vaultId))
+    .take(VAULT_LOCAL_CLEANUP_BATCH_SIZE);
+
+  for (const row of rows) {
+    await ctx.db.delete(row._id);
+  }
+
+  return rows.length;
 }
 
 function deleteStorageBackedByVaultBatch(
@@ -195,6 +212,10 @@ const vaultLocalCleanupRegistry = [
     cleanup: deleteByVaultBatch("ui_vaultResourceLinks_settings"),
   },
   {
+    table: "ui_vaultFolderAssignments",
+    cleanup: deleteFolderAssignmentsByVaultBatch,
+  },
+  {
     table: "vaultStagedFiles",
     cleanup: deleteStorageBackedByVaultBatch("vaultStagedFiles"),
   },
@@ -260,6 +281,7 @@ const vaultLocalCleanupRegistryByStep = {
   cleanup_source_caches: [
     "ui_vaultPullRequests_filters",
     "ui_vaultResourceLinks_settings",
+    "ui_vaultFolderAssignments",
     "ui_vaultFileTree_folderExpansions",
     "observations_vaultRepository_branchTrees",
   ],
