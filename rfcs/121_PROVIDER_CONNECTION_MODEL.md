@@ -217,9 +217,9 @@ Indexes:
 - `by_organization_and_kind` on `organizationId`, `kind`
 - `by_connected_by_user` on `connectedByUserId`
 
-All writes query `by_organization_and_kind` with `.unique()`. The same mutation creates or updates
-the one row. Convex has no database unique constraint for this table shape, so write functions and
-tests enforce the invariant transactionally.
+All reads and writes query `by_organization_and_kind` with `.take(2)`. Zero rows means disconnected,
+one row is the connection, and two rows cause a reset-required error. Convex has no database unique
+constraint for this table shape, so write functions and tests enforce the invariant transactionally.
 
 Delete `by_organization_and_kind_and_team_id`. Resource resolution loads the one organization row
 and compares its target ID. Delete `by_kind_method` unless a concrete operational query still uses
@@ -241,11 +241,13 @@ This is short-lived OAuth control state for both providers, not resource identit
 intent:
 
 - `connect`, when no row existed at OAuth start
-- `replace`, with the transient row ID and expected target ID
+- `replace`, with the transient row ID, expected target ID, and a backend-only fingerprint of the
+  complete current auth value
 
 A connect callback must still find no row. A replace callback must still find the same row and
-target from OAuth start. The beta model does not add a grant generation only to order two rare,
-overlapping reauthorization callbacks.
+target from OAuth start, and its auth fingerprint must still match. This compare-and-set rule stops
+an older callback from overwriting a newer reauthorization. The beta model does not add a durable
+grant generation.
 
 For a new Cloudflare connection, the callback can expose several authorized accounts. Keep the
 pending OAuth credentials only in backend-only, short-lived setup state until the owner chooses one
@@ -345,7 +347,8 @@ Organization owner actions:
 Organization member actions:
 
 - View connection status without secret data.
-- Run a live access check.
+- Run a live access check for the connected target. A member cannot enumerate other accounts that
+  the connector's credential can access.
 - Create an app when both organization connections are usable.
 - Discover, attach, create, update, observe, and delete provider resources when the product action
   permits it.
@@ -361,7 +364,7 @@ Keep only audit facts that answer a current operator question:
 
 - Which organization target did the action use?
 - Which Samebase owner established the current grant?
-- When did that owner establish it?
+- When was the connection row last changed?
 - Which Samebase member started a modifying operation?
 - Which stable external resource did the operation change?
 
@@ -413,12 +416,12 @@ replace the local secret and report that upstream removal of the old token is no
 
 Automatic refresh maintains the current grant. It is not a new connection or a reauthorization.
 
-1. Resolve the one Cloudflare row and record its row ID, current target, and current refresh
-   credential.
-2. Claim the short-lived refresh lease.
+1. Resolve the one Cloudflare row and record its row ID, current target, and a backend-only
+   fingerprint of the complete auth value.
+2. Claim the short-lived refresh lease for either direct OAuth or MCP OAuth.
 3. Use the refresh credential only in a backend-only action.
-4. Store the returned access token, refresh token, and expiry only if the row, target, and stored
-   refresh credential are unchanged.
+4. Store the returned access token, refresh token, and expiry only if the row, target, and complete
+   stored auth fingerprint are unchanged.
 5. Clear the refresh lease. A stale refresh result must not overwrite a later reauthorization.
 6. Do not change `connectedByUserId`.
 
@@ -827,7 +830,15 @@ preferred path if any target conflict exists.
 - Stop all production reads and writes of organization selected IDs, but keep their optional schema
   fields for this deploy.
 - Make Convex and Cloudflare resource resolution use the same target-match rule.
-- Remove connection-row validation from post-provider checkpoints.
+- Block reconnecting a different target while retained resources, plans, deletion retries, or active
+  writes still depend on the old target.
+- Recheck the current exact target when an attach-existing operation commits. Remove connection-row
+  validation only from checkpoints after a modifying provider call, where failure could orphan a
+  newly created external resource.
+- Use complete-auth compare-and-set checks for OAuth replacement and refresh, and use the existing
+  refresh lease for direct and MCP OAuth.
+- Limit member-visible Cloudflare account data to the connected account. Keep multi-account setup
+  discovery owner-only.
 - Keep all current credential methods and the nested Cloudflare selected-account shape.
 - Add invariant tests.
 
