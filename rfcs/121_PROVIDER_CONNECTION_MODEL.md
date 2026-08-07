@@ -143,13 +143,15 @@ without an account only during first account selection.
 | Reauthorization              | Verify the retained team or account, then replace the credential, `connectedByUserId`, and `updatedAt`. A different external ID fails.                            |
 | Another owner takes over     | Run same-destination reauthorization. The new credential and `connectedByUserId` replace the old values.                                                          |
 | Disconnect                   | Clear the local credential and retain the destination, vaults, and provider resources. Attempt supported upstream revocation and report when it is not confirmed. |
-| Destination reset            | Require no row in `vaults.by_organization`. Clear the destination and its credential. A later fresh connect can establish another destination.                    |
+| Destination reset            | Require the credential to be disconnected and no row in `vaults.by_organization`. Clear only the destination. A later fresh connect can establish another.        |
 | Membership departure         | Keep the credential and destination.                                                                                                                              |
 | Connector account deletion   | Clear only credentials whose current `connectedByUserId` is the deleting user. Keep destinations and resources. Do not block deletion for replacement.            |
 | Upstream revoke or expiry    | Fail provider work closed. Keep local destinations and resource identities. An owner reconnects the same destination.                                             |
 
-Target reset needs one indexed vault existence check. It does not scan provisioning plans, locks,
-resources, or deletion runs because all of those rows belong to a vault.
+Destination reset requires Disconnect first so Samebase can try upstream revocation while it still
+has the credential. Reset then needs one indexed vault existence check. It does not scan
+provisioning plans, locks, resources, or deletion runs because all of those rows belong to a vault.
+The current slice adds no reset endpoint or UI because there is no present target-change use case.
 
 ## Cloudflare OAuth Account Selection
 
@@ -184,10 +186,13 @@ selection or change the account.
 
 Cloudflare refresh uses one explicit `tokenRefreshLease`. Completion writes only when both the full
 credential and the lease still match. Disconnect clears the credential first, so an in-progress
-refresh cannot restore it. Refresh preserves `connectedByUserId` and advances `updatedAt`.
+refresh cannot restore it. Claim requires a current member. After Cloudflare can rotate the token,
+the exact lease authorizes completion even if that member leaves. Refresh preserves
+`connectedByUserId` and advances `updatedAt`.
 
 OAuth callback state stores one hash of the current provider destination and credential snapshot. It
-stores no raw credential. The callback rejects a changed snapshot before it writes a new credential.
+stores no raw credential. The final credential mutation verifies the exact unexpired callback row,
+deletes it, and writes the credential atomically. It rejects a reused state or changed snapshot.
 
 ## UI
 

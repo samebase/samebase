@@ -140,11 +140,12 @@ temporary account-selection condition. Samebase does not create a vault until bo
 destinations exist. Existing credential methods remain supported until a separate accepted decision
 removes one.
 
-Disconnect tries the provider's supported upstream revocation and then clears the local credential.
-It keeps `organizations.convexTeam` or `organizations.cloudflareAccount`, all vaults, and all
-provider resources. Reconnect must prove that the new credential can access the retained team or
-account. It does not change that destination. A separate owner action can change a destination only
-when the organization has no `vaults` row in any lifecycle condition.
+Disconnect clears the local credential, then tries the provider's supported upstream revocation. A
+revocation failure does not restore local access. Disconnect keeps `organizations.convexTeam` or
+`organizations.cloudflareAccount`, all vaults, and all provider resources. Reconnect must prove that
+the new credential can access the retained team or account. It does not change that destination. A
+separate owner action can change a destination only after Disconnect and only when the organization
+has no `vaults` row in any lifecycle condition.
 
 Every vault stores required `convexTeamId` and `cloudflareAccountId` fields. Vault creation copies
 them from the organization in the same transaction. These fields bind all later provider work for
