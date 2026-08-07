@@ -309,25 +309,25 @@ test("landing preview uses the depth-three Menger hover scene", async ({ page })
   await expect(scene).toHaveCount(0);
 });
 
-test.describe("landing preview automatic probe on a wide touch device", () => {
+test.describe("landing preview automatic probe on a wide touch-first device", () => {
   test.use({
     deviceScaleFactor: 1,
     hasTouch: true,
     viewport: { height: 1000, width: 1440 },
   });
 
-  test("reveals the fractal when no available pointer can hover", async ({ page }) => {
+  test("reveals the fractal at a wide viewport", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.goto("/landing-preview", { waitUntil: "domcontentloaded" });
 
     await expect
       .poll(() =>
         page.evaluate(() => ({
-          canAnyPointerHover: window.matchMedia("(any-hover: hover)").matches,
+          isCoarsePointer: window.matchMedia("(hover: none) and (pointer: coarse)").matches,
           viewportWidth: window.innerWidth,
         })),
       )
-      .toEqual({ canAnyPointerHover: false, viewportWidth: 1440 });
+      .toEqual({ isCoarsePointer: true, viewportWidth: 1440 });
 
     const hero = page.getByTestId("landing-preview-hero-menger");
     const scene = hero.getByTestId("logo-menger-hover-scene");

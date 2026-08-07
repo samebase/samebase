@@ -1106,7 +1106,6 @@ export const trackedFilePaths = [
   "apps/samebase/src/hooks/use-mobile.tsx",
   "apps/samebase/src/hooks/useBrowserIndexedDbSnapshot.ts",
   "apps/samebase/src/hooks/useBrowserLocalStorageSnapshot.ts",
-  "apps/samebase/src/hooks/useCanHover.ts",
   "apps/samebase/src/hooks/useCoarsePointer.ts",
   "apps/samebase/src/hooks/useCornerNotchBridgeColor.ts",
   "apps/samebase/src/hooks/useDialog.ts",

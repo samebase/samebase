@@ -10,8 +10,8 @@ import {
 import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/logoSceneCameraDepth";
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
-import { useCanHover } from "@/hooks/useCanHover";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
+import { useCoarsePointer } from "@/hooks/useCoarsePointer";
 import {
   PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID,
   PUBLIC_LANDING_MENGER_TEST_ID,
@@ -83,7 +83,7 @@ a WebGL renderer or page-wide pointer listeners.
 */
 export function LandingHeroMenger({ placement }: { placement: "preview" | "root" }) {
   const navigate = useNavigate();
-  const canHover = useCanHover();
+  const isCoarsePointer = useCoarsePointer();
   const rootRouteSearch = useRootRouteSearch();
   const routeState = useMemo(
     () =>
@@ -98,10 +98,10 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
   const automaticProbe = useMemo(
     () => ({
       ...MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
-      enabled: !canHover,
+      enabled: isCoarsePointer,
       showPath: false,
     }),
-    [canHover],
+    [isCoarsePointer],
   );
   const resolvedTheme = useResolvedAppThemeColorState(routeState.themeColors);
   const leftFaceColor = resolvedTheme.faceColors.left;
