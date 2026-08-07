@@ -7,6 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "../../convex/_generated/api";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { UserSettingsPage } from "./UserSettingsPage";
+import type { AuthorizationError } from "../../shared/authorizationError";
+import type { GitHubAuthorizationSetup } from "@/lib/githubAppSetupFlow";
 
 const { act } = React;
 
@@ -24,7 +26,7 @@ const testState = vi.hoisted(() => ({
     canGoBack: vi.fn(() => true),
     navigate: vi.fn(async () => undefined),
   },
-  setupPopup: vi.fn<(getSetupUrl: () => Promise<string>) => Promise<void>>(),
+  setupPopup: vi.fn<(getSetup: () => Promise<GitHubAuthorizationSetup>) => Promise<void>>(),
   signOut: vi.fn(),
 }));
 
@@ -53,8 +55,8 @@ vi.mock("@/components/ui/use-toast", () => ({
 }));
 
 vi.mock("@/lib/githubAppSetupFlow", () => ({
-  openGitHubAppSetupPopup: (getSetupUrl: () => Promise<string>) =>
-    testState.setupPopup(getSetupUrl),
+  openGitHubAppSetupPopup: (getSetup: () => Promise<GitHubAuthorizationSetup>) =>
+    testState.setupPopup(getSetup),
 }));
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
@@ -120,11 +122,11 @@ function setDefaultQueries() {
 let root: Root | null = null;
 let rootElement: HTMLDivElement | null = null;
 
-async function mountSettingsPage() {
+async function mountSettingsPage(authorizationError: AuthorizationError | null = null) {
   rootElement = document.createElement("div");
   document.body.append(rootElement);
   root = createRoot(rootElement);
-  await act(async () => root?.render(<UserSettingsPage />));
+  await act(async () => root?.render(<UserSettingsPage authorizationError={authorizationError} />));
   return rootElement;
 }
 
@@ -163,7 +165,10 @@ describe("UserSettingsPage", () => {
   });
 
   it("starts personal GitHub authorization from account settings", async () => {
-    const getAuthorizationUrl = vi.fn(async () => "https://github.com/login/oauth/authorize");
+    const getAuthorizationUrl = vi.fn(async () => ({
+      callbackOrigin: "https://api.samebase.com",
+      setupUrl: "https://github.com/login/oauth/authorize",
+    }));
     testState.mutations.set(
       getFunctionName(api.githubAppInstallation.getGitHubUserAuthorizationUrl),
       getAuthorizationUrl,
@@ -179,6 +184,17 @@ describe("UserSettingsPage", () => {
     });
 
     expect(getAuthorizationUrl).toHaveBeenCalledWith({ returnToPath: "/settings" });
+  });
+
+  it("shows a canceled GitHub authorization message", async () => {
+    const container = await mountSettingsPage({
+      provider: "github-user",
+      code: "canceled",
+    });
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      "GitHub authorization was canceled. The existing connection was not changed.",
+    );
   });
 
   it("does not offer GitHub authorization without provider access", async () => {

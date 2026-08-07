@@ -182,6 +182,24 @@ test("keeps one organization switchable and separates organization and user sett
   });
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
 
+  await openRoute(
+    page,
+    "/org/org-context-solo/settings?authorization-provider=github-app&authorization-error=target-mismatch#github",
+  );
+  await expect(
+    page
+      .getByRole("alert")
+      .getByText(
+        "This organization is connected to GitHub owner org-context-solo. Select that owner to reconnect it.",
+        { exact: true },
+      ),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/org\/org-context-solo\/settings#github$/u);
+  await expect(page).toHaveScreenshot("organization-settings-authorization-error.png", {
+    ...screenshotOptions,
+    fullPage: true,
+  });
+
   await openRoute(page, "/org/org-context-solo/vaults");
   await expect(page.getByRole("link", { name: /org-context-solo\/solo-app,/u })).toBeVisible();
 

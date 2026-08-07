@@ -2,12 +2,15 @@ import type { ViewerOrganization } from "@/lib/organizationContext";
 import { OrganizationBillingSection } from "@/components/OrganizationBillingSection";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
-import { getCurrentRootRelativeUrl, openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
+import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
+import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
 import type { OrganizationBillingSearch } from "@/routeSearch/organizationBilling";
 import { useAction, useMutation } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
+import type { AuthorizationError } from "../../shared/authorizationError";
+import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 
 type InstallationCheckState =
   | { kind: "idle" }
@@ -16,18 +19,23 @@ type InstallationCheckState =
   | { kind: "unavailable" };
 
 export function OrganizationSettingsPage({
+  authorizationError = null,
   organization,
   search,
 }: {
+  authorizationError?: AuthorizationError | null;
   organization: ViewerOrganization;
   search: OrganizationBillingSearch;
 }) {
   const checkViewerInstallation = useAction(api.githubAppAccess.checkViewerInstallation);
-  const getGitHubAppInstallationUrl = useMutation(
-    api.githubAppInstallation.getGitHubAppInstallationUrl,
-  );
+  const getGitHubAppReconnectUrl = useMutation(api.githubAppInstallation.getGitHubAppReconnectUrl);
   const [checkState, setCheckState] = useState<InstallationCheckState>({ kind: "idle" });
   const [isReconnecting, setIsReconnecting] = useState(false);
+  const authorizationErrorMessage = authorizationError
+    ? formatAuthorizationErrorMessage(authorizationError, {
+        githubOwnerLogin: organization.githubOwnerLogin,
+      })
+    : null;
 
   const checkInstallation = async () => {
     if (checkState.kind === "checking") {
@@ -55,7 +63,10 @@ export function OrganizationSettingsPage({
     }
     setIsReconnecting(true);
     void openGitHubAppSetupPopup(async () => {
-      return await getGitHubAppInstallationUrl({ returnToPath: getCurrentRootRelativeUrl() });
+      return await getGitHubAppReconnectUrl({
+        organizationId: organization.organizationId,
+        returnToPath: getCurrentRootRelativeUrl(),
+      });
     })
       .catch((error: unknown) => {
         toast({
@@ -75,6 +86,11 @@ export function OrganizationSettingsPage({
       className="container mx-auto w-full max-w-2xl py-6"
     >
       <h1 className="text-xl font-semibold @2xl:text-2xl">Organization settings</h1>
+      {authorizationErrorMessage ? (
+        <p className="mt-4 text-sm text-destructive" role="alert">
+          {authorizationErrorMessage}
+        </p>
+      ) : null}
       <section className="mt-8 border-t pt-6" aria-labelledby="organization-identity-heading">
         <h2 id="organization-identity-heading" className="text-base font-semibold">
           Identity

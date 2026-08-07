@@ -229,6 +229,7 @@ const ROUTE_URL_EDITOR_VISUAL_MODES = [
 ] as const satisfies readonly RouteUrlEditorVisualMode[];
 const PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES = [
   "providers-page-connected",
+  "providers-page-authorization-error",
   "providers-page-loading",
   "providers-page-recovery",
 ] as const satisfies readonly ProviderConnectionsPageVisualMode[];
@@ -424,6 +425,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (
     mode === "providers-page-connected" ||
+    mode === "providers-page-authorization-error" ||
     mode === "providers-page-loading" ||
     mode === "providers-page-recovery"
   ) {

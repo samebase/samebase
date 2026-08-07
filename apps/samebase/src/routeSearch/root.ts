@@ -28,6 +28,12 @@ import {
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { buildPathWithTanStackSearch, parseTanStackSearch } from "@/lib/tanstackSearchParams";
 import { FORCE_PROD_UI_QUERY_PARAM, isProdUiModeEnabled } from "@/lib/prodUiMode";
+import {
+  AUTHORIZATION_ERROR_CODES,
+  AUTHORIZATION_ERROR_QUERY_PARAM,
+  AUTHORIZATION_PROVIDERS,
+  AUTHORIZATION_PROVIDER_QUERY_PARAM,
+} from "../../shared/authorizationError";
 
 export type VaultDashboardQueryDialog = "add-cloudflare" | "add-convex" | "delete";
 
@@ -53,6 +59,26 @@ const RouteSearchSchema_root = defineRouteSearchParams({
     suggestion: "route",
     valueType: "manual",
   }),
+  [AUTHORIZATION_ERROR_QUERY_PARAM]: routeSearchValueParam(
+    routeSearchStringValue(AUTHORIZATION_ERROR_CODES),
+    {
+      access: "access_public",
+      sampleValue: "failed",
+      suggestion: "hidden",
+      valueSuggestions: AUTHORIZATION_ERROR_CODES,
+      valueType: "options",
+    },
+  ),
+  [AUTHORIZATION_PROVIDER_QUERY_PARAM]: routeSearchValueParam(
+    routeSearchStringValue(AUTHORIZATION_PROVIDERS),
+    {
+      access: "access_public",
+      sampleValue: "convex",
+      suggestion: "hidden",
+      valueSuggestions: AUTHORIZATION_PROVIDERS,
+      valueType: "options",
+    },
+  ),
   code: routeSearchValueParam(routeSearchNonEmptyString, {
     access: "access_public",
     sampleValue: "oauth-code",
@@ -144,6 +170,10 @@ const rootRouteSearchParamMetadata = {
   "add-convex": rootRouteSearchOwnParamMetadata["add-convex"],
   "auth-return": rootRouteSearchOwnParamMetadata["auth-return"],
   auth: rootRouteSearchOwnParamMetadata.auth,
+  [AUTHORIZATION_ERROR_QUERY_PARAM]:
+    rootRouteSearchOwnParamMetadata[AUTHORIZATION_ERROR_QUERY_PARAM],
+  [AUTHORIZATION_PROVIDER_QUERY_PARAM]:
+    rootRouteSearchOwnParamMetadata[AUTHORIZATION_PROVIDER_QUERY_PARAM],
   code: rootRouteSearchOwnParamMetadata.code,
   delete: rootRouteSearchOwnParamMetadata.delete,
   devtools: rootRouteSearchOwnParamMetadata.devtools,

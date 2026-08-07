@@ -1,9 +1,34 @@
 import { parseSiteOrigin } from "./siteOrigin";
 
 export const GITHUB_APP_SETUP_POPUP_NAME = "github-app-setup";
+const GITHUB_APP_RETURN_TO_BASE_ORIGIN = "https://samebase.local";
 
 export function isSafeGitHubAppReturnToPath(returnToPath: string): boolean {
-  return returnToPath.startsWith("/") && !returnToPath.startsWith("//");
+  const trimmed = returnToPath.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) {
+    return false;
+  }
+  try {
+    return (
+      new URL(trimmed, GITHUB_APP_RETURN_TO_BASE_ORIGIN).origin === GITHUB_APP_RETURN_TO_BASE_ORIGIN
+    );
+  } catch {
+    return false;
+  }
+}
+
+export function buildGitHubOrganizationSettingsReturnUrl(args: {
+  githubOwnerLogin: string;
+  previousReturnUrl: string;
+}): string {
+  const previousReturnUrl = new URL(args.previousReturnUrl);
+  const returnUrl = new URL(
+    `/org/${encodeURIComponent(args.githubOwnerLogin.trim().toLowerCase())}/settings`,
+    previousReturnUrl,
+  );
+  returnUrl.search = previousReturnUrl.search;
+  returnUrl.hash = previousReturnUrl.hash;
+  return returnUrl.toString();
 }
 
 export function buildGitHubAppInstallationUrl(args: { appSlug: string; state: string }): string {

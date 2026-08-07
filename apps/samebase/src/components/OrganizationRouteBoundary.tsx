@@ -9,13 +9,24 @@ import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { Link } from "@tanstack/react-router";
 import { Fragment, type ReactNode } from "react";
 
-function OrganizationUnavailable({ owner }: { owner: string }) {
+function OrganizationUnavailable({
+  authorizationErrorMessage,
+  owner,
+}: {
+  authorizationErrorMessage?: string | null;
+  owner: string;
+}) {
   return (
     <main className="container mx-auto w-full max-w-2xl py-6">
       <h1 className="text-xl font-semibold @2xl:text-2xl">Organization unavailable</h1>
       <p className="mt-3 text-sm text-muted-foreground">
         You do not have Samebase access to {owner}.
       </p>
+      {authorizationErrorMessage ? (
+        <p className="mt-3 text-sm text-destructive" role="alert">
+          {authorizationErrorMessage}
+        </p>
+      ) : null}
       <Button asChild className="mt-6" variant="outline">
         <Link to={DASHBOARD_ROUTE}>All vaults</Link>
       </Button>
@@ -24,9 +35,11 @@ function OrganizationUnavailable({ owner }: { owner: string }) {
 }
 
 export function OrganizationRouteBoundary({
+  authorizationErrorMessage,
   children,
   owner,
 }: {
+  authorizationErrorMessage?: string | null;
   children: (organization: ViewerOrganization) => ReactNode;
   owner: string;
 }) {
@@ -37,21 +50,33 @@ export function OrganizationRouteBoundary({
 
   const organization = findViewerOrganization(organizations, owner);
   if (organization === null) {
-    return <OrganizationUnavailable owner={owner} />;
+    return (
+      <OrganizationUnavailable
+        authorizationErrorMessage={authorizationErrorMessage}
+        owner={owner}
+      />
+    );
   }
   return <Fragment key={organization.organizationId}>{children(organization)}</Fragment>;
 }
 
 export function AuthenticatedOrganizationRoutePage({
+  authorizationErrorMessage,
   children,
   owner,
 }: {
+  authorizationErrorMessage?: string | null;
   children: (organization: ViewerOrganization) => ReactNode;
   owner: string;
 }) {
   return (
     <AuthenticatedAppRoutePage>
-      <OrganizationRouteBoundary owner={owner}>{children}</OrganizationRouteBoundary>
+      <OrganizationRouteBoundary
+        authorizationErrorMessage={authorizationErrorMessage}
+        owner={owner}
+      >
+        {children}
+      </OrganizationRouteBoundary>
     </AuthenticatedAppRoutePage>
   );
 }

@@ -6,6 +6,7 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { OrganizationContextControl } from "./OrganizationContextControl";
+import type { GitHubAuthorizationSetup } from "@/lib/githubAppSetupFlow";
 
 const { act } = React;
 
@@ -16,22 +17,24 @@ type TestOrganizationContext = {
 
 const testState = vi.hoisted<{
   context: TestOrganizationContext;
-  getInstallationUrl: ReturnType<typeof vi.fn<() => Promise<string>>>;
+  getInstallationUrl: ReturnType<typeof vi.fn<() => Promise<GitHubAuthorizationSetup>>>;
   location: {
     hash: string;
     search: Record<string, unknown>;
   };
   navigate: ReturnType<typeof vi.fn<(options: { href: string }) => Promise<void>>>;
-  openSetup: ReturnType<typeof vi.fn<(getSetupUrl: () => Promise<string>) => Promise<void>>>;
+  openSetup: ReturnType<
+    typeof vi.fn<(getSetup: () => Promise<GitHubAuthorizationSetup>) => Promise<void>>
+  >;
 }>(() => ({
   context: {
     organizations: undefined,
     surface: { kind: "allVaults" },
   },
-  getInstallationUrl: vi.fn<() => Promise<string>>(),
+  getInstallationUrl: vi.fn<() => Promise<GitHubAuthorizationSetup>>(),
   location: { hash: "", search: {} },
   navigate: vi.fn<(options: { href: string }) => Promise<void>>(),
-  openSetup: vi.fn<(getSetupUrl: () => Promise<string>) => Promise<void>>(),
+  openSetup: vi.fn<(getSetup: () => Promise<GitHubAuthorizationSetup>) => Promise<void>>(),
 }));
 
 function fakeOrganizationId(value: string): Id<"organizations"> {
@@ -60,8 +63,12 @@ vi.mock("@/lib/organizationContext", async (importOriginal) => {
 });
 
 vi.mock("@/lib/githubAppSetupFlow", () => ({
+  openGitHubAppSetupPopup: (getSetup: () => Promise<GitHubAuthorizationSetup>) =>
+    testState.openSetup(getSetup),
+}));
+
+vi.mock("@/lib/currentRootRelativeUrl", () => ({
   getCurrentRootRelativeUrl: () => "/vault?prod-ui",
-  openGitHubAppSetupPopup: (getSetupUrl: () => Promise<string>) => testState.openSetup(getSetupUrl),
 }));
 
 vi.mock("@/components/ui/use-toast", () => ({
@@ -130,15 +137,18 @@ describe("OrganizationContextControl", () => {
     testState.location.hash = "";
     testState.location.search = {};
     testState.getInstallationUrl.mockReset();
-    testState.getInstallationUrl.mockResolvedValue(
-      "https://github.com/apps/samebase/installations/new",
-    );
+    testState.getInstallationUrl.mockResolvedValue({
+      callbackOrigin: "https://api.samebase.com",
+      setupUrl: "https://github.com/apps/samebase/installations/new",
+    });
     testState.navigate.mockReset();
     testState.navigate.mockResolvedValue(undefined);
     testState.openSetup.mockReset();
-    testState.openSetup.mockImplementation(async (getSetupUrl: () => Promise<string>) => {
-      await getSetupUrl();
-    });
+    testState.openSetup.mockImplementation(
+      async (getSetup: () => Promise<GitHubAuthorizationSetup>) => {
+        await getSetup();
+      },
+    );
   });
 
   afterEach(async () => {

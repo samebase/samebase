@@ -391,9 +391,9 @@ describe("organization provider credential lifecycle", () => {
     const changed = await seedConfiguredProviders();
     const changedState = await createConvexOAuthState(changed, "changed");
     await connectConvex(changed, changed.otherOwnerId, apiKey("newer"));
-    await expect(storeConvexOAuth(changed, changedState, "older")).rejects.toThrow(
-      "Convex configuration changed before authorization completed.",
-    );
+    await expect(storeConvexOAuth(changed, changedState, "older")).resolves.toEqual({
+      status: "configuration_changed",
+    });
     const current = await loadProviderState(changed.t, changed.organizationId);
     expect(current.credentials?.convex).toMatchObject({
       auth: apiKey("newer"),
@@ -401,7 +401,7 @@ describe("organization provider credential lifecycle", () => {
     });
     await expect(
       changed.t.run(async (ctx) => await ctx.db.get(changedState._id)),
-    ).resolves.not.toBeNull();
+    ).resolves.toBeNull();
   });
 
   it("finishes refresh after claimant departure and rejects stale auth or lease", async () => {

@@ -8,7 +8,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
-import { getCurrentRootRelativeUrl, openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
+import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
+import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
 import { buildOrganizationSwitchHref } from "@/lib/organizationSwitchRoute";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";

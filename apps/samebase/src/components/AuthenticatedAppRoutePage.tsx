@@ -4,7 +4,7 @@ import { useLocation } from "@tanstack/react-router";
 import { landingPageMarkdown } from "@/lib/landingCopy";
 import { resolvePageMetadata } from "@/lib/pageMetadata";
 import { usePageMetadata } from "@/lib/usePageMetadata";
-import { useRootRouteSearch } from "@/routeSearch/root";
+import { type RootRouteSearch, useRootRouteSearch } from "@/routeSearch/root";
 import { useAppAuthRuntimeEffects } from "@/lib/useAppAuthRuntimeEffects";
 import {
   isAppPresentationAuthenticated,
@@ -12,6 +12,78 @@ import {
 } from "@/lib/appAuthPresentationState";
 import { Authenticated, Unauthenticated } from "convex/react";
 import { Suspense, useMemo, type ReactNode } from "react";
+import { useCallback, useEffect } from "react";
+import { useRouter } from "@tanstack/react-router";
+import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
+import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";
+import { readAuthorizationError } from "@/routeSearch/authorizationError";
+import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
+import { toast } from "@/components/ui/use-toast";
+
+const ALL_AUTHORIZATION_SOURCES = ["convex", "cloudflare", "github-app", "github-user"] as const;
+const NO_AUTHORIZATION_SOURCES = [] as const;
+
+function isAuthorizationErrorHandledByRoute(
+  pathname: string,
+  provider: (typeof ALL_AUTHORIZATION_SOURCES)[number],
+): boolean {
+  switch (provider) {
+    case "convex":
+    case "cloudflare":
+      return /^\/org\/[^/]+\/providers\/?$/.test(pathname);
+    case "github-app":
+      return /^\/org\/[^/]+\/settings\/?$/.test(pathname);
+    case "github-user":
+      return pathname === "/settings";
+    default:
+      provider satisfies never;
+      return false;
+  }
+}
+
+function FallbackAuthorizationErrorNotice({
+  pathname,
+  rootRouteSearch,
+}: {
+  pathname: string;
+  rootRouteSearch: RootRouteSearch;
+}) {
+  const router = useRouter();
+  const currentAuthorizationError = readAuthorizationError(rootRouteSearch);
+  const consumeAuthorizationError = useCallback(() => {
+    void router.navigate({
+      hash: true,
+      replace: true,
+      resetScroll: false,
+      search: clearAuthorizationErrorSearch,
+      to: ".",
+    });
+  }, [router]);
+  const authorizationError = useAuthorizationErrorNotice({
+    allowedProviders:
+      currentAuthorizationError !== null &&
+      isAuthorizationErrorHandledByRoute(pathname, currentAuthorizationError.provider)
+        ? NO_AUTHORIZATION_SOURCES
+        : ALL_AUTHORIZATION_SOURCES,
+    onConsume: consumeAuthorizationError,
+    search: rootRouteSearch,
+    scopeKey: pathname,
+  });
+
+  useEffect(() => {
+    if (authorizationError === null) {
+      return;
+    }
+    toast({
+      description: formatAuthorizationErrorMessage(authorizationError),
+      priority: "high",
+      title: "Authorization not completed",
+      variant: "destructive",
+    });
+  }, [authorizationError]);
+
+  return null;
+}
 
 function AuthenticatedRouteSignInForm() {
   return (
@@ -51,16 +123,31 @@ function AuthenticatedRoutePage({
   useAppAuthRuntimeEffects(pathname, rootRouteSearch);
   usePageMetadata(pageMetadata);
 
+  const fallbackAuthorizationErrorNotice = (
+    <FallbackAuthorizationErrorNotice pathname={pathname} rootRouteSearch={rootRouteSearch} />
+  );
+
   if (authPresentation.kind === "temporaryAuthenticated") {
-    return <div data-testid="temporary-auth-route-shell" />;
+    return (
+      <>
+        {fallbackAuthorizationErrorNotice}
+        <div data-testid="temporary-auth-route-shell" />
+      </>
+    );
   }
 
   if (authPresentation.kind === "signedOut") {
-    return <AuthenticatedRouteSignInForm />;
+    return (
+      <>
+        {fallbackAuthorizationErrorNotice}
+        <AuthenticatedRouteSignInForm />
+      </>
+    );
   }
 
   return (
     <>
+      {fallbackAuthorizationErrorNotice}
       <Authenticated>
         {approvalRequired ? (
           <ApprovalGate>

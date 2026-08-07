@@ -70,10 +70,7 @@ export function resolveCloudflareAccountAfterAuthorization(
   const selectedAccount = normalizedAccounts.find(
     (account) => account.accountId === currentAccount.accountId,
   );
-  if (selectedAccount === undefined) {
-    throw new Error("The new Cloudflare authorization cannot access the connected account.");
-  }
-  return selectedAccount;
+  return selectedAccount ?? null;
 }
 
 export async function listCloudflareAccountsForToken(args: {

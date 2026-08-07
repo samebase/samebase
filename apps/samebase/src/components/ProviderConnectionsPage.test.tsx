@@ -13,6 +13,7 @@ import {
   ProviderConnectionsPage,
 } from "./ProviderConnectionsPage";
 import { ProviderConnectionsPageVisualFixture } from "./ProviderConnectionsPageVisualFixture";
+import type { AuthorizationError } from "../../shared/authorizationError";
 
 const { act } = React;
 
@@ -81,7 +82,10 @@ function setProviderQueries() {
 let mountedRoot: Root | null = null;
 let mountedElement: HTMLDivElement | null = null;
 
-function mountProviderConnectionsPage(selectedOrganization: TestOrganization = organization) {
+function mountProviderConnectionsPage(
+  selectedOrganization: TestOrganization = organization,
+  authorizationError: AuthorizationError | null = null,
+) {
   mountedElement = document.createElement("div");
   document.body.append(mountedElement);
   mountedRoot = createRoot(mountedElement);
@@ -90,7 +94,10 @@ function mountProviderConnectionsPage(selectedOrganization: TestOrganization = o
       <TestRouterProvider
         initialEntries={[`/org/${selectedOrganization.githubOwnerLogin}/providers`]}
       >
-        <ProviderConnectionsPage organization={selectedOrganization} />
+        <ProviderConnectionsPage
+          authorizationError={authorizationError}
+          organization={selectedOrganization}
+        />
       </TestRouterProvider>,
     );
   });
@@ -239,6 +246,27 @@ describe("ProviderConnectionsPage", () => {
     });
     expect(container.querySelector('[aria-label="GitHub owner"]')).toBeNull();
     expect(container.textContent).not.toContain(ORGANIZATION_ID);
+  });
+
+  it("shows the configured Convex team after a reauthorization target mismatch", () => {
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      authMethod: "oauth",
+      state: "connected",
+      teamId: "configured-team-id",
+      teamSlug: "configured-team",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      state: "not_configured",
+    });
+
+    const container = mountProviderConnectionsPage(organization, {
+      provider: "convex",
+      code: "target-mismatch",
+    });
+
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      "This organization is connected to Convex team configured-team. Select that team to reauthorize it.",
+    );
   });
 
   it("shows the provider recovery fixture without target management controls", () => {

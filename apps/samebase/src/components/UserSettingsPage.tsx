@@ -18,6 +18,8 @@ import { useNow } from "@/hooks/useNow";
 import { getRouteApi, useLocation, useRouter } from "@tanstack/react-router";
 import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
 import { applySearchPatch } from "@/routing/searchFlags";
+import type { AuthorizationError } from "../../shared/authorizationError";
+import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 
 const settingsRouteApi = getRouteApi("/settings");
 
@@ -41,7 +43,11 @@ function readErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-export function UserSettingsPage() {
+export function UserSettingsPage({
+  authorizationError = null,
+}: {
+  authorizationError?: AuthorizationError | null;
+}) {
   const router = useRouter();
   const navigate = settingsRouteApi.useNavigate();
   const search = settingsRouteApi.useSearch();
@@ -72,6 +78,9 @@ export function UserSettingsPage() {
     enabled: githubAuthorization?.status === "authorized",
     intervalMs: 60_000,
   });
+  const authorizationErrorMessage = authorizationError
+    ? formatAuthorizationErrorMessage(authorizationError)
+    : null;
 
   if (settings === undefined || viewerAccess === undefined || githubAuthorization === undefined) {
     return null;
@@ -266,6 +275,11 @@ export function UserSettingsPage() {
           {isSigningOut ? "Signing out..." : "Sign out"}
         </Button>
       </div>
+      {authorizationErrorMessage ? (
+        <p className="mt-4 text-sm text-destructive" role="alert">
+          {authorizationErrorMessage}
+        </p>
+      ) : null}
 
       <section className="mt-8 border-t pt-6" aria-labelledby="settings-profile-heading">
         <h2 id="settings-profile-heading" className="text-base font-semibold">

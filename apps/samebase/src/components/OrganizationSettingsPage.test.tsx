@@ -8,6 +8,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
+import type { AuthorizationError } from "../../shared/authorizationError";
 
 function fakeOrganizationId(value: string): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this test only needs
@@ -48,10 +49,17 @@ const organization = {
   role: "owner" as const,
 } satisfies ViewerOrganization;
 
-function renderOrganizationSettings(selectedOrganization: ViewerOrganization) {
+function renderOrganizationSettings(
+  selectedOrganization: ViewerOrganization,
+  authorizationError: AuthorizationError | null = null,
+) {
   return renderToStaticMarkup(
     <TestRouterProvider initialEntries={["/org/samebase/settings"]}>
-      <OrganizationSettingsPage organization={selectedOrganization} search={{}} />
+      <OrganizationSettingsPage
+        authorizationError={authorizationError}
+        organization={selectedOrganization}
+        search={{}}
+      />
     </TestRouterProvider>,
   );
 }
@@ -78,5 +86,17 @@ describe("OrganizationSettingsPage", () => {
     expect(memberMarkup).toContain("Current plan");
     expect(memberMarkup).not.toContain("Upgrade to Pro");
     expect(memberMarkup).not.toContain("Manage subscription");
+  });
+
+  it("shows the configured GitHub owner after a reconnect mismatch", () => {
+    const markup = renderOrganizationSettings(organization, {
+      provider: "github-app",
+      code: "target-mismatch",
+    });
+
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain(
+      "This organization is connected to GitHub owner samebase. Select that owner to reconnect it.",
+    );
   });
 });

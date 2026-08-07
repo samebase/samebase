@@ -2210,12 +2210,12 @@ describe("cloudflare resources", () => {
       accountId: "account-a",
       accountName: "Account A renamed",
     });
-    expect(() =>
+    expect(
       resolveCloudflareAccountAfterAuthorization(accounts, {
         accountId: "account-missing",
         accountName: "Missing account",
       }),
-    ).toThrow("The new Cloudflare authorization cannot access the connected account.");
+    ).toBeNull();
   });
 
   it("selects the build token backed by the current Cloudflare token", () => {

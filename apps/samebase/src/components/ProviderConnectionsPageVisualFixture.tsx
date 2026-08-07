@@ -6,6 +6,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 export type ProviderConnectionsPageVisualMode =
   | "providers-page-connected"
+  | "providers-page-authorization-error"
   | "providers-page-loading"
   | "providers-page-recovery";
 
@@ -142,6 +143,11 @@ export function ProviderConnectionsPageVisualFixture({
   return (
     <ProviderConnectionsPageView
       apiKeyDialog={null}
+      authorizationErrorMessage={
+        mode === "providers-page-authorization-error"
+          ? "This organization is connected to Convex team acme-platform. Select that team to reauthorize it."
+          : null
+      }
       cloudflareAccess={isLoading ? null : state.cloudflareAccess}
       cloudflareAccessError={null}
       cloudflareAccountDialog={{
