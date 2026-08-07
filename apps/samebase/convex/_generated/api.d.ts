@@ -116,7 +116,6 @@ import type * as vault_cloudflareBuildMatching from "../vault/cloudflareBuildMat
 import type * as vault_cloudflareMutations from "../vault/cloudflareMutations.js";
 import type * as vault_contracts_cloudflareAttachments from "../vault/contracts/cloudflareAttachments.js";
 import type * as vault_contracts_cloudflareConfigureWorkersBuildsForGitHub from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub.js";
-import type * as vault_contracts_cloudflareListAccounts from "../vault/contracts/cloudflareListAccounts.js";
 import type * as vault_contracts_cloudflareRotateConvexDeployKeysForWorkersBuilds from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds.js";
 import type * as vault_contracts_connectRepository from "../vault/contracts/connectRepository.js";
 import type * as vault_contracts_convexAttachments from "../vault/contracts/convexAttachments.js";
@@ -270,7 +269,6 @@ declare const fullApi: ApiFromModules<{
   "vault/cloudflareMutations": typeof vault_cloudflareMutations;
   "vault/contracts/cloudflareAttachments": typeof vault_contracts_cloudflareAttachments;
   "vault/contracts/cloudflareConfigureWorkersBuildsForGitHub": typeof vault_contracts_cloudflareConfigureWorkersBuildsForGitHub;
-  "vault/contracts/cloudflareListAccounts": typeof vault_contracts_cloudflareListAccounts;
   "vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds": typeof vault_contracts_cloudflareRotateConvexDeployKeysForWorkersBuilds;
   "vault/contracts/connectRepository": typeof vault_contracts_connectRepository;
   "vault/contracts/convexAttachments": typeof vault_contracts_convexAttachments;

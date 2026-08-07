@@ -58,13 +58,6 @@ export const toolJustifications = {
       "Reads GitHub, Convex, and available Cloudflare Worker markers; it does not change provider or public internet state.",
     destructive_justification: noDestructiveActions,
   },
-  vault_cloudflare_listAccounts: {
-    read_only_justification:
-      "Lists Cloudflare accounts and may refresh private Samebase connection bookkeeping while reading Cloudflare.",
-    open_world_justification:
-      "Reads the Cloudflare API; it does not change Cloudflare or public internet state.",
-    destructive_justification: noDestructiveActions,
-  },
   vault_cloudflare_createWorker: {
     read_only_justification:
       "Creates one Cloudflare Worker, records it as a vault attachment, configures its Workers Builds triggers, and requests an initial production build.",
@@ -180,12 +173,12 @@ export const testCases = [
   },
   {
     description:
-      "Read the Cloudflare account fixture already connected to the prepared reviewer demo account.",
-    user_prompt: "Which Cloudflare accounts are connected to my Samebase account?",
+      "Discover Cloudflare Workers for a prepared app by using its stored provider destination.",
+    user_prompt: "Show me the Cloudflare Workers I can attach to my prepared Samebase app.",
     file_attachment_urls: null,
-    tools_triggered: ["vault_cloudflare_listAccounts"],
+    tools_triggered: ["vault_dashboard_getUserVaults", "vault_cloudflare_discoverWorkers"],
     expected_output:
-      "Returns the Cloudflare accounts readable through the reviewer account as account-name and account-ID pairs. It creates no Cloudflare resource.",
+      "Reads the app inventory, passes that vault's cloudflareAccountId to Worker discovery, and reports Workers from only that account. It does not select another account or create a Cloudflare resource.",
     expected_output_url: null,
   },
   {

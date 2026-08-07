@@ -7,7 +7,6 @@ import { internalAction, type ActionCtx } from "../_generated/server";
 import { createRepositoryContract } from "../vault/contracts/createRepository";
 import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
 import { connectRepositoryContract } from "../vault/contracts/connectRepository";
-import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareListAccounts";
 import {
   cloudflareAttachWorkersContract,
   cloudflareCreateWorkerContract,
@@ -39,7 +38,6 @@ import {
   attachExistingCloudflareWorkersForUser,
   createWorkerForUser,
   discoverCloudflareWorkersForUser,
-  listCloudflareAccountsForUser,
   configureWorkersBuildsForGitHubForUser,
   rotateConvexDeployKeysForWorkersBuildsForUser,
 } from "../vault/cloudflare";
@@ -195,31 +193,6 @@ export const convexDiscoverProjectsTool = defineMcpTool({
     return {
       text: `Found ${structuredContent.projects.length} ${structuredContent.projects.length === 1 ? "project" : "projects"} and ${structuredContent.source.locations.length} code ${structuredContent.source.locations.length === 1 ? "location" : "locations"}.`,
       structuredContent,
-    };
-  },
-});
-
-export const cloudflareListAccountsTool = defineMcpTool({
-  contract: cloudflareListAccountsContract,
-  args: cloudflareListAccountsContract.mcpArgs,
-  successFields: {
-    structuredContent: cloudflareListAccountsContract.structuredContent,
-  },
-  run: async (ctx, args) => {
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
-      userId: args.userId,
-      vaultId: args.vaultId,
-    });
-    if (vault === null) {
-      throw new Error("Vault not found");
-    }
-    const accounts = await listCloudflareAccountsForUser(ctx, {
-      userId: args.userId,
-      organizationId: vault.organizationId,
-    });
-    return {
-      text: `Found ${accounts.length} ${accounts.length === 1 ? "account" : "accounts"}.`,
-      structuredContent: { accounts },
     };
   },
 });

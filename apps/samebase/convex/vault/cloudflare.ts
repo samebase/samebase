@@ -5,7 +5,10 @@ import { ConvexError, Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
-import { listCloudflareAccountsForToken } from "../cloudflareAccountDiscovery";
+import {
+  listCloudflareAccountsForToken,
+  type CloudflareAccount,
+} from "../cloudflareAccountDiscovery";
 import {
   resolveCloudflareApiTransport,
   type CloudflareApiTransport,
@@ -41,7 +44,6 @@ import type {
   WorkerConvexProjectConfigurationContext,
 } from "./cloudflareMutations";
 import { readConvexProductionDeployment } from "./convexProjectResources";
-import { vCloudflareAccountResult } from "./contracts/cloudflareListAccounts";
 import {
   cloudflareAttachWorkersContract,
   cloudflareConnectWorkerContract,
@@ -58,7 +60,6 @@ import {
 
 const { id, null: nullValue, object, string } = v;
 
-type CloudflareAccountResult = Infer<typeof vCloudflareAccountResult>;
 type CloudflareConnectWorkerResult = Infer<typeof cloudflareConnectWorkerContract.returns>;
 type CloudflareActionConnection = {
   organizationId: Id<"organizations">;
@@ -140,7 +141,7 @@ function requireCloudflareAccountTarget(
 async function listAccountsForConnection(args: {
   token: string;
   transport: CloudflareApiTransport;
-}): Promise<CloudflareAccountResult[]> {
+}): Promise<CloudflareAccount[]> {
   return await listCloudflareAccountsForToken({ ...args, perPage: 100 });
 }
 
@@ -148,7 +149,7 @@ async function resolveAccount(args: {
   token: string;
   transport: CloudflareApiTransport;
   accountId: string;
-}): Promise<CloudflareAccountResult> {
+}): Promise<CloudflareAccount> {
   const account = (await listAccountsForConnection(args)).find(
     (candidate) => candidate.accountId === args.accountId,
   );
@@ -211,7 +212,7 @@ async function resolveCloudflareRepositoryContext(
     accountId: string;
   },
 ): Promise<{
-  account: CloudflareAccountResult;
+  account: CloudflareAccount;
   connection: CloudflareActionConnection;
   context: ProviderAttachmentVaultContext;
   githubAccess: GitHubAppAccess;
@@ -866,26 +867,6 @@ export async function rotateConvexDeployKeysForWorkersBuildsForUser(
     actionId,
     result: "succeeded",
   });
-}
-
-export async function listCloudflareAccountsForUser(
-  ctx: ActionCtx,
-  args: { userId: Id<"users">; organizationId: Id<"organizations"> },
-): Promise<CloudflareAccountResult[]> {
-  const role = await ctx.runQuery(internal.organizationAccess.requireOrganizationRoleForUser, args);
-  const connection = await resolveCloudflareConnection(ctx, args);
-  if (connection.account) {
-    return [
-      {
-        accountId: connection.account.accountId,
-        accountName: connection.account.accountName,
-      },
-    ];
-  }
-  if (role !== "owner") {
-    return [];
-  }
-  return await listAccountsForConnection(connection);
 }
 
 export async function configureWorkersBuildsForGitHubForUser(

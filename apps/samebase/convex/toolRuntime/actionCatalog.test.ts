@@ -9,7 +9,6 @@ describe("action catalog presentation order", () => {
       "create_repository",
       "connect_existing_repository",
       "discover_convex_projects",
-      "list_cloudflare_accounts",
       "discover_cloudflare_workers",
       "attach_convex_projects",
       "attach_cloudflare_workers",

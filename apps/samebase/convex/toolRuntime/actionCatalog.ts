@@ -2,7 +2,6 @@ import { getAuthenticationStatusContract } from "../mcp/contracts/getAuthenticat
 import { createRepositoryContract } from "../vault/contracts/createRepository";
 import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
 import { connectRepositoryContract } from "../vault/contracts/connectRepository";
-import { cloudflareListAccountsContract } from "../vault/contracts/cloudflareListAccounts";
 import {
   cloudflareAttachWorkersContract,
   cloudflareCreateWorkerContract,
@@ -33,7 +32,6 @@ export const actionContracts = [
   createRepositoryContract,
   connectRepositoryContract,
   convexDiscoverProjectsContract,
-  cloudflareListAccountsContract,
   cloudflareDiscoverWorkersContract,
   convexAttachProjectsContract,
   cloudflareAttachWorkersContract,
