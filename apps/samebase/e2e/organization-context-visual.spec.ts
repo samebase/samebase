@@ -195,6 +195,10 @@ test("keeps one organization switchable and separates organization and user sett
       ),
   ).toBeVisible();
   await expect(page).toHaveURL(/\/org\/org-context-solo\/settings#github$/u);
+  if (!(await rightPane.isVisible())) {
+    await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  }
+  await expect(organizationContext).toBeVisible();
   await expect(page).toHaveScreenshot("organization-settings-authorization-error.png", {
     ...screenshotOptions,
     fullPage: true,
