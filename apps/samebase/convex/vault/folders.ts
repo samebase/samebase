@@ -296,6 +296,10 @@ export const moveVaultFolder = mutation({
     });
     const index = folders.findIndex((candidate) => candidate._id === folder._id);
     const adjacentIndex = args.direction === "up" ? index - 1 : index + 1;
+    if (adjacentIndex < 0 || adjacentIndex >= folders.length) {
+      return null;
+    }
+
     const adjacent = folders.at(adjacentIndex);
     if (!adjacent) {
       return null;

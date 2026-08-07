@@ -292,6 +292,42 @@ describe("organization-scoped vault folders", () => {
     );
   });
 
+  it("does not wrap folder order at either boundary", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "ada@example.com");
+    const organizationId = await seedOrganization(t, { owner: "samebase", userId });
+    const viewer = asUser(t, userId);
+    const firstFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "First",
+      organizationId,
+    });
+    const middleFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Middle",
+      organizationId,
+    });
+    const lastFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Last",
+      organizationId,
+    });
+
+    await viewer.mutation(api.vault.folders.moveVaultFolder, {
+      direction: "up",
+      folderId: firstFolderId,
+    });
+    await viewer.mutation(api.vault.folders.moveVaultFolder, {
+      direction: "down",
+      folderId: lastFolderId,
+    });
+
+    await expect(viewer.query(api.vault.folders.getVaultFolderState)).resolves.toMatchObject({
+      folders: [
+        { _id: firstFolderId, position: 0 },
+        { _id: middleFolderId, position: 1 },
+        { _id: lastFolderId, position: 2 },
+      ],
+    });
+  });
+
   it("hides stored folders and assignments after organization access is lost", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
