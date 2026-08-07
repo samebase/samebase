@@ -152,8 +152,9 @@ export function ProviderConnectionsPageVisualFixture({
       authorizationErrorMessage={
         mode === "providers-page-authorization-error" ? AUTHORIZATION_ERROR_MESSAGE : null
       }
+      canRefresh={!isLoading && mode !== "providers-page-recovery"}
       cloudflareAccess={isLoading ? null : state.cloudflareAccess}
-      cloudflareAccessError={null}
+      cloudflareAccessError={false}
       cloudflareAccountDialog={{
         error: null,
         isLoadingAccounts: false,
@@ -164,12 +165,13 @@ export function ProviderConnectionsPageVisualFixture({
       }}
       cloudflareConnection={isLoading ? undefined : state.cloudflareConnection}
       convexAccess={isLoading ? null : state.convexAccess}
-      convexAccessError={null}
+      convexAccessError={false}
       convexConnection={isLoading ? undefined : state.convexConnection}
       disconnectingProvider={null}
       isAutoCheckingCloudflareToken={false}
       isCheckingCloudflareAccess={false}
       isCheckingConvexAccess={false}
+      isRefreshing={false}
       now={state.now}
       organization={{
         canCreateRepository: true,
@@ -179,8 +181,6 @@ export function ProviderConnectionsPageVisualFixture({
         organizationId: ORGANIZATION_ID,
         role: "owner",
       }}
-      onCheckCloudflareAccess={noop}
-      onCheckConvexAccess={noop}
       onCloudflareAccountChange={noop}
       onCloudflareAccountOpenChange={noop}
       onCloudflareAccountSubmit={noop}
@@ -188,6 +188,7 @@ export function ProviderConnectionsPageVisualFixture({
       onDisconnect={noop}
       onOpenApiKeyDialog={noop}
       onOpenCloudflareAccountDialog={noop}
+      onRefresh={noop}
       providerDisconnectNotice={null}
     />
   );

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { getFunctionName } from "convex/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -78,8 +79,41 @@ function setProviderQueries() {
   });
 }
 
+function convexAccess(checkedAt = Date.now()) {
+  return {
+    checkedAt,
+    checks: [
+      {
+        key: "token" as const,
+        label: "Token details",
+        message: "Live access confirmed.",
+        status: "ok" as const,
+      },
+    ],
+    connected: true,
+    requestedAccess: [],
+  };
+}
+
+function cloudflareAccess(checkedAt = Date.now()) {
+  return {
+    checkedAt,
+    checks: [
+      {
+        key: "accounts" as const,
+        label: "Accounts",
+        message: "Live access confirmed.",
+        status: "ok" as const,
+      },
+    ],
+    connected: true,
+    requestedScopes: [],
+  };
+}
+
 let mountedRoot: Root | null = null;
 let mountedElement: HTMLDivElement | null = null;
+let queryClient: QueryClient;
 
 function mountProviderConnectionsPage(selectedOrganization: TestOrganization = organization) {
   mountedElement = document.createElement("div");
@@ -87,11 +121,13 @@ function mountProviderConnectionsPage(selectedOrganization: TestOrganization = o
   mountedRoot = createRoot(mountedElement);
   act(() => {
     mountedRoot?.render(
-      <TestRouterProvider
-        initialEntries={[`/org/${selectedOrganization.githubOwnerLogin}/providers`]}
-      >
-        <ProviderConnectionsPage organization={selectedOrganization} />
-      </TestRouterProvider>,
+      <QueryClientProvider client={queryClient}>
+        <TestRouterProvider
+          initialEntries={[`/org/${selectedOrganization.githubOwnerLogin}/providers`]}
+        >
+          <ProviderConnectionsPage organization={selectedOrganization} />
+        </TestRouterProvider>
+      </QueryClientProvider>,
     );
   });
   return mountedElement;
@@ -119,6 +155,9 @@ describe("ProviderConnectionsPage", () => {
     testState.mutations.clear();
     testState.queries.clear();
     testState.queryCalls = [];
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
   });
 
   afterEach(() => {
@@ -126,6 +165,7 @@ describe("ProviderConnectionsPage", () => {
       act(() => mountedRoot?.unmount());
     }
     mountedElement?.remove();
+    queryClient.clear();
     mountedRoot = null;
     mountedElement = null;
   });
@@ -138,58 +178,16 @@ describe("ProviderConnectionsPage", () => {
     expect(container.textContent).not.toContain("Not connected");
   });
 
-  it("uses the routed organization for every provider query and access check", async () => {
-    setProviderQueries();
-    const checkConvexAccess = vi.fn(async () => ({
-      checkedAt: Date.now(),
-      checks: [],
-      connected: false,
-      requestedAccess: [],
-    }));
+  it("loads both connected providers and refreshes them together", async () => {
+    const checkConvexAccess = vi.fn(async () => convexAccess());
+    const checkCloudflareAccess = vi.fn(async () => cloudflareAccess());
     testState.actions.set(
       getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
       checkConvexAccess,
     );
-    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
-      authMethod: "oauth",
-      state: "connected",
-      teamId: "team_samebase",
-      teamSlug: "samebase",
-    });
-    const container = mountProviderConnectionsPage();
-
-    expect(testState.queryCalls).toContainEqual({
-      args: { organizationId: ORGANIZATION_ID },
-      name: getFunctionName(api.users.getConvexConnectionStatus),
-    });
-    expect(testState.queryCalls).toContainEqual({
-      args: { organizationId: ORGANIZATION_ID },
-      name: getFunctionName(api.users.getCloudflareConnectionStatus),
-    });
-
-    const convexRow = container.querySelector('[data-provider-key="convex"]');
-    const checkAccessButton = [...(convexRow?.querySelectorAll("button") ?? [])].find(
-      (button) => button.textContent === "Check access",
-    );
-    await act(async () => {
-      checkAccessButton?.click();
-      await Promise.resolve();
-    });
-
-    expect(checkConvexAccess).toHaveBeenCalledWith({ organizationId: ORGANIZATION_ID });
-  });
-
-  it("keeps provider checks and hides provider management for a member", async () => {
-    setProviderQueries();
-    const checkConvexAccess = vi.fn(async () => ({
-      checkedAt: Date.now(),
-      checks: [],
-      connected: false,
-      requestedAccess: [],
-    }));
     testState.actions.set(
-      getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
-      checkConvexAccess,
+      getFunctionName(api.cloudflareProviderAccess.checkCloudflareConnectionAccess),
+      checkCloudflareAccess,
     );
     testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
       authMethod: "oauth",
@@ -203,29 +201,199 @@ describe("ProviderConnectionsPage", () => {
       authMethod: "oauth",
       state: "connected",
     });
-    const container = mountProviderConnectionsPage({ ...organization, role: "member" });
-    const convexRow = container.querySelector('[data-provider-key="convex"]');
-    const cloudflareRow = container.querySelector('[data-provider-key="cloudflare"]');
+    const container = mountProviderConnectionsPage();
 
-    expect(convexRow?.textContent).toContain("Check access");
-    expect(convexRow?.textContent).not.toContain("Manage access");
-    expect(convexRow?.textContent).not.toContain("Reauthorize");
-    expect(convexRow?.textContent).not.toContain("Disconnect");
-    expect(cloudflareRow?.textContent).toContain("Connected to account Samebase (OAuth).");
-    expect(cloudflareRow?.textContent).toContain("Check access");
-    expect(cloudflareRow?.textContent).not.toContain("Manage access");
-    expect(cloudflareRow?.textContent).not.toContain("Reconnect");
-    expect(cloudflareRow?.textContent).not.toContain("Manage account");
-    expect(cloudflareRow?.textContent).not.toContain("Disconnect");
+    expect(testState.queryCalls).toContainEqual({
+      args: { organizationId: ORGANIZATION_ID },
+      name: getFunctionName(api.users.getConvexConnectionStatus),
+    });
+    expect(testState.queryCalls).toContainEqual({
+      args: { organizationId: ORGANIZATION_ID },
+      name: getFunctionName(api.users.getCloudflareConnectionStatus),
+    });
 
-    const checkAccessButton = [...(convexRow?.querySelectorAll("button") ?? [])].find(
-      (button) => button.textContent === "Check access",
-    );
     await act(async () => {
-      checkAccessButton?.click();
+      await vi.waitFor(() => {
+        expect(checkConvexAccess).toHaveBeenCalledTimes(1);
+        expect(checkCloudflareAccess).toHaveBeenCalledTimes(1);
+        expect(queryClient.isFetching()).toBe(0);
+      });
+    });
+
+    let refreshButton: HTMLButtonElement | undefined;
+    await act(async () => {
+      await vi.waitFor(() => {
+        refreshButton = [...container.querySelectorAll("button")].find(
+          (button) => button.textContent === "Refresh",
+        );
+        expect(refreshButton).toBeDefined();
+      });
+    });
+    await act(async () => {
+      refreshButton?.click();
+      await vi.waitFor(() => {
+        expect(checkConvexAccess).toHaveBeenCalledTimes(2);
+        expect(checkCloudflareAccess).toHaveBeenCalledTimes(2);
+        expect(queryClient.isFetching()).toBe(0);
+      });
+    });
+
+    expect(checkConvexAccess).toHaveBeenLastCalledWith({ organizationId: ORGANIZATION_ID });
+    expect(checkCloudflareAccess).toHaveBeenLastCalledWith({ organizationId: ORGANIZATION_ID });
+  });
+
+  it("does not check disconnected providers", async () => {
+    const checkConvexAccess = vi.fn(async () => convexAccess());
+    const checkCloudflareAccess = vi.fn(async () => cloudflareAccess());
+    testState.actions.set(
+      getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
+      checkConvexAccess,
+    );
+    testState.actions.set(
+      getFunctionName(api.cloudflareProviderAccess.checkCloudflareConnectionAccess),
+      checkCloudflareAccess,
+    );
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      state: "disconnected",
+      teamId: "team_samebase",
+      teamSlug: "samebase",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      accountId: "cloudflare-account",
+      accountName: "Samebase",
+      state: "disconnected",
+    });
+    const container = mountProviderConnectionsPage();
+
+    await act(async () => {
       await Promise.resolve();
     });
-    expect(checkConvexAccess).toHaveBeenCalledWith({ organizationId: ORGANIZATION_ID });
+    expect(checkConvexAccess).not.toHaveBeenCalled();
+    expect(checkCloudflareAccess).not.toHaveBeenCalled();
+    expect(container.textContent).not.toContain("Refresh");
+  });
+
+  it("keeps prior data when one provider refresh fails", async () => {
+    const privateError = "private provider response";
+    const checkConvexAccess = vi.fn(async () => convexAccess());
+    const checkCloudflareAccess = vi
+      .fn()
+      .mockResolvedValueOnce(cloudflareAccess())
+      .mockRejectedValueOnce(new Error(privateError));
+    testState.actions.set(
+      getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
+      checkConvexAccess,
+    );
+    testState.actions.set(
+      getFunctionName(api.cloudflareProviderAccess.checkCloudflareConnectionAccess),
+      checkCloudflareAccess,
+    );
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      authMethod: "oauth",
+      state: "connected",
+      teamId: "team_samebase",
+      teamSlug: "samebase",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      accountId: "cloudflare-account",
+      accountName: "Samebase",
+      authMethod: "oauth",
+      state: "connected",
+    });
+    const container = mountProviderConnectionsPage();
+
+    await act(async () => {
+      await vi.waitFor(() => {
+        expect(checkConvexAccess).toHaveBeenCalledTimes(1);
+        expect(checkCloudflareAccess).toHaveBeenCalledTimes(1);
+        expect(queryClient.isFetching()).toBe(0);
+      });
+    });
+    let refreshButton: HTMLButtonElement | undefined;
+    await act(async () => {
+      await vi.waitFor(() => {
+        refreshButton = [...container.querySelectorAll("button")].find(
+          (button) => button.textContent === "Refresh",
+        );
+        expect(refreshButton).toBeDefined();
+      });
+    });
+    await act(async () => {
+      refreshButton?.click();
+      await vi.waitFor(() => {
+        expect(checkConvexAccess).toHaveBeenCalledTimes(2);
+        expect(checkCloudflareAccess).toHaveBeenCalledTimes(2);
+        expect(queryClient.isFetching()).toBe(0);
+        const cloudflareAlerts = container.querySelectorAll(
+          '[data-provider-key="cloudflare"] [role="alert"]',
+        );
+        expect(cloudflareAlerts).toHaveLength(1);
+        expect(cloudflareAlerts[0]?.textContent).toContain("Cloudflare");
+      });
+    });
+    expect(container.querySelector('[data-provider-key="convex"]')?.textContent).toContain(
+      "Read checks passed",
+    );
+    expect(container.textContent).not.toContain(privateError);
+  });
+
+  it("shows one safe notice when each access check reports a missing connection", async () => {
+    const privateMessage = "private provider response";
+    testState.actions.set(
+      getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
+      vi.fn(async () => ({
+        ...convexAccess(),
+        checks: [
+          {
+            key: "token" as const,
+            label: "Credential",
+            message: privateMessage,
+            status: "unknown" as const,
+          },
+        ],
+        connected: false,
+      })),
+    );
+    testState.actions.set(
+      getFunctionName(api.cloudflareProviderAccess.checkCloudflareConnectionAccess),
+      vi.fn(async () => ({
+        ...cloudflareAccess(),
+        checks: [
+          {
+            key: "token" as const,
+            label: "Credential",
+            message: privateMessage,
+            status: "unknown" as const,
+          },
+        ],
+        connected: false,
+      })),
+    );
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      authMethod: "oauth",
+      state: "connected",
+      teamId: "team_samebase",
+      teamSlug: "samebase",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      accountId: "cloudflare-account",
+      accountName: "Samebase",
+      authMethod: "oauth",
+      state: "connected",
+    });
+    const container = mountProviderConnectionsPage();
+
+    await act(async () => {
+      await vi.waitFor(() => {
+        expect(queryClient.isFetching()).toBe(0);
+        for (const provider of ["convex", "cloudflare"]) {
+          expect(
+            container.querySelectorAll(`[data-provider-key="${provider}"] [role="alert"]`),
+          ).toHaveLength(1);
+        }
+      });
+    });
+    expect(container.textContent).not.toContain(privateMessage);
   });
 
   it("does not render a page-local owner selector or internal ID", () => {
@@ -241,19 +409,19 @@ describe("ProviderConnectionsPage", () => {
     expect(container.textContent).not.toContain(ORGANIZATION_ID);
   });
 
-  it("shows the provider recovery fixture without target management controls", () => {
+  it("links provider targets without exposing raw provider details", () => {
     const markup = renderToStaticMarkup(
-      <ProviderConnectionsPageVisualFixture mode="providers-page-recovery" />,
+      <ProviderConnectionsPageVisualFixture mode="providers-page-connected" />,
     );
 
-    expect(markup).toContain("Disconnected from team acme-platform.");
-    expect(markup).toContain("OAuth connected. Choose an account.");
-    expect(markup).toContain("Select account");
-    expect(markup).not.toContain("Manage account");
-    expect(markup).not.toContain("MCP clients");
-    expect(markup).not.toContain("Install GitHub App");
-    expect(markup).not.toContain("GitHub OAuth");
-    expect(markup).not.toContain("Reauthorize GitHub");
+    expect(markup).toContain('href="https://dashboard.convex.dev/t/acme-platform"');
+    expect(markup).toContain('aria-label="Open Convex team acme-platform in a new tab"');
+    expect(markup).toContain('href="https://dash.cloudflare.com/cloudflare-account-production"');
+    expect(markup).toContain('aria-label="Open Cloudflare account Acme Production in a new tab"');
+    expect(markup).not.toContain("team_acme_platform");
+    expect(markup).not.toContain("token_acme_provider");
+    expect(markup).not.toContain("/token_details");
+    expect(markup).not.toContain("/accounts/{account_id}");
   });
 
   it.each(["convex-oauth-complete", "cloudflare-oauth-complete", "cloudflare-mcp-oauth-complete"])(
