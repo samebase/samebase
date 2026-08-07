@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-06
+- Last updated: 2026-08-07
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -38,7 +38,7 @@ Each membership has one required role: `owner` or `member`. Both roles can read 
 organization's vaults and use organization credentials. Both roles can create repositories for a
 GitHub organization. Creating a repository for a personal GitHub owner additionally requires the
 acting Samebase user to have a GitHub App user authorization for that exact GitHub user. Only owners
-can manage provider connections, reconnect the GitHub organization, or manage billing. The first
+can manage deployment providers, reconnect the GitHub organization, or manage billing. The first
 verified GitHub App installation creates an owner membership. Until an invitation UI exists, an
 idempotent internal function adds an existing Samebase user with an explicit `owner` or `member`
 role.
@@ -81,9 +81,9 @@ organization also requires a Samebase owner membership.
 The GitHub App requires organization Members read permission because the organization authority
 check reads the signed-in GitHub user's live organization membership and role.
 
-The installation is not a `providerConnections` row and is not a Samebase login method. Samebase
-creates short-lived installation access tokens for repository operations and does not store those
-tokens. The App private key and client secret stay in deployment secrets.
+The installation is not a deployment provider credential and is not a Samebase login method.
+Samebase creates short-lived installation access tokens for repository operations and does not store
+those tokens. The App private key and client secret stay in deployment secrets.
 
 The setup callback uses short-lived state bound to the signed-in Samebase user. It exchanges the
 GitHub code for that user's GitHub App authorization, reads the GitHub user, verifies the returned
@@ -102,43 +102,64 @@ user. It does not identify an organization, grant membership, or become availabl
 One Samebase user has at most one current GitHub App user authorization. Supporting several personal
 GitHub identities for one Samebase user is outside this contract.
 
-## Deployment Provider Connections
+## Deployment Providers
 
-`providerConnections` contains only Convex and Cloudflare connections. Each connection has:
+An organization has at most one Convex team and at most one Cloudflare account. These are current
+product limits. They are not part of organization identity and do not promise that Samebase will
+never support several provider teams or accounts.
+
+The non-secret deployment destinations are optional fields on `organizations`:
 
 ```text
-organizationId: Id<"organizations">
-connectedByUserId: Id<"users">
-kind: "convex" | "cloudflare"
+convexTeam?: {
+  teamId: string
+  teamSlug?: string
+}
+cloudflareAccount?: {
+  accountId: string
+  accountName: string
+}
+providerCredentialsId?: Id<"organizationProviderCredentials">
 ```
 
-The current schema permits several connections of one kind in one organization. This storage shape
-is not a long-term cardinality promise. A focused provider-connection task can keep or replace it
-when multi-connection behavior and disconnect semantics are defined. The first UI shows and uses one
-selected connection. The organization stores an optional selected Convex connection ID and an
-optional selected Cloudflare connection ID for this UI. It never stores a selected GitHub connection
-ID. The user who connects a credential is provenance, not the authorization boundary. Organization
-membership controls use. Any member can run operations through the selected connection. Only an
-owner can create, replace, select, reauthorize, or disconnect an organization connection.
+`providerCredentialsId` is immutable after the organization creates its backend-only credential
+document. `organizationProviderCredentials` has one optional Convex credential and one optional
+Cloudflare credential. Each credential stores its authorization material, `connectedByUserId`, and
+connection time. `connectedByUserId` records which Samebase user established the current external
+grant. It does not grant Samebase access.
 
 Provider credentials stay in backend-only functions. Product clients can request authorized
-operations and read non-secret status. They cannot retrieve credentials or raw provider errors.
+operations and read non-secret status. They cannot retrieve credentials or raw provider errors. Any
+member can run an authorized provider operation. Only an owner can connect, reauthorize, replace,
+disconnect, or change a deployment destination.
+
+Direct Cloudflare OAuth is a required product connection flow. During first setup, the OAuth grant
+can exist before the owner chooses one of the Cloudflare accounts that it can access. This is a
+temporary account-selection condition. Samebase does not create a vault until both exact deployment
+destinations exist. Existing credential methods remain supported until a separate accepted decision
+removes one.
+
+Disconnect tries the provider's supported upstream revocation and then clears the local credential.
+It keeps `organizations.convexTeam` or `organizations.cloudflareAccount`, all vaults, and all
+provider resources. Reconnect must prove that the new credential can access the retained team or
+account. It does not change that destination. A separate owner action can change a destination only
+when the organization has no `vaults` row in any lifecycle condition.
+
+Every vault stores required `convexTeamId` and `cloudflareAccountId` fields. Vault creation copies
+them from the organization in the same transaction. These fields bind all later provider work for
+that vault. They do not store a credential ID.
 
 Long-lived `vaultConvexProjects` rows identify external resources with `teamId` and `projectId`.
 Long-lived `vaultCloudflareWorkers` rows identify external resources with `accountId`, `workerName`,
-and `workerTag`. They do not store a `providerConnections` ID. Operations resolve a current
-organization Convex connection whose `teamId` matches the resource. Cloudflare operations use the
-organization's current selected Cloudflare connection and address the resource through its
-`accountId`; Cloudflare remains the source of truth for whether that credential can access the
-account. Persistent provisioning plans and deletion retry snapshots also use external provider
-resource IDs. One action or mutation call can carry the resolved `providerConnections` ID while it
-runs, but it does not save that ID as resource identity.
+and `workerTag`. Each resource destination must match its vault. Provisioning and deletion retries
+keep stable external resource IDs and names, then resolve the organization's current credential for
+the vault's team or account. Credential replacement does not rewrite a vault or provider resource.
 
-Disconnect revokes OAuth access when the provider supports revocation, then removes the local
-connection. If a user account is deleted, connections whose credential grant belongs to that user
-are revoked and removed. Other organization data remains. Reconnecting the same Convex team or a
-Cloudflare credential with access to the same account restores operations on existing resources
-without rewriting their rows.
+Removing a user from an organization does not clear a credential that the user established. If the
+user deletes the Samebase account, Samebase tries upstream revocation and clears each current
+credential whose `connectedByUserId` identifies that user. It retains the organization destinations
+and resources. Another owner can reconnect the same destinations. Account deletion does not wait for
+that replacement.
 
 ## Vault Identity And Routing
 
@@ -184,7 +205,8 @@ Durable ownership is:
 | GitHub App installation                    | Organization's stable GitHub owner                |
 | Vault                                      | Organization and matching GitHub repository owner |
 | Vault child data                           | Parent vault                                      |
-| Convex or Cloudflare connection            | Organization, with connecting-user provenance     |
+| Convex or Cloudflare destination           | Organization                                      |
+| Convex or Cloudflare credential            | Organization, with connecting-user provenance     |
 | Attached Convex or Cloudflare resource     | Parent vault and stable external provider IDs     |
 | Billing, quota, and usage                  | Organization                                      |
 | MCP grant                                  | User delegation across current memberships        |
@@ -218,8 +240,9 @@ provider billing state. Plan, quota, usage, checkout, and subscription belong to
 All members can read plan and usage. Only owners can start checkout or open subscription management.
 
 Deleting a user is not organization deletion. User deletion removes authentication data, personal
-state, memberships, MCP grants, user-owned GitHub authorizations, and provider grants connected by
-that user. It does not delete an organization, vault, billing row, or another member's data.
+state, memberships, MCP grants, user-owned GitHub authorizations, and provider credentials connected
+by that user. It does not delete an organization, deployment destination, vault, billing row, or
+another member's data.
 
 Organization deletion is a separate future product or operator action. GitHub App uninstall also
 does not delete Samebase data.
@@ -233,7 +256,7 @@ task must define those guardrails before deletion is treated as a general custom
 This pre-beta rollout uses a reset and the final schema. It has no fallback reads, dual writes,
 compatibility fields, or general migration framework.
 
-The operator can clear disposable organization, membership, billing, provider connection, vault,
+The operator can clear disposable organization, membership, billing, deployment provider, vault,
 staging, workflow, and MCP authorization data before the final schema deployment. User,
 authentication, approval, and waitlist rows remain.
 
@@ -262,7 +285,7 @@ required before production deployment, not before development implementation and
 - WorkOS, Clerk, SSO, Directory Sync, or SCIM implementation
 - GitHub installation lifecycle webhooks before the main installation flow works
 - Unified GitHub organization and repository rename synchronization
-- Multi-connection provider management and final provider-connection cardinality
+- Several Convex teams or Cloudflare accounts in one organization
 - Changing the temporary waitlist and approval gate
 - Multi-member FileView commit coordination
 - Backward-compatible pre-beta migration machinery
@@ -276,7 +299,7 @@ The rollout is ready only when focused tests and real manual checks prove:
   membership, and one billing row.
 - Reinstalling the App for that owner updates the existing organization without a duplicate.
 - One user can belong to several organizations, and one organization can have several users.
-- A second member can use the organization's App and provider connections without GitHub login or
+- A second member can use the organization's App and provider credentials without GitHub login or
   personal provider credentials.
 - Every member can create a repository for a GitHub organization. A repository for a personal GitHub
   owner can be created only by a Samebase user authorized as that exact GitHub user.
@@ -292,8 +315,9 @@ The rollout is ready only when focused tests and real manual checks prove:
 - A member can create and reload a GitHub organization repository, Convex project, and Cloudflare
   Worker.
 - A user outside the organization cannot read or change its resources.
-- Convex and Cloudflare connections are organization-owned, allow several rows per kind, record the
-  connecting user, and never return credentials to clients.
+- Convex and Cloudflare deployment destinations and credentials are organization-owned. Each
+  organization has at most one destination and one current credential for each provider. The
+  credential records the connecting user and never reaches a client.
 - Billing and quotas belong to the organization.
 - User deletion does not delete the organization or shared resources.
 - An MCP grant acts as its Samebase user across all current memberships, and each tool call applies
