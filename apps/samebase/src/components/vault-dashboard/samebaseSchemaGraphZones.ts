@@ -89,7 +89,7 @@ export const SAMEBASE_SCHEMA_GRAPH_TABLE_ZONES: Readonly<
   Partial<Record<string, SamebaseSchemaGraphZoneId>>
 > = {
   users: "identity",
-  providerConnections: "providers",
+  organizationProviderCredentials: "providers",
   providerOAuthCallbackStates: "providers",
 
   ui_user_settings: "workspace",

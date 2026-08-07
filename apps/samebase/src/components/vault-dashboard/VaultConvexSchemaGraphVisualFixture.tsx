@@ -62,28 +62,59 @@ function buildSchemaGraphState(): VaultConvexSchemaGraphState {
             ],
           },
           {
-            name: "providerConnections",
+            name: "organizations",
             source: "declared",
-            documentCount: 42,
-            indexes: [{ name: "by_user_kind", fields: ["userId", "kind"] }],
+            documentCount: 6,
+            indexes: [
+              {
+                name: "by_provider_credentials_id",
+                fields: ["providerCredentialsId"],
+              },
+            ],
             fields: [
               {
-                path: "userId",
-                kind: "Id<users>",
+                path: "providerCredentialsId",
+                kind: "Id<organizationProviderCredentials>",
+                optional: true,
+                source: "declared",
+                targetTable: "organizationProviderCredentials",
+              },
+              {
+                path: "githubOwnerLogin",
+                kind: "string",
                 optional: false,
+                source: "declared",
+              },
+            ],
+          },
+          {
+            name: "organizationProviderCredentials",
+            source: "declared",
+            documentCount: 6,
+            indexes: [
+              {
+                name: "by_convex_connected_by_user",
+                fields: ["convex.connectedByUserId"],
+              },
+            ],
+            fields: [
+              {
+                path: "convex.connectedByUserId",
+                kind: "Id<users>",
+                optional: true,
                 source: "declared",
                 targetTable: "users",
               },
               {
-                path: "kind",
+                path: "convex.auth.method",
                 kind: "union",
-                optional: false,
+                optional: true,
                 source: "declared",
               },
               {
-                path: "auth.method",
+                path: "cloudflare.auth.method",
                 kind: "union",
-                optional: false,
+                optional: true,
                 source: "declared",
               },
             ],
@@ -92,14 +123,14 @@ function buildSchemaGraphState(): VaultConvexSchemaGraphState {
             name: "vaults",
             source: "mixed",
             documentCount: 48,
-            indexes: [{ name: "by_userId", fields: ["userId"] }],
+            indexes: [{ name: "by_organization", fields: ["organizationId"] }],
             fields: [
               {
-                path: "userId",
-                kind: "Id<users>",
+                path: "organizationId",
+                kind: "Id<organizations>",
                 optional: false,
                 source: "declared",
-                targetTable: "users",
+                targetTable: "organizations",
               },
               {
                 path: "owner",
@@ -158,17 +189,24 @@ function buildSchemaGraphState(): VaultConvexSchemaGraphState {
         ],
         relationships: [
           {
-            id: "declared:providerConnections:userId:users",
-            fromTable: "providerConnections",
-            fromField: "userId",
+            id: "declared:organizations:providerCredentialsId:organizationProviderCredentials",
+            fromTable: "organizations",
+            fromField: "providerCredentialsId",
+            toTable: "organizationProviderCredentials",
+            source: "declared",
+          },
+          {
+            id: "declared:organizationProviderCredentials:convex.connectedByUserId:users",
+            fromTable: "organizationProviderCredentials",
+            fromField: "convex.connectedByUserId",
             toTable: "users",
             source: "declared",
           },
           {
-            id: "declared:vaults:userId:users",
+            id: "declared:vaults:organizationId:organizations",
             fromTable: "vaults",
-            fromField: "userId",
-            toTable: "users",
+            fromField: "organizationId",
+            toTable: "organizations",
             source: "declared",
           },
           {

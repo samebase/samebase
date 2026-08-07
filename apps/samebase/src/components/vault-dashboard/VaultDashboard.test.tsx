@@ -1701,7 +1701,7 @@ describe("VaultDeleteDialogContent", () => {
 });
 
 describe("VaultDashboardCloudflareAccountDialog", () => {
-  it("renders selectable Cloudflare accounts for the create flow", () => {
+  it("renders selectable Cloudflare accounts for organization setup", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardCloudflareAccountDialog
         accounts={[{ accountId: "account-a", accountName: "Account A" }]}
