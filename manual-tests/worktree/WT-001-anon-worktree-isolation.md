@@ -58,8 +58,8 @@ sed -E 's/=.*$//' /tmp/samebase-wt-b/apps/samebase/.env.anon-seed.local | sort
 (cd /tmp/samebase-wt-b && pnpm dev)
 ```
 
-7. In another terminal, print only the organization model fields. Repeat these commands for both
-   worktree paths:
+7. In another terminal, print only non-secret organization model fields. Repeat these commands for
+   both worktree paths:
 
 ```bash
 cd /tmp/samebase-wt-a/apps/samebase
@@ -98,6 +98,20 @@ console.log(rows.map((row) => ({
 })));
 '
 
+npx convex data organizationProviderCredentials --limit 20 --format json | node -e '
+const rows = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
+console.log(rows.map((row) => ({
+  id: row._id,
+  convex: row.convex && {
+    connectedByUserId: row.convex.connectedByUserId,
+    method: row.convex.auth.method,
+  },
+  cloudflare: row.cloudflare && {
+    connectedByUserId: row.cloudflare.connectedByUserId,
+    method: row.cloudflare.auth.method,
+  },
+})));
+'
 ```
 
 8. Sign in with the local worktree password shortcut. Confirm these pages load:
@@ -114,14 +128,15 @@ console.log(rows.map((row) => ({
 3. Both environment files include the GitHub App deployment settings, GitHub owner seed facts,
    GitHub installation seed fact, and provider seed credentials.
 4. Each first setup output reports `"created": true`.
-5. Each worktree has one organization, one `owner` membership, one Free billing account, and two
-   provider connections.
-6. The Convex and Cloudflare provider rows use the local organization ID and the seeded user as
-   `connectedByUserId`. Their authentication method is `api_key`.
-7. Each organization selects its local Convex and Cloudflare connection IDs.
+5. Each worktree has one organization, one `owner` membership, one Free billing account, and one
+   `organizationProviderCredentials` document with Convex and Cloudflare slots.
+6. Each organization stores its seeded `convexTeam`, `cloudflareAccount`, and immutable
+   `providerCredentialsId` link.
+7. Both credential slots use the seeded user as `connectedByUserId` and use `api_key`
+   authentication.
 8. Local document IDs are different between worktrees. The GitHub owner and installation facts are
    the same.
-9. No GitHub provider connection row exists. GitHub repository access uses the organization App
+9. The credential document has no GitHub slot. GitHub repository access uses the organization App
    installation.
 10. The normal development pages load without a cross-worktree data or authentication conflict.
 
