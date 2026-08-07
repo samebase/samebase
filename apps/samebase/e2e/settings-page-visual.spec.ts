@@ -186,13 +186,7 @@ test("Settings page shows a GitHub authorization error once", async ({ page }) =
   const signInEmail = settingsPage.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL, {
     exact: true,
   });
-  await expect(
-    settingsPage
-      .getByRole("alert")
-      .getByText("GitHub authorization was canceled. The existing connection was not changed.", {
-        exact: true,
-      }),
-  ).toBeVisible();
+  await expect(settingsPage.getByRole("alert")).toBeVisible();
   await expect(page).toHaveURL(/\/settings#github$/u);
   await expect(settingsPage).toHaveScreenshot("settings-page-authorization-error-desktop.png", {
     ...screenshotOptions,

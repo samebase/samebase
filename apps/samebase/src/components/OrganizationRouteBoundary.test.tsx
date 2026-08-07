@@ -34,14 +34,11 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
-function renderBoundary(owner: string, authorizationErrorMessage?: string) {
+function renderBoundary(owner: string) {
   return renderToStaticMarkup(
     <TestRouterProvider initialEntries={[`/org/${owner}/providers`]}>
       <OrganizationContextProvider>
-        <OrganizationRouteBoundary
-          authorizationErrorMessage={authorizationErrorMessage}
-          owner={owner}
-        >
+        <OrganizationRouteBoundary owner={owner}>
           {(selectedOrganization) => <div>{selectedOrganization.githubOwnerLogin} providers</div>}
         </OrganizationRouteBoundary>
       </OrganizationContextProvider>
@@ -66,19 +63,6 @@ describe("OrganizationRouteBoundary", () => {
     expect(markup).toContain("You do not have Samebase access to samebase.");
     expect(markup).toContain('href="/vault"');
     expect(markup).toContain("All vaults");
-  });
-
-  it("shows an authorization error after organization access changes", () => {
-    testState.organizations = [];
-    const markup = renderBoundary(
-      "samebase",
-      "Your access changed while GitHub App setup was open. Start it again.",
-    );
-
-    expect(markup).toContain('role="alert"');
-    expect(markup).toContain(
-      "Your access changed while GitHub App setup was open. Start it again.",
-    );
   });
 
   it("renders a matching organization without changing its URL", () => {

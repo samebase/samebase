@@ -62,7 +62,7 @@ export function OrganizationSettingsPage({
       return;
     }
     setIsReconnecting(true);
-    void openGitHubAppSetupPopup(async () => {
+    void openGitHubAppSetupPopup("github-app", async () => {
       return await getGitHubAppReconnectUrl({
         organizationId: organization.organizationId,
         returnToPath: getCurrentRootRelativeUrl(),

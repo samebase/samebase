@@ -2,96 +2,13 @@
 
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import {
-  handleGitHubAppSetupCompletionMessage,
-  openGitHubAppSetupPopup,
-} from "./githubAppSetupFlow";
+import { openGitHubAppSetupPopup } from "./githubAppSetupFlow";
 
 afterEach(() => {
   vi.unstubAllGlobals();
 });
 
 describe("GitHub App popup completion", () => {
-  it("navigates the opener to the exact same-origin return URL", () => {
-    const navigate = vi.fn();
-    const returnTo = `${window.location.origin}/org/acme/settings?prod-ui#github`;
-
-    expect(
-      handleGitHubAppSetupCompletionMessage({
-        event: new MessageEvent("message", {
-          data: { type: "github-app-setup-complete", returnTo },
-          origin: "https://api.samebase.com",
-          source: window,
-        }),
-        expectedCallbackOrigin: "https://api.samebase.com",
-        expectedReturnOrigin: window.location.origin,
-        navigate,
-        popup: window,
-      }),
-    ).toBe(true);
-    expect(navigate).toHaveBeenCalledWith(returnTo);
-  });
-
-  it("ignores another popup and a cross-origin return URL", () => {
-    const navigate = vi.fn();
-    const otherPopup = { closed: false };
-
-    expect(
-      handleGitHubAppSetupCompletionMessage({
-        event: new MessageEvent("message", {
-          data: {
-            type: "github-app-setup-complete",
-            returnTo: `${window.location.origin}/settings`,
-          },
-          origin: "https://api.samebase.com",
-          source: window,
-        }),
-        expectedCallbackOrigin: "https://api.samebase.com",
-        expectedReturnOrigin: window.location.origin,
-        navigate,
-        // @ts-expect-error The handler only compares the popup identity in this test.
-        popup: otherPopup,
-      }),
-    ).toBe(false);
-    expect(
-      handleGitHubAppSetupCompletionMessage({
-        event: new MessageEvent("message", {
-          data: {
-            type: "github-app-setup-complete",
-            returnTo: "https://evil.example/settings",
-          },
-          origin: "https://api.samebase.com",
-          source: window,
-        }),
-        expectedCallbackOrigin: "https://api.samebase.com",
-        expectedReturnOrigin: window.location.origin,
-        navigate,
-        popup: window,
-      }),
-    ).toBe(false);
-    expect(navigate).not.toHaveBeenCalled();
-  });
-
-  it("ignores a message from the wrong callback origin", () => {
-    const navigate = vi.fn();
-    const returnTo = `${window.location.origin}/org/acme/settings`;
-
-    expect(
-      handleGitHubAppSetupCompletionMessage({
-        event: new MessageEvent("message", {
-          data: { type: "github-app-setup-complete", returnTo },
-          origin: "https://evil.example",
-          source: window,
-        }),
-        expectedCallbackOrigin: "https://api.samebase.com",
-        expectedReturnOrigin: window.location.origin,
-        navigate,
-        popup: window,
-      }),
-    ).toBe(false);
-    expect(navigate).not.toHaveBeenCalled();
-  });
-
   it("opens the setup popup and cleans its completion listener after navigation", async () => {
     const popupAssign = vi.fn();
     const returnReplace = vi.fn();
@@ -108,19 +25,24 @@ describe("GitHub App popup completion", () => {
           messageHandler = handler;
         }
       }),
+      clearInterval: vi.fn(),
       clearTimeout: vi.fn(),
       location: {
         assign: vi.fn(),
+        hash: "#github",
         origin: "https://samebase.com",
+        pathname: "/org/acme/settings",
         replace: returnReplace,
+        search: "?prod-ui",
       },
       open: vi.fn(() => popup),
       removeEventListener,
+      setInterval: vi.fn(() => 43),
       setTimeout: vi.fn(() => 42),
     };
     vi.stubGlobal("window", fakeWindow);
 
-    await openGitHubAppSetupPopup(async () => ({
+    await openGitHubAppSetupPopup("github-app", async () => ({
       callbackOrigin: "https://api.samebase.com",
       setupUrl: "https://github.com/apps/samebase/installations/new?state=safe-state",
     }));
@@ -146,18 +68,68 @@ describe("GitHub App popup completion", () => {
       "https://samebase.com/org/acme/settings?prod-ui#github",
     );
     expect(fakeWindow.clearTimeout).toHaveBeenCalledWith(42);
+    expect(fakeWindow.clearInterval).toHaveBeenCalledWith(43);
     expect(removeEventListener).toHaveBeenCalledWith("message", messageHandler);
+  });
+
+  it("returns to the current page when the GitHub popup closes without a callback", async () => {
+    const returnReplace = vi.fn();
+    let popupPoll: (() => void) | undefined;
+    const popup = {
+      closed: false,
+      close: vi.fn(),
+      location: { assign: vi.fn() },
+    };
+    const fakeWindow = {
+      addEventListener: vi.fn(),
+      clearInterval: vi.fn(),
+      clearTimeout: vi.fn(),
+      location: {
+        assign: vi.fn(),
+        hash: "#github",
+        origin: "https://samebase.com",
+        pathname: "/org/acme/settings",
+        replace: returnReplace,
+        search: "?prod-ui",
+      },
+      open: vi.fn(() => popup),
+      removeEventListener: vi.fn(),
+      setInterval: vi.fn((handler: () => void) => {
+        popupPoll = handler;
+        return 43;
+      }),
+      setTimeout: vi.fn(() => 42),
+    };
+    vi.stubGlobal("window", fakeWindow);
+
+    await openGitHubAppSetupPopup("github-app", async () => ({
+      callbackOrigin: "https://api.samebase.com",
+      setupUrl: "https://github.com/apps/samebase/installations/new?state=safe-state",
+    }));
+    popup.closed = true;
+    popupPoll?.();
+
+    expect(returnReplace).toHaveBeenCalledWith(
+      "/org/acme/settings?prod-ui=&authorization-provider=github-app&authorization-error=canceled#github",
+    );
   });
 
   it("uses direct navigation when the browser blocks the popup", async () => {
     const assign = vi.fn();
     const fakeWindow = {
-      location: { assign, origin: "https://samebase.com", replace: vi.fn() },
+      location: {
+        assign,
+        hash: "",
+        origin: "https://samebase.com",
+        pathname: "/vault",
+        replace: vi.fn(),
+        search: "",
+      },
       open: vi.fn(() => null),
     };
     vi.stubGlobal("window", fakeWindow);
 
-    await openGitHubAppSetupPopup(async () => ({
+    await openGitHubAppSetupPopup("github-app", async () => ({
       callbackOrigin: "https://api.samebase.com",
       setupUrl: "https://github.com/apps/samebase/installations/new?state=safe-state",
     }));

@@ -178,7 +178,7 @@ export function UserSettingsPage({
       return;
     }
     setGitHubRequestState("authorizing");
-    void openGitHubAppSetupPopup(async () => {
+    void openGitHubAppSetupPopup("github-user", async () => {
       return await getGitHubUserAuthorizationUrl({ returnToPath: "/settings" });
     })
       .catch((error: unknown) => {

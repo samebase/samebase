@@ -46,7 +46,7 @@ export function OrganizationContextControl() {
       return;
     }
     setIsInstalling(true);
-    void openGitHubAppSetupPopup(async () => {
+    void openGitHubAppSetupPopup("github-app", async () => {
       return await getGitHubAppInstallationUrl({ returnToPath: getCurrentRootRelativeUrl() });
     })
       .catch((error: unknown) => {

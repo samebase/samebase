@@ -10,9 +10,10 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useNow } from "@/hooks/useNow";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
+import { readAuthorizationCompletionReturnTo } from "@/lib/authorizationCompletionMessage";
 import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
-import { isRecord, notEmpty } from "@samebase/dependent";
+import { notEmpty } from "@samebase/dependent";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import {
@@ -795,38 +796,22 @@ export function handleProviderOAuthPopupCompletionMessage({
     }
   >;
 }) {
-  if (!isRecord(event.data) || typeof event.data["type"] !== "string") {
-    return;
-  }
-
   for (const provider of PROVIDER_KEYS) {
     const popupConfig = providerPopupConfig[provider];
-    if (!popupConfig.completionEventTypes.includes(event.data["type"])) {
-      continue;
+    const popup = popupConfig.popupRef.current;
+    if (popup !== null) {
+      const returnTo = readAuthorizationCompletionReturnTo({
+        completionEventTypes: popupConfig.completionEventTypes,
+        event,
+        expectedCallbackOrigin: popupConfig.popupOriginRef.current ?? expectedOrigin,
+        expectedReturnOrigin: expectedOrigin,
+        popup,
+      });
+      if (returnTo !== null) {
+        navigate(returnTo);
+        return;
+      }
     }
-    if (event.source !== popupConfig.popupRef.current) {
-      return;
-    }
-    if (event.origin !== (popupConfig.popupOriginRef.current ?? expectedOrigin)) {
-      return;
-    }
-
-    const returnTo = event.data["returnTo"];
-    if (typeof returnTo !== "string") {
-      return;
-    }
-    let returnUrl: URL;
-    try {
-      returnUrl = new URL(returnTo);
-    } catch {
-      return;
-    }
-    if (returnUrl.origin !== expectedOrigin) {
-      return;
-    }
-
-    navigate(returnTo);
-    return;
   }
 }
 

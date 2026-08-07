@@ -63,8 +63,10 @@ vi.mock("@/lib/organizationContext", async (importOriginal) => {
 });
 
 vi.mock("@/lib/githubAppSetupFlow", () => ({
-  openGitHubAppSetupPopup: (getSetup: () => Promise<GitHubAuthorizationSetup>) =>
-    testState.openSetup(getSetup),
+  openGitHubAppSetupPopup: (
+    _provider: "github-app" | "github-user",
+    getSetup: () => Promise<GitHubAuthorizationSetup>,
+  ) => testState.openSetup(getSetup),
 }));
 
 vi.mock("@/lib/currentRootRelativeUrl", () => ({

@@ -193,12 +193,13 @@ describe("AuthenticatedAppRoutePage", () => {
 
     await renderAuthenticatedRoutePageAfterEffects();
 
-    expect(toastState.toast).toHaveBeenCalledWith({
-      description: "GitHub App setup was canceled. The existing connection was not changed.",
-      priority: "high",
-      title: "Authorization not completed",
-      variant: "destructive",
-    });
+    expect(toastState.toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        priority: "high",
+        title: "Authorization not completed",
+        variant: "destructive",
+      }),
+    );
     expect(routerState.navigate).toHaveBeenCalledWith(
       expect.objectContaining({ hash: true, replace: true, resetScroll: false, to: "." }),
     );

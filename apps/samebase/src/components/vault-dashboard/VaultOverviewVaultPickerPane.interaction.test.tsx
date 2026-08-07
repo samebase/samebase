@@ -15,7 +15,12 @@ const getInstallationUrl = vi.hoisted(() =>
   })),
 );
 const openSetupPopup = vi.hoisted(() =>
-  vi.fn(async (getSetup: () => Promise<GitHubAuthorizationSetup>) => await getSetup()),
+  vi.fn(
+    async (
+      _provider: "github-app" | "github-user",
+      getSetup: () => Promise<GitHubAuthorizationSetup>,
+    ) => await getSetup(),
+  ),
 );
 
 vi.mock("convex/react", async (importOriginal) => {

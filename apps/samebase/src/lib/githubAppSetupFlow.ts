@@ -1,69 +1,74 @@
 import { GITHUB_APP_SETUP_POPUP_NAME } from "../../shared/githubApp";
-import { isRecord } from "@samebase/dependent";
+import {
+  buildAuthorizationErrorUrl,
+  type AuthorizationProvider,
+} from "../../shared/authorizationError";
+import { getCurrentRootRelativeUrl } from "./currentRootRelativeUrl";
+import { readAuthorizationCompletionReturnTo } from "./authorizationCompletionMessage";
 
 const GITHUB_APP_SETUP_COMPLETION_TIMEOUT_MS = 10 * 60 * 1000;
+const GITHUB_APP_SETUP_POPUP_POLL_MS = 250;
+
+type GitHubAuthorizationProvider = Extract<AuthorizationProvider, "github-app" | "github-user">;
 
 export type GitHubAuthorizationSetup = {
   callbackOrigin: string;
   setupUrl: string;
 };
 
-export function handleGitHubAppSetupCompletionMessage(args: {
-  event: MessageEvent;
-  expectedCallbackOrigin: string;
-  expectedReturnOrigin: string;
-  navigate: (returnTo: string) => void;
-  popup: Window;
-}): boolean {
-  if (
-    args.event.source !== args.popup ||
-    args.event.origin !== args.expectedCallbackOrigin ||
-    !isRecord(args.event.data) ||
-    args.event.data["type"] !== "github-app-setup-complete" ||
-    typeof args.event.data["returnTo"] !== "string"
-  ) {
-    return false;
-  }
-  let returnUrl: URL;
-  try {
-    returnUrl = new URL(args.event.data["returnTo"]);
-  } catch {
-    return false;
-  }
-  if (returnUrl.origin !== args.expectedReturnOrigin) {
-    return false;
-  }
-  args.navigate(returnUrl.toString());
-  return true;
-}
-
 /** Open the popup during the click event, before the setup URL request completes. */
-export async function openGitHubAppSetupPopup(getSetup: () => Promise<GitHubAuthorizationSetup>) {
+export async function openGitHubAppSetupPopup(
+  provider: GitHubAuthorizationProvider,
+  getSetup: () => Promise<GitHubAuthorizationSetup>,
+) {
+  const canceledReturnUrl = buildAuthorizationErrorUrl(getCurrentRootRelativeUrl(), {
+    provider,
+    code: "canceled",
+  });
   const popup = window.open("", GITHUB_APP_SETUP_POPUP_NAME, "width=600,height=700,popup=true");
 
   try {
     const { callbackOrigin, setupUrl } = await getSetup();
-    if (popup && !popup.closed) {
+    if (popup) {
+      if (popup.closed) {
+        window.location.replace(canceledReturnUrl);
+        return;
+      }
       const activePopup = popup;
-      const completionTimeout = window.setTimeout(() => {
+      let completionTimeout: number | undefined;
+      let popupPoll: number | undefined;
+      const cleanup = () => {
+        if (completionTimeout !== undefined) {
+          window.clearTimeout(completionTimeout);
+        }
+        if (popupPoll !== undefined) {
+          window.clearInterval(popupPoll);
+        }
         window.removeEventListener("message", handleCompletion);
-      }, GITHUB_APP_SETUP_COMPLETION_TIMEOUT_MS);
+      };
       function handleCompletion(event: MessageEvent) {
-        if (
-          !handleGitHubAppSetupCompletionMessage({
-            event,
-            expectedCallbackOrigin: callbackOrigin,
-            expectedReturnOrigin: window.location.origin,
-            navigate: (returnTo) => window.location.replace(returnTo),
-            popup: activePopup,
-          })
-        ) {
+        const returnTo = readAuthorizationCompletionReturnTo({
+          completionEventTypes: ["github-app-setup-complete"],
+          event,
+          expectedCallbackOrigin: callbackOrigin,
+          expectedReturnOrigin: window.location.origin,
+          popup: activePopup,
+        });
+        if (returnTo === null) {
           return;
         }
-        window.clearTimeout(completionTimeout);
-        window.removeEventListener("message", handleCompletion);
+        cleanup();
+        window.location.replace(returnTo);
       }
       window.addEventListener("message", handleCompletion);
+      completionTimeout = window.setTimeout(cleanup, GITHUB_APP_SETUP_COMPLETION_TIMEOUT_MS);
+      popupPoll = window.setInterval(() => {
+        if (!activePopup.closed) {
+          return;
+        }
+        cleanup();
+        window.location.replace(canceledReturnUrl);
+      }, GITHUB_APP_SETUP_POPUP_POLL_MS);
       activePopup.location.assign(setupUrl);
       return;
     }

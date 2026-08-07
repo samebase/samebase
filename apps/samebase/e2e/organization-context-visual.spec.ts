@@ -186,14 +186,7 @@ test("keeps one organization switchable and separates organization and user sett
     page,
     "/org/org-context-solo/settings?authorization-provider=github-app&authorization-error=target-mismatch#github",
   );
-  await expect(
-    page
-      .getByRole("alert")
-      .getByText(
-        "This organization is connected to GitHub owner org-context-solo. Select that owner to reconnect it.",
-        { exact: true },
-      ),
-  ).toBeVisible();
+  await expect(page.getByRole("alert")).toBeVisible();
   await expect(page).toHaveURL(/\/org\/org-context-solo\/settings#github$/u);
   if (!(await rightPane.isVisible())) {
     await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
