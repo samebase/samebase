@@ -3,6 +3,19 @@ import { v } from "convex/values";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
+export const vOrganizationConvexTeam = object({
+  teamId: string(),
+  // TODO: Make teamSlug required when Convex exposes it in token details or a
+  // team lookup. An empty team has no project response from which Samebase can
+  // learn the slug. Samebase fills it when a project response becomes available.
+  teamSlug: optional(string()),
+});
+
+export const vOrganizationCloudflareAccount = object({
+  accountId: string(),
+  accountName: string(),
+});
+
 export const vGitHubOwnerType = union(literal("organization"), literal("user"));
 export const vOrganizationMembershipRole = union(literal("owner"), literal("member"));
 
@@ -40,8 +53,8 @@ export const organizationTables = {
     githubOwnerLogin: string(),
     githubOwnerLoginNormalized: string(),
     githubInstallationId: string(),
-    selectedConvexProviderConnectionId: optional(id("providerConnections")),
-    selectedCloudflareProviderConnectionId: optional(id("providerConnections")),
+    convexTeam: optional(vOrganizationConvexTeam),
+    cloudflareAccount: optional(vOrganizationCloudflareAccount),
   })
     .index("by_github_owner_id", ["githubOwnerId"])
     .index("by_github_owner_login_normalized", ["githubOwnerLoginNormalized"])

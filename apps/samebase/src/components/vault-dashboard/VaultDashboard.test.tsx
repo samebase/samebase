@@ -247,6 +247,8 @@ function makeRepositorySettingsBuilderVault(
   const vault: RepositorySettingsBuilderVault = {
     _id: fakeVaultId(),
     organizationId: fakeOrganizationId(),
+    convexTeamId: "team-1",
+    cloudflareAccountId: "account-1",
     ghRepoOwner: "ada",
     ghRepoName: "demo",
     repositoryFullName: "ada/demo",
@@ -1503,7 +1505,7 @@ describe("VaultOverviewPage", () => {
           page="overview"
           settingsState={buildVaultRepositorySettingsState({
             cloudflareObservations,
-            connectedCloudflareAccount: undefined,
+            cloudflareAccount: undefined,
             convexObservations,
             pendingAction: null,
             vault,
@@ -1699,7 +1701,7 @@ describe("VaultDeleteDialogContent", () => {
 });
 
 describe("VaultDashboardCloudflareAccountDialog", () => {
-  it("renders selectable Cloudflare accounts for the create flow", () => {
+  it("renders selectable Cloudflare accounts for organization setup", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardCloudflareAccountDialog
         accounts={[{ accountId: "account-a", accountName: "Account A" }]}
@@ -2071,7 +2073,6 @@ describe("VaultCloudflareDialogContent", () => {
   it("replaces disabled controls with a timed loading state while searching", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
-        accounts={[]}
         createRootDirectory="/"
         createWorkerName=""
         didAddWorker={false}
@@ -2081,7 +2082,6 @@ describe("VaultCloudflareDialogContent", () => {
         isSubmitting={false}
         inventoryState={null}
         mode="existing"
-        onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
         onConnectWorker={() => {}}
@@ -2091,7 +2091,6 @@ describe("VaultCloudflareDialogContent", () => {
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
         repairWorker={null}
-        selectedAccountId=""
         selectedWorkerTags={[]}
         vault={vault}
         workerToConnect={null}
@@ -2109,7 +2108,6 @@ describe("VaultCloudflareDialogContent", () => {
   it("separates connected selections and keeps them pending after another Worker is added", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
-        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="/"
         createWorkerName=""
         didAddWorker
@@ -2119,7 +2117,6 @@ describe("VaultCloudflareDialogContent", () => {
         isSubmitting={false}
         inventoryState="complete"
         mode="existing"
-        onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
         onConnectWorker={() => {}}
@@ -2129,7 +2126,6 @@ describe("VaultCloudflareDialogContent", () => {
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
         repairWorker={null}
-        selectedAccountId="account-1"
         selectedWorkerTags={["root-tag", "web-tag"]}
         vault={vault}
         workerToConnect={null}
@@ -2182,7 +2178,6 @@ describe("VaultCloudflareDialogContent", () => {
   it("asks for one repository root before connecting and adding an unconnected Worker", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
-        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="apps/portal"
         createWorkerName=""
         didAddWorker={false}
@@ -2192,7 +2187,6 @@ describe("VaultCloudflareDialogContent", () => {
         isSubmitting={false}
         inventoryState="complete"
         mode="connect"
-        onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
         onConnectWorker={() => {}}
@@ -2202,7 +2196,6 @@ describe("VaultCloudflareDialogContent", () => {
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
         repairWorker={null}
-        selectedAccountId="account-1"
         selectedWorkerTags={[]}
         vault={vault}
         workerToConnect={{ workerName: "portal-worker", workerTag: "portal-tag" }}
@@ -2229,7 +2222,6 @@ describe("VaultCloudflareDialogContent", () => {
   it("shows the repository root only when creating a Worker", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
-        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="apps/web"
         createWorkerName="samebase_app"
         didAddWorker={false}
@@ -2239,7 +2231,6 @@ describe("VaultCloudflareDialogContent", () => {
         isSubmitting={false}
         inventoryState="complete"
         mode="create"
-        onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
         onConnectWorker={() => {}}
@@ -2249,7 +2240,6 @@ describe("VaultCloudflareDialogContent", () => {
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
         repairWorker={null}
-        selectedAccountId="account-1"
         selectedWorkerTags={[]}
         vault={vault}
         workerToConnect={null}
@@ -2267,7 +2257,6 @@ describe("VaultCloudflareDialogContent", () => {
   it("rejects an invalid Worker name inline before submission", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
-        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="apps/web"
         createWorkerName="samebase app"
         didAddWorker={false}
@@ -2277,7 +2266,6 @@ describe("VaultCloudflareDialogContent", () => {
         isSubmitting={false}
         inventoryState="complete"
         mode="create"
-        onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
         onConnectWorker={() => {}}
@@ -2287,7 +2275,6 @@ describe("VaultCloudflareDialogContent", () => {
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
         repairWorker={null}
-        selectedAccountId="account-1"
         selectedWorkerTags={[]}
         vault={vault}
         workerToConnect={null}
@@ -2309,7 +2296,6 @@ describe("VaultCloudflareDialogContent", () => {
   it("shows the operation block reason and disables confirmation", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
-        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         blockedReason="A provider operation is in progress."
         createRootDirectory="apps/web"
         createWorkerName="web-worker"
@@ -2320,7 +2306,6 @@ describe("VaultCloudflareDialogContent", () => {
         isSubmitting={false}
         inventoryState="complete"
         mode="create"
-        onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
         onConnectWorker={() => {}}
@@ -2330,7 +2315,6 @@ describe("VaultCloudflareDialogContent", () => {
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
         repairWorker={null}
-        selectedAccountId="account-1"
         selectedWorkerTags={[]}
         vault={vault}
         workerToConnect={null}
@@ -2347,7 +2331,6 @@ describe("VaultCloudflareDialogContent", () => {
   it("shows an enabled Close action when a pending connection needs recovery", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
-        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         blockedReason="Samebase could not confirm the Cloudflare Worker connection."
         createRootDirectory="apps/web"
         createWorkerName=""
@@ -2358,7 +2341,6 @@ describe("VaultCloudflareDialogContent", () => {
         isSubmitting
         inventoryState="complete"
         mode="connect"
-        onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
         onConnectWorker={() => {}}
@@ -2368,7 +2350,6 @@ describe("VaultCloudflareDialogContent", () => {
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
         repairWorker={null}
-        selectedAccountId="account-1"
         selectedWorkerTags={[]}
         vault={vault}
         workerToConnect={{ workerName: "web-worker", workerTag: "worker-tag" }}
@@ -2385,7 +2366,6 @@ describe("VaultCloudflareDialogContent", () => {
   it("uses the same dialog to repair Builds when no live root exists", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
-        accounts={[]}
         createRootDirectory="apps/web"
         createWorkerName=""
         didAddWorker={false}
@@ -2395,7 +2375,6 @@ describe("VaultCloudflareDialogContent", () => {
         isSubmitting={false}
         inventoryState={null}
         mode="existing"
-        onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
         onConnectWorker={() => {}}
@@ -2405,7 +2384,6 @@ describe("VaultCloudflareDialogContent", () => {
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
         repairWorker={{ workerName: "web-worker" }}
-        selectedAccountId=""
         selectedWorkerTags={[]}
         vault={vault}
         workerToConnect={null}
@@ -2426,7 +2404,6 @@ describe("VaultCloudflareDialogContent", () => {
   it("does not claim that no Workers exist after a partial inventory", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
-        accounts={[{ accountId: "account-1", accountName: "Ada" }]}
         createRootDirectory="/"
         createWorkerName=""
         didAddWorker={false}
@@ -2436,7 +2413,6 @@ describe("VaultCloudflareDialogContent", () => {
         isSubmitting={false}
         inventoryState="partial"
         mode="existing"
-        onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
         onConnectWorker={() => {}}
@@ -2446,7 +2422,6 @@ describe("VaultCloudflareDialogContent", () => {
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
         repairWorker={null}
-        selectedAccountId="account-1"
         selectedWorkerTags={[]}
         vault={vault}
         workerToConnect={null}
@@ -2467,7 +2442,7 @@ describe("buildVaultRepositorySettingsState", () => {
         builds: [],
         convexBuildAccess: [],
       }),
-      connectedCloudflareAccount: {
+      cloudflareAccount: {
         accountId: "account-1",
         accountName: "Ada Cloud",
       },
@@ -2541,7 +2516,7 @@ describe("buildVaultRepositorySettingsState", () => {
         builds: [],
         convexBuildAccess: [],
       }),
-      connectedCloudflareAccount: undefined,
+      cloudflareAccount: undefined,
       convexObservations: {
         state: "loaded",
         refreshFailed: false,
@@ -2605,7 +2580,7 @@ describe("buildVaultRepositorySettingsState", () => {
         builds: { state: "loading" },
         convexBuildAccess: { state: "loading" },
       },
-      connectedCloudflareAccount: undefined,
+      cloudflareAccount: undefined,
       pendingAction: null,
       convexObservations: { state: "loading" },
       vault: makeRepositorySettingsBuilderVault({
@@ -2638,7 +2613,7 @@ describe("buildVaultRepositorySettingsState", () => {
         builds: [],
         convexBuildAccess: [],
       }),
-      connectedCloudflareAccount: undefined,
+      cloudflareAccount: undefined,
       pendingAction: null,
       convexObservations: { state: "checking" },
       vault: makeRepositorySettingsBuilderVault({
@@ -2699,7 +2674,7 @@ describe("buildVaultRepositorySettingsState", () => {
         ],
         convexBuildAccess: [],
       }),
-      connectedCloudflareAccount: undefined,
+      cloudflareAccount: undefined,
       convexObservations: {
         state: "loaded",
         refreshFailed: false,
@@ -2754,7 +2729,7 @@ describe("buildVaultRepositorySettingsState", () => {
         ],
         convexBuildAccess: [],
       }),
-      connectedCloudflareAccount: undefined,
+      cloudflareAccount: undefined,
       pendingAction: null,
       convexObservations: {
         state: "loaded",
@@ -2776,7 +2751,6 @@ describe("buildVaultRepositorySettingsState", () => {
         ],
       },
       changeConvexProjectConfigPathOnClick: () => {},
-      reconcileConvexProjectTeamOnClick: () => {},
       detachCloudflareWorkerOnClick: () => {},
       detachConvexProjectOnClick: () => {},
       vault: makeRepositorySettingsBuilderVault({
@@ -2814,7 +2788,6 @@ describe("buildVaultRepositorySettingsState", () => {
     });
     expect(convexResource.actions?.map((action) => action.label) ?? []).toEqual([
       "Change code location",
-      "Use current team",
       "Remove from vault",
     ]);
     expect(state.addCloudflareWorker.disabled).toBe(true);
@@ -2907,7 +2880,7 @@ describe("buildVaultRepositorySettingsState", () => {
           ],
         }),
         pendingAction: null,
-        connectedCloudflareAccount: undefined,
+        cloudflareAccount: undefined,
         convexObservations,
         rotateConvexDeployKeysForWorkersBuildsOnClick: rotate,
         vault: vaultWithBuildAccess,

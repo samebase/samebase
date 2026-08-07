@@ -8,8 +8,6 @@
 - Related:
   - `docs/manual-password-auth.md`
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
-  - `rfcs/025_MULTI_WORKTREE_OAUTH_BROKER_SPEC.md`
-  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
 
 ## Current Contract
 

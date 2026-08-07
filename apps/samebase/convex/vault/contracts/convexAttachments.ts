@@ -162,15 +162,6 @@ export const convexChangeProjectCodeLocationContract = {
   returns: nullValue(),
 } as const;
 
-export const convexReconcileProjectTeamContract = {
-  access: providerConnectionAccess,
-  args: {
-    vaultId: id("vaults"),
-    convexProjectId: id("vaultConvexProjects"),
-  },
-  returns: nullValue(),
-} as const;
-
 export const convexDetachProjectContract = {
   access: providerConnectionAccess,
   args: {

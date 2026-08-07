@@ -4,7 +4,7 @@
 
 MCP tool `vault_cloudflare_createWorker` · scope `access_provider_connections` · write
 
-Creates one new Worker in the selected Cloudflare account for an existing connected repository
+Creates one new Worker in the vault's stored Cloudflare account for an existing connected repository
 vault. Samebase checks vault ownership, live repository identity, Cloudflare account access, the
 provider-write lock, and the Worker quota before the create request. It records the Worker as an
 attachment, creates production and preview Workers Builds triggers for the requested repository
@@ -15,7 +15,7 @@ creation, the Worker can remain attached. Reread inventory after every result be
 ## Arguments
 
 - `vaultId` (string, required): Existing connected Samebase vault returned by get_user_vaults.
-- `accountId` (string, required): Cloudflare account id returned by list_cloudflare_accounts.
+- `accountId` (string, required): The vault's cloudflareAccountId returned by get_user_vaults.
 - `workerName` (string, required): Name for the new Cloudflare Worker. An existing name is rejected.
 - `rootDirectory` (string, required): Repository root for this Worker's GitHub Builds triggers.
 

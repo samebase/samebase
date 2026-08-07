@@ -87,7 +87,7 @@ describe("devAuth password account seed", () => {
     await expect(t.run(async (ctx) => (await ctx.db.get(userId))?.isApproved)).resolves.toBe(true);
   });
 
-  it("seeds one repeat-safe organization graph with selected provider connections", async () => {
+  it("seeds one repeat-safe organization graph with singleton provider credentials", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -112,22 +112,35 @@ describe("devAuth password account seed", () => {
       },
     } as const;
 
-    await t.mutation(internal.devAuth.seedOrganizationWithProviderConnections, seed);
-    await t.mutation(internal.devAuth.seedOrganizationWithProviderConnections, seed);
+    await t.mutation(internal.devAuth.seedOrganizationWithProviderCredentials, seed);
+    const initialProviderCredentials = await t.run(async (ctx) => {
+      return await ctx.db.query("organizationProviderCredentials").unique();
+    });
+    await t.mutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
+      ...seed,
+      convexConnection: {
+        ...seed.convexConnection,
+        credential: "convex-updated-credential",
+      },
+      cloudflareConnection: {
+        ...seed.cloudflareConnection,
+        credential: "cloudflare-updated-credential",
+      },
+    });
 
     const snapshot = await t.run(async (ctx) => {
       return {
         organizations: await ctx.db.query("organizations").collect(),
         memberships: await ctx.db.query("organizationMemberships").collect(),
         billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
-        providerConnections: await ctx.db.query("providerConnections").collect(),
+        providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
       };
     });
 
     expect(snapshot.organizations).toHaveLength(1);
     expect(snapshot.memberships).toHaveLength(1);
     expect(snapshot.billingAccounts).toHaveLength(1);
-    expect(snapshot.providerConnections).toHaveLength(2);
+    expect(snapshot.providerCredentials).toHaveLength(1);
 
     const organization = snapshot.organizations[0];
     expect(organization).toMatchObject({
@@ -136,6 +149,14 @@ describe("devAuth password account seed", () => {
       githubOwnerLogin: seed.githubOwnerLogin,
       githubOwnerLoginNormalized: seed.githubOwnerLogin,
       githubInstallationId: seed.githubInstallationId,
+      convexTeam: {
+        teamId: seed.convexConnection.teamId,
+        teamSlug: seed.convexConnection.teamSlug,
+      },
+      cloudflareAccount: {
+        accountId: seed.cloudflareConnection.accountId,
+        accountName: seed.cloudflareConnection.accountId,
+      },
     });
     expect(snapshot.memberships[0]).toMatchObject({
       organizationId: organization._id,
@@ -148,27 +169,18 @@ describe("devAuth password account seed", () => {
       status: "inactive",
     });
 
-    const convexConnection = snapshot.providerConnections.find(
-      (connection) => connection.kind === "convex",
-    );
-    const cloudflareConnection = snapshot.providerConnections.find(
-      (connection) => connection.kind === "cloudflare",
-    );
-    expect(convexConnection).toMatchObject({
+    expect(snapshot.providerCredentials[0]).toMatchObject({
+      _id: initialProviderCredentials?._id,
       organizationId: organization._id,
-      connectedByUserId: userId,
-      teamId: seed.convexConnection.teamId,
-    });
-    expect(cloudflareConnection).toMatchObject({
-      organizationId: organization._id,
-      connectedByUserId: userId,
-      defaultAccount: {
-        state: "selected",
-        accountId: seed.cloudflareConnection.accountId,
+      convex: {
+        connectedByUserId: userId,
+        auth: { credential: "convex-updated-credential" },
+      },
+      cloudflare: {
+        connectedByUserId: userId,
+        auth: { credential: "cloudflare-updated-credential" },
       },
     });
-    expect(organization.selectedConvexProviderConnectionId).toBe(convexConnection?._id);
-    expect(organization.selectedCloudflareProviderConnectionId).toBe(cloudflareConnection?._id);
   });
 
   it("uses the preview API key without storing it and repeats organization seeding safely", async () => {
@@ -210,7 +222,7 @@ describe("devAuth password account seed", () => {
       memberships: await ctx.db.query("organizationMemberships").collect(),
       billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
       githubUserAuthorizations: await ctx.db.query("githubUserAuthorizations").collect(),
-      providerConnections: await ctx.db.query("providerConnections").collect(),
+      providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
     }));
     expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledTimes(2);
     expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledWith(
@@ -220,38 +232,34 @@ describe("devAuth password account seed", () => {
     expect(snapshot.memberships).toHaveLength(2);
     expect(snapshot.billingAccounts).toHaveLength(2);
     expect(snapshot.githubUserAuthorizations).toEqual([]);
-    expect(snapshot.providerConnections).toHaveLength(4);
-    expect(snapshot.providerConnections).not.toContainEqual(
+    expect(snapshot.providerCredentials).toHaveLength(2);
+    expect(snapshot.providerCredentials).not.toContainEqual(
       expect.objectContaining({
-        auth: { method: "api_key", credential: "preview-github-api-key" },
+        convex: expect.objectContaining({
+          auth: { method: "api_key", credential: "preview-github-api-key" },
+        }),
       }),
     );
     for (const organization of snapshot.organizations) {
-      const organizationConnections = snapshot.providerConnections.filter(
-        (connection) => connection.organizationId === organization._id,
+      const organizationCredentials = snapshot.providerCredentials.filter(
+        (credentials) => credentials.organizationId === organization._id,
       );
-      expect(organizationConnections).toHaveLength(2);
-      const convexConnection = organizationConnections.find(
-        (connection) => connection.kind === "convex",
-      );
-      const cloudflareConnection = organizationConnections.find(
-        (connection) => connection.kind === "cloudflare",
-      );
-      expect(convexConnection).toMatchObject({
-        connectedByUserId: snapshot.memberships[0].userId,
-        auth: { method: "api_key", credential: "preview-convex-credential" },
-        teamId: "preview-convex-team-id",
-      });
-      expect(cloudflareConnection).toMatchObject({
-        connectedByUserId: snapshot.memberships[0].userId,
-        auth: { method: "api_key", credential: "preview-cloudflare-credential" },
-        defaultAccount: {
-          state: "selected",
-          accountId: "preview-cloudflare-account-id",
+      expect(organizationCredentials).toHaveLength(1);
+      expect(organizationCredentials[0]).toMatchObject({
+        convex: {
+          connectedByUserId: snapshot.memberships[0].userId,
+          auth: { method: "api_key", credential: "preview-convex-credential" },
         },
+        cloudflare: {
+          connectedByUserId: snapshot.memberships[0].userId,
+          auth: { method: "api_key", credential: "preview-cloudflare-credential" },
+        },
+        organizationId: organization._id,
       });
-      expect(organization.selectedConvexProviderConnectionId).toBe(convexConnection?._id);
-      expect(organization.selectedCloudflareProviderConnectionId).toBe(cloudflareConnection?._id);
+      expect(organization.convexTeam).toMatchObject({ teamId: "preview-convex-team-id" });
+      expect(organization.cloudflareAccount).toMatchObject({
+        accountId: "preview-cloudflare-account-id",
+      });
     }
   });
 

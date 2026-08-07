@@ -4,7 +4,7 @@ import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { action } from "./functions";
-import { CLOUDFLARE_OAUTH_SCOPES } from "./cloudflareOAuth";
+import { CLOUDFLARE_OAUTH_SCOPES, type ResolvedCloudflareConnection } from "./cloudflareOAuth";
 import {
   listCloudflareAccountsForToken,
   type CloudflareAccount,
@@ -16,7 +16,6 @@ import {
 } from "./cloudflareApi/client";
 import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
 import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
-import type { CloudflareDefaultAccount } from "./providerConnectionModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -29,7 +28,6 @@ const vCloudflareProviderAuthMethod = union(
 const vCloudflareAccessCheckKey = union(
   literal("token"),
   literal("accounts"),
-  literal("selected_account"),
   literal("workers"),
   literal("workers_builds"),
 );
@@ -39,12 +37,6 @@ const vCloudflareAccessCheckStatus = union(literal("ok"), literal("error"), lite
 const vCloudflareRequestedScope = object({
   scope: string(),
   label: string(),
-});
-
-const vCloudflareAccountAccess = object({
-  accountId: string(),
-  accountName: string(),
-  selected: boolean(),
 });
 
 const vCloudflareTokenVerification = object({
@@ -67,7 +59,6 @@ export const vCloudflareConnectionAccess = object({
   checkedAt: number(),
   requestedScopes: array(vCloudflareRequestedScope),
   token: optional(vCloudflareTokenVerification),
-  accounts: array(vCloudflareAccountAccess),
   checks: array(vCloudflareAccessCheck),
 });
 
@@ -77,35 +68,6 @@ type CloudflareAccessCheckKey = Infer<typeof vCloudflareAccessCheckKey>;
 type CloudflareConnectionAccess = Infer<typeof vCloudflareConnectionAccess>;
 type CloudflareRequestedScope = Infer<typeof vCloudflareRequestedScope>;
 type CloudflareTokenVerification = Infer<typeof vCloudflareTokenVerification>;
-type CloudflareAccountAccess = Infer<typeof vCloudflareAccountAccess>;
-
-type CloudflareOAuthAuth = {
-  method: "oauth" | "mcp_oauth";
-  credential: string;
-  credentialExpiresAt: number;
-  refreshCredential: string;
-  clientId?: string;
-};
-
-type CloudflareApiKeyAuth = {
-  method: "api_key";
-  credential: string;
-};
-
-type CloudflareProviderAuth = CloudflareApiKeyAuth | CloudflareOAuthAuth;
-
-type CloudflareResolvedConnection = {
-  auth: CloudflareProviderAuth;
-  defaultAccount: CloudflareDefaultAccount;
-  tokenHealth?: McpTokenHealth;
-};
-
-type CloudflareVisibleAccount = CloudflareAccount;
-
-type SelectedCloudflareAccount = {
-  accountId: string;
-  accountName: string;
-};
 
 type CloudflareProbeResult<Value> =
   | {
@@ -133,29 +95,24 @@ export const checkCloudflareConnectionAccess = action({
         organizationId: args.organizationId,
       },
     );
-    const selectedConnection = await ctx.runQuery(
-      internal.providerConnections.loadSelectedForOrganization,
-      {
+    const role = await ctx.runQuery(internal.organizationAccess.requireOrganizationRoleForUser, {
+      organizationId,
+      userId: ctx.viewer.userId,
+    });
+    let connection: ResolvedCloudflareConnection | null;
+    try {
+      connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
         organizationId,
         userId: ctx.viewer.userId,
-        kind: "cloudflare",
-      },
-    );
-    const connection =
-      selectedConnection?.kind === "cloudflare"
-        ? await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
-            organizationId,
-            providerConnectionId: selectedConnection._id,
-            userId: ctx.viewer.userId,
-          })
-        : null;
-
+      });
+    } catch {
+      throw new Error("Cloudflare access check failed.");
+    }
     if (connection === null) {
       return {
         connected: false,
         checkedAt,
         requestedScopes: [],
-        accounts: [],
         checks: [
           {
             key: "token",
@@ -167,7 +124,7 @@ export const checkCloudflareConnectionAccess = action({
       };
     }
 
-    const resolvedConnection: CloudflareResolvedConnection = connection;
+    const resolvedConnection = connection;
     const authMethod = resolvedConnection.auth.method;
     const token = resolvedConnection.auth.credential.trim();
     const transport = resolveCloudflareApiTransport(authMethod);
@@ -203,44 +160,61 @@ export const checkCloudflareConnectionAccess = action({
       );
     }
 
-    const accountsProbe = await runCloudflareProbe({
-      key: "accounts",
-      label: "Accounts",
-      run: async () => {
-        return listCloudflareAccountsForToken({
-          token,
-          transport,
-          perPage: 100,
-        });
-      },
-      describe: (accounts) => {
-        if (accounts.length === 0) {
-          return "Probe GET /accounts succeeded and returned no visible accounts.";
-        }
-        if (accounts.length === 1) {
-          return `Probe GET /accounts returned 1 visible account: ${accounts[0].accountName}.`;
-        }
-        return `Probe GET /accounts returned ${accounts.length} visible accounts.`;
-      },
+    const configuredAccount = resolvedConnection.account ?? null;
+    const rawAccountsProbe: CloudflareProbeResult<CloudflareAccount[]> =
+      configuredAccount === null && role !== "owner"
+        ? {
+            state: "ok",
+            value: [],
+            check: {
+              key: "accounts",
+              label: "Accounts",
+              status: "unknown",
+              message: "Cloudflare account selection is pending for an organization owner.",
+            },
+          }
+        : await runCloudflareProbe({
+            key: "accounts",
+            label: "Accounts",
+            run: async () => {
+              const accounts = await listCloudflareAccountsForToken({
+                token,
+                transport,
+                perPage: 100,
+              });
+              return configuredAccount === null
+                ? accounts
+                : accounts.filter((account) => account.accountId === configuredAccount.accountId);
+            },
+            describe: (accounts) => {
+              if (accounts.length === 0) {
+                return configuredAccount === null
+                  ? "Probe GET /accounts succeeded and returned no visible accounts."
+                  : "The connected Cloudflare account is not visible to this credential.";
+              }
+              if (configuredAccount !== null) {
+                return `Probe GET /accounts confirmed the connected account: ${accounts[0].accountName}.`;
+              }
+              if (accounts.length === 1) {
+                return `Probe GET /accounts returned 1 visible account: ${accounts[0].accountName}.`;
+              }
+              return `Probe GET /accounts returned ${accounts.length} visible accounts.`;
+            },
+          });
+    const accountsProbe = markMissingConfiguredCloudflareAccount({
+      accountsProbe: rawAccountsProbe,
+      configuredAccount,
     });
     checks.push(accountsProbe.check);
 
     const visibleAccounts = accountsProbe.state === "ok" ? accountsProbe.value : [];
-    const selectedAccount = readSelectedCloudflareAccount(resolvedConnection.defaultAccount);
-    const selectedVisibleAccount =
-      selectedAccount === null
+    const configuredVisibleAccount =
+      configuredAccount === null
         ? null
-        : (visibleAccounts.find((account) => account.accountId === selectedAccount.accountId) ??
+        : (visibleAccounts.find((account) => account.accountId === configuredAccount.accountId) ??
           null);
-    checks.push(
-      buildSelectedCloudflareAccountCheck({
-        selectedAccount,
-        accountsProbe,
-        selectedVisibleAccount,
-      }),
-    );
 
-    if (selectedVisibleAccount === null) {
+    if (configuredVisibleAccount === null) {
       checks.push(
         buildUnknownCloudflareCheck({
           key: "workers",
@@ -248,7 +222,7 @@ export const checkCloudflareConnectionAccess = action({
           message: buildSkippedCloudflareCapabilityProbeMessage({
             accountsProbe,
             capabilityLabel: "Workers",
-            selectedAccount,
+            configuredAccount,
           }),
         }),
         buildUnknownCloudflareCheck({
@@ -257,7 +231,7 @@ export const checkCloudflareConnectionAccess = action({
           message: buildSkippedCloudflareCapabilityProbeMessage({
             accountsProbe,
             capabilityLabel: "Workers Builds",
-            selectedAccount,
+            configuredAccount,
           }),
         }),
       );
@@ -268,13 +242,13 @@ export const checkCloudflareConnectionAccess = action({
           label: "Workers",
           run: async () => {
             await checkCloudflareWorkersAccess({
-              accountId: selectedVisibleAccount.accountId,
+              accountId: configuredVisibleAccount.accountId,
               token,
               transport,
             });
           },
           describe: () => {
-            return `Probe GET /accounts/{account_id}/workers/account-settings succeeded for ${selectedVisibleAccount.accountName}.`;
+            return `Probe GET /accounts/{account_id}/workers/account-settings succeeded for ${configuredVisibleAccount.accountName}.`;
           },
         }),
         runCloudflareProbe({
@@ -282,13 +256,13 @@ export const checkCloudflareConnectionAccess = action({
           label: "Workers Builds",
           run: async () => {
             await checkCloudflareWorkersBuildsAccess({
-              accountId: selectedVisibleAccount.accountId,
+              accountId: configuredVisibleAccount.accountId,
               token,
               transport,
             });
           },
           describe: () => {
-            return `Probe GET /accounts/{account_id}/builds/account/limits succeeded for ${selectedVisibleAccount.accountName}.`;
+            return `Probe GET /accounts/{account_id}/builds/account/limits succeeded for ${configuredVisibleAccount.accountName}.`;
           },
         }),
       ]);
@@ -301,10 +275,6 @@ export const checkCloudflareConnectionAccess = action({
       checkedAt,
       requestedScopes: getCloudflareRequestedScopes(authMethod),
       token: tokenVerification,
-      accounts: buildCloudflareAccountAccess({
-        selectedAccount,
-        visibleAccounts,
-      }),
       checks,
     };
   },
@@ -414,7 +384,7 @@ function buildCloudflareOAuthTokenCheck({
   tokenHealth,
   checkedAt,
 }: {
-  auth: CloudflareOAuthAuth;
+  auth: Extract<ResolvedCloudflareConnection["auth"], { method: "oauth" | "mcp_oauth" }>;
   tokenHealth?: McpTokenHealth;
   checkedAt: number;
 }): CloudflareAccessCheck {
@@ -446,69 +416,49 @@ function buildCloudflareOAuthTokenCheck({
   };
 }
 
-function buildSelectedCloudflareAccountCheck({
-  selectedAccount,
+function markMissingConfiguredCloudflareAccount({
   accountsProbe,
-  selectedVisibleAccount,
+  configuredAccount,
 }: {
-  selectedAccount: SelectedCloudflareAccount | null;
-  accountsProbe: CloudflareProbeResult<CloudflareVisibleAccount[]>;
-  selectedVisibleAccount: CloudflareVisibleAccount | null;
-}): CloudflareAccessCheck {
-  if (selectedAccount === null) {
+  accountsProbe: CloudflareProbeResult<CloudflareAccount[]>;
+  configuredAccount: NonNullable<ResolvedCloudflareConnection["account"]> | null;
+}): CloudflareProbeResult<CloudflareAccount[]> {
+  if (
+    configuredAccount !== null &&
+    accountsProbe.state === "ok" &&
+    !accountsProbe.value.some((account) => account.accountId === configuredAccount.accountId)
+  ) {
     return {
-      key: "selected_account",
-      label: "Selected account",
-      status: "unknown",
-      message: "Skipped: no Cloudflare account is selected.",
+      ...accountsProbe,
+      check: {
+        key: "accounts",
+        label: "Accounts",
+        message: `The Accounts probe did not return connected account ${configuredAccount.accountName} (${configuredAccount.accountId}).`,
+        status: "error",
+      },
     };
   }
-
-  if (accountsProbe.state === "error") {
-    return {
-      key: "selected_account",
-      label: "Selected account",
-      status: "unknown",
-      message:
-        "Skipped: the Accounts probe failed, so selected-account visibility could not be checked.",
-    };
-  }
-
-  if (selectedVisibleAccount === null) {
-    return {
-      key: "selected_account",
-      label: "Selected account",
-      status: "error",
-      message: `The Accounts probe did not return selected account ${selectedAccount.accountName} (${selectedAccount.accountId}).`,
-    };
-  }
-
-  return {
-    key: "selected_account",
-    label: "Selected account",
-    status: "ok",
-    message: `The Accounts probe returned selected account ${selectedVisibleAccount.accountName} (${selectedVisibleAccount.accountId}).`,
-  };
+  return accountsProbe;
 }
 
 function buildSkippedCloudflareCapabilityProbeMessage({
   accountsProbe,
   capabilityLabel,
-  selectedAccount,
+  configuredAccount,
 }: {
-  accountsProbe: CloudflareProbeResult<CloudflareVisibleAccount[]>;
+  accountsProbe: CloudflareProbeResult<CloudflareAccount[]>;
   capabilityLabel: string;
-  selectedAccount: SelectedCloudflareAccount | null;
+  configuredAccount: NonNullable<ResolvedCloudflareConnection["account"]> | null;
 }): string {
-  if (selectedAccount === null) {
+  if (configuredAccount === null) {
     return `Skipped: choose a Cloudflare account before probing ${capabilityLabel}.`;
   }
 
   if (accountsProbe.state === "error") {
-    return `Skipped: the Accounts probe failed, so Samebase could not confirm the selected account before probing ${capabilityLabel}.`;
+    return `Skipped: the Accounts probe failed, so Samebase could not confirm the connected account before probing ${capabilityLabel}.`;
   }
 
-  return `Skipped: the Accounts probe did not return selected account ${selectedAccount.accountName} (${selectedAccount.accountId}).`;
+  return `Skipped: the Accounts probe did not return connected account ${configuredAccount.accountName} (${configuredAccount.accountId}).`;
 }
 
 function buildUnknownCloudflareCheck({
@@ -526,37 +476,6 @@ function buildUnknownCloudflareCheck({
     status: "unknown",
     message,
   };
-}
-
-function buildCloudflareAccountAccess({
-  selectedAccount,
-  visibleAccounts,
-}: {
-  selectedAccount: SelectedCloudflareAccount | null;
-  visibleAccounts: CloudflareVisibleAccount[];
-}): CloudflareAccountAccess[] {
-  return visibleAccounts.map((account) => ({
-    accountId: account.accountId,
-    accountName: account.accountName,
-    selected: selectedAccount?.accountId === account.accountId,
-  }));
-}
-
-function readSelectedCloudflareAccount(
-  defaultAccount: CloudflareDefaultAccount,
-): SelectedCloudflareAccount | null {
-  switch (defaultAccount.state) {
-    case "not_selected":
-      return null;
-    case "selected":
-      return {
-        accountId: defaultAccount.accountId,
-        accountName: defaultAccount.accountName,
-      };
-    default:
-      defaultAccount satisfies never;
-      return null;
-  }
 }
 
 function getCloudflareRequestedScopes(

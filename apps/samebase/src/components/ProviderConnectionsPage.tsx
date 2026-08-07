@@ -38,7 +38,7 @@ type ProviderMetadata = {
   popupName: string;
 };
 type ProviderRuntimeConfig = {
-  disconnect: () => Promise<unknown>;
+  disconnect: () => Promise<ProviderDisconnectResult>;
   getOAuthUrl: () => Promise<string>;
   popupOriginRef: MutableRefObject<string | null>;
   popupRef: MutableRefObject<Window | null>;
@@ -67,6 +67,7 @@ type AppConvexConnectionAccess =
 type AppCloudflareConnection = (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
 type AppCloudflareConnectionAccess =
   (typeof api.cloudflareProviderAccess.checkCloudflareConnectionAccess)["_returnType"];
+type ProviderDisconnectResult = (typeof api.users.disconnectConvex)["_returnType"];
 type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "page_load" | "poll";
 type CloudflareAccountDialogState = {
   error: string | null;
@@ -102,6 +103,7 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   onDisconnect: (provider: ProviderKey) => void;
   onOpenApiKeyDialog: () => void;
   onOpenCloudflareAccountDialog: (accountId: string | undefined) => void;
+  providerDisconnectNotice: string | null;
 };
 
 const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
@@ -121,9 +123,8 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
   },
 };
 
-function formatAuthMethod(method: "oauth" | "mcp_oauth" | "api_key" | "device_auth" | undefined) {
+function formatAuthMethod(method: "oauth" | "mcp_oauth" | "api_key" | undefined) {
   if (method === "api_key") return "API key";
-  if (method === "device_auth") return "Device auth";
   if (method === "oauth") return "OAuth";
   if (method === "mcp_oauth") return "OAuth";
   return "Unknown";
@@ -184,7 +185,7 @@ function ConvexConnectionDetails({
   isChecking: boolean;
   now: number;
 }) {
-  if (connection?.connected !== true) {
+  if (connection?.state !== "connected") {
     return null;
   }
 
@@ -297,13 +298,12 @@ function CloudflareConnectionDetails({
   isChecking: boolean;
   now: number;
 }) {
-  if (connection?.connected !== true) {
+  if (connection?.state !== "connected") {
     return null;
   }
 
   const checkedAccess = access?.connected === true ? access : null;
   const requestedScopes = checkedAccess?.requestedScopes ?? [];
-  const accounts = checkedAccess?.accounts ?? [];
   const checks = checkedAccess?.checks ?? [];
   const token = checkedAccess?.token;
 
@@ -350,31 +350,6 @@ function CloudflareConnectionDetails({
       ) : null}
       {checkedAccess ? (
         <div className="space-y-3">
-          <div className="space-y-2">
-            <div className="font-medium text-foreground">Accounts</div>
-            {accounts.length > 0 ? (
-              <div className="flex flex-wrap gap-1.5">
-                {accounts.map((account) => (
-                  <span
-                    key={account.accountId}
-                    className={
-                      account.selected
-                        ? "rounded-sm border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-800"
-                        : "rounded-sm border border-border bg-background px-2 py-0.5 text-foreground"
-                    }
-                    title={account.accountId}
-                  >
-                    {account.accountName} ({account.accountId})
-                    {account.selected ? " · Selected" : ""}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div className="text-muted-foreground">
-                Visible accounts appear here when the Accounts probe succeeds.
-              </div>
-            )}
-          </div>
           <div className="space-y-1">
             <div className="font-medium text-foreground">Live probes</div>
             <div className="space-y-1 text-muted-foreground">
@@ -409,7 +384,7 @@ function CloudflareConnectionDetails({
         <div className="text-muted-foreground">
           {isChecking
             ? "Checking Cloudflare access..."
-            : "Run Check access to probe account visibility, selected account access, Workers, and Workers Builds."}
+            : "Run Check access to probe account visibility, configured account access, Workers, and Workers Builds."}
         </div>
       )}
       <div className="text-muted-foreground">
@@ -529,143 +504,142 @@ export function ProviderConnectionsPageView({
   onDisconnect,
   onOpenApiKeyDialog,
   onOpenCloudflareAccountDialog,
+  providerDisconnectNotice,
 }: ProviderConnectionsPageViewProps) {
-  const canManageSelectedOrganization = organization.role === "owner";
-  const convexProviderRow =
-    convexConnection?.connected === true
-      ? (() => {
-          const convexActionsDisabled = disconnectingProvider !== null || isCheckingConvexAccess;
-          return {
-            actions: [
-              {
-                disabled: convexActionsDisabled,
-                isPending: isCheckingConvexAccess,
-                key: "check-convex-access",
-                label: "Check access",
-                onClick: onCheckConvexAccess,
-                pendingLabel: "Checking...",
-              },
-              {
-                disabled: convexActionsDisabled,
-                href: getConvexManageAccessUrl(convexConnection.teamSlug),
-                key: "manage-convex-access",
-                label: "Manage access",
-                target: "_blank" as const,
-              },
-              ...(convexConnection.authMethod === "oauth"
-                ? [
-                    {
-                      disabled: convexActionsDisabled,
-                      key: "reauthorize-convex",
-                      label: "Reauthorize",
-                      onClick: () => onConnect("convex"),
-                    },
-                  ]
-                : [
-                    {
-                      disabled: convexActionsDisabled,
-                      key: "update-convex-token",
-                      label: "Update token",
-                      onClick: onOpenApiKeyDialog,
-                    },
-                  ]),
-              {
-                disabled: convexActionsDisabled,
-                isPending: disconnectingProvider === "convex",
-                key: "disconnect",
-                label: "Disconnect",
-                onClick: () => onDisconnect("convex"),
-                pendingLabel: "Disconnecting...",
-              },
-            ].filter(
-              (action) => canManageSelectedOrganization || action.key === "check-convex-access",
-            ),
-            details: (
-              <ConvexConnectionDetails
-                access={convexAccess}
-                connection={convexConnection}
-                error={convexAccessError}
-                isChecking={isCheckingConvexAccess}
-                now={now}
-              />
-            ),
-            icon: PROVIDER_METADATA.convex.icon,
-            key: "convex",
-            label: PROVIDER_METADATA.convex.label,
-            status: `Connected to ${convexConnection.teamSlug ?? "Convex"} (${formatAuthMethod(convexConnection.authMethod)})`,
-          } satisfies ProviderConnectionRowViewModel;
-        })()
-      : ({
-          actions: canManageSelectedOrganization
-            ? [
-                {
-                  disabled: disconnectingProvider !== null,
-                  key: "oauth",
-                  label: PROVIDER_METADATA.convex.oauthButtonLabel,
-                  onClick: () => onConnect("convex"),
-                },
-                {
-                  disabled: disconnectingProvider !== null,
-                  key: "api-key",
-                  label: "Use API key",
-                  onClick: onOpenApiKeyDialog,
-                },
-              ]
-            : [],
-          icon: PROVIDER_METADATA.convex.icon,
-          key: "convex",
-          label: PROVIDER_METADATA.convex.label,
-          status: "Not connected",
-        } satisfies ProviderConnectionRowViewModel);
+  const canManageOrganization = organization.role === "owner";
+  const convexConnectActions: ProviderConnectionActionViewModel[] = canManageOrganization
+    ? [
+        {
+          disabled: disconnectingProvider !== null,
+          key: "oauth",
+          label: PROVIDER_METADATA.convex.oauthButtonLabel,
+          onClick: () => onConnect("convex"),
+        },
+        {
+          disabled: disconnectingProvider !== null,
+          key: "api-key",
+          label: "Use API key",
+          onClick: onOpenApiKeyDialog,
+        },
+      ]
+    : [];
+  let convexProviderRow: ProviderConnectionRowViewModel = {
+    actions: [],
+    icon: PROVIDER_METADATA.convex.icon,
+    key: "convex",
+    label: PROVIDER_METADATA.convex.label,
+    status: "Loading...",
+  };
+  if (convexConnection?.state === "not_configured") {
+    convexProviderRow = {
+      ...convexProviderRow,
+      actions: convexConnectActions,
+      status: "No team configured.",
+    };
+  } else if (convexConnection?.state === "disconnected") {
+    convexProviderRow = {
+      ...convexProviderRow,
+      actions: convexConnectActions,
+      status: `Disconnected from team ${convexConnection.teamSlug ?? convexConnection.teamId}.`,
+    };
+  } else if (convexConnection?.state === "connected") {
+    const convexActionsDisabled = disconnectingProvider !== null || isCheckingConvexAccess;
+    const actions: ProviderConnectionActionViewModel[] = [
+      {
+        disabled: convexActionsDisabled,
+        isPending: isCheckingConvexAccess,
+        key: "check-convex-access",
+        label: "Check access",
+        onClick: onCheckConvexAccess,
+        pendingLabel: "Checking...",
+      },
+      {
+        disabled: convexActionsDisabled,
+        href: getConvexManageAccessUrl(convexConnection.teamSlug),
+        key: "manage-convex-access",
+        label: "Manage access",
+        target: "_blank",
+      },
+      convexConnection.authMethod === "oauth"
+        ? {
+            disabled: convexActionsDisabled,
+            key: "reauthorize-convex",
+            label: "Reauthorize",
+            onClick: () => onConnect("convex"),
+          }
+        : {
+            disabled: convexActionsDisabled,
+            key: "update-convex-token",
+            label: "Update token",
+            onClick: onOpenApiKeyDialog,
+          },
+      {
+        disabled: convexActionsDisabled,
+        isPending: disconnectingProvider === "convex",
+        key: "disconnect",
+        label: "Disconnect",
+        onClick: () => onDisconnect("convex"),
+        pendingLabel: "Disconnecting...",
+      },
+    ];
+    convexProviderRow = {
+      actions: actions.filter(
+        (action) => canManageOrganization || action.key === "check-convex-access",
+      ),
+      details: (
+        <ConvexConnectionDetails
+          access={convexAccess}
+          connection={convexConnection}
+          error={convexAccessError}
+          isChecking={isCheckingConvexAccess}
+          now={now}
+        />
+      ),
+      icon: PROVIDER_METADATA.convex.icon,
+      key: "convex",
+      label: PROVIDER_METADATA.convex.label,
+      status: `Connected to team ${convexConnection.teamSlug ?? convexConnection.teamId} (${formatAuthMethod(convexConnection.authMethod)}).`,
+    };
+  }
+
   let cloudflareProviderRow: ProviderConnectionRowViewModel;
-  if (cloudflareConnection?.connected === true) {
-    const isAccountSelectionRequired = !cloudflareConnection.accountId;
-    const accountStatus = isAccountSelectionRequired
-      ? "Choose account."
-      : cloudflareConnection.accountName
-        ? `Account ${cloudflareConnection.accountName}.`
-        : "";
+  if (cloudflareConnection?.state === "connected") {
     const cloudflareActionsDisabled =
       disconnectingProvider !== null || isAutoCheckingCloudflareToken || isCheckingCloudflareAccess;
+    const actions: ProviderConnectionActionViewModel[] = [
+      {
+        disabled: cloudflareActionsDisabled,
+        isPending: isCheckingCloudflareAccess,
+        key: "check-cloudflare-access",
+        label: "Check access",
+        onClick: onCheckCloudflareAccess,
+        pendingLabel: "Checking...",
+      },
+      {
+        disabled: cloudflareActionsDisabled,
+        href: getCloudflareManageAccessUrl(cloudflareConnection.authMethod),
+        key: "manage-cloudflare-access",
+        label: "Manage access",
+        target: "_blank",
+      },
+      {
+        disabled: cloudflareActionsDisabled,
+        key: "reconnect-cloudflare",
+        label: "Reconnect",
+        onClick: () => onConnect("cloudflare"),
+      },
+      {
+        disabled: cloudflareActionsDisabled,
+        isPending: disconnectingProvider === "cloudflare",
+        key: "disconnect",
+        label: "Disconnect",
+        onClick: () => onDisconnect("cloudflare"),
+        pendingLabel: "Disconnecting...",
+      },
+    ];
     cloudflareProviderRow = {
-      actions: [
-        {
-          disabled: cloudflareActionsDisabled,
-          isPending: isCheckingCloudflareAccess,
-          key: "check-cloudflare-access",
-          label: "Check access",
-          onClick: onCheckCloudflareAccess,
-          pendingLabel: "Checking...",
-        },
-        {
-          disabled: cloudflareActionsDisabled,
-          href: getCloudflareManageAccessUrl(cloudflareConnection.authMethod),
-          key: "manage-cloudflare-access",
-          label: "Manage access",
-          target: "_blank" as const,
-        },
-        {
-          disabled: cloudflareActionsDisabled,
-          key: "reconnect-cloudflare",
-          label: "Reconnect",
-          onClick: () => onConnect("cloudflare"),
-        },
-        {
-          disabled: cloudflareActionsDisabled,
-          key: "select-account",
-          label: isAccountSelectionRequired ? "Select account" : "Manage account",
-          onClick: () => onOpenCloudflareAccountDialog(cloudflareConnection.accountId),
-        },
-        {
-          disabled: cloudflareActionsDisabled,
-          isPending: disconnectingProvider === "cloudflare",
-          key: "disconnect",
-          label: "Disconnect",
-          onClick: () => onDisconnect("cloudflare"),
-          pendingLabel: "Disconnecting...",
-        },
-      ].filter(
-        (action) => canManageSelectedOrganization || action.key === "check-cloudflare-access",
+      actions: actions.filter(
+        (action) => canManageOrganization || action.key === "check-cloudflare-access",
       ),
       details: (
         <CloudflareConnectionDetails
@@ -679,18 +653,48 @@ export function ProviderConnectionsPageView({
       icon: PROVIDER_METADATA.cloudflare.icon,
       key: "cloudflare",
       label: PROVIDER_METADATA.cloudflare.label,
-      status: [`Connected (${formatAuthMethod(cloudflareConnection.authMethod)}).`, accountStatus]
-        .filter((part) => part.length > 0)
-        .join(" "),
+      status: `Connected to account ${cloudflareConnection.accountName} (${formatAuthMethod(cloudflareConnection.authMethod)}).`,
     };
-  } else {
+  } else if (cloudflareConnection?.state === "selection_required") {
+    const actions: ProviderConnectionActionViewModel[] = canManageOrganization
+      ? [
+          {
+            disabled: disconnectingProvider !== null,
+            key: "select-account",
+            label: "Select account",
+            onClick: () => onOpenCloudflareAccountDialog(undefined),
+          },
+          {
+            disabled: disconnectingProvider !== null,
+            key: "reconnect-cloudflare",
+            label: "Reconnect",
+            onClick: () => onConnect("cloudflare"),
+          },
+          {
+            disabled: disconnectingProvider !== null,
+            isPending: disconnectingProvider === "cloudflare",
+            key: "disconnect",
+            label: "Disconnect",
+            onClick: () => onDisconnect("cloudflare"),
+            pendingLabel: "Disconnecting...",
+          },
+        ]
+      : [];
     cloudflareProviderRow = {
-      actions: canManageSelectedOrganization
+      actions,
+      icon: PROVIDER_METADATA.cloudflare.icon,
+      key: "cloudflare",
+      label: PROVIDER_METADATA.cloudflare.label,
+      status: "OAuth connected. Choose an account.",
+    };
+  } else if (cloudflareConnection?.state === "disconnected") {
+    cloudflareProviderRow = {
+      actions: canManageOrganization
         ? [
             {
               disabled: disconnectingProvider !== null,
               key: "oauth",
-              label: PROVIDER_METADATA.cloudflare.oauthButtonLabel,
+              label: "Reconnect",
               onClick: () => onConnect("cloudflare"),
             },
           ]
@@ -698,7 +702,25 @@ export function ProviderConnectionsPageView({
       icon: PROVIDER_METADATA.cloudflare.icon,
       key: "cloudflare",
       label: PROVIDER_METADATA.cloudflare.label,
-      status: "Not connected",
+      status: `Disconnected from account ${cloudflareConnection.accountName}.`,
+    };
+  } else {
+    cloudflareProviderRow = {
+      actions:
+        cloudflareConnection?.state === "not_configured" && canManageOrganization
+          ? [
+              {
+                disabled: disconnectingProvider !== null,
+                key: "oauth",
+                label: PROVIDER_METADATA.cloudflare.oauthButtonLabel,
+                onClick: () => onConnect("cloudflare"),
+              },
+            ]
+          : [],
+      icon: PROVIDER_METADATA.cloudflare.icon,
+      key: "cloudflare",
+      label: PROVIDER_METADATA.cloudflare.label,
+      status: cloudflareConnection ? "No account configured." : "Loading...",
     };
   }
   const providerRows =
@@ -714,6 +736,11 @@ export function ProviderConnectionsPageView({
       <div className="mb-6 flex flex-shrink-0 flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold @2xl:text-2xl">Providers</h1>
       </div>
+      {providerDisconnectNotice ? (
+        <div className="mb-4 text-sm text-muted-foreground" role="status">
+          {providerDisconnectNotice}
+        </div>
+      ) : null}
       <div className="flex-1 overflow-y-auto">
         <div className="max-w-3xl">
           <ProviderConnectionRows providerRows={providerRows} />
@@ -727,7 +754,11 @@ export function ProviderConnectionsPageView({
         onAccountChange={onCloudflareAccountChange}
         onOpenChange={onCloudflareAccountOpenChange}
         onSubmit={onCloudflareAccountSubmit}
-        open={canManageSelectedOrganization && cloudflareAccountDialog.isOpen}
+        open={
+          canManageOrganization &&
+          cloudflareConnection?.state === "selection_required" &&
+          cloudflareAccountDialog.isOpen
+        }
         selectedAccountId={cloudflareAccountDialog.selectedAccountId}
       />
       {apiKeyDialog}
@@ -853,11 +884,14 @@ function useCloudflareMcpTokenAutoCheck({
   setIsAutoCheckingCloudflareToken: (isChecking: boolean) => void;
 }) {
   const cloudflareAutoCheckInFlightRef = useRef(false);
-  const connectedCloudflareConnection =
-    cloudflareConnection?.connected === true ? cloudflareConnection : null;
+  const credentialedCloudflareConnection =
+    cloudflareConnection?.state === "connected" ||
+    cloudflareConnection?.state === "selection_required"
+      ? cloudflareConnection
+      : null;
 
   useEffect(() => {
-    if (connectedCloudflareConnection?.authMethod !== "mcp_oauth" || organizationId === null) {
+    if (credentialedCloudflareConnection?.authMethod !== "mcp_oauth" || organizationId === null) {
       return;
     }
 
@@ -916,8 +950,8 @@ function useCloudflareMcpTokenAutoCheck({
         return;
       }
       if (
-        typeof connectedCloudflareConnection.mcpTokenNextAutoCheckAt === "number" &&
-        Date.now() < connectedCloudflareConnection.mcpTokenNextAutoCheckAt
+        typeof credentialedCloudflareConnection.mcpTokenNextAutoCheckAt === "number" &&
+        Date.now() < credentialedCloudflareConnection.mcpTokenNextAutoCheckAt
       ) {
         return;
       }
@@ -931,8 +965,8 @@ function useCloudflareMcpTokenAutoCheck({
       cloudflareAutoCheckInFlightRef.current = false;
     };
   }, [
-    connectedCloudflareConnection?.authMethod,
-    connectedCloudflareConnection?.mcpTokenNextAutoCheckAt,
+    credentialedCloudflareConnection?.authMethod,
+    credentialedCloudflareConnection?.mcpTokenNextAutoCheckAt,
     organizationId,
     refreshCloudflareMcpTokenIfNeeded,
     setIsAutoCheckingCloudflareToken,
@@ -949,17 +983,17 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
     api.cloudflareProviderAccess.checkCloudflareConnectionAccess,
   );
   const refreshCloudflareMcpTokenIfNeeded = useAction(api.users.refreshCloudflareMcpTokenIfNeeded);
-  const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
-  const selectCloudflareDefaultAccount = useAction(api.vault.cloudflare.selectDefaultAccount);
+  const listCloudflareAccounts = useAction(api.users.listCloudflareAccounts);
+  const selectCloudflareAccount = useAction(api.users.selectCloudflareAccount);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
   const disconnectConvex = useAction(api.users.disconnectConvex);
   const disconnectCloudflare = useAction(api.users.disconnectCloudflare);
-  const selectedOrganizationId = organization.organizationId;
+  const organizationId = organization.organizationId;
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus, {
-    organizationId: selectedOrganizationId,
+    organizationId,
   });
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
-    organizationId: selectedOrganizationId,
+    organizationId,
   });
   const convexPopupRef = useRef<Window | null>(null);
   const cloudflarePopupRef = useRef<Window | null>(null);
@@ -973,6 +1007,7 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
   const [cloudflareAccessError, setCloudflareAccessError] = useState<string | null>(null);
   const [convexAccess, setConvexAccess] = useState<AppConvexConnectionAccess | null>(null);
   const [convexAccessError, setConvexAccessError] = useState<string | null>(null);
+  const [providerDisconnectNotice, setProviderDisconnectNotice] = useState<string | null>(null);
   const [isCheckingConvexAccess, setIsCheckingConvexAccess] = useState(false);
   const [isCheckingCloudflareAccess, setIsCheckingCloudflareAccess] = useState(false);
   const [isAutoCheckingCloudflareToken, setIsAutoCheckingCloudflareToken] = useState(false);
@@ -988,20 +1023,20 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     convex: {
       disconnect: async () => {
-        await disconnectConvex({ organizationId: selectedOrganizationId });
+        return await disconnectConvex({ organizationId });
       },
       getOAuthUrl: async () => {
-        return await getConvexOAuthUrl({ organizationId: selectedOrganizationId });
+        return await getConvexOAuthUrl({ organizationId });
       },
       popupOriginRef: convexPopupOriginRef,
       popupRef: convexPopupRef,
     },
     cloudflare: {
       disconnect: async () => {
-        await disconnectCloudflare({ organizationId: selectedOrganizationId });
+        return await disconnectCloudflare({ organizationId });
       },
       getOAuthUrl: async () => {
-        return await getCloudflareOAuthUrl({ organizationId: selectedOrganizationId });
+        return await getCloudflareOAuthUrl({ organizationId });
       },
       popupOriginRef: cloudflarePopupOriginRef,
       popupRef: cloudflarePopupRef,
@@ -1011,14 +1046,14 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
   const connectConvexWithApiKeyAndClearAccess = useCallback(
     async (args: { token: string }) => {
       const result = await connectConvexWithApiKey({
-        organizationId: selectedOrganizationId,
+        organizationId,
         token: args.token,
       });
       setConvexAccess(null);
       setConvexAccessError(null);
       return result;
     },
-    [connectConvexWithApiKey, selectedOrganizationId],
+    [connectConvexWithApiKey, organizationId],
   );
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
     connectConvexWithApiKey: connectConvexWithApiKeyAndClearAccess,
@@ -1032,7 +1067,7 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
   });
   useCloudflareMcpTokenAutoCheck({
     cloudflareConnection,
-    organizationId: selectedOrganizationId,
+    organizationId,
     refreshCloudflareMcpTokenIfNeeded,
     setIsAutoCheckingCloudflareToken,
   });
@@ -1045,9 +1080,7 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
     setConvexAccessError(null);
     setIsCheckingConvexAccess(true);
     try {
-      setConvexAccess(
-        await checkConvexConnectionAccess({ organizationId: selectedOrganizationId }),
-      );
+      setConvexAccess(await checkConvexConnectionAccess({ organizationId }));
     } catch (error) {
       setConvexAccessError(
         error instanceof Error ? error.message : "Could not check Convex access.",
@@ -1055,7 +1088,7 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
     } finally {
       setIsCheckingConvexAccess(false);
     }
-  }, [checkConvexConnectionAccess, isCheckingConvexAccess, selectedOrganizationId]);
+  }, [checkConvexConnectionAccess, isCheckingConvexAccess, organizationId]);
 
   const runCloudflareAccessCheck = useCallback(async () => {
     if (isCheckingCloudflareAccess) {
@@ -1065,9 +1098,7 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
     setCloudflareAccessError(null);
     setIsCheckingCloudflareAccess(true);
     try {
-      setCloudflareAccess(
-        await checkCloudflareConnectionAccess({ organizationId: selectedOrganizationId }),
-      );
+      setCloudflareAccess(await checkCloudflareConnectionAccess({ organizationId }));
     } catch (error) {
       setCloudflareAccessError(
         error instanceof Error ? error.message : "Could not check Cloudflare access.",
@@ -1075,7 +1106,7 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
     } finally {
       setIsCheckingCloudflareAccess(false);
     }
-  }, [checkCloudflareConnectionAccess, isCheckingCloudflareAccess, selectedOrganizationId]);
+  }, [checkCloudflareConnectionAccess, isCheckingCloudflareAccess, organizationId]);
 
   const loadCloudflareAccountDialogResources = async (preferredAccountId: string | undefined) => {
     const requestId = cloudflareAccountDialogRequestIdRef.current + 1;
@@ -1086,7 +1117,7 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
       isLoadingAccounts: true,
     }));
     try {
-      const accounts = await listCloudflareAccounts({ organizationId: selectedOrganizationId });
+      const accounts = await listCloudflareAccounts({ organizationId });
       if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
         return;
       }
@@ -1132,6 +1163,7 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
       setConvexAccess(null);
       setConvexAccessError(null);
     }
+    setProviderDisconnectNotice(null);
     try {
       const oauthUrl = await providerConfig.getOAuthUrl();
       if (isInIframe()) {
@@ -1159,6 +1191,11 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
     setDisconnectingProvider(provider);
     try {
       await providerConfig.disconnect();
+      setProviderDisconnectNotice(
+        provider === "convex"
+          ? "Samebase removed its local Convex credential. Revoke the credential in Convex if you also want to remove upstream access."
+          : "Samebase removed its local Cloudflare credential. Revoke the authorization in Cloudflare if you also want to remove upstream access.",
+      );
       if (provider === "cloudflare") {
         setCloudflareAccess(null);
         setCloudflareAccessError(null);
@@ -1189,9 +1226,9 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
     }
     setCloudflareAccountDialog((current) => ({ ...current, error: null, isSubmitting: true }));
     try {
-      await selectCloudflareDefaultAccount({
+      await selectCloudflareAccount({
         accountId: cloudflareAccountDialog.selectedAccountId,
-        organizationId: selectedOrganizationId,
+        organizationId,
       });
       setCloudflareAccess(null);
       setCloudflareAccessError(null);
@@ -1250,6 +1287,7 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
         setCloudflareAccountDialog((current) => ({ ...current, isOpen: true }));
         void loadCloudflareAccountDialogResources(accountId);
       }}
+      providerDisconnectNotice={providerDisconnectNotice}
     />
   );
 }

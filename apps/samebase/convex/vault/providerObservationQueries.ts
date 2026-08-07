@@ -10,6 +10,8 @@ const { array, id, object, string } = v;
 
 const vVaultProviderObservationContext = object({
   organizationId: id("organizations"),
+  convexTeamId: string(),
+  cloudflareAccountId: string(),
   ghRepoId: string(),
   owner: string(),
   name: string(),
@@ -40,6 +42,8 @@ export const readProviderAttachmentVaultContext = internalQuery({
   },
   returns: object({
     organizationId: id("organizations"),
+    convexTeamId: string(),
+    cloudflareAccountId: string(),
     ghRepoId: string(),
     owner: string(),
     name: string(),
@@ -53,6 +57,8 @@ export const readProviderAttachmentVaultContext = internalQuery({
     const organization = await requireVaultOrganization(ctx.db, vault);
     return {
       organizationId: vault.organizationId,
+      convexTeamId: vault.convexTeamId,
+      cloudflareAccountId: vault.cloudflareAccountId,
       ghRepoId: vault.ghRepoId,
       owner: organization.githubOwnerLogin,
       name: vault.name,
@@ -85,13 +91,17 @@ export const readVaultProviderObservationContext = internalQuery({
     ]);
     if (
       workers.some((worker) => worker.organizationId !== vault.organizationId) ||
-      projects.some((project) => project.organizationId !== vault.organizationId)
+      workers.some((worker) => worker.accountId !== vault.cloudflareAccountId) ||
+      projects.some((project) => project.organizationId !== vault.organizationId) ||
+      projects.some((project) => project.teamId !== vault.convexTeamId)
     ) {
       throw new Error("Vault provider attachment not found.");
     }
 
     return {
       organizationId: vault.organizationId,
+      convexTeamId: vault.convexTeamId,
+      cloudflareAccountId: vault.cloudflareAccountId,
       ghRepoId: vault.ghRepoId,
       owner: organization.githubOwnerLogin,
       name: vault.name,

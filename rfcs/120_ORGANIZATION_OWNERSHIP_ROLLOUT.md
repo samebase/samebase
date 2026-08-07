@@ -4,7 +4,7 @@
 
 - Status: Active
 - Owner: Samebase backend
-- Last updated: 2026-08-05
+- Last updated: 2026-08-07
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Replacement branch: `codex-github-app-organizations`
 - Replacement PR: [#1367](https://github.com/samebase/samebase/pull/1367)
@@ -28,16 +28,15 @@ review transcripts, or a per-commit journal.
 - Signup and waitlist entry do not create organizations or billing rows.
 - One Samebase organization maps to one stable GitHub repository owner.
 - A verified Samebase GitHub App installation creates or reconnects the organization.
-- GitHub is not a deployment `providerConnections` kind.
+- GitHub is not a deployment provider credential.
 - GitHub App installation tokens serve normal repository operations.
 - User-specific GitHub App authorization stays user-owned and separate. One Samebase user has one
   current personal GitHub authorization.
-- Convex and Cloudflare connections are organization-owned and record who connected them.
-- The current schema permits several Convex or Cloudflare connections per organization. This is not
-  a long-term cardinality decision. A focused provider task must define multi-connection behavior
-  and disconnect semantics before that behavior is expanded.
-- Long-lived Convex and Cloudflare resource rows use stable external team, project, account, and
-  Worker IDs. They do not depend on a replaceable `providerConnections` ID.
+- Convex and Cloudflare destinations and credentials are organization-owned. During beta, each
+  organization has at most one Convex team and one Cloudflare account. This is a product limit, not
+  organization identity. `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md` owns its rollout.
+- Vaults and long-lived Convex and Cloudflare resource rows use stable external team, project,
+  account, and Worker IDs. They do not depend on a replaceable credential document ID.
 - Persistent provisioning plans and deletion retry snapshots also use external provider resource
   IDs. They resolve the current usable connection when work runs or retries.
 - Vaults, billing, quotas, and provider resources are organization-owned. MCP grants act as their

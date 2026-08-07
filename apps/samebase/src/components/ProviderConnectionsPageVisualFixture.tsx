@@ -6,32 +6,21 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 export type ProviderConnectionsPageVisualMode =
   | "providers-page-connected"
-  | "providers-page-loading";
+  | "providers-page-loading"
+  | "providers-page-recovery";
 
 const PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW = Date.UTC(2026, 5, 22, 12, 0, 0);
 
 function fakeOrganizationId(): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
-  return "organization_samebase";
+  return "organization_acme";
 }
 
-const PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID = fakeOrganizationId();
+const ORGANIZATION_ID = fakeOrganizationId();
 
-const providerConnectionsVisualFixtureState = {
+const connectedState = {
   cloudflareAccess: {
-    accounts: [
-      {
-        accountId: "cloudflare-account-1",
-        accountName: "Samebase Preview",
-        selected: true,
-      },
-      {
-        accountId: "cloudflare-account-2",
-        accountName: "Acme Product",
-        selected: false,
-      },
-    ],
     authMethod: "oauth",
     checkedAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 4 * 60_000,
     checks: [
@@ -45,21 +34,14 @@ const providerConnectionsVisualFixtureState = {
       {
         key: "accounts",
         label: "Accounts",
-        message: "Probe GET /accounts returned 2 visible accounts.",
-        status: "ok",
-      },
-      {
-        key: "selected_account",
-        label: "Selected account",
-        message:
-          "The Accounts probe returned selected account Samebase Preview (cloudflare-account-1).",
+        message: "Probe GET /accounts confirmed the connected account: Acme Production.",
         status: "ok",
       },
       {
         key: "workers",
         label: "Workers",
         message:
-          "Probe GET /accounts/{account_id}/workers/account-settings succeeded for Samebase Preview.",
+          "Probe GET /accounts/{account_id}/workers/account-settings succeeded for Acme Production.",
         status: "ok",
       },
       {
@@ -72,43 +54,19 @@ const providerConnectionsVisualFixtureState = {
     ],
     connected: true,
     requestedScopes: [
-      {
-        label: "Read account metadata",
-        scope: "account-settings.read",
-      },
-      {
-        label: "Read Workers Builds",
-        scope: "workers-ci.read",
-      },
-      {
-        label: "Manage Workers Builds",
-        scope: "workers-ci.write",
-      },
-      {
-        label: "Read Workers",
-        scope: "workers-scripts.read",
-      },
-      {
-        label: "Manage Workers",
-        scope: "workers-scripts.write",
-      },
-      {
-        label: "Refresh access without reconnecting",
-        scope: "offline_access",
-      },
+      { label: "Read account metadata", scope: "account-settings.read" },
+      { label: "Read Workers Builds", scope: "workers-ci.read" },
+      { label: "Manage Workers Builds", scope: "workers-ci.write" },
+      { label: "Read Workers", scope: "workers-scripts.read" },
+      { label: "Manage Workers", scope: "workers-scripts.write" },
+      { label: "Refresh access without reconnecting", scope: "offline_access" },
     ],
   },
   cloudflareConnection: {
-    accountId: "cloudflare-account-1",
-    accountName: "Samebase Preview",
+    accountId: "cloudflare-account-production",
+    accountName: "Acme Production",
     authMethod: "oauth",
-    connected: true,
-  },
-  convexConnection: {
-    authMethod: "api_key",
-    connected: true,
-    teamId: "team_samebase",
-    teamSlug: "samebase",
+    state: "connected",
   },
   convexAccess: {
     authMethod: "api_key",
@@ -117,7 +75,7 @@ const providerConnectionsVisualFixtureState = {
       {
         key: "token",
         label: "Token details",
-        message: "Probe GET /token_details returned team token Samebase operator token.",
+        message: "Probe GET /token_details returned team token Acme deployment token.",
         status: "ok",
       },
       {
@@ -134,25 +92,41 @@ const providerConnectionsVisualFixtureState = {
       },
     ],
     connected: true,
-    requestedAccess: [
-      {
-        key: "team",
-        label: "Team-scoped Convex Management API access",
-      },
-    ],
+    requestedAccess: [{ key: "team", label: "Team-scoped Convex Management API access" }],
     team: {
-      teamId: "team_samebase",
-      teamSlug: "samebase",
+      teamId: "team_acme_platform",
+      teamSlug: "acme-platform",
     },
     token: {
       createdAt: Date.UTC(2026, 5, 1, 9, 30, 0),
-      id: "token_samebase_provider",
-      name: "Samebase operator token",
-      teamId: "team_samebase",
+      id: "token_acme_provider",
+      name: "Acme deployment token",
+      teamId: "team_acme_platform",
       type: "team_token",
     },
   },
+  convexConnection: {
+    authMethod: "api_key",
+    state: "connected",
+    teamId: "team_acme_platform",
+    teamSlug: "acme-platform",
+  },
   now: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW,
+} satisfies ProviderConnectionsPageConnectionState;
+
+const recoveryState = {
+  cloudflareAccess: null,
+  cloudflareConnection: {
+    authMethod: "oauth",
+    state: "selection_required",
+  },
+  convexAccess: null,
+  convexConnection: {
+    state: "disconnected",
+    teamId: "team_acme_platform",
+    teamSlug: "acme-platform",
+  },
+  now: Date.UTC(2026, 7, 7, 12, 0, 0),
 } satisfies ProviderConnectionsPageConnectionState;
 
 const noop = () => {};
@@ -163,10 +137,12 @@ export function ProviderConnectionsPageVisualFixture({
   mode?: ProviderConnectionsPageVisualMode;
 }) {
   const isLoading = mode === "providers-page-loading";
+  const state = mode === "providers-page-recovery" ? recoveryState : connectedState;
+
   return (
     <ProviderConnectionsPageView
       apiKeyDialog={null}
-      cloudflareAccess={isLoading ? null : providerConnectionsVisualFixtureState.cloudflareAccess}
+      cloudflareAccess={isLoading ? null : state.cloudflareAccess}
       cloudflareAccessError={null}
       cloudflareAccountDialog={{
         error: null,
@@ -176,25 +152,21 @@ export function ProviderConnectionsPageVisualFixture({
         options: [],
         selectedAccountId: "",
       }}
-      cloudflareConnection={
-        isLoading ? undefined : providerConnectionsVisualFixtureState.cloudflareConnection
-      }
-      convexAccess={isLoading ? null : providerConnectionsVisualFixtureState.convexAccess}
+      cloudflareConnection={isLoading ? undefined : state.cloudflareConnection}
+      convexAccess={isLoading ? null : state.convexAccess}
       convexAccessError={null}
-      convexConnection={
-        isLoading ? undefined : providerConnectionsVisualFixtureState.convexConnection
-      }
+      convexConnection={isLoading ? undefined : state.convexConnection}
       disconnectingProvider={null}
       isAutoCheckingCloudflareToken={false}
       isCheckingCloudflareAccess={false}
       isCheckingConvexAccess={false}
-      now={providerConnectionsVisualFixtureState.now}
+      now={state.now}
       organization={{
         canCreateRepository: true,
         githubOwnerId: "456",
-        githubOwnerLogin: "samebase",
+        githubOwnerLogin: "acme",
         githubOwnerType: "organization",
-        organizationId: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_ORGANIZATION_ID,
+        organizationId: ORGANIZATION_ID,
         role: "owner",
       }}
       onCheckCloudflareAccess={noop}
@@ -206,6 +178,7 @@ export function ProviderConnectionsPageVisualFixture({
       onDisconnect={noop}
       onOpenApiKeyDialog={noop}
       onOpenCloudflareAccountDialog={noop}
+      providerDisconnectNotice={null}
     />
   );
 }

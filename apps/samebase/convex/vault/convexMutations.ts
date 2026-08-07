@@ -17,7 +17,6 @@ import { normalizeConvexConfigPath } from "../../shared/convexConfigPath";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { requireBillingResourceCapacity } from "../billingResourceQuotas";
 import { requireVaultForUser } from "../organizationAccess";
-import { getProviderConnectionByIdForOrganization } from "../providerConnections";
 import { vVaultProviderResourceOrigin, type VaultProviderResourceOrigin } from "./model";
 import {
   requireUserVaultInfrastructureIdle,
@@ -48,8 +47,11 @@ async function requireActiveManagedProvisioning(
     userId: Id<"users">;
     runId: Id<"workflow_vaultProvisioning_runs">;
   },
-): Promise<Doc<"workflow_vaultProvisioning_plans">> {
-  await requireConnectedVault(ctx, args);
+): Promise<{
+  vault: Extract<Doc<"vaults">, { state: "connected" }>;
+  plan: Doc<"workflow_vaultProvisioning_plans">;
+}> {
+  const vault = await requireConnectedVault(ctx, args);
   const [run, writeLock, plan] = await Promise.all([
     ctx.db.get(args.runId),
     ctx.db
@@ -80,7 +82,7 @@ async function requireActiveManagedProvisioning(
   if (!plan) {
     throw new Error("Infrastructure provisioning plan not found for vault.");
   }
-  return plan;
+  return { vault, plan };
 }
 
 function readPlanConvexConfigPath(plan: Doc<"workflow_vaultProvisioning_plans">): string {
@@ -124,18 +126,12 @@ async function insertProject(
     userId: Id<"users">;
     teamId: string;
     projectId: string;
-    providerConnectionId: Id<"providerConnections">;
     codeLocation: ConvexCodeLocation;
     origin: VaultProviderResourceOrigin;
   },
 ): Promise<Id<"vaultConvexProjects">> {
-  const providerConnection = await getProviderConnectionByIdForOrganization(ctx.db, {
-    organizationId: vault.organizationId,
-    providerConnectionId: args.providerConnectionId,
-    kind: "convex",
-  });
-  if (providerConnection?.kind !== "convex" || providerConnection.teamId !== args.teamId) {
-    throw new Error("Convex provider connection does not match the project team.");
+  if (args.teamId !== vault.convexTeamId) {
+    throw new Error("Convex project team does not match the vault destination.");
   }
   const codeLocation = normalizeConvexCodeLocation(args.codeLocation);
   const existing = await readMatchingProject(ctx, {
@@ -212,7 +208,8 @@ export const readProjectAttachmentContext = internalQuery({
     if (
       !project ||
       project.vaultId !== args.vaultId ||
-      project.organizationId !== vault.organizationId
+      project.organizationId !== vault.organizationId ||
+      project.teamId !== vault.convexTeamId
     ) {
       throw new Error("Convex project attachment not found.");
     }
@@ -236,15 +233,15 @@ export const readManagedProjectCreateCheckpoint = internalQuery({
   returns: union(
     object({ state: literal("planned") }),
     object({ state: literal("creating") }),
-    object({ state: literal("created"), teamId: string(), projectId: string() }),
+    object({ state: literal("created"), projectId: string() }),
   ),
   handler: async (ctx, args) => {
-    const plan = await requireActiveManagedProvisioning(ctx, args);
+    const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
     if (plan.convex.projectName !== args.projectName) {
       throw new Error("Managed Convex project does not match the provisioning plan.");
     }
-    if (plan.convex.teamId !== args.teamId) {
-      throw new Error("Connected Convex team does not match the provisioning plan.");
+    if (vault.convexTeamId !== args.teamId) {
+      throw new Error("Connected Convex team does not match the vault destination.");
     }
     switch (plan.convex.state) {
       case "planned":
@@ -254,7 +251,6 @@ export const readManagedProjectCreateCheckpoint = internalQuery({
       case "created":
         return {
           state: "created" as const,
-          teamId: plan.convex.teamId,
           projectId: plan.convex.projectId,
         };
     }
@@ -271,12 +267,12 @@ export const beginManagedProjectCreate = internalMutation({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    const plan = await requireActiveManagedProvisioning(ctx, args);
+    const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
     if (plan.convex.projectName !== args.projectName) {
       throw new Error("Managed Convex project does not match the provisioning plan.");
     }
-    if (plan.convex.teamId !== args.teamId) {
-      throw new Error("Connected Convex team does not match the provisioning plan.");
+    if (vault.convexTeamId !== args.teamId) {
+      throw new Error("Connected Convex team does not match the vault destination.");
     }
     if (plan.convex.state !== "planned") {
       throw new Error("Managed Convex project creation already started.");
@@ -285,7 +281,6 @@ export const beginManagedProjectCreate = internalMutation({
       convex: {
         state: "creating",
         projectName: args.projectName,
-        teamId: plan.convex.teamId,
       },
       updatedAt: Date.now(),
     });
@@ -300,14 +295,12 @@ export const recordManagedProjectCreated = internalMutation({
     runId: id("workflow_vaultProvisioning_runs"),
     convexConfigPath: string(),
     projectName: string(),
-    providerConnectionId: id("providerConnections"),
     teamId: string(),
     projectId: string(),
   },
   returns: id("vaultConvexProjects"),
   handler: async (ctx, args): Promise<Id<"vaultConvexProjects">> => {
-    const plan = await requireActiveManagedProvisioning(ctx, args);
-    const vault = await requireConnectedVault(ctx, args);
+    const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
     const convexConfigPath = normalizeConvexConfigPath(args.convexConfigPath);
     if (convexConfigPath !== readPlanConvexConfigPath(plan)) {
       throw new Error("Managed Convex config path does not match the provisioning plan.");
@@ -320,23 +313,19 @@ export const recordManagedProjectCreated = internalMutation({
       if (plan.convex.projectId !== args.projectId) {
         throw new Error("Managed Convex project checkpoint already names another project.");
       }
-      if (plan.convex.teamId !== args.teamId) {
-        throw new Error("Managed Convex project checkpoint already names another team.");
-      }
       convexProjectId = await insertProject(ctx, vault, {
         ...args,
         codeLocation: { kind: "config", convexConfigPath },
         origin: "provisioned",
       });
     } else {
-      if (plan.convex.state !== "creating" || plan.convex.teamId !== args.teamId) {
-        throw new Error("Managed Convex project creation was not started for this team.");
+      if (plan.convex.state !== "creating" || vault.convexTeamId !== args.teamId) {
+        throw new Error("Managed Convex project creation was not started for this vault team.");
       }
       await ctx.db.patch(plan._id, {
         convex: {
           state: "created",
           projectName: args.projectName,
-          teamId: args.teamId,
           projectId: args.projectId,
         },
         updatedAt: Date.now(),
@@ -361,7 +350,6 @@ export const recordManualProjectCreated = internalMutation({
     vaultId: id("vaults"),
     userId: id("users"),
     actionId: string(),
-    providerConnectionId: id("providerConnections"),
     teamId: string(),
     projectId: string(),
     codeLocation: vConvexCodeLocation,
@@ -376,7 +364,6 @@ export const recordManualProjectCreated = internalMutation({
     return await insertProject(ctx, vault, {
       vaultId: args.vaultId,
       userId: args.userId,
-      providerConnectionId: args.providerConnectionId,
       teamId: args.teamId,
       projectId: args.projectId,
       codeLocation: args.codeLocation,
@@ -389,7 +376,6 @@ export const attachProjects = internalMutation({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
-    providerConnectionId: id("providerConnections"),
     projects: array(
       object({
         teamId: string(),
@@ -402,6 +388,9 @@ export const attachProjects = internalMutation({
   returns: array(id("vaultConvexProjects")),
   handler: async (ctx, args): Promise<Array<Id<"vaultConvexProjects">>> => {
     const vault = await requireUserVaultInfrastructureIdle(ctx, args);
+    if (args.projects.some((project) => project.teamId !== vault.convexTeamId)) {
+      throw new Error("Convex project team does not match the vault destination.");
+    }
 
     const projectIds = new Set<string>();
     const projects = args.projects.map((project) => ({
@@ -421,39 +410,11 @@ export const attachProjects = internalMutation({
         await insertProject(ctx, vault, {
           vaultId: args.vaultId,
           userId: args.userId,
-          providerConnectionId: args.providerConnectionId,
           ...project,
         }),
       );
     }
     return projectAttachmentIds;
-  },
-});
-
-export const reconcileProjectTeam = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    userId: id("users"),
-    convexProjectId: id("vaultConvexProjects"),
-    projectId: string(),
-    expectedTeamId: string(),
-    nextTeamId: string(),
-  },
-  returns: nullValue(),
-  handler: async (ctx, args): Promise<null> => {
-    const vault = await requireUserVaultInfrastructureIdle(ctx, args);
-    const project = await ctx.db.get(args.convexProjectId);
-    if (
-      !project ||
-      project.vaultId !== args.vaultId ||
-      project.organizationId !== vault.organizationId ||
-      project.projectId !== args.projectId ||
-      project.teamId !== args.expectedTeamId
-    ) {
-      throw new Error("Convex project attachment changed before team reconciliation.");
-    }
-    await ctx.db.patch(project._id, { teamId: args.nextTeamId });
-    return null;
   },
 });
 

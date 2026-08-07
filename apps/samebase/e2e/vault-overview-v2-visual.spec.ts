@@ -446,7 +446,7 @@ test("renders and drags the production Convex schema graph", async ({ page }) =>
   await page.setViewportSize({ width: 1280, height: 900 });
   const desktopFixture = await openVaultOverviewV2(page, "vault-overview-v2-convex-schema");
   const schemaNodes = desktopFixture.locator(".react-flow__node-schemaTable");
-  await expect(schemaNodes).toHaveCount(4);
+  await expect(schemaNodes).toHaveCount(5);
   await expect(desktopFixture).toHaveScreenshot("vault-overview-v2-convex-schema-desktop.png", {
     animations: "disabled",
     caret: "hide",
@@ -479,7 +479,7 @@ test("renders and drags the production Convex schema graph", async ({ page }) =>
 
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileFixture = await openVaultOverviewV2(page, "vault-overview-v2-convex-schema");
-  await expect(mobileFixture.locator(".react-flow__node-schemaTable")).toHaveCount(4);
+  await expect(mobileFixture.locator(".react-flow__node-schemaTable")).toHaveCount(5);
   await expect(mobileFixture).toHaveScreenshot("vault-overview-v2-convex-schema-mobile.png", {
     animations: "disabled",
     caret: "hide",

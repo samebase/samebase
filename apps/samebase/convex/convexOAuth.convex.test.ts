@@ -8,7 +8,7 @@ afterEach(() => {
 });
 
 describe("Convex organization OAuth", () => {
-  it("targets the organization and its exact selected connection", async () => {
+  it("binds callback state to the organization's current provider snapshot", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -26,14 +26,18 @@ describe("Convex organization OAuth", () => {
         githubInstallationId: "installation-1",
       },
     );
-    const providerConnectionId = await t.mutation(internal.providerConnections.createConnected, {
-      organizationId,
-      connectedByUserId: userId,
-      connection: {
-        kind: "convex",
-        auth: { method: "api_key", credential: "convex-credential" },
-        teamId: "team-1",
-      },
+    await t.run(async (ctx) => {
+      await ctx.db.insert("organizationProviderCredentials", {
+        organizationId,
+        convex: {
+          auth: { method: "api_key", credential: "convex-credential" },
+          connectedByUserId: userId,
+          updatedAt: 1,
+        },
+      });
+      await ctx.db.patch(organizationId, {
+        convexTeam: { teamId: "team-1" },
+      });
     });
     vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID", "convex-client");
     vi.stubEnv(
@@ -58,8 +62,9 @@ describe("Convex organization OAuth", () => {
     expect(oauthState).toMatchObject({
       organizationId,
       provider: "convex",
-      providerConnectionId,
       userId,
+      codeVerifier: expect.any(String),
+      expectedProviderSnapshotHash: expect.any(String),
     });
   });
 });

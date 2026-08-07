@@ -79,6 +79,48 @@ const storageBoundaryScenarios = [
 const storageBoundaryCases = storageBoundaryScenarios.flatMap((scenario) =>
   (["removed", "member"] as const).map((accessChange) => ({ ...scenario, accessChange })),
 );
+const reusedCloudflareGrantScenarios = [
+  {
+    provider: "cloudflare",
+    path: "/oauth/cloudflare/callback",
+    tokenEndpoint: "https://dash.cloudflare.com/oauth2/token",
+    clientId: undefined,
+    codeVerifier: undefined,
+    auth: {
+      method: "oauth" as const,
+      credential: "stored-access-token",
+      refreshCredential: "shared-refresh-token",
+      credentialExpiresAt: Date.now() + 60_000,
+    },
+    tokenResponse: {
+      access_token: "exchanged-access-token",
+      refresh_token: "shared-refresh-token",
+      expires_in: 3_600,
+    },
+  },
+  {
+    provider: "cloudflare_mcp",
+    path: "/oauth/cloudflare-mcp/callback",
+    tokenEndpoint: "https://mcp.cloudflare.com/token",
+    clientId: "shared-client-id",
+    codeVerifier: "cloudflare-mcp-code-verifier",
+    auth: {
+      method: "mcp_oauth" as const,
+      credential: "stored-access-token",
+      refreshCredential: "shared-refresh-token",
+      credentialExpiresAt: Date.now() + 60_000,
+      clientId: "shared-client-id",
+    },
+    tokenResponse: {
+      access_token: "exchanged-access-token",
+      refresh_token: "shared-refresh-token",
+      expires_in: 3_600,
+    },
+  },
+] as const;
+const safeCloudflareCleanupCases = reusedCloudflareGrantScenarios.flatMap((scenario) =>
+  (["access_lost", "snapshot_changed"] as const).map((failure) => ({ ...scenario, failure })),
+);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -209,14 +251,38 @@ describe("provider OAuth callback organization returns", () => {
       );
       const state = `${scenario.provider}-declined-state`;
       const now = Date.now();
-      await t.mutation(internal.oauthState.createOauthState, {
-        provider: scenario.provider,
+      const commonState = {
         userId,
         organizationId,
         state,
         createdAt: now,
         expiresAt: now + 60_000,
-      });
+      };
+      switch (scenario.provider) {
+        case "convex":
+          await t.mutation(internal.oauthState.createOauthState, {
+            ...commonState,
+            provider: "convex",
+            codeVerifier: "convex-code-verifier",
+          });
+          break;
+        case "cloudflare":
+          await t.mutation(internal.oauthState.createOauthState, {
+            ...commonState,
+            provider: "cloudflare",
+          });
+          break;
+        case "cloudflare_mcp":
+          await t.mutation(internal.oauthState.createOauthState, {
+            ...commonState,
+            provider: "cloudflare_mcp",
+            clientId: "cloudflare-client",
+            codeVerifier: "cloudflare-code-verifier",
+          });
+          break;
+        default:
+          scenario satisfies never;
+      }
       vi.stubEnv("SITE_URL", "https://samebase.com");
 
       const response = await t.fetch(`${scenario.path}?error=access_denied&state=${state}`, {
@@ -440,16 +506,169 @@ describe("provider OAuth callback organization returns", () => {
         "https://samebase.com/org/oauth-owner/providers",
       );
       const snapshot = await t.run(async (ctx) => ({
-        connection: await ctx.db
-          .query("providerConnections")
+        credentials: await ctx.db
+          .query("organizationProviderCredentials")
           .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
-          .first(),
+          .unique(),
         oauthState: await ctx.db
           .query("providerOAuthCallbackStates")
           .withIndex("by_state", (query) => query.eq("state", state))
           .unique(),
       }));
-      expect(snapshot.connection).toBeNull();
+      expect(snapshot.credentials).toBeNull();
+      expect(snapshot.oauthState).toBeNull();
+    },
+  );
+
+  it.each(safeCloudflareCleanupCases)(
+    "keeps the current $provider grant after $failure at storage",
+    async (scenario) => {
+      const t = makeConvexTest();
+      const userId = await t.run(async (ctx) => {
+        return await ctx.db.insert("users", {
+          email: `${scenario.provider}-current-grant@example.com`,
+          isApproved: true,
+        });
+      });
+      const { organizationId } = await t.mutation(
+        internal.organizations.createOrReconnectVerifiedOrganization,
+        {
+          userId,
+          githubOwnerId: `${scenario.provider}-current-grant-owner`,
+          githubOwnerType: "organization",
+          githubOwnerLogin: "OAuth-Owner",
+          githubInstallationId: `${scenario.provider}-current-grant-installation`,
+        },
+      );
+      const initialAuth =
+        scenario.failure === "access_lost"
+          ? scenario.auth
+          : scenario.provider === "cloudflare"
+            ? {
+                method: "oauth" as const,
+                credential: "old-access-token",
+                refreshCredential: "old-refresh-token",
+                credentialExpiresAt: Date.now() + 60_000,
+              }
+            : {
+                method: "mcp_oauth" as const,
+                credential: "old-access-token",
+                refreshCredential: "old-refresh-token",
+                credentialExpiresAt: Date.now() + 60_000,
+                clientId: scenario.clientId,
+              };
+      await t.run(async (ctx) => {
+        await ctx.db.patch(organizationId, {
+          cloudflareAccount: {
+            accountId: "cloudflare-account",
+            accountName: "Cloudflare Account",
+          },
+        });
+        await ctx.db.insert("organizationProviderCredentials", {
+          organizationId,
+          cloudflare: {
+            auth: initialAuth,
+            connectedByUserId: userId,
+            updatedAt: Date.now(),
+          },
+        });
+      });
+
+      const state = `${scenario.provider}-current-grant-state`;
+      const now = Date.now();
+      if (scenario.provider === "cloudflare") {
+        await t.mutation(internal.oauthState.createOauthState, {
+          provider: "cloudflare",
+          userId,
+          organizationId,
+          state,
+          createdAt: now,
+          expiresAt: now + 60_000,
+        });
+        vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
+        vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
+        vi.stubEnv(
+          "PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL",
+          "https://api.samebase.com/oauth/cloudflare",
+        );
+      } else {
+        await t.mutation(internal.oauthState.createOauthState, {
+          provider: "cloudflare_mcp",
+          userId,
+          organizationId,
+          state,
+          clientId: scenario.clientId,
+          codeVerifier: scenario.codeVerifier,
+          createdAt: now,
+          expiresAt: now + 60_000,
+        });
+        vi.stubEnv(
+          "PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL",
+          "https://api.samebase.com/oauth/cloudflare-mcp",
+        );
+      }
+      vi.stubEnv("SITE_URL", "https://samebase.com");
+
+      const fetch = vi.fn(async (input: RequestInfo | URL) => {
+        const requestUrl =
+          typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        expect(requestUrl).toBe(scenario.tokenEndpoint);
+        await t.run(async (ctx) => {
+          if (scenario.failure === "access_lost") {
+            const membership = await ctx.db
+              .query("organizationMemberships")
+              .withIndex("by_organization_and_user", (query) =>
+                query.eq("organizationId", organizationId).eq("userId", userId),
+              )
+              .unique();
+            if (membership === null) throw new Error("Expected owner membership.");
+            await ctx.db.patch(membership._id, { role: "member" });
+            return;
+          }
+          const credentials = await ctx.db
+            .query("organizationProviderCredentials")
+            .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+            .unique();
+          if (credentials?.cloudflare === undefined) {
+            throw new Error("Expected Cloudflare credentials.");
+          }
+          await ctx.db.patch(credentials._id, {
+            cloudflare: {
+              ...credentials.cloudflare,
+              auth: scenario.auth,
+              updatedAt: Date.now(),
+            },
+          });
+        });
+        return new Response(JSON.stringify(scenario.tokenResponse), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      });
+      vi.stubGlobal("fetch", fetch);
+
+      const response = await t.fetch(`${scenario.path}?code=provider-code&state=${state}`, {
+        redirect: "manual",
+      });
+
+      expect(response.status).toBe(scenario.failure === "access_lost" ? 302 : 400);
+      expect(response.headers.get("location")).toBe(
+        scenario.failure === "access_lost"
+          ? "https://samebase.com/org/oauth-owner/providers"
+          : null,
+      );
+      expect(fetch).toHaveBeenCalledOnce();
+      const snapshot = await t.run(async (ctx) => ({
+        credentials: await ctx.db
+          .query("organizationProviderCredentials")
+          .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+          .unique(),
+        oauthState: await ctx.db
+          .query("providerOAuthCallbackStates")
+          .withIndex("by_state", (query) => query.eq("state", state))
+          .unique(),
+      }));
+      expect(snapshot.credentials?.cloudflare?.auth).toEqual(scenario.auth);
       expect(snapshot.oauthState).toBeNull();
     },
   );

@@ -8,7 +8,7 @@
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `rfcs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
-  - `rfcs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
+  - `archive/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
 
 ## Summary
 
@@ -24,8 +24,8 @@ This spec documents the decision, the Netlify constraint, and alternative provid
 Note: Cloudflare Pages is now a planned pilot option using Cloudflare MCP OAuth provider
 connections. See:
 
-- `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
-- `rfcs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
+- `archive/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
+- `archive/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
 
 ## Goals
 

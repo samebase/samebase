@@ -42,7 +42,6 @@ export function VaultSelectedWorkspace({
   const retryInfrastructureProvisioning = useAction(
     api.vault.actions.retryInfrastructureProvisioning,
   );
-  const reconcileConvexProjectTeam = useAction(api.vault.convex.reconcileProjectTeam);
   const detachCloudflareWorker = useAction(api.vault.cloudflare.detachWorker);
   const detachConvexProject = useAction(api.vault.convex.detachProject);
   const configureWorkersBuildsForGitHub = useAction(
@@ -189,14 +188,6 @@ export function VaultSelectedWorkspace({
     }
   };
 
-  const handleReconcileConvexProjectTeam = (convexProjectId: Id<"vaultConvexProjects">) => {
-    void runProviderAction({
-      action: { kind: "reconcile_convex_project_team", convexProjectId },
-      errorTitle: "Could not update the Convex team",
-      run: () => reconcileConvexProjectTeam({ vaultId: vault._id, convexProjectId }),
-    });
-  };
-
   const handleDetachCloudflareWorker = (workerId: Id<"vaultCloudflareWorkers">) => {
     void runProviderAction({
       action: { kind: "detach_cloudflare_worker", workerId },
@@ -256,10 +247,10 @@ export function VaultSelectedWorkspace({
   const settingsState = buildVaultRepositorySettingsState({
     addCloudflareWorkerOnClick: () => openProviderDialog({ provider: "cloudflare" }),
     addConvexOnClick: () => openProviderDialog({ provider: "convex" }),
-    connectedCloudflareAccount:
+    cloudflareAccount:
       workspace.cloudflareConnection.state === "ready" &&
-      workspace.cloudflareConnection.connection.connected === true &&
-      workspace.cloudflareConnection.connection.accountId
+      (workspace.cloudflareConnection.connection.state === "connected" ||
+        workspace.cloudflareConnection.connection.state === "disconnected")
         ? {
             accountId: workspace.cloudflareConnection.connection.accountId,
             accountName: workspace.cloudflareConnection.connection.accountName,
@@ -277,15 +268,8 @@ export function VaultSelectedWorkspace({
     vault,
     detachCloudflareWorkerOnClick: handleDetachCloudflareWorker,
     detachConvexProjectOnClick: handleDetachConvexProject,
-    reconcileConvexProjectTeamOnClick: handleReconcileConvexProjectTeam,
     rotateConvexDeployKeysForWorkersBuildsOnClick: handleRotateConvexDeployKeysForWorkersBuilds,
   });
-
-  const connectedAccountId =
-    workspace.cloudflareConnection.state === "ready" &&
-    workspace.cloudflareConnection.connection.connected === true
-      ? workspace.cloudflareConnection.connection.accountId
-      : undefined;
 
   return (
     <>
@@ -358,7 +342,6 @@ export function VaultSelectedWorkspace({
         <VaultCloudflareDialog
           blockedReason={providerActionBlockReason}
           key={`${vault._id}:${cloudflareRepairWorkerId ?? "add"}`}
-          connectedAccountId={connectedAccountId}
           onClose={() => {
             closeVaultDashboardDialog("add-cloudflare");
           }}

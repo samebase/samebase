@@ -5,12 +5,13 @@
 - Status: Accepted next-phase implementation plan
 - Owner: Samebase vault deletion, durable workflows, and vault-scoped cleanup
 - Created: 2026-05-09
-- Last updated: 2026-07-29
+- Last updated: 2026-08-07
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
   - `research/2026-05-09-vault-deletion-workflow-research.md`
   - [PR #724: Research vault deletion workflow failure](https://github.com/samebase/samebase/pull/724)
 
@@ -350,9 +351,11 @@ type ProviderCleanupPlan = {
 The retry snapshot stores only the deletion plan and identifiers needed for provider teardown,
 retry, and safe display. It must not store credentials or raw provider responses.
 
-Convex project deletion requires the active provider connection to match the plan's `teamId` before
-the first provider call. A vault whose Samebase-provisioned projects span multiple teams cannot use
-one automatic Convex cleanup step; the plan fails closed without deleting any project.
+When the queueing action builds the plan, every Convex `teamId` must equal the vault's required
+`convexTeamId`, and every Cloudflare `accountId` must equal its required `cloudflareAccountId`.
+Execution and retry load the current organization-owned singleton credential slot for that fixed
+destination before the first provider call. A destination mismatch fails closed without deleting a
+provider resource.
 
 Cloudflare Worker deletion uses `workerTag` as the provider delete identifier. `workerName` remains
 display context only and never authorizes deletion of a replacement Worker that reused the name.
@@ -529,8 +532,8 @@ It should:
 3. reject a vault that already has an active `deletion` gate
 4. reject any vault that is not quiescent for deletion
 5. validate selected teardown options against current local state
-6. require local provider connection rows for selected provider teardown options when those rows are
-   already known to be necessary
+6. require the current organization credential slots for selected provider teardown options when
+   those credentials are already known to be necessary
 7. build the validated deletion plan and retry snapshot
 8. insert `workflow_vaultDeletion_runs` and the first event
 9. patch the vault deletion gate to `deleting`
@@ -594,7 +597,8 @@ deletion run only. It must not recreate the vault or any vault-scoped rows.
 ### Cloudflare
 
 1. Delete only a `delete_worker` plan's Cloudflare Worker and its build triggers.
-2. Require a Cloudflare connection when Cloudflare teardown is requested.
+2. Require the organization's Cloudflare credential slot to match the vault's `cloudflareAccountId`
+   when Cloudflare teardown is requested.
 3. Treat provider not-found as success.
 4. Do not delete account-level or unrelated Cloudflare resources.
 
@@ -603,7 +607,8 @@ deletion run only. It must not recreate the vault or any vault-scoped rows.
 1. Delete only the exact projects in a `delete_project` or `delete_projects` plan.
 2. The queueing action derives those projects only from stable Samebase-provisioned project
    attachments. A provisioning checkpoint alone never authorizes provider deletion.
-3. Require a Convex connection for the plan's exact team when Convex teardown is requested.
+3. Require the organization's Convex credential slot to match the vault's `convexTeamId` when Convex
+   teardown is requested.
 4. Treat provider not-found as success.
 5. Do not store Convex deploy-key credentials or identifiers in the deletion plan unless
    implementation proves a current provider call needs them.

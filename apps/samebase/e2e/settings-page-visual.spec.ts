@@ -251,6 +251,9 @@ test("Settings link preserves the selected mobile pane", async ({ browser }, tes
     await expect(settingsPage.getByRole("heading", { name: "Billing" })).toHaveCount(0);
     await expect(settingsPage.getByRole("button", { name: "Install GitHub App" })).toHaveCount(0);
     await expect(
+      settingsPage.getByRole("button", { name: "Authorize GitHub account" }),
+    ).toHaveCount(0);
+    await expect(
       settingsPage.getByRole("button", { name: "Upgrade to Pro, $4/month" }),
     ).toHaveCount(0);
     await expect(settingsPage).toHaveScreenshot("settings-page-mobile.png", {

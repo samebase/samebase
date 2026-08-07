@@ -1117,17 +1117,18 @@ export const getPullRequestResources = action({
     const projectResources = await Promise.all(
       context.convexProjects.map(async (project) => {
         const connection = await ctx.runQuery(
-          internal.providerConnections.loadConvexForOrganizationTeam,
+          internal.organizationProviderCredentials.loadConvexForOrganizationTeam,
           {
             organizationId: context.organizationId,
             userId: ctx.viewer.userId,
             teamId: project.teamId,
           },
         );
-        if (connection === null) {
+        const credential = connection?.credential;
+        if (!connection || !credential) {
           return unavailableConvexProjectResources({ heads, project });
         }
-        const token = connection.auth.credential.trim();
+        const token = credential.auth.credential.trim();
         if (!token) {
           return unavailableConvexProjectResources({ heads, project });
         }

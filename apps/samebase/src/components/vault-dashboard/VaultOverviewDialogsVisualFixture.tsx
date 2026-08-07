@@ -192,9 +192,6 @@ function CloudflareDialogFixture({
   return (
     <DialogFixture mode={mode}>
       <VaultCloudflareDialogContent
-        accounts={
-          isLoading || repair ? [] : [{ accountId: "samebase-account", accountName: "Samebase" }]
-        }
         createRootDirectory={repair ? "apps/portal" : "/"}
         createWorkerName={invalidName ? "samebase app" : ""}
         didAddWorker={false}
@@ -204,7 +201,6 @@ function CloudflareDialogFixture({
         isSubmitting={false}
         inventoryState={isLoading || repair ? null : "complete"}
         mode={invalidName ? "create" : "existing"}
-        onAccountChange={() => {}}
         onCreateRootDirectoryChange={() => {}}
         onCreateWorkerNameChange={() => {}}
         onConnectWorker={() => {}}
@@ -214,7 +210,6 @@ function CloudflareDialogFixture({
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
         repairWorker={repair ? { workerName: "shared-convex-monorepo-fixture-portal" } : null}
-        selectedAccountId={isLoading || repair ? "" : "samebase-account"}
         selectedWorkerTags={
           isLoading || repair ? [] : ["admin-worker-tag", "portal-worker-tag", "web-worker-tag"]
         }

@@ -86,6 +86,10 @@ import {
   ConnectRepositoryVisualFixture,
   type ConnectRepositoryVisualMode,
 } from "@/components/ConnectRepositoryVisualFixture";
+import {
+  NewAppPageVisualFixture,
+  type NewAppPageVisualMode,
+} from "@/components/NewAppPageVisualFixture";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
@@ -111,7 +115,8 @@ type VisualFixtureMode =
   | "corner-notch"
   | "corner-notch-detail"
   | AccountDeletionStatusVisualMode
-  | ConnectRepositoryVisualMode;
+  | ConnectRepositoryVisualMode
+  | NewAppPageVisualMode;
 
 type VisualFixtureSelection =
   | {
@@ -225,10 +230,15 @@ const ROUTE_URL_EDITOR_VISUAL_MODES = [
 const PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES = [
   "providers-page-connected",
   "providers-page-loading",
+  "providers-page-recovery",
 ] as const satisfies readonly ProviderConnectionsPageVisualMode[];
 const CONNECT_REPOSITORY_VISUAL_MODES = [
   "connect-repository-loading-more",
+  "connect-repository-provider-blocked",
 ] as const satisfies readonly ConnectRepositoryVisualMode[];
+const NEW_APP_VISUAL_MODES = [
+  "new-app-provider-blocked",
+] as const satisfies readonly NewAppPageVisualMode[];
 const MISC_VISUAL_MODES = [
   "account-deletion-running",
   "account-deletion-attention",
@@ -292,6 +302,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "Connect Repository",
     modes: CONNECT_REPOSITORY_VISUAL_MODES,
+  },
+  {
+    label: "New App",
+    modes: NEW_APP_VISUAL_MODES,
   },
   {
     label: "Misc",
@@ -408,12 +422,23 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <RouteUrlEditorVisualFixture />;
   }
 
-  if (mode === "providers-page-connected" || mode === "providers-page-loading") {
+  if (
+    mode === "providers-page-connected" ||
+    mode === "providers-page-loading" ||
+    mode === "providers-page-recovery"
+  ) {
     return <ProviderConnectionsPageVisualFixture mode={mode} />;
   }
 
-  if (mode === "connect-repository-loading-more") {
-    return <ConnectRepositoryVisualFixture />;
+  if (
+    mode === "connect-repository-loading-more" ||
+    mode === "connect-repository-provider-blocked"
+  ) {
+    return <ConnectRepositoryVisualFixture mode={mode} />;
+  }
+
+  if (mode === "new-app-provider-blocked") {
+    return <NewAppPageVisualFixture />;
   }
 
   if (mode === "button") {

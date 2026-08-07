@@ -309,7 +309,7 @@ export const deleteAccountWorkflow = workflow.define({
           ...ownedArgs,
           step: "revoke_access",
           level: "info",
-          message: "Revoking user-authorized provider access.",
+          message: "Removing user-authorized provider access.",
         },
         { name: "start_provider_revocation_event" },
       );

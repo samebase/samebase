@@ -9,7 +9,6 @@
   - `README.md`
   - `tsconfig.base.json`
   - `specs/005_STARTER_TEMPLATE_STRATEGY_SPEC.md`
-  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
 
 ## Summary
 

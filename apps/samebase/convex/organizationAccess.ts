@@ -2,6 +2,7 @@ import { v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type DatabaseReader } from "./_generated/server";
+import { vOrganizationMembershipRole } from "./organizationModel";
 
 export type OrganizationAccessContext = {
   userId: Id<"users">;
@@ -162,6 +163,17 @@ export const requireOrganizationIdForUser = internalQuery({
   handler: async (ctx, args) => {
     const access = await requireOrganizationAccessContext(ctx.db, args);
     return access.organizationId;
+  },
+});
+
+export const requireOrganizationRoleForUser = internalQuery({
+  args: {
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+  },
+  returns: vOrganizationMembershipRole,
+  handler: async (ctx, args) => {
+    return (await requireOrganizationMembership(ctx.db, args)).role;
   },
 });
 

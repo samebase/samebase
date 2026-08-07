@@ -6,8 +6,8 @@
 - Owner: Noter app provisioning and provider connections
 - Created: 2026-05-16
 - Related:
-  - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
-  - `rfcs/044_CLOUDFLARE_MCP_AUTO_TOKEN_REFRESH_SPEC.md`
+  - `archive/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
+  - `archive/044_CLOUDFLARE_MCP_AUTO_TOKEN_REFRESH_SPEC.md`
   - `archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `research/2026-05-15-samebase-workers-provisioning-migration.md`

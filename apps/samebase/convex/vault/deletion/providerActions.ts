@@ -71,29 +71,21 @@ export const deleteCloudflare = internalAction({
     }
 
     const workers = plan.cloudflare.workers;
-    if (workers.length === 0) {
+    const firstWorker = workers.at(0);
+    if (firstWorker === undefined) {
       throw new Error("Cloudflare deletion plan must include at least one Worker.");
     }
-    const selectedConnection = await ctx.runQuery(
-      internal.providerConnections.loadSelectedForOrganization,
-      {
-        organizationId: run.organizationId,
-        userId: run.userId,
-        kind: "cloudflare",
-      },
-    );
-    if (selectedConnection?.kind !== "cloudflare") {
+    if (workers.some((worker) => worker.accountId !== firstWorker.accountId)) {
       throw new Error("Cloudflare connection is required to remove resources.");
     }
     const connection = await ctx.runAction(
       internal.cloudflareOAuth.resolveConnectionForOrganization,
       {
         organizationId: run.organizationId,
-        providerConnectionId: selectedConnection._id,
         userId: run.userId,
       },
     );
-    if (!connection) {
+    if (!connection || connection.account?.accountId !== firstWorker.accountId) {
       throw new Error("Cloudflare connection is required to remove resources.");
     }
     for (const worker of workers) {
@@ -138,19 +130,20 @@ export const deleteConvex = internalAction({
     }
     for (const project of plan.convex.projects) {
       const connection = await ctx.runQuery(
-        internal.providerConnections.loadConvexForOrganizationTeam,
+        internal.organizationProviderCredentials.loadConvexForOrganizationTeam,
         {
           organizationId: run.organizationId,
           teamId: project.teamId,
           userId: run.userId,
         },
       );
-      if (connection === null) {
+      const credential = connection?.credential;
+      if (!connection || !credential) {
         throw new Error("Convex connection is required to remove resources.");
       }
       try {
         await requestConvexManagementApi(
-          connection.auth.credential,
+          credential.auth.credential,
           "POST",
           "/projects/{project_id}/delete",
           { params: { path: { project_id: project.projectId } } },

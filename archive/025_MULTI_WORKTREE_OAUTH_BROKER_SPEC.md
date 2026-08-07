@@ -2,18 +2,25 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded
 - Owner: Noter auth + dev workflow
-- Last updated: 2026-07-28
+- Last updated: 2026-08-07
 - Supersedes: Previous `025 Multi-Worktree OAuth Broker Spec`
+- Superseded by:
+  - `specs/117_MANUAL_PASSWORD_AUTH_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
+  - `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
 - Related specs:
   - `specs/117_MANUAL_PASSWORD_AUTH_SPEC.md`
-  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
-  - `rfcs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
-  - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
+  - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `archive/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
+  - `archive/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
 
 ## Summary
+
+This document records the old password-seed and user-scoped provider model. Do not use it for
+current product or implementation decisions.
 
 This spec defines the product behavior for:
 
@@ -22,8 +29,9 @@ This spec defines the product behavior for:
    anonymous local development.
 3. Anonymous worktree seed behavior for local development.
 
-Connection data architecture is defined by `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md` and is the source
-of truth for storage/indexing details.
+Current organization provider ownership and storage are defined by
+`specs/120_ORGANIZATION_OWNERSHIP_SPEC.md` and
+`rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`.
 
 ## Locked Product Decisions
 
@@ -124,4 +132,4 @@ Only these env vars are used:
 ## Notes
 
 The storage model and indexes for provider credentials are intentionally not duplicated here. See
-`rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`.
+`archive/026_PROVIDER_CONNECTIONS_SPEC.md`.

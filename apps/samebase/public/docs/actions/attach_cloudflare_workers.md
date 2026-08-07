@@ -11,7 +11,8 @@ every selected Worker is attached or none are. Cloudflare configuration is not c
 ## Arguments
 
 - `vaultId` (string, required): Samebase vault whose GitHub repository the Workers must match.
-- `accountId` (string, required): Cloudflare account id used for the preceding Worker discovery.
+- `accountId` (string, required): The vault's cloudflareAccountId returned by get_user_vaults and
+  used for the preceding Worker discovery.
 - `workers` (array, required): One or more Worker name and stable tag pairs returned by
   discover_cloudflare_workers.
 

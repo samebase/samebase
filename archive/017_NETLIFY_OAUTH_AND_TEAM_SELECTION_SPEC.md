@@ -2,13 +2,14 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded
 - Owner: Noter platform
-- Last updated: 2026-02-26
+- Last updated: 2026-08-07
+- Superseded by: `archive/062_NETLIFY_REMOVAL_AND_DATA_CLEANUP_SPEC.md`
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
-  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
 
 ## Summary
 

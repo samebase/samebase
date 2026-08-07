@@ -22,6 +22,8 @@ describe("vault branch mutations", () => {
       await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
@@ -38,6 +40,8 @@ describe("vault branch mutations", () => {
       });
       await ctx.db.replace(vaultId, {
         organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",

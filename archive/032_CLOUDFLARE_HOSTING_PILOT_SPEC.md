@@ -2,15 +2,17 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded
 - Owner: Noter platform
-- Last updated: 2026-03-02
+- Last updated: 2026-08-07
+- Superseded by: `archive/062_NETLIFY_REMOVAL_AND_DATA_CLEANUP_SPEC.md` and
+  `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `rfcs/016_FRONTEND_HOSTING_PROVIDER_SELECTION_SPEC.md`
-  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `archive/038_RAILWAY_REMOVAL_AND_DATA_CLEANUP_SPEC.md`
-  - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
+  - `archive/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
 
 ## Summary
 

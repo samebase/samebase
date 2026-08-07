@@ -5,11 +5,8 @@ import { z } from "zod";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { mutation } from "./functions";
-import {
-  findOrganizationMembership,
-  requireOrganizationOwnerAccessContext,
-} from "./organizationAccess";
-import { getSelectedProviderConnectionForOrganization } from "./providerConnections";
+import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
+import { connectConvexCredential } from "./organizationProviderCredentials";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import {
   createCodeChallenge,
@@ -95,7 +92,6 @@ async function buildConvexOAuthUrl(
   args: {
     userId: Id<"users">;
     organizationId: Id<"organizations">;
-    providerConnectionId?: Id<"providerConnections">;
   },
 ): Promise<string> {
   const clientId = readRequiredEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID");
@@ -110,7 +106,6 @@ async function buildConvexOAuthUrl(
     provider: "convex",
     userId: args.userId,
     organizationId: args.organizationId,
-    providerConnectionId: args.providerConnectionId,
     state,
     codeVerifier,
     createdAt: now,
@@ -183,46 +178,26 @@ export const storeConvexOauthTokens = internalMutation({
   args: {
     organizationId: v.id("organizations"),
     connectedByUserId: v.id("users"),
-    providerConnectionId: v.optional(v.id("providerConnections")),
+    expectedProviderSnapshotHash: v.string(),
     accessToken: v.string(),
     teamId: v.string(),
     oauthStateId: v.id("providerOAuthCallbackStates"),
+    oauthState: v.string(),
   },
   returns: vProviderOAuthStoreResult,
   handler: async (ctx, args) => {
-    const membership = await findOrganizationMembership(ctx.db, {
-      userId: args.connectedByUserId,
+    return await connectConvexCredential(ctx, {
       organizationId: args.organizationId,
-    });
-    if (membership?.role !== "owner") {
-      await ctx.db.delete(args.oauthStateId);
-      return { status: "access_lost" as const };
-    }
-
-    const connection = {
-      kind: "convex" as const,
+      connectedByUserId: args.connectedByUserId,
+      expectedProviderSnapshotHash: args.expectedProviderSnapshotHash,
       auth: {
-        method: "oauth" as const,
+        method: "oauth",
         credential: args.accessToken,
       },
       teamId: args.teamId,
-    };
-    if (args.providerConnectionId !== undefined) {
-      await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
-        organizationId: args.organizationId,
-        connectedByUserId: args.connectedByUserId,
-        providerConnectionId: args.providerConnectionId,
-        connection,
-      });
-    } else {
-      await ctx.runMutation(internal.providerConnections.createConnected, {
-        organizationId: args.organizationId,
-        connectedByUserId: args.connectedByUserId,
-        connection,
-      });
-    }
-    await ctx.db.delete(args.oauthStateId);
-    return { status: "stored" as const };
+      oauthStateId: args.oauthStateId,
+      oauthState: args.oauthState,
+    });
   },
 });
 
@@ -237,14 +212,9 @@ export const getConvexOAuthUrl = mutation({
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    const connection = await getSelectedProviderConnectionForOrganization(ctx.db, {
-      organizationId,
-      kind: "convex",
-    });
     return await buildConvexOAuthUrl(ctx, {
       userId: ctx.viewer.userId,
       organizationId,
-      providerConnectionId: connection?._id,
     });
   },
 });
@@ -265,6 +235,9 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
   });
 
   if (!oauthState) {
+    return new Response("Invalid OAuth state", { status: 400 });
+  }
+  if (oauthState.provider !== "convex") {
     return new Response("Invalid OAuth state", { status: 400 });
   }
 
@@ -345,10 +318,11 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
       {
         organizationId: oauthState.organizationId,
         connectedByUserId: oauthState.userId,
-        providerConnectionId: oauthState.providerConnectionId,
+        expectedProviderSnapshotHash: oauthState.expectedProviderSnapshotHash,
         accessToken: token.accessToken,
         teamId: details.teamId,
         oauthStateId: oauthState._id,
+        oauthState: state,
       },
     );
     if (storeResult.status === "access_lost") {

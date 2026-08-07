@@ -29,6 +29,8 @@ async function createValidationFixture() {
     const vaultId = await ctx.db.insert("vaults", {
       state: "not_connected",
       organizationId,
+      convexTeamId: "convex-team",
+      cloudflareAccountId: "00000000000000000000000000000001",
       deletion: { state: "not_deleting" },
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {

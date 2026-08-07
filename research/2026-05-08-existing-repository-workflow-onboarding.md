@@ -11,7 +11,7 @@
   - `archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
-  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
 - Related research:
   - `research/2026-05-06-vault-first-provisioning-model.md`
 

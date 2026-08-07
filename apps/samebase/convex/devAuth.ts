@@ -11,11 +11,11 @@ import type { Id } from "./_generated/dataModel";
 import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { vGitHubOwnerType } from "./organizationModel";
-import { getSelectedProviderConnectionForOrganization } from "./providerConnections";
-import type { CloudflareDefaultAccount } from "./providerConnectionModel";
 import { normalizeGitHubOwnerLogin } from "./organizations";
 import { toSafeRepoName } from "../shared/repoName";
 import { discoverPreviewSeedGitHubAppInstallations } from "./githubApp";
+import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
+import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 
 const { array, boolean, id, literal, null: vNull, object, optional, string, union } = v;
 
@@ -70,7 +70,7 @@ function readSeedGitHubOwnerType(value: string): "organization" | "user" {
   }
 }
 
-const vSeedProviderConnections = object({
+const vSeedProviderCredentials = object({
   convexConnection: union(
     vNull(),
     object({
@@ -87,25 +87,25 @@ const vSeedProviderConnections = object({
     }),
   ),
 });
-type SeedProviderConnections = Infer<typeof vSeedProviderConnections>;
+type SeedProviderCredentials = Infer<typeof vSeedProviderCredentials>;
 
 const vSeedOrganizationConfig = object({
   githubOwnerId: string(),
   githubOwnerType: vGitHubOwnerType,
   githubOwnerLogin: string(),
   githubInstallationId: string(),
-  ...vSeedProviderConnections.fields,
+  ...vSeedProviderCredentials.fields,
 });
 type SeedOrganizationConfig = Infer<typeof vSeedOrganizationConfig>;
 
-function readSeedProviderConnections(): SeedProviderConnections {
+function readSeedProviderCredentials(): SeedProviderCredentials {
   const convexCredential = readSeedValue("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
   const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
   const convexTeamSlug = readSeedValue("DEV_SEED_CONVEX_TEAM_SLUG");
   const cloudflareCredential = readSeedValue("DEV_SEED_CLOUDFLARE_API_KEY");
   const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
 
-  let convexConnection: SeedProviderConnections["convexConnection"] = null;
+  let convexConnection: SeedProviderCredentials["convexConnection"] = null;
   if (
     convexCredential !== undefined ||
     convexTeamId !== undefined ||
@@ -118,7 +118,7 @@ function readSeedProviderConnections(): SeedProviderConnections {
     };
   }
 
-  let cloudflareConnection: SeedProviderConnections["cloudflareConnection"] = null;
+  let cloudflareConnection: SeedProviderCredentials["cloudflareConnection"] = null;
   if (cloudflareCredential !== undefined || cloudflareAccountId !== undefined) {
     cloudflareConnection = {
       credential: requireSeedValue(cloudflareCredential, "DEV_SEED_CLOUDFLARE_API_KEY"),
@@ -129,18 +129,18 @@ function readSeedProviderConnections(): SeedProviderConnections {
   return { convexConnection, cloudflareConnection };
 }
 
-function readRequiredPreviewSeedProviderConnections(): SeedProviderConnections {
-  const connections = readSeedProviderConnections();
+function readRequiredPreviewSeedProviderCredentials(): SeedProviderCredentials {
+  const credentials = readSeedProviderCredentials();
   if (
-    connections.convexConnection === null ||
-    connections.cloudflareConnection === null ||
-    connections.cloudflareConnection.accountId === undefined
+    credentials.convexConnection === null ||
+    credentials.cloudflareConnection === null ||
+    credentials.cloudflareConnection.accountId === undefined
   ) {
     throw new Error(
       "Preview organization provider seeding requires DEV_SEED_CONVEX_MANAGEMENT_API_KEY, DEV_SEED_CONVEX_TEAM_ID, DEV_SEED_CLOUDFLARE_API_KEY, and DEV_SEED_CLOUDFLARE_ACCOUNT_ID",
     );
   }
-  return connections;
+  return credentials;
 }
 
 function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
@@ -148,13 +148,13 @@ function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
   const githubOwnerType = readSeedValue("DEV_SEED_GITHUB_OWNER_TYPE");
   const githubOwnerLogin = readSeedValue("DEV_SEED_GITHUB_OWNER_LOGIN");
   const githubInstallationId = readSeedValue("DEV_SEED_GITHUB_INSTALLATION_ID");
-  const providerConnections = readSeedProviderConnections();
+  const providerCredentials = readSeedProviderCredentials();
 
   const githubValues = [githubOwnerId, githubOwnerType, githubOwnerLogin, githubInstallationId];
   if (githubValues.every((value) => value === undefined)) {
     if (
-      providerConnections.convexConnection !== null ||
-      providerConnections.cloudflareConnection !== null
+      providerCredentials.convexConnection !== null ||
+      providerCredentials.cloudflareConnection !== null
     ) {
       throw new Error("GitHub owner and installation seed values are required for provider seeds");
     }
@@ -168,7 +168,7 @@ function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
     ),
     githubOwnerLogin: requireSeedValue(githubOwnerLogin, "DEV_SEED_GITHUB_OWNER_LOGIN"),
     githubInstallationId: requireSeedValue(githubInstallationId, "DEV_SEED_GITHUB_INSTALLATION_ID"),
-    ...providerConnections,
+    ...providerCredentials,
   };
 }
 
@@ -233,7 +233,7 @@ export const approveSeedPasswordAccount = internalMutation({
   },
 });
 
-export const seedOrganizationWithProviderConnections = internalMutation({
+export const seedOrganizationWithProviderCredentials = internalMutation({
   args: {
     userId: id("users"),
     ...vSeedOrganizationConfig.fields,
@@ -252,52 +252,51 @@ export const seedOrganizationWithProviderConnections = internalMutation({
     );
 
     if (args.convexConnection !== null) {
-      await ctx.runMutation(internal.providerConnections.createConnected, {
+      const configuration = await getOrganizationProviderConfiguration(
+        ctx.db,
+        organization.organizationId,
+      );
+      const expectedProviderSnapshotHash = await hashOrganizationProviderSnapshot({
+        provider: "convex",
+        teamId: configuration.convexTeam?.teamId,
+        credential: configuration.convexCredential,
+      });
+      await ctx.runMutation(internal.organizationProviderCredentials.connectConvex, {
         organizationId: organization.organizationId,
         connectedByUserId: args.userId,
-        connection: {
-          kind: "convex",
-          auth: { method: "api_key", credential: args.convexConnection.credential },
-          teamId: args.convexConnection.teamId,
-          ...(args.convexConnection.teamSlug === undefined
-            ? {}
-            : { teamSlug: args.convexConnection.teamSlug }),
-        },
+        expectedProviderSnapshotHash,
+        auth: { method: "api_key", credential: args.convexConnection.credential },
+        teamId: args.convexConnection.teamId,
+        ...(args.convexConnection.teamSlug === undefined
+          ? {}
+          : { teamSlug: args.convexConnection.teamSlug }),
       });
     }
 
     if (args.cloudflareConnection !== null) {
-      const defaultAccount: CloudflareDefaultAccount =
-        args.cloudflareConnection.accountId === undefined
-          ? { state: "not_selected" }
-          : {
-              state: "selected",
-              accountId: args.cloudflareConnection.accountId,
-              accountName: args.cloudflareConnection.accountId,
-            };
-      const selectedConnection = await getSelectedProviderConnectionForOrganization(ctx.db, {
-        organizationId: organization.organizationId,
-        kind: "cloudflare",
+      const configuration = await getOrganizationProviderConfiguration(
+        ctx.db,
+        organization.organizationId,
+      );
+      const expectedProviderSnapshotHash = await hashOrganizationProviderSnapshot({
+        provider: "cloudflare",
+        accountId: configuration.cloudflareAccount?.accountId,
+        credential: configuration.cloudflareCredential,
       });
-      const connection = {
-        kind: "cloudflare",
+      await ctx.runMutation(internal.organizationProviderCredentials.connectCloudflare, {
+        organizationId: organization.organizationId,
+        connectedByUserId: args.userId,
+        expectedProviderSnapshotHash,
         auth: { method: "api_key", credential: args.cloudflareConnection.credential },
-        defaultAccount,
-      } as const;
-      if (selectedConnection === null) {
-        await ctx.runMutation(internal.providerConnections.createConnected, {
-          organizationId: organization.organizationId,
-          connectedByUserId: args.userId,
-          connection,
-        });
-      } else {
-        await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
-          organizationId: organization.organizationId,
-          connectedByUserId: args.userId,
-          providerConnectionId: selectedConnection._id,
-          connection,
-        });
-      }
+        account:
+          args.cloudflareConnection.accountId === undefined
+            ? { state: "selection_required" }
+            : {
+                state: "selected",
+                accountId: args.cloudflareConnection.accountId,
+                accountName: args.cloudflareConnection.accountId,
+              },
+      });
     }
 
     return null;
@@ -338,6 +337,11 @@ async function ensureOrganizationContextAcceptanceOrganization(
   const ownerLogin = requireOrganizationContextAcceptanceOwnerLogin(args.organization.ownerLogin);
   const githubOwnerId = `acceptance-owner:${ownerLogin}`;
   const githubInstallationId = `acceptance-installation:${ownerLogin}`;
+  const convexTeam = { teamId: `acceptance-convex-team:${ownerLogin}` };
+  const cloudflareAccount = {
+    accountId: `acceptance-cloudflare-account:${ownerLogin}`,
+    accountName: `${ownerLogin} acceptance account`,
+  };
   const existingOrganization = await ctx.db
     .query("organizations")
     .withIndex("by_github_owner_login_normalized", (query) =>
@@ -348,6 +352,8 @@ async function ensureOrganizationContextAcceptanceOrganization(
   let organizationId: Id<"organizations">;
   if (existingOrganization === null) {
     organizationId = await ctx.db.insert("organizations", {
+      cloudflareAccount,
+      convexTeam,
       githubOwnerId,
       githubOwnerType: "organization",
       githubOwnerLogin: ownerLogin,
@@ -367,6 +373,13 @@ async function ensureOrganizationContextAcceptanceOrganization(
       throw new Error("Acceptance organization owner is already used by non-fixture data.");
     }
     organizationId = existingOrganization._id;
+    if (
+      existingOrganization.convexTeam?.teamId !== convexTeam.teamId ||
+      existingOrganization.cloudflareAccount?.accountId !== cloudflareAccount.accountId ||
+      existingOrganization.cloudflareAccount.accountName !== cloudflareAccount.accountName
+    ) {
+      await ctx.db.patch(organizationId, { cloudflareAccount, convexTeam });
+    }
   }
 
   const existingMembership = await ctx.db
@@ -608,7 +621,7 @@ export const seedPasswordAccount = internalAction({
     const previewSeed =
       accountConfig.kind === "preview_seed"
         ? {
-            providerConnections: readRequiredPreviewSeedProviderConnections(),
+            providerCredentials: readRequiredPreviewSeedProviderCredentials(),
             installations: await discoverPreviewSeedGitHubAppInstallations(
               requireSeedValue(readSeedValue("DEV_SEED_GITHUB_API_KEY"), "DEV_SEED_GITHUB_API_KEY"),
             ),
@@ -652,17 +665,17 @@ export const seedPasswordAccount = internalAction({
 
     await ctx.runMutation(internal.devAuth.approveSeedPasswordAccount, { userId });
     if (worktreeOrganizationConfig !== null) {
-      await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderConnections, {
+      await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
         userId,
         ...worktreeOrganizationConfig,
       });
     }
     if (previewSeed !== null) {
       for (const installation of previewSeed.installations) {
-        await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderConnections, {
+        await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
           userId,
           ...installation,
-          ...previewSeed.providerConnections,
+          ...previewSeed.providerCredentials,
         });
       }
     }

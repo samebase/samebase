@@ -242,32 +242,31 @@ export const validateCreateAppConnections = internalAction({
       expectedOwnerLogin: access.githubOwnerLogin,
       repositoryOwner: args.repositoryOwner,
     });
-    const plan = await ctx.runQuery(internal.appProvisioningRuns.getPlanByVaultId, {
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
       vaultId: args.vaultId,
+      userId: args.userId,
     });
-    if (!plan) {
-      throw new Error("Infrastructure provisioning plan not found for vault.");
+    if (!vault) {
+      throw new Error("Vault not found.");
     }
-    const [convexConnection, cloudflareConnection] = await Promise.all([
-      ctx.runQuery(internal.providerConnections.loadConvexForOrganizationTeam, {
+    const providerConfiguration = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
+      {
         userId: args.userId,
         organizationId: access.organizationId,
-        teamId: plan.convex.teamId,
-      }),
-      ctx.runQuery(internal.providerConnections.loadSelectedForOrganization, {
-        userId: args.userId,
-        organizationId: access.organizationId,
-        kind: "cloudflare",
-      }),
-    ]);
+      },
+    );
 
-    if (convexConnection?.kind !== "convex") {
+    if (
+      providerConfiguration.convexTeam?.teamId !== vault.convexTeamId ||
+      providerConfiguration.convexCredential === undefined
+    ) {
       throw new Error("Convex connection is required to create a project.");
     }
-    if (convexConnection.teamId !== plan.convex.teamId) {
-      throw new Error("Connected Convex team does not match the provisioning plan.");
-    }
-    if (cloudflareConnection?.kind !== "cloudflare") {
+    if (
+      providerConfiguration.cloudflareAccount?.accountId !== vault.cloudflareAccountId ||
+      providerConfiguration.cloudflareCredential === undefined
+    ) {
       throw new Error("Cloudflare connection is required to create a Worker-backed app.");
     }
 

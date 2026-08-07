@@ -113,7 +113,8 @@ export const vaultProvisioningTables = {
   /**
    * The exact Convex project and Cloudflare Worker choices for one vault.
    * Retries read this row so every attempt uses the same provider names,
-   * Convex team and config path, Cloudflare account, and Worker root directory.
+   * Convex config path, and Worker root directory. The vault stores the exact
+   * Convex team and Cloudflare account.
    * `created` variants preserve identities returned by earlier provider-creation
    * checkpoints. Recording a `created` checkpoint and its stable resource
    * attachment is one database transaction.
@@ -125,36 +126,30 @@ export const vaultProvisioningTables = {
       object({
         state: literal("planned"),
         projectName: string(),
-        teamId: string(),
       }),
       object({
         state: literal("creating"),
         projectName: string(),
-        teamId: string(),
       }),
       object({
         state: literal("created"),
         projectName: string(),
-        teamId: string(),
         projectId: string(),
       }),
     ),
     cloudflare: union(
       object({
         state: literal("planned"),
-        accountId: string(),
         workerName: string(),
         rootDirectory: string(),
       }),
       object({
         state: literal("creating"),
-        accountId: string(),
         workerName: string(),
         rootDirectory: string(),
       }),
       object({
         state: literal("created"),
-        accountId: string(),
         workerName: string(),
         workerTag: string(),
         rootDirectory: string(),

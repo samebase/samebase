@@ -8,6 +8,7 @@
 - Depends on: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Supersedes: `archive/118_VAULT_FOLDER_SPEC.md`
 - Approved proposal: <https://github.com/samebase/samebase/pull/1371>
+- Active reset coordination: `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
 
 ## Current Contract
 
@@ -158,6 +159,23 @@ Deleting a folder makes its vaults ungrouped inside the same organization.
 Folders do not own vaults, grant access, change membership, or create a route context. If the user
 loses organization access, its folders and assignments stay stored but do not appear and cannot be
 changed. This rollout adds no automatic migration or compatibility path for old folder rows.
+
+## Folder Schema Rollout Gate
+
+Before a deployment first requires `organizationId` on `ui_vaultFolders` and
+`ui_vaultFolderAssignments`, the operator must confirm the exact Convex deployment and its current
+schema.
+
+If that deployment still has the legacy folder schema:
+
+1. Delete all legacy `ui_vaultFolderAssignments` rows.
+2. Delete all legacy `ui_vaultFolders` rows.
+3. Confirm that no retained folder or assignment row lacks `organizationId`.
+4. Deploy the organization-scoped folder schema.
+
+If the organization-scoped folder schema is already deployed, preserve its rows, including valid
+empty folders. Do not run this reset automatically. This folder gate is independent from the
+provider reset in RFC 122, although the operator can perform both gates in one maintenance window.
 
 ## Non-Goals
 

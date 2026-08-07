@@ -2,14 +2,16 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded
 - Owner: Noter platform + dev tooling
-- Last updated: 2026-02-26
+- Last updated: 2026-08-07
+- Superseded by: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md` and
+  `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
 - Supersedes: `archive/014_WORKTREE_CLOUD_PROVISIONING_AND_CLI_AUTH_SPEC.md`
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/012_DEV_ENV_ORIGIN_SITE_URL_SYNC_SPEC.md`
-  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
 
 ## Summary
 

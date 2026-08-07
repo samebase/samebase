@@ -2,29 +2,17 @@ import { Infer, v } from "convex/values";
 
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
-import { revokeCloudflareMcpOAuthGrant } from "../cloudflareMcpOAuth";
-import { revokeCloudflareOAuthGrant } from "../cloudflareOAuth";
 import {
-  vCloudflareProviderConnection,
-  vConvexProviderConnection,
-} from "../providerConnectionModel";
+  getOrganizationProviderCredentials,
+  getProviderCredentialsByConnectedUser,
+  vConnectedProviderCredential,
+} from "../organizationProviderCredentials";
+import { providerAuthMatches } from "../providerAuth";
 import { readOwnedActiveRun } from "./stepContext";
 
-const { array, boolean, id, number, object, string, union } = v;
+const { boolean, id, object, string } = v;
 
-const PROVIDER_CONNECTION_BATCH_SIZE = 25;
-const CLOUDFLARE_REVOCATION_SAFE_ERROR = "Cloudflare OAuth revocation could not be confirmed.";
-
-const vProviderConnectionForAccountDeletion = union(
-  vConvexProviderConnection.extend({
-    _id: id("providerConnections"),
-    _creationTime: number(),
-  }),
-  vCloudflareProviderConnection.extend({
-    _id: id("providerConnections"),
-    _creationTime: number(),
-  }),
-);
+const PROVIDER_CREDENTIAL_BATCH_SIZE = 25;
 
 export const vRevokeProviderConnectionBatchResult = object({
   done: boolean(),
@@ -41,36 +29,42 @@ const workflowArgs = {
 
 export const loadConnectionBatch = internalQuery({
   args: workflowArgs,
-  returns: array(vProviderConnectionForAccountDeletion),
+  returns: v.array(vConnectedProviderCredential),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
-    return await ctx.db
-      .query("providerConnections")
-      .withIndex("by_connected_by_user", (query) =>
-        query.eq("connectedByUserId", run.identity.userId),
-      )
-      .order("asc")
-      .take(PROVIDER_CONNECTION_BATCH_SIZE);
+    return await getProviderCredentialsByConnectedUser(ctx.db, {
+      connectedByUserId: run.identity.userId,
+      limit: PROVIDER_CREDENTIAL_BATCH_SIZE,
+    });
   },
 });
 
 export const deleteRevokedConnection = internalMutation({
   args: {
     ...workflowArgs,
-    providerConnectionId: id("providerConnections"),
+    expected: vConnectedProviderCredential,
   },
-  returns: v.null(),
+  returns: boolean(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
-    const connection = await ctx.db.get(args.providerConnectionId);
-    if (connection === null) {
-      return null;
+    const credentials = await getOrganizationProviderCredentials(
+      ctx.db,
+      args.expected.organizationId,
+    );
+    if (credentials === null) {
+      return false;
     }
-    if (connection.connectedByUserId !== run.identity.userId) {
-      throw new Error("Provider connection belongs to another user.");
+    const credential =
+      args.expected.provider === "convex" ? credentials.convex : credentials.cloudflare;
+    if (
+      credential === undefined ||
+      credential.connectedByUserId !== run.identity.userId ||
+      !providerAuthMatches(credential.auth, args.expected.credential.auth)
+    ) {
+      return false;
     }
 
-    if (connection.kind === "convex" && connection.auth.method === "oauth") {
+    if (args.expected.provider === "convex" && credential.auth.method === "oauth") {
       const providerRevocation = run.outcomes.providerRevocation;
       if (providerRevocation.state !== "in_progress") {
         throw new Error("Provider revocation was not started.");
@@ -87,28 +81,16 @@ export const deleteRevokedConnection = internalMutation({
       });
     }
 
-    const organization = await ctx.db.get(connection.organizationId);
-    if (organization !== null) {
-      if (
-        connection.kind === "convex" &&
-        organization.selectedConvexProviderConnectionId === connection._id
-      ) {
-        await ctx.db.patch(organization._id, {
-          selectedConvexProviderConnectionId: undefined,
-        });
-      }
-      if (
-        connection.kind === "cloudflare" &&
-        organization.selectedCloudflareProviderConnectionId === connection._id
-      ) {
-        await ctx.db.patch(organization._id, {
-          selectedCloudflareProviderConnectionId: undefined,
-        });
-      }
+    const otherCredential =
+      args.expected.provider === "convex" ? credentials.cloudflare : credentials.convex;
+    if (otherCredential === undefined) {
+      await ctx.db.delete(credentials._id);
+    } else {
+      await ctx.db.patch(credentials._id, {
+        [args.expected.provider]: undefined,
+      });
     }
-
-    await ctx.db.delete(connection._id);
-    return null;
+    return true;
   },
 });
 
@@ -116,38 +98,38 @@ export const revokeConnectionBatch = internalAction({
   args: workflowArgs,
   returns: vRevokeProviderConnectionBatchResult,
   handler: async (ctx, args): Promise<RevokeProviderConnectionBatchResult> => {
-    const connections = await ctx.runQuery(
+    const credentials = await ctx.runQuery(
       internal.accountDeletion.providerActions.loadConnectionBatch,
       args,
     );
     let convexManualRevocationRequired = false;
 
-    for (const connection of connections) {
-      if (connection.kind === "cloudflare") {
-        try {
-          if (connection.auth.method === "oauth") {
-            await revokeCloudflareOAuthGrant(connection.auth.refreshCredential);
-          } else if (connection.auth.method === "mcp_oauth") {
-            await revokeCloudflareMcpOAuthGrant({
-              refreshToken: connection.auth.refreshCredential,
-              clientId: connection.auth.clientId,
-            });
-          }
-        } catch {
-          throw new Error(CLOUDFLARE_REVOCATION_SAFE_ERROR);
-        }
-      } else if (connection.auth.method === "oauth") {
-        convexManualRevocationRequired = true;
+    for (const connection of credentials) {
+      const deleted = await ctx.runMutation(
+        internal.accountDeletion.providerActions.deleteRevokedConnection,
+        {
+          ...args,
+          expected: connection,
+        },
+      );
+      if (!deleted) {
+        return {
+          done: false,
+          convexManualRevocationRequired,
+        };
       }
 
-      await ctx.runMutation(internal.accountDeletion.providerActions.deleteRevokedConnection, {
-        ...args,
-        providerConnectionId: connection._id,
-      });
+      if (connection.provider === "convex" && connection.credential.auth.method === "oauth") {
+        convexManualRevocationRequired = true;
+      }
     }
 
+    const remainingCredentials = await ctx.runQuery(
+      internal.accountDeletion.providerActions.loadConnectionBatch,
+      args,
+    );
     return {
-      done: connections.length < PROVIDER_CONNECTION_BATCH_SIZE,
+      done: remainingCredentials.length === 0,
       convexManualRevocationRequired,
     };
   },

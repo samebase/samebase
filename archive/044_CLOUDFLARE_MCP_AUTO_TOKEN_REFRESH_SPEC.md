@@ -2,13 +2,14 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded
 - Owner: Noter platform
-- Last updated: 2026-05-12
+- Last updated: 2026-08-07
+- Superseded by: `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
 - Related specs:
-  - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
-  - `rfcs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
-  - `rfcs/036_MCP_CONNECTION_TOKEN_HEALTH_VISIBILITY_SPEC.md`
+  - `archive/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
+  - `archive/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
+  - `archive/036_MCP_CONNECTION_TOKEN_HEALTH_VISIBILITY_SPEC.md`
   - `rfcs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
 
 ## Summary

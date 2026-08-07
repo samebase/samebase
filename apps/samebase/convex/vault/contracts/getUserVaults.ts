@@ -182,6 +182,8 @@ const vUserVaultsResult = array(
   object({
     _id: id("vaults"),
     organizationId: id("organizations"),
+    convexTeamId: string(),
+    cloudflareAccountId: string(),
     ghRepoOwner: string(),
     ghRepoName: string(),
     repositoryFullName: string(),

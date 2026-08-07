@@ -13,14 +13,16 @@ the exact phrase `delete my account`.
 The confirmation must distinguish the user's Samebase identity from organization data. Account
 deletion removes the user's login, profile, personal preferences, organization memberships, MCP
 access, pending provider authorization states, GitHub App user authorization, and every provider
-connection that user created. It does not delete an organization, organization billing, vault,
-staged file, attached resource, observation, or organization workflow record.
+credential slot whose current `connectedByUserId` identifies that user. It does not delete an
+organization, organization billing, deployment destination, vault, staged file, attached resource,
+observation, or organization workflow record. It deletes the organization provider credential
+document only when it clears the last credential slot.
 
 Account deletion is rejected while the user is the last active owner of any organization. The user
 must add or promote another owner first. Account deletion can then remove the user's memberships
 without leaving an organization with no owner. Removing the user who connected a provider removes
-that provider credential and can make operations that depend on it unavailable until a member
-reconnects the provider.
+that provider credential and can make operations that depend on it unavailable until another owner
+reconnects the same destination.
 
 Acceptance creates one durable deletion run, marks the user as deleting, and routes every signed-in
 session to `/account-deletion`. Repeated requests return the same active run without rechecking the
@@ -50,9 +52,12 @@ The workflow must:
 
 1. Stop the user's other Samebase sessions.
 2. Revoke the user's GitHub App user authorization.
-3. Revoke supported Cloudflare authorizations, then delete the user's Cloudflare connections.
-4. Delete the user's Convex connections. When a connection used Convex OAuth, retain the manual
-   revocation notice because Samebase cannot revoke the upstream authorization.
+3. Clear each current Cloudflare credential slot whose `connectedByUserId` identifies the user. Do
+   not revoke the upstream authorization automatically. The completion email tells the user to
+   remove Samebase from Cloudflare Connected Applications if they also want to revoke that grant.
+4. Clear each current Convex credential slot whose `connectedByUserId` identifies the user. When a
+   slot used Convex OAuth, retain the manual revocation notice because Samebase cannot revoke the
+   upstream authorization.
 5. Delete personal preferences, organization memberships, MCP grants and tokens, provider callback
    states, and GitHub App setup states in bounded batches.
 6. Attempt the completion email with the opaque deletion operation ID as the support reference.
@@ -63,6 +68,9 @@ The workflow must:
 A failed required step leaves the account deletion-only and marks the run as needing staff
 attention. It never silently reactivates the account. Staff can inspect and retry the same run from
 `/admin/account-deletions` but cannot skip required steps or force success.
+
+Clearing a matching local credential slot is required. Samebase does not call Convex or Cloudflare
+revocation endpoints during account deletion. Manual provider revocation is not a completion gate.
 
 ## Data And External Resources
 
@@ -76,9 +84,11 @@ The following organization-owned data always remains:
 - Vault provisioning and deletion plans, locks, runs, and events.
 - External GitHub repositories, Convex projects and deployments, Cloudflare Workers, and domains.
 
-Provider credentials are organization connections with a `connectedByUserId` provenance field.
-Deleting that user revokes supported remote authorization before deleting each matching local
-connection. The organization and provider-owned infrastructure remain.
+`organizationProviderCredentials` is one organization-owned document with optional Convex and
+Cloudflare slots. Each slot has a `connectedByUserId` provenance field. Deleting that user clears
+only a slot that still names the user. If this clears the last slot, Samebase deletes the credential
+document. The organization destinations and provider-owned infrastructure remain. A slot that
+another owner has already replaced names that owner and is not cleared.
 
 Previously distributed Convex production and preview deploy keys remain usable after Samebase
 deletes its local credential. They remain usable until the user manually revokes Samebase in Convex
@@ -93,8 +103,10 @@ until real deletion volume justifies automation.
 
 - A request is idempotent and capability retries keep observing the same run.
 - Normal routes and writes reject a deleting user.
-- Supported remote provider revocation succeeds before its local credential is removed.
-- Multiple Convex and Cloudflare connections are processed in bounded batches.
+- Each matching local credential slot is cleared without a Convex or Cloudflare revocation request.
+  The completion email gives the manual upstream revocation steps.
+- At most one Convex and one Cloudflare slot per organization are processed in bounded batches
+  across the user's organizations.
 - Personal preferences, memberships, OAuth states, MCP grants and tokens, GitHub user authorization,
   auth data, and the user row are removed.
 - Organizations, billing, vaults, staged files, attached resources, observations, and organization

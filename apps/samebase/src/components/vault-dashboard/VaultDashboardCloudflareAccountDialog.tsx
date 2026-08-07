@@ -49,7 +49,9 @@ export function VaultDashboardCloudflareAccountDialog({
       <AppDialogContent>
         <DialogHeader>
           <DialogTitle>Select Cloudflare Account</DialogTitle>
-          <DialogDescription>Choose the Cloudflare account to use for new apps.</DialogDescription>
+          <DialogDescription>
+            Choose the Cloudflare account for this organization.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
           <Select value={selectedAccountId} onValueChange={onAccountChange} disabled={isLoading}>

@@ -76,7 +76,7 @@ export const cloudflareDiscoverWorkersContract = {
     title: "Discover Cloudflare Workers",
     name: "vault_cloudflare_discoverWorkers",
     description:
-      "Discover Workers in a Cloudflare account and observe which ones are currently connected to this vault's GitHub repository and live Workers Builds roots.",
+      "Discover Workers in the vault's stored Cloudflare account and observe which ones are currently connected to this vault's GitHub repository and live Workers Builds roots.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -85,10 +85,10 @@ export const cloudflareDiscoverWorkersContract = {
     },
     inputDescriptions: {
       vaultId: "Samebase vault whose GitHub repository the Workers must match.",
-      accountId: "Cloudflare account id from list_cloudflare_accounts.",
+      accountId: "The vault's cloudflareAccountId returned by get_user_vaults.",
     },
   } as const satisfies AppFunctionMcpMetadata,
-  doc: `Reads every visible Worker in the selected Cloudflare account and observes each Worker's
+  doc: `Reads every visible Worker in the vault's stored Cloudflare account and observes each Worker's
 current GitHub repository, Workers Builds root, trigger pair, and Convex marker. Only a Worker with
 one verified root for the vault's repository is eligible for attachment. A partial inventory never
 proves that an unlisted Worker is absent. It may refresh private Samebase provider-connection
@@ -123,7 +123,8 @@ export const cloudflareAttachWorkersContract = {
     },
     inputDescriptions: {
       vaultId: "Samebase vault whose GitHub repository the Workers must match.",
-      accountId: "Cloudflare account id used for the preceding Worker discovery.",
+      accountId:
+        "The vault's cloudflareAccountId returned by get_user_vaults and used for the preceding Worker discovery.",
       workers:
         "One or more Worker name and stable tag pairs returned by discover_cloudflare_workers.",
     },
@@ -167,7 +168,7 @@ export const cloudflareCreateWorkerContract = {
     title: "Create Cloudflare Worker",
     name: "vault_cloudflare_createWorker",
     description:
-      "Create and attach a Cloudflare Worker for an existing connected repository vault, configure Workers Builds for that repository root, and request the first production build.",
+      "Create and attach a Cloudflare Worker in the vault's stored Cloudflare account, configure Workers Builds for that repository root, and request the first production build.",
     safety: "write",
     annotations: {
       readOnlyHint: false,
@@ -176,12 +177,12 @@ export const cloudflareCreateWorkerContract = {
     },
     inputDescriptions: {
       vaultId: "Existing connected Samebase vault returned by get_user_vaults.",
-      accountId: "Cloudflare account id returned by list_cloudflare_accounts.",
+      accountId: "The vault's cloudflareAccountId returned by get_user_vaults.",
       workerName: "Name for the new Cloudflare Worker. An existing name is rejected.",
       rootDirectory: "Repository root for this Worker's GitHub Builds triggers.",
     },
   } as const satisfies AppFunctionMcpMetadata,
-  doc: `Creates one new Worker in the selected Cloudflare account for an existing connected
+  doc: `Creates one new Worker in the vault's stored Cloudflare account for an existing connected
 repository vault. Samebase checks vault ownership, live repository identity, Cloudflare account
 access, the provider-write lock, and the Worker quota before the create request. It records the
 Worker as an attachment, creates production and preview Workers Builds triggers for the requested

@@ -82,6 +82,8 @@ function makeVault({
   return {
     _id: fakeVaultId(),
     organizationId: fakeOrganizationId(),
+    convexTeamId: "team-1",
+    cloudflareAccountId: "account-1",
     ghRepoOwner: "ada",
     ghRepoName: "demo",
     repositoryFullName: "ada/demo",

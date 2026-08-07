@@ -32,7 +32,8 @@ import {
 } from "./cloudflareResources";
 import {
   normalizeCloudflareAccounts,
-  selectSingleCloudflareDefaultAccount,
+  resolveCloudflareAccountAfterAuthorization,
+  selectSingleCloudflareAccount,
 } from "./cloudflareAccountDiscovery";
 import { isRecord } from "./jsonUtils";
 
@@ -2168,11 +2169,10 @@ describe("cloudflare resources", () => {
 
   it("selects the only Cloudflare account exposed to OAuth", () => {
     expect(
-      selectSingleCloudflareDefaultAccount(
+      selectSingleCloudflareAccount(
         normalizeCloudflareAccounts([{ id: " account-id ", name: " Account " }]),
       ),
     ).toEqual({
-      state: "selected",
       accountId: "account-id",
       accountName: "Account",
     });
@@ -2180,12 +2180,42 @@ describe("cloudflare resources", () => {
 
   it("fails closed when Cloudflare OAuth exposes multiple accounts", () => {
     expect(
-      selectSingleCloudflareDefaultAccount(
-        normalizeCloudflareAccounts([{ id: "first-account-id" }, { id: "second-account-id" }]),
+      selectSingleCloudflareAccount(
+        normalizeCloudflareAccounts([
+          { id: "first-account-id", name: "First account" },
+          { id: "second-account-id", name: "Second account" },
+        ]),
       ),
+    ).toBeNull();
+  });
+
+  it("rejects a Cloudflare account without a name", () => {
+    expect(() => normalizeCloudflareAccounts([{ id: "account-id", name: " " }])).toThrow(
+      "Cloudflare account response included an account without a name.",
+    );
+  });
+
+  it("keeps the connected account only when a replacement grant can access it", () => {
+    const accounts = normalizeCloudflareAccounts([
+      { id: "account-a", name: "Account A renamed" },
+      { id: "account-b", name: "Account B" },
+    ]);
+
+    expect(
+      resolveCloudflareAccountAfterAuthorization(accounts, {
+        accountId: "account-a",
+        accountName: "Account A",
+      }),
     ).toEqual({
-      state: "not_selected",
+      accountId: "account-a",
+      accountName: "Account A renamed",
     });
+    expect(() =>
+      resolveCloudflareAccountAfterAuthorization(accounts, {
+        accountId: "account-missing",
+        accountName: "Missing account",
+      }),
+    ).toThrow("The new Cloudflare authorization cannot access the connected account.");
   });
 
   it("selects the build token backed by the current Cloudflare token", () => {

@@ -36,9 +36,9 @@ Cost is one input among several; the receipts page currently over-indexes on it.
   from a phone.
 - **History and validation**: Cloudflare had no public OAuth when the integration was built, so
   Samebase used Cloudflare's MCP OAuth as the workaround
-  (`rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`,
+  (`archive/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`,
   `rfcs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`,
-  `rfcs/044_CLOUDFLARE_MCP_AUTO_TOKEN_REFRESH_SPEC.md`). In June 2026 Cloudflare shipped
+  `archive/044_CLOUDFLARE_MCP_AUTO_TOKEN_REFRESH_SPEC.md`). In June 2026 Cloudflare shipped
   self-managed public OAuth clients (receipt already gathered: changelog 2026-06-03) — the operator
   reads that as the bet validating itself. Samebase adopted the standard flow days later (v1554,
   2026-06-22) as the primary connection path; the legacy MCP OAuth flow remains mounted pending
