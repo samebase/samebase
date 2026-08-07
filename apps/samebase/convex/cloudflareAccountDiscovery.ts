@@ -1,17 +1,14 @@
 "use node";
 
-import { notEmpty } from "@samebase/dependent/main";
 import { v } from "convex/values";
 
 import { internalAction } from "./_generated/server";
 import { requestCloudflareApi, type CloudflareApiTransport } from "./cloudflareApi/client";
+import type { IamAccount } from "./cloudflareApi/types.generated";
 
 const vCloudflareApiTransport = v.union(v.literal("mcp"), v.literal("direct"));
 
-type CloudflareAccountIdentity = {
-  id?: string | null;
-  name?: string | null;
-};
+type CloudflareAccountIdentity = Pick<IamAccount, "id" | "name">;
 
 export type CloudflareAccount = {
   accountId: string;
@@ -23,23 +20,22 @@ export const vCloudflareAccount = v.object({
   accountName: v.string(),
 });
 
-function readCloudflareAccount(account: CloudflareAccountIdentity): CloudflareAccount | null {
-  const accountId = account.id?.trim();
-  if (!accountId) {
-    return null;
-  }
-
-  const accountName = account.name?.trim();
-  return {
-    accountId,
-    accountName: accountName ? accountName : accountId,
-  };
-}
-
 export function normalizeCloudflareAccounts(
   accounts: readonly CloudflareAccountIdentity[],
 ): CloudflareAccount[] {
-  const normalizedAccounts = accounts.map(readCloudflareAccount).filter(notEmpty);
+  const normalizedAccounts = accounts.map((account) => {
+    const accountId = account.id.trim();
+    if (!accountId) {
+      throw new Error("Cloudflare account response included an account without an ID.");
+    }
+
+    const accountName = account.name.trim();
+    if (!accountName) {
+      throw new Error("Cloudflare account response included an account without a name.");
+    }
+
+    return { accountId, accountName };
+  });
 
   return normalizedAccounts.sort(
     (left, right) =>

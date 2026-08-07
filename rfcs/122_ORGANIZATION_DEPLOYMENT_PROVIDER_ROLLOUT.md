@@ -50,6 +50,11 @@ cloudflareAccount?: {
 }
 ```
 
+`teamSlug` is optional because Convex token details does not return it and an empty team has no
+project response. Samebase stores it when a project response becomes available. Make it required
+when Convex provides the slug through token details or a team lookup. Cloudflare account discovery
+requires a non-empty provider-supplied `accountName`.
+
 The nested objects prevent a display name without its stable ID. An organization stores no
 credential row ID. The backend finds credentials through the credential row's required
 `organizationId`.

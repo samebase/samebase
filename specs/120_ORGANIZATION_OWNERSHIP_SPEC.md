@@ -122,6 +122,11 @@ cloudflareAccount?: {
 }
 ```
 
+`teamSlug` is optional because Convex token details does not return it and an empty team has no
+project response. Samebase stores it when a project response becomes available. Make it required
+when Convex provides the slug through token details or a team lookup. Cloudflare account discovery
+requires a non-empty provider-supplied `accountName`.
+
 Every `organizationProviderCredentials` document has a required `organizationId`, one Convex
 credential slot, and one Cloudflare credential slot. At least one credential slot is present. One
 organization has zero or one such document. The first provider connection creates it. Disconnect

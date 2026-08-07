@@ -2181,9 +2181,18 @@ describe("cloudflare resources", () => {
   it("fails closed when Cloudflare OAuth exposes multiple accounts", () => {
     expect(
       selectSingleCloudflareAccount(
-        normalizeCloudflareAccounts([{ id: "first-account-id" }, { id: "second-account-id" }]),
+        normalizeCloudflareAccounts([
+          { id: "first-account-id", name: "First account" },
+          { id: "second-account-id", name: "Second account" },
+        ]),
       ),
     ).toBeNull();
+  });
+
+  it("rejects a Cloudflare account without a name", () => {
+    expect(() => normalizeCloudflareAccounts([{ id: "account-id", name: " " }])).toThrow(
+      "Cloudflare account response included an account without a name.",
+    );
   });
 
   it("keeps the connected account only when a replacement grant can access it", () => {

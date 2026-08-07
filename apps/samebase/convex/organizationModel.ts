@@ -5,6 +5,9 @@ const { boolean, id, literal, number, object, optional, string, union } = v;
 
 export const vOrganizationConvexTeam = object({
   teamId: string(),
+  // TODO: Make teamSlug required when Convex exposes it in token details or a
+  // team lookup. An empty team has no project response from which Samebase can
+  // learn the slug. Samebase fills it when a project response becomes available.
   teamSlug: optional(string()),
 });
 
