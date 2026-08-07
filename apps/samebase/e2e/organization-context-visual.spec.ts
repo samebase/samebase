@@ -451,15 +451,16 @@ test.describe("small screen organization context", () => {
     await seedVisualFixtureWorkspaceSidebarState(page, { rightMobileWidthPx: 96 });
 
     try {
-      await openRoute(page, "/vault/org-context-mobile-alpha/mobile-app");
+      await openRoute(page, "/vault/org-context-mobile-alpha/mobile-app/fs/main/README.md");
       const header = page.getByTestId(MAIN_HEADER_TEST_ID);
       await expect(header.getByText("org-context-mobile-alpha", { exact: true })).toHaveCount(0);
+      await expect(header.getByRole("button", { name: "Quick Open" })).toBeVisible();
       await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
+      const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
       await expect(
-        page.getByTestId("workspace-layout-v2-pane-main").getByRole("heading", {
-          name: "mobile-app",
-        }),
+        leftPane.getByText("org-context-mobile-alpha/mobile-app", { exact: true }),
       ).toBeVisible();
+      await expect(leftPane.getByText("README.md", { exact: true })).toBeVisible();
       const rightToggle = header.getByRole("button", { name: "Toggle Right Sidebar" });
       await expect(rightToggle).toBeVisible();
       await rightToggle.click();

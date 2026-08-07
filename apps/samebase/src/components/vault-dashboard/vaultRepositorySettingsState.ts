@@ -208,7 +208,6 @@ function resolveConvexProjectActionLabel(
   }
   switch (observation.provider.state) {
     case "current":
-    case "moved":
       return observation.provider.projectSlug;
     case "missing_ambiguous":
     case "unavailable":
@@ -654,8 +653,7 @@ function buildConvexRow({
           )
         : undefined;
     const provider = observation?.provider;
-    const currentProvider =
-      provider?.state === "current" || provider?.state === "moved" ? provider : null;
+    const currentProvider = provider?.state === "current" ? provider : null;
     return {
       ...base,
       state: "setting_up",
@@ -749,20 +747,6 @@ function buildConvexRow({
         name: observation.provider.projectSlug,
         owner: observation.provider.teamSlug,
       };
-    case "moved": {
-      return {
-        ...base,
-        state: "available",
-        actions: buildActionList([changeConfigAction, detachAction]),
-        description: joinDescriptions(
-          sourceDescription,
-          "This project moved to another Convex team.",
-        ),
-        href: buildConvexProjectSettingsUrl(observation.provider),
-        name: observation.provider.projectSlug,
-        owner: observation.provider.teamSlug,
-      };
-    }
     case "missing_ambiguous":
       return {
         ...base,

@@ -254,7 +254,7 @@ export function buildProductionEnvironmentRoots({
           const provider = observation?.provider;
           if (
             !provider ||
-            (provider.state !== "current" && provider.state !== "moved") ||
+            provider.state !== "current" ||
             provider.productionDeployment.state !== "available"
           ) {
             return [];

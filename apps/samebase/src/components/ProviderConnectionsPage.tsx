@@ -1051,6 +1051,7 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
       });
       setConvexAccess(null);
       setConvexAccessError(null);
+      setProviderDisconnectNotice(null);
       return result;
     },
     [connectConvexWithApiKey, organizationId],

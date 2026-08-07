@@ -5,7 +5,7 @@
 - Status: Superseded
 - Owner: Noter platform
 - Last updated: 2026-08-07
-- Superseded by: `archive/062_NETLIFY_REMOVAL_AND_DATA_CLEANUP_SPEC.md` and
+- Superseded by: `archive/062_NETLIFY_REMOVAL_AND_CLOUDFLARE_ONLY_HOSTING_SPEC.md` and
   `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`

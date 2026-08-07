@@ -2742,7 +2742,7 @@ describe("buildVaultRepositorySettingsState", () => {
             codeLocation: { kind: "config", convexConfigPath: "packages/api/convex.json" },
             source: { state: "missing" },
             provider: {
-              state: "moved",
+              state: "current",
               projectSlug: "api",
               teamSlug: "ada",
               productionDeployment: { state: "missing" },
