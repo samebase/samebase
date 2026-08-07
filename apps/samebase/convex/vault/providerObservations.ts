@@ -237,22 +237,10 @@ async function readCloudflareObservationInput(
     accountId: string;
   },
 ) {
-  const providerConnection = await ctx.runQuery(
-    internal.providerConnections.loadCloudflareForOrganizationAccount,
-    {
-      organizationId: args.organizationId,
-      userId: args.userId,
-      accountId: args.accountId,
-    },
-  );
-  if (providerConnection?.kind !== "cloudflare") {
-    return { state: "failed" as const, reason: "connection_required" as const };
-  }
   const connectionResolution = await ctx
     .runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
       organizationId: args.organizationId,
       userId: args.userId,
-      providerConnectionId: providerConnection._id,
     })
     .then(
       (connection) => ({ state: "available" as const, connection }),
@@ -264,7 +252,7 @@ async function readCloudflareObservationInput(
 
   const connection = connectionResolution.connection;
   const token = connection?.auth.credential.trim();
-  if (!connection || !token) {
+  if (!connection || !token || connection.account?.accountId !== args.accountId) {
     return { state: "failed" as const, reason: "connection_required" as const };
   }
 
@@ -619,7 +607,7 @@ export const observeConvexProjects = action({
         }
 
         const matchingConnection = await ctx.runQuery(
-          internal.providerConnections.loadConvexForOrganizationTeam,
+          internal.organizationProviderCredentials.loadConvexForOrganizationTeam,
           {
             userId: ctx.viewer.userId,
             organizationId: context.organizationId,
@@ -627,7 +615,8 @@ export const observeConvexProjects = action({
           },
         );
         let provider: ConvexProjectProviderObservation;
-        if (matchingConnection?.kind !== "convex") {
+        const credential = matchingConnection?.credential;
+        if (!matchingConnection || !credential) {
           provider = { state: "unavailable", reason: "connection_required" };
           return {
             convexProjectId: project.convexProjectId,
@@ -638,7 +627,7 @@ export const observeConvexProjects = action({
           };
         }
 
-        const token = matchingConnection.auth.credential.trim();
+        const token = credential.auth.credential.trim();
         if (!token) {
           provider = { state: "unavailable", reason: "connection_required" };
           return {

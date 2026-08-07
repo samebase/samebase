@@ -487,6 +487,15 @@ describe("MCP tools/call access enforcement", () => {
 
   it("executes the tool when scopes and current access both allow it", async () => {
     const { callTool, organizationId, t, userId } = await seedMcpBearer({ isApproved: true });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(organizationId, {
+        convexTeam: { teamId: "convex-team" },
+        cloudflareAccount: {
+          accountId: "cloudflare-account",
+          accountName: "Cloudflare account",
+        },
+      });
+    });
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
       organizationId,
@@ -517,7 +526,7 @@ describe("MCP tools/call access enforcement", () => {
       isApproved: true,
       scopes: ["access_provider_connections"],
     });
-    const { providerConnectionId, vaultId } = await t.run(async (ctx) => {
+    const { vaultId } = await t.run(async (ctx) => {
       const membership = await ctx.db
         .query("organizationMemberships")
         .withIndex("by_organization_and_user", (query) =>
@@ -528,33 +537,30 @@ describe("MCP tools/call access enforcement", () => {
         throw new Error("Expected an organization membership.");
       }
       await ctx.db.patch(membership._id, { role: "member" });
-      const providerConnectionId = await ctx.db.insert("providerConnections", {
-        kind: "cloudflare",
-        organizationId,
-        connectedByUserId: userId,
-        auth: { method: "api_key", credential: "cloudflare-token" },
-        defaultAccount: { state: "not_selected" },
-        createdAt: 1,
-        updatedAt: 1,
+      const providerCredentialsId = await ctx.db.insert("organizationProviderCredentials", {
+        cloudflare: {
+          connectedByUserId: userId,
+          auth: { method: "api_key", credential: "cloudflare-token" },
+          updatedAt: 1,
+        },
       });
+      await ctx.db.patch(organizationId, { providerCredentialsId });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "account-a",
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
-      return { providerConnectionId, vaultId };
+      return { vaultId };
     });
 
     await expect(callTool("vault_cloudflare_listAccounts", { vaultId })).resolves.toMatchObject({
       result: { structuredContent: { accounts: [] } },
     });
     await t.run(async (ctx) => {
-      await ctx.db.patch(providerConnectionId, {
-        defaultAccount: {
-          state: "selected",
-          accountId: "account-a",
-          accountName: "Account A",
-        },
+      await ctx.db.patch(organizationId, {
+        cloudflareAccount: { accountId: "account-a", accountName: "Account A" },
       });
     });
     const selectedPayload = await callTool("vault_cloudflare_listAccounts", { vaultId });
@@ -706,26 +712,29 @@ describe("MCP tools/call access enforcement", () => {
       scopes: ["access_dashboard", "access_provider_connections"],
     });
     const vaultId = await t.run(async (ctx) => {
-      await ctx.db.insert("providerConnections", {
-        kind: "cloudflare",
-        organizationId,
-        connectedByUserId: userId,
-        auth: {
-          method: "oauth",
-          credential: "cloudflare-token",
-          refreshCredential: "cloudflare-refresh-token",
-          credentialExpiresAt: 4_000_000_000_000,
+      const providerCredentialsId = await ctx.db.insert("organizationProviderCredentials", {
+        cloudflare: {
+          connectedByUserId: userId,
+          auth: {
+            method: "oauth",
+            credential: "cloudflare-token",
+            refreshCredential: "cloudflare-refresh-token",
+            credentialExpiresAt: 4_000_000_000_000,
+          },
+          updatedAt: 1,
         },
-        defaultAccount: {
-          state: "selected",
+      });
+      await ctx.db.patch(organizationId, {
+        providerCredentialsId,
+        cloudflareAccount: {
           accountId: cloudflareAccountId,
           accountName: "Test account",
         },
-        createdAt: 1,
-        updatedAt: 1,
       });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId,
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
@@ -742,6 +751,8 @@ describe("MCP tools/call access enforcement", () => {
       });
       await ctx.db.replace(vaultId, {
         organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId,
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",

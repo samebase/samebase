@@ -9,7 +9,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "../_generated
 import { action, mutation, query } from "../functions";
 import { isRecord, readBoolean, readString, toErrorMessage } from "../jsonUtils";
 import { findVaultForUser, requireVaultForUser } from "../organizationAccess";
-import { getConvexProviderConnectionForTeam } from "../providerConnections";
+import { getOrganizationProviderConfiguration } from "../organizationProviderCredentials";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { isLiveConnectedVault } from "./state";
 import {
@@ -974,7 +974,8 @@ export const get = query({
     if (
       !project ||
       project.vaultId !== args.vaultId ||
-      project.organizationId !== vault.organizationId
+      project.organizationId !== vault.organizationId ||
+      project.teamId !== vault.convexTeamId
     ) {
       return null;
     }
@@ -1179,20 +1180,18 @@ export const readRefreshTarget = internalQuery({
       throw new Error("Convex project not found.");
     }
 
-    const connection = await getConvexProviderConnectionForTeam(ctx.db, {
-      organizationId: vault.organizationId,
-      teamId: project.teamId,
-    });
-    if (connection === null) {
+    const configuration = await getOrganizationProviderConfiguration(ctx.db, vault.organizationId);
+    const credential = configuration.convexCredential;
+    if (configuration.convexTeam?.teamId !== vault.convexTeamId || !credential) {
       throw new Error("Convex connection is required.");
     }
-    const token = connection.auth.credential.trim();
-    if (!token || !connection.teamId.trim()) {
+    const token = credential.auth.credential.trim();
+    if (!token) {
       throw new Error("Convex connection is required.");
     }
     return {
       token,
-      authMethod: connection.auth.method,
+      authMethod: credential.auth.method,
       project,
     };
   },

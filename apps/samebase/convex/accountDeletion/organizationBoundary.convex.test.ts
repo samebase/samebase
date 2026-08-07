@@ -86,6 +86,8 @@ async function seedRunningDeletion() {
     const vaultId = await ctx.db.insert("vaults", {
       state: "not_connected",
       organizationId,
+      convexTeamId: "convex-team",
+      cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
     });
     const stagedFileId = await ctx.db.insert("vaultStagedFiles", {
@@ -510,6 +512,8 @@ describe("account deletion organization boundary", () => {
         state: "connected",
         githubMode: "connect_existing_repository",
         organizationId: ids.organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
         runId,
         ghRepoId: "701",

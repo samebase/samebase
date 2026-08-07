@@ -32,6 +32,8 @@ async function seedToolRuntimeOwner() {
     });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
+      convexTeamId: "convex-team",
+      cloudflareAccountId: "account_1",
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -79,6 +81,8 @@ describe("MCP tool runtime boundaries", () => {
     const { authorizedVaultId, otherOrganizationId } = await t.run(async (ctx) => {
       const authorizedVaultId = await ctx.db.insert("vaults", {
         organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "account_1",
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
@@ -95,6 +99,8 @@ describe("MCP tool runtime boundaries", () => {
       });
       await ctx.db.replace(authorizedVaultId, {
         organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "account_1",
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",
@@ -119,6 +125,8 @@ describe("MCP tool runtime boundaries", () => {
       });
       const otherRunVaultId = await ctx.db.insert("vaults", {
         organizationId: otherOrganizationId,
+        convexTeamId: "other-convex-team",
+        cloudflareAccountId: "other-cloudflare-account",
         deletion: { state: "not_deleting" },
         state: "not_connected",
       });
@@ -135,6 +143,8 @@ describe("MCP tool runtime boundaries", () => {
       });
       await ctx.db.replace(otherRunVaultId, {
         organizationId: otherOrganizationId,
+        convexTeamId: "other-convex-team",
+        cloudflareAccountId: "other-cloudflare-account",
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "connect_existing_repository",

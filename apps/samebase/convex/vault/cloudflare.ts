@@ -65,7 +65,6 @@ type CloudflareAccountResult = Infer<typeof vCloudflareAccountResult>;
 type CloudflareConnectWorkerResult = Infer<typeof cloudflareConnectWorkerContract.returns>;
 type CloudflareActionConnection = {
   organizationId: Id<"organizations">;
-  providerConnectionId: Id<"providerConnections">;
   auth:
     | { method: "api_key"; credential: string }
     | {
@@ -83,9 +82,7 @@ type CloudflareActionConnection = {
       };
   token: string;
   transport: CloudflareApiTransport;
-  defaultAccount:
-    | { state: "not_selected" }
-    | { state: "selected"; accountId: string; accountName: string };
+  account?: { accountId: string; accountName: string };
   tokenHealth?: McpTokenHealth;
 };
 
@@ -101,6 +98,8 @@ type CloudflareWorkerBuildPreparation =
 
 type ProviderAttachmentVaultContext = {
   organizationId: Id<"organizations">;
+  convexTeamId: string;
+  cloudflareAccountId: string;
   ghRepoId: string;
   owner: string;
   name: string;
@@ -112,7 +111,6 @@ async function resolveCloudflareConnection(
   args: {
     userId: Id<"users">;
     organizationId: Id<"organizations">;
-    providerConnectionId: Id<"providerConnections">;
   },
 ): Promise<CloudflareActionConnection> {
   const connection = await ctx.runAction(
@@ -125,41 +123,19 @@ async function resolveCloudflareConnection(
   }
   return {
     organizationId: args.organizationId,
-    providerConnectionId: args.providerConnectionId,
     auth: connection.auth,
     token,
     transport: resolveCloudflareApiTransport(connection.auth.method),
-    defaultAccount: connection.defaultAccount,
+    ...(connection.account ? { account: connection.account } : {}),
     ...(connection.tokenHealth ? { tokenHealth: connection.tokenHealth } : {}),
   };
-}
-
-async function resolveOrganizationCloudflareConnection(
-  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
-  args: { userId: Id<"users">; organizationId: Id<"organizations"> },
-): Promise<CloudflareActionConnection> {
-  const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
-    userId: args.userId,
-    organizationId: args.organizationId,
-    kind: "cloudflare",
-  });
-  if (connection?.kind !== "cloudflare") {
-    throw new Error("Cloudflare connection is required.");
-  }
-  return await resolveCloudflareConnection(ctx, {
-    ...args,
-    providerConnectionId: connection._id,
-  });
 }
 
 function requireCloudflareAccountTarget(
   connection: CloudflareActionConnection,
   accountId: string,
 ): void {
-  if (
-    connection.defaultAccount.state !== "selected" ||
-    connection.defaultAccount.accountId !== accountId
-  ) {
+  if (connection.account?.accountId !== accountId) {
     throw new Error("Cloudflare connection is required for this account.");
   }
 }
@@ -185,29 +161,6 @@ async function resolveAccount(args: {
     );
   }
   return account;
-}
-
-async function rememberDefaultAccount(
-  ctx: Pick<ActionCtx, "runMutation">,
-  args: {
-    userId: Id<"users">;
-    connection: CloudflareActionConnection;
-    account: CloudflareAccountResult;
-  },
-): Promise<void> {
-  await ctx.runMutation(internal.providerConnections.updateCloudflareConnected, {
-    organizationId: args.connection.organizationId,
-    userId: args.userId,
-    providerConnectionId: args.connection.providerConnectionId,
-    expectedAuth: args.connection.auth,
-    auth: args.connection.auth,
-    defaultAccount: {
-      state: "selected",
-      accountId: args.account.accountId,
-      accountName: args.account.accountName,
-    },
-    ...(args.connection.tokenHealth ? { tokenHealth: args.connection.tokenHealth } : {}),
-  });
 }
 
 async function readProviderAttachmentVaultContext(
@@ -276,8 +229,11 @@ async function resolveCloudflareRepositoryContext(
     vaultId: args.vaultId,
     userId: args.userId,
   });
+  if (accountId !== context.cloudflareAccountId) {
+    throw new Error("Cloudflare account does not match the vault destination.");
+  }
   const [connection, githubAccess] = await Promise.all([
-    resolveOrganizationCloudflareConnection(ctx, {
+    resolveCloudflareConnection(ctx, {
       userId: args.userId,
       organizationId: context.organizationId,
     }),
@@ -368,11 +324,6 @@ export async function attachExistingCloudflareWorkersForUser(
       }
     }),
   );
-  await rememberDefaultAccount(ctx, {
-    userId: args.userId,
-    connection: resolved.connection,
-    account: resolved.account,
-  });
   return await ctx.runMutation(internal.vault.cloudflareMutations.attachWorkers, {
     vaultId: args.vaultId,
     userId: args.userId,
@@ -412,16 +363,8 @@ async function createWorkerForManagedWorkflow(
       workerName: validation.value,
     },
   );
-  const [context, plan] = await Promise.all([
-    readProviderAttachmentVaultContext(ctx, args),
-    ctx.runQuery(internal.appProvisioningRuns.getPlanByVaultId, {
-      vaultId: args.vaultId,
-    }),
-  ]);
-  if (!plan) {
-    throw new Error("Infrastructure provisioning plan not found for vault.");
-  }
-  const connection = await resolveOrganizationCloudflareConnection(ctx, {
+  const context = await readProviderAttachmentVaultContext(ctx, args);
+  const connection = await resolveCloudflareConnection(ctx, {
     userId: args.userId,
     organizationId: context.organizationId,
   });
@@ -542,7 +485,6 @@ async function prepareWorkersBuildsForGitHub(
     resolveCloudflareConnection(ctx, {
       userId: args.userId,
       organizationId: context.organizationId,
-      providerConnectionId: context.providerConnectionId,
     }),
     resolveGitHubAppAccess(ctx, {
       userId: args.userId,
@@ -655,7 +597,6 @@ async function configureResolvedWorkersBuildsForGitHub(
       connection: resolved.connection,
       context: {
         ...resolved.context,
-        providerConnectionId: resolved.connection.providerConnectionId,
         accountId: resolved.account.accountId,
         workerName: worker.workerName,
         workerTag: worker.workerTag,
@@ -693,12 +634,11 @@ async function prepareConvexDeployKeyRotation(
     resolveConvexProvisioningConnection(ctx, {
       userId: args.userId,
       organizationId: context.organizationId,
-      providerConnectionId: project.providerConnectionId,
+      teamId: project.teamId,
     }),
     resolveCloudflareConnection(ctx, {
       userId: args.userId,
       organizationId: context.organizationId,
-      providerConnectionId: context.providerConnectionId,
     }),
     resolveGitHubAppAccess(ctx, {
       userId: args.userId,
@@ -936,12 +876,12 @@ export async function listCloudflareAccountsForUser(
   args: { userId: Id<"users">; organizationId: Id<"organizations"> },
 ): Promise<CloudflareAccountResult[]> {
   const role = await ctx.runQuery(internal.organizationAccess.requireOrganizationRoleForUser, args);
-  const connection = await resolveOrganizationCloudflareConnection(ctx, args);
-  if (connection.defaultAccount.state === "selected") {
+  const connection = await resolveCloudflareConnection(ctx, args);
+  if (connection.account) {
     return [
       {
-        accountId: connection.defaultAccount.accountId,
-        accountName: connection.defaultAccount.accountName,
+        accountId: connection.account.accountId,
+        accountName: connection.account.accountName,
       },
     ];
   }
@@ -1006,36 +946,6 @@ export const listAccounts = action({
   mcp: cloudflareListAccountsContract.mcp,
   handler: async (ctx, args): Promise<CloudflareAccountResult[]> =>
     await listCloudflareAccountsForUser(ctx, { ...args, userId: ctx.viewer.userId }),
-});
-
-export const selectDefaultAccount = action({
-  access: "access_provider_connections",
-  args: { organizationId: id("organizations"), accountId: string() },
-  returns: nullValue(),
-  handler: async (ctx, args): Promise<null> => {
-    const organizationId = await ctx.runQuery(
-      internal.organizationAccess.requireOrganizationOwnerIdForUser,
-      {
-        userId: ctx.viewer.userId,
-        organizationId: args.organizationId,
-      },
-    );
-    const connection = await resolveOrganizationCloudflareConnection(ctx, {
-      userId: ctx.viewer.userId,
-      organizationId,
-    });
-    const account = await resolveAccount({
-      token: connection.token,
-      transport: connection.transport,
-      accountId: args.accountId,
-    });
-    await rememberDefaultAccount(ctx, {
-      userId: ctx.viewer.userId,
-      connection,
-      account,
-    });
-    return null;
-  },
 });
 
 export async function discoverCloudflareWorkersForUser(
@@ -1116,11 +1026,6 @@ async function connectWorkerForUser(
         `Cloudflare Worker ${workerName} already has a Workers Builds connection. Scan the account again.`,
       );
     }
-    await rememberDefaultAccount(ctx, {
-      userId: args.userId,
-      connection: resolved.connection,
-      account: resolved.account,
-    });
     workerId = await ctx.runMutation(
       internal.vault.cloudflareMutations.recordManualConnectedWorker,
       {
@@ -1289,11 +1194,6 @@ export async function createWorkerForUser(
   let workerRecorded = false;
   try {
     const resolved = await resolveCloudflareRepositoryContext(ctx, { ...args, accountId });
-    await rememberDefaultAccount(ctx, {
-      userId: args.userId,
-      connection: resolved.connection,
-      account: resolved.account,
-    });
     const existing = await readCloudflareWorkerIdentity({
       token: resolved.connection.token,
       transport: resolved.connection.transport,

@@ -20,6 +20,11 @@ async function seedOrganization(
 ) {
   return await t.run(async (ctx) => {
     const organizationId = await ctx.db.insert("organizations", {
+      cloudflareAccount: {
+        accountId: "cloudflare-account",
+        accountName: "Cloudflare account",
+      },
+      convexTeam: { teamId: "convex-team" },
       githubInstallationId: `installation-${args.owner}`,
       githubOwnerId: `owner-${args.owner}`,
       githubOwnerLogin: args.owner,
@@ -33,7 +38,6 @@ async function seedOrganization(
         userId: args.userId,
       });
     }
-
     return organizationId;
   });
 }
@@ -44,6 +48,8 @@ async function seedVault(
 ) {
   return await t.run(async (ctx) => {
     return await ctx.db.insert("vaults", {
+      cloudflareAccountId: "cloudflare-account",
+      convexTeamId: "convex-team",
       deletion: { state: "not_deleting" },
       organizationId,
       state: "not_connected",

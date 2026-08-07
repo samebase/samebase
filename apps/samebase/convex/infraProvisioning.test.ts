@@ -32,6 +32,8 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
+      convexTeamId: "convex-team",
+      cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -50,6 +52,8 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
     if (args.vaultState === "connected") {
       await ctx.db.replace(vaultId, {
         organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
         state: "connected",
         githubMode: "create_repository",
@@ -63,6 +67,8 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
     } else if (args.vaultState === "provisioning") {
       await ctx.db.replace(vaultId, {
         organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
         deletion: { state: "not_deleting" },
         state: "provisioning",
         githubMode: "create_repository",

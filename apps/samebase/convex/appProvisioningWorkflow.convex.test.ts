@@ -17,28 +17,17 @@ async function createComposedVault() {
       githubOwnerLogin: "ada",
       githubOwnerLoginNormalized: "ada",
       githubOwnerType: "user",
+      convexTeam: { teamId: "convex-team" },
+      cloudflareAccount: {
+        accountId: "cloudflare-account",
+        accountName: "Cloudflare account",
+      },
     });
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
-    const convexProviderConnectionId = await ctx.db.insert("providerConnections", {
-      kind: "convex",
-      organizationId,
-      connectedByUserId: userId,
-      auth: { method: "api_key", credential: "convex-token" },
-      teamId: "convex-team",
-      createdAt: 1,
-      updatedAt: 1,
-    });
-    const cloudflareProviderConnectionId = await ctx.db.insert("providerConnections", {
-      kind: "cloudflare",
-      organizationId,
-      connectedByUserId: userId,
-      auth: { method: "api_key", credential: "cloudflare-token" },
-      defaultAccount: { state: "not_selected" },
-      createdAt: 1,
-      updatedAt: 1,
-    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
+      convexTeamId: "convex-team",
+      cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -61,6 +50,8 @@ async function createComposedVault() {
     });
     await ctx.db.replace(vaultId, {
       organizationId,
+      convexTeamId: "convex-team",
+      cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "create_repository",
@@ -77,11 +68,9 @@ async function createComposedVault() {
       convex: {
         state: "planned",
         projectName: "composed-app",
-        teamId: "convex-team",
       },
       cloudflare: {
         state: "planned",
-        accountId: "cloudflare-account",
         workerName: "composed-app",
         rootDirectory: "/",
       },
@@ -89,8 +78,6 @@ async function createComposedVault() {
       updatedAt: 30,
     });
     return {
-      cloudflareProviderConnectionId,
-      convexProviderConnectionId,
       organizationId,
       planId,
       runId,
@@ -114,12 +101,10 @@ async function attachComposedResources({
       convex: {
         state: "created",
         projectName: "composed-app",
-        teamId: "convex-team",
         projectId: "convex-project",
       },
       cloudflare: {
         state: "created",
-        accountId: "cloudflare-account",
         workerName: "composed-app",
         workerTag: "composed-worker-tag",
         rootDirectory: plan.cloudflare.rootDirectory,

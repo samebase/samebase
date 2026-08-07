@@ -149,7 +149,7 @@ export const readComposedInfrastructureState = internalQuery({
             .query("vaultCloudflareWorkers")
             .withIndex("by_account_and_worker_tag", (q) =>
               q
-                .eq("accountId", cloudflareCheckpoint.accountId)
+                .eq("accountId", vault.cloudflareAccountId)
                 .eq("workerTag", cloudflareCheckpoint.workerTag),
             )
             .unique()
@@ -160,7 +160,7 @@ export const readComposedInfrastructureState = internalQuery({
       (convexProject.vaultId !== args.vaultId ||
         convexProject.organizationId !== vault.organizationId ||
         !convexCheckpoint ||
-        convexProject.teamId !== convexCheckpoint.teamId ||
+        convexProject.teamId !== vault.convexTeamId ||
         !("convexConfigPath" in convexProject) ||
         convexProject.convexConfigPath !== convexConfigPath)
     ) {
@@ -171,7 +171,7 @@ export const readComposedInfrastructureState = internalQuery({
       (worker.vaultId !== args.vaultId ||
         worker.organizationId !== vault.organizationId ||
         !cloudflareCheckpoint ||
-        worker.accountId !== cloudflareCheckpoint.accountId ||
+        worker.accountId !== vault.cloudflareAccountId ||
         worker.workerName !== cloudflareCheckpoint.workerName ||
         worker.workerTag !== cloudflareCheckpoint.workerTag)
     ) {
@@ -193,13 +193,13 @@ export const readComposedInfrastructureState = internalQuery({
       cloudflare: worker
         ? {
             state: "attached",
-            accountId: plan.cloudflare.accountId,
+            accountId: vault.cloudflareAccountId,
             workerName: plan.cloudflare.workerName,
             workerId: worker._id,
           }
         : {
             state: "missing",
-            accountId: plan.cloudflare.accountId,
+            accountId: vault.cloudflareAccountId,
             workerName: plan.cloudflare.workerName,
           },
     };

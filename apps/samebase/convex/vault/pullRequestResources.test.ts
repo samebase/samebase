@@ -60,11 +60,6 @@ function fakeWorkerId(value: string): Id<"vaultCloudflareWorkers"> {
   return value;
 }
 
-function fakeProviderConnectionId(value: string): Id<"providerConnections"> {
-  // @ts-expect-error Convex ids are strings at runtime; this test exercises stable Worker matching.
-  return value;
-}
-
 function previewDeployment(
   args: {
     id?: string;
@@ -557,7 +552,6 @@ describe("buildPullRequestHostingPreviews", () => {
 describe("buildPullRequestCloudflareWorkerResources", () => {
   const worker = {
     workerId: fakeWorkerId("worker-1"),
-    providerConnectionId: fakeProviderConnectionId("connection-1"),
     accountId: "account-1",
     workerName: "samebase-worker",
     workerTag: "samebase-worker",

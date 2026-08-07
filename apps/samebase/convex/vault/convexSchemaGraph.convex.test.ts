@@ -101,20 +101,21 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       githubOwnerLogin: "ada",
       githubOwnerLoginNormalized: "ada",
       githubOwnerType: "user",
+      convexTeam: { teamId: "1000", teamSlug: "ada-team" },
+      cloudflareAccount: {
+        accountId: "cloudflare-account",
+        accountName: "Cloudflare account",
+      },
     });
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
-    await ctx.db.insert("providerConnections", {
-      kind: "convex",
-      organizationId,
-      connectedByUserId: userId,
-      auth: convexAuth,
-      teamId: "1000",
-      teamSlug: "ada-team",
-      createdAt: 1,
-      updatedAt: 2,
+    const providerCredentialsId = await ctx.db.insert("organizationProviderCredentials", {
+      convex: { connectedByUserId: userId, auth: convexAuth, updatedAt: 2 },
     });
+    await ctx.db.patch(organizationId, { providerCredentialsId });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
+      convexTeamId: "1000",
+      cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -131,6 +132,8 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
     });
     await ctx.db.replace(vaultId, {
       organizationId,
+      convexTeamId: "1000",
+      cloudflareAccountId: "cloudflare-account",
       deletion: { state: "not_deleting" },
       state: "connected",
       githubMode: "connect_existing_repository",

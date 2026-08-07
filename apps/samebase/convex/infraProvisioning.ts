@@ -412,31 +412,30 @@ export async function resolveConvexProvisioningConnection(
   args: {
     userId: Id<"users">;
     organizationId: Id<"organizations">;
-    providerConnectionId: Id<"providerConnections">;
+    teamId: string;
   },
 ): Promise<{
   organizationId: Id<"organizations">;
-  providerConnectionId: Id<"providerConnections">;
   convexToken: string;
   convexAuthMethod: ConvexProvisioningAuthMethod;
   convexTeamId: string;
 }> {
   const convexConnection = await ctx.runQuery(
-    internal.providerConnections.loadByIdForOrganization,
+    internal.organizationProviderCredentials.loadConvexForOrganizationTeam,
     {
       userId: args.userId,
       organizationId: args.organizationId,
-      providerConnectionId: args.providerConnectionId,
-      kind: "convex",
+      teamId: args.teamId,
     },
   );
-  if (convexConnection?.kind !== "convex") {
+  const credential = convexConnection?.credential;
+  if (!convexConnection || !credential) {
     throw new Error(
       "Convex connection is required to provision infrastructure. Connect Convex and retry.",
     );
   }
 
-  const convexToken = convexConnection.auth.credential.trim();
+  const convexToken = credential.auth.credential.trim();
   const convexTeamId = convexConnection.teamId.trim();
 
   if (!convexToken || !convexTeamId) {
@@ -447,9 +446,8 @@ export async function resolveConvexProvisioningConnection(
 
   return {
     organizationId: args.organizationId,
-    providerConnectionId: convexConnection._id,
     convexToken,
-    convexAuthMethod: convexConnection.auth.method,
+    convexAuthMethod: credential.auth.method,
     convexTeamId,
   };
 }
@@ -459,12 +457,11 @@ export async function resolveCloudflareProvisioningConnection(
   args: {
     userId: Id<"users">;
     organizationId: Id<"organizations">;
-    providerConnectionId: Id<"providerConnections">;
+    accountId: string;
     forceRefresh?: true;
   },
 ): Promise<{
   organizationId: Id<"organizations">;
-  providerConnectionId: Id<"providerConnections">;
   cloudflareToken: string;
   cloudflareAuthMethod: "api_key" | "oauth" | "mcp_oauth";
   cloudflareAccountId: string;
@@ -474,7 +471,6 @@ export async function resolveCloudflareProvisioningConnection(
     {
       userId: args.userId,
       organizationId: args.organizationId,
-      providerConnectionId: args.providerConnectionId,
       ...(args.forceRefresh ? { forceRefresh: true } : {}),
     },
   );
@@ -485,7 +481,7 @@ export async function resolveCloudflareProvisioningConnection(
   }
 
   const cloudflareToken = resolvedCloudflareConnection.auth.credential.trim();
-  const defaultAccount = resolvedCloudflareConnection.defaultAccount;
+  const account = resolvedCloudflareConnection.account;
 
   if (!cloudflareToken) {
     throw new Error(
@@ -493,17 +489,16 @@ export async function resolveCloudflareProvisioningConnection(
     );
   }
 
-  if (defaultAccount.state !== "selected") {
+  if (!account || account.accountId !== args.accountId) {
     throw new Error("Cloudflare account selection is required before provisioning can continue.");
   }
-  const cloudflareAccountId = defaultAccount.accountId.trim();
+  const cloudflareAccountId = account.accountId.trim();
   if (!cloudflareAccountId) {
     throw new Error("Cloudflare account selection is required before provisioning can continue.");
   }
 
   return {
     organizationId: args.organizationId,
-    providerConnectionId: args.providerConnectionId,
     cloudflareToken,
     cloudflareAuthMethod: resolvedCloudflareConnection.auth.method,
     cloudflareAccountId,

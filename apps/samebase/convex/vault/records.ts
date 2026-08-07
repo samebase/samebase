@@ -15,7 +15,6 @@ import {
   requireOrganizationAccessContext,
   requireVaultForUser,
 } from "../organizationAccess";
-import { getProviderConnectionByIdForOrganization } from "../providerConnections";
 import {
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
@@ -161,8 +160,22 @@ async function requireVaultRepositoryOwner(
 function pickProvisioningVaultCoreFields(vault: ProvisioningVault) {
   return {
     organizationId: vault.organizationId,
+    convexTeamId: vault.convexTeamId,
+    cloudflareAccountId: vault.cloudflareAccountId,
     deletion: vault.deletion,
   };
+}
+
+function requireOrganizationProviderDestinations(organization: Doc<"organizations">): {
+  convexTeamId: string;
+  cloudflareAccountId: string;
+} {
+  const convexTeamId = organization.convexTeam?.teamId.trim();
+  const cloudflareAccountId = organization.cloudflareAccount?.accountId.trim();
+  if (!convexTeamId || !cloudflareAccountId) {
+    throw new Error("Convex and Cloudflare destinations are required before creating a vault.");
+  }
+  return { convexTeamId, cloudflareAccountId };
 }
 
 async function insertDefaultVaultResourceLinksState(
@@ -217,6 +230,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       owner: requestedOwner,
     });
     const owner = organization.githubOwnerLogin;
+    const destinations = requireOrganizationProviderDestinations(organization);
     await assertOrganizationHasNoVaultForRepository(ctx, {
       organizationId: organization._id,
       name,
@@ -225,6 +239,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     const now = Date.now();
     const vaultId = await ctx.db.insert("vaults", {
       organizationId: organization._id,
+      ...destinations,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -319,6 +334,8 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
 
     await ctx.db.replace(args.vaultId, {
       organizationId: vault.organizationId,
+      convexTeamId: vault.convexTeamId,
+      cloudflareAccountId: vault.cloudflareAccountId,
       deletion: vault.deletion,
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -344,10 +361,8 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     description: union(string(), nullValidator),
     convexProjectName: string(),
     convexTeamId: string(),
-    convexProviderConnectionId: id("providerConnections"),
     cloudflareAccountId: string(),
     cloudflareWorkerName: string(),
-    cloudflareProviderConnectionId: id("providerConnections"),
   },
   returns: object({
     vaultId: id("vaults"),
@@ -379,32 +394,12 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       owner: requestedOwner,
     });
     const owner = organization.githubOwnerLogin;
-    const [convexProviderConnection, cloudflareProviderConnection] = await Promise.all([
-      getProviderConnectionByIdForOrganization(ctx.db, {
-        organizationId: organization._id,
-        providerConnectionId: args.convexProviderConnectionId,
-        kind: "convex",
-      }),
-      getProviderConnectionByIdForOrganization(ctx.db, {
-        organizationId: organization._id,
-        providerConnectionId: args.cloudflareProviderConnectionId,
-        kind: "cloudflare",
-      }),
-    ]);
-    if (convexProviderConnection?.kind !== "convex") {
-      throw new Error("Convex provider connection not found.");
-    }
-    if (convexProviderConnection.teamId !== args.convexTeamId) {
-      throw new Error("Convex team does not match the provider connection.");
-    }
-    if (cloudflareProviderConnection?.kind !== "cloudflare") {
-      throw new Error("Cloudflare provider connection not found.");
-    }
+    const destinations = requireOrganizationProviderDestinations(organization);
     if (
-      cloudflareProviderConnection.defaultAccount.state !== "selected" ||
-      cloudflareProviderConnection.defaultAccount.accountId !== args.cloudflareAccountId
+      destinations.convexTeamId !== args.convexTeamId ||
+      destinations.cloudflareAccountId !== args.cloudflareAccountId
     ) {
-      throw new Error("Cloudflare account does not match the provider connection.");
+      throw new Error("Organization provider destinations changed before vault creation.");
     }
     await assertOrganizationHasNoVaultForRepository(ctx, {
       organizationId: organization._id,
@@ -414,6 +409,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     const now = Date.now();
     const vaultId = await ctx.db.insert("vaults", {
       organizationId: organization._id,
+      ...destinations,
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -469,11 +465,9 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       convex: {
         state: "planned",
         projectName: args.convexProjectName,
-        teamId: args.convexTeamId,
       },
       cloudflare: {
         state: "planned",
-        accountId: args.cloudflareAccountId,
         workerName: args.cloudflareWorkerName,
         rootDirectory: VAULT_ROOT_DIRECTORY,
       },
@@ -557,6 +551,8 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
 
     await ctx.db.replace(args.vaultId, {
       organizationId: vault.organizationId,
+      convexTeamId: vault.convexTeamId,
+      cloudflareAccountId: vault.cloudflareAccountId,
       deletion: vault.deletion,
       state: "connected",
       githubMode: "create_repository",

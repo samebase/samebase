@@ -4,10 +4,6 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { requireBillingResourceCapacity } from "../billingResourceQuotas";
 import { requireVaultForUser, requireVaultOrganization } from "../organizationAccess";
 import {
-  getCloudflareProviderConnectionForAccount,
-  getConvexProviderConnectionForTeam,
-} from "../providerConnections";
-import {
   internalMutation,
   internalQuery,
   type MutationCtx,
@@ -32,7 +28,6 @@ const workerConfigurationContextFields = {
   accountId: string(),
   workerName: string(),
   workerTag: string(),
-  providerConnectionId: id("providerConnections"),
 };
 export const vWorkerConfigurationContext = object(workerConfigurationContextFields);
 export type WorkerConfigurationContext = Infer<typeof vWorkerConfigurationContext>;
@@ -47,7 +42,6 @@ export const vWorkerConvexProjectConfigurationContext = object({
   ...workerConfigurationContextFields,
   convexProject: object({
     convexProjectId: id("vaultConvexProjects"),
-    providerConnectionId: id("providerConnections"),
     teamId: string(),
     projectId: string(),
   }),
@@ -61,7 +55,6 @@ export const vManagedWorkerConvexProjectConfigurationContext = object({
   rootDirectory: string(),
   convexProject: object({
     convexProjectId: id("vaultConvexProjects"),
-    providerConnectionId: id("providerConnections"),
     teamId: string(),
     projectId: string(),
   }),
@@ -71,28 +64,6 @@ export type ManagedWorkerConvexProjectConfigurationContext = Infer<
 >;
 
 type WorkerGraphReadCtx = Pick<QueryCtx, "db">;
-
-async function requireCurrentCloudflareProviderConnection(
-  ctx: WorkerGraphReadCtx,
-  args: { organizationId: Id<"organizations">; accountId: string },
-) {
-  const connection = await getCloudflareProviderConnectionForAccount(ctx.db, args);
-  if (connection === null) {
-    throw new Error("Cloudflare connection is required for the attached Worker account.");
-  }
-  return connection;
-}
-
-async function requireCurrentConvexProviderConnection(
-  ctx: WorkerGraphReadCtx,
-  args: { organizationId: Id<"organizations">; teamId: string },
-) {
-  const connection = await getConvexProviderConnectionForTeam(ctx.db, args);
-  if (connection === null) {
-    throw new Error("Convex connection is required for the attached project team.");
-  }
-  return connection;
-}
 
 async function requireConnectedVault(
   ctx: WorkerGraphReadCtx,
@@ -112,8 +83,11 @@ async function requireActiveManagedProvisioning(
     userId: Id<"users">;
     runId: Id<"workflow_vaultProvisioning_runs">;
   },
-): Promise<Doc<"workflow_vaultProvisioning_plans">> {
-  await requireConnectedVault(ctx, args);
+): Promise<{
+  vault: Extract<Doc<"vaults">, { state: "connected" }>;
+  plan: Doc<"workflow_vaultProvisioning_plans">;
+}> {
+  const vault = await requireConnectedVault(ctx, args);
   const [run, writeLock, plan] = await Promise.all([
     ctx.db.get(args.runId),
     ctx.db
@@ -144,7 +118,7 @@ async function requireActiveManagedProvisioning(
   if (!plan) {
     throw new Error("Infrastructure provisioning plan not found for vault.");
   }
-  return plan;
+  return { vault, plan };
 }
 
 async function requireWorker(
@@ -160,7 +134,8 @@ async function requireWorker(
   if (
     !worker ||
     worker.vaultId !== args.vaultId ||
-    worker.organizationId !== vault.organizationId
+    worker.organizationId !== vault.organizationId ||
+    worker.accountId !== vault.cloudflareAccountId
   ) {
     throw new Error("Cloudflare Worker attachment not found.");
   }
@@ -180,7 +155,8 @@ async function requireConvexProject(
   if (
     !project ||
     project.vaultId !== args.vaultId ||
-    project.organizationId !== vault.organizationId
+    project.organizationId !== vault.organizationId ||
+    project.teamId !== vault.convexTeamId
   ) {
     throw new Error("Convex project attachment not found.");
   }
@@ -242,6 +218,9 @@ async function insertWorker(
     origin: "provisioned" | "selected_existing";
   },
 ): Promise<Id<"vaultCloudflareWorkers">> {
+  if (args.accountId !== vault.cloudflareAccountId) {
+    throw new Error("Cloudflare Worker account does not match the vault destination.");
+  }
   const existing = await readMatchingWorker(ctx, {
     vaultId: args.vaultId,
     organizationId: vault.organizationId,
@@ -288,22 +267,8 @@ export const attachWorkers = internalMutation({
   returns: array(id("vaultCloudflareWorkers")),
   handler: async (ctx, args): Promise<Array<Id<"vaultCloudflareWorkers">>> => {
     const vault = await requireUserVaultInfrastructureIdle(ctx, args);
-    const firstWorker = args.workers.at(0);
-    if (firstWorker !== undefined) {
-      const connection = await getCloudflareProviderConnectionForAccount(ctx.db, {
-        organizationId: vault.organizationId,
-        accountId: firstWorker.accountId,
-      });
-      if (
-        connection === null ||
-        args.workers.some(
-          (worker) =>
-            connection.defaultAccount.state !== "selected" ||
-            worker.accountId !== connection.defaultAccount.accountId,
-        )
-      ) {
-        throw new Error("Cloudflare connection is required for the Worker account.");
-      }
+    if (args.workers.some((worker) => worker.accountId !== vault.cloudflareAccountId)) {
+      throw new Error("Cloudflare Worker account does not match the vault destination.");
     }
 
     const workerNames = new Set<string>();
@@ -374,9 +339,9 @@ export const readManagedWorkerCreateCheckpoint = internalQuery({
     }),
   ),
   handler: async (ctx, args) => {
-    const plan = await requireActiveManagedProvisioning(ctx, args);
+    const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
     if (
-      plan.cloudflare.accountId !== args.accountId ||
+      vault.cloudflareAccountId !== args.accountId ||
       plan.cloudflare.workerName !== args.workerName
     ) {
       throw new Error("Managed Cloudflare Worker does not match the provisioning plan.");
@@ -405,9 +370,9 @@ export const beginManagedWorkerCreate = internalMutation({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    const plan = await requireActiveManagedProvisioning(ctx, args);
+    const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
     if (
-      plan.cloudflare.accountId !== args.accountId ||
+      vault.cloudflareAccountId !== args.accountId ||
       plan.cloudflare.workerName !== args.workerName
     ) {
       throw new Error("Managed Cloudflare Worker does not match the provisioning plan.");
@@ -418,7 +383,6 @@ export const beginManagedWorkerCreate = internalMutation({
     await ctx.db.patch(plan._id, {
       cloudflare: {
         state: "creating",
-        accountId: args.accountId,
         workerName: args.workerName,
         rootDirectory: plan.cloudflare.rootDirectory,
       },
@@ -439,10 +403,9 @@ export const recordManagedWorkerCreated = internalMutation({
   },
   returns: id("vaultCloudflareWorkers"),
   handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
-    const plan = await requireActiveManagedProvisioning(ctx, args);
-    const vault = await requireConnectedVault(ctx, args);
+    const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
     if (
-      plan.cloudflare.accountId !== args.accountId ||
+      vault.cloudflareAccountId !== args.accountId ||
       plan.cloudflare.workerName !== args.workerName
     ) {
       throw new Error("Managed Cloudflare Worker does not match the provisioning plan.");
@@ -463,7 +426,6 @@ export const recordManagedWorkerCreated = internalMutation({
       await ctx.db.patch(plan._id, {
         cloudflare: {
           state: "created",
-          accountId: args.accountId,
           workerName: args.workerName,
           workerTag: args.workerTag,
           rootDirectory: plan.cloudflare.rootDirectory,
@@ -551,10 +513,6 @@ export const readWorkerConfigurationContext = internalQuery({
       requireWorker(ctx, vault, args),
       requireVaultOrganization(ctx.db, vault),
     ]);
-    const connection = await requireCurrentCloudflareProviderConnection(ctx, {
-      organizationId: vault.organizationId,
-      accountId: worker.accountId,
-    });
     return {
       organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
@@ -564,7 +522,6 @@ export const readWorkerConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      providerConnectionId: connection._id,
     };
   },
 });
@@ -578,21 +535,14 @@ export const readManagedWorkerConfigurationContext = internalQuery({
   },
   returns: vManagedWorkerConfigurationContext,
   handler: async (ctx, args) => {
-    const [plan, vault] = await Promise.all([
-      requireActiveManagedProvisioning(ctx, args),
-      requireConnectedVault(ctx, args),
-    ]);
+    const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
     const [worker, organization] = await Promise.all([
       requireWorker(ctx, vault, args),
       requireVaultOrganization(ctx.db, vault),
     ]);
-    const connection = await requireCurrentCloudflareProviderConnection(ctx, {
-      organizationId: vault.organizationId,
-      accountId: worker.accountId,
-    });
     if (
       plan.cloudflare.state !== "created" ||
-      plan.cloudflare.accountId !== worker.accountId ||
+      vault.cloudflareAccountId !== worker.accountId ||
       plan.cloudflare.workerName !== worker.workerName ||
       plan.cloudflare.workerTag !== worker.workerTag
     ) {
@@ -607,7 +557,6 @@ export const readManagedWorkerConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      providerConnectionId: connection._id,
       rootDirectory: plan.cloudflare.rootDirectory,
     };
   },
@@ -628,16 +577,6 @@ export const readWorkerConvexProjectConfigurationContext = internalQuery({
       requireConvexProject(ctx, vault, args),
       requireVaultOrganization(ctx.db, vault),
     ]);
-    const [cloudflareConnection, convexConnection] = await Promise.all([
-      requireCurrentCloudflareProviderConnection(ctx, {
-        organizationId: vault.organizationId,
-        accountId: worker.accountId,
-      }),
-      requireCurrentConvexProviderConnection(ctx, {
-        organizationId: vault.organizationId,
-        teamId: project.teamId,
-      }),
-    ]);
     return {
       organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
@@ -647,10 +586,8 @@ export const readWorkerConvexProjectConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      providerConnectionId: cloudflareConnection._id,
       convexProject: {
         convexProjectId: project._id,
-        providerConnectionId: convexConnection._id,
         teamId: project.teamId,
         projectId: project.projectId,
       },
@@ -668,28 +605,15 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
   },
   returns: vManagedWorkerConvexProjectConfigurationContext,
   handler: async (ctx, args) => {
-    const [plan, vault] = await Promise.all([
-      requireActiveManagedProvisioning(ctx, args),
-      requireConnectedVault(ctx, args),
-    ]);
+    const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
     const [worker, project, organization] = await Promise.all([
       requireWorker(ctx, vault, args),
       requireConvexProject(ctx, vault, args),
       requireVaultOrganization(ctx.db, vault),
     ]);
-    const [cloudflareConnection, convexConnection] = await Promise.all([
-      requireCurrentCloudflareProviderConnection(ctx, {
-        organizationId: vault.organizationId,
-        accountId: worker.accountId,
-      }),
-      requireCurrentConvexProviderConnection(ctx, {
-        organizationId: vault.organizationId,
-        teamId: project.teamId,
-      }),
-    ]);
     if (
       plan.cloudflare.state !== "created" ||
-      plan.cloudflare.accountId !== worker.accountId ||
+      vault.cloudflareAccountId !== worker.accountId ||
       plan.cloudflare.workerName !== worker.workerName ||
       plan.cloudflare.workerTag !== worker.workerTag
     ) {
@@ -697,7 +621,7 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
     }
     if (
       plan.convex.state !== "created" ||
-      plan.convex.teamId !== project.teamId ||
+      vault.convexTeamId !== project.teamId ||
       plan.convex.projectId !== project.projectId ||
       !("convexConfigPath" in project) ||
       plan.convexConfigPath !== project.convexConfigPath
@@ -713,11 +637,9 @@ export const readManagedWorkerConvexProjectConfigurationContext = internalQuery(
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      providerConnectionId: cloudflareConnection._id,
       rootDirectory: plan.cloudflare.rootDirectory,
       convexProject: {
         convexProjectId: project._id,
-        providerConnectionId: convexConnection._id,
         teamId: project.teamId,
         projectId: project.projectId,
       },

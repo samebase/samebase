@@ -282,11 +282,11 @@ async function resolveVaultDeletionSummary(
 
 async function readManagedProviderPlan(
   ctx: Pick<QueryCtx, "db">,
-  vaultId: Id<"vaults">,
+  vault: Doc<"vaults">,
 ): Promise<ManagedProviderPlan> {
   const plan = await ctx.db
     .query("workflow_vaultProvisioning_plans")
-    .withIndex("by_vault", (q) => q.eq("vaultId", vaultId))
+    .withIndex("by_vault", (q) => q.eq("vaultId", vault._id))
     .unique();
   if (!plan) {
     return null;
@@ -294,8 +294,8 @@ async function readManagedProviderPlan(
 
   return {
     convexConfigPath: plan.convexConfigPath,
-    convex: plan.convex,
-    cloudflare: plan.cloudflare,
+    convex: { ...plan.convex, teamId: vault.convexTeamId },
+    cloudflare: { ...plan.cloudflare, accountId: vault.cloudflareAccountId },
   };
 }
 
@@ -682,7 +682,7 @@ async function readOrganizationVaults(
     }
     const [infrastructure, providerPlan] = await Promise.all([
       readVaultInfrastructureState(ctx, vault),
-      readManagedProviderPlan(ctx, vault._id),
+      readManagedProviderPlan(ctx, vault),
     ]);
     const deletion = await resolveVaultDeletionSummary(ctx, vault, infrastructure);
     const githubOwnerLogin = getGitHubOwnerLogin(vault.organizationId);
@@ -717,7 +717,7 @@ async function readOrganizationVaults(
       const githubOwnerLogin = getGitHubOwnerLogin(vault.organizationId);
       const [infrastructure, providerPlan] = await Promise.all([
         readVaultInfrastructureState(ctx, vault),
-        readManagedProviderPlan(ctx, vault._id),
+        readManagedProviderPlan(ctx, vault),
       ]);
       const deletion = await resolveVaultDeletionSummary(ctx, vault, infrastructure);
       const providerWrite = resolveProviderWriteSummary(infrastructure);

@@ -33,7 +33,7 @@ import {
 import {
   normalizeCloudflareAccounts,
   resolveCloudflareAccountAfterAuthorization,
-  selectSingleCloudflareDefaultAccount,
+  selectSingleCloudflareAccount,
 } from "./cloudflareAccountDiscovery";
 import { isRecord } from "./jsonUtils";
 
@@ -2169,11 +2169,10 @@ describe("cloudflare resources", () => {
 
   it("selects the only Cloudflare account exposed to OAuth", () => {
     expect(
-      selectSingleCloudflareDefaultAccount(
+      selectSingleCloudflareAccount(
         normalizeCloudflareAccounts([{ id: " account-id ", name: " Account " }]),
       ),
     ).toEqual({
-      state: "selected",
       accountId: "account-id",
       accountName: "Account",
     });
@@ -2181,12 +2180,10 @@ describe("cloudflare resources", () => {
 
   it("fails closed when Cloudflare OAuth exposes multiple accounts", () => {
     expect(
-      selectSingleCloudflareDefaultAccount(
+      selectSingleCloudflareAccount(
         normalizeCloudflareAccounts([{ id: "first-account-id" }, { id: "second-account-id" }]),
       ),
-    ).toEqual({
-      state: "not_selected",
-    });
+    ).toBeNull();
   });
 
   it("keeps the connected account only when a replacement grant can access it", () => {
@@ -2197,18 +2194,15 @@ describe("cloudflare resources", () => {
 
     expect(
       resolveCloudflareAccountAfterAuthorization(accounts, {
-        state: "selected",
         accountId: "account-a",
         accountName: "Account A",
       }),
     ).toEqual({
-      state: "selected",
       accountId: "account-a",
       accountName: "Account A renamed",
     });
     expect(() =>
       resolveCloudflareAccountAfterAuthorization(accounts, {
-        state: "selected",
         accountId: "account-missing",
         accountName: "Missing account",
       }),

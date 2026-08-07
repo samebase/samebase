@@ -321,19 +321,14 @@ async function resolveOrganizationConvexProvisioningConnection(
     organizationId: Id<"organizations">;
   },
 ) {
-  const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
-    ...args,
-    kind: "convex",
-  });
-  if (connection?.kind !== "convex") {
-    throw new Error(
-      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
-    );
-  }
-
-  const convexToken = connection.auth.credential.trim();
-  const convexTeamId = connection.teamId.trim();
-  if (!convexToken || !convexTeamId) {
+  const configuration = await ctx.runQuery(
+    internal.organizationProviderCredentials.loadForOrganization,
+    args,
+  );
+  const credential = configuration.convexCredential;
+  const convexTeamId = configuration.convexTeam?.teamId.trim();
+  const convexToken = credential?.auth.credential.trim();
+  if (!credential || !convexToken || !convexTeamId) {
     throw new Error(
       "Convex connection is required to provision infrastructure. Connect Convex and retry.",
     );
@@ -341,9 +336,8 @@ async function resolveOrganizationConvexProvisioningConnection(
 
   return {
     convexToken,
-    convexAuthMethod: connection.auth.method,
+    convexAuthMethod: credential.auth.method,
     convexTeamId,
-    providerConnectionId: connection._id,
   };
 }
 
@@ -355,21 +349,9 @@ async function resolveOrganizationCloudflareProvisioningConnection(
     forceRefresh?: true;
   },
 ) {
-  const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
-    userId: args.userId,
-    organizationId: args.organizationId,
-    kind: "cloudflare",
-  });
-  if (connection?.kind !== "cloudflare") {
-    throw new Error(
-      "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
-    );
-  }
-
   const resolved = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
     userId: args.userId,
     organizationId: args.organizationId,
-    providerConnectionId: connection._id,
     ...(args.forceRefresh === true ? { forceRefresh: true } : {}),
   });
   if (resolved === null) {
@@ -384,25 +366,19 @@ async function resolveOrganizationCloudflareProvisioningConnection(
       "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
     );
   }
-  if (connection.defaultAccount.state !== "selected") {
+  const account = resolved.account;
+  if (!account) {
     throw new Error("Cloudflare account selection is required before provisioning can continue.");
   }
-  const cloudflareAccountId = connection.defaultAccount.accountId.trim();
+  const cloudflareAccountId = account.accountId.trim();
   if (!cloudflareAccountId) {
     throw new Error("Cloudflare account selection is required before provisioning can continue.");
-  }
-  if (
-    resolved.defaultAccount.state !== "selected" ||
-    resolved.defaultAccount.accountId !== connection.defaultAccount.accountId
-  ) {
-    throw new Error("Cloudflare account selection changed. Retry the request.");
   }
 
   return {
     cloudflareToken,
     cloudflareAuthMethod: resolved.auth.method,
     cloudflareAccountId,
-    providerConnectionId: connection._id,
   };
 }
 
@@ -787,10 +763,8 @@ export async function createAppForUser(
       description: args.description ?? null,
       convexProjectName: convexNameValidation.value,
       convexTeamId: convexConnection.convexTeamId,
-      convexProviderConnectionId: convexConnection.providerConnectionId,
       cloudflareAccountId: cloudflareConnection.cloudflareAccountId,
       cloudflareWorkerName: cloudflareNameValidation.value,
-      cloudflareProviderConnectionId: cloudflareConnection.providerConnectionId,
     },
   );
 
