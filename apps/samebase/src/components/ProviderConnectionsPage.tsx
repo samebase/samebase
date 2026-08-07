@@ -123,9 +123,8 @@ const PROVIDER_METADATA: Record<ProviderKey, ProviderMetadata> = {
   },
 };
 
-function formatAuthMethod(method: "oauth" | "mcp_oauth" | "api_key" | "device_auth" | undefined) {
+function formatAuthMethod(method: "oauth" | "mcp_oauth" | "api_key" | undefined) {
   if (method === "api_key") return "API key";
-  if (method === "device_auth") return "Device auth";
   if (method === "oauth") return "OAuth";
   if (method === "mcp_oauth") return "OAuth";
   return "Unknown";

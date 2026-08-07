@@ -55,7 +55,12 @@ function readAuthTokenAuthProvider(provider: string): AuthTokenAuthProvider | nu
   }
 }
 
-const vProviderAuthMethod = union(literal("oauth"), literal("mcp_oauth"), literal("api_key"));
+const vConvexProviderAuthMethod = union(literal("oauth"), literal("api_key"));
+const vCloudflareProviderAuthMethod = union(
+  literal("oauth"),
+  literal("mcp_oauth"),
+  literal("api_key"),
+);
 const vConvexConnectionStatus = union(
   object({ state: literal("not_configured") }),
   object({
@@ -67,11 +72,11 @@ const vConvexConnectionStatus = union(
     state: literal("connected"),
     teamId: string(),
     teamSlug: optional(string()),
-    authMethod: vProviderAuthMethod,
+    authMethod: vConvexProviderAuthMethod,
   }),
 );
 const cloudflareCredentialStatusFields = {
-  authMethod: vProviderAuthMethod,
+  authMethod: vCloudflareProviderAuthMethod,
   mcpTokenStatus: optional(vMcpTokenHealthStatus),
   mcpTokenExpiresAt: optional(number()),
   mcpTokenCheckedAt: optional(number()),
