@@ -1,8 +1,29 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { ACCOUNT_EMAIL_MAX_LENGTH } from "../shared/accountPresentation";
+
+const devAuthMocks = vi.hoisted(() => ({
+  discoverPreviewSeedGitHubAppInstallations: vi.fn(),
+}));
+
+vi.mock("./githubApp", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./githubApp")>();
+  return {
+    ...actual,
+    discoverPreviewSeedGitHubAppInstallations:
+      devAuthMocks.discoverPreviewSeedGitHubAppInstallations,
+  };
+});
 
 import { internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 describe("devAuth password account seed", () => {
   it("enforces the canonical email maximum for the seed account boundary", async () => {
@@ -148,6 +169,54 @@ describe("devAuth password account seed", () => {
     });
     expect(organization.selectedConvexProviderConnectionId).toBe(convexConnection?._id);
     expect(organization.selectedCloudflareProviderConnectionId).toBe(cloudflareConnection?._id);
+  });
+
+  it("uses the preview API key without storing it and repeats organization seeding safely", async () => {
+    const t = makeConvexTest();
+    vi.stubEnv("CONVEX_DEPLOYMENT", "preview:organization-context");
+    vi.stubEnv("PREVIEW_SEED_AUTH_EMAIL", "preview@example.com");
+    vi.stubEnv("PREVIEW_SEED_AUTH_PASSWORD", "preview-password-123");
+    vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
+    devAuthMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
+      {
+        githubInstallationId: "1001",
+        githubOwnerId: "101",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "samebase",
+      },
+      {
+        githubInstallationId: "1002",
+        githubOwnerId: "202",
+        githubOwnerType: "user",
+        githubOwnerLogin: "octocat",
+      },
+    ]);
+
+    await expect(t.action(internal.devAuth.seedPasswordAccount, {})).resolves.toEqual({
+      email: "preview@example.com",
+      created: true,
+    });
+    await expect(t.action(internal.devAuth.seedPasswordAccount, {})).resolves.toEqual({
+      email: "preview@example.com",
+      created: false,
+    });
+
+    const snapshot = await t.run(async (ctx) => ({
+      organizations: await ctx.db.query("organizations").collect(),
+      memberships: await ctx.db.query("organizationMemberships").collect(),
+      billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
+      githubUserAuthorizations: await ctx.db.query("githubUserAuthorizations").collect(),
+      providerConnections: await ctx.db.query("providerConnections").collect(),
+    }));
+    expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledTimes(2);
+    expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledWith(
+      "preview-github-api-key",
+    );
+    expect(snapshot.organizations).toHaveLength(2);
+    expect(snapshot.memberships).toHaveLength(2);
+    expect(snapshot.billingAccounts).toHaveLength(2);
+    expect(snapshot.githubUserAuthorizations).toEqual([]);
+    expect(snapshot.providerConnections).toEqual([]);
   });
 
   it("fails closed when the seed user is missing", async () => {

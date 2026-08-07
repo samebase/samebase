@@ -8,8 +8,8 @@ import { Octokit } from "@octokit/rest";
 import { isRecord } from "./jsonUtils";
 import { env } from "./_generated/server";
 
-const GITHUB_INSTALLATION_PAGE_SIZE = 100;
-const MAX_GITHUB_INSTALLATION_PAGES = 100;
+const GITHUB_PAGE_SIZE = 100;
+const MAX_GITHUB_PAGES = 100;
 
 export type GitHubAppConfiguration = {
   appId: number;
@@ -39,6 +39,13 @@ export type VerifiedGitHubAppInstallation = ExpiringGitHubUserAuthentication & {
 export type VerifiedGitHubUserAuthorization = ExpiringGitHubUserAuthentication & {
   githubUserId: string;
   githubUserLogin: string;
+};
+
+export type PreviewSeedGitHubAppInstallation = {
+  githubInstallationId: string;
+  githubOwnerId: string;
+  githubOwnerType: "organization" | "user";
+  githubOwnerLogin: string;
 };
 
 function requireTrimmed(value: string, label: string): string {
@@ -260,13 +267,148 @@ function parseGitHubInstallation(value: unknown): {
   };
 }
 
+function parseGitHubOrganizationMembership(value: unknown): {
+  githubOrganizationId: string;
+  githubUserId: string;
+  role: "admin" | "billing_manager" | "member";
+  state: "active" | "pending";
+} {
+  if (!isRecord(value) || !isRecord(value["organization"]) || !isRecord(value["user"])) {
+    throw new Error("GitHub returned an invalid organization membership.");
+  }
+
+  const githubOrganizationId = requireProviderPositiveSafeInteger(
+    value["organization"]["id"],
+    "organization ID",
+  );
+  const githubUserId = requireProviderPositiveSafeInteger(value["user"]["id"], "member user ID");
+  if (
+    value["role"] !== "admin" &&
+    value["role"] !== "billing_manager" &&
+    value["role"] !== "member"
+  ) {
+    throw new Error("GitHub returned an invalid organization membership role.");
+  }
+  if (value["state"] !== "active" && value["state"] !== "pending") {
+    throw new Error("GitHub returned an invalid organization membership state.");
+  }
+
+  return {
+    githubOrganizationId: String(githubOrganizationId),
+    githubUserId: String(githubUserId),
+    role: value["role"],
+    state: value["state"],
+  };
+}
+
+/**
+ * Preview seeding uses a personal access token only for GitHub identity discovery.
+ * Returned organizations keep using GitHub App installation authentication at runtime.
+ */
+export async function discoverPreviewSeedGitHubAppInstallations(
+  apiKey: string,
+): Promise<PreviewSeedGitHubAppInstallation[]> {
+  const configuration = getGitHubAppConfiguration();
+  const userOctokit = createGitHubUserOctokit(apiKey);
+  const userResponse = await userOctokit.request("GET /user");
+  const user = parseAuthenticatedGitHubUser(userResponse.data);
+
+  const adminOrganizationIds = new Set<string>();
+  let membershipsComplete = false;
+  for (let page = 1; page <= MAX_GITHUB_PAGES; page += 1) {
+    const response = await userOctokit.request("GET /user/memberships/orgs", {
+      state: "active",
+      per_page: GITHUB_PAGE_SIZE,
+      page,
+    });
+    const payload: unknown = response.data;
+    if (!Array.isArray(payload)) {
+      throw new Error("GitHub returned an invalid organization membership list.");
+    }
+
+    for (const value of payload) {
+      const membership = parseGitHubOrganizationMembership(value);
+      if (membership.githubUserId !== user.githubUserId) {
+        throw new Error("GitHub organization membership user verification failed.");
+      }
+      if (membership.state === "active" && membership.role === "admin") {
+        adminOrganizationIds.add(membership.githubOrganizationId);
+      }
+    }
+
+    if (payload.length < GITHUB_PAGE_SIZE) {
+      membershipsComplete = true;
+      break;
+    }
+  }
+  if (!membershipsComplete) {
+    throw new Error("GitHub organization memberships exceeded the preview seed page limit.");
+  }
+
+  const installations: PreviewSeedGitHubAppInstallation[] = [];
+  let installationsComplete = false;
+  const appOctokit = createGitHubAppOctokit(configuration);
+  for (let page = 1; page <= MAX_GITHUB_PAGES; page += 1) {
+    const response = await appOctokit.request("GET /app/installations", {
+      per_page: GITHUB_PAGE_SIZE,
+      page,
+    });
+    const payload: unknown = response.data;
+    if (!Array.isArray(payload)) {
+      throw new Error("GitHub returned an invalid App installation list.");
+    }
+
+    for (const value of payload) {
+      const installation = parseGitHubInstallation(value);
+      if (installation.appId !== configuration.appId) {
+        throw new Error("GitHub App installation discovery did not match this App.");
+      }
+      if (installation.suspended) {
+        continue;
+      }
+
+      const belongsToSeedUser =
+        installation.githubOwnerType === "user"
+          ? installation.githubOwnerId === user.githubUserId
+          : adminOrganizationIds.has(installation.githubOwnerId);
+      if (belongsToSeedUser) {
+        installations.push({
+          githubInstallationId: installation.installationId,
+          githubOwnerId: installation.githubOwnerId,
+          githubOwnerType: installation.githubOwnerType,
+          githubOwnerLogin: installation.githubOwnerLogin,
+        });
+      }
+    }
+
+    if (payload.length < GITHUB_PAGE_SIZE) {
+      installationsComplete = true;
+      break;
+    }
+  }
+  if (!installationsComplete) {
+    throw new Error("GitHub App installations exceeded the preview seed page limit.");
+  }
+
+  installations.sort(
+    (left, right) =>
+      left.githubOwnerLogin.toLowerCase().localeCompare(right.githubOwnerLogin.toLowerCase()) ||
+      left.githubInstallationId.localeCompare(right.githubInstallationId),
+  );
+  if (installations.length === 0) {
+    throw new Error("No active GitHub App installation matched the preview seed API key.");
+  }
+
+  return installations;
+}
+
 async function findUserVisibleInstallation(args: {
   octokit: Octokit;
   installationId: number;
 }): Promise<ReturnType<typeof parseGitHubInstallation>> {
-  for (let page = 1; page <= MAX_GITHUB_INSTALLATION_PAGES; page += 1) {
+  for (let page = 1; page <= MAX_GITHUB_PAGES; page += 1) {
     const response = await args.octokit.request("GET /user/installations", {
-      per_page: GITHUB_INSTALLATION_PAGE_SIZE,
+      per_page: GITHUB_PAGE_SIZE,
       page,
     });
     const payload: unknown = response.data;
@@ -281,7 +423,7 @@ async function findUserVisibleInstallation(args: {
       }
     }
 
-    if (payload["installations"].length < GITHUB_INSTALLATION_PAGE_SIZE) {
+    if (payload["installations"].length < GITHUB_PAGE_SIZE) {
       break;
     }
   }

@@ -252,6 +252,9 @@ Samebase production itself.
      `WORKERS_CI_BRANCH` is a non-production branch
    - runs the idempotent `devAuth:seedPasswordAccount` action after every successful preview deploy,
      including preview reuse, without relying on preview creation
+   - uses `DEV_SEED_GITHUB_API_KEY` during preview seeding only to match the seed user and active
+     administrator memberships to installations of the configured GitHub App, then stores only the
+     matched owner and installation identities
    - rejects non-production builds that are missing `PREVIEW_CONVEX_DEPLOY_KEY`, even when
      `CONVEX_DEPLOY_KEY` is present
    - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head

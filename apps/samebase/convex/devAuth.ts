@@ -15,6 +15,7 @@ import { getSelectedProviderConnectionForOrganization } from "./providerConnecti
 import type { CloudflareDefaultAccount } from "./providerConnectionModel";
 import { normalizeGitHubOwnerLogin } from "./organizations";
 import { toSafeRepoName } from "../shared/repoName";
+import { discoverPreviewSeedGitHubAppInstallations } from "./githubApp";
 
 const { array, boolean, id, literal, null: vNull, object, optional, string, union } = v;
 
@@ -584,6 +585,12 @@ export const seedPasswordAccount = internalAction({
     const { email, password } = accountConfig;
     const worktreeOrganizationConfig =
       accountConfig.kind === "local_worktree_seed" ? readSeedWorktreeOrganizationConfig() : null;
+    const previewInstallations =
+      accountConfig.kind === "preview_seed"
+        ? await discoverPreviewSeedGitHubAppInstallations(
+            requireSeedValue(readSeedValue("DEV_SEED_GITHUB_API_KEY"), "DEV_SEED_GITHUB_API_KEY"),
+          )
+        : [];
 
     let created = false;
     let userId: Id<"users">;
@@ -625,6 +632,15 @@ export const seedPasswordAccount = internalAction({
       await ctx.runMutation(internal.devAuth.seedWorktreeOrganization, {
         userId,
         ...worktreeOrganizationConfig,
+      });
+    }
+    for (const installation of previewInstallations) {
+      await ctx.runMutation(internal.organizations.createOrReconnectVerifiedOrganization, {
+        userId,
+        githubOwnerId: installation.githubOwnerId,
+        githubOwnerType: installation.githubOwnerType,
+        githubOwnerLogin: installation.githubOwnerLogin,
+        githubInstallationId: installation.githubInstallationId,
       });
     }
 

@@ -6,6 +6,7 @@ const app = defineApp({
   env: {
     CLOUDFLARE_EMAIL_ACCOUNT_ID: v.optional(v.string()),
     CLOUDFLARE_EMAIL_API_TOKEN: v.optional(v.string()),
+    DEV_SEED_GITHUB_API_KEY: v.optional(v.string()),
     GITHUB_APP_CLIENT_ID: v.string(),
     GITHUB_APP_CLIENT_SECRET: v.string(),
     GITHUB_APP_ID: v.string(),
