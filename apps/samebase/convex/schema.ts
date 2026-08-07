@@ -8,7 +8,7 @@ import { githubUserAuthorizationTables } from "./githubUserAuthorizationModel";
 import { identityTables } from "./identityModel";
 import { mcpTables } from "./mcp/model";
 import { organizationTables } from "./organizationModel";
-import { providerConnectionTables } from "./providerConnectionModel";
+import { organizationProviderCredentialTables } from "./organizationProviderCredentialModel";
 import { userPreferenceTables } from "./userPreferenceModel";
 import { vaultBranchTables } from "./vault/branchModel";
 import { vaultConvexSchemaGraphTables } from "./vault/convexSchemaGraphModel";
@@ -23,7 +23,7 @@ export default defineSchema({
   ...githubAppSetupTables,
   ...githubUserAuthorizationTables,
   ...accountDeletionTables,
-  ...providerConnectionTables,
+  ...organizationProviderCredentialTables,
   ...userPreferenceTables,
   ...vaultDashboardTables,
   ...vaultFolderTables,

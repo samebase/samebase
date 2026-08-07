@@ -5,10 +5,6 @@ import { v } from "convex/values";
 
 import { internalAction } from "./_generated/server";
 import { requestCloudflareApi, type CloudflareApiTransport } from "./cloudflareApi/client";
-import {
-  vCloudflareDefaultAccount,
-  type CloudflareDefaultAccount,
-} from "./providerConnectionModel";
 
 const vCloudflareApiTransport = v.union(v.literal("mcp"), v.literal("direct"));
 
@@ -21,6 +17,11 @@ export type CloudflareAccount = {
   accountId: string;
   accountName: string;
 };
+
+export const vCloudflareAccount = v.object({
+  accountId: v.string(),
+  accountName: v.string(),
+});
 
 function readCloudflareAccount(account: CloudflareAccountIdentity): CloudflareAccount | null {
   const accountId = account.id?.trim();
@@ -47,32 +48,28 @@ export function normalizeCloudflareAccounts(
   );
 }
 
-export function selectSingleCloudflareDefaultAccount(
+export function selectSingleCloudflareAccount(
   normalizedAccounts: readonly CloudflareAccount[],
-) {
+): CloudflareAccount | null {
   if (normalizedAccounts.length === 0) {
     throw new Error(
       "Cloudflare OAuth did not expose any accounts. Reconnect Cloudflare and grant account access.",
     );
   }
   if (normalizedAccounts.length > 1) {
-    return { state: "not_selected" as const };
+    return null;
   }
 
   const [account] = normalizedAccounts;
-  return {
-    state: "selected" as const,
-    accountId: account.accountId,
-    accountName: account.accountName,
-  };
+  return account;
 }
 
 export function resolveCloudflareAccountAfterAuthorization(
   normalizedAccounts: readonly CloudflareAccount[],
-  currentAccount: CloudflareDefaultAccount | undefined,
-): CloudflareDefaultAccount {
-  if (currentAccount?.state !== "selected") {
-    return selectSingleCloudflareDefaultAccount(normalizedAccounts);
+  currentAccount: CloudflareAccount | undefined,
+): CloudflareAccount | null {
+  if (currentAccount === undefined) {
+    return selectSingleCloudflareAccount(normalizedAccounts);
   }
   const selectedAccount = normalizedAccounts.find(
     (account) => account.accountId === currentAccount.accountId,
@@ -80,7 +77,7 @@ export function resolveCloudflareAccountAfterAuthorization(
   if (selectedAccount === undefined) {
     throw new Error("The new Cloudflare authorization cannot access the connected account.");
   }
-  return { state: "selected", ...selectedAccount };
+  return selectedAccount;
 }
 
 export async function listCloudflareAccountsForToken(args: {
@@ -106,18 +103,18 @@ export async function listCloudflareAccountsForToken(args: {
   return normalizeCloudflareAccounts(accounts);
 }
 
-export const resolveDefaultAccountForToken = internalAction({
+export const resolveAccountForToken = internalAction({
   args: {
     token: v.string(),
     transport: vCloudflareApiTransport,
   },
-  returns: vCloudflareDefaultAccount,
+  returns: v.union(vCloudflareAccount, v.null()),
   handler: async (_ctx, args) => {
     const accounts = await listCloudflareAccountsForToken({
       token: args.token,
       transport: args.transport,
       perPage: 2,
     });
-    return selectSingleCloudflareDefaultAccount(accounts);
+    return selectSingleCloudflareAccount(accounts);
   },
 });

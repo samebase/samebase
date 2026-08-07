@@ -251,15 +251,23 @@ export async function assertIdentityDeletionReady(
     throw new Error("Account deletion events remain during finalization.");
   }
 
-  const remainingProviderConnection = await ctx.db
-    .query("providerConnections")
-    .withIndex("by_connected_by_user", (query) =>
-      query.eq("connectedByUserId", run.identity.userId),
-    )
-    .first();
+  const [remainingConvexCredential, remainingCloudflareCredential] = await Promise.all([
+    ctx.db
+      .query("organizationProviderCredentials")
+      .withIndex("by_convex_connected_by_user", (query) =>
+        query.eq("convex.connectedByUserId", run.identity.userId),
+      )
+      .first(),
+    ctx.db
+      .query("organizationProviderCredentials")
+      .withIndex("by_cloudflare_connected_by_user", (query) =>
+        query.eq("cloudflare.connectedByUserId", run.identity.userId),
+      )
+      .first(),
+  ]);
 
-  if (remainingProviderConnection !== null) {
-    throw new Error("Provider connections remain for the deleting account.");
+  if (remainingConvexCredential !== null || remainingCloudflareCredential !== null) {
+    throw new Error("Provider credentials remain for the deleting account.");
   }
 
   const remainingGitHubAuthorization = await ctx.db

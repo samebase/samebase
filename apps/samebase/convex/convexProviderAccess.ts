@@ -83,13 +83,12 @@ export const checkConvexConnectionAccess = action({
         organizationId: args.organizationId,
       },
     );
-    const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
-      organizationId,
-      userId: ctx.viewer.userId,
-      kind: "convex",
-    });
+    const configuration = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
+      { organizationId, userId: ctx.viewer.userId },
+    );
 
-    if (connection?.kind !== "convex") {
+    if (configuration.convexTeam === undefined || configuration.convexCredential === undefined) {
       return {
         connected: false,
         checkedAt,
@@ -105,8 +104,8 @@ export const checkConvexConnectionAccess = action({
       };
     }
 
-    const token = connection.auth.credential.trim();
-    const teamId = connection.teamId.trim();
+    const token = configuration.convexCredential.auth.credential.trim();
+    const teamId = configuration.convexTeam.teamId.trim();
     const checks: ConvexAccessCheck[] = [];
     let tokenDetails: ConvexTokenDetails | undefined;
 
@@ -183,7 +182,7 @@ export const checkConvexConnectionAccess = action({
 
     return {
       connected: true,
-      authMethod: connection.auth.method,
+      authMethod: configuration.convexCredential.auth.method,
       checkedAt,
       requestedAccess: [
         {
@@ -194,7 +193,9 @@ export const checkConvexConnectionAccess = action({
       token: tokenDetails,
       team: {
         teamId,
-        ...(connection.teamSlug ? { teamSlug: connection.teamSlug } : {}),
+        ...(configuration.convexTeam.teamSlug
+          ? { teamSlug: configuration.convexTeam.teamSlug }
+          : {}),
       },
       checks,
     };

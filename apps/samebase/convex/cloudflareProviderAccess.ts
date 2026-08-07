@@ -16,7 +16,6 @@ import {
 } from "./cloudflareApi/client";
 import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
 import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
-import type { CloudflareDefaultAccount } from "./providerConnectionModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -96,7 +95,7 @@ type CloudflareProviderAuth = CloudflareApiKeyAuth | CloudflareOAuthAuth;
 
 type CloudflareResolvedConnection = {
   auth: CloudflareProviderAuth;
-  defaultAccount: CloudflareDefaultAccount;
+  account?: SelectedCloudflareAccount;
   tokenHealth?: McpTokenHealth;
 };
 
@@ -133,26 +132,16 @@ export const checkCloudflareConnectionAccess = action({
         organizationId: args.organizationId,
       },
     );
-    const [providerConnection, role] = await Promise.all([
-      ctx.runQuery(internal.providerConnections.loadForOrganization, {
+    const [connection, role] = await Promise.all([
+      ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
         organizationId,
         userId: ctx.viewer.userId,
-        kind: "cloudflare",
       }),
       ctx.runQuery(internal.organizationAccess.requireOrganizationRoleForUser, {
         organizationId,
         userId: ctx.viewer.userId,
       }),
     ]);
-    const connection =
-      providerConnection?.kind === "cloudflare"
-        ? await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
-            organizationId,
-            providerConnectionId: providerConnection._id,
-            userId: ctx.viewer.userId,
-          })
-        : null;
-
     if (connection === null) {
       return {
         connected: false,
@@ -206,7 +195,7 @@ export const checkCloudflareConnectionAccess = action({
       );
     }
 
-    const selectedAccount = readSelectedCloudflareAccount(resolvedConnection.defaultAccount);
+    const selectedAccount = resolvedConnection.account ?? null;
     const accountsProbe: CloudflareProbeResult<CloudflareAccount[]> =
       selectedAccount === null && role !== "owner"
         ? {
@@ -563,23 +552,6 @@ function buildCloudflareAccountAccess({
     accountName: account.accountName,
     selected: selectedAccount?.accountId === account.accountId,
   }));
-}
-
-function readSelectedCloudflareAccount(
-  defaultAccount: CloudflareDefaultAccount,
-): SelectedCloudflareAccount | null {
-  switch (defaultAccount.state) {
-    case "not_selected":
-      return null;
-    case "selected":
-      return {
-        accountId: defaultAccount.accountId,
-        accountName: defaultAccount.accountName,
-      };
-    default:
-      defaultAccount satisfies never;
-      return null;
-  }
 }
 
 function getCloudflareRequestedScopes(

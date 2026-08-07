@@ -11,15 +11,11 @@ import type { Id } from "./_generated/dataModel";
 import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { vGitHubOwnerType } from "./organizationModel";
-import { getProviderConnectionForOrganization } from "./providerConnections";
-import {
-  readProviderConnectionTarget,
-  type CloudflareDefaultAccount,
-} from "./providerConnectionModel";
-import { fingerprintProviderAuth } from "./providerAuthFingerprint";
 import { normalizeGitHubOwnerLogin } from "./organizations";
 import { toSafeRepoName } from "../shared/repoName";
 import { discoverPreviewSeedGitHubAppInstallations } from "./githubApp";
+import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
+import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 
 const { array, boolean, id, literal, null: vNull, object, optional, string, union } = v;
 
@@ -256,70 +252,51 @@ export const seedOrganizationWithProviderConnections = internalMutation({
     );
 
     if (args.convexConnection !== null) {
-      const existingConnection = await getProviderConnectionForOrganization(ctx.db, {
-        organizationId: organization.organizationId,
-        kind: "convex",
+      const configuration = await getOrganizationProviderConfiguration(
+        ctx.db,
+        organization.organizationId,
+      );
+      const expectedProviderSnapshotHash = await hashOrganizationProviderSnapshot({
+        provider: "convex",
+        teamId: configuration.convexTeam?.teamId,
+        credential: configuration.convexCredential,
       });
-      const connection = {
-        kind: "convex",
+      await ctx.runMutation(internal.organizationProviderCredentials.connectConvex, {
+        organizationId: organization.organizationId,
+        connectedByUserId: args.userId,
+        expectedProviderSnapshotHash,
         auth: { method: "api_key", credential: args.convexConnection.credential },
         teamId: args.convexConnection.teamId,
         ...(args.convexConnection.teamSlug === undefined
           ? {}
           : { teamSlug: args.convexConnection.teamSlug }),
-      } as const;
-      if (existingConnection === null) {
-        await ctx.runMutation(internal.providerConnections.createConnected, {
-          organizationId: organization.organizationId,
-          connectedByUserId: args.userId,
-          connection,
-        });
-      } else {
-        await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
-          organizationId: organization.organizationId,
-          connectedByUserId: args.userId,
-          providerConnectionId: existingConnection._id,
-          expectedAuthFingerprint: await fingerprintProviderAuth(existingConnection.auth),
-          expectedTarget: readProviderConnectionTarget(existingConnection),
-          connection,
-        });
-      }
+      });
     }
 
     if (args.cloudflareConnection !== null) {
-      const defaultAccount: CloudflareDefaultAccount =
-        args.cloudflareConnection.accountId === undefined
-          ? { state: "not_selected" }
-          : {
-              state: "selected",
-              accountId: args.cloudflareConnection.accountId,
-              accountName: args.cloudflareConnection.accountId,
-            };
-      const existingConnection = await getProviderConnectionForOrganization(ctx.db, {
-        organizationId: organization.organizationId,
-        kind: "cloudflare",
+      const configuration = await getOrganizationProviderConfiguration(
+        ctx.db,
+        organization.organizationId,
+      );
+      const expectedProviderSnapshotHash = await hashOrganizationProviderSnapshot({
+        provider: "cloudflare",
+        accountId: configuration.cloudflareAccount?.accountId,
+        credential: configuration.cloudflareCredential,
       });
-      const connection = {
-        kind: "cloudflare",
+      await ctx.runMutation(internal.organizationProviderCredentials.connectCloudflare, {
+        organizationId: organization.organizationId,
+        connectedByUserId: args.userId,
+        expectedProviderSnapshotHash,
         auth: { method: "api_key", credential: args.cloudflareConnection.credential },
-        defaultAccount,
-      } as const;
-      if (existingConnection === null) {
-        await ctx.runMutation(internal.providerConnections.createConnected, {
-          organizationId: organization.organizationId,
-          connectedByUserId: args.userId,
-          connection,
-        });
-      } else {
-        await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
-          organizationId: organization.organizationId,
-          connectedByUserId: args.userId,
-          providerConnectionId: existingConnection._id,
-          expectedAuthFingerprint: await fingerprintProviderAuth(existingConnection.auth),
-          expectedTarget: readProviderConnectionTarget(existingConnection),
-          connection,
-        });
-      }
+        account:
+          args.cloudflareConnection.accountId === undefined
+            ? { state: "selection_required" }
+            : {
+                state: "selected",
+                accountId: args.cloudflareConnection.accountId,
+                accountName: args.cloudflareConnection.accountId,
+              },
+      });
     }
 
     return null;

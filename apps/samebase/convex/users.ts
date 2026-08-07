@@ -1,24 +1,20 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { internalQuery, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { Infer, v } from "convex/values";
 import { vViewerAccess, vViewerRoleResult } from "./accessModelValidators";
-import { getProviderConnectionForOrganization } from "./providerConnections";
 import { requireOrganizationAccessContext } from "./organizationAccess";
 import { action, mutation, query } from "./functions";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
+import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealthStatus } from "./mcpTokenHealth";
+import type { CloudflareProviderCredential } from "./organizationProviderCredentialModel";
 import {
-  deriveMcpTokenStatusFromExpiry,
-  vMcpTokenHealthStatus,
-  type McpTokenHealth,
-} from "./mcpTokenHealth";
-import {
-  readProviderConnectionTarget,
-  type CloudflareDefaultAccount,
-} from "./providerConnectionModel";
-import { fingerprintProviderAuth } from "./providerAuthFingerprint";
+  getOrganizationProviderConfiguration,
+  type OrganizationProviderConfiguration,
+} from "./organizationProviderCredentials";
+import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS,
@@ -59,45 +55,59 @@ function readAuthTokenAuthProvider(provider: string): AuthTokenAuthProvider | nu
 }
 
 const vProviderAuthMethod = union(literal("oauth"), literal("mcp_oauth"), literal("api_key"));
-const vCloudflareDisconnectedConnectionStatus = object({
-  connected: literal(false),
-});
-const vCloudflareConnectedConnectionStatus = object({
-  connected: literal(true),
-  accountId: optional(string()),
-  accountName: optional(string()),
-  authMethod: optional(vProviderAuthMethod),
+const vConvexConnectionStatus = union(
+  object({ state: literal("not_configured") }),
+  object({
+    state: literal("disconnected"),
+    teamId: string(),
+    teamSlug: optional(string()),
+  }),
+  object({
+    state: literal("connected"),
+    teamId: string(),
+    teamSlug: optional(string()),
+    authMethod: vProviderAuthMethod,
+  }),
+);
+const cloudflareCredentialStatusFields = {
+  authMethod: vProviderAuthMethod,
   mcpTokenStatus: optional(vMcpTokenHealthStatus),
   mcpTokenExpiresAt: optional(number()),
   mcpTokenCheckedAt: optional(number()),
   mcpTokenRefreshStartedAt: optional(number()),
   mcpTokenLastRefreshAt: optional(number()),
   mcpTokenNextAutoCheckAt: optional(number()),
+};
+const vCloudflareNotConfiguredConnectionStatus = object({
+  state: literal("not_configured"),
+});
+const vCloudflareSelectionRequiredConnectionStatus = object({
+  state: literal("selection_required"),
+  ...cloudflareCredentialStatusFields,
+});
+const vCloudflareDisconnectedConnectionStatus = object({
+  state: literal("disconnected"),
+  accountId: string(),
+  accountName: string(),
+});
+const vCloudflareConnectedConnectionStatus = object({
+  state: literal("connected"),
+  accountId: string(),
+  accountName: string(),
+  ...cloudflareCredentialStatusFields,
 });
 const vCloudflareConnectionStatus = union(
+  vCloudflareNotConfiguredConnectionStatus,
+  vCloudflareSelectionRequiredConnectionStatus,
   vCloudflareDisconnectedConnectionStatus,
   vCloudflareConnectedConnectionStatus,
 );
-type ConnectedCloudflareConnectionStatus = Infer<typeof vCloudflareConnectedConnectionStatus>;
 type CloudflareConnectionStatus = Infer<typeof vCloudflareConnectionStatus>;
-type CloudflareConnectionStatusInput = {
-  defaultAccount: CloudflareDefaultAccount;
-  auth:
-    | {
-        method: "api_key";
-      }
-    | {
-        method: "oauth";
-        credentialExpiresAt: number;
-      }
-    | {
-        method: "mcp_oauth";
-        credentialExpiresAt: number;
-      };
-  tokenHealth?: McpTokenHealth;
-  tokenRefreshStartedAt?: number;
-  lastTokenRefreshAt?: number;
-};
+const vCloudflareDisconnectResult = object({
+  upstreamRevocation: union(literal("confirmed"), literal("unconfirmed"), literal("not_supported")),
+});
+type CloudflareDisconnectResult = Infer<typeof vCloudflareDisconnectResult>;
+
 function normalizeApiToken(token: string): string {
   const normalized = token.trim();
   if (!normalized) {
@@ -135,36 +145,46 @@ function computeCloudflareRetryDelayMs(previousCheckedAt: number | undefined, no
 }
 
 function buildCloudflareConnectionStatus(
-  connection: CloudflareConnectionStatusInput,
+  configuration: Pick<
+    OrganizationProviderConfiguration,
+    "cloudflareAccount" | "cloudflareCredential"
+  >,
   options?: {
     now?: number;
     nextAutoCheckAt?: number;
   },
-): ConnectedCloudflareConnectionStatus {
+): CloudflareConnectionStatus {
+  const account = configuration.cloudflareAccount;
+  const credential = configuration.cloudflareCredential;
+  if (credential === undefined) {
+    return account === undefined
+      ? { state: "not_configured" }
+      : { state: "disconnected", ...account };
+  }
+
   const now = options?.now ?? Date.now();
-  const baseStatus: ConnectedCloudflareConnectionStatus = {
-    connected: true,
-    ...(connection.defaultAccount.state === "selected"
-      ? {
-          accountId: connection.defaultAccount.accountId,
-          accountName: connection.defaultAccount.accountName,
-        }
+  const credentialStatus = {
+    authMethod: credential.auth.method,
+    ...(credential.tokenRefreshLease
+      ? { mcpTokenRefreshStartedAt: credential.tokenRefreshLease.startedAt }
       : {}),
-    authMethod: connection.auth.method,
-    mcpTokenRefreshStartedAt: connection.tokenRefreshStartedAt,
-    mcpTokenLastRefreshAt: connection.lastTokenRefreshAt,
+    ...(credential.lastTokenRefreshAt
+      ? { mcpTokenLastRefreshAt: credential.lastTokenRefreshAt }
+      : {}),
   };
 
-  if (connection.auth.method !== "mcp_oauth") {
-    return baseStatus;
+  if (credential.auth.method !== "mcp_oauth") {
+    return account === undefined
+      ? { state: "selection_required", ...credentialStatus }
+      : { state: "connected", ...account, ...credentialStatus };
   }
 
   const effectiveExpiresAt =
-    connection.tokenHealth?.expiresAt ?? connection.auth.credentialExpiresAt;
+    credential.tokenHealth?.expiresAt ?? credential.auth.credentialExpiresAt;
   const derivedStatus = deriveMcpTokenStatusFromExpiry(effectiveExpiresAt, now);
-  const storedStatus = connection.tokenHealth?.status;
+  const storedStatus = credential.tokenHealth?.status;
   const shouldUseDerivedStatus =
-    connection.tokenHealth?.checkedAt === undefined ||
+    credential.tokenHealth?.checkedAt === undefined ||
     derivedStatus === "expired" ||
     derivedStatus === "expiring_soon";
   const mcpTokenStatus =
@@ -173,9 +193,9 @@ function buildCloudflareConnectionStatus(
       : shouldUseDerivedStatus
         ? derivedStatus
         : (storedStatus ?? derivedStatus);
-  const runtimeErrorCheckedAt = connection.tokenHealth?.checkedAt;
+  const runtimeErrorCheckedAt = credential.tokenHealth?.checkedAt;
   const derivedNextAutoCheckAt =
-    connection.tokenHealth?.source === "runtime_error"
+    credential.tokenHealth?.source === "runtime_error"
       ? (runtimeErrorCheckedAt ?? now) + computeCloudflareRetryDelayMs(runtimeErrorCheckedAt, now)
       : computeCloudflareNextAutoCheckAt({
           expiresAt: effectiveExpiresAt,
@@ -183,13 +203,18 @@ function buildCloudflareConnectionStatus(
         });
   const nextAutoCheckAt =
     mcpTokenStatus === "invalid" ? undefined : (options?.nextAutoCheckAt ?? derivedNextAutoCheckAt);
-  return {
-    ...baseStatus,
+  const mcpStatus = {
+    ...credentialStatus,
     mcpTokenStatus,
     mcpTokenExpiresAt: effectiveExpiresAt,
-    mcpTokenCheckedAt: connection.tokenHealth?.checkedAt,
+    ...(credential.tokenHealth?.checkedAt
+      ? { mcpTokenCheckedAt: credential.tokenHealth.checkedAt }
+      : {}),
     ...(typeof nextAutoCheckAt === "number" ? { mcpTokenNextAutoCheckAt: nextAutoCheckAt } : {}),
   };
+  return account === undefined
+    ? { state: "selection_required", ...mcpStatus }
+    : { state: "connected", ...account, ...mcpStatus };
 }
 
 async function fetchConvexApiKeyTeamDetails(token: string): Promise<{
@@ -375,30 +400,26 @@ export const getConvexConnectionStatus = query({
   args: {
     organizationId: id("organizations"),
   },
-  returns: v.object({
-    connected: boolean(),
-    teamId: v.optional(v.string()),
-    teamSlug: v.optional(v.string()),
-    authMethod: v.optional(vProviderAuthMethod),
-  }),
-  handler: async (ctx, args) => {
+  returns: vConvexConnectionStatus,
+  handler: async (ctx, args): Promise<Infer<typeof vConvexConnectionStatus>> => {
     const access = await requireOrganizationAccessContext(ctx.db, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    const connection = await getProviderConnectionForOrganization(ctx.db, {
-      organizationId: access.organizationId,
-      kind: "convex",
-    });
-    if (connection?.kind !== "convex") {
-      return { connected: false };
+    const configuration = await getOrganizationProviderConfiguration(ctx.db, access.organizationId);
+    if (configuration.convexTeam === undefined) {
+      if (configuration.convexCredential !== undefined) {
+        throw new Error("Convex credential has no configured team.");
+      }
+      return { state: "not_configured" };
     }
-
+    if (configuration.convexCredential === undefined) {
+      return { state: "disconnected", ...configuration.convexTeam };
+    }
     return {
-      connected: true,
-      teamId: connection.teamId,
-      teamSlug: connection.teamSlug,
-      authMethod: connection.auth.method,
+      state: "connected",
+      ...configuration.convexTeam,
+      authMethod: configuration.convexCredential.auth.method,
     };
   },
 });
@@ -414,18 +435,15 @@ export const disconnectConvex = action({
       internal.organizationAccess.requireOrganizationOwnerIdForUser,
       { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
-    const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
-      organizationId,
-      userId: ctx.viewer.userId,
-      kind: "convex",
-    });
-    if (connection?.kind === "convex") {
-      await ctx.runMutation(internal.providerConnections.disconnect, {
+    const configuration = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
+      { organizationId, userId: ctx.viewer.userId },
+    );
+    if (configuration.convexCredential !== undefined) {
+      await ctx.runMutation(internal.organizationProviderCredentials.disconnectConvex, {
         organizationId,
         disconnectedByUserId: ctx.viewer.userId,
-        providerConnectionId: connection._id,
-        kind: "convex",
-        expectedAuth: connection.auth,
+        expectedAuth: configuration.convexCredential.auth,
       });
     }
     return null;
@@ -443,15 +461,8 @@ export const getCloudflareConnectionStatus = query({
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    const connection = await getProviderConnectionForOrganization(ctx.db, {
-      organizationId: access.organizationId,
-      kind: "cloudflare",
-    });
-    if (connection?.kind !== "cloudflare") {
-      return { connected: false } satisfies CloudflareConnectionStatus;
-    }
-
-    return buildCloudflareConnectionStatus(connection);
+    const configuration = await getOrganizationProviderConfiguration(ctx.db, access.organizationId);
+    return buildCloudflareConnectionStatus(configuration);
   },
 });
 
@@ -475,34 +486,37 @@ async function runCloudflareMcpTokenRefresh(args: {
     internal.organizationAccess.requireOrganizationIdForUser,
     { userId: args.userId, organizationId: args.organizationId },
   );
-  const connection = await args.ctx.runQuery(internal.providerConnections.loadForOrganization, {
-    organizationId,
-    userId: args.userId,
-    kind: "cloudflare",
-  });
-  if (connection?.kind !== "cloudflare") {
-    return { connected: false } satisfies CloudflareConnectionStatus;
+  const configuration = await args.ctx.runQuery(
+    internal.organizationProviderCredentials.loadForOrganization,
+    { organizationId, userId: args.userId },
+  );
+  const credential = configuration.cloudflareCredential;
+  if (credential === undefined) {
+    return buildCloudflareConnectionStatus(configuration);
   }
-  if (connection.auth.method !== "mcp_oauth") {
-    return buildCloudflareConnectionStatus(connection);
+  if (credential.auth.method !== "mcp_oauth") {
+    return buildCloudflareConnectionStatus(configuration);
   }
 
   const forceRefresh = args.force === true || args.trigger === "manual";
   const now = Date.now();
-  if (!forceRefresh && connection.tokenHealth?.status === "invalid") {
-    return buildCloudflareConnectionStatus(connection, { now });
+  if (!forceRefresh && credential.tokenHealth?.status === "invalid") {
+    return buildCloudflareConnectionStatus(configuration, { now });
   }
-  const statusAtNow = buildCloudflareConnectionStatus(connection, { now });
+  const statusAtNow = buildCloudflareConnectionStatus(configuration, { now });
   const effectiveExpiresAt =
-    connection.tokenHealth?.expiresAt ?? connection.auth.credentialExpiresAt;
-  const nextAutoCheckAt = statusAtNow.mcpTokenNextAutoCheckAt;
+    credential.tokenHealth?.expiresAt ?? credential.auth.credentialExpiresAt;
+  const nextAutoCheckAt =
+    statusAtNow.state === "connected" || statusAtNow.state === "selection_required"
+      ? statusAtNow.mcpTokenNextAutoCheckAt
+      : undefined;
   if (
     !forceRefresh &&
-    connection.tokenHealth?.source === "runtime_error" &&
+    credential.tokenHealth?.source === "runtime_error" &&
     typeof nextAutoCheckAt === "number" &&
     now < nextAutoCheckAt
   ) {
-    return buildCloudflareConnectionStatus(connection, {
+    return buildCloudflareConnectionStatus(configuration, {
       now,
       nextAutoCheckAt,
     });
@@ -510,7 +524,7 @@ async function runCloudflareMcpTokenRefresh(args: {
   const refreshDueAt = effectiveExpiresAt - CLOUDFLARE_TOKEN_REFRESH_EARLY_WINDOW_MS;
 
   if (!forceRefresh && now < refreshDueAt) {
-    return buildCloudflareConnectionStatus(connection, {
+    return buildCloudflareConnectionStatus(configuration, {
       now,
       nextAutoCheckAt,
     });
@@ -521,51 +535,45 @@ async function runCloudflareMcpTokenRefresh(args: {
       ? CLOUDFLARE_TOKEN_REFRESH_PAGE_LOAD_DEBOUNCE_MS
       : CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS;
   const claim = await args.ctx.runMutation(
-    internal.providerConnections.claimCloudflareTokenRefresh,
+    internal.organizationProviderCredentials.claimCloudflareTokenRefresh,
     {
       organizationId,
-      providerConnectionId: connection._id,
       userId: args.userId,
-      expectedAuth: connection.auth,
+      expectedAuth: credential.auth,
       force: forceRefresh,
       debounceMs,
     },
   );
   if (!claim.claimed) {
-    const refreshedConnection = await args.ctx.runQuery(
-      internal.providerConnections.loadByIdForOrganization,
+    const refreshedConfiguration = await args.ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
       {
         organizationId,
         userId: args.userId,
-        providerConnectionId: connection._id,
-        kind: "cloudflare",
       },
     );
-    if (refreshedConnection?.kind !== "cloudflare") {
-      return { connected: false } satisfies CloudflareConnectionStatus;
-    }
     const nowAfterClaim = Date.now();
-    if (refreshedConnection.auth.method !== "mcp_oauth") {
-      return buildCloudflareConnectionStatus(refreshedConnection, {
+    const refreshedCredential = refreshedConfiguration.cloudflareCredential;
+    if (refreshedCredential?.auth.method !== "mcp_oauth") {
+      return buildCloudflareConnectionStatus(refreshedConfiguration, {
         now: nowAfterClaim,
       });
     }
-    return buildCloudflareConnectionStatus(refreshedConnection, {
+    return buildCloudflareConnectionStatus(refreshedConfiguration, {
       now: nowAfterClaim,
       nextAutoCheckAt:
         claim.nextAllowedRefreshAt ??
         computeCloudflareNextAutoCheckAt({
           expiresAt:
-            refreshedConnection.tokenHealth?.expiresAt ??
-            refreshedConnection.auth.credentialExpiresAt,
+            refreshedCredential.tokenHealth?.expiresAt ??
+            refreshedCredential.auth.credentialExpiresAt,
           now: nowAfterClaim,
         }),
     });
   }
-  const refreshLeaseStartedAt = claim.tokenRefreshStartedAt;
+  const refreshLease = claim.tokenRefreshLease;
 
-  let releaseExpectedAuth: Extract<Doc<"providerConnections">, { kind: "cloudflare" }>["auth"] =
-    connection.auth;
+  let releaseExpectedAuth: CloudflareProviderCredential["auth"] = credential.auth;
   let shouldRecordLastTokenRefreshAt = false;
   try {
     const resolvedConnection = await args.ctx.runAction(
@@ -573,67 +581,73 @@ async function runCloudflareMcpTokenRefresh(args: {
       {
         userId: args.userId,
         organizationId,
-        providerConnectionId: connection._id,
         forceRefresh: true,
         refreshLease: {
-          auth: connection.auth,
-          tokenRefreshStartedAt: refreshLeaseStartedAt,
+          auth: credential.auth,
+          tokenRefreshLease: refreshLease,
         },
       },
     );
     if (resolvedConnection === null) {
-      return { connected: false } satisfies CloudflareConnectionStatus;
+      const current = await args.ctx.runQuery(
+        internal.organizationProviderCredentials.loadForOrganization,
+        { organizationId, userId: args.userId },
+      );
+      return buildCloudflareConnectionStatus(current);
     }
     releaseExpectedAuth = resolvedConnection.auth;
     shouldRecordLastTokenRefreshAt = true;
     const nowAfterRefresh = Date.now();
-    if (resolvedConnection.auth.method !== "mcp_oauth") {
-      return buildCloudflareConnectionStatus(resolvedConnection, {
-        now: nowAfterRefresh,
-      });
-    }
-    return buildCloudflareConnectionStatus(resolvedConnection, {
+    const refreshedConfiguration = await args.ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
+      { organizationId, userId: args.userId },
+    );
+    return buildCloudflareConnectionStatus(refreshedConfiguration, {
       now: nowAfterRefresh,
-      nextAutoCheckAt: computeCloudflareNextAutoCheckAt({
-        expiresAt:
-          resolvedConnection.tokenHealth?.expiresAt ?? resolvedConnection.auth.credentialExpiresAt,
-        now: nowAfterRefresh,
-      }),
+      ...(resolvedConnection.auth.method === "mcp_oauth"
+        ? {
+            nextAutoCheckAt: computeCloudflareNextAutoCheckAt({
+              expiresAt:
+                resolvedConnection.tokenHealth?.expiresAt ??
+                resolvedConnection.auth.credentialExpiresAt,
+              now: nowAfterRefresh,
+            }),
+          }
+        : {}),
     });
   } catch {
-    const refreshedConnection = await args.ctx.runQuery(
-      internal.providerConnections.loadByIdForOrganization,
+    const refreshedConfiguration = await args.ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
       {
         organizationId,
         userId: args.userId,
-        providerConnectionId: connection._id,
-        kind: "cloudflare",
       },
     );
-    if (refreshedConnection?.kind === "cloudflare") {
+    const refreshedCredential = refreshedConfiguration.cloudflareCredential;
+    if (refreshedCredential !== undefined) {
       const nowAfterFailure = Date.now();
-      const checkedAt = refreshedConnection.tokenHealth?.checkedAt;
+      const checkedAt = refreshedCredential.tokenHealth?.checkedAt;
       const retryDueAt =
         (checkedAt ?? nowAfterFailure) + computeCloudflareRetryDelayMs(checkedAt, nowAfterFailure);
       if (
-        refreshedConnection.auth.method === "mcp_oauth" &&
-        refreshedConnection.tokenHealth?.status === "invalid"
+        refreshedCredential.auth.method === "mcp_oauth" &&
+        refreshedCredential.tokenHealth?.status === "invalid"
       ) {
-        return buildCloudflareConnectionStatus(refreshedConnection, {
+        return buildCloudflareConnectionStatus(refreshedConfiguration, {
           now: nowAfterFailure,
         });
       }
       if (
-        refreshedConnection.auth.method === "mcp_oauth" &&
-        refreshedConnection.tokenHealth?.source === "runtime_error"
+        refreshedCredential.auth.method === "mcp_oauth" &&
+        refreshedCredential.tokenHealth?.source === "runtime_error"
       ) {
-        return buildCloudflareConnectionStatus(refreshedConnection, {
+        return buildCloudflareConnectionStatus(refreshedConfiguration, {
           now: nowAfterFailure,
           nextAutoCheckAt: retryDueAt,
         });
       }
       if (!forceRefresh) {
-        return buildCloudflareConnectionStatus(refreshedConnection, {
+        return buildCloudflareConnectionStatus(refreshedConfiguration, {
           now: nowAfterFailure,
           nextAutoCheckAt: retryDueAt,
         });
@@ -641,14 +655,15 @@ async function runCloudflareMcpTokenRefresh(args: {
     }
     throw new Error("Cloudflare token refresh failed.");
   } finally {
-    await args.ctx.runMutation(internal.providerConnections.releaseCloudflareTokenRefresh, {
-      organizationId,
-      providerConnectionId: connection._id,
-      userId: args.userId,
-      expectedAuth: releaseExpectedAuth,
-      expectedTokenRefreshStartedAt: refreshLeaseStartedAt,
-      recordLastTokenRefreshAt: shouldRecordLastTokenRefreshAt,
-    });
+    await args.ctx.runMutation(
+      internal.organizationProviderCredentials.releaseCloudflareTokenRefresh,
+      {
+        organizationId,
+        expectedAuth: releaseExpectedAuth,
+        expectedTokenRefreshLease: refreshLease,
+        recordLastTokenRefreshAt: shouldRecordLastTokenRefreshAt,
+      },
+    );
   }
 }
 
@@ -693,33 +708,31 @@ export const disconnectCloudflare = action({
   args: {
     organizationId: id("organizations"),
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
+  returns: vCloudflareDisconnectResult,
+  handler: async (ctx, args): Promise<CloudflareDisconnectResult> => {
     const organizationId = await ctx.runQuery(
       internal.organizationAccess.requireOrganizationOwnerIdForUser,
       { userId: ctx.viewer.userId, organizationId: args.organizationId },
     );
-    const connection = await ctx.runQuery(internal.providerConnections.loadForOrganization, {
-      organizationId,
-      userId: ctx.viewer.userId,
-      kind: "cloudflare",
-    });
-    if (connection?.kind === "cloudflare") {
-      await ctx.runAction(internal.cloudflareOAuth.revokeCloudflareOAuthForOrganizationConnection, {
-        organizationId,
-        userId: ctx.viewer.userId,
-        providerConnectionId: connection._id,
-        expectedAuth: connection.auth,
-      });
-      await ctx.runMutation(internal.providerConnections.disconnect, {
-        organizationId,
-        disconnectedByUserId: ctx.viewer.userId,
-        providerConnectionId: connection._id,
-        kind: "cloudflare",
-        expectedAuth: connection.auth,
-      });
+    const configuration = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
+      { organizationId, userId: ctx.viewer.userId },
+    );
+    if (configuration.cloudflareCredential === undefined) {
+      return { upstreamRevocation: "confirmed" as const };
     }
-    return null;
+    await ctx.runMutation(internal.organizationProviderCredentials.disconnectCloudflare, {
+      organizationId,
+      disconnectedByUserId: ctx.viewer.userId,
+      expectedAuth: configuration.cloudflareCredential.auth,
+    });
+    const upstreamRevocation = await ctx.runAction(
+      internal.cloudflareOAuth.revokeCloudflareOAuthForOrganizationConnection,
+      {
+        expectedAuth: configuration.cloudflareCredential.auth,
+      },
+    );
+    return { upstreamRevocation };
   },
 });
 
@@ -741,38 +754,28 @@ export const connectConvexWithApiKey = action({
     );
     const token = normalizeApiToken(args.token);
     const details = await fetchConvexApiKeyTeamDetails(token);
-    const target: Doc<"providerConnections"> | null = await ctx.runQuery(
-      internal.providerConnections.loadForOrganization,
+    const configuration = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
       {
         organizationId,
         userId: ctx.viewer.userId,
-        kind: "convex",
       },
     );
-    const connection = {
-      kind: "convex" as const,
+    const expectedProviderSnapshotHash = await hashOrganizationProviderSnapshot({
+      provider: "convex",
+      teamId: configuration.convexTeam?.teamId,
+      credential: configuration.convexCredential,
+    });
+    await ctx.runMutation(internal.organizationProviderCredentials.connectConvex, {
+      organizationId,
+      connectedByUserId: ctx.viewer.userId,
+      expectedProviderSnapshotHash,
       auth: {
         method: "api_key" as const,
         credential: token,
       },
       teamId: details.teamId,
-    };
-    if (target?.kind === "convex") {
-      await ctx.runMutation(internal.providerConnections.reauthorizeConnected, {
-        organizationId,
-        connectedByUserId: ctx.viewer.userId,
-        providerConnectionId: target._id,
-        expectedAuthFingerprint: await fingerprintProviderAuth(target.auth),
-        expectedTarget: readProviderConnectionTarget(target),
-        connection,
-      });
-    } else {
-      await ctx.runMutation(internal.providerConnections.createConnected, {
-        organizationId,
-        connectedByUserId: ctx.viewer.userId,
-        connection,
-      });
-    }
+    });
 
     return { teamId: details.teamId };
   },

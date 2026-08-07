@@ -2,18 +2,16 @@ import { v, type Infer } from "convex/values";
 
 import { internalMutation, internalQuery } from "./_generated/server";
 import { requireOrganizationAccessContext } from "./organizationAccess";
-import { getProviderConnectionByIdForOrganization } from "./providerConnections";
 import {
-  readProviderConnectionTarget,
+  vCloudflareMcpProviderOAuthCallbackState,
+  vCloudflareProviderOAuthCallbackState,
+  vConvexProviderOAuthCallbackState,
   vOAuthProvider,
-  vProviderOAuthCallbackState,
-  type OAuthProvider,
-  type ProviderConnectionTarget,
-  type ProviderKind,
-} from "./providerConnectionModel";
-import { fingerprintProviderAuth } from "./providerAuthFingerprint";
+} from "./organizationProviderCredentialModel";
+import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
+import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 
-export { vOAuthProvider, type OAuthProvider } from "./providerConnectionModel";
+export { vOAuthProvider, type OAuthProvider } from "./organizationProviderCredentialModel";
 
 export const vProviderOAuthStoreResult = v.union(
   v.object({ status: v.literal("stored") }),
@@ -21,32 +19,24 @@ export const vProviderOAuthStoreResult = v.union(
 );
 export type ProviderOAuthStoreResult = Infer<typeof vProviderOAuthStoreResult>;
 
-const vProviderOAuthCallbackStateResult = vProviderOAuthCallbackState.extend({
+const providerOAuthCallbackStateSystemFields = {
   _id: v.id("providerOAuthCallbackStates"),
   _creationTime: v.number(),
-});
-
-function providerKindForOAuthProvider(provider: OAuthProvider): ProviderKind {
-  switch (provider) {
-    case "convex":
-      return "convex";
-    case "cloudflare":
-    case "cloudflare_mcp":
-      return "cloudflare";
-  }
-}
+};
+const vProviderOAuthCallbackStateResult = v.union(
+  vConvexProviderOAuthCallbackState.extend(providerOAuthCallbackStateSystemFields),
+  vCloudflareProviderOAuthCallbackState.extend(providerOAuthCallbackStateSystemFields),
+  vCloudflareMcpProviderOAuthCallbackState.extend(providerOAuthCallbackStateSystemFields),
+);
 
 export const createOauthState = internalMutation({
   args: {
     provider: vOAuthProvider,
     userId: v.id("users"),
     organizationId: v.id("organizations"),
-    providerConnectionId: v.optional(v.id("providerConnections")),
     state: v.string(),
-    returnToPath: v.optional(v.string()),
     codeVerifier: v.optional(v.string()),
     clientId: v.optional(v.string()),
-    clientSecret: v.optional(v.string()),
     createdAt: v.number(),
     expiresAt: v.number(),
   },
@@ -63,25 +53,59 @@ export const createOauthState = internalMutation({
       throw new Error("Organization not found.");
     }
     await requireOrganizationAccessContext(ctx.db, args);
-    let expectedAuthFingerprint: string | undefined;
-    let expectedTarget: ProviderConnectionTarget | undefined;
-    if (args.providerConnectionId !== undefined) {
-      const connection = await getProviderConnectionByIdForOrganization(ctx.db, {
-        organizationId: args.organizationId,
-        providerConnectionId: args.providerConnectionId,
-        kind: providerKindForOAuthProvider(args.provider),
-      });
-      if (connection === null) {
-        throw new Error("Provider connection not found.");
-      }
-      expectedAuthFingerprint = await fingerprintProviderAuth(connection.auth);
-      expectedTarget = readProviderConnectionTarget(connection);
+    const configuration = await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
+    const expectedProviderSnapshotHash =
+      args.provider === "convex"
+        ? await hashOrganizationProviderSnapshot({
+            provider: "convex",
+            teamId: configuration.convexTeam?.teamId,
+            credential: configuration.convexCredential,
+          })
+        : await hashOrganizationProviderSnapshot({
+            provider: "cloudflare",
+            accountId: configuration.cloudflareAccount?.accountId,
+            credential: configuration.cloudflareCredential,
+          });
+    const commonState = {
+      userId: args.userId,
+      organizationId: args.organizationId,
+      expectedProviderSnapshotHash,
+      state: args.state,
+      createdAt: args.createdAt,
+      expiresAt: args.expiresAt,
+    };
+    switch (args.provider) {
+      case "convex":
+        if (args.codeVerifier === undefined || args.clientId !== undefined) {
+          throw new Error("Convex OAuth state has invalid PKCE fields.");
+        }
+        return await ctx.db.insert("providerOAuthCallbackStates", {
+          provider: "convex",
+          ...commonState,
+          codeVerifier: args.codeVerifier,
+        });
+      case "cloudflare":
+        if (args.codeVerifier !== undefined || args.clientId !== undefined) {
+          throw new Error("Cloudflare OAuth state cannot contain PKCE fields.");
+        }
+        return await ctx.db.insert("providerOAuthCallbackStates", {
+          provider: "cloudflare",
+          ...commonState,
+        });
+      case "cloudflare_mcp":
+        if (args.codeVerifier === undefined || args.clientId === undefined) {
+          throw new Error("Cloudflare MCP OAuth state requires PKCE fields.");
+        }
+        return await ctx.db.insert("providerOAuthCallbackStates", {
+          provider: "cloudflare_mcp",
+          ...commonState,
+          codeVerifier: args.codeVerifier,
+          clientId: args.clientId,
+        });
+      default:
+        args.provider satisfies never;
+        throw new Error("Unsupported OAuth provider.");
     }
-    return await ctx.db.insert("providerOAuthCallbackStates", {
-      ...args,
-      ...(expectedAuthFingerprint === undefined ? {} : { expectedAuthFingerprint }),
-      ...(expectedTarget === undefined ? {} : { expectedTarget }),
-    });
   },
 });
 

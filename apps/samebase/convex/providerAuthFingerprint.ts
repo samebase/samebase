@@ -1,4 +1,8 @@
-import type { ProviderAuth } from "./providerConnectionModel";
+import type {
+  CloudflareProviderCredential,
+  ConvexProviderCredential,
+} from "./organizationProviderCredentialModel";
+import type { ProviderAuth } from "./providerAuth";
 import { sha256Hex } from "./mcp/tokens";
 
 function serializeProviderAuth(auth: ProviderAuth): string {
@@ -25,6 +29,47 @@ function serializeProviderAuth(auth: ProviderAuth): string {
   }
 }
 
-export function fingerprintProviderAuth(auth: ProviderAuth): Promise<string> {
-  return sha256Hex(serializeProviderAuth(auth));
+export function hashOrganizationProviderSnapshot(
+  provider:
+    | {
+        provider: "convex";
+        teamId: string | undefined;
+        credential: ConvexProviderCredential | undefined;
+      }
+    | {
+        provider: "cloudflare";
+        accountId: string | undefined;
+        credential: CloudflareProviderCredential | undefined;
+      },
+): Promise<string> {
+  switch (provider.provider) {
+    case "convex":
+      return sha256Hex(
+        JSON.stringify([
+          "convex",
+          provider.teamId ?? null,
+          provider.credential
+            ? [
+                serializeProviderAuth(provider.credential.auth),
+                provider.credential.connectedByUserId,
+                provider.credential.updatedAt,
+              ]
+            : null,
+        ]),
+      );
+    case "cloudflare":
+      return sha256Hex(
+        JSON.stringify([
+          "cloudflare",
+          provider.accountId ?? null,
+          provider.credential
+            ? [
+                serializeProviderAuth(provider.credential.auth),
+                provider.credential.connectedByUserId,
+                provider.credential.updatedAt,
+              ]
+            : null,
+        ]),
+      );
+  }
 }

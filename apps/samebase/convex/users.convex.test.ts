@@ -1,80 +1,55 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { api, internal } from "./_generated/api";
+import { api } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
-async function seedProviderOrganizations() {
+async function seedProviderOrganization() {
   const t = makeConvexTest();
-  const { outsiderId, userId } = await t.run(async (ctx) => {
+  const { organizationId, outsiderId, userId } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
-      email: "member@example.com",
+      email: "owner@example.com",
       isApproved: true,
     });
     const outsiderId = await ctx.db.insert("users", {
       email: "outsider@example.com",
       isApproved: true,
     });
-    return { outsiderId, userId };
-  });
-  const { organizationId } = await t.mutation(
-    internal.organizations.createOrReconnectVerifiedOrganization,
-    {
-      userId,
+    const organizationId = await ctx.db.insert("organizations", {
       githubOwnerId: "owner-1",
       githubOwnerType: "organization",
       githubOwnerLogin: "Primary",
+      githubOwnerLoginNormalized: "primary",
       githubInstallationId: "installation-1",
-    },
-  );
-  const { organizationId: otherOrganizationId } = await t.mutation(
-    internal.organizations.createOrReconnectVerifiedOrganization,
-    {
+      convexTeam: { teamId: "team-1", teamSlug: "team-one" },
+      cloudflareAccount: { accountId: "account-1", accountName: "Primary account" },
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId,
       userId,
-      githubOwnerId: "owner-2",
-      githubOwnerType: "organization",
-      githubOwnerLogin: "Other",
-      githubInstallationId: "installation-2",
-    },
-  );
-  const convexConnectionId = await t.mutation(internal.providerConnections.createConnected, {
-    organizationId,
-    connectedByUserId: userId,
-    connection: {
-      kind: "convex",
-      auth: { method: "api_key", credential: "convex-credential" },
-      teamId: "team-1",
-      teamSlug: "team-one",
-    },
-  });
-  const cloudflareConnectionId = await t.mutation(internal.providerConnections.createConnected, {
-    organizationId,
-    connectedByUserId: userId,
-    connection: {
-      kind: "cloudflare",
-      auth: { method: "api_key", credential: "cloudflare-credential" },
-      defaultAccount: {
-        state: "selected",
-        accountId: "account-1",
-        accountName: "Primary account",
+      role: "owner",
+    });
+    const providerCredentialsId = await ctx.db.insert("organizationProviderCredentials", {
+      convex: {
+        auth: { method: "api_key", credential: "convex-credential" },
+        connectedByUserId: userId,
+        updatedAt: 1,
       },
-    },
+      cloudflare: {
+        auth: { method: "api_key", credential: "cloudflare-credential" },
+        connectedByUserId: userId,
+        updatedAt: 1,
+      },
+    });
+    await ctx.db.patch(organizationId, { providerCredentialsId });
+    return { organizationId, outsiderId, userId };
   });
-  return {
-    cloudflareConnectionId,
-    convexConnectionId,
-    organizationId,
-    otherOrganizationId,
-    outsiderId,
-    t,
-    userId,
-  };
+  return { organizationId, outsiderId, t, userId };
 }
 
 describe("organization provider status", () => {
-  it("isolates selected connections by organization and checks membership", async () => {
-    const { organizationId, otherOrganizationId, outsiderId, t, userId } =
-      await seedProviderOrganizations();
-    const asUser = t.withIdentity({
+  it("shows the configured destinations and hides credentials", async () => {
+    const { organizationId, outsiderId, t, userId } = await seedProviderOrganization();
+    const asOwner = t.withIdentity({
       subject: `${userId}|session`,
       tokenIdentifier: `test:${userId}`,
     });
@@ -84,78 +59,49 @@ describe("organization provider status", () => {
     });
 
     await expect(
-      asUser.query(api.users.getConvexConnectionStatus, { organizationId }),
+      asOwner.query(api.users.getConvexConnectionStatus, { organizationId }),
     ).resolves.toEqual({
-      connected: true,
+      state: "connected",
       teamId: "team-1",
       teamSlug: "team-one",
       authMethod: "api_key",
     });
     await expect(
-      asUser.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+      asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
     ).resolves.toEqual({
-      connected: true,
+      state: "connected",
       accountId: "account-1",
       accountName: "Primary account",
       authMethod: "api_key",
     });
     await expect(
-      asUser.query(api.users.getConvexConnectionStatus, {
-        organizationId: otherOrganizationId,
-      }),
-    ).resolves.toEqual({ connected: false });
-    await expect(
       asOutsider.query(api.users.getConvexConnectionStatus, { organizationId }),
     ).rejects.toThrow("Organization membership is required.");
   });
 
-  it("deletes API-key connections only from the requested organization", async () => {
-    const {
-      cloudflareConnectionId,
-      convexConnectionId,
-      organizationId,
-      otherOrganizationId,
-      t,
-      userId,
-    } = await seedProviderOrganizations();
-    const asUser = t.withIdentity({
+  it("disconnects credentials but preserves both destinations", async () => {
+    const { organizationId, t, userId } = await seedProviderOrganization();
+    const asOwner = t.withIdentity({
       subject: `${userId}|session`,
       tokenIdentifier: `test:${userId}`,
     });
 
-    await asUser.action(api.users.disconnectConvex, { organizationId });
-    await asUser.action(api.users.disconnectCloudflare, { organizationId });
+    await expect(
+      asOwner.action(api.users.disconnectConvex, { organizationId }),
+    ).resolves.toBeNull();
+    await expect(
+      asOwner.action(api.users.disconnectCloudflare, { organizationId }),
+    ).resolves.toEqual({ upstreamRevocation: "not_supported" });
 
-    const state = await t.run(async (ctx) => {
-      const [cloudflareConnection, convexConnection, otherOrganization] = await Promise.all([
-        ctx.db.get(cloudflareConnectionId),
-        ctx.db.get(convexConnectionId),
-        ctx.db.get(otherOrganizationId),
-      ]);
-      return {
-        cloudflareConnection,
-        convexConnection,
-        otherOrganizationExists: otherOrganization !== null,
-      };
-    });
-    const [selectedCloudflareConnection, selectedConvexConnection] = await Promise.all([
-      t.query(internal.providerConnections.loadForOrganization, {
-        organizationId,
-        userId,
-        kind: "cloudflare",
-      }),
-      t.query(internal.providerConnections.loadForOrganization, {
-        organizationId,
-        userId,
-        kind: "convex",
-      }),
-    ]);
-    expect({ ...state, selectedCloudflareConnection, selectedConvexConnection }).toEqual({
-      cloudflareConnection: null,
-      convexConnection: null,
-      otherOrganizationExists: true,
-      selectedCloudflareConnection: null,
-      selectedConvexConnection: null,
+    await expect(
+      asOwner.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).resolves.toEqual({ state: "disconnected", teamId: "team-1", teamSlug: "team-one" });
+    await expect(
+      asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+    ).resolves.toEqual({
+      state: "disconnected",
+      accountId: "account-1",
+      accountName: "Primary account",
     });
   });
 });

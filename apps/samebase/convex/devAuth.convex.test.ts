@@ -87,7 +87,7 @@ describe("devAuth password account seed", () => {
     await expect(t.run(async (ctx) => (await ctx.db.get(userId))?.isApproved)).resolves.toBe(true);
   });
 
-  it("seeds one repeat-safe organization graph with singleton provider connections", async () => {
+  it("seeds one repeat-safe organization graph with singleton provider credentials", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -113,8 +113,8 @@ describe("devAuth password account seed", () => {
     } as const;
 
     await t.mutation(internal.devAuth.seedOrganizationWithProviderConnections, seed);
-    const initialProviderConnections = await t.run(async (ctx) => {
-      return await ctx.db.query("providerConnections").collect();
+    const initialProviderCredentials = await t.run(async (ctx) => {
+      return await ctx.db.query("organizationProviderCredentials").unique();
     });
     await t.mutation(internal.devAuth.seedOrganizationWithProviderConnections, {
       ...seed,
@@ -133,14 +133,14 @@ describe("devAuth password account seed", () => {
         organizations: await ctx.db.query("organizations").collect(),
         memberships: await ctx.db.query("organizationMemberships").collect(),
         billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
-        providerConnections: await ctx.db.query("providerConnections").collect(),
+        providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
       };
     });
 
     expect(snapshot.organizations).toHaveLength(1);
     expect(snapshot.memberships).toHaveLength(1);
     expect(snapshot.billingAccounts).toHaveLength(1);
-    expect(snapshot.providerConnections).toHaveLength(2);
+    expect(snapshot.providerCredentials).toHaveLength(1);
 
     const organization = snapshot.organizations[0];
     expect(organization).toMatchObject({
@@ -149,6 +149,14 @@ describe("devAuth password account seed", () => {
       githubOwnerLogin: seed.githubOwnerLogin,
       githubOwnerLoginNormalized: seed.githubOwnerLogin,
       githubInstallationId: seed.githubInstallationId,
+      convexTeam: {
+        teamId: seed.convexConnection.teamId,
+        teamSlug: seed.convexConnection.teamSlug,
+      },
+      cloudflareAccount: {
+        accountId: seed.cloudflareConnection.accountId,
+        accountName: seed.cloudflareConnection.accountId,
+      },
     });
     expect(snapshot.memberships[0]).toMatchObject({
       organizationId: organization._id,
@@ -161,27 +169,15 @@ describe("devAuth password account seed", () => {
       status: "inactive",
     });
 
-    const convexConnection = snapshot.providerConnections.find(
-      (connection) => connection.kind === "convex",
-    );
-    const cloudflareConnection = snapshot.providerConnections.find(
-      (connection) => connection.kind === "cloudflare",
-    );
-    expect(convexConnection).toMatchObject({
-      _id: initialProviderConnections.find((connection) => connection.kind === "convex")?._id,
-      organizationId: organization._id,
-      connectedByUserId: userId,
-      auth: { credential: "convex-updated-credential" },
-      teamId: seed.convexConnection.teamId,
-    });
-    expect(cloudflareConnection).toMatchObject({
-      _id: initialProviderConnections.find((connection) => connection.kind === "cloudflare")?._id,
-      organizationId: organization._id,
-      connectedByUserId: userId,
-      auth: { credential: "cloudflare-updated-credential" },
-      defaultAccount: {
-        state: "selected",
-        accountId: seed.cloudflareConnection.accountId,
+    expect(snapshot.providerCredentials[0]).toMatchObject({
+      _id: initialProviderCredentials?._id,
+      convex: {
+        connectedByUserId: userId,
+        auth: { credential: "convex-updated-credential" },
+      },
+      cloudflare: {
+        connectedByUserId: userId,
+        auth: { credential: "cloudflare-updated-credential" },
       },
     });
   });

@@ -3,6 +3,16 @@ import { v } from "convex/values";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
+export const vOrganizationConvexTeam = object({
+  teamId: string(),
+  teamSlug: optional(string()),
+});
+
+export const vOrganizationCloudflareAccount = object({
+  accountId: string(),
+  accountName: string(),
+});
+
 export const vGitHubOwnerType = union(literal("organization"), literal("user"));
 export const vOrganizationMembershipRole = union(literal("owner"), literal("member"));
 
@@ -40,13 +50,15 @@ export const organizationTables = {
     githubOwnerLogin: string(),
     githubOwnerLoginNormalized: string(),
     githubInstallationId: string(),
-    // Legacy deployment fields. Production code does not read or write them.
-    selectedConvexProviderConnectionId: optional(id("providerConnections")),
-    selectedCloudflareProviderConnectionId: optional(id("providerConnections")),
+    convexTeam: optional(vOrganizationConvexTeam),
+    cloudflareAccount: optional(vOrganizationCloudflareAccount),
+    /** Immutable link once this organization's backend-only credential document exists. */
+    providerCredentialsId: optional(id("organizationProviderCredentials")),
   })
     .index("by_github_owner_id", ["githubOwnerId"])
     .index("by_github_owner_login_normalized", ["githubOwnerLoginNormalized"])
-    .index("by_github_installation_id", ["githubInstallationId"]),
+    .index("by_github_installation_id", ["githubInstallationId"])
+    .index("by_provider_credentials_id", ["providerCredentialsId"]),
 
   /** User access to an organization. */
   organizationMemberships: defineTable({
