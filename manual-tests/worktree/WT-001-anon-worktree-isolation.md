@@ -72,8 +72,9 @@ console.log(rows.map((row) => ({
   githubOwnerType: row.githubOwnerType,
   githubOwnerLogin: row.githubOwnerLogin,
   githubInstallationId: row.githubInstallationId,
-  selectedConvexProviderConnectionId: row.selectedConvexProviderConnectionId,
-  selectedCloudflareProviderConnectionId: row.selectedCloudflareProviderConnectionId,
+  convexTeamId: row.convexTeam?.teamId,
+  cloudflareAccountId: row.cloudflareAccount?.accountId,
+  providerCredentialsId: row.providerCredentialsId,
 })));
 '
 
@@ -97,16 +98,6 @@ console.log(rows.map((row) => ({
 })));
 '
 
-npx convex data providerConnections --limit 20 --format json | node -e '
-const rows = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
-console.log(rows.map((row) => ({
-  id: row._id,
-  organizationId: row.organizationId,
-  connectedByUserId: row.connectedByUserId,
-  kind: row.kind,
-  method: row.auth.method,
-})));
-'
 ```
 
 8. Sign in with the local worktree password shortcut. Confirm these pages load:

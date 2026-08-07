@@ -198,7 +198,7 @@ Key domain entities:
 - `organizations`
 - `organizationMemberships`
 - `organizationBillingAccounts`
-- `providerConnections`
+- `organizationProviderCredentials`
 - `vaults`
 - `workflow_vaultProvisioning_plans`
 - `workflow_vaultProvisioning_writeLocks`
