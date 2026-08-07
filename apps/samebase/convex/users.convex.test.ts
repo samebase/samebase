@@ -14,13 +14,14 @@ afterEach(() => {
 function cloudflareAccountsResponse(
   accounts: Array<{ id: string; name: string; type: "standard" }>,
 ): Response {
-  return new Response(
-    JSON.stringify({ success: true, errors: [], messages: [], result: accounts }),
-    {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    },
-  );
+  return cloudflareSuccessResponse(accounts);
+}
+
+function cloudflareSuccessResponse(result: unknown): Response {
+  return new Response(JSON.stringify({ success: true, errors: [], messages: [], result }), {
+    status: 200,
+    headers: { "Content-Type": "application/json" },
+  });
 }
 
 function cloudflareFailureResponse(body: Record<string, unknown>, status: number): Response {
@@ -101,6 +102,7 @@ async function seedProviderOrganization(options?: {
         role: "member",
       });
       const providerCredentialsId = await ctx.db.insert("organizationProviderCredentials", {
+        organizationId,
         convex: {
           auth: { method: "api_key", credential: "convex-credential" },
           connectedByUserId: userId,
@@ -128,7 +130,6 @@ async function seedProviderOrganization(options?: {
           updatedAt: 1,
         },
       });
-      await ctx.db.patch(organizationId, { providerCredentialsId });
       return { memberId, organizationId, outsiderId, providerCredentialsId, userId };
     },
   );
@@ -175,15 +176,15 @@ describe("organization provider status", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    await expect(asOwner.action(api.users.disconnectConvex, { organizationId })).resolves.toEqual({
-      upstreamRevocation: "not_supported",
-    });
-    await expect(asOwner.action(api.users.disconnectConvex, { organizationId })).resolves.toEqual({
-      upstreamRevocation: "confirmed",
-    });
+    await expect(
+      asOwner.action(api.users.disconnectConvex, { organizationId }),
+    ).resolves.toBeNull();
+    await expect(
+      asOwner.action(api.users.disconnectConvex, { organizationId }),
+    ).resolves.toBeNull();
     await expect(
       asOwner.action(api.users.disconnectCloudflare, { organizationId }),
-    ).resolves.toEqual({ upstreamRevocation: "not_supported" });
+    ).resolves.toBeNull();
 
     await expect(
       asOwner.query(api.users.getConvexConnectionStatus, { organizationId }),
@@ -195,6 +196,92 @@ describe("organization provider status", () => {
       accountId: primaryCloudflareAccountId,
       accountName: "Primary account",
     });
+  });
+
+  it.each(["oauth", "mcp_oauth"] as const)(
+    "disconnects Cloudflare $method locally without an upstream request",
+    async (cloudflareAuthMethod) => {
+      const { organizationId, t, userId } = await seedProviderOrganization({
+        cloudflareAuthMethod,
+      });
+      const asOwner = t.withIdentity({
+        subject: `${userId}|session`,
+        tokenIdentifier: `test:${userId}`,
+      });
+      const fetch = vi.fn();
+      vi.stubGlobal("fetch", fetch);
+
+      await expect(
+        asOwner.action(api.users.disconnectCloudflare, { organizationId }),
+      ).resolves.toBeNull();
+      expect(fetch).not.toHaveBeenCalled();
+      await expect(
+        asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+      ).resolves.toEqual({
+        state: "disconnected",
+        accountId: primaryCloudflareAccountId,
+        accountName: "Primary account",
+      });
+    },
+  );
+
+  it("reports an inaccessible configured Cloudflare account in the visible Accounts check", async () => {
+    const { organizationId, t, userId } = await seedProviderOrganization();
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const fetch = vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      switch (url.pathname) {
+        case "/client/v4/user/tokens/verify":
+          return cloudflareSuccessResponse({
+            id: "c".repeat(32),
+            status: "active",
+          });
+        case "/client/v4/accounts":
+          return cloudflareAccountsResponse([
+            { id: secondaryCloudflareAccountId, name: "Secondary account", type: "standard" },
+          ]);
+        default:
+          throw new Error(`Unexpected Cloudflare probe ${url.pathname}.`);
+      }
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    const access = await asOwner.action(
+      api.cloudflareProviderAccess.checkCloudflareConnectionAccess,
+      { organizationId },
+    );
+
+    expect(access).not.toHaveProperty("accounts");
+    expect(access.checks).toEqual([
+      {
+        key: "token",
+        label: "API token",
+        status: "ok",
+        message: "Probe GET /user/tokens/verify succeeded (active).",
+      },
+      {
+        key: "accounts",
+        label: "Accounts",
+        status: "error",
+        message: `The Accounts probe did not return connected account Primary account (${primaryCloudflareAccountId}).`,
+      },
+      {
+        key: "workers",
+        label: "Workers",
+        status: "unknown",
+        message: `Skipped: the Accounts probe did not return connected account Primary account (${primaryCloudflareAccountId}).`,
+      },
+      {
+        key: "workers_builds",
+        label: "Workers Builds",
+        status: "unknown",
+        message: `Skipped: the Accounts probe did not return connected account Primary account (${primaryCloudflareAccountId}).`,
+      },
+    ]);
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 
   it("lets an owner list visible accounts and select the stable target", async () => {

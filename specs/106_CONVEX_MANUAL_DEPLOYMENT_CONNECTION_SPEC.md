@@ -4,12 +4,13 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-07-30
+- Last updated: 2026-08-07
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/103_CONVEX_API_VALIDATION_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 ## Current Contract
 
@@ -18,12 +19,12 @@ Convex project connection combines two facts:
 1. GitHub observation proves an exact Convex code location in the vault repository.
 2. The user intends to attach one identified Convex project at that location.
 
-`vaultConvexProjects` stores that intent and the last verified provider coordinates:
+`vaultConvexProjects` stores that intent, the fixed provider identity, and the code placement:
 
 ```ts
 {
+  organizationId;
   vaultId;
-  userId;
   teamId;
   projectId;
   convexConfigPath;
@@ -32,17 +33,19 @@ Convex project connection combines two facts:
 }
 ```
 
-`projectId` is the stable global continuity key. `teamId` is the last provider team under which
-Samebase verified the project. Each row stores exactly one placement variant: an explicit
-`convexConfigPath`, or a default-layout `convexDirectoryPath`. Several projects may intentionally
-select the same code location. Convex `_creationTime` records when the attachment was created.
+`organizationId` must equal the parent vault's organization. `teamId` must equal the parent vault's
+required `convexTeamId`. `projectId` is the stable global resource identity, and `teamId` is the
+fixed external destination for this attachment. Each row stores exactly one placement variant: an
+explicit `convexConfigPath`, or a default-layout `convexDirectoryPath`. Several projects may
+intentionally select the same code location. Convex `_creationTime` records when the attachment was
+created.
 
 Project names, slugs, deployments, URLs, deploy keys, current team, and current repository file
 existence remain live provider observations.
 
 ### Source discovery
 
-`/vault/<org>/<repo>?add-convex` opens one vault-level dialog.
+`/vault/<owner>/<repo>?add-convex` opens one vault-level dialog.
 
 Samebase resolves the exact default-branch HEAD and recursive Git tree. It offers either:
 
@@ -58,7 +61,8 @@ The code location selector is closed over discovered evidence. There is no free-
 
 ### Existing project flow
 
-1. Samebase lists projects visible through the connected Convex credential.
+1. Samebase loads the organization's current Convex credential and lists projects from the vault's
+   exact `convexTeamId`. A missing or mismatched credential fails closed.
 2. Projects named by discovered Workers' readable `SAMEBASE_CONVEX_PROJECT` markers sort first and
    show that evidence. Observation alone never selects a project.
 3. The user may select several projects.
@@ -72,9 +76,9 @@ The code location selector is closed over discovered evidence. There is no free-
 ### Create project flow
 
 The user chooses one discovered code location and a project name. Samebase re-verifies the source,
-creates the project with a production deployment, reads the project back, and attaches it at that
-location. If the provider create succeeds but attachment fails, Samebase reports the ambiguous
-external state and does not delete the project automatically.
+creates the project in the vault's exact `convexTeamId` with a production deployment, reads the
+project back, and attaches it at that location. If the provider create succeeds but attachment
+fails, Samebase reports the ambiguous external state and does not delete the project automatically.
 
 ### Identity, transfer, and writes
 
@@ -83,12 +87,12 @@ confirmation preserves attachment identity and only upgrades `origin` when a man
 proves ownership.
 
 Provider writes require the connected credential to verify the stored `projectId` under the stored
-`teamId`. A 404 under that team is ambiguous because the project may have been deleted or
-transferred, so writes fail closed.
+`teamId`. That team must continue to equal the vault's `convexTeamId`. A 404 under that team is
+ambiguous because the project may have been deleted or transferred, so writes fail closed.
 
 If the connected credential reads the same `projectId` under a different team, Samebase reports team
-drift. Explicit reconciliation re-verifies the destination team and compare-and-swaps only `teamId`.
-It preserves the attachment ID, code location, origin, and creation time.
+transfer or destination mismatch and fails closed. It does not update the attachment `teamId` or the
+vault's fixed destination. The product has no project-team reconciliation action.
 
 ### Source drift and removal
 
@@ -124,7 +128,8 @@ automatically. If the project does not exist, the user can use the normal create
 - Persisting deployment or dashboard metadata.
 - Persisting a Worker-to-project edge.
 - Fuzzy project-to-folder inference.
-- Treating `teamId` as immutable project identity.
+- Changing the organization's Convex team in a vault flow.
+- Automatically reconciling a transferred project to a different team.
 - Automatically removing inaccessible projects.
 
 ## Validation
@@ -132,11 +137,13 @@ automatically. If the project does not exist, the user can use the normal create
 - GitHub tests cover root and nested configs, default-layout directories, package metadata without
   package contents, malformed JSON, non-regular files, truncated trees, exact evidence confirmation,
   and evidence changed between discovery and confirmation.
-- Mutation tests cover atomic batches, global `projectId` uniqueness, shared code locations,
-  idempotency, origin upgrade, code-location compare-and-swap, and team compare-and-swap.
-- Provider tests cover transfers, inaccessible projects, stale markers, and writes that fail closed.
+- Mutation tests cover organization and team destination checks, atomic batches, global `projectId`
+  uniqueness, shared code locations, idempotency, origin upgrade, and code-location
+  compare-and-swap.
+- Provider tests cover transfers, destination mismatch, inaccessible projects, stale markers, and
+  writes that fail closed.
 - Operation tests cover the Convex-only action mapping and normal existing-project attachment after
   a failed or silent create.
 - UI and route tests cover multi-selection, Worker-reference ordering without automatic selection,
-  closed code-location selectors, moved code, shared roots, team reconciliation, explicit removal,
-  and attachment-ID Data and Schema routes.
+  closed code-location selectors, moved code, shared roots, transferred-team failure, explicit
+  removal, and attachment-ID Data and Schema routes.

@@ -27,7 +27,8 @@ describe("Convex organization OAuth", () => {
       },
     );
     await t.run(async (ctx) => {
-      const providerCredentialsId = await ctx.db.insert("organizationProviderCredentials", {
+      await ctx.db.insert("organizationProviderCredentials", {
+        organizationId,
         convex: {
           auth: { method: "api_key", credential: "convex-credential" },
           connectedByUserId: userId,
@@ -36,7 +37,6 @@ describe("Convex organization OAuth", () => {
       });
       await ctx.db.patch(organizationId, {
         convexTeam: { teamId: "team-1" },
-        providerCredentialsId,
       });
     });
     vi.stubEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID", "convex-client");

@@ -31,10 +31,24 @@ export const vCloudflareProviderCredential = object({
 });
 export type CloudflareProviderCredential = Infer<typeof vCloudflareProviderCredential>;
 
-export const vOrganizationProviderCredentials = object({
-  convex: optional(vConvexProviderCredential),
-  cloudflare: optional(vCloudflareProviderCredential),
-});
+export const vOrganizationProviderCredentials = union(
+  object({
+    organizationId: id("organizations"),
+    convex: vConvexProviderCredential,
+    cloudflare: optional(vCloudflareProviderCredential),
+  }),
+  object({
+    organizationId: id("organizations"),
+    convex: optional(vConvexProviderCredential),
+    cloudflare: vCloudflareProviderCredential,
+  }),
+);
+
+export const vProviderOAuthStoreResult = union(
+  object({ status: literal("stored") }),
+  object({ status: literal("access_lost") }),
+);
+export type ProviderOAuthStoreResult = Infer<typeof vProviderOAuthStoreResult>;
 
 export const vOAuthProvider = union(
   literal("convex"),
@@ -76,6 +90,7 @@ export const vProviderOAuthCallbackState = union(
 export const organizationProviderCredentialTables = {
   /** Backend-only Convex and Cloudflare credentials for one organization. */
   organizationProviderCredentials: defineTable(vOrganizationProviderCredentials)
+    .index("by_organization", ["organizationId"])
     .index("by_convex_connected_by_user", ["convex.connectedByUserId"])
     .index("by_cloudflare_connected_by_user", ["cloudflare.connectedByUserId"]),
 

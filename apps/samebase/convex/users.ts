@@ -31,7 +31,7 @@ import {
   vAccountPresentation,
 } from "../shared/accountPresentation";
 
-const { array, boolean, id, literal, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
 const vAuthTokenAuthProvider = union(literal("google"), literal("password"));
 const vAuthProviderSummary = object({
@@ -109,11 +109,6 @@ const vCloudflareConnectionStatus = union(
   vCloudflareConnectedConnectionStatus,
 );
 type CloudflareConnectionStatus = Infer<typeof vCloudflareConnectionStatus>;
-const vProviderDisconnectResult = object({
-  upstreamRevocation: union(literal("confirmed"), literal("unconfirmed"), literal("not_supported")),
-});
-type ProviderDisconnectResult = Infer<typeof vProviderDisconnectResult>;
-
 function normalizeApiToken(token: string): string {
   const normalized = token.trim();
   if (!normalized) {
@@ -435,8 +430,8 @@ export const disconnectConvex = action({
   args: {
     organizationId: id("organizations"),
   },
-  returns: vProviderDisconnectResult,
-  handler: async (ctx, args): Promise<ProviderDisconnectResult> => {
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
     const organizationId = await ctx.runQuery(
       internal.organizationAccess.requireOrganizationOwnerIdForUser,
       { userId: ctx.viewer.userId, organizationId: args.organizationId },
@@ -446,14 +441,14 @@ export const disconnectConvex = action({
       { organizationId, userId: ctx.viewer.userId },
     );
     if (configuration.convexCredential === undefined) {
-      return { upstreamRevocation: "confirmed" };
+      return null;
     }
     await ctx.runMutation(internal.organizationProviderCredentials.disconnectConvex, {
       organizationId,
       disconnectedByUserId: ctx.viewer.userId,
       expectedAuth: configuration.convexCredential.auth,
     });
-    return { upstreamRevocation: "not_supported" };
+    return null;
   },
 });
 
@@ -827,8 +822,8 @@ export const disconnectCloudflare = action({
   args: {
     organizationId: id("organizations"),
   },
-  returns: vProviderDisconnectResult,
-  handler: async (ctx, args): Promise<ProviderDisconnectResult> => {
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
     const organizationId = await ctx.runQuery(
       internal.organizationAccess.requireOrganizationOwnerIdForUser,
       { userId: ctx.viewer.userId, organizationId: args.organizationId },
@@ -838,20 +833,14 @@ export const disconnectCloudflare = action({
       { organizationId, userId: ctx.viewer.userId },
     );
     if (configuration.cloudflareCredential === undefined) {
-      return { upstreamRevocation: "confirmed" as const };
+      return null;
     }
     await ctx.runMutation(internal.organizationProviderCredentials.disconnectCloudflare, {
       organizationId,
       disconnectedByUserId: ctx.viewer.userId,
       expectedAuth: configuration.cloudflareCredential.auth,
     });
-    const upstreamRevocation = await ctx.runAction(
-      internal.cloudflareOAuth.revokeCloudflareOAuthForOrganizationConnection,
-      {
-        expectedAuth: configuration.cloudflareCredential.auth,
-      },
-    );
-    return { upstreamRevocation };
+    return null;
   },
 });
 

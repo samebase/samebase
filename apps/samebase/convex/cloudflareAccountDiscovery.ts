@@ -113,19 +113,3 @@ export const listAccounts = internalAction({
     return await listCloudflareAccountsForToken({ ...args, perPage: 100 });
   },
 });
-
-export const resolveAccountForToken = internalAction({
-  args: {
-    token: v.string(),
-    transport: vCloudflareApiTransport,
-  },
-  returns: v.union(vCloudflareAccount, v.null()),
-  handler: async (_ctx, args) => {
-    const accounts = await listCloudflareAccountsForToken({
-      token: args.token,
-      transport: args.transport,
-      perPage: 2,
-    });
-    return selectSingleCloudflareAccount(accounts);
-  },
-});

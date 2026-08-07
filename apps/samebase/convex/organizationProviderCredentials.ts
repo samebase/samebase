@@ -16,6 +16,7 @@ import {
   vCloudflareProviderCredential,
   vCloudflareTokenRefreshLease,
   vConvexProviderCredential,
+  type ProviderOAuthStoreResult,
 } from "./organizationProviderCredentialModel";
 import {
   providerAuthMatches,
@@ -92,17 +93,12 @@ async function requireActiveOrganizationProviderOwner(
 
 export async function getOrganizationProviderCredentials(
   db: DatabaseReader,
-  organization: Doc<"organizations">,
+  organizationId: Id<"organizations">,
 ): Promise<Doc<"organizationProviderCredentials"> | null> {
-  if (organization.providerCredentialsId === undefined) {
-    return null;
-  }
-
-  const credentials = await db.get(organization.providerCredentialsId);
-  if (credentials === null) {
-    throw new Error("Organization provider credentials are invalid.");
-  }
-  return credentials;
+  return await db
+    .query("organizationProviderCredentials")
+    .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+    .unique();
 }
 
 export async function getOrganizationProviderConfiguration(
@@ -113,7 +109,7 @@ export async function getOrganizationProviderConfiguration(
   if (organization === null) {
     throw new Error("Organization not found.");
   }
-  const credentials = await getOrganizationProviderCredentials(db, organization);
+  const credentials = await getOrganizationProviderCredentials(db, organizationId);
   return {
     ...(organization.convexTeam ? { convexTeam: organization.convexTeam } : {}),
     ...(organization.cloudflareAccount
@@ -124,23 +120,29 @@ export async function getOrganizationProviderConfiguration(
   };
 }
 
-async function insertProviderCredentials(
-  ctx: Pick<MutationCtx, "db">,
-  args: {
-    organization: Doc<"organizations">;
-    convex?: Infer<typeof vConvexProviderCredential>;
-    cloudflare?: Infer<typeof vCloudflareProviderCredential>;
-  },
-): Promise<void> {
-  if (args.organization.providerCredentialsId !== undefined) {
-    throw new Error("Organization provider credentials already exist.");
+async function findActiveOrganizationProviderOwner(
+  db: DatabaseReader,
+  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
+): Promise<Doc<"organizations"> | null> {
+  const [user, organization, membership] = await Promise.all([
+    db.get(args.userId),
+    db.get(args.organizationId),
+    db
+      .query("organizationMemberships")
+      .withIndex("by_organization_and_user", (query) =>
+        query.eq("organizationId", args.organizationId).eq("userId", args.userId),
+      )
+      .unique(),
+  ]);
+  if (
+    user === null ||
+    user.accountDeletion !== undefined ||
+    organization === null ||
+    membership?.role !== "owner"
+  ) {
+    return null;
   }
-
-  const providerCredentialsId = await ctx.db.insert("organizationProviderCredentials", {
-    ...(args.convex ? { convex: args.convex } : {}),
-    ...(args.cloudflare ? { cloudflare: args.cloudflare } : {}),
-  });
-  await ctx.db.patch(args.organization._id, { providerCredentialsId });
+  return organization;
 }
 
 async function requireOAuthStateForCredentialWrite(
@@ -189,6 +191,18 @@ export const loadForOrganization = internalQuery({
   handler: async (ctx, args) => {
     await requireOrganizationAccessContext(ctx.db, args);
     return await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
+  },
+});
+
+/** Return only the provider target needed while a backend OAuth callback is in progress. */
+export const loadCloudflareAccountForOAuthCallback = internalQuery({
+  args: {
+    organizationId: id("organizations"),
+  },
+  returns: union(vOrganizationCloudflareAccount, vNull()),
+  handler: async (ctx, args) => {
+    const organization = await ctx.db.get(args.organizationId);
+    return organization?.cloudflareAccount ?? null;
   },
 });
 
@@ -268,31 +282,19 @@ export async function getProviderCredentialsByConnectedUser(
   ]);
   const credentials: ConnectedProviderCredential[] = [];
   for (const row of convexRows) {
-    const organization = await db
-      .query("organizations")
-      .withIndex("by_provider_credentials_id", (query) =>
-        query.eq("providerCredentialsId", row._id),
-      )
-      .unique();
-    if (row.convex !== undefined && organization !== null) {
+    if (row.convex !== undefined) {
       credentials.push({
         provider: "convex",
-        organizationId: organization._id,
+        organizationId: row.organizationId,
         credential: row.convex,
       });
     }
   }
   for (const row of cloudflareRows) {
-    const organization = await db
-      .query("organizations")
-      .withIndex("by_provider_credentials_id", (query) =>
-        query.eq("providerCredentialsId", row._id),
-      )
-      .unique();
-    if (row.cloudflare !== undefined && organization !== null) {
+    if (row.cloudflare !== undefined) {
       credentials.push({
         provider: "cloudflare",
-        organizationId: organization._id,
+        organizationId: row.organizationId,
         credential: row.cloudflare,
       });
     }
@@ -304,6 +306,113 @@ export async function getProviderCredentialsByConnectedUser(
         left.provider.localeCompare(right.provider),
     )
     .slice(0, args.limit);
+}
+
+async function resolveOrganizationForCredentialWrite(
+  ctx: Pick<MutationCtx, "db">,
+  args: {
+    organizationId: Id<"organizations">;
+    connectedByUserId: Id<"users">;
+    oauthState: Doc<"providerOAuthCallbackStates"> | null;
+  },
+): Promise<Doc<"organizations"> | null> {
+  if (args.oauthState === null) {
+    await requireActiveOrganizationProviderOwner(ctx.db, {
+      organizationId: args.organizationId,
+      userId: args.connectedByUserId,
+    });
+    const organization = await ctx.db.get(args.organizationId);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+    return organization;
+  }
+
+  const organization = await findActiveOrganizationProviderOwner(ctx.db, {
+    organizationId: args.organizationId,
+    userId: args.connectedByUserId,
+  });
+  if (organization === null) {
+    await ctx.db.delete(args.oauthState._id);
+  }
+  return organization;
+}
+
+type ConnectConvexCredentialArgs = {
+  organizationId: Id<"organizations">;
+  connectedByUserId: Id<"users">;
+  expectedProviderSnapshotHash: string;
+  auth: Infer<typeof vStandardProviderAuth>;
+  teamId: string;
+  teamSlug?: string;
+  oauthStateId?: Id<"providerOAuthCallbackStates">;
+  oauthState?: string;
+};
+
+/** Store Convex authorization after one atomic owner, state, and snapshot check. */
+export async function connectConvexCredential(
+  ctx: Pick<MutationCtx, "db">,
+  args: ConnectConvexCredentialArgs,
+): Promise<ProviderOAuthStoreResult> {
+  const oauthState = await requireOAuthStateForCredentialWrite(ctx, {
+    oauthStateId: args.oauthStateId,
+    oauthState: args.oauthState,
+    expectedProvider: args.auth.method === "oauth" ? "convex" : null,
+    organizationId: args.organizationId,
+    userId: args.connectedByUserId,
+    expectedProviderSnapshotHash: args.expectedProviderSnapshotHash,
+  });
+  const organization = await resolveOrganizationForCredentialWrite(ctx, {
+    organizationId: args.organizationId,
+    connectedByUserId: args.connectedByUserId,
+    oauthState,
+  });
+  if (organization === null) {
+    return { status: "access_lost" };
+  }
+
+  const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
+  const snapshotHash = await hashOrganizationProviderSnapshot({
+    provider: "convex",
+    teamId: organization.convexTeam?.teamId,
+    credential: credentials?.convex,
+  });
+  if (snapshotHash !== args.expectedProviderSnapshotHash) {
+    throw new Error("Convex configuration changed before authorization completed.");
+  }
+  if (organization.convexTeam !== undefined && organization.convexTeam.teamId !== args.teamId) {
+    throw new Error("Convex authorization does not match the configured team.");
+  }
+
+  const credential = {
+    auth: args.auth,
+    connectedByUserId: args.connectedByUserId,
+    updatedAt: Date.now(),
+  };
+  if (credentials === null) {
+    await ctx.db.insert("organizationProviderCredentials", {
+      organizationId: organization._id,
+      convex: credential,
+    });
+  } else {
+    await ctx.db.patch(credentials._id, { convex: credential });
+  }
+  if (organization.convexTeam === undefined) {
+    await ctx.db.patch(organization._id, {
+      convexTeam: {
+        teamId: args.teamId,
+        ...(args.teamSlug ? { teamSlug: args.teamSlug } : {}),
+      },
+    });
+  } else if (args.teamSlug && organization.convexTeam.teamSlug !== args.teamSlug) {
+    await ctx.db.patch(organization._id, {
+      convexTeam: { ...organization.convexTeam, teamSlug: args.teamSlug },
+    });
+  }
+  if (oauthState !== null) {
+    await ctx.db.delete(oauthState._id);
+  }
+  return { status: "stored" };
 }
 
 export const connectConvex = internalMutation({
@@ -319,63 +428,104 @@ export const connectConvex = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args) => {
-    await requireActiveOrganizationProviderOwner(ctx.db, {
-      organizationId: args.organizationId,
-      userId: args.connectedByUserId,
-    });
-    const organization = await ctx.db.get(args.organizationId);
-    if (organization === null) {
-      throw new Error("Organization not found.");
-    }
-    const oauthState = await requireOAuthStateForCredentialWrite(ctx, {
-      oauthStateId: args.oauthStateId,
-      oauthState: args.oauthState,
-      expectedProvider: args.auth.method === "oauth" ? "convex" : null,
-      organizationId: args.organizationId,
-      userId: args.connectedByUserId,
-      expectedProviderSnapshotHash: args.expectedProviderSnapshotHash,
-    });
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization);
-    const snapshotHash = await hashOrganizationProviderSnapshot({
-      provider: "convex",
-      teamId: organization.convexTeam?.teamId,
-      credential: credentials?.convex,
-    });
-    if (snapshotHash !== args.expectedProviderSnapshotHash) {
-      throw new Error("Convex configuration changed before authorization completed.");
-    }
-    if (organization.convexTeam !== undefined && organization.convexTeam.teamId !== args.teamId) {
-      throw new Error("Convex authorization does not match the configured team.");
-    }
-
-    const credential = {
-      auth: args.auth,
-      connectedByUserId: args.connectedByUserId,
-      updatedAt: Date.now(),
-    };
-    if (credentials === null) {
-      await insertProviderCredentials(ctx, { organization, convex: credential });
-    } else {
-      await ctx.db.patch(credentials._id, { convex: credential });
-    }
-    if (organization.convexTeam === undefined) {
-      await ctx.db.patch(organization._id, {
-        convexTeam: {
-          teamId: args.teamId,
-          ...(args.teamSlug ? { teamSlug: args.teamSlug } : {}),
-        },
-      });
-    } else if (args.teamSlug && organization.convexTeam.teamSlug !== args.teamSlug) {
-      await ctx.db.patch(organization._id, {
-        convexTeam: { ...organization.convexTeam, teamSlug: args.teamSlug },
-      });
-    }
-    if (oauthState !== null) {
-      await ctx.db.delete(oauthState._id);
-    }
+    await connectConvexCredential(ctx, args);
     return null;
   },
 });
+
+type ConnectCloudflareCredentialArgs = {
+  organizationId: Id<"organizations">;
+  connectedByUserId: Id<"users">;
+  expectedProviderSnapshotHash: string;
+  auth: Infer<typeof vCloudflareProviderAuth>;
+  account: CloudflareAuthorizedAccount;
+  tokenHealth?: Infer<typeof vMcpTokenHealth>;
+  oauthStateId?: Id<"providerOAuthCallbackStates">;
+  oauthState?: string;
+};
+
+/** Store Cloudflare authorization after one atomic owner, state, and snapshot check. */
+export async function connectCloudflareCredential(
+  ctx: Pick<MutationCtx, "db">,
+  args: ConnectCloudflareCredentialArgs,
+): Promise<ProviderOAuthStoreResult> {
+  const oauthState = await requireOAuthStateForCredentialWrite(ctx, {
+    oauthStateId: args.oauthStateId,
+    oauthState: args.oauthState,
+    expectedProvider:
+      args.auth.method === "oauth"
+        ? "cloudflare"
+        : args.auth.method === "mcp_oauth"
+          ? "cloudflare_mcp"
+          : null,
+    organizationId: args.organizationId,
+    userId: args.connectedByUserId,
+    expectedProviderSnapshotHash: args.expectedProviderSnapshotHash,
+  });
+  const organization = await resolveOrganizationForCredentialWrite(ctx, {
+    organizationId: args.organizationId,
+    connectedByUserId: args.connectedByUserId,
+    oauthState,
+  });
+  if (organization === null) {
+    return { status: "access_lost" };
+  }
+
+  const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
+  const snapshotHash = await hashOrganizationProviderSnapshot({
+    provider: "cloudflare",
+    accountId: organization.cloudflareAccount?.accountId,
+    credential: credentials?.cloudflare,
+  });
+  if (snapshotHash !== args.expectedProviderSnapshotHash) {
+    throw new Error("Cloudflare configuration changed before authorization completed.");
+  }
+  if (
+    organization.cloudflareAccount !== undefined &&
+    (args.account.state !== "selected" ||
+      args.account.accountId !== organization.cloudflareAccount.accountId)
+  ) {
+    throw new Error("Cloudflare authorization does not match the configured account.");
+  }
+
+  const credential = {
+    auth: args.auth,
+    connectedByUserId: args.connectedByUserId,
+    updatedAt: Date.now(),
+    ...(args.tokenHealth ? { tokenHealth: args.tokenHealth } : {}),
+  };
+  if (credentials === null) {
+    await ctx.db.insert("organizationProviderCredentials", {
+      organizationId: organization._id,
+      cloudflare: credential,
+    });
+  } else {
+    await ctx.db.patch(credentials._id, { cloudflare: credential });
+  }
+  if (organization.cloudflareAccount === undefined && args.account.state === "selected") {
+    await ctx.db.patch(organization._id, {
+      cloudflareAccount: {
+        accountId: args.account.accountId,
+        accountName: args.account.accountName,
+      },
+    });
+  } else if (
+    organization.cloudflareAccount !== undefined &&
+    args.account.state === "selected" &&
+    organization.cloudflareAccount.accountName !== args.account.accountName
+  ) {
+    await ctx.db.patch(organization._id, {
+      cloudflareAccount: {
+        accountId: organization.cloudflareAccount.accountId,
+        accountName: args.account.accountName,
+      },
+    });
+  }
+  if (oauthState !== null) {
+    await ctx.db.delete(oauthState._id);
+  }
+  return { status: "stored" };
+}
 
 export const connectCloudflare = internalMutation({
   args: {
@@ -390,77 +540,7 @@ export const connectCloudflare = internalMutation({
   },
   returns: vNull(),
   handler: async (ctx, args) => {
-    await requireActiveOrganizationProviderOwner(ctx.db, {
-      organizationId: args.organizationId,
-      userId: args.connectedByUserId,
-    });
-    const organization = await ctx.db.get(args.organizationId);
-    if (organization === null) {
-      throw new Error("Organization not found.");
-    }
-    const oauthState = await requireOAuthStateForCredentialWrite(ctx, {
-      oauthStateId: args.oauthStateId,
-      oauthState: args.oauthState,
-      expectedProvider:
-        args.auth.method === "oauth"
-          ? "cloudflare"
-          : args.auth.method === "mcp_oauth"
-            ? "cloudflare_mcp"
-            : null,
-      organizationId: args.organizationId,
-      userId: args.connectedByUserId,
-      expectedProviderSnapshotHash: args.expectedProviderSnapshotHash,
-    });
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization);
-    const snapshotHash = await hashOrganizationProviderSnapshot({
-      provider: "cloudflare",
-      accountId: organization.cloudflareAccount?.accountId,
-      credential: credentials?.cloudflare,
-    });
-    if (snapshotHash !== args.expectedProviderSnapshotHash) {
-      throw new Error("Cloudflare configuration changed before authorization completed.");
-    }
-    if (
-      organization.cloudflareAccount !== undefined &&
-      (args.account.state !== "selected" ||
-        args.account.accountId !== organization.cloudflareAccount.accountId)
-    ) {
-      throw new Error("Cloudflare authorization does not match the configured account.");
-    }
-
-    const credential = {
-      auth: args.auth,
-      connectedByUserId: args.connectedByUserId,
-      updatedAt: Date.now(),
-      ...(args.tokenHealth ? { tokenHealth: args.tokenHealth } : {}),
-    };
-    if (credentials === null) {
-      await insertProviderCredentials(ctx, { organization, cloudflare: credential });
-    } else {
-      await ctx.db.patch(credentials._id, { cloudflare: credential });
-    }
-    if (organization.cloudflareAccount === undefined && args.account.state === "selected") {
-      await ctx.db.patch(organization._id, {
-        cloudflareAccount: {
-          accountId: args.account.accountId,
-          accountName: args.account.accountName,
-        },
-      });
-    } else if (
-      organization.cloudflareAccount !== undefined &&
-      args.account.state === "selected" &&
-      organization.cloudflareAccount.accountName !== args.account.accountName
-    ) {
-      await ctx.db.patch(organization._id, {
-        cloudflareAccount: {
-          accountId: organization.cloudflareAccount.accountId,
-          accountName: args.account.accountName,
-        },
-      });
-    }
-    if (oauthState !== null) {
-      await ctx.db.delete(oauthState._id);
-    }
+    await connectCloudflareCredential(ctx, args);
     return null;
   },
 });
@@ -483,7 +563,7 @@ export const selectCloudflareAccount = internalMutation({
     if (organization.cloudflareAccount !== undefined) {
       throw new Error("Cloudflare account is already configured.");
     }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization);
+    const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
     if (
       credentials?.cloudflare === undefined ||
       !providerAuthMatches(credentials.cloudflare.auth, args.expectedAuth)
@@ -512,7 +592,7 @@ export const setConvexTeamSlug = internalMutation({
     if (organization?.convexTeam?.teamId !== args.teamId) {
       throw new Error("Convex team changed before team slug update.");
     }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization);
+    const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
     if (
       credentials?.convex === undefined ||
       !providerAuthMatches(credentials.convex.auth, args.expectedAuth)
@@ -544,7 +624,7 @@ export const replaceCloudflareCredential = internalMutation({
     if (organization === null) {
       throw new Error("Organization not found.");
     }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization);
+    const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
     if (credentials?.cloudflare === undefined) {
       throw new Error("Cloudflare credential not found.");
     }
@@ -590,14 +670,18 @@ export const disconnectConvex = internalMutation({
     if (organization === null) {
       throw new Error("Organization not found.");
     }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization);
+    const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
     if (credentials?.convex === undefined) {
       return null;
     }
     if (!providerAuthMatches(credentials.convex.auth, args.expectedAuth)) {
       throw new Error("Convex credential changed before disconnect completed.");
     }
-    await ctx.db.patch(credentials._id, { convex: undefined });
+    if (credentials.cloudflare === undefined) {
+      await ctx.db.delete(credentials._id);
+    } else {
+      await ctx.db.patch(credentials._id, { convex: undefined });
+    }
     return null;
   },
 });
@@ -618,14 +702,18 @@ export const disconnectCloudflare = internalMutation({
     if (organization === null) {
       throw new Error("Organization not found.");
     }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization);
+    const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
     if (credentials?.cloudflare === undefined) {
       return null;
     }
     if (!providerAuthMatches(credentials.cloudflare.auth, args.expectedAuth)) {
       throw new Error("Cloudflare credential changed before disconnect completed.");
     }
-    await ctx.db.patch(credentials._id, { cloudflare: undefined });
+    if (credentials.convex === undefined) {
+      await ctx.db.delete(credentials._id);
+    } else {
+      await ctx.db.patch(credentials._id, { cloudflare: undefined });
+    }
     return null;
   },
 });
@@ -654,7 +742,7 @@ export const claimCloudflareTokenRefresh = internalMutation({
     if (organization === null) {
       throw new Error("Organization not found.");
     }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization);
+    const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
     const credential = credentials?.cloudflare;
     if (credentials === null || credential === undefined) {
       return { claimed: false as const };
@@ -717,7 +805,7 @@ export const releaseCloudflareTokenRefresh = internalMutation({
     if (organization === null) {
       throw new Error("Organization not found.");
     }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization);
+    const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
     const credential = credentials?.cloudflare;
     if (credentials === null || credential === undefined) {
       return {};

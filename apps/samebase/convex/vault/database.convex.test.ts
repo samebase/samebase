@@ -51,10 +51,10 @@ async function seedDatabaseEditorVault(
       },
     });
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
-    const providerCredentialsId = await ctx.db.insert("organizationProviderCredentials", {
+    await ctx.db.insert("organizationProviderCredentials", {
+      organizationId,
       convex: { connectedByUserId: userId, auth: convexAuth, updatedAt: 2 },
     });
-    await ctx.db.patch(organizationId, { providerCredentialsId });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       convexTeamId: "1000",

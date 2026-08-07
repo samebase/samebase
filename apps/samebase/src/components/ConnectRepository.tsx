@@ -105,15 +105,13 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
   const listRepositoriesPreview = useAction(api.github.listRepositoriesPreview);
   const listRepositories = useAction(api.github.listRepositories);
   const connectRepository = useAction(api.vault.actions.connectRepository);
-  const selectedOrganizationId = organization.organizationId;
-  const convexConnection = useConvexQuery(
-    api.users.getConvexConnectionStatus,
-    { organizationId: selectedOrganizationId },
-  );
-  const cloudflareConnection = useConvexQuery(
-    api.users.getCloudflareConnectionStatus,
-    { organizationId: selectedOrganizationId },
-  );
+  const organizationId = organization.organizationId;
+  const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus, {
+    organizationId,
+  });
+  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
+    organizationId,
+  });
   const providerDestinationsLoaded =
     convexConnection !== undefined && cloudflareConnection !== undefined;
   const canConnectRepositories = Boolean(
@@ -130,8 +128,8 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
     isLoading: previewLoading,
     error: previewQueryError,
   } = useReactQuery({
-    queryKey: ["github-repositories-preview", selectedOrganizationId],
-    queryFn: async () => await listRepositoriesPreview({ organizationId: selectedOrganizationId }),
+    queryKey: ["github-repositories-preview", organizationId],
+    queryFn: async () => await listRepositoriesPreview({ organizationId }),
   });
 
   // Keep the fast preview and the full discovery scan separate so /connect-repo can
@@ -143,8 +141,8 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
     fetchStatus: fullRepositoriesFetchStatus,
     isFetchedAfterMount: fullRepositoriesFetchedAfterMount,
   } = useReactQuery({
-    queryKey: ["github-repositories", selectedOrganizationId],
-    queryFn: async () => await listRepositories({ organizationId: selectedOrganizationId }),
+    queryKey: ["github-repositories", organizationId],
+    queryFn: async () => await listRepositories({ organizationId }),
     enabled: repositoryPreview?.hasMore === true,
   });
 
@@ -224,7 +222,7 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
         await queueExistingRepositoryAndNavigateToDashboard({
           connectRepository: async (args) => {
             return await connectRepository({
-              organizationId: selectedOrganizationId,
+              organizationId,
               repositoryFullName: args.repositoryFullName,
             });
           },
@@ -306,8 +304,7 @@ export function ConnectRepositoryPageContent({
 
       {providerDestinationsLoaded && !canConnectRepositories ? (
         <div className="mb-4 max-w-md text-sm text-muted-foreground">
-          Choose a Convex team and a Cloudflare account in Providers before connecting a
-          repository.
+          Choose a Convex team and a Cloudflare account in Providers before connecting a repository.
         </div>
       ) : null}
       <div className="mb-6 flex-shrink-0">

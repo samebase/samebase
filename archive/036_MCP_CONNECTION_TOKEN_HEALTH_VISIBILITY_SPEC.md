@@ -2,14 +2,16 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded
 - Owner: Noter platform
-- Last updated: 2026-03-04
+- Last updated: 2026-08-07
+- Superseded by: `specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md` and
+  `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
 - Related specs:
-  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `specs/029_PROVIDERS_PANEL_SETTINGS_SPEC.md`
-  - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
-  - `rfcs/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
+  - `archive/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
+  - `archive/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md`
 
 ## Summary
 

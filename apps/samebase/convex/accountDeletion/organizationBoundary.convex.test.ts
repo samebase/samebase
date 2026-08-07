@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
-import { readUrlSearchParamsRecord } from "../../shared/urlSearchParams";
 
 const workflowId = "account-deletion-organization-boundary";
 
@@ -106,6 +105,7 @@ async function seedRunningDeletion() {
     const organizationProviderCredentialsId = await ctx.db.insert(
       "organizationProviderCredentials",
       {
+        organizationId,
         convex: {
           connectedByUserId: deletingUserId,
           auth: { method: "oauth", credential: "convex-token" },
@@ -124,10 +124,10 @@ async function seedRunningDeletion() {
       },
     );
     await ctx.db.patch(organizationId, {
-      providerCredentialsId: organizationProviderCredentialsId,
       convexTeam: { teamId: "convex-team" },
     });
     const teammateProviderCredentialsId = await ctx.db.insert("organizationProviderCredentials", {
+      organizationId: teammateOrganizationId,
       convex: {
         connectedByUserId: teammateUserId,
         auth: { method: "api_key", credential: "teammate-token" },
@@ -135,7 +135,6 @@ async function seedRunningDeletion() {
       },
     });
     await ctx.db.patch(teammateOrganizationId, {
-      providerCredentialsId: teammateProviderCredentialsId,
       convexTeam: { teamId: "teammate-team" },
     });
     await ctx.db.insert("providerOAuthCallbackStates", {
@@ -464,17 +463,15 @@ describe("account deletion organization boundary", () => {
       run: await ctx.db.get(ids.runId),
     }));
 
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(fetch).not.toHaveBeenCalled();
     expect(snapshot.deletingUser).toBeNull();
     expect(snapshot.organizationBilling).not.toBeNull();
     expect(snapshot.vault).not.toBeNull();
     expect(snapshot.stagedFile).not.toBeNull();
     expect(snapshot.organization).toMatchObject({
       convexTeam: { teamId: "convex-team" },
-      providerCredentialsId: ids.organizationProviderCredentialsId,
     });
-    expect(snapshot.organizationProviderCredentials?.convex).toBeUndefined();
-    expect(snapshot.organizationProviderCredentials?.cloudflare).toBeUndefined();
+    expect(snapshot.organizationProviderCredentials).toBeNull();
     expect(snapshot.teammateProviderCredentials).not.toBeNull();
     expect(snapshot.memberships).toEqual([expect.objectContaining({ userId: ids.teammateUserId })]);
     expect(snapshot.oauthState).toBeNull();
@@ -538,104 +535,56 @@ describe("account deletion organization boundary", () => {
     expect(stagedFile.lastEditUserId).toBe(ids.teammateUserId);
   });
 
-  it("removes local Cloudflare access when remote revocation fails", async () => {
-    const { ids, t } = await seedRunningDeletion();
-    vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
-    vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => new Response(null, { status: 503 })),
-    );
-
-    await t.mutation(internal.accountDeletion.workflow.startProviderRevocation, {
-      runId: ids.runId,
-      workflowId,
-    });
-    await expect(
-      t.action(internal.accountDeletion.providerActions.revokeConnectionBatch, {
-        runId: ids.runId,
-        workflowId,
-      }),
-    ).resolves.toEqual({ done: true, convexManualRevocationRequired: true });
-
-    const snapshot = await t.run(async (ctx) => {
-      return {
-        credentials: await ctx.db.get(ids.organizationProviderCredentialsId),
-        run: await ctx.db.get(ids.runId),
-      };
-    });
-    expect(snapshot.credentials?.cloudflare).toBeUndefined();
-    expect(snapshot.run?.outcomes.providerRevocation).toEqual({
-      state: "in_progress",
-      convexManualRevocationRequired: true,
-    });
-  });
-
-  it("reloads and revokes refreshed Cloudflare auth before deletion", async () => {
-    const { ids, t } = await seedRunningDeletion();
-    vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
-    vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
-    const revokedRefreshTokens: string[] = [];
-    const fetch = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
-      if (typeof init?.body !== "string") {
-        throw new Error("Expected a form-encoded revocation request body.");
-      }
-      const refreshToken = readUrlSearchParamsRecord(init.body)["token"];
-      if (typeof refreshToken !== "string") {
-        throw new Error("Expected a refresh token in the revocation request.");
-      }
-      revokedRefreshTokens.push(refreshToken);
-      if (revokedRefreshTokens.length === 1) {
+  it.each(["oauth", "mcp_oauth"] as const)(
+    "removes local Cloudflare $method access without an upstream request",
+    async (cloudflareAuthMethod) => {
+      const { ids, t } = await seedRunningDeletion();
+      if (cloudflareAuthMethod === "mcp_oauth") {
         await t.run(async (ctx) => {
-          await ctx.db.patch(ids.organizationProviderCredentialsId, {
+          const credentials = await ctx.db.get(ids.organizationProviderCredentialsId);
+          if (credentials?.cloudflare === undefined) {
+            throw new Error("Expected Cloudflare credentials.");
+          }
+          await ctx.db.patch(credentials._id, {
             cloudflare: {
-              connectedByUserId: ids.deletingUserId,
+              ...credentials.cloudflare,
               auth: {
-                method: "oauth",
-                credential: "refreshed-access-token",
-                refreshCredential: "refreshed-refresh-token",
+                method: "mcp_oauth",
+                credential: "cloudflare-mcp-access-token",
+                refreshCredential: "cloudflare-mcp-refresh-token",
                 credentialExpiresAt: 2_000_000_000_000,
+                clientId: "cloudflare-mcp-client",
               },
-              updatedAt: 2,
             },
           });
         });
       }
-      return new Response(null, { status: 204 });
-    });
-    vi.stubGlobal("fetch", fetch);
+      const fetch = vi.fn();
+      vi.stubGlobal("fetch", fetch);
 
-    await t.mutation(internal.accountDeletion.workflow.startProviderRevocation, {
-      runId: ids.runId,
-      workflowId,
-    });
-    await expect(
-      t.action(internal.accountDeletion.providerActions.revokeConnectionBatch, {
+      await t.mutation(internal.accountDeletion.workflow.startProviderRevocation, {
         runId: ids.runId,
         workflowId,
-      }),
-    ).resolves.toEqual({ done: false, convexManualRevocationRequired: true });
-    await expect(
-      t.run(async (ctx) => await ctx.db.get(ids.organizationProviderCredentialsId)),
-    ).resolves.toMatchObject({
-      cloudflare: {
-        auth: {
-          credential: "refreshed-access-token",
-          refreshCredential: "refreshed-refresh-token",
-        },
-      },
-    });
-    await expect(
-      t.action(internal.accountDeletion.providerActions.revokeConnectionBatch, {
-        runId: ids.runId,
-        workflowId,
-      }),
-    ).resolves.toEqual({ done: true, convexManualRevocationRequired: false });
+      });
+      await expect(
+        t.action(internal.accountDeletion.providerActions.revokeConnectionBatch, {
+          runId: ids.runId,
+          workflowId,
+        }),
+      ).resolves.toEqual({ done: true, convexManualRevocationRequired: true });
 
-    expect(revokedRefreshTokens).toEqual(["cloudflare-refresh-token", "refreshed-refresh-token"]);
-    const remainingCredentials = await t.run(
-      async (ctx) => await ctx.db.get(ids.organizationProviderCredentialsId),
-    );
-    expect(remainingCredentials?.cloudflare).toBeUndefined();
-  });
+      const snapshot = await t.run(async (ctx) => {
+        return {
+          credentials: await ctx.db.get(ids.organizationProviderCredentialsId),
+          run: await ctx.db.get(ids.runId),
+        };
+      });
+      expect(fetch).not.toHaveBeenCalled();
+      expect(snapshot.credentials).toBeNull();
+      expect(snapshot.run?.outcomes.providerRevocation).toEqual({
+        state: "in_progress",
+        convexManualRevocationRequired: true,
+      });
+    },
+  );
 });

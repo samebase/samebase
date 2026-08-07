@@ -36,6 +36,23 @@ describe("GitHub-backed organizations", () => {
       githubOwnerLogin: "Samebase",
       githubInstallationId: "1001",
     });
+    const providerCredentialsId = await t.run(async (ctx) => {
+      await ctx.db.patch(created.organizationId, {
+        cloudflareAccount: {
+          accountId: "cloudflare-account",
+          accountName: "Cloudflare account",
+        },
+        convexTeam: { teamId: "convex-team", teamSlug: "convex-slug" },
+      });
+      return await ctx.db.insert("organizationProviderCredentials", {
+        organizationId: created.organizationId,
+        convex: {
+          auth: { method: "api_key", credential: "convex-credential" },
+          connectedByUserId: userId,
+          updatedAt: 1,
+        },
+      });
+    });
     const reconnected = await t.mutation(
       internal.organizations.createOrReconnectVerifiedOrganization,
       {
@@ -58,15 +75,28 @@ describe("GitHub-backed organizations", () => {
         organizations: await ctx.db.query("organizations").collect(),
         memberships: await ctx.db.query("organizationMemberships").collect(),
         billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
+        providerCredentials: await ctx.db.get(providerCredentialsId),
       };
     });
 
     expect(snapshot.organizations).toHaveLength(1);
     expect(snapshot.organizations[0]).toMatchObject({
+      cloudflareAccount: {
+        accountId: "cloudflare-account",
+        accountName: "Cloudflare account",
+      },
+      convexTeam: { teamId: "convex-team", teamSlug: "convex-slug" },
       githubOwnerId: "101",
       githubOwnerLogin: "Samebase-Renamed",
       githubOwnerLoginNormalized: "samebase-renamed",
       githubInstallationId: "1002",
+    });
+    expect(snapshot.providerCredentials).toMatchObject({
+      organizationId: created.organizationId,
+      convex: {
+        auth: { method: "api_key", credential: "convex-credential" },
+        connectedByUserId: userId,
+      },
     });
     expect(snapshot.memberships).toHaveLength(1);
     expect(snapshot.memberships[0]).toMatchObject({

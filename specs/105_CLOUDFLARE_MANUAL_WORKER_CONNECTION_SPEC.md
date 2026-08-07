@@ -4,9 +4,10 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-07-30
+- Last updated: 2026-08-07
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
 
 ## Current Contract
@@ -18,8 +19,8 @@ credential connection and separate from deployment configuration.
 
 ```ts
 {
+  organizationId;
   vaultId;
-  userId;
   accountId;
   workerName;
   workerTag;
@@ -29,17 +30,22 @@ credential connection and separate from deployment configuration.
 
 Convex `_creationTime` records when the attachment was created.
 
+`organizationId` must equal the parent vault's organization. `accountId` must equal the parent
+vault's required `cloudflareAccountId`. Provider reads and writes load the organization's current
+Cloudflare credential and fail closed if it is absent or cannot access that exact account. This flow
+does not select or change the organization's Cloudflare account.
+
 Worker existence, workers.dev URLs, GitHub repository connection, build triggers, root directory,
 and Convex build variables are current Cloudflare observations. They are not mirrored into the
 attachment.
 
 ### Existing Worker flow
 
-`/vault/<org>/<repo>?add-cloudflare` opens one vault-level dialog.
+`/vault/<owner>/<repo>?add-cloudflare` opens one vault-level dialog.
 
-1. The user selects a Cloudflare account.
-2. Samebase reads the complete Worker inventory. If only legacy inventory is available, the scan is
-   explicitly partial and cannot support a negative conclusion.
+1. Samebase loads the vault's `cloudflareAccountId` and the organization's current credential.
+2. Samebase reads the complete Worker inventory for that account. If only legacy inventory is
+   available, the scan is explicitly partial and cannot support a negative conclusion.
 3. For each Worker, Samebase reads Workers Builds triggers and requires GitHub provider type plus an
    exact match to the vault's immutable GitHub repository ID for direct selection. A Worker with no
    active trigger is observed separately from a Worker connected to another repository.
@@ -87,6 +93,9 @@ reports the ambiguous external state and does not delete the Worker automaticall
 An exact account and Worker identity can be attached to only one vault. Idempotent confirmation for
 the same vault preserves the attachment ID and only upgrades `origin` from `selected_existing` to
 `provisioned` when a managed operation proves ownership.
+
+The attachment's organization and account never change. A Cloudflare account change is an
+organization destination reset, which is unavailable while any vault remains in that organization.
 
 Managed cleanup may delete only `provisioned` Workers. Removing an attachment selected as existing
 never deletes the Cloudflare Worker.
@@ -141,14 +150,17 @@ uses the normal action for that state:
 - Persisting Worker root, trigger, URL, marker, or deploy-key state.
 - Inferring a Worker placement from repository folders.
 - Attaching Workers from a different GitHub repository.
+- Selecting or changing a Cloudflare account in a vault flow.
 - Automatically deleting Workers or attachments after a provider read.
 
 ## Validation
 
 - Provider tests cover pagination beyond 100 Workers, partial fallback, zero-trigger Workers,
-  different-repository Workers, provider type, exact repo identity, ambiguous roots,
-  production/preview disagreement, and marker disagreement.
-- Mutation tests cover atomic batches, global identity conflicts, idempotency, and origin upgrade.
+  different-repository Workers, provider type, exact repo identity, exact vault account, missing or
+  mismatched organization credentials, ambiguous roots, production/preview disagreement, and marker
+  disagreement.
+- Mutation tests cover organization and account destination checks, atomic batches, global identity
+  conflicts, idempotency, and origin upgrade.
 - Operation tests cover the Cloudflare action mapping and the normal next action after a failed or
   silent provider action.
 - Write-time tests prove that Cloudflare-only actions update only Cloudflare and deploy-key rotation

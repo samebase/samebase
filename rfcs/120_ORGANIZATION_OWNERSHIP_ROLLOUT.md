@@ -34,7 +34,7 @@ review transcripts, or a per-commit journal.
   current personal GitHub authorization.
 - Convex and Cloudflare destinations and credentials are organization-owned. During beta, each
   organization has at most one Convex team and one Cloudflare account. This is a product limit, not
-  organization identity. `rfcs/121_PROVIDER_CONNECTION_MODEL.md` owns its rollout.
+  organization identity. `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md` owns its rollout.
 - Vaults and long-lived Convex and Cloudflare resource rows use stable external team, project,
   account, and Worker IDs. They do not depend on a replaceable credential document ID.
 - Persistent provisioning plans and deletion retry snapshots also use external provider resource

@@ -65,20 +65,8 @@ function buildSchemaGraphState(): VaultConvexSchemaGraphState {
             name: "organizations",
             source: "declared",
             documentCount: 6,
-            indexes: [
-              {
-                name: "by_provider_credentials_id",
-                fields: ["providerCredentialsId"],
-              },
-            ],
+            indexes: [],
             fields: [
-              {
-                path: "providerCredentialsId",
-                kind: "Id<organizationProviderCredentials>",
-                optional: true,
-                source: "declared",
-                targetTable: "organizationProviderCredentials",
-              },
               {
                 path: "githubOwnerLogin",
                 kind: "string",
@@ -93,11 +81,22 @@ function buildSchemaGraphState(): VaultConvexSchemaGraphState {
             documentCount: 6,
             indexes: [
               {
+                name: "by_organization",
+                fields: ["organizationId"],
+              },
+              {
                 name: "by_convex_connected_by_user",
                 fields: ["convex.connectedByUserId"],
               },
             ],
             fields: [
+              {
+                path: "organizationId",
+                kind: "Id<organizations>",
+                optional: false,
+                source: "declared",
+                targetTable: "organizations",
+              },
               {
                 path: "convex.connectedByUserId",
                 kind: "Id<users>",
@@ -189,10 +188,10 @@ function buildSchemaGraphState(): VaultConvexSchemaGraphState {
         ],
         relationships: [
           {
-            id: "declared:organizations:providerCredentialsId:organizationProviderCredentials",
-            fromTable: "organizations",
-            fromField: "providerCredentialsId",
-            toTable: "organizationProviderCredentials",
+            id: "declared:organizationProviderCredentials:organizationId:organizations",
+            fromTable: "organizationProviderCredentials",
+            fromField: "organizationId",
+            toTable: "organizations",
             source: "declared",
           },
           {

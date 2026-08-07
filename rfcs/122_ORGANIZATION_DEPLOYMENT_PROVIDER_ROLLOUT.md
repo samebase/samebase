@@ -1,4 +1,4 @@
-# 121 Organization Deployment Provider Rollout
+# 122 Organization Deployment Provider Rollout
 
 ## Document Control
 
@@ -8,6 +8,7 @@
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Evidence: `research/2026-08-06-provider-connection-authorization-audit.md`
 - Replaces: the temporary multi-row provider model in `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
+- Supersedes: `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
 
 ## Decision
 
@@ -47,19 +48,19 @@ cloudflareAccount?: {
   accountId: string
   accountName: string
 }
-
-providerCredentialsId?: Id<"organizationProviderCredentials">
 ```
 
-The nested objects prevent a display name without its stable ID. The organization creates
-`providerCredentialsId` on the first provider connection and never changes it. An empty credential
-document is valid and remains after Disconnect.
+The nested objects prevent a display name without its stable ID. An organization stores no
+credential row ID. The backend finds credentials through the credential row's required
+`organizationId`.
 
 ### `organizationProviderCredentials`
 
 One backend-only document contains the organization's current provider credentials:
 
 ```text
+organizationId: Id<"organizations">
+
 convex?: {
   auth: ConvexProviderAuth
   connectedByUserId: Id<"users">
@@ -79,8 +80,13 @@ cloudflare?: {
 }
 ```
 
-The table has indexes on each nested `connectedByUserId`. No client accepts or returns
-`providerCredentialsId`. Backend functions load it from the authorized organization.
+`organizationId` is required and immutable. Every document has at least one credential slot. One
+organization has zero or one `organizationProviderCredentials` document, and no two documents can
+name the same organization. The first provider connection creates the document. Disconnect deletes
+the document when it clears the last credential slot. The table has `by_organization`,
+`by_convex_connected_by_user`, and `by_cloudflare_connected_by_user` indexes. Backend functions
+query `by_organization` with a unique result after they authorize the organization. Provider writes
+preserve the zero-or-one-row invariant. No client accepts or returns the credential document ID.
 
 `connectedByUserId` is credential provenance. It does not authorize use. The active organization
 membership and operation permission authorize use.
@@ -135,36 +141,39 @@ without an account only during first account selection.
 
 ## Lifecycle
 
-| Event                        | Exact result                                                                                                                                                      |
-| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| First Convex connect         | Verify the team, then set `convexTeam` and the Convex credential in one mutation.                                                                                 |
-| First Cloudflare OAuth       | Store the credential. Set the account when exactly one account is available. Otherwise require owner account selection.                                           |
-| Cloudflare account selection | Verify access with the current credential, then set the first `cloudflareAccount`. It cannot replace an existing account.                                         |
-| Reauthorization              | Verify the retained team or account, then replace the credential, `connectedByUserId`, and `updatedAt`. A different external ID fails.                            |
-| Another owner takes over     | Run same-destination reauthorization. The new credential and `connectedByUserId` replace the old values.                                                          |
-| Disconnect                   | Clear the local credential and retain the destination, vaults, and provider resources. Attempt supported upstream revocation and report when it is not confirmed. |
-| Destination reset            | Require the credential to be disconnected and no row in `vaults.by_organization`. Clear only the destination. A later fresh connect can establish another.        |
-| Membership departure         | Keep the credential and destination.                                                                                                                              |
-| Connector account deletion   | Clear only credentials whose current `connectedByUserId` is the deleting user. Keep destinations and resources. Do not block deletion for replacement.            |
-| Upstream revoke or expiry    | Fail provider work closed. Keep local destinations and resource identities. An owner reconnects the same destination.                                             |
+| Event                        | Exact result                                                                                                                                                                              |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First Convex connect         | Verify the team, then set `convexTeam` and the Convex credential in one mutation.                                                                                                         |
+| First Cloudflare OAuth       | List accessible accounts. Store neither fact when none exist. Store the credential and account when one exists. Store only the credential and require owner selection when several exist. |
+| Cloudflare account selection | Verify access with the current credential, then set the first `cloudflareAccount`. It cannot replace an existing account.                                                                 |
+| Reauthorization              | Verify the retained team or account, then replace the credential, `connectedByUserId`, and `updatedAt`. A different external ID fails.                                                    |
+| Another owner takes over     | Run same-destination reauthorization. The new credential and `connectedByUserId` replace the old values.                                                                                  |
+| Disconnect                   | Clear only the local credential. Retain the destination, vaults, and provider resources. Tell the owner how to revoke upstream access manually.                                           |
+| Destination reset            | Require the credential to be disconnected and no row in `vaults.by_organization`. Clear only the destination. A later fresh connect can establish another.                                |
+| Membership departure         | Keep the credential and destination.                                                                                                                                                      |
+| Connector account deletion   | Clear only credentials whose current `connectedByUserId` is the deleting user. Keep destinations and resources. Do not block deletion for replacement.                                    |
+| Upstream revoke or expiry    | Fail provider work closed. Keep local destinations and resource identities. An owner reconnects the same destination.                                                                     |
 
-Destination reset requires Disconnect first so Samebase can try upstream revocation while it still
-has the credential. Reset then needs one indexed vault existence check. It does not scan
-provisioning plans, locks, resources, or deletion runs because all of those rows belong to a vault.
-The current slice adds no reset endpoint or UI because there is no present target-change use case.
+Destination reset requires Disconnect first so provider work cannot start during the reset. Reset
+then needs one indexed vault existence check. It does not scan provisioning plans, locks, resources,
+or deletion runs because all of those rows belong to a vault. Manual upstream revocation is
+independent from the local reset. The current slice adds no reset endpoint or UI because there is no
+present target-change use case.
 
 ## Cloudflare OAuth Account Selection
 
-Direct Cloudflare OAuth can authorize several accounts. Samebase connects the credential first, but
-the product binds the organization to one exact account.
+Direct Cloudflare OAuth can authorize several accounts. The credential grant and the deployment
+account are separate facts, but the product binds the organization to one exact account.
 
 During first setup:
 
-1. Store the backend-only OAuth credential.
-2. List the accounts that the grant can access.
-3. If there is one account, store it on the organization.
-4. If there are several accounts, let an owner select one.
-5. If there are no accounts, do not establish a destination.
+1. Exchange the OAuth code in a backend-only function and list the accounts that the grant can
+   access.
+2. If there are no accounts, store neither the credential nor a destination.
+3. If there is one account, store the credential and account in one mutation.
+4. If there are several accounts, store the credential and let an owner select one.
+5. Account selection verifies access with the current credential, then stores the first
+   `cloudflareAccount`.
 
 After an account exists, OAuth reconnect must prove access to that account. It cannot open account
 selection or change the account.
@@ -192,12 +201,16 @@ the exact lease authorizes completion even if that member leaves. Refresh preser
 
 OAuth callback state stores one hash of the current provider destination and credential snapshot. It
 stores no raw credential. The final credential mutation verifies the exact unexpired callback row,
-deletes it, and writes the credential atomically. It rejects a reused state or changed snapshot.
+deletes it, and writes the credential atomically. It rejects a reused state or changed snapshot. If
+Cloudflare exchanges a code but Samebase cannot store the result, Samebase does not revoke the grant
+automatically. Cloudflare can return a grant that is also current for another connection, so
+automatic cleanup could revoke valid access. The owner manages upstream access in Cloudflare
+Connected Applications.
 
 ## UI
 
-The provider page shows one Convex row and one Cloudflare row. It has no list, selected badge,
-default control, or failover control.
+`/org/<owner>/providers` shows one Convex row and one Cloudflare row for the route organization. It
+has no list, owner picker, selected badge, default control, or failover control.
 
 Use these truthful conditions:
 
@@ -209,11 +222,12 @@ Use these truthful conditions:
 - `Select the Cloudflare account for this organization.`
 
 Owners see Connect, Reconnect, Disconnect, and first-account selection. Members can use connected
-credentials but cannot manage them.
+credentials but cannot manage them. After Disconnect, the page confirms that Samebase removed its
+local credential and tells the owner to revoke upstream access manually if needed.
 
-App creation has no provider selector. It shows the one Convex team and Cloudflare account. It
-blocks when a destination or credential is missing. The existing-repository flow also requires both
-destinations because the resulting vault must have stable provider IDs.
+`/org/<owner>/new-app` has no provider selector. It shows the one Convex team and Cloudflare
+account. It blocks when a destination or credential is missing. `/org/<owner>/connect-repo` also
+requires both destinations because the resulting vault must have stable provider IDs.
 
 ## Why Not A More Flexible Model
 
@@ -234,16 +248,25 @@ This is a pre-beta narrow deployment. Backward compatibility is not required.
 
 Before the final schema deploy:
 
-1. Delete all vaults through the current product flow.
-2. Verify that vaults, attached provider resources, provisioning plans and locks, and active vault
-   deletion work are empty.
-3. Revoke or clear current provider credentials.
-4. Clear `providerConnections`, `providerOAuthCallbackStates`, and both selected connection IDs.
-5. Verify that every removed table and field is empty.
+1. Confirm the exact Convex deployment that will receive the schema.
+2. If the organization-scoped folder schema from Spec 121 is not on that deployment, delete legacy
+   `ui_vaultFolderAssignments` rows first and legacy `ui_vaultFolders` rows second. Confirm that no
+   retained folder or assignment row lacks `organizationId`.
+3. While the current provider credentials still work, delete all vaults through the product.
+4. Confirm that `vaults`, `vaultConvexProjects`, `vaultCloudflareWorkers`,
+   `workflow_vaultProvisioning_plans`, `workflow_vaultProvisioning_writeLocks`, active
+   `workflow_vaultDeletion_runs`, and `ui_vaultFolderAssignments` for removed vaults are empty.
+5. Record the manual Convex and Cloudflare revocation steps. Do not call an upstream revocation
+   endpoint as part of the reset.
+6. Clear `providerConnections`, `providerOAuthCallbackStates`,
+   `organizations.selectedConvexProviderConnectionId`, and
+   `organizations.selectedCloudflareProviderConnectionId`.
+7. Deploy the final schema.
+8. Reconnect Convex and Cloudflare, then recreate the vaults.
 
-Then deploy the final schema in one change. New organization provider fields are optional, so
-existing organization rows need no backfill. After deployment, reconnect both providers and create
-the vaults again.
+New organization provider fields are optional, so existing organization rows need no backfill.
+Preserve organizations, memberships, billing rows, and valid organization-scoped empty folders. The
+folder gate and the provider reset can use one maintenance window, but they are independent checks.
 
 Do not run the production reset as an automatic migration. The operator must choose its time and
 confirm the exact rows before the destructive step.

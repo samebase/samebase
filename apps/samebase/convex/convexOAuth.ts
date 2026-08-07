@@ -5,10 +5,8 @@ import { z } from "zod";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { mutation } from "./functions";
-import {
-  findOrganizationMembership,
-  requireOrganizationOwnerAccessContext,
-} from "./organizationAccess";
+import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
+import { connectConvexCredential } from "./organizationProviderCredentials";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import {
   createCodeChallenge,
@@ -188,16 +186,7 @@ export const storeConvexOauthTokens = internalMutation({
   },
   returns: vProviderOAuthStoreResult,
   handler: async (ctx, args) => {
-    const membership = await findOrganizationMembership(ctx.db, {
-      userId: args.connectedByUserId,
-      organizationId: args.organizationId,
-    });
-    if (membership?.role !== "owner") {
-      await ctx.db.delete(args.oauthStateId);
-      return { status: "access_lost" as const };
-    }
-
-    await ctx.runMutation(internal.organizationProviderCredentials.connectConvex, {
+    return await connectConvexCredential(ctx, {
       organizationId: args.organizationId,
       connectedByUserId: args.connectedByUserId,
       expectedProviderSnapshotHash: args.expectedProviderSnapshotHash,
@@ -209,7 +198,6 @@ export const storeConvexOauthTokens = internalMutation({
       oauthStateId: args.oauthStateId,
       oauthState: args.oauthState,
     });
-    return { status: "stored" as const };
   },
 });
 

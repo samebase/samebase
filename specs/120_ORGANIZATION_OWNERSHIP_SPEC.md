@@ -11,7 +11,7 @@
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
   - `specs/119_POLAR_MONTHLY_BILLING_SPEC.md`
   - `specs/121_ORGANIZATION_CONTEXT_AND_ROUTE_MODEL.md`
-  - `rfcs/121_PROVIDER_CONNECTION_MODEL.md`
+  - `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
 
@@ -120,14 +120,15 @@ cloudflareAccount?: {
   accountId: string
   accountName: string
 }
-providerCredentialsId?: Id<"organizationProviderCredentials">
 ```
 
-`providerCredentialsId` is immutable after the organization creates its backend-only credential
-document. `organizationProviderCredentials` has one optional Convex credential and one optional
-Cloudflare credential. Each credential stores its authorization material, `connectedByUserId`, and
-`updatedAt`. `connectedByUserId` records which Samebase user established the current external grant.
-It does not grant Samebase access.
+Every `organizationProviderCredentials` document has a required `organizationId`, one Convex
+credential slot, and one Cloudflare credential slot. At least one credential slot is present. One
+organization has zero or one such document. The first provider connection creates it. Disconnect
+deletes it when it clears the last credential slot. The backend finds the document by
+`organizationId`; `organizations` does not store a credential document ID. Each credential stores
+its authorization material, `connectedByUserId`, and `updatedAt`. `connectedByUserId` records which
+Samebase user established the current external grant. It does not grant Samebase access.
 
 Provider credentials stay in backend-only functions. Product clients can request authorized
 operations and read non-secret status. They cannot retrieve credentials or raw provider errors. Any
@@ -140,12 +141,13 @@ temporary account-selection condition. Samebase does not create a vault until bo
 destinations exist. Existing credential methods remain supported until a separate accepted decision
 removes one.
 
-Disconnect clears the local credential, then tries the provider's supported upstream revocation. A
-revocation failure does not restore local access. Disconnect keeps `organizations.convexTeam` or
-`organizations.cloudflareAccount`, all vaults, and all provider resources. Reconnect must prove that
-the new credential can access the retained team or account. It does not change that destination. A
-separate owner action can change a destination only after Disconnect and only when the organization
-has no `vaults` row in any lifecycle condition.
+Disconnect clears only the local credential. Samebase does not revoke Convex or Cloudflare access
+upstream. The owner receives a manual revocation notice. Disconnect keeps `organizations.convexTeam`
+or `organizations.cloudflareAccount`, all vaults, and all provider resources. An action that already
+loaded the credential can finish, but queued work and retries must resolve the current credential
+again and fail closed. Reconnect must prove that the new credential can access the retained team or
+account. It does not change that destination. A separate owner action can change a destination only
+after Disconnect and only when the organization has no `vaults` row in any lifecycle condition.
 
 Every vault stores required `convexTeamId` and `cloudflareAccountId` fields. Vault creation copies
 them from the organization in the same transaction. These fields bind all later provider work for
@@ -158,10 +160,11 @@ keep stable external resource IDs and names, then resolve the organization's cur
 the vault's team or account. Credential replacement does not rewrite a vault or provider resource.
 
 Removing a user from an organization does not clear a credential that the user established. If the
-user deletes the Samebase account, Samebase tries upstream revocation and clears each current
-credential whose `connectedByUserId` identifies that user. It retains the organization destinations
-and resources. Another owner can reconnect the same destinations. Account deletion does not wait for
-that replacement.
+user deletes the Samebase account, Samebase clears each current credential slot whose
+`connectedByUserId` identifies that user. It does not revoke Convex or Cloudflare access upstream.
+It retains the credential document when another credential slot remains. It always retains
+organization destinations and resources. Another owner can reconnect the same destinations. Account
+deletion does not wait for replacement or manual upstream revocation.
 
 ## Vault Identity And Routing
 
@@ -320,6 +323,9 @@ The rollout is ready only when focused tests and real manual checks prove:
 - Convex and Cloudflare deployment destinations and credentials are organization-owned. Each
   organization has at most one destination and one current credential for each provider. The
   credential records the connecting user and never reaches a client.
+- Each organization has zero or one `organizationProviderCredentials` document with its required
+  `organizationId` and at least one credential slot. The organization stores no credential document
+  ID.
 - Billing and quotas belong to the organization.
 - User deletion does not delete the organization or shared resources.
 - An MCP grant acts as its Samebase user across all current memberships, and each tool call applies

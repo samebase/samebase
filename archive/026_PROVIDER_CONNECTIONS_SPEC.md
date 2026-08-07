@@ -2,16 +2,22 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded
 - Owner: Noter auth + platform
-- Last updated: 2026-07-28
+- Last updated: 2026-08-07
+- Superseded by:
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
+  - `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
 - Related specs:
   - `specs/117_MANUAL_PASSWORD_AUTH_SPEC.md`
-  - `rfcs/025_MULTI_WORKTREE_OAUTH_BROKER_SPEC.md`
-  - `rfcs/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
-  - `rfcs/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
+  - `archive/025_MULTI_WORKTREE_OAUTH_BROKER_SPEC.md`
+  - `archive/015_BYO_CONVEX_OAUTH_AND_WORKTREE_PROVISIONING_SPEC.md`
+  - `archive/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md`
 
 ## Summary
+
+This document records the old user-scoped provider model. Do not use it for current product or
+implementation decisions.
 
 Refactor auth and provider connectivity so app login is separate from provider connections.
 Introduce a dedicated `providerConnections` table as the single source of truth for GitHub, Convex,

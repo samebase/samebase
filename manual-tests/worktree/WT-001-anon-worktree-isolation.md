@@ -74,7 +74,6 @@ console.log(rows.map((row) => ({
   githubInstallationId: row.githubInstallationId,
   convexTeamId: row.convexTeam?.teamId,
   cloudflareAccountId: row.cloudflareAccount?.accountId,
-  providerCredentialsId: row.providerCredentialsId,
 })));
 '
 
@@ -102,6 +101,7 @@ npx convex data organizationProviderCredentials --limit 20 --format json | node 
 const rows = JSON.parse(require("node:fs").readFileSync(0, "utf8"));
 console.log(rows.map((row) => ({
   id: row._id,
+  organizationId: row.organizationId,
   convex: row.convex && {
     connectedByUserId: row.convex.connectedByUserId,
     method: row.convex.auth.method,
@@ -130,8 +130,8 @@ console.log(rows.map((row) => ({
 4. Each first setup output reports `"created": true`.
 5. Each worktree has one organization, one `owner` membership, one Free billing account, and one
    `organizationProviderCredentials` document with Convex and Cloudflare slots.
-6. Each organization stores its seeded `convexTeam`, `cloudflareAccount`, and immutable
-   `providerCredentialsId` link.
+6. Each organization stores its seeded `convexTeam` and `cloudflareAccount`. Its credential document
+   stores the matching `organizationId`.
 7. Both credential slots use the seeded user as `connectedByUserId` and use `api_key`
    authentication.
 8. Local document IDs are different between worktrees. The GitHub owner and installation facts are

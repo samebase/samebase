@@ -669,7 +669,8 @@ describe("MCP tools/call access enforcement", () => {
       scopes: ["access_dashboard", "access_provider_connections"],
     });
     const vaultId = await t.run(async (ctx) => {
-      const providerCredentialsId = await ctx.db.insert("organizationProviderCredentials", {
+      await ctx.db.insert("organizationProviderCredentials", {
+        organizationId,
         cloudflare: {
           connectedByUserId: userId,
           auth: {
@@ -682,7 +683,6 @@ describe("MCP tools/call access enforcement", () => {
         },
       });
       await ctx.db.patch(organizationId, {
-        providerCredentialsId,
         cloudflareAccount: {
           accountId: cloudflareAccountId,
           accountName: "Test account",

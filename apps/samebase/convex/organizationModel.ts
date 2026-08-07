@@ -52,13 +52,10 @@ export const organizationTables = {
     githubInstallationId: string(),
     convexTeam: optional(vOrganizationConvexTeam),
     cloudflareAccount: optional(vOrganizationCloudflareAccount),
-    /** Immutable link once this organization's backend-only credential document exists. */
-    providerCredentialsId: optional(id("organizationProviderCredentials")),
   })
     .index("by_github_owner_id", ["githubOwnerId"])
     .index("by_github_owner_login_normalized", ["githubOwnerLoginNormalized"])
-    .index("by_github_installation_id", ["githubInstallationId"])
-    .index("by_provider_credentials_id", ["providerCredentialsId"]),
+    .index("by_github_installation_id", ["githubInstallationId"]),
 
   /** User access to an organization. */
   organizationMemberships: defineTable({

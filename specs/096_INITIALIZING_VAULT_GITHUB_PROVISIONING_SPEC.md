@@ -9,7 +9,6 @@
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
-  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `research/2026-05-06-vault-first-provisioning-model.md`
 
 ## Summary

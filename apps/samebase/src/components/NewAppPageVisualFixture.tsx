@@ -9,7 +9,7 @@ export function NewAppPageVisualFixture() {
       <h1 className="mb-6 text-2xl font-semibold">New App</h1>
       <div className="grid gap-6">
         <NewAppProviderReadiness
-          canManageSelectedOrganization={false}
+          canManageOrganization={false}
           convexConnection={{
             state: "connected",
             teamId: "team_acme_platform",

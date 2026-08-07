@@ -1,7 +1,7 @@
-import { v, type Infer } from "convex/values";
+import { v } from "convex/values";
 
 import { internalMutation, internalQuery } from "./_generated/server";
-import { requireOrganizationAccessContext } from "./organizationAccess";
+import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
 import {
   vCloudflareMcpProviderOAuthCallbackState,
   vCloudflareProviderOAuthCallbackState,
@@ -11,13 +11,12 @@ import {
 import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 
-export { vOAuthProvider, type OAuthProvider } from "./organizationProviderCredentialModel";
-
-export const vProviderOAuthStoreResult = v.union(
-  v.object({ status: v.literal("stored") }),
-  v.object({ status: v.literal("access_lost") }),
-);
-export type ProviderOAuthStoreResult = Infer<typeof vProviderOAuthStoreResult>;
+export {
+  vOAuthProvider,
+  vProviderOAuthStoreResult,
+  type OAuthProvider,
+  type ProviderOAuthStoreResult,
+} from "./organizationProviderCredentialModel";
 
 const providerOAuthCallbackStateSystemFields = {
   _id: v.id("providerOAuthCallbackStates"),
@@ -52,7 +51,7 @@ export const createOauthState = internalMutation({
     if (organization === null) {
       throw new Error("Organization not found.");
     }
-    await requireOrganizationAccessContext(ctx.db, args);
+    await requireOrganizationOwnerAccessContext(ctx.db, args);
     const configuration = await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
     const expectedProviderSnapshotHash =
       args.provider === "convex"

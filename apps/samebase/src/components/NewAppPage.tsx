@@ -439,36 +439,36 @@ function formatNewAppCloudflareStatus(connection: AppCloudflareConnection): stri
 }
 
 function readNewAppProviderBlocker(args: {
-  canManageSelectedOrganization: boolean;
+  canManageOrganization: boolean;
   cloudflareConnection: AppCloudflareConnection | undefined;
   convexConnection: AppConvexConnection | undefined;
 }): string | null {
-  const { canManageSelectedOrganization, cloudflareConnection, convexConnection } = args;
+  const { canManageOrganization, cloudflareConnection, convexConnection } = args;
   if (!convexConnection || !cloudflareConnection) {
     return null;
   }
   if (convexConnection.state === "not_configured") {
-    return canManageSelectedOrganization
+    return canManageOrganization
       ? "Configure Convex in Providers before creating an app."
       : "An organization owner must configure Convex before an app can be created.";
   }
   if (convexConnection.state === "disconnected") {
-    return canManageSelectedOrganization
+    return canManageOrganization
       ? "Reconnect Convex in Providers before creating an app."
       : "An organization owner must reconnect Convex before an app can be created.";
   }
   if (cloudflareConnection.state === "not_configured") {
-    return canManageSelectedOrganization
+    return canManageOrganization
       ? "Configure Cloudflare in Providers before creating an app."
       : "An organization owner must configure Cloudflare before an app can be created.";
   }
   if (cloudflareConnection.state === "selection_required") {
-    return canManageSelectedOrganization
+    return canManageOrganization
       ? "Choose a Cloudflare account in Providers before creating an app."
       : "An organization owner must choose the Cloudflare account before an app can be created.";
   }
   if (cloudflareConnection.state === "disconnected") {
-    return canManageSelectedOrganization
+    return canManageOrganization
       ? "Reconnect Cloudflare in Providers before creating an app."
       : "An organization owner must reconnect Cloudflare before an app can be created.";
   }
@@ -476,11 +476,11 @@ function readNewAppProviderBlocker(args: {
 }
 
 export function NewAppProviderReadiness({
-  canManageSelectedOrganization,
+  canManageOrganization,
   cloudflareConnection,
   convexConnection,
 }: {
-  canManageSelectedOrganization: boolean;
+  canManageOrganization: boolean;
   cloudflareConnection: AppCloudflareConnection | undefined;
   convexConnection: AppConvexConnection | undefined;
 }) {
@@ -488,7 +488,7 @@ export function NewAppProviderReadiness({
     return null;
   }
   const blocker = readNewAppProviderBlocker({
-    canManageSelectedOrganization,
+    canManageOrganization,
     cloudflareConnection,
     convexConnection,
   });
@@ -519,14 +519,13 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const checkCreateRepositoryResourceNames = useAction(
     api.vault.actions.checkCreateRepositoryResourceNames,
   );
-  const selectedOwner = organization;
-  const selectedOrganizationId = organization.organizationId;
-  const canManageSelectedOrganization = organization.role === "owner";
+  const organizationId = organization.organizationId;
+  const canManageOrganization = organization.role === "owner";
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus, {
-    organizationId: selectedOrganizationId,
+    organizationId,
   });
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
-    organizationId: selectedOrganizationId,
+    organizationId,
   });
   const [newRepositoryName, setNewRepositoryNameState] = useState("");
   const [convexProjectName, setConvexProjectNameState] = useState("");
@@ -543,12 +542,12 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const cloudflareConnected = connectedCloudflareConnection !== null;
   const hasRequiredCreateConnections = Boolean(convexConnected && cloudflareConnected);
   const providerBlocker = readNewAppProviderBlocker({
-    canManageSelectedOrganization,
+    canManageOrganization,
     cloudflareConnection,
     convexConnection,
   });
-  const canCreateRepositoryForSelectedOwner = selectedOwner.canCreateRepository;
-  const canCreateRepo = hasRequiredCreateConnections && canCreateRepositoryForSelectedOwner;
+  const canCreateRepositoryForOrganization = organization.canCreateRepository;
+  const canCreateRepo = hasRequiredCreateConnections && canCreateRepositoryForOrganization;
   const createRepositoryName = newRepositoryName.trim();
   const defaultConvexProjectName = buildDefaultAppResourceName({
     repositoryName: newRepositoryName,
@@ -570,7 +569,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   });
   const shouldCheckResourceNames = Boolean(canCreateRepo && createRepositoryName);
   const resourceNameCheckKey = buildCreateResourceNameCheckKey({
-    organizationId: selectedOrganizationId,
+    organizationId,
     githubRepositoryName: createRepositoryName,
     convexProjectName: checkedConvexProjectName,
     cloudflareWorkerName: checkedCloudflareWorkerName,
@@ -581,7 +580,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     isChecking: isCheckingCreateResourceNames,
   } = useCreateResourceNameAvailability({
     enabled: shouldCheckResourceNames,
-    organizationId: selectedOrganizationId,
+    organizationId,
     githubRepositoryName: createRepositoryName,
     convexProjectName: checkedConvexProjectName,
     cloudflareWorkerName: checkedCloudflareWorkerName,
@@ -807,14 +806,14 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
 
     return null;
   };
-  const ownerCreateBlocker = !canCreateRepositoryForSelectedOwner;
+  const ownerCreateBlocker = !canCreateRepositoryForOrganization;
   const createControlFooterMessages =
     createError || ownerCreateBlocker || showCloudflareCreateWarning ? (
       <div className="flex flex-col gap-2">
         {createError && <div className="text-sm text-red-600">{createError}</div>}
         {ownerCreateBlocker ? (
           <div className="text-xs text-muted-foreground">
-            Authorize {selectedOwner.githubOwnerLogin} in{" "}
+            Authorize {organization.githubOwnerLogin} in{" "}
             <Link className={linkStyle} to={SETTINGS_ROUTE}>
               Account settings
             </Link>{" "}
@@ -891,9 +890,9 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       setCreateError("Repository name is required.");
       return;
     }
-    if (!selectedOwner.canCreateRepository) {
+    if (!organization.canCreateRepository) {
       setCreateError(
-        `Only a Samebase user authorized as ${selectedOwner.githubOwnerLogin} can create repositories for this personal GitHub owner.`,
+        `Only a Samebase user authorized as ${organization.githubOwnerLogin} can create repositories for this personal GitHub owner.`,
       );
       return;
     }
@@ -941,7 +940,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
 
     try {
       await createRepository({
-        organizationId: selectedOwner.organizationId,
+        organizationId,
         name: repoName,
         convexProjectName: convexProjectNameValidation.value,
         cloudflareWorkerName: cloudflareWorkerNameValidation.value,
@@ -955,7 +954,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       await navigate({
         href: buildPathWithTanStackSearch({
           pathname: buildVaultDashboardRoute({
-            owner: selectedOwner.githubOwnerLogin,
+            owner: organization.githubOwnerLogin,
             repoName: routeRepoName,
           }),
           search: location.search,
@@ -983,7 +982,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           <h1 className="text-xl @2xl:text-2xl font-semibold">New App</h1>
         </div>
         <NewAppProviderReadiness
-          canManageSelectedOrganization={canManageSelectedOrganization}
+          canManageOrganization={canManageOrganization}
           cloudflareConnection={cloudflareConnection}
           convexConnection={convexConnection}
         />

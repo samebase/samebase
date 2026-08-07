@@ -2,8 +2,6 @@ import { Infer, v } from "convex/values";
 
 import { internal } from "../_generated/api";
 import { internalAction, internalMutation, internalQuery } from "../_generated/server";
-import { revokeCloudflareMcpOAuthGrant } from "../cloudflareMcpOAuth";
-import { revokeCloudflareOAuthGrant } from "../cloudflareOAuth";
 import {
   getOrganizationProviderCredentials,
   getProviderCredentialsByConnectedUser,
@@ -49,11 +47,10 @@ export const deleteRevokedConnection = internalMutation({
   returns: boolean(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
-    const organization = await ctx.db.get(args.expected.organizationId);
-    if (organization === null) {
-      return false;
-    }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization);
+    const credentials = await getOrganizationProviderCredentials(
+      ctx.db,
+      args.expected.organizationId,
+    );
     if (credentials === null) {
       return false;
     }
@@ -84,9 +81,15 @@ export const deleteRevokedConnection = internalMutation({
       });
     }
 
-    await ctx.db.patch(credentials._id, {
-      [args.expected.provider]: undefined,
-    });
+    const otherCredential =
+      args.expected.provider === "convex" ? credentials.cloudflare : credentials.convex;
+    if (otherCredential === undefined) {
+      await ctx.db.delete(credentials._id);
+    } else {
+      await ctx.db.patch(credentials._id, {
+        [args.expected.provider]: undefined,
+      });
+    }
     return true;
   },
 });
@@ -116,20 +119,7 @@ export const revokeConnectionBatch = internalAction({
         };
       }
 
-      if (connection.provider === "cloudflare") {
-        try {
-          if (connection.credential.auth.method === "oauth") {
-            await revokeCloudflareOAuthGrant(connection.credential.auth.refreshCredential);
-          } else if (connection.credential.auth.method === "mcp_oauth") {
-            await revokeCloudflareMcpOAuthGrant({
-              refreshToken: connection.credential.auth.refreshCredential,
-              clientId: connection.credential.auth.clientId,
-            });
-          }
-        } catch {
-          // Local access is already removed. Upstream revocation is best effort.
-        }
-      } else if (connection.credential.auth.method === "oauth") {
+      if (connection.provider === "convex" && connection.credential.auth.method === "oauth") {
         convexManualRevocationRequired = true;
       }
     }

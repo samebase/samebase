@@ -2,12 +2,15 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded
 - Owner: Noter platform + infra
-- Last updated: 2026-03-02
+- Last updated: 2026-08-07
+- Superseded by: `specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md`,
+  `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`, and
+  `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
 - Runtime transport selection: Superseded by `specs/104_CLOUDFLARE_MCP_API_VALIDATION_SPEC.md`
 - Related specs:
-  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
   - `rfcs/006_DNS_DOMAIN_STRATEGY_SPEC.md`
   - `specs/029_PROVIDERS_PANEL_SETTINGS_SPEC.md`
 
@@ -196,7 +199,7 @@ Optional additional seed hints (only if needed by bootstrap code):
 
 - `DEV_SEED_CLOUDFLARE_ACCOUNT_ID`
 
-Seed behavior mirrors existing seed strategy in `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`:
+Seed behavior mirrors the historical seed strategy in `archive/026_PROVIDER_CONNECTIONS_SPEC.md`:
 
 1. Seed path writes provider connection row for Cloudflare if env var present.
 2. No attempt to perform OAuth in seed.

@@ -68,10 +68,10 @@ async function loadProviderState(t: TestBackend, organizationId: Id<"organizatio
   return await t.run(async (ctx) => {
     const organization = await ctx.db.get(organizationId);
     if (organization === null) throw new Error("Expected the test organization.");
-    const credentials =
-      organization.providerCredentialsId === undefined
-        ? null
-        : await ctx.db.get(organization.providerCredentialsId);
+    const credentials = await ctx.db
+      .query("organizationProviderCredentials")
+      .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+      .unique();
     return { credentials, organization };
   });
 }
@@ -129,9 +129,9 @@ async function seedConfiguredProviders() {
   const seed = await seedOrganization();
   await connectConvex(seed, seed.connectorId, apiKey("convex-old"));
   await connectCloudflare(seed, seed.connectorId, apiKey("cloudflare-old"));
-  const { organization } = await loadProviderState(seed.t, seed.organizationId);
-  if (organization.providerCredentialsId === undefined) throw new Error("Expected credentials.");
-  return { ...seed, providerCredentialsId: organization.providerCredentialsId };
+  const { credentials } = await loadProviderState(seed.t, seed.organizationId);
+  if (credentials === null) throw new Error("Expected credentials.");
+  return { ...seed, providerCredentialsId: credentials._id };
 }
 
 async function seedCloudflareOAuth() {
@@ -139,10 +139,10 @@ async function seedCloudflareOAuth() {
   const auth = cloudflareOAuth("old");
   const providerCredentialsId = await seed.t.run(async (ctx) => {
     const id = await ctx.db.insert("organizationProviderCredentials", {
+      organizationId: seed.organizationId,
       cloudflare: { auth, connectedByUserId: seed.connectorId, updatedAt: Date.now() },
     });
     await ctx.db.patch(seed.organizationId, {
-      providerCredentialsId: id,
       cloudflareAccount: { accountId, accountName: "Primary account" },
     });
     return id;
@@ -247,18 +247,82 @@ describe("organization provider credential lifecycle", () => {
     );
     expect(rows).toHaveLength(1);
     expect({
-      id: organization.providerCredentialsId,
+      id: credentials?._id,
+      credentialOrganizationId: credentials?.organizationId,
       convexTeamId: organization.convexTeam?.teamId,
       cloudflareAccountId: organization.cloudflareAccount?.accountId,
       convexConnector: credentials?.convex?.connectedByUserId,
       cloudflareConnector: credentials?.cloudflare?.connectedByUserId,
     }).toEqual({
       id: seed.providerCredentialsId,
+      credentialOrganizationId: seed.organizationId,
       convexTeamId: teamId,
       cloudflareAccountId: accountId,
       convexConnector: seed.otherOwnerId,
       cloudflareConnector: seed.otherOwnerId,
     });
+  });
+
+  it("deletes the credential document after both providers disconnect and recreates it", async () => {
+    const seed = await seedConfiguredProviders();
+    const before = await loadProviderState(seed.t, seed.organizationId);
+    if (before.credentials?.convex === undefined || before.credentials.cloudflare === undefined) {
+      throw new Error("Expected both credentials.");
+    }
+
+    await seed.t.mutation(internal.organizationProviderCredentials.disconnectConvex, {
+      organizationId: seed.organizationId,
+      disconnectedByUserId: seed.connectorId,
+      expectedAuth: before.credentials.convex.auth,
+    });
+    await seed.t.mutation(internal.organizationProviderCredentials.disconnectCloudflare, {
+      organizationId: seed.organizationId,
+      disconnectedByUserId: seed.connectorId,
+      expectedAuth: before.credentials.cloudflare.auth,
+    });
+
+    const after = await loadProviderState(seed.t, seed.organizationId);
+    expect(after.credentials).toBeNull();
+
+    await connectCloudflare(seed, seed.otherOwnerId, apiKey("cloudflare-reconnected"));
+    const reconnected = await loadProviderState(seed.t, seed.organizationId);
+    expect(reconnected.credentials?._id).not.toBe(seed.providerCredentialsId);
+    expect(reconnected.credentials).toMatchObject({
+      organizationId: seed.organizationId,
+      cloudflare: {
+        connectedByUserId: seed.otherOwnerId,
+        auth: apiKey("cloudflare-reconnected"),
+      },
+    });
+  });
+
+  it("fails closed when one organization has duplicate credential documents", async () => {
+    const seed = await seedOrganization();
+    await seed.t.run(async (ctx) => {
+      await ctx.db.insert("organizationProviderCredentials", {
+        organizationId: seed.organizationId,
+        convex: {
+          auth: apiKey("first"),
+          connectedByUserId: seed.connectorId,
+          updatedAt: 1,
+        },
+      });
+      await ctx.db.insert("organizationProviderCredentials", {
+        organizationId: seed.organizationId,
+        convex: {
+          auth: apiKey("second"),
+          connectedByUserId: seed.connectorId,
+          updatedAt: 2,
+        },
+      });
+    });
+
+    await expect(
+      seed.t.query(internal.organizationProviderCredentials.loadForOrganization, {
+        organizationId: seed.organizationId,
+        userId: seed.connectorId,
+      }),
+    ).rejects.toThrow();
   });
 
   it("rejects different destinations without changing stored state", async () => {
@@ -281,7 +345,7 @@ describe("organization provider credential lifecycle", () => {
     await expect(storeConvexOAuth(seed, state, "token", "wrong-state")).rejects.toThrow(
       "OAuth state changed before authorization completed.",
     );
-    await expect(storeConvexOAuth(seed, state, "token")).resolves.toBeNull();
+    await expect(storeConvexOAuth(seed, state, "token")).resolves.toEqual({ status: "stored" });
     await expect(seed.t.run(async (ctx) => await ctx.db.get(state._id))).resolves.toBeNull();
     await expect(storeConvexOAuth(seed, state, "replay")).rejects.toThrow(
       "OAuth state changed before authorization completed.",
@@ -289,6 +353,29 @@ describe("organization provider credential lifecycle", () => {
     expect(
       (await loadProviderState(seed.t, seed.organizationId)).credentials?.convex?.auth,
     ).toEqual({ method: "oauth", credential: "token" });
+  });
+
+  it("consumes OAuth state without writing when owner access is lost at storage", async () => {
+    const seed = await seedOrganization();
+    const state = await createConvexOAuthState(seed, "lost-owner-state");
+    await seed.t.run(async (ctx) => {
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", seed.organizationId).eq("userId", seed.connectorId),
+        )
+        .unique();
+      if (membership === null) throw new Error("Expected owner membership.");
+      await ctx.db.patch(membership._id, { role: "member" });
+    });
+
+    await expect(storeConvexOAuth(seed, state, "unused-token")).resolves.toEqual({
+      status: "access_lost",
+    });
+    await expect(seed.t.run(async (ctx) => await ctx.db.get(state._id))).resolves.toBeNull();
+    await expect(loadProviderState(seed.t, seed.organizationId)).resolves.toMatchObject({
+      credentials: null,
+    });
   });
 
   it("rejects expired OAuth state and a callback for a changed snapshot", async () => {
@@ -433,7 +520,7 @@ describe("organization provider credential lifecycle", () => {
     ).resolves.toEqual({ done: true, convexManualRevocationRequired: false });
 
     const after = await loadProviderState(seed.t, seed.organizationId);
-    expect(after.organization.providerCredentialsId).toBe(seed.providerCredentialsId);
+    expect(after.credentials?._id).toBe(seed.providerCredentialsId);
     expect({
       convex: after.credentials?.convex?.connectedByUserId,
       cloudflare: after.credentials?.cloudflare?.connectedByUserId,

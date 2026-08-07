@@ -89,6 +89,15 @@ describe("organization context acceptance fixtures", () => {
 
     expect(snapshot.user?.isApproved).toBe(true);
     expect(snapshot.organizations).toHaveLength(3);
+    for (const organization of snapshot.organizations) {
+      expect(organization.convexTeam).toEqual({
+        teamId: `acceptance-convex-team:${organization.githubOwnerLogin}`,
+      });
+      expect(organization.cloudflareAccount).toEqual({
+        accountId: `acceptance-cloudflare-account:${organization.githubOwnerLogin}`,
+        accountName: `${organization.githubOwnerLogin} acceptance account`,
+      });
+    }
     expect(snapshot.billingAccounts).toHaveLength(3);
     expect(snapshot.branchTrees).toHaveLength(2);
     expect(
@@ -110,5 +119,12 @@ describe("organization context acceptance fixtures", () => {
     ).toBe(true);
     expect(snapshot.vaults).toHaveLength(2);
     expect(snapshot.vaults.every((vault) => vault.state === "connected")).toBe(true);
+    for (const vault of snapshot.vaults) {
+      const organization = snapshot.organizations.find(
+        (candidate) => candidate._id === vault.organizationId,
+      );
+      expect(vault.convexTeamId).toBe(organization?.convexTeam?.teamId);
+      expect(vault.cloudflareAccountId).toBe(organization?.cloudflareAccount?.accountId);
+    }
   });
 });

@@ -2,21 +2,25 @@
 
 ## Document Control
 
-- Status: Current research evidence
+- Status: Historical Samebase baseline and current external-provider evidence
 - Date: 2026-08-06
 - Official sources accessed: 2026-08-06
-- Code baseline: `origin/main` at `36f554013e27e627cbce09ada5337a03958f967b`
-- Organization baseline: PR [#1367](https://github.com/samebase/samebase/pull/1367), squash commit
-  `db069c026`
+- Historical code baseline: `origin/main` at `36f554013e27e627cbce09ada5337a03958f967b`
+- Historical organization baseline: PR [#1367](https://github.com/samebase/samebase/pull/1367),
+  squash commit `db069c026`
 - Accepted organization contract: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Rollout record: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
-- Accepted decision: `rfcs/121_PROVIDER_CONNECTION_MODEL.md`
+- Accepted decision: `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
+
+The Samebase data-flow and behavior sections describe the historical code baseline above. They are
+not the current contract after the organization deployment provider rollout. The official provider
+evidence remains the research basis for the accepted decision.
 
 ## Scope And Evidence Rules
 
 This audit answers two questions:
 
-1. What does the merged provider connection system do now?
+1. What did the merged provider connection system do at the recorded baseline?
 2. What do current official Convex and Cloudflare sources say about organization use of one backend
    credential?
 
@@ -151,8 +155,8 @@ Evidence:
 
 ### Current Provider Page And App-Creation UI
 
-`/providers/<owner>` resolves the GitHub owner to one Samebase organization. It then queries only
-the selected Convex row and selected Cloudflare row.
+At the historical baseline, `/providers/<owner>` resolved the GitHub owner to one Samebase
+organization. It then queried only the selected Convex row and selected Cloudflare row.
 
 The provider page has these current behaviors:
 
@@ -570,7 +574,7 @@ Provider facts support a small one-target model. Convex OAuth is the correct nor
 to written production confirmation. An account API token is the most durable Cloudflare grant, but
 credential durability does not override the confirmed product requirement for direct Cloudflare
 OAuth. The Cloudflare connection must use OAuth and accept its user-bound recovery states. The
-accepted product and data decision is in `rfcs/121_PROVIDER_CONNECTION_MODEL.md`.
+accepted product and data decision is in `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`.
 
 ## Summary
 

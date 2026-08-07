@@ -22,10 +22,20 @@ vi.mock("convex/react", async (importOriginal) => {
     useQuery: (reference: Parameters<typeof actual.useQuery>[0]) => {
       const name = getFunctionName(reference);
       if (name === getFunctionName(api.users.getConvexConnectionStatus)) {
-        return { connected: true };
+        return {
+          authMethod: "oauth",
+          state: "connected",
+          teamId: "team-acme-platform",
+          teamSlug: "acme-platform",
+        };
       }
       if (name === getFunctionName(api.users.getCloudflareConnectionStatus)) {
-        return { accountId: "cloudflare-account", connected: true };
+        return {
+          accountId: "account-acme-production",
+          accountName: "acme-production",
+          authMethod: "oauth",
+          state: "connected",
+        };
       }
       return undefined;
     },

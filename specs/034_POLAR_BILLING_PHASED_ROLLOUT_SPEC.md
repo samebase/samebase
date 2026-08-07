@@ -9,7 +9,7 @@
 - Active rollout plan: `rfcs/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md`
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
-  - `rfcs/026_PROVIDER_CONNECTIONS_SPEC.md`
+  - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
 - Historical input:
   - `specs/033_POLAR_BILLING_SPEC.md`
 

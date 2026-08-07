@@ -14,25 +14,13 @@ const PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW = Date.UTC(2026, 5, 22, 12, 0, 0);
 function fakeOrganizationId(): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this fixture only
   // needs a stable value for static rendering.
-  return "organization_samebase";
+  return "organization_acme";
 }
 
 const ORGANIZATION_ID = fakeOrganizationId();
 
 const connectedState = {
   cloudflareAccess: {
-    accounts: [
-      {
-        accountId: "cloudflare-account-1",
-        accountName: "Samebase Preview",
-        selected: true,
-      },
-      {
-        accountId: "cloudflare-account-2",
-        accountName: "Acme Product",
-        selected: false,
-      },
-    ],
     authMethod: "oauth",
     checkedAt: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW - 4 * 60_000,
     checks: [
@@ -46,21 +34,14 @@ const connectedState = {
       {
         key: "accounts",
         label: "Accounts",
-        message: "Probe GET /accounts returned 2 visible accounts.",
-        status: "ok",
-      },
-      {
-        key: "selected_account",
-        label: "Selected account",
-        message:
-          "The Accounts probe returned selected account Samebase Preview (cloudflare-account-1).",
+        message: "Probe GET /accounts confirmed the connected account: Acme Production.",
         status: "ok",
       },
       {
         key: "workers",
         label: "Workers",
         message:
-          "Probe GET /accounts/{account_id}/workers/account-settings succeeded for Samebase Preview.",
+          "Probe GET /accounts/{account_id}/workers/account-settings succeeded for Acme Production.",
         status: "ok",
       },
       {
@@ -82,8 +63,8 @@ const connectedState = {
     ],
   },
   cloudflareConnection: {
-    accountId: "cloudflare-account-1",
-    accountName: "Samebase Preview",
+    accountId: "cloudflare-account-production",
+    accountName: "Acme Production",
     authMethod: "oauth",
     state: "connected",
   },
@@ -94,7 +75,7 @@ const connectedState = {
       {
         key: "token",
         label: "Token details",
-        message: "Probe GET /token_details returned team token Samebase operator token.",
+        message: "Probe GET /token_details returned team token Acme deployment token.",
         status: "ok",
       },
       {
@@ -113,22 +94,22 @@ const connectedState = {
     connected: true,
     requestedAccess: [{ key: "team", label: "Team-scoped Convex Management API access" }],
     team: {
-      teamId: "team_samebase",
-      teamSlug: "samebase",
+      teamId: "team_acme_platform",
+      teamSlug: "acme-platform",
     },
     token: {
       createdAt: Date.UTC(2026, 5, 1, 9, 30, 0),
-      id: "token_samebase_provider",
-      name: "Samebase operator token",
-      teamId: "team_samebase",
+      id: "token_acme_provider",
+      name: "Acme deployment token",
+      teamId: "team_acme_platform",
       type: "team_token",
     },
   },
   convexConnection: {
     authMethod: "api_key",
     state: "connected",
-    teamId: "team_samebase",
-    teamSlug: "samebase",
+    teamId: "team_acme_platform",
+    teamSlug: "acme-platform",
   },
   now: PROVIDER_CONNECTIONS_VISUAL_FIXTURE_NOW,
 } satisfies ProviderConnectionsPageConnectionState;
@@ -183,7 +164,7 @@ export function ProviderConnectionsPageVisualFixture({
       organization={{
         canCreateRepository: true,
         githubOwnerId: "456",
-        githubOwnerLogin: "samebase",
+        githubOwnerLogin: "acme",
         githubOwnerType: "organization",
         organizationId: ORGANIZATION_ID,
         role: "owner",

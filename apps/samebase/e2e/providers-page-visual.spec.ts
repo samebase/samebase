@@ -13,7 +13,7 @@ test("providers page connected fixture", async ({ page }) => {
       animations: "disabled",
       caret: "hide",
       scale: "css",
-      maxDiffPixelRatio: 0.03,
+      maxDiffPixelRatio: 0.001,
     },
   );
 });
@@ -31,7 +31,7 @@ test("providers page loading fixture", async ({ page }) => {
       animations: "disabled",
       caret: "hide",
       scale: "css",
-      maxDiffPixelRatio: 0.03,
+      maxDiffPixelRatio: 0.001,
     },
   );
 });
@@ -49,7 +49,7 @@ test("providers page recovery fixture", async ({ page }) => {
       animations: "disabled",
       caret: "hide",
       scale: "css",
-      maxDiffPixelRatio: 0.03,
+      maxDiffPixelRatio: 0.001,
     },
   );
 });
