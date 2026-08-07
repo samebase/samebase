@@ -689,6 +689,8 @@ async function readOrganizationVaults(
     initializingVaultResults.push({
       _id: vault._id,
       organizationId: vault.organizationId,
+      convexTeamId: vault.convexTeamId,
+      cloudflareAccountId: vault.cloudflareAccountId,
       _creationTime: vault._creationTime,
       ghRepoOwner: githubOwnerLogin,
       ghRepoName: vault.name,
@@ -751,6 +753,8 @@ async function readOrganizationVaults(
         return {
           _id: vault._id,
           organizationId: vault.organizationId,
+          convexTeamId: vault.convexTeamId,
+          cloudflareAccountId: vault.cloudflareAccountId,
           _creationTime: vault._creationTime,
           ghRepoOwner: githubOwnerLogin,
           ghRepoName: vault.name,
@@ -798,6 +802,8 @@ async function readOrganizationVaults(
       return {
         _id: vault._id,
         organizationId: vault.organizationId,
+        convexTeamId: vault.convexTeamId,
+        cloudflareAccountId: vault.cloudflareAccountId,
         _creationTime: vault._creationTime,
         ghRepoOwner: githubOwnerLogin,
         ghRepoName: vault.name,

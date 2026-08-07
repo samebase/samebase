@@ -45,6 +45,7 @@ function buildRepositoryRow(repository: ConnectRepositoryRepository, searchQuery
 
 function renderConnectRepositoryContent(overrides: Partial<ConnectRepositoryPageContentProps>) {
   const props: ConnectRepositoryPageContentProps = {
+    canConnectRepositories: true,
     connectingRepositoryFullName: null,
     emptyRepositoryMessage: null,
     error: null,
@@ -53,6 +54,7 @@ function renderConnectRepositoryContent(overrides: Partial<ConnectRepositoryPage
     repositoryPreviewCount: 0,
     repositoryRows: [],
     repositoryTotalCount: 0,
+    providerDestinationsLoaded: true,
     retryingFullRepositories: false,
     searchQuery: "",
     showBackgroundError: false,
@@ -78,6 +80,20 @@ describe("ConnectRepositoryPageContent", () => {
     expect(markup).toContain("Connect an existing repository");
     expect(markup).not.toContain("Install GitHub App");
     expect(markup).toContain("Search repositories...");
+  });
+
+  it("blocks connection until both provider destinations are configured", () => {
+    const repository = buildRepository(1, "acme/app");
+    const markup = renderConnectRepositoryContent({
+      canConnectRepositories: false,
+      repositoryRows: [buildRepositoryRow(repository, "")],
+      repositoryTotalCount: 1,
+    });
+
+    expect(markup).toContain(
+      "Choose a Convex team and a Cloudflare account in Providers before connecting a repository.",
+    );
+    expect(markup).toContain("disabled");
   });
 
   it("renders partial repository discovery with retry copy and real rows", () => {

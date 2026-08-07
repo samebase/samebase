@@ -4,14 +4,16 @@ import {
 } from "@/components/ConnectRepository";
 import { findRepositorySearchMatch } from "@/lib/repositorySearch";
 
-export type ConnectRepositoryVisualMode = "connect-repository-loading-more";
+export type ConnectRepositoryVisualMode =
+  | "connect-repository-loading-more"
+  | "connect-repository-provider-blocked";
 
 const repositories = [
   {
     id: 1,
-    name: "samebase",
-    full_name: "samebase/samebase",
-    html_url: "https://github.com/samebase/samebase",
+    name: "app",
+    full_name: "acme/app",
+    html_url: "https://github.com/acme/app",
     description: null,
     private: true,
     fork: false,
@@ -23,9 +25,9 @@ const repositories = [
   },
   {
     id: 2,
-    name: "starter-kit",
-    full_name: "samebase/starter-kit",
-    html_url: "https://github.com/samebase/starter-kit",
+    name: "docs",
+    full_name: "acme/docs",
+    html_url: "https://github.com/acme/docs",
     description: null,
     private: true,
     fork: false,
@@ -37,7 +39,7 @@ const repositories = [
   },
 ] satisfies ConnectRepositoryRepository[];
 
-export function ConnectRepositoryVisualFixture() {
+export function ConnectRepositoryVisualFixture({ mode }: { mode: ConnectRepositoryVisualMode }) {
   const repositoryRows = repositories.map((repo) => {
     const searchMatch = findRepositorySearchMatch("", repo);
     if (searchMatch === null) {
@@ -49,14 +51,16 @@ export function ConnectRepositoryVisualFixture() {
 
   return (
     <ConnectRepositoryPageContent
+      canConnectRepositories={mode !== "connect-repository-provider-blocked"}
       connectingRepositoryFullName={null}
       emptyRepositoryMessage={null}
       error={null}
       loading={false}
-      loadingMore
+      loadingMore={mode === "connect-repository-loading-more"}
       repositoryPreviewCount={10}
       repositoryRows={repositoryRows}
       repositoryTotalCount={repositories.length}
+      providerDestinationsLoaded
       retryingFullRepositories={false}
       searchQuery=""
       showBackgroundError={false}

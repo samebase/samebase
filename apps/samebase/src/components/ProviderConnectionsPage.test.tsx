@@ -71,10 +71,10 @@ vi.mock("@/components/ApiKeyConnectDialog", () => ({
 
 function setProviderQueries() {
   testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
-    connected: false,
+    state: "not_configured",
   });
   testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
-    connected: false,
+    state: "not_configured",
   });
 }
 
@@ -152,7 +152,8 @@ describe("ProviderConnectionsPage", () => {
     );
     testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
       authMethod: "oauth",
-      connected: true,
+      state: "connected",
+      teamId: "team_samebase",
       teamSlug: "samebase",
     });
     const container = mountProviderConnectionsPage();
@@ -192,14 +193,15 @@ describe("ProviderConnectionsPage", () => {
     );
     testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
       authMethod: "oauth",
-      connected: true,
+      state: "connected",
+      teamId: "team_samebase",
       teamSlug: "samebase",
     });
     testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
       accountId: "cloudflare-account",
       accountName: "Samebase",
       authMethod: "oauth",
-      connected: true,
+      state: "connected",
     });
     const container = mountProviderConnectionsPage({ ...organization, role: "member" });
     const convexRow = container.querySelector('[data-provider-key="convex"]');
@@ -209,7 +211,7 @@ describe("ProviderConnectionsPage", () => {
     expect(convexRow?.textContent).not.toContain("Manage access");
     expect(convexRow?.textContent).not.toContain("Reauthorize");
     expect(convexRow?.textContent).not.toContain("Disconnect");
-    expect(cloudflareRow?.textContent).toContain("Connected (OAuth). Account Samebase.");
+    expect(cloudflareRow?.textContent).toContain("Connected to account Samebase (OAuth).");
     expect(cloudflareRow?.textContent).toContain("Check access");
     expect(cloudflareRow?.textContent).not.toContain("Manage access");
     expect(cloudflareRow?.textContent).not.toContain("Reconnect");
@@ -239,11 +241,15 @@ describe("ProviderConnectionsPage", () => {
     expect(container.textContent).not.toContain(ORGANIZATION_ID);
   });
 
-  it("keeps the connected visual fixture free of GitHub credential controls", () => {
-    const markup = renderToStaticMarkup(<ProviderConnectionsPageVisualFixture />);
+  it("shows the provider recovery fixture without target management controls", () => {
+    const markup = renderToStaticMarkup(
+      <ProviderConnectionsPageVisualFixture mode="providers-page-recovery" />,
+    );
 
-    expect(markup).toContain("Connected to samebase");
-    expect(markup).toContain("Connected (OAuth). Account Samebase Preview.");
+    expect(markup).toContain("Disconnected from team acme-platform.");
+    expect(markup).toContain("OAuth connected. Choose an account.");
+    expect(markup).toContain("Select account");
+    expect(markup).not.toContain("Manage account");
     expect(markup).not.toContain("MCP clients");
     expect(markup).not.toContain("Install GitHub App");
     expect(markup).not.toContain("GitHub OAuth");

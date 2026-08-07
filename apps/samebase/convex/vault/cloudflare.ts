@@ -41,10 +41,7 @@ import type {
   WorkerConvexProjectConfigurationContext,
 } from "./cloudflareMutations";
 import { readConvexProductionDeployment } from "./convexProjectResources";
-import {
-  cloudflareListAccountsContract,
-  vCloudflareAccountResult,
-} from "./contracts/cloudflareListAccounts";
+import { vCloudflareAccountResult } from "./contracts/cloudflareListAccounts";
 import {
   cloudflareAttachWorkersContract,
   cloudflareConnectWorkerContract,
@@ -938,15 +935,6 @@ export async function configureWorkersBuildsForGitHubForUser(
     result: "succeeded",
   });
 }
-
-export const listAccounts = action({
-  access: cloudflareListAccountsContract.access,
-  args: cloudflareListAccountsContract.args,
-  returns: cloudflareListAccountsContract.returns,
-  mcp: cloudflareListAccountsContract.mcp,
-  handler: async (ctx, args): Promise<CloudflareAccountResult[]> =>
-    await listCloudflareAccountsForUser(ctx, { ...args, userId: ctx.viewer.userId }),
-});
 
 export async function discoverCloudflareWorkersForUser(
   ctx: ActionCtx,

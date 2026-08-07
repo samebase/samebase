@@ -30,7 +30,7 @@ apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted-s
 apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.png
 apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.png
 apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
-apps/samebase/e2e/connect-repository-visual.spec.ts-snapshots/connect-repository-loading-more.png
+apps/samebase/e2e/connect-repository-visual.spec.ts-snapshots/connect-repository-provider-blocked.png
 apps/samebase/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-raw.png
 apps/samebase/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-zoomed.png
 apps/samebase/e2e/corner-notch-visual.spec.ts-snapshots/corner-notch.png
@@ -52,6 +52,8 @@ apps/samebase/e2e/indexed-db-route-visual.spec.ts-snapshots/indexed-db-workspace
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/docs-pricing-desktop.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/docs-receipts-desktop.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-markdown-preview-mobile.png
+apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-faq-desktop.png
+apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-faq-mobile.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-hero-mobile.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-monorepo-narrow-pane.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-overview-desktop.png
@@ -109,12 +111,14 @@ apps/samebase/e2e/logo-recursive-shuffle-visual.spec.ts-snapshots/logo-depth-4-r
 apps/samebase/e2e/logo-snap-angles-visual.spec.ts-snapshots/logo-snap-angle-matrix.png
 apps/samebase/e2e/logo-three-visual.spec.ts-snapshots/logo-three-diff.png
 apps/samebase/e2e/logo-three-visual.spec.ts-snapshots/logo-three-reference.png
+apps/samebase/e2e/new-app-page-visual.spec.ts-snapshots/new-app-provider-blocked.png
 apps/samebase/e2e/not-found-visual.spec.ts-snapshots/not-found-protected-google-signup-closed.png
 apps/samebase/e2e/not-found-visual.spec.ts-snapshots/not-found-signed-out-protected.png
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-interactive.png
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print-mobile.png
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print.png
 apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-connected.png
+apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-recovery.png
 apps/samebase/e2e/public-account-loading-visual.spec.ts-snapshots/public-account-checking-login.png
 apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/mcp-consent-sign-in-no-left-sidebar.png
 apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-button.png
@@ -136,6 +140,7 @@ apps/samebase/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-up
 apps/samebase/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-build-status-unavailable-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-builds-repair-mobile.png
+apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-invalid-name-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-loading-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-convex-dialog-error.png
@@ -194,6 +199,7 @@ apps/samebase/public/docs/actions/attach_cloudflare_workers.md
 apps/samebase/public/docs/actions/attach_convex_projects.md
 apps/samebase/public/docs/actions/configure_workers_builds_for_github.md
 apps/samebase/public/docs/actions/connect_existing_repository.md
+apps/samebase/public/docs/actions/create_browser_handoff.md
 apps/samebase/public/docs/actions/create_cloudflare_worker.md
 apps/samebase/public/docs/actions/create_repository.md
 apps/samebase/public/docs/actions/discover_cloudflare_workers.md
@@ -441,6 +447,7 @@ research/2026-07-24-connected-machines-value-and-retirement-audit.md
 research/2026-07-29-bristol-tsx-netlify-to-cloudflare-workers.md
 research/2026-07-31-vault-folder-product-research.md
 research/2026-08-03-agent-context-removal-audit.md
+research/2026-08-06-provider-connection-authorization-audit.md
 research/agent-context-draft-bundle/noter-manifest.md
 research/agent-context-draft-overlays/noter-app-template.md
 research/agent-context-draft-overlays/noter-convex.md
@@ -517,9 +524,11 @@ rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md
 rfcs/091_WORKSPACE_LAYOUT_V2_SEPARATOR_TRACK_PLAN.md
 rfcs/092_VAULT_BRANCH_PAGINATION_AND_VIRTUAL_LIST_PLAN.md
 rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md
+rfcs/096_AGENT_BROWSER_HANDOFF_PLAN.md
 rfcs/097_ACCOUNT_DELETION_RELEASE_PLAN.md
 rfcs/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md
 rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md
+rfcs/121_PROVIDER_CONNECTION_MODEL.md
 rfcs/assets/079-editor-sidebar-return-drag/monaco-return-drag.png
 rfcs/assets/079-editor-sidebar-return-drag/prosemark-return-drag.png
 rfcs/README.md
@@ -589,6 +598,7 @@ specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md
 specs/107_ROUTE_URL_EDITOR_SUGGESTION_MODEL_SPEC.md
 specs/109_ROUTE_URL_EDITOR_REBUILD_REQUIREMENTS_SPEC.md
 specs/110_VAULT_ROUTE_SURFACE_SPEC.md
+specs/111_AGENT_BROWSER_HANDOFF_SPEC.md
 specs/112_CLOUDFLARE_EMAIL_SENDING_SPEC.md
 specs/113_ACCOUNT_DELETION_SPEC.md
 specs/114_CONVEX_TABLE_TAXONOMY_AND_OWNERSHIP_SPEC.md

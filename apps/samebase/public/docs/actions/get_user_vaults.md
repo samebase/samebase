@@ -34,6 +34,12 @@ JSON Schema for the tool's `structuredContent`:
           "organizationId": {
             "type": "string"
           },
+          "convexTeamId": {
+            "type": "string"
+          },
+          "cloudflareAccountId": {
+            "type": "string"
+          },
           "ghRepoOwner": {
             "type": "string"
           },
@@ -794,6 +800,8 @@ JSON Schema for the tool's `structuredContent`:
         "required": [
           "_id",
           "organizationId",
+          "convexTeamId",
+          "cloudflareAccountId",
           "ghRepoOwner",
           "ghRepoName",
           "repositoryFullName",

@@ -50,6 +50,8 @@ function vault(
 ): UserVaultResult {
   return {
     _id: id,
+    cloudflareAccountId: "account-acme-production",
+    convexTeamId: "team-acme-platform",
     organizationId,
     ghRepoOwner: owner,
     ghRepoName: name,

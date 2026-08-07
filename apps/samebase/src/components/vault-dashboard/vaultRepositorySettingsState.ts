@@ -39,10 +39,6 @@ export type VaultRepositorySettingsPendingAction =
   | {
       kind: "detach_convex_project";
       convexProjectId: Id<"vaultConvexProjects">;
-    }
-  | {
-      kind: "reconcile_convex_project_team";
-      convexProjectId: Id<"vaultConvexProjects">;
     };
 
 export type VaultRepositorySettingsAction = {
@@ -361,7 +357,7 @@ function formatCloudflareConvexBuildAccessState({
 }
 
 function buildCloudflareRow({
-  connectedCloudflareAccount,
+  cloudflareAccount,
   convexProjectActionLabels,
   convexProjects,
   configureWorkersBuildsForGitHubOnClick,
@@ -372,7 +368,7 @@ function buildCloudflareRow({
   settingUp,
   worker,
 }: {
-  connectedCloudflareAccount:
+  cloudflareAccount:
     | {
         accountId: string;
         accountName: string | undefined;
@@ -397,9 +393,8 @@ function buildCloudflareRow({
   const base = {
     name: worker.workerName,
     owner:
-      connectedCloudflareAccount?.accountId === worker.accountId &&
-      connectedCloudflareAccount.accountName
-        ? connectedCloudflareAccount.accountName
+      cloudflareAccount?.accountId === worker.accountId && cloudflareAccount.accountName
+        ? cloudflareAccount.accountName
         : worker.accountId,
     provider: "cloudflare" as const,
     resourceId: worker.workerId,
@@ -635,7 +630,6 @@ function buildConvexRow({
   observationState,
   pendingAction,
   project,
-  reconcileConvexProjectTeamOnClick,
   settingUp,
 }: {
   changeConvexProjectConfigPathOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
@@ -644,7 +638,6 @@ function buildConvexRow({
   observationState: VaultProviderObservationState<VaultConvexProjectObservation>;
   pendingAction: VaultRepositorySettingsPendingAction | null;
   project: VaultDashboardConvexProject;
-  reconcileConvexProjectTeamOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   settingUp: { name: string; owner?: string } | null;
 }): VaultRepositorySettingsResource {
   const base = {
@@ -757,21 +750,10 @@ function buildConvexRow({
         owner: observation.provider.teamSlug,
       };
     case "moved": {
-      const isReconciling =
-        pendingAction?.kind === "reconcile_convex_project_team" &&
-        pendingAction.convexProjectId === project.convexProjectId;
-      const reconcileAction = reconcileConvexProjectTeamOnClick
-        ? {
-            kind: "configure" as const,
-            label: isReconciling ? "Updating team..." : "Use current team",
-            disabled: isReconciling,
-            onClick: () => reconcileConvexProjectTeamOnClick(project.convexProjectId),
-          }
-        : undefined;
       return {
         ...base,
         state: "available",
-        actions: buildActionList([changeConfigAction, reconcileAction, detachAction]),
+        actions: buildActionList([changeConfigAction, detachAction]),
         description: joinDescriptions(
           sourceDescription,
           "This project moved to another Convex team.",
@@ -850,11 +832,11 @@ function buildPlannedConvexRow({
 }
 
 function buildPlannedCloudflareRow({
-  connectedCloudflareAccount,
+  cloudflareAccount,
   failedMessage,
   plan,
 }: {
-  connectedCloudflareAccount:
+  cloudflareAccount:
     | {
         accountId: string;
         accountName: string | undefined;
@@ -867,8 +849,8 @@ function buildPlannedCloudflareRow({
     description: failedMessage ?? "Setting up",
     name: plan.cloudflare.workerName,
     owner:
-      connectedCloudflareAccount?.accountId === plan.cloudflare.accountId
-        ? connectedCloudflareAccount.accountName
+      cloudflareAccount?.accountId === plan.cloudflare.accountId
+        ? cloudflareAccount.accountName
         : plan.cloudflare.accountId,
     provider: "cloudflare",
     resourceId: "planned-cloudflare",
@@ -895,7 +877,7 @@ function disableProviderWriteActions(
 export function buildVaultRepositorySettingsState({
   addCloudflareWorkerOnClick,
   addConvexOnClick,
-  connectedCloudflareAccount,
+  cloudflareAccount,
   configureWorkersBuildsForGitHubOnClick,
   changeConvexProjectConfigPathOnClick,
   cloudflareObservations,
@@ -903,13 +885,12 @@ export function buildVaultRepositorySettingsState({
   detachCloudflareWorkerOnClick,
   detachConvexProjectOnClick,
   pendingAction,
-  reconcileConvexProjectTeamOnClick,
   vault,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
 }: {
   addCloudflareWorkerOnClick?: () => void;
   addConvexOnClick?: () => void;
-  connectedCloudflareAccount:
+  cloudflareAccount:
     | {
         accountId: string;
         accountName: string | undefined;
@@ -925,7 +906,6 @@ export function buildVaultRepositorySettingsState({
   detachCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   detachConvexProjectOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   pendingAction: VaultRepositorySettingsPendingAction | null;
-  reconcileConvexProjectTeamOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   vault: VaultDashboardVault;
   rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
@@ -985,7 +965,6 @@ export function buildVaultRepositorySettingsState({
         observationState: convexObservations,
         pendingAction,
         project,
-        reconcileConvexProjectTeamOnClick,
         settingUp,
       }),
     );
@@ -1018,7 +997,7 @@ export function buildVaultRepositorySettingsState({
     const plannedAttachment =
       applicablePlan && isPlannedCloudflareAttachment(applicablePlan.cloudflare, worker);
     const resource = buildCloudflareRow({
-      connectedCloudflareAccount,
+      cloudflareAccount,
       convexProjectActionLabels,
       convexProjects: vault.convexProjects,
       configureWorkersBuildsForGitHubOnClick,
@@ -1060,7 +1039,7 @@ export function buildVaultRepositorySettingsState({
     addResourceToRoot(
       applicablePlan.cloudflare.rootDirectory,
       buildPlannedCloudflareRow({
-        connectedCloudflareAccount,
+        cloudflareAccount,
         failedMessage: failedPlanMessage,
         plan: applicablePlan,
       }),

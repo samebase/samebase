@@ -73,6 +73,8 @@ function makeVault(name = "active"): UserVaultResult {
   return {
     _id: fakeVaultId(`vault-${name}`),
     organizationId: fakeOrganizationId(),
+    convexTeamId: "team-acme-platform",
+    cloudflareAccountId: "account-acme-production",
     canRemoveCloudflareProvision: false,
     canRemoveConvexProvision: false,
     cloudflareWorkers: [],

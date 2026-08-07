@@ -25,10 +25,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  compareCloudflareAccountOptions,
-  type CloudflareAccountOption,
-} from "./vaultDashboardCloudflareAccountOptions";
 import { VaultProviderDiscoveryLoadingState } from "./VaultProviderDiscoveryLoadingState";
 import { VaultRepositoryRootInput } from "./VaultRepositoryRootInput";
 
@@ -43,13 +39,7 @@ type CloudflareWorkerOption =
   (typeof api.vault.cloudflare.discoverWorkers)["_returnType"]["workers"][number];
 type CloudflareInventoryState =
   (typeof api.vault.cloudflare.discoverWorkers)["_returnType"]["inventoryState"];
-type CloudflareWorkerSelection = {
-  accountId: string;
-  workerTags: readonly string[];
-};
-
 export function VaultCloudflareDialogContent({
-  accounts,
   blockedReason,
   createRootDirectory,
   createWorkerName,
@@ -60,7 +50,6 @@ export function VaultCloudflareDialogContent({
   isSubmitting,
   inventoryState,
   mode,
-  onAccountChange,
   onCreateRootDirectoryChange,
   onCreateWorkerNameChange,
   onConnectWorker,
@@ -69,14 +58,12 @@ export function VaultCloudflareDialogContent({
   onOpenChange,
   onSubmit,
   onWorkerToggle,
-  selectedAccountId,
   selectedWorkerTags,
   repairWorker,
   vault,
   workerToConnect,
   workers,
 }: {
-  accounts: readonly CloudflareAccountOption[];
   blockedReason?: string | null;
   createRootDirectory: string;
   createWorkerName: string;
@@ -87,7 +74,6 @@ export function VaultCloudflareDialogContent({
   isSubmitting: boolean;
   inventoryState: CloudflareInventoryState | null;
   mode: CloudflareWorkerConnectMode;
-  onAccountChange: (accountId: string) => void;
   onCreateRootDirectoryChange: (rootDirectory: string) => void;
   onCreateWorkerNameChange: (workerName: string) => void;
   onConnectWorker: (worker: CloudflareWorkerConnectTarget) => void;
@@ -96,14 +82,12 @@ export function VaultCloudflareDialogContent({
   onOpenChange: (isOpen: boolean) => void;
   onSubmit: () => void;
   onWorkerToggle: (workerTag: string) => void;
-  selectedAccountId: string;
   selectedWorkerTags: readonly string[];
   repairWorker: { workerName: string } | null;
   vault: Pick<UserVaultResult, "repositoryFullName">;
   workerToConnect: CloudflareWorkerConnectTarget | null;
   workers: readonly CloudflareWorkerOption[];
 }) {
-  const sortedAccounts = [...accounts].sort(compareCloudflareAccountOptions);
   const workersByRoot = new Map<string, CloudflareWorkerOption[]>();
   for (const worker of workers) {
     if (worker.repository.state !== "ready") {
@@ -144,7 +128,6 @@ export function VaultCloudflareDialogContent({
         left.workerName.localeCompare(right.workerName) ||
         left.workerTag.localeCompare(right.workerTag),
     );
-  const selectedAccount = sortedAccounts.find((account) => account.accountId === selectedAccountId);
   const createWorkerNameValidation = validateAppResourceName(createWorkerName, "cloudflare");
   const submitDisabled =
     Boolean(blockedReason) ||
@@ -152,7 +135,6 @@ export function VaultCloudflareDialogContent({
     (repairWorker
       ? !createRootDirectory.trim()
       : isLoading ||
-        !selectedAccountId ||
         (mode === "existing"
           ? selectedWorkerTags.length === 0
           : mode === "connect"
@@ -232,24 +214,6 @@ export function VaultCloudflareDialogContent({
             </div>
           ) : (
             <>
-              <Select
-                disabled={isSubmitting}
-                value={selectedAccountId}
-                onValueChange={onAccountChange}
-              >
-                <SelectTrigger aria-label="Cloudflare account" className="w-full">
-                  <SelectValue placeholder="Cloudflare account">
-                    {selectedAccount?.accountName}
-                  </SelectValue>
-                </SelectTrigger>
-                <AppSelectContent>
-                  {sortedAccounts.map((account) => (
-                    <AppSelectItem key={account.accountId} value={account.accountId}>
-                      {account.accountName}
-                    </AppSelectItem>
-                  ))}
-                </AppSelectContent>
-              </Select>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   type="button"
@@ -298,9 +262,7 @@ export function VaultCloudflareDialogContent({
                         </div>
                       ))}
                     </div>
-                  ) : selectedAccountId &&
-                    inventoryState !== "partial" &&
-                    unconnectedWorkers.length === 0 ? (
+                  ) : inventoryState !== "partial" && unconnectedWorkers.length === 0 ? (
                     <div className="text-sm text-muted-foreground">
                       No available Workers were found.
                     </div>
@@ -411,18 +373,15 @@ export function VaultCloudflareDialogContent({
 
 export function VaultCloudflareDialog({
   blockedReason,
-  connectedAccountId,
   onClose,
   repairWorkerId,
   vault,
 }: {
   blockedReason: string | null;
-  connectedAccountId: string | undefined;
   onClose: () => void;
   repairWorkerId: Id<"vaultCloudflareWorkers"> | null;
   vault: UserVaultResult;
 }) {
-  const listAccounts = useAction(api.vault.cloudflare.listAccounts);
   const discoverWorkers = useAction(api.vault.cloudflare.discoverWorkers);
   const attachWorkers = useAction(api.vault.cloudflare.attachWorkers);
   const connectWorker = useAction(api.vault.cloudflare.connectWorker);
@@ -436,8 +395,7 @@ export function VaultCloudflareDialog({
       vaultId: vault._id,
     },
   );
-  const [selectedAccountOverride, setSelectedAccountOverride] = useState("");
-  const [workerSelection, setWorkerSelection] = useState<CloudflareWorkerSelection | null>(null);
+  const [workerSelection, setWorkerSelection] = useState<readonly string[] | null>(null);
   const [mode, setMode] = useState<CloudflareWorkerConnectMode>("existing");
   const [createRootDirectory, setCreateRootDirectory] = useState("/");
   const [createWorkerName, setCreateWorkerName] = useState(() =>
@@ -455,24 +413,8 @@ export function VaultCloudflareDialog({
   const repairWorker = repairWorkerId
     ? (vault.cloudflareWorkers.find((worker) => worker.workerId === repairWorkerId) ?? null)
     : null;
-  const accountsQuery = useTanStackQuery({
-    queryKey: ["vault-provider-discovery", vault._id, vault.organizationId, "cloudflare-accounts"],
-    queryFn: () => listAccounts({ organizationId: vault.organizationId }),
-    enabled: !repairWorker,
-    retry: false,
-  });
-  const accounts = accountsQuery.data ?? [];
-  const defaultAccountId =
-    connectedAccountId && accounts.some((account) => account.accountId === connectedAccountId)
-      ? connectedAccountId
-      : (accounts.at(0)?.accountId ?? "");
-  const selectedAccountId = accounts.some(
-    (account) => account.accountId === selectedAccountOverride,
-  )
-    ? selectedAccountOverride
-    : defaultAccountId;
   const attachedWorkerTags = vault.cloudflareWorkers
-    .filter((worker) => worker.accountId === selectedAccountId)
+    .filter((worker) => worker.accountId === vault.cloudflareAccountId)
     .map((worker) => worker.workerTag)
     .sort((left, right) => left.localeCompare(right));
   const workersQuery = useTanStackQuery({
@@ -480,13 +422,13 @@ export function VaultCloudflareDialog({
       "vault-provider-discovery",
       vault._id,
       "cloudflare-workers",
-      selectedAccountId,
+      vault.cloudflareAccountId,
       attachedWorkerTags,
       vault.providerWrite.lastWriteAt.cloudflare,
     ],
     queryFn: async () =>
-      await discoverWorkers({ accountId: selectedAccountId, vaultId: vault._id }),
-    enabled: !repairWorker && selectedAccountId !== "",
+      await discoverWorkers({ accountId: vault.cloudflareAccountId, vaultId: vault._id }),
+    enabled: !repairWorker,
     retry: false,
   });
   const unavailableWorkerTags = new Set([...attachedWorkerTags, ...connectedWorkerTags]);
@@ -496,16 +438,10 @@ export function VaultCloudflareDialog({
   const defaultSelectedWorkerTags = workers
     .filter((worker) => worker.repository.state === "ready")
     .map((worker) => worker.workerTag);
-  const selectedWorkerTags =
-    workerSelection?.accountId === selectedAccountId
-      ? workerSelection.workerTags
-      : defaultSelectedWorkerTags;
+  const selectedWorkerTags = workerSelection ?? defaultSelectedWorkerTags;
   const inventoryState = workersQuery.data?.inventoryState ?? null;
-  const resourceQueryError = accountsQuery.error ?? workersQuery.error;
-  const resourceError = resourceQueryError ? "Could not load Cloudflare resources." : null;
-  const isLoading =
-    !repairWorker &&
-    (accountsQuery.isPending || (selectedAccountId !== "" && workersQuery.isPending));
+  const resourceError = workersQuery.error ? "Could not load Cloudflare resources." : null;
+  const isLoading = !repairWorker && workersQuery.isPending;
 
   const handleSubmit = async () => {
     if (blockedReason || isSubmitting) {
@@ -524,19 +460,16 @@ export function VaultCloudflareDialog({
       } else if (workerToConnect) {
         const result = await connectWorker({
           vaultId: vault._id,
-          accountId: selectedAccountId,
+          accountId: vault.cloudflareAccountId,
           workerName: workerToConnect.workerName,
           workerTag: workerToConnect.workerTag,
           rootDirectory: createRootDirectory,
         });
         setConnectedWorkerTags((current) => [...current, workerToConnect.workerTag]);
         setMode("existing");
-        setWorkerSelection({
-          accountId: selectedAccountId,
-          workerTags: selectedWorkerTags.filter(
-            (candidate) => candidate !== workerToConnect.workerTag,
-          ),
-        });
+        setWorkerSelection(
+          selectedWorkerTags.filter((candidate) => candidate !== workerToConnect.workerTag),
+        );
         setWorkerToConnect(null);
         if (result.state === "added_with_notice") {
           setSubmitError(result.message);
@@ -559,13 +492,13 @@ export function VaultCloudflareDialog({
         }
         await attachWorkers({
           vaultId: vault._id,
-          accountId: selectedAccountId,
+          accountId: vault.cloudflareAccountId,
           workers: selectedWorkers,
         });
       } else {
         await createWorker({
           vaultId: vault._id,
-          accountId: selectedAccountId,
+          accountId: vault.cloudflareAccountId,
           workerName: createWorkerName,
           rootDirectory: createRootDirectory,
         });
@@ -583,7 +516,6 @@ export function VaultCloudflareDialog({
 
   return (
     <VaultCloudflareDialogContent
-      accounts={accounts}
       blockedReason={blockedReason}
       createRootDirectory={createRootDirectory}
       createWorkerName={createWorkerName}
@@ -594,12 +526,6 @@ export function VaultCloudflareDialog({
       isSubmitting={isSubmitting}
       inventoryState={inventoryState}
       mode={mode}
-      onAccountChange={(accountId) => {
-        setSelectedAccountOverride(accountId);
-        setWorkerSelection(null);
-        setSubmitError(null);
-        setWorkerToConnect(null);
-      }}
       onCreateRootDirectoryChange={setCreateRootDirectory}
       onCreateWorkerNameChange={setCreateWorkerName}
       onConnectWorker={(worker) => {
@@ -628,14 +554,12 @@ export function VaultCloudflareDialog({
         void handleSubmit();
       }}
       onWorkerToggle={(workerTag) => {
-        setWorkerSelection({
-          accountId: selectedAccountId,
-          workerTags: selectedWorkerTags.includes(workerTag)
+        setWorkerSelection(
+          selectedWorkerTags.includes(workerTag)
             ? selectedWorkerTags.filter((candidate) => candidate !== workerTag)
             : [...selectedWorkerTags, workerTag],
-        });
+        );
       }}
-      selectedAccountId={selectedAccountId}
       selectedWorkerTags={selectedWorkerTags}
       repairWorker={repairWorker ? { workerName: repairWorker.workerName } : null}
       vault={vault}

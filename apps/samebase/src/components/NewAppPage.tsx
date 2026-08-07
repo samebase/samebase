@@ -4,7 +4,6 @@ import { CheckIcon, Loader2 } from "lucide-react";
 import {
   useCallback,
   useEffect,
-  useRef,
   useState,
   type FormEvent,
   type KeyboardEvent,
@@ -23,13 +22,12 @@ import {
   validateAppResourceName,
 } from "../../shared/appResourceNames";
 import { toSafeRepoName } from "../../shared/repoName";
-import { VaultDashboardCloudflareAccountDialog } from "@/components/vault-dashboard/VaultDashboardCloudflareAccountDialog";
-import type { ViewerOrganization } from "@/lib/organizationContext";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
   GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
+import type { ViewerOrganization } from "@/lib/organizationContext";
 import type { Id } from "../../convex/_generated/dataModel";
 
 type CreateResourceNameMode = "auto" | "manual";
@@ -40,7 +38,8 @@ type CreateResourceNameCheckState = {
   result: CreateResourceNameCheckResult;
 };
 type CreateResourceNameAvailability = CreateResourceNameCheckResult["convex"];
-type CloudflareAccountOption = (typeof api.vault.cloudflare.listAccounts)["_returnType"][number];
+type AppConvexConnection = (typeof api.users.getConvexConnectionStatus)["_returnType"];
+type AppCloudflareConnection = (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
 
 function resolveCreateResourceNameCheckValue(args: {
   mode: CreateResourceNameMode;
@@ -415,6 +414,104 @@ export function NewAppCreateFormFields({
   );
 }
 
+function formatNewAppConvexStatus(connection: AppConvexConnection): string {
+  switch (connection.state) {
+    case "not_configured":
+      return "No team configured.";
+    case "disconnected":
+      return `Disconnected from team ${connection.teamSlug ?? connection.teamId}.`;
+    case "connected":
+      return `Connected to team ${connection.teamSlug ?? connection.teamId}.`;
+  }
+}
+
+function formatNewAppCloudflareStatus(connection: AppCloudflareConnection): string {
+  switch (connection.state) {
+    case "not_configured":
+      return "No account configured.";
+    case "selection_required":
+      return "OAuth connected. Choose an account.";
+    case "disconnected":
+      return `Disconnected from account ${connection.accountName}.`;
+    case "connected":
+      return `Connected to account ${connection.accountName}.`;
+  }
+}
+
+function readNewAppProviderBlocker(args: {
+  canManageSelectedOrganization: boolean;
+  cloudflareConnection: AppCloudflareConnection | undefined;
+  convexConnection: AppConvexConnection | undefined;
+}): string | null {
+  const { canManageSelectedOrganization, cloudflareConnection, convexConnection } = args;
+  if (!convexConnection || !cloudflareConnection) {
+    return null;
+  }
+  if (convexConnection.state === "not_configured") {
+    return canManageSelectedOrganization
+      ? "Configure Convex in Providers before creating an app."
+      : "An organization owner must configure Convex before an app can be created.";
+  }
+  if (convexConnection.state === "disconnected") {
+    return canManageSelectedOrganization
+      ? "Reconnect Convex in Providers before creating an app."
+      : "An organization owner must reconnect Convex before an app can be created.";
+  }
+  if (cloudflareConnection.state === "not_configured") {
+    return canManageSelectedOrganization
+      ? "Configure Cloudflare in Providers before creating an app."
+      : "An organization owner must configure Cloudflare before an app can be created.";
+  }
+  if (cloudflareConnection.state === "selection_required") {
+    return canManageSelectedOrganization
+      ? "Choose a Cloudflare account in Providers before creating an app."
+      : "An organization owner must choose the Cloudflare account before an app can be created.";
+  }
+  if (cloudflareConnection.state === "disconnected") {
+    return canManageSelectedOrganization
+      ? "Reconnect Cloudflare in Providers before creating an app."
+      : "An organization owner must reconnect Cloudflare before an app can be created.";
+  }
+  return null;
+}
+
+export function NewAppProviderReadiness({
+  canManageSelectedOrganization,
+  cloudflareConnection,
+  convexConnection,
+}: {
+  canManageSelectedOrganization: boolean;
+  cloudflareConnection: AppCloudflareConnection | undefined;
+  convexConnection: AppConvexConnection | undefined;
+}) {
+  if (!convexConnection || !cloudflareConnection) {
+    return null;
+  }
+  const blocker = readNewAppProviderBlocker({
+    canManageSelectedOrganization,
+    cloudflareConnection,
+    convexConnection,
+  });
+
+  return (
+    <div data-testid="new-app-provider-readiness" className="space-y-2 text-xs">
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <span className="flex h-5 w-5 items-center justify-center">
+          <ConvexProviderLogo />
+        </span>
+        <span>{formatNewAppConvexStatus(convexConnection)}</span>
+      </div>
+      <div className="flex items-center gap-2 text-muted-foreground">
+        <span className="flex h-5 w-5 items-center justify-center">
+          <CloudflareProviderLogo />
+        </span>
+        <span>{formatNewAppCloudflareStatus(cloudflareConnection)}</span>
+      </div>
+      {blocker ? <div className="text-muted-foreground">{blocker}</div> : null}
+    </div>
+  );
+}
+
 export function NewAppPage({ organization }: { organization: ViewerOrganization }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -422,8 +519,6 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const checkCreateRepositoryResourceNames = useAction(
     api.vault.actions.checkCreateRepositoryResourceNames,
   );
-  const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
-  const selectCloudflareDefaultAccount = useAction(api.vault.cloudflare.selectDefaultAccount);
   const selectedOwner = organization;
   const selectedOrganizationId = organization.organizationId;
   const canManageSelectedOrganization = organization.role === "owner";
@@ -442,28 +537,16 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     useState<CreateResourceNameMode>("auto");
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [cloudflareAccountDialogOpen, setCloudflareAccountDialogOpen] = useState(false);
-  const [cloudflareAccountDialogError, setCloudflareAccountDialogError] = useState<string | null>(
-    null,
-  );
-  const [isLoadingCloudflareAccounts, setIsLoadingCloudflareAccounts] = useState(false);
-  const [isSubmittingCloudflareAccount, setIsSubmittingCloudflareAccount] = useState(false);
-  const [cloudflareAccountOptions, setCloudflareAccountOptions] = useState<
-    CloudflareAccountOption[]
-  >([]);
-  const [selectedCloudflareAccountId, setSelectedCloudflareAccountId] = useState("");
-  const cloudflareAccountDialogRequestIdRef = useRef(0);
-
-  const convexConnected = convexConnection?.connected === true;
+  const convexConnected = convexConnection?.state === "connected";
   const connectedCloudflareConnection =
-    cloudflareConnection?.connected === true ? cloudflareConnection : null;
+    cloudflareConnection?.state === "connected" ? cloudflareConnection : null;
   const cloudflareConnected = connectedCloudflareConnection !== null;
-  const cloudflareAccountSelectionRequired =
-    connectedCloudflareConnection !== null && !connectedCloudflareConnection.accountId;
-  const hasConnectedCreateProviders = convexConnected && cloudflareConnected;
-  const hasRequiredCreateConnections = Boolean(
-    hasConnectedCreateProviders && !cloudflareAccountSelectionRequired,
-  );
+  const hasRequiredCreateConnections = Boolean(convexConnected && cloudflareConnected);
+  const providerBlocker = readNewAppProviderBlocker({
+    canManageSelectedOrganization,
+    cloudflareConnection,
+    convexConnection,
+  });
   const canCreateRepositoryForSelectedOwner = selectedOwner.canCreateRepository;
   const canCreateRepo = hasRequiredCreateConnections && canCreateRepositoryForSelectedOwner;
   const createRepositoryName = newRepositoryName.trim();
@@ -574,80 +657,6 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     setCloudflareWorkerNameState(value);
     setCloudflareWorkerNameMode(mode);
   }, []);
-  const loadCloudflareAccountDialogResources = useCallback(
-    async (preferredAccountId: string | undefined) => {
-      const requestId = cloudflareAccountDialogRequestIdRef.current + 1;
-      cloudflareAccountDialogRequestIdRef.current = requestId;
-      setIsLoadingCloudflareAccounts(true);
-      setCloudflareAccountDialogError(null);
-      try {
-        const accounts = await listCloudflareAccounts({ organizationId: selectedOrganizationId });
-        if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
-          return;
-        }
-        setCloudflareAccountOptions(accounts);
-        if (accounts.length === 0) {
-          setSelectedCloudflareAccountId("");
-          setCloudflareAccountDialogError("No Cloudflare accounts are available.");
-          return;
-        }
-
-        const selectedAccount =
-          accounts.find(
-            (account: CloudflareAccountOption) => account.accountId === preferredAccountId,
-          ) ?? accounts[0];
-        setSelectedCloudflareAccountId(selectedAccount.accountId);
-      } catch (error) {
-        if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
-          return;
-        }
-        setCloudflareAccountDialogError(
-          error instanceof Error ? error.message : "Could not load Cloudflare accounts.",
-        );
-      } finally {
-        if (cloudflareAccountDialogRequestIdRef.current === requestId) {
-          setIsLoadingCloudflareAccounts(false);
-        }
-      }
-    },
-    [listCloudflareAccounts, selectedOrganizationId],
-  );
-
-  const openCloudflareAccountDialog = () => {
-    if (!canManageSelectedOrganization) {
-      setCreateError("An organization owner must choose the Cloudflare account.");
-      return;
-    }
-    setCloudflareAccountDialogOpen(true);
-    void loadCloudflareAccountDialogResources(connectedCloudflareConnection?.accountId);
-  };
-  const handleCloudflareAccountDialogOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      cloudflareAccountDialogRequestIdRef.current += 1;
-    }
-    setCloudflareAccountDialogOpen(isOpen);
-  };
-  const handleSubmitCloudflareAccount = async () => {
-    if (isSubmittingCloudflareAccount || !selectedCloudflareAccountId) {
-      return;
-    }
-    setCloudflareAccountDialogError(null);
-    setIsSubmittingCloudflareAccount(true);
-    try {
-      await selectCloudflareDefaultAccount({
-        organizationId: selectedOrganizationId,
-        accountId: selectedCloudflareAccountId,
-      });
-      setCreateError(null);
-      handleCloudflareAccountDialogOpenChange(false);
-    } catch (error) {
-      setCloudflareAccountDialogError(
-        error instanceof Error ? error.message : "Could not save Cloudflare account.",
-      );
-    } finally {
-      setIsSubmittingCloudflareAccount(false);
-    }
-  };
   const renderCreateResourceNameSupport = ({
     availability,
     checkedName,
@@ -798,36 +807,20 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
 
     return null;
   };
+  const ownerCreateBlocker = !canCreateRepositoryForSelectedOwner;
   const createControlFooterMessages =
-    createError || !canCreateRepo || showCloudflareCreateWarning ? (
+    createError || ownerCreateBlocker || showCloudflareCreateWarning ? (
       <div className="flex flex-col gap-2">
         {createError && <div className="text-sm text-red-600">{createError}</div>}
-        {!canCreateRepo && (
+        {ownerCreateBlocker ? (
           <div className="text-xs text-muted-foreground">
-            {!canCreateRepositoryForSelectedOwner ? (
-              <>
-                Authorize {selectedOwner.githubOwnerLogin} in{" "}
-                <Link className={linkStyle} to={SETTINGS_ROUTE}>
-                  Account settings
-                </Link>{" "}
-                to create repositories for this personal GitHub owner.
-              </>
-            ) : cloudflareAccountSelectionRequired ? (
-              canManageSelectedOrganization ? (
-                <>
-                  Choose a Cloudflare account to create an app.{" "}
-                  <CreateResourceNameInlineAction onClick={openCloudflareAccountDialog}>
-                    Select account
-                  </CreateResourceNameInlineAction>
-                </>
-              ) : (
-                "An organization owner must choose the Cloudflare account before an app can be created."
-              )
-            ) : (
-              "Connect Convex and Cloudflare to create an app."
-            )}
+            Authorize {selectedOwner.githubOwnerLogin} in{" "}
+            <Link className={linkStyle} to={SETTINGS_ROUTE}>
+              Account settings
+            </Link>{" "}
+            to create repositories for this personal GitHub owner.
           </div>
-        )}
+        ) : null}
         {showCloudflareCreateWarning && (
           <div className="text-xs text-amber-700">
             Cloudflare token is invalid or expired. Reconnect Cloudflare.
@@ -904,19 +897,8 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       );
       return;
     }
-    if (!hasConnectedCreateProviders) {
-      setCreateError("Connect Convex and Cloudflare before creating an app.");
-      return;
-    }
-    if (cloudflareAccountSelectionRequired) {
-      if (canManageSelectedOrganization) {
-        setCreateError("Choose a Cloudflare account before creating an app.");
-        openCloudflareAccountDialog();
-      } else {
-        setCreateError(
-          "An organization owner must choose the Cloudflare account before an app can be created.",
-        );
-      }
+    if (!hasRequiredCreateConnections) {
+      setCreateError(providerBlocker ?? "Provider connections are loading.");
       return;
     }
     if (!convexProjectNameValidation.valid) {
@@ -1000,6 +982,11 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         <div>
           <h1 className="text-xl @2xl:text-2xl font-semibold">New App</h1>
         </div>
+        <NewAppProviderReadiness
+          canManageSelectedOrganization={canManageSelectedOrganization}
+          cloudflareConnection={cloudflareConnection}
+          convexConnection={convexConnection}
+        />
         <div className="flex w-full flex-col items-stretch gap-2">{createFormFields}</div>
         <div className="min-h-5">{createControlFooterMessages}</div>
         <div className="flex flex-wrap items-center gap-2">
@@ -1009,22 +996,6 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           </Button>
         </div>
       </form>
-      <VaultDashboardCloudflareAccountDialog
-        accounts={cloudflareAccountOptions}
-        error={cloudflareAccountDialogError}
-        isLoading={isLoadingCloudflareAccounts}
-        isSubmitting={isSubmittingCloudflareAccount}
-        onAccountChange={(accountId) => {
-          setSelectedCloudflareAccountId(accountId);
-          setCloudflareAccountDialogError(null);
-        }}
-        onOpenChange={handleCloudflareAccountDialogOpenChange}
-        onSubmit={() => {
-          void handleSubmitCloudflareAccount();
-        }}
-        open={canManageSelectedOrganization && cloudflareAccountDialogOpen}
-        selectedAccountId={selectedCloudflareAccountId}
-      />
     </div>
   );
 }

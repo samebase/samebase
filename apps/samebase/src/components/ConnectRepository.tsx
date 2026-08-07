@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { useAction } from "convex/react";
+import { useAction, useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useState, type ReactElement } from "react";
@@ -29,6 +29,7 @@ type ConnectRepositoryRow = {
 };
 
 type ConnectRepositoryPageContentProps = {
+  canConnectRepositories: boolean;
   connectingRepositoryFullName: string | null;
   emptyRepositoryMessage: string | null;
   error: string | null;
@@ -37,6 +38,7 @@ type ConnectRepositoryPageContentProps = {
   repositoryPreviewCount: number;
   repositoryRows: ConnectRepositoryRow[];
   repositoryTotalCount: number;
+  providerDestinationsLoaded: boolean;
   retryingFullRepositories: boolean;
   searchQuery: string;
   showBackgroundError: boolean;
@@ -104,6 +106,20 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
   const listRepositories = useAction(api.github.listRepositories);
   const connectRepository = useAction(api.vault.actions.connectRepository);
   const selectedOrganizationId = organization.organizationId;
+  const convexConnection = useConvexQuery(
+    api.users.getConvexConnectionStatus,
+    { organizationId: selectedOrganizationId },
+  );
+  const cloudflareConnection = useConvexQuery(
+    api.users.getCloudflareConnectionStatus,
+    { organizationId: selectedOrganizationId },
+  );
+  const providerDestinationsLoaded =
+    convexConnection !== undefined && cloudflareConnection !== undefined;
+  const canConnectRepositories = Boolean(
+    (convexConnection?.state === "connected" || convexConnection?.state === "disconnected") &&
+    (cloudflareConnection?.state === "connected" || cloudflareConnection?.state === "disconnected"),
+  );
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connectingRepositoryFullName, setConnectingRepositoryFullName] = useState<string | null>(
     null,
@@ -197,7 +213,7 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
   };
 
   const connectSelectedRepository = (repositoryFullName: string) => {
-    if (connectingRepositoryFullName !== null) {
+    if (connectingRepositoryFullName !== null || !canConnectRepositories) {
       return;
     }
 
@@ -232,6 +248,7 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
 
   return (
     <ConnectRepositoryPageContent
+      canConnectRepositories={canConnectRepositories}
       connectingRepositoryFullName={connectingRepositoryFullName}
       emptyRepositoryMessage={emptyRepositoryMessage}
       error={error}
@@ -240,6 +257,7 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
       repositoryPreviewCount={repositoryPreview?.repositories.length ?? 0}
       repositoryRows={filteredRepositories}
       repositoryTotalCount={repositories.length}
+      providerDestinationsLoaded={providerDestinationsLoaded}
       retryingFullRepositories={retryingFullRepositories}
       searchQuery={searchQuery}
       showBackgroundError={showBackgroundError}
@@ -251,6 +269,7 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
 }
 
 export function ConnectRepositoryPageContent({
+  canConnectRepositories,
   connectingRepositoryFullName,
   emptyRepositoryMessage,
   error,
@@ -259,6 +278,7 @@ export function ConnectRepositoryPageContent({
   repositoryPreviewCount,
   repositoryRows,
   repositoryTotalCount,
+  providerDestinationsLoaded,
   retryingFullRepositories,
   searchQuery,
   showBackgroundError,
@@ -267,7 +287,10 @@ export function ConnectRepositoryPageContent({
   onSearchQueryChange,
 }: ConnectRepositoryPageContentProps) {
   return (
-    <div className="container flex min-h-0 flex-1 flex-col py-6">
+    <div
+      data-testid="connect-repository-page"
+      className="container flex min-h-0 flex-1 flex-col py-6"
+    >
       <div className="flex flex-col @2xl:flex-row @2xl:items-center @2xl:justify-between gap-4 mb-6 flex-shrink-0">
         <div className="flex items-center gap-2">
           <GitHubLogoIcon className="h-5 w-5 @2xl:h-6 @2xl:w-6" />
@@ -281,6 +304,12 @@ export function ConnectRepositoryPageContent({
         </div>
       )}
 
+      {providerDestinationsLoaded && !canConnectRepositories ? (
+        <div className="mb-4 max-w-md text-sm text-muted-foreground">
+          Choose a Convex team and a Cloudflare account in Providers before connecting a
+          repository.
+        </div>
+      ) : null}
       <div className="mb-6 flex-shrink-0">
         <Input
           placeholder="Search repositories..."
@@ -372,7 +401,7 @@ export function ConnectRepositoryPageContent({
                         size="sm"
                         className="mt-2"
                         onClick={() => onConnectRepository(repo.full_name)}
-                        disabled={connectingRepositoryFullName !== null}
+                        disabled={connectingRepositoryFullName !== null || !canConnectRepositories}
                       >
                         {connectingRepositoryFullName === repo.full_name
                           ? "Connecting..."

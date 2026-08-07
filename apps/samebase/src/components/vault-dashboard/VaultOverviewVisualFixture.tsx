@@ -121,6 +121,8 @@ const LIST_SPACING_CONVEX_PROJECT_ID = fakeConvexProjectId("convex-project-sameb
 const LIST_SPACING_VAULT = {
   _id: LIST_SPACING_VAULT_ID,
   organizationId: VISUAL_ORGANIZATION_ID,
+  cloudflareAccountId: "fe57d01d7ab41f60d00ba1aade20eb33",
+  convexTeamId: "samebase-team-id",
   ghRepoOwner: "samebase",
   ghRepoName: "samebase",
   repositoryFullName: "samebase/samebase",
@@ -530,6 +532,8 @@ const PROVISIONING_ORGANIZATION = {
 } satisfies VaultOrganization;
 const PROVISIONING_VAULT = {
   ...LIST_SPACING_VAULT,
+  cloudflareAccountId: "fixture-cloudflare-account",
+  convexTeamId: "38516",
   ghRepoOwner: "nicu-chiciuc",
   ghRepoName: "tmp-f149-vault-loading-states",
   repositoryFullName: "nicu-chiciuc/tmp-f149-vault-loading-states",
@@ -886,7 +890,8 @@ function buildFixtureWorkspace({
     cloudflareConnection: {
       state: "ready",
       connection: {
-        connected: true,
+        state: "connected",
+        authMethod: "oauth",
         accountId: cloudflareAccountId,
         accountName: cloudflareAccountName,
       },
@@ -915,7 +920,7 @@ function buildFixtureWorkspace({
       addConvexOnClick: () => {},
       changeConvexProjectConfigPathOnClick: () => {},
       cloudflareObservations,
-      connectedCloudflareAccount: {
+      cloudflareAccount: {
         accountId: cloudflareAccountId,
         accountName: cloudflareAccountName,
       },
@@ -924,7 +929,6 @@ function buildFixtureWorkspace({
       detachCloudflareWorkerOnClick: () => {},
       detachConvexProjectOnClick: () => {},
       pendingAction: null,
-      reconcileConvexProjectTeamOnClick: () => {},
       rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
       vault,
     }),
