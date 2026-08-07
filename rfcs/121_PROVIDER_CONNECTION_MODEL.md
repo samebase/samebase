@@ -63,13 +63,13 @@ One backend-only document contains the organization's current provider credentia
 convex?: {
   auth: ConvexProviderAuth
   connectedByUserId: Id<"users">
-  connectedAt: number
+  updatedAt: number
 }
 
 cloudflare?: {
   auth: CloudflareProviderAuth
   connectedByUserId: Id<"users">
-  connectedAt: number
+  updatedAt: number
   tokenHealth?: McpTokenHealth
   tokenRefreshLease?: {
     startedAt: number
@@ -140,7 +140,7 @@ without an account only during first account selection.
 | First Convex connect         | Verify the team, then set `convexTeam` and the Convex credential in one mutation.                                                                                 |
 | First Cloudflare OAuth       | Store the credential. Set the account when exactly one account is available. Otherwise require owner account selection.                                           |
 | Cloudflare account selection | Verify access with the current credential, then set the first `cloudflareAccount`. It cannot replace an existing account.                                         |
-| Reauthorization              | Verify the retained team or account, then replace only the credential and connector provenance. A different external ID fails.                                    |
+| Reauthorization              | Verify the retained team or account, then replace the credential, `connectedByUserId`, and `updatedAt`. A different external ID fails.                            |
 | Another owner takes over     | Run same-destination reauthorization. The new credential and `connectedByUserId` replace the old values.                                                          |
 | Disconnect                   | Clear the local credential and retain the destination, vaults, and provider resources. Attempt supported upstream revocation and report when it is not confirmed. |
 | Destination reset            | Require no row in `vaults.by_organization`. Clear the destination and its credential. A later fresh connect can establish another destination.                    |
@@ -184,7 +184,7 @@ selection or change the account.
 
 Cloudflare refresh uses one explicit `tokenRefreshLease`. Completion writes only when both the full
 credential and the lease still match. Disconnect clears the credential first, so an in-progress
-refresh cannot restore it.
+refresh cannot restore it. Refresh preserves `connectedByUserId` and advances `updatedAt`.
 
 OAuth callback state stores one hash of the current provider destination and credential snapshot. It
 stores no raw credential. The callback rejects a changed snapshot before it writes a new credential.

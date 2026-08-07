@@ -11,6 +11,7 @@
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
   - `specs/119_POLAR_MONTHLY_BILLING_SPEC.md`
   - `specs/121_ORGANIZATION_CONTEXT_AND_ROUTE_MODEL.md`
+  - `rfcs/121_PROVIDER_CONNECTION_MODEL.md`
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
 
@@ -125,8 +126,8 @@ providerCredentialsId?: Id<"organizationProviderCredentials">
 `providerCredentialsId` is immutable after the organization creates its backend-only credential
 document. `organizationProviderCredentials` has one optional Convex credential and one optional
 Cloudflare credential. Each credential stores its authorization material, `connectedByUserId`, and
-connection time. `connectedByUserId` records which Samebase user established the current external
-grant. It does not grant Samebase access.
+`updatedAt`. `connectedByUserId` records which Samebase user established the current external grant.
+It does not grant Samebase access.
 
 Provider credentials stay in backend-only functions. Product clients can request authorized
 operations and read non-secret status. They cannot retrieve credentials or raw provider errors. Any

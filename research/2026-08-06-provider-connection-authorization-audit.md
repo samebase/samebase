@@ -10,7 +10,7 @@
   `db069c026`
 - Accepted organization contract: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Rollout record: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
-- Proposed decision: `rfcs/121_PROVIDER_CONNECTION_MODEL.md`
+- Accepted decision: `rfcs/121_PROVIDER_CONNECTION_MODEL.md`
 
 ## Scope And Evidence Rules
 
@@ -570,7 +570,7 @@ Provider facts support a small one-target model. Convex OAuth is the correct nor
 to written production confirmation. An account API token is the most durable Cloudflare grant, but
 credential durability does not override the confirmed product requirement for direct Cloudflare
 OAuth. The Cloudflare connection must use OAuth and accept its user-bound recovery states. The
-proposed product and data decision is in `rfcs/121_PROVIDER_CONNECTION_MODEL.md`.
+accepted product and data decision is in `rfcs/121_PROVIDER_CONNECTION_MODEL.md`.
 
 ## Summary
 
