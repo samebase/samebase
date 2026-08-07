@@ -56,6 +56,7 @@ type CloudflareOAuthTokenResponse = {
   refreshToken?: string;
   expiresIn: number;
 };
+type CloudflareOAuthAuth = Extract<Infer<typeof vCloudflareProviderAuth>, { method: "oauth" }>;
 
 export const CLOUDFLARE_OAUTH_SCOPES = [
   "workers-ci.read",
@@ -343,29 +344,8 @@ export const storeCloudflareOauthConnection = internalMutation({
   },
 });
 
-const cloudflareOauthAuthValidator = object({
-  method: literal("oauth"),
-  credential: string(),
-  refreshCredential: string(),
-  credentialExpiresAt: number(),
-});
-const cloudflareMcpOauthAuthValidator = object({
-  method: literal("mcp_oauth"),
-  credential: string(),
-  refreshCredential: string(),
-  credentialExpiresAt: number(),
-  clientId: string(),
-});
-const cloudflareApiKeyAuthValidator = object({
-  method: literal("api_key"),
-  credential: string(),
-});
 const resolvedCloudflareConnectionValidator = object({
-  auth: union(
-    cloudflareOauthAuthValidator,
-    cloudflareMcpOauthAuthValidator,
-    cloudflareApiKeyAuthValidator,
-  ),
+  auth: vCloudflareProviderAuth,
   account: optional(vOrganizationCloudflareAccount),
   tokenHealth: optional(vMcpTokenHealth),
 });
@@ -535,7 +515,7 @@ export const resolveConnectionForOrganization = internalAction({
       }
 
       const nextExpiresAt = Date.now() + refreshed.expiresIn * 1000;
-      const refreshedAuth: Infer<typeof cloudflareOauthAuthValidator> = {
+      const refreshedAuth: CloudflareOAuthAuth = {
         method: "oauth",
         credential: refreshed.accessToken,
         refreshCredential: refreshed.refreshToken,

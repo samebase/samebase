@@ -134,8 +134,12 @@ export const revokeConnectionBatch = internalAction({
       }
     }
 
+    const remainingCredentials = await ctx.runQuery(
+      internal.accountDeletion.providerActions.loadConnectionBatch,
+      args,
+    );
     return {
-      done: credentials.length < PROVIDER_CREDENTIAL_BATCH_SIZE,
+      done: remainingCredentials.length === 0,
       convexManualRevocationRequired,
     };
   },

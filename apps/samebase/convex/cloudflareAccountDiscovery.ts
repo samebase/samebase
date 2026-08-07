@@ -103,6 +103,17 @@ export async function listCloudflareAccountsForToken(args: {
   return normalizeCloudflareAccounts(accounts);
 }
 
+export const listAccounts = internalAction({
+  args: {
+    token: v.string(),
+    transport: vCloudflareApiTransport,
+  },
+  returns: v.array(vCloudflareAccount),
+  handler: async (_ctx, args) => {
+    return await listCloudflareAccountsForToken({ ...args, perPage: 100 });
+  },
+});
+
 export const resolveAccountForToken = internalAction({
   args: {
     token: v.string(),

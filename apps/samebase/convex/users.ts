@@ -10,6 +10,7 @@ import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealthStatus } from "./mcpTokenHealth";
 import type { CloudflareProviderCredential } from "./organizationProviderCredentialModel";
+import { vOrganizationCloudflareAccount } from "./organizationModel";
 import {
   getOrganizationProviderConfiguration,
   type OrganizationProviderConfiguration,
@@ -103,10 +104,10 @@ const vCloudflareConnectionStatus = union(
   vCloudflareConnectedConnectionStatus,
 );
 type CloudflareConnectionStatus = Infer<typeof vCloudflareConnectionStatus>;
-const vCloudflareDisconnectResult = object({
+const vProviderDisconnectResult = object({
   upstreamRevocation: union(literal("confirmed"), literal("unconfirmed"), literal("not_supported")),
 });
-type CloudflareDisconnectResult = Infer<typeof vCloudflareDisconnectResult>;
+type ProviderDisconnectResult = Infer<typeof vProviderDisconnectResult>;
 
 function normalizeApiToken(token: string): string {
   const normalized = token.trim();
@@ -429,8 +430,8 @@ export const disconnectConvex = action({
   args: {
     organizationId: id("organizations"),
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
+  returns: vProviderDisconnectResult,
+  handler: async (ctx, args): Promise<ProviderDisconnectResult> => {
     const organizationId = await ctx.runQuery(
       internal.organizationAccess.requireOrganizationOwnerIdForUser,
       { userId: ctx.viewer.userId, organizationId: args.organizationId },
@@ -439,14 +440,15 @@ export const disconnectConvex = action({
       internal.organizationProviderCredentials.loadForOrganization,
       { organizationId, userId: ctx.viewer.userId },
     );
-    if (configuration.convexCredential !== undefined) {
-      await ctx.runMutation(internal.organizationProviderCredentials.disconnectConvex, {
-        organizationId,
-        disconnectedByUserId: ctx.viewer.userId,
-        expectedAuth: configuration.convexCredential.auth,
-      });
+    if (configuration.convexCredential === undefined) {
+      return { upstreamRevocation: "confirmed" };
     }
-    return null;
+    await ctx.runMutation(internal.organizationProviderCredentials.disconnectConvex, {
+      organizationId,
+      disconnectedByUserId: ctx.viewer.userId,
+      expectedAuth: configuration.convexCredential.auth,
+    });
+    return { upstreamRevocation: "not_supported" };
   },
 });
 
@@ -463,6 +465,105 @@ export const getCloudflareConnectionStatus = query({
     });
     const configuration = await getOrganizationProviderConfiguration(ctx.db, access.organizationId);
     return buildCloudflareConnectionStatus(configuration);
+  },
+});
+
+const vCloudflareAccounts = array(vOrganizationCloudflareAccount);
+type CloudflareAccounts = Infer<typeof vCloudflareAccounts>;
+
+export const listCloudflareAccounts = action({
+  access: "access_provider_connections",
+  args: {
+    organizationId: id("organizations"),
+  },
+  returns: vCloudflareAccounts,
+  handler: async (ctx, args): Promise<CloudflareAccounts> => {
+    const [configuration, role] = await Promise.all([
+      ctx.runQuery(internal.organizationProviderCredentials.loadForOrganization, {
+        organizationId: args.organizationId,
+        userId: ctx.viewer.userId,
+      }),
+      ctx.runQuery(internal.organizationAccess.requireOrganizationRoleForUser, {
+        organizationId: args.organizationId,
+        userId: ctx.viewer.userId,
+      }),
+    ]);
+    if (configuration.cloudflareAccount !== undefined) {
+      return [configuration.cloudflareAccount];
+    }
+    if (role !== "owner") {
+      return [];
+    }
+    const connection = await ctx.runAction(
+      internal.cloudflareOAuth.resolveConnectionForOrganization,
+      {
+        organizationId: args.organizationId,
+        userId: ctx.viewer.userId,
+      },
+    );
+    if (connection === null) {
+      throw new Error("Cloudflare connection is required.");
+    }
+    return await ctx.runAction(internal.cloudflareAccountDiscovery.listAccounts, {
+      token: connection.auth.credential,
+      transport: connection.auth.method === "mcp_oauth" ? "mcp" : "direct",
+    });
+  },
+});
+
+export const selectCloudflareAccount = action({
+  access: "access_provider_connections",
+  args: {
+    organizationId: id("organizations"),
+    accountId: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.requireOrganizationOwnerIdForUser,
+      {
+        organizationId: args.organizationId,
+        userId: ctx.viewer.userId,
+      },
+    );
+    const configuration = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
+      {
+        organizationId,
+        userId: ctx.viewer.userId,
+      },
+    );
+    if (configuration.cloudflareAccount !== undefined) {
+      throw new Error("Cloudflare account is already configured.");
+    }
+    const connection = await ctx.runAction(
+      internal.cloudflareOAuth.resolveConnectionForOrganization,
+      {
+        organizationId,
+        userId: ctx.viewer.userId,
+      },
+    );
+    if (connection === null) {
+      throw new Error("Cloudflare connection is required.");
+    }
+    const accounts = await ctx.runAction(internal.cloudflareAccountDiscovery.listAccounts, {
+      token: connection.auth.credential,
+      transport: connection.auth.method === "mcp_oauth" ? "mcp" : "direct",
+    });
+    const account = accounts.find((candidate) => candidate.accountId === args.accountId);
+    if (account === undefined) {
+      throw new Error(
+        `The current Cloudflare credential cannot access Cloudflare account ${args.accountId}. Reconnect Cloudflare with access to this account, then retry.`,
+      );
+    }
+    await ctx.runMutation(internal.organizationProviderCredentials.selectCloudflareAccount, {
+      organizationId,
+      userId: ctx.viewer.userId,
+      expectedAuth: connection.auth,
+      accountId: account.accountId,
+      accountName: account.accountName,
+    });
+    return null;
   },
 });
 
@@ -708,8 +809,8 @@ export const disconnectCloudflare = action({
   args: {
     organizationId: id("organizations"),
   },
-  returns: vCloudflareDisconnectResult,
-  handler: async (ctx, args): Promise<CloudflareDisconnectResult> => {
+  returns: vProviderDisconnectResult,
+  handler: async (ctx, args): Promise<ProviderDisconnectResult> => {
     const organizationId = await ctx.runQuery(
       internal.organizationAccess.requireOrganizationOwnerIdForUser,
       { userId: ctx.viewer.userId, organizationId: args.organizationId },

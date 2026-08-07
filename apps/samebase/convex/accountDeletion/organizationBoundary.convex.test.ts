@@ -101,43 +101,48 @@ async function seedRunningDeletion() {
       branch: "main",
       version: 1,
     });
-    await ctx.db.insert("providerConnections", {
-      kind: "convex",
-      organizationId,
-      connectedByUserId: deletingUserId,
-      auth: { method: "oauth", credential: "convex-token" },
-      teamId: "convex-team",
-      createdAt: 1,
-      updatedAt: 1,
-    });
-    await ctx.db.insert("providerConnections", {
-      kind: "cloudflare",
-      organizationId,
-      connectedByUserId: deletingUserId,
-      auth: {
-        method: "oauth",
-        credential: "cloudflare-access-token",
-        refreshCredential: "cloudflare-refresh-token",
-        credentialExpiresAt: 2_000_000_000_000,
+    const organizationProviderCredentialsId = await ctx.db.insert(
+      "organizationProviderCredentials",
+      {
+        convex: {
+          connectedByUserId: deletingUserId,
+          auth: { method: "oauth", credential: "convex-token" },
+          updatedAt: 1,
+        },
+        cloudflare: {
+          connectedByUserId: deletingUserId,
+          auth: {
+            method: "oauth",
+            credential: "cloudflare-access-token",
+            refreshCredential: "cloudflare-refresh-token",
+            credentialExpiresAt: 2_000_000_000_000,
+          },
+          updatedAt: 1,
+        },
       },
-      defaultAccount: { state: "not_selected" },
-      createdAt: 1,
-      updatedAt: 1,
+    );
+    await ctx.db.patch(organizationId, {
+      providerCredentialsId: organizationProviderCredentialsId,
+      convexTeam: { teamId: "convex-team" },
     });
-    const teammateConnectionId = await ctx.db.insert("providerConnections", {
-      kind: "convex",
-      organizationId: teammateOrganizationId,
-      connectedByUserId: teammateUserId,
-      auth: { method: "api_key", credential: "teammate-token" },
-      teamId: "teammate-team",
-      createdAt: 1,
-      updatedAt: 1,
+    const teammateProviderCredentialsId = await ctx.db.insert("organizationProviderCredentials", {
+      convex: {
+        connectedByUserId: teammateUserId,
+        auth: { method: "api_key", credential: "teammate-token" },
+        updatedAt: 1,
+      },
+    });
+    await ctx.db.patch(teammateOrganizationId, {
+      providerCredentialsId: teammateProviderCredentialsId,
+      convexTeam: { teamId: "teammate-team" },
     });
     await ctx.db.insert("providerOAuthCallbackStates", {
       provider: "convex",
       userId: deletingUserId,
       organizationId,
+      expectedProviderSnapshotHash: "snapshot-hash",
       state: "provider-state",
+      codeVerifier: "code-verifier",
       createdAt: 1,
       expiresAt: 2_000_000_000_000,
     });
@@ -180,7 +185,8 @@ async function seedRunningDeletion() {
       runId,
       vaultId,
       stagedFileId,
-      teammateConnectionId,
+      organizationProviderCredentialsId,
+      teammateProviderCredentialsId,
     };
   });
   return { ids, t };
@@ -425,17 +431,12 @@ describe("account deletion organization boundary", () => {
       organizationBilling: await ctx.db.get(ids.organizationBillingId),
       vault: await ctx.db.get(ids.vaultId),
       stagedFile: await ctx.db.get(ids.stagedFileId),
-      teammateConnection: await ctx.db.get(ids.teammateConnectionId),
+      organizationProviderCredentials: await ctx.db.get(ids.organizationProviderCredentialsId),
+      teammateProviderCredentials: await ctx.db.get(ids.teammateProviderCredentialsId),
       memberships: await ctx.db
         .query("organizationMemberships")
         .withIndex("by_organization_and_user", (query) =>
           query.eq("organizationId", ids.organizationId),
-        )
-        .collect(),
-      deletingUserConnections: await ctx.db
-        .query("providerConnections")
-        .withIndex("by_connected_by_user", (query) =>
-          query.eq("connectedByUserId", ids.deletingUserId),
         )
         .collect(),
       oauthState: await ctx.db
@@ -466,9 +467,14 @@ describe("account deletion organization boundary", () => {
     expect(snapshot.organizationBilling).not.toBeNull();
     expect(snapshot.vault).not.toBeNull();
     expect(snapshot.stagedFile).not.toBeNull();
-    expect(snapshot.teammateConnection).not.toBeNull();
+    expect(snapshot.organization).toMatchObject({
+      convexTeam: { teamId: "convex-team" },
+      providerCredentialsId: ids.organizationProviderCredentialsId,
+    });
+    expect(snapshot.organizationProviderCredentials?.convex).toBeUndefined();
+    expect(snapshot.organizationProviderCredentials?.cloudflare).toBeUndefined();
+    expect(snapshot.teammateProviderCredentials).not.toBeNull();
     expect(snapshot.memberships).toEqual([expect.objectContaining({ userId: ids.teammateUserId })]);
-    expect(snapshot.deletingUserConnections).toEqual([]);
     expect(snapshot.oauthState).toBeNull();
     expect(snapshot.setupState).toBeNull();
     expect(snapshot.preferences).toBeNull();
@@ -528,7 +534,7 @@ describe("account deletion organization boundary", () => {
     expect(stagedFile.lastEditUserId).toBe(ids.teammateUserId);
   });
 
-  it("keeps a Cloudflare credential when remote revocation fails", async () => {
+  it("removes local Cloudflare access when remote revocation fails", async () => {
     const { ids, t } = await seedRunningDeletion();
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
@@ -546,21 +552,15 @@ describe("account deletion organization boundary", () => {
         runId: ids.runId,
         workflowId,
       }),
-    ).rejects.toThrow("Cloudflare OAuth revocation could not be confirmed.");
+    ).resolves.toEqual({ done: true, convexManualRevocationRequired: true });
 
     const snapshot = await t.run(async (ctx) => {
-      const connections = await ctx.db
-        .query("providerConnections")
-        .withIndex("by_connected_by_user", (query) =>
-          query.eq("connectedByUserId", ids.deletingUserId),
-        )
-        .collect();
       return {
-        cloudflareConnection: connections.find(({ kind }) => kind === "cloudflare") ?? null,
+        credentials: await ctx.db.get(ids.organizationProviderCredentialsId),
         run: await ctx.db.get(ids.runId),
       };
     });
-    expect(snapshot.cloudflareConnection).not.toBeNull();
+    expect(snapshot.credentials?.cloudflare).toBeUndefined();
     expect(snapshot.run?.outcomes.providerRevocation).toEqual({
       state: "in_progress",
       convexManualRevocationRequired: true,
@@ -571,19 +571,6 @@ describe("account deletion organization boundary", () => {
     const { ids, t } = await seedRunningDeletion();
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
-    const cloudflareConnectionId = await t.run(async (ctx) => {
-      const connections = await ctx.db
-        .query("providerConnections")
-        .withIndex("by_connected_by_user", (query) =>
-          query.eq("connectedByUserId", ids.deletingUserId),
-        )
-        .collect();
-      const connection = connections.find(({ kind }) => kind === "cloudflare");
-      if (connection?.kind !== "cloudflare") {
-        throw new Error("Expected a Cloudflare connection.");
-      }
-      return connection._id;
-    });
     const revokedRefreshTokens: string[] = [];
     const fetch = vi.fn(async (_input: string | URL | Request, init?: RequestInit) => {
       if (typeof init?.body !== "string") {
@@ -596,18 +583,17 @@ describe("account deletion organization boundary", () => {
       revokedRefreshTokens.push(refreshToken);
       if (revokedRefreshTokens.length === 1) {
         await t.run(async (ctx) => {
-          const connection = await ctx.db.get(cloudflareConnectionId);
-          if (connection?.kind !== "cloudflare") {
-            throw new Error("Expected a Cloudflare connection.");
-          }
-          await ctx.db.patch(connection._id, {
-            auth: {
-              method: "oauth",
-              credential: "refreshed-access-token",
-              refreshCredential: "refreshed-refresh-token",
-              credentialExpiresAt: 2_000_000_000_000,
+          await ctx.db.patch(ids.organizationProviderCredentialsId, {
+            cloudflare: {
+              connectedByUserId: ids.deletingUserId,
+              auth: {
+                method: "oauth",
+                credential: "refreshed-access-token",
+                refreshCredential: "refreshed-refresh-token",
+                credentialExpiresAt: 2_000_000_000_000,
+              },
+              updatedAt: 2,
             },
-            updatedAt: 2,
           });
         });
       }
@@ -626,11 +612,13 @@ describe("account deletion organization boundary", () => {
       }),
     ).resolves.toEqual({ done: false, convexManualRevocationRequired: true });
     await expect(
-      t.run(async (ctx) => await ctx.db.get(cloudflareConnectionId)),
+      t.run(async (ctx) => await ctx.db.get(ids.organizationProviderCredentialsId)),
     ).resolves.toMatchObject({
-      auth: {
-        credential: "refreshed-access-token",
-        refreshCredential: "refreshed-refresh-token",
+      cloudflare: {
+        auth: {
+          credential: "refreshed-access-token",
+          refreshCredential: "refreshed-refresh-token",
+        },
       },
     });
     await expect(
@@ -641,8 +629,9 @@ describe("account deletion organization boundary", () => {
     ).resolves.toEqual({ done: true, convexManualRevocationRequired: false });
 
     expect(revokedRefreshTokens).toEqual(["cloudflare-refresh-token", "refreshed-refresh-token"]);
-    await expect(
-      t.run(async (ctx) => await ctx.db.get(cloudflareConnectionId)),
-    ).resolves.toBeNull();
+    const remainingCredentials = await t.run(
+      async (ctx) => await ctx.db.get(ids.organizationProviderCredentialsId),
+    );
+    expect(remainingCredentials?.cloudflare).toBeUndefined();
   });
 });
