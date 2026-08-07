@@ -18,6 +18,7 @@ test("connect repository loading more status", async ({ page }) => {
 
 test("connect repository provider blocker", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 520 });
+  await page.clock.install({ time: Date.parse("2026-08-06T12:00:00Z") });
   await page.goto("/visual-fixture?mode=connect-repository-provider-blocked", {
     waitUntil: "domcontentloaded",
   });
