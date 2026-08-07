@@ -4,12 +4,13 @@
 
 - Status: Accepted
 - Owner: Samebase
-- Last updated: 2026-08-05
+- Last updated: 2026-08-07
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
   - `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
   - `specs/110_VAULT_ROUTE_SURFACE_SPEC.md`
+  - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 ## Current Contract
 
@@ -18,6 +19,10 @@
 A vault belongs to one Samebase organization and connects it to one GitHub repository. A provider
 resource attachment records the organization's intent to include one independently identified
 provider resource in that vault.
+
+Every vault lifecycle variant stores required `convexTeamId` and `cloudflareAccountId` fields. Vault
+creation copies both values from the organization in the same transaction. These values are the
+fixed destinations for all provider resources attached to that vault.
 
 Samebase has no durable app, folder, or root-group entity. In particular, there is no `vaultApps`
 table and provider attachments do not carry an `appId`.
@@ -53,13 +58,12 @@ Convex `_creationTime` records when each attachment was created. The rows do not
 domain field.
 
 `accountId` plus Worker identity and `teamId` plus `projectId` are provider coordinates. `projectId`
-is the stable Convex project continuity key. `teamId` is the last team under which Samebase verified
-that project and is updated only by explicit provider-verified reconciliation.
+is the stable Convex project continuity key. An attachment's `teamId` must equal its vault's
+`convexTeamId`, and its `accountId` must equal its vault's `cloudflareAccountId`.
 
-Attachments do not store `providerConnections._id`. Convex operations resolve a current organization
-connection whose `teamId` matches the attachment. Cloudflare operations use the organization's
-selected Cloudflare connection and ask Cloudflare whether that credential can access the
-attachment's `accountId`.
+Attachments do not store a credential document ID. Convex and Cloudflare operations load the
+organization's singleton provider credential slot and require it to match the vault destination and
+the attachment coordinates.
 
 Convex placement is exactly one of two row variants: `convexConfigPath` names an exact regular
 `convex.json` file, or `convexDirectoryPath` names an exact `convex/` tree whose parent contains a
@@ -115,7 +119,7 @@ The dashboard derives a resource tree at read time:
 The common single-app repository is one `/` group. A monorepo is the same model with more derived
 groups.
 
-### Vault-level connection flows
+### Vault-level attachment flows
 
 The only provider-add dashboard routes are bare vault-level flags:
 
@@ -124,7 +128,7 @@ The only provider-add dashboard routes are bare vault-level flags:
 
 There is no `?add-app-root` route and no `app-root` query parameter.
 
-The Cloudflare dialog scans the selected account for Workers connected to the vault's immutable
+The Cloudflare dialog scans the vault's Cloudflare account for Workers connected to its immutable
 GitHub repository identity. It groups selectable Workers by their read-only live root and supports
 attaching several Workers in one confirmation. Every verified selectable Worker starts selected, and
 the user may deselect any of them. Confirmation re-reads the selected Worker identities, repository
@@ -164,10 +168,10 @@ A missing Worker remains attached under `Needs attention` until the user explici
 the vault. A Convex 404 under the stored team is ambiguous because the project may have been deleted
 or transferred. It never authorizes automatic removal.
 
-When the connected Convex credential verifies the same `projectId` under a different team, Samebase
-offers reconciliation. Confirmation compare-and-swaps only `teamId`; it preserves the attachment ID,
-code location, origin, and creation time. Provider writes fail closed while the stored team is
-stale.
+When the organization Convex credential observes the same `projectId` under a different team,
+Samebase reports the move but does not update the attachment `teamId`. Provider writes fail closed
+because the resource no longer matches the vault's fixed Convex destination. The product has no
+project-team reconciliation action.
 
 Removing either provider attachment is an explicit change to organization attachment intent.
 Provider absence may explain why removal is useful, but is not the mutation authority.
@@ -206,8 +210,8 @@ provider observation, or active operation.
   files, truncated trees, changed evidence at confirmation, and explicit location reconciliation.
 - Cloudflare tests cover complete pagination, partial fallback, exact GitHub repository matching,
   ambiguous roots, root drift, missing Workers, and marker disagreement.
-- Convex tests cover project continuity by `projectId`, verified team reconciliation, concurrent
-  changes, and inaccessible projects that fail closed.
+- Convex tests cover project continuity by `projectId`, destination mismatches, concurrent changes,
+  and inaccessible projects that fail closed.
 - Route and UI tests cover bare provider flags, multi-selection, closed code-location selectors,
   read-only observed Worker roots, default Worker selection, Worker-referenced Convex ordering,
   exact build access targets, exact root grouping, `Needs attention`, and project-attachment Data
@@ -220,8 +224,8 @@ provider observation, or active operation.
 
 ## Rollout
 
-Before the first schema push on a deployment that contains the old model, delete all rows from
-`vaultCloudflareWorkers`, `vaultConvexProjects`, and `vaultApps`. Existing Convex placement cannot
-be reconstructed authoritatively, so the rollout intentionally requires the user to attach resources
-again through verified discovery. No migration field, dual write, fallback read, or compatibility
-adapter is permitted.
+Before the schema push, delete all vaults through the product and verify that `vaults`, provider
+attachments, provisioning plans, and provider write locks are empty. Existing vault rows do not have
+the required provider destinations. The rollout intentionally requires the user to reconnect both
+providers, recreate the vaults, and attach resources again. No migration field, dual write, fallback
+read, or compatibility adapter is permitted.

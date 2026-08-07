@@ -4,13 +4,14 @@
 
 - Status: Implemented for MVP
 - Owner: Samebase backend/frontend
-- Last updated: 2026-07-30
+- Last updated: 2026-08-07
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Related deletion contract: `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
 - Cloudflare Workers migration: `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
 - Manual Convex attachment: `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`
 - Resource attachment model: `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
+- Organization deployment providers: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 > Note: this spec describes the Workers-only provisioning workflow. Durable resource attachment
 > identity and read-time root projection are defined in spec 115.
@@ -35,8 +36,9 @@ Vault creation succeeds even if downstream provisioning partially fails.
 - `api.vault.actions.createRepository` (new samebase-managed repo) requires a selected GitHub
   user/org owner. One admission transaction inserts the initializing vault, the create run, the
   active managed provider lock, and the provisioning plan, then starts the Workflow and stores its
-  ID. A Workflow start failure rolls back all admission writes. The Workflow validates provider
-  connections and starts provider provisioning after source setup succeeds.
+  ID. A Workflow start failure rolls back all admission writes. The Workflow validates the
+  organization's provider credentials against the vault destinations and starts provider
+  provisioning after source setup succeeds.
 - `api.vault.actions.connectRepository` (existing GitHub repo connection) does **not**
   auto-provision infra. Its `connect_existing_repository` run is source-only and never owns the
   provider lock.
@@ -46,7 +48,7 @@ Vault creation succeeds even if downstream provisioning partially fails.
   retry run, replace the failed managed lock with its active owner, start the Workflow, and store
   its ID. A Workflow start failure rolls back the new run and lock change. The Workflow restarts the
   composed block sequence for a failed Samebase-managed create flow. Manual provider setup failures
-  still reopen the matching provider connection dialog instead of running the managed infrastructure
+  still reopen the matching provider resource dialog instead of running the managed infrastructure
   retry.
 
 ## Source of Truth Files
@@ -65,31 +67,36 @@ Vault creation succeeds even if downstream provisioning partially fails.
 
 ## Data Model
 
+### `vaults`
+
+Every vault lifecycle variant stores required `convexTeamId` and `cloudflareAccountId` fields. Vault
+creation copies both values from the organization in the admission transaction. All later provider
+work uses these fixed destinations, and each attached provider resource must match them.
+
 ### `workflow_vaultProvisioning_plans`
 
 - `vaultId`
 - `convexConfigPath`
-- `convex`: `{ state: "planned", projectName, teamId }`,
-  `{ state: "creating", projectName, teamId }`, or
-  `{ state: "created", projectName, teamId, projectId }`
-- `cloudflare`: `{ state: "planned", accountId, workerName, rootDirectory }`,
-  `{ state: "creating", accountId, workerName, rootDirectory }`, or
-  `{ state: "created", accountId, workerName, workerTag, rootDirectory }`
+- `convex`: `{ state: "planned", projectName }`, `{ state: "creating", projectName }`, or
+  `{ state: "created", projectName, projectId }`
+- `cloudflare`: `{ state: "planned", workerName, rootDirectory }`,
+  `{ state: "creating", workerName, rootDirectory }`, or
+  `{ state: "created", workerName, workerTag, rootDirectory }`
 - `createdAt`, `updatedAt`
 
-The plan row records provider resource names and stable external coordinates before side effects
-happen. The Convex team and Cloudflare account do not change during retry. Each attempt resolves a
-current organization Convex connection for the planned `teamId` and the organization's selected
-Cloudflare connection. Cloudflare then verifies that credential against the planned `accountId`.
-`creating` means the provider create request started but Samebase never recorded a confirmed result.
-Retry checks the exact planned name. If that provider resource exists, Samebase requires the user to
-delete it in the provider dashboard before retrying. If it is absent, Samebase repeats the create
-request without adding another workflow state. A same-named resource is never adopted implicitly.
-`created` is the exact external provider identity checkpoint used by retry. Samebase writes that
-checkpoint and its stable `provisioned` resource attachment in one database transaction.
-Checkbox-controlled cleanup derives ownership only from the stable attachment, never from an
-unattached checkpoint. Current connected resource identities live in the durable resource tables
-used by the dashboard.
+The plan row records provider resource names, provider configuration input, and stable resource
+identities returned after side effects. It does not duplicate the Convex team or Cloudflare account.
+The vault stores those destinations, and they do not change during retry. Each attempt resolves the
+current organization-owned Convex or Cloudflare credential slot for the vault destination and
+verifies that the credential can access it. `creating` means the provider create request started but
+Samebase never recorded a confirmed result. Retry checks the exact planned name. If that provider
+resource exists, Samebase requires the user to delete it in the provider dashboard before retrying.
+If it is absent, Samebase repeats the create request without adding another workflow state. A
+same-named resource is never adopted implicitly. `created` is the exact external provider identity
+checkpoint used by retry. Samebase writes that checkpoint and its stable `provisioned` resource
+attachment in one database transaction. Checkbox-controlled cleanup derives ownership only from the
+stable attachment, never from an unattached checkpoint. Current connected resource identities live
+in the durable resource tables used by the dashboard.
 
 Indexes:
 
@@ -248,8 +255,8 @@ not copy provider domain or URL state into a Convex table.
 
 ## Runtime Configuration
 
-Cloudflare `oauth` and `api_key` connections call `api.cloudflare.com` directly. Only legacy
-`mcp_oauth` connections call the Cloudflare MCP server.
+Cloudflare `oauth` and `api_key` credentials call `api.cloudflare.com` directly. Only legacy
+`mcp_oauth` credentials call the Cloudflare MCP server.
 
 Required env vars (OAuth + redirects):
 
@@ -323,7 +330,7 @@ Repository default branch:
 8. `api.vault.cloudflare.discoverWorkers` and `api.vault.cloudflare.attachWorkers`
 
 - Discover returns Workers connected to the vault repository with their current verified roots.
-- Attach accepts several selected provider identities and commits the whole selection atomically.
+- Attach accepts several selected Worker identities and commits the whole selection atomically.
 
 9. `api.vault.cloudflare.createWorker` and `api.vault.cloudflare.detachWorker`
 
@@ -342,9 +349,9 @@ Repository default branch:
 - Create records the provider checkpoint and provisioned attachment before metadata refresh.
 - Detach changes only the organization's attachment intent.
 
-12. `api.vault.convex.changeProjectCodeLocation` and `api.vault.convex.reconcileProjectTeam`
+12. `api.vault.convex.changeProjectCodeLocation`
 
-- Both are explicit provider-verified compare-and-swap repairs of one attachment field.
+- This is an explicit provider-verified compare-and-swap repair of the attachment code location.
 
 ### Internal
 
@@ -484,9 +491,10 @@ Dashboard external links:
 
 ## MVP Notes
 
-- Uses user-scoped provider connections for Convex and Cloudflare (no operator fallback).
-- Cloudflare provisioning requires the selected account id already stored on the Cloudflare provider
-  connection. It must not inventory accounts and choose one during provisioning.
+- Uses the organization's singleton Convex and Cloudflare credential slots. Any active organization
+  member can run authorized provider work through those backend-only credentials.
+- Cloudflare provisioning requires the vault's `cloudflareAccountId` and an organization credential
+  that can access it. It must not inventory accounts and choose one during provisioning.
 - Workers Builds repository connection uses the connected vault's stored GitHub repo id and a
   required owner id read from the GitHub repository response. The response repo id must match the
   vault before Cloudflare receives the connection request.
