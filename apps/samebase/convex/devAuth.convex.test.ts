@@ -112,8 +112,8 @@ describe("devAuth password account seed", () => {
       },
     } as const;
 
-    await t.mutation(internal.devAuth.seedWorktreeOrganization, seed);
-    await t.mutation(internal.devAuth.seedWorktreeOrganization, seed);
+    await t.mutation(internal.devAuth.seedOrganizationWithProviderConnections, seed);
+    await t.mutation(internal.devAuth.seedOrganizationWithProviderConnections, seed);
 
     const snapshot = await t.run(async (ctx) => {
       return {
@@ -177,6 +177,10 @@ describe("devAuth password account seed", () => {
     vi.stubEnv("PREVIEW_SEED_AUTH_EMAIL", "preview@example.com");
     vi.stubEnv("PREVIEW_SEED_AUTH_PASSWORD", "preview-password-123");
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
+    vi.stubEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY", "preview-convex-credential");
+    vi.stubEnv("DEV_SEED_CONVEX_TEAM_ID", "preview-convex-team-id");
+    vi.stubEnv("DEV_SEED_CLOUDFLARE_API_KEY", "preview-cloudflare-credential");
+    vi.stubEnv("DEV_SEED_CLOUDFLARE_ACCOUNT_ID", "preview-cloudflare-account-id");
     devAuthMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
       {
         githubInstallationId: "1001",
@@ -216,7 +220,56 @@ describe("devAuth password account seed", () => {
     expect(snapshot.memberships).toHaveLength(2);
     expect(snapshot.billingAccounts).toHaveLength(2);
     expect(snapshot.githubUserAuthorizations).toEqual([]);
-    expect(snapshot.providerConnections).toEqual([]);
+    expect(snapshot.providerConnections).toHaveLength(4);
+    expect(snapshot.providerConnections).not.toContainEqual(
+      expect.objectContaining({
+        auth: { method: "api_key", credential: "preview-github-api-key" },
+      }),
+    );
+    for (const organization of snapshot.organizations) {
+      const organizationConnections = snapshot.providerConnections.filter(
+        (connection) => connection.organizationId === organization._id,
+      );
+      expect(organizationConnections).toHaveLength(2);
+      const convexConnection = organizationConnections.find(
+        (connection) => connection.kind === "convex",
+      );
+      const cloudflareConnection = organizationConnections.find(
+        (connection) => connection.kind === "cloudflare",
+      );
+      expect(convexConnection).toMatchObject({
+        connectedByUserId: snapshot.memberships[0].userId,
+        auth: { method: "api_key", credential: "preview-convex-credential" },
+        teamId: "preview-convex-team-id",
+      });
+      expect(cloudflareConnection).toMatchObject({
+        connectedByUserId: snapshot.memberships[0].userId,
+        auth: { method: "api_key", credential: "preview-cloudflare-credential" },
+        defaultAccount: {
+          state: "selected",
+          accountId: "preview-cloudflare-account-id",
+        },
+      });
+      expect(organization.selectedConvexProviderConnectionId).toBe(convexConnection?._id);
+      expect(organization.selectedCloudflareProviderConnectionId).toBe(cloudflareConnection?._id);
+    }
+  });
+
+  it("fails preview seeding when the shared provider setup is missing", async () => {
+    const t = makeConvexTest();
+    vi.stubEnv("CONVEX_DEPLOYMENT", "preview:organization-context");
+    vi.stubEnv("PREVIEW_SEED_AUTH_EMAIL", "preview@example.com");
+    vi.stubEnv("PREVIEW_SEED_AUTH_PASSWORD", "preview-password-123");
+    vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
+    vi.stubEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY", "");
+    vi.stubEnv("DEV_SEED_CONVEX_TEAM_ID", "");
+    vi.stubEnv("DEV_SEED_CLOUDFLARE_API_KEY", "");
+    vi.stubEnv("DEV_SEED_CLOUDFLARE_ACCOUNT_ID", "");
+
+    await expect(t.action(internal.devAuth.seedPasswordAccount, {})).rejects.toThrowError(
+      "Preview organization provider seeding requires DEV_SEED_CONVEX_MANAGEMENT_API_KEY, DEV_SEED_CONVEX_TEAM_ID, DEV_SEED_CLOUDFLARE_API_KEY, and DEV_SEED_CLOUDFLARE_ACCOUNT_ID",
+    );
+    expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).not.toHaveBeenCalled();
   });
 
   it("fails closed when the seed user is missing", async () => {

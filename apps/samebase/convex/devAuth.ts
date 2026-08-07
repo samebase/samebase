@@ -70,11 +70,7 @@ function readSeedGitHubOwnerType(value: string): "organization" | "user" {
   }
 }
 
-const vSeedWorktreeOrganizationConfig = object({
-  githubOwnerId: string(),
-  githubOwnerType: vGitHubOwnerType,
-  githubOwnerLogin: string(),
-  githubInstallationId: string(),
+const vSeedProviderConnections = object({
   convexConnection: union(
     vNull(),
     object({
@@ -91,35 +87,25 @@ const vSeedWorktreeOrganizationConfig = object({
     }),
   ),
 });
-type SeedWorktreeOrganizationConfig = Infer<typeof vSeedWorktreeOrganizationConfig>;
+type SeedProviderConnections = Infer<typeof vSeedProviderConnections>;
 
-function readSeedWorktreeOrganizationConfig(): SeedWorktreeOrganizationConfig | null {
-  const githubOwnerId = readSeedValue("DEV_SEED_GITHUB_OWNER_ID");
-  const githubOwnerType = readSeedValue("DEV_SEED_GITHUB_OWNER_TYPE");
-  const githubOwnerLogin = readSeedValue("DEV_SEED_GITHUB_OWNER_LOGIN");
-  const githubInstallationId = readSeedValue("DEV_SEED_GITHUB_INSTALLATION_ID");
+const vSeedOrganizationConfig = object({
+  githubOwnerId: string(),
+  githubOwnerType: vGitHubOwnerType,
+  githubOwnerLogin: string(),
+  githubInstallationId: string(),
+  ...vSeedProviderConnections.fields,
+});
+type SeedOrganizationConfig = Infer<typeof vSeedOrganizationConfig>;
+
+function readSeedProviderConnections(): SeedProviderConnections {
   const convexCredential = readSeedValue("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
   const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
   const convexTeamSlug = readSeedValue("DEV_SEED_CONVEX_TEAM_SLUG");
   const cloudflareCredential = readSeedValue("DEV_SEED_CLOUDFLARE_API_KEY");
   const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
 
-  const githubValues = [githubOwnerId, githubOwnerType, githubOwnerLogin, githubInstallationId];
-  if (githubValues.every((value) => value === undefined)) {
-    const hasProviderSeed = [
-      convexCredential,
-      convexTeamId,
-      convexTeamSlug,
-      cloudflareCredential,
-      cloudflareAccountId,
-    ].some((value) => value !== undefined);
-    if (hasProviderSeed) {
-      throw new Error("GitHub owner and installation seed values are required for provider seeds");
-    }
-    return null;
-  }
-
-  let convexConnection: SeedWorktreeOrganizationConfig["convexConnection"] = null;
+  let convexConnection: SeedProviderConnections["convexConnection"] = null;
   if (
     convexCredential !== undefined ||
     convexTeamId !== undefined ||
@@ -132,12 +118,47 @@ function readSeedWorktreeOrganizationConfig(): SeedWorktreeOrganizationConfig | 
     };
   }
 
-  let cloudflareConnection: SeedWorktreeOrganizationConfig["cloudflareConnection"] = null;
+  let cloudflareConnection: SeedProviderConnections["cloudflareConnection"] = null;
   if (cloudflareCredential !== undefined || cloudflareAccountId !== undefined) {
     cloudflareConnection = {
       credential: requireSeedValue(cloudflareCredential, "DEV_SEED_CLOUDFLARE_API_KEY"),
       ...(cloudflareAccountId === undefined ? {} : { accountId: cloudflareAccountId }),
     };
+  }
+
+  return { convexConnection, cloudflareConnection };
+}
+
+function readRequiredPreviewSeedProviderConnections(): SeedProviderConnections {
+  const connections = readSeedProviderConnections();
+  if (
+    connections.convexConnection === null ||
+    connections.cloudflareConnection === null ||
+    connections.cloudflareConnection.accountId === undefined
+  ) {
+    throw new Error(
+      "Preview organization provider seeding requires DEV_SEED_CONVEX_MANAGEMENT_API_KEY, DEV_SEED_CONVEX_TEAM_ID, DEV_SEED_CLOUDFLARE_API_KEY, and DEV_SEED_CLOUDFLARE_ACCOUNT_ID",
+    );
+  }
+  return connections;
+}
+
+function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
+  const githubOwnerId = readSeedValue("DEV_SEED_GITHUB_OWNER_ID");
+  const githubOwnerType = readSeedValue("DEV_SEED_GITHUB_OWNER_TYPE");
+  const githubOwnerLogin = readSeedValue("DEV_SEED_GITHUB_OWNER_LOGIN");
+  const githubInstallationId = readSeedValue("DEV_SEED_GITHUB_INSTALLATION_ID");
+  const providerConnections = readSeedProviderConnections();
+
+  const githubValues = [githubOwnerId, githubOwnerType, githubOwnerLogin, githubInstallationId];
+  if (githubValues.every((value) => value === undefined)) {
+    if (
+      providerConnections.convexConnection !== null ||
+      providerConnections.cloudflareConnection !== null
+    ) {
+      throw new Error("GitHub owner and installation seed values are required for provider seeds");
+    }
+    return null;
   }
 
   return {
@@ -147,8 +168,7 @@ function readSeedWorktreeOrganizationConfig(): SeedWorktreeOrganizationConfig | 
     ),
     githubOwnerLogin: requireSeedValue(githubOwnerLogin, "DEV_SEED_GITHUB_OWNER_LOGIN"),
     githubInstallationId: requireSeedValue(githubInstallationId, "DEV_SEED_GITHUB_INSTALLATION_ID"),
-    convexConnection,
-    cloudflareConnection,
+    ...providerConnections,
   };
 }
 
@@ -213,10 +233,10 @@ export const approveSeedPasswordAccount = internalMutation({
   },
 });
 
-export const seedWorktreeOrganization = internalMutation({
+export const seedOrganizationWithProviderConnections = internalMutation({
   args: {
     userId: id("users"),
-    ...vSeedWorktreeOrganizationConfig.fields,
+    ...vSeedOrganizationConfig.fields,
   },
   returns: vNull(),
   handler: async (ctx, args) => {
@@ -585,12 +605,15 @@ export const seedPasswordAccount = internalAction({
     const { email, password } = accountConfig;
     const worktreeOrganizationConfig =
       accountConfig.kind === "local_worktree_seed" ? readSeedWorktreeOrganizationConfig() : null;
-    const previewInstallations =
+    const previewSeed =
       accountConfig.kind === "preview_seed"
-        ? await discoverPreviewSeedGitHubAppInstallations(
-            requireSeedValue(readSeedValue("DEV_SEED_GITHUB_API_KEY"), "DEV_SEED_GITHUB_API_KEY"),
-          )
-        : [];
+        ? {
+            providerConnections: readRequiredPreviewSeedProviderConnections(),
+            installations: await discoverPreviewSeedGitHubAppInstallations(
+              requireSeedValue(readSeedValue("DEV_SEED_GITHUB_API_KEY"), "DEV_SEED_GITHUB_API_KEY"),
+            ),
+          }
+        : null;
 
     let created = false;
     let userId: Id<"users">;
@@ -629,19 +652,19 @@ export const seedPasswordAccount = internalAction({
 
     await ctx.runMutation(internal.devAuth.approveSeedPasswordAccount, { userId });
     if (worktreeOrganizationConfig !== null) {
-      await ctx.runMutation(internal.devAuth.seedWorktreeOrganization, {
+      await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderConnections, {
         userId,
         ...worktreeOrganizationConfig,
       });
     }
-    for (const installation of previewInstallations) {
-      await ctx.runMutation(internal.organizations.createOrReconnectVerifiedOrganization, {
-        userId,
-        githubOwnerId: installation.githubOwnerId,
-        githubOwnerType: installation.githubOwnerType,
-        githubOwnerLogin: installation.githubOwnerLogin,
-        githubInstallationId: installation.githubInstallationId,
-      });
+    if (previewSeed !== null) {
+      for (const installation of previewSeed.installations) {
+        await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderConnections, {
+          userId,
+          ...installation,
+          ...previewSeed.providerConnections,
+        });
+      }
     }
 
     return { email, created };
