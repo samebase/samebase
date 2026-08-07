@@ -859,7 +859,7 @@ describe("provider OAuth callback organization returns", () => {
   });
 
   it.each(reusedCloudflareGrantScenarios)(
-    "keeps the configured Cloudflare account and credential after a $provider callback selects another account",
+    "keeps the configured Cloudflare account and credential after a $provider callback exposes another account too",
     async (scenario) => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
@@ -928,6 +928,7 @@ describe("provider OAuth callback organization returns", () => {
       }
       vi.stubEnv("SITE_URL", "https://samebase.com");
       providerMocks.requestCloudflareApi.mockResolvedValue([
+        { id: "configured-account", name: "Configured Account" },
         { id: "other-account", name: "Other Account" },
       ]);
       vi.stubGlobal(

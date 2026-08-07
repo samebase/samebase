@@ -64,6 +64,9 @@ export function resolveCloudflareAccountAfterAuthorization(
   normalizedAccounts: readonly CloudflareAccount[],
   currentAccount: CloudflareAccount | undefined,
 ): CloudflareAccount | null {
+  if (normalizedAccounts.length > 1) {
+    return null;
+  }
   if (currentAccount === undefined) {
     return selectSingleCloudflareAccount(normalizedAccounts);
   }

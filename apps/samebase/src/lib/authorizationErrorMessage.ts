@@ -44,8 +44,8 @@ export function formatAuthorizationErrorMessage(
             : "This organization is connected to a different Convex team. Select the configured team to reauthorize it.";
         case "cloudflare":
           return targets.cloudflareAccountName
-            ? `This organization is connected to Cloudflare account ${targets.cloudflareAccountName}. Select that account to reauthorize it.`
-            : "This organization is connected to a different Cloudflare account. Select the configured account to reauthorize it.";
+            ? `This organization is connected to Cloudflare account ${targets.cloudflareAccountName}. Select only that account to reauthorize it.`
+            : "Select only one Cloudflare account to connect it.";
         case "github-app":
           return targets.githubOwnerLogin
             ? `This organization is connected to GitHub owner ${targets.githubOwnerLogin}. Select that owner to reconnect it.`

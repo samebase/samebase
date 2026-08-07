@@ -464,9 +464,10 @@ export async function connectCloudflareCredential(
     throw new Error("Cloudflare configuration changed before authorization completed.");
   }
   if (
-    organization.cloudflareAccount !== undefined &&
-    (args.account.state !== "selected" ||
-      args.account.accountId !== organization.cloudflareAccount.accountId)
+    (args.auth.method !== "api_key" && args.account.state === "selection_required") ||
+    (organization.cloudflareAccount !== undefined &&
+      (args.account.state !== "selected" ||
+        args.account.accountId !== organization.cloudflareAccount.accountId))
   ) {
     if (oauthState !== null) {
       await ctx.db.delete(oauthState._id);

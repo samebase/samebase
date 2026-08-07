@@ -2,6 +2,7 @@ import {
   ProviderConnectionsPageView,
   type ProviderConnectionsPageConnectionState,
 } from "@/components/ProviderConnectionsPage";
+import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import type { Id } from "../../convex/_generated/dataModel";
 
 export type ProviderConnectionsPageVisualMode =
@@ -19,6 +20,11 @@ function fakeOrganizationId(): Id<"organizations"> {
 }
 
 const ORGANIZATION_ID = fakeOrganizationId();
+
+const AUTHORIZATION_ERROR_MESSAGE = formatAuthorizationErrorMessage(
+  { provider: "cloudflare", code: "target-mismatch" },
+  { cloudflareAccountName: "Acme Production" },
+);
 
 const connectedState = {
   cloudflareAccess: {
@@ -144,9 +150,7 @@ export function ProviderConnectionsPageVisualFixture({
     <ProviderConnectionsPageView
       apiKeyDialog={null}
       authorizationErrorMessage={
-        mode === "providers-page-authorization-error"
-          ? "This organization is connected to Convex team acme-platform. Select that team to reauthorize it."
-          : null
+        mode === "providers-page-authorization-error" ? AUTHORIZATION_ERROR_MESSAGE : null
       }
       cloudflareAccess={isLoading ? null : state.cloudflareAccess}
       cloudflareAccessError={null}
