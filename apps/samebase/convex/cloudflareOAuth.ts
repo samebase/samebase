@@ -322,7 +322,7 @@ const resolveConnectionForOrganizationResultValidator = union(
   resolvedCloudflareConnectionValidator,
   nullValue(),
 );
-type ResolvedCloudflareConnection = Infer<typeof resolvedCloudflareConnectionValidator>;
+export type ResolvedCloudflareConnection = Infer<typeof resolvedCloudflareConnectionValidator>;
 
 function sanitizeTokenHealthError(error: unknown): string | undefined {
   return error instanceof Error ? "Cloudflare token refresh failed." : undefined;

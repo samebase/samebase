@@ -249,23 +249,24 @@ export const validateCreateAppConnections = internalAction({
     if (!vault) {
       throw new Error("Vault not found.");
     }
-    const [convexConnection, cloudflareConnection] = await Promise.all([
-      ctx.runQuery(internal.organizationProviderCredentials.loadConvexForOrganizationTeam, {
+    const providerConfiguration = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
+      {
         userId: args.userId,
         organizationId: access.organizationId,
-        teamId: vault.convexTeamId,
-      }),
-      ctx.runQuery(internal.organizationProviderCredentials.loadCloudflareForOrganizationAccount, {
-        userId: args.userId,
-        organizationId: access.organizationId,
-        accountId: vault.cloudflareAccountId,
-      }),
-    ]);
+      },
+    );
 
-    if (!convexConnection?.credential) {
+    if (
+      providerConfiguration.convexTeam?.teamId !== vault.convexTeamId ||
+      providerConfiguration.convexCredential === undefined
+    ) {
       throw new Error("Convex connection is required to create a project.");
     }
-    if (!cloudflareConnection?.credential) {
+    if (
+      providerConfiguration.cloudflareAccount?.accountId !== vault.cloudflareAccountId ||
+      providerConfiguration.cloudflareCredential === undefined
+    ) {
       throw new Error("Cloudflare connection is required to create a Worker-backed app.");
     }
 

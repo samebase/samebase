@@ -4,7 +4,7 @@ import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { action } from "./functions";
-import { CLOUDFLARE_OAUTH_SCOPES } from "./cloudflareOAuth";
+import { CLOUDFLARE_OAUTH_SCOPES, type ResolvedCloudflareConnection } from "./cloudflareOAuth";
 import {
   listCloudflareAccountsForToken,
   type CloudflareAccount,
@@ -69,34 +69,6 @@ type CloudflareConnectionAccess = Infer<typeof vCloudflareConnectionAccess>;
 type CloudflareRequestedScope = Infer<typeof vCloudflareRequestedScope>;
 type CloudflareTokenVerification = Infer<typeof vCloudflareTokenVerification>;
 
-type CloudflareOAuthAuth = {
-  method: "oauth" | "mcp_oauth";
-  credential: string;
-  credentialExpiresAt: number;
-  refreshCredential: string;
-  clientId?: string;
-};
-
-type CloudflareApiKeyAuth = {
-  method: "api_key";
-  credential: string;
-};
-
-type CloudflareProviderAuth = CloudflareApiKeyAuth | CloudflareOAuthAuth;
-
-type CloudflareResolvedConnection = {
-  auth: CloudflareProviderAuth;
-  account?: ConfiguredCloudflareAccount;
-  tokenHealth?: McpTokenHealth;
-};
-
-type CloudflareVisibleAccount = CloudflareAccount;
-
-type ConfiguredCloudflareAccount = {
-  accountId: string;
-  accountName: string;
-};
-
 type CloudflareProbeResult<Value> =
   | {
       state: "ok";
@@ -127,7 +99,7 @@ export const checkCloudflareConnectionAccess = action({
       organizationId,
       userId: ctx.viewer.userId,
     });
-    let connection: CloudflareResolvedConnection | null;
+    let connection: ResolvedCloudflareConnection | null;
     try {
       connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
         organizationId,
@@ -152,7 +124,7 @@ export const checkCloudflareConnectionAccess = action({
       };
     }
 
-    const resolvedConnection: CloudflareResolvedConnection = connection;
+    const resolvedConnection = connection;
     const authMethod = resolvedConnection.auth.method;
     const token = resolvedConnection.auth.credential.trim();
     const transport = resolveCloudflareApiTransport(authMethod);
@@ -412,7 +384,7 @@ function buildCloudflareOAuthTokenCheck({
   tokenHealth,
   checkedAt,
 }: {
-  auth: CloudflareOAuthAuth;
+  auth: Extract<ResolvedCloudflareConnection["auth"], { method: "oauth" | "mcp_oauth" }>;
   tokenHealth?: McpTokenHealth;
   checkedAt: number;
 }): CloudflareAccessCheck {
@@ -448,9 +420,9 @@ function markMissingConfiguredCloudflareAccount({
   accountsProbe,
   configuredAccount,
 }: {
-  accountsProbe: CloudflareProbeResult<CloudflareVisibleAccount[]>;
-  configuredAccount: ConfiguredCloudflareAccount | null;
-}): CloudflareProbeResult<CloudflareVisibleAccount[]> {
+  accountsProbe: CloudflareProbeResult<CloudflareAccount[]>;
+  configuredAccount: NonNullable<ResolvedCloudflareConnection["account"]> | null;
+}): CloudflareProbeResult<CloudflareAccount[]> {
   if (
     configuredAccount !== null &&
     accountsProbe.state === "ok" &&
@@ -474,9 +446,9 @@ function buildSkippedCloudflareCapabilityProbeMessage({
   capabilityLabel,
   configuredAccount,
 }: {
-  accountsProbe: CloudflareProbeResult<CloudflareVisibleAccount[]>;
+  accountsProbe: CloudflareProbeResult<CloudflareAccount[]>;
   capabilityLabel: string;
-  configuredAccount: ConfiguredCloudflareAccount | null;
+  configuredAccount: NonNullable<ResolvedCloudflareConnection["account"]> | null;
 }): string {
   if (configuredAccount === null) {
     return `Skipped: choose a Cloudflare account before probing ${capabilityLabel}.`;

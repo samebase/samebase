@@ -233,35 +233,6 @@ export const loadConvexForOrganizationTeam = internalQuery({
   },
 });
 
-export const loadCloudflareForOrganizationAccount = internalQuery({
-  args: {
-    organizationId: id("organizations"),
-    userId: id("users"),
-    accountId: string(),
-  },
-  returns: union(
-    object({
-      accountId: string(),
-      accountName: string(),
-      credential: optional(vCloudflareProviderCredential),
-    }),
-    vNull(),
-  ),
-  handler: async (ctx, args) => {
-    await requireOrganizationAccessContext(ctx.db, args);
-    const configuration = await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
-    if (configuration.cloudflareAccount?.accountId !== args.accountId) {
-      return null;
-    }
-    return {
-      ...configuration.cloudflareAccount,
-      ...(configuration.cloudflareCredential
-        ? { credential: configuration.cloudflareCredential }
-        : {}),
-    };
-  },
-});
-
 export async function getProviderCredentialsByConnectedUser(
   db: DatabaseReader,
   args: { connectedByUserId: Id<"users">; limit: number },
