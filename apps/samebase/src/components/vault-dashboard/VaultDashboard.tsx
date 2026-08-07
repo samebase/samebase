@@ -1,31 +1,37 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
+import { Button } from "@/components/ui/button";
 import { tryParseRepositoryFullName } from "../../../shared/repoName";
 import {
   clearVaultDashboardQueryDialogSearch,
   useRootRouteSearch,
   type VaultDashboardQueryDialog,
 } from "@/routeSearch/root";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useEffect } from "react";
+import { api } from "../../../convex/_generated/api";
 import { VaultOverviewLoadingPage, type VaultOverviewPageKind } from "./VaultOverviewPage";
-import { VaultOverviewSidebar, VaultOverviewSidebarLoading } from "./VaultOverviewSidebar";
+import {
+  VaultOverviewOrganizationSidebar,
+  VaultOverviewSidebarLoading,
+} from "./VaultOverviewSidebar";
 import {
   VaultOverviewVaultListHeader,
   VaultOverviewVaultPickerPane,
 } from "./VaultOverviewVaultPickerPane";
 import { VaultSelectedWorkspace } from "./VaultSelectedWorkspace";
 import { useVaultWorkspaceModel } from "./useVaultWorkspaceModel";
-import { api } from "../../../convex/_generated/api";
 
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 
 export type VaultDashboardProps = {
+  organizationOwner?: string;
   page?: VaultOverviewPageKind;
   selectedRepositoryFullName?: string;
 };
 
 export function VaultDashboard({
+  organizationOwner,
   page = "overview",
   selectedRepositoryFullName,
 }: VaultDashboardProps) {
@@ -33,7 +39,7 @@ export function VaultDashboard({
   const pathname = useLocation({ select: (location) => location.pathname });
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
-  const workspaceModel = useVaultWorkspaceModel(selectedRepositoryFullName);
+  const workspaceModel = useVaultWorkspaceModel(selectedRepositoryFullName, organizationOwner);
   const createVaultFolder = useMutation(api.vault.folders.createVaultFolder);
   const deleteVaultFolder = useMutation(api.vault.folders.deleteVaultFolder);
   const moveVaultFolder = useMutation(api.vault.folders.moveVaultFolder);
@@ -75,7 +81,15 @@ export function VaultDashboard({
     if (!selectedRepositoryFullName) {
       return (
         <VaultOverviewVaultPickerPane
+          folderState={null}
+          globalInventory={!organizationOwner}
+          organizations={null}
           onCreateVaultFolder={createVaultFolder}
+          onDeleteVaultFolder={deleteVaultFolder}
+          onMoveVaultFolder={moveVaultFolder}
+          onMoveVaultToFolder={moveVaultToFolder}
+          onRenameVaultFolder={renameVaultFolder}
+          onSetVaultFolderCollapsed={setVaultFolderCollapsed}
           sidebarSummaries={{ state: "loading" }}
           vaults={null}
         />
@@ -88,7 +102,7 @@ export function VaultDashboard({
     return (
       <AppWorkspaceRouteChrome
         left={{
-          header: <VaultOverviewVaultListHeader onCreateVaultFolder={createVaultFolder} />,
+          header: <VaultOverviewVaultListHeader />,
           content: <VaultOverviewSidebarLoading />,
         }}
       >
@@ -105,20 +119,22 @@ export function VaultDashboard({
     workspaceModel.selection.state === "selected" ? workspaceModel.selection.workspace : null;
   const isVaultRootRoute = workspaceModel.selection.state === "root";
   const leftPane = {
-    header: <VaultOverviewVaultListHeader onCreateVaultFolder={createVaultFolder} />,
+    header: <VaultOverviewVaultListHeader />,
     content: (
-      <VaultOverviewSidebar
-        page={page}
+      <VaultOverviewOrganizationSidebar
         folderState={workspaceModel.folderState}
-        selectedVaultId={selectedWorkspace?.vault._id ?? null}
-        sidebarSummaries={workspaceModel.sidebarSummaries}
-        vaults={workspaceModel.vaults}
-        workspace={selectedWorkspace}
+        organizations={workspaceModel.organizations}
+        onCreateVaultFolder={createVaultFolder}
         onDeleteVaultFolder={deleteVaultFolder}
         onMoveVaultFolder={moveVaultFolder}
         onMoveVaultToFolder={moveVaultToFolder}
         onRenameVaultFolder={renameVaultFolder}
         onSetVaultFolderCollapsed={setVaultFolderCollapsed}
+        page={page}
+        selectedVaultId={selectedWorkspace?.vault._id ?? null}
+        sidebarSummaries={workspaceModel.sidebarSummaries}
+        vaults={workspaceModel.vaults}
+        workspace={selectedWorkspace}
       />
     ),
   };
@@ -128,6 +144,8 @@ export function VaultDashboard({
         return (
           <VaultOverviewVaultPickerPane
             folderState={workspaceModel.folderState}
+            globalInventory={!organizationOwner}
+            organizations={workspaceModel.organizations}
             onCreateVaultFolder={createVaultFolder}
             onDeleteVaultFolder={deleteVaultFolder}
             onMoveVaultFolder={moveVaultFolder}
@@ -140,9 +158,12 @@ export function VaultDashboard({
         );
       case "missing":
         return (
-          <div className="p-4 text-sm text-muted-foreground">
-            Vault not found: {workspaceModel.selection.repositoryFullName}
-          </div>
+          <main className="grid gap-4 p-4">
+            <h1 className="text-base font-semibold">Vault unavailable</h1>
+            <Button asChild className="w-fit" variant="outline">
+              <Link to="/vault">All vaults</Link>
+            </Button>
+          </main>
         );
       case "selected":
         return (
@@ -157,7 +178,7 @@ export function VaultDashboard({
   })();
 
   return (
-    <AppWorkspaceRouteChrome left={isVaultRootRoute ? null : leftPane}>
+    <AppWorkspaceRouteChrome left={isVaultRootRoute || !selectedWorkspace ? null : leftPane}>
       {dashboardBody}
     </AppWorkspaceRouteChrome>
   );

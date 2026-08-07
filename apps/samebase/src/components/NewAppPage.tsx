@@ -1,5 +1,5 @@
-import { useLocation, useNavigate } from "@tanstack/react-router";
-import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { useAction, useQuery as useConvexQuery } from "convex/react";
 import { CheckIcon, Loader2 } from "lucide-react";
 import {
   useCallback,
@@ -17,21 +17,19 @@ import { clsx } from "clsx";
 import { linkStyle } from "@/components/styles";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildVaultDashboardRoute } from "@/lib/vaultRoutes";
+import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
 import {
   buildDefaultAppResourceName,
   validateAppResourceName,
 } from "../../shared/appResourceNames";
 import { toSafeRepoName } from "../../shared/repoName";
 import { VaultDashboardCloudflareAccountDialog } from "@/components/vault-dashboard/VaultDashboardCloudflareAccountDialog";
+import type { ViewerOrganization } from "@/lib/organizationContext";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
   GitHubProviderLogo,
 } from "@/components/vault-dashboard/VaultDashboardLogos";
-import { GitHubOwnerSelect } from "@/components/GitHubOwnerSelect";
-import { useGitHubOwnerRouteSelection } from "@/components/useGitHubOwnerRouteSelection";
-import { getCurrentRootRelativeUrl, openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
-import { NEW_APP_OWNER_ROUTE } from "@/lib/newAppRoute";
 import type { Id } from "../../convex/_generated/dataModel";
 
 type CreateResourceNameMode = "auto" | "manual";
@@ -417,7 +415,7 @@ export function NewAppCreateFormFields({
   );
 }
 
-export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | null }) {
+export function NewAppPage({ organization }: { organization: ViewerOrganization }) {
   const location = useLocation();
   const navigate = useNavigate();
   const createRepository = useAction(api.vault.actions.createRepository);
@@ -426,20 +424,15 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
   );
   const listCloudflareAccounts = useAction(api.vault.cloudflare.listAccounts);
   const selectCloudflareDefaultAccount = useAction(api.vault.cloudflare.selectDefaultAccount);
-  const getGitHubAppInstallationUrl = useMutation(
-    api.githubAppInstallation.getGitHubAppInstallationUrl,
-  );
-  const { githubOwners, selectedOwner } = useGitHubOwnerRouteSelection(githubOwnerLogin);
-  const selectedOrganizationId = selectedOwner?.organizationId ?? null;
-  const canManageSelectedOrganization = selectedOwner?.role === "owner";
-  const convexConnection = useConvexQuery(
-    api.users.getConvexConnectionStatus,
-    selectedOrganizationId === null ? "skip" : { organizationId: selectedOrganizationId },
-  );
-  const cloudflareConnection = useConvexQuery(
-    api.users.getCloudflareConnectionStatus,
-    selectedOrganizationId === null ? "skip" : { organizationId: selectedOrganizationId },
-  );
+  const selectedOwner = organization;
+  const selectedOrganizationId = organization.organizationId;
+  const canManageSelectedOrganization = organization.role === "owner";
+  const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus, {
+    organizationId: selectedOrganizationId,
+  });
+  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
+    organizationId: selectedOrganizationId,
+  });
   const [newRepositoryName, setNewRepositoryNameState] = useState("");
   const [convexProjectName, setConvexProjectNameState] = useState("");
   const [convexProjectNameMode, setConvexProjectNameMode] =
@@ -449,7 +442,6 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
     useState<CreateResourceNameMode>("auto");
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [installingGitHubApp, setInstallingGitHubApp] = useState(false);
   const [cloudflareAccountDialogOpen, setCloudflareAccountDialogOpen] = useState(false);
   const [cloudflareAccountDialogError, setCloudflareAccountDialogError] = useState<string | null>(
     null,
@@ -468,13 +460,11 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
   const cloudflareConnected = connectedCloudflareConnection !== null;
   const cloudflareAccountSelectionRequired =
     connectedCloudflareConnection !== null && !connectedCloudflareConnection.accountId;
-  const hasConnectedCreateProviders = Boolean(
-    selectedOrganizationId !== null && convexConnected && cloudflareConnected,
-  );
+  const hasConnectedCreateProviders = convexConnected && cloudflareConnected;
   const hasRequiredCreateConnections = Boolean(
     hasConnectedCreateProviders && !cloudflareAccountSelectionRequired,
   );
-  const canCreateRepositoryForSelectedOwner = selectedOwner?.canCreateRepository === true;
+  const canCreateRepositoryForSelectedOwner = selectedOwner.canCreateRepository;
   const canCreateRepo = hasRequiredCreateConnections && canCreateRepositoryForSelectedOwner;
   const createRepositoryName = newRepositoryName.trim();
   const defaultConvexProjectName = buildDefaultAppResourceName({
@@ -495,9 +485,7 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
     autoName: defaultCloudflareWorkerName,
     manualName: cloudflareWorkerName,
   });
-  const shouldCheckResourceNames = Boolean(
-    canCreateRepo && selectedOrganizationId !== null && createRepositoryName,
-  );
+  const shouldCheckResourceNames = Boolean(canCreateRepo && createRepositoryName);
   const resourceNameCheckKey = buildCreateResourceNameCheckKey({
     organizationId: selectedOrganizationId,
     githubRepositoryName: createRepositoryName,
@@ -588,10 +576,6 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
   }, []);
   const loadCloudflareAccountDialogResources = useCallback(
     async (preferredAccountId: string | undefined) => {
-      if (selectedOrganizationId === null) {
-        setCloudflareAccountDialogError("Choose a GitHub owner.");
-        return;
-      }
       const requestId = cloudflareAccountDialogRequestIdRef.current + 1;
       cloudflareAccountDialogRequestIdRef.current = requestId;
       setIsLoadingCloudflareAccounts(true);
@@ -644,11 +628,7 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
     setCloudflareAccountDialogOpen(isOpen);
   };
   const handleSubmitCloudflareAccount = async () => {
-    if (
-      isSubmittingCloudflareAccount ||
-      !selectedCloudflareAccountId ||
-      selectedOrganizationId === null
-    ) {
+    if (isSubmittingCloudflareAccount || !selectedCloudflareAccountId) {
       return;
     }
     setCloudflareAccountDialogError(null);
@@ -667,23 +647,6 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
     } finally {
       setIsSubmittingCloudflareAccount(false);
     }
-  };
-  const installGitHubApp = () => {
-    if (installingGitHubApp) {
-      return;
-    }
-
-    setCreateError(null);
-    setInstallingGitHubApp(true);
-    void openGitHubAppSetupPopup(async () => {
-      return await getGitHubAppInstallationUrl({ returnToPath: getCurrentRootRelativeUrl() });
-    })
-      .catch((error: unknown) => {
-        setCreateError(error instanceof Error ? error.message : "Could not install GitHub App.");
-      })
-      .finally(() => {
-        setInstallingGitHubApp(false);
-      });
   };
   const renderCreateResourceNameSupport = ({
     availability,
@@ -841,10 +804,14 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
         {createError && <div className="text-sm text-red-600">{createError}</div>}
         {!canCreateRepo && (
           <div className="text-xs text-muted-foreground">
-            {selectedOwner === null ? (
-              "Choose a GitHub owner."
-            ) : !canCreateRepositoryForSelectedOwner ? (
-              `Only a Samebase user authorized as ${selectedOwner.githubOwnerLogin} can create repositories for this personal GitHub owner.`
+            {!canCreateRepositoryForSelectedOwner ? (
+              <>
+                Authorize {selectedOwner.githubOwnerLogin} in{" "}
+                <Link className={linkStyle} to={SETTINGS_ROUTE}>
+                  Account settings
+                </Link>{" "}
+                to create repositories for this personal GitHub owner.
+              </>
             ) : cloudflareAccountSelectionRequired ? (
               canManageSelectedOrganization ? (
                 <>
@@ -929,10 +896,6 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
     const routeRepoName = toSafeRepoName(repoName);
     if (!routeRepoName) {
       setCreateError("Repository name is required.");
-      return;
-    }
-    if (selectedOwner === null) {
-      setCreateError("Choose a GitHub owner before creating an app.");
       return;
     }
     if (!selectedOwner.canCreateRepository) {
@@ -1037,40 +1000,14 @@ export function NewAppPage({ githubOwnerLogin }: { githubOwnerLogin: string | nu
         <div>
           <h1 className="text-xl @2xl:text-2xl font-semibold">New App</h1>
         </div>
-        {githubOwners === undefined ? null : githubOwners.length === 0 ? (
-          <>
-            {createError ? <div className="text-sm text-red-600">{createError}</div> : null}
-            <div>
-              <Button type="button" onClick={installGitHubApp} disabled={installingGitHubApp}>
-                {installingGitHubApp ? "Opening GitHub..." : "Install GitHub App"}
-              </Button>
-            </div>
-          </>
-        ) : (
-          <>
-            <GitHubOwnerSelect
-              disabled={isCreating}
-              owners={githubOwners}
-              selectedOrganizationId={selectedOrganizationId}
-              onChange={(owner) => {
-                setCreateError(null);
-                void navigate({
-                  to: NEW_APP_OWNER_ROUTE,
-                  params: { owner: owner.githubOwnerLogin },
-                  search: location.search,
-                });
-              }}
-            />
-            <div className="flex w-full flex-col items-stretch gap-2">{createFormFields}</div>
-            <div className="min-h-5">{createControlFooterMessages}</div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="submit" disabled={createButtonDisabled}>
-                {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                {isCreating ? "Creating app..." : "New App"}
-              </Button>
-            </div>
-          </>
-        )}
+        <div className="flex w-full flex-col items-stretch gap-2">{createFormFields}</div>
+        <div className="min-h-5">{createControlFooterMessages}</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="submit" disabled={createButtonDisabled}>
+            {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {isCreating ? "Creating app..." : "New App"}
+          </Button>
+        </div>
       </form>
       <VaultDashboardCloudflareAccountDialog
         accounts={cloudflareAccountOptions}

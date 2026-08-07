@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { createMemoryHistory } from "@tanstack/react-router";
+import { createAppRouter } from "@/router";
 
 const { fileViewModuleLoadCount } = vi.hoisted(() => ({
   fileViewModuleLoadCount: { current: 0 },
@@ -34,5 +36,17 @@ describe("vault file route", () => {
     }
 
     expect(fileViewModuleLoadCount.current).toBe(0);
+  });
+
+  it("matches the shipped FileView path", async () => {
+    const router = createAppRouter(
+      createMemoryHistory({
+        initialEntries: ["/vault/samebase/samebase/fs/main/README.md"],
+      }),
+    );
+
+    await router.load({ sync: true });
+
+    expect(router.state.matches.map((match) => match.routeId)).toContain("/vault/$");
   });
 });

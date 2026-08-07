@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 
 import { internalMutation, internalQuery } from "./_generated/server";
 import { requireOrganizationAccessContext } from "./organizationAccess";
@@ -11,6 +11,12 @@ import {
 } from "./providerConnectionModel";
 
 export { vOAuthProvider, type OAuthProvider } from "./providerConnectionModel";
+
+export const vProviderOAuthStoreResult = v.union(
+  v.object({ status: v.literal("stored") }),
+  v.object({ status: v.literal("access_lost") }),
+);
+export type ProviderOAuthStoreResult = Infer<typeof vProviderOAuthStoreResult>;
 
 const vProviderOAuthCallbackStateResult = vProviderOAuthCallbackState.extend({
   _id: v.id("providerOAuthCallbackStates"),

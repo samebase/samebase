@@ -5,8 +5,12 @@ import { z } from "zod";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { mutation } from "./functions";
-import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
+import {
+  findOrganizationMembership,
+  requireOrganizationOwnerAccessContext,
+} from "./organizationAccess";
 import { getSelectedProviderConnectionForOrganization } from "./providerConnections";
+import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import {
   createCodeChallenge,
   OAUTH_STATE_TTL_MS,
@@ -184,8 +188,17 @@ export const storeConvexOauthTokens = internalMutation({
     teamId: v.string(),
     oauthStateId: v.id("providerOAuthCallbackStates"),
   },
-  returns: v.null(),
+  returns: vProviderOAuthStoreResult,
   handler: async (ctx, args) => {
+    const membership = await findOrganizationMembership(ctx.db, {
+      userId: args.connectedByUserId,
+      organizationId: args.organizationId,
+    });
+    if (membership?.role !== "owner") {
+      await ctx.db.delete(args.oauthStateId);
+      return { status: "access_lost" as const };
+    }
+
     const connection = {
       kind: "convex" as const,
       auth: {
@@ -209,7 +222,7 @@ export const storeConvexOauthTokens = internalMutation({
       });
     }
     await ctx.db.delete(args.oauthStateId);
-    return null;
+    return { status: "stored" as const };
   },
 });
 
@@ -238,10 +251,11 @@ export const getConvexOAuthUrl = mutation({
 
 export const finishConvexOAuth = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
+  const error = url.searchParams.get("error");
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
 
-  if (!code || !state) {
+  if (state === null || (code === null && error === null)) {
     return new Response("Missing OAuth parameters", { status: 400 });
   }
 
@@ -261,11 +275,54 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     return new Response("OAuth state expired", { status: 400 });
   }
 
+  let returnUrl: string;
+  try {
+    const githubOwnerLogin: string = await ctx.runQuery(
+      internal.organizations.getExternalReturnOwnerLogin,
+      {
+        organizationId: oauthState.organizationId,
+      },
+    );
+    returnUrl = buildProviderOAuthDefaultReturnUrl({
+      configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
+      githubOwnerLogin,
+      requestUrl: request.url,
+    });
+  } catch {
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
+      id: oauthState._id,
+    });
+    return new Response("Organization unavailable", { status: 400 });
+  }
+
+  if (error !== null) {
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
+      id: oauthState._id,
+    });
+    return Response.redirect(returnUrl, 302);
+  }
+
+  if (code === null) {
+    return new Response("Missing OAuth parameters", { status: 400 });
+  }
+
   if (!oauthState.codeVerifier) {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
     });
     return new Response("OAuth state missing code verifier", { status: 400 });
+  }
+
+  try {
+    await ctx.runQuery(internal.organizationAccess.requireOrganizationOwnerIdForUser, {
+      userId: oauthState.userId,
+      organizationId: oauthState.organizationId,
+    });
+  } catch {
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
+      id: oauthState._id,
+    });
+    return Response.redirect(returnUrl, 302);
   }
 
   const clientId = readRequiredEnv("PROVIDER_CONVEX_OAUTH_CLIENT_ID");
@@ -283,14 +340,20 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
 
     const details = await fetchConvexTeamTokenDetails(token.accessToken);
 
-    await ctx.runMutation(internal.convexOAuth.storeConvexOauthTokens, {
-      organizationId: oauthState.organizationId,
-      connectedByUserId: oauthState.userId,
-      providerConnectionId: oauthState.providerConnectionId,
-      accessToken: token.accessToken,
-      teamId: details.teamId,
-      oauthStateId: oauthState._id,
-    });
+    const storeResult: ProviderOAuthStoreResult = await ctx.runMutation(
+      internal.convexOAuth.storeConvexOauthTokens,
+      {
+        organizationId: oauthState.organizationId,
+        connectedByUserId: oauthState.userId,
+        providerConnectionId: oauthState.providerConnectionId,
+        accessToken: token.accessToken,
+        teamId: details.teamId,
+        oauthStateId: oauthState._id,
+      },
+    );
+    if (storeResult.status === "access_lost") {
+      return Response.redirect(returnUrl, 302);
+    }
   } catch (error) {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
@@ -302,10 +365,6 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
     return new Response("Convex OAuth exchange failed", { status: 400 });
   }
 
-  const returnUrl = buildProviderOAuthDefaultReturnUrl({
-    configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
-    requestUrl: request.url,
-  });
   const returnOrigin = new URL(returnUrl).origin;
 
   const html = `<!doctype html>
@@ -323,9 +382,12 @@ export const finishConvexOAuth = httpAction(async (ctx, request) => {
         try {
           if (window.opener && !window.opener.closed) {
             try {
-              window.opener.location.reload();
+              window.opener.location.replace(returnTo);
             } catch (error) {
-              window.opener.postMessage({ type: "convex-oauth-complete" }, returnOrigin);
+              window.opener.postMessage(
+                { type: "convex-oauth-complete", returnTo },
+                returnOrigin
+              );
             }
             window.close();
             return;

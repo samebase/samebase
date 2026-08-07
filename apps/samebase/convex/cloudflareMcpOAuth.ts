@@ -13,7 +13,9 @@ import {
 } from "./oauthUtils";
 import { isRecord } from "./jsonUtils";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealth } from "./mcpTokenHealth";
+import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import { vCloudflareDefaultAccount } from "./providerConnectionModel";
+import { findOrganizationMembership } from "./organizationAccess";
 import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
 
@@ -404,12 +406,19 @@ const storeCloudflareMcpOauthConnectionArgs = {
   defaultAccount: vCloudflareDefaultAccount,
   oauthStateId: id("providerOAuthCallbackStates"),
 } as const;
-const storeCloudflareMcpOauthConnectionResultValidator = nullValue();
-
 export const storeCloudflareMcpOauthConnection = internalMutation({
   args: storeCloudflareMcpOauthConnectionArgs,
-  returns: storeCloudflareMcpOauthConnectionResultValidator,
+  returns: vProviderOAuthStoreResult,
   handler: async (ctx, args) => {
+    const membership = await findOrganizationMembership(ctx.db, {
+      userId: args.connectedByUserId,
+      organizationId: args.organizationId,
+    });
+    if (membership?.role !== "owner") {
+      await ctx.db.delete(args.oauthStateId);
+      return { status: "access_lost" as const };
+    }
+
     const checkedAt = Date.now();
     const connection = {
       kind: "cloudflare" as const,
@@ -448,7 +457,7 @@ export const storeCloudflareMcpOauthConnection = internalMutation({
       expiresAt: args.expiresAt,
     });
     await ctx.db.delete(args.oauthStateId);
-    return null;
+    return { status: "stored" as const };
   },
 });
 
@@ -713,27 +722,15 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
 
-  if (error) {
+  if (error !== null) {
     console.log("cloudflare:mcp_oauth:callback_provider_error", {
       statePresent: state !== null,
       errorPresent: error.length > 0,
       errorDescriptionPresent: errorDescription !== null,
     });
-    if (state) {
-      const oauthState = await ctx.runQuery(internal.oauthState.getOauthStateByState, {
-        provider: "cloudflare_mcp",
-        state,
-      });
-      if (oauthState) {
-        await ctx.runMutation(internal.oauthState.deleteOauthState, {
-          id: oauthState._id,
-        });
-      }
-    }
-    return new Response("Cloudflare OAuth authorization was not completed.", { status: 400 });
   }
 
-  if (!code || !state) {
+  if (state === null || (code === null && error === null)) {
     console.log("cloudflare:mcp_oauth:callback_missing_params", {
       hasCode: code !== null,
       hasState: state !== null,
@@ -765,6 +762,37 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     return new Response("OAuth state expired", { status: 400 });
   }
 
+  let returnUrl: string;
+  try {
+    const githubOwnerLogin: string = await ctx.runQuery(
+      internal.organizations.getExternalReturnOwnerLogin,
+      {
+        organizationId: oauthState.organizationId,
+      },
+    );
+    returnUrl = buildProviderOAuthDefaultReturnUrl({
+      configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
+      githubOwnerLogin,
+      requestUrl: request.url,
+    });
+  } catch {
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
+      id: oauthState._id,
+    });
+    return new Response("Organization unavailable", { status: 400 });
+  }
+
+  if (error !== null) {
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
+      id: oauthState._id,
+    });
+    return Response.redirect(returnUrl, 302);
+  }
+
+  if (code === null) {
+    return new Response("Missing OAuth parameters", { status: 400 });
+  }
+
   const clientId = oauthState.clientId;
   const codeVerifier = oauthState.codeVerifier;
   if (!clientId || !codeVerifier) {
@@ -779,6 +807,18 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     return new Response("OAuth state is missing PKCE parameters", {
       status: 400,
     });
+  }
+
+  try {
+    await ctx.runQuery(internal.organizationAccess.requireOrganizationOwnerIdForUser, {
+      userId: oauthState.userId,
+      organizationId: oauthState.organizationId,
+    });
+  } catch {
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
+      id: oauthState._id,
+    });
+    return Response.redirect(returnUrl, 302);
   }
 
   const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL");
@@ -800,17 +840,23 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
       },
     );
 
-    await ctx.runMutation(internal.cloudflareMcpOAuth.storeCloudflareMcpOauthConnection, {
-      organizationId: oauthState.organizationId,
-      connectedByUserId: oauthState.userId,
-      providerConnectionId: oauthState.providerConnectionId,
-      accessToken: token.access_token,
-      refreshToken: token.refresh_token,
-      expiresAt,
-      clientId,
-      defaultAccount,
-      oauthStateId: oauthState._id,
-    });
+    const storeResult: ProviderOAuthStoreResult = await ctx.runMutation(
+      internal.cloudflareMcpOAuth.storeCloudflareMcpOauthConnection,
+      {
+        organizationId: oauthState.organizationId,
+        connectedByUserId: oauthState.userId,
+        providerConnectionId: oauthState.providerConnectionId,
+        accessToken: token.access_token,
+        refreshToken: token.refresh_token,
+        expiresAt,
+        clientId,
+        defaultAccount,
+        oauthStateId: oauthState._id,
+      },
+    );
+    if (storeResult.status === "access_lost") {
+      return Response.redirect(returnUrl, 302);
+    }
     console.log("cloudflare:mcp_oauth:exchange_succeeded", {
       organizationId: oauthState.organizationId,
       expiresIn: token.expires_in,
@@ -830,10 +876,6 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     return new Response("Cloudflare OAuth exchange failed", { status: 400 });
   }
 
-  const returnUrl = buildProviderOAuthDefaultReturnUrl({
-    configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
-    requestUrl: request.url,
-  });
   const returnOrigin = new URL(returnUrl).origin;
 
   const html = `<!doctype html>
@@ -851,9 +893,12 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
         try {
           if (window.opener && !window.opener.closed) {
             try {
-              window.opener.location.reload();
+              window.opener.location.replace(returnTo);
             } catch (error) {
-              window.opener.postMessage({ type: "cloudflare-mcp-oauth-complete" }, returnOrigin);
+              window.opener.postMessage(
+                { type: "cloudflare-mcp-oauth-complete", returnTo },
+                returnOrigin
+              );
             }
             window.close();
             return;

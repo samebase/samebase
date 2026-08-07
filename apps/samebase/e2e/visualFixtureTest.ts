@@ -15,13 +15,20 @@ const VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE = {
   rightMobileWidthPx: 288,
 } satisfies WorkspaceSidebarState;
 
-export async function seedVisualFixtureWorkspaceSidebarState(page: Page) {
+export async function seedVisualFixtureWorkspaceSidebarState(
+  page: Page,
+  overrides: Partial<WorkspaceSidebarState> = {},
+) {
+  const state = {
+    ...VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE,
+    ...overrides,
+  } satisfies WorkspaceSidebarState;
   await page.addInitScript(
     ({ state, storageKey, version }) => {
       window.localStorage.setItem(storageKey, JSON.stringify({ state, version }));
     },
     {
-      state: VISUAL_FIXTURE_WORKSPACE_SIDEBAR_STATE,
+      state,
       storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
       version: STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION,
     },

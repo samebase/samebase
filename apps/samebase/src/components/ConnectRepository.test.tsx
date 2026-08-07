@@ -45,13 +45,9 @@ function buildRepositoryRow(repository: ConnectRepositoryRepository, searchQuery
 
 function renderConnectRepositoryContent(overrides: Partial<ConnectRepositoryPageContentProps>) {
   const props: ConnectRepositoryPageContentProps = {
-    canListRepositories: true,
     connectingRepositoryFullName: null,
     emptyRepositoryMessage: null,
     error: null,
-    githubOwners: [],
-    githubOwnersLoaded: false,
-    installingGitHubApp: false,
     loading: false,
     loadingMore: false,
     repositoryPreviewCount: 0,
@@ -59,18 +55,15 @@ function renderConnectRepositoryContent(overrides: Partial<ConnectRepositoryPage
     repositoryTotalCount: 0,
     retryingFullRepositories: false,
     searchQuery: "",
-    selectedOrganizationId: null,
     showBackgroundError: false,
     onConnectRepository: noop,
-    onInstallGitHubApp: noop,
-    onOrganizationChange: noop,
     onRetryFullRepositories: noop,
     onSearchQueryChange: noop,
     ...overrides,
   };
 
   const markup = renderToStaticMarkup(
-    <TestRouterProvider initialEntries={["/connect-repo"]}>
+    <TestRouterProvider initialEntries={["/org/samebase/connect-repo"]}>
       <ConnectRepositoryPageContent {...props} />
     </TestRouterProvider>,
   );
@@ -79,16 +72,12 @@ function renderConnectRepositoryContent(overrides: Partial<ConnectRepositoryPage
 }
 
 describe("ConnectRepositoryPageContent", () => {
-  it("offers GitHub App installation when the user has no GitHub owners", () => {
-    const markup = renderConnectRepositoryContent({
-      canListRepositories: false,
-      githubOwnersLoaded: true,
-    });
+  it("uses the organization route without a page-local owner control", () => {
+    const markup = renderConnectRepositoryContent({});
 
     expect(markup).toContain("Connect an existing repository");
-    expect(markup).not.toContain("Back to Vaults");
-    expect(markup).toContain("Install GitHub App");
-    expect(markup).not.toContain("Search repositories...");
+    expect(markup).not.toContain("Install GitHub App");
+    expect(markup).toContain("Search repositories...");
   });
 
   it("renders partial repository discovery with retry copy and real rows", () => {

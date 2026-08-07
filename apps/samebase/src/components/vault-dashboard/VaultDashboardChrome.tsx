@@ -158,7 +158,7 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
           </div>
           <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
             <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={SETTINGS_ROUTE}>
-              /settings
+              Account settings
             </Link>
           </div>
         </div>
@@ -216,7 +216,7 @@ export function VaultDashboardAccountSection({
         ) : null}
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
           <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={SETTINGS_ROUTE}>
-            /settings
+            Account settings
           </Link>
         </div>
       </div>
@@ -261,7 +261,7 @@ export function VaultDashboardStaticAccountSection({
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">
           <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={SETTINGS_ROUTE}>
-            /settings
+            Account settings
           </Link>
         </div>
       </div>

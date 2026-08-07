@@ -173,7 +173,7 @@ test("signed-in app right sidebar keeps the account row inside a narrow desktop 
   const accountSection = page.getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
   await expect(rightPane).toHaveCSS("width", "160px");
   await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByRole("link", { name: "/settings" })).toBeVisible();
+  await expect(accountSection.getByRole("link", { name: "Account settings" })).toBeVisible();
   await expect(accountSection.getByRole("button", { name: "Sign out" })).toHaveCount(0);
   await expectNoHorizontalOverflow(rightPane);
   await expectSidebarTextOwnsWrappedLine({
@@ -268,7 +268,7 @@ test("signed-in app right sidebar prehydration includes the password provider la
   await expect(
     hydratedAccountSection.getByText("Signed in with Password", { exact: true }),
   ).toBeVisible();
-  for (const linkName of ["/settings", "/vault", "/providers"]) {
+  for (const linkName of ["Account settings", "All vaults"]) {
     const navigationLink = rightSidebar.getByRole("link", { name: linkName, exact: true });
     await expect(navigationLink).toHaveCSS("font-size", "16px");
     await expect(navigationLink).toHaveCSS("line-height", "24px");
@@ -384,7 +384,9 @@ async function expectPrehydratedAccountSectionToMatchHydrated({
 }) {
   const prehydratedAccountSection = getSignedInAccountSection(page);
   await expect(prehydratedAccountSection).toBeVisible();
-  await expect(prehydratedAccountSection.getByRole("link", { name: "/settings" })).toBeVisible();
+  await expect(
+    prehydratedAccountSection.getByRole("link", { name: "Account settings" }),
+  ).toBeVisible();
   await expect(prehydratedAccountSection.getByRole("button", { name: "Sign out" })).toHaveCount(0);
   await expect(prehydratedAccountSection.locator("[aria-expanded]:visible")).toHaveCount(0);
   const prehydratedTextEvidence = await readAccountTextEvidence(prehydratedAccountSection);

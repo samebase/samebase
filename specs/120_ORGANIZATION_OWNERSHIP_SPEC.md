@@ -4,12 +4,13 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-05
+- Last updated: 2026-08-06
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
   - `specs/119_POLAR_MONTHLY_BILLING_SPEC.md`
+  - `specs/121_ORGANIZATION_CONTEXT_AND_ROUTE_MODEL.md`
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
 
@@ -151,15 +152,19 @@ vault does not store another current copy of `organizations.githubOwnerLogin`. I
 opaque `?organization=<id>` parameter. Internal Samebase IDs are database and authorization
 identities, not URL selectors.
 
-Organization setup pages use the current GitHub owner login in `/providers/<owner>`,
-`/new-app/<owner>`, and `/connect-repo/<owner>`. Their base routes are chooser pages when the user
-has several memberships. Selecting an owner navigates to the owner route, and a reload resolves the
-internal organization ID through the viewer's membership. These pages do not store a hidden active
-organization or expose an internal organization ID in the URL or selector.
+Organization setup pages use the current GitHub owner login in `/org/<owner>/providers`,
+`/org/<owner>/new-app`, and `/org/<owner>/connect-repo`. Organization settings and billing use
+`/org/<owner>/settings`. A reload resolves the internal organization ID through the viewer's current
+membership. These pages do not store a hidden active organization or expose an internal organization
+ID in the URL or a selector.
 
-Billing stays on the user settings page and selects an organization with
-`/settings?owner=<github-owner-login>`. Checkout and subscription return URLs keep that owner login.
-They never include an internal organization ID.
+Provider OAuth returns to `/org/<owner>/providers`. Checkout and subscription returns use
+`/org/<owner>/settings#billing`. The server validates the owner-scoped return route. Return URLs
+keep the GitHub owner login and never include an internal organization ID.
+
+User settings remain separate from organization administration. They contain personal profile and
+account actions, user-owned MCP clients, and the acting user's GitHub App user authorization. They
+contain no organization selector or organization billing.
 
 An operation on an existing resource loads that resource and derives its organization before it
 checks membership. A root creation operation identifies the GitHub owner through the verified App
@@ -278,8 +283,11 @@ The rollout is ready only when focused tests and real manual checks prove:
 - A vault owner ID must match its organization owner ID.
 - `/vault/<owner>/<repository>` reloads without an organization query parameter and shows the same
   repository, Cloudflare Worker, Convex project, and observations.
-- `/providers/<owner>`, `/new-app/<owner>`, and `/connect-repo/<owner>` reload with the same
-  selected organization and never show an internal organization ID.
+- `/org/<owner>/providers`, `/org/<owner>/new-app`, and `/org/<owner>/connect-repo` reload with the
+  same organization and never show an internal organization ID.
+- Provider OAuth returns to `/org/<owner>/providers`. Checkout and billing-portal sessions return to
+  `/org/<owner>/settings#billing`. Both keep the scoped route if membership was removed during the
+  external flow.
 - Both members see the same organization vaults, provider status, billing state, and observations.
 - A member can create and reload a GitHub organization repository, Convex project, and Cloudflare
   Worker.

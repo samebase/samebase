@@ -6,15 +6,18 @@ import {
 } from "../../../runtime/localWorktreePasswordAuth";
 import { internal } from "./_generated/api";
 import { resolveDeploymentProfile, resolvePasswordAuthMode } from "./deploymentProfile";
-import { internalAction, internalMutation } from "./_generated/server";
+import { internalAction, internalMutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { vGitHubOwnerType } from "./organizationModel";
 import { getSelectedProviderConnectionForOrganization } from "./providerConnections";
 import type { CloudflareDefaultAccount } from "./providerConnectionModel";
+import { normalizeGitHubOwnerLogin } from "./organizations";
+import { toSafeRepoName } from "../shared/repoName";
+import { discoverPreviewSeedGitHubAppInstallations } from "./githubApp";
 
-const { boolean, id, literal, null: vNull, object, optional, string, union } = v;
+const { array, boolean, id, literal, null: vNull, object, optional, string, union } = v;
 
 function readSeedValue(envName: string): string | undefined {
   const value = readOptionalEnv(envName);
@@ -67,11 +70,7 @@ function readSeedGitHubOwnerType(value: string): "organization" | "user" {
   }
 }
 
-const vSeedWorktreeOrganizationConfig = object({
-  githubOwnerId: string(),
-  githubOwnerType: vGitHubOwnerType,
-  githubOwnerLogin: string(),
-  githubInstallationId: string(),
+const vSeedProviderConnections = object({
   convexConnection: union(
     vNull(),
     object({
@@ -88,35 +87,25 @@ const vSeedWorktreeOrganizationConfig = object({
     }),
   ),
 });
-type SeedWorktreeOrganizationConfig = Infer<typeof vSeedWorktreeOrganizationConfig>;
+type SeedProviderConnections = Infer<typeof vSeedProviderConnections>;
 
-function readSeedWorktreeOrganizationConfig(): SeedWorktreeOrganizationConfig | null {
-  const githubOwnerId = readSeedValue("DEV_SEED_GITHUB_OWNER_ID");
-  const githubOwnerType = readSeedValue("DEV_SEED_GITHUB_OWNER_TYPE");
-  const githubOwnerLogin = readSeedValue("DEV_SEED_GITHUB_OWNER_LOGIN");
-  const githubInstallationId = readSeedValue("DEV_SEED_GITHUB_INSTALLATION_ID");
+const vSeedOrganizationConfig = object({
+  githubOwnerId: string(),
+  githubOwnerType: vGitHubOwnerType,
+  githubOwnerLogin: string(),
+  githubInstallationId: string(),
+  ...vSeedProviderConnections.fields,
+});
+type SeedOrganizationConfig = Infer<typeof vSeedOrganizationConfig>;
+
+function readSeedProviderConnections(): SeedProviderConnections {
   const convexCredential = readSeedValue("DEV_SEED_CONVEX_MANAGEMENT_API_KEY");
   const convexTeamId = readSeedValue("DEV_SEED_CONVEX_TEAM_ID");
   const convexTeamSlug = readSeedValue("DEV_SEED_CONVEX_TEAM_SLUG");
   const cloudflareCredential = readSeedValue("DEV_SEED_CLOUDFLARE_API_KEY");
   const cloudflareAccountId = readSeedValue("DEV_SEED_CLOUDFLARE_ACCOUNT_ID");
 
-  const githubValues = [githubOwnerId, githubOwnerType, githubOwnerLogin, githubInstallationId];
-  if (githubValues.every((value) => value === undefined)) {
-    const hasProviderSeed = [
-      convexCredential,
-      convexTeamId,
-      convexTeamSlug,
-      cloudflareCredential,
-      cloudflareAccountId,
-    ].some((value) => value !== undefined);
-    if (hasProviderSeed) {
-      throw new Error("GitHub owner and installation seed values are required for provider seeds");
-    }
-    return null;
-  }
-
-  let convexConnection: SeedWorktreeOrganizationConfig["convexConnection"] = null;
+  let convexConnection: SeedProviderConnections["convexConnection"] = null;
   if (
     convexCredential !== undefined ||
     convexTeamId !== undefined ||
@@ -129,12 +118,47 @@ function readSeedWorktreeOrganizationConfig(): SeedWorktreeOrganizationConfig | 
     };
   }
 
-  let cloudflareConnection: SeedWorktreeOrganizationConfig["cloudflareConnection"] = null;
+  let cloudflareConnection: SeedProviderConnections["cloudflareConnection"] = null;
   if (cloudflareCredential !== undefined || cloudflareAccountId !== undefined) {
     cloudflareConnection = {
       credential: requireSeedValue(cloudflareCredential, "DEV_SEED_CLOUDFLARE_API_KEY"),
       ...(cloudflareAccountId === undefined ? {} : { accountId: cloudflareAccountId }),
     };
+  }
+
+  return { convexConnection, cloudflareConnection };
+}
+
+function readRequiredPreviewSeedProviderConnections(): SeedProviderConnections {
+  const connections = readSeedProviderConnections();
+  if (
+    connections.convexConnection === null ||
+    connections.cloudflareConnection === null ||
+    connections.cloudflareConnection.accountId === undefined
+  ) {
+    throw new Error(
+      "Preview organization provider seeding requires DEV_SEED_CONVEX_MANAGEMENT_API_KEY, DEV_SEED_CONVEX_TEAM_ID, DEV_SEED_CLOUDFLARE_API_KEY, and DEV_SEED_CLOUDFLARE_ACCOUNT_ID",
+    );
+  }
+  return connections;
+}
+
+function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
+  const githubOwnerId = readSeedValue("DEV_SEED_GITHUB_OWNER_ID");
+  const githubOwnerType = readSeedValue("DEV_SEED_GITHUB_OWNER_TYPE");
+  const githubOwnerLogin = readSeedValue("DEV_SEED_GITHUB_OWNER_LOGIN");
+  const githubInstallationId = readSeedValue("DEV_SEED_GITHUB_INSTALLATION_ID");
+  const providerConnections = readSeedProviderConnections();
+
+  const githubValues = [githubOwnerId, githubOwnerType, githubOwnerLogin, githubInstallationId];
+  if (githubValues.every((value) => value === undefined)) {
+    if (
+      providerConnections.convexConnection !== null ||
+      providerConnections.cloudflareConnection !== null
+    ) {
+      throw new Error("GitHub owner and installation seed values are required for provider seeds");
+    }
+    return null;
   }
 
   return {
@@ -144,8 +168,7 @@ function readSeedWorktreeOrganizationConfig(): SeedWorktreeOrganizationConfig | 
     ),
     githubOwnerLogin: requireSeedValue(githubOwnerLogin, "DEV_SEED_GITHUB_OWNER_LOGIN"),
     githubInstallationId: requireSeedValue(githubInstallationId, "DEV_SEED_GITHUB_INSTALLATION_ID"),
-    convexConnection,
-    cloudflareConnection,
+    ...providerConnections,
   };
 }
 
@@ -210,10 +233,10 @@ export const approveSeedPasswordAccount = internalMutation({
   },
 });
 
-export const seedWorktreeOrganization = internalMutation({
+export const seedOrganizationWithProviderConnections = internalMutation({
   args: {
     userId: id("users"),
-    ...vSeedWorktreeOrganizationConfig.fields,
+    ...vSeedOrganizationConfig.fields,
   },
   returns: vNull(),
   handler: async (ctx, args) => {
@@ -281,6 +304,259 @@ export const seedWorktreeOrganization = internalMutation({
   },
 });
 
+const ORGANIZATION_CONTEXT_ACCEPTANCE_OWNER_PREFIX = "org-context-";
+const vOrganizationContextAcceptanceOrganization = object({
+  access: union(literal("retain"), literal("remove")),
+  ownerLogin: string(),
+  repositories: array(string()),
+});
+type OrganizationContextAcceptanceOrganization = Infer<
+  typeof vOrganizationContextAcceptanceOrganization
+>;
+
+function requireOrganizationContextAcceptanceOwnerLogin(ownerLogin: string): string {
+  const normalizedOwnerLogin = normalizeGitHubOwnerLogin(ownerLogin);
+  if (
+    ownerLogin !== normalizedOwnerLogin ||
+    !normalizedOwnerLogin.startsWith(ORGANIZATION_CONTEXT_ACCEPTANCE_OWNER_PREFIX)
+  ) {
+    throw new Error(
+      `Acceptance organization owners must start with ${ORGANIZATION_CONTEXT_ACCEPTANCE_OWNER_PREFIX}.`,
+    );
+  }
+
+  return normalizedOwnerLogin;
+}
+
+async function ensureOrganizationContextAcceptanceOrganization(
+  ctx: MutationCtx,
+  args: {
+    organization: OrganizationContextAcceptanceOrganization;
+    userId: Id<"users">;
+  },
+): Promise<Id<"organizations">> {
+  const ownerLogin = requireOrganizationContextAcceptanceOwnerLogin(args.organization.ownerLogin);
+  const githubOwnerId = `acceptance-owner:${ownerLogin}`;
+  const githubInstallationId = `acceptance-installation:${ownerLogin}`;
+  const existingOrganization = await ctx.db
+    .query("organizations")
+    .withIndex("by_github_owner_login_normalized", (query) =>
+      query.eq("githubOwnerLoginNormalized", ownerLogin),
+    )
+    .unique();
+
+  let organizationId: Id<"organizations">;
+  if (existingOrganization === null) {
+    organizationId = await ctx.db.insert("organizations", {
+      githubOwnerId,
+      githubOwnerType: "organization",
+      githubOwnerLogin: ownerLogin,
+      githubOwnerLoginNormalized: ownerLogin,
+      githubInstallationId,
+    });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
+  } else {
+    if (
+      existingOrganization.githubOwnerId !== githubOwnerId ||
+      existingOrganization.githubInstallationId !== githubInstallationId
+    ) {
+      throw new Error("Acceptance organization owner is already used by non-fixture data.");
+    }
+    organizationId = existingOrganization._id;
+  }
+
+  const existingMembership = await ctx.db
+    .query("organizationMemberships")
+    .withIndex("by_organization_and_user", (query) =>
+      query.eq("organizationId", organizationId).eq("userId", args.userId),
+    )
+    .unique();
+  if (existingMembership === null) {
+    await ctx.db.insert("organizationMemberships", {
+      organizationId,
+      userId: args.userId,
+      role: "owner",
+    });
+  } else if (existingMembership.role !== "owner") {
+    await ctx.db.patch(existingMembership._id, { role: "owner" });
+  }
+
+  const repositoryNames = new Set<string>();
+  for (const repositoryName of args.organization.repositories) {
+    if (
+      repositoryName.length === 0 ||
+      repositoryName !== repositoryName.toLowerCase() ||
+      toSafeRepoName(repositoryName) !== repositoryName
+    ) {
+      throw new Error("Acceptance repository names must be lowercase safe repository names.");
+    }
+    if (repositoryNames.has(repositoryName)) {
+      throw new Error(`Duplicate acceptance repository ${repositoryName}.`);
+    }
+    repositoryNames.add(repositoryName);
+
+    const existingVault = await ctx.db
+      .query("vaults")
+      .withIndex("by_organization_and_name", (query) =>
+        query.eq("organizationId", organizationId).eq("name", repositoryName),
+      )
+      .unique();
+    let vaultId: Id<"vaults">;
+    let runId: Id<"workflow_vaultProvisioning_runs">;
+    if (existingVault?.state === "connected") {
+      if (existingVault.githubMode !== "connect_existing_repository") {
+        throw new Error("Acceptance vault has an unsupported existing state.");
+      }
+      vaultId = existingVault._id;
+      runId = existingVault.runId;
+    } else if (existingVault === null) {
+      const created = await ctx.runMutation(
+        internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+        {
+          organizationId,
+          userId: args.userId,
+          ghRepoOwner: ownerLogin,
+          ghRepoName: repositoryName,
+        },
+      );
+      vaultId = created.vaultId;
+      runId = created.runId;
+    } else if (
+      existingVault.state === "provisioning" &&
+      existingVault.githubMode === "connect_existing_repository"
+    ) {
+      vaultId = existingVault._id;
+      runId = existingVault.runId;
+    } else {
+      throw new Error("Acceptance vault has an unsupported existing state.");
+    }
+
+    await ctx.runMutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+      vaultId,
+      runId,
+      userId: args.userId,
+      ghRepoId: `acceptance-repository:${ownerLogin}/${repositoryName}`,
+      ghRepoOwner: ownerLogin,
+      ghRepoName: repositoryName,
+      defaultBranch: "main",
+      visibility: "private",
+    });
+    await ctx.runMutation(internal.vault.branches.upsertVaultBranchTree, {
+      vaultId,
+      branch: "main",
+      commitSHA: `acceptance-commit:${ownerLogin}/${repositoryName}`,
+      treeData: {
+        sha: `acceptance-tree:${ownerLogin}/${repositoryName}`,
+        tree: [
+          {
+            mode: "100644",
+            path: "README.md",
+            sha: `acceptance-blob:${ownerLogin}/${repositoryName}/README.md`,
+            size: 24,
+            type: "blob",
+          },
+        ],
+        truncated: false,
+      },
+    });
+
+    const run = await ctx.db.get(runId);
+    if (run === null) {
+      throw new Error("Acceptance vault provisioning run was not found.");
+    }
+    if (run.state !== "succeeded" || run.currentStep !== "finish") {
+      const completedAt = Date.now();
+      await ctx.db.patch(runId, {
+        completedAt,
+        currentStep: "finish",
+        state: "succeeded",
+        updatedAt: completedAt,
+      });
+    }
+  }
+
+  if (args.organization.access === "remove") {
+    const membership = await ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_organization_and_user", (query) =>
+        query.eq("organizationId", organizationId).eq("userId", args.userId),
+      )
+      .unique();
+    if (membership !== null) {
+      await ctx.db.delete(membership._id);
+    }
+  }
+
+  return organizationId;
+}
+
+export const applyOrganizationContextAcceptanceFixture = internalMutation({
+  args: {
+    email: string(),
+    organizations: array(vOrganizationContextAcceptanceOrganization),
+  },
+  returns: object({
+    organizationIds: array(id("organizations")),
+  }),
+  handler: async (ctx, args) => {
+    if (resolveDeploymentProfile().kind !== "local_worktree") {
+      throw new Error("Organization context acceptance fixtures require a local worktree.");
+    }
+    if (args.organizations.length > 3) {
+      throw new Error(
+        "Organization context acceptance fixtures support at most three organizations.",
+      );
+    }
+
+    const email = normalizeAccountEmail(args.email);
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("providerAndAccountId", (query) =>
+        query.eq("provider", "password").eq("providerAccountId", email),
+      )
+      .take(2);
+    if (accounts.length !== 1) {
+      throw new Error(`Expected one password account for ${email}.`);
+    }
+
+    const userId = accounts[0].userId;
+    const user = await ctx.db.get(userId);
+    if (user === null || user.accountDeletion !== undefined) {
+      throw new Error("An active acceptance user is required.");
+    }
+    if (user.isApproved !== true) {
+      await ctx.db.patch(userId, { isApproved: true });
+    }
+
+    const owners = new Set<string>();
+    const organizationIds: Id<"organizations">[] = [];
+    for (const organization of args.organizations) {
+      if (organization.repositories.length > 3) {
+        throw new Error(
+          "Organization context acceptance fixtures support at most three repositories.",
+        );
+      }
+      const ownerLogin = requireOrganizationContextAcceptanceOwnerLogin(organization.ownerLogin);
+      if (owners.has(ownerLogin)) {
+        throw new Error(`Duplicate acceptance organization ${ownerLogin}.`);
+      }
+      owners.add(ownerLogin);
+      organizationIds.push(
+        await ensureOrganizationContextAcceptanceOrganization(ctx, {
+          organization,
+          userId,
+        }),
+      );
+    }
+
+    return { organizationIds };
+  },
+});
+
 const seedPasswordAccountUserResolution = union(
   object({
     kind: literal("existing"),
@@ -329,6 +605,15 @@ export const seedPasswordAccount = internalAction({
     const { email, password } = accountConfig;
     const worktreeOrganizationConfig =
       accountConfig.kind === "local_worktree_seed" ? readSeedWorktreeOrganizationConfig() : null;
+    const previewSeed =
+      accountConfig.kind === "preview_seed"
+        ? {
+            providerConnections: readRequiredPreviewSeedProviderConnections(),
+            installations: await discoverPreviewSeedGitHubAppInstallations(
+              requireSeedValue(readSeedValue("DEV_SEED_GITHUB_API_KEY"), "DEV_SEED_GITHUB_API_KEY"),
+            ),
+          }
+        : null;
 
     let created = false;
     let userId: Id<"users">;
@@ -367,10 +652,19 @@ export const seedPasswordAccount = internalAction({
 
     await ctx.runMutation(internal.devAuth.approveSeedPasswordAccount, { userId });
     if (worktreeOrganizationConfig !== null) {
-      await ctx.runMutation(internal.devAuth.seedWorktreeOrganization, {
+      await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderConnections, {
         userId,
         ...worktreeOrganizationConfig,
       });
+    }
+    if (previewSeed !== null) {
+      for (const installation of previewSeed.installations) {
+        await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderConnections, {
+          userId,
+          ...installation,
+          ...previewSeed.providerConnections,
+        });
+      }
     }
 
     return { email, created };

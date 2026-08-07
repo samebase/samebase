@@ -4,14 +4,14 @@
 
 - Status: Accepted
 - Owner: Vault add flow + GitHub integration
-- Last updated: 2026-08-05
+- Last updated: 2026-08-07
 - Related specs:
   - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 ## Summary
 
-The `/connect-repo/<owner>` route should feel immediate for GitHub App installations with many
+The `/org/<owner>/connect-repo` route should feel immediate for GitHub App installations with many
 repositories without regressing the full-discovery guarantee from Spec 065.
 
 The add-vault repository picker therefore adopts a two-phase load:
@@ -66,7 +66,7 @@ Today:
 
 ### Phase 1: Preview fetch
 
-Add a lightweight preview discovery path for `/connect-repo/<owner>`.
+Add a lightweight preview discovery path for `/org/<owner>/connect-repo`.
 
 Behavior:
 
@@ -82,8 +82,8 @@ The preview order must match the GitHub installation endpoint order exactly.
 
 ### Phase 2: Background full discovery
 
-If the preview response indicates that more repositories exist, `/connect-repo/<owner>` immediately
-starts the existing full discovery action in the background.
+If the preview response indicates that more repositories exist, `/org/<owner>/connect-repo`
+immediately starts the existing full discovery action in the background.
 
 Behavior:
 

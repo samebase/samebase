@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 
+import type { Id } from "../_generated/dataModel";
 import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
@@ -9,322 +10,436 @@ async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
   });
 }
 
-async function seedVault(
+async function seedOrganization(
   t: ReturnType<typeof makeConvexTest>,
-  userId: Awaited<ReturnType<typeof seedUser>>,
+  args: {
+    owner: string;
+    role?: "member" | "owner";
+    userId?: Id<"users">;
+  },
 ) {
   return await t.run(async (ctx) => {
-    const existingMembership = await ctx.db
-      .query("organizationMemberships")
-      .withIndex("by_user", (query) => query.eq("userId", userId))
-      .first();
-    const organizationId =
-      existingMembership?.organizationId ??
-      (await ctx.db.insert("organizations", {
-        githubInstallationId: `installation-${userId}`,
-        githubOwnerId: `owner-${userId}`,
-        githubOwnerLogin: `owner-${userId}`,
-        githubOwnerLoginNormalized: `owner-${userId}`,
-        githubOwnerType: "user",
-      }));
-    if (existingMembership === null) {
-      await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
-    }
-    return await ctx.db.insert("vaults", {
-      organizationId,
-      state: "not_connected",
-      deletion: { state: "not_deleting" },
+    const organizationId = await ctx.db.insert("organizations", {
+      githubInstallationId: `installation-${args.owner}`,
+      githubOwnerId: `owner-${args.owner}`,
+      githubOwnerLogin: args.owner,
+      githubOwnerLoginNormalized: args.owner.toLowerCase(),
+      githubOwnerType: "organization",
     });
-  });
-}
-
-async function seedDashboardVault(
-  t: ReturnType<typeof makeConvexTest>,
-  args: { name: string; userId: Awaited<ReturnType<typeof seedUser>> },
-) {
-  return await t.run(async (ctx) => {
-    const existingMembership = await ctx.db
-      .query("organizationMemberships")
-      .withIndex("by_user", (query) => query.eq("userId", args.userId))
-      .first();
-    const organizationId =
-      existingMembership?.organizationId ??
-      (await ctx.db.insert("organizations", {
-        githubInstallationId: `installation-${args.userId}`,
-        githubOwnerId: `owner-${args.userId}`,
-        githubOwnerLogin: "ada",
-        githubOwnerLoginNormalized: "ada",
-        githubOwnerType: "user",
-      }));
-    if (existingMembership === null) {
+    if (args.userId) {
       await ctx.db.insert("organizationMemberships", {
         organizationId,
+        role: args.role ?? "member",
         userId: args.userId,
-        role: "member",
       });
     }
-    const vaultId = await ctx.db.insert("vaults", {
-      organizationId,
-      state: "not_connected",
-      deletion: { state: "not_deleting" },
-    });
-    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-      userId: args.userId,
-      vaultId,
-      repositoryFullName: `ada/${args.name}`,
-      trigger: "connect_existing_repository",
-      state: "failed",
-      currentStep: "run_created",
-      createdAt: 1,
-      updatedAt: 2,
-      lastError: "Test failure.",
-    });
-    await ctx.db.replace(vaultId, {
-      organizationId,
-      state: "failed",
-      githubMode: "connect_existing_repository",
-      runId,
-      failedAt: 3,
-      name: args.name,
-      deletion: { state: "not_deleting" },
-    });
-    return vaultId;
+
+    return organizationId;
   });
 }
 
-function asUser(
+async function seedVault(
   t: ReturnType<typeof makeConvexTest>,
-  userId: Awaited<ReturnType<typeof seedUser>>,
+  organizationId: Id<"organizations">,
 ) {
+  return await t.run(async (ctx) => {
+    return await ctx.db.insert("vaults", {
+      deletion: { state: "not_deleting" },
+      organizationId,
+      state: "not_connected",
+    });
+  });
+}
+
+function asUser(t: ReturnType<typeof makeConvexTest>, userId: Id<"users">) {
   return t.withIdentity({
     subject: `${userId}|test-session`,
     tokenIdentifier: `test:${userId}`,
   });
 }
 
-describe("vault folders Convex contract", () => {
-  it("normalizes folder names and creates an empty expanded folder", async () => {
+describe("organization-scoped vault folders", () => {
+  it("returns an empty state for a viewer without organizations", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
+
+    await expect(asUser(t, userId).query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
+      assignments: [],
+      folders: [],
+    });
+  });
+
+  it("normalizes names and scopes name uniqueness and ordering to one organization", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "ada@example.com");
+    const firstOrganizationId = await seedOrganization(t, { owner: "first", userId });
+    const secondOrganizationId = await seedOrganization(t, { owner: "second", userId });
     const viewer = asUser(t, userId);
 
-    const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+    const firstFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
       name: "  ＦＯＯ  ",
+      organizationId: firstOrganizationId,
     });
-
     await expect(
-      viewer.mutation(api.vault.folders.createVaultFolder, { name: "foo" }),
+      viewer.mutation(api.vault.folders.createVaultFolder, {
+        name: "foo",
+        organizationId: firstOrganizationId,
+      }),
     ).rejects.toThrow("Folder name is already in use.");
-    await t.run(async (ctx) => {
-      const folder = await ctx.db.get(folderId);
-      const assignment = await ctx.db
-        .query("ui_vaultFolderAssignments")
-        .withIndex("by_userId_and_vaultId", (q) => q.eq("userId", userId))
-        .first();
-
-      expect(folder).toMatchObject({ collapsed: false, name: "FOO", nameKey: "foo", userId });
-      expect(assignment).toBeNull();
+    const secondFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "foo",
+      organizationId: secondOrganizationId,
     });
+
+    const state = await viewer.query(api.vault.folders.getVaultFolderState);
+    expect(state.assignments).toEqual([]);
+    expect(state.folders).toEqual(
+      [
+        {
+          _id: firstFolderId,
+          collapsed: false,
+          name: "FOO",
+          organizationId: firstOrganizationId,
+          position: 0,
+        },
+        {
+          _id: secondFolderId,
+          collapsed: false,
+          name: "foo",
+          organizationId: secondOrganizationId,
+          position: 0,
+        },
+      ].sort((left, right) => left.organizationId.localeCompare(right.organizationId)),
+    );
   });
 
-  it("fails closed on duplicate folder rows during creation", async () => {
+  it("requires organization membership to create and change folders", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
+    const otherUserId = await seedUser(t, "grace@example.com");
+    const organizationId = await seedOrganization(t, { owner: "samebase", userId });
     const viewer = asUser(t, userId);
+    const otherViewer = asUser(t, otherUserId);
     const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
-      name: "Fixtures",
-    });
-
-    await t.run(async (ctx) => {
-      const folder = await ctx.db.get(folderId);
-      if (!folder) {
-        throw new Error("Folder not found");
-      }
-      await ctx.db.insert("ui_vaultFolders", {
-        collapsed: false,
-        name: folder.name,
-        nameKey: folder.nameKey,
-        position: folder.position + 1,
-        userId,
-      });
+      name: "Projects",
+      organizationId,
     });
 
     await expect(
-      viewer.mutation(api.vault.folders.createVaultFolder, { name: "fixtures" }),
-    ).rejects.toThrow();
-  });
-
-  it("rejects a duplicate normalized folder name during rename", async () => {
-    const t = makeConvexTest();
-    const userId = await seedUser(t, "ada@example.com");
-    const viewer = asUser(t, userId);
-    const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
-      name: "Current",
-    });
-    await viewer.mutation(api.vault.folders.createVaultFolder, {
-      name: "Fixtures",
-    });
-
+      otherViewer.mutation(api.vault.folders.createVaultFolder, {
+        name: "Other",
+        organizationId,
+      }),
+    ).rejects.toThrow("Organization membership is required.");
     await expect(
-      viewer.mutation(api.vault.folders.renameVaultFolder, { folderId, name: "Fixtures" }),
-    ).rejects.toThrow("Folder name is already in use.");
-  });
-
-  it("fails closed on duplicate target folder rows during rename", async () => {
-    const t = makeConvexTest();
-    const userId = await seedUser(t, "ada@example.com");
-    const viewer = asUser(t, userId);
-    const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
-      name: "Current",
-    });
-    const targetFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
-      name: "Fixtures",
-    });
-
-    await t.run(async (ctx) => {
-      const folder = await ctx.db.get(targetFolderId);
-      if (!folder) {
-        throw new Error("Folder not found");
-      }
-      await ctx.db.insert("ui_vaultFolders", {
-        collapsed: false,
-        name: folder.name,
-        nameKey: folder.nameKey,
-        position: folder.position + 1,
-        userId,
-      });
-    });
-
-    await expect(
-      viewer.mutation(api.vault.folders.renameVaultFolder, { folderId, name: "Fixtures" }),
-    ).rejects.toThrow();
-  });
-
-  it("denies folder changes for another user's vault and folder", async () => {
-    const t = makeConvexTest();
-    const ownerId = await seedUser(t, "owner@example.com");
-    const otherId = await seedUser(t, "other@example.com");
-    const otherVaultId = await seedVault(t, otherId);
-    const owner = asUser(t, ownerId);
-    const other = asUser(t, otherId);
-    const folderId = await owner.mutation(api.vault.folders.createVaultFolder, {
-      name: "Owner folder",
-    });
-
-    await expect(
-      other.mutation(api.vault.folders.renameVaultFolder, { folderId, name: "Changed" }),
-    ).rejects.toThrow("Folder not found");
-    await expect(
-      other.mutation(api.vault.folders.moveVaultToFolder, {
+      otherViewer.mutation(api.vault.folders.renameVaultFolder, {
         folderId,
-        vaultId: otherVaultId,
+        name: "Changed",
       }),
     ).rejects.toThrow("Folder not found");
   });
 
-  it("moves vaults, persists collapse, and orders folders", async () => {
+  it("keeps folder state personal for two current organization members", async () => {
     const t = makeConvexTest();
-    const userId = await seedUser(t, "ada@example.com");
-    const firstVaultId = await seedDashboardVault(t, { name: "first", userId });
-    const secondVaultId = await seedDashboardVault(t, { name: "second", userId });
-    const viewer = asUser(t, userId);
-    const firstFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
-      name: "First",
+    const firstUserId = await seedUser(t, "ada@example.com");
+    const secondUserId = await seedUser(t, "grace@example.com");
+    const organizationId = await seedOrganization(t, {
+      owner: "samebase",
+      userId: firstUserId,
     });
-    const secondFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
-      name: "Second",
+    const vaultId = await seedVault(t, organizationId);
+    await t.run(async (ctx) => {
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        role: "member",
+        userId: secondUserId,
+      });
     });
+    const firstViewer = asUser(t, firstUserId);
+    const secondViewer = asUser(t, secondUserId);
 
-    await viewer.mutation(api.vault.folders.moveVaultToFolder, {
-      folderId: secondFolderId,
-      vaultId: secondVaultId,
+    const firstFolderId = await firstViewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Projects",
+      organizationId,
     });
-    await viewer.mutation(api.vault.folders.setVaultFolderCollapsed, {
+    const secondFolderId = await secondViewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Projects",
+      organizationId,
+    });
+    await firstViewer.mutation(api.vault.folders.setVaultFolderCollapsed, {
       collapsed: true,
       folderId: firstFolderId,
     });
-    await viewer.mutation(api.vault.folders.moveVaultToFolder, {
+    await firstViewer.mutation(api.vault.folders.moveVaultToFolder, {
+      folderId: firstFolderId,
+      vaultId,
+    });
+    await secondViewer.mutation(api.vault.folders.moveVaultToFolder, {
       folderId: secondFolderId,
+      vaultId,
+    });
+
+    await expect(firstViewer.query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
+      assignments: [{ folderId: firstFolderId, vaultId }],
+      folders: [
+        {
+          _id: firstFolderId,
+          collapsed: true,
+          name: "Projects",
+          organizationId,
+          position: 0,
+        },
+      ],
+    });
+    await expect(secondViewer.query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
+      assignments: [{ folderId: secondFolderId, vaultId }],
+      folders: [
+        {
+          _id: secondFolderId,
+          collapsed: false,
+          name: "Projects",
+          organizationId,
+          position: 0,
+        },
+      ],
+    });
+  });
+
+  it("groups only vaults from the folder organization", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "ada@example.com");
+    const firstOrganizationId = await seedOrganization(t, { owner: "first", userId });
+    const secondOrganizationId = await seedOrganization(t, { owner: "second", userId });
+    const firstVaultId = await seedVault(t, firstOrganizationId);
+    const secondVaultId = await seedVault(t, secondOrganizationId);
+    const viewer = asUser(t, userId);
+    const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Projects",
+      organizationId: firstOrganizationId,
+    });
+
+    await viewer.mutation(api.vault.folders.moveVaultToFolder, {
+      folderId,
       vaultId: firstVaultId,
     });
-    await viewer.mutation(api.vault.folders.moveVaultToFolder, {
-      folderId: null,
-      vaultId: firstVaultId,
+    await expect(
+      viewer.mutation(api.vault.folders.moveVaultToFolder, {
+        folderId,
+        vaultId: secondVaultId,
+      }),
+    ).rejects.toThrow("Folder and vault must belong to the same organization.");
+    await expect(viewer.query(api.vault.folders.getVaultFolderState)).resolves.toMatchObject({
+      assignments: [{ folderId, vaultId: firstVaultId }],
+    });
+  });
+
+  it("keeps collapse and order independent for each organization", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "ada@example.com");
+    const firstOrganizationId = await seedOrganization(t, { owner: "first", userId });
+    const secondOrganizationId = await seedOrganization(t, { owner: "second", userId });
+    const viewer = asUser(t, userId);
+    const firstFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "First",
+      organizationId: firstOrganizationId,
+    });
+    const secondFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Second",
+      organizationId: firstOrganizationId,
+    });
+    const otherFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Other",
+      organizationId: secondOrganizationId,
+    });
+
+    await viewer.mutation(api.vault.folders.setVaultFolderCollapsed, {
+      collapsed: true,
+      folderId: secondFolderId,
     });
     await viewer.mutation(api.vault.folders.moveVaultFolder, {
       direction: "up",
       folderId: secondFolderId,
     });
 
-    await expect(viewer.query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
+    const state = await viewer.query(api.vault.folders.getVaultFolderState);
+    expect(state.folders).toEqual(
+      [
+        {
+          _id: secondFolderId,
+          collapsed: true,
+          name: "Second",
+          organizationId: firstOrganizationId,
+          position: 0,
+        },
+        {
+          _id: firstFolderId,
+          collapsed: false,
+          name: "First",
+          organizationId: firstOrganizationId,
+          position: 1,
+        },
+        {
+          _id: otherFolderId,
+          collapsed: false,
+          name: "Other",
+          organizationId: secondOrganizationId,
+          position: 0,
+        },
+      ].sort(
+        (left, right) =>
+          left.organizationId.localeCompare(right.organizationId) || left.position - right.position,
+      ),
+    );
+  });
+
+  it("does not wrap folder order at either boundary", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "ada@example.com");
+    const organizationId = await seedOrganization(t, { owner: "samebase", userId });
+    const viewer = asUser(t, userId);
+    const firstFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "First",
+      organizationId,
+    });
+    const middleFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Middle",
+      organizationId,
+    });
+    const lastFolderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Last",
+      organizationId,
+    });
+
+    await viewer.mutation(api.vault.folders.moveVaultFolder, {
+      direction: "up",
+      folderId: firstFolderId,
+    });
+    await viewer.mutation(api.vault.folders.moveVaultFolder, {
+      direction: "down",
+      folderId: lastFolderId,
+    });
+
+    await expect(viewer.query(api.vault.folders.getVaultFolderState)).resolves.toMatchObject({
       folders: [
-        { _id: secondFolderId, collapsed: false, name: "Second", position: 0 },
-        { _id: firstFolderId, collapsed: true, name: "First", position: 1 },
+        { _id: firstFolderId, position: 0 },
+        { _id: middleFolderId, position: 1 },
+        { _id: lastFolderId, position: 2 },
       ],
-      assignments: [{ folderId: secondFolderId, vaultId: secondVaultId }],
     });
   });
 
-  it("rejects duplicate assignments during vault moves", async () => {
+  it("hides stored folders and assignments after organization access is lost", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
-    const secondVaultId = await seedVault(t, userId);
+    const organizationId = await seedOrganization(t, { owner: "samebase", userId });
+    const vaultId = await seedVault(t, organizationId);
     const viewer = asUser(t, userId);
     const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
-      name: "Fixtures",
+      name: "Projects",
+      organizationId,
     });
+    await viewer.mutation(api.vault.folders.moveVaultToFolder, { folderId, vaultId });
 
     await t.run(async (ctx) => {
-      await ctx.db.insert("ui_vaultFolderAssignments", {
-        folderId,
-        userId,
-        vaultId: secondVaultId,
-      });
-      await ctx.db.insert("ui_vaultFolderAssignments", {
-        folderId,
-        userId,
-        vaultId: secondVaultId,
-      });
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", organizationId).eq("userId", userId),
+        )
+        .unique();
+      if (!membership) {
+        throw new Error("Membership not found");
+      }
+      await ctx.db.delete(membership._id);
     });
 
+    await expect(viewer.query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
+      assignments: [],
+      folders: [],
+    });
     await expect(
-      viewer.mutation(api.vault.folders.moveVaultToFolder, {
+      viewer.mutation(api.vault.folders.setVaultFolderCollapsed, {
+        collapsed: true,
         folderId,
-        vaultId: secondVaultId,
       }),
-    ).rejects.toThrow();
+    ).rejects.toThrow("Folder not found");
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get(folderId)).not.toBeNull();
+      expect(
+        await ctx.db
+          .query("ui_vaultFolderAssignments")
+          .withIndex("by_userId_and_organizationId_and_vaultId", (query) =>
+            query.eq("userId", userId).eq("organizationId", organizationId).eq("vaultId", vaultId),
+          )
+          .unique(),
+      ).not.toBeNull();
+    });
   });
 
-  it("keeps deleted-folder assignments stale until a later move", async () => {
+  it("leaves deleted-folder assignments stale and presents their vaults as ungrouped", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
-    const vaultId = await seedVault(t, userId);
+    const organizationId = await seedOrganization(t, { owner: "samebase", userId });
+    const vaultId = await seedVault(t, organizationId);
     const viewer = asUser(t, userId);
     const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
-      name: "Fixtures",
+      name: "Projects",
+      organizationId,
     });
     await viewer.mutation(api.vault.folders.moveVaultToFolder, { folderId, vaultId });
 
     await viewer.mutation(api.vault.folders.deleteVaultFolder, { folderId });
-    await expect(viewer.query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
-      folders: [],
-      assignments: [{ folderId, vaultId }],
-    });
 
-    await viewer.mutation(api.vault.folders.moveVaultToFolder, { folderId: null, vaultId });
     await expect(viewer.query(api.vault.folders.getVaultFolderState)).resolves.toEqual({
-      folders: [],
       assignments: [],
+      folders: [],
+    });
+    await t.run(async (ctx) => {
+      expect(
+        await ctx.db
+          .query("ui_vaultFolderAssignments")
+          .withIndex("by_userId_and_organizationId_and_vaultId", (query) =>
+            query.eq("userId", userId).eq("organizationId", organizationId).eq("vaultId", vaultId),
+          )
+          .unique(),
+      ).not.toBeNull();
     });
   });
 
-  it("removes a vault assignment during vault deletion", async () => {
+  it("fails closed on duplicate visible assignments", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
-    const vaultId = await seedVault(t, userId);
+    const organizationId = await seedOrganization(t, { owner: "samebase", userId });
+    const vaultId = await seedVault(t, organizationId);
     const viewer = asUser(t, userId);
     const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
-      name: "Fixtures",
+      name: "Projects",
+      organizationId,
+    });
+    await viewer.mutation(api.vault.folders.moveVaultToFolder, { folderId, vaultId });
+    await t.run(async (ctx) => {
+      await ctx.db.insert("ui_vaultFolderAssignments", {
+        folderId,
+        organizationId,
+        userId,
+        vaultId,
+      });
+    });
+
+    await expect(viewer.query(api.vault.folders.getVaultFolderState)).rejects.toThrow(
+      "Duplicate vault folder assignments.",
+    );
+  });
+
+  it("removes a folder assignment during vault deletion", async () => {
+    const t = makeConvexTest();
+    const userId = await seedUser(t, "ada@example.com");
+    const organizationId = await seedOrganization(t, { owner: "samebase", userId });
+    const vaultId = await seedVault(t, organizationId);
+    const viewer = asUser(t, userId);
+    const folderId = await viewer.mutation(api.vault.folders.createVaultFolder, {
+      name: "Projects",
+      organizationId,
     });
     await viewer.mutation(api.vault.folders.moveVaultToFolder, { folderId, vaultId });
 
@@ -337,10 +452,11 @@ describe("vault folders Convex contract", () => {
     });
     await t.run(async (ctx) => {
       expect(await ctx.db.get(vaultId)).not.toBeNull();
+      expect(await ctx.db.get(folderId)).not.toBeNull();
       expect(
         await ctx.db
           .query("ui_vaultFolderAssignments")
-          .withIndex("by_vaultId", (q) => q.eq("vaultId", vaultId))
+          .withIndex("by_vaultId", (query) => query.eq("vaultId", vaultId))
           .first(),
       ).toBeNull();
     });

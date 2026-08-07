@@ -13,23 +13,19 @@ import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as testRouteImport } from "./routes/test";
 import { Route as termsRouteImport } from "./routes/terms";
 import { Route as settingsRouteImport } from "./routes/settings";
-import { Route as providersRouteImport } from "./routes/providers";
 import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as pricingRouteImport } from "./routes/pricing";
 import { Route as pitchRouteImport } from "./routes/pitch";
-import { Route as newAppRouteImport } from "./routes/new-app";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as landingRouteImport } from "./routes/landing";
 import { Route as indexDBRouteImport } from "./routes/indexDB";
-import { Route as connectRepoRouteImport } from "./routes/connect-repo";
 import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
-import { Route as providersOwnerRouteImport } from "./routes/providers-owner";
 import { Route as pitchPrintRouteImport } from "./routes/pitch-print";
-import { Route as newAppOwnerRouteImport } from "./routes/new-app-owner";
+import { Route as orgRouteImport } from "./routes/org";
 import { Route as logoTransitionLabRouteImport } from "./routes/logo-transition-lab";
 import { Route as logoSvgRouteImport } from "./routes/logo-svg";
 import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
@@ -39,12 +35,16 @@ import { Route as logoIsoRouteImport } from "./routes/logo-iso";
 import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
 import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
-import { Route as connectRepoOwnerRouteImport } from "./routes/connect-repo-owner";
 import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
 import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
 import { Route as pitchPrintMobileRouteImport } from "./routes/pitch-print-mobile";
+import { Route as orgVaultsRouteImport } from "./routes/org-vaults";
+import { Route as orgSettingsRouteImport } from "./routes/org-settings";
+import { Route as orgProvidersRouteImport } from "./routes/org-providers";
+import { Route as orgNewAppRouteImport } from "./routes/org-new-app";
+import { Route as orgConnectRepoRouteImport } from "./routes/org-connect-repo";
 import { Route as mcpConsentRouteImport } from "./routes/mcp-consent";
 import { Route as logoTransitionTransformsLabRouteImport } from "./routes/logo-transition-transforms-lab";
 import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-menger-transition-research";
@@ -74,11 +74,6 @@ const settingsRoute = settingsRouteImport.update({
   path: "/settings",
   getParentRoute: () => rootRouteImport,
 } as any);
-const providersRoute = providersRouteImport.update({
-  id: "/providers",
-  path: "/providers",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const privacyRoute = privacyRouteImport.update({
   id: "/privacy",
   path: "/privacy",
@@ -92,11 +87,6 @@ const pricingRoute = pricingRouteImport.update({
 const pitchRoute = pitchRouteImport.update({
   id: "/pitch",
   path: "/pitch",
-  getParentRoute: () => rootRouteImport,
-} as any);
-const newAppRoute = newAppRouteImport.update({
-  id: "/new-app",
-  path: "/new-app",
   getParentRoute: () => rootRouteImport,
 } as any);
 const logoRoute = logoRouteImport.update({
@@ -124,11 +114,6 @@ const indexDBRoute = indexDBRouteImport.update({
   path: "/indexDB",
   getParentRoute: () => rootRouteImport,
 } as any);
-const connectRepoRoute = connectRepoRouteImport.update({
-  id: "/connect-repo",
-  path: "/connect-repo",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const accountDeletionRoute = accountDeletionRouteImport.update({
   id: "/account-deletion",
   path: "/account-deletion",
@@ -144,19 +129,14 @@ const vaultFileRoute = vaultFileRouteImport.update({
   path: "/vault/$",
   getParentRoute: () => rootRouteImport,
 } as any);
-const providersOwnerRoute = providersOwnerRouteImport.update({
-  id: "/providers/$owner",
-  path: "/providers/$owner",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const pitchPrintRoute = pitchPrintRouteImport.update({
   id: "/pitch/print",
   path: "/pitch/print",
   getParentRoute: () => rootRouteImport,
 } as any);
-const newAppOwnerRoute = newAppOwnerRouteImport.update({
-  id: "/new-app/$owner",
-  path: "/new-app/$owner",
+const orgRoute = orgRouteImport.update({
+  id: "/org/$owner",
+  path: "/org/$owner",
   getParentRoute: () => rootRouteImport,
 } as any);
 const logoTransitionLabRoute = logoTransitionLabRouteImport.update({
@@ -204,11 +184,6 @@ const docsDoItYourselfRoute = docsDoItYourselfRouteImport.update({
   path: "/docs/do-it-yourself",
   getParentRoute: () => rootRouteImport,
 } as any);
-const connectRepoOwnerRoute = connectRepoOwnerRouteImport.update({
-  id: "/connect-repo/$owner",
-  path: "/connect-repo/$owner",
-  getParentRoute: () => rootRouteImport,
-} as any);
 const agentsConnectRoute = agentsConnectRouteImport.update({
   id: "/agents/connect",
   path: "/agents/connect",
@@ -232,6 +207,31 @@ const vaultDashboardRoute = vaultDashboardRouteImport.update({
 const pitchPrintMobileRoute = pitchPrintMobileRouteImport.update({
   id: "/pitch/print/mobile",
   path: "/pitch/print/mobile",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const orgVaultsRoute = orgVaultsRouteImport.update({
+  id: "/org/$owner/vaults",
+  path: "/org/$owner/vaults",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const orgSettingsRoute = orgSettingsRouteImport.update({
+  id: "/org/$owner/settings",
+  path: "/org/$owner/settings",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const orgProvidersRoute = orgProvidersRouteImport.update({
+  id: "/org/$owner/providers",
+  path: "/org/$owner/providers",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const orgNewAppRoute = orgNewAppRouteImport.update({
+  id: "/org/$owner/new-app",
+  path: "/org/$owner/new-app",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const orgConnectRepoRoute = orgConnectRepoRouteImport.update({
+  id: "/org/$owner/connect-repo",
+  path: "/org/$owner/connect-repo",
   getParentRoute: () => rootRouteImport,
 } as any);
 const mcpConsentRoute = mcpConsentRouteImport.update({
@@ -280,17 +280,14 @@ const vaultDatabaseProjectRoute = vaultDatabaseProjectRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
-  "/connect-repo": typeof connectRepoRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
-  "/new-app": typeof newAppRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
-  "/providers": typeof providersRoute;
   "/settings": typeof settingsRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
@@ -298,7 +295,6 @@ export interface FileRoutesByFullPath {
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/agents/connect": typeof agentsConnectRoute;
-  "/connect-repo/$owner": typeof connectRepoOwnerRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -308,15 +304,19 @@ export interface FileRoutesByFullPath {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
-  "/new-app/$owner": typeof newAppOwnerRoute;
+  "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
-  "/providers/$owner": typeof providersOwnerRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
+  "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
+  "/org/$owner/new-app": typeof orgNewAppRoute;
+  "/org/$owner/providers": typeof orgProvidersRoute;
+  "/org/$owner/settings": typeof orgSettingsRoute;
+  "/org/$owner/vaults": typeof orgVaultsRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
@@ -326,17 +326,14 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
-  "/connect-repo": typeof connectRepoRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
-  "/new-app": typeof newAppRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
-  "/providers": typeof providersRoute;
   "/settings": typeof settingsRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
@@ -344,7 +341,6 @@ export interface FileRoutesByTo {
   "/vault": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/agents/connect": typeof agentsConnectRoute;
-  "/connect-repo/$owner": typeof connectRepoOwnerRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -354,15 +350,19 @@ export interface FileRoutesByTo {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
-  "/new-app/$owner": typeof newAppOwnerRoute;
+  "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
-  "/providers/$owner": typeof providersOwnerRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
+  "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
+  "/org/$owner/new-app": typeof orgNewAppRoute;
+  "/org/$owner/providers": typeof orgProvidersRoute;
+  "/org/$owner/settings": typeof orgSettingsRoute;
+  "/org/$owner/vaults": typeof orgVaultsRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
@@ -373,17 +373,14 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
-  "/connect-repo": typeof connectRepoRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
-  "/new-app": typeof newAppRoute;
   "/pitch": typeof pitchRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
-  "/providers": typeof providersRoute;
   "/settings": typeof settingsRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
@@ -391,7 +388,6 @@ export interface FileRoutesById {
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/agents/connect": typeof agentsConnectRoute;
-  "/connect-repo/$owner": typeof connectRepoOwnerRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -401,15 +397,19 @@ export interface FileRoutesById {
   "/logo/single-cube": typeof logoIsoStudyRoute;
   "/logo/svg": typeof logoSvgRoute;
   "/logo/transition": typeof logoTransitionLabRoute;
-  "/new-app/$owner": typeof newAppOwnerRoute;
+  "/org/$owner": typeof orgRoute;
   "/pitch/print": typeof pitchPrintRoute;
-  "/providers/$owner": typeof providersOwnerRoute;
   "/vault/$": typeof vaultFileRoute;
   "/logo/hover/carpet": typeof logoCarpetHoverResearchRoute;
   "/logo/hover/menger": typeof logoMengerHoverResearchRoute;
   "/logo/transition/menger": typeof logoMengerTransitionResearchRoute;
   "/logo/transition/transforms": typeof logoTransitionTransformsLabRoute;
   "/oauth/mcp/consent": typeof mcpConsentRoute;
+  "/org/$owner/connect-repo": typeof orgConnectRepoRoute;
+  "/org/$owner/new-app": typeof orgNewAppRoute;
+  "/org/$owner/providers": typeof orgProvidersRoute;
+  "/org/$owner/settings": typeof orgSettingsRoute;
+  "/org/$owner/vaults": typeof orgVaultsRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
   "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
@@ -421,17 +421,14 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/account-deletion"
-    | "/connect-repo"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
-    | "/new-app"
     | "/pitch"
     | "/pricing"
     | "/privacy"
-    | "/providers"
     | "/settings"
     | "/terms"
     | "/test"
@@ -439,7 +436,6 @@ export interface FileRouteTypes {
     | "/vault/"
     | "/admin/account-deletions"
     | "/agents/connect"
-    | "/connect-repo/$owner"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -449,15 +445,19 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
-    | "/new-app/$owner"
+    | "/org/$owner"
     | "/pitch/print"
-    | "/providers/$owner"
     | "/vault/$"
     | "/logo/hover/carpet"
     | "/logo/hover/menger"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
+    | "/org/$owner/connect-repo"
+    | "/org/$owner/new-app"
+    | "/org/$owner/providers"
+    | "/org/$owner/settings"
+    | "/org/$owner/vaults"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/settings"
@@ -467,17 +467,14 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/account-deletion"
-    | "/connect-repo"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
-    | "/new-app"
     | "/pitch"
     | "/pricing"
     | "/privacy"
-    | "/providers"
     | "/settings"
     | "/terms"
     | "/test"
@@ -485,7 +482,6 @@ export interface FileRouteTypes {
     | "/vault"
     | "/admin/account-deletions"
     | "/agents/connect"
-    | "/connect-repo/$owner"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -495,15 +491,19 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
-    | "/new-app/$owner"
+    | "/org/$owner"
     | "/pitch/print"
-    | "/providers/$owner"
     | "/vault/$"
     | "/logo/hover/carpet"
     | "/logo/hover/menger"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
+    | "/org/$owner/connect-repo"
+    | "/org/$owner/new-app"
+    | "/org/$owner/providers"
+    | "/org/$owner/settings"
+    | "/org/$owner/vaults"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/settings"
@@ -513,17 +513,14 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/account-deletion"
-    | "/connect-repo"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
     | "/localStorage"
     | "/logo"
-    | "/new-app"
     | "/pitch"
     | "/pricing"
     | "/privacy"
-    | "/providers"
     | "/settings"
     | "/terms"
     | "/test"
@@ -531,7 +528,6 @@ export interface FileRouteTypes {
     | "/vault/"
     | "/admin/account-deletions"
     | "/agents/connect"
-    | "/connect-repo/$owner"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -541,15 +537,19 @@ export interface FileRouteTypes {
     | "/logo/single-cube"
     | "/logo/svg"
     | "/logo/transition"
-    | "/new-app/$owner"
+    | "/org/$owner"
     | "/pitch/print"
-    | "/providers/$owner"
     | "/vault/$"
     | "/logo/hover/carpet"
     | "/logo/hover/menger"
     | "/logo/transition/menger"
     | "/logo/transition/transforms"
     | "/oauth/mcp/consent"
+    | "/org/$owner/connect-repo"
+    | "/org/$owner/new-app"
+    | "/org/$owner/providers"
+    | "/org/$owner/settings"
+    | "/org/$owner/vaults"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
     | "/vault/$owner/$repo/settings"
@@ -560,17 +560,14 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
   accountDeletionRoute: typeof accountDeletionRoute;
-  connectRepoRoute: typeof connectRepoRoute;
   indexDBRoute: typeof indexDBRoute;
   landingRoute: typeof landingRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
   localStorageRoute: typeof localStorageRoute;
   logoRoute: typeof logoRoute;
-  newAppRoute: typeof newAppRoute;
   pitchRoute: typeof pitchRoute;
   pricingRoute: typeof pricingRoute;
   privacyRoute: typeof privacyRoute;
-  providersRoute: typeof providersRoute;
   settingsRoute: typeof settingsRoute;
   termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
@@ -578,7 +575,6 @@ export interface RootRouteChildren {
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
   agentsConnectRoute: typeof agentsConnectRoute;
-  connectRepoOwnerRoute: typeof connectRepoOwnerRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
   docsReceiptsRoute: typeof docsReceiptsRoute;
   docsTheStackRoute: typeof docsTheStackRoute;
@@ -588,15 +584,19 @@ export interface RootRouteChildren {
   logoIsoStudyRoute: typeof logoIsoStudyRoute;
   logoSvgRoute: typeof logoSvgRoute;
   logoTransitionLabRoute: typeof logoTransitionLabRoute;
-  newAppOwnerRoute: typeof newAppOwnerRoute;
+  orgRoute: typeof orgRoute;
   pitchPrintRoute: typeof pitchPrintRoute;
-  providersOwnerRoute: typeof providersOwnerRoute;
   vaultFileRoute: typeof vaultFileRoute;
   logoCarpetHoverResearchRoute: typeof logoCarpetHoverResearchRoute;
   logoMengerHoverResearchRoute: typeof logoMengerHoverResearchRoute;
   logoMengerTransitionResearchRoute: typeof logoMengerTransitionResearchRoute;
   logoTransitionTransformsLabRoute: typeof logoTransitionTransformsLabRoute;
   mcpConsentRoute: typeof mcpConsentRoute;
+  orgConnectRepoRoute: typeof orgConnectRepoRoute;
+  orgNewAppRoute: typeof orgNewAppRoute;
+  orgProvidersRoute: typeof orgProvidersRoute;
+  orgSettingsRoute: typeof orgSettingsRoute;
+  orgVaultsRoute: typeof orgVaultsRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   vaultDashboardRoute: typeof vaultDashboardRoute;
   vaultSettingsRoute: typeof vaultSettingsRoute;
@@ -634,13 +634,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof settingsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/providers": {
-      id: "/providers";
-      path: "/providers";
-      fullPath: "/providers";
-      preLoaderRoute: typeof providersRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/privacy": {
       id: "/privacy";
       path: "/privacy";
@@ -660,13 +653,6 @@ declare module "@tanstack/react-router" {
       path: "/pitch";
       fullPath: "/pitch";
       preLoaderRoute: typeof pitchRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
-    "/new-app": {
-      id: "/new-app";
-      path: "/new-app";
-      fullPath: "/new-app";
-      preLoaderRoute: typeof newAppRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/logo": {
@@ -704,13 +690,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof indexDBRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/connect-repo": {
-      id: "/connect-repo";
-      path: "/connect-repo";
-      fullPath: "/connect-repo";
-      preLoaderRoute: typeof connectRepoRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/account-deletion": {
       id: "/account-deletion";
       path: "/account-deletion";
@@ -732,13 +711,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof vaultFileRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/providers/$owner": {
-      id: "/providers/$owner";
-      path: "/providers/$owner";
-      fullPath: "/providers/$owner";
-      preLoaderRoute: typeof providersOwnerRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/pitch/print": {
       id: "/pitch/print";
       path: "/pitch/print";
@@ -746,11 +718,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof pitchPrintRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/new-app/$owner": {
-      id: "/new-app/$owner";
-      path: "/new-app/$owner";
-      fullPath: "/new-app/$owner";
-      preLoaderRoute: typeof newAppOwnerRouteImport;
+    "/org/$owner": {
+      id: "/org/$owner";
+      path: "/org/$owner";
+      fullPath: "/org/$owner";
+      preLoaderRoute: typeof orgRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/logo/transition": {
@@ -816,13 +788,6 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof docsDoItYourselfRouteImport;
       parentRoute: typeof rootRouteImport;
     };
-    "/connect-repo/$owner": {
-      id: "/connect-repo/$owner";
-      path: "/connect-repo/$owner";
-      fullPath: "/connect-repo/$owner";
-      preLoaderRoute: typeof connectRepoOwnerRouteImport;
-      parentRoute: typeof rootRouteImport;
-    };
     "/agents/connect": {
       id: "/agents/connect";
       path: "/agents/connect";
@@ -856,6 +821,41 @@ declare module "@tanstack/react-router" {
       path: "/pitch/print/mobile";
       fullPath: "/pitch/print/mobile";
       preLoaderRoute: typeof pitchPrintMobileRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/org/$owner/vaults": {
+      id: "/org/$owner/vaults";
+      path: "/org/$owner/vaults";
+      fullPath: "/org/$owner/vaults";
+      preLoaderRoute: typeof orgVaultsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/org/$owner/settings": {
+      id: "/org/$owner/settings";
+      path: "/org/$owner/settings";
+      fullPath: "/org/$owner/settings";
+      preLoaderRoute: typeof orgSettingsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/org/$owner/providers": {
+      id: "/org/$owner/providers";
+      path: "/org/$owner/providers";
+      fullPath: "/org/$owner/providers";
+      preLoaderRoute: typeof orgProvidersRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/org/$owner/new-app": {
+      id: "/org/$owner/new-app";
+      path: "/org/$owner/new-app";
+      fullPath: "/org/$owner/new-app";
+      preLoaderRoute: typeof orgNewAppRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/org/$owner/connect-repo": {
+      id: "/org/$owner/connect-repo";
+      path: "/org/$owner/connect-repo";
+      fullPath: "/org/$owner/connect-repo";
+      preLoaderRoute: typeof orgConnectRepoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/oauth/mcp/consent": {
@@ -920,17 +920,14 @@ declare module "@tanstack/react-router" {
 const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
   accountDeletionRoute: accountDeletionRoute,
-  connectRepoRoute: connectRepoRoute,
   indexDBRoute: indexDBRoute,
   landingRoute: landingRoute,
   landingPreviewRoute: landingPreviewRoute,
   localStorageRoute: localStorageRoute,
   logoRoute: logoRoute,
-  newAppRoute: newAppRoute,
   pitchRoute: pitchRoute,
   pricingRoute: pricingRoute,
   privacyRoute: privacyRoute,
-  providersRoute: providersRoute,
   settingsRoute: settingsRoute,
   termsRoute: termsRoute,
   testRoute: testRoute,
@@ -938,7 +935,6 @@ const rootRouteChildren: RootRouteChildren = {
   vaultDashboardRootRoute: vaultDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
   agentsConnectRoute: agentsConnectRoute,
-  connectRepoOwnerRoute: connectRepoOwnerRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
   docsReceiptsRoute: docsReceiptsRoute,
   docsTheStackRoute: docsTheStackRoute,
@@ -948,15 +944,19 @@ const rootRouteChildren: RootRouteChildren = {
   logoIsoStudyRoute: logoIsoStudyRoute,
   logoSvgRoute: logoSvgRoute,
   logoTransitionLabRoute: logoTransitionLabRoute,
-  newAppOwnerRoute: newAppOwnerRoute,
+  orgRoute: orgRoute,
   pitchPrintRoute: pitchPrintRoute,
-  providersOwnerRoute: providersOwnerRoute,
   vaultFileRoute: vaultFileRoute,
   logoCarpetHoverResearchRoute: logoCarpetHoverResearchRoute,
   logoMengerHoverResearchRoute: logoMengerHoverResearchRoute,
   logoMengerTransitionResearchRoute: logoMengerTransitionResearchRoute,
   logoTransitionTransformsLabRoute: logoTransitionTransformsLabRoute,
   mcpConsentRoute: mcpConsentRoute,
+  orgConnectRepoRoute: orgConnectRepoRoute,
+  orgNewAppRoute: orgNewAppRoute,
+  orgProvidersRoute: orgProvidersRoute,
+  orgSettingsRoute: orgSettingsRoute,
+  orgVaultsRoute: orgVaultsRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   vaultDashboardRoute: vaultDashboardRoute,
   vaultSettingsRoute: vaultSettingsRoute,

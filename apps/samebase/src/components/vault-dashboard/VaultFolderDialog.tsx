@@ -101,7 +101,7 @@ export function VaultFolderDialog(props: VaultFolderDialogProps) {
           {props.kind === "delete" && props.vaultCount > 0 ? (
             <DialogDescription>
               {props.vaultCount} {props.vaultCount === 1 ? "vault will" : "vaults will"} move to
-              Ungrouped. The vaults will not be deleted.
+              Unfiled. The vaults will not be deleted.
             </DialogDescription>
           ) : null}
         </DialogHeader>

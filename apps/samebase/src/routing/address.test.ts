@@ -166,12 +166,12 @@ describe("readRouteAddressReadiness", () => {
 
     expect(
       readRouteAddressReadinessForTest({
-        draftRouteAddress: "/new-app",
+        draftRouteAddress: "/org/samebase/new-app",
         viewer: memberViewer,
       }),
     ).toEqual({
       kind: "readyExact",
-      routeAddress: "/new-app",
+      routeAddress: "/org/samebase/new-app",
     });
 
     expect(

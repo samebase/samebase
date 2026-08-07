@@ -49,13 +49,9 @@ export function ConnectRepositoryVisualFixture() {
 
   return (
     <ConnectRepositoryPageContent
-      canListRepositories
       connectingRepositoryFullName={null}
       emptyRepositoryMessage={null}
       error={null}
-      githubOwners={[]}
-      githubOwnersLoaded={false}
-      installingGitHubApp={false}
       loading={false}
       loadingMore
       repositoryPreviewCount={10}
@@ -63,11 +59,8 @@ export function ConnectRepositoryVisualFixture() {
       repositoryTotalCount={repositories.length}
       retryingFullRepositories={false}
       searchQuery=""
-      selectedOrganizationId={null}
       showBackgroundError={false}
       onConnectRepository={() => {}}
-      onInstallGitHubApp={() => {}}
-      onOrganizationChange={() => {}}
       onRetryFullRepositories={() => {}}
       onSearchQueryChange={() => {}}
     />

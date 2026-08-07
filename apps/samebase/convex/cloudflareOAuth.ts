@@ -12,6 +12,8 @@ import {
 } from "./cloudflareMcpOAuth";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealth } from "./mcpTokenHealth";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
+import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
+import { findOrganizationMembership } from "./organizationAccess";
 import { vCloudflareDefaultAccount } from "./providerConnectionModel";
 import { utf8ToBase64 } from "../shared/base64";
 import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
@@ -293,8 +295,17 @@ const storeCloudflareOauthConnectionArgs = {
 
 export const storeCloudflareOauthConnection = internalMutation({
   args: storeCloudflareOauthConnectionArgs,
-  returns: nullValue(),
+  returns: vProviderOAuthStoreResult,
   handler: async (ctx, args) => {
+    const membership = await findOrganizationMembership(ctx.db, {
+      userId: args.connectedByUserId,
+      organizationId: args.organizationId,
+    });
+    if (membership?.role !== "owner") {
+      await ctx.db.delete(args.oauthStateId);
+      return { status: "access_lost" as const };
+    }
+
     const checkedAt = Date.now();
     const connection = {
       kind: "cloudflare" as const,
@@ -331,7 +342,7 @@ export const storeCloudflareOauthConnection = internalMutation({
       expiresAt: args.expiresAt,
     });
     await ctx.db.delete(args.oauthStateId);
-    return null;
+    return { status: "stored" as const };
   },
 });
 
@@ -592,27 +603,15 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
 
-  if (error) {
+  if (error !== null) {
     console.log("cloudflare:oauth:callback_provider_error", {
       statePresent: state !== null,
       errorPresent: error.length > 0,
       errorDescriptionPresent: errorDescription !== null,
     });
-    if (state) {
-      const oauthState = await ctx.runQuery(internal.oauthState.getOauthStateByState, {
-        provider: "cloudflare",
-        state,
-      });
-      if (oauthState) {
-        await ctx.runMutation(internal.oauthState.deleteOauthState, {
-          id: oauthState._id,
-        });
-      }
-    }
-    return new Response("Cloudflare OAuth authorization was not completed.", { status: 400 });
   }
 
-  if (!code || !state) {
+  if (state === null || (code === null && error === null)) {
     console.log("cloudflare:oauth:callback_missing_params", {
       hasCode: code !== null,
       hasState: state !== null,
@@ -643,6 +642,49 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
     return new Response("OAuth state expired", { status: 400 });
   }
 
+  let returnUrl: string;
+  try {
+    const githubOwnerLogin: string = await ctx.runQuery(
+      internal.organizations.getExternalReturnOwnerLogin,
+      {
+        organizationId: oauthState.organizationId,
+      },
+    );
+    returnUrl = buildProviderOAuthDefaultReturnUrl({
+      configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
+      githubOwnerLogin,
+      requestUrl: request.url,
+    });
+  } catch {
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
+      id: oauthState._id,
+    });
+    return new Response("Organization unavailable", { status: 400 });
+  }
+
+  if (error !== null) {
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
+      id: oauthState._id,
+    });
+    return Response.redirect(returnUrl, 302);
+  }
+
+  if (code === null) {
+    return new Response("Missing OAuth parameters", { status: 400 });
+  }
+
+  try {
+    await ctx.runQuery(internal.organizationAccess.requireOrganizationOwnerIdForUser, {
+      userId: oauthState.userId,
+      organizationId: oauthState.organizationId,
+    });
+  } catch {
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
+      id: oauthState._id,
+    });
+    return Response.redirect(returnUrl, 302);
+  }
+
   const clientId = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID");
   const clientSecret = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET");
   const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_REDIRECT_URL");
@@ -663,16 +705,22 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
       },
     );
 
-    await ctx.runMutation(internal.cloudflareOAuth.storeCloudflareOauthConnection, {
-      organizationId: oauthState.organizationId,
-      connectedByUserId: oauthState.userId,
-      providerConnectionId: oauthState.providerConnectionId,
-      accessToken: token.accessToken,
-      refreshToken: token.refreshToken,
-      expiresAt,
-      defaultAccount,
-      oauthStateId: oauthState._id,
-    });
+    const storeResult: ProviderOAuthStoreResult = await ctx.runMutation(
+      internal.cloudflareOAuth.storeCloudflareOauthConnection,
+      {
+        organizationId: oauthState.organizationId,
+        connectedByUserId: oauthState.userId,
+        providerConnectionId: oauthState.providerConnectionId,
+        accessToken: token.accessToken,
+        refreshToken: token.refreshToken,
+        expiresAt,
+        defaultAccount,
+        oauthStateId: oauthState._id,
+      },
+    );
+    if (storeResult.status === "access_lost") {
+      return Response.redirect(returnUrl, 302);
+    }
     console.log("cloudflare:oauth:exchange_succeeded", {
       organizationId: oauthState.organizationId,
       expiresIn: token.expiresIn,
@@ -689,10 +737,6 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
     return new Response("Cloudflare OAuth exchange failed", { status: 400 });
   }
 
-  const returnUrl = buildProviderOAuthDefaultReturnUrl({
-    configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
-    requestUrl: request.url,
-  });
   const returnOrigin = new URL(returnUrl).origin;
 
   const html = `<!doctype html>
@@ -710,9 +754,12 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
         try {
           if (window.opener && !window.opener.closed) {
             try {
-              window.opener.location.reload();
+              window.opener.location.replace(returnTo);
             } catch (error) {
-              window.opener.postMessage({ type: "cloudflare-oauth-complete" }, returnOrigin);
+              window.opener.postMessage(
+                { type: "cloudflare-oauth-complete", returnTo },
+                returnOrigin
+              );
             }
             window.close();
             return;

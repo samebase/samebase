@@ -1,5 +1,6 @@
 import type { VaultOverviewPageKind } from "@/components/vault-dashboard/VaultOverviewPage";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/use-toast";
 import {
   DropdownMenu,
@@ -10,7 +11,11 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { VaultWorkspaceSelected } from "@/components/vault-dashboard/vaultWorkspaceModel";
+import type {
+  VaultFolderState,
+  VaultOrganization,
+  VaultWorkspaceSelected,
+} from "@/components/vault-dashboard/vaultWorkspaceModel";
 import type {
   VaultSidebarSummariesState,
   VaultSidebarSummary,
@@ -25,16 +30,14 @@ import { useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
+import { VaultFolderCreateButton, type VaultFolderCreate } from "./VaultFolderCreateButton";
 import { VaultFolderDialog } from "./VaultFolderDialog";
 
-export type VaultFolderState = (typeof api.vault.folders.getVaultFolderState)["_returnType"];
 type VaultFolder = VaultFolderState["folders"][number];
 
 type VaultFolderMutation<Mutation extends FunctionReference<"mutation">> = (
   ...args: Parameters<ReactMutation<Mutation>>
 ) => Promise<void | Awaited<ReturnType<ReactMutation<Mutation>>>>;
-
-export type VaultFolderCreate = VaultFolderMutation<typeof api.vault.folders.createVaultFolder>;
 
 export type VaultFolderCallbacks = {
   onDeleteVaultFolder: VaultFolderMutation<typeof api.vault.folders.deleteVaultFolder>;
@@ -140,6 +143,7 @@ function VaultRow({
   page,
   selected,
   sidebarSummaries,
+  showOwner,
   summary,
   vault,
   workspace,
@@ -153,6 +157,7 @@ function VaultRow({
   page: VaultOverviewPageKind;
   selected: boolean;
   sidebarSummaries: VaultSidebarSummariesState;
+  showOwner: boolean;
   summary: VaultSidebarSummary | undefined;
   vault: UserVaultResult;
   workspace: VaultWorkspaceSelected | null;
@@ -177,9 +182,11 @@ function VaultRow({
         to={repositoryRoute(vault, page)}
       >
         <span className="block min-w-0 max-w-full text-sm leading-5">
-          <span className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden">
-            {vault.ghRepoOwner}/
-          </span>
+          {showOwner ? (
+            <span className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden">
+              {vault.ghRepoOwner}/
+            </span>
+          ) : null}
           <span className="block min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
             {vault.ghRepoName}
           </span>
@@ -234,7 +241,7 @@ function VaultRow({
                     )
                   }
                 >
-                  Ungrouped
+                  Unfiled
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
@@ -247,6 +254,7 @@ function VaultRow({
 
 export function VaultOverviewSidebar({
   folderState,
+  organizationId,
   onDeleteVaultFolder,
   onMoveVaultFolder,
   onMoveVaultToFolder,
@@ -255,13 +263,16 @@ export function VaultOverviewSidebar({
   page,
   selectedVaultId,
   sidebarSummaries,
+  showOwner,
   vaults,
   workspace,
 }: {
   folderState: VaultFolderState;
+  organizationId: Id<"organizations">;
   page: VaultOverviewPageKind;
   selectedVaultId: UserVaultResult["_id"] | null;
   sidebarSummaries: VaultSidebarSummariesState;
+  showOwner: boolean;
   vaults: readonly UserVaultResult[];
   workspace: VaultWorkspaceSelected | null;
 } & VaultFolderCallbacks) {
@@ -273,24 +284,32 @@ export function VaultOverviewSidebar({
       ? sidebarSummaries.summaries.map((summary) => [summary.vaultId, summary])
       : [],
   );
-  const validFolderIds = new Set(folderState.folders.map((folder) => folder._id));
+  const organizationFolders = folderState.folders.filter(
+    (folder) => folder.organizationId === organizationId,
+  );
+  const validFolderIds = new Set(organizationFolders.map((folder) => folder._id));
+  const organizationAssignments = folderState.assignments.filter((assignment) =>
+    validFolderIds.has(assignment.folderId),
+  );
+  const organizationFolderState = {
+    assignments: organizationAssignments,
+    folders: organizationFolders,
+  };
   const folderByVaultId = new Map(
-    folderState.assignments
-      .filter((assignment) => validFolderIds.has(assignment.folderId))
-      .map((assignment) => [assignment.vaultId, assignment.folderId]),
+    organizationAssignments.map((assignment) => [assignment.vaultId, assignment.folderId]),
   );
   const vaultsByFolderId = new Map<Id<"ui_vaultFolders">, UserVaultResult[]>();
-  for (const folder of folderState.folders) {
+  for (const folder of organizationFolders) {
     vaultsByFolderId.set(folder._id, []);
   }
-  const ungroupedVaults: UserVaultResult[] = [];
+  const unfiledVaults: UserVaultResult[] = [];
   for (const vault of vaults) {
     const folderId = folderByVaultId.get(vault._id);
     const folderVaults = folderId ? vaultsByFolderId.get(folderId) : undefined;
     if (folderVaults) {
       folderVaults.push(vault);
     } else {
-      ungroupedVaults.push(vault);
+      unfiledVaults.push(vault);
     }
   }
 
@@ -318,13 +337,14 @@ export function VaultOverviewSidebar({
   function renderVault(vault: UserVaultResult, inFolder: boolean) {
     return (
       <VaultRow
-        folderState={folderState}
+        folderState={organizationFolderState}
         inFolder={inFolder}
         key={vault._id}
         pending={pendingAction !== null}
         page={page}
         selected={vault._id === selectedVaultId}
         sidebarSummaries={sidebarSummaries}
+        showOwner={showOwner}
         summary={summaryByVaultId.get(vault._id)}
         vault={vault}
         workspace={workspace}
@@ -336,13 +356,12 @@ export function VaultOverviewSidebar({
 
   return (
     <>
-      <nav aria-label="Vaults" className="@container min-h-full py-2">
-        {folderState.folders.length === 0 ? (
+      <div className="@container min-h-full py-2">
+        {organizationFolders.length === 0 ? (
           vaults.map((vault) => renderVault(vault, false))
         ) : (
           <>
-            {ungroupedVaults.map((vault) => renderVault(vault, false))}
-            {folderState.folders.map((folder, index) => {
+            {organizationFolders.map((folder, index) => {
               const folderVaults = vaultsByFolderId.get(folder._id) ?? [];
               const selectedVault = folderVaults.find((vault) => vault._id === selectedVaultId);
               const visibleVaults = folder.collapsed ? [] : folderVaults;
@@ -441,7 +460,7 @@ export function VaultOverviewSidebar({
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           disabled={
-                            index === folderState.folders.length - 1 || pendingAction !== null
+                            index === organizationFolders.length - 1 || pendingAction !== null
                           }
                           onClick={() =>
                             runDirectAction(() =>
@@ -467,9 +486,10 @@ export function VaultOverviewSidebar({
                 </section>
               );
             })}
+            {unfiledVaults.map((vault) => renderVault(vault, false))}
           </>
         )}
-      </nav>
+      </div>
       {dialog?.kind === "rename" ? (
         <VaultFolderDialog
           folderName={dialog.folder.name}
@@ -496,6 +516,95 @@ export function VaultOverviewSidebar({
         />
       ) : null}
     </>
+  );
+}
+
+export function VaultOverviewOrganizationSidebar({
+  folderState,
+  organizations,
+  onCreateVaultFolder,
+  onDeleteVaultFolder,
+  onMoveVaultFolder,
+  onMoveVaultToFolder,
+  onRenameVaultFolder,
+  onSetVaultFolderCollapsed,
+  page,
+  selectedVaultId,
+  sidebarSummaries,
+  vaults,
+  workspace,
+}: {
+  folderState: VaultFolderState;
+  organizations: readonly VaultOrganization[];
+  onCreateVaultFolder: VaultFolderCreate;
+  page: VaultOverviewPageKind;
+  selectedVaultId: UserVaultResult["_id"] | null;
+  sidebarSummaries: VaultSidebarSummariesState;
+  vaults: readonly UserVaultResult[];
+  workspace: VaultWorkspaceSelected | null;
+} & VaultFolderCallbacks) {
+  const selectedOrganizationId = vaults.find(
+    (vault) => vault._id === selectedVaultId,
+  )?.organizationId;
+
+  return (
+    <nav aria-label="Vaults" className="@container min-h-full py-2">
+      {organizations.map((organization) => {
+        const organizationVaults = vaults.filter(
+          (vault) => vault.organizationId === organization.organizationId,
+        );
+        const organizationHasFolders = folderState.folders.some(
+          (folder) => folder.organizationId === organization.organizationId,
+        );
+        const selected = organization.organizationId === selectedOrganizationId;
+
+        return (
+          <Collapsible key={`${organization.organizationId}:${selected}`} defaultOpen={selected}>
+            <div className="flex min-w-0 items-center">
+              <CollapsibleTrigger
+                className="flex min-w-0 flex-1 items-center justify-between gap-2 py-2 pr-1 pl-3 text-left text-sm font-medium text-foreground hover:bg-muted/60 @max-[200px]:pl-2 @max-[120px]:pl-1 [&[data-state=open]>svg]:rotate-180"
+                nativeButton
+                type="button"
+              >
+                <span className="min-w-0 truncate">{organization.githubOwnerLogin}</span>
+                <ChevronDown
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5 shrink-0 transition-transform"
+                />
+              </CollapsibleTrigger>
+              <VaultFolderCreateButton
+                organizationId={organization.organizationId}
+                organizationName={organization.githubOwnerLogin}
+                onCreateVaultFolder={onCreateVaultFolder}
+              />
+            </div>
+            <CollapsibleContent>
+              {organizationVaults.length === 0 && !organizationHasFolders ? (
+                <p className="px-3 py-2 text-sm text-muted-foreground @max-[200px]:px-2 @max-[120px]:px-1">
+                  No vaults
+                </p>
+              ) : (
+                <VaultOverviewSidebar
+                  folderState={folderState}
+                  organizationId={organization.organizationId}
+                  page={page}
+                  selectedVaultId={selectedVaultId}
+                  showOwner={false}
+                  sidebarSummaries={sidebarSummaries}
+                  vaults={organizationVaults}
+                  workspace={workspace}
+                  onDeleteVaultFolder={onDeleteVaultFolder}
+                  onMoveVaultFolder={onMoveVaultFolder}
+                  onMoveVaultToFolder={onMoveVaultToFolder}
+                  onRenameVaultFolder={onRenameVaultFolder}
+                  onSetVaultFolderCollapsed={onSetVaultFolderCollapsed}
+                />
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        );
+      })}
+    </nav>
   );
 }
 

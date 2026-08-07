@@ -14,6 +14,18 @@ export function buildGitHubAppInstallationUrl(args: { appSlug: string; state: st
   return url.toString();
 }
 
+export function buildGitHubUserAuthorizationUrl(args: {
+  clientId: string;
+  redirectUri: string;
+  state: string;
+}): string {
+  const url = new URL("https://github.com/login/oauth/authorize");
+  url.searchParams.set("client_id", args.clientId);
+  url.searchParams.set("redirect_uri", args.redirectUri);
+  url.searchParams.set("state", args.state);
+  return url.toString();
+}
+
 export function buildGitHubAppSetupReturnUrl(args: {
   configuredAppUrl: string | undefined;
   requestUrl: string;

@@ -1,24 +1,32 @@
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
+import { OrganizationContextControl } from "@/components/OrganizationContextControl";
+import {
+  findViewerOrganization,
+  useOrganizationContext,
+  type ViewerOrganization,
+} from "@/lib/organizationContext";
 import { PublicLandingAccountSection } from "@/components/PublicLandingAccountSection";
-import { buttonVariants } from "@/components/ui/button";
 import {
   VaultDashboardSidebarContent,
   VaultDashboardStaticAccountLoadingSection,
   VaultDashboardStaticAccountSection,
   VaultDashboardStaticAccountStatusSection,
 } from "@/components/vault-dashboard/VaultDashboardChrome";
-import { CONNECT_REPO_ROUTE } from "@/lib/connectRepoRoute";
 import {
   useAppAuthPresentation,
   type AppAuthPresentationProfile,
 } from "@/lib/appAuthPresentationState";
 import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { NEW_APP_ROUTE } from "@/lib/newAppRoute";
-import { PROVIDERS_ROUTE } from "@/lib/providersRoute";
+import {
+  ORGANIZATION_CONNECT_REPO_ROUTE,
+  ORGANIZATION_NEW_APP_ROUTE,
+  ORGANIZATION_PROVIDERS_ROUTE,
+  ORGANIZATION_SETTINGS_ROUTE,
+  ORGANIZATION_VAULTS_ROUTE,
+} from "@/lib/organizationRoutes";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
-import { cn } from "@/lib/utils";
 import { Link } from "@tanstack/react-router";
 import { useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
@@ -125,38 +133,66 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
   );
 }
 
-function AppRightSidebarPrimaryLinks() {
+function GlobalAppRightSidebarLinks({ showAllVaults }: { showAllVaults: boolean }) {
+  if (!showAllVaults) {
+    return null;
+  }
+
   return (
-    <>
-      <nav
-        aria-label="App"
-        className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
+    <nav
+      aria-label="Account"
+      className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
+    >
+      <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={DASHBOARD_ROUTE}>
+        All vaults
+      </Link>
+    </nav>
+  );
+}
+
+function OrganizationAppRightSidebarLinks({ organization }: { organization: ViewerOrganization }) {
+  const params = { owner: organization.githubOwnerLogin };
+  return (
+    <nav
+      aria-label="Organization"
+      className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
+    >
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_VAULTS_ROUTE}
       >
-        <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={DASHBOARD_ROUTE}>
-          /vault
-        </Link>
-        <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={PROVIDERS_ROUTE}>
-          /providers
-        </Link>
-      </nav>
-      <div className="vault-dashboard-sidebar-inset flex w-full flex-col items-stretch gap-2 py-3">
-        <Link
-          className={cn(buttonVariants(), "w-full justify-start text-left text-base")}
-          to={NEW_APP_ROUTE}
-        >
-          /new-app
-        </Link>
-        <Link
-          className={cn(
-            buttonVariants({ variant: "outline" }),
-            "h-auto min-h-8 w-full justify-start py-2 text-left text-base whitespace-normal",
-          )}
-          to={CONNECT_REPO_ROUTE}
-        >
-          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">/connect-repo</span>
-        </Link>
-      </div>
-    </>
+        Vaults
+      </Link>
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_PROVIDERS_ROUTE}
+      >
+        Providers
+      </Link>
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_NEW_APP_ROUTE}
+      >
+        New app
+      </Link>
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_CONNECT_REPO_ROUTE}
+      >
+        Connect repository
+      </Link>
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_SETTINGS_ROUTE}
+      >
+        Organization settings
+      </Link>
+    </nav>
   );
 }
 
@@ -167,6 +203,12 @@ function AuthenticatedAppRightSidebarContent({
 }) {
   const user = useConvexQuery(api.users.viewer);
   const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
+  const { organizations, surface } = useOrganizationContext();
+  const routedOrganization =
+    surface.kind === "organization" && organizations
+      ? findViewerOrganization(organizations, surface.owner)
+      : null;
+  const organizationContextPending = surface.kind === "organization" && organizations === undefined;
 
   return (
     <VaultDashboardSidebarContent>
@@ -175,7 +217,13 @@ function AuthenticatedAppRightSidebarContent({
         profile={profile}
         user={user}
       />
-      <AppRightSidebarPrimaryLinks />
+      <OrganizationContextControl />
+      {organizationContextPending || routedOrganization === null ? null : (
+        <OrganizationAppRightSidebarLinks organization={routedOrganization} />
+      )}
+      {organizationContextPending ? null : (
+        <GlobalAppRightSidebarLinks showAllVaults={surface.kind !== "allVaults"} />
+      )}
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>

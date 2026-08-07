@@ -4,16 +4,16 @@
 
 - Status: Implemented
 - Owner: Vault add flow + GitHub integration
-- Last updated: 2026-08-05
+- Last updated: 2026-08-07
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
 ## Summary
 
-The `/connect-repo/<owner>` route must let a Samebase organization member discover every repository
-available to that organization's GitHub App installation, including repositories renamed or moved
-within that installation owner.
+The `/org/<owner>/connect-repo` route must let a Samebase organization member discover every
+repository available to that organization's GitHub App installation, including repositories renamed
+or moved within that installation owner.
 
 Two concrete requirements define that behavior:
 
@@ -45,7 +45,7 @@ Samebase to connect them.
 ### Backend repository discovery
 
 `github.listRepositories` is the single source of truth for the raw candidate repository list shown
-on `/connect-repo/<owner>`.
+on `/org/<owner>/connect-repo`.
 
 Behavior:
 
@@ -93,4 +93,4 @@ access.
 - [x] A repo transferred from `user/repo` to `org/repo` can be found by typing `org`.
 - [x] A user with more than 100 accessible repositories can still discover repos beyond the first
       GitHub page.
-- [x] Existing connected vaults remain filtered out from `/connect-repo/<owner>`.
+- [x] Existing connected vaults remain filtered out from `/org/<owner>/connect-repo`.

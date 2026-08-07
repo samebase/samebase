@@ -3,13 +3,20 @@ import { v, type Infer } from "convex/values";
 import {
   buildGitHubAppInstallationUrl,
   buildGitHubAppSetupReturnUrl,
+  buildGitHubUserAuthorizationUrl,
   GITHUB_APP_SETUP_POPUP_NAME,
   isSafeGitHubAppReturnToPath,
 } from "../shared/githubApp";
+import { canAccess } from "../shared/accessModel";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { httpAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
-import { getGitHubAppConfiguration, verifyGitHubAppInstallation } from "./githubApp";
+import {
+  getGitHubAppConfiguration,
+  verifyGitHubAppInstallation,
+  verifyGitHubUserAuthorization,
+} from "./githubApp";
+import { vGitHubAppSetupPurpose } from "./githubAppSetupModel";
 import { upsertGitHubUserAuthorization } from "./githubUserAuthorizations";
 import { mutation } from "./functions";
 import { OAUTH_STATE_TTL_MS, randomToken } from "./oauthUtils";
@@ -22,6 +29,7 @@ const vGitHubAppSetupStateResult = union(
     setupStateId: id("githubAppSetupStates"),
     userId: id("users"),
     state: string(),
+    purpose: vGitHubAppSetupPurpose,
     returnToPath: optional(string()),
     expiresAt: number(),
   }),
@@ -33,6 +41,7 @@ const vGitHubAppSetupCompletion = object({
   created: boolean(),
 });
 type GitHubAppSetupCompletion = Infer<typeof vGitHubAppSetupCompletion>;
+type GitHubAppSetupPurpose = Infer<typeof vGitHubAppSetupPurpose>;
 
 function parseInstallationId(value: string | null): number | null {
   if (value === null || !/^\d+$/.test(value)) {
@@ -42,12 +51,12 @@ function parseInstallationId(value: string | null): number | null {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
-async function buildGitHubAppSetupUrl(
+async function createGitHubAppSetupState(
   ctx: MutationCtx,
   userId: Id<"users">,
+  purpose: GitHubAppSetupPurpose,
   returnToPath?: string,
 ): Promise<string> {
-  const appSlug = getGitHubAppConfiguration().appSlug;
   const state = randomToken();
   const normalizedReturnToPath =
     returnToPath !== undefined && isSafeGitHubAppReturnToPath(returnToPath)
@@ -57,13 +66,39 @@ async function buildGitHubAppSetupUrl(
   await ctx.runMutation(internal.githubAppInstallation.createSetupState, {
     userId,
     state,
+    purpose,
     returnToPath: normalizedReturnToPath,
     createdAt: now,
     expiresAt: now + OAUTH_STATE_TTL_MS,
   });
 
+  return state;
+}
+
+async function buildGitHubAppSetupUrl(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  returnToPath?: string,
+): Promise<string> {
+  const appSlug = getGitHubAppConfiguration().appSlug;
+  const state = await createGitHubAppSetupState(ctx, userId, "installation", returnToPath);
+
   return buildGitHubAppInstallationUrl({
     appSlug,
+    state,
+  });
+}
+
+async function buildGitHubUserAuthorizationSetupUrl(
+  ctx: MutationCtx,
+  userId: Id<"users">,
+  returnToPath?: string,
+): Promise<string> {
+  const configuration = getGitHubAppConfiguration();
+  const state = await createGitHubAppSetupState(ctx, userId, "user_authorization", returnToPath);
+  return buildGitHubUserAuthorizationUrl({
+    clientId: configuration.clientId,
+    redirectUri: configuration.oauthCallbackUrl,
     state,
   });
 }
@@ -72,6 +107,7 @@ export const createSetupState = internalMutation({
   args: {
     userId: id("users"),
     state: string(),
+    purpose: vGitHubAppSetupPurpose,
     returnToPath: optional(string()),
     createdAt: number(),
     expiresAt: number(),
@@ -111,6 +147,7 @@ export const getSetupStateByState = internalQuery({
       setupStateId: setupState._id,
       userId: setupState.userId,
       state: setupState.state,
+      purpose: setupState.purpose ?? "installation",
       returnToPath: setupState.returnToPath,
       expiresAt: setupState.expiresAt,
     };
@@ -152,6 +189,16 @@ export const completeVerifiedSetup = internalMutation({
     if (setupState.expiresAt < Date.now()) {
       throw new Error("GitHub App setup state expired.");
     }
+    if ((setupState.purpose ?? "installation") !== "installation") {
+      throw new Error("GitHub App setup state purpose changed.");
+    }
+
+    const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
+      userId: setupState.userId,
+    });
+    if (viewer.user === null || !canAccess("access_app_create", viewer.accessKeys)) {
+      throw new Error("Access denied");
+    }
 
     const result: GitHubAppSetupCompletion = await ctx.runMutation(
       internal.organizations.createOrReconnectVerifiedOrganization,
@@ -184,6 +231,51 @@ export const completeVerifiedSetup = internalMutation({
   },
 });
 
+export const completeUserAuthorization = internalMutation({
+  args: {
+    setupStateId: id("githubAppSetupStates"),
+    state: string(),
+    githubUserId: string(),
+    githubUserLogin: string(),
+    accessToken: string(),
+    accessTokenExpiresAt: number(),
+    refreshToken: string(),
+    refreshTokenExpiresAt: number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const setupState = await ctx.db.get(args.setupStateId);
+    if (setupState === null || setupState.state !== args.state) {
+      throw new Error("GitHub App setup state changed.");
+    }
+    if (setupState.expiresAt < Date.now()) {
+      throw new Error("GitHub App setup state expired.");
+    }
+    if (setupState.purpose !== "user_authorization") {
+      throw new Error("GitHub App setup state purpose changed.");
+    }
+
+    const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
+      userId: setupState.userId,
+    });
+    if (viewer.user === null || !canAccess("access_provider_connections", viewer.accessKeys)) {
+      throw new Error("Access denied");
+    }
+
+    await upsertGitHubUserAuthorization(ctx.db, {
+      userId: setupState.userId,
+      githubUserId: args.githubUserId,
+      githubUserLogin: args.githubUserLogin,
+      accessToken: args.accessToken,
+      accessTokenExpiresAt: args.accessTokenExpiresAt,
+      refreshToken: args.refreshToken,
+      refreshTokenExpiresAt: args.refreshTokenExpiresAt,
+    });
+    await ctx.db.delete(setupState._id);
+    return null;
+  },
+});
+
 export const getGitHubAppInstallationUrl = mutation({
   access: "access_app_create",
   args: {
@@ -192,6 +284,17 @@ export const getGitHubAppInstallationUrl = mutation({
   returns: string(),
   handler: async (ctx, args) => {
     return await buildGitHubAppSetupUrl(ctx, ctx.viewer.userId, args.returnToPath);
+  },
+});
+
+export const getGitHubUserAuthorizationUrl = mutation({
+  access: "access_provider_connections",
+  args: {
+    returnToPath: optional(string()),
+  },
+  returns: string(),
+  handler: async (ctx, args) => {
+    return await buildGitHubUserAuthorizationSetupUrl(ctx, ctx.viewer.userId, args.returnToPath);
   },
 });
 
@@ -228,10 +331,10 @@ function buildSetupCompletionHtml(returnUrl: string): string {
 
 export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
   const url = new URL(request.url);
+  const error = url.searchParams.get("error");
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");
-  const installationId = parseInstallationId(url.searchParams.get("installation_id"));
-  if (code === null || state === null || installationId === null) {
+  if (state === null || (code === null && error === null)) {
     return new Response("Missing GitHub App setup parameters", { status: 400 });
   }
 
@@ -248,29 +351,70 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
     return new Response("GitHub App setup state expired", { status: 400 });
   }
 
-  try {
-    const installation = await verifyGitHubAppInstallation({
-      code,
-      state,
-      installationId,
-    });
-    await ctx.runMutation(internal.githubAppInstallation.completeVerifiedSetup, {
-      setupStateId: setupState.setupStateId,
-      state,
-      ...installation,
-    });
-  } catch {
-    await ctx.runMutation(internal.githubAppInstallation.deleteSetupState, {
-      setupStateId: setupState.setupStateId,
-    });
-    return new Response("GitHub App installation could not be verified", { status: 400 });
-  }
-
   const returnUrl = buildGitHubAppSetupReturnUrl({
     configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
     requestUrl: request.url,
     returnToPath: setupState.returnToPath,
   });
+  if (error !== null) {
+    await ctx.runMutation(internal.githubAppInstallation.deleteSetupState, {
+      setupStateId: setupState.setupStateId,
+    });
+    return new Response(buildSetupCompletionHtml(returnUrl), {
+      status: 200,
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store",
+      },
+    });
+  }
+
+  if (code === null) {
+    return new Response("Missing GitHub App setup parameters", { status: 400 });
+  }
+
+  try {
+    switch (setupState.purpose) {
+      case "installation": {
+        const installationId = parseInstallationId(url.searchParams.get("installation_id"));
+        if (installationId === null) {
+          return new Response("Missing GitHub App setup parameters", { status: 400 });
+        }
+        const installation = await verifyGitHubAppInstallation({
+          code,
+          state,
+          installationId,
+        });
+        await ctx.runMutation(internal.githubAppInstallation.completeVerifiedSetup, {
+          setupStateId: setupState.setupStateId,
+          state,
+          ...installation,
+        });
+        break;
+      }
+      case "user_authorization": {
+        const authorization = await verifyGitHubUserAuthorization({ code, state });
+        await ctx.runMutation(internal.githubAppInstallation.completeUserAuthorization, {
+          setupStateId: setupState.setupStateId,
+          state,
+          ...authorization,
+        });
+        break;
+      }
+      default:
+        setupState.purpose satisfies never;
+    }
+  } catch {
+    await ctx.runMutation(internal.githubAppInstallation.deleteSetupState, {
+      setupStateId: setupState.setupStateId,
+    });
+    const message =
+      setupState.purpose === "installation"
+        ? "GitHub App installation could not be verified"
+        : "GitHub user authorization could not be verified";
+    return new Response(message, { status: 400 });
+  }
+
   return new Response(buildSetupCompletionHtml(returnUrl), {
     status: 200,
     headers: {

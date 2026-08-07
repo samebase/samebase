@@ -7,23 +7,40 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
-import {
-  type VaultFolderCallbacks,
-  type VaultFolderCreate,
-  VaultOverviewSidebar,
-} from "./VaultOverviewSidebar";
-import { VaultOverviewVaultListHeader } from "./VaultOverviewVaultPickerPane";
+import { type VaultFolderCallbacks, VaultOverviewSidebar } from "./VaultOverviewSidebar";
+import { VaultFolderCreateButton, type VaultFolderCreate } from "./VaultFolderCreateButton";
 
 const toastMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/ui/use-toast", () => ({ toast: toastMock }));
 vi.mock("./VaultFolderDialog", () => ({
-  VaultFolderDialog: ({ onCreate }: { onCreate?: (name: string) => Promise<unknown> }) =>
-    onCreate ? (
-      <button type="button" onClick={() => void onCreate("Projects")}>
-        Submit new folder
-      </button>
-    ) : null,
+  VaultFolderDialog: ({
+    onCreate,
+    onDelete,
+    onRename,
+  }: {
+    onCreate?: (name: string) => Promise<unknown>;
+    onDelete?: () => Promise<unknown>;
+    onRename?: (name: string) => Promise<unknown>;
+  }) => (
+    <>
+      {onCreate ? (
+        <button type="button" onClick={() => void onCreate("Projects")}>
+          Submit new folder
+        </button>
+      ) : null}
+      {onRename ? (
+        <button type="button" onClick={() => void onRename("Renamed fixtures")}>
+          Submit renamed folder
+        </button>
+      ) : null}
+      {onDelete ? (
+        <button type="button" onClick={() => void onDelete()}>
+          Confirm folder deletion
+        </button>
+      ) : null}
+    </>
+  ),
 }));
 
 let root: Root | null = null;
@@ -52,9 +69,9 @@ function fakeFolderId(value: string): Id<"ui_vaultFolders"> {
   return value;
 }
 
-function makeVault(): UserVaultResult {
+function makeVault(name = "active"): UserVaultResult {
   return {
-    _id: fakeVaultId("vault-active"),
+    _id: fakeVaultId(`vault-${name}`),
     organizationId: fakeOrganizationId(),
     canRemoveCloudflareProvision: false,
     canRemoveConvexProvision: false,
@@ -63,7 +80,7 @@ function makeVault(): UserVaultResult {
     defaultBranch: "main",
     deletion: { state: "not_deleting", deleteAction: { state: "available" } },
     fileCount: 1,
-    ghRepoName: "active",
+    ghRepoName: name,
     ghRepoOwner: "samebase",
     hasCloudflareProvision: false,
     hasConnectedGitHubRepository: true,
@@ -72,7 +89,7 @@ function makeVault(): UserVaultResult {
     providerPlan: null,
     providerSetup: { status: "ready" },
     providerWrite: { status: "idle", lastWriteAt: {} },
-    repositoryFullName: "samebase/active",
+    repositoryFullName: `samebase/${name}`,
     sourceSetup: { status: "ready" },
   };
 }
@@ -85,21 +102,22 @@ function deferred() {
   return { promise, resolve: () => resolve?.() };
 }
 
-function folderCallbacks(
-  onSetVaultFolderCollapsed: VaultFolderCallbacks["onSetVaultFolderCollapsed"],
-): VaultFolderCallbacks {
+function folderCallbacks(overrides: Partial<VaultFolderCallbacks> = {}): VaultFolderCallbacks {
   return {
     onDeleteVaultFolder: async () => {},
     onMoveVaultFolder: async () => {},
     onMoveVaultToFolder: async () => {},
     onRenameVaultFolder: async () => {},
-    onSetVaultFolderCollapsed,
+    onSetVaultFolderCollapsed: async () => {},
+    ...overrides,
   };
 }
 
 async function renderSidebar(callbacks: VaultFolderCallbacks) {
   const active = makeVault();
+  const unfiled = makeVault("unfiled");
   const folderId = fakeFolderId("folder-active");
+  const secondFolderId = fakeFolderId("folder-later");
   rootElement = document.createElement("div");
   document.body.append(rootElement);
   root = createRoot(rootElement);
@@ -111,12 +129,29 @@ async function renderSidebar(callbacks: VaultFolderCallbacks) {
           {...callbacks}
           folderState={{
             assignments: [{ folderId, vaultId: active._id }],
-            folders: [{ _id: folderId, collapsed: true, name: "Fixtures", position: 0 }],
+            folders: [
+              {
+                _id: folderId,
+                collapsed: true,
+                name: "Fixtures",
+                organizationId: active.organizationId,
+                position: 0,
+              },
+              {
+                _id: secondFolderId,
+                collapsed: true,
+                name: "Later",
+                organizationId: active.organizationId,
+                position: 1,
+              },
+            ],
           }}
+          organizationId={active.organizationId}
           page="overview"
           selectedVaultId={null}
+          showOwner
           sidebarSummaries={{ state: "loading" }}
-          vaults={[active]}
+          vaults={[active, unfiled]}
           workspace={null}
         />
       </TestRouterProvider>,
@@ -126,13 +161,50 @@ async function renderSidebar(callbacks: VaultFolderCallbacks) {
   return rootElement;
 }
 
+async function clickButtonWithLabel(container: ParentNode, label: string) {
+  const button = container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+  if (!button) {
+    throw new Error(`Button not found: ${label}`);
+  }
+
+  await act(async () => button.click());
+}
+
+async function clickMenuItem(label: string) {
+  const item = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+    (candidate) => candidate.textContent.trim() === label,
+  );
+  if (!item) {
+    throw new Error(`Menu item not found: ${label}`);
+  }
+
+  await act(async () => item.click());
+}
+
+async function clickButtonWithText(container: ParentNode, label: string) {
+  const button = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+    (candidate) => candidate.textContent.trim() === label,
+  );
+  if (!button) {
+    throw new Error(`Button not found: ${label}`);
+  }
+
+  await act(async () => button.click());
+}
+
 async function renderHeader(onCreateVaultFolder: VaultFolderCreate) {
   rootElement = document.createElement("div");
   document.body.append(rootElement);
   root = createRoot(rootElement);
 
   await act(async () => {
-    root?.render(<VaultOverviewVaultListHeader onCreateVaultFolder={onCreateVaultFolder} />);
+    root?.render(
+      <VaultFolderCreateButton
+        organizationId={fakeOrganizationId()}
+        organizationName="samebase"
+        onCreateVaultFolder={onCreateVaultFolder}
+      />,
+    );
   });
 
   return rootElement;
@@ -141,7 +213,7 @@ async function renderHeader(onCreateVaultFolder: VaultFolderCreate) {
 describe("VaultOverviewSidebar direct folder actions", () => {
   it("toggles the folder when its name is clicked", async () => {
     const onSetVaultFolderCollapsed = vi.fn(async () => {});
-    const container = await renderSidebar(folderCallbacks(onSetVaultFolderCollapsed));
+    const container = await renderSidebar(folderCallbacks({ onSetVaultFolderCollapsed }));
     const collapseButton = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Expand Fixtures, 1 vault"]',
     );
@@ -163,7 +235,7 @@ describe("VaultOverviewSidebar direct folder actions", () => {
   it("locks a collapse action until its request completes", async () => {
     const request = deferred();
     const onSetVaultFolderCollapsed = vi.fn(async () => request.promise);
-    const container = await renderSidebar(folderCallbacks(onSetVaultFolderCollapsed));
+    const container = await renderSidebar(folderCallbacks({ onSetVaultFolderCollapsed }));
     const collapseButton = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Expand Fixtures, 1 vault"]',
     );
@@ -187,7 +259,7 @@ describe("VaultOverviewSidebar direct folder actions", () => {
     const onSetVaultFolderCollapsed = vi.fn(async () =>
       Promise.reject(new Error("Folder could not be updated.")),
     );
-    const container = await renderSidebar(folderCallbacks(onSetVaultFolderCollapsed));
+    const container = await renderSidebar(folderCallbacks({ onSetVaultFolderCollapsed }));
     const collapseButton = container.querySelector<HTMLButtonElement>(
       'button[aria-label="Expand Fixtures, 1 vault"]',
     );
@@ -207,14 +279,74 @@ describe("VaultOverviewSidebar direct folder actions", () => {
       variant: "destructive",
     });
   });
+
+  it("renames a folder from its action menu", async () => {
+    const onRenameVaultFolder = vi.fn(async () => {});
+    const container = await renderSidebar(folderCallbacks({ onRenameVaultFolder }));
+
+    await clickButtonWithLabel(container, "Actions for folder Fixtures");
+    await clickMenuItem("Rename");
+    await clickButtonWithText(container, "Submit renamed folder");
+
+    expect(onRenameVaultFolder).toHaveBeenCalledWith({
+      folderId: fakeFolderId("folder-active"),
+      name: "Renamed fixtures",
+    });
+  });
+
+  it("moves folders in both available directions from their action menus", async () => {
+    const onMoveVaultFolder = vi.fn(async () => {});
+    const container = await renderSidebar(folderCallbacks({ onMoveVaultFolder }));
+
+    await clickButtonWithLabel(container, "Actions for folder Fixtures");
+    await clickMenuItem("Move down");
+    await clickButtonWithLabel(container, "Actions for folder Later");
+    await clickMenuItem("Move up");
+
+    expect(onMoveVaultFolder).toHaveBeenNthCalledWith(1, {
+      direction: "down",
+      folderId: fakeFolderId("folder-active"),
+    });
+    expect(onMoveVaultFolder).toHaveBeenNthCalledWith(2, {
+      direction: "up",
+      folderId: fakeFolderId("folder-later"),
+    });
+  });
+
+  it("deletes a folder from its action menu", async () => {
+    const onDeleteVaultFolder = vi.fn(async () => {});
+    const container = await renderSidebar(folderCallbacks({ onDeleteVaultFolder }));
+
+    await clickButtonWithLabel(container, "Actions for folder Fixtures");
+    await clickMenuItem("Delete");
+    await clickButtonWithText(container, "Confirm folder deletion");
+
+    expect(onDeleteVaultFolder).toHaveBeenCalledWith({
+      folderId: fakeFolderId("folder-active"),
+    });
+  });
+
+  it("moves an unfiled vault into a folder from its action menu", async () => {
+    const onMoveVaultToFolder = vi.fn(async () => {});
+    const container = await renderSidebar(folderCallbacks({ onMoveVaultToFolder }));
+
+    await clickButtonWithLabel(container, "Actions for samebase/unfiled");
+    await clickMenuItem("Move to folder");
+    await clickMenuItem("Later");
+
+    expect(onMoveVaultToFolder).toHaveBeenCalledWith({
+      folderId: fakeFolderId("folder-later"),
+      vaultId: fakeVaultId("vault-unfiled"),
+    });
+  });
 });
 
-describe("VaultOverviewVaultListHeader", () => {
+describe("VaultFolderCreateButton", () => {
   it("creates an empty folder from the header action", async () => {
     const onCreateVaultFolder = vi.fn(async () => {});
     const container = await renderHeader(onCreateVaultFolder);
     const newFolderButton = container.querySelector<HTMLButtonElement>(
-      'button[aria-label="New folder"]',
+      'button[aria-label="New folder for samebase"]',
     );
     if (!newFolderButton) {
       throw new Error("New folder button not found");
@@ -231,6 +363,9 @@ describe("VaultOverviewVaultListHeader", () => {
     await act(async () => submitButton.click());
 
     expect(onCreateVaultFolder).toHaveBeenCalledTimes(1);
-    expect(onCreateVaultFolder).toHaveBeenCalledWith({ name: "Projects" });
+    expect(onCreateVaultFolder).toHaveBeenCalledWith({
+      name: "Projects",
+      organizationId: fakeOrganizationId(),
+    });
   });
 });

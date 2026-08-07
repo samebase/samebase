@@ -11,7 +11,10 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import { AppRightSidebarContent } from "./AppRightSidebar";
+import type { AppOrganizationSurface, ViewerOrganization } from "@/lib/organizationContext";
+import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 
 const authState = vi.hoisted(() => ({
   isAuthenticated: true,
@@ -30,6 +33,13 @@ const queryState = vi.hoisted<{
   resultsByQueryName: new Map(),
   seenQueryNames: [],
 }));
+const organizationContextState = vi.hoisted<{
+  organizations: ViewerOrganization[] | undefined;
+  surface: AppOrganizationSurface;
+}>(() => ({
+  organizations: undefined,
+  surface: { kind: "allVaults" },
+}));
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const FUTURE_JWT = "header.eyJleHAiOjQxMDAwMDAwMDB9.signature";
 const PROFILE_JWT = createJwt({
@@ -47,6 +57,12 @@ const PROVIDER_STATUS_QUERY_NAMES = new Set([
   getFunctionName(api.users.getConvexConnectionStatus),
   getFunctionName(api.users.getCloudflareConnectionStatus),
 ]);
+
+function fakeOrganizationId(value: string): Id<"organizations"> {
+  // @ts-expect-error Convex ids are strings at runtime; this test only needs
+  // a stable value for the organization context.
+  return value;
+}
 
 function createJwt(payload: object) {
   return ["header", Buffer.from(JSON.stringify(payload)).toString("base64url"), "signature"].join(
@@ -139,6 +155,14 @@ vi.mock("@/components/ApiKeyConnectDialog", () => ({
   }),
 }));
 
+vi.mock("@/lib/organizationContext", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/organizationContext")>();
+  return {
+    ...actual,
+    useOrganizationContext: () => organizationContextState,
+  };
+});
+
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
 
@@ -148,14 +172,20 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
       children,
       className,
       onClick,
+      params,
       to,
     }: {
       children?: ReactNode;
       className?: string;
       onClick?: () => void;
+      params?: { owner?: string };
       to: string;
     }) => (
-      <a className={className} href={to} onClick={onClick}>
+      <a
+        className={className}
+        href={params?.owner ? to.replace("$owner", params.owner) : to}
+        onClick={onClick}
+      >
         {children}
       </a>
     ),
@@ -284,6 +314,8 @@ describe("AppRightSidebarContent", () => {
     queryState.resultsByQueryName = new Map();
     queryState.blockedQueryNames = new Set();
     queryState.seenQueryNames = [];
+    organizationContextState.organizations = undefined;
+    organizationContextState.surface = { kind: "allVaults" };
   });
 
   it("does not treat a profileless JWT as temporary auth", async () => {
@@ -298,7 +330,7 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain("Sign in or create an account");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
-    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).not.toContain("Account settings");
   });
 
   it("shows the single signed-out auth surface in the protected-route sidebar", () => {
@@ -376,10 +408,10 @@ describe("AppRightSidebarContent", () => {
     expect(markup).toContain("data-app-auth-prehydration-signed-in");
     expect(markup).toContain("dashboard-sidebar-account-icon");
     expect(markup).toContain("data-app-auth-prehydration-provider");
-    expect(markup).toContain("/settings");
+    expect(markup).toContain("Account settings");
     expect(markup).not.toContain("Sign out");
     expect(hydratedMarkup).toContain("Nicu");
-    expect(hydratedMarkup).toContain("/settings");
+    expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).not.toContain("Sign out");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
@@ -393,7 +425,7 @@ describe("AppRightSidebarContent", () => {
     const mounted = await mountRightSidebarAfterEffects([]);
     try {
       expect(mounted.rootElement.textContent).toContain("Nicu");
-      expect(mounted.rootElement.textContent).toContain("/settings");
+      expect(mounted.rootElement.textContent).toContain("Account settings");
       expect(mounted.rootElement.textContent).not.toContain("Sign out");
       expect(mounted.rootElement.querySelector("[aria-expanded]")).toBeNull();
     } finally {
@@ -424,7 +456,7 @@ describe("AppRightSidebarContent", () => {
     expect(accountIndex).toBeGreaterThanOrEqual(0);
     expect(markup).toContain("checking login");
     expect(hydratedMarkup).not.toContain("checking login");
-    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).not.toContain("/providers");
   });
 
@@ -434,7 +466,7 @@ describe("AppRightSidebarContent", () => {
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(hydratedMarkup).toContain("checking login");
-    expect(hydratedMarkup).not.toContain("Account");
+    expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).not.toContain("Sign in or create an account");
     expect(hydratedMarkup).not.toContain("/providers");
     expectProviderStatusQueriesNotSeen();
@@ -476,6 +508,7 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
     expect(hydratedMarkup).not.toContain("/new-app");
+    expect(hydratedMarkup).not.toContain("organization-context-control");
     expectProviderStatusQueriesNotSeen();
   });
 
@@ -509,10 +542,11 @@ describe("AppRightSidebarContent", () => {
     expect(mounted).toContain('role="status"');
     expect(mounted).not.toContain("/settings");
     expect(mounted).not.toContain("/providers");
+    expect(mounted).not.toContain("organization-context-control");
     expectProviderStatusQueriesNotSeen();
   });
 
-  it("renders the account section after the authenticated viewer loads", async () => {
+  it("renders global account navigation after the authenticated viewer loads", async () => {
     window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
     blockProviderStatusQueries();
 
@@ -543,13 +577,106 @@ describe("AppRightSidebarContent", () => {
 
     expect(hydratedMarkup).toContain("nicu@samebase.md");
     expect(hydratedMarkup).not.toContain("Nicu");
-    expect(hydratedMarkup).toContain('href="/vault"');
-    expect(hydratedMarkup.indexOf(">/vault<")).toBeLessThan(hydratedMarkup.indexOf(">/providers<"));
-    expect(hydratedMarkup).toContain("/providers");
-    expect(hydratedMarkup).toContain("/new-app");
-    expect(hydratedMarkup).toContain("/connect-repo");
+    expect(hydratedMarkup).not.toContain('href="/vault"');
+    expect(hydratedMarkup).toContain("All vaults");
+    expect(hydratedMarkup).not.toContain("/settings/mcp");
+    expect(hydratedMarkup).not.toContain("MCP clients");
+    expect(hydratedMarkup).toContain("Account settings");
+    expect(hydratedMarkup).not.toContain("/org/");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Sign in or create an account");
+    expect(hydratedMarkup).toContain('data-testid="organization-context-control"');
     expectProviderStatusQueriesNotSeen();
+  });
+
+  it("renders the approved organization navigation without a billing item", async () => {
+    const organization = {
+      canCreateRepository: true,
+      githubOwnerId: "456",
+      githubOwnerLogin: "samebase",
+      githubOwnerType: "organization" as const,
+      organizationId: fakeOrganizationId("organization_samebase"),
+      role: "owner" as const,
+    } satisfies ViewerOrganization;
+    organizationContextState.organizations = [organization];
+    organizationContextState.surface = {
+      kind: "organization",
+      owner: "samebase",
+      section: "settings",
+      source: "organization",
+    };
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+    blockProviderStatusQueries();
+
+    const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
+      new Map([
+        [
+          getFunctionName(api.users.currentViewerAccess),
+          {
+            role: "role_member",
+            accessKeys: ["access_public", "access_provider_connections"],
+          },
+        ],
+        [
+          getFunctionName(api.users.viewer),
+          {
+            _id: "user_123",
+            accountPresentation: { kind: "email", label: "nicu@samebase.md" },
+          },
+        ],
+        [getFunctionName(api.users.getViewerAuthProviders), { providers: [] }],
+      ]),
+    );
+
+    expect(hydratedMarkup).toContain('href="/org/samebase/vaults"');
+    expect(hydratedMarkup).toContain('href="/org/samebase/providers"');
+    expect(hydratedMarkup).toContain('href="/org/samebase/new-app"');
+    expect(hydratedMarkup).toContain('href="/org/samebase/connect-repo"');
+    expect(hydratedMarkup).toContain('href="/org/samebase/settings"');
+    expect(hydratedMarkup).not.toContain("/org/samebase/settings/billing");
+    expect(hydratedMarkup).toContain("All vaults");
+    expect(hydratedMarkup).toContain("Account settings");
+    const accountIndex = hydratedMarkup.indexOf(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
+    const contextIndex = hydratedMarkup.indexOf('data-testid="organization-context-control"');
+    const organizationNavigationIndex = hydratedMarkup.indexOf('aria-label="Organization"');
+    expect(accountIndex).toBeGreaterThanOrEqual(0);
+    expect(contextIndex).toBeGreaterThan(accountIndex);
+    expect(organizationNavigationIndex).toBeGreaterThan(contextIndex);
+  });
+
+  it("does not show global links while organization memberships load", async () => {
+    organizationContextState.organizations = undefined;
+    organizationContextState.surface = {
+      kind: "organization",
+      owner: "samebase",
+      section: "providers",
+      source: "organization",
+    };
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+    const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
+      new Map([
+        [
+          getFunctionName(api.users.currentViewerAccess),
+          {
+            role: "role_member",
+            accessKeys: ["access_public", "access_provider_connections"],
+          },
+        ],
+        [
+          getFunctionName(api.users.viewer),
+          {
+            _id: "user_123",
+            accountPresentation: { kind: "email", label: "nicu@samebase.md" },
+          },
+        ],
+        [getFunctionName(api.users.getViewerAuthProviders), { providers: [] }],
+      ]),
+    );
+
+    expect(hydratedMarkup).toContain("Account settings");
+    expect(hydratedMarkup).not.toContain("All vaults");
+    expect(hydratedMarkup).not.toContain("MCP clients");
+    expect(hydratedMarkup).not.toContain("Organization settings");
   });
 });

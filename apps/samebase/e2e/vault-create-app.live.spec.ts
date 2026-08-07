@@ -27,6 +27,18 @@ function getRepositoryName(repositoryFullName: string): string {
   return parseRepositoryFullName(repositoryFullName).name;
 }
 
+function cloudflareWorkerActionName(action: string, workerName: string): RegExp {
+  return new RegExp(
+    `^${escapeRegExp(action)} for Cloudflare Worker .+/${escapeRegExp(workerName)}$`,
+  );
+}
+
+function useConvexProjectActionName(workerName: string): RegExp {
+  return new RegExp(
+    `^Use .+ for Workers Builds for Cloudflare Worker .+/${escapeRegExp(workerName)}$`,
+  );
+}
+
 function removeVaultControl(page: Page): Locator {
   return page.getByRole("button", { exact: true, name: "Remove vault" });
 }
@@ -55,13 +67,35 @@ async function openVaultSettings(page: Page): Promise<void> {
   await expect(page).toHaveURL(/\/vault\/[^/]+\/[^/]+\/settings(?:[?#]|$)/);
 }
 
+async function openOrganizationOnboardingRoute(
+  page: Page,
+  args: { linkName: "Connect repository" | "New app"; route: "connect-repo" | "new-app" },
+): Promise<void> {
+  await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page, "/vault?dev");
+
+  const contextControl = page.getByTestId("organization-context-control");
+  await contextControl.getByRole("button", { name: /Switch organization/ }).click();
+  const organizationOption = page.getByRole("menuitem").nth(1);
+  await expect(organizationOption).toBeVisible();
+  await organizationOption.click();
+  await expect(page).toHaveURL(/\/org\/[^/]+\/vaults(?:[?#]|$)/);
+
+  await page
+    .getByRole("navigation", { name: "Organization" })
+    .getByRole("link", { exact: true, name: args.linkName })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/org/[^/]+/${args.route}(?:[?#]|$)`));
+}
+
 async function connectExistingTemporaryRepository(
   page: Page,
   repositoryFullName: string,
 ): Promise<void> {
-  await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
-  await signInIfNeeded(page, "/vault?dev");
-  await page.goto("/connect-repo?dev", { waitUntil: "domcontentloaded" });
+  await openOrganizationOnboardingRoute(page, {
+    linkName: "Connect repository",
+    route: "connect-repo",
+  });
 
   await page.getByPlaceholder("Search repositories...").fill(repositoryFullName);
   const repositoryRow = page.locator("div").filter({ hasText: repositoryFullName }).first();
@@ -90,16 +124,20 @@ async function createCloudflareWorkerFromSettings(page: Page, workerName: string
     page.getByText("Cloudflare is not connected to this GitHub repository."),
   ).toBeVisible({ timeout: 120_000 });
   await expect(
-    page.getByRole("button", { name: "Configure Workers Builds for GitHub Cloudflare" }),
+    page.getByRole("button", {
+      name: cloudflareWorkerActionName("Configure Workers Builds for GitHub", workerName),
+    }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Use Convex project .* for Workers Builds/ }),
+    page.getByRole("button", { name: useConvexProjectActionName(workerName) }),
   ).toHaveCount(0);
 }
 
-async function configureWorkersBuildsForGitHub(page: Page): Promise<void> {
+async function configureWorkersBuildsForGitHub(page: Page, workerName: string): Promise<void> {
   await page
-    .getByRole("button", { name: "Configure Workers Builds for GitHub Cloudflare" })
+    .getByRole("button", {
+      name: cloudflareWorkerActionName("Configure Workers Builds for GitHub", workerName),
+    })
     .click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible({ timeout: 30_000 });
@@ -111,7 +149,11 @@ async function configureWorkersBuildsForGitHub(page: Page): Promise<void> {
   ).toHaveCount(0, { timeout: 180_000 });
 }
 
-async function createConvexProjectFromSettings(page: Page, projectName: string): Promise<void> {
+async function createConvexProjectFromSettings(
+  page: Page,
+  projectName: string,
+  workerName: string,
+): Promise<void> {
   await page.getByRole("button", { name: "Add Convex project" }).click();
 
   const dialog = page.getByRole("dialog");
@@ -138,23 +180,22 @@ async function createConvexProjectFromSettings(page: Page, projectName: string):
     page.getByText("Cloudflare does not have this Convex deployment's deploy keys."),
   ).toBeVisible({ timeout: 180_000 });
   await expect(
-    page.getByRole("button", { name: /Use Convex project .* for Workers Builds/ }),
+    page.getByRole("button", { name: useConvexProjectActionName(workerName) }),
   ).toBeVisible();
 }
 
-async function setCloudflareConvexDeployKeys(page: Page): Promise<void> {
-  await page.getByRole("button", { name: /Use Convex project .* for Workers Builds/ }).click();
+async function setCloudflareConvexDeployKeys(page: Page, workerName: string): Promise<void> {
+  await page.getByRole("button", { name: useConvexProjectActionName(workerName) }).click();
   await expect(
     page.getByText("Cloudflare does not have this Convex deployment's deploy keys."),
   ).toHaveCount(0, { timeout: 180_000 });
   await expect(
-    page.getByRole("button", { name: /Use Convex project .* for Workers Builds/ }),
+    page.getByRole("button", { name: useConvexProjectActionName(workerName) }),
   ).toHaveCount(0);
 }
 
 async function createAppIfAvailable(page: Page, repoName: string): Promise<void> {
-  await page.getByRole("button", { name: "New App" }).click();
-  await expect(page).toHaveURL(/\/new-app(?:[?#]|$)/);
+  await openOrganizationOnboardingRoute(page, { linkName: "New app", route: "new-app" });
 
   const newAppPage = page.getByTestId("new-app-page");
   const repositoryNameInput = newAppPage.getByPlaceholder("GitHub repo name");
@@ -271,8 +312,7 @@ async function waitForVaultCreationResult(
 
 test.describe("vault create app live flow", () => {
   test("shows the new app form without a cancel control", async ({ page }) => {
-    await page.goto("/new-app", { waitUntil: "domcontentloaded" });
-    await signInIfNeeded(page, "/new-app");
+    await openOrganizationOnboardingRoute(page, { linkName: "New app", route: "new-app" });
 
     const newAppPage = page.getByTestId("new-app-page");
     await expect(newAppPage).toBeVisible();
@@ -378,9 +418,9 @@ test.describe("vault create app live flow", () => {
       await selectTemporaryVault(page, repositoryName);
 
       await createCloudflareWorkerFromSettings(page, resourceName);
-      await configureWorkersBuildsForGitHub(page);
-      await createConvexProjectFromSettings(page, resourceName);
-      await setCloudflareConvexDeployKeys(page);
+      await configureWorkersBuildsForGitHub(page, resourceName);
+      await createConvexProjectFromSettings(page, resourceName, resourceName);
+      await setCloudflareConvexDeployKeys(page, resourceName);
     } finally {
       if (vaultConnected) {
         await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });

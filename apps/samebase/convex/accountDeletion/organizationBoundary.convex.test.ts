@@ -287,6 +287,83 @@ describe("account deletion organization boundary", () => {
     ).resolves.toEqual({ state: "done" });
   });
 
+  it("removes personal folder assignments before folders and preserves teammate state", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const folderStateIds = await t.run(async (ctx) => {
+      const deletingFolderId = await ctx.db.insert("ui_vaultFolders", {
+        collapsed: false,
+        name: "Deleting user's folder",
+        nameKey: "deleting user's folder",
+        organizationId: ids.organizationId,
+        position: 0,
+        userId: ids.deletingUserId,
+      });
+      const deletingAssignmentId = await ctx.db.insert("ui_vaultFolderAssignments", {
+        folderId: deletingFolderId,
+        organizationId: ids.organizationId,
+        userId: ids.deletingUserId,
+        vaultId: ids.vaultId,
+      });
+      const teammateFolderId = await ctx.db.insert("ui_vaultFolders", {
+        collapsed: true,
+        name: "Teammate's folder",
+        nameKey: "teammate's folder",
+        organizationId: ids.organizationId,
+        position: 0,
+        userId: ids.teammateUserId,
+      });
+      const teammateAssignmentId = await ctx.db.insert("ui_vaultFolderAssignments", {
+        folderId: teammateFolderId,
+        organizationId: ids.organizationId,
+        userId: ids.teammateUserId,
+        vaultId: ids.vaultId,
+      });
+      return {
+        deletingAssignmentId,
+        deletingFolderId,
+        teammateAssignmentId,
+        teammateFolderId,
+      };
+    });
+
+    let cleanupFinished = false;
+    let observedAssignmentFirstState = false;
+    for (let batch = 0; batch < 32; batch += 1) {
+      cleanupFinished = await t.mutation(internal.accountDeletion.cleanup.cleanupAccountDataBatch, {
+        runId: ids.runId,
+        workflowId,
+      });
+      const folderState = await t.run(async (ctx) => ({
+        deletingAssignment: await ctx.db.get(folderStateIds.deletingAssignmentId),
+        deletingFolder: await ctx.db.get(folderStateIds.deletingFolderId),
+        teammateAssignment: await ctx.db.get(folderStateIds.teammateAssignmentId),
+        teammateFolder: await ctx.db.get(folderStateIds.teammateFolderId),
+      }));
+
+      if (folderState.deletingAssignment === null && folderState.deletingFolder !== null) {
+        observedAssignmentFirstState = true;
+      }
+      if (folderState.deletingFolder === null) {
+        expect(folderState.deletingAssignment).toBeNull();
+      }
+      expect(folderState.teammateAssignment).not.toBeNull();
+      expect(folderState.teammateFolder).not.toBeNull();
+
+      if (cleanupFinished) {
+        break;
+      }
+    }
+
+    expect(cleanupFinished).toBe(true);
+    expect(observedAssignmentFirstState).toBe(true);
+    await t.run(async (ctx) => {
+      expect(await ctx.db.get(folderStateIds.deletingAssignmentId)).toBeNull();
+      expect(await ctx.db.get(folderStateIds.deletingFolderId)).toBeNull();
+      expect(await ctx.db.get(folderStateIds.teammateAssignmentId)).not.toBeNull();
+      expect(await ctx.db.get(folderStateIds.teammateFolderId)).not.toBeNull();
+    });
+  });
+
   it("removes the member's credentials and personal access but preserves shared data", async () => {
     const { ids, t } = await seedRunningDeletion();
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");

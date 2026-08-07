@@ -200,14 +200,14 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
   ui_vaultFolderAssignments: async (ctx, userId) => {
     const rows = await ctx.db
       .query("ui_vaultFolderAssignments")
-      .withIndex("by_userId_and_vaultId", (query) => query.eq("userId", userId))
+      .withIndex("by_userId_and_organizationId_and_vaultId", (query) => query.eq("userId", userId))
       .take(ACCOUNT_DATA_BATCH_SIZE);
     return await deleteRowsById(ctx, rows);
   },
   ui_vaultFolders: async (ctx, userId) => {
     const rows = await ctx.db
       .query("ui_vaultFolders")
-      .withIndex("by_userId_and_position", (query) => query.eq("userId", userId))
+      .withIndex("by_userId_and_organizationId_and_position", (query) => query.eq("userId", userId))
       .take(ACCOUNT_DATA_BATCH_SIZE);
     return await deleteRowsById(ctx, rows);
   },

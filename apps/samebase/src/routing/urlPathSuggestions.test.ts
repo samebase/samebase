@@ -110,7 +110,7 @@ describe("readRouteUrlPathSuggestions", () => {
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/logo");
-    expect(suggestions).not.toContain("/connect-repo");
+    expect(suggestions).not.toContain("/org/$owner/connect-repo");
     expect(suggestions).not.toContain("/vault");
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/docs/do-it-yourself");
@@ -126,7 +126,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/logo/transition");
     expect(suggestions).toContain("/logo/transition/menger");
     expect(suggestions).toContain("/logo/transition/transforms");
-    expect(suggestions).not.toContain("/new-app");
+    expect(suggestions).not.toContain("/org/$owner/new-app");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pitch");
     expect(suggestions).not.toContain("/vault/$");
@@ -141,10 +141,14 @@ describe("readRouteUrlPathSuggestions", () => {
     );
 
     expect(suggestions).toContain("/");
-    expect(suggestions).toContain("/connect-repo");
+    expect(suggestions).toContain("/org/$owner/connect-repo");
+    expect(suggestions).toContain("/org/$owner/vaults");
     expect(suggestions).toContain("/vault");
-    expect(suggestions).toContain("/new-app");
-    expect(suggestions).toContain("/providers");
+    expect(suggestions).toContain("/org/$owner/new-app");
+    expect(suggestions).toContain("/org/$owner/providers");
+    expect(suggestions).toContain("/org/$owner/settings");
+    expect(suggestions).not.toContain("/org/$owner/settings/billing");
+    expect(suggestions).not.toContain("/settings/mcp");
     expect(suggestions).toContain("/logo/iso");
     expect(suggestions).toContain("/logo/raster");
     expect(suggestions).toContain("/logo/svg");

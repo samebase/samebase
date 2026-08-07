@@ -1,5 +1,4 @@
 import { index, rootRoute, route } from "@tanstack/virtual-file-routes";
-import { CONNECT_REPO_OWNER_ROUTE, CONNECT_REPO_ROUTE } from "./lib/connectRepoRoute";
 import { DASHBOARD_ROUTE } from "./lib/dashboardRoute";
 import { INDEXED_DB_ROUTE } from "./lib/indexedDbRoute";
 import {
@@ -9,10 +8,16 @@ import {
   LANDING_PREVIEW_ROUTE,
 } from "./routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./lib/localStorageRoute";
-import { NEW_APP_OWNER_ROUTE, NEW_APP_ROUTE } from "./lib/newAppRoute";
 import { AGENT_BROWSER_HANDOFF_ROUTE } from "../shared/agentBrowserHandoff";
 import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
-import { PROVIDERS_OWNER_ROUTE, PROVIDERS_ROUTE } from "./lib/providersRoute";
+import {
+  ORGANIZATION_CONNECT_REPO_ROUTE,
+  ORGANIZATION_NEW_APP_ROUTE,
+  ORGANIZATION_PROVIDERS_ROUTE,
+  ORGANIZATION_ROUTE,
+  ORGANIZATION_SETTINGS_ROUTE,
+  ORGANIZATION_VAULTS_ROUTE,
+} from "./lib/organizationRoutes";
 import { SETTINGS_ROUTE } from "./lib/settingsRoute";
 import { ACCOUNT_DELETION_ROUTE } from "./lib/accountDeletionRoute";
 
@@ -51,12 +56,12 @@ export const routes = rootRoute("root.tsx", [
   route(DOCS_THE_STACK_ROUTE, "docs-the-stack.tsx"),
   route(LANDING_PREVIEW_ROUTE, "landing-preview.tsx"),
   route("/pricing", "pricing.tsx"),
-  route(CONNECT_REPO_ROUTE, "connect-repo.tsx"),
-  route(CONNECT_REPO_OWNER_ROUTE, "connect-repo-owner.tsx"),
-  route(NEW_APP_ROUTE, "new-app.tsx"),
-  route(NEW_APP_OWNER_ROUTE, "new-app-owner.tsx"),
-  route(PROVIDERS_ROUTE, "providers.tsx"),
-  route(PROVIDERS_OWNER_ROUTE, "providers-owner.tsx"),
+  route(ORGANIZATION_ROUTE, "org.tsx"),
+  route(ORGANIZATION_VAULTS_ROUTE, "org-vaults.tsx"),
+  route(ORGANIZATION_PROVIDERS_ROUTE, "org-providers.tsx"),
+  route(ORGANIZATION_NEW_APP_ROUTE, "org-new-app.tsx"),
+  route(ORGANIZATION_CONNECT_REPO_ROUTE, "org-connect-repo.tsx"),
+  route(ORGANIZATION_SETTINGS_ROUTE, "org-settings.tsx"),
   route(SETTINGS_ROUTE, "settings.tsx"),
   route(ACCOUNT_DELETION_ROUTE, "account-deletion.tsx"),
   route("/admin/account-deletions", "admin-account-deletions.tsx"),

@@ -421,18 +421,21 @@ describe("AppWorkspaceShell", () => {
       "/",
       "/account-deletion",
       "/admin/account-deletions",
-      "/connect-repo",
       "/logo/raster-seams",
       "/logo/single-cube",
       "/logo/svg",
       "/logo/transition",
       "/logo/transition/transforms",
-      "/new-app",
+      "/org/samebase",
+      "/org/samebase/connect-repo",
+      "/org/samebase/new-app",
+      "/org/samebase/providers",
+      "/org/samebase/settings",
+      "/org/samebase/vaults",
       "/oauth/mcp/consent?mcp_consent_request=mcpar_test",
       "/pitch",
       "/pitch/print",
       "/pitch/print/mobile",
-      "/providers",
       "/settings",
       "/terms",
       "/privacy",
@@ -550,6 +553,29 @@ describe("AppWorkspaceShell", () => {
     const rightToggle = getRequiredElement('button[aria-label="Toggle Right Sidebar"]');
 
     expect(leftToggle.classList.contains("hidden")).toBe(false);
+    expect(rightToggle.classList.contains("hidden")).toBe(false);
+  });
+
+  it("exposes the right pane without a repeated route context label on mobile", () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    act(() => {
+      root?.render(
+        <TestRouterProvider initialEntries={["/org/samebase/settings"]}>
+          <AppWorkspaceShell>
+            <div>Organization settings</div>
+          </AppWorkspaceShell>
+        </TestRouterProvider>,
+      );
+    });
+
+    const mainHeader = getRequiredElement('[data-testid="workspace-layout-v2-main-pane-header"]');
+    const rightToggle = getRequiredElement('button[aria-label="Toggle Right Sidebar"]');
+
+    expect(mainHeader.textContent).not.toContain("samebase");
+    expect(mainHeader.querySelector('[aria-label^="Switch organization"]')).toBeNull();
     expect(rightToggle.classList.contains("hidden")).toBe(false);
   });
 

@@ -1,38 +1,20 @@
 // @vitest-environment jsdom
 
 import { getFunctionName } from "convex/server";
-import { act, type ReactNode } from "react";
+import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { UserSettingsPage } from "./UserSettingsPage";
 
-function fakeOrganizationId(value: string): Id<"organizations"> {
-  // @ts-expect-error Convex ids are strings at runtime; this test only needs
-  // stable values for client function arguments.
-  return value;
-}
-
-const ORGANIZATION_ID = fakeOrganizationId("organization_samebase");
-const SECOND_ORGANIZATION_ID = fakeOrganizationId("organization_acme");
-
-const organization = {
-  canCreateRepository: true,
-  githubOwnerId: "456",
-  githubOwnerLogin: "samebase",
-  githubOwnerType: "organization" as const,
-  organizationId: ORGANIZATION_ID,
-  role: "owner" as const,
-};
+const { act } = React;
 
 const testState = vi.hoisted(() => ({
   actions: new Map<string, (args: unknown) => Promise<unknown>>(),
   fetchAccessToken: vi.fn(),
   mutations: new Map<string, (args: unknown) => Promise<unknown>>(),
   queries: new Map<string, unknown>(),
-  queryCalls: new Array<{ args: unknown; name: string }>(),
   route: {
     search: {},
     state: {},
@@ -60,49 +42,32 @@ vi.mock("@/components/AccountDeletionDialog", () => ({
   ),
 }));
 
+vi.mock("@/components/McpClientsSettingsSection", () => ({
+  McpClientsSettingsSection: () => (
+    <section data-testid="mcp-clients-settings-section">MCP clients</section>
+  ),
+}));
+
 vi.mock("@/components/ui/use-toast", () => ({
   toast: vi.fn(),
 }));
 
 vi.mock("@/lib/githubAppSetupFlow", () => ({
-  getCurrentRootRelativeUrl: () => "/settings",
   openGitHubAppSetupPopup: (getSetupUrl: () => Promise<string>) =>
     testState.setupPopup(getSetupUrl),
 }));
 
-vi.mock("@/routing/availability", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/routing/availability")>();
-  return { ...actual, readBrowserRouteEnvironment: () => "local" };
-});
-
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
-  const buildLocation = (args: {
-    search?:
-      | Record<string, unknown>
-      | ((current: Record<string, unknown>) => Record<string, unknown>);
-    to: string;
-  }) => {
-    const search =
-      typeof args.search === "function" ? args.search(testState.route.search) : args.search;
-    const params = new window.URLSearchParams();
-    for (const [key, value] of Object.entries(search ?? {})) {
-      if (value === true) params.set(key, "");
-      if (typeof value === "string") params.set(key, value);
-    }
-    return { href: `${args.to}${params.size > 0 ? `?${params.toString()}` : ""}` };
-  };
   return {
     ...actual,
     getRouteApi: () => ({
       useNavigate: () => testState.router.navigate,
       useSearch: () => testState.route.search,
     }),
-    Link: ({ children, to }: { children: ReactNode; to: string }) => <a href={to}>{children}</a>,
     useLocation: ({ select }: { select: (location: { state: unknown }) => unknown }) =>
       select({ state: testState.route.state }),
     useRouter: () => ({
-      buildLocation,
       history: {
         back: testState.router.back,
         canGoBack: testState.router.canGoBack,
@@ -120,11 +85,8 @@ vi.mock("convex/react", async (importOriginal) => {
       testState.actions.get(getFunctionName(reference)) ?? vi.fn(async () => undefined),
     useMutation: (reference: Parameters<typeof actual.useMutation>[0]) =>
       testState.mutations.get(getFunctionName(reference)) ?? vi.fn(async () => undefined),
-    useQuery: (reference: Parameters<typeof actual.useQuery>[0], args: unknown) => {
-      const name = getFunctionName(reference);
-      testState.queryCalls.push({ args, name });
-      return args === "skip" ? undefined : testState.queries.get(name);
-    },
+    useQuery: (reference: Parameters<typeof actual.useQuery>[0]) =>
+      testState.queries.get(getFunctionName(reference)),
   };
 });
 
@@ -142,24 +104,16 @@ function createJwt(accountPresentation: AccountPresentation) {
   ].join(".");
 }
 
-function setDefaultQueries(organizations: unknown[]) {
-  testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
-    accessKeys: ["access_public", "access_user_preferences", "access_app_create"],
-    role: "role_member",
-  });
+function setDefaultQueries() {
   testState.queries.set(getFunctionName(api.users.getUserSettings), {
     displayName: "Current name",
     signInEmail: "nicu@samebase.com",
   });
-  testState.queries.set(getFunctionName(api.organizations.listForViewer), organizations);
-  testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
-    canStartCheckout: true,
-    plan: "free",
-    status: "inactive",
+  testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
+    accessKeys: ["access_public", "access_user_preferences", "access_provider_connections"],
   });
-  testState.queries.set(getFunctionName(api.billingResourceQuotas.getViewerBillingResourceUsage), {
-    cloudflareWorkers: { limit: 5, used: { count: 1, state: "exact" } },
-    convexProjects: { limit: 5, used: { count: 2, state: "exact" } },
+  testState.queries.set(getFunctionName(api.githubUserAuthorizations.getViewerStatus), {
+    status: "not_connected",
   });
 }
 
@@ -184,7 +138,6 @@ describe("UserSettingsPage", () => {
     testState.fetchAccessToken.mockReset();
     testState.mutations.clear();
     testState.queries.clear();
-    testState.queryCalls = [];
     testState.route.search = {};
     testState.route.state = {};
     testState.router.back.mockReset();
@@ -197,6 +150,7 @@ describe("UserSettingsPage", () => {
       await getSetupUrl();
     });
     testState.signOut.mockReset();
+    setDefaultQueries();
   });
 
   afterEach(async () => {
@@ -208,144 +162,71 @@ describe("UserSettingsPage", () => {
     rootElement = null;
   });
 
-  it("offers GitHub App installation when billing has no organization", async () => {
-    setDefaultQueries([]);
-    const getInstallationUrl = vi.fn(
-      async () => "https://github.com/apps/samebase-dev/installations/new",
-    );
+  it("starts personal GitHub authorization from account settings", async () => {
+    const getAuthorizationUrl = vi.fn(async () => "https://github.com/login/oauth/authorize");
     testState.mutations.set(
-      getFunctionName(api.githubAppInstallation.getGitHubAppInstallationUrl),
-      getInstallationUrl,
+      getFunctionName(api.githubAppInstallation.getGitHubUserAuthorizationUrl),
+      getAuthorizationUrl,
     );
     const container = await mountSettingsPage();
 
-    expect(container.textContent).toContain("Billing");
-    expect(container.textContent).toContain("Install GitHub App");
-    expect(container.textContent).not.toContain("Current plan");
-
+    expect(container.textContent).toContain("Not connected");
+    expect(container.textContent).toContain("MCP clients");
+    expect(container.textContent).not.toContain("Billing");
     await act(async () => {
-      findButton(container, "Install GitHub App")?.click();
+      findButton(container, "Authorize GitHub account")?.click();
       await Promise.resolve();
     });
 
-    expect(getInstallationUrl).toHaveBeenCalledWith({ returnToPath: "/settings" });
+    expect(getAuthorizationUrl).toHaveBeenCalledWith({ returnToPath: "/settings" });
   });
 
-  it("hides billing setup from a pending account", async () => {
-    setDefaultQueries([]);
+  it("does not offer GitHub authorization without provider access", async () => {
     testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
-      accessKeys: ["access_public", "access_account_deletion", "access_user_preferences"],
-      role: "role_pending_access",
+      accessKeys: ["access_public", "access_user_preferences"],
     });
-
     const container = await mountSettingsPage();
-    const billingSection = [...container.querySelectorAll("section")].find(
-      (section) => section.querySelector("h2")?.textContent === "Billing",
-    );
 
-    expect(container.textContent).toContain("Profile");
-    expect(container.textContent).toContain("Account");
-    expect(billingSection?.hidden).toBe(true);
+    expect(container.textContent).toContain("Not connected");
+    expect(findButton(container, "Authorize GitHub account")).toBeUndefined();
   });
 
-  it("reads and starts billing for the only organization", async () => {
-    setDefaultQueries([organization]);
-    const createCheckout = vi.fn(() => new Promise<never>(() => undefined));
-    testState.actions.set(getFunctionName(api.billing.createPolarCheckoutSession), createCheckout);
+  it("shows and revokes a current personal GitHub authorization", async () => {
+    testState.queries.set(getFunctionName(api.githubUserAuthorizations.getViewerStatus), {
+      githubUserLogin: "nicubunu",
+      refreshTokenExpiresAt: Date.now() + 60_000,
+      status: "authorized",
+    });
+    const revokeAuthorization = vi.fn(async () => null);
+    testState.actions.set(
+      getFunctionName(api.githubUserAuthorizations.revokeViewerAuthorization),
+      revokeAuthorization,
+    );
     const container = await mountSettingsPage();
 
-    expect(testState.queryCalls).toContainEqual({
-      args: { organizationId: ORGANIZATION_ID },
-      name: getFunctionName(api.billing.getViewerBillingStatus),
-    });
-    expect(testState.queryCalls).toContainEqual({
-      args: { organizationId: ORGANIZATION_ID },
-      name: getFunctionName(api.billingResourceQuotas.getViewerBillingResourceUsage),
-    });
-
+    expect(container.textContent).toContain("nicubunu");
+    expect(container.textContent).toContain("Connected");
     await act(async () => {
-      findButton(container, "Upgrade to Pro, $4/month")?.click();
+      findButton(container, "Revoke authorization")?.click();
       await Promise.resolve();
     });
 
-    expect(createCheckout).toHaveBeenCalledWith({
-      organizationId: ORGANIZATION_ID,
-      returnUrl: `${window.location.origin}/settings?checkout=cancel&owner=samebase`,
-      successUrl: `${window.location.origin}/settings?checkout=success&owner=samebase`,
-    });
+    expect(revokeAuthorization).toHaveBeenCalledWith({});
   });
 
-  it("shows billing state but hides billing management for a member", async () => {
-    setDefaultQueries([{ ...organization, role: "member" }]);
-    testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
-      canStartCheckout: false,
-      plan: "pro",
-      status: "active",
+  it("marks an expired personal GitHub authorization", async () => {
+    testState.queries.set(getFunctionName(api.githubUserAuthorizations.getViewerStatus), {
+      githubUserLogin: "nicubunu",
+      refreshTokenExpiresAt: 0,
+      status: "authorized",
     });
     const container = await mountSettingsPage();
 
-    expect(container.textContent).toContain("Current plan");
-    expect(container.textContent).toContain("Pro");
-    expect(findButton(container, "Manage subscription")).toBeUndefined();
-    expect(findButton(container, "Upgrade to Pro, $4/month")).toBeUndefined();
-  });
-
-  it("requires a local owner choice before reading billing for several organizations", async () => {
-    setDefaultQueries([
-      organization,
-      {
-        canCreateRepository: true,
-        githubOwnerId: "789",
-        githubOwnerLogin: "acme",
-        githubOwnerType: "organization",
-        organizationId: SECOND_ORGANIZATION_ID,
-        role: "owner",
-      },
-    ]);
-    const container = await mountSettingsPage();
-
-    expect(container.textContent).toContain("GitHub owner");
-    expect(container.textContent).not.toContain("Current plan");
-    expect(testState.queryCalls).toContainEqual({
-      args: "skip",
-      name: getFunctionName(api.billing.getViewerBillingStatus),
-    });
-  });
-
-  it("uses the GitHub owner login to reconcile a multi-organization checkout return", async () => {
-    setDefaultQueries([
-      organization,
-      {
-        canCreateRepository: true,
-        githubOwnerId: "789",
-        githubOwnerLogin: "acme",
-        githubOwnerType: "organization",
-        organizationId: SECOND_ORGANIZATION_ID,
-        role: "owner",
-      },
-    ]);
-    testState.route.search = { checkout: "success", owner: "ACME" };
-    const reconcileBilling = vi.fn(async () => ({ plan: "pro", state: "observed" }));
-    testState.actions.set(
-      getFunctionName(api.billing.reconcileViewerBillingFromPolar),
-      reconcileBilling,
-    );
-
-    await mountSettingsPage();
-
-    expect(testState.queryCalls).toContainEqual({
-      args: { organizationId: SECOND_ORGANIZATION_ID },
-      name: getFunctionName(api.billing.getViewerBillingStatus),
-    });
-    await vi.waitFor(() => {
-      expect(reconcileBilling).toHaveBeenCalledWith({
-        organizationId: SECOND_ORGANIZATION_ID,
-      });
-    });
+    expect(container.textContent).toContain("Expired");
+    expect(findButton(container, "Authorize GitHub account")).toBeDefined();
   });
 
   it("saves the profile and refreshes the session", async () => {
-    setDefaultQueries([organization]);
     const committedPresentation = {
       kind: "displayName",
       label: "Nicu",

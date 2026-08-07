@@ -3,28 +3,41 @@ import { describe, expect, it } from "vite-plus/test";
 import { buildProviderOAuthDefaultReturnUrl } from "./providerOAuthReturn";
 
 describe("buildProviderOAuthDefaultReturnUrl", () => {
-  it("returns the providers page on the configured app origin", () => {
+  it("returns the organization providers page on the configured app origin", () => {
     expect(
       buildProviderOAuthDefaultReturnUrl({
         configuredAppUrl: "https://samebase.com",
+        githubOwnerLogin: "Samebase",
         requestUrl: "https://api.samebase.com/oauth/cloudflare/callback?code=abc",
       }),
-    ).toBe("https://samebase.com/providers");
+    ).toBe("https://samebase.com/org/samebase/providers");
   });
 
   it("falls back to the callback origin when the app origin is unavailable", () => {
     expect(
       buildProviderOAuthDefaultReturnUrl({
         configuredAppUrl: undefined,
+        githubOwnerLogin: "samebase",
         requestUrl: "https://samebase.convex.site/oauth/convex/callback?code=abc",
       }),
-    ).toBe("https://samebase.convex.site/providers");
+    ).toBe("https://samebase.convex.site/org/samebase/providers");
+  });
+
+  it("encodes the normalized owner as one path segment", () => {
+    expect(
+      buildProviderOAuthDefaultReturnUrl({
+        configuredAppUrl: "https://samebase.com",
+        githubOwnerLogin: " Owner/Name ",
+        requestUrl: "https://api.samebase.com/oauth/cloudflare/callback?code=abc",
+      }),
+    ).toBe("https://samebase.com/org/owner%2Fname/providers");
   });
 
   it("rejects an unsafe configured app URL instead of redirecting to it", () => {
     expect(() =>
       buildProviderOAuthDefaultReturnUrl({
         configuredAppUrl: "http://attacker.example/app",
+        githubOwnerLogin: "samebase",
         requestUrl: "https://api.samebase.com/oauth/cloudflare/callback?code=abc",
       }),
     ).toThrow("SITE_URL must use https");
