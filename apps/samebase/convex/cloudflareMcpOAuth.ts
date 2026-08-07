@@ -696,7 +696,7 @@ export const resolveConnectionForOrganization = internalAction({
             tokenHealth,
           },
         );
-        throw error;
+        throw new Error("Cloudflare token refresh failed.");
       }
       const nextExpiresAt = Date.now() + refreshed.expires_in * 1000;
       const refreshedAuth: CloudflareMcpOAuthAuth = {

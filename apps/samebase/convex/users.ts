@@ -470,6 +470,32 @@ export const getCloudflareConnectionStatus = query({
 
 const vCloudflareAccounts = array(vOrganizationCloudflareAccount);
 type CloudflareAccounts = Infer<typeof vCloudflareAccounts>;
+type CloudflareAccountDiscovery = {
+  auth: CloudflareProviderCredential["auth"];
+  accounts: CloudflareAccounts;
+};
+
+async function discoverCloudflareAccounts(
+  ctx: Pick<ActionCtx, "runAction">,
+  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
+): Promise<CloudflareAccountDiscovery | null> {
+  try {
+    const connection = await ctx.runAction(
+      internal.cloudflareOAuth.resolveConnectionForOrganization,
+      args,
+    );
+    if (connection === null) {
+      return null;
+    }
+    const accounts = await ctx.runAction(internal.cloudflareAccountDiscovery.listAccounts, {
+      token: connection.auth.credential,
+      transport: connection.auth.method === "mcp_oauth" ? "mcp" : "direct",
+    });
+    return { auth: connection.auth, accounts };
+  } catch {
+    throw new Error("Cloudflare account discovery failed. Reconnect Cloudflare, then retry.");
+  }
+}
 
 export const listCloudflareAccounts = action({
   access: "access_provider_connections",
@@ -494,20 +520,14 @@ export const listCloudflareAccounts = action({
     if (role !== "owner") {
       return [];
     }
-    const connection = await ctx.runAction(
-      internal.cloudflareOAuth.resolveConnectionForOrganization,
-      {
-        organizationId: args.organizationId,
-        userId: ctx.viewer.userId,
-      },
-    );
-    if (connection === null) {
+    const discovery = await discoverCloudflareAccounts(ctx, {
+      organizationId: args.organizationId,
+      userId: ctx.viewer.userId,
+    });
+    if (discovery === null) {
       throw new Error("Cloudflare connection is required.");
     }
-    return await ctx.runAction(internal.cloudflareAccountDiscovery.listAccounts, {
-      token: connection.auth.credential,
-      transport: connection.auth.method === "mcp_oauth" ? "mcp" : "direct",
-    });
+    return discovery.accounts;
   },
 });
 
@@ -536,21 +556,14 @@ export const selectCloudflareAccount = action({
     if (configuration.cloudflareAccount !== undefined) {
       throw new Error("Cloudflare account is already configured.");
     }
-    const connection = await ctx.runAction(
-      internal.cloudflareOAuth.resolveConnectionForOrganization,
-      {
-        organizationId,
-        userId: ctx.viewer.userId,
-      },
-    );
-    if (connection === null) {
+    const discovery = await discoverCloudflareAccounts(ctx, {
+      organizationId,
+      userId: ctx.viewer.userId,
+    });
+    if (discovery === null) {
       throw new Error("Cloudflare connection is required.");
     }
-    const accounts = await ctx.runAction(internal.cloudflareAccountDiscovery.listAccounts, {
-      token: connection.auth.credential,
-      transport: connection.auth.method === "mcp_oauth" ? "mcp" : "direct",
-    });
-    const account = accounts.find((candidate) => candidate.accountId === args.accountId);
+    const account = discovery.accounts.find((candidate) => candidate.accountId === args.accountId);
     if (account === undefined) {
       throw new Error(
         `The current Cloudflare credential cannot access Cloudflare account ${args.accountId}. Reconnect Cloudflare with access to this account, then retry.`,
@@ -559,7 +572,7 @@ export const selectCloudflareAccount = action({
     await ctx.runMutation(internal.organizationProviderCredentials.selectCloudflareAccount, {
       organizationId,
       userId: ctx.viewer.userId,
-      expectedAuth: connection.auth,
+      expectedAuth: discovery.auth,
       accountId: account.accountId,
       accountName: account.accountName,
     });

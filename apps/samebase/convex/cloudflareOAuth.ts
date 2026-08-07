@@ -511,7 +511,7 @@ export const resolveConnectionForOrganization = internalAction({
             tokenHealth,
           },
         );
-        throw error;
+        throw new Error("Cloudflare token refresh failed.");
       }
 
       const nextExpiresAt = Date.now() + refreshed.expiresIn * 1000;

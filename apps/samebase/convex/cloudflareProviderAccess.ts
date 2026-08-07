@@ -132,16 +132,19 @@ export const checkCloudflareConnectionAccess = action({
         organizationId: args.organizationId,
       },
     );
-    const [connection, role] = await Promise.all([
-      ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
+    const role = await ctx.runQuery(internal.organizationAccess.requireOrganizationRoleForUser, {
+      organizationId,
+      userId: ctx.viewer.userId,
+    });
+    let connection: CloudflareResolvedConnection | null;
+    try {
+      connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
         organizationId,
         userId: ctx.viewer.userId,
-      }),
-      ctx.runQuery(internal.organizationAccess.requireOrganizationRoleForUser, {
-        organizationId,
-        userId: ctx.viewer.userId,
-      }),
-    ]);
+      });
+    } catch {
+      throw new Error("Cloudflare access check failed.");
+    }
     if (connection === null) {
       return {
         connected: false,
