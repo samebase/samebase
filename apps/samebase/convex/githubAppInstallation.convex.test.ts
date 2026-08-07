@@ -176,6 +176,72 @@ describe("verified GitHub App installation completion", () => {
     expect(snapshot.setupState).toBeNull();
   });
 
+  it("denies personal GitHub authorization setup to a pending user", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        email: "pending-authorization@example.com",
+        isApproved: false,
+      });
+    });
+    const asPendingUser = t.withIdentity({
+      subject: `${userId}|pending-authorization-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(
+      asPendingUser.mutation(api.githubAppInstallation.getGitHubUserAuthorizationUrl, {
+        returnToPath: "/settings",
+      }),
+    ).rejects.toThrowError("Access denied");
+
+    const setupState = await t.run(async (ctx) => {
+      return await ctx.db.query("githubAppSetupStates").first();
+    });
+    expect(setupState).toBeNull();
+  });
+
+  it("does not store GitHub credentials after the user loses provider access", async () => {
+    const t = makeConvexTest();
+    const { setupStateId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "authorization-access-lost@example.com",
+        isApproved: true,
+      });
+      const setupStateId = await ctx.db.insert("githubAppSetupStates", {
+        userId,
+        state: "authorization-access-lost-state",
+        purpose: "user_authorization",
+        returnToPath: "/settings",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+      await ctx.db.patch(userId, { isApproved: false });
+      return { setupStateId, userId };
+    });
+
+    await expect(
+      t.mutation(internal.githubAppInstallation.completeUserAuthorization, {
+        setupStateId,
+        state: "authorization-access-lost-state",
+        githubUserId: "404",
+        githubUserLogin: "access-lost-user",
+        accessToken: "access-lost-token",
+        accessTokenExpiresAt: Date.now() + 8 * 60 * 60 * 1000,
+        refreshToken: "access-lost-refresh-token",
+        refreshTokenExpiresAt: Date.now() + 180 * 24 * 60 * 60 * 1000,
+      }),
+    ).rejects.toThrowError("Access denied");
+
+    const authorization = await t.run(async (ctx) => {
+      return await ctx.db
+        .query("githubUserAuthorizations")
+        .withIndex("by_user", (query) => query.eq("userId", userId))
+        .unique();
+    });
+    expect(authorization).toBeNull();
+  });
+
   it("routes the shared GitHub callback by the user authorization purpose", async () => {
     const t = makeConvexTest();
     const { setupStateId, userId } = await t.run(async (ctx) => {

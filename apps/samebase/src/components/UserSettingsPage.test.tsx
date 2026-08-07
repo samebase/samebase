@@ -109,6 +109,9 @@ function setDefaultQueries() {
     displayName: "Current name",
     signInEmail: "nicu@samebase.com",
   });
+  testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
+    accessKeys: ["access_public", "access_user_preferences", "access_provider_connections"],
+  });
   testState.queries.set(getFunctionName(api.githubUserAuthorizations.getViewerStatus), {
     status: "not_connected",
   });
@@ -176,6 +179,16 @@ describe("UserSettingsPage", () => {
     });
 
     expect(getAuthorizationUrl).toHaveBeenCalledWith({ returnToPath: "/settings" });
+  });
+
+  it("does not offer GitHub authorization without provider access", async () => {
+    testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
+      accessKeys: ["access_public", "access_user_preferences"],
+    });
+    const container = await mountSettingsPage();
+
+    expect(container.textContent).toContain("Not connected");
+    expect(findButton(container, "Authorize GitHub account")).toBeUndefined();
   });
 
   it("shows and revokes a current personal GitHub authorization", async () => {

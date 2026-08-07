@@ -7,6 +7,7 @@ import {
   GITHUB_APP_SETUP_POPUP_NAME,
   isSafeGitHubAppReturnToPath,
 } from "../shared/githubApp";
+import { canAccess } from "../shared/accessModel";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { httpAction, internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
@@ -247,6 +248,13 @@ export const completeUserAuthorization = internalMutation({
       throw new Error("GitHub App setup state purpose changed.");
     }
 
+    const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
+      userId: setupState.userId,
+    });
+    if (viewer.user === null || !canAccess("access_provider_connections", viewer.accessKeys)) {
+      throw new Error("Access denied");
+    }
+
     await upsertGitHubUserAuthorization(ctx.db, {
       userId: setupState.userId,
       githubUserId: args.githubUserId,
@@ -273,7 +281,7 @@ export const getGitHubAppInstallationUrl = mutation({
 });
 
 export const getGitHubUserAuthorizationUrl = mutation({
-  access: "access_user_preferences",
+  access: "access_provider_connections",
   args: {
     returnToPath: optional(string()),
   },

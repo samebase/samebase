@@ -49,6 +49,7 @@ export function UserSettingsPage() {
     select: (location) => location.state.settingsDeleteAccountDialog,
   });
   const settings = useQuery(api.users.getUserSettings);
+  const viewerAccess = useQuery(api.users.currentViewerAccess);
   const githubAuthorization = useQuery(api.githubUserAuthorizations.getViewerStatus);
   const setDisplayName = useMutation(api.users.setDisplayName);
   const getGitHubUserAuthorizationUrl = useMutation(
@@ -72,10 +73,11 @@ export function UserSettingsPage() {
     intervalMs: 60_000,
   });
 
-  if (settings === undefined || githubAuthorization === undefined) {
+  if (settings === undefined || viewerAccess === undefined || githubAuthorization === undefined) {
     return null;
   }
 
+  const canAuthorizeGitHub = viewerAccess.accessKeys.includes("access_provider_connections");
   const githubAuthorizationExpired =
     githubAuthorization.status === "authorized" && githubAuthorization.refreshTokenExpiresAt <= now;
 
@@ -347,7 +349,8 @@ export function UserSettingsPage() {
           </dd>
         </dl>
         <div className="mt-4 flex flex-wrap gap-3">
-          {githubAuthorization.status === "not_connected" || githubAuthorizationExpired ? (
+          {canAuthorizeGitHub &&
+          (githubAuthorization.status === "not_connected" || githubAuthorizationExpired) ? (
             <Button
               disabled={githubRequestState !== "idle"}
               onClick={authorizeGitHubAccount}
