@@ -242,6 +242,8 @@ test("landing preview uses the depth-three Menger hover scene", async ({ page })
   await expect(hero).toHaveAttribute("data-state", "ready");
   await expect(fallback).toHaveCSS("opacity", "0");
   await expect(scene).toHaveAttribute("data-menger-maximum-depth", "3");
+  await expect(scene).toHaveAttribute("data-menger-automatic-probe", "off");
+  await expect(scene).toHaveAttribute("data-automatic-probe-state", "off");
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "landing");
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt-radius-scale", "1");
   await expect(scene).toHaveAttribute("data-menger-pointer-tilt-strength-scale", "1.67");
@@ -305,6 +307,60 @@ test("landing preview uses the depth-three Menger hover scene", async ({ page })
     });
   await expect(hero).not.toBeInViewport();
   await expect(scene).toHaveCount(0);
+});
+
+test.describe("landing preview automatic probe on a wide touch-first device", () => {
+  test.use({
+    deviceScaleFactor: 1,
+    hasTouch: true,
+    viewport: { height: 1000, width: 1440 },
+  });
+
+  test("reveals the fractal at a wide viewport", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await page.goto("/landing-preview", { waitUntil: "domcontentloaded" });
+
+    await expect
+      .poll(() =>
+        page.evaluate(() => ({
+          isCoarsePointer: window.matchMedia("(hover: none) and (pointer: coarse)").matches,
+          viewportWidth: window.innerWidth,
+        })),
+      )
+      .toEqual({ isCoarsePointer: true, viewportWidth: 1440 });
+
+    const hero = page.getByTestId("landing-preview-hero-menger");
+    const scene = hero.getByTestId("logo-menger-hover-scene");
+    await expect(hero).toBeVisible({ timeout: 30_000 });
+    await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expect(scene).toHaveAttribute("data-menger-automatic-probe", "play");
+    await expect(scene).toHaveAttribute("data-automatic-probe-state", "playing");
+    await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "off");
+
+    const probeProgress = await readNumberAttribute(scene, "data-automatic-probe-progress");
+    await expect
+      .poll(() => readNumberAttribute(scene, "data-automatic-probe-progress"))
+      .not.toBe(probeProgress);
+  });
+
+  test("renders the reduced-motion automatic reveal", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/landing-preview", { waitUntil: "domcontentloaded" });
+
+    const hero = page.getByTestId("landing-preview-hero-menger");
+    const scene = hero.getByTestId("logo-menger-hover-scene");
+    await expect(hero).toBeVisible({ timeout: 30_000 });
+    await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
+    await expect(scene).toHaveAttribute("data-menger-automatic-probe", "play");
+    await expect(scene).toHaveAttribute("data-automatic-probe-state", "reduced-motion");
+    await expect(scene).toHaveAttribute("data-menger-pointer-tilt", "off");
+    await expect(scene).toHaveAttribute("data-hover-settled", "true");
+    await waitForPaint(page);
+    await expect(hero).toHaveScreenshot(
+      "landing-preview-hero-menger-wide-touch.png",
+      SCREENSHOT_OPTIONS,
+    );
+  });
 });
 
 test("landing preview keeps the prehydration and WebGL logo bounds equal", async ({

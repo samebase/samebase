@@ -95,22 +95,14 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
       }),
     [rootRouteSearch],
   );
-  const automaticProbe = useMemo(() => {
-    if (placement !== "root") {
-      return {
-        ...MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
-        enabled: false,
-        landingSize: false,
-        showPath: false,
-      };
-    }
-
-    return {
+  const automaticProbe = useMemo(
+    () => ({
       ...MENGER_AUTOMATIC_PROBE_DEFAULT_SETTINGS,
       enabled: isCoarsePointer,
       showPath: false,
-    };
-  }, [isCoarsePointer, placement]);
+    }),
+    [isCoarsePointer],
+  );
   const resolvedTheme = useResolvedAppThemeColorState(routeState.themeColors);
   const leftFaceColor = resolvedTheme.faceColors.left;
   const rightFaceColor = resolvedTheme.faceColors.right;
