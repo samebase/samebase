@@ -193,6 +193,13 @@ export const completeVerifiedSetup = internalMutation({
       throw new Error("GitHub App setup state purpose changed.");
     }
 
+    const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
+      userId: setupState.userId,
+    });
+    if (viewer.user === null || !canAccess("access_app_create", viewer.accessKeys)) {
+      throw new Error("Access denied");
+    }
+
     const result: GitHubAppSetupCompletion = await ctx.runMutation(
       internal.organizations.createOrReconnectVerifiedOrganization,
       {

@@ -92,6 +92,57 @@ describe("verified GitHub App installation completion", () => {
     ).resolves.toMatchObject([{ canCreateRepository: true }]);
   });
 
+  it("does not complete an installation after the user loses app creation access", async () => {
+    const t = makeConvexTest();
+    const { setupStateId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "installation-access-lost@example.com",
+        isApproved: true,
+      });
+      const setupStateId = await ctx.db.insert("githubAppSetupStates", {
+        userId,
+        state: "installation-access-lost-state",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+      await ctx.db.patch(userId, { isApproved: false });
+      return { setupStateId, userId };
+    });
+
+    await expect(
+      t.mutation(internal.githubAppInstallation.completeVerifiedSetup, {
+        setupStateId,
+        state: "installation-access-lost-state",
+        installationId: "1002",
+        githubOwnerId: "102",
+        githubOwnerType: "user",
+        githubOwnerLogin: "access-lost-owner",
+        githubUserId: "102",
+        githubUserLogin: "access-lost-owner",
+        accessToken: "access-lost-token",
+        accessTokenExpiresAt: Date.now() + 8 * 60 * 60 * 1000,
+        refreshToken: "access-lost-refresh-token",
+        refreshTokenExpiresAt: Date.now() + 180 * 24 * 60 * 60 * 1000,
+      }),
+    ).rejects.toThrowError("Access denied");
+
+    const snapshot = await t.run(async (ctx) => ({
+      authorization: await ctx.db
+        .query("githubUserAuthorizations")
+        .withIndex("by_user", (query) => query.eq("userId", userId))
+        .unique(),
+      billingAccount: await ctx.db.query("organizationBillingAccounts").first(),
+      membership: await ctx.db.query("organizationMemberships").first(),
+      organization: await ctx.db.query("organizations").first(),
+    }));
+    expect(snapshot).toEqual({
+      authorization: null,
+      billingAccount: null,
+      membership: null,
+      organization: null,
+    });
+  });
+
   it("authorizes the current GitHub user without creating an organization", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
