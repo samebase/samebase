@@ -174,6 +174,27 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   await expect(deleteDialog).toBeHidden();
 });
 
+test("Settings page shows a GitHub authorization error once", async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await openSettings(page);
+  await page.goto(
+    "/settings?authorization-provider=github-user&authorization-error=canceled#github",
+    { waitUntil: "domcontentloaded" },
+  );
+
+  const settingsPage = page.getByTestId("user-settings-page");
+  const signInEmail = settingsPage.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL, {
+    exact: true,
+  });
+  await expect(settingsPage.getByRole("alert")).toBeVisible();
+  await expect(page).toHaveURL(/\/settings#github$/u);
+  await expect(settingsPage).toHaveScreenshot("settings-page-authorization-error-desktop.png", {
+    ...screenshotOptions,
+    mask: [signInEmail],
+    maskColor: "#d1d5db",
+  });
+});
+
 test("user Settings rejects an organization checkout return", async ({ page }) => {
   await openSettings(page);
 

@@ -29,6 +29,12 @@ import {
 } from "./cloudflareAccountDiscovery";
 import { buildProviderOAuthDefaultReturnUrl } from "../shared/providerOAuthReturn";
 import { buildUrlWithSearchParams, createUrlSearchParams } from "../shared/urlSearchParams";
+import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
+import {
+  buildAuthorizationCompletionResponse,
+  buildProviderOAuthStoreReturnUrl,
+  classifyAuthorizationCallbackError,
+} from "./authorizationCompletion";
 
 const CLOUDFLARE_MCP_OAUTH_ISSUER = "https://mcp.cloudflare.com";
 const CLOUDFLARE_MCP_AUTHORIZATION_URL = `${CLOUDFLARE_MCP_OAUTH_ISSUER}/authorize`;
@@ -345,6 +351,7 @@ async function buildCloudflareMcpOAuthUrl(
   args: {
     userId: Id<"users">;
     organizationId: Id<"organizations">;
+    returnToPath?: string;
   },
 ): Promise<string> {
   const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL");
@@ -360,6 +367,7 @@ async function buildCloudflareMcpOAuthUrl(
     provider: "cloudflare_mcp",
     userId: args.userId,
     organizationId: args.organizationId,
+    returnToPath: args.returnToPath,
     state,
     codeVerifier,
     clientId,
@@ -723,6 +731,7 @@ export const getCloudflareMcpOAuthUrl = action({
   access: "access_provider_connections",
   args: {
     organizationId: id("organizations"),
+    returnToPath: optional(string()),
   },
   returns: getCloudflareMcpOAuthUrlResultValidator,
   handler: async (ctx, args): Promise<string> => {
@@ -736,6 +745,7 @@ export const getCloudflareMcpOAuthUrl = action({
     return await buildCloudflareMcpOAuthUrl(ctx, {
       userId: ctx.viewer.userId,
       organizationId,
+      returnToPath: args.returnToPath,
     });
   },
 });
@@ -755,10 +765,10 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     });
   }
 
-  if (state === null || (code === null && error === null)) {
+  if (state === null) {
     console.log("cloudflare:mcp_oauth:callback_missing_params", {
       hasCode: code !== null,
-      hasState: state !== null,
+      hasState: false,
     });
     return new Response("Missing OAuth parameters", { status: 400 });
   }
@@ -778,18 +788,6 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     return new Response("Invalid OAuth state", { status: 400 });
   }
 
-  if (oauthState.expiresAt < Date.now()) {
-    await ctx.runMutation(internal.oauthState.deleteOauthState, {
-      id: oauthState._id,
-    });
-    console.log("cloudflare:mcp_oauth:callback_state_expired", {
-      organizationId: oauthState.organizationId,
-      stateCreatedAt: oauthState.createdAt,
-      stateExpiresAt: oauthState.expiresAt,
-    });
-    return new Response("OAuth state expired", { status: 400 });
-  }
-
   let returnUrl: string;
   try {
     const githubOwnerLogin: string = await ctx.runQuery(
@@ -802,6 +800,7 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
       configuredAppUrl: process.env["SITE_URL"] ?? process.env["CONVEX_SITE_URL"],
       githubOwnerLogin,
       requestUrl: request.url,
+      returnToPath: oauthState.returnToPath,
     });
   } catch {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
@@ -810,15 +809,55 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     return new Response("Organization unavailable", { status: 400 });
   }
 
-  if (error !== null) {
+  if (oauthState.expiresAt < Date.now()) {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
     });
-    return Response.redirect(returnUrl, 302);
+    console.log("cloudflare:mcp_oauth:callback_completed", {
+      organizationId: oauthState.organizationId,
+      outcome: "expired",
+    });
+    return buildAuthorizationCompletionResponse({
+      eventType: "cloudflare-mcp-oauth-complete",
+      returnUrl: buildAuthorizationErrorUrl(returnUrl, {
+        provider: "cloudflare",
+        code: "expired",
+      }),
+      title: "Cloudflare OAuth",
+    });
+  }
+
+  if (error !== null) {
+    const errorCode = classifyAuthorizationCallbackError(error);
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
+      id: oauthState._id,
+    });
+    console.log("cloudflare:mcp_oauth:callback_completed", {
+      organizationId: oauthState.organizationId,
+      outcome: errorCode,
+    });
+    return buildAuthorizationCompletionResponse({
+      eventType: "cloudflare-mcp-oauth-complete",
+      returnUrl: buildAuthorizationErrorUrl(returnUrl, {
+        provider: "cloudflare",
+        code: errorCode,
+      }),
+      title: "Cloudflare OAuth",
+    });
   }
 
   if (code === null) {
-    return new Response("Missing OAuth parameters", { status: 400 });
+    await ctx.runMutation(internal.oauthState.deleteOauthState, {
+      id: oauthState._id,
+    });
+    return buildAuthorizationCompletionResponse({
+      eventType: "cloudflare-mcp-oauth-complete",
+      returnUrl: buildAuthorizationErrorUrl(returnUrl, {
+        provider: "cloudflare",
+        code: "failed",
+      }),
+      title: "Cloudflare OAuth",
+    });
   }
 
   const clientId = oauthState.clientId;
@@ -833,12 +872,23 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
     });
-    return Response.redirect(returnUrl, 302);
+    console.log("cloudflare:mcp_oauth:callback_completed", {
+      organizationId: oauthState.organizationId,
+      outcome: "access-changed",
+    });
+    return buildAuthorizationCompletionResponse({
+      eventType: "cloudflare-mcp-oauth-complete",
+      returnUrl: buildAuthorizationErrorUrl(returnUrl, {
+        provider: "cloudflare",
+        code: "access-changed",
+      }),
+      title: "Cloudflare OAuth",
+    });
   }
 
-  const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL");
-
+  let completionReturnUrl = returnUrl;
   try {
+    const redirectUri = readRequiredEnv("PROVIDER_CLOUDFLARE_MCP_REDIRECT_URL");
     const token = await exchangeCloudflareMcpOAuthCode({
       code,
       codeVerifier,
@@ -875,68 +925,44 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
         oauthState: state,
       },
     );
-    if (storeResult.status === "access_lost") {
-      return Response.redirect(returnUrl, 302);
-    }
-    console.log("cloudflare:mcp_oauth:exchange_succeeded", {
-      organizationId: oauthState.organizationId,
-      expiresIn: token.expires_in,
-      expiresAt,
-      clientIdLength: clientId.length,
+    completionReturnUrl = buildProviderOAuthStoreReturnUrl({
+      provider: "cloudflare",
+      returnUrl,
+      storeResult,
     });
+    if (storeResult.status !== "stored") {
+      console.log("cloudflare:mcp_oauth:callback_completed", {
+        organizationId: oauthState.organizationId,
+        outcome: storeResult.status,
+      });
+    } else {
+      console.log("cloudflare:mcp_oauth:exchange_succeeded", {
+        organizationId: oauthState.organizationId,
+        expiresIn: token.expires_in,
+        expiresAt,
+        clientIdLength: clientId.length,
+      });
+    }
   } catch (err) {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
     });
     console.log("cloudflare:mcp_oauth:exchange_failed", {
       organizationId: oauthState.organizationId,
+      outcome: "failed",
       clientIdLength: clientId.length,
       hasCodeVerifier: codeVerifier.length > 0,
       errorName: err instanceof Error ? err.name : "UnknownError",
     });
-    return new Response("Cloudflare OAuth exchange failed", { status: 400 });
+    completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+      provider: "cloudflare",
+      code: "failed",
+    });
   }
 
-  const returnOrigin = new URL(returnUrl).origin;
-
-  const html = `<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cloudflare OAuth</title>
-  </head>
-  <body>
-    <script>
-      (function () {
-        const returnTo = ${JSON.stringify(returnUrl)};
-        const returnOrigin = ${JSON.stringify(returnOrigin)};
-        try {
-          if (window.opener && !window.opener.closed) {
-            try {
-              window.opener.location.replace(returnTo);
-            } catch (error) {
-              window.opener.postMessage(
-                { type: "cloudflare-mcp-oauth-complete", returnTo },
-                returnOrigin
-              );
-            }
-            window.close();
-            return;
-          }
-        } catch (error) {
-          // Fall through to redirect.
-        }
-        window.location.replace(returnTo);
-      })();
-    </script>
-  </body>
-</html>`;
-
-  return new Response(html, {
-    status: 200,
-    headers: {
-      "Content-Type": "text/html; charset=utf-8",
-    },
+  return buildAuthorizationCompletionResponse({
+    eventType: "cloudflare-mcp-oauth-complete",
+    returnUrl: completionReturnUrl,
+    title: "Cloudflare OAuth",
   });
 });

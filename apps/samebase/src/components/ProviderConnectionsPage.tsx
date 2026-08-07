@@ -1,5 +1,6 @@
 import { isInIframe } from "@/authClient";
 import { useApiKeyConnectDialog } from "@/components/ApiKeyConnectDialog";
+import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { Button } from "@/components/ui/button";
 import { VaultDashboardCloudflareAccountDialog } from "@/components/vault-dashboard/VaultDashboardCloudflareAccountDialog";
@@ -10,8 +11,10 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { useNow } from "@/hooks/useNow";
 import { formatRelativeTimeAgo } from "@/lib/formatRelativeTime";
+import { readAuthorizationCompletionReturnTo } from "@/lib/authorizationCompletionMessage";
+import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
-import { isRecord, notEmpty } from "@samebase/dependent";
+import { notEmpty } from "@samebase/dependent";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import {
@@ -26,6 +29,8 @@ import {
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS } from "../../shared/cloudflareTokenRefresh";
+import type { AuthorizationError } from "../../shared/authorizationError";
+import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 
 const PROVIDER_KEYS = ["convex", "cloudflare"] as const;
 
@@ -86,6 +91,7 @@ export type ProviderConnectionsPageConnectionState = {
 };
 type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState & {
   apiKeyDialog: ReactNode;
+  authorizationErrorMessage: ReactNode;
   cloudflareAccountDialog: CloudflareAccountDialogState;
   disconnectingProvider: ProviderKey | null;
   cloudflareAccessError: string | null;
@@ -482,6 +488,7 @@ function ConnectionActions({ actions }: { actions: readonly ProviderConnectionAc
 
 export function ProviderConnectionsPageView({
   apiKeyDialog,
+  authorizationErrorMessage,
   cloudflareAccess,
   cloudflareAccessError,
   cloudflareAccountDialog,
@@ -736,6 +743,11 @@ export function ProviderConnectionsPageView({
       <div className="mb-6 flex flex-shrink-0 flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold @2xl:text-2xl">Providers</h1>
       </div>
+      {authorizationErrorMessage ? (
+        <div className="mb-4 max-w-3xl">
+          <AuthorizationErrorNotice>{authorizationErrorMessage}</AuthorizationErrorNotice>
+        </div>
+      ) : null}
       {providerDisconnectNotice ? (
         <div className="mb-4 text-sm text-muted-foreground" role="status">
           {providerDisconnectNotice}
@@ -785,38 +797,22 @@ export function handleProviderOAuthPopupCompletionMessage({
     }
   >;
 }) {
-  if (!isRecord(event.data) || typeof event.data["type"] !== "string") {
-    return;
-  }
-
   for (const provider of PROVIDER_KEYS) {
     const popupConfig = providerPopupConfig[provider];
-    if (!popupConfig.completionEventTypes.includes(event.data["type"])) {
-      continue;
+    const popup = popupConfig.popupRef.current;
+    if (popup !== null) {
+      const returnTo = readAuthorizationCompletionReturnTo({
+        completionEventTypes: popupConfig.completionEventTypes,
+        event,
+        expectedCallbackOrigin: popupConfig.popupOriginRef.current ?? expectedOrigin,
+        expectedReturnOrigin: expectedOrigin,
+        popup,
+      });
+      if (returnTo !== null) {
+        navigate(returnTo);
+        return;
+      }
     }
-    if (event.source !== popupConfig.popupRef.current) {
-      return;
-    }
-    if (event.origin !== (popupConfig.popupOriginRef.current ?? expectedOrigin)) {
-      return;
-    }
-
-    const returnTo = event.data["returnTo"];
-    if (typeof returnTo !== "string") {
-      return;
-    }
-    let returnUrl: URL;
-    try {
-      returnUrl = new URL(returnTo);
-    } catch {
-      return;
-    }
-    if (returnUrl.origin !== expectedOrigin) {
-      return;
-    }
-
-    navigate(returnTo);
-    return;
   }
 }
 
@@ -973,7 +969,13 @@ function useCloudflareMcpTokenAutoCheck({
   ]);
 }
 
-export function ProviderConnectionsPage({ organization }: { organization: ViewerOrganization }) {
+export function ProviderConnectionsPage({
+  authorizationError = null,
+  organization,
+}: {
+  authorizationError?: AuthorizationError | null;
+  organization: ViewerOrganization;
+}) {
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getCloudflareOAuthUrl = useAction(api.cloudflareOAuth.getCloudflareOAuthUrl);
   const checkConvexConnectionAccess = useAction(
@@ -1026,7 +1028,10 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
         return await disconnectConvex({ organizationId });
       },
       getOAuthUrl: async () => {
-        return await getConvexOAuthUrl({ organizationId });
+        return await getConvexOAuthUrl({
+          organizationId,
+          returnToPath: getCurrentRootRelativeUrl(),
+        });
       },
       popupOriginRef: convexPopupOriginRef,
       popupRef: convexPopupRef,
@@ -1036,7 +1041,10 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
         return await disconnectCloudflare({ organizationId });
       },
       getOAuthUrl: async () => {
-        return await getCloudflareOAuthUrl({ organizationId });
+        return await getCloudflareOAuthUrl({
+          organizationId,
+          returnToPath: getCurrentRootRelativeUrl(),
+        });
       },
       popupOriginRef: cloudflarePopupOriginRef,
       popupRef: cloudflarePopupRef,
@@ -1059,6 +1067,19 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
   const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
     connectConvexWithApiKey: connectConvexWithApiKeyAndClearAccess,
   });
+  const authorizationErrorMessage = authorizationError
+    ? formatAuthorizationErrorMessage(authorizationError, {
+        cloudflareAccountName:
+          cloudflareConnection?.state === "connected" ||
+          cloudflareConnection?.state === "disconnected"
+            ? cloudflareConnection.accountName
+            : undefined,
+        convexTeamName:
+          convexConnection?.state === "connected" || convexConnection?.state === "disconnected"
+            ? convexConnection.teamSlug
+            : undefined,
+      })
+    : null;
 
   useProviderOAuthPopupCompletionNavigation({
     cloudflarePopupOriginRef,
@@ -1247,6 +1268,7 @@ export function ProviderConnectionsPage({ organization }: { organization: Viewer
   return (
     <ProviderConnectionsPageView
       apiKeyDialog={apiKeyDialog}
+      authorizationErrorMessage={authorizationErrorMessage}
       cloudflareAccess={cloudflareAccess}
       cloudflareAccessError={cloudflareAccessError}
       cloudflareAccountDialog={cloudflareAccountDialog}

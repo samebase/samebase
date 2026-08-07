@@ -7,11 +7,33 @@ import {
   SETTINGS_ROUTE_SEARCH_STATIC_DATA,
   validateSettingsRouteSearch,
 } from "@/routeSearch/settings";
+import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
+import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";
+import { useCallback } from "react";
+
+const GITHUB_USER_AUTHORIZATION_SOURCE = ["github-user"] as const;
 
 function SettingsRouteComponent() {
+  const navigate = Route.useNavigate();
+  const search = Route.useSearch();
+  const consumeAuthorizationError = useCallback(() => {
+    void navigate({
+      hash: true,
+      replace: true,
+      resetScroll: false,
+      search: clearAuthorizationErrorSearch,
+      to: ".",
+    });
+  }, [navigate]);
+  const authorizationError = useAuthorizationErrorNotice({
+    allowedProviders: GITHUB_USER_AUTHORIZATION_SOURCE,
+    onConsume: consumeAuthorizationError,
+    search,
+    scopeKey: "user-settings",
+  });
   return (
     <AuthenticatedUserRoutePage>
-      <UserSettingsPage />
+      <UserSettingsPage authorizationError={authorizationError} />
     </AuthenticatedUserRoutePage>
   );
 }

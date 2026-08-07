@@ -55,6 +55,19 @@ export function readUrlSearchParamsRecord(search: string): Record<string, string
   return fromEntries([...valuesByKey.entries()]);
 }
 
+export function removeUrlSearchParams(search: string, keysToRemove: readonly string[]): string {
+  const removedKeys = new Set(keysToRemove);
+  const serializedSearch = search.startsWith("?") ? search.slice(1) : search;
+  if (serializedSearch === "") {
+    return "";
+  }
+  const retainedParts = serializedSearch.split("&").filter((part) => {
+    const key = new NativeURLSearchParams(part).keys().next().value;
+    return key === undefined || !removedKeys.has(key);
+  });
+  return retainedParts.length === 0 ? "" : `?${retainedParts.join("&")}`;
+}
+
 function readUrlInput(baseUrl: string | URL): UrlInput {
   if (baseUrl instanceof URL) {
     return {

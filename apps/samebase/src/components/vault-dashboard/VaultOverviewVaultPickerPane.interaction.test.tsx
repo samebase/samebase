@@ -6,12 +6,21 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultOverviewVaultPickerPane } from "./VaultOverviewVaultPickerPane";
+import type { GitHubAuthorizationSetup } from "@/lib/githubAppSetupFlow";
 
 const getInstallationUrl = vi.hoisted(() =>
-  vi.fn(async () => "https://github.com/apps/samebase/installations/new"),
+  vi.fn(async () => ({
+    callbackOrigin: "https://api.samebase.com",
+    setupUrl: "https://github.com/apps/samebase/installations/new",
+  })),
 );
 const openSetupPopup = vi.hoisted(() =>
-  vi.fn(async (getSetupUrl: () => Promise<string>) => await getSetupUrl()),
+  vi.fn(
+    async (
+      _provider: "github-app" | "github-user",
+      getSetup: () => Promise<GitHubAuthorizationSetup>,
+    ) => await getSetup(),
+  ),
 );
 
 vi.mock("convex/react", async (importOriginal) => {

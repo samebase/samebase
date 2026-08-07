@@ -2179,13 +2179,17 @@ describe("cloudflare resources", () => {
   });
 
   it("fails closed when Cloudflare OAuth exposes multiple accounts", () => {
+    const accounts = normalizeCloudflareAccounts([
+      { id: "first-account-id", name: "First account" },
+      { id: "second-account-id", name: "Second account" },
+    ]);
+
+    expect(selectSingleCloudflareAccount(accounts)).toBeNull();
     expect(
-      selectSingleCloudflareAccount(
-        normalizeCloudflareAccounts([
-          { id: "first-account-id", name: "First account" },
-          { id: "second-account-id", name: "Second account" },
-        ]),
-      ),
+      resolveCloudflareAccountAfterAuthorization(accounts, {
+        accountId: "first-account-id",
+        accountName: "First account",
+      }),
     ).toBeNull();
   });
 
@@ -2196,10 +2200,7 @@ describe("cloudflare resources", () => {
   });
 
   it("keeps the connected account only when a replacement grant can access it", () => {
-    const accounts = normalizeCloudflareAccounts([
-      { id: "account-a", name: "Account A renamed" },
-      { id: "account-b", name: "Account B" },
-    ]);
+    const accounts = normalizeCloudflareAccounts([{ id: "account-a", name: "Account A renamed" }]);
 
     expect(
       resolveCloudflareAccountAfterAuthorization(accounts, {
@@ -2210,12 +2211,12 @@ describe("cloudflare resources", () => {
       accountId: "account-a",
       accountName: "Account A renamed",
     });
-    expect(() =>
+    expect(
       resolveCloudflareAccountAfterAuthorization(accounts, {
         accountId: "account-missing",
         accountName: "Missing account",
       }),
-    ).toThrow("The new Cloudflare authorization cannot access the connected account.");
+    ).toBeNull();
   });
 
   it("selects the build token backed by the current Cloudflare token", () => {

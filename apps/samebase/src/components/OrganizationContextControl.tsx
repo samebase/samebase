@@ -8,7 +8,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/use-toast";
-import { getCurrentRootRelativeUrl, openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
+import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
+import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
 import { buildOrganizationSwitchHref } from "@/lib/organizationSwitchRoute";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
@@ -45,7 +46,7 @@ export function OrganizationContextControl() {
       return;
     }
     setIsInstalling(true);
-    void openGitHubAppSetupPopup(async () => {
+    void openGitHubAppSetupPopup("github-app", async () => {
       return await getGitHubAppInstallationUrl({ returnToPath: getCurrentRootRelativeUrl() });
     })
       .catch((error: unknown) => {

@@ -36,7 +36,7 @@ function InstallGitHubAppButton() {
 
     setPending(true);
     setError(null);
-    void openGitHubAppSetupPopup(async () => {
+    void openGitHubAppSetupPopup("github-app", async () => {
       return await getGitHubAppInstallationUrl({ returnToPath: "/vault" });
     })
       .catch(() => setError("Could not open GitHub App installation."))

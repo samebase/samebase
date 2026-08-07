@@ -349,9 +349,17 @@ export async function connectConvexCredential(
     credential: credentials?.convex,
   });
   if (snapshotHash !== args.expectedProviderSnapshotHash) {
+    if (oauthState !== null) {
+      await ctx.db.delete(oauthState._id);
+      return { status: "configuration_changed" };
+    }
     throw new Error("Convex configuration changed before authorization completed.");
   }
   if (organization.convexTeam !== undefined && organization.convexTeam.teamId !== args.teamId) {
+    if (oauthState !== null) {
+      await ctx.db.delete(oauthState._id);
+      return { status: "target_mismatch" };
+    }
     throw new Error("Convex authorization does not match the configured team.");
   }
 
@@ -449,13 +457,22 @@ export async function connectCloudflareCredential(
     credential: credentials?.cloudflare,
   });
   if (snapshotHash !== args.expectedProviderSnapshotHash) {
+    if (oauthState !== null) {
+      await ctx.db.delete(oauthState._id);
+      return { status: "configuration_changed" };
+    }
     throw new Error("Cloudflare configuration changed before authorization completed.");
   }
   if (
-    organization.cloudflareAccount !== undefined &&
-    (args.account.state !== "selected" ||
-      args.account.accountId !== organization.cloudflareAccount.accountId)
+    (args.auth.method !== "api_key" && args.account.state === "selection_required") ||
+    (organization.cloudflareAccount !== undefined &&
+      (args.account.state !== "selected" ||
+        args.account.accountId !== organization.cloudflareAccount.accountId))
   ) {
+    if (oauthState !== null) {
+      await ctx.db.delete(oauthState._id);
+      return { status: "target_mismatch" };
+    }
     throw new Error("Cloudflare authorization does not match the configured account.");
   }
 

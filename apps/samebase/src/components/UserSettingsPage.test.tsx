@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "../../convex/_generated/api";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { UserSettingsPage } from "./UserSettingsPage";
+import type { GitHubAuthorizationSetup } from "@/lib/githubAppSetupFlow";
 
 const { act } = React;
 
@@ -24,7 +25,7 @@ const testState = vi.hoisted(() => ({
     canGoBack: vi.fn(() => true),
     navigate: vi.fn(async () => undefined),
   },
-  setupPopup: vi.fn<(getSetupUrl: () => Promise<string>) => Promise<void>>(),
+  setupPopup: vi.fn<(getSetup: () => Promise<GitHubAuthorizationSetup>) => Promise<void>>(),
   signOut: vi.fn(),
 }));
 
@@ -53,8 +54,10 @@ vi.mock("@/components/ui/use-toast", () => ({
 }));
 
 vi.mock("@/lib/githubAppSetupFlow", () => ({
-  openGitHubAppSetupPopup: (getSetupUrl: () => Promise<string>) =>
-    testState.setupPopup(getSetupUrl),
+  openGitHubAppSetupPopup: (
+    _provider: "github-app" | "github-user",
+    getSetup: () => Promise<GitHubAuthorizationSetup>,
+  ) => testState.setupPopup(getSetup),
 }));
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
@@ -163,7 +166,10 @@ describe("UserSettingsPage", () => {
   });
 
   it("starts personal GitHub authorization from account settings", async () => {
-    const getAuthorizationUrl = vi.fn(async () => "https://github.com/login/oauth/authorize");
+    const getAuthorizationUrl = vi.fn(async () => ({
+      callbackOrigin: "https://api.samebase.com",
+      setupUrl: "https://github.com/login/oauth/authorize",
+    }));
     testState.mutations.set(
       getFunctionName(api.githubAppInstallation.getGitHubUserAuthorizationUrl),
       getAuthorizationUrl,

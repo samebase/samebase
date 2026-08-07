@@ -47,6 +47,8 @@ export const vOrganizationProviderCredentials = union(
 export const vProviderOAuthStoreResult = union(
   object({ status: literal("stored") }),
   object({ status: literal("access_lost") }),
+  object({ status: literal("configuration_changed") }),
+  object({ status: literal("target_mismatch") }),
 );
 export type ProviderOAuthStoreResult = Infer<typeof vProviderOAuthStoreResult>;
 
@@ -61,6 +63,7 @@ const providerOAuthCallbackStateFields = {
   userId: id("users"),
   organizationId: id("organizations"),
   expectedProviderSnapshotHash: string(),
+  returnToPath: optional(string()),
   state: string(),
   createdAt: number(),
   expiresAt: number(),

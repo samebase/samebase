@@ -10,6 +10,7 @@ import { createRoot, hydrateRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AuthenticatedAppRoutePage, AuthenticatedUserRoutePage } from "./AuthenticatedAppRoutePage";
+import type { RootRouteSearch } from "@/routeSearch/root";
 
 const authState = vi.hoisted(() => ({
   isAuthenticated: false,
@@ -17,6 +18,15 @@ const authState = vi.hoisted(() => ({
 }));
 const routeChildState = vi.hoisted(() => ({
   renders: 0,
+}));
+const routerState = vi.hoisted(() => ({
+  navigate: vi.fn(async () => undefined),
+}));
+const rootSearchState = vi.hoisted((): { search: RootRouteSearch } => ({
+  search: {},
+}));
+const toastState = vi.hoisted(() => ({
+  toast: vi.fn(),
 }));
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -40,6 +50,7 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
     ...actual,
     useLocation: ({ select }: { select?: (value: typeof location) => unknown } = {}) =>
       select ? select(location) : location,
+    useRouter: () => routerState,
   };
 });
 
@@ -54,7 +65,11 @@ vi.mock("@/components/ApprovalGate", () => ({
 }));
 
 vi.mock("@/routeSearch/root", () => ({
-  useRootRouteSearch: () => ({}),
+  useRootRouteSearch: () => rootSearchState.search,
+}));
+
+vi.mock("@/components/ui/use-toast", () => ({
+  toast: toastState.toast,
 }));
 
 vi.mock("@/lib/useAppAuthRuntimeEffects", () => ({
@@ -150,6 +165,9 @@ describe("AuthenticatedAppRoutePage", () => {
     });
     window.history.replaceState({}, "", "/vault");
     routeChildState.renders = 0;
+    routerState.navigate.mockClear();
+    rootSearchState.search = {};
+    toastState.toast.mockClear();
   });
 
   it("renders the temporary auth shell after hydration instead of route children or the sign-in form", async () => {
@@ -164,6 +182,27 @@ describe("AuthenticatedAppRoutePage", () => {
     expect(markup).not.toContain("Route child");
     expect(markup).not.toContain("Sign in");
     expect(markup).not.toContain("approval-gate");
+  });
+
+  it("shows and consumes a GitHub App setup error on a non-settings route", async () => {
+    rootSearchState.search = {
+      "authorization-provider": "github-app",
+      "authorization-error": "canceled",
+      "prod-ui": true,
+    };
+
+    await renderAuthenticatedRoutePageAfterEffects();
+
+    expect(toastState.toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        priority: "high",
+        title: "Authorization not completed",
+        variant: "destructive",
+      }),
+    );
+    expect(routerState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({ hash: true, replace: true, resetScroll: false, to: "." }),
+    );
   });
 
   it("renders the sign-in form after hydration when loading without local auth material", async () => {

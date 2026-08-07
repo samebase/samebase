@@ -113,6 +113,26 @@ describe("rootRouteSearch", () => {
     ).toEqual({});
   });
 
+  it("accepts only allowlisted authorization completion values", () => {
+    expect(
+      validateRootRouteSearch({
+        "authorization-provider": "convex",
+        "authorization-error": "target-mismatch",
+        "prod-ui": "",
+      }),
+    ).toEqual({
+      "authorization-provider": "convex",
+      "authorization-error": "target-mismatch",
+      "prod-ui": true,
+    });
+    expect(
+      validateRootRouteSearch({
+        "authorization-provider": "provider-response",
+        "authorization-error": "secret-detail",
+      }),
+    ).toEqual({});
+  });
+
   it("treats present root flags as enabled regardless of value", () => {
     expect(
       validateRootRouteSearch({
