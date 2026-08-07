@@ -12,6 +12,9 @@ minimumReleaseAgeExclude:
   # TODO(2026-08-06): Remove after this security patch completes the normal
   # 7-day cooling period.
   - brace-expansion@5.0.9
+  # TODO(2026-08-10): Remove after this security patch completes the normal
+  # 7-day cooling period.
+  - dompurify@3.4.13
   # TODO(2026-08-07): Remove after this security patch completes the normal
   # 7-day cooling period.
   - fast-uri@3.1.5
@@ -58,7 +61,7 @@ overrides:
   "brace-expansion@2": 5.0.9
   "brace-expansion@5": 5.0.9
   body-parser: 2.3.0
-  dompurify: 3.4.12
+  dompurify: 3.4.13
   esbuild: 0.28.1
   fast-uri: 3.1.5
   flatted: 3.4.2
