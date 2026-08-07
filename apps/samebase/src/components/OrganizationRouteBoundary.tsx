@@ -1,4 +1,5 @@
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import {
   findViewerOrganization,
   useOrganizationContext,
@@ -13,7 +14,7 @@ function OrganizationUnavailable({
   authorizationErrorMessage,
   owner,
 }: {
-  authorizationErrorMessage?: string | null;
+  authorizationErrorMessage?: ReactNode;
   owner: string;
 }) {
   return (
@@ -23,9 +24,9 @@ function OrganizationUnavailable({
         You do not have Samebase access to {owner}.
       </p>
       {authorizationErrorMessage ? (
-        <p className="mt-3 text-sm text-destructive" role="alert">
-          {authorizationErrorMessage}
-        </p>
+        <div className="mt-3">
+          <AuthorizationErrorNotice>{authorizationErrorMessage}</AuthorizationErrorNotice>
+        </div>
       ) : null}
       <Button asChild className="mt-6" variant="outline">
         <Link to={DASHBOARD_ROUTE}>All vaults</Link>
@@ -39,7 +40,7 @@ export function OrganizationRouteBoundary({
   children,
   owner,
 }: {
-  authorizationErrorMessage?: string | null;
+  authorizationErrorMessage?: ReactNode;
   children: (organization: ViewerOrganization) => ReactNode;
   owner: string;
 }) {
@@ -65,7 +66,7 @@ export function AuthenticatedOrganizationRoutePage({
   children,
   owner,
 }: {
-  authorizationErrorMessage?: string | null;
+  authorizationErrorMessage?: ReactNode;
   children: (organization: ViewerOrganization) => ReactNode;
   owner: string;
 }) {

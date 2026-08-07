@@ -1,5 +1,6 @@
 import { isInIframe } from "@/authClient";
 import { useApiKeyConnectDialog } from "@/components/ApiKeyConnectDialog";
+import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { Button } from "@/components/ui/button";
 import { VaultDashboardCloudflareAccountDialog } from "@/components/vault-dashboard/VaultDashboardCloudflareAccountDialog";
@@ -90,7 +91,7 @@ export type ProviderConnectionsPageConnectionState = {
 };
 type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState & {
   apiKeyDialog: ReactNode;
-  authorizationErrorMessage: string | null;
+  authorizationErrorMessage: ReactNode;
   cloudflareAccountDialog: CloudflareAccountDialogState;
   disconnectingProvider: ProviderKey | null;
   cloudflareAccessError: string | null;
@@ -743,9 +744,9 @@ export function ProviderConnectionsPageView({
         <h1 className="text-xl font-semibold @2xl:text-2xl">Providers</h1>
       </div>
       {authorizationErrorMessage ? (
-        <p className="mb-4 text-sm text-destructive" role="alert">
-          {authorizationErrorMessage}
-        </p>
+        <div className="mb-4 max-w-3xl">
+          <AuthorizationErrorNotice>{authorizationErrorMessage}</AuthorizationErrorNotice>
+        </div>
       ) : null}
       {providerDisconnectNotice ? (
         <div className="mb-4 text-sm text-muted-foreground" role="status">

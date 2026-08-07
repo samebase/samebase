@@ -1,4 +1,5 @@
 import type { ViewerOrganization } from "@/lib/organizationContext";
+import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import { OrganizationBillingSection } from "@/components/OrganizationBillingSection";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
@@ -87,9 +88,9 @@ export function OrganizationSettingsPage({
     >
       <h1 className="text-xl font-semibold @2xl:text-2xl">Organization settings</h1>
       {authorizationErrorMessage ? (
-        <p className="mt-4 text-sm text-destructive" role="alert">
-          {authorizationErrorMessage}
-        </p>
+        <div className="mt-4">
+          <AuthorizationErrorNotice>{authorizationErrorMessage}</AuthorizationErrorNotice>
+        </div>
       ) : null}
       <section className="mt-8 border-t pt-6" aria-labelledby="organization-identity-heading">
         <h2 id="organization-identity-heading" className="text-base font-semibold">

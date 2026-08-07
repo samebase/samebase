@@ -7,6 +7,7 @@ import { api } from "../../convex/_generated/api";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { useAppAuthActions } from "@/authClient";
 import { AccountDeletionDialog } from "@/components/AccountDeletionDialog";
+import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import { McpClientsSettingsSection } from "@/components/McpClientsSettingsSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -276,9 +277,9 @@ export function UserSettingsPage({
         </Button>
       </div>
       {authorizationErrorMessage ? (
-        <p className="mt-4 text-sm text-destructive" role="alert">
-          {authorizationErrorMessage}
-        </p>
+        <div className="mt-4">
+          <AuthorizationErrorNotice>{authorizationErrorMessage}</AuthorizationErrorNotice>
+        </div>
       ) : null}
 
       <section className="mt-8 border-t pt-6" aria-labelledby="settings-profile-heading">
