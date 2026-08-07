@@ -452,59 +452,6 @@ export async function resolveConvexProvisioningConnection(
   };
 }
 
-export async function resolveCloudflareProvisioningConnection(
-  ctx: Pick<ActionCtx, "runAction">,
-  args: {
-    userId: Id<"users">;
-    organizationId: Id<"organizations">;
-    accountId: string;
-    forceRefresh?: true;
-  },
-): Promise<{
-  organizationId: Id<"organizations">;
-  cloudflareToken: string;
-  cloudflareAuthMethod: "api_key" | "oauth" | "mcp_oauth";
-  cloudflareAccountId: string;
-}> {
-  const resolvedCloudflareConnection = await ctx.runAction(
-    internal.cloudflareOAuth.resolveConnectionForOrganization,
-    {
-      userId: args.userId,
-      organizationId: args.organizationId,
-      ...(args.forceRefresh ? { forceRefresh: true } : {}),
-    },
-  );
-  if (!resolvedCloudflareConnection) {
-    throw new Error(
-      "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
-    );
-  }
-
-  const cloudflareToken = resolvedCloudflareConnection.auth.credential.trim();
-  const account = resolvedCloudflareConnection.account;
-
-  if (!cloudflareToken) {
-    throw new Error(
-      "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
-    );
-  }
-
-  if (!account || account.accountId !== args.accountId) {
-    throw new Error("Cloudflare account selection is required before provisioning can continue.");
-  }
-  const cloudflareAccountId = account.accountId.trim();
-  if (!cloudflareAccountId) {
-    throw new Error("Cloudflare account selection is required before provisioning can continue.");
-  }
-
-  return {
-    organizationId: args.organizationId,
-    cloudflareToken,
-    cloudflareAuthMethod: resolvedCloudflareConnection.auth.method,
-    cloudflareAccountId,
-  };
-}
-
 export const markWorkflowStartupFailed = internalMutation({
   args: {
     runId: v.id("workflow_vaultProvisioning_runs"),

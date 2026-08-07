@@ -532,8 +532,8 @@ It should:
 3. reject a vault that already has an active `deletion` gate
 4. reject any vault that is not quiescent for deletion
 5. validate selected teardown options against current local state
-6. require the current organization credential slots for selected provider teardown options when
-   those credentials are already known to be necessary
+6. defer provider credential resolution to Workflow; queueing does not require a current credential
+   slot
 7. build the validated deletion plan and retry snapshot
 8. insert `workflow_vaultDeletion_runs` and the first event
 9. patch the vault deletion gate to `deleting`

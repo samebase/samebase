@@ -158,10 +158,6 @@ const vConvexProjectProviderObservation = union(
     state: literal("current"),
     ...vConvexProviderProjectDetails,
   }),
-  object({
-    state: literal("moved"),
-    ...vConvexProviderProjectDetails,
-  }),
   object({ state: literal("missing_ambiguous") }),
   object({
     state: literal("unavailable"),
