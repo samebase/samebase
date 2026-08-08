@@ -565,6 +565,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-connected.png",
   "apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-loading.png",
   "apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-not-configured.png",
+  "apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-personal.png",
   "apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-recovery.png",
   "apps/samebase/e2e/public-account-loading-visual.spec.ts",
   "apps/samebase/e2e/public-account-loading-visual.spec.ts-snapshots/public-account-checking-login.png",
