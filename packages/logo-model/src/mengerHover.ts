@@ -94,9 +94,8 @@ function readPointAxis(point: MengerHoverWorldPoint, axis: MengerHoleAxis): numb
 /**
 Maps an orthographic pointer line to the boundary of the visible cube
 half-spaces. The last face plane entered is the finite cube surface when the
-pointer covers the cube. Removing that face's tangent limits extends one face
-over the full page, joins two faces on one edge, and joins three faces at their
-corner.
+pointer covers the cube. Outside the cube, the closest extended face keeps the
+model-space pointer distance stable when another face is nearly edge-on.
 */
 export function projectMengerHoverLineToVisibleFacePlanes(
   origin: MengerHoverWorldPoint,
@@ -104,6 +103,12 @@ export function projectMengerHoverLineToVisibleFacePlanes(
   worldSize: number,
 ): MengerHoverFaceProjection | null {
   const halfWorldSize = worldSize / 2;
+  let closestExtendedAxis: MengerHoleAxis | null = null;
+  let closestExtendedDistance = Number.NEGATIVE_INFINITY;
+  let closestExtendedDistanceSquared = Number.POSITIVE_INFINITY;
+  let closestExtendedSign: 1 | -1 = 1;
+  let exitsCubeAt = Number.POSITIVE_INFINITY;
+  let missesParallelSlab = false;
   let selectedAxis: MengerHoleAxis | null = null;
   let selectedDistance = Number.NEGATIVE_INFINITY;
   let selectedSign: 1 | -1 = 1;
@@ -112,21 +117,50 @@ export function projectMengerHoverLineToVisibleFacePlanes(
   for (const axis of MENGER_HOLE_AXES) {
     const directionValue = readPointAxis(direction, axis);
     if (Math.abs(directionValue) <= MENGER_HOVER_VISIBLE_FACE_EPSILON) {
+      const originValue = readPointAxis(origin, axis);
+      if (originValue < -halfWorldSize || originValue > halfWorldSize) {
+        missesParallelSlab = true;
+      }
       continue;
     }
 
     visibleFaceCount += 1;
     const sign = directionValue > 0 ? -1 : 1;
     const distance = (sign * halfWorldSize - readPointAxis(origin, axis)) / directionValue;
+    const exitDistance = (-sign * halfWorldSize - readPointAxis(origin, axis)) / directionValue;
+    exitsCubeAt = Math.min(exitsCubeAt, exitDistance);
     if (distance > selectedDistance) {
       selectedAxis = axis;
       selectedDistance = distance;
       selectedSign = sign;
     }
+
+    let extendedDistanceSquared = 0;
+    for (const tangentAxis of MENGER_HOLE_AXES) {
+      if (tangentAxis === axis) {
+        continue;
+      }
+      const tangentValue =
+        readPointAxis(origin, tangentAxis) + readPointAxis(direction, tangentAxis) * distance;
+      const tangentOverflow = Math.max(Math.abs(tangentValue) - halfWorldSize, 0);
+      extendedDistanceSquared += tangentOverflow * tangentOverflow;
+    }
+    if (extendedDistanceSquared < closestExtendedDistanceSquared) {
+      closestExtendedAxis = axis;
+      closestExtendedDistance = distance;
+      closestExtendedDistanceSquared = extendedDistanceSquared;
+      closestExtendedSign = sign;
+    }
   }
 
-  if (selectedAxis === null) {
+  if (selectedAxis === null || closestExtendedAxis === null) {
     return null;
+  }
+
+  if (missesParallelSlab || selectedDistance > exitsCubeAt) {
+    selectedAxis = closestExtendedAxis;
+    selectedDistance = closestExtendedDistance;
+    selectedSign = closestExtendedSign;
   }
 
   return {

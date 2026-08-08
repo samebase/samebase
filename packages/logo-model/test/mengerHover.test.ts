@@ -176,6 +176,19 @@ describe("Menger hover", () => {
     expect(slightlyTilted?.point.y).toBeCloseTo(-9e-7, 12);
   });
 
+  it("extends the closest face when a shallow pointer line misses the cube", () => {
+    const projection = projectMengerHoverLineToVisibleFacePlanes(
+      { x: 10, y: 0, z: 1.2 },
+      { x: -1, y: 0, z: -0.001 },
+      2,
+    );
+
+    expect(projection?.axis).toBe(0);
+    expect(projection?.point.x).toBe(1);
+    expect(projection?.point.z).toBeCloseTo(1.191, 12);
+    expect(projection?.visibleFaceCount).toBe(2);
+  });
+
   it("normalizes the pointer reveal radius", () => {
     expect(normalizeMengerHoverRevealRadius(Number.NaN)).toBe(MENGER_HOVER_DEFAULT_REVEAL_RADIUS);
     expect(normalizeMengerHoverRevealRadius(0)).toBe(0.05);

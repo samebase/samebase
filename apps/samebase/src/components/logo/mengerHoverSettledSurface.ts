@@ -1,6 +1,6 @@
 import { type MengerDepthTransitionModel } from "@samebase/logo-model/menger-depth-transition";
 import { buildLogoSurfaceQuads, type LogoSurfaceQuad } from "@samebase/logo-model/surface";
-import { voxelKey } from "@samebase/logo-model/voxel";
+import { LOGO_GRID_SIZE_3, voxelKey } from "@samebase/logo-model/voxel";
 import * as THREE from "three";
 
 const BOX_FACE_MATERIAL_COUNT = 6;
@@ -64,6 +64,36 @@ export type MengerHoverSettledSurface = {
   mesh: THREE.InstancedMesh;
   quadCount: number;
 };
+
+export function createMengerHoverDepthOneSurface({
+  materials,
+  model,
+  worldSize,
+}: {
+  materials: THREE.Material[];
+  model: MengerDepthTransitionModel;
+  worldSize: number;
+}): MengerHoverSettledSurface {
+  const filledVoxels = new Set(model.depthOneVoxels.map(([x, y, z]) => voxelKey(x, y, z)));
+  const surfaceQuads = buildLogoSurfaceQuads(filledVoxels, LOGO_GRID_SIZE_3);
+  const geometry = createSurfaceGeometry(surfaceQuads);
+  const mesh = new THREE.InstancedMesh(geometry, materials, 1);
+  const matrix = new THREE.Matrix4().makeScale(
+    worldSize / LOGO_GRID_SIZE_3,
+    worldSize / LOGO_GRID_SIZE_3,
+    worldSize / LOGO_GRID_SIZE_3,
+  );
+  mesh.setMatrixAt(0, matrix);
+  mesh.instanceMatrix.needsUpdate = true;
+  mesh.computeBoundingSphere();
+
+  return {
+    geometry,
+    instanceCount: 1,
+    mesh,
+    quadCount: surfaceQuads.length,
+  };
+}
 
 export function createMengerHoverSettledSurface({
   materials,
