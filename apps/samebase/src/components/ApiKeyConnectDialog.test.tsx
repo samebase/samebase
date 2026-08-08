@@ -94,15 +94,20 @@ async function submitToken(container: HTMLElement) {
 }
 
 describe("useApiKeyConnectDialog", () => {
-  it("shows public Convex error data", async () => {
+  it("shows public provider error data", async () => {
     const container = await mountDialog(async () =>
-      Promise.reject(new ConvexError("Cloudflare API token must access exactly one account.")),
+      Promise.reject(
+        new ConvexError("Use a Cloudflare API token that can access ONLY ONE account."),
+      ),
     );
 
+    expect(container.textContent).toContain(
+      "Paste a Cloudflare user API token that can access ONLY ONE account.",
+    );
     await submitToken(container);
 
     expect(container.querySelector('[role="alert"]')?.textContent).toBe(
-      "Cloudflare API token must access exactly one account.",
+      "Use a Cloudflare API token that can access ONLY ONE account.",
     );
   });
 

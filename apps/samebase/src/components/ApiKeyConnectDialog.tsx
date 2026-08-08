@@ -17,7 +17,7 @@ type ConnectWithToken = (args: { token: string }) => Promise<unknown>;
 const API_CREDENTIAL_COPY = {
   cloudflare: {
     connectLabel: "Connect Cloudflare",
-    description: "Paste a Cloudflare user API token that can access exactly one account.",
+    description: "Paste a Cloudflare user API token that can access ONLY ONE account.",
     emptyError: "API token is required.",
     failureMessage: "Could not connect Cloudflare.",
     inputLabel: "Cloudflare user API token",

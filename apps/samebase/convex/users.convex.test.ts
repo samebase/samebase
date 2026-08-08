@@ -517,7 +517,7 @@ describe("organization provider status", () => {
         { id: primaryCloudflareAccountId, name: "Primary account", type: "standard" as const },
         { id: secondaryCloudflareAccountId, name: "Secondary account", type: "standard" as const },
       ],
-      error: "Cloudflare API token must access exactly one account.",
+      error: "Use a Cloudflare API token that can access ONLY ONE account.",
       label: "several accounts",
     },
   ])("rejects a Cloudflare API token with $label before storage", async (testCase) => {
@@ -580,7 +580,7 @@ describe("organization provider status", () => {
     );
     expect(replacementError).toBeInstanceOf(ConvexError);
     expect(replacementError).toMatchObject({
-      data: "Cloudflare API token cannot access the configured Cloudflare account.",
+      data: "Use a Cloudflare API token that can access ONLY Primary account.",
     });
     await expect(
       asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),

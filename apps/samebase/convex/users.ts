@@ -814,14 +814,14 @@ export const connectCloudflareWithApiToken = action({
       throw new ConvexError("Cloudflare API token cannot access an account.");
     }
     if (accounts.length > 1) {
-      throw new ConvexError("Cloudflare API token must access exactly one account.");
+      throw new ConvexError("Use a Cloudflare API token that can access ONLY ONE account.");
     }
 
     const configuredAccount = configuration.cloudflareAccount;
     const [account] = accounts;
     if (configuredAccount !== undefined && account.accountId !== configuredAccount.accountId) {
       throw new ConvexError(
-        "Cloudflare API token cannot access the configured Cloudflare account.",
+        `Use a Cloudflare API token that can access ONLY ${configuredAccount.accountName}.`,
       );
     }
 

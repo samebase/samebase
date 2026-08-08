@@ -498,6 +498,37 @@ describe("ProviderConnectionsPage", () => {
     expect(startCloudflareOAuth).not.toHaveBeenCalled();
   });
 
+  it("tells an owner to update a Cloudflare API token that fails its check", async () => {
+    testState.actions.set(
+      getFunctionName(api.cloudflareProviderAccess.checkCloudflareConnectionAccess),
+      vi.fn(async () => ({
+        checks: [{ key: "token" as const, status: "error" as const }],
+        connected: true,
+        requestedScopes: [],
+      })),
+    );
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      state: "not_configured",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      accountId: "cloudflare-account",
+      accountName: "Samebase",
+      authMethod: "api_key",
+      state: "connected",
+    });
+
+    const container = mountProviderConnectionsPage();
+
+    await act(async () => {
+      await vi.waitFor(() => {
+        expect(queryClient.isFetching()).toBe(0);
+        expect(
+          container.querySelector('[data-provider-key="cloudflare"] [role="alert"]')?.textContent,
+        ).toBe("Update the Cloudflare API token.");
+      });
+    });
+  });
+
   it("does not show GitHub installation controls to organization members", () => {
     setProviderQueries();
 
