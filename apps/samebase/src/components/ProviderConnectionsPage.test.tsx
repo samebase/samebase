@@ -435,16 +435,24 @@ describe("ProviderConnectionsPage", () => {
     const container = mountProviderConnectionsPage();
     const convexRow = container.querySelector('[data-provider-key="convex"]');
     const cloudflareRow = container.querySelector('[data-provider-key="cloudflare"]');
+    const convexButtons = [...(convexRow?.querySelectorAll("button") ?? [])];
+    const cloudflareButtons = [...(cloudflareRow?.querySelectorAll("button") ?? [])];
 
-    expect(
-      [...(convexRow?.querySelectorAll("button") ?? [])].map((button) => button.textContent),
-    ).toEqual(["Convex OAuth", "Use API key"]);
-    expect(
-      [...(cloudflareRow?.querySelectorAll("button") ?? [])].map((button) => button.textContent),
-    ).toEqual(["Cloudflare OAuth", "Use API token"]);
+    expect(convexButtons.map((button) => button.textContent)).toEqual([
+      "Convex OAuth",
+      "Use API key",
+    ]);
+    expect(cloudflareButtons.map((button) => button.textContent)).toEqual([
+      "Cloudflare OAuth",
+      "Use API token",
+    ]);
+    expect(convexButtons[0]?.className).toContain("border-border");
+    expect(convexButtons[1]?.className).toContain("hover:underline");
+    expect(cloudflareButtons[0]?.className).toContain("border-border");
+    expect(cloudflareButtons[1]?.className).toContain("hover:underline");
 
     act(() => {
-      cloudflareRow?.querySelectorAll("button")[1]?.click();
+      cloudflareButtons[1]?.click();
     });
     expect(testState.apiCredentialDialogOpens).toEqual(["cloudflare"]);
   });

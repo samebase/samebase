@@ -64,6 +64,7 @@ type ProviderRuntimeConfig = {
   popupRef: MutableRefObject<Window | null>;
 };
 type ProviderConnectionActionViewModel = {
+  appearance?: "text";
   disabled?: boolean;
   href?: string;
   isPending?: boolean;
@@ -605,7 +606,7 @@ function ConnectionActions({ actions }: { actions: readonly ProviderConnectionAc
         return action.href && !action.disabled ? (
           <Button
             key={action.key}
-            variant="outline"
+            variant={action.appearance === "text" ? "link" : "outline"}
             size="sm"
             asChild
             className="h-auto max-w-full whitespace-normal py-2 text-left"
@@ -622,7 +623,7 @@ function ConnectionActions({ actions }: { actions: readonly ProviderConnectionAc
         ) : (
           <Button
             key={action.key}
-            variant="outline"
+            variant={action.appearance === "text" ? "link" : "outline"}
             size="sm"
             onClick={action.onClick}
             className="h-auto max-w-full whitespace-normal py-2 text-left"
@@ -770,6 +771,7 @@ export function ProviderConnectionsPageView({
           key: "api-key",
           label: "Use API key",
           onClick: onOpenConvexApiKeyDialog,
+          appearance: "text",
         },
       ]
     : [];
@@ -884,6 +886,7 @@ export function ProviderConnectionsPageView({
           key: "api-token",
           label: "Use API token",
           onClick: onOpenCloudflareApiTokenDialog,
+          appearance: "text",
         },
       ]
     : [];
