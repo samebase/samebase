@@ -276,7 +276,7 @@ async function readConvexWorkerReferences(
     if (
       !connection ||
       !token ||
-      connection.account?.accountId !== args.context.cloudflareAccountId
+      connection.account.accountId !== args.context.cloudflareAccountId
     ) {
       return new Map();
     }

@@ -258,6 +258,9 @@ not copy provider domain or URL state into a Convex table.
 Cloudflare `oauth` and `api_key` credentials call `api.cloudflare.com` directly. Only legacy
 `mcp_oauth` credentials call the Cloudflare MCP server.
 
+For Cloudflare, `api_key` stores a user API token, not a global API key or an account-owned token.
+Workers Builds currently accepts only user API tokens as build credentials.
+
 Required env vars (OAuth + redirects):
 
 - `PROVIDER_CONVEX_OAUTH_CLIENT_ID`

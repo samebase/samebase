@@ -4,8 +4,6 @@ import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice"
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
-import { VaultDashboardCloudflareAccountDialog } from "@/components/vault-dashboard/VaultDashboardCloudflareAccountDialog";
-import { type CloudflareAccountOption } from "@/components/vault-dashboard/vaultDashboardCloudflareAccountOptions";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
@@ -66,6 +64,7 @@ type ProviderRuntimeConfig = {
   popupRef: MutableRefObject<Window | null>;
 };
 type ProviderConnectionActionViewModel = {
+  appearance?: "text";
   disabled?: boolean;
   href?: string;
   isPending?: boolean;
@@ -109,14 +108,6 @@ type ApiCheckViewModel = {
 };
 type ProviderDisconnectResult = (typeof api.users.disconnectConvex)["_returnType"];
 type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "poll";
-type CloudflareAccountDialogState = {
-  error: string | null;
-  isLoadingAccounts: boolean;
-  isOpen: boolean;
-  isSubmitting: boolean;
-  options: CloudflareAccountOption[];
-  selectedAccountId: string;
-};
 export type ProviderConnectionsPageConnectionState = {
   cloudflareAccess: AppCloudflareConnectionAccess | null;
   cloudflareConnection: AppCloudflareConnection | undefined;
@@ -125,11 +116,11 @@ export type ProviderConnectionsPageConnectionState = {
   githubAccess: AppGitHubInstallationAccess | null;
 };
 type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState & {
-  apiKeyDialog: ReactNode;
   authorizationErrorMessage: ReactNode;
-  cloudflareAccountDialog: CloudflareAccountDialogState;
+  cloudflareApiTokenDialog: ReactNode;
   disconnectingProvider: ProviderKey | null;
   cloudflareAccessError: boolean;
+  convexApiKeyDialog: ReactNode;
   convexAccessError: boolean;
   githubAccessError: boolean;
   isCheckingCloudflareAccess: boolean;
@@ -137,13 +128,10 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   isCheckingGitHubAccess: boolean;
   isReconnectingGitHubApp: boolean;
   organization: ViewerOrganization;
-  onCloudflareAccountChange: (accountId: string) => void;
-  onCloudflareAccountOpenChange: (isOpen: boolean) => void;
-  onCloudflareAccountSubmit: () => void;
   onConnect: (provider: ProviderKey) => void;
   onDisconnect: (provider: ProviderKey) => void;
-  onOpenApiKeyDialog: () => void;
-  onOpenCloudflareAccountDialog: (accountId: string | undefined) => void;
+  onOpenCloudflareApiTokenDialog: () => void;
+  onOpenConvexApiKeyDialog: () => void;
   onReconnectGitHubApp: () => void;
   providerDisconnectNotice: string | null;
 };
@@ -179,8 +167,11 @@ const GITHUB_ACCESS_CHECKS = [
   { key: "installation", target: "/app/installations/{installation_id}" },
 ] satisfies readonly ProviderAccessCheckDefinition[];
 
-function formatAuthMethod(method: "oauth" | "mcp_oauth" | "api_key" | undefined) {
-  if (method === "api_key") return "API key";
+function formatAuthMethod(
+  method: "oauth" | "mcp_oauth" | "api_key" | undefined,
+  kind: "Team" | "Account",
+) {
+  if (method === "api_key") return kind === "Account" ? "API token" : "API key";
   if (method === "oauth") return "OAuth";
   if (method === "mcp_oauth") return "OAuth";
   return "Unknown";
@@ -265,7 +256,7 @@ function ProviderTargetStatus({
     <div className="min-w-0">
       <div className="min-w-0 text-base leading-5">{target}</div>
       <div className="mt-0.5 text-xs text-muted-foreground [overflow-wrap:anywhere]">
-        {kind} · {state ?? formatAuthMethod(authMethod)}
+        {kind} · {state ?? formatAuthMethod(authMethod, kind)}
         {connectedBy ? (
           <>
             {" · Connected by "}
@@ -615,7 +606,7 @@ function ConnectionActions({ actions }: { actions: readonly ProviderConnectionAc
         return action.href && !action.disabled ? (
           <Button
             key={action.key}
-            variant="outline"
+            variant={action.appearance === "text" ? "link" : "default"}
             size="sm"
             asChild
             className="h-auto max-w-full whitespace-normal py-2 text-left"
@@ -632,7 +623,7 @@ function ConnectionActions({ actions }: { actions: readonly ProviderConnectionAc
         ) : (
           <Button
             key={action.key}
-            variant="outline"
+            variant={action.appearance === "text" ? "link" : "default"}
             size="sm"
             onClick={action.onClick}
             className="h-auto max-w-full whitespace-normal py-2 text-left"
@@ -707,14 +698,14 @@ function ConnectionActionsMenu({
 }
 
 export function ProviderConnectionsPageView({
-  apiKeyDialog,
   authorizationErrorMessage,
   cloudflareAccess,
   cloudflareAccessError,
-  cloudflareAccountDialog,
+  cloudflareApiTokenDialog,
   cloudflareConnection,
   convexAccess,
   convexAccessError,
+  convexApiKeyDialog,
   convexConnection,
   disconnectingProvider,
   githubAccess,
@@ -724,13 +715,10 @@ export function ProviderConnectionsPageView({
   isCheckingGitHubAccess,
   isReconnectingGitHubApp,
   organization,
-  onCloudflareAccountChange,
-  onCloudflareAccountOpenChange,
-  onCloudflareAccountSubmit,
   onConnect,
   onDisconnect,
-  onOpenApiKeyDialog,
-  onOpenCloudflareAccountDialog,
+  onOpenCloudflareApiTokenDialog,
+  onOpenConvexApiKeyDialog,
   onReconnectGitHubApp,
   providerDisconnectNotice,
 }: ProviderConnectionsPageViewProps) {
@@ -782,7 +770,8 @@ export function ProviderConnectionsPageView({
           disabled: disconnectingProvider !== null,
           key: "api-key",
           label: "Use API key",
-          onClick: onOpenApiKeyDialog,
+          onClick: onOpenConvexApiKeyDialog,
+          appearance: "text",
         },
       ]
     : [];
@@ -842,7 +831,7 @@ export function ProviderConnectionsPageView({
             disabled: convexActionsDisabled,
             key: "update-convex-token",
             label: "Update token",
-            onClick: onOpenApiKeyDialog,
+            onClick: onOpenConvexApiKeyDialog,
           },
       {
         disabled: convexActionsDisabled,
@@ -884,6 +873,39 @@ export function ProviderConnectionsPageView({
     };
   }
 
+  const cloudflareConnectActions: ProviderConnectionActionViewModel[] = canManageOrganization
+    ? [
+        {
+          disabled: disconnectingProvider !== null,
+          key: "oauth",
+          label: PROVIDER_METADATA.cloudflare.oauthButtonLabel,
+          onClick: () => onConnect("cloudflare"),
+        },
+        {
+          disabled: disconnectingProvider !== null,
+          key: "api-token",
+          label: "Use API token",
+          onClick: onOpenCloudflareApiTokenDialog,
+          appearance: "text",
+        },
+      ]
+    : [];
+  const getCloudflareCredentialAction = (
+    authMethod: "oauth" | "mcp_oauth" | "api_key",
+  ): ProviderConnectionActionViewModel =>
+    authMethod === "api_key"
+      ? {
+          disabled: disconnectingProvider !== null,
+          key: "update-cloudflare-token",
+          label: "Update token",
+          onClick: onOpenCloudflareApiTokenDialog,
+        }
+      : {
+          disabled: disconnectingProvider !== null,
+          key: "reconnect-cloudflare",
+          label: "Reconnect",
+          onClick: () => onConnect("cloudflare"),
+        };
   let cloudflareProviderRow: ProviderConnectionRowViewModel;
   if (cloudflareConnection?.state === "connected") {
     const cloudflareActionsDisabled = disconnectingProvider !== null;
@@ -894,12 +916,7 @@ export function ProviderConnectionsPageView({
         key: "manage-cloudflare-access",
         label: "Manage authorization",
       },
-      {
-        disabled: cloudflareActionsDisabled,
-        key: "reconnect-cloudflare",
-        label: "Reconnect",
-        onClick: () => onConnect("cloudflare"),
-      },
+      getCloudflareCredentialAction(cloudflareConnection.authMethod),
       {
         disabled: cloudflareActionsDisabled,
         isPending: disconnectingProvider === "cloudflare",
@@ -938,56 +955,9 @@ export function ProviderConnectionsPageView({
         />
       ),
     };
-  } else if (cloudflareConnection?.state === "selection_required") {
-    const actions: ProviderConnectionActionViewModel[] = canManageOrganization
-      ? [
-          {
-            disabled: disconnectingProvider !== null,
-            key: "select-account",
-            label: "Select account",
-            onClick: () => onOpenCloudflareAccountDialog(undefined),
-          },
-        ]
-      : [];
-    const menuActions: ProviderConnectionActionViewModel[] = canManageOrganization
-      ? [
-          {
-            disabled: disconnectingProvider !== null,
-            key: "reconnect-cloudflare",
-            label: "Reconnect",
-            onClick: () => onConnect("cloudflare"),
-          },
-          {
-            disabled: disconnectingProvider !== null,
-            isPending: disconnectingProvider === "cloudflare",
-            key: "disconnect",
-            label: "Disconnect",
-            onClick: () => onDisconnect("cloudflare"),
-            pendingLabel: "Disconnecting...",
-            variant: "destructive",
-          },
-        ]
-      : [];
-    cloudflareProviderRow = {
-      actions,
-      icon: PROVIDER_METADATA.cloudflare.icon,
-      key: "cloudflare",
-      label: PROVIDER_METADATA.cloudflare.label,
-      menuActions,
-      status: "No Cloudflare account selected.",
-    };
   } else if (cloudflareConnection?.state === "disconnected") {
     cloudflareProviderRow = {
-      actions: canManageOrganization
-        ? [
-            {
-              disabled: disconnectingProvider !== null,
-              key: "oauth",
-              label: "Reconnect",
-              onClick: () => onConnect("cloudflare"),
-            },
-          ]
-        : [],
+      actions: cloudflareConnectActions,
       icon: PROVIDER_METADATA.cloudflare.icon,
       key: "cloudflare",
       label: PROVIDER_METADATA.cloudflare.label,
@@ -1005,14 +975,7 @@ export function ProviderConnectionsPageView({
     cloudflareProviderRow = {
       actions:
         cloudflareConnection?.state === "not_configured" && canManageOrganization
-          ? [
-              {
-                disabled: disconnectingProvider !== null,
-                key: "oauth",
-                label: PROVIDER_METADATA.cloudflare.oauthButtonLabel,
-                onClick: () => onConnect("cloudflare"),
-              },
-            ]
+          ? cloudflareConnectActions
           : [],
       icon: PROVIDER_METADATA.cloudflare.icon,
       key: "cloudflare",
@@ -1046,22 +1009,8 @@ export function ProviderConnectionsPageView({
           <ProviderConnectionRows providerRows={providerRows} />
         </div>
       </div>
-      <VaultDashboardCloudflareAccountDialog
-        accounts={cloudflareAccountDialog.options}
-        error={cloudflareAccountDialog.error}
-        isLoading={cloudflareAccountDialog.isLoadingAccounts}
-        isSubmitting={cloudflareAccountDialog.isSubmitting}
-        onAccountChange={onCloudflareAccountChange}
-        onOpenChange={onCloudflareAccountOpenChange}
-        onSubmit={onCloudflareAccountSubmit}
-        open={
-          canManageOrganization &&
-          cloudflareConnection?.state === "selection_required" &&
-          cloudflareAccountDialog.isOpen
-        }
-        selectedAccountId={cloudflareAccountDialog.selectedAccountId}
-      />
-      {apiKeyDialog}
+      {convexApiKeyDialog}
+      {cloudflareApiTokenDialog}
     </div>
   );
 }
@@ -1167,10 +1116,7 @@ function useCloudflareMcpTokenAutoCheck({
 }) {
   const cloudflareAutoCheckInFlightRef = useRef(false);
   const credentialedCloudflareConnection =
-    cloudflareConnection?.state === "connected" ||
-    cloudflareConnection?.state === "selection_required"
-      ? cloudflareConnection
-      : null;
+    cloudflareConnection?.state === "connected" ? cloudflareConnection : null;
 
   useEffect(() => {
     if (credentialedCloudflareConnection?.authMethod !== "mcp_oauth" || organizationId === null) {
@@ -1265,9 +1211,8 @@ export function ProviderConnectionsPage({
   const checkGitHubAccess = useAction(api.githubAppAccess.checkViewerInstallation);
   const getGitHubAppReconnectUrl = useMutation(api.githubAppInstallation.getGitHubAppReconnectUrl);
   const refreshCloudflareMcpTokenIfNeeded = useAction(api.users.refreshCloudflareMcpTokenIfNeeded);
-  const listCloudflareAccounts = useAction(api.users.listCloudflareAccounts);
-  const selectCloudflareAccount = useAction(api.users.selectCloudflareAccount);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
+  const connectCloudflareWithApiToken = useAction(api.users.connectCloudflareWithApiToken);
   const disconnectConvex = useAction(api.users.disconnectConvex);
   const disconnectCloudflare = useAction(api.users.disconnectCloudflare);
   const queryClient = useQueryClient();
@@ -1332,19 +1277,9 @@ export function ProviderConnectionsPage({
   const cloudflarePopupRef = useRef<Window | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
   const cloudflarePopupOriginRef = useRef<string | null>(null);
-  const cloudflareAccountDialogRequestIdRef = useRef(0);
   const [disconnectingProvider, setDisconnectingProvider] = useState<ProviderKey | null>(null);
   const [providerDisconnectNotice, setProviderDisconnectNotice] = useState<string | null>(null);
   const [isReconnectingGitHubApp, setIsReconnectingGitHubApp] = useState(false);
-  const [cloudflareAccountDialog, setCloudflareAccountDialog] =
-    useState<CloudflareAccountDialogState>({
-      error: null,
-      isLoadingAccounts: false,
-      isOpen: false,
-      isSubmitting: false,
-      options: [],
-      selectedAccountId: "",
-    });
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     convex: {
       disconnect: async () => {
@@ -1387,9 +1322,29 @@ export function ProviderConnectionsPage({
     },
     [connectConvexWithApiKey, organizationId, queryClient],
   );
-  const { openApiKeyDialog, apiKeyDialog } = useApiKeyConnectDialog({
-    connectConvexWithApiKey: connectConvexWithApiKeyAndClearAccess,
-  });
+  const connectCloudflareWithApiTokenAndClearAccess = useCallback(
+    async (args: { token: string }) => {
+      await connectCloudflareWithApiToken({
+        organizationId,
+        token: args.token,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: ["organization-provider-access", organizationId, "cloudflare"],
+      });
+      setProviderDisconnectNotice(null);
+    },
+    [connectCloudflareWithApiToken, organizationId, queryClient],
+  );
+  const { openApiKeyDialog: openConvexApiKeyDialog, apiKeyDialog: convexApiKeyDialog } =
+    useApiKeyConnectDialog({
+      connectWithToken: connectConvexWithApiKeyAndClearAccess,
+      provider: "convex",
+    });
+  const { openApiKeyDialog: openCloudflareApiTokenDialog, apiKeyDialog: cloudflareApiTokenDialog } =
+    useApiKeyConnectDialog({
+      connectWithToken: connectCloudflareWithApiTokenAndClearAccess,
+      provider: "cloudflare",
+    });
   const authorizationErrorMessage = authorizationError
     ? formatAuthorizationErrorMessage(authorizationError, {
         cloudflareAccountName:
@@ -1416,50 +1371,6 @@ export function ProviderConnectionsPage({
     organizationId,
     refreshCloudflareMcpTokenIfNeeded,
   });
-
-  const loadCloudflareAccountDialogResources = async (preferredAccountId: string | undefined) => {
-    const requestId = cloudflareAccountDialogRequestIdRef.current + 1;
-    cloudflareAccountDialogRequestIdRef.current = requestId;
-    setCloudflareAccountDialog((current) => ({
-      ...current,
-      error: null,
-      isLoadingAccounts: true,
-    }));
-    try {
-      const accounts = await listCloudflareAccounts({ organizationId });
-      if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
-        return;
-      }
-      if (accounts.length === 0) {
-        setCloudflareAccountDialog((current) => ({
-          ...current,
-          error: "No Cloudflare accounts are available.",
-          isLoadingAccounts: false,
-          options: [],
-          selectedAccountId: "",
-        }));
-        return;
-      }
-
-      const selectedAccount =
-        accounts.find((account) => account.accountId === preferredAccountId) ?? accounts[0];
-      setCloudflareAccountDialog((current) => ({
-        ...current,
-        isLoadingAccounts: false,
-        options: accounts,
-        selectedAccountId: selectedAccount.accountId,
-      }));
-    } catch (error) {
-      if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
-        return;
-      }
-      setCloudflareAccountDialog((current) => ({
-        ...current,
-        error: error instanceof Error ? error.message : "Could not load Cloudflare accounts.",
-        isLoadingAccounts: false,
-      }));
-    }
-  };
 
   const handleConnect = async (provider: ProviderKey) => {
     const providerConfig = providerRuntimeConfig[provider];
@@ -1495,7 +1406,7 @@ export function ProviderConnectionsPage({
       setProviderDisconnectNotice(
         provider === "convex"
           ? "Samebase removed its local Convex credential. Revoke the credential in Convex if you also want to remove upstream access."
-          : "Samebase removed its local Cloudflare credential. Revoke the authorization in Cloudflare if you also want to remove upstream access.",
+          : "Samebase removed its local Cloudflare credential. Revoke the token or authorization in Cloudflare if you also want to remove upstream access.",
       );
     } catch (error) {
       console.error(`Failed to disconnect ${providerMetadata.label}:`, error);
@@ -1530,49 +1441,18 @@ export function ProviderConnectionsPage({
       });
   };
 
-  const handleCloudflareAccountDialogOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      cloudflareAccountDialogRequestIdRef.current += 1;
-    }
-    setCloudflareAccountDialog((current) => ({ ...current, isOpen }));
-  };
-
-  const handleSubmitCloudflareAccount = async () => {
-    if (cloudflareAccountDialog.isSubmitting || !cloudflareAccountDialog.selectedAccountId) {
-      return;
-    }
-    setCloudflareAccountDialog((current) => ({ ...current, error: null, isSubmitting: true }));
-    try {
-      await selectCloudflareAccount({
-        accountId: cloudflareAccountDialog.selectedAccountId,
-        organizationId,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["organization-provider-access", organizationId, "cloudflare"],
-      });
-      handleCloudflareAccountDialogOpenChange(false);
-    } catch (error) {
-      setCloudflareAccountDialog((current) => ({
-        ...current,
-        error: error instanceof Error ? error.message : "Could not save Cloudflare account.",
-      }));
-    } finally {
-      setCloudflareAccountDialog((current) => ({ ...current, isSubmitting: false }));
-    }
-  };
-
   return (
     <ProviderConnectionsPageView
-      apiKeyDialog={apiKeyDialog}
       authorizationErrorMessage={authorizationErrorMessage}
       cloudflareAccess={
         cloudflareAccessQuery.error === null ? (cloudflareAccessQuery.data ?? null) : null
       }
       cloudflareAccessError={cloudflareAccessQuery.error !== null}
-      cloudflareAccountDialog={cloudflareAccountDialog}
+      cloudflareApiTokenDialog={cloudflareApiTokenDialog}
       cloudflareConnection={cloudflareConnection}
       convexAccess={convexAccessQuery.error === null ? (convexAccessQuery.data ?? null) : null}
       convexAccessError={convexAccessQuery.error !== null}
+      convexApiKeyDialog={convexApiKeyDialog}
       convexConnection={convexConnection}
       disconnectingProvider={disconnectingProvider}
       githubAccess={githubAccessQuery.error === null ? (githubAccessQuery.data ?? null) : null}
@@ -1582,28 +1462,14 @@ export function ProviderConnectionsPage({
       isCheckingGitHubAccess={githubAccessQuery.isFetching}
       isReconnectingGitHubApp={isReconnectingGitHubApp}
       organization={organization}
-      onCloudflareAccountChange={(accountId) => {
-        setCloudflareAccountDialog((current) => ({
-          ...current,
-          error: null,
-          selectedAccountId: accountId,
-        }));
-      }}
-      onCloudflareAccountOpenChange={handleCloudflareAccountDialogOpenChange}
-      onCloudflareAccountSubmit={() => {
-        void handleSubmitCloudflareAccount();
-      }}
       onConnect={(provider) => {
         void handleConnect(provider);
       }}
       onDisconnect={(provider) => {
         void handleDisconnect(provider);
       }}
-      onOpenApiKeyDialog={openApiKeyDialog}
-      onOpenCloudflareAccountDialog={(accountId) => {
-        setCloudflareAccountDialog((current) => ({ ...current, isOpen: true }));
-        void loadCloudflareAccountDialogResources(accountId);
-      }}
+      onOpenCloudflareApiTokenDialog={openCloudflareApiTokenDialog}
+      onOpenConvexApiKeyDialog={openConvexApiKeyDialog}
       onReconnectGitHubApp={handleReconnectGitHubApp}
       providerDisconnectNotice={providerDisconnectNotice}
     />

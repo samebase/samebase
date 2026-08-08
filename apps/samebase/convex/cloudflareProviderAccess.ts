@@ -82,10 +82,6 @@ export const checkCloudflareConnectionAccess = action({
         organizationId: args.organizationId,
       },
     );
-    const role = await ctx.runQuery(internal.organizationAccess.requireOrganizationRoleForUser, {
-      organizationId,
-      userId: ctx.viewer.userId,
-    });
     let connection: ResolvedCloudflareConnection | null;
     try {
       const configuration = await ctx.runQuery(
@@ -96,15 +92,19 @@ export const checkCloudflareConnectionAccess = action({
         },
       );
       const credential = configuration.cloudflareCredential;
-      connection = credential
-        ? {
-            auth: credential.auth,
-            ...(configuration.cloudflareAccount
-              ? { account: configuration.cloudflareAccount }
-              : {}),
-            ...(credential.tokenHealth ? { tokenHealth: credential.tokenHealth } : {}),
-          }
-        : null;
+      if (credential === undefined) {
+        connection = null;
+      } else {
+        const account = configuration.cloudflareAccount;
+        if (account === undefined) {
+          throw new Error("Cloudflare credential has no configured account.");
+        }
+        connection = {
+          auth: credential.auth,
+          account,
+          ...(credential.tokenHealth ? { tokenHealth: credential.tokenHealth } : {}),
+        };
+      }
     } catch {
       throw new Error("Cloudflare access check failed.");
     }
@@ -148,30 +148,17 @@ export const checkCloudflareConnectionAccess = action({
       );
     }
 
-    const configuredAccount = resolvedConnection.account ?? null;
-    const rawAccountsProbe: CloudflareProbeResult<CloudflareAccount[]> =
-      configuredAccount === null && role !== "owner"
-        ? {
-            state: "ok",
-            value: [],
-            check: {
-              key: "accounts",
-              status: "not_run",
-            },
-          }
-        : await runCloudflareProbe({
-            key: "accounts",
-            run: async () => {
-              const accounts = await listCloudflareAccountsForToken({
-                token,
-                transport,
-                perPage: 100,
-              });
-              return configuredAccount === null
-                ? accounts
-                : accounts.filter((account) => account.accountId === configuredAccount.accountId);
-            },
-          });
+    const configuredAccount = resolvedConnection.account;
+    const rawAccountsProbe = await runCloudflareProbe({
+      key: "accounts",
+      run: async () => {
+        const accounts = await listCloudflareAccountsForToken({
+          token,
+          transport,
+        });
+        return accounts.filter((account) => account.accountId === configuredAccount.accountId);
+      },
+    });
     const accountsProbe = markMissingConfiguredCloudflareAccount({
       accountsProbe: rawAccountsProbe,
       configuredAccount,
@@ -180,10 +167,7 @@ export const checkCloudflareConnectionAccess = action({
 
     const visibleAccounts = accountsProbe.state === "ok" ? accountsProbe.value : [];
     const configuredVisibleAccount =
-      configuredAccount === null
-        ? null
-        : (visibleAccounts.find((account) => account.accountId === configuredAccount.accountId) ??
-          null);
+      visibleAccounts.find((account) => account.accountId === configuredAccount.accountId) ?? null;
 
     if (configuredVisibleAccount === null) {
       checks.push(
@@ -344,10 +328,9 @@ function markMissingConfiguredCloudflareAccount({
   configuredAccount,
 }: {
   accountsProbe: CloudflareProbeResult<CloudflareAccount[]>;
-  configuredAccount: NonNullable<ResolvedCloudflareConnection["account"]> | null;
+  configuredAccount: ResolvedCloudflareConnection["account"];
 }): CloudflareProbeResult<CloudflareAccount[]> {
   if (
-    configuredAccount !== null &&
     accountsProbe.state === "ok" &&
     !accountsProbe.value.some((account) => account.accountId === configuredAccount.accountId)
   ) {

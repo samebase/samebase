@@ -38,6 +38,7 @@ type TestOrganization = Parameters<typeof ProviderConnectionsPage>[0]["organizat
 
 const testState = vi.hoisted(() => ({
   actions: new Map<string, (args: unknown) => Promise<unknown>>(),
+  apiCredentialDialogOpens: new Array<"cloudflare" | "convex">(),
   mutations: new Map<string, (args: unknown) => Promise<unknown>>(),
   queries: new Map<string, unknown>(),
   queryCalls: new Array<{ args: unknown; name: string }>(),
@@ -64,9 +65,9 @@ vi.mock("@/authClient", () => ({
 }));
 
 vi.mock("@/components/ApiKeyConnectDialog", () => ({
-  useApiKeyConnectDialog: () => ({
+  useApiKeyConnectDialog: ({ provider }: { provider: "cloudflare" | "convex" }) => ({
     apiKeyDialog: null,
-    openApiKeyDialog: vi.fn(),
+    openApiKeyDialog: () => testState.apiCredentialDialogOpens.push(provider),
   }),
 }));
 
@@ -163,6 +164,7 @@ function providerPopupConfig(popup: Window | null = window) {
 describe("ProviderConnectionsPage", () => {
   beforeEach(() => {
     testState.actions.clear();
+    testState.apiCredentialDialogOpens = [];
     testState.mutations.clear();
     testState.queries.clear();
     testState.queryCalls = [];
@@ -427,6 +429,75 @@ describe("ProviderConnectionsPage", () => {
     expect(container.textContent).not.toContain(ORGANIZATION_ID);
   });
 
+  it("shows OAuth as the primary action and direct credentials as text", () => {
+    setProviderQueries();
+
+    const container = mountProviderConnectionsPage();
+    const convexRow = container.querySelector('[data-provider-key="convex"]');
+    const cloudflareRow = container.querySelector('[data-provider-key="cloudflare"]');
+    const convexButtons = [...(convexRow?.querySelectorAll("button") ?? [])];
+    const cloudflareButtons = [...(cloudflareRow?.querySelectorAll("button") ?? [])];
+
+    expect(convexButtons.map((button) => button.textContent)).toEqual([
+      "Convex OAuth",
+      "Use API key",
+    ]);
+    expect(cloudflareButtons.map((button) => button.textContent)).toEqual([
+      "Cloudflare OAuth",
+      "Use API token",
+    ]);
+    expect(convexButtons[0]?.className).toContain("bg-primary");
+    expect(convexButtons[1]?.className).toContain("hover:underline");
+    expect(cloudflareButtons[0]?.className).toContain("bg-primary");
+    expect(cloudflareButtons[1]?.className).toContain("hover:underline");
+
+    act(() => {
+      cloudflareButtons[1]?.click();
+    });
+    expect(testState.apiCredentialDialogOpens).toEqual(["cloudflare"]);
+  });
+
+  it("updates a connected Cloudflare API token without starting OAuth", async () => {
+    const startCloudflareOAuth = vi.fn(async () => "https://api.samebase.com/oauth/cloudflare");
+    testState.actions.set(
+      getFunctionName(api.cloudflareOAuth.getCloudflareOAuthUrl),
+      startCloudflareOAuth,
+    );
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      state: "not_configured",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      accountId: "cloudflare-account",
+      accountName: "Samebase",
+      authMethod: "api_key",
+      state: "connected",
+    });
+
+    const container = mountProviderConnectionsPage();
+    const cloudflareRow = container.querySelector('[data-provider-key="cloudflare"]');
+
+    expect(cloudflareRow?.textContent).toContain("Account · API token");
+    act(() => {
+      const actionsButton = cloudflareRow?.querySelector<HTMLButtonElement>(
+        '[aria-label="Cloudflare actions"]',
+      );
+      actionsButton?.click();
+    });
+
+    await act(async () => {
+      await vi.waitFor(() => expect(document.body.textContent).toContain("Update token"));
+    });
+    const updateTokenItem = [...document.body.querySelectorAll('[role="menuitem"]')].find(
+      (item) => item.textContent === "Update token",
+    );
+    act(() => {
+      updateTokenItem?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(testState.apiCredentialDialogOpens).toEqual(["cloudflare"]);
+    expect(startCloudflareOAuth).not.toHaveBeenCalled();
+  });
+
   it("does not show GitHub installation controls to organization members", () => {
     setProviderQueries();
 
@@ -435,6 +506,8 @@ describe("ProviderConnectionsPage", () => {
     expect(container.querySelector('[aria-label="GitHub actions"]')).toBeNull();
     expect(container.textContent).not.toContain("Manage installation");
     expect(container.textContent).not.toContain("Reconnect");
+    expect(container.textContent).not.toContain("Use API key");
+    expect(container.textContent).not.toContain("Use API token");
   });
 
   it("links provider targets and shows only safe check templates", () => {

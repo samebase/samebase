@@ -298,10 +298,7 @@ export const storeCloudflareOauthConnection = internalMutation({
         refreshCredential: args.refreshToken,
         credentialExpiresAt: args.expiresAt,
       },
-      account:
-        args.account === null
-          ? { state: "selection_required" }
-          : { state: "selected", ...args.account },
+      account: args.account,
       tokenHealth: {
         status: deriveMcpTokenStatusFromExpiry(args.expiresAt, checkedAt),
         checkedAt,
@@ -323,7 +320,7 @@ export const storeCloudflareOauthConnection = internalMutation({
 
 const resolvedCloudflareConnectionValidator = object({
   auth: vCloudflareProviderAuth,
-  account: optional(vOrganizationCloudflareAccount),
+  account: vOrganizationCloudflareAccount,
   tokenHealth: optional(vMcpTokenHealth),
 });
 const resolveConnectionForOrganizationResultValidator = union(
@@ -372,6 +369,10 @@ export const resolveConnectionForOrganization = internalAction({
     if (credential === undefined) {
       return null;
     }
+    const account = configuration.cloudflareAccount;
+    if (account === undefined) {
+      throw new Error("Cloudflare credential has no configured account.");
+    }
 
     if (credential.auth.method === "mcp_oauth") {
       return await ctx.runAction(
@@ -382,7 +383,7 @@ export const resolveConnectionForOrganization = internalAction({
     if (credential.auth.method !== "oauth") {
       return {
         auth: credential.auth,
-        ...(configuration.cloudflareAccount ? { account: configuration.cloudflareAccount } : {}),
+        account,
       };
     }
 
@@ -402,7 +403,7 @@ export const resolveConnectionForOrganization = internalAction({
     if (!shouldRefresh) {
       return {
         auth: credential.auth,
-        ...(configuration.cloudflareAccount ? { account: configuration.cloudflareAccount } : {}),
+        account,
         tokenHealth: effectiveTokenHealth,
       };
     }
@@ -449,10 +450,13 @@ export const resolveConnectionForOrganization = internalAction({
       if (current.cloudflareCredential === undefined) {
         return null;
       }
+      if (current.cloudflareAccount === undefined) {
+        throw new Error("Cloudflare credential has no configured account.");
+      }
       requireCloudflareAuthUsableDuringRefresh(current.cloudflareCredential.auth, Date.now());
       return {
         auth: current.cloudflareCredential.auth,
-        ...(current.cloudflareAccount ? { account: current.cloudflareAccount } : {}),
+        account: current.cloudflareAccount,
         tokenHealth: current.cloudflareCredential.tokenHealth,
       };
     }
@@ -519,7 +523,7 @@ export const resolveConnectionForOrganization = internalAction({
 
       return {
         auth: refreshedAuth,
-        ...(configuration.cloudflareAccount ? { account: configuration.cloudflareAccount } : {}),
+        account,
         tokenHealth: refreshedTokenHealth,
       };
     } finally {
@@ -710,7 +714,6 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
     const accounts = await listCloudflareAccountsForToken({
       token: token.accessToken,
       transport: "direct",
-      perPage: 100,
     });
     const account = resolveCloudflareAccountAfterAuthorization(
       accounts,

@@ -33,7 +33,6 @@ import {
 import {
   normalizeCloudflareAccounts,
   resolveCloudflareAccountAfterAuthorization,
-  selectSingleCloudflareAccount,
 } from "./cloudflareAccountDiscovery";
 import { isRecord } from "./jsonUtils";
 
@@ -2169,8 +2168,9 @@ describe("cloudflare resources", () => {
 
   it("selects the only Cloudflare account exposed to OAuth", () => {
     expect(
-      selectSingleCloudflareAccount(
+      resolveCloudflareAccountAfterAuthorization(
         normalizeCloudflareAccounts([{ id: " account-id ", name: " Account " }]),
+        undefined,
       ),
     ).toEqual({
       accountId: "account-id",
@@ -2178,13 +2178,14 @@ describe("cloudflare resources", () => {
     });
   });
 
-  it("fails closed when Cloudflare OAuth exposes multiple accounts", () => {
+  it("fails closed unless Cloudflare OAuth exposes exactly one account", () => {
     const accounts = normalizeCloudflareAccounts([
       { id: "first-account-id", name: "First account" },
       { id: "second-account-id", name: "Second account" },
     ]);
 
-    expect(selectSingleCloudflareAccount(accounts)).toBeNull();
+    expect(resolveCloudflareAccountAfterAuthorization([], undefined)).toBeNull();
+    expect(resolveCloudflareAccountAfterAuthorization(accounts, undefined)).toBeNull();
     expect(
       resolveCloudflareAccountAfterAuthorization(accounts, {
         accountId: "first-account-id",

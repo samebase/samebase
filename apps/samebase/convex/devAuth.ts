@@ -83,7 +83,7 @@ const vSeedProviderCredentials = object({
     vNull(),
     object({
       credential: string(),
-      accountId: optional(string()),
+      accountId: string(),
     }),
   ),
 });
@@ -122,7 +122,7 @@ function readSeedProviderCredentials(): SeedProviderCredentials {
   if (cloudflareCredential !== undefined || cloudflareAccountId !== undefined) {
     cloudflareConnection = {
       credential: requireSeedValue(cloudflareCredential, "DEV_SEED_CLOUDFLARE_API_KEY"),
-      ...(cloudflareAccountId === undefined ? {} : { accountId: cloudflareAccountId }),
+      accountId: requireSeedValue(cloudflareAccountId, "DEV_SEED_CLOUDFLARE_ACCOUNT_ID"),
     };
   }
 
@@ -131,11 +131,7 @@ function readSeedProviderCredentials(): SeedProviderCredentials {
 
 function readRequiredPreviewSeedProviderCredentials(): SeedProviderCredentials {
   const credentials = readSeedProviderCredentials();
-  if (
-    credentials.convexConnection === null ||
-    credentials.cloudflareConnection === null ||
-    credentials.cloudflareConnection.accountId === undefined
-  ) {
+  if (credentials.convexConnection === null || credentials.cloudflareConnection === null) {
     throw new Error(
       "Preview organization provider seeding requires DEV_SEED_CONVEX_MANAGEMENT_API_KEY, DEV_SEED_CONVEX_TEAM_ID, DEV_SEED_CLOUDFLARE_API_KEY, and DEV_SEED_CLOUDFLARE_ACCOUNT_ID",
     );
@@ -288,14 +284,10 @@ export const seedOrganizationWithProviderCredentials = internalMutation({
         connectedByUserId: args.userId,
         expectedProviderSnapshotHash,
         auth: { method: "api_key", credential: args.cloudflareConnection.credential },
-        account:
-          args.cloudflareConnection.accountId === undefined
-            ? { state: "selection_required" }
-            : {
-                state: "selected",
-                accountId: args.cloudflareConnection.accountId,
-                accountName: args.cloudflareConnection.accountId,
-              },
+        account: {
+          accountId: args.cloudflareConnection.accountId,
+          accountName: args.cloudflareConnection.accountId,
+        },
       });
     }
 

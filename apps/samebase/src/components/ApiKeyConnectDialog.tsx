@@ -11,13 +11,39 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-type ConnectWithApiKey = (args: { token: string }) => Promise<unknown>;
+type ConnectWithToken = (args: { token: string }) => Promise<unknown>;
+
+const API_CREDENTIAL_COPY = {
+  cloudflare: {
+    connectLabel: "Connect Cloudflare",
+    description: "Paste a Cloudflare user API token that can access exactly one account.",
+    emptyError: "API token is required.",
+    failureMessage: "Could not connect Cloudflare.",
+    inputLabel: "Cloudflare user API token",
+    title: "Connect Cloudflare with API token",
+  },
+  convex: {
+    connectLabel: "Connect Convex",
+    description: "Paste a Convex team token.",
+    emptyError: "Team token is required.",
+    failureMessage: "Could not connect Convex.",
+    inputLabel: "Convex team token",
+    title: "Connect Convex with API key",
+  },
+} as const;
+
+type ApiKeyDialogProvider = keyof typeof API_CREDENTIAL_COPY;
 
 type UseApiKeyConnectDialogArgs = {
-  connectConvexWithApiKey: ConnectWithApiKey;
+  connectWithToken: ConnectWithToken;
+  provider: ApiKeyDialogProvider;
 };
 
-export const useApiKeyConnectDialog = ({ connectConvexWithApiKey }: UseApiKeyConnectDialogArgs) => {
+export const useApiKeyConnectDialog = ({
+  connectWithToken,
+  provider,
+}: UseApiKeyConnectDialogArgs) => {
+  const copy = API_CREDENTIAL_COPY[provider];
   const [isApiKeyDialogOpen, setIsApiKeyDialogOpen] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState("");
   const [apiKeyError, setApiKeyError] = useState<string | null>(null);
@@ -48,7 +74,7 @@ export const useApiKeyConnectDialog = ({ connectConvexWithApiKey }: UseApiKeyCon
 
     const token = apiKeyInput.trim();
     if (!token) {
-      setApiKeyError("Team token is required.");
+      setApiKeyError(copy.emptyError);
       return;
     }
 
@@ -57,19 +83,19 @@ export const useApiKeyConnectDialog = ({ connectConvexWithApiKey }: UseApiKeyCon
     setApiKeyError(null);
 
     try {
-      await connectConvexWithApiKey({ token });
+      await connectWithToken({ token });
       setIsApiKeyDialogOpen(false);
       setApiKeyInput("");
       setApiKeyError(null);
     } catch (error) {
-      setApiKeyError(error instanceof Error ? error.message : "Could not connect Convex.");
+      setApiKeyError(error instanceof Error ? error.message : copy.failureMessage);
     } finally {
       isConnectingApiKeyRef.current = false;
       setIsConnectingApiKey(false);
     }
-  }, [apiKeyInput, connectConvexWithApiKey, isApiKeyDialogOpen]);
+  }, [apiKeyInput, connectWithToken, copy.emptyError, copy.failureMessage, isApiKeyDialogOpen]);
 
-  const apiKeySubmitLabel = isConnectingApiKey ? "Connecting..." : "Connect Convex";
+  const apiKeySubmitLabel = isConnectingApiKey ? "Connecting..." : copy.connectLabel;
 
   const apiKeyDialog = useMemo(
     () => (
@@ -83,11 +109,11 @@ export const useApiKeyConnectDialog = ({ connectConvexWithApiKey }: UseApiKeyCon
       >
         <AppDialogContent>
           <DialogHeader>
-            <DialogTitle>Connect Convex with API key</DialogTitle>
-            <DialogDescription>Paste a Convex team token.</DialogDescription>
+            <DialogTitle>{copy.title}</DialogTitle>
+            <DialogDescription>{copy.description}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor={apiKeyInputId}>Convex team token</Label>
+            <Label htmlFor={apiKeyInputId}>{copy.inputLabel}</Label>
             <Input
               id={apiKeyInputId}
               type="password"
@@ -99,7 +125,7 @@ export const useApiKeyConnectDialog = ({ connectConvexWithApiKey }: UseApiKeyCon
                   setApiKeyError(null);
                 }
               }}
-              placeholder="Convex team token"
+              placeholder={copy.inputLabel}
               disabled={isConnectingApiKey}
               aria-invalid={apiKeyError !== null}
               aria-describedby={apiKeyError ? apiKeyErrorId : undefined}
@@ -138,6 +164,9 @@ export const useApiKeyConnectDialog = ({ connectConvexWithApiKey }: UseApiKeyCon
       apiKeyInputId,
       apiKeySubmitLabel,
       closeApiKeyDialog,
+      copy.description,
+      copy.inputLabel,
+      copy.title,
       handleConnectWithApiKey,
       isApiKeyDialogOpen,
       isConnectingApiKey,

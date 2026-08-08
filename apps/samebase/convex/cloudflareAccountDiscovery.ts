@@ -6,8 +6,6 @@ import { internalAction } from "./_generated/server";
 import { requestCloudflareApi, type CloudflareApiTransport } from "./cloudflareApi/client";
 import type { IamAccount } from "./cloudflareApi/types.generated";
 
-const vCloudflareApiTransport = v.union(v.literal("mcp"), v.literal("direct"));
-
 type CloudflareAccountIdentity = Pick<IamAccount, "id" | "name">;
 
 export type CloudflareAccount = {
@@ -44,41 +42,21 @@ export function normalizeCloudflareAccounts(
   );
 }
 
-export function selectSingleCloudflareAccount(
-  normalizedAccounts: readonly CloudflareAccount[],
-): CloudflareAccount | null {
-  if (normalizedAccounts.length === 0) {
-    throw new Error(
-      "Cloudflare OAuth did not expose any accounts. Reconnect Cloudflare and grant account access.",
-    );
-  }
-  if (normalizedAccounts.length > 1) {
-    return null;
-  }
-
-  const [account] = normalizedAccounts;
-  return account;
-}
-
 export function resolveCloudflareAccountAfterAuthorization(
   normalizedAccounts: readonly CloudflareAccount[],
   currentAccount: CloudflareAccount | undefined,
 ): CloudflareAccount | null {
-  if (normalizedAccounts.length > 1) {
+  if (normalizedAccounts.length !== 1) {
     return null;
   }
-  if (currentAccount === undefined) {
-    return selectSingleCloudflareAccount(normalizedAccounts);
-  }
-  const selectedAccount = normalizedAccounts.find(
-    (account) => account.accountId === currentAccount.accountId,
-  );
-  return selectedAccount ?? null;
+  const [account] = normalizedAccounts;
+  return currentAccount === undefined || account.accountId === currentAccount.accountId
+    ? account
+    : null;
 }
 
 export async function listCloudflareAccountsForToken(args: {
   token: string;
-  perPage: number;
   transport: CloudflareApiTransport;
 }): Promise<CloudflareAccount[]> {
   const accounts = await requestCloudflareApi({
@@ -89,7 +67,7 @@ export async function listCloudflareAccountsForToken(args: {
     params: {
       query: {
         page: 1,
-        per_page: args.perPage,
+        per_page: 5,
       },
     },
   });
@@ -99,13 +77,25 @@ export async function listCloudflareAccountsForToken(args: {
   return normalizeCloudflareAccounts(accounts);
 }
 
-export const listAccounts = internalAction({
+/** Verify the user token required by Workers Builds, then return its direct-API accounts. */
+export const listAccountsForUserApiToken = internalAction({
   args: {
     token: v.string(),
-    transport: vCloudflareApiTransport,
   },
   returns: v.array(vCloudflareAccount),
   handler: async (_ctx, args) => {
-    return await listCloudflareAccountsForToken({ ...args, perPage: 100 });
+    const verification = await requestCloudflareApi({
+      token: args.token,
+      transport: "direct",
+      method: "GET",
+      path: "/user/tokens/verify",
+    });
+    if (!verification?.id.trim() || verification.status !== "active") {
+      throw new Error("Cloudflare API token is not active.");
+    }
+    return await listCloudflareAccountsForToken({
+      token: args.token,
+      transport: "direct",
+    });
   },
 });

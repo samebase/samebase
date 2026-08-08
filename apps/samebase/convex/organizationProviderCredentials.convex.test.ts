@@ -118,7 +118,6 @@ async function connectCloudflare(
     expectedProviderSnapshotHash: await providerSnapshot(seed, "cloudflare"),
     auth,
     account: {
-      state: "selected",
       accountId: selectedAccountId,
       accountName: "Primary account",
     },

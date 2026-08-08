@@ -248,7 +248,7 @@ async function readCloudflareObservationInput(
 
   const connection = connectionResolution.connection;
   const token = connection?.auth.credential.trim();
-  if (!connection || !token || connection.account?.accountId !== args.accountId) {
+  if (!connection || !token || connection.account.accountId !== args.accountId) {
     return { state: "failed" as const, reason: "connection_required" as const };
   }
 

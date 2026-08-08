@@ -9,6 +9,7 @@ export type ProviderConnectionsPageVisualMode =
   | "providers-page-connected"
   | "providers-page-authorization-error"
   | "providers-page-loading"
+  | "providers-page-not-configured"
   | "providers-page-recovery";
 
 function fakeOrganizationId(): Id<"organizations"> {
@@ -116,14 +117,27 @@ const connectedState = {
 const recoveryState = {
   cloudflareAccess: null,
   cloudflareConnection: {
-    authMethod: "oauth",
-    state: "selection_required",
+    accountId: "cloudflare-account-production",
+    accountName: "Acme Production",
+    state: "disconnected",
   },
   convexAccess: null,
   convexConnection: {
     state: "disconnected",
     teamId: "team_acme_platform",
     teamSlug: "acme-platform",
+  },
+  githubAccess: connectedState.githubAccess,
+} satisfies ProviderConnectionsPageConnectionState;
+
+const notConfiguredState = {
+  cloudflareAccess: null,
+  cloudflareConnection: {
+    state: "not_configured",
+  },
+  convexAccess: null,
+  convexConnection: {
+    state: "not_configured",
   },
   githubAccess: connectedState.githubAccess,
 } satisfies ProviderConnectionsPageConnectionState;
@@ -136,27 +150,25 @@ export function ProviderConnectionsPageVisualFixture({
   mode?: ProviderConnectionsPageVisualMode;
 }) {
   const isLoading = mode === "providers-page-loading";
-  const state = mode === "providers-page-recovery" ? recoveryState : connectedState;
+  const state =
+    mode === "providers-page-recovery"
+      ? recoveryState
+      : mode === "providers-page-not-configured"
+        ? notConfiguredState
+        : connectedState;
 
   return (
     <ProviderConnectionsPageView
-      apiKeyDialog={null}
       authorizationErrorMessage={
         mode === "providers-page-authorization-error" ? AUTHORIZATION_ERROR_MESSAGE : null
       }
       cloudflareAccess={isLoading ? null : state.cloudflareAccess}
       cloudflareAccessError={false}
-      cloudflareAccountDialog={{
-        error: null,
-        isLoadingAccounts: false,
-        isOpen: false,
-        isSubmitting: false,
-        options: [],
-        selectedAccountId: "",
-      }}
+      cloudflareApiTokenDialog={null}
       cloudflareConnection={isLoading ? undefined : state.cloudflareConnection}
       convexAccess={isLoading ? null : state.convexAccess}
       convexAccessError={false}
+      convexApiKeyDialog={null}
       convexConnection={isLoading ? undefined : state.convexConnection}
       disconnectingProvider={null}
       githubAccess={isLoading ? null : state.githubAccess}
@@ -173,13 +185,10 @@ export function ProviderConnectionsPageVisualFixture({
         organizationId: ORGANIZATION_ID,
         role: "owner",
       }}
-      onCloudflareAccountChange={noop}
-      onCloudflareAccountOpenChange={noop}
-      onCloudflareAccountSubmit={noop}
       onConnect={noop}
       onDisconnect={noop}
-      onOpenApiKeyDialog={noop}
-      onOpenCloudflareAccountDialog={noop}
+      onOpenCloudflareApiTokenDialog={noop}
+      onOpenConvexApiKeyDialog={noop}
       onReconnectGitHubApp={noop}
       providerDisconnectNotice={null}
     />

@@ -80,7 +80,7 @@ type CloudflareActionConnection = {
       };
   token: string;
   transport: CloudflareApiTransport;
-  account?: { accountId: string; accountName: string };
+  account: { accountId: string; accountName: string };
   tokenHealth?: McpTokenHealth;
 };
 
@@ -124,7 +124,7 @@ async function resolveCloudflareConnection(
     auth: connection.auth,
     token,
     transport: resolveCloudflareApiTransport(connection.auth.method),
-    ...(connection.account ? { account: connection.account } : {}),
+    account: connection.account,
     ...(connection.tokenHealth ? { tokenHealth: connection.tokenHealth } : {}),
   };
 }
@@ -133,7 +133,7 @@ function requireCloudflareAccountTarget(
   connection: CloudflareActionConnection,
   accountId: string,
 ): void {
-  if (connection.account?.accountId !== accountId) {
+  if (connection.account.accountId !== accountId) {
     throw new Error("Cloudflare connection is required for this account.");
   }
 }
@@ -142,7 +142,7 @@ async function listAccountsForConnection(args: {
   token: string;
   transport: CloudflareApiTransport;
 }): Promise<CloudflareAccount[]> {
-  return await listCloudflareAccountsForToken({ ...args, perPage: 100 });
+  return await listCloudflareAccountsForToken(args);
 }
 
 async function resolveAccount(args: {

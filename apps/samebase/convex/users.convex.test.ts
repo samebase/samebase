@@ -31,6 +31,30 @@ function cloudflareFailureResponse(body: Record<string, unknown>, status: number
   });
 }
 
+function stubCloudflareApiTokenAccounts(
+  token: string,
+  accounts: Array<{ id: string; name: string; type: "standard" }>,
+) {
+  const fetch = vi.fn(
+    async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      expect(new Headers(init?.headers).get("Authorization")).toBe(`Bearer ${token}`);
+      switch (url.pathname) {
+        case "/client/v4/user/tokens/verify":
+          return cloudflareSuccessResponse({ id: "c".repeat(32), status: "active" });
+        case "/client/v4/accounts": {
+          expect(url.searchParams.get("per_page")).toBe("5");
+          return cloudflareAccountsResponse(accounts);
+        }
+        default:
+          throw new Error(`Unexpected Cloudflare API token probe ${url.pathname}.`);
+      }
+    },
+  );
+  vi.stubGlobal("fetch", fetch);
+  return fetch;
+}
+
 function stubCloudflareRefreshFailure(detail: string): void {
   vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "client-id");
   vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "client-secret");
@@ -99,7 +123,7 @@ async function readActionError(operation: Promise<unknown>): Promise<Error> {
 
 async function seedProviderOrganization(options?: {
   cloudflareAuthMethod?: "api_key" | "oauth" | "mcp_oauth";
-  cloudflareTarget?: "configured" | "pending";
+  cloudflareState?: "connected" | "not_configured";
   convexAuthMethod?: "api_key" | "oauth";
 }) {
   const t = makeConvexTest();
@@ -124,7 +148,7 @@ async function seedProviderOrganization(options?: {
         githubOwnerLoginNormalized: "primary",
         githubInstallationId: "installation-1",
         convexTeam: { teamId: "team-1", teamSlug: "team-one" },
-        ...(options?.cloudflareTarget === "pending"
+        ...(options?.cloudflareState === "not_configured"
           ? {}
           : {
               cloudflareAccount: {
@@ -153,27 +177,31 @@ async function seedProviderOrganization(options?: {
           connectedByUserId: userId,
           updatedAt: 1,
         },
-        cloudflare: {
-          auth:
-            options?.cloudflareAuthMethod === "oauth"
-              ? {
-                  method: "oauth",
-                  credential: "expired-access-token",
-                  refreshCredential: "refresh-token",
-                  credentialExpiresAt: 0,
-                }
-              : options?.cloudflareAuthMethod === "mcp_oauth"
-                ? {
-                    method: "mcp_oauth",
-                    credential: "expired-access-token",
-                    refreshCredential: "refresh-token",
-                    credentialExpiresAt: 0,
-                    clientId: "dynamic-client-id",
-                  }
-                : { method: "api_key", credential: "cloudflare-credential" },
-          connectedByUserId: userId,
-          updatedAt: 1,
-        },
+        ...(options?.cloudflareState === "not_configured"
+          ? {}
+          : {
+              cloudflare: {
+                auth:
+                  options?.cloudflareAuthMethod === "oauth"
+                    ? {
+                        method: "oauth" as const,
+                        credential: "expired-access-token",
+                        refreshCredential: "refresh-token",
+                        credentialExpiresAt: 0,
+                      }
+                    : options?.cloudflareAuthMethod === "mcp_oauth"
+                      ? {
+                          method: "mcp_oauth" as const,
+                          credential: "expired-access-token",
+                          refreshCredential: "refresh-token",
+                          credentialExpiresAt: 0,
+                          clientId: "dynamic-client-id",
+                        }
+                      : { method: "api_key" as const, credential: "cloudflare-credential" },
+                connectedByUserId: userId,
+                updatedAt: 1,
+              },
+            }),
       });
       return { memberId, organizationId, outsiderId, providerCredentialsId, userId };
     },
@@ -380,6 +408,236 @@ describe("organization provider status", () => {
     },
   );
 
+  it("connects a Cloudflare API token to its only accessible account", async () => {
+    const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
+      cloudflareState: "not_configured",
+    });
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const fetch = stubCloudflareApiTokenAccounts("direct-token", [
+      { id: primaryCloudflareAccountId, name: "Primary account", type: "standard" },
+    ]);
+
+    await expect(
+      asOwner.action(api.users.connectCloudflareWithApiToken, {
+        organizationId,
+        token: "  direct-token  ",
+      }),
+    ).resolves.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(organizationId))).resolves.toMatchObject({
+      cloudflareAccount: {
+        accountId: primaryCloudflareAccountId,
+        accountName: "Primary account",
+      },
+    });
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare),
+    ).resolves.toMatchObject({
+      auth: { method: "api_key", credential: "direct-token" },
+      connectedByUserId: userId,
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(
+      fetch.mock.calls.map(
+        ([input]) => new URL(input instanceof Request ? input.url : input.toString()).pathname,
+      ),
+    ).toEqual(["/client/v4/user/tokens/verify", "/client/v4/accounts"]);
+  });
+
+  it.each([
+    {
+      accounts: [],
+      error: "Cloudflare API token cannot access an account.",
+      label: "no account",
+    },
+    {
+      accounts: [
+        { id: primaryCloudflareAccountId, name: "Primary account", type: "standard" as const },
+        { id: secondaryCloudflareAccountId, name: "Secondary account", type: "standard" as const },
+      ],
+      error: "Cloudflare API token must access exactly one account.",
+      label: "several accounts",
+    },
+  ])("rejects a Cloudflare API token with $label before storage", async (testCase) => {
+    const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
+      cloudflareState: "not_configured",
+    });
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    stubCloudflareApiTokenAccounts("direct-token", testCase.accounts);
+
+    await expect(
+      asOwner.action(api.users.connectCloudflareWithApiToken, {
+        organizationId,
+        token: "direct-token",
+      }),
+    ).rejects.toThrow(testCase.error);
+    await expect(
+      asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+    ).resolves.toEqual({ state: "not_configured" });
+    await expect(
+      t.run(async (ctx) => {
+        const credentials = await ctx.db.get(providerCredentialsId);
+        return credentials !== null && credentials.cloudflare === undefined;
+      }),
+    ).resolves.toBe(true);
+  });
+
+  it("keeps account A disconnected until a replacement token proves account A", async () => {
+    const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
+      cloudflareAuthMethod: "oauth",
+    });
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(
+      asOwner.action(api.users.disconnectCloudflare, { organizationId }),
+    ).resolves.toBeNull();
+    await expect(
+      asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+    ).resolves.toEqual({
+      state: "disconnected",
+      accountId: primaryCloudflareAccountId,
+      accountName: "Primary account",
+    });
+
+    stubCloudflareApiTokenAccounts("account-b-token", [
+      { id: secondaryCloudflareAccountId, name: "Secondary account", type: "standard" },
+    ]);
+    await expect(
+      asOwner.action(api.users.connectCloudflareWithApiToken, {
+        organizationId,
+        token: "account-b-token",
+      }),
+    ).rejects.toThrow("Cloudflare API token cannot access the configured Cloudflare account.");
+    await expect(
+      asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+    ).resolves.toEqual({
+      state: "disconnected",
+      accountId: primaryCloudflareAccountId,
+      accountName: "Primary account",
+    });
+    await expect(
+      t.run(async (ctx) => {
+        const credentials = await ctx.db.get(providerCredentialsId);
+        return credentials !== null && credentials.cloudflare === undefined;
+      }),
+    ).resolves.toBe(true);
+
+    stubCloudflareApiTokenAccounts("account-a-token", [
+      { id: primaryCloudflareAccountId, name: "Primary account", type: "standard" },
+    ]);
+    await expect(
+      asOwner.action(api.users.connectCloudflareWithApiToken, {
+        organizationId,
+        token: "account-a-token",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+    ).resolves.toEqual({
+      state: "connected",
+      accountId: primaryCloudflareAccountId,
+      accountName: "Primary account",
+      authMethod: "api_key",
+    });
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare?.auth),
+    ).resolves.toEqual({ method: "api_key", credential: "account-a-token" });
+  });
+
+  it("rejects a token that Cloudflare does not verify as a user API token", async () => {
+    const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const credentialBefore = await t.run(
+      async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare,
+    );
+    const fetch = vi.fn(async () =>
+      cloudflareFailureResponse(
+        {
+          success: false,
+          errors: [{ code: 1000, message: "private provider detail" }],
+          messages: [],
+          result: null,
+        },
+        403,
+      ),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    const error = await readActionError(
+      asOwner.action(api.users.connectCloudflareWithApiToken, {
+        organizationId,
+        token: "unsupported-token",
+      }),
+    );
+    expect(error.message).toContain("Cloudflare API token check failed.");
+    expect(error.message).not.toContain("private provider detail");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare),
+    ).resolves.toEqual(credentialBefore);
+  });
+
+  it("rejects an inactive Cloudflare user API token before account discovery", async () => {
+    const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const credentialBefore = await t.run(
+      async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare,
+    );
+    const fetch = vi.fn(async () =>
+      cloudflareSuccessResponse({ id: "c".repeat(32), status: "disabled" }),
+    );
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      asOwner.action(api.users.connectCloudflareWithApiToken, {
+        organizationId,
+        token: "disabled-token",
+      }),
+    ).rejects.toThrow("Cloudflare API token check failed.");
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare),
+    ).resolves.toEqual(credentialBefore);
+  });
+
+  it("requires an organization owner before checking a Cloudflare API token", async () => {
+    const { memberId, organizationId, providerCredentialsId, t } = await seedProviderOrganization();
+    const asMember = t.withIdentity({
+      subject: `${memberId}|session`,
+      tokenIdentifier: `test:${memberId}`,
+    });
+    const credentialBefore = await t.run(
+      async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare,
+    );
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      asMember.action(api.users.connectCloudflareWithApiToken, {
+        organizationId,
+        token: "member-token",
+      }),
+    ).rejects.toThrow("Organization owner access is required.");
+    expect(fetch).not.toHaveBeenCalled();
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare),
+    ).resolves.toEqual(credentialBefore);
+  });
+
   it.each([
     { initialTeamSlug: undefined, label: "missing" },
     { initialTeamSlug: "old-team-name", label: "stale" },
@@ -518,119 +776,10 @@ describe("organization provider status", () => {
     }
   });
 
-  it("lets an owner list visible accounts and select the stable target", async () => {
-    const { organizationId, t, userId } = await seedProviderOrganization({
-      cloudflareTarget: "pending",
-    });
-    const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
-      tokenIdentifier: `test:${userId}`,
-    });
-    const fetch = vi.fn(async () =>
-      cloudflareAccountsResponse([
-        { id: secondaryCloudflareAccountId, name: "Secondary account", type: "standard" },
-        { id: primaryCloudflareAccountId, name: "Primary account", type: "standard" },
-      ]),
-    );
-    vi.stubGlobal("fetch", fetch);
-
-    await expect(
-      asOwner.action(api.users.listCloudflareAccounts, { organizationId }),
-    ).resolves.toEqual([
-      { accountId: primaryCloudflareAccountId, accountName: "Primary account" },
-      { accountId: secondaryCloudflareAccountId, accountName: "Secondary account" },
-    ]);
-    await expect(
-      asOwner.action(api.users.selectCloudflareAccount, {
-        organizationId,
-        accountId: secondaryCloudflareAccountId,
-      }),
-    ).resolves.toBeNull();
-    await expect(t.run(async (ctx) => await ctx.db.get(organizationId))).resolves.toMatchObject({
-      cloudflareAccount: {
-        accountId: secondaryCloudflareAccountId,
-        accountName: "Secondary account",
-      },
-    });
-  });
-
-  it("does not expose pending account choices or selection to a member", async () => {
-    const { memberId, organizationId, t } = await seedProviderOrganization({
-      cloudflareTarget: "pending",
-    });
-    const asMember = t.withIdentity({
-      subject: `${memberId}|session`,
-      tokenIdentifier: `test:${memberId}`,
-    });
-
-    await expect(
-      asMember.action(api.users.listCloudflareAccounts, { organizationId }),
-    ).resolves.toEqual([]);
-    await expect(
-      asMember.action(api.users.selectCloudflareAccount, {
-        organizationId,
-        accountId: primaryCloudflareAccountId,
-      }),
-    ).rejects.toThrow("Organization owner access is required.");
-  });
-
-  it("does not expose Cloudflare account discovery errors", async () => {
-    const { organizationId, t, userId } = await seedProviderOrganization({
-      cloudflareTarget: "pending",
-    });
-    const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
-      tokenIdentifier: `test:${userId}`,
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        cloudflareFailureResponse(
-          {
-            success: false,
-            errors: [{ code: 9109, message: "private provider detail" }],
-            messages: [],
-            result: null,
-          },
-          403,
-        ),
-      ),
-    );
-
-    const error = await readActionError(
-      asOwner.action(api.users.listCloudflareAccounts, { organizationId }),
-    );
-    expect(error.message).toContain(
-      "Cloudflare account discovery failed. Reconnect Cloudflare, then retry.",
-    );
-    expect(error.message).not.toContain("private provider detail");
-  });
-
-  it("does not expose Cloudflare refresh errors through account discovery", async () => {
-    const { organizationId, t, userId } = await seedProviderOrganization({
-      cloudflareAuthMethod: "oauth",
-      cloudflareTarget: "pending",
-    });
-    const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
-      tokenIdentifier: `test:${userId}`,
-    });
-    stubCloudflareRefreshFailure("private refresh detail");
-
-    const error = await readActionError(
-      asOwner.action(api.users.listCloudflareAccounts, { organizationId }),
-    );
-    expect(error.message).toContain(
-      "Cloudflare account discovery failed. Reconnect Cloudflare, then retry.",
-    );
-    expect(error.message).not.toContain("private refresh detail");
-  });
-
   it("replaces direct and MCP refresh errors at the shared resolver boundary", async () => {
     for (const method of ["oauth", "mcp_oauth"] as const) {
       const { organizationId, t, userId } = await seedProviderOrganization({
         cloudflareAuthMethod: method,
-        cloudflareTarget: "pending",
       });
       stubCloudflareRefreshFailure(`private ${method} refresh detail`);
 
@@ -648,102 +797,5 @@ describe("organization provider status", () => {
       expect(error.message).toContain("Cloudflare token refresh failed.");
       expect(error.message).not.toContain(`private ${method} refresh detail`);
     }
-  });
-
-  it("rejects account selection when the credential changes during discovery", async () => {
-    const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
-      cloudflareTarget: "pending",
-    });
-    const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
-      tokenIdentifier: `test:${userId}`,
-    });
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () => {
-        await t.run(async (ctx) => {
-          const credentials = await ctx.db.get(providerCredentialsId);
-          if (credentials?.cloudflare === undefined) {
-            throw new Error("Expected a Cloudflare credential.");
-          }
-          await ctx.db.patch(providerCredentialsId, {
-            cloudflare: {
-              ...credentials.cloudflare,
-              auth: { method: "api_key", credential: "replacement-credential" },
-              updatedAt: 2,
-            },
-          });
-        });
-        return cloudflareAccountsResponse([
-          { id: primaryCloudflareAccountId, name: "Primary account", type: "standard" },
-        ]);
-      }),
-    );
-
-    await expect(
-      asOwner.action(api.users.selectCloudflareAccount, {
-        organizationId,
-        accountId: primaryCloudflareAccountId,
-      }),
-    ).rejects.toThrow("Cloudflare credential changed before account selection completed.");
-    await expect(
-      t.run(async (ctx) => await ctx.db.get(organizationId)),
-    ).resolves.not.toHaveProperty("cloudflareAccount");
-  });
-
-  it("returns only the stable target and rejects a second target selection", async () => {
-    const { memberId, organizationId, t, userId } = await seedProviderOrganization();
-    const asMember = t.withIdentity({
-      subject: `${memberId}|session`,
-      tokenIdentifier: `test:${memberId}`,
-    });
-    const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
-      tokenIdentifier: `test:${userId}`,
-    });
-    const fetch = vi.fn();
-    vi.stubGlobal("fetch", fetch);
-
-    await expect(
-      asMember.action(api.users.listCloudflareAccounts, { organizationId }),
-    ).resolves.toEqual([{ accountId: primaryCloudflareAccountId, accountName: "Primary account" }]);
-    await expect(
-      asOwner.action(api.users.selectCloudflareAccount, {
-        organizationId,
-        accountId: secondaryCloudflareAccountId,
-      }),
-    ).rejects.toThrow("Cloudflare account is already configured.");
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it("does not expose an inaccessible Cloudflare account identifier", async () => {
-    const { organizationId, t, userId } = await seedProviderOrganization({
-      cloudflareTarget: "pending",
-    });
-    const asOwner = t.withIdentity({
-      subject: `${userId}|session`,
-      tokenIdentifier: `test:${userId}`,
-    });
-    const inaccessibleAccountId = "private-provider-account-id";
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        cloudflareAccountsResponse([
-          { id: primaryCloudflareAccountId, name: "Primary account", type: "standard" },
-        ]),
-      ),
-    );
-
-    const error = await readActionError(
-      asOwner.action(api.users.selectCloudflareAccount, {
-        organizationId,
-        accountId: inaccessibleAccountId,
-      }),
-    );
-
-    expect(error.message).toContain(
-      "The current Cloudflare authorization cannot access this account.",
-    );
-    expect(error.message).not.toContain(inaccessibleAccountId);
   });
 });
