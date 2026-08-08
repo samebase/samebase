@@ -33,14 +33,14 @@ User-owned pages use these routes:
 
 Organization-owned pages use these routes:
 
-| Route                      | Contract                                                                          |
-| -------------------------- | --------------------------------------------------------------------------------- |
-| `/org/:owner`              | Check access, then redirect to `/org/:owner/vaults`.                              |
-| `/org/:owner/vaults`       | Show only vaults owned by this organization.                                      |
-| `/org/:owner/providers`    | Show Convex and Cloudflare connections for this organization.                     |
-| `/org/:owner/new-app`      | Create a repository and provider resources in this organization.                  |
-| `/org/:owner/connect-repo` | Connect a repository owned by this GitHub owner.                                  |
-| `/org/:owner/settings`     | Show identity, role, GitHub App health, billing, usage, quota, and plan controls. |
+| Route                      | Contract                                                                            |
+| -------------------------- | ----------------------------------------------------------------------------------- |
+| `/org/:owner`              | Check access, then redirect to `/org/:owner/vaults`.                                |
+| `/org/:owner/vaults`       | Show only vaults owned by this organization.                                        |
+| `/org/:owner/providers`    | Show GitHub App health and Convex and Cloudflare connections for this organization. |
+| `/org/:owner/new-app`      | Create a repository and provider resources in this organization.                    |
+| `/org/:owner/connect-repo` | Connect a repository owned by this GitHub owner.                                    |
+| `/org/:owner/settings`     | Show identity, role, billing, usage, quota, and plan controls.                      |
 
 The future members route is `/org/:owner/settings/members`. Samebase must not ship the route until
 member administration has real behavior.
