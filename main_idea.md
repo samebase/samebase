@@ -83,7 +83,7 @@ validators, MCP tool schemas, UI copy, plugin docs, and public docs until they d
 Use:
 
 - rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md
-- samebase/agent-plugins context from prior work
+- samebase/plugin context from prior work
 - the recent public-docs/export discussion
 - docs/artifacts/samebase-app/\*
 - archive/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md

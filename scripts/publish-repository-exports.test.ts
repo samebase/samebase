@@ -205,7 +205,7 @@ describe("repository exports", () => {
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
-      expect(readFileSync(outputPath, "utf8")).toBe("repositories=agent-plugins\n");
+      expect(readFileSync(outputPath, "utf8")).toBe("repositories=plugin\n");
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
     }

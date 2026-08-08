@@ -73,11 +73,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Validate agent plugin version for pull request
+      - name: Validate Samebase plugin version for pull request
         if: github.event_name == 'pull_request'
         run: node ./scripts/check-agent-plugin-version.ts ${{ github.event.pull_request.base.sha }}
 
-      - name: Validate agent plugin version for main
+      - name: Validate Samebase plugin version for main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: node ./scripts/check-agent-plugin-version.ts --latest-package-change
 
