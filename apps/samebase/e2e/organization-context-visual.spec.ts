@@ -184,15 +184,17 @@ test("keeps one organization switchable and separates organization and user sett
 
   await openRoute(
     page,
-    "/org/org-context-solo/settings?authorization-provider=github-app&authorization-error=target-mismatch#github",
+    "/org/org-context-solo/providers?authorization-provider=github-app&authorization-error=target-mismatch#github",
   );
-  await expect(page.getByRole("alert")).toBeVisible();
-  await expect(page).toHaveURL(/\/org\/org-context-solo\/settings#github$/u);
+  await expect(
+    page.getByRole("alert").filter({ hasText: "GitHub owner org-context-solo" }),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/org\/org-context-solo\/providers#github$/u);
   if (!(await rightPane.isVisible())) {
     await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   }
   await expect(organizationContext).toBeVisible();
-  await expect(page).toHaveScreenshot("organization-settings-authorization-error.png", {
+  await expect(page).toHaveScreenshot("organization-providers-authorization-error.png", {
     ...screenshotOptions,
     fullPage: true,
   });

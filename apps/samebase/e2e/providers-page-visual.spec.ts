@@ -55,7 +55,7 @@ test("providers page loading fixture", async ({ page }) => {
 });
 
 test("providers page recovery fixture", async ({ page }) => {
-  await page.setViewportSize({ width: 1200, height: 520 });
+  await page.setViewportSize({ width: 1200, height: 1400 });
   await page.goto("/visual-fixture?mode=providers-page-recovery", {
     waitUntil: "domcontentloaded",
   });

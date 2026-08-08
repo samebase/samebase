@@ -471,6 +471,53 @@ describe("organization provider status", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("does not refresh OAuth credentials while checking an inaccessible configured account", async () => {
+    for (const cloudflareAuthMethod of ["oauth", "mcp_oauth"] as const) {
+      const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
+        cloudflareAuthMethod,
+      });
+      const asOwner = t.withIdentity({
+        subject: `${userId}|session`,
+        tokenIdentifier: `test:${userId}`,
+      });
+      const credentialBefore = await t.run(
+        async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare,
+      );
+      const targetBefore = await t.run(
+        async (ctx) => (await ctx.db.get(organizationId))?.cloudflareAccount,
+      );
+      const fetch = vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(input instanceof Request ? input.url : input.toString());
+        if (url.pathname !== "/client/v4/accounts") {
+          throw new Error(`Unexpected Cloudflare probe ${url.pathname}.`);
+        }
+        return cloudflareAccountsResponse([
+          { id: secondaryCloudflareAccountId, name: "Secondary account", type: "standard" },
+        ]);
+      });
+      vi.stubGlobal("fetch", fetch);
+
+      const access = await asOwner.action(
+        api.cloudflareProviderAccess.checkCloudflareConnectionAccess,
+        { organizationId },
+      );
+
+      expect(access.checks).toEqual([
+        { key: "token", status: "error" },
+        { key: "accounts", status: "error" },
+        { key: "workers", status: "not_run" },
+        { key: "workers_builds", status: "not_run" },
+      ]);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await expect(
+        t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare),
+      ).resolves.toEqual(credentialBefore);
+      await expect(
+        t.run(async (ctx) => (await ctx.db.get(organizationId))?.cloudflareAccount),
+      ).resolves.toEqual(targetBefore);
+    }
+  });
+
   it("lets an owner list visible accounts and select the stable target", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization({
       cloudflareTarget: "pending",
@@ -559,7 +606,7 @@ describe("organization provider status", () => {
     expect(error.message).not.toContain("private provider detail");
   });
 
-  it("does not expose Cloudflare refresh errors through public provider actions", async () => {
+  it("does not expose Cloudflare refresh errors through account discovery", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization({
       cloudflareAuthMethod: "oauth",
       cloudflareTarget: "pending",
@@ -577,14 +624,6 @@ describe("organization provider status", () => {
       "Cloudflare account discovery failed. Reconnect Cloudflare, then retry.",
     );
     expect(error.message).not.toContain("private refresh detail");
-
-    const accessError = await readActionError(
-      asOwner.action(api.cloudflareProviderAccess.checkCloudflareConnectionAccess, {
-        organizationId,
-      }),
-    );
-    expect(accessError.message).toContain("Cloudflare access check failed.");
-    expect(accessError.message).not.toContain("private refresh detail");
   });
 
   it("replaces direct and MCP refresh errors at the shared resolver boundary", async () => {
@@ -675,5 +714,36 @@ describe("organization provider status", () => {
       }),
     ).rejects.toThrow("Cloudflare account is already configured.");
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not expose an inaccessible Cloudflare account identifier", async () => {
+    const { organizationId, t, userId } = await seedProviderOrganization({
+      cloudflareTarget: "pending",
+    });
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const inaccessibleAccountId = "private-provider-account-id";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        cloudflareAccountsResponse([
+          { id: primaryCloudflareAccountId, name: "Primary account", type: "standard" },
+        ]),
+      ),
+    );
+
+    const error = await readActionError(
+      asOwner.action(api.users.selectCloudflareAccount, {
+        organizationId,
+        accountId: inaccessibleAccountId,
+      }),
+    );
+
+    expect(error.message).toContain(
+      "The current Cloudflare authorization cannot access this account.",
+    );
+    expect(error.message).not.toContain(inaccessibleAccountId);
   });
 });

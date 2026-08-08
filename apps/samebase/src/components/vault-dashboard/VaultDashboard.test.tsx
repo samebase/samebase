@@ -1705,7 +1705,7 @@ describe("VaultDashboardCloudflareAccountDialog", () => {
     const markup = renderToStaticMarkup(
       <VaultDashboardCloudflareAccountDialog
         accounts={[{ accountId: "account-a", accountName: "Account A" }]}
-        error={null}
+        error="Could not save Cloudflare account."
         isLoading={false}
         isSubmitting={false}
         onAccountChange={() => {}}
@@ -1719,6 +1719,8 @@ describe("VaultDashboardCloudflareAccountDialog", () => {
     expect(markup).toContain("Select Cloudflare Account");
     expect(markup).toContain("Account A");
     expect(markup).toContain("Save Account");
+    expect(markup).toContain('role="alert"');
+    expect(markup).toContain("Could not save Cloudflare account.");
   });
 });
 

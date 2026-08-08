@@ -54,7 +54,7 @@ export function formatAuthorizationErrorMessage(
             <>
               This organization is connected to Cloudflare account{" "}
               <strong className="font-semibold">{targets.cloudflareAccountName}</strong>. Select
-              only that account to reauthorize it.
+              only that account to reconnect it.
             </>
           ) : (
             "Select only one Cloudflare account to connect it."

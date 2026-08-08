@@ -161,7 +161,6 @@ export function ProviderConnectionsPageVisualFixture({
       disconnectingProvider={null}
       githubAccess={isLoading ? null : state.githubAccess}
       githubAccessError={false}
-      isAutoCheckingCloudflareToken={false}
       isCheckingCloudflareAccess={false}
       isCheckingConvexAccess={false}
       isCheckingGitHubAccess={isLoading}

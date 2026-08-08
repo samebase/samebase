@@ -88,10 +88,23 @@ export const checkCloudflareConnectionAccess = action({
     });
     let connection: ResolvedCloudflareConnection | null;
     try {
-      connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
-        organizationId,
-        userId: ctx.viewer.userId,
-      });
+      const configuration = await ctx.runQuery(
+        internal.organizationProviderCredentials.loadForOrganization,
+        {
+          organizationId,
+          userId: ctx.viewer.userId,
+        },
+      );
+      const credential = configuration.cloudflareCredential;
+      connection = credential
+        ? {
+            auth: credential.auth,
+            ...(configuration.cloudflareAccount
+              ? { account: configuration.cloudflareAccount }
+              : {}),
+            ...(credential.tokenHealth ? { tokenHealth: credential.tokenHealth } : {}),
+          }
+        : null;
     } catch {
       throw new Error("Cloudflare access check failed.");
     }

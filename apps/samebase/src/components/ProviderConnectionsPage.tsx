@@ -132,7 +132,6 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   cloudflareAccessError: boolean;
   convexAccessError: boolean;
   githubAccessError: boolean;
-  isAutoCheckingCloudflareToken: boolean;
   isCheckingCloudflareAccess: boolean;
   isCheckingConvexAccess: boolean;
   isCheckingGitHubAccess: boolean;
@@ -435,9 +434,10 @@ function ProviderAccessChecks({
     <ApiChecks
       checks={definitions.map((definition) => ({
         key: definition.key,
-        status:
-          access?.checks.find((candidate) => candidate.key === definition.key)?.status ??
-          (access === null && isChecking ? "checking" : "not_run"),
+        status: isChecking
+          ? "checking"
+          : (access?.checks.find((candidate) => candidate.key === definition.key)?.status ??
+            "not_run"),
         target: definition.target,
       }))}
     />
@@ -719,7 +719,6 @@ export function ProviderConnectionsPageView({
   disconnectingProvider,
   githubAccess,
   githubAccessError,
-  isAutoCheckingCloudflareToken,
   isCheckingCloudflareAccess,
   isCheckingConvexAccess,
   isCheckingGitHubAccess,
@@ -815,7 +814,7 @@ export function ProviderConnectionsPageView({
       ),
     };
   } else if (convexConnection?.state === "connected") {
-    const convexActionsDisabled = disconnectingProvider !== null || isCheckingConvexAccess;
+    const convexActionsDisabled = disconnectingProvider !== null;
     const convexTeamSlug = convexAccess?.team?.teamSlug ?? convexConnection.teamSlug;
     const convexManageAccessUrl = getConvexManageAccessUrl(
       convexTeamSlug,
@@ -887,8 +886,7 @@ export function ProviderConnectionsPageView({
 
   let cloudflareProviderRow: ProviderConnectionRowViewModel;
   if (cloudflareConnection?.state === "connected") {
-    const cloudflareActionsDisabled =
-      disconnectingProvider !== null || isAutoCheckingCloudflareToken || isCheckingCloudflareAccess;
+    const cloudflareActionsDisabled = disconnectingProvider !== null;
     const menuActions: ProviderConnectionActionViewModel[] = [
       {
         disabled: cloudflareActionsDisabled,
@@ -1158,7 +1156,6 @@ function useCloudflareMcpTokenAutoCheck({
   cloudflareConnection,
   organizationId,
   refreshCloudflareMcpTokenIfNeeded,
-  setIsAutoCheckingCloudflareToken,
 }: {
   cloudflareConnection: AppCloudflareConnection | undefined;
   organizationId: Id<"organizations"> | null;
@@ -1167,7 +1164,6 @@ function useCloudflareMcpTokenAutoCheck({
     organizationId: Id<"organizations">;
     trigger: CloudflareTokenAutoCheckTrigger;
   }) => Promise<unknown>;
-  setIsAutoCheckingCloudflareToken: (isChecking: boolean) => void;
 }) {
   const cloudflareAutoCheckInFlightRef = useRef(false);
   const credentialedCloudflareConnection =
@@ -1197,7 +1193,6 @@ function useCloudflareMcpTokenAutoCheck({
       }
 
       cloudflareAutoCheckInFlightRef.current = true;
-      setIsAutoCheckingCloudflareToken(true);
       void refreshCloudflareMcpTokenIfNeeded({ organizationId, trigger, force: false })
         .catch((error: unknown) => {
           console.error("Failed to auto-check Cloudflare token:", error);
@@ -1205,7 +1200,6 @@ function useCloudflareMcpTokenAutoCheck({
         .finally(() => {
           releaseRefreshDebounce("cloudflare_token", debounceKey);
           cloudflareAutoCheckInFlightRef.current = false;
-          setIsAutoCheckingCloudflareToken(false);
         });
     };
 
@@ -1250,7 +1244,6 @@ function useCloudflareMcpTokenAutoCheck({
     credentialedCloudflareConnection?.mcpTokenNextAutoCheckAt,
     organizationId,
     refreshCloudflareMcpTokenIfNeeded,
-    setIsAutoCheckingCloudflareToken,
   ]);
 }
 
@@ -1342,7 +1335,6 @@ export function ProviderConnectionsPage({
   const cloudflareAccountDialogRequestIdRef = useRef(0);
   const [disconnectingProvider, setDisconnectingProvider] = useState<ProviderKey | null>(null);
   const [providerDisconnectNotice, setProviderDisconnectNotice] = useState<string | null>(null);
-  const [isAutoCheckingCloudflareToken, setIsAutoCheckingCloudflareToken] = useState(false);
   const [isReconnectingGitHubApp, setIsReconnectingGitHubApp] = useState(false);
   const [cloudflareAccountDialog, setCloudflareAccountDialog] =
     useState<CloudflareAccountDialogState>({
@@ -1423,7 +1415,6 @@ export function ProviderConnectionsPage({
     cloudflareConnection,
     organizationId,
     refreshCloudflareMcpTokenIfNeeded,
-    setIsAutoCheckingCloudflareToken,
   });
 
   const loadCloudflareAccountDialogResources = async (preferredAccountId: string | undefined) => {
@@ -1574,17 +1565,18 @@ export function ProviderConnectionsPage({
     <ProviderConnectionsPageView
       apiKeyDialog={apiKeyDialog}
       authorizationErrorMessage={authorizationErrorMessage}
-      cloudflareAccess={cloudflareAccessQuery.data ?? null}
-      cloudflareAccessError={cloudflareAccessQuery.isError}
+      cloudflareAccess={
+        cloudflareAccessQuery.error === null ? (cloudflareAccessQuery.data ?? null) : null
+      }
+      cloudflareAccessError={cloudflareAccessQuery.error !== null}
       cloudflareAccountDialog={cloudflareAccountDialog}
       cloudflareConnection={cloudflareConnection}
-      convexAccess={convexAccessQuery.data ?? null}
-      convexAccessError={convexAccessQuery.isError}
+      convexAccess={convexAccessQuery.error === null ? (convexAccessQuery.data ?? null) : null}
+      convexAccessError={convexAccessQuery.error !== null}
       convexConnection={convexConnection}
       disconnectingProvider={disconnectingProvider}
-      githubAccess={githubAccessQuery.data ?? null}
-      githubAccessError={githubAccessQuery.isError}
-      isAutoCheckingCloudflareToken={isAutoCheckingCloudflareToken}
+      githubAccess={githubAccessQuery.error === null ? (githubAccessQuery.data ?? null) : null}
+      githubAccessError={githubAccessQuery.error !== null}
       isCheckingCloudflareAccess={cloudflareAccessQuery.isFetching}
       isCheckingConvexAccess={convexAccessQuery.isFetching}
       isCheckingGitHubAccess={githubAccessQuery.isFetching}

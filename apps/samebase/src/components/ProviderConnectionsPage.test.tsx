@@ -132,13 +132,13 @@ function mountProviderConnectionsPage(selectedOrganization: TestOrganization = o
   mountedRoot = createRoot(mountedElement);
   act(() => {
     mountedRoot?.render(
-      <QueryClientProvider client={queryClient}>
-        <TestRouterProvider
-          initialEntries={[`/org/${selectedOrganization.githubOwnerLogin}/providers`]}
-        >
+      <TestRouterProvider
+        initialEntries={[`/org/${selectedOrganization.githubOwnerLogin}/providers`]}
+      >
+        <QueryClientProvider client={queryClient}>
           <ProviderConnectionsPage organization={selectedOrganization} />
-        </TestRouterProvider>
-      </QueryClientProvider>,
+        </QueryClientProvider>
+      </TestRouterProvider>,
     );
   });
   return mountedElement;
@@ -248,6 +248,79 @@ describe("ProviderConnectionsPage", () => {
     expect(checkGitHubAccess).toHaveBeenLastCalledWith({ organizationId: ORGANIZATION_ID });
     expect(checkConvexAccess).toHaveBeenLastCalledWith({ organizationId: ORGANIZATION_ID });
     expect(checkCloudflareAccess).toHaveBeenLastCalledWith({ organizationId: ORGANIZATION_ID });
+  });
+
+  it("does not show earlier passes after a refresh fails", async () => {
+    let shouldFail = false;
+    const checkGitHubAccess = vi.fn(async () => {
+      if (shouldFail) {
+        throw new Error("provider unavailable");
+      }
+      return githubAccess();
+    });
+    const checkConvexAccess = vi.fn(async () => {
+      if (shouldFail) {
+        throw new Error("provider unavailable");
+      }
+      return convexAccess();
+    });
+    const checkCloudflareAccess = vi.fn(async () => {
+      if (shouldFail) {
+        throw new Error("provider unavailable");
+      }
+      return cloudflareAccess();
+    });
+    testState.actions.set(
+      getFunctionName(api.githubAppAccess.checkViewerInstallation),
+      checkGitHubAccess,
+    );
+    testState.actions.set(
+      getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
+      checkConvexAccess,
+    );
+    testState.actions.set(
+      getFunctionName(api.cloudflareProviderAccess.checkCloudflareConnectionAccess),
+      checkCloudflareAccess,
+    );
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      authMethod: "oauth",
+      state: "connected",
+      teamId: "team_samebase",
+      teamSlug: "samebase",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      accountId: "cloudflare-account",
+      accountName: "Samebase",
+      authMethod: "oauth",
+      state: "connected",
+    });
+    const container = mountProviderConnectionsPage();
+
+    await act(async () => {
+      await vi.waitFor(() => {
+        expect(checkGitHubAccess).toHaveBeenCalledTimes(1);
+        expect(checkConvexAccess).toHaveBeenCalledTimes(1);
+        expect(checkCloudflareAccess).toHaveBeenCalledTimes(1);
+        expect(queryClient.isFetching()).toBe(0);
+        expect(container.textContent).toContain("Passed");
+      });
+    });
+
+    shouldFail = true;
+    await act(async () => {
+      await queryClient.refetchQueries({
+        queryKey: ["organization-provider-access", ORGANIZATION_ID],
+      });
+      await vi.waitFor(() => {
+        expect(checkGitHubAccess).toHaveBeenCalledTimes(3);
+        expect(checkConvexAccess).toHaveBeenCalledTimes(3);
+        expect(checkCloudflareAccess).toHaveBeenCalledTimes(3);
+        expect(queryClient.isFetching()).toBe(0);
+        expect(container.querySelectorAll('[role="alert"]')).toHaveLength(3);
+      });
+    });
+
+    expect(container.textContent).not.toContain("Passed");
   });
 
   it("checks GitHub but not disconnected credential providers", async () => {
