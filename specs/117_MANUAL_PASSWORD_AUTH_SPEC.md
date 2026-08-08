@@ -8,6 +8,7 @@
 - Related:
   - `docs/manual-password-auth.md`
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
+  - `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md`
 
 ## Current Contract
 
@@ -46,7 +47,7 @@ An access token that was issued before a password rotation can remain valid for 
 - Public password sign-up
 - Public password reset
 - A self-service account creation UI
-- Replacing Google authentication
+- Replacing Google or GitHub OAuth sign-in
 
 ## Validation
 

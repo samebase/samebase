@@ -625,22 +625,30 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
   ).toBeVisible();
   await expect(accountSection.locator("[aria-expanded]")).toHaveCount(0);
   await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
 });
 
-test("public landing shows Google sign-in by default", async ({ page }) => {
+test("public landing shows OAuth sign-in methods by default", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
   const googleButton = page.getByRole("button", { name: "Continue with Google" });
+  const githubButton = page.getByRole("button", { name: "Continue with GitHub" });
 
   await expect(googleButton).toBeVisible();
+  await expect(githubButton).toBeVisible();
   await expect(googleButton).toHaveCSS("cursor", "pointer");
+  await expect(githubButton).toHaveCSS("cursor", "pointer");
   await expect(googleButton).toHaveScreenshot("public-landing-google-button.png", {
+    ...strictScreenshotOptions,
+    timeout: 15_000,
+  });
+  await expect(githubButton).toHaveScreenshot("public-landing-github-button.png", {
     ...strictScreenshotOptions,
     timeout: 15_000,
   });
 });
 
-test("public landing renders the closed Google signup return state", async ({ page }) => {
+test("public landing renders the closed OAuth signup return state", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/?signup=google", { waitUntil: "networkidle" });
 
@@ -651,6 +659,13 @@ test("public landing renders the closed Google signup return state", async ({ pa
   await expect(
     page.getByRole("button", {
       name: "Continue with Google",
+      exact: true,
+      includeHidden: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", {
+      name: "Continue with GitHub",
       exact: true,
       includeHidden: true,
     }),
@@ -769,6 +784,11 @@ test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page 
   await expect(
     page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID).getByRole("button", {
       name: "Continue with Google",
+    }),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID).getByRole("button", {
+      name: "Continue with GitHub",
     }),
   ).toBeVisible();
   await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
@@ -1026,6 +1046,7 @@ test("prod-ui mode hides developer password auth controls", async ({ page }) => 
   await page.goto("/?prod-ui", { waitUntil: "networkidle" });
 
   await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
   await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
 
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
@@ -1039,6 +1060,7 @@ test("prod-ui mode does not override landing dev editing", async ({ page }) => {
   await page.goto("/?prod-ui&dev", { waitUntil: "domcontentloaded" });
 
   await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
   await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
   await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
   const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);

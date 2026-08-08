@@ -11,6 +11,7 @@
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
   - `specs/119_POLAR_MONTHLY_BILLING_SPEC.md`
   - `specs/121_ORGANIZATION_CONTEXT_AND_ROUTE_MODEL.md`
+  - `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md`
   - `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
@@ -101,7 +102,8 @@ user authorization is stored separately only for operations that require the act
 such as repository creation under a personal account. It belongs to one Samebase user and GitHub
 user. It does not identify an organization, grant membership, or become available to another member.
 One Samebase user has at most one current GitHub App user authorization. Supporting several personal
-GitHub identities for one Samebase user is outside this contract.
+GitHub identities for one Samebase user is outside this contract. When the user also has GitHub as a
+Samebase sign-in method, both personal GitHub records must have the same stable GitHub user ID.
 
 ## Deployment Providers
 

@@ -55,10 +55,11 @@ Intentional remaining router-level boundary:
    parser/stringifier because Samebase intentionally preserves key-only URLs such as `/?dev` instead
    of adopting TanStack Router's default JSON-style search semantics.
 2. `/` remains the public landing route, and `/vault` is the canonical signed-in dashboard route.
-   Public Google sign-in from `/` asks the provider to return directly to `/vault`, while
+   Public Google or GitHub sign-in from `/` asks the provider to return directly to `/vault`, while
    `apps/samebase/src/lib/useAppAuthRuntimeEffects.ts` preserves failed unauthenticated
-   `/vault?signup=google` returns by sending them back to `/?signup=google`. Authenticated users can
-   still open `/` directly because the runtime no longer redirects authenticated root renders.
+   `/vault?signup=<provider>` returns by sending them back to `/?signup=<provider>`. Authenticated
+   users can still open `/` directly because the runtime no longer redirects authenticated root
+   renders.
 
 Already completed in this step:
 
