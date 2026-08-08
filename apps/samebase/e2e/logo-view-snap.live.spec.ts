@@ -73,8 +73,14 @@ function computeExpectedDraggedView(args: {
   });
 
   return {
-    elevationDegrees: `${resolvedView.elevationDegrees}`,
-    rotationDegrees: `${resolvedView.rotationDegrees}`,
+    elevationDegrees:
+      resolvedView.elevationDegrees === startElevationDegrees
+        ? `${resolvedView.elevationDegrees}`
+        : `${Number(resolvedView.elevationDegrees.toFixed(1))}`,
+    rotationDegrees:
+      resolvedView.rotationDegrees === startRotationDegrees
+        ? `${resolvedView.rotationDegrees}`
+        : `${Number(resolvedView.rotationDegrees.toFixed(1))}`,
   };
 }
 
@@ -132,11 +138,11 @@ test.describe("logo view snapping parity", () => {
 
   test("freeView disables the shared snap behavior on the logo route", async ({ page }) => {
     const snappedScene = await loadLogoRoute(page, "/logo");
-    await dragLogoScene(page, snappedScene, { dx: 0, dy: 10 });
+    await dragLogoScene(page, snappedScene, { dx: 0, dy: 5 });
     const snappedEnd = await readLogoViewState(snappedScene);
 
     const freeScene = await loadLogoRoute(page, "/logo?freeView");
-    await dragLogoScene(page, freeScene, { dx: 0, dy: 10 });
+    await dragLogoScene(page, freeScene, { dx: 0, dy: 5 });
     const freeEnd = await readLogoViewState(freeScene);
 
     expect(snappedEnd).not.toEqual(freeEnd);
@@ -173,6 +179,15 @@ test.describe("logo view snapping parity", () => {
     expect(await readLogoViewState(logoScene)).toEqual({
       elevationDegrees: "35.26438968",
       rotationDegrees: "45",
+    });
+  });
+
+  test("default snapping keeps angles outside the one-degree threshold", async ({ page }) => {
+    const logoScene = await loadLogoRoute(page, "/logo?elev=22.4&rot=43.6");
+
+    expect(await readLogoViewState(logoScene)).toEqual({
+      elevationDegrees: "22.4",
+      rotationDegrees: "43.6",
     });
   });
 
