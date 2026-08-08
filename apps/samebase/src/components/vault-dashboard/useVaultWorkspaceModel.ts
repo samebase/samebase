@@ -1,4 +1,5 @@
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import { useVaultPullRequests } from "@/hooks/useVaultPullRequests";
 import { useVaultSidebarSummaries } from "@/hooks/useVaultSidebarSummaries";
@@ -12,8 +13,17 @@ import { useVaultProviderObservations } from "./useVaultProviderObservations";
 function selectVault(
   vaults: readonly UserVaultResult[] | undefined,
   repositoryFullName: string | undefined,
+  activeVaultId: Id<"vaults"> | undefined,
 ): UserVaultResult | null {
-  if (!vaults || !repositoryFullName) {
+  if (!vaults) {
+    return null;
+  }
+
+  if (activeVaultId) {
+    return vaults.find((vault) => vault._id === activeVaultId) ?? null;
+  }
+
+  if (!repositoryFullName) {
     return null;
   }
 
@@ -23,6 +33,7 @@ function selectVault(
 export function useVaultWorkspaceModel(
   selectedRepositoryFullName: string | undefined,
   organizationOwner?: string,
+  activeVaultId?: Id<"vaults">,
 ): VaultWorkspaceModel {
   const vaults = useCacheQuery(api.vault.dashboard.getUserVaults);
   const folderState = useCacheQuery(api.vault.folders.getVaultFolderState);
@@ -32,8 +43,8 @@ export function useVaultWorkspaceModel(
   );
   const sidebarSummaries = useVaultSidebarSummaries();
   const selectedVault = useMemo(
-    () => selectVault(vaults, selectedRepositoryFullName),
-    [selectedRepositoryFullName, vaults],
+    () => selectVault(vaults, selectedRepositoryFullName, activeVaultId),
+    [activeVaultId, selectedRepositoryFullName, vaults],
   );
   const selectedOrganization = useMemo(
     () =>

@@ -10,6 +10,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useEffect } from "react";
 import { api } from "../../../convex/_generated/api";
+import type { Id } from "../../../convex/_generated/dataModel";
 import { VaultOverviewLoadingPage, type VaultOverviewPageKind } from "./VaultOverviewPage";
 import {
   VaultOverviewOrganizationSidebar,
@@ -25,12 +26,14 @@ import { useVaultWorkspaceModel } from "./useVaultWorkspaceModel";
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 
 export type VaultDashboardProps = {
+  activeVaultId?: Id<"vaults">;
   organizationOwner?: string;
   page?: VaultOverviewPageKind;
   selectedRepositoryFullName?: string;
 };
 
 export function VaultDashboard({
+  activeVaultId,
   organizationOwner,
   page = "overview",
   selectedRepositoryFullName,
@@ -39,7 +42,15 @@ export function VaultDashboard({
   const pathname = useLocation({ select: (location) => location.pathname });
   const rootRouteSearch = useRootRouteSearch();
   const developerToolsVisible = rootRouteSearch[DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM] === true;
-  const workspaceModel = useVaultWorkspaceModel(selectedRepositoryFullName, organizationOwner);
+  const workspaceModel = useVaultWorkspaceModel(
+    selectedRepositoryFullName,
+    organizationOwner,
+    activeVaultId,
+  );
+  const selectedWorkspace =
+    workspaceModel.state === "ready" && workspaceModel.selection.state === "selected"
+      ? workspaceModel.selection.workspace
+      : null;
   const createVaultFolder = useMutation(api.vault.folders.createVaultFolder);
   const deleteVaultFolder = useMutation(api.vault.folders.deleteVaultFolder);
   const moveVaultFolder = useMutation(api.vault.folders.moveVaultFolder);
@@ -138,8 +149,6 @@ export function VaultDashboard({
     );
   }
 
-  const selectedWorkspace =
-    workspaceModel.selection.state === "selected" ? workspaceModel.selection.workspace : null;
   const isVaultRootRoute = workspaceModel.selection.state === "root";
   const leftPane = {
     header: <VaultOverviewVaultListHeader />,

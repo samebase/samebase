@@ -60,6 +60,10 @@ import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
 import { useRepositorySimpleViewConfig } from "@/components/FileView/useRepositorySimpleViewConfig";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
+import {
+  VaultRouteIdentityBoundary,
+  type VaultRouteIdentity,
+} from "@/components/VaultRouteIdentityBoundary";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
 import { TREE_REFRESH_STALE_LOCK_MS } from "../../../shared/treeRefresh";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
@@ -124,19 +128,25 @@ export function FileViewVaultUnavailableState() {
   );
 }
 
-function FileViewWrapper() {
+function FileViewWrapper({
+  routeIdentity,
+}: {
+  routeIdentity?: Extract<VaultRouteIdentity, { state: "selected" }>;
+}) {
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
   const { pathname } = location;
   const isCompareRequested = routeSearch.compare ?? false;
   const {
-    owner,
-    repoName,
+    owner: requestedOwner,
+    repoName: requestedRepoName,
     branch: branchParam,
     filePath: filePathParam,
     isInvalidVaultRoute,
   } = useMemo(() => parseVaultPathContext(pathname), [pathname]);
+  const owner = routeIdentity?.owner ?? requestedOwner;
+  const repoName = routeIdentity?.repoName ?? requestedRepoName;
 
   const firstDocAction = useAction(api.fileStagingActions.getFileForEditing);
   const refreshTree = useAction(api.github.refreshRepositoryTree);
@@ -2721,7 +2731,28 @@ function FileViewInner({
 export function FileView() {
   return (
     <DialogProvider>
-      <FileViewWrapper />
+      <FileViewRouteIdentity />
     </DialogProvider>
+  );
+}
+
+function FileViewRouteIdentity() {
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const route = useMemo(() => parseVaultPathContext(pathname), [pathname]);
+
+  if (!route.owner || !route.repoName || route.isInvalidVaultRoute) {
+    return <FileViewWrapper />;
+  }
+
+  return (
+    <VaultRouteIdentityBoundary owner={route.owner} repoName={route.repoName}>
+      {(identity) =>
+        identity.state === "missing" ? (
+          <FileViewVaultUnavailableState />
+        ) : (
+          <FileViewWrapper routeIdentity={identity} />
+        )
+      }
+    </VaultRouteIdentityBoundary>
   );
 }

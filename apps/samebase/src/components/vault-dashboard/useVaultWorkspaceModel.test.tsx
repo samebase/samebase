@@ -136,7 +136,7 @@ describe("useVaultWorkspaceModel", () => {
     let latest: ReturnType<typeof useVaultWorkspaceModel> | undefined;
 
     function Probe() {
-      latest = useVaultWorkspaceModel(vault.repositoryFullName);
+      latest = useVaultWorkspaceModel(vault.repositoryFullName, undefined, vault._id);
       return null;
     }
 
@@ -158,6 +158,77 @@ describe("useVaultWorkspaceModel", () => {
         args: "skip",
         name: getFunctionName(api.users.getCloudflareConnectionStatus),
       });
+    } finally {
+      await act(async () => root.unmount());
+      rootElement.remove();
+    }
+  });
+
+  it("keeps the active vault identity when another vault reuses its old route", async () => {
+    const renamedVault = {
+      ...lostAccessVault(),
+      _id: fakeVaultId("vault-renamed"),
+      ghRepoName: "after-repository",
+      ghRepoOwner: "after-owner",
+      organizationId: fakeOrganizationId("organization-renamed"),
+      repositoryFullName: "after-owner/after-repository",
+    } satisfies UserVaultResult;
+    const replacementVault = {
+      ...renamedVault,
+      _id: fakeVaultId("vault-replacement"),
+      ghRepoName: "before-repository",
+      ghRepoOwner: "before-owner",
+      organizationId: fakeOrganizationId("organization-replacement"),
+      repositoryFullName: "before-owner/before-repository",
+    } satisfies UserVaultResult;
+    const renamedOrganization = {
+      canCreateRepository: true,
+      githubOwnerId: "github-owner-renamed",
+      githubOwnerLogin: "after-owner",
+      githubOwnerType: "organization",
+      organizationId: renamedVault.organizationId,
+      role: "owner",
+    } as const;
+    const replacementOrganization = {
+      canCreateRepository: true,
+      githubOwnerId: "github-owner-replacement",
+      githubOwnerLogin: "before-owner",
+      githubOwnerType: "organization",
+      organizationId: replacementVault.organizationId,
+      role: "owner",
+    } as const;
+    testState.cachedQueries.set(getFunctionName(api.vault.dashboard.getUserVaults), [
+      replacementVault,
+      renamedVault,
+    ]);
+    testState.liveQueries.set(getFunctionName(api.organizations.listForViewer), [
+      replacementOrganization,
+      renamedOrganization,
+    ]);
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    let latest: ReturnType<typeof useVaultWorkspaceModel> | undefined;
+
+    function Probe() {
+      latest = useVaultWorkspaceModel(
+        "before-owner/before-repository",
+        undefined,
+        renamedVault._id,
+      );
+      return null;
+    }
+
+    try {
+      await act(async () => root.render(<Probe />));
+
+      expect(latest?.state).toBe("ready");
+      if (latest?.state !== "ready" || latest.selection.state !== "selected") {
+        throw new Error("Expected the active vault workspace to stay selected.");
+      }
+      expect(latest.selection.workspace.vault).toBe(renamedVault);
+      expect(testState.providerVaults).toEqual([renamedVault]);
+      expect(testState.pullRequestArgs).toEqual([{ vault: renamedVault }]);
     } finally {
       await act(async () => root.unmount());
       rootElement.remove();

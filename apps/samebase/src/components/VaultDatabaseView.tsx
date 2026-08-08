@@ -4,6 +4,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
+import { VaultRouteIdentityBoundary } from "@/components/VaultRouteIdentityBoundary";
 import { findVaultConvexProjectAttachment } from "@/lib/vaultConvexProjectAttachment";
 
 const EMBEDDED_DASHBOARD_ORIGIN = "https://dashboard-embedded.convex.dev";
@@ -51,6 +52,40 @@ type VaultDatabaseViewProps = {
 };
 
 export function VaultDatabaseView({
+  owner,
+  repoName,
+  branch,
+  convexProjectId: routeConvexProjectId,
+}: VaultDatabaseViewProps) {
+  return (
+    <VaultRouteIdentityBoundary owner={owner} repoName={repoName}>
+      {(identity) =>
+        identity.state === "missing" ? (
+          <VaultDatabaseRouteUnavailable />
+        ) : (
+          <VaultDatabaseRouteContent
+            branch={branch}
+            convexProjectId={routeConvexProjectId}
+            owner={identity.owner}
+            repoName={identity.repoName}
+          />
+        )
+      }
+    </VaultRouteIdentityBoundary>
+  );
+}
+
+function VaultDatabaseRouteUnavailable() {
+  return (
+    <AppWorkspaceRouteChrome rightToggleVisibility="all">
+      <div data-testid="vault-database-page" className="flex h-full min-h-0 flex-col bg-background">
+        <VaultDatabaseStatus>Vault not found.</VaultDatabaseStatus>
+      </div>
+    </AppWorkspaceRouteChrome>
+  );
+}
+
+function VaultDatabaseRouteContent({
   owner,
   repoName,
   branch,

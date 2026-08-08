@@ -1,5 +1,6 @@
 import { api } from "../../convex/_generated/api";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
+import { VaultRouteIdentityBoundary } from "@/components/VaultRouteIdentityBoundary";
 import {
   VaultConvexSchemaGraphRouteWorkspace,
   type VaultConvexSchemaGraphRouteContext,
@@ -88,6 +89,42 @@ function VaultConvexSchemaGraphRouteStatusShell({
 }
 
 export function VaultConvexSchemaGraphView({
+  branch,
+  convexProjectId: routeConvexProjectId,
+  owner,
+  repoName,
+}: VaultConvexSchemaGraphViewProps) {
+  return (
+    <VaultRouteIdentityBoundary owner={owner} repoName={repoName}>
+      {(identity) => {
+        if (identity.state === "missing") {
+          return (
+            <VaultConvexSchemaGraphRouteStatusShell
+              context={{
+                branch,
+                convexCodePath: "",
+                projectId: routeConvexProjectId,
+                repositoryFullName: `${owner}/${repoName}`,
+              }}
+              status="Convex project is not attached to this vault."
+            />
+          );
+        }
+
+        return (
+          <VaultConvexSchemaGraphRouteContent
+            branch={branch}
+            convexProjectId={routeConvexProjectId}
+            owner={identity.owner}
+            repoName={identity.repoName}
+          />
+        );
+      }}
+    </VaultRouteIdentityBoundary>
+  );
+}
+
+function VaultConvexSchemaGraphRouteContent({
   branch,
   convexProjectId: routeConvexProjectId,
   owner,

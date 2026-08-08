@@ -1,5 +1,7 @@
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { VaultRouteIdentityBoundary } from "@/components/VaultRouteIdentityBoundary";
 import { lazy } from "react";
+import { tryParseRepositoryFullName } from "../../shared/repoName";
 
 const VaultDashboard = lazy(async () => {
   const module = await import("@/components/vault-dashboard/VaultDashboard");
@@ -21,13 +23,39 @@ export function DashboardRoutePage({
   page,
   selectedRepositoryFullName,
 }: DashboardRoutePageProps) {
+  const selectedRepository = selectedRepositoryFullName
+    ? tryParseRepositoryFullName(selectedRepositoryFullName)
+    : null;
+
   return (
     <AuthenticatedAppRoutePage>
-      <VaultDashboard
-        organizationOwner={organizationOwner}
-        page={page}
-        selectedRepositoryFullName={selectedRepositoryFullName}
-      />
+      {selectedRepository ? (
+        <VaultRouteIdentityBoundary
+          owner={selectedRepository.owner}
+          repoName={selectedRepository.name}
+        >
+          {(identity) => (
+            <VaultDashboard
+              activeVaultId={
+                identity.state === "selected" ? identity.vaultId : identity.activeVaultId
+              }
+              organizationOwner={organizationOwner}
+              page={page}
+              selectedRepositoryFullName={
+                identity.state === "selected"
+                  ? identity.repositoryFullName
+                  : selectedRepositoryFullName
+              }
+            />
+          )}
+        </VaultRouteIdentityBoundary>
+      ) : (
+        <VaultDashboard
+          organizationOwner={organizationOwner}
+          page={page}
+          selectedRepositoryFullName={selectedRepositoryFullName}
+        />
+      )}
     </AuthenticatedAppRoutePage>
   );
 }
