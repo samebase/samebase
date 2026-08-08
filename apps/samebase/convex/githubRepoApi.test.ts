@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const octokitMocks = vi.hoisted(() => ({
-  getRepository: vi.fn(),
+  request: vi.fn(),
   getRef: vi.fn(),
   getCommit: vi.fn(),
   getTree: vi.fn(),
@@ -10,8 +10,8 @@ const octokitMocks = vi.hoisted(() => ({
 
 vi.mock("@octokit/rest", () => ({
   Octokit: class {
+    readonly request = octokitMocks.request;
     readonly rest = {
-      repos: { get: octokitMocks.getRepository },
       git: {
         getRef: octokitMocks.getRef,
         getCommit: octokitMocks.getCommit,
@@ -23,39 +23,162 @@ vi.mock("@octokit/rest", () => ({
 }));
 
 import { Octokit } from "@octokit/rest";
+import type { GitHubVaultAccess } from "./githubAppAccess";
 import {
   fetchGitHubConvexCodeLocationDiscovery,
   fetchGitHubDefaultBranchHead,
-  fetchGitHubRepoIdentity,
+  listGitHubInstallationRepositories,
+  resolveGitHubInstallationRepositoryIdentity,
 } from "./githubRepoApi";
 
 const octokit = new Octokit();
 
+// Subset of GitHub's official GET /installation/repositories response example.
+// https://docs.github.com/en/rest/apps/installations#list-repositories-accessible-to-the-app-installation
+const officialRepositoryIdentity = {
+  id: 1_296_269,
+  name: "Hello-World",
+  full_name: "octocat/Hello-World",
+  default_branch: "master",
+  owner: {
+    id: 1,
+    login: "octocat",
+  },
+};
+const repositoryTarget = {
+  expectedRepoId: "1296269",
+  expectedOwnerId: "1",
+};
+
+// @ts-expect-error Tests supply provider fixtures without the resolver-only capability marker.
+const githubAccess: GitHubVaultAccess = {
+  octokit,
+  ghRepoId: repositoryTarget.expectedRepoId,
+  githubOwnerId: repositoryTarget.expectedOwnerId,
+  githubOwnerLogin: "octocat",
+  repositoryName: "Hello-World",
+  repositoryDefaultBranch: "master",
+};
+
 describe("GitHub repository API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    octokitMocks.getRepository.mockResolvedValue({
-      data: { id: 123, default_branch: "trunk", owner: { id: 456 } },
-    });
     octokitMocks.getRef.mockResolvedValue({ data: { object: { sha: "commit-sha" } } });
     octokitMocks.getCommit.mockResolvedValue({ data: { tree: { sha: "tree-sha" } } });
   });
 
-  it("passes the caller's abort deadline to the repository identity request", async () => {
+  it("lists the stable IDs that the installation can access", async () => {
     const signal = new AbortController().signal;
+    // Subset of GitHub's official GET /installation/repositories response example.
+    // https://docs.github.com/en/rest/apps/installations#list-repositories-accessible-to-the-app-installation
+    const secondRepository = {
+      ...officialRepositoryIdentity,
+      id: 2_345_678,
+      name: "Second-World",
+      full_name: "octocat/Second-World",
+    };
+    octokitMocks.request.mockResolvedValue({
+      data: {
+        total_count: 2,
+        repositories: [officialRepositoryIdentity, secondRepository],
+      },
+    });
+
+    await expect(listGitHubInstallationRepositories({ octokit, signal })).resolves.toEqual(
+      new Map([
+        [
+          "1296269",
+          {
+            repositoryId: "1296269",
+            ownerId: "1",
+            ownerLogin: "octocat",
+            repositoryName: "Hello-World",
+            defaultBranch: "master",
+          },
+        ],
+        [
+          "2345678",
+          {
+            repositoryId: "2345678",
+            ownerId: "1",
+            ownerLogin: "octocat",
+            repositoryName: "Second-World",
+            defaultBranch: "master",
+          },
+        ],
+      ]),
+    );
+    expect(octokitMocks.request).toHaveBeenCalledWith("GET /installation/repositories", {
+      page: 1,
+      per_page: 100,
+      request: { signal },
+    });
+  });
+
+  it("continues installation repository identity lookup on later pages", async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      ...officialRepositoryIdentity,
+      id: index + 1,
+      name: `repository-${index + 1}`,
+      full_name: `octocat/repository-${index + 1}`,
+    }));
+    const lastRepository = {
+      ...officialRepositoryIdentity,
+      id: 101,
+      name: "renamed-repository",
+      full_name: "renamed-owner/renamed-repository",
+      owner: { id: 1, login: "renamed-owner" },
+    };
+    octokitMocks.request
+      .mockResolvedValueOnce({
+        data: { total_count: 101, repositories: firstPage },
+      })
+      .mockResolvedValueOnce({
+        data: { total_count: 101, repositories: [lastRepository] },
+      });
+
+    const repositories = await listGitHubInstallationRepositories({ octokit });
+
+    expect(repositories.size).toBe(101);
+    expect(repositories.get("101")).toMatchObject({
+      ownerLogin: "renamed-owner",
+      repositoryName: "renamed-repository",
+    });
+    expect(octokitMocks.request).toHaveBeenNthCalledWith(2, "GET /installation/repositories", {
+      page: 2,
+      per_page: 100,
+      request: { signal: expect.any(AbortSignal) },
+    });
+  });
+
+  it("resolves current repository coordinates by stable ID", async () => {
+    const signal = new AbortController().signal;
+    const renamedRepository = {
+      ...officialRepositoryIdentity,
+      name: "Renamed-World",
+      full_name: "renamed-owner/Renamed-World",
+      owner: { id: 1, login: "renamed-owner" },
+    };
+    octokitMocks.request.mockResolvedValue({
+      data: { total_count: 1, repositories: [renamedRepository] },
+    });
 
     await expect(
-      fetchGitHubRepoIdentity({
+      resolveGitHubInstallationRepositoryIdentity({
         octokit,
-        owner: "samebase",
-        repo: "samebase",
-        expectedRepoId: "123",
+        ...repositoryTarget,
         signal,
       }),
-    ).resolves.toEqual({ ownerId: "456", defaultBranch: "trunk" });
-    expect(octokitMocks.getRepository).toHaveBeenCalledWith({
-      owner: "samebase",
-      repo: "samebase",
+    ).resolves.toEqual({
+      ownerId: "1",
+      ownerLogin: "renamed-owner",
+      repositoryId: "1296269",
+      repositoryName: "Renamed-World",
+      defaultBranch: "master",
+    });
+    expect(octokitMocks.request).toHaveBeenCalledWith("GET /installation/repositories", {
+      page: 1,
+      per_page: 100,
       request: { signal },
     });
   });
@@ -69,27 +192,22 @@ describe("GitHub repository API", () => {
 
     await expect(
       fetchGitHubDefaultBranchHead({
-        octokit,
-        owner: "samebase",
-        repo: "samebase",
-        expectedRepoId: "123",
+        githubAccess,
         signal,
         recordApiCall: async (call) => {
           calls.push(call);
         },
       }),
     ).resolves.toEqual({
-      defaultBranch: "trunk",
       commitSha: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     });
     expect(octokitMocks.getRef).toHaveBeenCalledWith({
-      owner: "samebase",
-      repo: "samebase",
-      ref: "heads/trunk",
+      owner: "octocat",
+      repo: "Hello-World",
+      ref: "heads/master",
       request: { signal },
     });
     expect(calls).toEqual([
-      expect.objectContaining({ endpoint: "/repos/{owner}/{repo}" }),
       expect.objectContaining({ endpoint: "/repos/{owner}/{repo}/git/ref/{ref}" }),
     ]);
   });
@@ -99,10 +217,7 @@ describe("GitHub repository API", () => {
 
     await expect(
       fetchGitHubDefaultBranchHead({
-        octokit,
-        owner: "samebase",
-        repo: "samebase",
-        expectedRepoId: "123",
+        githubAccess,
       }),
     ).rejects.toThrow("GitHub default branch ref did not include a valid commit SHA.");
   });
@@ -143,14 +258,11 @@ describe("GitHub repository API", () => {
     });
     await expect(
       fetchGitHubConvexCodeLocationDiscovery({
-        octokit,
-        owner: "samebase",
-        repo: "samebase",
-        expectedRepoId: "123",
+        githubAccess,
       }),
     ).resolves.toEqual({
       completeness: "partial",
-      defaultBranch: "trunk",
+      defaultBranch: "master",
       commitSha: "commit-sha",
       treeSha: "tree-sha",
       locations: [
@@ -175,9 +287,9 @@ describe("GitHub repository API", () => {
       ],
     });
     expect(octokitMocks.getRef).toHaveBeenCalledWith({
-      owner: "samebase",
-      repo: "samebase",
-      ref: "heads/trunk",
+      owner: "octocat",
+      repo: "Hello-World",
+      ref: "heads/master",
     });
     expect(octokitMocks.getBlob).not.toHaveBeenCalled();
   });
@@ -248,14 +360,11 @@ describe("GitHub repository API", () => {
     });
     await expect(
       fetchGitHubConvexCodeLocationDiscovery({
-        octokit,
-        owner: "samebase",
-        repo: "samebase",
-        expectedRepoId: "123",
+        githubAccess,
       }),
     ).resolves.toEqual({
       completeness: "complete",
-      defaultBranch: "trunk",
+      defaultBranch: "master",
       commitSha: "commit-sha",
       treeSha: "tree-sha",
       locations: [
@@ -286,19 +395,32 @@ describe("GitHub repository API", () => {
     expect(octokitMocks.getBlob).not.toHaveBeenCalled();
   });
 
-  it("rejects a repository whose immutable id no longer matches the vault", async () => {
-    octokitMocks.getRepository.mockResolvedValue({
-      data: { id: 999, default_branch: "main", owner: { id: 456 } },
+  it("rejects a repository transfer without changing Samebase ownership", async () => {
+    octokitMocks.request.mockResolvedValue({
+      data: { total_count: 1, repositories: [officialRepositoryIdentity] },
     });
 
     await expect(
-      fetchGitHubConvexCodeLocationDiscovery({
+      resolveGitHubInstallationRepositoryIdentity({
         octokit,
-        owner: "samebase",
-        repo: "samebase",
-        expectedRepoId: "123",
+        expectedOwnerId: "2",
+        expectedRepoId: "1296269",
       }),
-    ).rejects.toThrow("GitHub repository response did not match the vault repo.");
-    expect(octokitMocks.getRef).not.toHaveBeenCalled();
+    ).rejects.toThrow(
+      "GitHub repository owner changed. Remove this vault and connect the repository under its current owner.",
+    );
+  });
+
+  it("rejects a repository that the installation cannot access", async () => {
+    octokitMocks.request.mockResolvedValue({
+      data: { total_count: 0, repositories: [] },
+    });
+
+    await expect(
+      resolveGitHubInstallationRepositoryIdentity({
+        octokit,
+        ...repositoryTarget,
+      }),
+    ).rejects.toThrow("GitHub App installation cannot access the vault repository.");
   });
 });

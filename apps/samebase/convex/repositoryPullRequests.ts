@@ -5,10 +5,17 @@ import { z } from "zod";
 
 import { internal } from "./_generated/api";
 import { action } from "./functions";
-import { resolveGitHubAppAccess } from "./githubAppAccess";
-import { createGitHubRequestDeadlineSignal } from "./githubRepoApi";
+import {
+  createGitHubInstallationOctokit,
+  createGitHubRepositoriesInstallationOctokit,
+} from "./githubApp";
+import { loadGitHubAppInstallationAccess, resolveGitHubVaultAccess } from "./githubAppAccess";
+import {
+  createGitHubRequestDeadlineSignal,
+  listGitHubInstallationRepositories,
+  type GitHubRepositoryIdentity,
+} from "./githubRepoApi";
 import type { VaultConnectedRepositoryTarget } from "./vault/model";
-import { isLiveConnectedVault } from "./vault/state";
 
 const { array, boolean, id, literal, null: vNull, number, object, string, union } = v;
 
@@ -316,7 +323,6 @@ const providerPageSchema = z.object({
     })
     .nullable(),
 });
-
 const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
   query RepositoryPullRequestPage(
     $owner: String!
@@ -409,6 +415,7 @@ const REPOSITORY_PULL_REQUEST_PAGE_QUERY = `
 const providerSidebarRepositorySchema = z
   .object({
     databaseId: z.number().int().positive(),
+    owner: z.object({ databaseId: z.number().int().positive() }),
     defaultBranch: z
       .object({
         name: z.string().min(1),
@@ -456,6 +463,10 @@ function buildVaultSidebarSummariesQuery(
       (_, index) => `
         repository${index}: repository(owner: $owner${index}, name: $name${index}) {
           databaseId
+          owner {
+            ... on Organization { databaseId }
+            ... on User { databaseId }
+          }
           defaultBranch: ref(qualifiedName: $defaultBranchRef${index}) {
             name
             target {
@@ -506,13 +517,13 @@ export function vaultSidebarSummaryBatches(
   repositories: readonly VaultConnectedRepositoryTarget[],
 ): VaultConnectedRepositoryTarget[][] {
   const batches: VaultConnectedRepositoryTarget[][] = [];
-  const repositoriesByOwner = new Map<string, VaultConnectedRepositoryTarget[]>();
+  const repositoriesByOwnerId = new Map<string, VaultConnectedRepositoryTarget[]>();
   for (const repository of repositories) {
-    const ownerRepositories = repositoriesByOwner.get(repository.owner) ?? [];
+    const ownerRepositories = repositoriesByOwnerId.get(repository.githubOwnerId) ?? [];
     ownerRepositories.push(repository);
-    repositoriesByOwner.set(repository.owner, ownerRepositories);
+    repositoriesByOwnerId.set(repository.githubOwnerId, ownerRepositories);
   }
-  for (const ownerRepositories of repositoriesByOwner.values()) {
+  for (const ownerRepositories of repositoriesByOwnerId.values()) {
     for (
       let start = 0;
       start < ownerRepositories.length;
@@ -669,6 +680,7 @@ export function normalizeGitHubVaultSidebarSummaries(
       !providerRepository ||
       !defaultBranch ||
       String(providerRepository.databaseId) !== repository.ghRepoId ||
+      String(providerRepository.owner.databaseId) !== repository.githubOwnerId ||
       defaultBranch.name !== repository.defaultBranch
     ) {
       return {
@@ -706,6 +718,22 @@ export function recoverGitHubVaultSidebarSummariesFromError(
   return parsed.data.data;
 }
 
+export function fillUnavailableGitHubVaultSidebarSummaries(
+  repositories: readonly VaultConnectedRepositoryTarget[],
+  availableSummaries: readonly VaultSidebarSummary[],
+): VaultSidebarSummary[] {
+  const availableByVaultId = new Map(
+    availableSummaries.map((summary) => [summary.vaultId, summary]),
+  );
+  return repositories.map(
+    (repository) =>
+      availableByVaultId.get(repository.vaultId) ?? {
+        vaultId: repository.vaultId,
+        repository: null,
+      },
+  );
+}
+
 export const listVaultSidebarSummaries = action({
   access: "access_dashboard",
   args: {},
@@ -721,28 +749,122 @@ export const listVaultSidebarSummaries = action({
       return [];
     }
     const summaries: VaultSidebarSummary[] = [];
+    const installationRepositoriesByOwnerId = new Map<
+      string,
+      {
+        githubInstallationId: string;
+        repositories: Map<string, GitHubRepositoryIdentity>;
+      } | null
+    >();
     for (const batch of vaultSidebarSummaryBatches(repositories)) {
       const firstRepository = batch.at(0);
       if (firstRepository === undefined) {
         continue;
       }
-      const { octokit } = await resolveGitHubAppAccess(ctx, {
-        userId: ctx.viewer.userId,
-        target: { kind: "vault", vaultId: firstRepository.vaultId },
-      });
-      const signal = createGitHubRequestDeadlineSignal();
-      let providerResponse: unknown;
-      try {
-        providerResponse = await octokit.graphql(buildVaultSidebarSummariesQuery(batch), {
-          ...vaultSidebarSummariesVariables(batch),
-          request: { signal },
-        });
-      } catch (error) {
-        // GitHub throws for partial GraphQL responses. A missing aliased
-        // repository is still usable data for every other vault in the batch.
-        providerResponse = recoverGitHubVaultSidebarSummariesFromError(error, batch);
+      let installationRepositories = installationRepositoriesByOwnerId.get(
+        firstRepository.githubOwnerId,
+      );
+      if (installationRepositories === undefined) {
+        try {
+          const installationAccess = await loadGitHubAppInstallationAccess(ctx, {
+            userId: ctx.viewer.userId,
+            target: {
+              kind: "vault",
+              vaultId: firstRepository.vaultId,
+            },
+          });
+          if (installationAccess.githubOwnerId !== firstRepository.githubOwnerId) {
+            throw new Error("GitHub installation owner did not match the vault owner.");
+          }
+          installationRepositories = {
+            githubInstallationId: installationAccess.githubInstallationId,
+            repositories: await listGitHubInstallationRepositories({
+              octokit: createGitHubInstallationOctokit(installationAccess.githubInstallationId),
+            }),
+          };
+        } catch {
+          // Sidebar summaries are best-effort. One unavailable installation
+          // must not hide repositories owned by another installation.
+          installationRepositories = null;
+        }
+        installationRepositoriesByOwnerId.set(
+          firstRepository.githubOwnerId,
+          installationRepositories,
+        );
       }
-      summaries.push(...normalizeGitHubVaultSidebarSummaries(providerResponse, batch));
+      if (installationRepositories === null) {
+        summaries.push(...fillUnavailableGitHubVaultSidebarSummaries(batch, []));
+        continue;
+      }
+      try {
+        const accessibleBatch = batch.flatMap((repository) => {
+          const current = installationRepositories.repositories.get(repository.ghRepoId);
+          if (current === undefined || current.ownerId !== repository.githubOwnerId) {
+            return [];
+          }
+          return [
+            {
+              ...repository,
+              owner: current.ownerLogin,
+              name: current.repositoryName,
+              defaultBranch: current.defaultBranch,
+            },
+          ];
+        });
+        if (accessibleBatch.length === 0) {
+          summaries.push(...fillUnavailableGitHubVaultSidebarSummaries(batch, []));
+          continue;
+        }
+        const storedByVaultId = new Map(
+          batch.map((repository) => [repository.vaultId, repository]),
+        );
+        for (const repository of accessibleBatch) {
+          const stored = storedByVaultId.get(repository.vaultId);
+          if (
+            stored === undefined ||
+            (stored.owner === repository.owner && stored.name === repository.name)
+          ) {
+            continue;
+          }
+          await ctx.runMutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+            userId: ctx.viewer.userId,
+            vaultId: repository.vaultId,
+            expectedGhRepoId: repository.ghRepoId,
+            expectedGithubOwnerId: repository.githubOwnerId,
+            expectedGithubOwnerLogin: stored.owner,
+            expectedRepositoryName: stored.name,
+            githubOwnerLogin: repository.owner,
+            repositoryName: repository.name,
+          });
+        }
+        const octokit = await createGitHubRepositoriesInstallationOctokit(
+          installationRepositories.githubInstallationId,
+          accessibleBatch.map((repository) => repository.ghRepoId),
+        );
+        const signal = createGitHubRequestDeadlineSignal();
+        let providerResponse: unknown;
+        try {
+          providerResponse = await octokit.graphql(
+            buildVaultSidebarSummariesQuery(accessibleBatch),
+            {
+              ...vaultSidebarSummariesVariables(accessibleBatch),
+              request: { signal },
+            },
+          );
+        } catch (error) {
+          // GitHub throws for partial GraphQL responses. A missing aliased
+          // repository is still usable data for every other vault in the batch.
+          providerResponse = recoverGitHubVaultSidebarSummariesFromError(error, accessibleBatch);
+        }
+        summaries.push(
+          ...fillUnavailableGitHubVaultSidebarSummaries(
+            batch,
+            normalizeGitHubVaultSidebarSummaries(providerResponse, accessibleBatch),
+          ),
+        );
+      } catch {
+        summaries.push(...fillUnavailableGitHubVaultSidebarSummaries(batch, []));
+      }
     }
     return summaries;
   },
@@ -760,23 +882,17 @@ export const listOpenPullRequests = action({
     if (!Number.isInteger(args.first) || args.first < 1 || args.first > 100) {
       throw new Error("GitHub pull request page size must be between 1 and 100.");
     }
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
-      userId: ctx.viewer.userId,
-      vaultId: args.vaultId,
-    });
-    if (!isLiveConnectedVault(vault)) {
-      throw new Error("Vault not found.");
-    }
-    const { octokit, githubOwnerLogin } = await resolveGitHubAppAccess(ctx, {
-      userId: ctx.viewer.userId,
-      target: { kind: "vault", vaultId: vault._id },
-    });
+    const { octokit, ghRepoId, githubOwnerLogin, repositoryName, repositoryDefaultBranch } =
+      await resolveGitHubVaultAccess(ctx, {
+        userId: ctx.viewer.userId,
+        vaultId: args.vaultId,
+      });
     const signal = createGitHubRequestDeadlineSignal();
     const page = normalizeGitHubPullRequestPage(
       await octokit.graphql(REPOSITORY_PULL_REQUEST_PAGE_QUERY, {
         owner: githubOwnerLogin,
-        name: vault.name,
-        defaultBranchRef: `refs/heads/${vault.defaultBranch}`,
+        name: repositoryName,
+        defaultBranchRef: `refs/heads/${repositoryDefaultBranch}`,
         first: args.first,
         after: args.after,
         request: { signal },
@@ -785,12 +901,12 @@ export const listOpenPullRequests = action({
     if (page.repository === null) {
       return page;
     }
-    if (String(page.repository.databaseId) !== vault.ghRepoId) {
+    if (String(page.repository.databaseId) !== ghRepoId) {
       throw new Error("GitHub repository identity changed.");
     }
     if (
       page.repository.defaultBranch !== null &&
-      page.repository.defaultBranch.name !== vault.defaultBranch
+      page.repository.defaultBranch.name !== repositoryDefaultBranch
     ) {
       throw new Error("GitHub returned another default branch ref.");
     }
@@ -810,31 +926,25 @@ export const getOpenPullRequestForBranch = action({
     if (!branch) {
       throw new Error("Branch is required.");
     }
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
-      userId: ctx.viewer.userId,
-      vaultId: args.vaultId,
-    });
-    if (!isLiveConnectedVault(vault)) {
-      throw new Error("Vault not found.");
-    }
-    if (branch === vault.defaultBranch) {
+    const { octokit, githubOwnerLogin, repositoryName, repositoryDefaultBranch } =
+      await resolveGitHubVaultAccess(ctx, {
+        userId: ctx.viewer.userId,
+        vaultId: args.vaultId,
+      });
+    if (branch === repositoryDefaultBranch) {
       return { aheadBy: 0, pullRequest: null };
     }
-    const { octokit, githubOwnerLogin } = await resolveGitHubAppAccess(ctx, {
-      userId: ctx.viewer.userId,
-      target: { kind: "vault", vaultId: vault._id },
-    });
     const signal = createGitHubRequestDeadlineSignal();
     const [comparison, pullRequests] = await Promise.all([
       octokit.rest.repos.compareCommitsWithBasehead({
         owner: githubOwnerLogin,
-        repo: vault.name,
-        basehead: `${vault.defaultBranch}...${branch}`,
+        repo: repositoryName,
+        basehead: `${repositoryDefaultBranch}...${branch}`,
         request: { signal },
       }),
       octokit.rest.pulls.list({
         owner: githubOwnerLogin,
-        repo: vault.name,
+        repo: repositoryName,
         state: "open",
         head: `${githubOwnerLogin}:${branch}`,
         sort: "updated",

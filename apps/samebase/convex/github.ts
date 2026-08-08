@@ -6,7 +6,11 @@ import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { action } from "./functions";
-import { resolveGitHubAppAccess } from "./githubAppAccess";
+import {
+  resolveGitHubAppAccess,
+  resolveGitHubVaultAccess,
+  type GitHubVaultAccess,
+} from "./githubAppAccess";
 import { guessMime, withRetry } from "./gitOperationsActions";
 import { isRecord } from "./jsonUtils";
 import {
@@ -17,6 +21,7 @@ import {
 import { TREE_REFRESH_DEBOUNCE_MS, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../shared/treeRefresh";
 import { readStagedFileKind } from "./stagingChanges";
 import type { GithubTreeData } from "./vault/model";
+import { isLiveConnectedVault } from "./vault/state";
 
 const {
   array,
@@ -660,15 +665,13 @@ async function resolveCachedRepositoryMediaAsset(
 }
 
 async function getRepositoryBlobShaForBranchPath(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
+  githubAccess: GitHubVaultAccess;
   branch: string;
   filePath: string;
 }): Promise<string | null> {
-  const tree = await args.octokit.rest.git.getTree({
-    owner: args.owner,
-    repo: args.repo,
+  const tree = await args.githubAccess.octokit.rest.git.getTree({
+    owner: args.githubAccess.githubOwnerLogin,
+    repo: args.githubAccess.repositoryName,
     tree_sha: toGitTreeRef(args.branch),
     recursive: "1",
   });
@@ -824,15 +827,15 @@ export const getRepositoryFileContent = action({
       }
     }
 
-    const { octokit } = await resolveGitHubAppAccess(ctx, {
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
       userId,
-      target: { kind: "vault", vaultId: vault._id },
+      vaultId: vault._id,
     });
 
     try {
-      const file = await octokit.rest.repos.getContent({
-        owner: vault.owner,
-        repo: vault.name,
+      const file = await githubAccess.octokit.rest.repos.getContent({
+        owner: githubAccess.githubOwnerLogin,
+        repo: githubAccess.repositoryName,
         path: args.filePath,
         ref: requestedBranch,
       });
@@ -949,17 +952,15 @@ export const getRepositoryMediaAsset = action({
       }
     }
 
-    const { octokit } = await resolveGitHubAppAccess(ctx, {
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
       userId,
-      target: { kind: "vault", vaultId: vault._id },
+      vaultId: vault._id,
     });
 
     try {
       if (requestedBranch) {
         targetFileSha = await getRepositoryBlobShaForBranchPath({
-          octokit,
-          owner: vault.owner,
-          repo: vault.name,
+          githubAccess,
           branch: requestedBranch,
           filePath: args.filePath,
         });
@@ -985,9 +986,9 @@ export const getRepositoryMediaAsset = action({
         return { found: false, reason: "missing" };
       }
 
-      const blob = await octokit.rest.git.getBlob({
-        owner: vault.owner,
-        repo: vault.name,
+      const blob = await githubAccess.octokit.rest.git.getBlob({
+        owner: githubAccess.githubOwnerLogin,
+        repo: githubAccess.repositoryName,
         file_sha: targetFileSha,
       });
       if (typeof blob.data.content !== "string" || blob.data.content.length === 0) {
@@ -1047,8 +1048,6 @@ async function refreshExactRepositoryBranchForUser(
   args: {
     userId: Id<"users">;
     vaultId: Id<"vaults">;
-    owner: string;
-    repo: string;
     branch: string;
     intent: "passive" | "manual";
   },
@@ -1066,12 +1065,12 @@ async function refreshExactRepositoryBranchForUser(
     return { kind: "ready", refreshed: false };
   }
 
-  let octokit: Octokit;
+  let githubAccess: GitHubVaultAccess;
   try {
-    ({ octokit } = await resolveGitHubAppAccess(ctx, {
+    githubAccess = await resolveGitHubVaultAccess(ctx, {
       userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
-    }));
+      vaultId: args.vaultId,
+    });
   } catch {
     return { kind: "unavailable" };
   }
@@ -1097,9 +1096,9 @@ async function refreshExactRepositoryBranchForUser(
 
   const read = await readExactRepositoryBranch({
     getBranch: async () => {
-      const response = await octokit.rest.repos.getBranch({
-        owner: args.owner,
-        repo: args.repo,
+      const response = await githubAccess.octokit.rest.repos.getBranch({
+        owner: githubAccess.githubOwnerLogin,
+        repo: githubAccess.repositoryName,
         branch,
       });
       return {
@@ -1108,18 +1107,18 @@ async function refreshExactRepositoryBranchForUser(
       };
     },
     getTree: async (treeSha) => {
-      const response = await octokit.rest.git.getTree({
-        owner: args.owner,
-        repo: args.repo,
+      const response = await githubAccess.octokit.rest.git.getTree({
+        owner: githubAccess.githubOwnerLogin,
+        repo: githubAccess.repositoryName,
         tree_sha: treeSha,
         recursive: "1",
       });
       return response.data;
     },
     confirmRepository: async () => {
-      await octokit.rest.repos.get({
-        owner: args.owner,
-        repo: args.repo,
+      await githubAccess.octokit.rest.repos.get({
+        owner: githubAccess.githubOwnerLogin,
+        repo: githubAccess.repositoryName,
       });
     },
   });
@@ -1171,8 +1170,8 @@ async function refreshExactRepositoryBranchForUser(
     return { kind: "deferred", reason: "in_progress" };
   }
   console.error("Failed to hydrate exact repository branch", {
-    owner: args.owner,
-    repo: args.repo,
+    owner: githubAccess.githubOwnerLogin,
+    repo: githubAccess.repositoryName,
     branch,
     providerStatus: getErrorStatus(read.error),
     result: read.kind,
@@ -1212,19 +1211,13 @@ export const refreshRepositoryTree = action({
       userId,
       vaultId: args.vaultId,
     });
-    if (!vault || vault.state !== "connected" || vault.deletion.state !== "not_deleting") {
+    if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId,
-      target: { kind: "vault", vaultId: args.vaultId },
-    });
 
     return await refreshExactRepositoryBranchForUser(ctx, {
       userId,
-      vaultId: args.vaultId,
-      owner: githubAccess.githubOwnerLogin,
-      repo: vault.name,
+      vaultId: vault._id,
       branch: args.branch,
       intent: args.intent,
     });
@@ -1241,22 +1234,9 @@ export const updateRepositoryTree = internalAction({
   returns: nullValidator(),
   handler: async (ctx, args) => {
     const branch = normalizeRequiredRepositoryBranch(args.branch);
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
-      vaultId: args.vaultId,
-      userId: args.userId,
-    });
-    if (!vault || vault.state !== "connected" || vault.deletion.state !== "not_deleting") {
-      throw new Error("Vault not found");
-    }
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
-    });
     const refresh = await refreshExactRepositoryBranchForUser(ctx, {
       userId: args.userId,
-      vaultId: vault._id,
-      owner: githubAccess.githubOwnerLogin,
-      repo: vault.name,
+      vaultId: args.vaultId,
       branch,
       intent: "manual",
     });

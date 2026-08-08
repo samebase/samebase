@@ -11,7 +11,10 @@ vi.mock("@octokit/rest", () => ({
 }));
 
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
+
+type ConvexTest = ReturnType<typeof makeConvexTest>;
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -189,5 +192,88 @@ describe("viewer GitHub installation health", () => {
     ]);
     expect(unavailable.permissions).toEqual([]);
     expect(githubMocks.request).not.toHaveBeenCalled();
+  });
+});
+
+async function createInitializingRepositoryFixture(): Promise<{
+  t: ConvexTest;
+  userId: Id<"users">;
+  vaultId: Id<"vaults">;
+  runId: Id<"workflow_vaultProvisioning_runs">;
+}> {
+  const t = makeConvexTest();
+  const { organizationId, userId } = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      email: "github-access@example.com",
+      isApproved: true,
+    });
+    const organizationId = await ctx.db.insert("organizations", {
+      githubOwnerId: "owner-101",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "samebase",
+      githubOwnerLoginNormalized: "samebase",
+      githubInstallationId: "installation-101",
+      convexTeam: { teamId: "convex-team-101" },
+      cloudflareAccount: {
+        accountId: "cloudflare-account-101",
+        accountName: "Samebase account",
+      },
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId,
+      userId,
+      role: "owner",
+    });
+    return { organizationId, userId };
+  });
+  const { runId, vaultId } = await t.mutation(
+    internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+    {
+      organizationId,
+      userId,
+      ghRepoOwner: "samebase",
+      ghRepoName: "app",
+    },
+  );
+  return { t, userId, vaultId, runId };
+}
+
+describe("GitHub App access boundaries", () => {
+  it("loads setup authority only for the matching provisioning purpose and run", async () => {
+    const { t, userId, vaultId, runId } = await createInitializingRepositoryFixture();
+
+    await expect(
+      t.query(internal.githubAppAccess.loadInitializingVaultInstallationAccess, {
+        userId,
+        vaultId,
+        runId,
+        purpose: "connect_existing_repository",
+      }),
+    ).resolves.toMatchObject({
+      organizationId: expect.any(String),
+      githubInstallationId: "installation-101",
+      githubOwnerId: "owner-101",
+      githubOwnerLogin: "samebase",
+    });
+    await expect(
+      t.query(internal.githubAppAccess.loadInitializingVaultInstallationAccess, {
+        userId,
+        vaultId,
+        runId,
+        purpose: "create_repository",
+      }),
+    ).rejects.toThrow("GitHub setup access requires the matching provisioning vault.");
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(runId, { state: "failed" });
+    });
+    await expect(
+      t.query(internal.githubAppAccess.loadInitializingVaultInstallationAccess, {
+        userId,
+        vaultId,
+        runId,
+        purpose: "connect_existing_repository",
+      }),
+    ).rejects.toThrow("GitHub setup access requires the matching active provisioning run.");
   });
 });

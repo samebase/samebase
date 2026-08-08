@@ -243,7 +243,7 @@ describe("markWorkflowProvisioningFailed", () => {
       runId: ids.runId,
       workflowId: "workflow-github",
       message:
-        "Error: Uncaught Error: GitHub repository response did not match the vault repo.\n    at fetchGitHubRepoIdentity",
+        "Error: Uncaught Error: GitHub App installation cannot access the vault repository.\n    at resolveGitHubInstallationRepositoryIdentity",
     });
 
     const result = await t.run(async (ctx) => {
@@ -258,7 +258,7 @@ describe("markWorkflowProvisioningFailed", () => {
         .unique();
       return { event, run, writeLock };
     });
-    const expectedMessage = "GitHub repository response did not match the vault repo.";
+    const expectedMessage = "GitHub App installation cannot access the vault repository.";
 
     expect(result.run).toMatchObject({
       state: "failed",

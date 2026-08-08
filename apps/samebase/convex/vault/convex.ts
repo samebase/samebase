@@ -14,7 +14,7 @@ import {
 } from "../convexManagementApi/client";
 import type { ProjectResponse } from "../convexManagementApi/types.generated";
 import { action } from "../functions";
-import { resolveGitHubAppAccess } from "../githubAppAccess";
+import { resolveGitHubVaultAccess } from "../githubAppAccess";
 import { resolveConvexProvisioningConnectionForVaultWorkflow } from "../infraProvisioning";
 import {
   fetchGitHubConvexCodeLocationDiscovery,
@@ -123,7 +123,7 @@ async function readProviderAttachmentVaultContext(
 }
 
 async function discoverConvexCodeLocations(
-  ctx: Pick<ActionCtx, "runQuery">,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: { vaultId: Id<"vaults">; userId: Id<"users"> },
 ): Promise<{
   context: ProviderAttachmentVaultContext;
@@ -134,16 +134,13 @@ async function discoverConvexCodeLocations(
       vaultId: args.vaultId,
       userId: args.userId,
     }),
-    resolveGitHubAppAccess(ctx, {
+    resolveGitHubVaultAccess(ctx, {
       userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
+      vaultId: args.vaultId,
     }),
   ]);
   const source = await fetchGitHubConvexCodeLocationDiscovery({
-    octokit: githubAccess.octokit,
-    owner: context.owner,
-    repo: context.name,
-    expectedRepoId: context.ghRepoId,
+    githubAccess,
   });
   return { context, source };
 }

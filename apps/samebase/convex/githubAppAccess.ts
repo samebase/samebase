@@ -5,17 +5,24 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalQuery, type ActionCtx, type QueryCtx } from "./_generated/server";
 import { action } from "./functions";
-import { createGitHubInstallationOctokit, readGitHubAppInstallation } from "./githubApp";
+import {
+  createGitHubInstallationOctokit,
+  createGitHubRepositoriesInstallationOctokit,
+  readGitHubAppInstallation,
+} from "./githubApp";
+import { resolveGitHubInstallationRepositoryIdentity } from "./githubRepoApi";
 import {
   requireActiveOrganizationActor,
   requireOrganizationAccessContext,
   requireVaultForUser,
 } from "./organizationAccess";
 import { vGitHubOwnerType } from "./organizationModel";
+import { normalizeGitHubOwnerLogin } from "./organizations";
 import {
   requireActiveVaultDeletionAuthority,
   requireActiveVaultProvisioningAuthority,
 } from "./vaultWorkflowAuthority";
+import { isLiveConnectedVault } from "./vault/state";
 
 const { array, id, literal, object, optional, string, union } = v;
 
@@ -44,6 +51,16 @@ export const vGitHubAppInstallationAccess = object({
 });
 export type GitHubAppInstallationAccess = Infer<typeof vGitHubAppInstallationAccess>;
 export type GitHubAppAccess = GitHubAppInstallationAccess & { octokit: Octokit };
+const githubVaultAccessCapability = Symbol("GitHubVaultAccess");
+export type GitHubVaultAccess = {
+  readonly [githubVaultAccessCapability]: true;
+  readonly octokit: Octokit;
+  readonly ghRepoId: string;
+  readonly githubOwnerId: string;
+  readonly githubOwnerLogin: string;
+  readonly repositoryName: string;
+  readonly repositoryDefaultBranch: string;
+};
 
 const vGitHubInstallationPermission = object({
   access: union(literal("read"), literal("write")),
@@ -167,6 +184,20 @@ export async function resolveGitHubAppAccess(
     target: GitHubAppAccessTarget;
   },
 ): Promise<GitHubAppAccess> {
+  const access = await loadGitHubAppInstallationAccess(ctx, args);
+  return {
+    ...access,
+    octokit: createGitHubInstallationOctokit(access.githubInstallationId),
+  };
+}
+
+export async function loadGitHubAppInstallationAccess(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    userId: Id<"users">;
+    target: GitHubAppAccessTarget;
+  },
+): Promise<GitHubAppInstallationAccess> {
   const access: GitHubAppInstallationAccess = await ctx.runQuery(
     internal.githubAppAccess.loadInstallationAccess,
     {
@@ -174,10 +205,7 @@ export async function resolveGitHubAppAccess(
       target: args.target,
     },
   );
-  return {
-    ...access,
-    octokit: createGitHubInstallationOctokit(access.githubInstallationId),
-  };
+  return access;
 }
 
 export async function resolveGitHubAppAccessForProvisioningRun(
@@ -218,6 +246,75 @@ export async function resolveGitHubAppAccessForVaultDeletionRun(
     ...access,
     octokit: createGitHubInstallationOctokit(access.githubInstallationId),
   };
+}
+
+export async function resolveGitHubRepositoryAccess(args: {
+  access: GitHubAppInstallationAccess;
+  ghRepoId: string;
+}): Promise<GitHubVaultAccess> {
+  const octokit = await createGitHubRepositoriesInstallationOctokit(
+    args.access.githubInstallationId,
+    [args.ghRepoId],
+  );
+  const repository = await resolveGitHubInstallationRepositoryIdentity({
+    octokit,
+    expectedRepoId: args.ghRepoId,
+    expectedOwnerId: args.access.githubOwnerId,
+  });
+  if (
+    normalizeGitHubOwnerLogin(repository.ownerLogin) !==
+    normalizeGitHubOwnerLogin(args.access.githubOwnerLogin)
+  ) {
+    throw new Error(
+      "GitHub owner login changed. An organization owner must reconnect the GitHub App.",
+    );
+  }
+  return {
+    [githubVaultAccessCapability]: true,
+    octokit,
+    ghRepoId: args.ghRepoId,
+    githubOwnerId: args.access.githubOwnerId,
+    githubOwnerLogin: args.access.githubOwnerLogin,
+    repositoryName: repository.repositoryName,
+    repositoryDefaultBranch: repository.defaultBranch,
+  };
+}
+
+export async function resolveGitHubVaultAccess(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  args: {
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+  },
+): Promise<GitHubVaultAccess> {
+  const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    userId: args.userId,
+    vaultId: args.vaultId,
+  });
+  if (!isLiveConnectedVault(vault)) {
+    throw new Error("GitHub repository is not connected.");
+  }
+  const access = await loadGitHubAppInstallationAccess(ctx, {
+    userId: args.userId,
+    target: { kind: "organization", organizationId: vault.organizationId },
+  });
+  const githubAccess = await resolveGitHubRepositoryAccess({
+    access,
+    ghRepoId: vault.ghRepoId,
+  });
+  if (githubAccess.repositoryName !== vault.name) {
+    await ctx.runMutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+      userId: args.userId,
+      vaultId: vault._id,
+      expectedGhRepoId: vault.ghRepoId,
+      expectedGithubOwnerId: access.githubOwnerId,
+      expectedGithubOwnerLogin: access.githubOwnerLogin,
+      expectedRepositoryName: vault.name,
+      githubOwnerLogin: githubAccess.githubOwnerLogin,
+      repositoryName: githubAccess.repositoryName,
+    });
+  }
+  return githubAccess;
 }
 
 export const checkViewerInstallation = action({

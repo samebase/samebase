@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vite-plus/test";
 import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
 import { notEmpty } from "@samebase/dependent/main";
+import type { GitHubVaultAccess } from "./githubAppAccess";
 import {
   buildCommitPreviewFromStagedFiles,
   buildComparedCommitPreviewFileFromStagedFile,
@@ -33,6 +34,18 @@ type UpdateRefData = GitApi["updateRef"]["response"]["data"];
 type GetTreeData = GitApi["getTree"]["response"]["data"];
 type GetBlobData = GitApi["getBlob"]["response"]["data"];
 type CreateTreeEntry = NonNullable<GitApi["createTree"]["parameters"]["tree"]>[number];
+
+function createTestGitHubVaultAccess(octokit: Octokit): GitHubVaultAccess {
+  // @ts-expect-error Tests supply provider fixtures without the resolver-only capability marker.
+  return {
+    octokit,
+    ghRepoId: "repository-1",
+    githubOwnerId: "owner-1",
+    githubOwnerLogin: "test-owner",
+    repositoryName: "test-repo",
+    repositoryDefaultBranch: "main",
+  };
+}
 
 // eslint-disable-next-line samebase/no-hand-written-type-predicate -- property-presence intersection: the in-check narrows the property reference, not the object
 function hasInlineContent(entry: CreateTreeEntry): entry is CreateTreeEntry & { content: string } {
@@ -833,10 +846,12 @@ describe("buildRemoteComparePreviewFile", () => {
 
 describe("createCommitWithMultipleFiles", () => {
   let octokit: Octokit;
+  let githubAccess: GitHubVaultAccess;
 
   beforeEach(() => {
     vi.restoreAllMocks();
     octokit = new Octokit({ auth: "test" });
+    githubAccess = createTestGitHubVaultAccess(octokit);
     vi.spyOn(octokit.rest.git, "getTree").mockResolvedValue(makeGetTreeResponse("head-tree", []));
   });
 
@@ -863,9 +878,7 @@ describe("createCommitWithMultipleFiles", () => {
       .mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       stagedFiles: [
         {
           filePath: "src/file.ts",
@@ -950,9 +963,7 @@ describe("createCommitWithMultipleFiles", () => {
     ].join("\n");
 
     await createCommitWithMultipleFiles({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       stagedFiles: [
         {
           filePath: "TODO.md",
@@ -1017,9 +1028,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       stagedFiles: [
         {
           filePath: "TODO.md",
@@ -1056,9 +1065,7 @@ describe("createCommitWithMultipleFiles", () => {
     );
 
     const inspection = await inspectStagedFilesAgainstLatestHead({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       branch: "main",
       stagedFiles: [
         {
@@ -1094,9 +1101,7 @@ describe("createCommitWithMultipleFiles", () => {
     );
 
     const inspection = await inspectStagedFilesAgainstLatestHead({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       branch: "main",
       stagedFiles: [
         {
@@ -1128,9 +1133,7 @@ describe("createCommitWithMultipleFiles", () => {
     );
 
     const inspection = await inspectStagedFilesAgainstLatestHead({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       branch: "main",
       stagedFiles: [
         {
@@ -1162,9 +1165,7 @@ describe("createCommitWithMultipleFiles", () => {
     );
 
     const inspection = await inspectStagedFilesAgainstLatestHead({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       branch: "main",
       stagedFiles: [
         {
@@ -1203,9 +1204,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       stagedFiles: [
         {
           filePath: "src/file.ts",
@@ -1251,9 +1250,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       stagedFiles: [
         {
           filePath: "src/deleted.ts",
@@ -1295,9 +1292,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       stagedFiles: [
         {
           filePath: "src/new-name.ts",
@@ -1350,9 +1345,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       stagedFiles: [
         {
           filePath: "src/edit1.ts",
@@ -1443,9 +1436,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     const result = await createCommitWithMultipleFiles({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       stagedFiles: [
         {
           filePath: "src/file.ts",
@@ -1491,9 +1482,7 @@ describe("createCommitWithMultipleFiles", () => {
 
     await expect(
       createCommitWithMultipleFiles({
-        octokit,
-        owner: "test-owner",
-        repo: "test-repo",
+        githubAccess,
         stagedFiles: [
           {
             filePath: "src/file.ts",
@@ -1533,9 +1522,7 @@ describe("createCommitWithMultipleFiles", () => {
       .mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     const result = await createCommitWithMultipleFiles({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       stagedFiles: [
         {
           filePath: "src/new-file.ts",
@@ -1575,9 +1562,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       stagedFiles: [
         {
           filePath: "src/renamed-new.ts",
@@ -1622,9 +1607,7 @@ describe("createCommitWithMultipleFiles", () => {
     vi.spyOn(octokit.rest.git, "updateRef").mockResolvedValue(makeUpdateRefResponse("commit123"));
 
     await createCommitWithMultipleFiles({
-      octokit,
-      owner: "test-owner",
-      repo: "test-repo",
+      githubAccess,
       stagedFiles: [
         {
           filePath: "src/file1.ts",

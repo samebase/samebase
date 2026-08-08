@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { internalAction, type ActionCtx } from "./_generated/server";
 import { v, type Infer } from "convex/values";
 import { api, internal } from "./_generated/api";
-import { Octokit, type RestEndpointMethodTypes } from "@octokit/rest";
+import type { RestEndpointMethodTypes } from "@octokit/rest";
 import { createTwoFilesPatch, diffLines } from "diff";
 import { notEmpty } from "@samebase/dependent/main";
 import { action } from "./functions";
@@ -22,8 +22,7 @@ import {
 } from "./stagingChanges";
 import { sanitizeSlug } from "./slugUtils";
 import { describeRepositoryTreeRefreshFailure } from "./github";
-import { resolveGitHubAppAccess } from "./githubAppAccess";
-import { assertConnectedVault } from "./vault/state";
+import { resolveGitHubVaultAccess, type GitHubVaultAccess } from "./githubAppAccess";
 import { getRepositoryMediaKind } from "../shared/repositoryMedia";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
 
@@ -77,58 +76,6 @@ export async function runPostCommitTreeRefresh<T>(args: {
     args.onWarning(error);
     return null;
   }
-}
-
-async function getGitHubOctokit(
-  ctx: ActionCtx,
-  userId: Id<"users">,
-  vaultId: Id<"vaults">,
-): Promise<Octokit> {
-  const access = await resolveGitHubAppAccess(ctx, {
-    userId,
-    target: { kind: "vault", vaultId },
-  });
-  return access.octokit;
-}
-
-function readDefaultBranch(repoData: unknown): string {
-  if (!isRecord(repoData)) {
-    return "main";
-  }
-
-  const defaultBranch = repoData["default_branch"];
-  if (typeof defaultBranch === "string" && defaultBranch.length > 0) {
-    return defaultBranch;
-  }
-
-  return "main";
-}
-
-async function getRepositoryDefaultBranch(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-}): Promise<string> {
-  const response = await args.octokit.rest.repos.get({
-    owner: args.owner,
-    repo: args.repo,
-  });
-  return readDefaultBranch(response.data);
-}
-
-async function getVaultDefaultBranch(
-  ctx: ActionCtx,
-  userId: Id<"users">,
-  vaultId: Id<"vaults">,
-  owner: string,
-  repo: string,
-): Promise<string> {
-  const octokit = await getGitHubOctokit(ctx, userId, vaultId);
-  return getRepositoryDefaultBranch({
-    octokit,
-    owner,
-    repo,
-  });
 }
 
 type OpenPullRequestCandidate = {
@@ -282,45 +229,41 @@ export function readLatestOpenPullRequestForBranch(args: {
 }
 
 async function getOpenPullRequestForBranch(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
+  githubAccess: GitHubVaultAccess;
   branch: string;
   baseBranch: string;
 }): Promise<{ url: string; number: number } | null> {
-  const response = await args.octokit.rest.pulls.list({
-    owner: args.owner,
-    repo: args.repo,
+  const response = await args.githubAccess.octokit.rest.pulls.list({
+    owner: args.githubAccess.githubOwnerLogin,
+    repo: args.githubAccess.repositoryName,
     state: "open",
-    head: `${args.owner}:${args.branch}`,
+    head: `${args.githubAccess.githubOwnerLogin}:${args.branch}`,
     per_page: 100,
   });
 
   return readOpenPullRequestForBranch({
     branch: args.branch,
     baseBranch: args.baseBranch,
-    repositoryFullName: `${args.owner}/${args.repo}`,
+    repositoryFullName: `${args.githubAccess.githubOwnerLogin}/${args.githubAccess.repositoryName}`,
     pullRequests: response.data,
   });
 }
 
 async function getLatestOpenPullRequestForBranch(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
+  githubAccess: GitHubVaultAccess;
   branch: string;
 }): Promise<{ url: string; number: number; baseBranch: string } | null> {
-  const response = await args.octokit.rest.pulls.list({
-    owner: args.owner,
-    repo: args.repo,
+  const response = await args.githubAccess.octokit.rest.pulls.list({
+    owner: args.githubAccess.githubOwnerLogin,
+    repo: args.githubAccess.repositoryName,
     state: "open",
-    head: `${args.owner}:${args.branch}`,
+    head: `${args.githubAccess.githubOwnerLogin}:${args.branch}`,
     per_page: 100,
   });
 
   return readLatestOpenPullRequestForBranch({
     branch: args.branch,
-    repositoryFullName: `${args.owner}/${args.repo}`,
+    repositoryFullName: `${args.githubAccess.githubOwnerLogin}/${args.githubAccess.repositoryName}`,
     pullRequests: response.data,
   });
 }
@@ -373,19 +316,17 @@ export function stripCreationTimeFromStagingRecord<
 }
 
 async function getBranchHeadCommitMessage(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
+  githubAccess: GitHubVaultAccess;
   branch: string;
 }): Promise<string | null> {
-  const branchRef = await args.octokit.rest.git.getRef({
-    owner: args.owner,
-    repo: args.repo,
+  const branchRef = await args.githubAccess.octokit.rest.git.getRef({
+    owner: args.githubAccess.githubOwnerLogin,
+    repo: args.githubAccess.repositoryName,
     ref: `heads/${args.branch}`,
   });
-  const commit = await args.octokit.rest.git.getCommit({
-    owner: args.owner,
-    repo: args.repo,
+  const commit = await args.githubAccess.octokit.rest.git.getCommit({
+    owner: args.githubAccess.githubOwnerLogin,
+    repo: args.githubAccess.repositoryName,
     commit_sha: branchRef.data.object.sha,
   });
   return commit.data.message;
@@ -396,15 +337,13 @@ async function getBranchHeadCommitMessage(args: {
  * destructive rollback when GitHub cannot confirm whether the ref advanced.
  */
 async function getBranchHeadShaOrNull(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
+  githubAccess: GitHubVaultAccess;
   branch: string;
 }): Promise<string | null> {
   try {
-    const refResponse = await args.octokit.rest.git.getRef({
-      owner: args.owner,
-      repo: args.repo,
+    const refResponse = await args.githubAccess.octokit.rest.git.getRef({
+      owner: args.githubAccess.githubOwnerLogin,
+      repo: args.githubAccess.repositoryName,
       ref: `heads/${args.branch}`,
     });
     return refResponse.data.object.sha;
@@ -420,10 +359,8 @@ async function getBranchHeadShaOrNull(args: {
  */
 async function cleanupTemporaryDraftBranch(args: {
   ctx: ActionCtx;
-  octokit: Octokit;
+  githubAccess: GitHubVaultAccess;
   vaultId: Id<"vaults">;
-  owner: string;
-  repo: string;
   branch: string;
 }) {
   try {
@@ -440,9 +377,9 @@ async function cleanupTemporaryDraftBranch(args: {
   }
 
   try {
-    await args.octokit.rest.git.deleteRef({
-      owner: args.owner,
-      repo: args.repo,
+    await args.githubAccess.octokit.rest.git.deleteRef({
+      owner: args.githubAccess.githubOwnerLogin,
+      repo: args.githubAccess.repositoryName,
       ref: `heads/${args.branch}`,
     });
   } catch (cleanupError) {
@@ -478,14 +415,12 @@ function toGitTreeRef(branch: string): string {
 }
 
 async function getTreeMapForRef(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
+  githubAccess: GitHubVaultAccess;
   ref: string;
 }): Promise<Map<string, string>> {
-  const treeResponse = await args.octokit.rest.git.getTree({
-    owner: args.owner,
-    repo: args.repo,
+  const treeResponse = await args.githubAccess.octokit.rest.git.getTree({
+    owner: args.githubAccess.githubOwnerLogin,
+    repo: args.githubAccess.repositoryName,
     tree_sha: toGitTreeRef(args.ref),
     recursive: "1",
   });
@@ -505,15 +440,11 @@ async function getTreeMapForRef(args: {
 }
 
 async function getBranchTreeMap(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
+  githubAccess: GitHubVaultAccess;
   branch: string;
 }): Promise<Map<string, string>> {
   return getTreeMapForRef({
-    octokit: args.octokit,
-    owner: args.owner,
-    repo: args.repo,
+    githubAccess: args.githubAccess,
     ref: args.branch,
   });
 }
@@ -814,9 +745,7 @@ function formatUpstreamConflictError(paths: string[]): string {
 }
 
 export async function inspectStagedFilesAgainstLatestHead(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
+  githubAccess: GitHubVaultAccess;
   branch: string;
   stagedFiles: StagedFileForCommit[];
 }): Promise<{
@@ -853,9 +782,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
     upstreamSha === file.parentCommitSha && initialContentMatchesUpstream(file, upstreamSha);
 
   const shaByPath = await getBranchTreeMap({
-    octokit: args.octokit,
-    owner: args.owner,
-    repo: args.repo,
+    githubAccess: args.githubAccess,
     branch: args.branch,
   });
 
@@ -866,10 +793,10 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
       return existing;
     }
 
-    const loaded = args.octokit.rest.git
+    const loaded = args.githubAccess.octokit.rest.git
       .getBlob({
-        owner: args.owner,
-        repo: args.repo,
+        owner: args.githubAccess.githubOwnerLogin,
+        repo: args.githubAccess.repositoryName,
         file_sha: sha,
       })
       .then((response) => {
@@ -1089,9 +1016,7 @@ export async function inspectStagedFilesAgainstLatestHead(args: {
 }
 
 export async function rebaseStagedFilesOnLatestHead(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
+  githubAccess: GitHubVaultAccess;
   branch: string;
   stagedFiles: StagedFileForCommit[];
 }): Promise<StagedFileForCommit[]> {
@@ -1805,17 +1730,15 @@ async function buildBranchComparePreviewFiles(args: {
 }
 
 async function getPullRequestCompareFiles(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
+  githubAccess: GitHubVaultAccess;
   pullRequestNumber: number;
 }): Promise<GitHubCompareFileCandidate[]> {
   const files: GitHubCompareFileCandidate[] = [];
 
   for (let page = 1; page <= 50; page += 1) {
-    const response = await args.octokit.rest.pulls.listFiles({
-      owner: args.owner,
-      repo: args.repo,
+    const response = await args.githubAccess.octokit.rest.pulls.listFiles({
+      owner: args.githubAccess.githubOwnerLogin,
+      repo: args.githubAccess.repositoryName,
       pull_number: args.pullRequestNumber,
       per_page: 100,
       page,
@@ -1854,23 +1777,14 @@ export const renameFileInStaging = action({
         throw new Error("Branch is required to rename a staged file");
       })();
 
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId,
       vaultId: args.vaultId,
-      userId,
-    });
-
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-    const connectedVault = assertConnectedVault(vault);
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId,
-      target: { kind: "vault", vaultId: args.vaultId },
     });
 
     // So that we guarantee that we have the file in staging
     await ctx.runAction(api.fileStagingActions.getFileForEditing, {
-      repositoryFullName: `${githubAccess.githubOwnerLogin}/${connectedVault.name}`,
+      repositoryFullName: `${githubAccess.githubOwnerLogin}/${githubAccess.repositoryName}`,
       originalFilePath: args.originalPath,
       branch,
     });
@@ -1913,14 +1827,11 @@ export const getFileForEditing = action({
       throw new Error("Vault not found");
     }
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
-    const targetBranch =
-      args.branch ??
-      (await getRepositoryDefaultBranch({
-        octokit,
-        owner: vault.owner,
-        repo: vault.name,
-      }));
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId,
+      vaultId: vault._id,
+    });
+    const targetBranch = args.branch ?? githubAccess.repositoryDefaultBranch;
 
     // Check if there's staged content for this file
     const staging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
@@ -1942,9 +1853,9 @@ export const getFileForEditing = action({
     }
 
     try {
-      const file = await octokit.rest.repos.getContent({
-        owner: vault.owner,
-        repo: vault.name,
+      const file = await githubAccess.octokit.rest.repos.getContent({
+        owner: githubAccess.githubOwnerLogin,
+        repo: githubAccess.repositoryName,
         path: args.originalFilePath,
         ref: targetBranch,
       });
@@ -1997,9 +1908,9 @@ export const getFileForEditing = action({
         return readEditableFileState(stagedFile);
       }
 
-      const blobResponse = await octokit.rest.git.getBlob({
-        owner: vault.owner,
-        repo: vault.name,
+      const blobResponse = await githubAccess.octokit.rest.git.getBlob({
+        owner: githubAccess.githubOwnerLogin,
+        repo: githubAccess.repositoryName,
         file_sha: fileSha,
       });
       const buffer = Buffer.from(blobResponse.data.content, "base64");
@@ -2112,14 +2023,11 @@ export const stageUploadedMedia = action({
       throw new Error("Vault not found");
     }
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
-    const targetBranch =
-      args.branch ??
-      (await getRepositoryDefaultBranch({
-        octokit,
-        owner: vault.owner,
-        repo: vault.name,
-      }));
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId,
+      vaultId: vault._id,
+    });
+    const targetBranch = args.branch ?? githubAccess.repositoryDefaultBranch;
 
     const uploadedBlob = await ctx.storage.get(args.storageId);
     if (!uploadedBlob) {
@@ -2198,12 +2106,16 @@ export const createDraftPullRequest = action({
       throw new Error("Vault not found");
     }
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
-    const defaultBranch = await getRepositoryDefaultBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId,
+      vaultId: vault._id,
     });
+    const {
+      octokit,
+      githubOwnerLogin: owner,
+      repositoryName: repo,
+      repositoryDefaultBranch: defaultBranch,
+    } = githubAccess;
     const branch = args.branch?.trim() || defaultBranch;
 
     if (branch === defaultBranch) {
@@ -2226,9 +2138,7 @@ export const createDraftPullRequest = action({
     }
 
     const existingPullRequest = await getOpenPullRequestForBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+      githubAccess,
       branch,
       baseBranch: defaultBranch,
     });
@@ -2240,8 +2150,8 @@ export const createDraftPullRequest = action({
     }
 
     const comparison = await octokit.rest.repos.compareCommitsWithBasehead({
-      owner: vault.owner,
-      repo: vault.name,
+      owner,
+      repo,
       basehead: `${defaultBranch}...${branch}`,
     });
     if (comparison.data.ahead_by === 0) {
@@ -2250,14 +2160,12 @@ export const createDraftPullRequest = action({
 
     try {
       const response = await octokit.rest.pulls.create({
-        owner: vault.owner,
-        repo: vault.name,
+        owner,
+        repo,
         title: buildDraftPullRequestTitle({
           branch,
           commitMessage: await getBranchHeadCommitMessage({
-            octokit,
-            owner: vault.owner,
-            repo: vault.name,
+            githubAccess,
             branch,
           }),
         }),
@@ -2273,9 +2181,7 @@ export const createDraftPullRequest = action({
       };
     } catch (error) {
       const currentPullRequest = await getOpenPullRequestForBranch({
-        octokit,
-        owner: vault.owner,
-        repo: vault.name,
+        githubAccess,
         branch,
         baseBranch: defaultBranch,
       });
@@ -2312,12 +2218,16 @@ export const createDraftPullRequestFromDefaultBranch = action({
       throw new Error("Vault not found");
     }
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
-    const defaultBranch = await getRepositoryDefaultBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId,
+      vaultId: vault._id,
     });
+    const {
+      octokit,
+      githubOwnerLogin: owner,
+      repositoryName: repo,
+      repositoryDefaultBranch: defaultBranch,
+    } = githubAccess;
     const sourceBranch = args.branch?.trim() || defaultBranch;
     if (sourceBranch !== defaultBranch) {
       throw new Error("Create a new draft branch from the default branch.");
@@ -2342,14 +2252,14 @@ export const createDraftPullRequestFromDefaultBranch = action({
       now: Date.now(),
     });
     const defaultRef = await octokit.rest.git.getRef({
-      owner: vault.owner,
-      repo: vault.name,
+      owner,
+      repo,
       ref: `heads/${defaultBranch}`,
     });
 
     await octokit.rest.git.createRef({
-      owner: vault.owner,
-      repo: vault.name,
+      owner,
+      repo,
       ref: `refs/heads/${targetBranch}`,
       sha: defaultRef.data.object.sha,
     });
@@ -2366,10 +2276,8 @@ export const createDraftPullRequestFromDefaultBranch = action({
     } catch (error) {
       await cleanupTemporaryDraftBranch({
         ctx,
-        octokit,
+        githubAccess,
         vaultId: vault._id,
-        owner: vault.owner,
-        repo: vault.name,
         branch: targetBranch,
       });
 
@@ -2389,18 +2297,14 @@ export const createDraftPullRequestFromDefaultBranch = action({
       // commitAllStaged can fail after GitHub advances the branch ref, so
       // re-check the head before rolling back the newly created branch.
       const currentTargetBranchSha = await getBranchHeadShaOrNull({
-        octokit,
-        owner: vault.owner,
-        repo: vault.name,
+        githubAccess,
         branch: targetBranch,
       });
       if (currentTargetBranchSha === initialTargetBranchSha) {
         await cleanupTemporaryDraftBranch({
           ctx,
-          octokit,
+          githubAccess,
           vaultId: vault._id,
-          owner: vault.owner,
-          repo: vault.name,
           branch: targetBranch,
         });
       }
@@ -2416,14 +2320,12 @@ export const createDraftPullRequestFromDefaultBranch = action({
       let number: number;
       try {
         const response = await octokit.rest.pulls.create({
-          owner: vault.owner,
-          repo: vault.name,
+          owner,
+          repo,
           title: buildDraftPullRequestTitle({
             branch: targetBranch,
             commitMessage: await getBranchHeadCommitMessage({
-              octokit,
-              owner: vault.owner,
-              repo: vault.name,
+              githubAccess,
               branch: targetBranch,
             }),
           }),
@@ -2435,9 +2337,7 @@ export const createDraftPullRequestFromDefaultBranch = action({
         number = response.data.number;
       } catch (error) {
         const currentPullRequest = await getOpenPullRequestForBranch({
-          octokit,
-          owner: vault.owner,
-          repo: vault.name,
+          githubAccess,
           branch: targetBranch,
           baseBranch: defaultBranch,
         });
@@ -2446,10 +2346,8 @@ export const createDraftPullRequestFromDefaultBranch = action({
           // intact so the user can retry from the same source state.
           await cleanupTemporaryDraftBranch({
             ctx,
-            octokit,
+            githubAccess,
             vaultId: vault._id,
-            owner: vault.owner,
-            repo: vault.name,
             branch: targetBranch,
           });
 
@@ -2514,17 +2412,9 @@ export const pullFromGitHubInternal = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId: args.userId,
       vaultId: args.vaultId,
-      userId: args.userId,
-    });
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-    const connectedVault = assertConnectedVault(vault);
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
     });
     const octokit = githubAccess.octokit;
 
@@ -2542,9 +2432,7 @@ export const pullFromGitHubInternal = internalAction({
       }
 
       const loaded = getBranchTreeMap({
-        octokit,
-        owner: githubAccess.githubOwnerLogin,
-        repo: connectedVault.name,
+        githubAccess,
         branch,
       });
       treeMapByBranch.set(branch, loaded);
@@ -2634,7 +2522,7 @@ export const pullFromGitHubInternal = internalAction({
       try {
         const blob = await octokit.rest.git.getBlob({
           owner: githubAccess.githubOwnerLogin,
-          repo: connectedVault.name,
+          repo: githubAccess.repositoryName,
           file_sha: item.sha,
         });
         const buffer = Buffer.from(blob.data.content, "base64");
@@ -2727,7 +2615,7 @@ export const pullFromGitHubInternal = internalAction({
     // 5. Refresh touched branch caches after reconciliation
     const touchedBranches = listTouchedBranchesForRefresh([
       ...allStaged.map((item) => item.branch),
-      connectedVault.defaultBranch,
+      githubAccess.repositoryDefaultBranch,
     ]);
     for (const branch of touchedBranches) {
       await ctx.runAction(internal.github.updateRepositoryTree, {
@@ -2753,17 +2641,9 @@ export const batchReadFiles = action({
   returns: v.array(v.object({ path: v.string(), content: v.string() })),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId,
       vaultId: args.vaultId,
-      userId,
-    });
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-    const connectedVault = assertConnectedVault(vault);
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId,
-      target: { kind: "vault", vaultId: args.vaultId },
     });
     const octokit = githubAccess.octokit;
 
@@ -2772,7 +2652,7 @@ export const batchReadFiles = action({
         ? args.branch.trim()
         : undefined;
     let branchTreeData: GithubTree[] | null = null;
-    const defaultBranch = connectedVault.defaultBranch;
+    const defaultBranch = githubAccess.repositoryDefaultBranch;
     const branchToLoad = requestedBranch ?? defaultBranch;
     if (branchToLoad) {
       let branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
@@ -2853,7 +2733,7 @@ export const batchReadFiles = action({
       try {
         const blob = await getOctokit().rest.git.getBlob({
           owner: githubAccess.githubOwnerLogin,
-          repo: connectedVault.name,
+          repo: githubAccess.repositoryName,
           file_sha: miss.sha,
         });
 
@@ -2868,7 +2748,7 @@ export const batchReadFiles = action({
         if (buffer.byteLength <= INLINE_TEXT_MAX) {
           const ext = miss.path.split(".").pop()?.toLowerCase() ?? "";
           await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-            vaultId: vault._id,
+            vaultId: args.vaultId,
             sha: miss.sha,
             size: buffer.byteLength,
             text,
@@ -2937,16 +2817,14 @@ export const getCommitPreview = action({
         `Cannot preview staged files across multiple branches: ${stagedBranches.join(", ")}`,
       );
     }
-    const branch =
-      args.branch ??
-      stagedBranches.at(0) ??
-      (await getVaultDefaultBranch(ctx, userId, vault._id, vault.owner, vault.name));
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId,
+      vaultId: vault._id,
+    });
+    const branch = args.branch ?? stagedBranches.at(0) ?? githubAccess.repositoryDefaultBranch;
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
     const rebasedStagedFiles = await rebaseStagedFilesOnLatestHead({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+      githubAccess,
       branch,
       stagedFiles,
     });
@@ -2995,23 +2873,25 @@ export const getBranchComparePreview = action({
       );
     }
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
-    const defaultBranch = await getRepositoryDefaultBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId,
+      vaultId: vault._id,
     });
+    const {
+      octokit,
+      githubOwnerLogin: owner,
+      repositoryName: repo,
+      repositoryDefaultBranch: defaultBranch,
+    } = githubAccess;
     const branch = args.branch?.trim() || stagedBranches.at(0) || defaultBranch;
     const currentPullRequest = await getLatestOpenPullRequestForBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+      githubAccess,
       branch,
     });
     const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
     const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead({
-      owner: vault.owner,
-      repo: vault.name,
+      owner,
+      repo,
       basehead: `${baseBranch}...${branch}`,
     });
     const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
@@ -3024,15 +2904,11 @@ export const getBranchComparePreview = action({
           : baseBranch;
 
     const baseShaByPath = await getTreeMapForRef({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+      githubAccess,
       ref: mergeBaseSha,
     });
     const headShaByPath = await getTreeMapForRef({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+      githubAccess,
       ref: branch,
     });
     const blobBufferBySha = new Map<string, Promise<Uint8Array>>();
@@ -3044,8 +2920,8 @@ export const getBranchComparePreview = action({
 
       const loaded = octokit.rest.git
         .getBlob({
-          owner: vault.owner,
-          repo: vault.name,
+          owner,
+          repo,
           file_sha: sha,
         })
         .then((response) => {
@@ -3066,9 +2942,7 @@ export const getBranchComparePreview = action({
     };
     const remoteFileCandidates = currentPullRequest
       ? await getPullRequestCompareFiles({
-          octokit,
-          owner: vault.owner,
-          repo: vault.name,
+          githubAccess,
           pullRequestNumber: currentPullRequest.number,
         })
       : (compareResponse.data.files ?? []);
@@ -3135,23 +3009,25 @@ export const restoreComparedDeletedFileToStaging = action({
       throw new Error("Vault not found");
     }
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
-    const defaultBranch = await getRepositoryDefaultBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId,
+      vaultId: vault._id,
     });
+    const {
+      octokit,
+      githubOwnerLogin: owner,
+      repositoryName: repo,
+      repositoryDefaultBranch: defaultBranch,
+    } = githubAccess;
     const branch = args.branch?.trim() || defaultBranch;
     const currentPullRequest = await getLatestOpenPullRequestForBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+      githubAccess,
       branch,
     });
     const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
     const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead({
-      owner: vault.owner,
-      repo: vault.name,
+      owner,
+      repo,
       basehead: `${baseBranch}...${branch}`,
     });
     const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
@@ -3163,9 +3039,7 @@ export const restoreComparedDeletedFileToStaging = action({
           ? baseCommitSha
           : baseBranch;
     const baseShaByPath = await getTreeMapForRef({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+      githubAccess,
       ref: mergeBaseSha,
     });
     const basePath =
@@ -3178,8 +3052,8 @@ export const restoreComparedDeletedFileToStaging = action({
     }
 
     const blobResponse = await octokit.rest.git.getBlob({
-      owner: vault.owner,
-      repo: vault.name,
+      owner,
+      repo,
       file_sha: baseSha,
     });
     const buffer = new Uint8Array(
@@ -3238,16 +3112,14 @@ export const getRebaseConflictPreview = action({
       );
     }
 
-    const branch =
-      args.branch ??
-      stagedBranches.at(0) ??
-      (await getVaultDefaultBranch(ctx, userId, vault._id, vault.owner, vault.name));
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId,
+      vaultId: vault._id,
+    });
+    const branch = args.branch ?? stagedBranches.at(0) ?? githubAccess.repositoryDefaultBranch;
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
     const inspection = await inspectStagedFilesAgainstLatestHead({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+      githubAccess,
       branch,
       stagedFiles,
     });
@@ -3294,16 +3166,14 @@ export const getRebaseConflictBundle = action({
       );
     }
 
-    const branch =
-      args.branch ??
-      stagedBranches.at(0) ??
-      (await getVaultDefaultBranch(ctx, userId, vault._id, vault.owner, vault.name));
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId,
+      vaultId: vault._id,
+    });
+    const branch = args.branch ?? stagedBranches.at(0) ?? githubAccess.repositoryDefaultBranch;
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
     const inspection = await inspectStagedFilesAgainstLatestHead({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
+      githubAccess,
       branch,
       stagedFiles,
     });
@@ -3313,7 +3183,7 @@ export const getRebaseConflictBundle = action({
     }
 
     return buildRebaseConflictBundleMarkdown({
-      repositoryFullName: args.repositoryFullName,
+      repositoryFullName: `${githubAccess.githubOwnerLogin}/${githubAccess.repositoryName}`,
       branch,
       conflicts: inspection.conflicts,
     });
@@ -3324,22 +3194,22 @@ export const getRebaseConflictBundle = action({
 
 // Helper function to create a commit with multiple files
 export async function createCommitWithMultipleFiles({
-  octokit,
-  owner,
-  repo,
+  githubAccess,
   stagedFiles,
   branch,
   loadStorageBlob,
   skipRebase = false,
 }: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
+  githubAccess: GitHubVaultAccess;
   stagedFiles: StagedFileForCommit[];
   branch: string;
   loadStorageBlob?: (storageId: Id<"_storage">) => Promise<Blob | null>;
   skipRebase?: boolean;
 }) {
+  const octokit = githubAccess.octokit;
+  const owner = githubAccess.githubOwnerLogin;
+  const repo = githubAccess.repositoryName;
+
   // Helper to compute modified (added) line ranges in the new content
   const computeModifiedLineRanges = (
     oldContent: string,
@@ -3375,9 +3245,7 @@ export async function createCommitWithMultipleFiles({
   const resolvedStagedFiles = skipRebase
     ? normalizedStagedFiles
     : await rebaseStagedFilesOnLatestHead({
-        octokit,
-        owner,
-        repo,
+        githubAccess,
         branch,
         stagedFiles: normalizedStagedFiles,
       });
@@ -3654,20 +3522,12 @@ export const commitAllStaged = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
+      userId: args.userId,
       vaultId: args.vaultId,
-      userId: args.userId,
-    });
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-    const connectedVault = assertConnectedVault(vault);
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
     });
     const repoOwner = githubAccess.githubOwnerLogin;
-    const repoName = connectedVault.name;
+    const repoName = githubAccess.repositoryName;
     const fullRepo = `${repoOwner}/${repoName}`;
 
     // Get the staging record
@@ -3692,28 +3552,17 @@ export const commitAllStaged = internalAction({
       );
     }
 
-    const octokit = githubAccess.octokit;
     const commitBranch: string =
-      args.branch ??
-      stagedBranches.at(0) ??
-      (await getRepositoryDefaultBranch({
-        octokit,
-        owner: repoOwner,
-        repo: repoName,
-      }));
+      args.branch ?? stagedBranches.at(0) ?? githubAccess.repositoryDefaultBranch;
     const resolvedChangedFiles = await rebaseStagedFilesOnLatestHead({
-      octokit,
-      owner: repoOwner,
-      repo: repoName,
+      githubAccess,
       branch: commitBranch,
       stagedFiles: changedFiles,
     });
 
     // Create a commit with all staged files
     await createCommitWithMultipleFiles({
-      octokit,
-      owner: repoOwner,
-      repo: repoName,
+      githubAccess,
       stagedFiles: resolvedChangedFiles,
       branch: commitBranch,
       loadStorageBlob: async (storageId) => await ctx.storage.get(storageId),

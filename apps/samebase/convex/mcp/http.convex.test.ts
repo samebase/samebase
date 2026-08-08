@@ -344,7 +344,7 @@ describe("MCP tools/call access enforcement", () => {
       });
       const organizationId = await ctx.db.insert("organizations", {
         githubInstallationId: "12345",
-        githubOwnerId: "owner_test",
+        githubOwnerId: "456",
         githubOwnerLogin: "samebase",
         githubOwnerLoginNormalized: "samebase",
         githubOwnerType: "organization",
@@ -957,8 +957,21 @@ describe("MCP tools/call access enforcement", () => {
         });
       }
 
-      if (url.hostname === "api.github.com" && url.pathname === "/repos/samebase/demo") {
-        return jsonResponse({ id: 123, default_branch: "main", owner: { id: 456 } });
+      if (url.hostname === "api.github.com" && url.pathname === "/installation/repositories") {
+        // Subset of GitHub's official GET /installation/repositories response example.
+        // https://docs.github.com/en/rest/apps/installations#list-repositories-accessible-to-the-app-installation
+        return jsonResponse({
+          total_count: 1,
+          repositories: [
+            {
+              id: 123,
+              name: "demo",
+              full_name: "samebase/demo",
+              default_branch: "main",
+              owner: { id: 456, login: "samebase" },
+            },
+          ],
+        });
       }
       if (
         url.hostname === "api.github.com" &&

@@ -1,6 +1,5 @@
 "use node";
 
-import type { Octokit } from "@octokit/rest";
 import { v, type Infer } from "convex/values";
 import { z } from "zod";
 
@@ -9,7 +8,7 @@ import { internal } from "../_generated/api";
 import { allLimited } from "../common";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { action } from "../functions";
-import { resolveGitHubAppAccess } from "../githubAppAccess";
+import { resolveGitHubVaultAccess, type GitHubVaultAccess } from "../githubAppAccess";
 import { createGitHubRequestDeadlineSignal } from "../githubRepoApi";
 import { isRecord } from "../jsonUtils";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
@@ -806,9 +805,8 @@ export function validatePullRequestResourceIds(pullRequestIds: readonly string[]
 }
 
 async function completeGitHubHostingCommentScan(args: {
-  octokit: Octokit;
+  githubAccess: GitHubVaultAccess;
   signal: AbortSignal;
-  ghRepoId: string;
   head: PullRequestResourceHeadSeed;
 }): Promise<HostingCommentScan> {
   if (args.head.hostingCommentScan.state === "unavailable") {
@@ -819,7 +817,7 @@ async function completeGitHubHostingCommentScan(args: {
   while (scan.after !== null) {
     let response: unknown;
     try {
-      response = await args.octokit.graphql(PULL_REQUEST_COMMENT_PAGE_QUERY, {
+      response = await args.githubAccess.octokit.graphql(PULL_REQUEST_COMMENT_PAGE_QUERY, {
         id: args.head.id,
         after: scan.after,
         request: { signal: args.signal },
@@ -837,7 +835,7 @@ async function completeGitHubHostingCommentScan(args: {
       !identity.success ||
       !comments.success ||
       identity.data.id !== args.head.id ||
-      String(identity.data.repository.databaseId) !== args.ghRepoId ||
+      String(identity.data.repository.databaseId) !== args.githubAccess.ghRepoId ||
       identity.data.state !== "OPEN"
     ) {
       return { state: "unavailable" };
@@ -857,9 +855,8 @@ type HostingCommentBodiesByProvider = {
 };
 
 export async function readGitHubHostingCommentBodies(args: {
-  octokit: Octokit;
+  githubAccess: GitHubVaultAccess;
   signal: AbortSignal;
-  ghRepoId: string;
   scans: readonly {
     pullRequestId: string;
     scan: HostingCommentScan;
@@ -921,7 +918,7 @@ export async function readGitHubHostingCommentBodies(args: {
       const chunk = providerRequests.slice(offset, offset + GITHUB_PULL_REQUEST_COMMENT_PAGE_SIZE);
       let response: unknown;
       try {
-        response = await args.octokit.graphql(PULL_REQUEST_COMMENT_BODIES_QUERY, {
+        response = await args.githubAccess.octokit.graphql(PULL_REQUEST_COMMENT_BODIES_QUERY, {
           ids: chunk.map((request) => request.commentId),
           request: { signal: args.signal },
         });
@@ -941,7 +938,7 @@ export async function readGitHubHostingCommentBodies(args: {
       }
 
       for (const read of normalizeGitHubHostingCommentBodyReads(response, {
-        ghRepoId: args.ghRepoId,
+        ghRepoId: args.githubAccess.ghRepoId,
         requests: chunk,
       })) {
         if (read.state === "unavailable") {
@@ -986,14 +983,13 @@ export async function readGitHubHostingCommentBodies(args: {
 }
 
 async function readGitHubPullRequestResourceHeadReads(args: {
-  octokit: Octokit;
+  githubAccess: GitHubVaultAccess;
   signal: AbortSignal;
-  ghRepoId: string;
   pullRequestIds: readonly string[];
 }): Promise<PullRequestResourceHeadRead[]> {
   let response: unknown;
   try {
-    response = await args.octokit.graphql(PULL_REQUEST_RESOURCE_HEADS_QUERY, {
+    response = await args.githubAccess.octokit.graphql(PULL_REQUEST_RESOURCE_HEADS_QUERY, {
       ids: args.pullRequestIds,
       request: { signal: args.signal },
     });
@@ -1001,7 +997,7 @@ async function readGitHubPullRequestResourceHeadReads(args: {
     response = recoverGitHubPullRequestGraphqlData(error);
   }
   const seedReads = normalizeGitHubPullRequestResourceHeadReads(response, {
-    ghRepoId: args.ghRepoId,
+    ghRepoId: args.githubAccess.ghRepoId,
     pullRequestIds: args.pullRequestIds,
   });
   const seeds = seedReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
@@ -1009,18 +1005,16 @@ async function readGitHubPullRequestResourceHeadReads(args: {
     seeds.map((head) => async () => ({
       pullRequestId: head.id,
       scan: await completeGitHubHostingCommentScan({
-        octokit: args.octokit,
+        githubAccess: args.githubAccess,
         signal: args.signal,
-        ghRepoId: args.ghRepoId,
         head,
       }),
     })),
     6,
   );
   const commentsByPullRequestId = await readGitHubHostingCommentBodies({
-    octokit: args.octokit,
+    githubAccess: args.githubAccess,
     signal: args.signal,
-    ghRepoId: args.ghRepoId,
     scans,
   });
   const parseFailures: HostingCommentParseFailure[] = [];
@@ -1083,16 +1077,15 @@ export const getPullRequestResources = action({
         vaultId: args.vaultId,
         userId: ctx.viewer.userId,
       }),
-      resolveGitHubAppAccess(ctx, {
+      resolveGitHubVaultAccess(ctx, {
         userId: ctx.viewer.userId,
-        target: { kind: "vault", vaultId: args.vaultId },
+        vaultId: args.vaultId,
       }),
     ]);
     const signal = createGitHubRequestDeadlineSignal();
     const headReads = await readGitHubPullRequestResourceHeadReads({
-      octokit: githubAccess.octokit,
+      githubAccess,
       signal,
-      ghRepoId: context.ghRepoId,
       pullRequestIds: args.pullRequestIds,
     });
     const heads = headReads.flatMap((read) => (read.state === "available" ? [read.head] : []));

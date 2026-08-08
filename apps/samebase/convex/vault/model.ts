@@ -33,6 +33,7 @@ export const vGitHubRepositoryVisibility = union(literal("private"), literal("pu
 export const vVaultConnectedRepositoryTarget = object({
   vaultId: id("vaults"),
   ghRepoId: string(),
+  githubOwnerId: string(),
   owner: string(),
   name: string(),
   defaultBranch: string(),

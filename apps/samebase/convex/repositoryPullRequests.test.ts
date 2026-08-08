@@ -2,6 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import type { Id } from "./_generated/dataModel";
 import {
+  fillUnavailableGitHubVaultSidebarSummaries,
   normalizeGitHubPullRequestPage,
   normalizeGitHubVaultSidebarSummaries,
   recoverGitHubVaultSidebarSummariesFromError,
@@ -265,6 +266,7 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
   const repository = {
     vaultId: fakeVaultId(),
     ghRepoId: "123",
+    githubOwnerId: "10",
     owner: "samebase",
     name: "samebase",
     defaultBranch: "main",
@@ -276,6 +278,7 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
         {
           repository0: {
             databaseId: 123,
+            owner: { databaseId: 10 },
             defaultBranch: {
               name: "main",
               target: {
@@ -320,7 +323,8 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
       normalizeGitHubVaultSidebarSummaries(
         {
           repository0: {
-            databaseId: 456,
+            databaseId: 123,
+            owner: { databaseId: 20 },
             defaultBranch: null,
             pullRequests: { totalCount: 0 },
           },
@@ -331,11 +335,48 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
   });
 });
 
+describe("fillUnavailableGitHubVaultSidebarSummaries", () => {
+  it("keeps an accessible summary when another repository loses installation access", () => {
+    const accessibleVaultId = fakeVaultId();
+    // @ts-expect-error Convex ids are strings at runtime; this pure merge test
+    // needs a second stable vault identity.
+    const unavailableVaultId: Id<"vaults"> = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b9b";
+    const repositories = [
+      {
+        vaultId: accessibleVaultId,
+        ghRepoId: "123",
+        githubOwnerId: "10",
+        owner: "samebase",
+        name: "samebase",
+        defaultBranch: "main",
+      },
+      {
+        vaultId: unavailableVaultId,
+        ghRepoId: "456",
+        githubOwnerId: "10",
+        owner: "samebase",
+        name: "removed",
+        defaultBranch: "main",
+      },
+    ];
+    const accessibleSummary = {
+      vaultId: accessibleVaultId,
+      repository: { statusCheckRollup: null },
+    };
+
+    expect(fillUnavailableGitHubVaultSidebarSummaries(repositories, [accessibleSummary])).toEqual([
+      accessibleSummary,
+      { vaultId: unavailableVaultId, repository: null },
+    ]);
+  });
+});
+
 describe("recoverGitHubVaultSidebarSummariesFromError", () => {
   const repositories = [
     {
       vaultId: fakeVaultId(),
       ghRepoId: "123",
+      githubOwnerId: "10",
       owner: "samebase",
       name: "samebase",
       defaultBranch: "main",
@@ -343,6 +384,7 @@ describe("recoverGitHubVaultSidebarSummariesFromError", () => {
     {
       vaultId: fakeVaultId(),
       ghRepoId: "456",
+      githubOwnerId: "10",
       owner: "samebase",
       name: "deleted-repository",
       defaultBranch: "main",
@@ -353,6 +395,7 @@ describe("recoverGitHubVaultSidebarSummariesFromError", () => {
     const data = {
       repository0: {
         databaseId: 123,
+        owner: { databaseId: 10 },
         defaultBranch: null,
       },
       repository1: null,
@@ -411,6 +454,7 @@ describe("vaultSidebarSummaryBatches", () => {
     const repositories = Array.from({ length: 41 }, (_, index) => ({
       vaultId: fakeVaultId(),
       ghRepoId: String(1_000 + index),
+      githubOwnerId: index < 21 ? "10" : "20",
       owner: index < 21 ? "owner-a" : "owner-b",
       name: `repository-${index}`,
       defaultBranch: index % 2 === 0 ? "main" : "trunk",

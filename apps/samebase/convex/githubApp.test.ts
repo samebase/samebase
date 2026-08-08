@@ -36,6 +36,7 @@ vi.mock("@octokit/rest", () => ({
 }));
 
 import {
+  createGitHubRepositoriesInstallationOctokit,
   createGitHubUserOctokit,
   discoverPreviewSeedGitHubAppInstallations,
   listGitHubAppConnectionInstallations,
@@ -514,7 +515,6 @@ describe("GitHub App installation verification", () => {
       expect.anything(),
     );
   });
-
   it("authorizes a GitHub user without reading or creating an App installation", async () => {
     await expect(
       verifyGitHubUserAuthorization({
@@ -531,5 +531,25 @@ describe("GitHub App installation verification", () => {
     });
     expect(githubMocks.request).toHaveBeenCalledOnce();
     expect(githubMocks.request).toHaveBeenCalledWith("GET /user");
+  });
+
+  it("requests an installation token scoped to the stable repository ID", async () => {
+    githubMocks.exchangeUserCode.mockResolvedValue({ token: "repository-token" });
+
+    await createGitHubRepositoriesInstallationOctokit("1001", ["1296269"]);
+
+    expect(githubMocks.exchangeUserCode).toHaveBeenCalledWith({
+      type: "installation",
+      installationId: 1001,
+      repositoryIds: [1_296_269],
+    });
+  });
+
+  it("fails when GitHub rejects repository-scoped installation access", async () => {
+    githubMocks.exchangeUserCode.mockRejectedValue(new Error("Repository access is unavailable."));
+
+    await expect(createGitHubRepositoriesInstallationOctokit("1001", ["1296269"])).rejects.toThrow(
+      "Repository access is unavailable.",
+    );
   });
 });

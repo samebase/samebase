@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import type { Id } from "../_generated/dataModel";
 import type { ConvexCloudDeployment } from "../convexManagementApi/client";
+import type { GitHubVaultAccess } from "../githubAppAccess";
 import {
   buildPullRequestCloudflareWorkerResources,
   buildPullRequestHostingPreviews,
@@ -58,6 +59,18 @@ const head: PullRequestResourceHead = {
 function fakeWorkerId(value: string): Id<"vaultCloudflareWorkers"> {
   // @ts-expect-error Convex ids are strings at runtime; this test exercises stable Worker matching.
   return value;
+}
+
+function createTestGitHubVaultAccess(octokit: Octokit): GitHubVaultAccess {
+  // @ts-expect-error Tests supply provider fixtures without the resolver-only capability marker.
+  return {
+    octokit,
+    ghRepoId: "42",
+    githubOwnerId: "owner-42",
+    githubOwnerLogin: "samebase",
+    repositoryName: "app",
+    repositoryDefaultBranch: "main",
+  };
 }
 
 function previewDeployment(
@@ -396,9 +409,8 @@ describe("hosting pull request comment bodies", () => {
     });
 
     const result = await readGitHubHostingCommentBodies({
-      octokit,
+      githubAccess: createTestGitHubVaultAccess(octokit),
       signal: new AbortController().signal,
-      ghRepoId: "42",
       scans: [
         {
           pullRequestId: "PR_17",

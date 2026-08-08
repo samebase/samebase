@@ -130,6 +130,31 @@ export function createGitHubInstallationOctokit(installationId: string): Octokit
   });
 }
 
+export async function createGitHubRepositoriesInstallationOctokit(
+  installationId: string,
+  repositoryIds: readonly string[],
+): Promise<Octokit> {
+  if (repositoryIds.length === 0) {
+    throw new Error("At least one GitHub repository ID is required.");
+  }
+  const configuration = getGitHubAppConfiguration();
+  const auth = createAppAuth({
+    appId: configuration.appId,
+    privateKey: configuration.privateKey,
+  });
+  const authentication = await auth({
+    type: "installation",
+    installationId: requirePositiveSafeInteger(installationId, "GitHub installation ID"),
+    repositoryIds: repositoryIds.map((repositoryId) =>
+      requirePositiveSafeInteger(repositoryId, "GitHub repository ID"),
+    ),
+  });
+  return new Octokit({
+    auth: authentication.token,
+    userAgent: "samebase-app",
+  });
+}
+
 export function createGitHubUserOctokit(accessToken: string): Octokit {
   return new Octokit({
     auth: requireTrimmed(accessToken, "GitHub user access token"),

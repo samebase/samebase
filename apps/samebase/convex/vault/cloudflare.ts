@@ -25,11 +25,12 @@ import {
   type CloudflareBuildConfig,
   type CloudflareConnectedWorkersBuilds,
 } from "../cloudflareResources";
-import { fetchGitHubDefaultBranchHead, fetchGitHubRepoIdentity } from "../githubRepoApi";
+import { fetchGitHubDefaultBranchHead } from "../githubRepoApi";
 import {
-  resolveGitHubAppAccess,
   resolveGitHubAppAccessForProvisioningRun,
-  type GitHubAppAccess,
+  resolveGitHubRepositoryAccess,
+  resolveGitHubVaultAccess,
+  type GitHubVaultAccess,
 } from "../githubAppAccess";
 import {
   createConvexDeployKey,
@@ -206,18 +207,21 @@ async function resolveCloudflareConnectionForAuthority(
   }
 }
 
-async function resolveGitHubAppAccessForAuthority(
-  ctx: Pick<ActionCtx, "runQuery">,
+async function resolveGitHubVaultAccessForAuthority(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   authority: VaultActionAuthority,
-): Promise<GitHubAppAccess> {
+  ghRepoId: string,
+): Promise<GitHubVaultAccess> {
   switch (authority.kind) {
     case "user":
-      return await resolveGitHubAppAccess(ctx, {
+      return await resolveGitHubVaultAccess(ctx, {
         userId: authority.userId,
-        target: { kind: "vault", vaultId: authority.vaultId },
+        vaultId: authority.vaultId,
       });
-    case "provisioning":
-      return await resolveGitHubAppAccessForProvisioningRun(ctx, authority);
+    case "provisioning": {
+      const access = await resolveGitHubAppAccessForProvisioningRun(ctx, authority);
+      return await resolveGitHubRepositoryAccess({ access, ghRepoId });
+    }
     default:
       authority satisfies never;
       throw new Error("Vault action authority is invalid.");
@@ -338,9 +342,7 @@ async function resolveCloudflareRepositoryContext(
   account: CloudflareAccount;
   connection: CloudflareActionConnection;
   context: ProviderAttachmentVaultContext;
-  githubAccess: GitHubAppAccess;
-  githubOwnerId: string;
-  githubDefaultBranch: string;
+  githubAccess: GitHubVaultAccess;
 }> {
   const accountId = args.accountId.trim();
   if (!accountId) {
@@ -358,9 +360,9 @@ async function resolveCloudflareRepositoryContext(
       userId: args.userId,
       organizationId: context.organizationId,
     }),
-    resolveGitHubAppAccess(ctx, {
+    resolveGitHubVaultAccess(ctx, {
       userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
+      vaultId: args.vaultId,
     }),
   ]);
   requireCloudflareAccountTarget(connection, accountId);
@@ -369,19 +371,11 @@ async function resolveCloudflareRepositoryContext(
     transport: connection.transport,
     accountId,
   });
-  const repository = await fetchGitHubRepoIdentity({
-    octokit: githubAccess.octokit,
-    owner: context.owner,
-    repo: context.name,
-    expectedRepoId: context.ghRepoId,
-  });
   return {
     account,
     connection,
     context,
     githubAccess,
-    githubOwnerId: repository.ownerId,
-    githubDefaultBranch: repository.defaultBranch,
   };
 }
 
@@ -427,7 +421,7 @@ export async function attachExistingCloudflareWorkersForUser(
         workerName: identity.workerName,
         workerTag: identity.workerTag,
         expectedRepoId: resolved.context.ghRepoId,
-        defaultBranch: resolved.githubDefaultBranch,
+        defaultBranch: resolved.githubAccess.repositoryDefaultBranch,
       });
       if (discovery.state !== "ready") {
         throw new Error(
@@ -605,14 +599,12 @@ async function prepareWorkersBuildsForGitHub(
 ): Promise<{
   connection: CloudflareActionConnection;
   context: WorkerConfigurationContext;
-  githubAccess: GitHubAppAccess;
-  githubOwnerId: string;
-  githubDefaultBranch: string;
+  githubAccess: GitHubVaultAccess;
   buildConfig: CloudflareBuildConfig;
 }> {
   const [connection, githubAccess] = await Promise.all([
     resolveCloudflareConnectionForAuthority(ctx, args.authority, context.organizationId),
-    resolveGitHubAppAccessForAuthority(ctx, args.authority),
+    resolveGitHubVaultAccessForAuthority(ctx, args.authority, context.ghRepoId),
   ]);
   requireCloudflareAccountTarget(connection, context.accountId);
   await resolveAccount({
@@ -620,39 +612,12 @@ async function prepareWorkersBuildsForGitHub(
     transport: connection.transport,
     accountId: context.accountId,
   });
-  const repository = await fetchGitHubRepoIdentity({
-    octokit: githubAccess.octokit,
-    owner: context.owner,
-    repo: context.name,
-    expectedRepoId: context.ghRepoId,
-  });
   return {
     connection,
     context,
     githubAccess,
-    githubOwnerId: repository.ownerId,
-    githubDefaultBranch: repository.defaultBranch,
     buildConfig: toCloudflareBuildConfig(args.rootDirectory),
   };
-}
-
-async function readInitialBuildCommitHash(args: {
-  octokit: GitHubAppAccess["octokit"];
-  owner: string;
-  repo: string;
-  expectedRepoId: string;
-  expectedDefaultBranch: string;
-}): Promise<string> {
-  const repository = await fetchGitHubDefaultBranchHead({
-    octokit: args.octokit,
-    owner: args.owner,
-    repo: args.repo,
-    expectedRepoId: args.expectedRepoId,
-  });
-  if (repository.defaultBranch !== args.expectedDefaultBranch) {
-    throw new Error("GitHub default branch changed while Samebase configured Workers Builds.");
-  }
-  return repository.commitSha;
 }
 
 async function configurePreparedWorkersBuildsForGitHub(
@@ -666,24 +631,22 @@ async function configurePreparedWorkersBuildsForGitHub(
 ): Promise<CloudflareConnectedWorkersBuilds> {
   const { connection, context } = prepared;
   const build = await configureCloudflareWorkerBuildsForGitHub({
-    owner: context.owner,
-    repo: context.name,
+    owner: prepared.githubAccess.githubOwnerLogin,
+    repo: prepared.githubAccess.repositoryName,
     ghRepoId: context.ghRepoId,
-    ghRepoOwnerId: prepared.githubOwnerId,
-    defaultBranch: prepared.githubDefaultBranch,
+    ghRepoOwnerId: prepared.githubAccess.githubOwnerId,
+    defaultBranch: prepared.githubAccess.repositoryDefaultBranch,
     initialBuild:
       args.initialBuild === "deferred"
         ? { state: "deferred" }
         : {
             state: "requested",
             readCommitHash: async () =>
-              await readInitialBuildCommitHash({
-                octokit: prepared.githubAccess.octokit,
-                owner: context.owner,
-                repo: context.name,
-                expectedRepoId: context.ghRepoId,
-                expectedDefaultBranch: prepared.githubDefaultBranch,
-              }),
+              (
+                await fetchGitHubDefaultBranchHead({
+                  githubAccess: prepared.githubAccess,
+                })
+              ).commitSha,
           },
     vaultId: args.vaultId,
     workerName: context.workerName,
@@ -725,8 +688,6 @@ async function configureResolvedWorkersBuildsForGitHub(
         workerTag: worker.workerTag,
       },
       githubAccess: resolved.githubAccess,
-      githubOwnerId: resolved.githubOwnerId,
-      githubDefaultBranch: resolved.githubDefaultBranch,
       buildConfig: toCloudflareBuildConfig(args.rootDirectory),
     },
   );
@@ -745,8 +706,7 @@ async function prepareConvexDeployKeyRotation(
   convexConnection: Awaited<ReturnType<typeof resolveConvexProvisioningConnection>>;
   deployment: NonNullable<Awaited<ReturnType<typeof readConvexProductionDeployment>>>;
   connection: CloudflareActionConnection;
-  githubAccess: GitHubAppAccess;
-  repository: Awaited<ReturnType<typeof fetchGitHubRepoIdentity>>;
+  githubAccess: GitHubVaultAccess;
   build: PreparedCloudflareWorkerBuilds;
   deployKeyNames: ReturnType<typeof buildWorkersBuildsConvexDeployKeyNames>;
 }> {
@@ -784,7 +744,7 @@ async function prepareConvexDeployKeyRotation(
       teamId: project.teamId,
     }),
     resolveCloudflareConnectionForAuthority(ctx, args.authority, context.organizationId),
-    resolveGitHubAppAccessForAuthority(ctx, args.authority),
+    resolveGitHubVaultAccessForAuthority(ctx, args.authority, context.ghRepoId),
   ]);
   if (convexConnection.convexTeamId !== project.teamId) {
     throw new Error("The attached Convex project does not match its saved connection.");
@@ -796,12 +756,6 @@ async function prepareConvexDeployKeyRotation(
   if (!deployment) {
     throw new Error("The selected Convex project has no production deployment.");
   }
-  const repository = await fetchGitHubRepoIdentity({
-    octokit: githubAccess.octokit,
-    owner: context.owner,
-    repo: context.name,
-    expectedRepoId: context.ghRepoId,
-  });
   requireCloudflareAccountTarget(connection, context.accountId);
   await resolveAccount({
     token: connection.token,
@@ -817,7 +771,7 @@ async function prepareConvexDeployKeyRotation(
       workerName: context.workerName,
       workerTag: context.workerTag,
       expectedRepoId: context.ghRepoId,
-      defaultBranch: repository.defaultBranch,
+      defaultBranch: githubAccess.repositoryDefaultBranch,
     });
     if (discovery.state !== "ready" || discovery.builds.state !== "available") {
       throw new Error(
@@ -839,7 +793,6 @@ async function prepareConvexDeployKeyRotation(
     deployment,
     connection,
     githubAccess,
-    repository,
     build,
     deployKeyNames: buildWorkersBuildsConvexDeployKeyNames({
       vaultId,
@@ -855,16 +808,8 @@ async function rotatePreparedConvexDeployKeys(
   },
   prepared: Awaited<ReturnType<typeof prepareConvexDeployKeyRotation>>,
 ): Promise<void> {
-  const {
-    context,
-    convexConnection,
-    deployment,
-    connection,
-    githubAccess,
-    repository,
-    build,
-    deployKeyNames,
-  } = prepared;
+  const { context, convexConnection, deployment, connection, githubAccess, build, deployKeyNames } =
+    prepared;
   const project = context.convexProject;
   await Promise.all([
     (async () => {
@@ -915,17 +860,15 @@ async function rotatePreparedConvexDeployKeys(
 
   try {
     await rotateConvexDeployKeysForCloudflareWorkerBuilds({
-      defaultBranch: repository.defaultBranch,
+      defaultBranch: githubAccess.repositoryDefaultBranch,
       readInitialBuildCommitHash: async () =>
-        await readInitialBuildCommitHash({
-          octokit: githubAccess.octokit,
-          owner: context.owner,
-          repo: context.name,
-          expectedRepoId: context.ghRepoId,
-          expectedDefaultBranch: repository.defaultBranch,
-        }),
+        (
+          await fetchGitHubDefaultBranchHead({
+            githubAccess,
+          })
+        ).commitSha,
       expectedRepoId: context.ghRepoId,
-      repositoryFullName: `${context.owner}/${context.name}`,
+      repositoryFullName: `${githubAccess.githubOwnerLogin}/${githubAccess.repositoryName}`,
       rootDirectory: build.rootDirectory,
       vaultId: args.vaultId,
       workerName: context.workerName,
@@ -1089,7 +1032,7 @@ export async function discoverCloudflareWorkersForUser(
     transport: resolved.connection.transport,
     accountId: resolved.account.accountId,
     expectedRepoId: resolved.context.ghRepoId,
-    defaultBranch: resolved.githubDefaultBranch,
+    defaultBranch: resolved.githubAccess.repositoryDefaultBranch,
   });
 }
 
@@ -1146,7 +1089,7 @@ async function connectWorkerForUser(
       workerName: identity.workerName,
       workerTag: identity.workerTag,
       expectedRepoId: resolved.context.ghRepoId,
-      defaultBranch: resolved.githubDefaultBranch,
+      defaultBranch: resolved.githubAccess.repositoryDefaultBranch,
     });
     if (discovery.state !== "not_connected") {
       throw new Error(
@@ -1198,7 +1141,7 @@ async function connectWorkerForUser(
       workerName: identity.workerName,
       workerTag: identity.workerTag,
       expectedRepoId: resolved.context.ghRepoId,
-      defaultBranch: resolved.githubDefaultBranch,
+      defaultBranch: resolved.githubAccess.repositoryDefaultBranch,
     });
     if (configured.state !== "ready" || configured.rootDirectory !== buildConfig.rootDir) {
       throw new Error("Cloudflare did not report the configured repository root.");
@@ -1220,7 +1163,7 @@ async function connectWorkerForUser(
         workerName: identity.workerName,
         workerTag: identity.workerTag,
         expectedRepoId: resolved.context.ghRepoId,
-        defaultBranch: resolved.githubDefaultBranch,
+        defaultBranch: resolved.githubAccess.repositoryDefaultBranch,
       });
     } catch (observationError) {
       await attemptManualProviderWriteFailureRecord(ctx, {

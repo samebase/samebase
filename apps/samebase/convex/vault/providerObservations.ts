@@ -16,8 +16,8 @@ import {
 } from "../cloudflareResources";
 import { requestConvexManagementApi } from "../convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
-import { fetchGitHubConvexCodeLocationDiscovery, fetchGitHubRepoIdentity } from "../githubRepoApi";
-import { resolveGitHubAppAccess } from "../githubAppAccess";
+import { fetchGitHubConvexCodeLocationDiscovery } from "../githubRepoApi";
+import { resolveGitHubVaultAccess } from "../githubAppAccess";
 import { vCloudflareWorkerRepositoryDiscovery } from "./contracts/cloudflareAttachments";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { readConvexProductionDeployment } from "./convexProjectResources";
@@ -391,17 +391,11 @@ export const observeCloudflareWorkerBuilds = action({
     });
     let defaultBranch: string;
     try {
-      const githubAccess = await resolveGitHubAppAccess(ctx, {
+      const githubAccess = await resolveGitHubVaultAccess(ctx, {
         userId: ctx.viewer.userId,
-        target: { kind: "vault", vaultId: args.vaultId },
+        vaultId: args.vaultId,
       });
-      const repository = await fetchGitHubRepoIdentity({
-        octokit: githubAccess.octokit,
-        owner: context.owner,
-        repo: context.name,
-        expectedRepoId: context.ghRepoId,
-      });
-      defaultBranch = repository.defaultBranch;
+      defaultBranch = githubAccess.repositoryDefaultBranch;
     } catch {
       return context.cloudflareWorkers.map((worker) => ({
         state: "failed" as const,
@@ -601,17 +595,14 @@ export const observeConvexProjects = action({
         }
       | { state: "unavailable"; reason: "connection_required" | "request_failed" };
     try {
-      const githubAccess = await resolveGitHubAppAccess(ctx, {
+      const githubAccess = await resolveGitHubVaultAccess(ctx, {
         userId: ctx.viewer.userId,
-        target: { kind: "vault", vaultId: args.vaultId },
+        vaultId: args.vaultId,
       });
       sourceResolution = {
         state: "available",
         discovery: await fetchGitHubConvexCodeLocationDiscovery({
-          octokit: githubAccess.octokit,
-          owner: context.owner,
-          repo: context.name,
-          expectedRepoId: context.ghRepoId,
+          githubAccess,
         }),
       };
     } catch {

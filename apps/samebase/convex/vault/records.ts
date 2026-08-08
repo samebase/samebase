@@ -109,6 +109,7 @@ export const listConnectedRepositoriesForUser = internalQuery({
         repositories.push({
           vaultId: vault._id,
           ghRepoId: vault.ghRepoId,
+          githubOwnerId: organization.githubOwnerId,
           owner: organization.githubOwnerLogin,
           name: vault.name,
           defaultBranch: vault.defaultBranch,
@@ -125,6 +126,78 @@ export const listConnectedRepositoriesForUser = internalQuery({
   },
 });
 
+export const refreshGitHubRepositoryCoordinates = internalMutation({
+  args: {
+    userId: id("users"),
+    vaultId: id("vaults"),
+    expectedGhRepoId: string(),
+    expectedGithubOwnerId: string(),
+    expectedGithubOwnerLogin: string(),
+    expectedRepositoryName: string(),
+    githubOwnerLogin: string(),
+    repositoryName: string(),
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const githubOwnerLogin = args.githubOwnerLogin.trim();
+    const repositoryName = args.repositoryName.trim();
+    if (githubOwnerLogin.length === 0 || repositoryName.length === 0) {
+      throw new Error("Current GitHub repository coordinates are required.");
+    }
+
+    const vault = await requireVaultForUser(ctx.db, {
+      userId: args.userId,
+      vaultId: args.vaultId,
+    });
+    if (!isLiveConnectedVault(vault) || vault.ghRepoId !== args.expectedGhRepoId) {
+      throw new Error("Vault repository identity changed.");
+    }
+    const organization = await ctx.db.get(vault.organizationId);
+    if (organization === null || organization.githubOwnerId !== args.expectedGithubOwnerId) {
+      throw new Error("Vault organization identity changed.");
+    }
+    if (
+      (organization.githubOwnerLogin !== args.expectedGithubOwnerLogin &&
+        organization.githubOwnerLogin !== githubOwnerLogin) ||
+      (vault.name !== args.expectedRepositoryName && vault.name !== repositoryName)
+    ) {
+      return null;
+    }
+
+    const githubOwnerLoginNormalized = normalizeGitHubRepositoryCoordinate(githubOwnerLogin);
+    const organizationsForLogin = await ctx.db
+      .query("organizations")
+      .withIndex("by_github_owner_login_normalized", (query) =>
+        query.eq("githubOwnerLoginNormalized", githubOwnerLoginNormalized),
+      )
+      .take(2);
+    if (organizationsForLogin.some((candidate) => candidate._id !== organization._id)) {
+      throw new Error("GitHub owner login is already connected to another organization.");
+    }
+
+    await assertOrganizationHasNoVaultForRepository(ctx, {
+      organizationId: organization._id,
+      name: repositoryName,
+      excludeVaultId: vault._id,
+    });
+
+    if (
+      organization.githubOwnerLogin !== githubOwnerLogin ||
+      organization.githubOwnerLoginNormalized !== githubOwnerLoginNormalized
+    ) {
+      await ctx.db.patch(organization._id, {
+        githubOwnerLogin,
+        githubOwnerLoginNormalized,
+      });
+    }
+    if (vault.name !== repositoryName) {
+      await ctx.db.patch(vault._id, { name: repositoryName });
+    }
+
+    return null;
+  },
+});
+
 function normalizeGitHubRepositoryCoordinate(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -134,13 +207,14 @@ async function assertOrganizationHasNoVaultForRepository(
   args: {
     organizationId: Id<"organizations">;
     name: string;
+    excludeVaultId: Id<"vaults"> | null;
   },
 ): Promise<void> {
   const normalizedName = normalizeGitHubRepositoryCoordinate(args.name);
   for await (const vault of ctx.db
     .query("vaults")
     .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))) {
-    if (vault.state === "not_connected") {
+    if (vault._id === args.excludeVaultId || vault.state === "not_connected") {
       continue;
     }
     if (normalizeGitHubRepositoryCoordinate(vault.name) === normalizedName) {
@@ -167,22 +241,6 @@ async function requireOrganizationRepositoryOwner(
   }
 
   return organization;
-}
-
-async function requireVaultRepositoryOwner(
-  ctx: Pick<MutationCtx, "db">,
-  args: {
-    vault: Doc<"vaults">;
-    owner: string;
-  },
-): Promise<void> {
-  const organization = await ctx.db.get(args.vault.organizationId);
-  if (
-    organization === null ||
-    organization.githubOwnerLoginNormalized !== normalizeGitHubRepositoryCoordinate(args.owner)
-  ) {
-    throw new Error("Repository owner does not match the vault organization.");
-  }
 }
 
 function pickProvisioningVaultCoreFields(vault: ProvisioningVault) {
@@ -262,6 +320,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     await assertOrganizationHasNoVaultForRepository(ctx, {
       organizationId: organization._id,
       name,
+      excludeVaultId: null,
     });
     await requireBillingResourceCapacity(ctx, {
       organizationId: organization._id,
@@ -322,6 +381,9 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     ghRepoId: v.string(),
+    expectedGithubOwnerId: v.string(),
+    expectedGithubOwnerLogin: v.string(),
+    expectedRepositoryName: v.string(),
     ghRepoOwner: v.string(),
     ghRepoName: v.string(),
     defaultBranch: v.string(),
@@ -338,15 +400,34 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
       return null;
     }
 
-    await requireVaultRepositoryOwner(ctx, {
-      vault,
-      owner: args.ghRepoOwner,
-    });
+    const [organization, run] = await Promise.all([
+      ctx.db.get(vault.organizationId),
+      ctx.db.get(args.runId),
+    ]);
+    if (organization === null) {
+      throw new Error("Vault organization not found.");
+    }
+    if (organization.githubOwnerId !== args.expectedGithubOwnerId) {
+      throw new Error("Vault organization identity changed.");
+    }
+    if (
+      run === null ||
+      run.userId !== args.userId ||
+      run.vaultId !== vault._id ||
+      run.trigger !== "connect_existing_repository"
+    ) {
+      throw new Error("Provisioning run does not match existing repository setup.");
+    }
+
+    const ghRepoId = args.ghRepoId.trim();
+    if (ghRepoId.length === 0) {
+      throw new Error("GitHub repository ID is required.");
+    }
 
     // GitHub repository id stays stable across owner/name renames.
     const existingVault = await ctx.db
       .query("vaults")
-      .withIndex("by_ghRepoId", (q) => q.eq("ghRepoId", args.ghRepoId))
+      .withIndex("by_ghRepoId", (q) => q.eq("ghRepoId", ghRepoId))
       .unique();
     if (existingVault && existingVault._id !== args.vaultId) {
       throw new Error("Vault already exists for this GitHub repository.");
@@ -354,7 +435,7 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     if (isConnectedVault(vault)) {
       if (
         vault.githubMode !== "connect_existing_repository" ||
-        vault.ghRepoId !== args.ghRepoId ||
+        vault.ghRepoId !== ghRepoId ||
         vault.runId !== args.runId
       ) {
         throw new Error("Connected vault repository identity cannot be changed.");
@@ -376,6 +457,57 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
         vaultId: args.vaultId,
       },
     });
+    if (run.state !== "queued" && run.state !== "running") {
+      throw new Error("Provisioning run is not active.");
+    }
+
+    const expectedGithubOwnerLogin = args.expectedGithubOwnerLogin.trim();
+    const expectedRepositoryName = args.expectedRepositoryName.trim();
+    const githubOwnerLogin = args.ghRepoOwner.trim();
+    const repositoryName = args.ghRepoName.trim();
+    if (
+      expectedGithubOwnerLogin.length === 0 ||
+      expectedRepositoryName.length === 0 ||
+      githubOwnerLogin.length === 0 ||
+      repositoryName.length === 0
+    ) {
+      throw new Error("GitHub repository coordinates are required.");
+    }
+    if (
+      organization.githubOwnerLogin !== expectedGithubOwnerLogin &&
+      organization.githubOwnerLogin !== githubOwnerLogin
+    ) {
+      throw new Error("GitHub owner login changed during repository setup.");
+    }
+    if (vault.name !== expectedRepositoryName && vault.name !== repositoryName) {
+      throw new Error("GitHub repository name changed during repository setup.");
+    }
+
+    const githubOwnerLoginNormalized = normalizeGitHubRepositoryCoordinate(githubOwnerLogin);
+    const organizationsForLogin = await ctx.db
+      .query("organizations")
+      .withIndex("by_github_owner_login_normalized", (query) =>
+        query.eq("githubOwnerLoginNormalized", githubOwnerLoginNormalized),
+      )
+      .take(2);
+    if (organizationsForLogin.some((candidate) => candidate._id !== organization._id)) {
+      throw new Error("GitHub owner login is already connected to another organization.");
+    }
+    await assertOrganizationHasNoVaultForRepository(ctx, {
+      organizationId: organization._id,
+      name: repositoryName,
+      excludeVaultId: vault._id,
+    });
+
+    if (
+      organization.githubOwnerLogin !== githubOwnerLogin ||
+      organization.githubOwnerLoginNormalized !== githubOwnerLoginNormalized
+    ) {
+      await ctx.db.patch(organization._id, {
+        githubOwnerLogin,
+        githubOwnerLoginNormalized,
+      });
+    }
 
     await ctx.db.replace(args.vaultId, {
       organizationId: vault.organizationId,
@@ -385,8 +517,8 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
       state: "connected",
       githubMode: "connect_existing_repository",
       runId: args.runId,
-      ghRepoId: args.ghRepoId,
-      name: args.ghRepoName,
+      ghRepoId,
+      name: repositoryName,
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
       connectedAt: Date.now(),
@@ -449,6 +581,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     await assertOrganizationHasNoVaultForRepository(ctx, {
       organizationId: organization._id,
       name,
+      excludeVaultId: null,
     });
     await requireBillingResourceCapacity(ctx, {
       organizationId: organization._id,
@@ -529,7 +662,8 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       runId,
       userId: args.userId,
       repositoryName: name,
-      repositoryOwner: owner,
+      githubOwnerId: organization.githubOwnerId,
+      expectedGithubOwnerLogin: owner,
       description: args.description,
       private: args.visibility === "private",
     });
@@ -559,6 +693,9 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     ghRepoId: string(),
+    expectedGithubOwnerId: string(),
+    expectedGithubOwnerLogin: string(),
+    expectedRepositoryName: string(),
     ghRepoOwner: string(),
     ghRepoName: string(),
     defaultBranch: string(),
@@ -574,14 +711,34 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
     if (isVaultDeletingOrDeleteFailed(vault)) {
       return null;
     }
-    await requireVaultRepositoryOwner(ctx, {
-      vault,
-      owner: args.ghRepoOwner,
-    });
+
+    const [organization, run] = await Promise.all([
+      ctx.db.get(vault.organizationId),
+      ctx.db.get(args.runId),
+    ]);
+    if (organization === null) {
+      throw new Error("Vault organization not found.");
+    }
+    if (organization.githubOwnerId !== args.expectedGithubOwnerId) {
+      throw new Error("Vault organization identity changed.");
+    }
+    if (
+      run === null ||
+      run.userId !== args.userId ||
+      run.vaultId !== vault._id ||
+      run.trigger !== "create"
+    ) {
+      throw new Error("Provisioning run does not match repository creation.");
+    }
+
+    const ghRepoId = args.ghRepoId.trim();
+    if (ghRepoId.length === 0) {
+      throw new Error("GitHub repository ID is required.");
+    }
 
     const existingVault = await ctx.db
       .query("vaults")
-      .withIndex("by_ghRepoId", (q) => q.eq("ghRepoId", args.ghRepoId))
+      .withIndex("by_ghRepoId", (q) => q.eq("ghRepoId", ghRepoId))
       .unique();
     if (existingVault && existingVault._id !== args.vaultId) {
       throw new Error("Vault already exists for this GitHub repository.");
@@ -590,7 +747,7 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
       if (!isSamebaseManagedVault(vault)) {
         throw new Error("Connected vault repository identity cannot be changed.");
       }
-      if (vault.ghRepoId !== args.ghRepoId || vault.runId !== args.runId) {
+      if (vault.ghRepoId !== ghRepoId || vault.runId !== args.runId) {
         throw new Error("Connected vault repository identity cannot be changed.");
       }
       return null;
@@ -610,6 +767,59 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
         vaultId: args.vaultId,
       },
     });
+    if (run.state !== "queued" && run.state !== "running") {
+      throw new Error("Provisioning run is not active.");
+    }
+
+    const expectedGithubOwnerLogin = args.expectedGithubOwnerLogin.trim();
+    const expectedRepositoryName = args.expectedRepositoryName.trim();
+    const observedGithubOwnerLogin = args.ghRepoOwner.trim();
+    const observedRepositoryName = args.ghRepoName.trim();
+    if (
+      expectedGithubOwnerLogin.length === 0 ||
+      expectedRepositoryName.length === 0 ||
+      observedGithubOwnerLogin.length === 0 ||
+      observedRepositoryName.length === 0
+    ) {
+      throw new Error("GitHub repository coordinates are required.");
+    }
+
+    // Preserve a third value because another stable-ID read can have saved newer coordinates.
+    const canApplyObservedOwnerLogin =
+      organization.githubOwnerLogin === expectedGithubOwnerLogin ||
+      organization.githubOwnerLogin === observedGithubOwnerLogin;
+    const githubOwnerLogin = canApplyObservedOwnerLogin
+      ? observedGithubOwnerLogin
+      : organization.githubOwnerLogin;
+    const canApplyObservedRepositoryName =
+      vault.name === expectedRepositoryName || vault.name === observedRepositoryName;
+    const repositoryName = canApplyObservedRepositoryName ? observedRepositoryName : vault.name;
+    const githubOwnerLoginNormalized = normalizeGitHubRepositoryCoordinate(githubOwnerLogin);
+    const organizationsForLogin = await ctx.db
+      .query("organizations")
+      .withIndex("by_github_owner_login_normalized", (query) =>
+        query.eq("githubOwnerLoginNormalized", githubOwnerLoginNormalized),
+      )
+      .take(2);
+    if (organizationsForLogin.some((candidate) => candidate._id !== organization._id)) {
+      throw new Error("GitHub owner login is already connected to another organization.");
+    }
+    await assertOrganizationHasNoVaultForRepository(ctx, {
+      organizationId: organization._id,
+      name: repositoryName,
+      excludeVaultId: vault._id,
+    });
+
+    if (
+      canApplyObservedOwnerLogin &&
+      (organization.githubOwnerLogin !== githubOwnerLogin ||
+        organization.githubOwnerLoginNormalized !== githubOwnerLoginNormalized)
+    ) {
+      await ctx.db.patch(organization._id, {
+        githubOwnerLogin,
+        githubOwnerLoginNormalized,
+      });
+    }
 
     await ctx.db.replace(args.vaultId, {
       organizationId: vault.organizationId,
@@ -619,8 +829,8 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
       state: "connected",
       githubMode: "create_repository",
       runId: args.runId,
-      ghRepoId: args.ghRepoId,
-      name: args.ghRepoName,
+      ghRepoId,
+      name: repositoryName,
       visibility: args.visibility,
       defaultBranch: args.defaultBranch,
       connectedAt: Date.now(),

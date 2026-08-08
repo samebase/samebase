@@ -4,7 +4,7 @@ import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { action } from "./functions";
 import { describeRepositoryTreeRefreshFailure } from "./github";
-import { resolveGitHubAppAccess } from "./githubAppAccess";
+import { resolveGitHubVaultAccess } from "./githubAppAccess";
 import { isRecord } from "./jsonUtils";
 
 const { array, literal, number, object, string, union } = v;
@@ -209,22 +209,22 @@ export const getCommitStatus = action({
       return cooldownResult;
     }
 
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
+    const githubAccess = await resolveGitHubVaultAccess(ctx, {
       userId: ctx.viewer.userId,
-      target: { kind: "vault", vaultId: vault._id },
+      vaultId: vault._id,
     });
     const octokit = githubAccess.octokit;
 
     try {
       const [checksResponse, combinedStatusResponse] = await Promise.all([
         octokit.checks.listForRef({
-          owner,
-          repo,
+          owner: githubAccess.githubOwnerLogin,
+          repo: githubAccess.repositoryName,
           ref,
         }),
         octokit.repos.getCombinedStatusForRef({
-          owner,
-          repo,
+          owner: githubAccess.githubOwnerLogin,
+          repo: githubAccess.repositoryName,
           ref,
         }),
       ]);

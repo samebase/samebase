@@ -57,6 +57,10 @@ async function createConnectedVault(
     ghRepoId: string;
   },
 ) {
+  const organization = await t.run(async (ctx) => await ctx.db.get(args.organizationId));
+  if (organization === null) {
+    throw new Error("Test organization not found.");
+  }
   const ids = await t.mutation(
     internal.vault.records.createInitializingExistingRepositoryVaultForUser,
     {
@@ -70,6 +74,9 @@ async function createConnectedVault(
     ...ids,
     userId: args.userId,
     ghRepoId: args.ghRepoId,
+    expectedGithubOwnerId: organization.githubOwnerId,
+    expectedGithubOwnerLogin: args.owner,
+    expectedRepositoryName: args.name,
     ghRepoOwner: args.owner,
     ghRepoName: args.name,
     defaultBranch: "main",
@@ -338,6 +345,9 @@ describe("organization-owned vaults", () => {
         ...secondVault,
         userId,
         ghRepoId: "stable-repository-id",
+        expectedGithubOwnerId: "302",
+        expectedGithubOwnerLogin: "second-owner",
+        expectedRepositoryName: "second-repository",
         ghRepoOwner: "second-owner",
         ghRepoName: "second-repository",
         defaultBranch: "main",
@@ -345,6 +355,185 @@ describe("organization-owned vaults", () => {
       }),
     ).rejects.toThrow("Vault already exists for this GitHub repository.");
   });
+
+  it("rejects an owner rename that collides with another organization", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "owner-login-collision@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "owner-login-collision-source",
+      ownerLogin: "before-owner",
+    });
+    await createOrganization(t, {
+      userId,
+      ownerId: "owner-login-collision-target",
+      ownerLogin: "after-owner",
+    });
+    const vault = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        organizationId,
+        userId,
+        ghRepoOwner: "before-owner",
+        ghRepoName: "before-repository",
+      },
+    );
+
+    await expect(
+      t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+        ...vault,
+        userId,
+        ghRepoId: "owner-login-collision-repository",
+        expectedGithubOwnerId: "owner-login-collision-source",
+        expectedGithubOwnerLogin: "before-owner",
+        expectedRepositoryName: "before-repository",
+        ghRepoOwner: "after-owner",
+        ghRepoName: "after-repository",
+        defaultBranch: "main",
+        visibility: "private",
+      }),
+    ).rejects.toThrow("GitHub owner login is already connected to another organization.");
+    await expect(
+      t.run(async (ctx) => ({
+        organization: await ctx.db.get(organizationId),
+        vault: await ctx.db.get(vault.vaultId),
+      })),
+    ).resolves.toMatchObject({
+      organization: { githubOwnerLogin: "before-owner" },
+      vault: { name: "before-repository", state: "provisioning" },
+    });
+  });
+
+  it("lets only one provisioning vault claim a current repository route", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "repository-route-collision@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "repository-route-collision-owner",
+      ownerLogin: "samebase",
+    });
+    const first = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        organizationId,
+        userId,
+        ghRepoOwner: "samebase",
+        ghRepoName: "first-requested-repository",
+      },
+    );
+    const second = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        organizationId,
+        userId,
+        ghRepoOwner: "samebase",
+        ghRepoName: "second-requested-repository",
+      },
+    );
+    const connectCurrentRoute = {
+      userId,
+      expectedGithubOwnerId: "repository-route-collision-owner",
+      expectedGithubOwnerLogin: "samebase",
+      ghRepoOwner: "samebase",
+      ghRepoName: "current-repository",
+      defaultBranch: "main",
+      visibility: "private" as const,
+    };
+
+    await t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+      ...first,
+      ...connectCurrentRoute,
+      ghRepoId: "first-stable-repository-id",
+      expectedRepositoryName: "first-requested-repository",
+    });
+    await expect(
+      t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+        ...second,
+        ...connectCurrentRoute,
+        ghRepoId: "second-stable-repository-id",
+        expectedRepositoryName: "second-requested-repository",
+      }),
+    ).rejects.toThrow("Vault already exists for this repository.");
+    await expect(
+      t.run(async (ctx) => ({
+        first: await ctx.db.get(first.vaultId),
+        second: await ctx.db.get(second.vaultId),
+      })),
+    ).resolves.toMatchObject({
+      first: { name: "current-repository", state: "connected" },
+      second: { name: "second-requested-repository", state: "provisioning" },
+    });
+  });
+
+  it.each([
+    {
+      changedCoordinate: "owner",
+      error: "GitHub owner login changed during repository setup.",
+    },
+    {
+      changedCoordinate: "repository",
+      error: "GitHub repository name changed during repository setup.",
+    },
+  ])(
+    "rejects a third stored $changedCoordinate coordinate",
+    async ({ changedCoordinate, error }) => {
+      const t = makeConvexTest();
+      const userId = await createUser(t, `${changedCoordinate}-race@example.com`);
+      const organizationId = await createOrganization(t, {
+        userId,
+        ownerId: `${changedCoordinate}-race-owner-id`,
+        ownerLogin: "before-owner",
+      });
+      const vault = await t.mutation(
+        internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+        {
+          organizationId,
+          userId,
+          ghRepoOwner: "before-owner",
+          ghRepoName: "before-repository",
+        },
+      );
+      await t.run(async (ctx) => {
+        if (changedCoordinate === "owner") {
+          await ctx.db.patch(organizationId, {
+            githubOwnerLogin: "newest-owner",
+            githubOwnerLoginNormalized: "newest-owner",
+          });
+        } else {
+          await ctx.db.patch(vault.vaultId, { name: "newest-repository" });
+        }
+      });
+
+      await expect(
+        t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+          ...vault,
+          userId,
+          ghRepoId: `${changedCoordinate}-race-repository-id`,
+          expectedGithubOwnerId: `${changedCoordinate}-race-owner-id`,
+          expectedGithubOwnerLogin: "before-owner",
+          expectedRepositoryName: "before-repository",
+          ghRepoOwner: "after-owner",
+          ghRepoName: "after-repository",
+          defaultBranch: "main",
+          visibility: "private",
+        }),
+      ).rejects.toThrow(error);
+      await expect(
+        t.run(async (ctx) => ({
+          organization: await ctx.db.get(organizationId),
+          vault: await ctx.db.get(vault.vaultId),
+        })),
+      ).resolves.toMatchObject({
+        organization: {
+          githubOwnerLogin: changedCoordinate === "owner" ? "newest-owner" : "before-owner",
+        },
+        vault: {
+          name: changedCoordinate === "repository" ? "newest-repository" : "before-repository",
+          state: "provisioning",
+        },
+      });
+    },
+  );
 
   it("uses the organization login after a GitHub owner rename", async () => {
     const t = makeConvexTest();
@@ -395,6 +584,243 @@ describe("organization-owned vaults", () => {
     );
   });
 
+  it("repairs mutable GitHub coordinates without changing stable identity", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "rename-repair@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "stable-owner-id",
+      ownerLogin: "before-owner",
+    });
+    const { vaultId } = await createConnectedVault(t, {
+      organizationId,
+      userId,
+      owner: "before-owner",
+      name: "before-repository",
+      ghRepoId: "stable-repository-id",
+    });
+    const repair = {
+      userId,
+      vaultId,
+      expectedGhRepoId: "stable-repository-id",
+      expectedGithubOwnerId: "stable-owner-id",
+      expectedGithubOwnerLogin: "before-owner",
+      expectedRepositoryName: "before-repository",
+      githubOwnerLogin: "after-owner",
+      repositoryName: "after-repository",
+    };
+
+    await t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, repair);
+    const firstSnapshot = await t.run(async (ctx) => ({
+      organization: await ctx.db.get(organizationId),
+      vault: await ctx.db.get(vaultId),
+    }));
+    await t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, repair);
+    const secondSnapshot = await t.run(async (ctx) => ({
+      organization: await ctx.db.get(organizationId),
+      vault: await ctx.db.get(vaultId),
+    }));
+
+    expect(secondSnapshot).toEqual(firstSnapshot);
+    expect(firstSnapshot.organization).toMatchObject({
+      githubOwnerId: "stable-owner-id",
+      githubOwnerLogin: "after-owner",
+      githubOwnerLoginNormalized: "after-owner",
+    });
+    expect(firstSnapshot.vault).toMatchObject({
+      ghRepoId: "stable-repository-id",
+      name: "after-repository",
+      organizationId,
+    });
+  });
+
+  it("does not let a delayed repair overwrite newer coordinates", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "delayed-rename-repair@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "stable-owner-id",
+      ownerLogin: "before-owner",
+    });
+    const { vaultId } = await createConnectedVault(t, {
+      organizationId,
+      userId,
+      owner: "before-owner",
+      name: "before-repository",
+      ghRepoId: "stable-repository-id",
+    });
+    const expectedCoordinates = {
+      userId,
+      vaultId,
+      expectedGhRepoId: "stable-repository-id",
+      expectedGithubOwnerId: "stable-owner-id",
+      expectedGithubOwnerLogin: "before-owner",
+      expectedRepositoryName: "before-repository",
+    };
+
+    await t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+      ...expectedCoordinates,
+      githubOwnerLogin: "newest-owner",
+      repositoryName: "newest-repository",
+    });
+    await t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+      ...expectedCoordinates,
+      githubOwnerLogin: "older-owner",
+      repositoryName: "older-repository",
+    });
+
+    await expect(
+      t.run(async (ctx) => ({
+        organization: await ctx.db.get(organizationId),
+        vault: await ctx.db.get(vaultId),
+      })),
+    ).resolves.toMatchObject({
+      organization: { githubOwnerLogin: "newest-owner" },
+      vault: { name: "newest-repository" },
+    });
+  });
+
+  it("does not repair onto a repository name reserved by another vault", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "rename-collision@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "stable-owner-id",
+      ownerLogin: "samebase",
+    });
+    const { vaultId } = await createConnectedVault(t, {
+      organizationId,
+      userId,
+      owner: "samebase",
+      name: "before-repository",
+      ghRepoId: "stable-repository-id",
+    });
+    await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+      organizationId,
+      userId,
+      ghRepoOwner: "samebase",
+      ghRepoName: "reserved-repository",
+    });
+
+    await expect(
+      t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+        userId,
+        vaultId,
+        expectedGhRepoId: "stable-repository-id",
+        expectedGithubOwnerId: "stable-owner-id",
+        expectedGithubOwnerLogin: "samebase",
+        expectedRepositoryName: "before-repository",
+        githubOwnerLogin: "samebase",
+        repositoryName: "reserved-repository",
+      }),
+    ).rejects.toThrow("Vault already exists for this repository.");
+  });
+
+  it("does not repair coordinates after either stable identity changes", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "rename-race@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "owner-before-race",
+      ownerLogin: "owner-before",
+    });
+    const { vaultId } = await createConnectedVault(t, {
+      organizationId,
+      userId,
+      owner: "owner-before",
+      name: "repository-before",
+      ghRepoId: "repository-before-race",
+    });
+
+    await expect(
+      t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+        userId,
+        vaultId,
+        expectedGhRepoId: "another-repository-id",
+        expectedGithubOwnerId: "owner-before-race",
+        expectedGithubOwnerLogin: "owner-before",
+        expectedRepositoryName: "repository-before",
+        githubOwnerLogin: "owner-after",
+        repositoryName: "repository-after",
+      }),
+    ).rejects.toThrow("Vault repository identity changed.");
+    await expect(
+      t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+        userId,
+        vaultId,
+        expectedGhRepoId: "repository-before-race",
+        expectedGithubOwnerId: "another-owner-id",
+        expectedGithubOwnerLogin: "owner-before",
+        expectedRepositoryName: "repository-before",
+        githubOwnerLogin: "owner-after",
+        repositoryName: "repository-after",
+      }),
+    ).rejects.toThrow("Vault organization identity changed.");
+
+    await expect(
+      t.run(async (ctx) => ({
+        organization: await ctx.db.get(organizationId),
+        vault: await ctx.db.get(vaultId),
+      })),
+    ).resolves.toMatchObject({
+      organization: {
+        githubOwnerId: "owner-before-race",
+        githubOwnerLogin: "owner-before",
+      },
+      vault: {
+        ghRepoId: "repository-before-race",
+        name: "repository-before",
+      },
+    });
+  });
+
+  it("does not repair coordinates after the acting user loses membership", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "rename-revoked@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "owner-before-revocation",
+      ownerLogin: "owner-before",
+    });
+    const { vaultId } = await createConnectedVault(t, {
+      organizationId,
+      userId,
+      owner: "owner-before",
+      name: "repository-before",
+      ghRepoId: "repository-before-revocation",
+    });
+
+    await t.run(async (ctx) => {
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", organizationId).eq("userId", userId),
+        )
+        .unique();
+      if (membership === null) {
+        throw new Error("Test membership not found.");
+      }
+      await ctx.db.delete(membership._id);
+    });
+
+    await expect(
+      t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+        userId,
+        vaultId,
+        expectedGhRepoId: "repository-before-revocation",
+        expectedGithubOwnerId: "owner-before-revocation",
+        expectedGithubOwnerLogin: "owner-before",
+        expectedRepositoryName: "repository-before",
+        githubOwnerLogin: "owner-after",
+        repositoryName: "repository-after",
+      }),
+    ).rejects.toThrow("Vault not found");
+    await expect(t.run(async (ctx) => await ctx.db.get(vaultId))).resolves.toMatchObject({
+      ghRepoId: "repository-before-revocation",
+      name: "repository-before",
+    });
+  });
+
   it("copies organization destinations into both vault creation paths and preserves them", async () => {
     const t = makeConvexTest();
     const userId = await createUser(t, "destination-owner@example.com");
@@ -424,6 +850,9 @@ describe("organization-owned vaults", () => {
       ...existing,
       userId,
       ghRepoId: "existing-repository-401",
+      expectedGithubOwnerId: "401",
+      expectedGithubOwnerLogin: "destination-owner",
+      expectedRepositoryName: "existing-app",
       ghRepoOwner: "destination-owner",
       ghRepoName: "existing-app",
       defaultBranch: "main",
@@ -465,6 +894,9 @@ describe("organization-owned vaults", () => {
       ...managed,
       userId,
       ghRepoId: "managed-repository-401",
+      expectedGithubOwnerId: "401",
+      expectedGithubOwnerLogin: "destination-owner",
+      expectedRepositoryName: "managed-app",
       ghRepoOwner: "destination-owner",
       ghRepoName: "managed-app",
       defaultBranch: "main",

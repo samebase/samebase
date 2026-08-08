@@ -1,12 +1,16 @@
 import { Octokit } from "@octokit/rest";
+import { z } from "zod";
 
 import {
   getConvexDirectoryRootDirectory,
   normalizeConvexDirectoryPath,
 } from "../shared/convexCodeLocation";
 import { getConvexConfigRootDirectory } from "../shared/convexConfigPath";
+import type { GitHubVaultAccess } from "./githubAppAccess";
 import type { ProviderApiCallRecorder } from "./providerApiLog";
 
+const GITHUB_INSTALLATION_REPOSITORY_PAGE_SIZE = 100;
+const MAX_GITHUB_INSTALLATION_REPOSITORY_PAGES = 100;
 const GITHUB_REQUEST_DEADLINE_MS = 15_000;
 
 export function createGitHubRequestDeadlineSignal(): AbortSignal {
@@ -37,44 +41,88 @@ export type GitHubConvexCodeLocationDiscovery = {
   locations: GitHubConvexCodeLocationCandidate[];
 };
 
-export async function fetchGitHubRepoIdentity(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  expectedRepoId: string;
-  signal?: AbortSignal;
-  recordApiCall?: ProviderApiCallRecorder;
-}): Promise<{ ownerId: string; defaultBranch: string }> {
-  await args.recordApiCall?.({
-    provider: "GitHub",
-    method: "GET",
-    endpoint: "/repos/{owner}/{repo}",
-    values: {
-      params: {
-        path: {
-          owner: args.owner,
-          repo: args.repo,
-        },
-      },
-    },
-  });
+const providerInstallationRepositoriesSchema = z.object({
+  total_count: z.number().int().nonnegative(),
+  repositories: z.array(
+    z.object({
+      id: z.number().int().positive(),
+      name: z.string().min(1),
+      full_name: z.string().min(3),
+      default_branch: z.string().min(1),
+      owner: z.object({
+        id: z.number().int().positive(),
+        login: z.string().min(1),
+      }),
+    }),
+  ),
+});
 
+export type GitHubRepositoryIdentity = {
+  repositoryId: string;
+  ownerId: string;
+  ownerLogin: string;
+  repositoryName: string;
+  defaultBranch: string;
+};
+
+export async function listGitHubInstallationRepositories(args: {
+  octokit: Octokit;
+  signal?: AbortSignal;
+}): Promise<Map<string, GitHubRepositoryIdentity>> {
+  const repositories = new Map<string, GitHubRepositoryIdentity>();
   const signal = args.signal ?? createGitHubRequestDeadlineSignal();
-  const response = await args.octokit.rest.repos.get({
-    owner: args.owner,
-    repo: args.repo,
-    request: { signal },
-  });
-  const repoId = String(response.data.id);
-  const ownerId = String(response.data.owner.id);
-  const defaultBranch = response.data.default_branch.trim();
-  if (repoId !== args.expectedRepoId) {
-    throw new Error("GitHub repository response did not match the vault repo.");
+
+  for (let page = 1; page <= MAX_GITHUB_INSTALLATION_REPOSITORY_PAGES; page += 1) {
+    const response = await args.octokit.request("GET /installation/repositories", {
+      page,
+      per_page: GITHUB_INSTALLATION_REPOSITORY_PAGE_SIZE,
+      request: { signal },
+    });
+    const providerPage = providerInstallationRepositoriesSchema.parse(response.data);
+    for (const repository of providerPage.repositories) {
+      const repositoryFullName = `${repository.owner.login}/${repository.name}`;
+      if (repository.full_name !== repositoryFullName) {
+        throw new Error("GitHub returned inconsistent repository coordinates.");
+      }
+      const repositoryId = String(repository.id);
+      repositories.set(repositoryId, {
+        repositoryId,
+        ownerId: String(repository.owner.id),
+        ownerLogin: repository.owner.login,
+        repositoryName: repository.name,
+        defaultBranch: repository.default_branch,
+      });
+    }
+    if (
+      providerPage.repositories.length < GITHUB_INSTALLATION_REPOSITORY_PAGE_SIZE ||
+      repositories.size >= providerPage.total_count
+    ) {
+      return repositories;
+    }
   }
-  if (!defaultBranch) {
-    throw new Error("GitHub repository response did not include a default branch.");
+
+  throw new Error(
+    `GitHub installation repository pagination exceeded ${MAX_GITHUB_INSTALLATION_REPOSITORY_PAGES} pages.`,
+  );
+}
+
+export async function resolveGitHubInstallationRepositoryIdentity(args: {
+  octokit: Octokit;
+  expectedRepoId: string;
+  expectedOwnerId: string;
+  signal?: AbortSignal;
+}): Promise<GitHubRepositoryIdentity> {
+  const repositories = await listGitHubInstallationRepositories(args);
+  const repository = repositories.get(args.expectedRepoId);
+  if (repository === undefined) {
+    throw new Error("GitHub App installation cannot access the vault repository.");
   }
-  return { ownerId, defaultBranch };
+  if (repository.ownerId !== args.expectedOwnerId) {
+    throw new Error(
+      "GitHub repository owner changed. Remove this vault and connect the repository under its current owner.",
+    );
+  }
+  return repository;
 }
 
 function requireGitHubCommitSha(value: string): string {
@@ -86,14 +134,10 @@ function requireGitHubCommitSha(value: string): string {
 }
 
 export async function fetchGitHubDefaultBranchHead(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  expectedRepoId: string;
+  githubAccess: GitHubVaultAccess;
   signal?: AbortSignal;
   recordApiCall?: ProviderApiCallRecorder;
-}): Promise<{ defaultBranch: string; commitSha: string }> {
-  const repository = await fetchGitHubRepoIdentity(args);
+}): Promise<{ commitSha: string }> {
   const signal = args.signal ?? createGitHubRequestDeadlineSignal();
 
   await args.recordApiCall?.({
@@ -102,19 +146,22 @@ export async function fetchGitHubDefaultBranchHead(args: {
     endpoint: "/repos/{owner}/{repo}/git/ref/{ref}",
     values: {
       params: {
-        path: { owner: args.owner, repo: args.repo, ref: `heads/${repository.defaultBranch}` },
+        path: {
+          owner: args.githubAccess.githubOwnerLogin,
+          repo: args.githubAccess.repositoryName,
+          ref: `heads/${args.githubAccess.repositoryDefaultBranch}`,
+        },
       },
     },
   });
 
-  const ref = await args.octokit.rest.git.getRef({
-    owner: args.owner,
-    repo: args.repo,
-    ref: `heads/${repository.defaultBranch}`,
+  const ref = await args.githubAccess.octokit.rest.git.getRef({
+    owner: args.githubAccess.githubOwnerLogin,
+    repo: args.githubAccess.repositoryName,
+    ref: `heads/${args.githubAccess.repositoryDefaultBranch}`,
     request: { signal },
   });
   return {
-    defaultBranch: repository.defaultBranch,
     commitSha: requireGitHubCommitSha(ref.data.object.sha),
   };
 }
@@ -136,26 +183,10 @@ function getPackageJsonPath(rootDirectory: string): string {
 }
 
 export async function fetchGitHubConvexCodeLocationDiscovery(args: {
-  octokit: Octokit;
-  owner: string;
-  repo: string;
-  expectedRepoId: string;
+  githubAccess: GitHubVaultAccess;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<GitHubConvexCodeLocationDiscovery> {
-  await args.recordApiCall?.({
-    provider: "GitHub",
-    method: "GET",
-    endpoint: "/repos/{owner}/{repo}",
-    values: { params: { path: { owner: args.owner, repo: args.repo } } },
-  });
-  const repository = await args.octokit.rest.repos.get({ owner: args.owner, repo: args.repo });
-  if (String(repository.data.id) !== args.expectedRepoId) {
-    throw new Error("GitHub repository response did not match the vault repo.");
-  }
-  const defaultBranch = repository.data.default_branch.trim();
-  if (!defaultBranch) {
-    throw new Error("GitHub repository response did not include a default branch.");
-  }
+  const defaultBranch = args.githubAccess.repositoryDefaultBranch;
 
   await args.recordApiCall?.({
     provider: "GitHub",
@@ -163,13 +194,17 @@ export async function fetchGitHubConvexCodeLocationDiscovery(args: {
     endpoint: "/repos/{owner}/{repo}/git/ref/{ref}",
     values: {
       params: {
-        path: { owner: args.owner, repo: args.repo, ref: `heads/${defaultBranch}` },
+        path: {
+          owner: args.githubAccess.githubOwnerLogin,
+          repo: args.githubAccess.repositoryName,
+          ref: `heads/${defaultBranch}`,
+        },
       },
     },
   });
-  const ref = await args.octokit.rest.git.getRef({
-    owner: args.owner,
-    repo: args.repo,
+  const ref = await args.githubAccess.octokit.rest.git.getRef({
+    owner: args.githubAccess.githubOwnerLogin,
+    repo: args.githubAccess.repositoryName,
     ref: `heads/${defaultBranch}`,
   });
   const commitSha = ref.data.object.sha;
@@ -179,12 +214,18 @@ export async function fetchGitHubConvexCodeLocationDiscovery(args: {
     method: "GET",
     endpoint: "/repos/{owner}/{repo}/git/commits/{commit_sha}",
     values: {
-      params: { path: { owner: args.owner, repo: args.repo, commit_sha: commitSha } },
+      params: {
+        path: {
+          owner: args.githubAccess.githubOwnerLogin,
+          repo: args.githubAccess.repositoryName,
+          commit_sha: commitSha,
+        },
+      },
     },
   });
-  const commit = await args.octokit.rest.git.getCommit({
-    owner: args.owner,
-    repo: args.repo,
+  const commit = await args.githubAccess.octokit.rest.git.getCommit({
+    owner: args.githubAccess.githubOwnerLogin,
+    repo: args.githubAccess.repositoryName,
     commit_sha: commitSha,
   });
   const treeSha = commit.data.tree.sha;
@@ -195,14 +236,18 @@ export async function fetchGitHubConvexCodeLocationDiscovery(args: {
     endpoint: "/repos/{owner}/{repo}/git/trees/{tree_sha}",
     values: {
       params: {
-        path: { owner: args.owner, repo: args.repo, tree_sha: treeSha },
+        path: {
+          owner: args.githubAccess.githubOwnerLogin,
+          repo: args.githubAccess.repositoryName,
+          tree_sha: treeSha,
+        },
         query: { recursive: "1" },
       },
     },
   });
-  const tree = await args.octokit.rest.git.getTree({
-    owner: args.owner,
-    repo: args.repo,
+  const tree = await args.githubAccess.octokit.rest.git.getTree({
+    owner: args.githubAccess.githubOwnerLogin,
+    repo: args.githubAccess.repositoryName,
     tree_sha: treeSha,
     recursive: "1",
   });
