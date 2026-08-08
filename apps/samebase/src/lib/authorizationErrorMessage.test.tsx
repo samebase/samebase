@@ -1,0 +1,76 @@
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it } from "vite-plus/test";
+import type { AuthorizationError } from "../../shared/authorizationError";
+import { formatAuthorizationErrorMessage } from "./authorizationErrorMessage";
+
+function renderAuthorizationError(
+  authorizationError: AuthorizationError,
+  targets?: Parameters<typeof formatAuthorizationErrorMessage>[1],
+): string {
+  return renderToStaticMarkup(<>{formatAuthorizationErrorMessage(authorizationError, targets)}</>);
+}
+
+describe("formatAuthorizationErrorMessage", () => {
+  it.each([
+    {
+      authorizationError: { code: "canceled", provider: "cloudflare" },
+      expected: "Cloudflare authorization was canceled. No changes were saved.",
+    },
+    {
+      authorizationError: { code: "expired", provider: "convex" },
+      expected: "Convex authorization expired. Start again.",
+    },
+    {
+      authorizationError: { code: "access-changed", provider: "github-user" },
+      expected:
+        "You no longer have permission to complete this authorization. No changes were saved.",
+    },
+    {
+      authorizationError: { code: "configuration-changed", provider: "cloudflare" },
+      expected: "The Cloudflare connection changed before authorization finished. Start again.",
+    },
+    {
+      authorizationError: { code: "failed", provider: "github-app" },
+      expected: "GitHub App setup failed. Try again.",
+    },
+  ] satisfies readonly {
+    authorizationError: AuthorizationError;
+    expected: string;
+  }[])("formats $authorizationError.provider $authorizationError.code", (testCase) => {
+    expect(renderAuthorizationError(testCase.authorizationError)).toBe(testCase.expected);
+  });
+
+  it("names the Convex team that must be selected", () => {
+    expect(
+      renderAuthorizationError(
+        { code: "target-mismatch", provider: "convex" },
+        { convexTeamName: "acme-platform" },
+      ),
+    ).toBe(
+      'Select Convex team <strong class="font-semibold">acme-platform</strong> to reauthorize this organization.',
+    );
+  });
+
+  it("uses a safe Convex fallback when the team name is unavailable", () => {
+    expect(renderAuthorizationError({ code: "target-mismatch", provider: "convex" })).toBe(
+      "Select the configured Convex team to reauthorize this organization.",
+    );
+  });
+
+  it("names the GitHub owner whose App must be reconnected", () => {
+    expect(
+      renderAuthorizationError(
+        { code: "target-mismatch", provider: "github-app" },
+        { githubOwnerLogin: "acme" },
+      ),
+    ).toBe(
+      'Reconnect the GitHub App for <strong class="font-semibold">acme</strong>. The selected installation belongs to a different GitHub owner.',
+    );
+  });
+
+  it("uses a safe GitHub App fallback when the owner is unavailable", () => {
+    expect(renderAuthorizationError({ code: "target-mismatch", provider: "github-app" })).toBe(
+      "Reconnect the GitHub App for the configured owner. The selected installation belongs to a different GitHub owner.",
+    );
+  });
+});

@@ -7,19 +7,22 @@ type AuthorizationTargets = {
   githubOwnerLogin?: string;
 };
 
-function readProviderLabel(provider: AuthorizationProvider): string {
+function readProviderCopy(provider: AuthorizationProvider): {
+  authorizationLabel: string;
+  connectionLabel: string;
+} {
   switch (provider) {
     case "convex":
-      return "Convex";
+      return { authorizationLabel: "Convex authorization", connectionLabel: "Convex" };
     case "cloudflare":
-      return "Cloudflare";
+      return { authorizationLabel: "Cloudflare authorization", connectionLabel: "Cloudflare" };
     case "github-app":
-      return "GitHub App setup";
+      return { authorizationLabel: "GitHub App setup", connectionLabel: "GitHub App" };
     case "github-user":
-      return "GitHub authorization";
+      return { authorizationLabel: "GitHub authorization", connectionLabel: "GitHub" };
     default:
       provider satisfies never;
-      return "Authorization";
+      return { authorizationLabel: "Authorization", connectionLabel: "Provider" };
   }
 }
 
@@ -27,47 +30,45 @@ export function formatAuthorizationErrorMessage(
   authorizationError: AuthorizationError,
   targets: AuthorizationTargets = {},
 ): ReactNode {
-  const providerLabel = readProviderLabel(authorizationError.provider);
+  const { authorizationLabel, connectionLabel } = readProviderCopy(authorizationError.provider);
   switch (authorizationError.code) {
     case "canceled":
-      return `${providerLabel} was canceled. The existing connection was not changed.`;
+      return `${authorizationLabel} was canceled. No changes were saved.`;
     case "expired":
-      return `${providerLabel} expired. Start it again.`;
+      return `${authorizationLabel} expired. Start again.`;
     case "access-changed":
-      return `Your access changed while ${providerLabel} was open. Start it again.`;
+      return "You no longer have permission to complete this authorization. No changes were saved.";
     case "configuration-changed":
-      return `The existing connection changed while ${providerLabel} was open. Start it again.`;
+      return `The ${connectionLabel} connection changed before authorization finished. Start again.`;
     case "target-mismatch":
       switch (authorizationError.provider) {
         case "convex":
           return targets.convexTeamName ? (
             <>
-              This organization is connected to Convex team{" "}
-              <strong className="font-semibold">{targets.convexTeamName}</strong>. Select that team
-              to reauthorize it.
+              Select Convex team <strong className="font-semibold">{targets.convexTeamName}</strong>{" "}
+              to reauthorize this organization.
             </>
           ) : (
-            "This organization is connected to a different Convex team. Select the configured team to reauthorize it."
+            "Select the configured Convex team to reauthorize this organization."
           );
         case "cloudflare":
           return targets.cloudflareAccountName ? (
             <>
-              This organization is connected to Cloudflare account{" "}
-              <strong className="font-semibold">{targets.cloudflareAccountName}</strong>. Select
-              only that account to reconnect it.
+              Select <strong className="font-semibold">ONLY ONE</strong> Cloudflare account to
+              reconnect: <strong className="font-semibold">{targets.cloudflareAccountName}</strong>.
             </>
           ) : (
-            "Select only one Cloudflare account to connect it."
+            "Select ONLY ONE Cloudflare account to connect."
           );
         case "github-app":
           return targets.githubOwnerLogin ? (
             <>
-              This organization is connected to GitHub owner{" "}
-              <strong className="font-semibold">{targets.githubOwnerLogin}</strong>. Select that
-              owner to reconnect it.
+              Reconnect the GitHub App for{" "}
+              <strong className="font-semibold">{targets.githubOwnerLogin}</strong>. The selected
+              installation belongs to a different GitHub owner.
             </>
           ) : (
-            "This organization is connected to a different GitHub owner. Select the configured owner to reconnect it."
+            "Reconnect the GitHub App for the configured owner. The selected installation belongs to a different GitHub owner."
           );
         case "github-user":
           return "Select the GitHub user that is connected to this account.";
@@ -76,7 +77,7 @@ export function formatAuthorizationErrorMessage(
           return "Select the configured authorization target.";
       }
     case "failed":
-      return `${providerLabel} could not be completed. Try again.`;
+      return `${authorizationLabel} failed. Try again.`;
     default:
       authorizationError.code satisfies never;
       return "Authorization could not be completed. Try again.";

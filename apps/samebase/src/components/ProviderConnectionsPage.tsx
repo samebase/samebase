@@ -459,12 +459,17 @@ function getConvexRemediation(authMethod: "oauth" | "api_key"): string {
   return authMethod === "oauth" ? "Reauthorize Convex." : "Update the Convex token.";
 }
 
+function getCloudflareCredentialRemediation(authMethod: "oauth" | "mcp_oauth" | "api_key"): string {
+  return authMethod === "api_key" ? "Update the Cloudflare API token." : "Reconnect Cloudflare.";
+}
+
 function getCloudflareRemediation(
   key: AppCloudflareConnectionAccess["checks"][number]["key"],
+  authMethod: "oauth" | "mcp_oauth" | "api_key",
 ): string {
   switch (key) {
     case "token":
-      return "Reconnect Cloudflare.";
+      return getCloudflareCredentialRemediation(authMethod);
     case "accounts":
       return "Reconnect Cloudflare with access to this account.";
     case "workers":
@@ -528,7 +533,7 @@ function CloudflareConnectionDetails({
 
   return (
     <div className="space-y-4 text-sm leading-5">
-      <TechnicalValueList label="Scopes" values={scopes} />
+      <TechnicalValueList label="Requested OAuth scopes" values={scopes} />
       <ProviderAccessChecks
         access={access}
         definitions={getCloudflareAccessChecks(authMethod)}
@@ -539,12 +544,14 @@ function CloudflareConnectionDetails({
           Could not check Cloudflare access. Reload this page to try again.
         </AuthorizationErrorNotice>
       ) : disconnected ? (
-        <AuthorizationErrorNotice>Reconnect Cloudflare.</AuthorizationErrorNotice>
+        <AuthorizationErrorNotice>
+          {getCloudflareCredentialRemediation(authMethod)}
+        </AuthorizationErrorNotice>
       ) : failedChecks.length > 0 ? (
         <AuthorizationErrorNotice>
           <div className="space-y-1">
             {failedChecks.map((check) => (
-              <div key={check.key}>{getCloudflareRemediation(check.key)}</div>
+              <div key={check.key}>{getCloudflareRemediation(check.key, authMethod)}</div>
             ))}
           </div>
         </AuthorizationErrorNotice>
