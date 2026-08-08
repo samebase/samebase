@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { getFunctionName } from "convex/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -78,8 +79,52 @@ function setProviderQueries() {
   });
 }
 
+function convexAccess() {
+  return {
+    checks: [
+      {
+        key: "token" as const,
+        status: "ok" as const,
+      },
+    ],
+    connected: true,
+  };
+}
+
+function cloudflareAccess() {
+  return {
+    checks: [
+      {
+        key: "accounts" as const,
+        status: "ok" as const,
+      },
+    ],
+    connected: true,
+    requestedScopes: [],
+  };
+}
+
+function githubAccess() {
+  return {
+    status: "connected" as const,
+    checks: [
+      {
+        key: "repositories" as const,
+        status: "ok" as const,
+      },
+      {
+        key: "installation" as const,
+        status: "ok" as const,
+      },
+    ],
+    permissions: [{ access: "write" as const, key: "contents" }],
+    repositorySelection: "selected" as const,
+  };
+}
+
 let mountedRoot: Root | null = null;
 let mountedElement: HTMLDivElement | null = null;
+let queryClient: QueryClient;
 
 function mountProviderConnectionsPage(selectedOrganization: TestOrganization = organization) {
   mountedElement = document.createElement("div");
@@ -90,7 +135,9 @@ function mountProviderConnectionsPage(selectedOrganization: TestOrganization = o
       <TestRouterProvider
         initialEntries={[`/org/${selectedOrganization.githubOwnerLogin}/providers`]}
       >
-        <ProviderConnectionsPage organization={selectedOrganization} />
+        <QueryClientProvider client={queryClient}>
+          <ProviderConnectionsPage organization={selectedOrganization} />
+        </QueryClientProvider>
       </TestRouterProvider>,
     );
   });
@@ -119,6 +166,13 @@ describe("ProviderConnectionsPage", () => {
     testState.mutations.clear();
     testState.queries.clear();
     testState.queryCalls = [];
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    testState.actions.set(
+      getFunctionName(api.githubAppAccess.checkViewerInstallation),
+      vi.fn(async () => githubAccess()),
+    );
   });
 
   afterEach(() => {
@@ -126,70 +180,38 @@ describe("ProviderConnectionsPage", () => {
       act(() => mountedRoot?.unmount());
     }
     mountedElement?.remove();
+    queryClient.clear();
     mountedRoot = null;
     mountedElement = null;
   });
 
-  it("keeps provider rows empty while connection status is loading", () => {
+  it("shows GitHub while provider credential status is loading", () => {
     const container = mountProviderConnectionsPage();
 
     expect(container.textContent).toContain("Providers");
-    expect(container.querySelectorAll("[data-provider-key]")).toHaveLength(0);
+    expect(
+      [...container.querySelectorAll("[data-provider-key]")].map((row) =>
+        row.getAttribute("data-provider-key"),
+      ),
+    ).toEqual(["github"]);
     expect(container.textContent).not.toContain("Not connected");
   });
 
-  it("uses the routed organization for every provider query and access check", async () => {
-    setProviderQueries();
-    const checkConvexAccess = vi.fn(async () => ({
-      checkedAt: Date.now(),
-      checks: [],
-      connected: false,
-      requestedAccess: [],
-    }));
+  it("checks connected providers automatically", async () => {
+    const checkGitHubAccess = vi.fn(async () => githubAccess());
+    const checkConvexAccess = vi.fn(async () => convexAccess());
+    const checkCloudflareAccess = vi.fn(async () => cloudflareAccess());
+    testState.actions.set(
+      getFunctionName(api.githubAppAccess.checkViewerInstallation),
+      checkGitHubAccess,
+    );
     testState.actions.set(
       getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
       checkConvexAccess,
     );
-    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
-      authMethod: "oauth",
-      state: "connected",
-      teamId: "team_samebase",
-      teamSlug: "samebase",
-    });
-    const container = mountProviderConnectionsPage();
-
-    expect(testState.queryCalls).toContainEqual({
-      args: { organizationId: ORGANIZATION_ID },
-      name: getFunctionName(api.users.getConvexConnectionStatus),
-    });
-    expect(testState.queryCalls).toContainEqual({
-      args: { organizationId: ORGANIZATION_ID },
-      name: getFunctionName(api.users.getCloudflareConnectionStatus),
-    });
-
-    const convexRow = container.querySelector('[data-provider-key="convex"]');
-    const checkAccessButton = [...(convexRow?.querySelectorAll("button") ?? [])].find(
-      (button) => button.textContent === "Check access",
-    );
-    await act(async () => {
-      checkAccessButton?.click();
-      await Promise.resolve();
-    });
-
-    expect(checkConvexAccess).toHaveBeenCalledWith({ organizationId: ORGANIZATION_ID });
-  });
-
-  it("keeps provider checks and hides provider management for a member", async () => {
-    setProviderQueries();
-    const checkConvexAccess = vi.fn(async () => ({
-      checkedAt: Date.now(),
-      checks: [],
-      connected: false,
-      requestedAccess: [],
-    }));
     testState.actions.set(
-      getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
-      checkConvexAccess,
+      getFunctionName(api.cloudflareProviderAccess.checkCloudflareConnectionAccess),
+      checkCloudflareAccess,
     );
     testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
       authMethod: "oauth",
@@ -203,32 +225,193 @@ describe("ProviderConnectionsPage", () => {
       authMethod: "oauth",
       state: "connected",
     });
-    const container = mountProviderConnectionsPage({ ...organization, role: "member" });
-    const convexRow = container.querySelector('[data-provider-key="convex"]');
-    const cloudflareRow = container.querySelector('[data-provider-key="cloudflare"]');
+    mountProviderConnectionsPage();
 
-    expect(convexRow?.textContent).toContain("Check access");
-    expect(convexRow?.textContent).not.toContain("Manage access");
-    expect(convexRow?.textContent).not.toContain("Reauthorize");
-    expect(convexRow?.textContent).not.toContain("Disconnect");
-    expect(cloudflareRow?.textContent).toContain("Connected to account Samebase (OAuth).");
-    expect(cloudflareRow?.textContent).toContain("Check access");
-    expect(cloudflareRow?.textContent).not.toContain("Manage access");
-    expect(cloudflareRow?.textContent).not.toContain("Reconnect");
-    expect(cloudflareRow?.textContent).not.toContain("Manage account");
-    expect(cloudflareRow?.textContent).not.toContain("Disconnect");
-
-    const checkAccessButton = [...(convexRow?.querySelectorAll("button") ?? [])].find(
-      (button) => button.textContent === "Check access",
-    );
-    await act(async () => {
-      checkAccessButton?.click();
-      await Promise.resolve();
+    expect(testState.queryCalls).toContainEqual({
+      args: { organizationId: ORGANIZATION_ID },
+      name: getFunctionName(api.users.getConvexConnectionStatus),
     });
-    expect(checkConvexAccess).toHaveBeenCalledWith({ organizationId: ORGANIZATION_ID });
+    expect(testState.queryCalls).toContainEqual({
+      args: { organizationId: ORGANIZATION_ID },
+      name: getFunctionName(api.users.getCloudflareConnectionStatus),
+    });
+
+    await act(async () => {
+      await vi.waitFor(() => {
+        expect(checkGitHubAccess).toHaveBeenCalledTimes(1);
+        expect(checkConvexAccess).toHaveBeenCalledTimes(1);
+        expect(checkCloudflareAccess).toHaveBeenCalledTimes(1);
+        expect(queryClient.isFetching()).toBe(0);
+      });
+    });
+
+    expect(checkGitHubAccess).toHaveBeenLastCalledWith({ organizationId: ORGANIZATION_ID });
+    expect(checkConvexAccess).toHaveBeenLastCalledWith({ organizationId: ORGANIZATION_ID });
+    expect(checkCloudflareAccess).toHaveBeenLastCalledWith({ organizationId: ORGANIZATION_ID });
   });
 
-  it("does not render a page-local owner selector or internal ID", () => {
+  it("does not show earlier passes after a refresh fails", async () => {
+    let shouldFail = false;
+    const checkGitHubAccess = vi.fn(async () => {
+      if (shouldFail) {
+        throw new Error("provider unavailable");
+      }
+      return githubAccess();
+    });
+    const checkConvexAccess = vi.fn(async () => {
+      if (shouldFail) {
+        throw new Error("provider unavailable");
+      }
+      return convexAccess();
+    });
+    const checkCloudflareAccess = vi.fn(async () => {
+      if (shouldFail) {
+        throw new Error("provider unavailable");
+      }
+      return cloudflareAccess();
+    });
+    testState.actions.set(
+      getFunctionName(api.githubAppAccess.checkViewerInstallation),
+      checkGitHubAccess,
+    );
+    testState.actions.set(
+      getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
+      checkConvexAccess,
+    );
+    testState.actions.set(
+      getFunctionName(api.cloudflareProviderAccess.checkCloudflareConnectionAccess),
+      checkCloudflareAccess,
+    );
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      authMethod: "oauth",
+      state: "connected",
+      teamId: "team_samebase",
+      teamSlug: "samebase",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      accountId: "cloudflare-account",
+      accountName: "Samebase",
+      authMethod: "oauth",
+      state: "connected",
+    });
+    const container = mountProviderConnectionsPage();
+
+    await act(async () => {
+      await vi.waitFor(() => {
+        expect(checkGitHubAccess).toHaveBeenCalledTimes(1);
+        expect(checkConvexAccess).toHaveBeenCalledTimes(1);
+        expect(checkCloudflareAccess).toHaveBeenCalledTimes(1);
+        expect(queryClient.isFetching()).toBe(0);
+        expect(container.textContent).toContain("Passed");
+      });
+    });
+
+    shouldFail = true;
+    await act(async () => {
+      await queryClient.refetchQueries({
+        queryKey: ["organization-provider-access", ORGANIZATION_ID],
+      });
+      await vi.waitFor(() => {
+        expect(checkGitHubAccess).toHaveBeenCalledTimes(3);
+        expect(checkConvexAccess).toHaveBeenCalledTimes(3);
+        expect(checkCloudflareAccess).toHaveBeenCalledTimes(3);
+        expect(queryClient.isFetching()).toBe(0);
+        expect(container.querySelectorAll('[role="alert"]')).toHaveLength(3);
+      });
+    });
+
+    expect(container.textContent).not.toContain("Passed");
+  });
+
+  it("checks GitHub but not disconnected credential providers", async () => {
+    const checkGitHubAccess = vi.fn(async () => githubAccess());
+    const checkConvexAccess = vi.fn(async () => convexAccess());
+    const checkCloudflareAccess = vi.fn(async () => cloudflareAccess());
+    testState.actions.set(
+      getFunctionName(api.githubAppAccess.checkViewerInstallation),
+      checkGitHubAccess,
+    );
+    testState.actions.set(
+      getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
+      checkConvexAccess,
+    );
+    testState.actions.set(
+      getFunctionName(api.cloudflareProviderAccess.checkCloudflareConnectionAccess),
+      checkCloudflareAccess,
+    );
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      state: "disconnected",
+      teamId: "team_samebase",
+      teamSlug: "samebase",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      accountId: "cloudflare-account",
+      accountName: "Samebase",
+      state: "disconnected",
+    });
+    mountProviderConnectionsPage();
+
+    await act(async () => {
+      await vi.waitFor(() => expect(checkGitHubAccess).toHaveBeenCalledTimes(1));
+    });
+    expect(checkConvexAccess).not.toHaveBeenCalled();
+    expect(checkCloudflareAccess).not.toHaveBeenCalled();
+  });
+
+  it("shows one safe notice when each access check reports a missing connection", async () => {
+    testState.actions.set(
+      getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
+      vi.fn(async () => ({
+        ...convexAccess(),
+        checks: [
+          {
+            key: "token" as const,
+            status: "not_run" as const,
+          },
+        ],
+        connected: false,
+      })),
+    );
+    testState.actions.set(
+      getFunctionName(api.cloudflareProviderAccess.checkCloudflareConnectionAccess),
+      vi.fn(async () => ({
+        ...cloudflareAccess(),
+        checks: [
+          {
+            key: "token" as const,
+            status: "not_run" as const,
+          },
+        ],
+        connected: false,
+      })),
+    );
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      authMethod: "oauth",
+      state: "connected",
+      teamId: "team_samebase",
+      teamSlug: "samebase",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      accountId: "cloudflare-account",
+      accountName: "Samebase",
+      authMethod: "oauth",
+      state: "connected",
+    });
+    const container = mountProviderConnectionsPage();
+
+    await act(async () => {
+      await vi.waitFor(() => {
+        expect(queryClient.isFetching()).toBe(0);
+        for (const provider of ["convex", "cloudflare"]) {
+          expect(
+            container.querySelectorAll(`[data-provider-key="${provider}"] [role="alert"]`),
+          ).toHaveLength(1);
+        }
+      });
+    });
+  });
+
+  it("links the configured GitHub owner without a selector or internal ID", () => {
     setProviderQueries();
 
     const container = mountProviderConnectionsPage();
@@ -238,22 +421,43 @@ describe("ProviderConnectionsPage", () => {
       name: getFunctionName(api.users.getConvexConnectionStatus),
     });
     expect(container.querySelector('[aria-label="GitHub owner"]')).toBeNull();
+    expect(
+      container.querySelector('[aria-label="Open GitHub owner samebase in a new tab"]'),
+    ).not.toBeNull();
     expect(container.textContent).not.toContain(ORGANIZATION_ID);
   });
 
-  it("shows the provider recovery fixture without target management controls", () => {
+  it("does not show GitHub installation controls to organization members", () => {
+    setProviderQueries();
+
+    const container = mountProviderConnectionsPage({ ...organization, role: "member" });
+
+    expect(container.querySelector('[aria-label="GitHub actions"]')).toBeNull();
+    expect(container.textContent).not.toContain("Manage installation");
+    expect(container.textContent).not.toContain("Reconnect");
+  });
+
+  it("links provider targets and shows only safe check templates", () => {
     const markup = renderToStaticMarkup(
-      <ProviderConnectionsPageVisualFixture mode="providers-page-recovery" />,
+      <ProviderConnectionsPageVisualFixture mode="providers-page-connected" />,
     );
 
-    expect(markup).toContain("Disconnected from team acme-platform.");
-    expect(markup).toContain("OAuth connected. Choose an account.");
-    expect(markup).toContain("Select account");
-    expect(markup).not.toContain("Manage account");
-    expect(markup).not.toContain("MCP clients");
-    expect(markup).not.toContain("Install GitHub App");
-    expect(markup).not.toContain("GitHub OAuth");
-    expect(markup).not.toContain("Reauthorize GitHub");
+    expect(markup).toContain('href="https://dashboard.convex.dev/t/acme-platform"');
+    expect(markup).toContain('aria-label="Open Convex team acme-platform in a new tab"');
+    expect(markup).toContain('href="https://dash.cloudflare.com/cloudflare-account-production"');
+    expect(markup).toContain('aria-label="Open Cloudflare account Acme Production in a new tab"');
+    expect(markup).toContain('href="https://github.com/acme"');
+    expect(markup).toContain('aria-label="Open GitHub owner acme in a new tab"');
+    expect(markup).not.toContain("team_acme_platform");
+    expect(markup).toContain("Permissions");
+    expect(markup).toContain("Repository access");
+    expect(markup).toContain("GET /token_details");
+    expect(markup).toContain("GET /installation/repositories");
+    expect(markup).toContain("GET /app/installations/{installation_id}");
+    expect(markup).toContain("GET /accounts/{account_id}/workers/account-settings");
+    expect(markup.match(/Connected by/g)).toHaveLength(2);
+    expect(markup).toContain("Ava Chen");
+    expect(markup).not.toContain("Cloudflare GitHub App");
   });
 
   it.each(["convex-oauth-complete", "cloudflare-oauth-complete", "cloudflare-mcp-oauth-complete"])(

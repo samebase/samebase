@@ -31,7 +31,7 @@ describe("GitHub App popup completion", () => {
         assign: vi.fn(),
         hash: "#github",
         origin: "https://samebase.com",
-        pathname: "/org/acme/settings",
+        pathname: "/org/acme/providers",
         replace: returnReplace,
         search: "?prod-ui",
       },
@@ -57,7 +57,7 @@ describe("GitHub App popup completion", () => {
       new MessageEvent("message", {
         data: {
           type: "github-app-setup-complete",
-          returnTo: "https://samebase.com/org/acme/settings?prod-ui#github",
+          returnTo: "https://samebase.com/org/acme/providers?prod-ui#github",
         },
         origin: "https://api.samebase.com",
         // @ts-expect-error The fake popup implements the fields used by this boundary.
@@ -65,7 +65,7 @@ describe("GitHub App popup completion", () => {
       }),
     );
     expect(returnReplace).toHaveBeenCalledWith(
-      "https://samebase.com/org/acme/settings?prod-ui#github",
+      "https://samebase.com/org/acme/providers?prod-ui#github",
     );
     expect(fakeWindow.clearTimeout).toHaveBeenCalledWith(42);
     expect(fakeWindow.clearInterval).toHaveBeenCalledWith(43);
@@ -88,7 +88,7 @@ describe("GitHub App popup completion", () => {
         assign: vi.fn(),
         hash: "#github",
         origin: "https://samebase.com",
-        pathname: "/org/acme/settings",
+        pathname: "/org/acme/providers",
         replace: returnReplace,
         search: "?prod-ui",
       },
@@ -110,7 +110,7 @@ describe("GitHub App popup completion", () => {
     popupPoll?.();
 
     expect(returnReplace).toHaveBeenCalledWith(
-      "/org/acme/settings?prod-ui=&authorization-provider=github-app&authorization-error=canceled#github",
+      "/org/acme/providers?prod-ui=&authorization-provider=github-app&authorization-error=canceled#github",
     );
   });
 

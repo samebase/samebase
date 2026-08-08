@@ -1,10 +1,10 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { internalQuery, type ActionCtx } from "./_generated/server";
+import { internalQuery, type ActionCtx, type DatabaseReader } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { Infer, v } from "convex/values";
 import { vViewerAccess, vViewerRoleResult } from "./accessModelValidators";
-import { requireOrganizationAccessContext } from "./organizationAccess";
+import { requireOrganizationMembership } from "./organizationAccess";
 import { action, mutation, query } from "./functions";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
@@ -25,6 +25,7 @@ import {
 } from "../shared/cloudflareTokenRefresh";
 import type { AuthTokenAuthProvider } from "../shared/authTokenClaims";
 import {
+  type AccountPresentation,
   normalizeAccountEmail,
   normalizeDisplayName,
   resolveAccountPresentation,
@@ -73,6 +74,7 @@ const vConvexConnectionStatus = union(
     teamId: string(),
     teamSlug: optional(string()),
     authMethod: vConvexProviderAuthMethod,
+    connectedBy: optional(vAccountPresentation),
   }),
 );
 const cloudflareCredentialStatusFields = {
@@ -101,6 +103,7 @@ const vCloudflareConnectedConnectionStatus = object({
   accountId: string(),
   accountName: string(),
   ...cloudflareCredentialStatusFields,
+  connectedBy: optional(vAccountPresentation),
 });
 const vCloudflareConnectionStatus = union(
   vCloudflareNotConfiguredConnectionStatus,
@@ -109,6 +112,23 @@ const vCloudflareConnectionStatus = union(
   vCloudflareConnectedConnectionStatus,
 );
 type CloudflareConnectionStatus = Infer<typeof vCloudflareConnectionStatus>;
+
+async function readProviderConnectorPresentation(
+  db: DatabaseReader,
+  connectedByUserId: Id<"users">,
+  viewerUserId: Id<"users">,
+): Promise<AccountPresentation | undefined> {
+  const user = await db.get(connectedByUserId);
+  if (user === null || user.accountDeletion !== undefined) {
+    return undefined;
+  }
+  const accountPresentation = resolveAccountPresentation(user);
+  if (connectedByUserId !== viewerUserId && accountPresentation.kind === "email") {
+    return undefined;
+  }
+  return accountPresentation;
+}
+
 function normalizeApiToken(token: string): string {
   const normalized = token.trim();
   if (!normalized) {
@@ -403,11 +423,14 @@ export const getConvexConnectionStatus = query({
   },
   returns: vConvexConnectionStatus,
   handler: async (ctx, args): Promise<Infer<typeof vConvexConnectionStatus>> => {
-    const access = await requireOrganizationAccessContext(ctx.db, {
+    const membership = await requireOrganizationMembership(ctx.db, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    const configuration = await getOrganizationProviderConfiguration(ctx.db, access.organizationId);
+    const configuration = await getOrganizationProviderConfiguration(
+      ctx.db,
+      membership.organizationId,
+    );
     if (configuration.convexTeam === undefined) {
       if (configuration.convexCredential !== undefined) {
         throw new Error("Convex credential has no configured team.");
@@ -417,10 +440,19 @@ export const getConvexConnectionStatus = query({
     if (configuration.convexCredential === undefined) {
       return { state: "disconnected", ...configuration.convexTeam };
     }
+    const connectedBy =
+      membership.role === "owner" && configuration.convexCredential.auth.method === "oauth"
+        ? await readProviderConnectorPresentation(
+            ctx.db,
+            configuration.convexCredential.connectedByUserId,
+            ctx.viewer.userId,
+          )
+        : undefined;
     return {
       state: "connected",
       ...configuration.convexTeam,
       authMethod: configuration.convexCredential.auth.method,
+      ...(connectedBy ? { connectedBy } : {}),
     };
   },
 });
@@ -459,12 +491,30 @@ export const getCloudflareConnectionStatus = query({
   },
   returns: vCloudflareConnectionStatus,
   handler: async (ctx, args) => {
-    const access = await requireOrganizationAccessContext(ctx.db, {
+    const membership = await requireOrganizationMembership(ctx.db, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    const configuration = await getOrganizationProviderConfiguration(ctx.db, access.organizationId);
-    return buildCloudflareConnectionStatus(configuration);
+    const configuration = await getOrganizationProviderConfiguration(
+      ctx.db,
+      membership.organizationId,
+    );
+    const status = buildCloudflareConnectionStatus(configuration);
+    const credential = configuration.cloudflareCredential;
+    if (
+      membership.role !== "owner" ||
+      status.state !== "connected" ||
+      credential === undefined ||
+      credential.auth.method === "api_key"
+    ) {
+      return status;
+    }
+    const connectedBy = await readProviderConnectorPresentation(
+      ctx.db,
+      credential.connectedByUserId,
+      ctx.viewer.userId,
+    );
+    return connectedBy ? { ...status, connectedBy } : status;
   },
 });
 
@@ -566,7 +616,7 @@ export const selectCloudflareAccount = action({
     const account = discovery.accounts.find((candidate) => candidate.accountId === args.accountId);
     if (account === undefined) {
       throw new Error(
-        `The current Cloudflare credential cannot access Cloudflare account ${args.accountId}. Reconnect Cloudflare with access to this account, then retry.`,
+        "The current Cloudflare authorization cannot access this account. Reconnect Cloudflare, then retry.",
       );
     }
     await ctx.runMutation(internal.organizationProviderCredentials.selectCloudflareAccount, {

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   buildGitHubAppSetupReturnUrl,
-  buildGitHubOrganizationSettingsReturnUrl,
+  buildGitHubOrganizationProvidersReturnUrl,
   isSafeGitHubAppReturnToPath,
 } from "./githubApp";
 
@@ -24,12 +24,12 @@ describe("GitHub App return URLs", () => {
     ).toBe("https://samebase.com/");
   });
 
-  it("keeps query and hash values when a reconnect updates the owner route", () => {
+  it("keeps query and hash values when a reconnect returns to the owner Providers page", () => {
     expect(
-      buildGitHubOrganizationSettingsReturnUrl({
+      buildGitHubOrganizationProvidersReturnUrl({
         githubOwnerLogin: "New-Owner",
-        previousReturnUrl: "https://samebase.com/org/old-owner/settings?prod-ui#github",
+        previousReturnUrl: "https://samebase.com/org/old-owner/providers?prod-ui#github",
       }),
-    ).toBe("https://samebase.com/org/new-owner/settings?prod-ui#github");
+    ).toBe("https://samebase.com/org/new-owner/providers?prod-ui#github");
   });
 });

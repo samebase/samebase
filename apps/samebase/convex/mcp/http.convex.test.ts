@@ -848,7 +848,6 @@ describe("MCP tools/call access enforcement", () => {
           authentication: {
             authenticated: true,
             user: {
-              name: "Ada",
               email: "ada@example.com",
             },
             role: "role_member",
@@ -858,6 +857,7 @@ describe("MCP tools/call access enforcement", () => {
         },
       },
     });
+    expect(JSON.stringify(payload)).not.toContain('"name":"Ada"');
     expect(JSON.stringify(payload)).not.toContain("userId");
   });
 

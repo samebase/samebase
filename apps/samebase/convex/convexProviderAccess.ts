@@ -6,48 +6,24 @@ import {
   listConvexManagementProjects,
   requestConvexManagementApi,
 } from "./convexManagementApi/client";
-import { ConvexManagementApiError } from "./convexManagementApi/errors";
 
-const { array, boolean, id, literal, number, object, optional, string, union } = v;
-
-const vConvexProviderAuthMethod = union(literal("api_key"), literal("oauth"));
+const { array, boolean, id, literal, object, optional, string, union } = v;
 
 const vConvexAccessCheckKey = union(literal("token"), literal("projects"), literal("deployments"));
 
-const vConvexAccessCheckStatus = union(literal("ok"), literal("error"), literal("unknown"));
-
-const vConvexRequestedAccess = object({
-  key: string(),
-  label: string(),
-});
-
-const vConvexTokenDetails = object({
-  type: union(literal("team_token"), literal("project_token")),
-  id: string(),
-  name: string(),
-  createdAt: number(),
-  teamId: optional(string()),
-  projectId: optional(string()),
-});
+const vConvexAccessCheckStatus = union(literal("ok"), literal("error"), literal("not_run"));
 
 const vConvexTeamAccess = object({
-  teamId: string(),
-  teamSlug: optional(string()),
+  teamSlug: string(),
 });
 
 const vConvexAccessCheck = object({
   key: vConvexAccessCheckKey,
-  label: string(),
   status: vConvexAccessCheckStatus,
-  message: string(),
 });
 
 export const vConvexConnectionAccess = object({
   connected: boolean(),
-  authMethod: optional(vConvexProviderAuthMethod),
-  checkedAt: number(),
-  requestedAccess: array(vConvexRequestedAccess),
-  token: optional(vConvexTokenDetails),
   team: optional(vConvexTeamAccess),
   checks: array(vConvexAccessCheck),
 });
@@ -55,7 +31,7 @@ export const vConvexConnectionAccess = object({
 type ConvexAccessCheck = Infer<typeof vConvexAccessCheck>;
 type ConvexAccessCheckKey = Infer<typeof vConvexAccessCheckKey>;
 type ConvexConnectionAccess = Infer<typeof vConvexConnectionAccess>;
-type ConvexTokenDetails = Infer<typeof vConvexTokenDetails>;
+type ConvexTokenIdentity = { type: "team_token"; teamId: string } | { type: "project_token" };
 
 type ConvexProbeResult<Value> =
   | {
@@ -75,7 +51,6 @@ export const checkConvexConnectionAccess = action({
   },
   returns: vConvexConnectionAccess,
   handler: async (ctx, args): Promise<ConvexConnectionAccess> => {
-    const checkedAt = Date.now();
     const organizationId = await ctx.runQuery(
       internal.organizationAccess.requireOrganizationIdForUser,
       {
@@ -91,14 +66,10 @@ export const checkConvexConnectionAccess = action({
     if (configuration.convexTeam === undefined || configuration.convexCredential === undefined) {
       return {
         connected: false,
-        checkedAt,
-        requestedAccess: [],
         checks: [
           {
             key: "token",
-            label: "Credential",
-            status: "unknown",
-            message: "Convex is not connected.",
+            status: "not_run",
           },
         ],
       };
@@ -107,22 +78,11 @@ export const checkConvexConnectionAccess = action({
     const token = configuration.convexCredential.auth.credential.trim();
     const teamId = configuration.convexTeam.teamId.trim();
     const checks: ConvexAccessCheck[] = [];
-    let tokenDetails: ConvexTokenDetails | undefined;
 
     const tokenProbe = await runConvexProbe({
       key: "token",
-      label: "Token details",
       run: async () => {
         return await readConvexTokenDetails(token);
-      },
-      describe: (details) => {
-        if (details.type === "project_token") {
-          return "Probe GET /token_details returned a project-scoped token. Samebase requires team-scoped Convex access.";
-        }
-        if (details.teamId !== teamId) {
-          return "Probe GET /token_details returned a different team than the stored Convex connection. Reauthorize Convex.";
-        }
-        return `Probe GET /token_details returned team token ${details.name}.`;
       },
     });
     checks.push({
@@ -133,30 +93,16 @@ export const checkConvexConnectionAccess = action({
           ? "error"
           : tokenProbe.check.status,
     });
-    if (tokenProbe.state === "ok") {
-      tokenDetails = tokenProbe.value;
-    }
 
     const [projectsProbe, deploymentsProbe] = await Promise.all([
       runConvexProbe({
         key: "projects",
-        label: "Projects",
         run: async () => {
           return await listConvexManagementProjects({ token, teamId });
-        },
-        describe: (projects) => {
-          if (projects.length === 0) {
-            return "Probe GET /teams/{team_id}/projects succeeded and returned no visible projects.";
-          }
-          if (projects.length === 1) {
-            return `Probe GET /teams/{team_id}/projects returned 1 visible project: ${projects[0].name}.`;
-          }
-          return `Probe GET /teams/{team_id}/projects returned ${projects.length} visible projects.`;
         },
       }),
       runConvexProbe({
         key: "deployments",
-        label: "Deployments",
         run: async () => {
           return await requestConvexManagementApi(
             token,
@@ -167,36 +113,25 @@ export const checkConvexConnectionAccess = action({
             },
           );
         },
-        describe: (deployments) => {
-          if (deployments.items.length === 0) {
-            return "Probe GET /teams/{team_id}/list_deployments succeeded and returned no visible deployments.";
-          }
-          if (deployments.items.length === 1) {
-            return `Probe GET /teams/{team_id}/list_deployments returned 1 visible deployment: ${deployments.items[0].name}.`;
-          }
-          return `Probe GET /teams/{team_id}/list_deployments returned ${deployments.items.length} visible deployments.`;
-        },
       }),
     ]);
     checks.push(projectsProbe.check, deploymentsProbe.check);
 
+    const firstProject = projectsProbe.state === "ok" ? projectsProbe.value[0] : undefined;
+    const firstProjectTeamSlug = firstProject?.teamSlug.trim();
+    const observedTeamSlug =
+      firstProjectTeamSlug &&
+      projectsProbe.state === "ok" &&
+      projectsProbe.value.every(
+        (project) => project.teamId === teamId && project.teamSlug.trim() === firstProjectTeamSlug,
+      )
+        ? firstProjectTeamSlug
+        : undefined;
+    const teamSlug = observedTeamSlug ?? configuration.convexTeam.teamSlug;
+
     return {
       connected: true,
-      authMethod: configuration.convexCredential.auth.method,
-      checkedAt,
-      requestedAccess: [
-        {
-          key: "team",
-          label: "Team-scoped Convex Management API access",
-        },
-      ],
-      token: tokenDetails,
-      team: {
-        teamId,
-        ...(configuration.convexTeam.teamSlug
-          ? { teamSlug: configuration.convexTeam.teamSlug }
-          : {}),
-      },
+      ...(teamSlug ? { team: { teamSlug } } : {}),
       checks,
     };
   },
@@ -204,14 +139,10 @@ export const checkConvexConnectionAccess = action({
 
 async function runConvexProbe<Value>({
   key,
-  label,
   run,
-  describe,
 }: {
   key: ConvexAccessCheckKey;
-  label: string;
   run: () => Promise<Value>;
-  describe: (value: Value) => string;
 }): Promise<ConvexProbeResult<Value>> {
   try {
     const value = await run();
@@ -220,51 +151,34 @@ async function runConvexProbe<Value>({
       value,
       check: {
         key,
-        label,
         status: "ok",
-        message: describe(value),
       },
     };
   } catch (error) {
+    console.warn("convex:provider_access_probe_failed", {
+      check: key,
+      errorName: error instanceof Error ? error.name : "unknown",
+    });
     return {
       state: "error",
       check: {
         key,
-        label,
         status: "error",
-        message: formatConvexAccessProbeError(error),
       },
     };
   }
 }
 
-async function readConvexTokenDetails(token: string): Promise<ConvexTokenDetails> {
+async function readConvexTokenDetails(token: string): Promise<ConvexTokenIdentity> {
   const details = await requestConvexManagementApi(token, "GET", "/token_details");
   if (details.type === "teamToken") {
     return {
       type: "team_token",
-      id: details.id,
-      name: details.name,
-      createdAt: details.createTime,
       teamId: details.teamId,
     };
   }
 
   return {
     type: "project_token",
-    id: details.id,
-    name: details.name,
-    createdAt: details.createTime,
-    projectId: details.projectId,
   };
-}
-
-function formatConvexAccessProbeError(error: unknown): string {
-  if (error instanceof ConvexManagementApiError) {
-    if (error.status === 401 || error.status === 403) {
-      return `Convex denied probe ${error.path} (${error.status}). Reauthorize Convex or update the token.`;
-    }
-    return `Convex probe ${error.path} failed (${error.status}).`;
-  }
-  return "Convex access check failed.";
 }

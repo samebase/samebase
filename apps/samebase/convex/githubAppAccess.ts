@@ -5,11 +5,11 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalQuery, type ActionCtx } from "./_generated/server";
 import { action } from "./functions";
-import { createGitHubInstallationOctokit } from "./githubApp";
+import { createGitHubInstallationOctokit, readGitHubAppInstallation } from "./githubApp";
 import { requireOrganizationAccessContext, requireVaultForUser } from "./organizationAccess";
 import { vGitHubOwnerType } from "./organizationModel";
 
-const { id, literal, object, string, union } = v;
+const { array, id, literal, object, optional, string, union } = v;
 
 export const vGitHubAppAccessTarget = union(
   object({
@@ -37,10 +37,22 @@ export const vGitHubAppInstallationAccess = object({
 export type GitHubAppInstallationAccess = Infer<typeof vGitHubAppInstallationAccess>;
 export type GitHubAppAccess = GitHubAppInstallationAccess & { octokit: Octokit };
 
-const vViewerInstallationStatus = union(
-  object({ status: literal("connected") }),
-  object({ status: literal("unavailable") }),
-);
+const vGitHubInstallationPermission = object({
+  access: union(literal("read"), literal("write")),
+  key: string(),
+});
+
+const vGitHubInstallationAccessCheck = object({
+  key: union(literal("repositories"), literal("installation")),
+  status: union(literal("ok"), literal("error"), literal("not_run")),
+});
+
+const vViewerInstallationStatus = object({
+  status: union(literal("connected"), literal("unavailable")),
+  checks: array(vGitHubInstallationAccessCheck),
+  permissions: array(vGitHubInstallationPermission),
+  repositorySelection: optional(union(literal("all"), literal("selected"))),
+});
 type ViewerInstallationStatus = Infer<typeof vViewerInstallationStatus>;
 
 export const loadInstallationAccess = internalQuery({
@@ -132,19 +144,83 @@ export const checkViewerInstallation = action({
   },
   returns: vViewerInstallationStatus,
   handler: async (ctx, args): Promise<ViewerInstallationStatus> => {
+    let access: GitHubAppAccess;
     try {
-      const access = await resolveGitHubAppAccess(ctx, {
+      access = await resolveGitHubAppAccess(ctx, {
         userId: ctx.viewer.userId,
         target: {
           kind: "organization",
           organizationId: args.organizationId,
         },
       });
-      await access.octokit.request("GET /installation/repositories", { per_page: 1 });
-      return { status: "connected" };
     } catch {
-      return { status: "unavailable" };
+      return {
+        status: "unavailable",
+        checks: [
+          {
+            key: "repositories",
+            status: "not_run",
+          },
+          {
+            key: "installation",
+            status: "not_run",
+          },
+        ],
+        permissions: [],
+      };
     }
+
+    const [repositoriesResult, installationResult] = await Promise.allSettled([
+      access.octokit.request("GET /installation/repositories", { per_page: 1 }),
+      readGitHubAppInstallation(access.githubInstallationId).then((installation) => {
+        if (
+          installation.githubOwnerId !== access.githubOwnerId ||
+          installation.githubOwnerType !== access.githubOwnerType
+        ) {
+          throw new Error("GitHub App installation owner verification failed.");
+        }
+        return installation;
+      }),
+    ]);
+    const checks: ViewerInstallationStatus["checks"] = [
+      {
+        key: "repositories",
+        status: repositoriesResult.status === "fulfilled" ? "ok" : "error",
+      },
+      {
+        key: "installation",
+        status: installationResult.status === "fulfilled" ? "ok" : "error",
+      },
+    ];
+    if (repositoriesResult.status === "rejected") {
+      console.warn("github:installation_access_probe_failed", {
+        check: "repositories",
+        errorName:
+          repositoriesResult.reason instanceof Error ? repositoriesResult.reason.name : "unknown",
+      });
+    }
+    if (installationResult.status === "rejected") {
+      console.warn("github:installation_access_probe_failed", {
+        check: "installation",
+        errorName:
+          installationResult.reason instanceof Error ? installationResult.reason.name : "unknown",
+      });
+    }
+
+    if (installationResult.status === "rejected") {
+      return {
+        status: "unavailable",
+        checks,
+        permissions: [],
+      };
+    }
+
+    return {
+      status: repositoriesResult.status === "fulfilled" ? "connected" : "unavailable",
+      checks,
+      permissions: installationResult.value.permissions,
+      repositorySelection: installationResult.value.repositorySelection,
+    };
   },
 });
 

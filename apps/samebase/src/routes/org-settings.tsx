@@ -8,12 +8,6 @@ import {
 } from "@/routeSearch/organizationBilling";
 import { applySearchPatch } from "@/routing/searchFlags";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
-import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";
-import { useCallback } from "react";
-import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
-
-const GITHUB_APP_AUTHORIZATION_SOURCE = ["github-app"] as const;
 
 export const Route = createFileRoute("/org/$owner/settings")({
   beforeLoad: ({ search }) => {
@@ -40,38 +34,10 @@ export const Route = createFileRoute("/org/$owner/settings")({
 
 function OrganizationSettingsRoutePage() {
   const { owner } = Route.useParams();
-  const navigate = Route.useNavigate();
   const search = Route.useSearch();
-  const consumeAuthorizationError = useCallback(() => {
-    void navigate({
-      hash: true,
-      replace: true,
-      resetScroll: false,
-      search: clearAuthorizationErrorSearch,
-      to: ".",
-    });
-  }, [navigate]);
-  const authorizationError = useAuthorizationErrorNotice({
-    allowedProviders: GITHUB_APP_AUTHORIZATION_SOURCE,
-    onConsume: consumeAuthorizationError,
-    search,
-    scopeKey: owner,
-  });
-  const unavailableAuthorizationErrorMessage = authorizationError
-    ? formatAuthorizationErrorMessage(authorizationError)
-    : null;
   return (
-    <AuthenticatedOrganizationRoutePage
-      authorizationErrorMessage={unavailableAuthorizationErrorMessage}
-      owner={owner}
-    >
-      {(organization) => (
-        <OrganizationSettingsPage
-          authorizationError={authorizationError}
-          organization={organization}
-          search={search}
-        />
-      )}
+    <AuthenticatedOrganizationRoutePage owner={owner}>
+      {(organization) => <OrganizationSettingsPage organization={organization} search={search} />}
     </AuthenticatedOrganizationRoutePage>
   );
 }

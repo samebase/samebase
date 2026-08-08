@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
+import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -68,7 +69,7 @@ export function VaultDashboardCloudflareAccountDialog({
               ))}
             </AppSelectContent>
           </Select>
-          {error ? <div className="text-sm text-red-600">{error}</div> : null}
+          {error ? <AuthorizationErrorNotice>{error}</AuthorizationErrorNotice> : null}
         </div>
         <DialogFooter>
           <Button

@@ -26,6 +26,7 @@ import {
   resolvePolarServer,
   type PolarServer,
 } from "./polarClient";
+import { normalizeAccountEmail, resolveAccountPresentation } from "../shared/accountPresentation";
 import schema from "./schema";
 import { vOrganizationMembershipRole } from "./organizationModel";
 
@@ -64,7 +65,7 @@ type PolarBillingReconciliationResult = Infer<typeof vPolarBillingReconciliation
 const vPolarCustomerSeed = object({
   externalCustomerId: string(),
   name: optional(string()),
-  email: optional(string()),
+  email: string(),
 });
 
 const vUserDoc = schema.tables.users.validator.extend({
@@ -196,13 +197,17 @@ export const ensurePolarExternalCustomerId = internalMutation({
     const billing = await requireOwnerBillingAccountForOrganization(ctx.db, args);
     const state = readBillingAccountState(billing.account);
     const user = billing.user;
+    const accountPresentation = resolveAccountPresentation(user);
+    const customerIdentity = {
+      ...(accountPresentation.kind === "displayName" ? { name: accountPresentation.label } : {}),
+      email: normalizeAccountEmail(user.email),
+    };
 
     const existing = state.polarExternalCustomerId?.trim() ?? "";
     if (existing.length > 0) {
       return {
         externalCustomerId: existing,
-        name: user.name,
-        email: user.email,
+        ...customerIdentity,
       };
     }
 
@@ -213,8 +218,7 @@ export const ensurePolarExternalCustomerId = internalMutation({
 
     return {
       externalCustomerId,
-      name: user.name,
-      email: user.email,
+      ...customerIdentity,
     };
   },
 });

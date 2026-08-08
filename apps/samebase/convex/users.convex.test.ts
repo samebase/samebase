@@ -42,6 +42,47 @@ function stubCloudflareRefreshFailure(detail: string): void {
   );
 }
 
+function convexProjectResponse() {
+  return {
+    createTime: 1_710_000_000_000,
+    id: 1,
+    name: "Samebase",
+    slug: "samebase",
+    teamId: 38_516,
+    teamSlug: "nicu",
+  };
+}
+
+function stubConvexProviderAccess(projects: ReturnType<typeof convexProjectResponse>[]) {
+  const fetch = vi.fn(async (input: string | URL | Request) => {
+    const url = new URL(input instanceof Request ? input.url : input.toString());
+    switch (url.pathname) {
+      case "/v1/token_details":
+        return Response.json({
+          createTime: 1_710_000_000_000,
+          id: 2,
+          name: "Samebase OAuth",
+          teamId: 38_516,
+          type: "teamToken",
+        });
+      case "/v1/teams/38516/projects":
+        return Response.json({
+          items: projects,
+          pagination: { hasMore: false },
+        });
+      case "/v1/teams/38516/list_deployments":
+        return Response.json({
+          items: [],
+          pagination: { hasMore: false },
+        });
+      default:
+        throw new Error(`Unexpected Convex probe ${url.pathname}.`);
+    }
+  });
+  vi.stubGlobal("fetch", fetch);
+  return fetch;
+}
+
 async function readActionError(operation: Promise<unknown>): Promise<Error> {
   const result = await operation.then(
     () => ({ state: "resolved" as const }),
@@ -59,6 +100,7 @@ async function readActionError(operation: Promise<unknown>): Promise<Error> {
 async function seedProviderOrganization(options?: {
   cloudflareAuthMethod?: "api_key" | "oauth" | "mcp_oauth";
   cloudflareTarget?: "configured" | "pending";
+  convexAuthMethod?: "api_key" | "oauth";
 }) {
   const t = makeConvexTest();
   const { memberId, organizationId, outsiderId, providerCredentialsId, userId } = await t.run(
@@ -104,7 +146,10 @@ async function seedProviderOrganization(options?: {
       const providerCredentialsId = await ctx.db.insert("organizationProviderCredentials", {
         organizationId,
         convex: {
-          auth: { method: "api_key", credential: "convex-credential" },
+          auth:
+            options?.convexAuthMethod === "oauth"
+              ? { method: "oauth", credential: "convex-credential" }
+              : { method: "api_key", credential: "convex-credential" },
           connectedByUserId: userId,
           updatedAt: 1,
         },
@@ -169,6 +214,116 @@ describe("organization provider status", () => {
     ).rejects.toThrow("Organization membership is required.");
   });
 
+  it("shows the OAuth connector to organization owners", async () => {
+    const { memberId, organizationId, t, userId } = await seedProviderOrganization({
+      cloudflareAuthMethod: "mcp_oauth",
+      convexAuthMethod: "oauth",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, { displayName: "Provider Owner" });
+    });
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const asMember = t.withIdentity({
+      subject: `${memberId}|session`,
+      tokenIdentifier: `test:${memberId}`,
+    });
+
+    await expect(
+      asOwner.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).resolves.toMatchObject({
+      authMethod: "oauth",
+      connectedBy: { kind: "displayName", label: "Provider Owner" },
+      state: "connected",
+    });
+    await expect(
+      asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+    ).resolves.toMatchObject({
+      authMethod: "mcp_oauth",
+      connectedBy: { kind: "displayName", label: "Provider Owner" },
+      state: "connected",
+    });
+    await expect(
+      asMember.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).resolves.not.toHaveProperty("connectedBy");
+    await expect(
+      asMember.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+    ).resolves.not.toHaveProperty("connectedBy");
+
+    await t.run(async (ctx) => {
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", organizationId).eq("userId", memberId),
+        )
+        .unique();
+      if (membership === null) {
+        throw new Error("Organization membership is required.");
+      }
+      await ctx.db.patch(membership._id, { role: "owner" });
+    });
+    await expect(
+      asMember.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).resolves.toMatchObject({
+      connectedBy: { kind: "displayName", label: "Provider Owner" },
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, { displayName: undefined });
+    });
+    await expect(
+      asMember.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).resolves.not.toHaveProperty("connectedBy");
+    await expect(
+      asOwner.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).resolves.toMatchObject({
+      connectedBy: { kind: "email", label: "owner@example.com" },
+    });
+
+    await t.run(async (ctx) => {
+      const now = Date.now();
+      const initiatingSessionId = await ctx.db.insert("authSessions", {
+        userId,
+        expirationTime: now + 60_000,
+      });
+      const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
+        state: "running",
+        identity: { state: "active", userId, email: "owner@example.com" },
+        completionCapability: "c".repeat(64),
+        currentStep: "revoke_access",
+        requestedAt: now,
+        updatedAt: now,
+        initiatingSessionId,
+        retryCount: 0,
+        outcomes: {
+          providerRevocation: { state: "in_progress", convexManualRevocationRequired: false },
+          completionEmail: { state: "not_started" },
+        },
+        workflow: { state: "started", workflowId: "provider-status-test", attempt: 1 },
+      });
+      await ctx.db.patch(userId, {
+        accountDeletion: { state: "deleting", runId, requestedAt: now },
+        displayName: "Provider Owner",
+      });
+    });
+    const deletingConnectorStatuses = await Promise.all([
+      asMember.query(api.users.getConvexConnectionStatus, { organizationId }),
+      asMember.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+    ]);
+    expect(deletingConnectorStatuses.every((status) => !("connectedBy" in status))).toBe(true);
+
+    await t.run(async (ctx) => {
+      await ctx.db.delete(userId);
+    });
+    const missingConnectorStatuses = await Promise.all([
+      asMember.query(api.users.getConvexConnectionStatus, { organizationId }),
+      asMember.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+    ]);
+    expect(missingConnectorStatuses.every((status) => !("connectedBy" in status))).toBe(true);
+  });
+
   it("disconnects credentials but preserves both destinations", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
     const asOwner = t.withIdentity({
@@ -225,6 +380,55 @@ describe("organization provider status", () => {
     },
   );
 
+  it.each([
+    { initialTeamSlug: undefined, label: "missing" },
+    { initialTeamSlug: "old-team-name", label: "stale" },
+  ])("uses a verified Convex team slug without changing a $label stored slug", async (testCase) => {
+    const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(organizationId, {
+        convexTeam: {
+          teamId: "38516",
+          ...(testCase.initialTeamSlug ? { teamSlug: testCase.initialTeamSlug } : {}),
+        },
+      });
+    });
+    const credentialBefore = await t.run(
+      async (ctx) => (await ctx.db.get(providerCredentialsId))?.convex,
+    );
+    const fetch = stubConvexProviderAccess([convexProjectResponse()]);
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    const access = await asOwner.action(api.convexProviderAccess.checkConvexConnectionAccess, {
+      organizationId,
+    });
+
+    expect(access).toEqual({
+      connected: true,
+      team: { teamSlug: "nicu" },
+      checks: [
+        { key: "token", status: "ok" },
+        { key: "projects", status: "ok" },
+        { key: "deployments", status: "ok" },
+      ],
+    });
+    await expect(
+      asOwner.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).resolves.toEqual({
+      state: "connected",
+      teamId: "38516",
+      ...(testCase.initialTeamSlug ? { teamSlug: testCase.initialTeamSlug } : {}),
+      authMethod: "api_key",
+    });
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.convex),
+    ).resolves.toEqual(credentialBefore);
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
   it("reports an inaccessible configured Cloudflare account in the visible Accounts check", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
     const asOwner = t.withIdentity({
@@ -254,34 +458,64 @@ describe("organization provider status", () => {
       { organizationId },
     );
 
-    expect(access).not.toHaveProperty("accounts");
-    expect(access.checks).toEqual([
-      {
-        key: "token",
-        label: "API token",
-        status: "ok",
-        message: "Probe GET /user/tokens/verify succeeded (active).",
-      },
-      {
-        key: "accounts",
-        label: "Accounts",
-        status: "error",
-        message: `The Accounts probe did not return connected account Primary account (${primaryCloudflareAccountId}).`,
-      },
-      {
-        key: "workers",
-        label: "Workers",
-        status: "unknown",
-        message: `Skipped: the Accounts probe did not return connected account Primary account (${primaryCloudflareAccountId}).`,
-      },
-      {
-        key: "workers_builds",
-        label: "Workers Builds",
-        status: "unknown",
-        message: `Skipped: the Accounts probe did not return connected account Primary account (${primaryCloudflareAccountId}).`,
-      },
-    ]);
+    expect(access).toEqual({
+      connected: true,
+      requestedScopes: [],
+      checks: [
+        { key: "token", status: "ok" },
+        { key: "accounts", status: "error" },
+        { key: "workers", status: "not_run" },
+        { key: "workers_builds", status: "not_run" },
+      ],
+    });
     expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not refresh OAuth credentials while checking an inaccessible configured account", async () => {
+    for (const cloudflareAuthMethod of ["oauth", "mcp_oauth"] as const) {
+      const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
+        cloudflareAuthMethod,
+      });
+      const asOwner = t.withIdentity({
+        subject: `${userId}|session`,
+        tokenIdentifier: `test:${userId}`,
+      });
+      const credentialBefore = await t.run(
+        async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare,
+      );
+      const targetBefore = await t.run(
+        async (ctx) => (await ctx.db.get(organizationId))?.cloudflareAccount,
+      );
+      const fetch = vi.fn(async (input: string | URL | Request) => {
+        const url = new URL(input instanceof Request ? input.url : input.toString());
+        if (url.pathname !== "/client/v4/accounts") {
+          throw new Error(`Unexpected Cloudflare probe ${url.pathname}.`);
+        }
+        return cloudflareAccountsResponse([
+          { id: secondaryCloudflareAccountId, name: "Secondary account", type: "standard" },
+        ]);
+      });
+      vi.stubGlobal("fetch", fetch);
+
+      const access = await asOwner.action(
+        api.cloudflareProviderAccess.checkCloudflareConnectionAccess,
+        { organizationId },
+      );
+
+      expect(access.checks).toEqual([
+        { key: "token", status: "error" },
+        { key: "accounts", status: "error" },
+        { key: "workers", status: "not_run" },
+        { key: "workers_builds", status: "not_run" },
+      ]);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await expect(
+        t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare),
+      ).resolves.toEqual(credentialBefore);
+      await expect(
+        t.run(async (ctx) => (await ctx.db.get(organizationId))?.cloudflareAccount),
+      ).resolves.toEqual(targetBefore);
+    }
   });
 
   it("lets an owner list visible accounts and select the stable target", async () => {
@@ -372,7 +606,7 @@ describe("organization provider status", () => {
     expect(error.message).not.toContain("private provider detail");
   });
 
-  it("does not expose Cloudflare refresh errors through public provider actions", async () => {
+  it("does not expose Cloudflare refresh errors through account discovery", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization({
       cloudflareAuthMethod: "oauth",
       cloudflareTarget: "pending",
@@ -390,14 +624,6 @@ describe("organization provider status", () => {
       "Cloudflare account discovery failed. Reconnect Cloudflare, then retry.",
     );
     expect(error.message).not.toContain("private refresh detail");
-
-    const accessError = await readActionError(
-      asOwner.action(api.cloudflareProviderAccess.checkCloudflareConnectionAccess, {
-        organizationId,
-      }),
-    );
-    expect(accessError.message).toContain("Cloudflare access check failed.");
-    expect(accessError.message).not.toContain("private refresh detail");
   });
 
   it("replaces direct and MCP refresh errors at the shared resolver boundary", async () => {
@@ -488,5 +714,36 @@ describe("organization provider status", () => {
       }),
     ).rejects.toThrow("Cloudflare account is already configured.");
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not expose an inaccessible Cloudflare account identifier", async () => {
+    const { organizationId, t, userId } = await seedProviderOrganization({
+      cloudflareTarget: "pending",
+    });
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const inaccessibleAccountId = "private-provider-account-id";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        cloudflareAccountsResponse([
+          { id: primaryCloudflareAccountId, name: "Primary account", type: "standard" },
+        ]),
+      ),
+    );
+
+    const error = await readActionError(
+      asOwner.action(api.users.selectCloudflareAccount, {
+        organizationId,
+        accountId: inaccessibleAccountId,
+      }),
+    );
+
+    expect(error.message).toContain(
+      "The current Cloudflare authorization cannot access this account.",
+    );
+    expect(error.message).not.toContain(inaccessibleAccountId);
   });
 });

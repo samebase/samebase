@@ -9,15 +9,11 @@ import {
   listCloudflareAccountsForToken,
   type CloudflareAccount,
 } from "./cloudflareAccountDiscovery";
-import {
-  CloudflareApiError,
-  requestCloudflareApi,
-  resolveCloudflareApiTransport,
-} from "./cloudflareApi/client";
+import { requestCloudflareApi, resolveCloudflareApiTransport } from "./cloudflareApi/client";
 import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
 import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
 
-const { array, boolean, id, literal, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, object, string, union } = v;
 
 const vCloudflareProviderAuthMethod = union(
   literal("api_key"),
@@ -32,33 +28,25 @@ const vCloudflareAccessCheckKey = union(
   literal("workers_builds"),
 );
 
-const vCloudflareAccessCheckStatus = union(literal("ok"), literal("error"), literal("unknown"));
+const vCloudflareAccessCheckStatus = union(
+  literal("ok"),
+  literal("error"),
+  literal("unknown"),
+  literal("not_run"),
+);
 
 const vCloudflareRequestedScope = object({
   scope: string(),
-  label: string(),
-});
-
-const vCloudflareTokenVerification = object({
-  id: optional(string()),
-  status: optional(string()),
-  expiresOn: optional(string()),
-  notBefore: optional(string()),
 });
 
 const vCloudflareAccessCheck = object({
   key: vCloudflareAccessCheckKey,
-  label: string(),
   status: vCloudflareAccessCheckStatus,
-  message: string(),
 });
 
 export const vCloudflareConnectionAccess = object({
   connected: boolean(),
-  authMethod: optional(vCloudflareProviderAuthMethod),
-  checkedAt: number(),
   requestedScopes: array(vCloudflareRequestedScope),
-  token: optional(vCloudflareTokenVerification),
   checks: array(vCloudflareAccessCheck),
 });
 
@@ -67,7 +55,6 @@ type CloudflareAccessCheck = Infer<typeof vCloudflareAccessCheck>;
 type CloudflareAccessCheckKey = Infer<typeof vCloudflareAccessCheckKey>;
 type CloudflareConnectionAccess = Infer<typeof vCloudflareConnectionAccess>;
 type CloudflareRequestedScope = Infer<typeof vCloudflareRequestedScope>;
-type CloudflareTokenVerification = Infer<typeof vCloudflareTokenVerification>;
 
 type CloudflareProbeResult<Value> =
   | {
@@ -101,24 +88,34 @@ export const checkCloudflareConnectionAccess = action({
     });
     let connection: ResolvedCloudflareConnection | null;
     try {
-      connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
-        organizationId,
-        userId: ctx.viewer.userId,
-      });
+      const configuration = await ctx.runQuery(
+        internal.organizationProviderCredentials.loadForOrganization,
+        {
+          organizationId,
+          userId: ctx.viewer.userId,
+        },
+      );
+      const credential = configuration.cloudflareCredential;
+      connection = credential
+        ? {
+            auth: credential.auth,
+            ...(configuration.cloudflareAccount
+              ? { account: configuration.cloudflareAccount }
+              : {}),
+            ...(credential.tokenHealth ? { tokenHealth: credential.tokenHealth } : {}),
+          }
+        : null;
     } catch {
       throw new Error("Cloudflare access check failed.");
     }
     if (connection === null) {
       return {
         connected: false,
-        checkedAt,
         requestedScopes: [],
         checks: [
           {
             key: "token",
-            label: "Credential",
-            status: "unknown",
-            message: "Cloudflare is not connected.",
+            status: "not_run",
           },
         ],
       };
@@ -129,27 +126,18 @@ export const checkCloudflareConnectionAccess = action({
     const token = resolvedConnection.auth.credential.trim();
     const transport = resolveCloudflareApiTransport(authMethod);
     const checks: CloudflareAccessCheck[] = [];
-    let tokenVerification: CloudflareTokenVerification | undefined;
 
     if (authMethod === "api_key") {
       const tokenProbe = await runCloudflareProbe({
         key: "token",
-        label: "API token",
         run: async () => {
-          return verifyCloudflareApiToken({
+          await checkCloudflareApiTokenAccess({
             token,
             transport,
           });
         },
-        describe: (verification) => {
-          const status = verification.status ?? "verified";
-          return `Probe GET /user/tokens/verify succeeded (${status}).`;
-        },
       });
       checks.push(tokenProbe.check);
-      if (tokenProbe.state === "ok") {
-        tokenVerification = tokenProbe.value;
-      }
     } else {
       checks.push(
         buildCloudflareOAuthTokenCheck({
@@ -168,14 +156,11 @@ export const checkCloudflareConnectionAccess = action({
             value: [],
             check: {
               key: "accounts",
-              label: "Accounts",
-              status: "unknown",
-              message: "Cloudflare account selection is pending for an organization owner.",
+              status: "not_run",
             },
           }
         : await runCloudflareProbe({
             key: "accounts",
-            label: "Accounts",
             run: async () => {
               const accounts = await listCloudflareAccountsForToken({
                 token,
@@ -185,20 +170,6 @@ export const checkCloudflareConnectionAccess = action({
               return configuredAccount === null
                 ? accounts
                 : accounts.filter((account) => account.accountId === configuredAccount.accountId);
-            },
-            describe: (accounts) => {
-              if (accounts.length === 0) {
-                return configuredAccount === null
-                  ? "Probe GET /accounts succeeded and returned no visible accounts."
-                  : "The connected Cloudflare account is not visible to this credential.";
-              }
-              if (configuredAccount !== null) {
-                return `Probe GET /accounts confirmed the connected account: ${accounts[0].accountName}.`;
-              }
-              if (accounts.length === 1) {
-                return `Probe GET /accounts returned 1 visible account: ${accounts[0].accountName}.`;
-              }
-              return `Probe GET /accounts returned ${accounts.length} visible accounts.`;
             },
           });
     const accountsProbe = markMissingConfiguredCloudflareAccount({
@@ -216,30 +187,13 @@ export const checkCloudflareConnectionAccess = action({
 
     if (configuredVisibleAccount === null) {
       checks.push(
-        buildUnknownCloudflareCheck({
-          key: "workers",
-          label: "Workers",
-          message: buildSkippedCloudflareCapabilityProbeMessage({
-            accountsProbe,
-            capabilityLabel: "Workers",
-            configuredAccount,
-          }),
-        }),
-        buildUnknownCloudflareCheck({
-          key: "workers_builds",
-          label: "Workers Builds",
-          message: buildSkippedCloudflareCapabilityProbeMessage({
-            accountsProbe,
-            capabilityLabel: "Workers Builds",
-            configuredAccount,
-          }),
-        }),
+        { key: "workers", status: "not_run" },
+        { key: "workers_builds", status: "not_run" },
       );
     } else {
       const [workersProbe, buildsProbe] = await Promise.all([
         runCloudflareProbe({
           key: "workers",
-          label: "Workers",
           run: async () => {
             await checkCloudflareWorkersAccess({
               accountId: configuredVisibleAccount.accountId,
@@ -247,22 +201,15 @@ export const checkCloudflareConnectionAccess = action({
               transport,
             });
           },
-          describe: () => {
-            return `Probe GET /accounts/{account_id}/workers/account-settings succeeded for ${configuredVisibleAccount.accountName}.`;
-          },
         }),
         runCloudflareProbe({
           key: "workers_builds",
-          label: "Workers Builds",
           run: async () => {
             await checkCloudflareWorkersBuildsAccess({
               accountId: configuredVisibleAccount.accountId,
               token,
               transport,
             });
-          },
-          describe: () => {
-            return `Probe GET /accounts/{account_id}/builds/account/limits succeeded for ${configuredVisibleAccount.accountName}.`;
           },
         }),
       ]);
@@ -271,10 +218,7 @@ export const checkCloudflareConnectionAccess = action({
 
     return {
       connected: true,
-      authMethod,
-      checkedAt,
       requestedScopes: getCloudflareRequestedScopes(authMethod),
-      token: tokenVerification,
       checks,
     };
   },
@@ -282,14 +226,10 @@ export const checkCloudflareConnectionAccess = action({
 
 async function runCloudflareProbe<Value>({
   key,
-  label,
   run,
-  describe,
 }: {
   key: CloudflareAccessCheckKey;
-  label: string;
   run: () => Promise<Value>;
-  describe: (value: Value) => string;
 }): Promise<CloudflareProbeResult<Value>> {
   try {
     const value = await run();
@@ -298,49 +238,38 @@ async function runCloudflareProbe<Value>({
       value,
       check: {
         key,
-        label,
         status: "ok",
-        message: describe(value),
       },
     };
   } catch (error) {
+    console.warn("cloudflare:provider_access_probe_failed", {
+      check: key,
+      errorName: error instanceof Error ? error.name : "unknown",
+    });
     return {
       state: "error",
       check: {
         key,
-        label,
         status: "error",
-        message: formatCloudflareAccessProbeError(error),
       },
     };
   }
 }
 
-async function verifyCloudflareApiToken({
+async function checkCloudflareApiTokenAccess({
   token,
   transport,
 }: {
   token: string;
   transport: ReturnType<typeof resolveCloudflareApiTransport>;
-}): Promise<CloudflareTokenVerification> {
-  const verification = await requestCloudflareApi({
+}): Promise<void> {
+  await requestCloudflareApi({
     token,
     transport,
     method: "GET",
     path: "/user/tokens/verify",
     params: {},
   });
-
-  if (!verification) {
-    return {};
-  }
-
-  return {
-    id: normalizeOptionalString(verification.id),
-    status: normalizeOptionalString(verification.status),
-    expiresOn: normalizeOptionalString(verification.expires_on),
-    notBefore: normalizeOptionalString(verification.not_before),
-  };
 }
 
 async function checkCloudflareWorkersAccess({
@@ -394,25 +323,19 @@ function buildCloudflareOAuthTokenCheck({
   if (status === "expired" || status === "invalid") {
     return {
       key: "token",
-      label: "OAuth token",
       status: "error",
-      message: `The Cloudflare OAuth token is ${formatCloudflareTokenStatus(status)}.`,
     };
   }
   if (status === "unknown") {
     return {
       key: "token",
-      label: "OAuth token",
       status: "unknown",
-      message: "The Cloudflare OAuth token status could not be determined.",
     };
   }
 
   return {
     key: "token",
-    label: "OAuth token",
     status: "ok",
-    message: `Stored OAuth token metadata says the token is ${formatCloudflareTokenStatus(status)} until ${new Date(expiresAt).toISOString()}. Live probes below verify current Cloudflare access.`,
   };
 }
 
@@ -432,50 +355,11 @@ function markMissingConfiguredCloudflareAccount({
       ...accountsProbe,
       check: {
         key: "accounts",
-        label: "Accounts",
-        message: `The Accounts probe did not return connected account ${configuredAccount.accountName} (${configuredAccount.accountId}).`,
         status: "error",
       },
     };
   }
   return accountsProbe;
-}
-
-function buildSkippedCloudflareCapabilityProbeMessage({
-  accountsProbe,
-  capabilityLabel,
-  configuredAccount,
-}: {
-  accountsProbe: CloudflareProbeResult<CloudflareAccount[]>;
-  capabilityLabel: string;
-  configuredAccount: NonNullable<ResolvedCloudflareConnection["account"]> | null;
-}): string {
-  if (configuredAccount === null) {
-    return `Skipped: choose a Cloudflare account before probing ${capabilityLabel}.`;
-  }
-
-  if (accountsProbe.state === "error") {
-    return `Skipped: the Accounts probe failed, so Samebase could not confirm the connected account before probing ${capabilityLabel}.`;
-  }
-
-  return `Skipped: the Accounts probe did not return connected account ${configuredAccount.accountName} (${configuredAccount.accountId}).`;
-}
-
-function buildUnknownCloudflareCheck({
-  key,
-  label,
-  message,
-}: {
-  key: CloudflareAccessCheckKey;
-  label: string;
-  message: string;
-}): CloudflareAccessCheck {
-  return {
-    key,
-    label,
-    status: "unknown",
-    message,
-  };
 }
 
 function getCloudflareRequestedScopes(
@@ -485,74 +369,11 @@ function getCloudflareRequestedScopes(
     case "api_key":
       return [];
     case "oauth":
-      return CLOUDFLARE_OAUTH_SCOPES.map((scope) => ({
-        scope,
-        label: labelCloudflareOAuthScope(scope),
-      }));
+      return CLOUDFLARE_OAUTH_SCOPES.map((scope) => ({ scope }));
     case "mcp_oauth":
-      return CLOUDFLARE_MCP_OAUTH_SCOPES.map((scope) => ({
-        scope,
-        label: labelCloudflareOAuthScope(scope),
-      }));
+      return CLOUDFLARE_MCP_OAUTH_SCOPES.map((scope) => ({ scope }));
     default:
       authMethod satisfies never;
       return [];
   }
-}
-
-type CloudflareRequestedOAuthScope =
-  | (typeof CLOUDFLARE_OAUTH_SCOPES)[number]
-  | (typeof CLOUDFLARE_MCP_OAUTH_SCOPES)[number];
-
-function labelCloudflareOAuthScope(scope: CloudflareRequestedOAuthScope): string {
-  return CLOUDFLARE_OAUTH_SCOPE_LABELS[scope];
-}
-
-const CLOUDFLARE_OAUTH_SCOPE_LABELS = {
-  "account-settings.read": "Read account metadata",
-  "account:read": "Read account metadata",
-  offline_access: "Refresh access without reconnecting",
-  "user:read": "Read user profile",
-  "workers-ci.read": "Read Workers Builds",
-  "workers-ci.write": "Manage Workers Builds",
-  "workers_builds:read": "Read Workers Builds",
-  "workers_builds:write": "Manage Workers Builds",
-  "workers-scripts.read": "Read Workers",
-  "workers-scripts.write": "Manage Workers",
-  "workers:read": "Read Workers",
-  "workers:write": "Manage Workers",
-  "workers_scripts:write": "Manage Workers",
-} satisfies Record<
-  (typeof CLOUDFLARE_OAUTH_SCOPES)[number] | (typeof CLOUDFLARE_MCP_OAUTH_SCOPES)[number],
-  string
->;
-
-function formatCloudflareTokenStatus(status: McpTokenHealth["status"]): string {
-  switch (status) {
-    case "valid":
-      return "valid";
-    case "expiring_soon":
-      return "valid but expiring soon";
-    case "expired":
-      return "expired";
-    case "invalid":
-      return "invalid";
-    case "unknown":
-      return "unknown";
-    default:
-      status satisfies never;
-      return "unknown";
-  }
-}
-
-function normalizeOptionalString(value: string | undefined): string | undefined {
-  const trimmed = value?.trim();
-  return trimmed === "" ? undefined : trimmed;
-}
-
-function formatCloudflareAccessProbeError(error: unknown): string {
-  if (error instanceof CloudflareApiError) {
-    return `Cloudflare probe ${error.method} ${error.path} failed.`;
-  }
-  return "Cloudflare access check failed.";
 }
