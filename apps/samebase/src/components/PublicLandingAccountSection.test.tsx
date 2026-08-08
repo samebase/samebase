@@ -455,7 +455,7 @@ describe("PublicLandingAccountSection", () => {
     );
 
     expect(markup).toContain(
-      "This email already belongs to a Samebase account. Sign in with an existing method, then connect GitHub in Account settings.",
+      "The primary email on this GitHub account is already used by another Samebase account. Sign in to that account with an existing method, then connect GitHub in Account settings.",
     );
     expect(markup).toContain("Continue with Google");
     expect(markup).toContain("Continue with GitHub");

@@ -690,7 +690,7 @@ test("public landing explains the GitHub account-linking return", async ({ page 
 
   await expect(accountSection).toBeVisible();
   await expect(accountSection.getByRole("alert")).toHaveText(
-    "This email already belongs to a Samebase account. Sign in with an existing method, then connect GitHub in Account settings.",
+    "The primary email on this GitHub account is already used by another Samebase account. Sign in to that account with an existing method, then connect GitHub in Account settings.",
   );
   await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toBeVisible();
   await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();

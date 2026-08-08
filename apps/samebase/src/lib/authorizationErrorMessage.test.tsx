@@ -36,7 +36,12 @@ describe("formatAuthorizationErrorMessage", () => {
     {
       authorizationError: { code: "account-link-required", provider: "github-sign-in" },
       expected:
-        "This email already belongs to a Samebase account. Sign in with an existing method, then connect GitHub in Account settings.",
+        "The primary email on this GitHub account is already used by another Samebase account. Sign in to that account with an existing method, then connect GitHub in Account settings.",
+    },
+    {
+      authorizationError: { code: "account-link-required", provider: "google-sign-in" },
+      expected:
+        "The email on this Google account is already used by another Samebase account. Sign in to that account with an existing method, then connect Google in Account settings.",
     },
   ] satisfies readonly {
     authorizationError: AuthorizationError;

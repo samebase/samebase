@@ -44,9 +44,9 @@ export function formatAuthorizationErrorMessage(
     case "account-link-required":
       switch (authorizationError.provider) {
         case "google-sign-in":
-          return "This email already belongs to a Samebase account. Sign in with an existing method, then connect Google in Account settings.";
+          return "The email on this Google account is already used by another Samebase account. Sign in to that account with an existing method, then connect Google in Account settings.";
         case "github-sign-in":
-          return "This email already belongs to a Samebase account. Sign in with an existing method, then connect GitHub in Account settings.";
+          return "The primary email on this GitHub account is already used by another Samebase account. Sign in to that account with an existing method, then connect GitHub in Account settings.";
         case "convex":
         case "cloudflare":
         case "github-app":
