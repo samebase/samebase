@@ -528,7 +528,7 @@ function CloudflareConnectionDetails({
 
   return (
     <div className="space-y-4 text-sm leading-5">
-      <TechnicalValueList label="Scopes" values={scopes} />
+      <TechnicalValueList label="Requested OAuth scopes" values={scopes} />
       <ProviderAccessChecks
         access={access}
         definitions={getCloudflareAccessChecks(authMethod)}

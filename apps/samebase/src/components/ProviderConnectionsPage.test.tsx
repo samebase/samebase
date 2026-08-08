@@ -524,6 +524,7 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).not.toContain("team_acme_platform");
     expect(markup).toContain("Permissions");
     expect(markup).toContain("Repository access");
+    expect(markup).toContain("Requested OAuth scopes");
     expect(markup).toContain("GET /token_details");
     expect(markup).toContain("GET /installation/repositories");
     expect(markup).toContain("GET /app/installations/{installation_id}");
