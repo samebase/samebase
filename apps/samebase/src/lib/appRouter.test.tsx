@@ -378,6 +378,7 @@ describe("appRouter", () => {
 
     rootElement?.remove();
     rootElement = null;
+    document.querySelector("script[data-react-scan-loader]")?.remove();
     useConvexAuthMock.mockReset();
     vi.unstubAllEnvs();
   });
@@ -468,6 +469,34 @@ describe("appRouter", () => {
       "Root index route",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders the React Scan hook and loader when the development tools flag is present", async () => {
+    await renderRoute("/?devtools");
+
+    const reactScanHook = document.querySelector(
+      'script[src="https://unpkg.com/react-scan@0.5.7/dist/install-hook.global.js"]',
+    );
+    const reactScanScript = document.querySelector(
+      'script[src="https://unpkg.com/react-scan@0.5.7/dist/auto.global.js"]',
+    );
+
+    expect(reactScanHook?.getAttribute("integrity")).toBe(
+      "sha384-gtx085UgMdaRetpZlCm2iy6u+Te8ZsKK0xhjG8ybjt2JfW7adJJf0gfOFkAjC0dK",
+    );
+    expect(reactScanScript?.getAttribute("integrity")).toBe(
+      "sha384-DDZCsimcjpG92OUulxf7DHi4rGS/fNIW7lC5DT8+5ftaTDiUKfzIq+pDTUbPjC86",
+    );
+    expect(reactScanScript?.getAttribute("crossorigin")).toBe("anonymous");
+    expect(reactScanScript?.getAttribute("referrerpolicy")).toBe("no-referrer");
+  });
+
+  it("does not load React Scan without the development tools flag", async () => {
+    await renderRoute("/");
+
+    expect(
+      document.querySelector('script[src^="https://unpkg.com/react-scan@0.5.7/dist/"]'),
+    ).toBeNull();
   });
 
   it("redirects /landing to the public landing root route", async () => {

@@ -1,14 +1,10 @@
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
+import { useRootRouteSearch } from "@/routeSearch/root";
 
 export function QueryDevtools() {
-  const shouldShowDevtools =
-    typeof window !== "undefined" &&
-    window.location.search
-      .slice(1)
-      .split("&")
-      .some((part) => part.split("=")[0] === "devtools");
+  const { devtools } = useRootRouteSearch();
 
-  return shouldShowDevtools ? (
+  return import.meta.env.DEV && devtools ? (
     <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-left" />
   ) : null;
 }
