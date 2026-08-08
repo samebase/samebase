@@ -4871,52 +4871,60 @@ export interface components {
       name: string;
       parameters: {
         /** @description Create Calculations to compute as part of the query. */
-        calculations?: {
-          alias?: string;
-          key?: string;
-          /** @enum {string} */
-          keyType?: "string" | "number" | "boolean";
-          /** @enum {string} */
-          operator:
-            | "uniq"
-            | "count"
-            | "max"
-            | "min"
-            | "sum"
-            | "avg"
-            | "median"
-            | "p001"
-            | "p01"
-            | "p05"
-            | "p10"
-            | "p25"
-            | "p75"
-            | "p90"
-            | "p95"
-            | "p99"
-            | "p999"
-            | "stddev"
-            | "variance"
-            | "COUNT_DISTINCT"
-            | "COUNT"
-            | "MAX"
-            | "MIN"
-            | "SUM"
-            | "AVG"
-            | "MEDIAN"
-            | "P001"
-            | "P01"
-            | "P05"
-            | "P10"
-            | "P25"
-            | "P75"
-            | "P90"
-            | "P95"
-            | "P99"
-            | "P999"
-            | "STDDEV"
-            | "VARIANCE";
-        }[];
+        calculations?: (
+          | {
+              alias?: string;
+              key?: string;
+              /** @enum {string} */
+              keyType?: "string" | "number" | "boolean";
+              /** @enum {string} */
+              operator: "count" | "COUNT";
+            }
+          | {
+              alias?: string;
+              key: string;
+              /** @enum {string} */
+              keyType?: "string" | "number" | "boolean";
+              /** @enum {string} */
+              operator:
+                | "uniq"
+                | "max"
+                | "min"
+                | "sum"
+                | "avg"
+                | "median"
+                | "p001"
+                | "p01"
+                | "p05"
+                | "p10"
+                | "p25"
+                | "p75"
+                | "p90"
+                | "p95"
+                | "p99"
+                | "p999"
+                | "stddev"
+                | "variance"
+                | "COUNT_DISTINCT"
+                | "MAX"
+                | "MIN"
+                | "SUM"
+                | "AVG"
+                | "MEDIAN"
+                | "P001"
+                | "P01"
+                | "P05"
+                | "P10"
+                | "P25"
+                | "P75"
+                | "P90"
+                | "P95"
+                | "P99"
+                | "P999"
+                | "STDDEV"
+                | "VARIANCE";
+            }
+        )[];
         /**
          * @description Set the Datasets to query. Leave it empty to query all the datasets.
          * @example []
@@ -9947,9 +9955,9 @@ export interface operations {
             result: {
               createdAt: string;
               destinations: string[];
-              meta?: string;
               resourceId: string;
-              resourceType: string;
+              /** @enum {string} */
+              resourceType: "workers" | "d1" | "r2";
               updatedAt: string;
             }[];
             /** @enum {boolean} */
@@ -10014,28 +10022,29 @@ export interface operations {
         "application/json":
           | {
               destinations: string[];
-              meta?: string;
               resourceId: string;
-              resourceType: string;
+              /** @enum {string} */
+              resourceType: "workers" | "d1" | "r2";
             }
           | {
               requester: {
                 requesterId: string;
-                requesterType: string;
+                /** @enum {string} */
+                requesterType: "workers";
               };
               resources: {
                 destinations: string[];
-                meta?: string;
                 resourceId: string;
-                resourceType: string;
+                /** @enum {string} */
+                resourceType: "workers" | "d1" | "r2";
               }[];
             }
           | {
               resources: {
                 destinations: string[];
-                meta?: string;
                 resourceId: string;
-                resourceType: string;
+                /** @enum {string} */
+                resourceType: "workers" | "d1" | "r2";
               }[];
             };
       };
@@ -10058,9 +10067,9 @@ export interface operations {
             result: {
               createdAt: string;
               destinations: string[];
-              meta?: string;
               resourceId: string;
-              resourceType: string;
+              /** @enum {string} */
+              resourceType: "workers" | "d1" | "r2";
               updatedAt: string;
             }[];
             /** @enum {boolean} */
@@ -10163,9 +10172,9 @@ export interface operations {
     requestBody?: {
       content: {
         "application/json": {
-          meta?: string;
           resourceId: string;
-          resourceType: string;
+          /** @enum {string} */
+          resourceType: "workers" | "d1" | "r2";
         };
       };
     };
@@ -10393,52 +10402,60 @@ export interface operations {
           name: string;
           parameters: {
             /** @description Create Calculations to compute as part of the query. */
-            calculations?: {
-              alias?: string;
-              key?: string;
-              /** @enum {string} */
-              keyType?: "string" | "number" | "boolean";
-              /** @enum {string} */
-              operator:
-                | "uniq"
-                | "count"
-                | "max"
-                | "min"
-                | "sum"
-                | "avg"
-                | "median"
-                | "p001"
-                | "p01"
-                | "p05"
-                | "p10"
-                | "p25"
-                | "p75"
-                | "p90"
-                | "p95"
-                | "p99"
-                | "p999"
-                | "stddev"
-                | "variance"
-                | "COUNT_DISTINCT"
-                | "COUNT"
-                | "MAX"
-                | "MIN"
-                | "SUM"
-                | "AVG"
-                | "MEDIAN"
-                | "P001"
-                | "P01"
-                | "P05"
-                | "P10"
-                | "P25"
-                | "P75"
-                | "P90"
-                | "P95"
-                | "P99"
-                | "P999"
-                | "STDDEV"
-                | "VARIANCE";
-            }[];
+            calculations?: (
+              | {
+                  alias?: string;
+                  key?: string;
+                  /** @enum {string} */
+                  keyType?: "string" | "number" | "boolean";
+                  /** @enum {string} */
+                  operator: "count" | "COUNT";
+                }
+              | {
+                  alias?: string;
+                  key: string;
+                  /** @enum {string} */
+                  keyType?: "string" | "number" | "boolean";
+                  /** @enum {string} */
+                  operator:
+                    | "uniq"
+                    | "max"
+                    | "min"
+                    | "sum"
+                    | "avg"
+                    | "median"
+                    | "p001"
+                    | "p01"
+                    | "p05"
+                    | "p10"
+                    | "p25"
+                    | "p75"
+                    | "p90"
+                    | "p95"
+                    | "p99"
+                    | "p999"
+                    | "stddev"
+                    | "variance"
+                    | "COUNT_DISTINCT"
+                    | "MAX"
+                    | "MIN"
+                    | "SUM"
+                    | "AVG"
+                    | "MEDIAN"
+                    | "P001"
+                    | "P01"
+                    | "P05"
+                    | "P10"
+                    | "P25"
+                    | "P75"
+                    | "P90"
+                    | "P95"
+                    | "P99"
+                    | "P999"
+                    | "STDDEV"
+                    | "VARIANCE";
+                }
+            )[];
             /**
              * @description Set the Datasets to query. Leave it empty to query all the datasets.
              * @example []
@@ -10780,52 +10797,60 @@ export interface operations {
           name: string;
           parameters: {
             /** @description Create Calculations to compute as part of the query. */
-            calculations?: {
-              alias?: string;
-              key?: string;
-              /** @enum {string} */
-              keyType?: "string" | "number" | "boolean";
-              /** @enum {string} */
-              operator:
-                | "uniq"
-                | "count"
-                | "max"
-                | "min"
-                | "sum"
-                | "avg"
-                | "median"
-                | "p001"
-                | "p01"
-                | "p05"
-                | "p10"
-                | "p25"
-                | "p75"
-                | "p90"
-                | "p95"
-                | "p99"
-                | "p999"
-                | "stddev"
-                | "variance"
-                | "COUNT_DISTINCT"
-                | "COUNT"
-                | "MAX"
-                | "MIN"
-                | "SUM"
-                | "AVG"
-                | "MEDIAN"
-                | "P001"
-                | "P01"
-                | "P05"
-                | "P10"
-                | "P25"
-                | "P75"
-                | "P90"
-                | "P95"
-                | "P99"
-                | "P999"
-                | "STDDEV"
-                | "VARIANCE";
-            }[];
+            calculations?: (
+              | {
+                  alias?: string;
+                  key?: string;
+                  /** @enum {string} */
+                  keyType?: "string" | "number" | "boolean";
+                  /** @enum {string} */
+                  operator: "count" | "COUNT";
+                }
+              | {
+                  alias?: string;
+                  key: string;
+                  /** @enum {string} */
+                  keyType?: "string" | "number" | "boolean";
+                  /** @enum {string} */
+                  operator:
+                    | "uniq"
+                    | "max"
+                    | "min"
+                    | "sum"
+                    | "avg"
+                    | "median"
+                    | "p001"
+                    | "p01"
+                    | "p05"
+                    | "p10"
+                    | "p25"
+                    | "p75"
+                    | "p90"
+                    | "p95"
+                    | "p99"
+                    | "p999"
+                    | "stddev"
+                    | "variance"
+                    | "COUNT_DISTINCT"
+                    | "MAX"
+                    | "MIN"
+                    | "SUM"
+                    | "AVG"
+                    | "MEDIAN"
+                    | "P001"
+                    | "P01"
+                    | "P05"
+                    | "P10"
+                    | "P25"
+                    | "P75"
+                    | "P90"
+                    | "P95"
+                    | "P99"
+                    | "P999"
+                    | "STDDEV"
+                    | "VARIANCE";
+                }
+            )[];
             /**
              * @description Set the Datasets to query. Leave it empty to query all the datasets.
              * @example []
@@ -11005,60 +11030,76 @@ export interface operations {
           /** @description Query parameters defining what data to retrieve - filters, calculations, group-bys, and ordering. In practice this should always be provided for ad-hoc queries. Only omit when executing a previously saved query by queryId. Use the keys and values endpoints to discover available fields before building filters. */
           parameters?: {
             /** @description Aggregation calculations to compute (e.g. count, avg, p99). Each calculation produces aggregate values and optional time-series data. */
-            calculations?: {
-              /** @description Custom label for this calculation in the results. Useful for distinguishing multiple calculations. */
-              alias?: string;
-              /** @description Field name to calculate over. Must exist in the data - verify with the keys endpoint. Omit for operators that don't require a key (e.g. count). */
-              key?: string;
-              /**
-               * @description Data type of the key. Required when key is provided to ensure correct aggregation.
-               * @enum {string}
-               */
-              keyType?: "string" | "number" | "boolean";
-              /**
-               * @description Aggregation operator to apply. Examples: count, avg, sum, min, max, median, p90, p95, p99, uniq, stddev, variance.
-               * @enum {string}
-               */
-              operator:
-                | "uniq"
-                | "count"
-                | "max"
-                | "min"
-                | "sum"
-                | "avg"
-                | "median"
-                | "p001"
-                | "p01"
-                | "p05"
-                | "p10"
-                | "p25"
-                | "p75"
-                | "p90"
-                | "p95"
-                | "p99"
-                | "p999"
-                | "stddev"
-                | "variance"
-                | "COUNT_DISTINCT"
-                | "COUNT"
-                | "MAX"
-                | "MIN"
-                | "SUM"
-                | "AVG"
-                | "MEDIAN"
-                | "P001"
-                | "P01"
-                | "P05"
-                | "P10"
-                | "P25"
-                | "P75"
-                | "P90"
-                | "P95"
-                | "P99"
-                | "P999"
-                | "STDDEV"
-                | "VARIANCE";
-            }[];
+            calculations?: (
+              | {
+                  /** @description Custom label for this calculation in the results. Useful for distinguishing multiple calculations. */
+                  alias?: string;
+                  /** @description Field name to calculate over. Must exist in the data - verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it. */
+                  key?: string;
+                  /**
+                   * @description Data type of the key. Required when key is provided to ensure correct aggregation.
+                   * @enum {string}
+                   */
+                  keyType?: "string" | "number" | "boolean";
+                  /**
+                   * @description Aggregation operator to apply. Examples: count, avg, sum, min, max, median, p90, p95, p99, uniq, stddev, variance.
+                   * @enum {string}
+                   */
+                  operator: "count" | "COUNT";
+                }
+              | {
+                  /** @description Custom label for this calculation in the results. Useful for distinguishing multiple calculations. */
+                  alias?: string;
+                  /** @description Field name to calculate over. Must exist in the data - verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it. */
+                  key: string;
+                  /**
+                   * @description Data type of the key. Required when key is provided to ensure correct aggregation.
+                   * @enum {string}
+                   */
+                  keyType?: "string" | "number" | "boolean";
+                  /**
+                   * @description Aggregation operator to apply. Examples: count, avg, sum, min, max, median, p90, p95, p99, uniq, stddev, variance.
+                   * @enum {string}
+                   */
+                  operator:
+                    | "uniq"
+                    | "max"
+                    | "min"
+                    | "sum"
+                    | "avg"
+                    | "median"
+                    | "p001"
+                    | "p01"
+                    | "p05"
+                    | "p10"
+                    | "p25"
+                    | "p75"
+                    | "p90"
+                    | "p95"
+                    | "p99"
+                    | "p999"
+                    | "stddev"
+                    | "variance"
+                    | "COUNT_DISTINCT"
+                    | "MAX"
+                    | "MIN"
+                    | "SUM"
+                    | "AVG"
+                    | "MEDIAN"
+                    | "P001"
+                    | "P01"
+                    | "P05"
+                    | "P10"
+                    | "P25"
+                    | "P75"
+                    | "P90"
+                    | "P95"
+                    | "P99"
+                    | "P999"
+                    | "STDDEV"
+                    | "VARIANCE";
+                }
+            )[];
             /**
              * @description Datasets to query. Leave empty to query all available datasets.
              * @example []
@@ -11812,60 +11853,76 @@ export interface operations {
           /** @description Query parameters defining what data to retrieve - filters, calculations, group-bys, and ordering. In practice this should always be provided for ad-hoc queries. Only omit when executing a previously saved query by queryId. Use the keys and values endpoints to discover available fields before building filters. */
           parameters?: {
             /** @description Aggregation calculations to compute (e.g. count, avg, p99). Each calculation produces aggregate values and optional time-series data. */
-            calculations?: {
-              /** @description Custom label for this calculation in the results. Useful for distinguishing multiple calculations. */
-              alias?: string;
-              /** @description Field name to calculate over. Must exist in the data - verify with the keys endpoint. Omit for operators that don't require a key (e.g. count). */
-              key?: string;
-              /**
-               * @description Data type of the key. Required when key is provided to ensure correct aggregation.
-               * @enum {string}
-               */
-              keyType?: "string" | "number" | "boolean";
-              /**
-               * @description Aggregation operator to apply. Examples: count, avg, sum, min, max, median, p90, p95, p99, uniq, stddev, variance.
-               * @enum {string}
-               */
-              operator:
-                | "uniq"
-                | "count"
-                | "max"
-                | "min"
-                | "sum"
-                | "avg"
-                | "median"
-                | "p001"
-                | "p01"
-                | "p05"
-                | "p10"
-                | "p25"
-                | "p75"
-                | "p90"
-                | "p95"
-                | "p99"
-                | "p999"
-                | "stddev"
-                | "variance"
-                | "COUNT_DISTINCT"
-                | "COUNT"
-                | "MAX"
-                | "MIN"
-                | "SUM"
-                | "AVG"
-                | "MEDIAN"
-                | "P001"
-                | "P01"
-                | "P05"
-                | "P10"
-                | "P25"
-                | "P75"
-                | "P90"
-                | "P95"
-                | "P99"
-                | "P999"
-                | "STDDEV"
-                | "VARIANCE";
-            }[];
+            calculations?: (
+              | {
+                  /** @description Custom label for this calculation in the results. Useful for distinguishing multiple calculations. */
+                  alias?: string;
+                  /** @description Field name to calculate over. Must exist in the data - verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it. */
+                  key?: string;
+                  /**
+                   * @description Data type of the key. Required when key is provided to ensure correct aggregation.
+                   * @enum {string}
+                   */
+                  keyType?: "string" | "number" | "boolean";
+                  /**
+                   * @description Aggregation operator to apply. Examples: count, avg, sum, min, max, median, p90, p95, p99, uniq, stddev, variance.
+                   * @enum {string}
+                   */
+                  operator: "count" | "COUNT";
+                }
+              | {
+                  /** @description Custom label for this calculation in the results. Useful for distinguishing multiple calculations. */
+                  alias?: string;
+                  /** @description Field name to calculate over. Must exist in the data - verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it. */
+                  key: string;
+                  /**
+                   * @description Data type of the key. Required when key is provided to ensure correct aggregation.
+                   * @enum {string}
+                   */
+                  keyType?: "string" | "number" | "boolean";
+                  /**
+                   * @description Aggregation operator to apply. Examples: count, avg, sum, min, max, median, p90, p95, p99, uniq, stddev, variance.
+                   * @enum {string}
+                   */
+                  operator:
+                    | "uniq"
+                    | "max"
+                    | "min"
+                    | "sum"
+                    | "avg"
+                    | "median"
+                    | "p001"
+                    | "p01"
+                    | "p05"
+                    | "p10"
+                    | "p25"
+                    | "p75"
+                    | "p90"
+                    | "p95"
+                    | "p99"
+                    | "p999"
+                    | "stddev"
+                    | "variance"
+                    | "COUNT_DISTINCT"
+                    | "MAX"
+                    | "MIN"
+                    | "SUM"
+                    | "AVG"
+                    | "MEDIAN"
+                    | "P001"
+                    | "P01"
+                    | "P05"
+                    | "P10"
+                    | "P25"
+                    | "P75"
+                    | "P90"
+                    | "P95"
+                    | "P99"
+                    | "P999"
+                    | "STDDEV"
+                    | "VARIANCE";
+                }
+            )[];
             /**
              * @description Datasets to query. Leave empty to query all available datasets.
              * @example []
