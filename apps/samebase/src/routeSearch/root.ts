@@ -91,7 +91,7 @@ const RouteSearchSchema_root = defineRouteSearchParams({
   }),
   devtools: routeSearchPresenceParam({
     access: "access_public",
-    // React Query Devtools mounts dev-only UI; keep it typeable but out of
+    // React Query Devtools and React Scan mount dev-only UI; keep this typeable but out of
     // hover/keyboard suggestions so previewing a row cannot remount the app.
     suggestion: "hidden",
   }),

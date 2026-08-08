@@ -20,6 +20,7 @@ import {
   readRootRouteSearch,
   readCanonicalRouteAddressForRootSearch,
   type RootRouteSearch,
+  useRootRouteSearch,
   validateRootRouteSearch,
 } from "@/routeSearch/root";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
@@ -27,9 +28,15 @@ import { buildRootHead } from "@/lib/rootHead";
 import { isBrowserProductionPublicOrigin } from "@/lib/prodUiMode";
 import { clearRotatedLogoViewStates } from "@/lib/rotatedLogoViewState";
 import { type AppQueryClients } from "@/lib/appQueryClient";
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect } from "react";
 
 const pathname = "/";
+const REACT_SCAN_HOOK_INTEGRITY =
+  "sha384-gtx085UgMdaRetpZlCm2iy6u+Te8ZsKK0xhjG8ybjt2JfW7adJJf0gfOFkAjC0dK";
+const REACT_SCAN_HOOK_SRC = "https://unpkg.com/react-scan@0.5.7/dist/install-hook.global.js";
+const REACT_SCAN_LOADER_INTEGRITY =
+  "sha384-DDZCsimcjpG92OUulxf7DHi4rGS/fNIW7lC5DT8+5ftaTDiUKfzIq+pDTUbPjC86";
+const REACT_SCAN_LOADER_SRC = "https://unpkg.com/react-scan@0.5.7/dist/auto.global.js";
 
 type RootSearchMiddlewareArgs = {
   next: (search: RootRouteSearch) => RootRouteSearch;
@@ -48,8 +55,10 @@ function retainRootSearchParams({ next, search }: RootSearchMiddlewareArgs): Roo
 }
 
 function RootComponent() {
+  const { devtools } = useRootRouteSearch();
+
   return (
-    <RootDocument>
+    <RootDocument reactScanEnabled={devtools}>
       <AppBootErrorBoundary>
         <AppRootClient />
       </AppBootErrorBoundary>
@@ -57,18 +66,51 @@ function RootComponent() {
   );
 }
 
-function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
+function RootDocument({
+  children,
+  reactScanEnabled,
+}: Readonly<{ children: ReactNode; reactScanEnabled?: true }>) {
+  const shouldEnableReactScan = import.meta.env.DEV && reactScanEnabled;
+
   return (
     <html lang="en" suppressHydrationWarning translate="no">
       <head>
+        {shouldEnableReactScan ? (
+          <script
+            crossOrigin="anonymous"
+            integrity={REACT_SCAN_HOOK_INTEGRITY}
+            referrerPolicy="no-referrer"
+            src={REACT_SCAN_HOOK_SRC}
+          />
+        ) : null}
         <HeadContent />
       </head>
       <body>
         {children}
         <Scripts />
+        {shouldEnableReactScan ? <ReactScanLoader /> : null}
       </body>
     </html>
   );
+}
+
+function ReactScanLoader() {
+  useEffect(() => {
+    // React Scan is document-lifetime. Reuse the loader so Strict Mode does not run it twice.
+    if (document.querySelector("script[data-react-scan-loader]")) {
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.setAttribute("crossorigin", "anonymous");
+    script.setAttribute("data-react-scan-loader", "");
+    script.setAttribute("integrity", REACT_SCAN_LOADER_INTEGRITY);
+    script.setAttribute("referrerpolicy", "no-referrer");
+    script.src = REACT_SCAN_LOADER_SRC;
+    document.head.append(script);
+  }, []);
+
+  return null;
 }
 
 export const Route = createRootRouteWithContext<AppQueryClients>()({
