@@ -169,6 +169,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/authAdmin.convex.test.ts",
   "apps/samebase/convex/authAdmin.ts",
   "apps/samebase/convex/authAgentBrowserHandoff.convex.test.ts",
+  "apps/samebase/convex/authOAuthCallback.convex.test.ts",
   "apps/samebase/convex/authPassword.convex.test.ts",
   "apps/samebase/convex/authorizationCompletion.test.ts",
   "apps/samebase/convex/authorizationCompletion.ts",

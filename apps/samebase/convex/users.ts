@@ -32,7 +32,7 @@ import {
   vAccountPresentation,
 } from "../shared/accountPresentation";
 
-const { array, boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
+const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
 const vSignInMethod = object({ email: string() });
 const vGitHubSignInMethod = object({ email: string(), login: string() });
