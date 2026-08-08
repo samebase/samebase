@@ -13,6 +13,7 @@ import type { CloudflareProviderCredential } from "./organizationProviderCredent
 import { vOrganizationCloudflareAccount } from "./organizationModel";
 import {
   getOrganizationProviderConfiguration,
+  type CloudflareAuthorizedAccount,
   type OrganizationProviderConfiguration,
 } from "./organizationProviderCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
@@ -889,6 +890,78 @@ export const disconnectCloudflare = action({
       organizationId,
       disconnectedByUserId: ctx.viewer.userId,
       expectedAuth: configuration.cloudflareCredential.auth,
+    });
+    return null;
+  },
+});
+
+export const connectCloudflareWithApiToken = action({
+  access: "access_provider_connections",
+  args: {
+    organizationId: id("organizations"),
+    token: string(),
+  },
+  returns: vNull(),
+  handler: async (ctx, args): Promise<null> => {
+    const organizationId = await ctx.runQuery(
+      internal.organizationAccess.requireOrganizationOwnerIdForUser,
+      { userId: ctx.viewer.userId, organizationId: args.organizationId },
+    );
+    const token = args.token.trim();
+    if (!token) {
+      throw new Error("Cloudflare API token is required.");
+    }
+
+    const configuration = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForOrganization,
+      { organizationId, userId: ctx.viewer.userId },
+    );
+    const expectedProviderSnapshotHash = await hashOrganizationProviderSnapshot({
+      provider: "cloudflare",
+      accountId: configuration.cloudflareAccount?.accountId,
+      credential: configuration.cloudflareCredential,
+    });
+
+    let accounts: CloudflareAccounts;
+    try {
+      accounts = await ctx.runAction(
+        internal.cloudflareAccountDiscovery.listAccountsForUserApiToken,
+        { token },
+      );
+    } catch {
+      throw new Error("Cloudflare API token check failed.");
+    }
+    if (accounts.length === 0) {
+      throw new Error("Cloudflare API token cannot access an account.");
+    }
+
+    const configuredAccount = configuration.cloudflareAccount;
+    let account: CloudflareAuthorizedAccount;
+    if (configuredAccount !== undefined) {
+      const accessibleAccount = accounts.find(
+        (candidate) => candidate.accountId === configuredAccount.accountId,
+      );
+      if (accessibleAccount === undefined) {
+        throw new Error("Cloudflare API token cannot access the configured Cloudflare account.");
+      }
+      account = { state: "selected", ...accessibleAccount };
+    } else {
+      const [onlyAccount] = accounts;
+      account =
+        accounts.length === 1
+          ? { state: "selected", ...onlyAccount }
+          : { state: "selection_required" };
+    }
+
+    await ctx.runMutation(internal.organizationProviderCredentials.connectCloudflare, {
+      organizationId,
+      connectedByUserId: ctx.viewer.userId,
+      expectedProviderSnapshotHash,
+      auth: {
+        method: "api_key",
+        credential: token,
+      },
+      account,
     });
     return null;
   },

@@ -9,6 +9,7 @@ export type ProviderConnectionsPageVisualMode =
   | "providers-page-connected"
   | "providers-page-authorization-error"
   | "providers-page-loading"
+  | "providers-page-not-configured"
   | "providers-page-recovery";
 
 function fakeOrganizationId(): Id<"organizations"> {
@@ -128,6 +129,18 @@ const recoveryState = {
   githubAccess: connectedState.githubAccess,
 } satisfies ProviderConnectionsPageConnectionState;
 
+const notConfiguredState = {
+  cloudflareAccess: null,
+  cloudflareConnection: {
+    state: "not_configured",
+  },
+  convexAccess: null,
+  convexConnection: {
+    state: "not_configured",
+  },
+  githubAccess: connectedState.githubAccess,
+} satisfies ProviderConnectionsPageConnectionState;
+
 const noop = () => {};
 
 export function ProviderConnectionsPageVisualFixture({
@@ -136,11 +149,15 @@ export function ProviderConnectionsPageVisualFixture({
   mode?: ProviderConnectionsPageVisualMode;
 }) {
   const isLoading = mode === "providers-page-loading";
-  const state = mode === "providers-page-recovery" ? recoveryState : connectedState;
+  const state =
+    mode === "providers-page-recovery"
+      ? recoveryState
+      : mode === "providers-page-not-configured"
+        ? notConfiguredState
+        : connectedState;
 
   return (
     <ProviderConnectionsPageView
-      apiKeyDialog={null}
       authorizationErrorMessage={
         mode === "providers-page-authorization-error" ? AUTHORIZATION_ERROR_MESSAGE : null
       }
@@ -154,9 +171,11 @@ export function ProviderConnectionsPageVisualFixture({
         options: [],
         selectedAccountId: "",
       }}
+      cloudflareApiTokenDialog={null}
       cloudflareConnection={isLoading ? undefined : state.cloudflareConnection}
       convexAccess={isLoading ? null : state.convexAccess}
       convexAccessError={false}
+      convexApiKeyDialog={null}
       convexConnection={isLoading ? undefined : state.convexConnection}
       disconnectingProvider={null}
       githubAccess={isLoading ? null : state.githubAccess}
@@ -178,8 +197,9 @@ export function ProviderConnectionsPageVisualFixture({
       onCloudflareAccountSubmit={noop}
       onConnect={noop}
       onDisconnect={noop}
-      onOpenApiKeyDialog={noop}
       onOpenCloudflareAccountDialog={noop}
+      onOpenCloudflareApiTokenDialog={noop}
+      onOpenConvexApiKeyDialog={noop}
       onReconnectGitHubApp={noop}
       providerDisconnectNotice={null}
     />

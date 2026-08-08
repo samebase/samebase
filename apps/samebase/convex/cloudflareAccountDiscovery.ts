@@ -99,6 +99,30 @@ export async function listCloudflareAccountsForToken(args: {
   return normalizeCloudflareAccounts(accounts);
 }
 
+/** Verify the user token required by Workers Builds, then return its direct-API accounts. */
+export const listAccountsForUserApiToken = internalAction({
+  args: {
+    token: v.string(),
+  },
+  returns: v.array(vCloudflareAccount),
+  handler: async (_ctx, args) => {
+    const verification = await requestCloudflareApi({
+      token: args.token,
+      transport: "direct",
+      method: "GET",
+      path: "/user/tokens/verify",
+    });
+    if (!verification?.id.trim() || verification.status !== "active") {
+      throw new Error("Cloudflare API token is not active.");
+    }
+    return await listCloudflareAccountsForToken({
+      token: args.token,
+      transport: "direct",
+      perPage: 100,
+    });
+  },
+});
+
 export const listAccounts = internalAction({
   args: {
     token: v.string(),
