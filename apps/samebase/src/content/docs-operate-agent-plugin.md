@@ -14,7 +14,7 @@ arguments, safety metadata, and results.
 Add the marketplace and install the plugin:
 
 ```sh
-codex plugin marketplace add samebase/agent-plugins
+codex plugin marketplace add samebase/plugin
 codex plugin add samebase@samebase
 ```
 
@@ -26,7 +26,7 @@ Samebase OAuth when Codex prompts for access.
 Add the marketplace, install, and reload:
 
 ```text
-/plugin marketplace add samebase/agent-plugins
+/plugin marketplace add samebase/plugin
 /plugin install samebase@samebase
 /reload-plugins
 ```

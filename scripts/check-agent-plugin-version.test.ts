@@ -18,9 +18,9 @@ function git(repoRoot: string, args: readonly string[]): string {
   }).trim();
 }
 
-function writePackageVersion(repoRoot: string, version: string): void {
+function writePackageVersion(repoRoot: string, packageRoot: string, version: string): void {
   writeFileSync(
-    path.join(repoRoot, "packages/agent-plugins/package.json"),
+    path.join(repoRoot, packageRoot, "package.json"),
     `{
   "version": "${version}"
 }
@@ -51,34 +51,45 @@ describe("agent plugin release versions", () => {
     );
   });
 
-  it("keeps an invalid package change failed after an unrelated commit", () => {
+  it("handles the package directory rename and keeps an invalid change failed", () => {
     const repoRoot = mkdtempSync(path.join(tmpdir(), "samebase-agent-plugin-version-test-"));
+    const previousPackageRoot = "packages/agent-plugins";
+    const packageRoot = "packages/plugin";
 
     try {
       git(repoRoot, ["init", "-b", "main"]);
       git(repoRoot, ["config", "commit.gpgsign", "false"]);
       git(repoRoot, ["config", "user.name", "Agent Plugin Version Test"]);
       git(repoRoot, ["config", "user.email", "agent-plugin-version-test@example.com"]);
-      mkdirSync(path.join(repoRoot, "packages/agent-plugins"), { recursive: true });
-      writePackageVersion(repoRoot, "0.2.0");
-      writeFileSync(path.join(repoRoot, "packages/agent-plugins/README.md"), "Initial\n", "utf8");
+      mkdirSync(path.join(repoRoot, previousPackageRoot), { recursive: true });
+      writePackageVersion(repoRoot, previousPackageRoot, "0.2.18");
+      writeFileSync(path.join(repoRoot, previousPackageRoot, "README.md"), "Initial\n", "utf8");
       const initialCommit = commit(repoRoot, "Initial package");
 
-      writeFileSync(path.join(repoRoot, "packages/agent-plugins/README.md"), "Changed\n", "utf8");
+      git(repoRoot, ["mv", previousPackageRoot, packageRoot]);
+      writePackageVersion(repoRoot, packageRoot, "0.2.19");
+      const renameCommit = commit(repoRoot, "Rename package");
+      const renameBase = findLatestPackageChangeBase(repoRoot);
+      expect(git(repoRoot, ["rev-parse", renameBase])).toBe(initialCommit);
+      expect(checkAgentPluginVersion(repoRoot, renameBase)).toBe(
+        "Samebase plugin version increased from 0.2.18 to 0.2.19.",
+      );
+
+      writeFileSync(path.join(repoRoot, packageRoot, "README.md"), "Changed\n", "utf8");
       commit(repoRoot, "Change package without version");
       writeFileSync(path.join(repoRoot, "unrelated.txt"), "Unrelated\n", "utf8");
       commit(repoRoot, "Unrelated change");
 
       const baseCommit = findLatestPackageChangeBase(repoRoot);
-      expect(git(repoRoot, ["rev-parse", baseCommit])).toBe(initialCommit);
+      expect(git(repoRoot, ["rev-parse", baseCommit])).toBe(renameCommit);
       expect(() => checkAgentPluginVersion(repoRoot, baseCommit)).toThrow(
-        "version 0.2.0 is not greater than 0.2.0",
+        "version 0.2.19 is not greater than 0.2.19",
       );
 
-      writePackageVersion(repoRoot, "0.2.1");
+      writePackageVersion(repoRoot, packageRoot, "0.2.20");
       commit(repoRoot, "Increase package version");
       expect(checkAgentPluginVersion(repoRoot, findLatestPackageChangeBase(repoRoot))).toBe(
-        "Agent plugin version increased from 0.2.0 to 0.2.1.",
+        "Samebase plugin version increased from 0.2.19 to 0.2.20.",
       );
     } finally {
       rmSync(repoRoot, { recursive: true, force: true });

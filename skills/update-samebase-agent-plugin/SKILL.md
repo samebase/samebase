@@ -18,9 +18,9 @@ not copy tool schemas or general coding instructions into the skill.
 2. Delete rules for removed capabilities. Do not preserve internal compatibility.
 3. Update the hand-written submission source when tool effects, review prompts, or expected results
    change. Run `pnpm --filter samebase generate:action-docs`.
-4. For every change under `packages/agent-plugins`, increase the version in its package manifest and
-   both plugin manifests.
-5. Run `pnpm run check:agent-plugins` and `pnpm --filter samebase verify:action-docs`.
+4. For every change under `packages/plugin`, increase the version in its package manifest and both
+   plugin manifests.
+5. Run `pnpm run check:plugin` and `pnpm --filter samebase verify:action-docs`.
 
 ## Forward-test
 

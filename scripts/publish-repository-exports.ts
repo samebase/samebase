@@ -13,9 +13,9 @@ export type RepositoryExport = {
 
 export const repositoryExports = [
   {
-    sourceRoot: "packages/agent-plugins",
+    sourceRoot: "packages/plugin",
     targetBranch: "main",
-    targetRepository: "agent-plugins",
+    targetRepository: "plugin",
   },
 ] satisfies readonly RepositoryExport[];
 

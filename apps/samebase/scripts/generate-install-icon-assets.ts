@@ -12,7 +12,7 @@ const publicDir = path.join(appDir, "public");
 const repoRoot = path.resolve(appDir, "../..");
 const agentPluginIconPath = path.join(
   repoRoot,
-  trackedFilePath("packages/agent-plugins/plugins/samebase/assets/icon.png"),
+  trackedFilePath("packages/plugin/plugins/samebase/assets/icon.png"),
 );
 
 type IconJob = { canvasSize: number; outputPath: string };

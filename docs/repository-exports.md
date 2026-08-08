@@ -13,8 +13,8 @@ that belong in the external repository in the source directory.
 
 The monorepo owns formatting, lint, type, and other development checks. An exported repository does
 not need a second package manager workspace or a second tool configuration. It can include a small
-dependency-free check when that check is useful to external users. For example, `agent-plugins`
-checks its plugin contract with Node.js in both the monorepo and the external repository.
+dependency-free check when that check is useful to external users. For example, `plugin` checks its
+plugin contract with Node.js in both the monorepo and the external repository.
 
 ## Automatic workflow
 
@@ -50,12 +50,12 @@ its own subject, even when that commit did not change the source directory.
 
 ## Agent plugin versions
 
-Every change under `packages/agent-plugins` must increase its numeric `major.minor.patch` version.
-Pull request CI compares the package with the pull request base commit. Main CI repeats the check
-against the package state before the latest package-changing commit. A failed package change stays
-failed across later unrelated commits, so the publisher cannot release it.
+Every change under `packages/plugin` must increase its numeric `major.minor.patch` version. Pull
+request CI compares the package with the pull request base commit. Main CI repeats the check against
+the package state before the latest package-changing commit. A failed package change stays failed
+across later unrelated commits, so the publisher cannot release it.
 
-Update the version manually. `packages/agent-plugins/scripts/check.ts` requires the package, Codex
+Update the version manually. `packages/plugin/scripts/check.ts` requires the package, Codex
 manifest, and Claude manifest versions to match. The Claude marketplace reads the version from the
 Claude plugin manifest, which prevents two version fields from drifting.
 

@@ -5,7 +5,7 @@ import { resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 import { trackedFilePath } from "./lib/trackedFilePath.ts";
 
 const appIconPath = trackedFilePath("apps/samebase/public/chatgpt-app-icon.png");
-const pluginIconPath = trackedFilePath("packages/agent-plugins/plugins/samebase/assets/icon.png");
+const pluginIconPath = trackedFilePath("packages/plugin/plugins/samebase/assets/icon.png");
 
 await runMain(() => {
   const repoRoot = resolveRepoRoot();

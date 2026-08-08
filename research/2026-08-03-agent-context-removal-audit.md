@@ -5,7 +5,7 @@
 - Status: Current removal decision
 - Date: 2026-08-03
 - Supersedes the runtime and packaging direction in the 2026-05-23 agent-context research series
-- Related: `packages/agent-plugins/`, `skills/update-samebase-agent-plugin/SKILL.md`
+- Related: `packages/plugin/`, `skills/update-samebase-agent-plugin/SKILL.md`
 
 ## Decision
 
@@ -43,7 +43,7 @@ fixed-input, cross-model forward-test contract, and the older research remains t
 - Active repo skills own conditional Samebase workflows.
 - Docs and accepted specs own detailed workflow and product contracts.
 - Code and tests own current behavior.
-- `packages/agent-plugins` owns public Samebase agent distribution.
+- `packages/plugin` owns public Samebase agent distribution.
 - The 2026-05-23 research series remains historical evidence only.
 
 ## Next Test

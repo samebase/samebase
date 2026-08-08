@@ -49,7 +49,7 @@ boundary.
 
 The Sites lessons belong in both Samebase repositories, with one owner for each kind of truth:
 
-- `samebase/agent-plugins` owns discovery, build and hosting workflow, cross-skill handoff, success
+- `samebase/plugin` owns discovery, build and hosting workflow, cross-skill handoff, success
   criteria, and agent communication;
 - Samebase action contracts own tool names, schemas, access, safety annotations, and results;
 - MCP server instructions own the short cross-tool continuity contract clients receive at
@@ -324,7 +324,7 @@ The 19 Sites connector tools are evidence about tool design, not a Samebase back
 
 ### 1. Make the plugin carry the complete journey
 
-In the `samebase/agent-plugins` repository:
+In the `samebase/plugin` repository:
 
 - replace the single generic skill with `samebase-building` and `samebase-hosting`;
 - broaden discovery to websites, dashboards, portals, trackers, games, and internal tools;
