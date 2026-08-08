@@ -37,6 +37,7 @@ vi.mock("@octokit/rest", () => ({
 
 import {
   discoverPreviewSeedGitHubAppInstallations,
+  readGitHubAppInstallation,
   verifyGitHubAppInstallation,
   verifyGitHubUserAuthorization,
 } from "./githubApp";
@@ -135,6 +136,7 @@ function appInstallationFixture(suspendedAt: string | null = null) {
 
 function installation() {
   return {
+    ...appInstallationFixture(),
     id: 1001,
     app_id: 42,
     account: githubMocks.owner,
@@ -185,6 +187,22 @@ describe("GitHub App installation verification", () => {
       }
       throw new Error(`Unexpected GitHub route: ${route}`);
     });
+  });
+
+  it("rejects invalid live permission and repository selection values", async () => {
+    const invalidPermissions = installation();
+    invalidPermissions.permissions.contents = "admin";
+    githubMocks.request.mockResolvedValueOnce({ data: invalidPermissions });
+    await expect(readGitHubAppInstallation("1001")).rejects.toThrow(
+      "GitHub returned invalid installation permissions.",
+    );
+
+    const invalidRepositorySelection = installation();
+    invalidRepositorySelection.repository_selection = "partial";
+    githubMocks.request.mockResolvedValueOnce({ data: invalidRepositorySelection });
+    await expect(readGitHubAppInstallation("1001")).rejects.toThrow(
+      "GitHub returned an invalid installation repository selection.",
+    );
   });
 
   it("discovers only the preview user's personal and active admin installations", async () => {

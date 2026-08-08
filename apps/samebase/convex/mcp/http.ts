@@ -149,23 +149,23 @@ function callGetAuthenticationStatusMcpTool(
   }
 
   const normalizedEmail = normalizeAccountEmail(viewerUser.email);
+  const accountPresentation = resolveAccountPresentation({
+    displayName: viewerUser.displayName,
+    email: normalizedEmail,
+  });
   const authentication: McpAuthenticationStatus = {
     authenticated: true,
     user: {
-      name: viewerUser.name,
+      ...(accountPresentation.kind === "displayName" ? { name: accountPresentation.label } : {}),
       email: normalizedEmail,
     },
     role: invocation.viewer.role,
     accessKeys: invocation.viewer.accessKeys,
     grantedScopes: invocation.grantedScopes,
   };
-  const accountLabel = resolveAccountPresentation({
-    displayName: viewerUser.displayName,
-    email: normalizedEmail,
-  }).label;
   return {
     status: "ok",
-    text: `Authenticated as ${accountLabel}.`,
+    text: `Authenticated as ${accountPresentation.label}.`,
     structuredContent: { authentication },
   };
 }

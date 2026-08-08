@@ -19,8 +19,7 @@ vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
   return {
     ...actual,
-    useAction: () => vi.fn(async () => ({ status: "connected" })),
-    useMutation: () => vi.fn(async () => "https://github.com/apps/samebase/installations/new"),
+    useAction: () => vi.fn(async () => undefined),
     useQuery: (reference: Parameters<typeof actual.useQuery>[0]) => {
       const functionName = getFunctionName(reference);
       if (functionName === getFunctionName(api.billing.getViewerBillingStatus)) {
@@ -67,16 +66,5 @@ describe("OrganizationSettingsPage", () => {
     expect(markup).toContain("Convex projects");
     expect(markup).not.toContain("Open billing");
     expect(markup).not.toContain("/settings/billing");
-  });
-
-  it("keeps GitHub App reconnection owner-only", () => {
-    const ownerMarkup = renderOrganizationSettings(organization);
-    const memberMarkup = renderOrganizationSettings({ ...organization, role: "member" });
-
-    expect(ownerMarkup).toContain("Reconnect GitHub App");
-    expect(memberMarkup).not.toContain("Reconnect GitHub App");
-    expect(memberMarkup).toContain("Current plan");
-    expect(memberMarkup).not.toContain("Upgrade to Pro");
-    expect(memberMarkup).not.toContain("Manage subscription");
   });
 });

@@ -226,14 +226,7 @@ function parseAuthenticatedGitHubUser(value: unknown): {
   };
 }
 
-function parseGitHubInstallation(value: unknown): {
-  installationId: string;
-  appId: number;
-  githubOwnerId: string;
-  githubOwnerType: "organization" | "user";
-  githubOwnerLogin: string;
-  suspended: boolean;
-} {
+function parseGitHubInstallation(value: unknown) {
   if (!isRecord(value) || !isRecord(value["account"])) {
     throw new Error("GitHub returned an invalid installation.");
   }
@@ -257,14 +250,56 @@ function parseGitHubInstallation(value: unknown): {
     throw new Error("GitHub returned an unsupported installation owner type.");
   }
 
+  if (!isRecord(value["permissions"])) {
+    throw new Error("GitHub returned invalid installation permissions.");
+  }
+  const permissions = Object.entries(value["permissions"])
+    .map(([key, access]) => {
+      if (!/^[a-z][a-z0-9_]*$/.test(key) || (access !== "read" && access !== "write")) {
+        throw new Error("GitHub returned invalid installation permissions.");
+      }
+      return { access, key } as const;
+    })
+    .sort((left, right) => left.key.localeCompare(right.key));
+
+  const repositorySelection = value["repository_selection"];
+  if (repositorySelection !== "all" && repositorySelection !== "selected") {
+    throw new Error("GitHub returned an invalid installation repository selection.");
+  }
+
   return {
     installationId: String(installationId),
     appId,
     githubOwnerId: String(githubOwnerId),
     githubOwnerType,
     githubOwnerLogin: value["account"]["login"].trim(),
+    permissions,
+    repositorySelection,
     suspended: value["suspended_at"] !== null && value["suspended_at"] !== undefined,
-  };
+  } as const;
+}
+
+export async function readGitHubAppInstallation(installationId: string) {
+  const configuration = getGitHubAppConfiguration();
+  const expectedInstallationId = requirePositiveSafeInteger(
+    installationId,
+    "GitHub installation ID",
+  );
+  const response = await createGitHubAppOctokit(configuration).request(
+    "GET /app/installations/{installation_id}",
+    { installation_id: expectedInstallationId },
+  );
+  const installation = parseGitHubInstallation(response.data);
+  if (
+    installation.installationId !== String(expectedInstallationId) ||
+    installation.appId !== configuration.appId
+  ) {
+    throw new Error("GitHub App installation verification did not match this App.");
+  }
+  if (installation.suspended) {
+    throw new Error("The GitHub App installation is suspended.");
+  }
+  return installation;
 }
 
 function parseGitHubOrganizationMembership(value: unknown): {
@@ -502,11 +537,7 @@ export async function verifyGitHubAppInstallation(args: {
     installationId: args.installationId,
   });
 
-  const appResponse = await createGitHubAppOctokit(configuration).request(
-    "GET /app/installations/{installation_id}",
-    { installation_id: args.installationId },
-  );
-  const appInstallation = parseGitHubInstallation(appResponse.data);
+  const appInstallation = await readGitHubAppInstallation(String(args.installationId));
   assertMatchingInstallations({
     appId: configuration.appId,
     expectedInstallationId: args.installationId,

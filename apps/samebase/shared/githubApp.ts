@@ -17,13 +17,13 @@ export function isSafeGitHubAppReturnToPath(returnToPath: string): boolean {
   }
 }
 
-export function buildGitHubOrganizationSettingsReturnUrl(args: {
+export function buildGitHubOrganizationProvidersReturnUrl(args: {
   githubOwnerLogin: string;
   previousReturnUrl: string;
 }): string {
   const previousReturnUrl = new URL(args.previousReturnUrl);
   const returnUrl = new URL(
-    `/org/${encodeURIComponent(args.githubOwnerLogin.trim().toLowerCase())}/settings`,
+    `/org/${encodeURIComponent(args.githubOwnerLogin.trim().toLowerCase())}/providers`,
     previousReturnUrl,
   );
   returnUrl.search = previousReturnUrl.search;

@@ -36,6 +36,18 @@ describe("GitHub-backed organizations", () => {
       githubOwnerLogin: "Samebase",
       githubInstallationId: "1001",
     });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(userId, { name: "Provider profile name", displayName: "Samebase name" });
+    });
+    await expect(
+      t.mutation(internal.billing.ensurePolarExternalCustomerId, {
+        userId,
+        organizationId: created.organizationId,
+      }),
+    ).resolves.toMatchObject({
+      name: "Samebase name",
+      email: "owner@example.com",
+    });
     const providerCredentialsId = await t.run(async (ctx) => {
       await ctx.db.patch(created.organizationId, {
         cloudflareAccount: {

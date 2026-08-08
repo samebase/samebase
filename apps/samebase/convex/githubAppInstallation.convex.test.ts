@@ -432,7 +432,7 @@ describe("verified GitHub App installation completion", () => {
     await expect(replayResponse.text()).resolves.toBe("Invalid GitHub App setup state");
   });
 
-  it("keeps both organizations unchanged and uses the current route when reconnect selects another owner", async () => {
+  it("keeps both organizations unchanged and returns to Providers when reconnect selects another owner", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -462,7 +462,7 @@ describe("verified GitHub App installation completion", () => {
       })
       .mutation(api.githubAppInstallation.getGitHubAppReconnectUrl, {
         organizationId: first.organizationId,
-        returnToPath: "/org/owner-a/settings?prod-ui#github",
+        returnToPath: "/org/owner-a/providers?prod-ui#github",
       });
     expect(reconnectSetup.callbackOrigin).toBe("https://api.samebase.com");
     const state = new URL(reconnectSetup.setupUrl).searchParams.get("state");
@@ -478,7 +478,7 @@ describe("verified GitHub App installation completion", () => {
     expect(setupState).toMatchObject({
       organizationId: first.organizationId,
       purpose: "installation_reconnect",
-      returnToPath: "/org/owner-a/settings?prod-ui#github",
+      returnToPath: "/org/owner-a/providers?prod-ui#github",
     });
     if (setupState === null) {
       throw new Error("GitHub reconnect setup state is required.");
@@ -507,7 +507,7 @@ describe("verified GitHub App installation completion", () => {
     const html = await expectGitHubCompletion(
       response,
       buildAuthorizationErrorUrl(
-        "https://samebase.com/org/renamed-owner-a/settings?prod-ui#github",
+        "https://samebase.com/org/renamed-owner-a/providers?prod-ui#github",
         {
           provider: "github-app",
           code: "target-mismatch",

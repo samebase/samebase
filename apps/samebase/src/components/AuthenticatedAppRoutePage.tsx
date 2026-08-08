@@ -32,7 +32,7 @@ function isAuthorizationErrorHandledByRoute(
     case "cloudflare":
       return /^\/org\/[^/]+\/providers\/?$/.test(pathname);
     case "github-app":
-      return /^\/org\/[^/]+\/settings\/?$/.test(pathname);
+      return /^\/org\/[^/]+\/providers\/?$/.test(pathname);
     case "github-user":
       return pathname === "/settings";
     default:

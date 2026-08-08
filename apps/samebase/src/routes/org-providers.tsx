@@ -7,7 +7,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback } from "react";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 
-const PROVIDER_AUTHORIZATION_SOURCES = ["convex", "cloudflare"] as const;
+const PROVIDER_AUTHORIZATION_SOURCES = ["convex", "cloudflare", "github-app"] as const;
 
 export const Route = createFileRoute("/org/$owner/providers")({
   component: OrganizationProvidersRoutePage,

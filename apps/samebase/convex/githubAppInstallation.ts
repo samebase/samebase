@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 
 import {
   buildGitHubAppInstallationUrl,
-  buildGitHubOrganizationSettingsReturnUrl,
+  buildGitHubOrganizationProvidersReturnUrl,
   buildGitHubAppSetupReturnUrl,
   buildGitHubUserAuthorizationUrl,
   isSafeGitHubAppReturnToPath,
@@ -523,7 +523,7 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
         switch (completion.status) {
           case "stored":
             if (setupState.purpose === "installation_reconnect") {
-              completionReturnUrl = buildGitHubOrganizationSettingsReturnUrl({
+              completionReturnUrl = buildGitHubOrganizationProvidersReturnUrl({
                 githubOwnerLogin: completion.githubOwnerLogin,
                 previousReturnUrl: returnUrl,
               });
@@ -537,7 +537,7 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
             break;
           case "target_mismatch":
             completionReturnUrl = buildAuthorizationErrorUrl(
-              buildGitHubOrganizationSettingsReturnUrl({
+              buildGitHubOrganizationProvidersReturnUrl({
                 githubOwnerLogin: completion.githubOwnerLogin,
                 previousReturnUrl: returnUrl,
               }),
