@@ -262,7 +262,7 @@ test("landing preview uses the depth-three Menger hover scene", async ({ page })
   await waitForPaint(page);
   await expect(hero).toHaveScreenshot("landing-preview-hero-menger.png", SCREENSHOT_OPTIONS);
 
-  await dragSceneByPixels(page, scene, { x: 5, y: 0 });
+  await dragSceneByPixels(page, scene, { x: 2, y: 4 });
   await expect(scene).toHaveAttribute("data-logo-elevation-degrees", "0");
   await expect(scene).toHaveAttribute("data-logo-rotation-degrees", "0");
   await expect
@@ -289,7 +289,7 @@ test("landing preview uses the depth-three Menger hover scene", async ({ page })
     })
     .toEqual({ elevation: "35.3", rotation: "45" });
 
-  await dragSceneByPixels(page, scene, { x: 5, y: 0 });
+  await dragSceneByPixels(page, scene, { x: 2, y: 4 });
   await expect
     .poll(() => {
       const url = new URL(page.url());

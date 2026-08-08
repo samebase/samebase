@@ -5,7 +5,9 @@ import {
   createOrganizationContextAcceptanceAccount,
   signInOrganizationContextAcceptanceAccount,
 } from "./organizationContextAcceptance";
+import { signInIfNeeded } from "./liveHelpers";
 import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
+import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 
 const MAIN_HEADER_TEST_ID = "workspace-layout-v2-main-pane-header";
 const screenshotOptions = {
@@ -443,18 +445,24 @@ test.describe("small screen organization context", () => {
       reducedMotion: "reduce",
     });
     const signupPage = await signupContext.newPage();
-    await createApprovedAccount(signupPage, testInfo, "mobile", [
-      {
-        access: "retain",
-        ownerLogin: "org-context-mobile-alpha",
-        repositories: ["mobile-app"],
-      },
-      {
-        access: "retain",
-        ownerLogin: "org-context-mobile-beta",
-        repositories: [],
-      },
-    ]);
+    await signupPage.goto("/", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(signupPage, "/");
+    await applyOrganizationContextAcceptanceFixture({
+      email: LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
+      organizations: [
+        {
+          access: "retain",
+          ownerLogin: "org-context-mobile-alpha",
+          repositories: ["mobile-app"],
+        },
+        {
+          access: "retain",
+          ownerLogin: "org-context-mobile-beta",
+          repositories: [],
+        },
+      ],
+    });
+    await seedVisualFixtureWorkspaceSidebarState(signupPage);
     const storageState = await signupContext.storageState();
     await signupContext.close();
 
