@@ -94,12 +94,12 @@ describe("resolveLogoViewState", () => {
         config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
         view: {
           elevationDegrees: 22.4,
-          rotationDegrees: 14.3,
+          rotationDegrees: 43.6,
         },
       }),
     ).toEqual({
       elevationDegrees: 22.4,
-      rotationDegrees: 14.3,
+      rotationDegrees: 43.6,
     });
   });
 
@@ -109,7 +109,7 @@ describe("resolveLogoViewState", () => {
         config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
         view: {
           elevationDegrees: 35.6,
-          rotationDegrees: 43.6,
+          rotationDegrees: 44.1,
         },
       }),
     ).toEqual({
@@ -124,7 +124,7 @@ describe("resolveLogoViewState", () => {
         config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
         view: {
           elevationDegrees: 359.1,
-          rotationDegrees: 43.6,
+          rotationDegrees: 44.1,
         },
       }),
     ).toEqual({
@@ -139,7 +139,7 @@ describe("resolveLogoViewState", () => {
         config: PUBLIC_LANDING_LOGO_VIEW_DRAG_CONFIG,
         view: {
           elevationDegrees: 35.6,
-          rotationDegrees: 1.2,
+          rotationDegrees: 0.9,
         },
       }),
     ).toEqual({
