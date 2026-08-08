@@ -346,19 +346,30 @@ test("keeps provider ownership and actions together in mobile settings", async (
   });
 });
 
-test("covers the mobile vault removal dialog", async ({ page }) => {
+test("covers the mobile vault removal dialogs", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  await openVaultOverviewV2(page, "vault-overview-v2-delete-dialog");
+  const cases = [
+    ["vault-overview-v2-delete-dialog", "vault-overview-v2-delete-dialog-mobile.png", 3],
+    [
+      "vault-overview-v2-delete-failed-dialog",
+      "vault-overview-v2-delete-failed-dialog-mobile.png",
+      0,
+    ],
+  ] as const satisfies readonly [VaultOverviewV2VisualMode, string, number][];
 
-  const dialog = page.getByRole("dialog");
-  await expect(dialog.getByRole("heading", { name: /Remove Vault/ })).toBeVisible();
-  await expect(dialog.getByRole("checkbox")).toHaveCount(3);
-  await expect(dialog).toHaveScreenshot("vault-overview-v2-delete-dialog-mobile.png", {
-    animations: "disabled",
-    caret: "hide",
-    maxDiffPixelRatio: 0.02,
-    scale: "css",
-  });
+  for (const [mode, screenshotName, checkboxCount] of cases) {
+    await openVaultOverviewV2(page, mode);
+
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: /Remove Vault/ })).toBeVisible();
+    await expect(dialog.getByRole("checkbox")).toHaveCount(checkboxCount);
+    await expect(dialog).toHaveScreenshot(screenshotName, {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    });
+  }
 });
 
 test("covers Convex connection dialog states", async ({ page }) => {

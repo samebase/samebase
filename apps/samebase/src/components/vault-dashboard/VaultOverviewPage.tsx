@@ -114,11 +114,13 @@ function RepositoryHeader({
 function FailureNotice({
   description,
   isRetrying,
+  onRemoveFromSamebase,
   onRetry,
   title,
 }: {
   description: string;
   isRetrying?: boolean;
+  onRemoveFromSamebase?: () => void;
   onRetry?: () => void;
   title: string;
 }) {
@@ -134,13 +136,34 @@ function FailureNotice({
 
   return (
     <div className="border border-red-200 bg-red-50 px-4 py-3 text-red-950">
-      {onRetry ? (
+      {onRetry || onRemoveFromSamebase ? (
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex min-w-0 items-start gap-3">{content}</div>
-          <Button disabled={isRetrying} size="sm" type="button" variant="outline" onClick={onRetry}>
-            {isRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {isRetrying ? "Retrying..." : "Retry"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {onRetry ? (
+              <Button
+                disabled={isRetrying}
+                size="sm"
+                type="button"
+                variant="outline"
+                onClick={onRetry}
+              >
+                {isRetrying ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {isRetrying ? "Retrying..." : "Retry"}
+              </Button>
+            ) : null}
+            {onRemoveFromSamebase ? (
+              <Button
+                disabled={isRetrying}
+                size="sm"
+                type="button"
+                variant="destructive"
+                onClick={onRemoveFromSamebase}
+              >
+                Remove from Samebase
+              </Button>
+            ) : null}
+          </div>
         </div>
       ) : (
         <div className="flex items-start gap-3">{content}</div>
@@ -151,11 +174,13 @@ function FailureNotice({
 
 function VaultStateNotice({
   isRetryingVaultAction,
+  onOpenDeleteDialog,
   onRetryInfrastructureProvisioning,
   onRetryVaultDeletion,
   vault,
 }: {
   isRetryingVaultAction: boolean;
+  onOpenDeleteDialog: () => void;
   onRetryInfrastructureProvisioning: () => void;
   onRetryVaultDeletion: () => void;
   vault: UserVaultResult;
@@ -165,6 +190,7 @@ function VaultStateNotice({
       <FailureNotice
         description={vault.deletion.message}
         isRetrying={isRetryingVaultAction}
+        onRemoveFromSamebase={onOpenDeleteDialog}
         onRetry={onRetryVaultDeletion}
         title="Vault removal failed"
       />
@@ -252,6 +278,7 @@ export function VaultOverviewPage({
           ) : (
             <VaultStateNotice
               isRetryingVaultAction={isRetryingVaultAction}
+              onOpenDeleteDialog={onOpenDeleteDialog}
               onRetryInfrastructureProvisioning={onRetryInfrastructureProvisioning}
               onRetryVaultDeletion={onRetryVaultDeletion}
               vault={workspace.vault}

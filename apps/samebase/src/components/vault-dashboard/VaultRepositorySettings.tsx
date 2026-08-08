@@ -239,7 +239,9 @@ export function RepositorySettings({
   const deleteAction =
     workspace.vault.deletion.state === "not_deleting"
       ? workspace.vault.deletion.deleteAction
-      : { state: "disabled" as const, reason: "Vault removal is already in progress." };
+      : workspace.vault.deletion.state === "delete_failed"
+        ? { state: "available" as const }
+        : { state: "disabled" as const, reason: "Vault removal is already in progress." };
   const removeVaultDisabled = deleteAction.state === "disabled";
   const repositoryIdentity = (
     <>
@@ -370,7 +372,9 @@ export function RepositorySettings({
           <p className="max-w-xl text-xs leading-5 text-muted-foreground">
             {deleteAction.state === "disabled"
               ? deleteAction.reason
-              : "Review repository and provider cleanup before anything is removed."}
+              : workspace.vault.deletion.state === "delete_failed"
+                ? "Keep GitHub, Convex, and Cloudflare resources, then remove only Samebase data."
+                : "Review repository and provider cleanup before anything is removed."}
           </p>
           <Button
             className="justify-self-start @3xl:justify-self-end"
@@ -380,7 +384,9 @@ export function RepositorySettings({
             variant="destructive"
             onClick={onOpenDeleteDialog}
           >
-            Remove vault
+            {workspace.vault.deletion.state === "delete_failed"
+              ? "Remove from Samebase"
+              : "Remove vault"}
           </Button>
         </div>
       </section>

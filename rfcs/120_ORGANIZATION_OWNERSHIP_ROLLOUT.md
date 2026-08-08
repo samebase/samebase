@@ -12,7 +12,11 @@
 - Replacement PR: [#1367](https://github.com/samebase/samebase/pull/1367)
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
 - Current checkpoint: PR #1367 merged as `db069c026`; the linked-worktree organization seed
-  follow-up passed focused and manual validation
+  follow-up passed focused and manual validation. The GitHub identity lifecycle branch is rebased on
+  the current organization and provider model. Full tests and checks pass. A temporary managed
+  repository rename, open-route repair, current-route reload, and cleanup passed. The shared
+  development App has access to all repositories, so repository access removal and App uninstall
+  remain automated fail-closed tests instead of shared-installation manual changes.
 
 ## Purpose
 
@@ -262,8 +266,9 @@ Status: Complete on the replacement branch
   role, removal, and leave flows. Every organization must retain an active owner.
 - Vaults use `organizations.githubOwnerLogin` as current route and display data. Historical workflow
   snapshots can retain the owner login observed when the workflow started.
-- Do not add a repository-only rename patch. A future GitHub identity synchronization task must
-  define organization-owner and repository rename behavior together.
+- GitHub owner and repository names use the live stable-ID read-repair rule in the accepted spec.
+  Both stored stable IDs must match before mutable names can change. No GitHub event moves a vault
+  or other organization-owned data.
 - Account deletion waits for queued or running vault provisioning and deletion work started by the
   deleting user before it revokes credentials or removes memberships. Manual provider-write locks do
   not record an actor, so exact manual-write dependency tracking stays in a future provider
@@ -300,10 +305,10 @@ Clear `observations_vaultConvexSchema_snapshots` before deploying the schema tha
 - All legacy user billing fields were removed. No retained user has an active account deletion.
 - The Workflow component has no active run. Its internal history and configuration remain.
 
-Webhook setup is deferred until the main installation and repository flows work. It is not a release
-blocker for this rollout.
+The accepted identity lifecycle uses live GitHub checks and does not need a webhook endpoint or
+cached installation status for its current consumers.
 
 ## Next Exact Task
 
-Merge the focused linked-worktree setup follow-up after review and CI. Keep production provider
-housekeeping separate from the organization model.
+Review and merge GitHub identity lifecycle PR
+[#1374](https://github.com/samebase/samebase/pull/1374) after CI.

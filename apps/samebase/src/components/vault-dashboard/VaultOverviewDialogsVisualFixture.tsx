@@ -14,6 +14,7 @@ export type VaultOverviewDialogsVisualMode =
   | "vault-overview-v2-convex-dialog"
   | "vault-overview-v2-convex-dialog-error"
   | "vault-overview-v2-convex-dialog-loading"
+  | "vault-overview-v2-delete-failed-dialog"
   | "vault-overview-v2-delete-dialog";
 
 type CloudflareDialogWorker = Parameters<typeof VaultCloudflareDialogContent>[0]["workers"][number];
@@ -228,12 +229,15 @@ export function VaultOverviewDialogsVisualFixture({
 }) {
   switch (mode) {
     case "vault-overview-v2-delete-dialog":
+    case "vault-overview-v2-delete-failed-dialog": {
+      const localOnlyRecovery = mode === "vault-overview-v2-delete-failed-dialog";
       return (
         <DialogFixture mode={mode}>
           <VaultDeleteDialogContent
             commitError={null}
             deleteError={null}
             didAttemptCommit={false}
+            mode={localOnlyRecovery ? "local_only_recovery" : "initial"}
             onCommitBeforeRemove={() => {}}
             onDeleteOptionChange={() => {}}
             onOpenChange={() => {}}
@@ -256,6 +260,7 @@ export function VaultOverviewDialogsVisualFixture({
           />
         </DialogFixture>
       );
+    }
     case "vault-overview-v2-convex-dialog":
       return <ConvexDialogFixture error={null} isLoading={false} mode={mode} />;
     case "vault-overview-v2-convex-dialog-loading":

@@ -32,6 +32,7 @@ type VaultDeleteOptionKey =
   | "removeCloudflareProvision";
 
 type VaultDeleteProgress = "idle" | "committing" | "deleting";
+type VaultDeleteMode = "initial" | "local_only_recovery";
 type VaultDeleteOperation =
   | {
       state: "idle";
@@ -55,6 +56,7 @@ export function VaultDeleteDialogContent({
   didAttemptCommit,
   onCommitBeforeRemove,
   onDeleteOptionChange,
+  mode,
   onOpenChange,
   onRemoveVault,
   progress,
@@ -70,6 +72,7 @@ export function VaultDeleteDialogContent({
   didAttemptCommit: boolean;
   onCommitBeforeRemove: () => void;
   onDeleteOptionChange: (option: VaultDeleteOptionKey, value: boolean) => void;
+  mode: VaultDeleteMode;
   onOpenChange: (isOpen: boolean) => void;
   onRemoveVault: () => void;
   progress: VaultDeleteProgress;
@@ -82,6 +85,7 @@ export function VaultDeleteDialogContent({
   const hasStagedChanges = stagedChangesCount > 0;
   const isCommitting = progress === "committing";
   const isDeleting = progress === "deleting";
+  const isLocalOnlyRecovery = mode === "local_only_recovery";
   const removeCloudflareCheckboxId = "remove-cloudflare-provision";
 
   return (
@@ -90,32 +94,37 @@ export function VaultDeleteDialogContent({
         <DialogHeader>
           <DialogTitle>Remove Vault {target.repositoryFullName}</DialogTitle>
           <DialogDescription>
-            {hasStagedChanges
-              ? `This vault has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
-              : "All local changes are already backed up on GitHub."}
+            {isLocalOnlyRecovery
+              ? `Samebase will remove this vault${hasStagedChanges ? ` and its ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}` : ""}. GitHub, Convex, and Cloudflare resources will stay unchanged.`
+              : hasStagedChanges
+                ? `This vault has ${stagedChangesCount} uncommitted local change${stagedChangesCount === 1 ? "" : "s"}. You can commit ${stagedChangesCount === 1 ? "it" : "them"} now.`
+                : "All local changes are already backed up on GitHub."}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
-          <div className="flex items-start gap-2">
-            <Checkbox
-              id="remove-github-repo"
-              checked={removeGithubRepo}
-              onCheckedChange={(checked) =>
-                onDeleteOptionChange("removeGithubRepo", checked === true)
-              }
-              disabled={!target.canRemoveGithubRepo || isDeleting || isCommitting}
-              className="mt-0.5"
-            />
-            <label htmlFor="remove-github-repo" className="text-sm text-muted-foreground">
-              Also remove GitHub repository
-              {!target.canRemoveGithubRepo ? (
-                <div className="text-xs text-muted-foreground">
-                  Only available for confirmed repositories created in Samebase.
-                </div>
-              ) : null}
-            </label>
-          </div>
-          {target.hasConvexProvision || target.canRemoveConvexProvision ? (
+          {!isLocalOnlyRecovery ? (
+            <div className="flex items-start gap-2">
+              <Checkbox
+                id="remove-github-repo"
+                checked={removeGithubRepo}
+                onCheckedChange={(checked) =>
+                  onDeleteOptionChange("removeGithubRepo", checked === true)
+                }
+                disabled={!target.canRemoveGithubRepo || isDeleting || isCommitting}
+                className="mt-0.5"
+              />
+              <label htmlFor="remove-github-repo" className="text-sm text-muted-foreground">
+                Also remove GitHub repository
+                {!target.canRemoveGithubRepo ? (
+                  <div className="text-xs text-muted-foreground">
+                    Only available for confirmed repositories created in Samebase.
+                  </div>
+                ) : null}
+              </label>
+            </div>
+          ) : null}
+          {!isLocalOnlyRecovery &&
+          (target.hasConvexProvision || target.canRemoveConvexProvision) ? (
             <div className="flex items-start gap-2">
               <Checkbox
                 id="remove-convex-provision"
@@ -136,7 +145,7 @@ export function VaultDeleteDialogContent({
               </label>
             </div>
           ) : null}
-          {target.hasCloudflareProvision ? (
+          {!isLocalOnlyRecovery && target.hasCloudflareProvision ? (
             <div className="flex items-start gap-2">
               <Checkbox
                 id={removeCloudflareCheckboxId}
@@ -162,7 +171,7 @@ export function VaultDeleteDialogContent({
           {blockedReason ? (
             <div className="text-sm text-muted-foreground">{blockedReason}</div>
           ) : null}
-          {didAttemptCommit && hasStagedChanges ? (
+          {!isLocalOnlyRecovery && didAttemptCommit && hasStagedChanges ? (
             <div className="text-sm text-muted-foreground">
               Some local changes are still uncommitted. You can retry commit or remove anyway.
             </div>
@@ -178,7 +187,7 @@ export function VaultDeleteDialogContent({
           >
             Cancel
           </Button>
-          {hasStagedChanges ? (
+          {!isLocalOnlyRecovery && hasStagedChanges ? (
             <Button
               variant="outline"
               onClick={onCommitBeforeRemove}
@@ -204,6 +213,8 @@ export function VaultDeleteDialogContent({
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Removing...
               </>
+            ) : isLocalOnlyRecovery ? (
+              "Remove from Samebase only"
             ) : (
               "Remove Vault"
             )}
@@ -224,6 +235,7 @@ export function VaultDeleteDialog({
   vault: UserVaultResult;
 }) {
   const deleteVault = useAction(api.vault.actions.deleteVault);
+  const removeFailedVaultFromSamebase = useAction(api.vault.actions.removeFailedVaultFromSamebase);
   const commitStaging = useAction(api.fileStagingActions.commitStaging);
   const [operation, setOperation] = useState<VaultDeleteOperation>({
     state: "idle",
@@ -237,13 +249,15 @@ export function VaultDeleteDialog({
     removeCloudflareProvision: false,
   });
 
+  const deletion = vault.deletion;
+  const localOnlyRecovery = deletion.state === "delete_failed";
   const confirmBlockedReason =
-    vault.deletion.state === "deleting"
+    deletion.state === "deleting"
       ? "Vault removal is in progress."
-      : vault.deletion.state === "delete_failed"
-        ? "Retry vault removal before you remove this vault."
-        : vault.deletion.deleteAction.state === "disabled"
-          ? vault.deletion.deleteAction.reason
+      : deletion.state === "delete_failed"
+        ? null
+        : deletion.deleteAction.state === "disabled"
+          ? deletion.deleteAction.reason
           : null;
 
   const target = {
@@ -294,18 +308,24 @@ export function VaultDeleteDialog({
       didAttemptCommit: operation.didAttemptCommit,
     });
     try {
-      await deleteVault({
-        vaultId: target.id,
-        removeGithubRepo: target.isSamebaseManaged
-          ? target.canRemoveGithubRepo && options.removeGithubRepo
-          : false,
-        removeConvexProvision: target.canRemoveConvexProvision
-          ? options.removeConvexProvision
-          : false,
-        removeCloudflareProvision: target.canRemoveCloudflareProvision
-          ? options.removeCloudflareProvision
-          : false,
-      });
+      if (deletion.state === "delete_failed") {
+        await removeFailedVaultFromSamebase({ runId: deletion.runId });
+      } else if (deletion.state === "not_deleting") {
+        await deleteVault({
+          vaultId: target.id,
+          removeGithubRepo: target.isSamebaseManaged
+            ? target.canRemoveGithubRepo && options.removeGithubRepo
+            : false,
+          removeConvexProvision: target.canRemoveConvexProvision
+            ? options.removeConvexProvision
+            : false,
+          removeCloudflareProvision: target.canRemoveCloudflareProvision
+            ? options.removeCloudflareProvision
+            : false,
+        });
+      } else {
+        return;
+      }
       onDeleted();
     } catch (error) {
       console.error("Failed to remove vault:", error);
@@ -324,6 +344,7 @@ export function VaultDeleteDialog({
       commitError={operation.state === "idle" ? operation.commitError : null}
       deleteError={operation.state === "idle" ? operation.deleteError : null}
       didAttemptCommit={operation.didAttemptCommit}
+      mode={localOnlyRecovery ? "local_only_recovery" : "initial"}
       onCommitBeforeRemove={() => {
         void handleCommitBeforeRemove();
       }}

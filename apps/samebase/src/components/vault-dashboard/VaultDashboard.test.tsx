@@ -1571,6 +1571,62 @@ describe("VaultOverviewPage", () => {
     expect(markup).not.toContain('href="https://github.com/ada/demo"');
   });
 
+  it("offers retry and explicit Samebase-only recovery after removal fails", () => {
+    const vault = makeRepositorySettingsBuilderVault({
+      deletion: {
+        state: "delete_failed",
+        runId: fakeDeletionRunId(),
+        failedAt: 2,
+        currentStep: "delete_github_repo",
+        message: "Vault removal failed.",
+        updatedAt: 2,
+      },
+    });
+    const cloudflareObservations = makeLoadedCloudflareObservations({
+      workers: [],
+      builds: [],
+      convexBuildAccess: [],
+    });
+    const convexObservations = {
+      state: "loaded" as const,
+      refreshFailed: false,
+      reload: () => {},
+      observations: [],
+    };
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+        <VaultOverviewPage
+          developerToolsVisible={false}
+          isRetryingVaultAction={false}
+          onOpenDeleteDialog={() => {}}
+          onRetryInfrastructureProvisioning={() => {}}
+          onRetryVaultDeletion={() => {}}
+          page="overview"
+          settingsState={buildVaultRepositorySettingsState({
+            cloudflareObservations,
+            cloudflareAccount: undefined,
+            convexObservations,
+            pendingAction: null,
+            vault,
+          })}
+          workspace={{
+            access: { state: "ready", accessKeys: [] },
+            cloudflareConnection: { state: "loading" },
+            cloudflareObservations,
+            convexObservations,
+            environmentRoots: [],
+            githubRepositoryUrl: "https://github.com/ada/demo",
+            pullRequests: { state: "not_requested" },
+            vault,
+          }}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain(">Retry</button>");
+    expect(markup).toContain(">Remove from Samebase</button>");
+  });
+
   it("keeps safe provider links during setup and provider checks", () => {
     const vault = makeRepositorySettingsBuilderVault({});
     const workspace = {
@@ -1666,6 +1722,7 @@ describe("VaultDeleteDialogContent", () => {
     commitError: null,
     deleteError: null,
     didAttemptCommit: false,
+    mode: "initial",
     onCommitBeforeRemove: () => {},
     onDeleteOptionChange: () => {},
     onOpenChange: () => {},
@@ -1741,6 +1798,33 @@ describe("VaultDeleteDialogContent", () => {
     expect(markup).toContain("Vault setup is still running.");
     expect(removeButton).toBeDefined();
     expect(removeButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+  });
+
+  it("requires a clear Samebase-only choice after deletion fails", () => {
+    const markup = renderToStaticMarkup(
+      <VaultDeleteDialogContent
+        {...baseProps}
+        mode="local_only_recovery"
+        stagedChangesCount={2}
+        target={{
+          id: fakeVaultId(),
+          repositoryFullName: "ada/demo",
+          isSamebaseManaged: true,
+          canRemoveGithubRepo: true,
+          hasConvexProvision: true,
+          hasCloudflareProvision: true,
+          canRemoveConvexProvision: true,
+          canRemoveCloudflareProvision: true,
+        }}
+      />,
+    );
+
+    expect(markup).toContain("2 uncommitted local changes");
+    expect(markup).toContain("GitHub, Convex, and Cloudflare resources will stay unchanged.");
+    expect(markup).toContain("Remove from Samebase only");
+    expect(markup).not.toContain("Also remove GitHub repository");
+    expect(markup).not.toContain("Also remove Convex project/deployment");
+    expect(markup).not.toContain("Also remove Cloudflare Worker");
   });
 });
 

@@ -1264,6 +1264,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
     case "vault-overview-v2-convex-dialog":
     case "vault-overview-v2-convex-dialog-error":
     case "vault-overview-v2-convex-dialog-loading":
+    case "vault-overview-v2-delete-failed-dialog":
     case "vault-overview-v2-delete-dialog":
       return <VaultOverviewDialogsVisualFixture mode={mode} />;
     case "vault-overview-v2-convex-schema":

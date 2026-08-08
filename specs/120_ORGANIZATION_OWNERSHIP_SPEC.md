@@ -129,8 +129,9 @@ GitHub role never grants Samebase membership.
 
 The stored installation ID means "the last verified installation for this owner." GitHub is the
 source of truth for its current status. Installation-token creation fails closed after suspension or
-uninstall. A later webhook feature can add cached installation status, repository-selection status,
-and rename updates when those states have a real consumer.
+uninstall. Samebase does not store a second installation or repository-access status. A live GitHub
+operation checks current access. Unsuspension and restored repository access need no local state
+change. A reinstall with a new installation ID uses the verified reconnect flow.
 
 GitHub App installation authentication is the default for repository reads and writes. The durable
 GitHub App user authorization supports installation discovery and operations that require the acting
@@ -222,7 +223,42 @@ deletion does not wait for replacement or manual upstream revocation.
 
 Every vault belongs to one organization and one GitHub repository owned by that organization's
 GitHub owner. Vault creation rejects a repository whose stable owner ID differs from the
-organization's `githubOwnerId`. One GitHub repository identity maps to at most one retained vault.
+organization's `githubOwnerId`. `vaults.ghRepoId` is the stable repository identity, and
+`vaults.name` is current route and display data. One GitHub repository identity maps to at most one
+retained vault.
+
+A live GitHub operation on one live vault resolves the repository from `vaults.ghRepoId` through the
+organization's verified installation. A repository-scoped token makes removed access fail closed.
+Samebase selects the repository by its stable ID and requires its current owner ID to match
+`organizations.githubOwnerId`. It does not use an old mutable route name as GitHub identity.
+
+Only after both stable IDs match can one mutation update the organization login, its normalized
+value, and the vault name. The mutation requires the acting user's current membership and reloads
+both records before it writes. A repeated repair is a no-op, and a delayed response cannot restore
+an older name.
+
+A GitHub rename does not change the organization, vault, membership, billing, provider connection,
+or attached resource. A repository transfer changes its owner ID. Samebase therefore rejects the
+repair and never moves organization-owned data. The operator can remove the retained vault and add
+the repository under the correct Samebase organization. Repository access removal, App uninstall,
+repository archive, and repository deletion also do not delete or move the retained vault.
+
+### GitHub Identity And Access Lifecycle
+
+| GitHub change                            | Samebase result                                                                                                                                                                                 |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Owner login or repository rename         | The next GitHub operation that resolves current repository access finds the repository by stable ID and repairs mutable names. An organization with no vault uses the verified reconnect flow.  |
+| Repository transfer                      | The owner ID differs, so the operation fails. Samebase does not move the vault or organization data. The operator can remove the retained vault and add the repository under its current owner. |
+| App uninstall or suspension              | Token creation or the live repository read fails. Samebase retains the organization and vault.                                                                                                  |
+| App unsuspension                         | The next operation uses a new short-lived token. No local status transition is required.                                                                                                        |
+| Repository access removed or restored    | Operations fail while access is absent and work after access returns. The vault and attached data stay retained.                                                                                |
+| App reinstall with a new installation ID | A Samebase owner uses the verified reconnect flow. The organization keeps its stable owner ID.                                                                                                  |
+| Repository archive                       | Identity does not change. GitHub decides which operations the archive permits.                                                                                                                  |
+| Repository deletion                      | Later operations fail. A new repository at the same names has a different repository ID and is not the retained vault.                                                                          |
+
+Samebase does not store a parallel installation or repository-access status. It does not add GitHub
+lifecycle webhooks for this contract because each current GitHub operation already checks live
+access.
 
 The route `/vault/<owner>/<repository>` resolves the current GitHub owner login to an organization
 through the viewer's membership, then resolves the vault by `organizationId` and repository name. A
@@ -230,11 +266,21 @@ vault does not store another current copy of `organizations.githubOwnerLogin`. I
 opaque `?organization=<id>` parameter. Internal Samebase IDs are database and authorization
 identities, not URL selectors.
 
+After a live rename repair, every open vault route replaces only the owner and repository path
+segments with the current names. It keeps the remaining path, unrelated query parameters, and the
+hash. Samebase stores no route aliases. The active page stays pinned to the Samebase vault ID while
+its requested route is unchanged, so another vault cannot take over the page by reusing the old
+names. A new load of an old URL resolves only current names. It has no rename alias.
+
 Organization setup pages use the current GitHub owner login in `/org/<owner>/providers`,
 `/org/<owner>/new-app`, and `/org/<owner>/connect-repo`. Organization settings and billing use
 `/org/<owner>/settings`. A reload resolves the internal organization ID through the viewer's current
-membership. These pages do not store a hidden active organization or expose an internal organization
-ID in the URL or a selector.
+membership. These pages do not persist an active-organization selection or expose an internal
+organization ID in the URL or a selector.
+
+An open organization page uses the same session rule: it stays pinned to its first resolved Samebase
+organization ID while the requested owner parameter is unchanged, then replaces the URL when that
+organization's current owner login changes. A new load of an old owner URL has no alias.
 
 Provider OAuth returns to `/org/<owner>/providers`. Checkout and subscription returns use
 `/org/<owner>/settings#billing`. The server validates the owner-scoped return route. Return URLs
@@ -351,16 +397,28 @@ required before production deployment, not before development implementation and
 - Fine-grained vault, branch, file, or provider-resource roles
 - Persisted active-organization state or opaque organization query parameters
 - WorkOS, Clerk, SSO, Directory Sync, or SCIM implementation
-- GitHub installation lifecycle webhooks before the main installation flow works
-- Unified GitHub organization and repository rename synchronization
+- GitHub lifecycle webhooks, delivery storage, or cached installation and repository-access status
+- Historical aliases for old GitHub owner and repository routes
 - Several Convex teams or Cloudflare accounts in one organization
 - General signup auto-approval before the beta release gate changes
 - Multi-member FileView commit coordination
 - Backward-compatible pre-beta migration machinery
 
+## Official GitHub Sources
+
+- [List repositories accessible to the App installation](https://docs.github.com/en/rest/apps/installations#list-repositories-accessible-to-the-app-installation)
+- [Generate a repository-scoped installation token](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-an-installation-access-token-for-a-github-app)
+- [Rename an organization](https://docs.github.com/en/organizations/managing-organization-settings/renaming-an-organization)
+- [Change a username](https://docs.github.com/en/account-and-profile/concepts/username-changes)
+- [Rename a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/renaming-a-repository)
+- [Transfer a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/transferring-a-repository)
+- [GitHub App installation events](https://docs.github.com/en/webhooks/webhook-events-and-payloads#installation)
+- [Validate webhook deliveries](https://docs.github.com/en/webhooks/using-webhooks/validating-webhook-deliveries)
+
 ## Release Validation
 
-The rollout is ready only when focused tests and real manual checks prove:
+The rollout is ready only when focused tests prove the invariants below and the manual acceptance
+order validates the supported user flows:
 
 - A new or uninvited pending-access user has zero memberships and no billing row.
 - A verified GitHub App installation creates one organization for one stable owner ID, one first
@@ -389,8 +447,15 @@ The rollout is ready only when focused tests and real manual checks prove:
   owner requires both the exact linked GitHub sign-in identity and the exact personal GitHub App
   user authorization.
 - A vault owner ID must match its organization owner ID.
+- A live repository operation repairs owner and repository names only after both stable IDs match. A
+  repeated repair makes no new change, and name reuse cannot replace the stored repository identity.
+- A repository transfer never moves a vault or other organization-owned data.
+- Removing App repository access retains the vault, fails GitHub operations, and works again after
+  access is restored.
 - `/vault/<owner>/<repository>` reloads without an organization query parameter and shows the same
   repository, Cloudflare Worker, Convex project, and observations.
+- After a rename repair, the active vault route changes to the current owner and repository names
+  and reloads there. An old route has no alias.
 - `/org/<owner>/providers`, `/org/<owner>/new-app`, and `/org/<owner>/connect-repo` reload with the
   same organization and never show an internal organization ID.
 - Provider OAuth returns to `/org/<owner>/providers`. Checkout and billing-portal sessions return to
