@@ -3,7 +3,7 @@ import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { buildGoogleRedirectSearch } from "@/lib/googleAuthRedirect";
+import { buildOAuthRedirectSearch, type OAuthAuthProvider } from "@/lib/oauthAuthRedirect";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import { resetSamebasePostHogClient } from "@/lib/posthogClient";
 
@@ -96,7 +96,8 @@ export function useAppSignInActions() {
   const { signIn } = useAuthActions();
 
   return {
-    signInWithGoogle: (redirectTo: string) => signIn("google", { redirectTo }),
+    signInWithOAuth: (provider: OAuthAuthProvider, redirectTo: string) =>
+      signIn(provider, { redirectTo }),
     signInWithPassword: (args: PasswordSignInArgs) => signIn("password", args),
   };
 }
@@ -122,7 +123,7 @@ export function isInIframe() {
 }
 
 export function openAuthPopup(
-  provider: "google",
+  provider: OAuthAuthProvider,
   options: {
     popupPath: string;
   },
@@ -206,8 +207,8 @@ export function openAuthPopup(
 }
 
 /**
- * Auto-trigger provider sign-in when opened as a popup with ?auth=google
- * or when the app shell forces top-level ?auth=google on `/`.
+ * Auto-trigger provider sign-in when an OAuth popup or top-level route sets
+ * its one-use `auth` search value.
  * The popup handles the full OAuth redirect flow (not blocked by CSP
  * since it's a top-level window). After auth completes, the popup
  * auto-closes and the token syncs to the parent via localStorage.
@@ -219,12 +220,12 @@ export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
   const authReturn = rootRouteSearch["auth-return"];
   const signupReturn = rootRouteSearch.signup;
   useEffect(() => {
-    if (authProvider === "google") {
+    if (authProvider !== undefined) {
       const redirectTo = router.buildLocation({
         hash: true,
         search: (currentSearch) =>
-          buildGoogleRedirectSearch(currentSearch, {
-            markPublicSignupReturn: signupReturn === "google",
+          buildOAuthRedirectSearch(currentSearch, authProvider, {
+            markPublicSignupReturn: signupReturn === authProvider,
           }),
         state: true,
         to: authReturn === "dashboard" ? DASHBOARD_ROUTE : ".",
@@ -232,7 +233,7 @@ export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
       // Preserve TanStack Router history metadata while stripping auth params
       // from the popup/bootstrap URL before the provider redirect begins.
       window.history.replaceState(window.history.state, "", redirectTo);
-      void signIn("google", { redirectTo });
+      void signIn(authProvider, { redirectTo });
     }
   }, [authProvider, authReturn, router, signIn, signupReturn]);
 }

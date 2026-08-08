@@ -131,8 +131,33 @@ export async function upsertGitHubUserAuthorization(
     throw new Error("An active Samebase user is required.");
   }
 
+  const [signInAccount, githubOwners] = await Promise.all([
+    db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (query) =>
+        query.eq("userId", args.userId).eq("provider", "github"),
+      )
+      .unique(),
+    db
+      .query("githubUserAuthorizations")
+      .withIndex("by_github_user", (query) => query.eq("githubUserId", args.githubUserId))
+      .take(2),
+  ]);
+  if (signInAccount !== null && signInAccount.providerAccountId !== args.githubUserId) {
+    throw new Error("GitHub access must use the connected GitHub sign-in account.");
+  }
+  if (githubOwners.some((authorization) => authorization.userId !== args.userId)) {
+    throw new Error("This GitHub account already provides access for another Samebase account.");
+  }
+  if (githubOwners.length > 1) {
+    throw new Error("This GitHub account has conflicting Samebase access records.");
+  }
+
   const now = Date.now();
   const existing = await getByUser(db, args.userId);
+  if (existing !== null && existing.githubUserId !== args.githubUserId) {
+    throw new Error("A different GitHub account already provides access for this account.");
+  }
   const authorization = {
     githubUserId: args.githubUserId,
     githubUserLogin: args.githubUserLogin,

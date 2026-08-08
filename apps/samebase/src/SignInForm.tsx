@@ -137,7 +137,7 @@ export function SignInForm({
             />
           </div>
           {authPlacement === "inline" ? (
-            <PublicLandingAuthControls googleAuthFlow="current-route" />
+            <PublicLandingAuthControls oauthAuthFlow="current-route" />
           ) : null}
           <div className="flex flex-col gap-2 pt-2">
             <a

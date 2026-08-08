@@ -1,0 +1,133 @@
+diff --git a/dist/server/implementation/users.js b/dist/server/implementation/users.js
+index 24564a216..a9cac87db 100644
+--- a/dist/server/implementation/users.js
++++ b/dist/server/implementation/users.js
+@@ -1,10 +1,12 @@
+ import { LOG_LEVELS, logWithLevel } from "./utils.js";
+ export async function upsertUserAndAccount(ctx, sessionId, account, args, config) {
+-    const userId = await defaultCreateOrUpdateUser(ctx, sessionId, "existingAccount" in account ? account.existingAccount : null, args, config);
++    const userId = await defaultCreateOrUpdateUser(ctx, sessionId, "existingAccount" in account ? account.existingAccount : null, "existingAccount" in account
++        ? account.existingAccount.providerAccountId
++        : account.providerAccountId, args, config);
+     const accountId = await createOrUpdateAccount(ctx, userId, account, args);
+     return { userId, accountId };
+ }
+-async function defaultCreateOrUpdateUser(ctx, existingSessionId, existingAccount, args, config) {
++async function defaultCreateOrUpdateUser(ctx, existingSessionId, existingAccount, providerAccountId, args, config) {
+     logWithLevel(LOG_LEVELS.DEBUG, "defaultCreateOrUpdateUser args:", {
+         existingAccountId: existingAccount?._id,
+         existingSessionId,
+@@ -14,7 +16,9 @@ async function defaultCreateOrUpdateUser(ctx, existingSessionId, existingAccount
+     if (config.callbacks?.createOrUpdateUser !== undefined) {
+         logWithLevel(LOG_LEVELS.DEBUG, "Using custom createOrUpdateUser callback");
+         return await config.callbacks.createOrUpdateUser(ctx, {
++            existingSessionId,
+             existingUserId,
++            providerAccountId,
+             ...args,
+         });
+     }
+diff --git a/dist/server/types.d.ts b/dist/server/types.d.ts
+index b0b61e18c..1cfb7ff0c 100644
+--- a/dist/server/types.d.ts
++++ b/dist/server/types.d.ts
+@@ -149,6 +149,15 @@ export type ConvexAuthConfig = {
+              * this is the existing user ID linked to that account.
+              */
+             existingUserId: GenericId<"users"> | null;
++            /**
++             * The session that started the OAuth flow, when the caller was
++             * already signed in.
++             */
++            existingSessionId: GenericId<"authSessions"> | null;
++            /**
++             * The stable account ID returned by the provider.
++             */
++            providerAccountId: string;
+             /**
+              * The provider type or "verification" if this callback is called
+              * after an email or phone token verification.
+@@ -173,9 +182,13 @@ export type ConvexAuthConfig = {
+                 phoneVerified?: boolean;
+             };
+             /**
+-             * The `shouldLink` argument passed to `createAccount`.
++             * The `shouldLinkViaEmail` argument passed to `createAccount`.
+              */
+-            shouldLink?: boolean;
++            shouldLinkViaEmail?: boolean;
++            /**
++             * The `shouldLinkViaPhone` argument passed to `createAccount`.
++             */
++            shouldLinkViaPhone?: boolean;
+         }) => Promise<GenericId<"users">>;
+         /**
+          * Called before a new session is created for a user.
+diff --git a/src/server/implementation/users.ts b/src/server/implementation/users.ts
+index 0dc2e50cc..d414bed98 100644
+--- a/src/server/implementation/users.ts
++++ b/src/server/implementation/users.ts
+@@ -35,6 +35,9 @@ export async function upsertUserAndAccount(
+     ctx,
+     sessionId,
+     "existingAccount" in account ? account.existingAccount : null,
++    "existingAccount" in account
++      ? account.existingAccount.providerAccountId
++      : account.providerAccountId,
+     args,
+     config,
+   );
+@@ -46,6 +49,7 @@ async function defaultCreateOrUpdateUser(
+   ctx: MutationCtx,
+   existingSessionId: GenericId<"authSessions"> | null,
+   existingAccount: Doc<"authAccounts"> | null,
++  providerAccountId: string,
+   args: CreateOrUpdateUserArgs,
+   config: ConvexAuthConfig,
+ ) {
+@@ -58,7 +62,9 @@ async function defaultCreateOrUpdateUser(
+   if (config.callbacks?.createOrUpdateUser !== undefined) {
+     logWithLevel(LOG_LEVELS.DEBUG, "Using custom createOrUpdateUser callback");
+     return await config.callbacks.createOrUpdateUser(ctx, {
++      existingSessionId,
+       existingUserId,
++      providerAccountId,
+       ...args,
+     });
+   }
+diff --git a/src/server/types.ts b/src/server/types.ts
+index b7841a01c..3724d37c8 100644
+--- a/src/server/types.ts
++++ b/src/server/types.ts
+@@ -167,6 +167,15 @@ export type ConvexAuthConfig = {
+          * this is the existing user ID linked to that account.
+          */
+         existingUserId: GenericId<"users"> | null;
++        /**
++         * The session that started the OAuth flow, when the caller was
++         * already signed in.
++         */
++        existingSessionId: GenericId<"authSessions"> | null;
++        /**
++         * The stable account ID returned by the provider.
++         */
++        providerAccountId: string;
+         /**
+          * The provider type or "verification" if this callback is called
+          * after an email or phone token verification.
+@@ -191,9 +200,13 @@ export type ConvexAuthConfig = {
+           phoneVerified?: boolean;
+         };
+         /**
+-         * The `shouldLink` argument passed to `createAccount`.
++         * The `shouldLinkViaEmail` argument passed to `createAccount`.
+          */
+-        shouldLink?: boolean;
++        shouldLinkViaEmail?: boolean;
++        /**
++         * The `shouldLinkViaPhone` argument passed to `createAccount`.
++         */
++        shouldLinkViaPhone?: boolean;
+       },
+     ) => Promise<GenericId<"users">>;
+     /**

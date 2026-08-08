@@ -201,7 +201,7 @@ describe("appAuthPresentationPrehydration", () => {
     },
   );
 
-  it("visually fills the signed-in account row with the JWT provider label", () => {
+  it("visually fills the signed-in account row and ignores a legacy provider claim", () => {
     writeLocalAuthSession(
       createJwt({
         accountLabelKind: "email",
@@ -223,8 +223,8 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain("[data-app-auth-prehydration-signed-in]");
     expect(styleText).toContain("[data-app-auth-prehydration-account-label]::after");
     expect(styleText).toContain('content: "nicu@samebase.com";');
-    expect(styleText).toContain("[data-app-auth-prehydration-provider]::after");
-    expect(styleText).toContain('content: "Signed in with Password";');
+    expect(styleText).not.toContain("data-app-auth-prehydration-provider");
+    expect(styleText).not.toContain("Signed in with");
   });
 
   it("does not use public landing password auth mode as session provider evidence", () => {
@@ -264,7 +264,7 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).not.toContain('content: "Signed in with Password";');
   });
 
-  it("rejects the inactive GitHub sign-in provider before hydration", () => {
+  it("ignores a legacy GitHub provider claim before hydration", () => {
     window.localStorage.setItem(
       convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
       createJwt({
@@ -281,10 +281,9 @@ describe("appAuthPresentationPrehydration", () => {
       "samebase-app-auth-presentation-prehydration",
     )?.textContent;
     expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      "signed-out",
+      "signed-in",
     );
-    expect(styleText).toContain('content: "Sign in or create an account";');
-    expect(styleText).not.toContain("Nicu");
+    expect(styleText).toContain('content: "Nicu";');
     expect(styleText).not.toContain("GitHub");
   });
 

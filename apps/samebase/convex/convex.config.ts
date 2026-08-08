@@ -4,6 +4,10 @@ import workflow from "@convex-dev/workflow/convex.config";
 
 const app = defineApp({
   env: {
+    AUTH_GITHUB_ID: v.optional(v.string()),
+    AUTH_GITHUB_SECRET: v.optional(v.string()),
+    AUTH_GOOGLE_ID: v.optional(v.string()),
+    AUTH_GOOGLE_SECRET: v.optional(v.string()),
     CLOUDFLARE_EMAIL_ACCOUNT_ID: v.optional(v.string()),
     CLOUDFLARE_EMAIL_API_TOKEN: v.optional(v.string()),
     DEV_SEED_GITHUB_API_KEY: v.optional(v.string()),

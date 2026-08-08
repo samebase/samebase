@@ -100,7 +100,7 @@ describe("rootRouteSearch", () => {
   it("drops malformed root landing search values instead of preserving junk", () => {
     expect(
       validateRootRouteSearch({
-        auth: "github",
+        auth: "netlify",
         "auth-return": "home",
         background: "bad",
         border: "nope-500",
@@ -108,7 +108,7 @@ describe("rootRouteSearch", () => {
         dist: "nope",
         primary: "nope-500",
         secondary: 3,
-        signup: "github",
+        signup: "apple",
       }),
     ).toEqual({});
   });
@@ -185,6 +185,14 @@ describe("rootRouteSearch", () => {
       primary: "red-600",
       "prod-ui": true,
       signup: "google",
+    });
+  });
+
+  it("parses GitHub OAuth entry and return markers", () => {
+    expect(readRootRouteSearch("?auth=github&signup=github&auth-return=dashboard")).toEqual({
+      auth: "github",
+      "auth-return": "dashboard",
+      signup: "github",
     });
   });
 

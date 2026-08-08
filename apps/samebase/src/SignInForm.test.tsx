@@ -5,12 +5,12 @@ import {
   stringifyTanStackSearch,
 } from "./lib/tanstackSearchParams";
 
-const { buildLocationMock, isInIframeMock, openAuthPopupMock, signInWithGoogleMock } = vi.hoisted(
+const { buildLocationMock, isInIframeMock, openAuthPopupMock, signInWithOAuthMock } = vi.hoisted(
   () => ({
     buildLocationMock: vi.fn(),
     isInIframeMock: vi.fn(() => false),
     openAuthPopupMock: vi.fn(),
-    signInWithGoogleMock: vi.fn(),
+    signInWithOAuthMock: vi.fn(),
   }),
 );
 
@@ -18,7 +18,7 @@ vi.mock("@/authClient", () => ({
   isInIframe: isInIframeMock,
   openAuthPopup: openAuthPopupMock,
   useAppSignInActions: () => ({
-    signInWithGoogle: signInWithGoogleMock,
+    signInWithOAuth: signInWithOAuthMock,
   }),
 }));
 
@@ -28,12 +28,13 @@ vi.mock("@tanstack/react-router", () => ({
   }),
 }));
 
-import { SignInWithGoogle } from "./SignInWithGoogle";
+import { SignInWithOAuth } from "./SignInWithOAuth";
+import type { OAuthAuthProvider } from "./lib/oauthAuthRedirect";
 
-describe("SignInWithGoogle", () => {
+describe("SignInWithOAuth", () => {
   afterEach(() => {
     buildLocationMock.mockReset();
-    signInWithGoogleMock.mockReset();
+    signInWithOAuthMock.mockReset();
     openAuthPopupMock.mockReset();
     isInIframeMock.mockReset();
     isInIframeMock.mockReturnValue(false);
@@ -64,125 +65,109 @@ describe("SignInWithGoogle", () => {
     );
   }
 
-  function renderGoogleButton(props?: Parameters<typeof SignInWithGoogle>[0]) {
-    return SignInWithGoogle(props);
+  function renderOAuthButton(
+    provider: OAuthAuthProvider,
+    props: Omit<Parameters<typeof SignInWithOAuth>[0], "provider"> = {},
+  ) {
+    return SignInWithOAuth({ provider, ...props });
   }
 
-  it("preserves the MCP consent route when starting top-level Google auth", () => {
-    const consentSearch = stringifyTanStackSearch({
-      mcp_consent_request: "mcpar_test",
-      mcp_login_required: "1",
-      auth: "google",
-    });
-
-    vi.stubGlobal("window", {
-      location: {
-        origin: "https://samebase.com",
-        pathname: "/oauth/mcp/consent",
-        search: consentSearch,
-        hash: "",
-      },
-    });
-    mockCurrentRouteLocationBuilder();
-
-    const element = renderGoogleButton();
-    const expectedRedirectTo = buildPathWithTanStackSearch({
-      pathname: "/oauth/mcp/consent",
-      search: {
+  it.each(["google", "github"] as const)(
+    "preserves the MCP consent route when starting top-level %s auth",
+    (provider) => {
+      const consentSearch = stringifyTanStackSearch({
         mcp_consent_request: "mcpar_test",
         mcp_login_required: "1",
-      },
-    });
+        auth: provider,
+      });
 
-    element.props.onClick();
+      vi.stubGlobal("window", {
+        location: {
+          origin: "https://samebase.com",
+          pathname: "/oauth/mcp/consent",
+          search: consentSearch,
+          hash: "",
+        },
+      });
+      mockCurrentRouteLocationBuilder();
 
-    expect(signInWithGoogleMock).toHaveBeenCalledWith(expectedRedirectTo);
-    expect(expectedRedirectTo).not.toContain("auth=");
-    expect(openAuthPopupMock).not.toHaveBeenCalled();
-  });
+      const element = renderOAuthButton(provider);
+      const expectedRedirectTo = buildPathWithTanStackSearch({
+        pathname: "/oauth/mcp/consent",
+        search: {
+          mcp_consent_request: "mcpar_test",
+          mcp_login_required: "1",
+        },
+      });
 
-  it("adds the public signup return marker when requested", () => {
-    const publicLandingSearch = stringifyTanStackSearch({
-      "prod-ui": true,
-    });
+      element.props.onClick();
 
-    vi.stubGlobal("window", {
-      location: {
-        origin: "https://samebase.com",
-        pathname: "/",
-        search: publicLandingSearch,
-        hash: "",
-      },
-    });
-    mockCurrentRouteLocationBuilder();
+      expect(signInWithOAuthMock).toHaveBeenCalledWith(provider, expectedRedirectTo);
+      expect(expectedRedirectTo).not.toContain("auth=");
+      expect(openAuthPopupMock).not.toHaveBeenCalled();
+    },
+  );
 
-    const element = renderGoogleButton({ markPublicSignupReturn: true });
-    const expectedRedirectTo = buildPathWithTanStackSearch({
-      pathname: "/",
-      search: {
-        "prod-ui": "",
-        signup: "google",
-      },
-    });
+  it.each(["google", "github"] as const)(
+    "marks public %s auth for a dashboard return",
+    (provider) => {
+      vi.stubGlobal("window", {
+        location: {
+          origin: "https://samebase.com",
+          pathname: "/",
+          search: stringifyTanStackSearch({ "prod-ui": true }),
+          hash: "",
+        },
+      });
+      mockCurrentRouteLocationBuilder();
 
-    element.props.onClick();
+      const element = renderOAuthButton(provider, {
+        authReturn: "dashboard",
+        markPublicSignupReturn: true,
+      });
+      const expectedRedirectTo = buildPathWithTanStackSearch({
+        pathname: "/vault",
+        search: {
+          "prod-ui": "",
+          signup: provider,
+        },
+      });
 
-    expect(signInWithGoogleMock).toHaveBeenCalledWith(expectedRedirectTo);
-  });
+      element.props.onClick();
 
-  it("marks public root Google auth for a dashboard return", () => {
-    vi.stubGlobal("window", {
-      location: {
-        origin: "https://samebase.com",
-        pathname: "/",
-        search: "",
-        hash: "",
-      },
-    });
-    mockCurrentRouteLocationBuilder();
+      expect(signInWithOAuthMock).toHaveBeenCalledWith(provider, expectedRedirectTo);
+    },
+  );
 
-    const element = renderGoogleButton({
-      authReturn: "dashboard",
-      markPublicSignupReturn: true,
-    });
-    const expectedRedirectTo = buildPathWithTanStackSearch({
-      pathname: "/vault",
-      search: {
-        signup: "google",
-      },
-    });
+  it.each(["google", "github"] as const)(
+    "propagates the public signup marker through iframe %s auth",
+    (provider) => {
+      isInIframeMock.mockReturnValue(true);
+      vi.stubGlobal("window", {
+        location: {
+          origin: "https://samebase.com",
+          pathname: "/",
+          search: "",
+          hash: "",
+        },
+      });
+      mockCurrentRouteLocationBuilder();
 
-    element.props.onClick();
+      const element = renderOAuthButton(provider, {
+        authReturn: "dashboard",
+        markPublicSignupReturn: true,
+      });
 
-    expect(signInWithGoogleMock).toHaveBeenCalledWith(expectedRedirectTo);
-  });
+      element.props.onClick();
 
-  it("propagates the public signup marker through iframe Google auth", () => {
-    isInIframeMock.mockReturnValue(true);
-    vi.stubGlobal("window", {
-      location: {
-        origin: "https://samebase.com",
-        pathname: "/",
-        search: "",
-        hash: "",
-      },
-    });
-    mockCurrentRouteLocationBuilder();
+      expect(openAuthPopupMock).toHaveBeenCalledWith(provider, {
+        popupPath: `/?auth=${provider}&auth-return=dashboard&signup=${provider}`,
+      });
+      expect(signInWithOAuthMock).not.toHaveBeenCalled();
+    },
+  );
 
-    const element = renderGoogleButton({
-      authReturn: "dashboard",
-      markPublicSignupReturn: true,
-    });
-
-    element.props.onClick();
-
-    expect(openAuthPopupMock).toHaveBeenCalledWith("google", {
-      popupPath: "/?auth=google&auth-return=dashboard&signup=google",
-    });
-    expect(signInWithGoogleMock).not.toHaveBeenCalled();
-  });
-
-  it("keeps iframe Google auth on the requested private route", () => {
+  it("keeps iframe GitHub auth on the requested private route", () => {
     isInIframeMock.mockReturnValue(true);
     vi.stubGlobal("window", {
       location: {
@@ -194,13 +179,13 @@ describe("SignInWithGoogle", () => {
     });
     mockCurrentRouteLocationBuilder();
 
-    const element = renderGoogleButton();
+    const element = renderOAuthButton("github");
 
     element.props.onClick();
 
-    expect(openAuthPopupMock).toHaveBeenCalledWith("google", {
-      popupPath: "/vault/samebase/samebase/fs/main/README.md?auth=google",
+    expect(openAuthPopupMock).toHaveBeenCalledWith("github", {
+      popupPath: "/vault/samebase/samebase/fs/main/README.md?auth=github",
     });
-    expect(signInWithGoogleMock).not.toHaveBeenCalled();
+    expect(signInWithOAuthMock).not.toHaveBeenCalled();
   });
 });

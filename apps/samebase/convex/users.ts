@@ -1,4 +1,4 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
 import { internalQuery, type ActionCtx, type DatabaseReader } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -11,6 +11,7 @@ import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import type { CloudflareAccount } from "./cloudflareAccountDiscovery";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealthStatus } from "./mcpTokenHealth";
 import type { CloudflareProviderCredential } from "./organizationProviderCredentialModel";
+import { AUTH_ACCOUNT_LINK_INTENT_DURATION_MS, vAuthAccountProvider } from "./authAccountModel";
 import {
   getOrganizationProviderConfiguration,
   type OrganizationProviderConfiguration,
@@ -23,7 +24,6 @@ import {
   CLOUDFLARE_TOKEN_REFRESH_RETRY_BASE_MS,
   CLOUDFLARE_TOKEN_REFRESH_RETRY_MAX_MS,
 } from "../shared/cloudflareTokenRefresh";
-import type { AuthTokenAuthProvider } from "../shared/authTokenClaims";
 import {
   type AccountPresentation,
   normalizeAccountEmail,
@@ -34,27 +34,13 @@ import {
 
 const { array, boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
-const vAuthTokenAuthProvider = union(literal("google"), literal("password"));
-const vAuthProviderSummary = object({
-  providers: array(vAuthTokenAuthProvider),
-  primaryProvider: optional(vAuthTokenAuthProvider),
+const vSignInMethod = object({ email: string() });
+const vGitHubSignInMethod = object({ email: string(), login: string() });
+const vSignInMethods = object({
+  google: union(vSignInMethod, vNull()),
+  github: union(vGitHubSignInMethod, vNull()),
+  password: union(vSignInMethod, vNull()),
 });
-
-type AuthProviderAccountSummary = {
-  _creationTime: number;
-  _id: string;
-  provider: string;
-};
-
-function readAuthTokenAuthProvider(provider: string): AuthTokenAuthProvider | null {
-  switch (provider) {
-    case "google":
-    case "password":
-      return provider;
-    default:
-      return null;
-  }
-}
 
 const vConvexProviderAuthMethod = union(literal("oauth"), literal("api_key"));
 const vCloudflareProviderAuthMethod = union(
@@ -282,15 +268,91 @@ export const getUserSettings = query({
   args: {},
   returns: object({
     displayName: optional(string()),
-    signInEmail: string(),
+    accountEmail: string(),
+    signInMethods: vSignInMethods,
   }),
   handler: async (ctx) => {
     const user = ctx.viewer.user;
+    const accounts = await ctx.db
+      .query("authAccounts")
+      .withIndex("userIdAndProvider", (query) => query.eq("userId", user._id))
+      .collect();
+    let google: { email: string } | null = null;
+    let github: { email: string; login: string } | null = null;
+    let password: { email: string } | null = null;
+    for (const account of accounts) {
+      switch (account.provider) {
+        case "google":
+          if (google !== null || account.emailVerified === undefined) {
+            throw new Error("Google sign-in identity is inconsistent.");
+          }
+          google = { email: normalizeAccountEmail(account.emailVerified) };
+          break;
+        case "github":
+          if (
+            github !== null ||
+            account.emailVerified === undefined ||
+            user.githubSignInLogin === undefined
+          ) {
+            throw new Error("GitHub sign-in identity is inconsistent.");
+          }
+          github = {
+            email: normalizeAccountEmail(account.emailVerified),
+            login: user.githubSignInLogin,
+          };
+          break;
+        case "password":
+          if (password !== null) {
+            throw new Error("Password sign-in identity is inconsistent.");
+          }
+          password = { email: normalizeAccountEmail(account.providerAccountId) };
+          break;
+        default:
+          break;
+      }
+    }
     return {
       displayName:
         user.displayName === undefined ? undefined : normalizeDisplayName(user.displayName),
-      signInEmail: normalizeAccountEmail(user.email),
+      accountEmail: normalizeAccountEmail(user.email),
+      signInMethods: { google, github, password },
     };
+  },
+});
+
+export const beginAuthAccountLink = mutation({
+  access: "access_user_preferences",
+  args: {
+    provider: vAuthAccountProvider,
+  },
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    const sessionId = await getAuthSessionId(ctx);
+    if (sessionId === null) {
+      throw new Error("A current sign-in session is required.");
+    }
+    const [session, account] = await Promise.all([
+      ctx.db.get(sessionId),
+      ctx.db
+        .query("authAccounts")
+        .withIndex("userIdAndProvider", (query) =>
+          query.eq("userId", ctx.viewer.userId).eq("provider", args.provider),
+        )
+        .unique(),
+    ]);
+    if (session === null || session.userId !== ctx.viewer.userId) {
+      throw new Error("The current sign-in session changed.");
+    }
+    if (account !== null) {
+      throw new Error(`This ${args.provider} sign-in method is already connected.`);
+    }
+    await ctx.db.patch(session._id, {
+      accountLinkIntent: {
+        provider: args.provider,
+        expiresAt: Date.now() + AUTH_ACCOUNT_LINK_INTENT_DURATION_MS,
+      },
+    });
+    return null;
   },
 });
 
@@ -313,81 +375,6 @@ export const setDisplayName = mutation({
     return accountPresentation;
   },
 });
-
-export const getViewerAuthProviders = query({
-  access: "access_public",
-  args: {},
-  returns: vAuthProviderSummary,
-  handler: async (ctx) => {
-    const userId = ctx.viewer.userId;
-    if (userId === null) {
-      return { providers: [] };
-    }
-
-    const accounts = await ctx.db
-      .query("authAccounts")
-      .withIndex("userIdAndProvider", (q) => q.eq("userId", userId))
-      .collect();
-    const orderedAccounts = [...accounts].sort((first, second) =>
-      compareAuthProviderAccountSummary(first, second),
-    );
-
-    const providers: AuthTokenAuthProvider[] = [];
-    const seen = new Set<string>();
-    for (const account of orderedAccounts) {
-      const provider = readAuthTokenAuthProvider(account.provider);
-      if (provider === null || seen.has(provider)) {
-        continue;
-      }
-      seen.add(provider);
-      providers.push(provider);
-    }
-
-    if (providers.length > 0) {
-      return { providers, primaryProvider: providers[0] };
-    }
-    return { providers };
-  },
-});
-
-export const getPrimaryAuthProviderForToken = internalQuery({
-  args: {
-    userId: id("users"),
-  },
-  returns: v.union(vAuthTokenAuthProvider, v.null()),
-  handler: async (ctx, args) => {
-    const accounts = await ctx.db
-      .query("authAccounts")
-      .withIndex("userIdAndProvider", (q) => q.eq("userId", args.userId))
-      .take(32);
-    const orderedAccounts = [...accounts].sort((first, second) =>
-      compareAuthProviderAccountSummary(first, second),
-    );
-
-    for (const account of orderedAccounts) {
-      const provider = readAuthTokenAuthProvider(account.provider);
-      if (provider !== null) {
-        return provider;
-      }
-    }
-    return null;
-  },
-});
-
-/**
- * Sort auth provider accounts newest-first with `_id` as a deterministic
- * tie-breaker so the displayed primary provider cannot drift between reads.
- */
-function compareAuthProviderAccountSummary(
-  first: AuthProviderAccountSummary,
-  second: AuthProviderAccountSummary,
-) {
-  const creationTimeOrder = second._creationTime - first._creationTime;
-  if (creationTimeOrder !== 0) {
-    return creationTimeOrder;
-  }
-  return second._id.localeCompare(first._id);
-}
 
 export const currentViewerAccess = query({
   access: "access_public",

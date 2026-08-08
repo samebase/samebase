@@ -6,7 +6,7 @@ import {
   getVisiblePasswordAuthSurface,
   rememberPublicLandingPasswordAuthMode,
   resolvePublicLandingPasswordAuthMode,
-  shouldRenderGoogleSignupClosedState,
+  shouldRenderOAuthSignupClosedState,
 } from "./publicLandingAuthState";
 import { validateRootRouteSearch } from "@/routeSearch/root";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
@@ -53,14 +53,14 @@ describe("publicLandingAuthState", () => {
     (pathname) => {
       const routeSearch = validateRootRouteSearch({ signup: "google" });
 
-      expect(shouldRenderGoogleSignupClosedState(pathname, routeSearch)).toBe(true);
+      expect(shouldRenderOAuthSignupClosedState(pathname, routeSearch)).toBe(true);
     },
   );
 
   it("keeps MCP consent available when a stale signup marker is present", () => {
     const routeSearch = validateRootRouteSearch({ signup: "google" });
 
-    expect(shouldRenderGoogleSignupClosedState(MCP_CONSENT_APP_PATH, routeSearch)).toBe(false);
+    expect(shouldRenderOAuthSignupClosedState(MCP_CONSENT_APP_PATH, routeSearch)).toBe(false);
   });
 
   it("maps the public password auth mode to a stable landing surface", () => {

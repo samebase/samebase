@@ -30,7 +30,7 @@ const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
   results: [],
 }));
 const buildLocationMock = vi.hoisted(() => vi.fn());
-const signInWithGoogleMock = vi.hoisted(() => vi.fn());
+const signInWithOAuthMock = vi.hoisted(() => vi.fn());
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const PROFILE_JWT = [
   "header",
@@ -94,7 +94,7 @@ vi.mock("@/authClient", () => ({
     signOut: vi.fn(),
   }),
   useAppSignInActions: () => ({
-    signInWithGoogle: signInWithGoogleMock,
+    signInWithOAuth: signInWithOAuthMock,
   }),
 }));
 
@@ -215,7 +215,7 @@ describe("PublicLandingAccountSection", () => {
     queryState.results = [];
     buildLocationMock.mockReset();
     buildLocationMock.mockReturnValue({ href: "/" });
-    signInWithGoogleMock.mockReset();
+    signInWithOAuthMock.mockReset();
   });
 
   it("uses logged-out account presentation after hydration when auth state loads without local auth material", async () => {
@@ -375,7 +375,7 @@ describe("PublicLandingAccountSection", () => {
         to: ".",
       }),
     );
-    expect(signInWithGoogleMock).toHaveBeenCalledWith("/settings?signup=google");
+    expect(signInWithOAuthMock).toHaveBeenCalledWith("google", "/settings?signup=google");
 
     await act(async () => {
       root.unmount();
@@ -420,7 +420,7 @@ describe("PublicLandingAccountSection", () => {
         to: ".",
       }),
     );
-    expect(signInWithGoogleMock).toHaveBeenCalledWith("/oauth/mcp/consent");
+    expect(signInWithOAuthMock).toHaveBeenCalledWith("google", "/oauth/mcp/consent");
 
     await act(async () => {
       root.unmount();

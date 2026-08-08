@@ -1,16 +1,25 @@
 import { authTables } from "@convex-dev/auth/server";
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
+import { vAuthAccountLinkIntent } from "./authAccountModel";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 const {
   users: _authUsers,
   authVerifiers: _authVerifiers,
-  ...authTablesWithoutUsersAndVerifiers
+  authSessions: _authSessions,
+  ...authTablesWithoutUsersVerifiersAndSessions
 } = authTables;
 
 export const identityTables = {
-  ...authTablesWithoutUsersAndVerifiers,
+  ...authTablesWithoutUsersVerifiersAndSessions,
+
+  /** Convex Auth sessions, with a short-lived explicit account-linking intent. */
+  authSessions: defineTable({
+    userId: id("users"),
+    expirationTime: number(),
+    accountLinkIntent: optional(vAuthAccountLinkIntent),
+  }).index("userId", ["userId"]),
 
   /** Convex Auth verification values, with optional signatures and session association. */
   authVerifiers: defineTable({
@@ -26,6 +35,7 @@ export const identityTables = {
     displayName: optional(string()),
     image: optional(string()),
     email: string(),
+    githubSignInLogin: optional(string()),
     emailVerificationTime: optional(number()),
     phone: optional(string()),
     phoneVerificationTime: optional(number()),

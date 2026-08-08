@@ -66,28 +66,9 @@ function InlineScript_prehydrateAppAuthPresentation(
     return '"' + escaped + '"';
   }
 
-  function formatAuthProviderLabel(provider: string) {
-    if (provider === "google") return "Google";
-    if (provider === "password") return "Password";
-    return null;
-  }
-
-  function readAuthProviderLabel(profile: { authProvider?: string }) {
-    const provider = profile.authProvider?.trim();
-    if (provider && provider.length <= 64) {
-      const providerLabel = formatAuthProviderLabel(provider);
-      if (providerLabel !== null) {
-        return providerLabel;
-      }
-    }
-
-    return null;
-  }
-
   function installPrehydrationStyle(presentation: {
     kind: "signed-in" | "signed-out";
     label: string;
-    providerLabel: string | null;
   }) {
     if (document.getElementById(args.styleElementId) !== null) return;
 
@@ -109,8 +90,6 @@ function InlineScript_prehydrateAppAuthPresentation(
       staticAccountSectionSelector + " [data-app-auth-prehydration-signed-in]";
     const signedInAccountLabelSelector =
       staticAccountSectionSelector + " [data-app-auth-prehydration-account-label]";
-    const signedInProviderSelector =
-      staticAccountSectionSelector + " [data-app-auth-prehydration-provider]";
     const styleElement = document.createElement("style");
     styleElement.id = args.styleElementId;
     styleElement.textContent = `
@@ -189,20 +168,6 @@ html[${args.rootAttribute}="signed-in"] ${signedInSelector} {
 html[${args.rootAttribute}="signed-in"] ${signedInAccountLabelSelector}::after {
   content: ${cssStringLiteral(presentation.label)};
 }
-
-${
-  presentation.kind === "signed-in" && presentation.providerLabel !== null
-    ? `
-html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector} {
-  display: block !important;
-}
-
-html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector}::after {
-  content: ${cssStringLiteral(`Signed in with ${presentation.providerLabel}`)};
-}
-`
-    : ""
-}
     `;
     document.head.append(styleElement);
     document.documentElement.setAttribute(args.rootAttribute, presentation.kind);
@@ -236,19 +201,17 @@ html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector}::after {
       installPrehydrationStyle({
         kind: "signed-in",
         label: authPresentationHint.label,
-        providerLabel: readAuthProviderLabel(authPresentationHint.profile),
       });
     } else if (
       authPresentationHint.kind === "signedOut" &&
       !(
         window.location.pathname !== args.mcpConsentPathname &&
-        new URL(window.location.href).searchParams.get("signup") === "google"
+        new URL(window.location.href).searchParams.has("signup")
       )
     ) {
       installPrehydrationStyle({
         kind: "signed-out",
         label: "Sign in or create an account",
-        providerLabel: null,
       });
     }
   } catch {}

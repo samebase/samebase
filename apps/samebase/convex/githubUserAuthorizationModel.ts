@@ -18,5 +18,7 @@ export const vGitHubUserAuthorization = object({
 
 export const githubUserAuthorizationTables = {
   /** Refreshable GitHub user bearer credentials saved only for a matching personal owner. */
-  githubUserAuthorizations: defineTable(vGitHubUserAuthorization).index("by_user", ["userId"]),
+  githubUserAuthorizations: defineTable(vGitHubUserAuthorization)
+    .index("by_user", ["userId"])
+    .index("by_github_user", ["githubUserId"]),
 };

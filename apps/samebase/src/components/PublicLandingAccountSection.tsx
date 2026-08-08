@@ -8,14 +8,13 @@ import {
   useAppAuthPresentation,
   type AppAuthPresentationProfile,
 } from "@/lib/appAuthPresentationState";
-import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { type GetFunctionReferenceReturnType } from "@/lib/convexUtils";
-import { shouldRenderGoogleSignupClosedState } from "@/lib/publicLandingAuthState";
+import { shouldRenderOAuthSignupClosedState } from "@/lib/publicLandingAuthState";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { readRootRouteSearch } from "@/routeSearch/root";
 import { useLocation, useMatches } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
@@ -34,7 +33,7 @@ function PublicLandingLoggedOutAccountSection() {
     }),
   });
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
-  const showGoogleSignupClosedState = shouldRenderGoogleSignupClosedState(
+  const showOAuthSignupClosedState = shouldRenderOAuthSignupClosedState(
     location.pathname,
     rootRouteSearch,
   );
@@ -51,11 +50,11 @@ function PublicLandingLoggedOutAccountSection() {
         Sign in or create an account
       </div>
       <div className="mt-3">
-        {showGoogleSignupClosedState ? (
+        {showOAuthSignupClosedState ? (
           <PublicSignupClosedNotice />
         ) : (
           <PublicLandingAuthControls
-            googleAuthFlow={
+            oauthAuthFlow={
               location.pathname === MCP_CONSENT_APP_PATH || !routeIsPublic
                 ? "current-route"
                 : "public-signup"
@@ -85,19 +84,13 @@ function PublicLandingResolvedSignedInAccountSection({
 }: {
   viewer: PublicLandingSignedInViewer;
 }) {
-  const authProviders = useQuery(api.users.getViewerAuthProviders);
   const [accountOpen, setAccountOpen] = useState(false);
-  const providerLabel = useMemo(() => {
-    const provider = authProviders?.primaryProvider ?? authProviders?.providers[0];
-    return formatAuthProviderLabel(provider);
-  }, [authProviders?.primaryProvider, authProviders?.providers]);
   return (
     <VaultDashboardAccountSection
       accountPresentation={viewer.accountPresentation}
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
       onOpenChange={setAccountOpen}
       open={accountOpen}
-      providerLabel={providerLabel}
     />
   );
 }
@@ -114,7 +107,6 @@ function PublicLandingPresentedSignedInAccountSection({
       dataTestId={PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID}
       onOpenChange={setAccountOpen}
       open={accountOpen}
-      providerLabel={null}
     />
   );
 }

@@ -407,7 +407,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).toContain("checking login");
     expect(markup).toContain("data-app-auth-prehydration-signed-in");
     expect(markup).toContain("dashboard-sidebar-account-icon");
-    expect(markup).toContain("data-app-auth-prehydration-provider");
+    expect(markup).not.toContain("data-app-auth-prehydration-provider");
     expect(markup).toContain("Account settings");
     expect(markup).not.toContain("Sign out");
     expect(hydratedMarkup).toContain("Nicu");
@@ -442,7 +442,7 @@ describe("AppRightSidebarContent", () => {
     const hydratedMarkup = await renderRightSidebarAfterEffects([]);
 
     expect(hydratedMarkup).toContain("Nicu");
-    expect(hydratedMarkup).toContain("Signed in with Password");
+    expect(hydratedMarkup).not.toContain("Signed in with");
     expect(hydratedMarkup).not.toContain("checking login");
   });
 
@@ -492,12 +492,6 @@ describe("AppRightSidebarContent", () => {
               kind: "email",
               label: "pending-access@example.com",
             },
-          },
-        ],
-        [
-          getFunctionName(api.users.getViewerAuthProviders),
-          {
-            providers: [],
           },
         ],
       ]),
@@ -571,7 +565,6 @@ describe("AppRightSidebarContent", () => {
             },
           },
         ],
-        [getFunctionName(api.users.getViewerAuthProviders), { providers: [] }],
       ]),
     );
 
@@ -624,7 +617,6 @@ describe("AppRightSidebarContent", () => {
             accountPresentation: { kind: "email", label: "nicu@samebase.md" },
           },
         ],
-        [getFunctionName(api.users.getViewerAuthProviders), { providers: [] }],
       ]),
     );
 
@@ -670,7 +662,6 @@ describe("AppRightSidebarContent", () => {
             accountPresentation: { kind: "email", label: "nicu@samebase.md" },
           },
         ],
-        [getFunctionName(api.users.getViewerAuthProviders), { providers: [] }],
       ]),
     );
 

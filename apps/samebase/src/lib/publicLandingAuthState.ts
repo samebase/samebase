@@ -50,15 +50,11 @@ export function resolvePublicLandingPasswordAuthMode(
   return passwordAuthMode ?? readStoredPasswordAuthMode() ?? "off";
 }
 
-function hasGoogleSignupReturn(search: RootRouteSearch): boolean {
-  return search.signup === "google";
-}
-
-export function shouldRenderGoogleSignupClosedState(
+export function shouldRenderOAuthSignupClosedState(
   pathname: string,
   routeSearch: RootRouteSearch,
 ): boolean {
-  return pathname !== MCP_CONSENT_APP_PATH && hasGoogleSignupReturn(routeSearch);
+  return pathname !== MCP_CONSENT_APP_PATH && routeSearch.signup !== undefined;
 }
 
 export function getPasswordAuthSurface(
