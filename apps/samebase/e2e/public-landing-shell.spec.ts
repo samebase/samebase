@@ -679,6 +679,30 @@ test("public landing renders the closed OAuth signup return state", async ({ pag
   });
 });
 
+test("public landing explains the GitHub account-linking return", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(
+    "/?prod-ui&signup=github&authorization-provider=github-sign-in&authorization-error=account-link-required",
+    { waitUntil: "networkidle" },
+  );
+
+  const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+
+  await expect(accountSection).toBeVisible();
+  await expect(accountSection.getByRole("alert")).toHaveText(
+    "This email already belongs to a Samebase account. Sign in with an existing method, then connect GitHub in Account settings.",
+  );
+  await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
+  await expect(accountSection.getByText("The app is still internal.")).toHaveCount(0);
+  await expect(page).toHaveURL(/\/\?prod-ui$/);
+
+  await expect(accountSection).toHaveScreenshot("public-landing-github-account-link-required.png", {
+    ...strictScreenshotOptions,
+    timeout: 15_000,
+  });
+});
+
 test("landing reset shortcut stays visible before clearing root search", async ({ page }) => {
   await page.goto("/?light", { waitUntil: "networkidle" });
   await expect(page).toHaveURL(/\/\?light$/);

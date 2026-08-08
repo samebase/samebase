@@ -1,5 +1,6 @@
 import type { ConvexAuthConfig } from "@convex-dev/auth/server";
 import { guard } from "@samebase/dependent";
+import { ConvexError } from "convex/values";
 
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -259,9 +260,7 @@ async function createOrResolveOAuthUser(
     .withIndex("email", (query) => query.eq("email", profile.email))
     .first();
   if (emailOwner !== null) {
-    throw new Error(
-      "A Samebase account already uses this email. Sign in with an existing method, then connect this account in Settings.",
-    );
+    throw new ConvexError("account-link-required");
   }
   if (provider === "github") {
     await assertGitHubAccessIdentity(ctx, null, profile.providerAccountId);

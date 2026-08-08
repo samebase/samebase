@@ -33,6 +33,11 @@ describe("formatAuthorizationErrorMessage", () => {
       authorizationError: { code: "failed", provider: "github-app" },
       expected: "GitHub App setup failed. Try again.",
     },
+    {
+      authorizationError: { code: "account-link-required", provider: "github-sign-in" },
+      expected:
+        "This email already belongs to a Samebase account. Sign in with an existing method, then connect GitHub in Account settings.",
+    },
   ] satisfies readonly {
     authorizationError: AuthorizationError;
     expected: string;

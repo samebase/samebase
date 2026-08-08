@@ -1,4 +1,5 @@
 import { PublicSignupClosedNotice } from "@/components/PublicSignupClosedNotice";
+import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
 import {
   VaultDashboardAccountSection,
@@ -10,12 +11,16 @@ import {
 } from "@/lib/appAuthPresentationState";
 import { type GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { shouldRenderOAuthSignupClosedState } from "@/lib/publicLandingAuthState";
+import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
+import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
+import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";
 import { readRootRouteSearch } from "@/routeSearch/root";
-import { useLocation, useMatches } from "@tanstack/react-router";
+import { useLocation, useMatches, useRouter } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { AUTHORIZATION_PROVIDERS } from "../../shared/authorizationError";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 type PublicLandingSignedInViewer = NonNullable<
@@ -23,6 +28,7 @@ type PublicLandingSignedInViewer = NonNullable<
 >;
 
 function PublicLandingLoggedOutAccountSection() {
+  const router = useRouter();
   const routeIsPublic = useMatches({
     select: (matches) => matches.every((match) => match.staticData.access === "access_public"),
   });
@@ -33,6 +39,21 @@ function PublicLandingLoggedOutAccountSection() {
     }),
   });
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
+  const consumeAuthorizationError = useCallback(() => {
+    void router.navigate({
+      hash: true,
+      replace: true,
+      resetScroll: false,
+      search: clearAuthorizationErrorSearch,
+      to: ".",
+    });
+  }, [router]);
+  const authorizationError = useAuthorizationErrorNotice({
+    allowedProviders: AUTHORIZATION_PROVIDERS,
+    onConsume: consumeAuthorizationError,
+    search: rootRouteSearch,
+    scopeKey: location.pathname,
+  });
   const showOAuthSignupClosedState = shouldRenderOAuthSignupClosedState(
     location.pathname,
     rootRouteSearch,
@@ -49,7 +70,12 @@ function PublicLandingLoggedOutAccountSection() {
       >
         Sign in or create an account
       </div>
-      <div className="mt-3">
+      <div className="mt-3 flex flex-col gap-2">
+        {authorizationError !== null ? (
+          <AuthorizationErrorNotice>
+            {formatAuthorizationErrorMessage(authorizationError)}
+          </AuthorizationErrorNotice>
+        ) : null}
         {showOAuthSignupClosedState ? (
           <PublicSignupClosedNotice />
         ) : (

@@ -1,5 +1,6 @@
 import GitHub from "@auth/core/providers/github";
 import Google from "@auth/core/providers/google";
+import { ConvexError } from "convex/values";
 import { describe, expect, it } from "vite-plus/test";
 
 import { api } from "./_generated/api";
@@ -129,28 +130,33 @@ describe("Samebase OAuth account linking", () => {
     });
   });
 
-  it("blocks signed-out automatic linking when the email already belongs to a user", async () => {
+  it("requires explicit linking when GitHub uses an existing Google account email", async () => {
     const t = makeConvexTest();
     await t.run(async (ctx) => {
-      await insertUser(ctx, "matching@example.com");
+      const userId = await insertUser(ctx, "matching@example.com");
+      await ctx.db.insert("authAccounts", {
+        userId,
+        provider: "google",
+        providerAccountId: "google-existing",
+        emailVerified: "matching@example.com",
+      });
     });
 
-    await expect(
-      t.run(async (ctx) =>
-        createOrUpdateSamebaseUser(
-          ctx,
-          oauthArgs({
-            provider: "google",
-            providerAccountId: "google-new",
-            email: " MATCHING@example.com ",
-            existingSessionId: null,
-            existingUserId: null,
-          }),
-        ),
+    const linkAttempt = t.run(async (ctx) =>
+      createOrUpdateSamebaseUser(
+        ctx,
+        oauthArgs({
+          provider: "github",
+          providerAccountId: "github-new",
+          email: " MATCHING@example.com ",
+          existingSessionId: null,
+          existingUserId: null,
+        }),
       ),
-    ).rejects.toThrow(
-      "A Samebase account already uses this email. Sign in with an existing method, then connect this account in Settings.",
     );
+
+    await expect(linkAttempt).rejects.toBeInstanceOf(ConvexError);
+    await expect(linkAttempt).rejects.toMatchObject({ data: "account-link-required" });
 
     await expect(t.run(async (ctx) => await ctx.db.query("users").collect())).resolves.toHaveLength(
       1,

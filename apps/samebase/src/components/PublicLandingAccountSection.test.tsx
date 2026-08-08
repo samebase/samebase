@@ -30,6 +30,7 @@ const queryState = vi.hoisted<{ index: number; results: unknown[] }>(() => ({
   results: [],
 }));
 const buildLocationMock = vi.hoisted(() => vi.fn());
+const navigateMock = vi.hoisted(() => vi.fn());
 const signInWithOAuthMock = vi.hoisted(() => vi.fn());
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const PROFILE_JWT = [
@@ -156,9 +157,10 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
         { staticData: { access: "access_public" } },
         { staticData: { access: routeState.access } },
       ]),
-    useNavigate: () => vi.fn(),
+    useNavigate: () => navigateMock,
     useRouter: () => ({
       buildLocation: buildLocationMock,
+      navigate: navigateMock,
     }),
   };
 });
@@ -215,6 +217,7 @@ describe("PublicLandingAccountSection", () => {
     queryState.results = [];
     buildLocationMock.mockReset();
     buildLocationMock.mockReturnValue({ href: "/" });
+    navigateMock.mockReset();
     signInWithOAuthMock.mockReset();
   });
 
@@ -444,5 +447,24 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).toContain("Sign in or create an account");
     expect(markup).toContain("The app is still internal.");
     expect(markup).not.toContain("Google");
+  });
+
+  it("explains how to link GitHub and keeps both sign-in methods available", async () => {
+    const markup = await renderLandingAccountSectionAfterEffects(
+      "/?signup=github&authorization-provider=github-sign-in&authorization-error=account-link-required",
+    );
+
+    expect(markup).toContain(
+      "This email already belongs to a Samebase account. Sign in with an existing method, then connect GitHub in Account settings.",
+    );
+    expect(markup).toContain("Continue with Google");
+    expect(markup).toContain("Continue with GitHub");
+    expect(markup).not.toContain("The app is still internal.");
+    expect(navigateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        replace: true,
+        to: ".",
+      }),
+    );
   });
 });

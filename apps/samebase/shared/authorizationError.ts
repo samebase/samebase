@@ -15,6 +15,7 @@ export type AuthorizationProvider = (typeof AUTHORIZATION_PROVIDERS)[number];
 
 export const AUTHORIZATION_ERROR_CODES = [
   "canceled",
+  "account-link-required",
   "expired",
   "access-changed",
   "configuration-changed",

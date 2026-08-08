@@ -15,11 +15,21 @@ import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
 } from "@/lib/publicLanding";
+import {
+  AUTHORIZATION_ERROR_CODES,
+  AUTHORIZATION_ERROR_QUERY_PARAM,
+  AUTHORIZATION_PROVIDERS,
+  AUTHORIZATION_PROVIDER_QUERY_PARAM,
+} from "../../shared/authorizationError";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const TEST_ARGS = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  authorizationErrorCodes: AUTHORIZATION_ERROR_CODES,
+  authorizationErrorQueryParam: AUTHORIZATION_ERROR_QUERY_PARAM,
+  authorizationProviderQueryParam: AUTHORIZATION_PROVIDER_QUERY_PARAM,
+  authorizationProviders: AUTHORIZATION_PROVIDERS,
   browserConvexProxyPath: null,
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
@@ -377,6 +387,21 @@ describe("appAuthPresentationPrehydration", () => {
       expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
     },
   );
+
+  it("uses signed-out presentation for an account-linking error return", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?signup=github&authorization-provider=github-sign-in&authorization-error=account-link-required",
+    );
+
+    runAppAuthPresentationPrehydrationScript();
+
+    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      "signed-out",
+    );
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).not.toBeNull();
+  });
 
   it("ignores an unknown signup marker before hydration", () => {
     window.history.replaceState({}, "", "/?signup=unknown");

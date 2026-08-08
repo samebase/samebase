@@ -13,19 +13,20 @@ describe("authorization error search", () => {
     expect(
       readAuthorizationError({
         "authorization-provider": "github-sign-in",
-        "authorization-error": "failed",
+        "authorization-error": "account-link-required",
       }),
-    ).toEqual({ provider: "github-sign-in", code: "failed" });
+    ).toEqual({ provider: "github-sign-in", code: "account-link-required" });
     expect(readAuthorizationError({ "authorization-error": "failed" })).toBeNull();
   });
 
-  it("clears only the one-time authorization values", () => {
+  it("clears the one-time authorization and signup-return values", () => {
     expect(
       clearAuthorizationErrorSearch({
         "authorization-provider": "convex" as const,
         "authorization-error": "target-mismatch" as const,
         "prod-ui": true as const,
         devtools: true as const,
+        signup: "github" as const,
       }),
     ).toEqual({ "prod-ui": true, devtools: true });
   });

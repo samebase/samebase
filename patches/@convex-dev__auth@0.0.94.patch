@@ -134,13 +134,18 @@ index b7841a01c..3724d37c8 100644
 diff --git a/dist/server/implementation/index.js b/dist/server/implementation/index.js
 --- a/dist/server/implementation/index.js
 +++ b/dist/server/implementation/index.js
-@@ -223,8 +223,9 @@ export function convexAuth(config) {
+@@ -223,8 +223,14 @@ export function convexAuth(config) {
                          });
                      }
                      catch (error) {
                          logError(error);
 -                        return Response.redirect(destinationUrl);
-+                        const errorDestination = setURLSearchParam(setURLSearchParam(destinationUrl, "authorization-provider", `${providerId}-sign-in`), "authorization-error", params.get("error") === "access_denied" ? "canceled" : "failed");
++                        const errorCode = params.get("error") === "access_denied"
++                            ? "canceled"
++                            : error instanceof ConvexError && error.data === "account-link-required"
++                                ? "account-link-required"
++                                : "failed";
++                        const errorDestination = setURLSearchParam(setURLSearchParam(destinationUrl, "authorization-provider", `${providerId}-sign-in`), "authorization-error", errorCode);
 +                        return Response.redirect(errorDestination);
                      }
                  });
@@ -148,12 +153,19 @@ diff --git a/dist/server/implementation/index.js b/dist/server/implementation/in
 diff --git a/src/server/implementation/index.ts b/src/server/implementation/index.ts
 --- a/src/server/implementation/index.ts
 +++ b/src/server/implementation/index.ts
-@@ -359,8 +359,17 @@ export function convexAuth(config: ConvexAuthConfig) {
+@@ -359,8 +359,24 @@ export function convexAuth(config: ConvexAuthConfig) {
                  },
                });
              } catch (error) {
                logError(error);
 -              return Response.redirect(destinationUrl);
++              const errorCode =
++                params.get("error") === "access_denied"
++                  ? "canceled"
++                  : error instanceof ConvexError &&
++                      error.data === "account-link-required"
++                    ? "account-link-required"
++                    : "failed";
 +              const errorDestination = setURLSearchParam(
 +                setURLSearchParam(
 +                  destinationUrl,
@@ -161,7 +173,7 @@ diff --git a/src/server/implementation/index.ts b/src/server/implementation/inde
 +                  `${providerId}-sign-in`,
 +                ),
 +                "authorization-error",
-+                params.get("error") === "access_denied" ? "canceled" : "failed",
++                errorCode,
 +              );
 +              return Response.redirect(errorDestination);
              }

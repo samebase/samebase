@@ -63,6 +63,16 @@ describe("publicLandingAuthState", () => {
     expect(shouldRenderOAuthSignupClosedState(MCP_CONSENT_APP_PATH, routeSearch)).toBe(false);
   });
 
+  it("keeps sign-in methods available after an account-linking error", () => {
+    const routeSearch = validateRootRouteSearch({
+      signup: "github",
+      "authorization-provider": "github-sign-in",
+      "authorization-error": "account-link-required",
+    });
+
+    expect(shouldRenderOAuthSignupClosedState("/", routeSearch)).toBe(false);
+  });
+
   it("maps the public password auth mode to a stable landing surface", () => {
     expect(getPasswordAuthSurface("preview_seed")).toBe("sign_in");
     expect(getPasswordAuthSurface("manual")).toBe("sign_in");

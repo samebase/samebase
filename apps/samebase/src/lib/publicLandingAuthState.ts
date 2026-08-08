@@ -3,6 +3,7 @@ import { PUBLIC_LANDING_PASSWORD_AUTH_MODE_STORAGE_KEY } from "@/lib/authStorage
 import { type RootRouteSearch } from "@/routeSearch/root";
 import type { PasswordAuthMode as PublicPasswordAuthMode } from "../../convex/deploymentProfile";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
+import { readAuthorizationError } from "@/routeSearch/authorizationError";
 
 export type PasswordAuthSurface = "hidden" | "local_worktree" | "sign_in";
 
@@ -54,7 +55,11 @@ export function shouldRenderOAuthSignupClosedState(
   pathname: string,
   routeSearch: RootRouteSearch,
 ): boolean {
-  return pathname !== MCP_CONSENT_APP_PATH && routeSearch.signup !== undefined;
+  return (
+    pathname !== MCP_CONSENT_APP_PATH &&
+    routeSearch.signup !== undefined &&
+    readAuthorizationError(routeSearch) === null
+  );
 }
 
 export function getPasswordAuthSurface(

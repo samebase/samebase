@@ -4,6 +4,12 @@ import {
 } from "@/lib/publicLanding";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
+import {
+  AUTHORIZATION_ERROR_CODES,
+  AUTHORIZATION_ERROR_QUERY_PARAM,
+  AUTHORIZATION_PROVIDERS,
+  AUTHORIZATION_PROVIDER_QUERY_PARAM,
+} from "../../shared/authorizationError";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 const APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID =
@@ -12,6 +18,10 @@ const APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE = "data-app-auth-present
 
 export type AppAuthPresentationPrehydrationArgs = {
   accountSectionTestId: string;
+  authorizationErrorCodes: readonly string[];
+  authorizationErrorQueryParam: string;
+  authorizationProviderQueryParam: string;
+  authorizationProviders: readonly string[];
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
@@ -23,6 +33,10 @@ export type AppAuthPresentationPrehydrationArgs = {
 
 const appAuthPresentationPrehydrationArgs = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  authorizationErrorCodes: AUTHORIZATION_ERROR_CODES,
+  authorizationErrorQueryParam: AUTHORIZATION_ERROR_QUERY_PARAM,
+  authorizationProviderQueryParam: AUTHORIZATION_PROVIDER_QUERY_PARAM,
+  authorizationProviders: AUTHORIZATION_PROVIDERS,
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env["VITE_CONVEX_URL"] ?? null,
   ignoredPathnames: ["/visual-fixture"],
@@ -203,10 +217,19 @@ html[${args.rootAttribute}="signed-in"] ${signedInAccountLabelSelector}::after {
         label: authPresentationHint.label,
       });
     } else if (authPresentationHint.kind === "signedOut") {
-      const signup = new URL(window.location.href).searchParams.get("signup");
+      const searchParams = new URL(window.location.href).searchParams;
+      const signup = searchParams.get("signup");
+      const authorizationError = searchParams.get(args.authorizationErrorQueryParam);
+      const authorizationProvider = searchParams.get(args.authorizationProviderQueryParam);
+      const hasAuthorizationError =
+        authorizationError !== null &&
+        authorizationProvider !== null &&
+        args.authorizationErrorCodes.includes(authorizationError) &&
+        args.authorizationProviders.includes(authorizationProvider);
       if (
         window.location.pathname !== args.mcpConsentPathname &&
-        (signup === "google" || signup === "github")
+        (signup === "google" || signup === "github") &&
+        !hasAuthorizationError
       ) {
         return;
       }

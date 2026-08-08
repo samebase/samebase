@@ -41,6 +41,21 @@ export function formatAuthorizationErrorMessage(
   switch (authorizationError.code) {
     case "canceled":
       return `${authorizationLabel} was canceled. No changes were saved.`;
+    case "account-link-required":
+      switch (authorizationError.provider) {
+        case "google-sign-in":
+          return "This email already belongs to a Samebase account. Sign in with an existing method, then connect Google in Account settings.";
+        case "github-sign-in":
+          return "This email already belongs to a Samebase account. Sign in with an existing method, then connect GitHub in Account settings.";
+        case "convex":
+        case "cloudflare":
+        case "github-app":
+        case "github-user":
+          return `${authorizationLabel} could not use this account. Sign in with an existing method and try again.`;
+        default:
+          authorizationError.provider satisfies never;
+          return "Sign in with an existing method and try again.";
+      }
     case "expired":
       return `${authorizationLabel} expired. Start again.`;
     case "access-changed":
