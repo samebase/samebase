@@ -534,6 +534,16 @@ describe("ProviderConnectionsPage", () => {
     expect(markup).not.toContain("Cloudflare GitHub App");
   });
 
+  it("tells users to authorize only the configured Cloudflare account", () => {
+    const markup = renderToStaticMarkup(
+      <ProviderConnectionsPageVisualFixture mode="providers-page-authorization-error" />,
+    );
+
+    expect(markup).toContain(
+      'Select <strong class="font-semibold">ONLY ONE</strong> Cloudflare account to reconnect: <strong class="font-semibold">Acme Production</strong>.',
+    );
+  });
+
   it.each(["convex-oauth-complete", "cloudflare-oauth-complete", "cloudflare-mcp-oauth-complete"])(
     "navigates the opener to the exact scoped URL for %s",
     (type) => {

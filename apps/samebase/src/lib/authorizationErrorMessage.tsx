@@ -52,12 +52,11 @@ export function formatAuthorizationErrorMessage(
         case "cloudflare":
           return targets.cloudflareAccountName ? (
             <>
-              This organization is connected to Cloudflare account{" "}
-              <strong className="font-semibold">{targets.cloudflareAccountName}</strong>. Select
-              only that account to reconnect it.
+              Select <strong className="font-semibold">ONLY ONE</strong> Cloudflare account to
+              reconnect: <strong className="font-semibold">{targets.cloudflareAccountName}</strong>.
             </>
           ) : (
-            "Select only one Cloudflare account to connect it."
+            "Select ONLY ONE Cloudflare account to connect."
           );
         case "github-app":
           return targets.githubOwnerLogin ? (
