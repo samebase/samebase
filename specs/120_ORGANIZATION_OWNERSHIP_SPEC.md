@@ -140,11 +140,12 @@ operations and read non-secret status. They cannot retrieve credentials or raw p
 member can run an authorized provider operation. Only an owner can connect, reauthorize, replace,
 disconnect, or change a deployment destination.
 
-Direct Cloudflare OAuth is a required product connection flow. During first setup, the OAuth grant
-can exist before the owner chooses one of the Cloudflare accounts that it can access. This is a
-temporary account-selection condition. Samebase does not create a vault until both exact deployment
-destinations exist. Existing credential methods remain supported until a separate accepted decision
-removes one.
+Direct Cloudflare OAuth is a required product connection flow. Every Cloudflare OAuth grant or user
+API token must expose exactly one account. The first connection stores that account and credential
+in one mutation. A grant or token that exposes no account or several accounts fails without storing
+a credential. Reauthorization must expose only the retained account. A Cloudflare credential cannot
+exist without `organizations.cloudflareAccount`. Existing credential methods remain supported until
+a separate accepted decision removes one.
 
 Disconnect clears only the local credential. Samebase does not revoke Convex or Cloudflare access
 upstream. The owner receives a manual revocation notice. Disconnect keeps `organizations.convexTeam`

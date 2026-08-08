@@ -449,63 +449,46 @@ describe("ProviderConnectionsPage", () => {
     expect(testState.apiCredentialDialogOpens).toEqual(["cloudflare"]);
   });
 
-  it.each([
-    {
-      connection: {
-        accountId: "cloudflare-account",
-        accountName: "Samebase",
-        authMethod: "api_key",
-        state: "connected",
-      },
-      expectedStatus: "Account · API token",
-      stateLabel: "connected",
-    },
-    {
-      connection: {
-        authMethod: "api_key",
-        state: "selection_required",
-      },
-      expectedStatus: "Select account",
-      stateLabel: "awaiting account selection",
-    },
-  ])(
-    "updates a Cloudflare API token without starting OAuth when $stateLabel",
-    async ({ connection, expectedStatus }) => {
-      const startCloudflareOAuth = vi.fn(async () => "https://api.samebase.com/oauth/cloudflare");
-      testState.actions.set(
-        getFunctionName(api.cloudflareOAuth.getCloudflareOAuthUrl),
-        startCloudflareOAuth,
+  it("updates a connected Cloudflare API token without starting OAuth", async () => {
+    const startCloudflareOAuth = vi.fn(async () => "https://api.samebase.com/oauth/cloudflare");
+    testState.actions.set(
+      getFunctionName(api.cloudflareOAuth.getCloudflareOAuthUrl),
+      startCloudflareOAuth,
+    );
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      state: "not_configured",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      accountId: "cloudflare-account",
+      accountName: "Samebase",
+      authMethod: "api_key",
+      state: "connected",
+    });
+
+    const container = mountProviderConnectionsPage();
+    const cloudflareRow = container.querySelector('[data-provider-key="cloudflare"]');
+
+    expect(cloudflareRow?.textContent).toContain("Account · API token");
+    act(() => {
+      const actionsButton = cloudflareRow?.querySelector<HTMLButtonElement>(
+        '[aria-label="Cloudflare actions"]',
       );
-      testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
-        state: "not_configured",
-      });
-      testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), connection);
+      actionsButton?.click();
+    });
 
-      const container = mountProviderConnectionsPage();
-      const cloudflareRow = container.querySelector('[data-provider-key="cloudflare"]');
+    await act(async () => {
+      await vi.waitFor(() => expect(document.body.textContent).toContain("Update token"));
+    });
+    const updateTokenItem = [...document.body.querySelectorAll('[role="menuitem"]')].find(
+      (item) => item.textContent === "Update token",
+    );
+    act(() => {
+      updateTokenItem?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
 
-      expect(cloudflareRow?.textContent).toContain(expectedStatus);
-      act(() => {
-        const actionsButton = cloudflareRow?.querySelector<HTMLButtonElement>(
-          '[aria-label="Cloudflare actions"]',
-        );
-        actionsButton?.click();
-      });
-
-      await act(async () => {
-        await vi.waitFor(() => expect(document.body.textContent).toContain("Update token"));
-      });
-      const updateTokenItem = [...document.body.querySelectorAll('[role="menuitem"]')].find(
-        (item) => item.textContent === "Update token",
-      );
-      act(() => {
-        updateTokenItem?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      });
-
-      expect(testState.apiCredentialDialogOpens).toEqual(["cloudflare"]);
-      expect(startCloudflareOAuth).not.toHaveBeenCalled();
-    },
-  );
+    expect(testState.apiCredentialDialogOpens).toEqual(["cloudflare"]);
+    expect(startCloudflareOAuth).not.toHaveBeenCalled();
+  });
 
   it("does not show GitHub installation controls to organization members", () => {
     setProviderQueries();

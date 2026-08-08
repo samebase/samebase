@@ -366,13 +366,11 @@ async function resolveOrganizationCloudflareProvisioningConnection(
       "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
     );
   }
-  const account = resolved.account;
-  if (!account) {
-    throw new Error("Cloudflare account selection is required before provisioning can continue.");
-  }
-  const cloudflareAccountId = account.accountId.trim();
+  const cloudflareAccountId = resolved.account.accountId.trim();
   if (!cloudflareAccountId) {
-    throw new Error("Cloudflare account selection is required before provisioning can continue.");
+    throw new Error(
+      "Cloudflare connection is required to provision infrastructure. Connect Cloudflare and retry.",
+    );
   }
 
   return {

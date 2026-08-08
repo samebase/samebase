@@ -4,8 +4,6 @@ import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice"
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
-import { VaultDashboardCloudflareAccountDialog } from "@/components/vault-dashboard/VaultDashboardCloudflareAccountDialog";
-import { type CloudflareAccountOption } from "@/components/vault-dashboard/vaultDashboardCloudflareAccountOptions";
 import {
   CloudflareProviderLogo,
   ConvexProviderLogo,
@@ -109,14 +107,6 @@ type ApiCheckViewModel = {
 };
 type ProviderDisconnectResult = (typeof api.users.disconnectConvex)["_returnType"];
 type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "poll";
-type CloudflareAccountDialogState = {
-  error: string | null;
-  isLoadingAccounts: boolean;
-  isOpen: boolean;
-  isSubmitting: boolean;
-  options: CloudflareAccountOption[];
-  selectedAccountId: string;
-};
 export type ProviderConnectionsPageConnectionState = {
   cloudflareAccess: AppCloudflareConnectionAccess | null;
   cloudflareConnection: AppCloudflareConnection | undefined;
@@ -126,7 +116,6 @@ export type ProviderConnectionsPageConnectionState = {
 };
 type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState & {
   authorizationErrorMessage: ReactNode;
-  cloudflareAccountDialog: CloudflareAccountDialogState;
   cloudflareApiTokenDialog: ReactNode;
   disconnectingProvider: ProviderKey | null;
   cloudflareAccessError: boolean;
@@ -138,12 +127,8 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   isCheckingGitHubAccess: boolean;
   isReconnectingGitHubApp: boolean;
   organization: ViewerOrganization;
-  onCloudflareAccountChange: (accountId: string) => void;
-  onCloudflareAccountOpenChange: (isOpen: boolean) => void;
-  onCloudflareAccountSubmit: () => void;
   onConnect: (provider: ProviderKey) => void;
   onDisconnect: (provider: ProviderKey) => void;
-  onOpenCloudflareAccountDialog: (accountId: string | undefined) => void;
   onOpenCloudflareApiTokenDialog: () => void;
   onOpenConvexApiKeyDialog: () => void;
   onReconnectGitHubApp: () => void;
@@ -715,7 +700,6 @@ export function ProviderConnectionsPageView({
   authorizationErrorMessage,
   cloudflareAccess,
   cloudflareAccessError,
-  cloudflareAccountDialog,
   cloudflareApiTokenDialog,
   cloudflareConnection,
   convexAccess,
@@ -730,12 +714,8 @@ export function ProviderConnectionsPageView({
   isCheckingGitHubAccess,
   isReconnectingGitHubApp,
   organization,
-  onCloudflareAccountChange,
-  onCloudflareAccountOpenChange,
-  onCloudflareAccountSubmit,
   onConnect,
   onDisconnect,
-  onOpenCloudflareAccountDialog,
   onOpenCloudflareApiTokenDialog,
   onOpenConvexApiKeyDialog,
   onReconnectGitHubApp,
@@ -972,39 +952,6 @@ export function ProviderConnectionsPageView({
         />
       ),
     };
-  } else if (cloudflareConnection?.state === "selection_required") {
-    const actions: ProviderConnectionActionViewModel[] = canManageOrganization
-      ? [
-          {
-            disabled: disconnectingProvider !== null,
-            key: "select-account",
-            label: "Select account",
-            onClick: () => onOpenCloudflareAccountDialog(undefined),
-          },
-        ]
-      : [];
-    const menuActions: ProviderConnectionActionViewModel[] = canManageOrganization
-      ? [
-          getCloudflareCredentialAction(cloudflareConnection.authMethod),
-          {
-            disabled: disconnectingProvider !== null,
-            isPending: disconnectingProvider === "cloudflare",
-            key: "disconnect",
-            label: "Disconnect",
-            onClick: () => onDisconnect("cloudflare"),
-            pendingLabel: "Disconnecting...",
-            variant: "destructive",
-          },
-        ]
-      : [];
-    cloudflareProviderRow = {
-      actions,
-      icon: PROVIDER_METADATA.cloudflare.icon,
-      key: "cloudflare",
-      label: PROVIDER_METADATA.cloudflare.label,
-      menuActions,
-      status: "No Cloudflare account selected.",
-    };
   } else if (cloudflareConnection?.state === "disconnected") {
     cloudflareProviderRow = {
       actions: cloudflareConnectActions,
@@ -1059,21 +1006,6 @@ export function ProviderConnectionsPageView({
           <ProviderConnectionRows providerRows={providerRows} />
         </div>
       </div>
-      <VaultDashboardCloudflareAccountDialog
-        accounts={cloudflareAccountDialog.options}
-        error={cloudflareAccountDialog.error}
-        isLoading={cloudflareAccountDialog.isLoadingAccounts}
-        isSubmitting={cloudflareAccountDialog.isSubmitting}
-        onAccountChange={onCloudflareAccountChange}
-        onOpenChange={onCloudflareAccountOpenChange}
-        onSubmit={onCloudflareAccountSubmit}
-        open={
-          canManageOrganization &&
-          cloudflareConnection?.state === "selection_required" &&
-          cloudflareAccountDialog.isOpen
-        }
-        selectedAccountId={cloudflareAccountDialog.selectedAccountId}
-      />
       {convexApiKeyDialog}
       {cloudflareApiTokenDialog}
     </div>
@@ -1181,10 +1113,7 @@ function useCloudflareMcpTokenAutoCheck({
 }) {
   const cloudflareAutoCheckInFlightRef = useRef(false);
   const credentialedCloudflareConnection =
-    cloudflareConnection?.state === "connected" ||
-    cloudflareConnection?.state === "selection_required"
-      ? cloudflareConnection
-      : null;
+    cloudflareConnection?.state === "connected" ? cloudflareConnection : null;
 
   useEffect(() => {
     if (credentialedCloudflareConnection?.authMethod !== "mcp_oauth" || organizationId === null) {
@@ -1279,8 +1208,6 @@ export function ProviderConnectionsPage({
   const checkGitHubAccess = useAction(api.githubAppAccess.checkViewerInstallation);
   const getGitHubAppReconnectUrl = useMutation(api.githubAppInstallation.getGitHubAppReconnectUrl);
   const refreshCloudflareMcpTokenIfNeeded = useAction(api.users.refreshCloudflareMcpTokenIfNeeded);
-  const listCloudflareAccounts = useAction(api.users.listCloudflareAccounts);
-  const selectCloudflareAccount = useAction(api.users.selectCloudflareAccount);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
   const connectCloudflareWithApiToken = useAction(api.users.connectCloudflareWithApiToken);
   const disconnectConvex = useAction(api.users.disconnectConvex);
@@ -1347,19 +1274,9 @@ export function ProviderConnectionsPage({
   const cloudflarePopupRef = useRef<Window | null>(null);
   const convexPopupOriginRef = useRef<string | null>(null);
   const cloudflarePopupOriginRef = useRef<string | null>(null);
-  const cloudflareAccountDialogRequestIdRef = useRef(0);
   const [disconnectingProvider, setDisconnectingProvider] = useState<ProviderKey | null>(null);
   const [providerDisconnectNotice, setProviderDisconnectNotice] = useState<string | null>(null);
   const [isReconnectingGitHubApp, setIsReconnectingGitHubApp] = useState(false);
-  const [cloudflareAccountDialog, setCloudflareAccountDialog] =
-    useState<CloudflareAccountDialogState>({
-      error: null,
-      isLoadingAccounts: false,
-      isOpen: false,
-      isSubmitting: false,
-      options: [],
-      selectedAccountId: "",
-    });
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     convex: {
       disconnect: async () => {
@@ -1452,50 +1369,6 @@ export function ProviderConnectionsPage({
     refreshCloudflareMcpTokenIfNeeded,
   });
 
-  const loadCloudflareAccountDialogResources = async (preferredAccountId: string | undefined) => {
-    const requestId = cloudflareAccountDialogRequestIdRef.current + 1;
-    cloudflareAccountDialogRequestIdRef.current = requestId;
-    setCloudflareAccountDialog((current) => ({
-      ...current,
-      error: null,
-      isLoadingAccounts: true,
-    }));
-    try {
-      const accounts = await listCloudflareAccounts({ organizationId });
-      if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
-        return;
-      }
-      if (accounts.length === 0) {
-        setCloudflareAccountDialog((current) => ({
-          ...current,
-          error: "No Cloudflare accounts are available.",
-          isLoadingAccounts: false,
-          options: [],
-          selectedAccountId: "",
-        }));
-        return;
-      }
-
-      const selectedAccount =
-        accounts.find((account) => account.accountId === preferredAccountId) ?? accounts[0];
-      setCloudflareAccountDialog((current) => ({
-        ...current,
-        isLoadingAccounts: false,
-        options: accounts,
-        selectedAccountId: selectedAccount.accountId,
-      }));
-    } catch (error) {
-      if (cloudflareAccountDialogRequestIdRef.current !== requestId) {
-        return;
-      }
-      setCloudflareAccountDialog((current) => ({
-        ...current,
-        error: error instanceof Error ? error.message : "Could not load Cloudflare accounts.",
-        isLoadingAccounts: false,
-      }));
-    }
-  };
-
   const handleConnect = async (provider: ProviderKey) => {
     const providerConfig = providerRuntimeConfig[provider];
     const providerMetadata = PROVIDER_METADATA[provider];
@@ -1565,37 +1438,6 @@ export function ProviderConnectionsPage({
       });
   };
 
-  const handleCloudflareAccountDialogOpenChange = (isOpen: boolean) => {
-    if (!isOpen) {
-      cloudflareAccountDialogRequestIdRef.current += 1;
-    }
-    setCloudflareAccountDialog((current) => ({ ...current, isOpen }));
-  };
-
-  const handleSubmitCloudflareAccount = async () => {
-    if (cloudflareAccountDialog.isSubmitting || !cloudflareAccountDialog.selectedAccountId) {
-      return;
-    }
-    setCloudflareAccountDialog((current) => ({ ...current, error: null, isSubmitting: true }));
-    try {
-      await selectCloudflareAccount({
-        accountId: cloudflareAccountDialog.selectedAccountId,
-        organizationId,
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["organization-provider-access", organizationId, "cloudflare"],
-      });
-      handleCloudflareAccountDialogOpenChange(false);
-    } catch (error) {
-      setCloudflareAccountDialog((current) => ({
-        ...current,
-        error: error instanceof Error ? error.message : "Could not save Cloudflare account.",
-      }));
-    } finally {
-      setCloudflareAccountDialog((current) => ({ ...current, isSubmitting: false }));
-    }
-  };
-
   return (
     <ProviderConnectionsPageView
       authorizationErrorMessage={authorizationErrorMessage}
@@ -1603,7 +1445,6 @@ export function ProviderConnectionsPage({
         cloudflareAccessQuery.error === null ? (cloudflareAccessQuery.data ?? null) : null
       }
       cloudflareAccessError={cloudflareAccessQuery.error !== null}
-      cloudflareAccountDialog={cloudflareAccountDialog}
       cloudflareApiTokenDialog={cloudflareApiTokenDialog}
       cloudflareConnection={cloudflareConnection}
       convexAccess={convexAccessQuery.error === null ? (convexAccessQuery.data ?? null) : null}
@@ -1618,26 +1459,11 @@ export function ProviderConnectionsPage({
       isCheckingGitHubAccess={githubAccessQuery.isFetching}
       isReconnectingGitHubApp={isReconnectingGitHubApp}
       organization={organization}
-      onCloudflareAccountChange={(accountId) => {
-        setCloudflareAccountDialog((current) => ({
-          ...current,
-          error: null,
-          selectedAccountId: accountId,
-        }));
-      }}
-      onCloudflareAccountOpenChange={handleCloudflareAccountDialogOpenChange}
-      onCloudflareAccountSubmit={() => {
-        void handleSubmitCloudflareAccount();
-      }}
       onConnect={(provider) => {
         void handleConnect(provider);
       }}
       onDisconnect={(provider) => {
         void handleDisconnect(provider);
-      }}
-      onOpenCloudflareAccountDialog={(accountId) => {
-        setCloudflareAccountDialog((current) => ({ ...current, isOpen: true }));
-        void loadCloudflareAccountDialogResources(accountId);
       }}
       onOpenCloudflareApiTokenDialog={openCloudflareApiTokenDialog}
       onOpenConvexApiKeyDialog={openConvexApiKeyDialog}

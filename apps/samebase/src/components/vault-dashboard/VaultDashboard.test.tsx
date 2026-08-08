@@ -20,7 +20,6 @@ import { RepositorySettings } from "./VaultRepositorySettings";
 import { VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
 import { VaultConvexDialogContent } from "./VaultConvexDialog";
 import { VaultDeleteDialogContent } from "./VaultDeleteDialog";
-import { VaultDashboardCloudflareAccountDialog } from "./VaultDashboardCloudflareAccountDialog";
 import { PullRequestResources, VaultEnvironmentTree } from "./VaultEnvironmentTree";
 import {
   buildProductionEnvironmentRoots,
@@ -1697,30 +1696,6 @@ describe("VaultDeleteDialogContent", () => {
     expect(markup).toContain("Vault setup is still running.");
     expect(removeButton).toBeDefined();
     expect(removeButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
-  });
-});
-
-describe("VaultDashboardCloudflareAccountDialog", () => {
-  it("renders selectable Cloudflare accounts for organization setup", () => {
-    const markup = renderToStaticMarkup(
-      <VaultDashboardCloudflareAccountDialog
-        accounts={[{ accountId: "account-a", accountName: "Account A" }]}
-        error="Could not save Cloudflare account."
-        isLoading={false}
-        isSubmitting={false}
-        onAccountChange={() => {}}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-        open
-        selectedAccountId="account-a"
-      />,
-    );
-
-    expect(markup).toContain("Select Cloudflare Account");
-    expect(markup).toContain("Account A");
-    expect(markup).toContain("Save Account");
-    expect(markup).toContain('role="alert"');
-    expect(markup).toContain("Could not save Cloudflare account.");
   });
 });
 

@@ -117,8 +117,9 @@ const connectedState = {
 const recoveryState = {
   cloudflareAccess: null,
   cloudflareConnection: {
-    authMethod: "oauth",
-    state: "selection_required",
+    accountId: "cloudflare-account-production",
+    accountName: "Acme Production",
+    state: "disconnected",
   },
   convexAccess: null,
   convexConnection: {
@@ -163,14 +164,6 @@ export function ProviderConnectionsPageVisualFixture({
       }
       cloudflareAccess={isLoading ? null : state.cloudflareAccess}
       cloudflareAccessError={false}
-      cloudflareAccountDialog={{
-        error: null,
-        isLoadingAccounts: false,
-        isOpen: false,
-        isSubmitting: false,
-        options: [],
-        selectedAccountId: "",
-      }}
       cloudflareApiTokenDialog={null}
       cloudflareConnection={isLoading ? undefined : state.cloudflareConnection}
       convexAccess={isLoading ? null : state.convexAccess}
@@ -192,12 +185,8 @@ export function ProviderConnectionsPageVisualFixture({
         organizationId: ORGANIZATION_ID,
         role: "owner",
       }}
-      onCloudflareAccountChange={noop}
-      onCloudflareAccountOpenChange={noop}
-      onCloudflareAccountSubmit={noop}
       onConnect={noop}
       onDisconnect={noop}
-      onOpenCloudflareAccountDialog={noop}
       onOpenCloudflareApiTokenDialog={noop}
       onOpenConvexApiKeyDialog={noop}
       onReconnectGitHubApp={noop}

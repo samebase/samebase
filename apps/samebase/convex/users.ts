@@ -8,12 +8,11 @@ import { requireOrganizationMembership } from "./organizationAccess";
 import { action, mutation, query } from "./functions";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
+import type { CloudflareAccount } from "./cloudflareAccountDiscovery";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealthStatus } from "./mcpTokenHealth";
 import type { CloudflareProviderCredential } from "./organizationProviderCredentialModel";
-import { vOrganizationCloudflareAccount } from "./organizationModel";
 import {
   getOrganizationProviderConfiguration,
-  type CloudflareAuthorizedAccount,
   type OrganizationProviderConfiguration,
 } from "./organizationProviderCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
@@ -90,10 +89,6 @@ const cloudflareCredentialStatusFields = {
 const vCloudflareNotConfiguredConnectionStatus = object({
   state: literal("not_configured"),
 });
-const vCloudflareSelectionRequiredConnectionStatus = object({
-  state: literal("selection_required"),
-  ...cloudflareCredentialStatusFields,
-});
 const vCloudflareDisconnectedConnectionStatus = object({
   state: literal("disconnected"),
   accountId: string(),
@@ -108,7 +103,6 @@ const vCloudflareConnectedConnectionStatus = object({
 });
 const vCloudflareConnectionStatus = union(
   vCloudflareNotConfiguredConnectionStatus,
-  vCloudflareSelectionRequiredConnectionStatus,
   vCloudflareDisconnectedConnectionStatus,
   vCloudflareConnectedConnectionStatus,
 );
@@ -183,6 +177,9 @@ function buildCloudflareConnectionStatus(
       ? { state: "not_configured" }
       : { state: "disconnected", ...account };
   }
+  if (account === undefined) {
+    throw new Error("Cloudflare credential has no configured account.");
+  }
 
   const now = options?.now ?? Date.now();
   const credentialStatus = {
@@ -196,9 +193,7 @@ function buildCloudflareConnectionStatus(
   };
 
   if (credential.auth.method !== "mcp_oauth") {
-    return account === undefined
-      ? { state: "selection_required", ...credentialStatus }
-      : { state: "connected", ...account, ...credentialStatus };
+    return { state: "connected", ...account, ...credentialStatus };
   }
 
   const effectiveExpiresAt =
@@ -234,9 +229,7 @@ function buildCloudflareConnectionStatus(
       : {}),
     ...(typeof nextAutoCheckAt === "number" ? { mcpTokenNextAutoCheckAt: nextAutoCheckAt } : {}),
   };
-  return account === undefined
-    ? { state: "selection_required", ...mcpStatus }
-    : { state: "connected", ...account, ...mcpStatus };
+  return { state: "connected", ...account, ...mcpStatus };
 }
 
 async function fetchConvexApiKeyTeamDetails(token: string): Promise<{
@@ -519,118 +512,6 @@ export const getCloudflareConnectionStatus = query({
   },
 });
 
-const vCloudflareAccounts = array(vOrganizationCloudflareAccount);
-type CloudflareAccounts = Infer<typeof vCloudflareAccounts>;
-type CloudflareAccountDiscovery = {
-  auth: CloudflareProviderCredential["auth"];
-  accounts: CloudflareAccounts;
-};
-
-async function discoverCloudflareAccounts(
-  ctx: Pick<ActionCtx, "runAction">,
-  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
-): Promise<CloudflareAccountDiscovery | null> {
-  try {
-    const connection = await ctx.runAction(
-      internal.cloudflareOAuth.resolveConnectionForOrganization,
-      args,
-    );
-    if (connection === null) {
-      return null;
-    }
-    const accounts = await ctx.runAction(internal.cloudflareAccountDiscovery.listAccounts, {
-      token: connection.auth.credential,
-      transport: connection.auth.method === "mcp_oauth" ? "mcp" : "direct",
-    });
-    return { auth: connection.auth, accounts };
-  } catch {
-    throw new Error("Cloudflare account discovery failed. Reconnect Cloudflare, then retry.");
-  }
-}
-
-export const listCloudflareAccounts = action({
-  access: "access_provider_connections",
-  args: {
-    organizationId: id("organizations"),
-  },
-  returns: vCloudflareAccounts,
-  handler: async (ctx, args): Promise<CloudflareAccounts> => {
-    const [configuration, role] = await Promise.all([
-      ctx.runQuery(internal.organizationProviderCredentials.loadForOrganization, {
-        organizationId: args.organizationId,
-        userId: ctx.viewer.userId,
-      }),
-      ctx.runQuery(internal.organizationAccess.requireOrganizationRoleForUser, {
-        organizationId: args.organizationId,
-        userId: ctx.viewer.userId,
-      }),
-    ]);
-    if (configuration.cloudflareAccount !== undefined) {
-      return [configuration.cloudflareAccount];
-    }
-    if (role !== "owner") {
-      return [];
-    }
-    const discovery = await discoverCloudflareAccounts(ctx, {
-      organizationId: args.organizationId,
-      userId: ctx.viewer.userId,
-    });
-    if (discovery === null) {
-      throw new Error("Cloudflare connection is required.");
-    }
-    return discovery.accounts;
-  },
-});
-
-export const selectCloudflareAccount = action({
-  access: "access_provider_connections",
-  args: {
-    organizationId: id("organizations"),
-    accountId: string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const organizationId = await ctx.runQuery(
-      internal.organizationAccess.requireOrganizationOwnerIdForUser,
-      {
-        organizationId: args.organizationId,
-        userId: ctx.viewer.userId,
-      },
-    );
-    const configuration = await ctx.runQuery(
-      internal.organizationProviderCredentials.loadForOrganization,
-      {
-        organizationId,
-        userId: ctx.viewer.userId,
-      },
-    );
-    if (configuration.cloudflareAccount !== undefined) {
-      throw new Error("Cloudflare account is already configured.");
-    }
-    const discovery = await discoverCloudflareAccounts(ctx, {
-      organizationId,
-      userId: ctx.viewer.userId,
-    });
-    if (discovery === null) {
-      throw new Error("Cloudflare connection is required.");
-    }
-    const account = discovery.accounts.find((candidate) => candidate.accountId === args.accountId);
-    if (account === undefined) {
-      throw new Error(
-        "The current Cloudflare authorization cannot access this account. Reconnect Cloudflare, then retry.",
-      );
-    }
-    await ctx.runMutation(internal.organizationProviderCredentials.selectCloudflareAccount, {
-      organizationId,
-      userId: ctx.viewer.userId,
-      expectedAuth: discovery.auth,
-      accountId: account.accountId,
-      accountName: account.accountName,
-    });
-    return null;
-  },
-});
-
 const vCloudflareAutoRefreshTrigger = union(
   literal("focus"),
   literal("visibility"),
@@ -672,9 +553,7 @@ async function runCloudflareMcpTokenRefresh(args: {
   const effectiveExpiresAt =
     credential.tokenHealth?.expiresAt ?? credential.auth.credentialExpiresAt;
   const nextAutoCheckAt =
-    statusAtNow.state === "connected" || statusAtNow.state === "selection_required"
-      ? statusAtNow.mcpTokenNextAutoCheckAt
-      : undefined;
+    statusAtNow.state === "connected" ? statusAtNow.mcpTokenNextAutoCheckAt : undefined;
   if (
     !forceRefresh &&
     credential.tokenHealth?.source === "runtime_error" &&
@@ -922,7 +801,7 @@ export const connectCloudflareWithApiToken = action({
       credential: configuration.cloudflareCredential,
     });
 
-    let accounts: CloudflareAccounts;
+    let accounts: CloudflareAccount[];
     try {
       accounts = await ctx.runAction(
         internal.cloudflareAccountDiscovery.listAccountsForUserApiToken,
@@ -934,23 +813,14 @@ export const connectCloudflareWithApiToken = action({
     if (accounts.length === 0) {
       throw new Error("Cloudflare API token cannot access an account.");
     }
+    if (accounts.length > 1) {
+      throw new Error("Cloudflare API token must access exactly one account.");
+    }
 
     const configuredAccount = configuration.cloudflareAccount;
-    let account: CloudflareAuthorizedAccount;
-    if (configuredAccount !== undefined) {
-      const accessibleAccount = accounts.find(
-        (candidate) => candidate.accountId === configuredAccount.accountId,
-      );
-      if (accessibleAccount === undefined) {
-        throw new Error("Cloudflare API token cannot access the configured Cloudflare account.");
-      }
-      account = { state: "selected", ...accessibleAccount };
-    } else {
-      const [onlyAccount] = accounts;
-      account =
-        accounts.length === 1
-          ? { state: "selected", ...onlyAccount }
-          : { state: "selection_required" };
+    const [account] = accounts;
+    if (configuredAccount !== undefined && account.accountId !== configuredAccount.accountId) {
+      throw new Error("Cloudflare API token cannot access the configured Cloudflare account.");
     }
 
     await ctx.runMutation(internal.organizationProviderCredentials.connectCloudflare, {

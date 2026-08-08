@@ -85,7 +85,7 @@ export const deleteCloudflare = internalAction({
         userId: run.userId,
       },
     );
-    if (!connection || connection.account?.accountId !== firstWorker.accountId) {
+    if (!connection || connection.account.accountId !== firstWorker.accountId) {
       throw new Error("Cloudflare connection is required to remove resources.");
     }
     for (const worker of workers) {

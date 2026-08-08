@@ -40,16 +40,6 @@ const vOrganizationProviderConfiguration = object({
 });
 export type OrganizationProviderConfiguration = Infer<typeof vOrganizationProviderConfiguration>;
 
-const vCloudflareAuthorizedAccount = union(
-  object({ state: literal("selection_required") }),
-  object({
-    state: literal("selected"),
-    accountId: string(),
-    accountName: string(),
-  }),
-);
-export type CloudflareAuthorizedAccount = Infer<typeof vCloudflareAuthorizedAccount>;
-
 export const vConnectedProviderCredential = union(
   object({
     provider: literal("convex"),
@@ -417,7 +407,7 @@ type ConnectCloudflareCredentialArgs = {
   connectedByUserId: Id<"users">;
   expectedProviderSnapshotHash: string;
   auth: Infer<typeof vCloudflareProviderAuth>;
-  account: CloudflareAuthorizedAccount;
+  account: Infer<typeof vOrganizationCloudflareAccount> | null;
   tokenHealth?: Infer<typeof vMcpTokenHealth>;
   oauthStateId?: Id<"providerOAuthCallbackStates">;
   oauthState?: string;
@@ -464,10 +454,9 @@ export async function connectCloudflareCredential(
     throw new Error("Cloudflare configuration changed before authorization completed.");
   }
   if (
-    (args.auth.method !== "api_key" && args.account.state === "selection_required") ||
+    args.account === null ||
     (organization.cloudflareAccount !== undefined &&
-      (args.account.state !== "selected" ||
-        args.account.accountId !== organization.cloudflareAccount.accountId))
+      args.account.accountId !== organization.cloudflareAccount.accountId)
   ) {
     if (oauthState !== null) {
       await ctx.db.delete(oauthState._id);
@@ -490,18 +479,11 @@ export async function connectCloudflareCredential(
   } else {
     await ctx.db.patch(credentials._id, { cloudflare: credential });
   }
-  if (organization.cloudflareAccount === undefined && args.account.state === "selected") {
+  if (organization.cloudflareAccount === undefined) {
     await ctx.db.patch(organization._id, {
-      cloudflareAccount: {
-        accountId: args.account.accountId,
-        accountName: args.account.accountName,
-      },
+      cloudflareAccount: args.account,
     });
-  } else if (
-    organization.cloudflareAccount !== undefined &&
-    args.account.state === "selected" &&
-    organization.cloudflareAccount.accountName !== args.account.accountName
-  ) {
+  } else if (organization.cloudflareAccount.accountName !== args.account.accountName) {
     await ctx.db.patch(organization._id, {
       cloudflareAccount: {
         accountId: organization.cloudflareAccount.accountId,
@@ -521,7 +503,7 @@ export const connectCloudflare = internalMutation({
     connectedByUserId: id("users"),
     expectedProviderSnapshotHash: string(),
     auth: vCloudflareProviderAuth,
-    account: vCloudflareAuthorizedAccount,
+    account: vOrganizationCloudflareAccount,
     tokenHealth: optional(vMcpTokenHealth),
     oauthStateId: optional(id("providerOAuthCallbackStates")),
     oauthState: optional(string()),
@@ -529,38 +511,6 @@ export const connectCloudflare = internalMutation({
   returns: vNull(),
   handler: async (ctx, args) => {
     await connectCloudflareCredential(ctx, args);
-    return null;
-  },
-});
-
-export const selectCloudflareAccount = internalMutation({
-  args: {
-    organizationId: id("organizations"),
-    userId: id("users"),
-    expectedAuth: vCloudflareProviderAuth,
-    accountId: string(),
-    accountName: string(),
-  },
-  returns: vNull(),
-  handler: async (ctx, args) => {
-    await requireActiveOrganizationProviderOwner(ctx.db, args);
-    const organization = await ctx.db.get(args.organizationId);
-    if (organization === null) {
-      throw new Error("Organization not found.");
-    }
-    if (organization.cloudflareAccount !== undefined) {
-      throw new Error("Cloudflare account is already configured.");
-    }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
-    if (
-      credentials?.cloudflare === undefined ||
-      !providerAuthMatches(credentials.cloudflare.auth, args.expectedAuth)
-    ) {
-      throw new Error("Cloudflare credential changed before account selection completed.");
-    }
-    await ctx.db.patch(organization._id, {
-      cloudflareAccount: { accountId: args.accountId, accountName: args.accountName },
-    });
     return null;
   },
 });

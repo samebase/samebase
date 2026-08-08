@@ -42,10 +42,6 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
-vi.mock("@/components/vault-dashboard/VaultDashboardCloudflareAccountDialog", () => ({
-  VaultDashboardCloudflareAccountDialog: () => null,
-}));
-
 describe("NewAppPage", () => {
   it("sends a blocked personal owner to Account settings for authorization", () => {
     const markup = renderToStaticMarkup(

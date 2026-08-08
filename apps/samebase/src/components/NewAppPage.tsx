@@ -429,8 +429,6 @@ function formatNewAppCloudflareStatus(connection: AppCloudflareConnection): stri
   switch (connection.state) {
     case "not_configured":
       return "No account configured.";
-    case "selection_required":
-      return "OAuth connected. Choose an account.";
     case "disconnected":
       return `Disconnected from account ${connection.accountName}.`;
     case "connected":
@@ -461,11 +459,6 @@ function readNewAppProviderBlocker(args: {
     return canManageOrganization
       ? "Configure Cloudflare in Providers before creating an app."
       : "An organization owner must configure Cloudflare before an app can be created.";
-  }
-  if (cloudflareConnection.state === "selection_required") {
-    return canManageOrganization
-      ? "Choose a Cloudflare account in Providers before creating an app."
-      : "An organization owner must choose the Cloudflare account before an app can be created.";
   }
   if (cloudflareConnection.state === "disconnected") {
     return canManageOrganization
