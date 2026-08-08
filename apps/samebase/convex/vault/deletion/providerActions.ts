@@ -1,6 +1,5 @@
 "use node";
 
-import { RequestError } from "@octokit/request-error";
 import { v } from "convex/values";
 import { internalAction, type ActionCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
@@ -12,7 +11,10 @@ import {
   isCloudflareWorkerNotFoundError,
 } from "../../cloudflareResources";
 import { resolveCloudflareApiTransport } from "../../cloudflareApi/client";
-import { resolveGitHubAppAccessForVaultDeletionRun } from "../../githubAppAccess";
+import {
+  resolveGitHubAppAccessForVaultDeletionRun,
+  resolveGitHubRepositoryAccess,
+} from "../../githubAppAccess";
 import { readRetainedSnapshot } from "./runs";
 import { type VaultDeletionEventLevel, type VaultDeletionStep } from "./model";
 
@@ -177,28 +179,17 @@ export const deleteGitHubRepository = internalAction({
     if (plan.githubRepository.action !== "delete_repository") {
       return null;
     }
-
-    const githubAccess = await resolveGitHubAppAccessForVaultDeletionRun(ctx, {
+    const installationAccess = await resolveGitHubAppAccessForVaultDeletionRun(ctx, {
       runId: args.runId,
     });
-    try {
-      const repository = await githubAccess.octokit.rest.repos.get({
-        owner: plan.githubRepository.owner,
-        repo: plan.githubRepository.name,
-      });
-      if (String(repository.data.id) !== plan.githubRepository.ghRepoId) {
-        throw new Error("GitHub repository identity changed.");
-      }
-
-      await githubAccess.octokit.rest.repos.delete({
-        owner: plan.githubRepository.owner,
-        repo: plan.githubRepository.name,
-      });
-    } catch (error) {
-      if (!(error instanceof RequestError && error.status === 404)) {
-        throw error;
-      }
-    }
+    const githubAccess = await resolveGitHubRepositoryAccess({
+      access: installationAccess,
+      ghRepoId: plan.githubRepository.ghRepoId,
+    });
+    await githubAccess.octokit.rest.repos.delete({
+      owner: githubAccess.githubOwnerLogin,
+      repo: githubAccess.repositoryName,
+    });
 
     return null;
   },

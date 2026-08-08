@@ -242,14 +242,47 @@ async function startVaultDeletionOrFail(
   }
 }
 
+async function retryVaultDeletionForUser(
+  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
+  args: {
+    failedRunId: Id<"workflow_vaultDeletion_runs">;
+    mode: "same_plan" | "keep_upstream_resources";
+    userId: Id<"users">;
+  },
+): Promise<{ deletionRunId: Id<"workflow_vaultDeletion_runs"> }> {
+  const result: { deletionRunId: Id<"workflow_vaultDeletion_runs"> } = await ctx.runMutation(
+    internal.vault.deletion.runs.createRetryRun,
+    {
+      userId: args.userId,
+      failedRunId: args.failedRunId,
+      mode: args.mode,
+    },
+  );
+  const retryRun = await ctx.runQuery(internal.vault.deletion.runs.getById, {
+    runId: result.deletionRunId,
+  });
+  if (!retryRun) {
+    throw new Error("Deletion retry run not found.");
+  }
+  await startVaultDeletionOrFail(ctx, {
+    vaultId: retryRun.vaultId,
+    runId: result.deletionRunId,
+    userId: args.userId,
+  });
+
+  return result;
+}
+
 async function startConnectExistingRepositoryProvisioningOrFail(
   ctx: Pick<ActionCtx, "runMutation">,
   args: {
     vaultId: Id<"vaults">;
     runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
-    repositoryName: string;
-    repositoryOwner: string;
+    ghRepoId: string;
+    githubOwnerId: string;
+    expectedGithubOwnerLogin: string;
+    expectedRepositoryName: string;
   },
 ): Promise<void> {
   try {
@@ -646,6 +679,7 @@ export async function connectRepositoryForUser(
     expectedOwnerId: access.githubOwnerId,
     repositoryOwnerId: repository.data.owner.id,
   });
+  const ghRepoId = String(repository.data.id);
   const owner = repository.data.owner.login;
   const name = repository.data.name;
 
@@ -662,8 +696,10 @@ export async function connectRepositoryForUser(
     vaultId,
     runId,
     userId,
-    repositoryOwner: owner,
-    repositoryName: name,
+    ghRepoId,
+    githubOwnerId: access.githubOwnerId,
+    expectedGithubOwnerLogin: access.githubOwnerLogin,
+    expectedRepositoryName: name,
   });
 
   return { vaultId, runId };
@@ -903,27 +939,27 @@ export const retryDeleteVault = action({
     deletionRunId: v.id("workflow_vaultDeletion_runs"),
   }),
   handler: async (ctx, args): Promise<{ deletionRunId: Id<"workflow_vaultDeletion_runs"> }> => {
-    const userId = ctx.viewer.userId;
-    const result: { deletionRunId: Id<"workflow_vaultDeletion_runs"> } = await ctx.runMutation(
-      internal.vault.deletion.runs.createRetryRun,
-      {
-        userId,
-        failedRunId: args.runId,
-      },
-    );
-    const { deletionRunId } = result;
-    const retryRun = await ctx.runQuery(internal.vault.deletion.runs.getById, {
-      runId: deletionRunId,
+    return await retryVaultDeletionForUser(ctx, {
+      failedRunId: args.runId,
+      mode: "same_plan",
+      userId: ctx.viewer.userId,
     });
-    if (!retryRun) {
-      throw new Error("Deletion retry run not found.");
-    }
-    await startVaultDeletionOrFail(ctx, {
-      vaultId: retryRun.vaultId,
-      runId: deletionRunId,
-      userId,
-    });
+  },
+});
 
-    return { deletionRunId };
+export const removeFailedVaultFromSamebase = action({
+  access: "access_app_create",
+  args: {
+    runId: v.id("workflow_vaultDeletion_runs"),
+  },
+  returns: v.object({
+    deletionRunId: v.id("workflow_vaultDeletion_runs"),
+  }),
+  handler: async (ctx, args): Promise<{ deletionRunId: Id<"workflow_vaultDeletion_runs"> }> => {
+    return await retryVaultDeletionForUser(ctx, {
+      failedRunId: args.runId,
+      mode: "keep_upstream_resources",
+      userId: ctx.viewer.userId,
+    });
   },
 });

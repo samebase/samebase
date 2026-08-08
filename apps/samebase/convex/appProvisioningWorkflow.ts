@@ -67,7 +67,8 @@ export async function startCreateAppProvisioningWorkflow(
     runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     repositoryName: string;
-    repositoryOwner: string;
+    githubOwnerId: string;
+    expectedGithubOwnerLogin: string;
     description: string | null;
     private: boolean;
   },
@@ -682,7 +683,8 @@ export const provisionApp = workflow.define({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     repositoryName: string(),
-    repositoryOwner: string(),
+    githubOwnerId: string(),
+    expectedGithubOwnerLogin: string(),
     description: createAppDescription,
     private: boolean(),
   },
@@ -695,7 +697,7 @@ export const provisionApp = workflow.define({
         runId: args.runId,
         userId: args.userId,
         repositoryName: args.repositoryName,
-        repositoryOwner: args.repositoryOwner,
+        githubOwnerId: args.githubOwnerId,
       },
       { name: "validate_connections", retry: false },
     );
@@ -706,7 +708,7 @@ export const provisionApp = workflow.define({
         runId: args.runId,
         userId: args.userId,
         repositoryName: args.repositoryName,
-        repositoryOwner: args.repositoryOwner,
+        githubOwnerId: args.githubOwnerId,
         description: args.description,
         private: args.private,
       },
@@ -719,6 +721,9 @@ export const provisionApp = workflow.define({
         runId: args.runId,
         userId: args.userId,
         ghRepoId: repository.ghRepoId,
+        githubOwnerId: args.githubOwnerId,
+        expectedGithubOwnerLogin: args.expectedGithubOwnerLogin,
+        expectedRepositoryName: args.repositoryName,
         ownerName: repository.ownerName,
         repoName: repository.repoName,
         defaultBranch: repository.defaultBranch,
@@ -732,9 +737,6 @@ export const provisionApp = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        ownerName: repository.ownerName,
-        repoName: repository.repoName,
-        defaultBranch: repository.defaultBranch,
       },
       { name: "seed_starter", retry: idempotentProviderStepRetry },
     );
@@ -744,9 +746,6 @@ export const provisionApp = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        ownerName: repository.ownerName,
-        repoName: repository.repoName,
-        defaultBranch: repository.defaultBranch,
       },
       { name: "sync_tree", retry: idempotentProviderStepRetry },
     );
@@ -765,30 +764,21 @@ export const connectExistingRepository = workflow.define({
     vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
-    repositoryOwner: string(),
-    repositoryName: string(),
+    ghRepoId: string(),
+    githubOwnerId: string(),
+    expectedGithubOwnerLogin: string(),
+    expectedRepositoryName: string(),
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
-    await step.runAction(
-      internal.appProvisioningWorkflowActions.validateExistingRepositoryConnection,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        userId: args.userId,
-        ownerName: args.repositoryOwner,
-        repoName: args.repositoryName,
-      },
-      { name: "validate_connections", retry: false },
-    );
     const repository = await step.runAction(
       internal.appProvisioningWorkflowActions.fetchExistingGitHubRepository,
       {
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        ownerName: args.repositoryOwner,
-        repoName: args.repositoryName,
+        ghRepoId: args.ghRepoId,
+        githubOwnerId: args.githubOwnerId,
       },
       { name: "fetch_github_repo", retry: false },
     );
@@ -799,6 +789,9 @@ export const connectExistingRepository = workflow.define({
         runId: args.runId,
         userId: args.userId,
         ghRepoId: repository.ghRepoId,
+        githubOwnerId: args.githubOwnerId,
+        expectedGithubOwnerLogin: args.expectedGithubOwnerLogin,
+        expectedRepositoryName: args.expectedRepositoryName,
         ownerName: repository.ownerName,
         repoName: repository.repoName,
         defaultBranch: repository.defaultBranch,
@@ -812,9 +805,6 @@ export const connectExistingRepository = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        ownerName: repository.ownerName,
-        repoName: repository.repoName,
-        defaultBranch: repository.defaultBranch,
       },
       { name: "sync_tree", retry: idempotentProviderStepRetry },
     );
@@ -841,8 +831,10 @@ export const startConnectExistingRepositoryProvisioning = internalMutation({
     vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
-    repositoryName: string(),
-    repositoryOwner: string(),
+    ghRepoId: string(),
+    githubOwnerId: string(),
+    expectedGithubOwnerLogin: string(),
+    expectedRepositoryName: string(),
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {

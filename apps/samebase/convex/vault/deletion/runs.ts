@@ -26,6 +26,8 @@ const deletionRequestOptions = object({
 });
 type DeletionRequestOptions = Infer<typeof deletionRequestOptions>;
 
+const deletionRetryMode = union(literal("same_plan"), literal("keep_upstream_resources"));
+
 const deletionRunEventState = union(literal("unchanged"), literal("running"));
 
 async function listVaultConvexProjects(
@@ -356,6 +358,7 @@ export const createRetryRun = internalMutation({
   args: {
     userId: id("users"),
     failedRunId: id("workflow_vaultDeletion_runs"),
+    mode: deletionRetryMode,
   },
   returns: object({
     deletionRunId: id("workflow_vaultDeletion_runs"),
@@ -386,6 +389,15 @@ export const createRetryRun = internalMutation({
     }
 
     const retainedSnapshot = readRetainedSnapshot(failedRun);
+    const plan: VaultDeletionPlan =
+      args.mode === "same_plan"
+        ? retainedSnapshot.plan
+        : {
+            ...retainedSnapshot.plan,
+            convex: { action: "skip", reason: "not_requested" },
+            cloudflare: { action: "skip", reason: "not_requested" },
+            githubRepository: { action: "skip", reason: "not_requested" },
+          };
 
     const now = Date.now();
     const deletionRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
@@ -402,7 +414,7 @@ export const createRetryRun = internalMutation({
       currentStep: "initialize_deletion",
       snapshot: {
         state: "retained_for_retry",
-        plan: retainedSnapshot.plan,
+        plan,
       },
       createdAt: now,
       updatedAt: now,
@@ -415,7 +427,10 @@ export const createRetryRun = internalMutation({
       run,
       step: "initialize_deletion",
       level: "info",
-      message: "Queued vault deletion retry.",
+      message:
+        args.mode === "same_plan"
+          ? "Queued vault deletion retry."
+          : "Queued Samebase-only vault removal.",
       createdAt: now,
     });
     await ctx.db.patch(vault._id, {
