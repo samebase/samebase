@@ -30,20 +30,49 @@ afterEach(() => {
 describe("viewer GitHub user authorization", () => {
   it("returns only the user-facing authorization state, login, and refresh expiry", async () => {
     const t = makeConvexTest();
-    const userId = await t.run(async (ctx) => {
-      return await ctx.db.insert("users", {
+    const { organizationId, otherOrganizationId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
         email: "github-status@example.com",
         isApproved: true,
       });
+      const organizationId = await ctx.db.insert("organizations", {
+        githubOwnerId: "101",
+        githubOwnerType: "user",
+        githubOwnerLogin: "octocat",
+        githubOwnerLoginNormalized: "octocat",
+        githubInstallationId: "installation-octocat",
+      });
+      const otherOrganizationId = await ctx.db.insert("organizations", {
+        githubOwnerId: "102",
+        githubOwnerType: "user",
+        githubOwnerLogin: "monalisa",
+        githubOwnerLoginNormalized: "monalisa",
+        githubInstallationId: "installation-monalisa",
+      });
+      await Promise.all([
+        ctx.db.insert("organizationMemberships", {
+          organizationId,
+          userId,
+          role: "member",
+        }),
+        ctx.db.insert("organizationMemberships", {
+          organizationId: otherOrganizationId,
+          userId,
+          role: "member",
+        }),
+      ]);
+      return { organizationId, otherOrganizationId, userId };
     });
     const asUser = t.withIdentity({
       subject: `${userId}|github-status`,
       tokenIdentifier: `test:${userId}`,
     });
 
-    await expect(asUser.query(api.githubUserAuthorizations.getViewerStatus, {})).resolves.toEqual({
-      status: "not_connected",
-    });
+    await expect(
+      asUser.query(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization, {
+        organizationId,
+      }),
+    ).resolves.toEqual({ status: "not_connected" });
 
     const refreshTokenExpiresAt = Date.now() + 60_000;
     await t.run(async (ctx) => {
@@ -61,16 +90,28 @@ describe("viewer GitHub user authorization", () => {
       });
     });
 
-    await expect(asUser.query(api.githubUserAuthorizations.getViewerStatus, {})).resolves.toEqual({
+    await expect(
+      asUser.query(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization, {
+        organizationId,
+      }),
+    ).resolves.toEqual({
       status: "authorized",
       githubUserLogin: "octocat",
       refreshTokenExpiresAt,
+    });
+    await expect(
+      asUser.query(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization, {
+        organizationId: otherOrganizationId,
+      }),
+    ).resolves.toEqual({
+      status: "different_account",
+      githubUserLogin: "octocat",
     });
   });
 
   it("routes viewer revocation through the existing provider revoke and delete flow", async () => {
     const t = makeConvexTest();
-    const { userId, authorizationId } = await t.run(async (ctx) => {
+    const { userId, authorizationId, organizationId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         email: "github-revoke@example.com",
         isApproved: true,
@@ -87,7 +128,19 @@ describe("viewer GitHub user authorization", () => {
         createdAt: now,
         updatedAt: now,
       });
-      return { userId, authorizationId };
+      const organizationId = await ctx.db.insert("organizations", {
+        githubOwnerId: "999",
+        githubOwnerType: "user",
+        githubOwnerLogin: "another-owner",
+        githubOwnerLoginNormalized: "another-owner",
+        githubInstallationId: "installation-another-owner",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId,
+        role: "member",
+      });
+      return { userId, authorizationId, organizationId };
     });
     vi.stubEnv("GITHUB_APP_ID", "42");
     vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
@@ -101,7 +154,9 @@ describe("viewer GitHub user authorization", () => {
         subject: `${userId}|github-revoke`,
         tokenIdentifier: `test:${userId}`,
       })
-      .action(api.githubUserAuthorizations.revokeViewerAuthorization, {});
+      .action(api.githubUserAuthorizations.revokeViewerPersonalRepositoryAuthorization, {
+        organizationId,
+      });
 
     expect(result).toBeNull();
     expect(githubAuthMocks.createOAuthUserAuth).toHaveBeenCalledWith({

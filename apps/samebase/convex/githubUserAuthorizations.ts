@@ -18,21 +18,28 @@ import {
   getGitHubAppConfiguration,
   requireExpiringGitHubUserAuthentication,
 } from "./githubApp";
+import { requireOrganizationAccessContext } from "./organizationAccess";
 
 const { id, literal, number, object, string, union } = v;
 
 const GITHUB_USER_TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
 const GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS = 60 * 1000;
 
-const vViewerGitHubUserAuthorizationStatus = union(
+const vViewerPersonalRepositoryAuthorizationStatus = union(
   object({ status: literal("not_connected") }),
   object({
     status: literal("authorized"),
     githubUserLogin: string(),
     refreshTokenExpiresAt: number(),
   }),
+  object({
+    status: literal("different_account"),
+    githubUserLogin: string(),
+  }),
 );
-type ViewerGitHubUserAuthorizationStatus = Infer<typeof vViewerGitHubUserAuthorizationStatus>;
+type ViewerPersonalRepositoryAuthorizationStatus = Infer<
+  typeof vViewerPersonalRepositoryAuthorizationStatus
+>;
 
 const vGitHubUserAuthorizationForUse = object({
   authorizationId: id("githubUserAuthorizations"),
@@ -62,14 +69,18 @@ const vGitHubUserAuthorizationUse = union(
   }),
 );
 
+const vGitHubUserAuthorizationForRevocationValue = object({
+  authorizationId: id("githubUserAuthorizations"),
+  githubUserId: string(),
+  accessToken: string(),
+});
 const vGitHubUserAuthorizationForRevocation = union(
-  object({
-    authorizationId: id("githubUserAuthorizations"),
-    githubUserId: string(),
-    accessToken: string(),
-  }),
+  vGitHubUserAuthorizationForRevocationValue,
   v.null(),
 );
+type GitHubUserAuthorizationForRevocation = Infer<
+  typeof vGitHubUserAuthorizationForRevocationValue
+>;
 
 function toAuthorizationForUse(
   authorization: Doc<"githubUserAuthorizations">,
@@ -96,14 +107,44 @@ async function getByUser(
     .unique();
 }
 
-export const getViewerStatus = query({
-  access: "access_user_preferences",
-  args: {},
-  returns: vViewerGitHubUserAuthorizationStatus,
-  handler: async (ctx): Promise<ViewerGitHubUserAuthorizationStatus> => {
+async function requirePersonalGitHubOwner(
+  db: DatabaseReader,
+  args: {
+    organizationId: Id<"organizations">;
+    userId: Id<"users">;
+  },
+): Promise<Doc<"organizations">> {
+  await requireOrganizationAccessContext(db, args);
+  const organization = await db.get(args.organizationId);
+  if (organization === null) {
+    throw new Error("Organization not found.");
+  }
+  if (organization.githubOwnerType !== "user") {
+    throw new Error("Personal repository authorization requires a personal GitHub owner.");
+  }
+  return organization;
+}
+
+export const getViewerPersonalRepositoryAuthorization = query({
+  access: "access_provider_connections",
+  args: {
+    organizationId: id("organizations"),
+  },
+  returns: vViewerPersonalRepositoryAuthorizationStatus,
+  handler: async (ctx, args): Promise<ViewerPersonalRepositoryAuthorizationStatus> => {
+    const organization = await requirePersonalGitHubOwner(ctx.db, {
+      organizationId: args.organizationId,
+      userId: ctx.viewer.userId,
+    });
     const authorization = await getByUser(ctx.db, ctx.viewer.userId);
     if (authorization === null) {
       return { status: "not_connected" };
+    }
+    if (authorization.githubUserId !== organization.githubOwnerId) {
+      return {
+        status: "different_account",
+        githubUserLogin: authorization.githubUserLogin,
+      };
     }
 
     return {
@@ -296,6 +337,27 @@ export const getForRevocation = internalQuery({
   },
 });
 
+export const getForPersonalRepositoryRevocation = internalQuery({
+  args: {
+    organizationId: id("organizations"),
+    userId: id("users"),
+  },
+  returns: vGitHubUserAuthorizationForRevocation,
+  handler: async (ctx, args) => {
+    await requirePersonalGitHubOwner(ctx.db, args);
+    const authorization = await getByUser(ctx.db, args.userId);
+    if (authorization === null) {
+      return null;
+    }
+
+    return {
+      authorizationId: authorization._id,
+      githubUserId: authorization.githubUserId,
+      accessToken: authorization.accessToken,
+    };
+  },
+});
+
 export const deleteRevoked = internalMutation({
   args: {
     authorizationId: id("githubUserAuthorizations"),
@@ -311,53 +373,59 @@ export const deleteRevoked = internalMutation({
   },
 });
 
+async function revokeGitHubUserAuthorization(
+  ctx: Pick<ActionCtx, "runMutation">,
+  authorization: GitHubUserAuthorizationForRevocation,
+): Promise<null> {
+  const configuration = getGitHubAppConfiguration();
+  const auth = createOAuthUserAuth({
+    clientType: "github-app",
+    clientId: configuration.clientId,
+    clientSecret: configuration.clientSecret,
+    token: authorization.accessToken,
+  });
+  try {
+    await auth({ type: "deleteAuthorization" });
+  } catch {
+    throw new Error("Failed to revoke GitHub user authorization.");
+  }
+
+  await ctx.runMutation(internal.githubUserAuthorizations.deleteRevoked, {
+    authorizationId: authorization.authorizationId,
+    githubUserId: authorization.githubUserId,
+  });
+  return null;
+}
+
 export const revokeAndDeleteByUser = internalAction({
   args: {
     userId: id("users"),
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
-    const authorization = await ctx.runQuery(
+  handler: async (ctx, args): Promise<null> => {
+    const authorization: GitHubUserAuthorizationForRevocation | null = await ctx.runQuery(
       internal.githubUserAuthorizations.getForRevocation,
       args,
     );
-    if (authorization === null) {
-      return null;
-    }
-
-    const configuration = getGitHubAppConfiguration();
-    const auth = createOAuthUserAuth({
-      clientType: "github-app",
-      clientId: configuration.clientId,
-      clientSecret: configuration.clientSecret,
-      token: authorization.accessToken,
-    });
-    try {
-      await auth({ type: "deleteAuthorization" });
-    } catch {
-      throw new Error("Failed to revoke GitHub user authorization.");
-    }
-
-    await ctx.runMutation(internal.githubUserAuthorizations.deleteRevoked, {
-      authorizationId: authorization.authorizationId,
-      githubUserId: authorization.githubUserId,
-    });
-    return null;
+    return authorization === null ? null : await revokeGitHubUserAuthorization(ctx, authorization);
   },
 });
 
-export const revokeViewerAuthorization = action({
-  access: "access_user_preferences",
-  args: {},
+export const revokeViewerPersonalRepositoryAuthorization = action({
+  access: "access_provider_connections",
+  args: {
+    organizationId: id("organizations"),
+  },
   returns: v.null(),
-  handler: async (ctx): Promise<null> => {
-    const result: null = await ctx.runAction(
-      internal.githubUserAuthorizations.revokeAndDeleteByUser,
+  handler: async (ctx, args): Promise<null> => {
+    const authorization: GitHubUserAuthorizationForRevocation | null = await ctx.runQuery(
+      internal.githubUserAuthorizations.getForPersonalRepositoryRevocation,
       {
+        organizationId: args.organizationId,
         userId: ctx.viewer.userId,
       },
     );
-    return result;
+    return authorization === null ? null : await revokeGitHubUserAuthorization(ctx, authorization);
   },
 });
 

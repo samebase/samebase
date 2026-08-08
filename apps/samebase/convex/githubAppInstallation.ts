@@ -25,7 +25,10 @@ import { upsertGitHubUserAuthorization } from "./githubUserAuthorizations";
 import { mutation } from "./functions";
 import { OAUTH_STATE_TTL_MS, randomToken } from "./oauthUtils";
 import { vGitHubOwnerType } from "./organizationModel";
-import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
+import {
+  requireOrganizationAccessContext,
+  requireOrganizationOwnerAccessContext,
+} from "./organizationAccess";
 import {
   buildAuthorizationCompletionResponse,
   classifyAuthorizationCallbackError,
@@ -45,6 +48,7 @@ const vGitHubAppSetupStateResult = union(
   }),
   v.null(),
 );
+type GitHubAppSetupStateResult = Infer<typeof vGitHubAppSetupStateResult>;
 
 const vGitHubAppSetupCompletion = union(
   object({
@@ -59,6 +63,7 @@ const vGitHubAppSetupCompletion = union(
 const vGitHubUserAuthorizationCompletion = union(
   object({ status: literal("stored") }),
   object({ status: literal("access_lost") }),
+  object({ status: literal("target_mismatch") }),
 );
 type GitHubUserAuthorizationCompletion = Infer<typeof vGitHubUserAuthorizationCompletion>;
 const vGitHubAuthorizationStart = object({
@@ -137,11 +142,20 @@ async function buildGitHubAppSetupUrl(
 
 async function buildGitHubUserAuthorizationSetupUrl(
   ctx: MutationCtx,
-  userId: Id<"users">,
-  returnToPath?: string,
+  args: {
+    organizationId: Id<"organizations">;
+    returnToPath?: string;
+    userId: Id<"users">;
+  },
 ): Promise<string> {
   const configuration = getGitHubAppConfiguration();
-  const state = await createGitHubAppSetupState(ctx, userId, "user_authorization", returnToPath);
+  const state = await createGitHubAppSetupState(
+    ctx,
+    args.userId,
+    "user_authorization",
+    args.returnToPath,
+    args.organizationId,
+  );
   return buildGitHubUserAuthorizationUrl({
     clientId: configuration.clientId,
     redirectUri: configuration.oauthCallbackUrl,
@@ -171,8 +185,8 @@ export const createSetupState = internalMutation({
     if (args.returnToPath !== undefined && !isSafeGitHubAppReturnToPath(args.returnToPath)) {
       throw new Error("GitHub App setup return path is invalid.");
     }
-    if ((args.purpose === "installation_reconnect") !== (args.organizationId !== undefined)) {
-      throw new Error("GitHub App reconnect state must identify one organization.");
+    if ((args.purpose !== "installation") !== (args.organizationId !== undefined)) {
+      throw new Error("GitHub App setup state organization does not match its purpose.");
     }
 
     return await ctx.db.insert("githubAppSetupStates", args);
@@ -348,6 +362,31 @@ export const completeUserAuthorization = internalMutation({
       return { status: "access_lost" };
     }
 
+    if (setupState.organizationId === undefined) {
+      throw new Error("GitHub user authorization state lost its organization.");
+    }
+    const organization = await ctx.db.get(setupState.organizationId);
+    if (organization === null) {
+      await ctx.db.delete(setupState._id);
+      return { status: "access_lost" };
+    }
+    try {
+      await requireOrganizationAccessContext(ctx.db, {
+        organizationId: organization._id,
+        userId: setupState.userId,
+      });
+    } catch {
+      await ctx.db.delete(setupState._id);
+      return { status: "access_lost" };
+    }
+    if (
+      organization.githubOwnerType !== "user" ||
+      organization.githubOwnerId !== args.githubUserId
+    ) {
+      await ctx.db.delete(setupState._id);
+      return { status: "target_mismatch" };
+    }
+
     await upsertGitHubUserAuthorization(ctx.db, {
       userId: setupState.userId,
       githubUserId: args.githubUserId,
@@ -404,18 +443,30 @@ export const getGitHubAppReconnectUrl = mutation({
 export const getGitHubUserAuthorizationUrl = mutation({
   access: "access_provider_connections",
   args: {
+    organizationId: id("organizations"),
     returnToPath: optional(string()),
   },
   returns: vGitHubAuthorizationStart,
   handler: async (ctx, args) => {
+    const { organizationId } = await requireOrganizationAccessContext(ctx.db, {
+      organizationId: args.organizationId,
+      userId: ctx.viewer.userId,
+    });
+    const organization = await ctx.db.get(organizationId);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+    if (organization.githubOwnerType !== "user") {
+      throw new Error("Personal repository authorization requires a personal GitHub owner.");
+    }
     const configuration = getGitHubAppConfiguration();
     return {
       callbackOrigin: new URL(configuration.oauthCallbackUrl).origin,
-      setupUrl: await buildGitHubUserAuthorizationSetupUrl(
-        ctx,
-        ctx.viewer.userId,
-        args.returnToPath,
-      ),
+      setupUrl: await buildGitHubUserAuthorizationSetupUrl(ctx, {
+        organizationId,
+        returnToPath: args.returnToPath,
+        userId: ctx.viewer.userId,
+      }),
     };
   },
 });
@@ -444,9 +495,12 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
     return new Response("Missing GitHub App setup parameters", { status: 400 });
   }
 
-  const setupState = await ctx.runQuery(internal.githubAppInstallation.getSetupStateByState, {
-    state,
-  });
+  const setupState: GitHubAppSetupStateResult = await ctx.runQuery(
+    internal.githubAppInstallation.getSetupStateByState,
+    {
+      state,
+    },
+  );
   if (setupState === null) {
     return new Response("Invalid GitHub App setup state", { status: 400 });
   }
@@ -566,11 +620,23 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
             ...authorization,
           },
         );
-        if (completion.status === "access_lost") {
-          completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
-            provider,
-            code: "access-changed",
-          });
+        switch (completion.status) {
+          case "stored":
+            break;
+          case "access_lost":
+            completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+              provider,
+              code: "access-changed",
+            });
+            break;
+          case "target_mismatch":
+            completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+              provider,
+              code: "target-mismatch",
+            });
+            break;
+          default:
+            completion satisfies never;
         }
         console.log("github:authorization:callback_completed", {
           outcome: completion.status,

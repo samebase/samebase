@@ -99,11 +99,23 @@ and rename updates when those states have a real consumer.
 
 GitHub App installation authentication is the default for repository reads and writes. A GitHub App
 user authorization is stored separately only for operations that require the acting GitHub user,
-such as repository creation under a personal account. It belongs to one Samebase user and GitHub
-user. It does not identify an organization, grant membership, or become available to another member.
+specifically repository creation under a personal account. A GitHub organization creates a
+repository with its installation token and does not need this user authorization. Existing
+repository reads and writes also use installation authentication.
+
+The user authorization belongs to one Samebase user and GitHub user. It does not identify an
+organization, grant membership, or become available to another member. The authorization action is
+shown on `/org/<owner>/providers` only for a personal GitHub owner because that is where its one
+current use is visible. Its short-lived setup state is bound to that selected organization. The
+callback stores the token only when the verified GitHub user ID equals the organization's stable
+personal owner ID. The durable token does not store an organization ID.
+
 One Samebase user has at most one current GitHub App user authorization. Supporting several personal
 GitHub identities for one Samebase user is outside this contract. When the user also has GitHub as a
-Samebase sign-in method, both personal GitHub records must have the same stable GitHub user ID.
+Samebase sign-in method, both personal GitHub records must have the same stable GitHub user ID. When
+the current authorization belongs to a different personal owner, the Providers page shows the
+mismatch and requires the user to revoke it before a new authorization. Samebase never replaces it
+without an explicit revoke action.
 
 ## Deployment Providers
 
@@ -197,8 +209,8 @@ Provider OAuth returns to `/org/<owner>/providers`. Checkout and subscription re
 keep the GitHub owner login and never include an internal organization ID.
 
 User settings remain separate from organization administration. They contain personal profile and
-account actions, user-owned MCP clients, and the acting user's GitHub App user authorization. They
-contain no organization selector or organization billing.
+account actions, sign-in methods, and user-owned MCP clients. They contain no organization selector,
+personal repository authorization control, or organization billing.
 
 An operation on an existing resource loads that resource and derives its organization before it
 checks membership. A root creation operation identifies the GitHub owner through the verified App

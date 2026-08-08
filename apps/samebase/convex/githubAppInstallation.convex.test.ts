@@ -15,6 +15,7 @@ vi.mock("./githubApp", async (importOriginal) => {
 });
 
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
 
@@ -38,6 +39,32 @@ function stubGitHubAppConfiguration() {
   vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "github-client-secret");
   vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
   vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://api.samebase.com/oauth/github/callback");
+}
+
+async function insertOrganizationForUser(
+  t: ReturnType<typeof makeConvexTest>,
+  args: {
+    githubOwnerId: string;
+    githubOwnerLogin: string;
+    githubOwnerType: "organization" | "user";
+    userId: Id<"users">;
+  },
+): Promise<Id<"organizations">> {
+  return await t.run(async (ctx) => {
+    const organizationId = await ctx.db.insert("organizations", {
+      githubOwnerId: args.githubOwnerId,
+      githubOwnerType: args.githubOwnerType,
+      githubOwnerLogin: args.githubOwnerLogin,
+      githubOwnerLoginNormalized: args.githubOwnerLogin.toLowerCase(),
+      githubInstallationId: `installation-${args.githubOwnerId}`,
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId,
+      userId: args.userId,
+      role: "member",
+    });
+    return organizationId;
+  });
 }
 
 beforeEach(() => {
@@ -171,13 +198,19 @@ describe("verified GitHub App installation completion", () => {
     });
   });
 
-  it("authorizes the current GitHub user without creating an organization", async () => {
+  it("authorizes the exact GitHub user for an existing personal organization", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
         email: "authorization@example.com",
         isApproved: true,
       });
+    });
+    const organizationId = await insertOrganizationForUser(t, {
+      githubOwnerId: "202",
+      githubOwnerLogin: "alice",
+      githubOwnerType: "user",
+      userId,
     });
     vi.stubEnv("GITHUB_APP_ID", "42");
     vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
@@ -192,7 +225,8 @@ describe("verified GitHub App installation completion", () => {
         tokenIdentifier: `test:${userId}`,
       })
       .mutation(api.githubAppInstallation.getGitHubUserAuthorizationUrl, {
-        returnToPath: "/settings",
+        organizationId,
+        returnToPath: "/org/alice/providers",
       });
     expect(authorizationSetup.callbackOrigin).toBe("https://api.samebase.com");
     const parsedAuthorizationUrl = new URL(authorizationSetup.setupUrl);
@@ -217,8 +251,9 @@ describe("verified GitHub App installation completion", () => {
     });
     expect(setupState).toMatchObject({
       userId,
+      organizationId,
       purpose: "user_authorization",
-      returnToPath: "/settings",
+      returnToPath: "/org/alice/providers",
     });
     if (setupState === null) {
       throw new Error("GitHub authorization setup state is required.");
@@ -240,8 +275,7 @@ describe("verified GitHub App installation completion", () => {
         .query("githubUserAuthorizations")
         .withIndex("by_user", (query) => query.eq("userId", userId))
         .unique(),
-      organizations: await ctx.db.query("organizations").take(1),
-      memberships: await ctx.db.query("organizationMemberships").take(1),
+      organization: await ctx.db.get(organizationId),
       setupState: await ctx.db.get(setupState._id),
     }));
     expect(snapshot.authorization).toMatchObject({
@@ -251,8 +285,10 @@ describe("verified GitHub App installation completion", () => {
       accessToken: "user-access-token",
       refreshToken: "user-refresh-token",
     });
-    expect(snapshot.organizations).toEqual([]);
-    expect(snapshot.memberships).toEqual([]);
+    expect(snapshot.organization).toMatchObject({
+      githubOwnerId: "202",
+      githubOwnerType: "user",
+    });
     expect(snapshot.setupState).toBeNull();
   });
 
@@ -268,10 +304,17 @@ describe("verified GitHub App installation completion", () => {
       subject: `${userId}|pending-authorization-session`,
       tokenIdentifier: `test:${userId}`,
     });
+    const organizationId = await insertOrganizationForUser(t, {
+      githubOwnerId: "pending-owner",
+      githubOwnerLogin: "pending-owner",
+      githubOwnerType: "user",
+      userId,
+    });
 
     await expect(
       asPendingUser.mutation(api.githubAppInstallation.getGitHubUserAuthorizationUrl, {
-        returnToPath: "/settings",
+        organizationId,
+        returnToPath: "/org/pending-owner/providers",
       }),
     ).rejects.toThrowError("Access denied");
 
@@ -281,23 +324,222 @@ describe("verified GitHub App installation completion", () => {
     expect(setupState).toBeNull();
   });
 
+  it("rejects personal repository authorization for a GitHub organization", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        email: "organization-authorization@example.com",
+        isApproved: true,
+      });
+    });
+    const organizationId = await insertOrganizationForUser(t, {
+      githubOwnerId: "organization-owner",
+      githubOwnerLogin: "organization-owner",
+      githubOwnerType: "organization",
+      userId,
+    });
+
+    await expect(
+      t
+        .withIdentity({
+          subject: `${userId}|organization-authorization-session`,
+          tokenIdentifier: `test:${userId}`,
+        })
+        .mutation(api.githubAppInstallation.getGitHubUserAuthorizationUrl, {
+          organizationId,
+          returnToPath: "/org/organization-owner/providers",
+        }),
+    ).rejects.toThrow("Personal repository authorization requires a personal GitHub owner.");
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("githubAppSetupStates").first()),
+    ).resolves.toBeNull();
+  });
+
+  it("rejects personal repository authorization for a non-member", async () => {
+    const t = makeConvexTest();
+    const { memberId, viewerId } = await t.run(async (ctx) => {
+      const memberId = await ctx.db.insert("users", {
+        email: "authorization-member@example.com",
+        isApproved: true,
+      });
+      const viewerId = await ctx.db.insert("users", {
+        email: "authorization-non-member@example.com",
+        isApproved: true,
+      });
+      return { memberId, viewerId };
+    });
+    const organizationId = await insertOrganizationForUser(t, {
+      githubOwnerId: "member-owner",
+      githubOwnerLogin: "member-owner",
+      githubOwnerType: "user",
+      userId: memberId,
+    });
+
+    await expect(
+      t
+        .withIdentity({
+          subject: `${viewerId}|authorization-non-member-session`,
+          tokenIdentifier: `test:${viewerId}`,
+        })
+        .mutation(api.githubAppInstallation.getGitHubUserAuthorizationUrl, {
+          organizationId,
+          returnToPath: "/org/member-owner/providers",
+        }),
+    ).rejects.toThrow("Organization membership is required.");
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("githubAppSetupStates").first()),
+    ).resolves.toBeNull();
+  });
+
+  it("rejects a different GitHub user and returns a safe target error", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        email: "authorization-target-mismatch@example.com",
+        isApproved: true,
+      });
+    });
+    const organizationId = await insertOrganizationForUser(t, {
+      githubOwnerId: "expected-user-id",
+      githubOwnerLogin: "expected-user",
+      githubOwnerType: "user",
+      userId,
+    });
+    const setupStateId = await t.run(async (ctx) => {
+      return await ctx.db.insert("githubAppSetupStates", {
+        userId,
+        state: "authorization-target-mismatch-state",
+        purpose: "user_authorization",
+        organizationId,
+        returnToPath: "/org/expected-user/providers?prod-ui#github",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+    });
+    const now = Date.now();
+    githubAppMocks.verifyGitHubUserAuthorization.mockResolvedValue({
+      githubUserId: "different-user-id",
+      githubUserLogin: "different-user",
+      accessToken: "different-user-access-token",
+      accessTokenExpiresAt: now + 8 * 60 * 60 * 1000,
+      refreshToken: "different-user-refresh-token",
+      refreshTokenExpiresAt: now + 180 * 24 * 60 * 60 * 1000,
+    });
+    vi.stubEnv("SITE_URL", "https://samebase.com");
+
+    const response = await t.fetch(
+      "/oauth/github/callback?code=provider-code&state=authorization-target-mismatch-state",
+    );
+
+    const html = await expectGitHubCompletion(
+      response,
+      buildAuthorizationErrorUrl(
+        "https://samebase.com/org/expected-user/providers?prod-ui#github",
+        {
+          provider: "github-user",
+          code: "target-mismatch",
+        },
+      ),
+    );
+    const snapshot = await t.run(async (ctx) => ({
+      authorization: await ctx.db
+        .query("githubUserAuthorizations")
+        .withIndex("by_user", (query) => query.eq("userId", userId))
+        .unique(),
+      setupState: await ctx.db.get(setupStateId),
+    }));
+    expect(snapshot).toEqual({ authorization: null, setupState: null });
+    expect(html).not.toContain("provider-code");
+    expect(html).not.toContain("different-user-access-token");
+  });
+
+  it("does not store GitHub credentials after organization membership is removed", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        email: "authorization-membership-lost@example.com",
+        isApproved: true,
+      });
+    });
+    const organizationId = await insertOrganizationForUser(t, {
+      githubOwnerId: "membership-owner",
+      githubOwnerLogin: "membership-owner",
+      githubOwnerType: "user",
+      userId,
+    });
+    const setupStateId = await t.run(async (ctx) => {
+      const setupStateId = await ctx.db.insert("githubAppSetupStates", {
+        userId,
+        state: "authorization-membership-lost-state",
+        purpose: "user_authorization",
+        organizationId,
+        returnToPath: "/org/membership-owner/providers",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", organizationId).eq("userId", userId),
+        )
+        .unique();
+      if (membership === null) {
+        throw new Error("Test organization membership is required.");
+      }
+      await ctx.db.delete(membership._id);
+      return setupStateId;
+    });
+
+    await expect(
+      t.mutation(internal.githubAppInstallation.completeUserAuthorization, {
+        setupStateId,
+        state: "authorization-membership-lost-state",
+        githubUserId: "membership-owner",
+        githubUserLogin: "membership-owner",
+        accessToken: "membership-lost-access-token",
+        accessTokenExpiresAt: Date.now() + 8 * 60 * 60 * 1000,
+        refreshToken: "membership-lost-refresh-token",
+        refreshTokenExpiresAt: Date.now() + 180 * 24 * 60 * 60 * 1000,
+      }),
+    ).resolves.toEqual({ status: "access_lost" });
+    await expect(
+      t.run(async (ctx) => ({
+        authorization: await ctx.db
+          .query("githubUserAuthorizations")
+          .withIndex("by_user", (query) => query.eq("userId", userId))
+          .unique(),
+        setupState: await ctx.db.get(setupStateId),
+      })),
+    ).resolves.toEqual({ authorization: null, setupState: null });
+  });
+
   it("does not store GitHub credentials after the user loses provider access", async () => {
     const t = makeConvexTest();
-    const { setupStateId, userId } = await t.run(async (ctx) => {
+    const userId = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         email: "authorization-access-lost@example.com",
         isApproved: true,
       });
+      return userId;
+    });
+    const organizationId = await insertOrganizationForUser(t, {
+      githubOwnerId: "404",
+      githubOwnerLogin: "access-lost-user",
+      githubOwnerType: "user",
+      userId,
+    });
+    const setupStateId = await t.run(async (ctx) => {
       const setupStateId = await ctx.db.insert("githubAppSetupStates", {
         userId,
         state: "authorization-access-lost-state",
         purpose: "user_authorization",
-        returnToPath: "/settings",
+        organizationId,
+        returnToPath: "/org/access-lost-user/providers",
         createdAt: Date.now(),
         expiresAt: Date.now() + 60_000,
       });
       await ctx.db.patch(userId, { isApproved: false });
-      return { setupStateId, userId };
+      return setupStateId;
     });
 
     await expect(
@@ -325,20 +567,28 @@ describe("verified GitHub App installation completion", () => {
 
   it("routes the shared GitHub callback by the user authorization purpose", async () => {
     const t = makeConvexTest();
-    const { setupStateId, userId } = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
         email: "authorization-callback@example.com",
         isApproved: true,
       });
-      const setupStateId = await ctx.db.insert("githubAppSetupStates", {
+    });
+    const organizationId = await insertOrganizationForUser(t, {
+      githubOwnerId: "303",
+      githubOwnerLogin: "callback-user",
+      githubOwnerType: "user",
+      userId,
+    });
+    const setupStateId = await t.run(async (ctx) => {
+      return await ctx.db.insert("githubAppSetupStates", {
         userId,
         state: "authorization-callback-state",
         purpose: "user_authorization",
-        returnToPath: "/settings",
+        organizationId,
+        returnToPath: "/org/callback-user/providers",
         createdAt: Date.now(),
         expiresAt: Date.now() + 60_000,
       });
-      return { setupStateId, userId };
     });
     const now = Date.now();
     githubAppMocks.verifyGitHubUserAuthorization.mockResolvedValue({
@@ -355,7 +605,7 @@ describe("verified GitHub App installation completion", () => {
       "/oauth/github/callback?code=authorization-code&state=authorization-callback-state",
     );
 
-    await expectGitHubCompletion(response, "https://samebase.com/settings");
+    await expectGitHubCompletion(response, "https://samebase.com/org/callback-user/providers");
     expect(githubAppMocks.verifyGitHubUserAuthorization).toHaveBeenCalledWith({
       code: "authorization-code",
       state: "authorization-callback-state",
@@ -365,33 +615,41 @@ describe("verified GitHub App installation completion", () => {
         .query("githubUserAuthorizations")
         .withIndex("by_user", (query) => query.eq("userId", userId))
         .unique(),
-      organization: await ctx.db.query("organizations").first(),
+      organization: await ctx.db.get(organizationId),
       setupState: await ctx.db.get(setupStateId),
     }));
     expect(snapshot.authorization).toMatchObject({
       githubUserId: "303",
       githubUserLogin: "callback-user",
     });
-    expect(snapshot.organization).toBeNull();
+    expect(snapshot.organization).toMatchObject({ githubOwnerId: "303" });
     expect(snapshot.setupState).toBeNull();
   });
 
-  it("consumes canceled user authorization state and returns through user settings", async () => {
+  it("consumes canceled user authorization state and returns through Providers", async () => {
     const t = makeConvexTest();
-    const { setupStateId, userId } = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
         email: "authorization-canceled@example.com",
         isApproved: true,
       });
-      const setupStateId = await ctx.db.insert("githubAppSetupStates", {
+    });
+    const organizationId = await insertOrganizationForUser(t, {
+      githubOwnerId: "canceled-user",
+      githubOwnerLogin: "canceled-user",
+      githubOwnerType: "user",
+      userId,
+    });
+    const setupStateId = await t.run(async (ctx) => {
+      return await ctx.db.insert("githubAppSetupStates", {
         userId,
         state: "authorization-canceled-state",
         purpose: "user_authorization",
-        returnToPath: "/settings",
+        organizationId,
+        returnToPath: "/org/canceled-user/providers",
         createdAt: Date.now(),
         expiresAt: Date.now() + 60_000,
       });
-      return { setupStateId, userId };
     });
     vi.stubEnv("SITE_URL", "https://samebase.com");
 
@@ -401,7 +659,7 @@ describe("verified GitHub App installation completion", () => {
 
     await expectGitHubCompletion(
       response,
-      buildAuthorizationErrorUrl("https://samebase.com/settings", {
+      buildAuthorizationErrorUrl("https://samebase.com/org/canceled-user/providers", {
         provider: "github-user",
         code: "canceled",
       }),
@@ -417,12 +675,12 @@ describe("verified GitHub App installation completion", () => {
         .query("organizationMemberships")
         .withIndex("by_user", (query) => query.eq("userId", userId))
         .first(),
-      organization: await ctx.db.query("organizations").first(),
+      organization: await ctx.db.get(organizationId),
       setupState: await ctx.db.get(setupStateId),
     }));
     expect(snapshot.authorization).toBeNull();
-    expect(snapshot.membership).toBeNull();
-    expect(snapshot.organization).toBeNull();
+    expect(snapshot.membership).toMatchObject({ organizationId, userId });
+    expect(snapshot.organization).toMatchObject({ githubOwnerId: "canceled-user" });
     expect(snapshot.setupState).toBeNull();
 
     const replayResponse = await t.fetch(
@@ -536,7 +794,7 @@ describe("verified GitHub App installation completion", () => {
 
   it("keeps the current user authorization after GitHub verification fails", async () => {
     const t = makeConvexTest();
-    const { setupStateId, userId } = await t.run(async (ctx) => {
+    const userId = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         email: "verification-failure@example.com",
         isApproved: true,
@@ -552,15 +810,24 @@ describe("verified GitHub App installation completion", () => {
         createdAt: 1,
         updatedAt: 1,
       });
-      const setupStateId = await ctx.db.insert("githubAppSetupStates", {
+      return userId;
+    });
+    const organizationId = await insertOrganizationForUser(t, {
+      githubOwnerId: "current-user",
+      githubOwnerLogin: "current-login",
+      githubOwnerType: "user",
+      userId,
+    });
+    const setupStateId = await t.run(async (ctx) => {
+      return await ctx.db.insert("githubAppSetupStates", {
         userId,
         state: "verification-failure-state",
         purpose: "user_authorization",
-        returnToPath: "/settings?prod-ui#github",
+        organizationId,
+        returnToPath: "/org/current-login/providers?prod-ui#github",
         createdAt: Date.now(),
         expiresAt: Date.now() + 60_000,
       });
-      return { setupStateId, userId };
     });
     githubAppMocks.verifyGitHubUserAuthorization.mockRejectedValue(
       new Error("provider-secret-detail"),
@@ -572,10 +839,13 @@ describe("verified GitHub App installation completion", () => {
     );
     const html = await expectGitHubCompletion(
       response,
-      buildAuthorizationErrorUrl("https://samebase.com/settings?prod-ui#github", {
-        provider: "github-user",
-        code: "failed",
-      }),
+      buildAuthorizationErrorUrl(
+        "https://samebase.com/org/current-login/providers?prod-ui#github",
+        {
+          provider: "github-user",
+          code: "failed",
+        },
+      ),
     );
     const snapshot = await t.run(async (ctx) => ({
       authorization: await ctx.db

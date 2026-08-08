@@ -47,8 +47,15 @@ user to select a GitHub account, and does not store the OAuth access token. Same
 paginated GitHub email response until it finds the primary verified address.
 
 GitHub App access is a separate personal authorization in `githubUserAuthorizations`. Samebase uses
-it for GitHub actions that require the acting GitHub user. Revoking this access does not remove the
-GitHub sign-in method and does not uninstall the GitHub App.
+it only to create a repository under a personal GitHub account. Repository creation under a GitHub
+organization and all normal operations on existing repositories use GitHub App installation
+authentication.
+
+The durable authorization belongs to the Samebase user. Its control appears in the selected
+organization's Providers page only when that organization maps to a personal GitHub owner. The OAuth
+setup state stores the selected Samebase organization ID, and the callback requires the exact stable
+GitHub user ID of that personal owner before it stores the token. Revoking the token does not remove
+the GitHub sign-in method and does not uninstall the GitHub App.
 
 When both records exist, the GitHub App user ID and GitHub sign-in provider ID must match. One
 GitHub user ID cannot belong to different Samebase accounts across the sign-in and GitHub App access
@@ -74,11 +81,15 @@ GitHub authorization.
   deletion.
 - `githubSignIn.test.ts` covers the verified primary email parser, exact OAuth parameters, and
   provider API failures.
-- `githubUserAuthorizations.convex.test.ts` covers GitHub sign-in and GitHub App identity conflicts.
+- `githubUserAuthorizations.convex.test.ts` covers target-scoped status, revocation, GitHub sign-in,
+  and GitHub App identity conflicts.
+- `githubAppInstallation.convex.test.ts` covers organization-bound setup and exact personal owner
+  verification.
 - `authOAuthCallback.convex.test.ts` covers account-selection parameters, exact scopes, and safe
   callback error returns through the patched auth boundary.
-- `UserSettingsPage.test.tsx` covers connected methods, Connect actions, no removal action, and the
-  separate GitHub access section.
+- `UserSettingsPage.test.tsx` covers connected methods, Connect actions, and no removal action.
+- `ProviderConnectionsPage.test.tsx` covers the personal-owner authorization control and proves that
+  it is absent for a GitHub organization owner.
 - `SignInForm.test.tsx`, `authClient.test.ts`, and the public landing tests cover both OAuth entry
   points and provider-neutral return state.
 
@@ -87,5 +98,5 @@ GitHub authorization.
 The development and production OAuth Apps must use the Convex Auth callback path
 `/api/auth/callback/github`. Existing user grants from the older broad-scope flow must be revoked
 before final validation so the new authorization contains only the current scopes. Final validation
-must connect GitHub from Settings and then complete a signed-out GitHub sign-in with the same
-account.
+must connect GitHub from Settings, authorize personal repository creation from the selected personal
+owner's Providers page, and then complete a signed-out GitHub sign-in with the same account.
