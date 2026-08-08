@@ -1,4 +1,5 @@
 import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { ConvexError } from "convex/values";
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,7 +89,11 @@ export const useApiKeyConnectDialog = ({
       setApiKeyInput("");
       setApiKeyError(null);
     } catch (error) {
-      setApiKeyError(error instanceof Error ? error.message : copy.failureMessage);
+      setApiKeyError(
+        error instanceof ConvexError && typeof error.data === "string"
+          ? error.data
+          : copy.failureMessage,
+      );
     } finally {
       isConnectingApiKeyRef.current = false;
       setIsConnectingApiKey(false);

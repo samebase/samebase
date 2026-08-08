@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { ConvexError } from "convex/values";
 
 import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
@@ -381,6 +382,65 @@ describe("organization provider status", () => {
     });
   });
 
+  it("returns a public error for an invalid Convex team token", async () => {
+    const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const credentialBefore = await t.run(
+      async (ctx) => (await ctx.db.get(providerCredentialsId))?.convex,
+    );
+    const fetch = vi.fn(async () => new Response(null, { status: 401 }));
+    vi.stubGlobal("fetch", fetch);
+
+    const error = await readActionError(
+      asOwner.action(api.users.connectConvexWithApiKey, {
+        organizationId,
+        token: "invalid-team-token",
+      }),
+    );
+
+    expect(error).toBeInstanceOf(ConvexError);
+    expect(error).toMatchObject({ data: "Invalid Convex API key" });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.convex),
+    ).resolves.toEqual(credentialBefore);
+  });
+
+  it("keeps the configured Convex team when a token belongs to another team", async () => {
+    const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization();
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const credentialBefore = await t.run(
+      async (ctx) => (await ctx.db.get(providerCredentialsId))?.convex,
+    );
+    const teamBefore = await t.run(async (ctx) => (await ctx.db.get(organizationId))?.convexTeam);
+    const fetch = stubConvexProviderAccess([]);
+
+    const error = await readActionError(
+      asOwner.action(api.users.connectConvexWithApiKey, {
+        organizationId,
+        token: "another-team-token",
+      }),
+    );
+
+    expect(error).toBeInstanceOf(ConvexError);
+    expect(error).toMatchObject({
+      data: "Convex API key cannot access the configured Convex team.",
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.convex),
+    ).resolves.toEqual(credentialBefore);
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(organizationId))?.convexTeam),
+    ).resolves.toEqual(teamBefore);
+  });
+
   it.each(["oauth", "mcp_oauth"] as const)(
     "disconnects Cloudflare $method locally without an upstream request",
     async (cloudflareAuthMethod) => {
@@ -470,12 +530,14 @@ describe("organization provider status", () => {
     });
     stubCloudflareApiTokenAccounts("direct-token", testCase.accounts);
 
-    await expect(
+    const error = await readActionError(
       asOwner.action(api.users.connectCloudflareWithApiToken, {
         organizationId,
         token: "direct-token",
       }),
-    ).rejects.toThrow(testCase.error);
+    );
+    expect(error).toBeInstanceOf(ConvexError);
+    expect(error).toMatchObject({ data: testCase.error });
     await expect(
       asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
     ).resolves.toEqual({ state: "not_configured" });
@@ -510,12 +572,16 @@ describe("organization provider status", () => {
     stubCloudflareApiTokenAccounts("account-b-token", [
       { id: secondaryCloudflareAccountId, name: "Secondary account", type: "standard" },
     ]);
-    await expect(
+    const replacementError = await readActionError(
       asOwner.action(api.users.connectCloudflareWithApiToken, {
         organizationId,
         token: "account-b-token",
       }),
-    ).rejects.toThrow("Cloudflare API token cannot access the configured Cloudflare account.");
+    );
+    expect(replacementError).toBeInstanceOf(ConvexError);
+    expect(replacementError).toMatchObject({
+      data: "Cloudflare API token cannot access the configured Cloudflare account.",
+    });
     await expect(
       asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
     ).resolves.toEqual({
@@ -580,7 +646,8 @@ describe("organization provider status", () => {
         token: "unsupported-token",
       }),
     );
-    expect(error.message).toContain("Cloudflare API token check failed.");
+    expect(error).toBeInstanceOf(ConvexError);
+    expect(error).toMatchObject({ data: "Cloudflare API token check failed." });
     expect(error.message).not.toContain("private provider detail");
     expect(fetch).toHaveBeenCalledTimes(1);
     await expect(
@@ -602,12 +669,14 @@ describe("organization provider status", () => {
     );
     vi.stubGlobal("fetch", fetch);
 
-    await expect(
+    const error = await readActionError(
       asOwner.action(api.users.connectCloudflareWithApiToken, {
         organizationId,
         token: "disabled-token",
       }),
-    ).rejects.toThrow("Cloudflare API token check failed.");
+    );
+    expect(error).toBeInstanceOf(ConvexError);
+    expect(error).toMatchObject({ data: "Cloudflare API token check failed." });
     expect(fetch).toHaveBeenCalledTimes(1);
     await expect(
       t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare),
