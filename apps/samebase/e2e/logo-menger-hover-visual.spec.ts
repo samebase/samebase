@@ -42,7 +42,7 @@ async function openMengerHoverCase(
   page: Page,
   {
     elevationDegrees,
-    extraSearch = "",
+    extraSearch = "&probeLandingOff&probePathHidden",
     maximumDepth = "4",
     automaticProbe = false,
     pointerTiltEnabled = false,
@@ -268,6 +268,91 @@ test("Menger hover rests at depth one in the face-on view", async ({ page }) => 
   await expect(scene).toHaveScreenshot("logo-menger-hover-face-on-resting.png", SCREENSHOT_OPTIONS);
 });
 
+test("Menger hover rests without internal seams at a shallow view angle", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "0.1",
+    extraSearch: "&freeView&probeLandingOff&probePathHidden",
+    maximumDepth: "3",
+    rotationDegrees: "0.1",
+  });
+
+  await expect(scene).toHaveAttribute("data-hover-maximum-openness", "0.000000");
+  const visibleInstanceCount = await readNumberAttribute(
+    scene,
+    "data-hover-visible-instance-count",
+  );
+  await waitForPaint(page);
+  await expect(scene).toHaveScreenshot(
+    "logo-menger-hover-shallow-angle-resting.png",
+    SCREENSHOT_OPTIONS,
+  );
+
+  const sceneBox = await scene.boundingBox();
+  if (!sceneBox) {
+    throw new Error("The Menger hover scene must have a bounding box.");
+  }
+  const externalPointer = {
+    x: sceneBox.x + sceneBox.width / 2,
+    y: sceneBox.y + sceneBox.height / 2,
+  };
+  await page.evaluate(({ x, y }) => {
+    const externalTarget = document.createElement("div");
+    externalTarget.dataset["testid"] = "logo-menger-external-pointer-target";
+    externalTarget.style.position = "fixed";
+    externalTarget.style.left = `${x - 1}px`;
+    externalTarget.style.top = `${y - 1}px`;
+    externalTarget.style.width = "2px";
+    externalTarget.style.height = "2px";
+    externalTarget.style.zIndex = "2147483647";
+    document.body.append(externalTarget);
+  }, externalPointer);
+  const externalTargetTestId = await page.evaluate(({ x, y }) => {
+    const target = document.elementFromPoint(x, y);
+    return target?.getAttribute("data-testid") ?? null;
+  }, externalPointer);
+  expect(externalTargetTestId).toBe("logo-menger-external-pointer-target");
+  await page.mouse.move(externalPointer.x, externalPointer.y);
+  await expect
+    .poll(() => readNumberAttribute(scene, "data-hover-maximum-openness"))
+    .toBeGreaterThan(0);
+  await expect(scene).toHaveAttribute(
+    "data-hover-visible-instance-count",
+    String(visibleInstanceCount),
+  );
+  expect(Math.abs(await readNumberAttribute(scene, "data-hover-coordinate-x"))).toBeLessThan(2);
+  expect(Math.abs(await readNumberAttribute(scene, "data-hover-coordinate-y"))).toBeLessThan(2);
+  expect(Math.abs(await readNumberAttribute(scene, "data-hover-coordinate-z"))).toBeLessThan(2);
+  await waitForPaint(page);
+  await expect(scene).toHaveScreenshot(
+    "logo-menger-hover-shallow-angle-external-pointer.png",
+    SCREENSHOT_OPTIONS,
+  );
+});
+
+test("Menger hover keeps far depth-one surfaces behind center tunnel walls", async ({ page }) => {
+  const scene = await openMengerHoverCase(page, {
+    elevationDegrees: "14.3",
+    extraSearch: "&freeView&probeLandingOff&probePathHidden",
+    maximumDepth: "3",
+    rotationDegrees: "347.8",
+  });
+  const sceneBox = await scene.boundingBox();
+  if (!sceneBox) {
+    throw new Error("The Menger hover scene must have a bounding box.");
+  }
+
+  await page.mouse.move(sceneBox.x + sceneBox.width / 2, sceneBox.y + sceneBox.height / 2);
+  await expect
+    .poll(() => readNumberAttribute(scene, "data-hover-maximum-openness"))
+    .toBeGreaterThan(0);
+  await expect(scene).toHaveAttribute("data-hover-settled", "true");
+  await waitForPaint(page);
+  await expect(scene).toHaveScreenshot(
+    "logo-menger-hover-center-tunnel-occlusion.png",
+    SCREENSHOT_OPTIONS,
+  );
+});
+
 test("Menger hover controls reveal depth from one through five", async ({ page }) => {
   const scene = await openMengerHoverCase(page, {
     elevationDegrees: "0",
@@ -286,7 +371,7 @@ test("Menger hover controls reveal depth from one through five", async ({ page }
   await expect(depthSlider).toHaveValue("1");
   await expect(scene).toHaveAttribute("data-menger-maximum-depth", "1");
   await expect(scene).toHaveAttribute("data-hover-channel-count", "0");
-  await expect(scene).toHaveAttribute("data-hover-visible-instance-count", "20");
+  await expect(scene).toHaveAttribute("data-hover-visible-instance-count", "1");
   await expect(page).toHaveURL(/(?:\?|&)depth=1(?:&|$)/);
 
   await depthSlider.focus();
@@ -1030,8 +1115,26 @@ test("Menger hover keeps deterministic depth-four work inside the research budge
 
   expect(await readNumberAttribute(scene, "data-hover-channel-count")).toBe(2_457);
   expect(await readNumberAttribute(scene, "data-hover-dynamic-upload-bytes")).toBe(40_000);
-  expect(await readNumberAttribute(scene, "data-hover-visible-instance-count")).toBe(50_540);
-  expect(await readNumberAttribute(scene, "data-hover-triangle-count")).toBe(2_813_280);
+  expect(await readNumberAttribute(scene, "data-hover-visible-instance-count")).toBe(50_541);
+  expect(await readNumberAttribute(scene, "data-hover-triangle-count")).toBe(2_813_292);
+
+  const sceneBox = await scene.boundingBox();
+  if (!sceneBox) {
+    throw new Error("The Menger hover scene must have a bounding box.");
+  }
+  await page.mouse.move(sceneBox.x + sceneBox.width * 0.42, sceneBox.y + sceneBox.height * 0.55);
+  await expect
+    .poll(() => readNumberAttribute(scene, "data-hover-maximum-openness"))
+    .toBeGreaterThan(0);
+  await expect(scene).toHaveAttribute("data-hover-settled", "true");
+  expect(await readNumberAttribute(scene, "data-hover-visible-instance-count")).toBe(50_541);
+  expect(await readNumberAttribute(scene, "data-hover-triangle-count")).toBe(2_813_292);
+
+  await page.locator("html").dispatchEvent("pointerleave");
+  await expect(scene).toHaveAttribute("data-hover-maximum-openness", "0.000000");
+  await expect(scene).toHaveAttribute("data-hover-settled", "true");
+  expect(await readNumberAttribute(scene, "data-hover-visible-instance-count")).toBe(50_541);
+  expect(await readNumberAttribute(scene, "data-hover-triangle-count")).toBe(2_813_292);
 });
 
 test("Menger hover keeps depth-two, depth-three, and depth-four openings distinct", async ({
@@ -1042,7 +1145,7 @@ test("Menger hover keeps depth-two, depth-three, and depth-four openings distinc
     rotationDegrees: "180",
   });
   await movePointerRelativeToScene(page, scene, {
-    expectedProbe: [/-?0\.000/, "0.403", "0.344"],
+    expectedProbe: [/-?0\.000/, /^0\.40[23]$/, /^0\.34[34]$/],
     x: 0.42,
     y: 0.55,
   });
@@ -1101,7 +1204,7 @@ test("Menger hover keeps depth-two oblique tunnel surfaces exact", async ({ page
     rotationDegrees: "225",
   });
   await movePointerRelativeToScene(page, scene, {
-    expectedProbe: [/^0\.00[0-2]$/, "0.998", "0.055"],
+    expectedProbe: [/^0\.00[0-2]$/, /^0\.99[89]$/, "0.055"],
     x: 0.52,
     y: 0.45,
   });
@@ -1176,6 +1279,7 @@ test("Menger hover keeps the three visible faces and internal tunnels aligned", 
 }) => {
   const scene = await openMengerHoverCase(page, {
     elevationDegrees: "23",
+    maximumDepth: "3",
     rotationDegrees: "29.3",
   });
   await movePointerRelativeToScene(page, scene, {

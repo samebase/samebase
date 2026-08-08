@@ -127,6 +127,143 @@ vec4 readHoverApertureBounds(
 }
 `;
 
+const SURFACE_VERTEX_SHADER = `
+uniform float hoverWorldSize;
+varying vec3 vHoverSpongePosition;
+
+void main() {
+  vec4 spongePosition = instanceMatrix * vec4(position, 1.0);
+  vHoverSpongePosition = spongePosition.xyz / hoverWorldSize + 0.5;
+  gl_Position = projectionMatrix * modelViewMatrix * spongePosition;
+  // A shell fragment is the nearest valid surface until its local opening discards it.
+  gl_Position.z = -gl_Position.w;
+}
+`;
+
+function createSurfaceFragmentShader(
+  stages: readonly { channelStateOffset: number; gridSize: number }[],
+): string {
+  let apertureChecks = "";
+  for (const stage of stages) {
+    const faceGridSize = stage.gridSize / 3;
+    apertureChecks += `
+  {
+    float faceGridSize = ${faceGridSize.toFixed(1)};
+    float faceCellSize = 1.0 / faceGridSize;
+    float holeSize = faceCellSize / 3.0;
+    float coordinateA = min(floor(clamp(pointA, 0.0, 1.0) * faceGridSize), faceGridSize - 1.0);
+    float coordinateB = min(floor(clamp(pointB, 0.0, 1.0) * faceGridSize), faceGridSize - 1.0);
+    float channelStateIndex =
+      ${stage.channelStateOffset.toFixed(1)} +
+      hoverFaceAxis * faceGridSize * faceGridSize +
+      coordinateA * faceGridSize +
+      coordinateB;
+    vec4 state = readHoverState(channelStateIndex);
+    if (state.r > 0.0) {
+      vec4 apertureBounds = readHoverApertureBounds(
+        state,
+        (coordinateA + 1.0 / 3.0) * faceCellSize,
+        (coordinateB + 1.0 / 3.0) * faceCellSize,
+        holeSize
+      );
+      if (
+        pointA >= apertureBounds.x &&
+        pointA <= apertureBounds.y &&
+        pointB >= apertureBounds.z &&
+        pointB <= apertureBounds.w
+      ) {
+        discard;
+      }
+    }
+  }
+`;
+  }
+
+  return `
+uniform float hoverFaceAxis;
+uniform vec3 hoverColor;
+uniform sampler2D hoverStateTexture;
+uniform float hoverStateTextureSize;
+varying vec3 vHoverSpongePosition;
+
+${APERTURE_BOUNDS_SHADER}
+
+vec4 readHoverState(float index) {
+  float roundedIndex = floor(index + 0.5);
+  float y = floor((roundedIndex + 0.5) / hoverStateTextureSize);
+  float x = roundedIndex - y * hoverStateTextureSize;
+  vec2 uv = (vec2(x, y) + 0.5) / hoverStateTextureSize;
+  return texture2D(hoverStateTexture, uv);
+}
+
+float readAxis(vec3 value, float axis) {
+  if (axis < 0.5) {
+    return value.x;
+  }
+  if (axis < 1.5) {
+    return value.y;
+  }
+  return value.z;
+}
+
+void main() {
+  float tangentAxisA = hoverFaceAxis < 0.5 ? 1.0 : 0.0;
+  float tangentAxisB = hoverFaceAxis > 1.5 ? 1.0 : 2.0;
+  float pointA = readAxis(vHoverSpongePosition, tangentAxisA);
+  float pointB = readAxis(vHoverSpongePosition, tangentAxisB);
+  if (
+    pointA >= 1.0 / 3.0 &&
+    pointA <= 2.0 / 3.0 &&
+    pointB >= 1.0 / 3.0 &&
+    pointB <= 2.0 / 3.0
+  ) {
+    discard;
+  }
+${apertureChecks}
+  gl_FragColor = vec4(hoverColor, 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
+}
+`;
+}
+
+export function createMengerHoverSurfaceMaterials({
+  leftColor,
+  rightColor,
+  stages,
+  stateTexture,
+  topColor,
+  worldSize,
+}: {
+  leftColor: THREE.ColorRepresentation;
+  rightColor: THREE.ColorRepresentation;
+  stages: readonly { channelStateOffset: number; gridSize: number }[];
+  stateTexture: MengerHoverTexture;
+  topColor: THREE.ColorRepresentation;
+  worldSize: number;
+}): THREE.ShaderMaterial[] {
+  const fragmentShader = createSurfaceFragmentShader(stages);
+  const createMaterial = (color: THREE.ColorRepresentation, faceAxis: number) =>
+    new THREE.ShaderMaterial({
+      depthFunc: THREE.LessEqualDepth,
+      depthWrite: true,
+      fragmentShader,
+      uniforms: {
+        hoverColor: { value: new THREE.Color(color) },
+        hoverFaceAxis: { value: faceAxis },
+        hoverStateTexture: { value: stateTexture.texture },
+        hoverStateTextureSize: { value: stateTexture.size },
+        hoverWorldSize: { value: worldSize },
+      },
+      vertexShader: SURFACE_VERTEX_SHADER,
+    });
+  const rightMaterial = createMaterial(rightColor, 0);
+  const topMaterial = createMaterial(topColor, 1);
+  const leftMaterial = createMaterial(leftColor, 2);
+
+  return [rightMaterial, rightMaterial, topMaterial, topMaterial, leftMaterial, leftMaterial];
+}
+
 const COVER_VERTEX_SHADER = `
 attribute float hoverBlockerLinkCount;
 attribute float hoverBlockerLinkOffset;

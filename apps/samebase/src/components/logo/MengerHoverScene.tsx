@@ -16,10 +16,12 @@ import {
   createMengerHoverBlockerLinkTexture,
   createMengerHoverCoverGeometry,
   createMengerHoverCoverMaterials,
+  createMengerHoverSurfaceMaterials,
   createMengerHoverStateTexture,
   type MengerHoverTexture,
 } from "@/components/logo/mengerHoverShader";
 import {
+  createMengerHoverDepthOneSurface,
   createMengerHoverSettledSurface,
   type MengerHoverSettledSurface,
 } from "@/components/logo/mengerHoverSettledSurface";
@@ -58,6 +60,7 @@ const HOVER_FRAME_ELAPSED_RESTART_MS = 1000 / 60;
 const HOVER_OPENNESS_SETTLE_EPSILON = 0.001;
 const HOVER_OPENNESS_SMOOTHING_TAU_MS = 58;
 const MENGER_CUBE_CORNER_SIGNS = [-1, 1] as const;
+const MENGER_HOVER_SHELL_SURFACE_LAYER = 1;
 const MAXIMUM_HOST_TIMEOUT_DELAY_MS = 2_147_483_647;
 const RENDER_PIXEL_RATIO_MAX = 2;
 
@@ -212,7 +215,43 @@ export function MengerHoverScene({
       leftMaterial,
     ];
     const depthOneOnly = maximumDepth === 1;
-    const depthOneMesh = new THREE.InstancedMesh(geometry, materials, model.depthOneVoxels.length);
+    const topology = createMengerHoverTopology(model);
+    const hoverTargetState = createMengerHoverState(model);
+    const hoverRenderedState = createMengerHoverState(model);
+    const stateTexture = createMengerHoverStateTexture(topology.channelCount);
+    const surfaceMaterials = depthOneOnly
+      ? null
+      : createMengerHoverSurfaceMaterials({
+          leftColor: leftFaceColor,
+          rightColor: rightFaceColor,
+          stages: model.stages.map((stage, stageIndex) => ({
+            channelStateOffset: topology.stages[stageIndex].channelStateOffset,
+            gridSize: stage.gridSize,
+          })),
+          stateTexture,
+          topColor: topFaceColor,
+          worldSize: MENGER_SCENE_WORLD_SIZE,
+        });
+    const depthOneSurface = depthOneOnly
+      ? createMengerHoverDepthOneSurface({
+          materials,
+          model,
+          worldSize: MENGER_SCENE_WORLD_SIZE,
+        })
+      : null;
+    const shellSurfaceMesh =
+      surfaceMaterials === null ? null : new THREE.InstancedMesh(geometry, surfaceMaterials, 1);
+    if (shellSurfaceMesh) {
+      const shellSurfaceMatrix = new THREE.Matrix4().makeScale(
+        MENGER_SCENE_WORLD_SIZE,
+        MENGER_SCENE_WORLD_SIZE,
+        MENGER_SCENE_WORLD_SIZE,
+      );
+      shellSurfaceMesh.setMatrixAt(0, shellSurfaceMatrix);
+      shellSurfaceMesh.instanceMatrix.needsUpdate = true;
+      shellSurfaceMesh.computeBoundingSphere();
+      shellSurfaceMesh.layers.set(MENGER_HOVER_SHELL_SURFACE_LAYER);
+    }
     const finalStage = model.stages.at(-1);
     const useSettledSurface = (finalStage?.depth ?? 0) >= 4;
     const settledSurface: MengerHoverSettledSurface | null = useSettledSurface
@@ -222,31 +261,28 @@ export function MengerHoverScene({
           worldSize: MENGER_SCENE_WORLD_SIZE,
         })
       : null;
-    const topology = createMengerHoverTopology(model);
-    const hoverTargetState = createMengerHoverState(model);
-    const hoverRenderedState = createMengerHoverState(model);
-    const stateTexture = createMengerHoverStateTexture(topology.channelCount);
     const coverInstanceCount = depthOneOnly
       ? 0
       : model.stages.reduce((count, stage) => count + stage.moves.length, 0);
-    const settledInstanceCount = depthOneOnly
-      ? model.depthOneVoxels.length
-      : (settledSurface?.instanceCount ?? finalStage?.settledVoxelCount ?? 0);
-    const settledTriangleCount = depthOneOnly
-      ? settledInstanceCount * 12
-      : settledSurface === null
+    const settledInstanceCount =
+      settledSurface?.instanceCount ?? finalStage?.settledVoxelCount ?? 0;
+    const settledTriangleCount =
+      settledSurface === null
         ? settledInstanceCount * 12
         : settledSurface.quadCount * settledSurface.instanceCount * 2;
+    const animatedTriangleCount = settledTriangleCount + coverInstanceCount * 48;
+    const animatedVisibleInstanceCount = settledInstanceCount + coverInstanceCount;
+    const shellTriangleCount = depthOneSurface === null ? 12 : depthOneSurface.quadCount * 2;
+    const visibleInstanceCount = depthOneOnly ? 1 : animatedVisibleInstanceCount + 1;
+    const triangleCount = depthOneOnly
+      ? shellTriangleCount
+      : animatedTriangleCount + shellTriangleCount;
     container.dataset["hoverChannelCount"] = String(depthOneOnly ? 0 : topology.channelCount);
     container.dataset["hoverDynamicUploadBytes"] = String(
       depthOneOnly ? 0 : stateTexture.data.byteLength,
     );
-    container.dataset["hoverTriangleCount"] = String(
-      settledTriangleCount + coverInstanceCount * 48,
-    );
-    container.dataset["hoverVisibleInstanceCount"] = String(
-      settledInstanceCount + coverInstanceCount,
-    );
+    container.dataset["hoverTriangleCount"] = String(triangleCount);
+    container.dataset["hoverVisibleInstanceCount"] = String(visibleInstanceCount);
 
     const stageMeshes: MengerHoverStageMeshes[] = model.stages.map((stage, stageIndex) => {
       const stageTopology = topology.stages[stageIndex];
@@ -279,8 +315,21 @@ export function MengerHoverScene({
       };
     });
     const finalStageMeshes = stageMeshes.at(-1);
+    if (settledSurface) {
+      settledSurface.mesh.visible = !depthOneOnly;
+    }
+    for (const stageMesh of stageMeshes) {
+      stageMesh.settledMesh.visible =
+        !depthOneOnly && settledSurface === null && stageMesh === finalStageMeshes;
+      stageMesh.coverMesh.visible = !depthOneOnly;
+    }
     const logoGroup = new THREE.Group();
-    logoGroup.add(depthOneMesh);
+    if (depthOneSurface) {
+      logoGroup.add(depthOneSurface.mesh);
+    }
+    if (shellSurfaceMesh) {
+      logoGroup.add(shellSurfaceMesh);
+    }
     if (settledSurface) {
       logoGroup.add(settledSurface.mesh);
     }
@@ -292,13 +341,6 @@ export function MengerHoverScene({
     scene.add(presentationTiltGroup);
 
     const matrix = new THREE.Matrix4();
-    model.depthOneVoxels.forEach((coordinate, index) => {
-      writeMengerVoxelMatrix(matrix, coordinate, 3);
-      depthOneMesh.setMatrixAt(index, matrix);
-    });
-    depthOneMesh.instanceMatrix.needsUpdate = true;
-    depthOneMesh.computeBoundingSphere();
-
     for (const { coverMesh, settledMesh, stage } of stageMeshes) {
       if (!useSettledSurface) {
         if (stage.settledVoxels === null) {
@@ -726,16 +768,6 @@ export function MengerHoverScene({
         container.dataset["automaticProbeState"] === "invalid" || applyPresentationTilt(now);
       presentationTiltGroup.updateMatrixWorld(true);
 
-      depthOneMesh.visible = depthOneOnly;
-      if (settledSurface) {
-        settledSurface.mesh.visible = !depthOneOnly;
-      }
-      for (const stageMesh of stageMeshes) {
-        stageMesh.settledMesh.visible =
-          !depthOneOnly && settledSurface === null && stageMesh === finalStageMeshes;
-        stageMesh.coverMesh.visible = !depthOneOnly;
-      }
-
       if (depthOneOnly) {
         clearProbe();
         lastFrameTime = null;
@@ -797,6 +829,7 @@ export function MengerHoverScene({
             }
           }
           stateTexture.texture.needsUpdate = true;
+          renderer.initTexture(stateTexture.texture);
           container.dataset["hoverMaximumOpenness"] = maximumOpenness.toFixed(6);
           container.dataset["hoverSettled"] = settled ? "true" : "false";
           if (!settled) {
@@ -820,7 +853,19 @@ export function MengerHoverScene({
         scheduleFrame();
       }
 
-      renderer.render(scene, camera);
+      if (depthOneOnly) {
+        renderer.render(scene, camera);
+      } else {
+        // Upload the reveal state before the shell draw. The shell can then
+        // reject hidden tunnel fragments without using a deferred frame.
+        camera.layers.set(MENGER_HOVER_SHELL_SURFACE_LAYER);
+        renderer.render(scene, camera);
+        renderer.autoClear = false;
+        camera.layers.set(0);
+        renderer.render(scene, camera);
+        renderer.autoClear = true;
+      }
+      camera.layers.set(0);
       renderCount += 1;
       container.dataset["hoverRenderCount"] = String(renderCount);
       container.dataset["hoverCpuSubmissionMs"] = (
@@ -984,7 +1029,13 @@ export function MengerHoverScene({
       rightMaterial.dispose();
       topMaterial.dispose();
       leftMaterial.dispose();
+      if (surfaceMaterials) {
+        for (const material of new Set(surfaceMaterials)) {
+          material.dispose();
+        }
+      }
       stateTexture.texture.dispose();
+      depthOneSurface?.geometry.dispose();
       settledSurface?.geometry.dispose();
       clearProbe();
       delete container.dataset["hoverChannelCount"];
