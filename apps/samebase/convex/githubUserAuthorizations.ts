@@ -131,20 +131,36 @@ export async function upsertGitHubUserAuthorization(
     throw new Error("An active Samebase user is required.");
   }
 
-  const [signInAccount, githubOwners] = await Promise.all([
+  const [signInAccounts, githubSignInOwners, githubOwners] = await Promise.all([
     db
       .query("authAccounts")
       .withIndex("userIdAndProvider", (query) =>
         query.eq("userId", args.userId).eq("provider", "github"),
       )
-      .unique(),
+      .take(2),
+    db
+      .query("authAccounts")
+      .withIndex("providerAndAccountId", (query) =>
+        query.eq("provider", "github").eq("providerAccountId", args.githubUserId),
+      )
+      .take(2),
     db
       .query("githubUserAuthorizations")
       .withIndex("by_github_user", (query) => query.eq("githubUserId", args.githubUserId))
       .take(2),
   ]);
-  if (signInAccount !== null && signInAccount.providerAccountId !== args.githubUserId) {
+  if (signInAccounts.length > 1) {
+    throw new Error("This Samebase account has conflicting GitHub sign-in identities.");
+  }
+  const signInAccount = signInAccounts.at(0);
+  if (signInAccount !== undefined && signInAccount.providerAccountId !== args.githubUserId) {
     throw new Error("GitHub access must use the connected GitHub sign-in account.");
+  }
+  if (githubSignInOwners.length > 1) {
+    throw new Error("This GitHub account has conflicting Samebase sign-in records.");
+  }
+  if (githubSignInOwners.some((account) => account.userId !== args.userId)) {
+    throw new Error("This GitHub account is a sign-in method for another Samebase account.");
   }
   if (githubOwners.some((authorization) => authorization.userId !== args.userId)) {
     throw new Error("This GitHub account already provides access for another Samebase account.");

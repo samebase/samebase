@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase auth/backend
-- Last updated: 2026-07-28
+- Last updated: 2026-08-08
 - Related:
   - `docs/manual-password-auth.md`
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`

@@ -20,6 +20,10 @@ function readProviderCopy(provider: AuthorizationProvider): {
       return { authorizationLabel: "GitHub App setup", connectionLabel: "GitHub App" };
     case "github-user":
       return { authorizationLabel: "GitHub authorization", connectionLabel: "GitHub" };
+    case "google-sign-in":
+      return { authorizationLabel: "Google sign-in", connectionLabel: "Google sign-in" };
+    case "github-sign-in":
+      return { authorizationLabel: "GitHub sign-in", connectionLabel: "GitHub sign-in" };
     default:
       provider satisfies never;
       return { authorizationLabel: "Authorization", connectionLabel: "Provider" };
@@ -72,6 +76,9 @@ export function formatAuthorizationErrorMessage(
           );
         case "github-user":
           return "Select the GitHub user that is connected to this account.";
+        case "google-sign-in":
+        case "github-sign-in":
+          return "Select the provider account that is connected to this Samebase account.";
         default:
           authorizationError.provider satisfies never;
           return "Select the configured authorization target.";

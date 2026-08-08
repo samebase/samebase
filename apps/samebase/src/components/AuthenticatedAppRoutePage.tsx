@@ -20,7 +20,14 @@ import { readAuthorizationError } from "@/routeSearch/authorizationError";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { toast } from "@/components/ui/use-toast";
 
-const ALL_AUTHORIZATION_SOURCES = ["convex", "cloudflare", "github-app", "github-user"] as const;
+const ALL_AUTHORIZATION_SOURCES = [
+  "convex",
+  "cloudflare",
+  "github-app",
+  "github-user",
+  "google-sign-in",
+  "github-sign-in",
+] as const;
 const NO_AUTHORIZATION_SOURCES = [] as const;
 
 function isAuthorizationErrorHandledByRoute(
@@ -34,6 +41,8 @@ function isAuthorizationErrorHandledByRoute(
     case "github-app":
       return /^\/org\/[^/]+\/providers\/?$/.test(pathname);
     case "github-user":
+    case "google-sign-in":
+    case "github-sign-in":
       return pathname === "/settings";
     default:
       provider satisfies never;

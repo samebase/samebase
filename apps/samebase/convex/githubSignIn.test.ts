@@ -63,11 +63,13 @@ function jsonResponse(value: unknown, status = 200): Response {
 function githubFetch({
   profile = githubUserFixture,
   emails = [githubPrivatePrimaryEmailFixture],
+  emailPages,
   profileStatus = 200,
   emailsStatus = 200,
 }: {
   profile?: unknown;
   emails?: unknown;
+  emailPages?: readonly unknown[];
   profileStatus?: number;
   emailsStatus?: number;
 } = {}) {
@@ -76,8 +78,10 @@ function githubFetch({
     switch (url.pathname) {
       case "/user":
         return jsonResponse(profile, profileStatus);
-      case "/user/emails":
-        return jsonResponse(emails, emailsStatus);
+      case "/user/emails": {
+        const page = Number(url.searchParams.get("page") ?? "1");
+        return jsonResponse(emailPages?.at(page - 1) ?? (page === 1 ? emails : []), emailsStatus);
+      }
       default:
         throw new Error(`Unexpected GitHub request: ${url.pathname}`);
     }
@@ -120,9 +124,34 @@ describe("GitHub sign-in", () => {
       "X-GitHub-Api-Version": "2022-11-28",
     };
     expect(fetchMock).toHaveBeenNthCalledWith(1, "https://api.github.com/user", { headers });
-    expect(fetchMock).toHaveBeenNthCalledWith(2, "https://api.github.com/user/emails", {
-      headers,
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      "https://api.github.com/user/emails?per_page=100&page=1",
+      { headers },
+    );
+  });
+
+  it("continues until it finds the primary verified email on a later page", async () => {
+    const firstPage = Array.from({ length: 100 }, (_, index) => ({
+      ...githubPrivatePrimaryEmailFixture,
+      email: `secondary-${index}@example.com`,
+      primary: false,
+    }));
+    const fetchMock = githubFetch({
+      emailPages: [firstPage, [githubPrivatePrimaryEmailFixture]],
     });
+
+    const rawProfile = await fetchVerifiedGitHubOAuthProfile({
+      accessToken: "github-access-token",
+      fetch: fetchMock,
+    });
+
+    expect(rawProfile).toMatchObject({ email: "octocat@github.com" });
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      3,
+      "https://api.github.com/user/emails?per_page=100&page=2",
+      expect.any(Object),
+    );
   });
 
   it.each([

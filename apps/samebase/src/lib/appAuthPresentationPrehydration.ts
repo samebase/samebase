@@ -202,13 +202,14 @@ html[${args.rootAttribute}="signed-in"] ${signedInAccountLabelSelector}::after {
         kind: "signed-in",
         label: authPresentationHint.label,
       });
-    } else if (
-      authPresentationHint.kind === "signedOut" &&
-      !(
+    } else if (authPresentationHint.kind === "signedOut") {
+      const signup = new URL(window.location.href).searchParams.get("signup");
+      if (
         window.location.pathname !== args.mcpConsentPathname &&
-        new URL(window.location.href).searchParams.has("signup")
-      )
-    ) {
+        (signup === "google" || signup === "github")
+      ) {
+        return;
+      }
       installPrehydrationStyle({
         kind: "signed-out",
         label: "Sign in or create an account",

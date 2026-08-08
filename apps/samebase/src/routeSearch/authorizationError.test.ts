@@ -10,6 +10,12 @@ describe("authorization error search", () => {
         "authorization-error": "target-mismatch",
       }),
     ).toEqual({ provider: "cloudflare", code: "target-mismatch" });
+    expect(
+      readAuthorizationError({
+        "authorization-provider": "github-sign-in",
+        "authorization-error": "failed",
+      }),
+    ).toEqual({ provider: "github-sign-in", code: "failed" });
     expect(readAuthorizationError({ "authorization-error": "failed" })).toBeNull();
   });
 

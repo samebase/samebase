@@ -1,5 +1,6 @@
 import { isInIframe, openAuthPopup, useAppSignInActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/use-toast";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import {
   PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID,
@@ -11,7 +12,7 @@ import {
   type OAuthAuthProvider,
 } from "@/lib/oauthAuthRedirect";
 import { useRouter } from "@tanstack/react-router";
-import { Chrome, Github } from "lucide-react";
+import { Github } from "lucide-react";
 
 export function SignInWithOAuth({
   provider,
@@ -49,7 +50,7 @@ export function SignInWithOAuth({
     case "google":
       label = "Continue with Google";
       testId = PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID;
-      icon = <Chrome className="mr-2 h-4 w-4 @max-[120px]:hidden" />;
+      icon = null;
       break;
     case "github":
       label = "Continue with GitHub";
@@ -71,7 +72,13 @@ export function SignInWithOAuth({
         if (isInIframe()) {
           openAuthPopup(provider, { popupPath: buildPopupPath() });
         } else {
-          void signInWithOAuth(provider, buildRedirectTo());
+          void Promise.resolve(signInWithOAuth(provider, buildRedirectTo())).catch(() => {
+            toast({
+              description: "Try again.",
+              title: `Could not start ${provider === "github" ? "GitHub" : "Google"} sign-in`,
+              variant: "destructive",
+            });
+          });
         }
       }}
     >

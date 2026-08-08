@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: August 5, 2026
+Last updated: August 8, 2026
 
 This Privacy Policy explains how Samebase handles information when you use samebase.com, the
 Samebase web app, the Samebase remote MCP server, or a published Samebase agent plugin.
@@ -20,10 +20,10 @@ their own privacy terms for the information that they process.
 
 - Account and sign-in data. Samebase stores the account fields needed to identify you and operate
   sign-in. These fields can include your name, email address, profile image, email verification
-  time, sign-in provider, approval state, and authentication or session records.
+  time, sign-in methods, approval state, and authentication or session records.
 - Signup notifications. When a new account is created, Samebase sends an internal notification to
   authorized Samebase staff. It can include the account name, email address, internal user ID, and
-  sign-in provider. Samebase uses Cloudflare Email Sending for this notification.
+  sign-in method. Samebase uses Cloudflare Email Sending for this notification.
 - Connected provider credentials and identifiers. If you connect GitHub, Convex, or Cloudflare,
   Samebase stores the credentials and metadata needed to operate the connection. This information
   can include OAuth access and refresh tokens, API keys, expiry times, usernames, team IDs, account
@@ -91,7 +91,7 @@ Samebase does not use your repository or workspace content to train its own AI m
 - Browser IndexedDB caches some Convex query results under the `convexQueryCache` database. Cached
   results can include workspace data.
 - PostHog can use cookies and local storage for browser identifiers and session state. Sign-in
-  providers such as Google can also set their own cookies or session state.
+  providers such as Google and GitHub can also set their own cookies or session state.
 
 ## How Samebase Uses Information
 
@@ -129,7 +129,7 @@ law requires a separate choice.
 - Cloudflare hosts and delivers the web app, routes network requests, proxies browser telemetry,
   sends transactional email, and keeps operational request logs. Cloudflare processes information
   whenever you use Samebase.
-- Google processes account and sign-in information when you use Google sign-in.
+- Google or GitHub processes account and sign-in information when you use its sign-in method.
 - GitHub, Convex, and Cloudflare process provider-account data when you connect an account or ask
   Samebase to perform an action in that account.
 - Polar processes billing and checkout information when you use a paid-plan action.

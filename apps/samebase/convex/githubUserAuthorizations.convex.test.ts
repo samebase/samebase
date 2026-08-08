@@ -253,4 +253,48 @@ describe("GitHub user authorization identity boundaries", () => {
       ),
     ).resolves.toBeNull();
   });
+
+  it("does not authorize a GitHub sign-in identity that belongs to another Samebase user", async () => {
+    const t = makeConvexTest();
+    const secondUserId = await t.run(async (ctx) => {
+      const firstUserId = await ctx.db.insert("users", {
+        email: "github-sign-in-owner@example.com",
+        isApproved: true,
+      });
+      const secondUserId = await ctx.db.insert("users", {
+        email: "github-access-candidate@example.com",
+        isApproved: true,
+      });
+      await ctx.db.insert("authAccounts", {
+        userId: firstUserId,
+        provider: "github",
+        providerAccountId: "601",
+        emailVerified: "github-sign-in-owner@example.com",
+      });
+      return secondUserId;
+    });
+
+    await expect(
+      t.run(async (ctx) => {
+        await upsertGitHubUserAuthorization(ctx.db, {
+          userId: secondUserId,
+          githubUserId: "601",
+          githubUserLogin: "sign-in-owner",
+          accessToken: "access-token",
+          accessTokenExpiresAt: Date.now() + 60_000,
+          refreshToken: "refresh-token",
+          refreshTokenExpiresAt: Date.now() + 120_000,
+        });
+      }),
+    ).rejects.toThrow("This GitHub account is a sign-in method for another Samebase account.");
+
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db
+          .query("githubUserAuthorizations")
+          .withIndex("by_user", (query) => query.eq("userId", secondUserId))
+          .unique(),
+      ),
+    ).resolves.toBeNull();
+  });
 });

@@ -343,6 +343,9 @@ export const beginAuthAccountLink = mutation({
     if (session === null || session.userId !== ctx.viewer.userId) {
       throw new Error("The current sign-in session changed.");
     }
+    if (session.expirationTime <= Date.now()) {
+      throw new Error("The current sign-in session expired.");
+    }
     if (account !== null) {
       throw new Error(`This ${args.provider} sign-in method is already connected.`);
     }

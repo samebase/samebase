@@ -18,7 +18,8 @@ product identity. An email address or GitHub login is not the product identity.
 
 Google and GitHub sign-in require a verified provider email. GitHub sign-in reads the one primary,
 verified address from the GitHub email API. Samebase normalizes an account email only by trimming it
-and converting it to lowercase. It does not treat Gmail dots or `+` tags as equal.
+and converting it to lowercase. It does not treat Gmail dots or `+` tags as equal. Both OAuth
+providers ask the user to select an account for each sign-in or Connect action.
 
 Signed-out OAuth resolution follows these rules:
 
@@ -31,8 +32,10 @@ Signed-out OAuth resolution follows these rules:
 Settings can connect Google or GitHub to the current account. The action creates a five-minute link
 intent on the current authenticated session for one exact provider. The OAuth callback must return
 through that session. Samebase rejects an expired intent, the wrong provider, a provider identity
-owned by another Samebase account, or a second different identity for the same provider. The first
-beta does not have a Remove or Replace action.
+owned by another Samebase account, or a second different identity for the same provider. A missing
+or expired starting session fails the Connect action and cannot become a signed-out sign-in. A safe
+route error reports a canceled or failed OAuth return without exposing provider error details. The
+first beta does not have a Remove or Replace action.
 
 Password authentication stays available for operator-created accounts and Codex verification. It
 does not have a public sign-up or self-service Connect action.
@@ -40,15 +43,16 @@ does not have a public sign-up or self-service Connect action.
 ## GitHub Boundaries
 
 The GitHub OAuth App is a sign-in method. It requests only `read:user user:email`, always asks the
-user to select a GitHub account, and does not store the OAuth access token.
+user to select a GitHub account, and does not store the OAuth access token. Samebase follows the
+paginated GitHub email response until it finds the primary verified address.
 
 GitHub App access is a separate personal authorization in `githubUserAuthorizations`. Samebase uses
 it for GitHub actions that require the acting GitHub user. Revoking this access does not remove the
 GitHub sign-in method and does not uninstall the GitHub App.
 
 When both records exist, the GitHub App user ID and GitHub sign-in provider ID must match. One
-GitHub user ID cannot provide personal access for two Samebase accounts. A user cannot replace a
-stored personal GitHub authorization with a different GitHub identity.
+GitHub user ID cannot belong to different Samebase accounts across the sign-in and GitHub App access
+tables. A user cannot replace stored personal GitHub App access with a different GitHub identity.
 
 A GitHub organization installation belongs to the Samebase organization and its stable GitHub owner.
 Another GitHub organization administrator can install or reconnect the App when the organization
@@ -66,10 +70,13 @@ GitHub authorization.
 ## Validation
 
 - `authAccountLinking.convex.test.ts` covers known identities, stable account email, explicit
-  session-bound linking, conflicts, expiry, and account deletion.
+  session-bound linking, missing and expired sessions, cross-table identity conflicts, and account
+  deletion.
 - `githubSignIn.test.ts` covers the verified primary email parser, exact OAuth parameters, and
   provider API failures.
 - `githubUserAuthorizations.convex.test.ts` covers GitHub sign-in and GitHub App identity conflicts.
+- `authOAuthCallback.convex.test.ts` covers account-selection parameters, exact scopes, and safe
+  callback error returns through the patched auth boundary.
 - `UserSettingsPage.test.tsx` covers connected methods, Connect actions, no removal action, and the
   separate GitHub access section.
 - `SignInForm.test.tsx`, `authClient.test.ts`, and the public landing tests cover both OAuth entry
@@ -79,4 +86,6 @@ GitHub authorization.
 
 The development and production OAuth Apps must use the Convex Auth callback path
 `/api/auth/callback/github`. Existing user grants from the older broad-scope flow must be revoked
-before final validation so the new authorization contains only the current scopes.
+before final validation so the new authorization contains only the current scopes. Final validation
+must connect GitHub from Settings and then complete a signed-out GitHub sign-in with the same
+account.

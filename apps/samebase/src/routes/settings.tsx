@@ -11,7 +11,7 @@ import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
 import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";
 import { useCallback } from "react";
 
-const GITHUB_USER_AUTHORIZATION_SOURCE = ["github-user"] as const;
+const SETTINGS_AUTHORIZATION_SOURCES = ["github-user", "google-sign-in", "github-sign-in"] as const;
 
 function SettingsRouteComponent() {
   const navigate = Route.useNavigate();
@@ -26,7 +26,7 @@ function SettingsRouteComponent() {
     });
   }, [navigate]);
   const authorizationError = useAuthorizationErrorNotice({
-    allowedProviders: GITHUB_USER_AUTHORIZATION_SOURCE,
+    allowedProviders: SETTINGS_AUTHORIZATION_SOURCES,
     onConsume: consumeAuthorizationError,
     search,
     scopeKey: "user-settings",

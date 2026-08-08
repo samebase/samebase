@@ -6,6 +6,7 @@ import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { buildOAuthRedirectSearch, type OAuthAuthProvider } from "@/lib/oauthAuthRedirect";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import { resetSamebasePostHogClient } from "@/lib/posthogClient";
+import { toast } from "@/components/ui/use-toast";
 
 const POPUP_WATCH_INTERVAL_MS = 500;
 const POPUP_WATCH_TIMEOUT_MS = 120_000;
@@ -233,7 +234,13 @@ export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
       // Preserve TanStack Router history metadata while stripping auth params
       // from the popup/bootstrap URL before the provider redirect begins.
       window.history.replaceState(window.history.state, "", redirectTo);
-      void signIn(authProvider, { redirectTo });
+      void Promise.resolve(signIn(authProvider, { redirectTo })).catch(() => {
+        toast({
+          description: "Try again.",
+          title: `Could not start ${authProvider === "github" ? "GitHub" : "Google"} sign-in`,
+          variant: "destructive",
+        });
+      });
     }
   }, [authProvider, authReturn, router, signIn, signupReturn]);
 }

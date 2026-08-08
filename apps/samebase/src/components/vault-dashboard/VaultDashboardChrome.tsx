@@ -8,7 +8,7 @@ import {
   PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
 } from "@/lib/publicLanding";
 import { clsx } from "clsx";
-import { Chrome, Github } from "lucide-react";
+import { Github } from "lucide-react";
 import type { AccountPresentation } from "../../../shared/accountPresentation";
 import { Link } from "@tanstack/react-router";
 import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
@@ -131,7 +131,6 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
               variant="outline"
               type="button"
             >
-              <Chrome className="mr-2 h-4 w-4 @max-[120px]:hidden" />
               <span className="min-w-0">Continue with Google</span>
             </Button>
             <Button

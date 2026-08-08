@@ -234,7 +234,7 @@ test("signed-in app right sidebar keeps the account row inside the minimum mobil
   }
 });
 
-test("signed-out Google sign-in fits the minimum mobile right pane", async ({ page }) => {
+test("signed-out OAuth sign-in fits the minimum mobile right pane", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await seedAppWorkspaceSidebarState(page, {
     ...APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE,

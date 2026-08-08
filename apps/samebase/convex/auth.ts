@@ -107,6 +107,9 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
             clientId: googleClientId,
             clientSecret: googleClientSecret,
             allowDangerousEmailAccountLinking: false,
+            authorization: {
+              params: { prompt: "select_account" },
+            },
             profile: (profile) => {
               if (!isNonEmptyString(profile.email)) {
                 throw new Error("Google did not provide an email address.");

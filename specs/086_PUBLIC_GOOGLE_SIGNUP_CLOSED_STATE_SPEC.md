@@ -4,7 +4,7 @@
 
 - Status: Implemented
 - Owner: Samebase auth/frontend
-- Last updated: 2026-06-06
+- Last updated: 2026-08-08
 
 ## Summary
 
@@ -35,15 +35,14 @@ dropping the user back onto the default landing page.
 3. The signup-closed state must hide Google, GitHub, and password auth controls and keep only the
    minimal notice plus the waitlist form.
 4. Successful authentication must clear the signup-return flag so it does not survive into later
-   signed-out sessions. Public Google sign-in from `/` must use `/vault` as the provider return
-   route and clear `signup=google` after a successful authenticated return. Direct authenticated
-   visits to `/` must continue rendering the public landing route. GitHub uses the same behavior
-   with `signup=github`.
+   signed-out sessions. Public Google or GitHub sign-in from `/` must use `/vault` as the provider
+   return route and clear its `signup=<provider>` marker after a successful authenticated return.
+   Direct authenticated visits to `/` must continue rendering the public landing route.
 5. The first version must not put the raw email address into the URL.
 
 ## Acceptance Criteria
 
-- [x] Cold public landing visitors who fail to complete Google signup do not silently return to the
+- [x] Cold public landing visitors who fail to complete OAuth signup do not silently return to the
       default landing state.
 - [x] The signup-closed state keeps the waitlist form available.
 - [x] The signup-closed state does not expose auth controls.

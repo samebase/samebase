@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase product
-- Last updated: 2026-08-07
+- Last updated: 2026-08-08
 - Depends on: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Supersedes: `archive/118_VAULT_FOLDER_SPEC.md`
 - Approved proposal: <https://github.com/samebase/samebase/pull/1371>
@@ -26,10 +26,10 @@ does not change the organization schema or membership model in Spec 120.
 
 User-owned pages use these routes:
 
-| Route       | Contract                                                                        |
-| ----------- | ------------------------------------------------------------------------------- |
-| `/vault`    | Show all current organizations as sections and their vaults.                    |
-| `/settings` | Show profile, GitHub authorization, MCP grants, sign-out, and account deletion. |
+| Route       | Contract                                                                                  |
+| ----------- | ----------------------------------------------------------------------------------------- |
+| `/vault`    | Show all current organizations as sections and their vaults.                              |
+| `/settings` | Show profile, sign-in methods, GitHub access, MCP grants, sign-out, and account deletion. |
 
 Organization-owned pages use these routes:
 
@@ -94,16 +94,16 @@ keeps its file tree instead of this picker.
 
 ## User And Organization Settings
 
-User settings own profile data, personal preferences, sign-out, account deletion, MCP grants, and
-the current user's GitHub App user authorization. User settings contain no organization selector and
-no organization billing.
+User settings own profile data, sign-in methods, personal preferences, sign-out, account deletion,
+MCP grants, and the current user's GitHub App access. User settings contain no organization selector
+and no organization billing.
 
 Organization settings own the GitHub owner identity, Samebase role, GitHub App installation health,
 billing, and future member administration. Convex and Cloudflare connections use the organization
 providers route.
 
-The personal GitHub authorization is not organization identity or membership proof. A personal-owner
-creation flow can request it only when that operation needs the acting GitHub user.
+Personal GitHub access is not organization identity or membership proof. A personal-owner creation
+flow can request it only when that operation needs the acting GitHub user.
 
 MCP consent stays user-global. It carries no active organization. Each target operation resolves its
 resource and checks the user's current membership and role.
@@ -201,7 +201,7 @@ Focused route, backend, and UI tests must prove:
 - reload, direct-link, Back, and Forward behavior
 - small-screen access to the shared organization context
 - scoped provider OAuth, checkout, and billing-portal returns
-- user-owned MCP clients and personal GitHub authorization in user settings
+- user-owned sign-in methods, MCP clients, and personal GitHub access in user settings
 - no internal organization ID in public links or messages
 
 Screenshot coverage must include the global inventory, one-organization and several-organization

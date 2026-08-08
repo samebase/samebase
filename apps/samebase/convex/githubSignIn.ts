@@ -9,6 +9,7 @@ import {
 
 const GITHUB_API_URL = "https://api.github.com";
 const GITHUB_API_VERSION = "2022-11-28";
+const GITHUB_EMAILS_PER_PAGE = 100;
 
 export const GITHUB_SIGN_IN_AUTHORIZATION_PARAMS = {
   prompt: "select_account",
@@ -31,7 +32,10 @@ function readRequiredTrimmedString(record: JsonRecord, key: string, label: strin
   return value;
 }
 
-function readPrimaryVerifiedEmail(value: unknown): string {
+function readPrimaryVerifiedEmailPage(value: unknown): {
+  email: string | null;
+  itemCount: number;
+} {
   if (!Array.isArray(value)) {
     throw new Error("GitHub returned an invalid email list.");
   }
@@ -47,10 +51,13 @@ function readPrimaryVerifiedEmail(value: unknown): string {
     }
   }
 
-  if (primaryVerifiedEmails.length !== 1) {
+  if (primaryVerifiedEmails.length > 1) {
     throw new Error("GitHub did not provide one primary verified email address.");
   }
-  return primaryVerifiedEmails[0];
+  return {
+    email: primaryVerifiedEmails.at(0) ?? null,
+    itemCount: value.length,
+  };
 }
 
 function githubApiHeaders(accessToken: string) {
@@ -67,22 +74,35 @@ export async function fetchVerifiedGitHubOAuthProfile(args: {
   fetch: typeof fetch;
 }): Promise<JsonRecord> {
   const headers = githubApiHeaders(args.accessToken);
-  const [profileResponse, emailsResponse] = await Promise.all([
+  const fetchPrimaryVerifiedEmail = async (page = 1): Promise<string> => {
+    const emailsUrl = new URL(`${GITHUB_API_URL}/user/emails`);
+    emailsUrl.searchParams.set("per_page", String(GITHUB_EMAILS_PER_PAGE));
+    emailsUrl.searchParams.set("page", String(page));
+    const response = await args.fetch(emailsUrl.toString(), { headers });
+    if (!response.ok) {
+      throw new Error("GitHub did not provide email access.");
+    }
+    const emailPage = readPrimaryVerifiedEmailPage(await response.json());
+    if (emailPage.email !== null) {
+      return emailPage.email;
+    }
+    if (emailPage.itemCount < GITHUB_EMAILS_PER_PAGE) {
+      throw new Error("GitHub did not provide one primary verified email address.");
+    }
+    return await fetchPrimaryVerifiedEmail(page + 1);
+  };
+  const [profileResponse, email] = await Promise.all([
     args.fetch(`${GITHUB_API_URL}/user`, { headers }),
-    args.fetch(`${GITHUB_API_URL}/user/emails`, { headers }),
+    fetchPrimaryVerifiedEmail(),
   ]);
   if (!profileResponse.ok) {
     throw new Error("GitHub did not provide the user profile.");
   }
-  if (!emailsResponse.ok) {
-    throw new Error("GitHub did not provide email access.");
-  }
 
   const rawProfile: unknown = await profileResponse.json();
-  const rawEmails: unknown = await emailsResponse.json();
   return {
     ...asRecord(rawProfile),
-    email: readPrimaryVerifiedEmail(rawEmails),
+    email,
     samebaseEmailVerified: true,
   };
 }

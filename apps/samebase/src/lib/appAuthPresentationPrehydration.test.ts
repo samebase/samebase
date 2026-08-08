@@ -359,7 +359,12 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).not.toContain("[aria-expanded]");
   });
 
-  it.each(["/?signup=google", "/settings?signup=google"])(
+  it.each([
+    "/?signup=google",
+    "/settings?signup=google",
+    "/?signup=github",
+    "/settings?signup=github",
+  ])(
     "does not reveal signed-out auth controls before the closed-signup state hydrates on %s",
     (route) => {
       window.history.replaceState({}, "", route);
@@ -372,6 +377,17 @@ describe("appAuthPresentationPrehydration", () => {
       expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
     },
   );
+
+  it("ignores an unknown signup marker before hydration", () => {
+    window.history.replaceState({}, "", "/?signup=unknown");
+
+    runAppAuthPresentationPrehydrationScript();
+
+    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      "signed-out",
+    );
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).not.toBeNull();
+  });
 
   it("keeps MCP consent controls available when a stale signup marker is present", () => {
     window.history.replaceState({}, "", `${MCP_CONSENT_APP_PATH}?signup=google`);

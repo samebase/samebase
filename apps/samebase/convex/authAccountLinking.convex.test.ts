@@ -2,6 +2,7 @@ import GitHub from "@auth/core/providers/github";
 import Google from "@auth/core/providers/google";
 import { describe, expect, it } from "vite-plus/test";
 
+import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { createOrUpdateSamebaseUser, type CreateOrUpdateAuthUserArgs } from "./authAccountLinking";
@@ -297,6 +298,96 @@ describe("Samebase OAuth account linking", () => {
     });
   });
 
+  it("rejects a Connect callback after its session expires", async () => {
+    const t = makeConvexTest();
+    const sessionId = await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "expired-session@example.com");
+      return await insertLinkSession(ctx, {
+        userId,
+        provider: "github",
+        expiresAt: Date.now() + 60_000,
+        sessionExpiresAt: Date.now() - 1,
+      });
+    });
+
+    await expect(
+      t.run(async (ctx) =>
+        createOrUpdateSamebaseUser(
+          ctx,
+          oauthArgs({
+            provider: "github",
+            providerAccountId: "github-expired-session",
+            email: "new-after-expiry@example.com",
+            existingSessionId: sessionId,
+            existingUserId: null,
+          }),
+        ),
+      ),
+    ).rejects.toThrow("The account-linking session expired. Start again from Account settings.");
+
+    await expect(t.run(async (ctx) => await ctx.db.query("users").collect())).resolves.toHaveLength(
+      1,
+    );
+  });
+
+  it("rejects a Connect callback after its session is deleted", async () => {
+    const t = makeConvexTest();
+    const sessionId = await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "deleted-session@example.com");
+      const sessionId = await insertLinkSession(ctx, {
+        userId,
+        provider: "google",
+        expiresAt: Date.now() + 60_000,
+      });
+      await ctx.db.delete(sessionId);
+      return sessionId;
+    });
+
+    await expect(
+      t.run(async (ctx) =>
+        createOrUpdateSamebaseUser(
+          ctx,
+          oauthArgs({
+            provider: "google",
+            providerAccountId: "google-deleted-session",
+            email: "new-after-deletion@example.com",
+            existingSessionId: sessionId,
+            existingUserId: null,
+          }),
+        ),
+      ),
+    ).rejects.toThrow("The account-linking session expired. Start again from Account settings.");
+
+    await expect(t.run(async (ctx) => await ctx.db.query("users").collect())).resolves.toHaveLength(
+      1,
+    );
+  });
+
+  it("does not start Connect from an expired current session", async () => {
+    const t = makeConvexTest();
+    const { sessionId, userId } = await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "begin-expired@example.com");
+      const sessionId = await ctx.db.insert("authSessions", {
+        userId,
+        expirationTime: Date.now() - 1,
+      });
+      return { sessionId, userId };
+    });
+
+    await expect(
+      t
+        .withIdentity({
+          subject: `${userId}|${sessionId}`,
+          tokenIdentifier: `test:${userId}`,
+        })
+        .mutation(api.users.beginAuthAccountLink, { provider: "github" }),
+    ).rejects.toThrow("The current sign-in session expired.");
+
+    await expect(t.run(async (ctx) => await ctx.db.get(sessionId))).resolves.not.toHaveProperty(
+      "accountLinkIntent",
+    );
+  });
+
   it("rejects a provider identity that belongs to another Samebase user", async () => {
     const t = makeConvexTest();
     const { otherUserId, sessionId } = await t.run(async (ctx) => {
@@ -336,6 +427,44 @@ describe("Samebase OAuth account linking", () => {
         provider: "github",
       },
     });
+  });
+
+  it("does not create GitHub sign-in for an identity that provides access to another user", async () => {
+    const t = makeConvexTest();
+    await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "github-access-owner@example.com");
+      const now = Date.now();
+      await ctx.db.insert("githubUserAuthorizations", {
+        userId,
+        githubUserId: "github-access-owner",
+        githubUserLogin: "access-owner",
+        accessToken: "access-token",
+        accessTokenExpiresAt: now + 60_000,
+        refreshToken: "refresh-token",
+        refreshTokenExpiresAt: now + 120_000,
+        createdAt: now,
+        updatedAt: now,
+      });
+    });
+
+    await expect(
+      t.run(async (ctx) =>
+        createOrUpdateSamebaseUser(
+          ctx,
+          oauthArgs({
+            provider: "github",
+            providerAccountId: "github-access-owner",
+            email: "different-github-email@example.com",
+            existingSessionId: null,
+            existingUserId: null,
+          }),
+        ),
+      ),
+    ).rejects.toThrow("This GitHub account already provides access for another Samebase account.");
+
+    await expect(t.run(async (ctx) => await ctx.db.query("users").collect())).resolves.toHaveLength(
+      1,
+    );
   });
 
   it("rejects sign-in for an account whose deletion is finalizing", async () => {

@@ -145,9 +145,24 @@ async function requireActiveUser(ctx: MutationCtx, userId: Id<"users">) {
 
 async function assertGitHubAccessIdentity(
   ctx: MutationCtx,
-  userId: Id<"users">,
+  userId: Id<"users"> | null,
   githubUserId: string,
 ) {
+  const githubOwners = await ctx.db
+    .query("githubUserAuthorizations")
+    .withIndex("by_github_user", (query) => query.eq("githubUserId", githubUserId))
+    .take(2);
+  if (githubOwners.length > 1) {
+    throw new Error("This GitHub account has conflicting Samebase access records.");
+  }
+  const githubOwner = githubOwners.at(0);
+  if (githubOwner !== undefined && githubOwner.userId !== userId) {
+    throw new Error("This GitHub account already provides access for another Samebase account.");
+  }
+  if (userId === null) {
+    return;
+  }
+
   const authorization = await ctx.db
     .query("githubUserAuthorizations")
     .withIndex("by_user", (query) => query.eq("userId", userId))
@@ -218,15 +233,16 @@ async function createOrResolveOAuthUser(
   const now = Date.now();
   if (args.existingSessionId !== null) {
     const session = await ctx.db.get(args.existingSessionId);
-    if (session !== null && session.expirationTime > now) {
-      const intent = session.accountLinkIntent;
-      if (intent === undefined || intent.expiresAt <= now || intent.provider !== provider) {
-        throw new Error(
-          `Sign out before you sign in with ${providerLabel}, or connect it in Account settings.`,
-        );
-      }
-      return await linkOAuthAccount(ctx, args, provider, session, profile);
+    if (session === null || session.expirationTime <= now) {
+      throw new Error("The account-linking session expired. Start again from Account settings.");
     }
+    const intent = session.accountLinkIntent;
+    if (intent === undefined || intent.expiresAt <= now || intent.provider !== provider) {
+      throw new Error(
+        `Sign out before you sign in with ${providerLabel}, or connect it in Account settings.`,
+      );
+    }
+    return await linkOAuthAccount(ctx, args, provider, session, profile);
   }
 
   if (args.existingUserId !== null) {
@@ -246,6 +262,9 @@ async function createOrResolveOAuthUser(
     throw new Error(
       "A Samebase account already uses this email. Sign in with an existing method, then connect this account in Settings.",
     );
+  }
+  if (provider === "github") {
+    await assertGitHubAccessIdentity(ctx, null, profile.providerAccountId);
   }
 
   const userId = await ctx.db.insert("users", {

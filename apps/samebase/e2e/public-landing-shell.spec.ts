@@ -1072,6 +1072,13 @@ test("prod-ui mode does not override landing dev editing", async ({ page }) => {
 
 test.describe("production public host landing", () => {
   test("keeps the production URL editor inset and editable across routes", async ({ page }) => {
+    const focusRouteEditor = async () => {
+      await expect(async () => {
+        await page.getByTestId("route-url-editor-display").click();
+        await expect(page.getByTestId("route-url-editor-input")).toBeVisible({ timeout: 1_000 });
+      }).toPass({ timeout: 15_000 });
+      return page.getByTestId("route-url-editor-input");
+    };
     const rootUrl = buildProductionPublicLandingUrl("");
     const rootPrefix = `${new URL(rootUrl).origin}/`;
     const response = await page.goto(rootUrl, {
@@ -1095,9 +1102,7 @@ test.describe("production public host landing", () => {
     const displayInput = page.getByTestId("route-url-editor-display");
     await expect(displayInput).toHaveValue("/");
 
-    await displayInput.click();
-
-    const focusedInput = page.getByTestId("route-url-editor-input");
+    const focusedInput = await focusRouteEditor();
     await expect(focusedInput).toHaveValue(rootPrefix);
     await focusedInput.pressSequentially("logo");
 
@@ -1111,8 +1116,8 @@ test.describe("production public host landing", () => {
     const privacyDisplayInput = page.getByTestId("route-url-editor-display");
     await expect(privacyDisplayInput).toHaveValue("/privacy");
 
-    await privacyDisplayInput.click();
-    await expect(page.getByTestId("route-url-editor-input")).toHaveValue(`${rootPrefix}privacy?`);
+    const privacyFocusedInput = await focusRouteEditor();
+    await expect(privacyFocusedInput).toHaveValue(`${rootPrefix}privacy?`);
   });
 
   test("keeps ?dev landing copy editable", async ({ page }) => {
