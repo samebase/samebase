@@ -7,12 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "../../convex/_generated/api";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { UserSettingsPage } from "./UserSettingsPage";
-import type { GitHubAuthorizationSetup } from "@/lib/githubAppSetupFlow";
 
 const { act } = React;
 
 const testState = vi.hoisted(() => ({
-  actions: new Map<string, (args: unknown) => Promise<unknown>>(),
   fetchAccessToken: vi.fn(),
   mutations: new Map<string, (args: unknown) => Promise<unknown>>(),
   queries: new Map<string, unknown>(),
@@ -25,7 +23,6 @@ const testState = vi.hoisted(() => ({
     canGoBack: vi.fn(() => true),
     navigate: vi.fn(async () => undefined),
   },
-  setupPopup: vi.fn<(getSetup: () => Promise<GitHubAuthorizationSetup>) => Promise<void>>(),
   signInWithOAuth: vi.fn(),
   signOut: vi.fn(),
 }));
@@ -55,13 +52,6 @@ vi.mock("@/components/ui/use-toast", () => ({
   toast: vi.fn(),
 }));
 
-vi.mock("@/lib/githubAppSetupFlow", () => ({
-  openGitHubAppSetupPopup: (
-    _provider: "github-app" | "github-user",
-    getSetup: () => Promise<GitHubAuthorizationSetup>,
-  ) => testState.setupPopup(getSetup),
-}));
-
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
   return {
@@ -86,8 +76,6 @@ vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
   return {
     ...actual,
-    useAction: (reference: Parameters<typeof actual.useAction>[0]) =>
-      testState.actions.get(getFunctionName(reference)) ?? vi.fn(async () => undefined),
     useMutation: (reference: Parameters<typeof actual.useMutation>[0]) =>
       testState.mutations.get(getFunctionName(reference)) ?? vi.fn(async () => undefined),
     useQuery: (reference: Parameters<typeof actual.useQuery>[0]) =>
@@ -119,12 +107,6 @@ function setDefaultQueries() {
       password: null,
     },
   });
-  testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
-    accessKeys: ["access_public", "access_user_preferences", "access_provider_connections"],
-  });
-  testState.queries.set(getFunctionName(api.githubUserAuthorizations.getViewerStatus), {
-    status: "not_connected",
-  });
 }
 
 let root: Root | null = null;
@@ -144,7 +126,6 @@ function findButton(container: HTMLElement, label: string) {
 
 describe("UserSettingsPage", () => {
   beforeEach(() => {
-    testState.actions.clear();
     testState.fetchAccessToken.mockReset();
     testState.mutations.clear();
     testState.queries.clear();
@@ -155,10 +136,6 @@ describe("UserSettingsPage", () => {
     testState.router.canGoBack.mockReturnValue(true);
     testState.router.navigate.mockReset();
     testState.router.navigate.mockResolvedValue(undefined);
-    testState.setupPopup.mockReset();
-    testState.setupPopup.mockImplementation(async (getSetupUrl) => {
-      await getSetupUrl();
-    });
     testState.signInWithOAuth.mockReset();
     testState.signInWithOAuth.mockResolvedValue(undefined);
     testState.signOut.mockReset();
@@ -225,6 +202,8 @@ describe("UserSettingsPage", () => {
     expect(findButton(container, "Connect Google")).toBeUndefined();
     expect(findButton(container, "Connect GitHub")).toBeUndefined();
     expect(container.textContent).not.toContain("Remove");
+    expect(container.textContent).not.toContain("GitHub access");
+    expect(container.textContent).not.toContain("Personal repository creation");
   });
 
   it("labels the stable address as Account email", async () => {
@@ -243,77 +222,6 @@ describe("UserSettingsPage", () => {
     expect(accountSection?.textContent).toContain("Account email");
     expect(accountSection?.textContent).toContain("account@samebase.com");
     expect(accountSection?.textContent).not.toContain("Sign-in email");
-  });
-
-  it("starts personal GitHub authorization from account settings", async () => {
-    const getAuthorizationUrl = vi.fn(async () => ({
-      callbackOrigin: "https://api.samebase.com",
-      setupUrl: "https://github.com/login/oauth/authorize",
-    }));
-    testState.mutations.set(
-      getFunctionName(api.githubAppInstallation.getGitHubUserAuthorizationUrl),
-      getAuthorizationUrl,
-    );
-    const container = await mountSettingsPage();
-
-    expect(container.textContent).toContain("GitHub access");
-    expect(container.textContent).toContain("Samebase uses this account for GitHub actions.");
-    expect(container.textContent).toContain("Not authorized");
-    expect(container.textContent).toContain("MCP clients");
-    expect(container.textContent).not.toContain("GitHub authorization");
-    expect(container.textContent).not.toContain("Billing");
-    await act(async () => {
-      findButton(container, "Authorize GitHub access")?.click();
-      await Promise.resolve();
-    });
-
-    expect(getAuthorizationUrl).toHaveBeenCalledWith({ returnToPath: "/settings" });
-  });
-
-  it("does not offer GitHub authorization without provider access", async () => {
-    testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
-      accessKeys: ["access_public", "access_user_preferences"],
-    });
-    const container = await mountSettingsPage();
-
-    expect(container.textContent).toContain("Not authorized");
-    expect(findButton(container, "Authorize GitHub access")).toBeUndefined();
-    expect(findButton(container, "Connect GitHub")).toBeDefined();
-  });
-
-  it("shows and revokes a current personal GitHub authorization", async () => {
-    testState.queries.set(getFunctionName(api.githubUserAuthorizations.getViewerStatus), {
-      githubUserLogin: "nicubunu",
-      refreshTokenExpiresAt: Date.now() + 60_000,
-      status: "authorized",
-    });
-    const revokeAuthorization = vi.fn(async () => null);
-    testState.actions.set(
-      getFunctionName(api.githubUserAuthorizations.revokeViewerAuthorization),
-      revokeAuthorization,
-    );
-    const container = await mountSettingsPage();
-
-    expect(container.textContent).toContain("nicubunu");
-    expect(container.textContent).toContain("Authorized as @nicubunu");
-    await act(async () => {
-      findButton(container, "Revoke GitHub access")?.click();
-      await Promise.resolve();
-    });
-
-    expect(revokeAuthorization).toHaveBeenCalledWith({});
-  });
-
-  it("marks an expired personal GitHub authorization", async () => {
-    testState.queries.set(getFunctionName(api.githubUserAuthorizations.getViewerStatus), {
-      githubUserLogin: "nicubunu",
-      refreshTokenExpiresAt: 0,
-      status: "authorized",
-    });
-    const container = await mountSettingsPage();
-
-    expect(container.textContent).toContain("Expired");
-    expect(findButton(container, "Authorize GitHub access")).toBeDefined();
   });
 
   it("saves the profile and refreshes the session", async () => {

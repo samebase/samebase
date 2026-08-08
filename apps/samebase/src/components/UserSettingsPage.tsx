@@ -1,5 +1,5 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
@@ -14,8 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { readCurrentAuthTokenProfileClaims } from "@/lib/authTokenProfileJwt";
-import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
-import { useNow } from "@/hooks/useNow";
 import { getRouteApi, useLocation, useRouter } from "@tanstack/react-router";
 import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
 import { applySearchPatch } from "@/routing/searchFlags";
@@ -36,7 +34,6 @@ type SessionRefreshState =
   | { kind: "stale"; expectedPresentation: AccountPresentation; message: string };
 
 type AuthAccountLinkRequestState = "idle" | "google" | "github";
-type GitHubAccessRequestState = "idle" | "authorizing" | "revoking";
 
 function readErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ConvexError && typeof error.data === "string") {
@@ -57,16 +54,8 @@ export function UserSettingsPage({
     select: (location) => location.state.settingsDeleteAccountDialog,
   });
   const settings = useQuery(api.users.getUserSettings);
-  const viewerAccess = useQuery(api.users.currentViewerAccess);
-  const githubAuthorization = useQuery(api.githubUserAuthorizations.getViewerStatus);
   const setDisplayName = useMutation(api.users.setDisplayName);
   const beginAuthAccountLink = useMutation(api.users.beginAuthAccountLink);
-  const getGitHubUserAuthorizationUrl = useMutation(
-    api.githubAppInstallation.getGitHubUserAuthorizationUrl,
-  );
-  const revokeGitHubAuthorization = useAction(
-    api.githubUserAuthorizations.revokeViewerAuthorization,
-  );
   const { signOut } = useAppAuthActions();
   const { signInWithOAuth } = useAppSignInActions();
   const { fetchAccessToken } = useConvexAuth();
@@ -77,24 +66,14 @@ export function UserSettingsPage({
   });
   const [authAccountLinkRequestState, setAuthAccountLinkRequestState] =
     useState<AuthAccountLinkRequestState>("idle");
-  const [githubAccessRequestState, setGitHubAccessRequestState] =
-    useState<GitHubAccessRequestState>("idle");
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
-  const now = useNow({
-    enabled: githubAuthorization?.status === "authorized",
-    intervalMs: 60_000,
-  });
   const authorizationErrorMessage = authorizationError
     ? formatAuthorizationErrorMessage(authorizationError)
     : null;
 
-  if (settings === undefined || viewerAccess === undefined || githubAuthorization === undefined) {
+  if (settings === undefined) {
     return null;
   }
-
-  const canAuthorizeGitHub = viewerAccess.accessKeys.includes("access_provider_connections");
-  const githubAuthorizationExpired =
-    githubAuthorization.status === "authorized" && githubAuthorization.refreshTokenExpiresAt <= now;
 
   const refreshSession = async (expectedPresentation: AccountPresentation) => {
     const token = await fetchAccessToken({ forceRefreshToken: true });
@@ -194,44 +173,6 @@ export function UserSettingsPage({
         variant: "destructive",
       });
       setAuthAccountLinkRequestState("idle");
-    }
-  };
-
-  const authorizeGitHubAccess = () => {
-    if (githubAccessRequestState !== "idle") {
-      return;
-    }
-    setGitHubAccessRequestState("authorizing");
-    void openGitHubAppSetupPopup("github-user", async () => {
-      return await getGitHubUserAuthorizationUrl({ returnToPath: "/settings" });
-    })
-      .catch((error: unknown) => {
-        toast({
-          description: readErrorMessage(error, "Could not open GitHub App setup."),
-          title: "Could not authorize GitHub access",
-          variant: "destructive",
-        });
-      })
-      .finally(() => {
-        setGitHubAccessRequestState("idle");
-      });
-  };
-
-  const revokeAuthorization = async () => {
-    if (githubAccessRequestState !== "idle") {
-      return;
-    }
-    setGitHubAccessRequestState("revoking");
-    try {
-      await revokeGitHubAuthorization({});
-    } catch (error) {
-      toast({
-        description: readErrorMessage(error, "Could not revoke GitHub access."),
-        title: "Could not revoke GitHub access",
-        variant: "destructive",
-      });
-    } finally {
-      setGitHubAccessRequestState("idle");
     }
   };
 
@@ -422,58 +363,6 @@ export function UserSettingsPage({
             </div>
           ) : null}
         </dl>
-      </section>
-
-      <section className="mt-8 border-t pt-6" aria-labelledby="settings-github-heading">
-        <h2 id="settings-github-heading" className="text-base font-semibold">
-          GitHub access
-        </h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Samebase uses this account for GitHub actions.
-        </p>
-        <dl className="mt-4 space-y-1">
-          <dt className="text-sm font-medium">Status</dt>
-          <dd className="text-sm text-muted-foreground">
-            {githubAuthorization.status === "not_connected"
-              ? "Not authorized"
-              : githubAuthorizationExpired
-                ? `Expired for @${githubAuthorization.githubUserLogin}`
-                : `Authorized as @${githubAuthorization.githubUserLogin}`}
-          </dd>
-        </dl>
-        <div className="mt-4 flex flex-wrap gap-3">
-          {canAuthorizeGitHub &&
-          (githubAuthorization.status === "not_connected" || githubAuthorizationExpired) ? (
-            <Button
-              disabled={githubAccessRequestState !== "idle"}
-              onClick={authorizeGitHubAccess}
-              type="button"
-            >
-              {githubAccessRequestState === "authorizing" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              {githubAccessRequestState === "authorizing"
-                ? "Opening..."
-                : "Authorize GitHub access"}
-            </Button>
-          ) : null}
-          {githubAuthorization.status === "authorized" ? (
-            <Button
-              disabled={githubAccessRequestState !== "idle"}
-              onClick={() => void revokeAuthorization()}
-              type="button"
-              variant="outline"
-            >
-              {githubAccessRequestState === "revoking" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              {githubAccessRequestState === "revoking" ? "Revoking..." : "Revoke GitHub access"}
-            </Button>
-          ) : null}
-        </div>
-        <p className="mt-3 text-sm text-muted-foreground">
-          Revoking this access does not remove GitHub sign-in or uninstall the GitHub App.
-        </p>
       </section>
 
       <McpClientsSettingsSection />

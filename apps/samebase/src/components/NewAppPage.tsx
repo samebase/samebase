@@ -16,7 +16,7 @@ import { clsx } from "clsx";
 import { linkStyle } from "@/components/styles";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildVaultDashboardRoute } from "@/lib/vaultRoutes";
-import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
+import { ORGANIZATION_PROVIDERS_ROUTE } from "@/lib/organizationRoutes";
 import {
   buildDefaultAppResourceName,
   validateAppResourceName,
@@ -806,11 +806,15 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         {createError && <div className="text-sm text-red-600">{createError}</div>}
         {ownerCreateBlocker ? (
           <div className="text-xs text-muted-foreground">
-            Authorize {organization.githubOwnerLogin} in{" "}
-            <Link className={linkStyle} to={SETTINGS_ROUTE}>
-              Account settings
-            </Link>{" "}
-            to create repositories for this personal GitHub owner.
+            Authorize repository creation for {organization.githubOwnerLogin} in{" "}
+            <Link
+              className={linkStyle}
+              params={{ owner: organization.githubOwnerLogin }}
+              to={ORGANIZATION_PROVIDERS_ROUTE}
+            >
+              Providers
+            </Link>
+            .
           </div>
         ) : null}
         {showCloudflareCreateWarning && (

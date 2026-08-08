@@ -28,6 +28,9 @@ const rootSearchState = vi.hoisted((): { search: RootRouteSearch } => ({
 const toastState = vi.hoisted(() => ({
   toast: vi.fn(),
 }));
+const locationState = vi.hoisted(() => ({
+  pathname: "/vault",
+}));
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -44,12 +47,10 @@ vi.mock("convex/react", async (importOriginal) => {
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
-  const location = { pathname: "/vault" };
-
   return {
     ...actual,
-    useLocation: ({ select }: { select?: (value: typeof location) => unknown } = {}) =>
-      select ? select(location) : location,
+    useLocation: ({ select }: { select?: (value: typeof locationState) => unknown } = {}) =>
+      select ? select(locationState) : locationState,
     useRouter: () => routerState,
   };
 });
@@ -164,6 +165,7 @@ describe("AuthenticatedAppRoutePage", () => {
       value: createTestStorage(),
     });
     window.history.replaceState({}, "", "/vault");
+    locationState.pathname = "/vault";
     routeChildState.renders = 0;
     routerState.navigate.mockClear();
     rootSearchState.search = {};
@@ -203,6 +205,19 @@ describe("AuthenticatedAppRoutePage", () => {
     expect(routerState.navigate).toHaveBeenCalledWith(
       expect.objectContaining({ hash: true, replace: true, resetScroll: false, to: "." }),
     );
+  });
+
+  it("leaves a personal repository authorization error for the Providers route", async () => {
+    locationState.pathname = "/org/nicubunu/providers";
+    rootSearchState.search = {
+      "authorization-provider": "github-user",
+      "authorization-error": "target-mismatch",
+    };
+
+    await renderAuthenticatedRoutePageAfterEffects();
+
+    expect(toastState.toast).not.toHaveBeenCalled();
+    expect(routerState.navigate).not.toHaveBeenCalled();
   });
 
   it("renders the sign-in form after hydration when loading without local auth material", async () => {

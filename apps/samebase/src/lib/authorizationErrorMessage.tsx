@@ -19,7 +19,10 @@ function readProviderCopy(provider: AuthorizationProvider): {
     case "github-app":
       return { authorizationLabel: "GitHub App setup", connectionLabel: "GitHub App" };
     case "github-user":
-      return { authorizationLabel: "GitHub authorization", connectionLabel: "GitHub" };
+      return {
+        authorizationLabel: "Personal repository authorization",
+        connectionLabel: "personal repository",
+      };
     case "google-sign-in":
       return { authorizationLabel: "Google sign-in", connectionLabel: "Google sign-in" };
     case "github-sign-in":
@@ -75,7 +78,9 @@ export function formatAuthorizationErrorMessage(
             "Reconnect the GitHub App for the configured owner. The selected installation belongs to a different GitHub owner."
           );
         case "github-user":
-          return "Select the GitHub user that is connected to this account.";
+          return targets.githubOwnerLogin
+            ? `Sign in to GitHub as @${targets.githubOwnerLogin} to authorize personal repository creation.`
+            : "Sign in as the personal GitHub owner to authorize repository creation.";
         case "google-sign-in":
         case "github-sign-in":
           return "Select the provider account that is connected to this Samebase account.";

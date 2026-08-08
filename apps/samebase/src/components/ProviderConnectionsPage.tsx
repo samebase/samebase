@@ -45,6 +45,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS } from "../../shared/cloudflareTokenRefresh";
 import type { AuthorizationError } from "../../shared/authorizationError";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
+import { useNow } from "@/hooks/useNow";
 
 const PROVIDER_KEYS = ["convex", "cloudflare"] as const;
 const PROVIDER_ACCESS_STALE_TIME_MS = 60 * 1000;
@@ -91,6 +92,8 @@ type AppCloudflareConnectionAccess =
   (typeof api.cloudflareProviderAccess.checkCloudflareConnectionAccess)["_returnType"];
 type AppGitHubInstallationAccess =
   (typeof api.githubAppAccess.checkViewerInstallation)["_returnType"];
+type AppGitHubUserAuthorization =
+  (typeof api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization)["_returnType"];
 type ProviderAccessCheckState =
   | AppCloudflareConnectionAccess["checks"][number]["status"]
   | "checking";
@@ -108,6 +111,7 @@ type ApiCheckViewModel = {
 };
 type ProviderDisconnectResult = (typeof api.users.disconnectConvex)["_returnType"];
 type CloudflareTokenAutoCheckTrigger = "focus" | "visibility" | "poll";
+type GitHubUserAuthorizationRequestState = "idle" | "authorizing" | "revoking";
 export type ProviderConnectionsPageConnectionState = {
   cloudflareAccess: AppCloudflareConnectionAccess | null;
   cloudflareConnection: AppCloudflareConnection | undefined;
@@ -123,6 +127,8 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   convexApiKeyDialog: ReactNode;
   convexAccessError: boolean;
   githubAccessError: boolean;
+  githubUserAuthorization: AppGitHubUserAuthorization | undefined;
+  githubUserAuthorizationRequestState: GitHubUserAuthorizationRequestState;
   isCheckingCloudflareAccess: boolean;
   isCheckingConvexAccess: boolean;
   isCheckingGitHubAccess: boolean;
@@ -132,7 +138,9 @@ type ProviderConnectionsPageViewProps = ProviderConnectionsPageConnectionState &
   onDisconnect: (provider: ProviderKey) => void;
   onOpenCloudflareApiTokenDialog: () => void;
   onOpenConvexApiKeyDialog: () => void;
+  onAuthorizeGitHubUser: () => void;
   onReconnectGitHubApp: () => void;
+  onRevokeGitHubUser: () => void;
   providerDisconnectNotice: string | null;
 };
 
@@ -377,11 +385,21 @@ function TechnicalValueList({ label, values }: { label: string; values: readonly
 function GitHubInstallationDetails({
   access,
   error,
+  githubUserAuthorization,
+  githubUserAuthorizationRequestState,
   isChecking,
+  onAuthorizeGitHubUser,
+  onRevokeGitHubUser,
+  organization,
 }: {
   access: AppGitHubInstallationAccess | null;
   error: boolean;
+  githubUserAuthorization: AppGitHubUserAuthorization | undefined;
+  githubUserAuthorizationRequestState: GitHubUserAuthorizationRequestState;
   isChecking: boolean;
+  onAuthorizeGitHubUser: () => void;
+  onRevokeGitHubUser: () => void;
+  organization: ViewerOrganization;
 }) {
   const failedChecks = access?.checks.filter((check) => check.status === "error") ?? [];
   const permissions =
@@ -403,6 +421,95 @@ function GitHubInstallationDetails({
       />
       {access?.status === "unavailable" || error || failedChecks.length > 0 ? (
         <AuthorizationErrorNotice>Could not confirm GitHub App access.</AuthorizationErrorNotice>
+      ) : null}
+      {organization.githubOwnerType === "user" ? (
+        <PersonalRepositoryCreationDetails
+          authorization={githubUserAuthorization}
+          ownerLogin={organization.githubOwnerLogin}
+          requestState={githubUserAuthorizationRequestState}
+          onAuthorize={onAuthorizeGitHubUser}
+          onRevoke={onRevokeGitHubUser}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function PersonalRepositoryCreationDetails({
+  authorization,
+  onAuthorize,
+  onRevoke,
+  ownerLogin,
+  requestState,
+}: {
+  authorization: AppGitHubUserAuthorization | undefined;
+  onAuthorize: () => void;
+  onRevoke: () => void;
+  ownerLogin: string;
+  requestState: GitHubUserAuthorizationRequestState;
+}) {
+  const now = useNow({
+    enabled: authorization?.status === "authorized",
+    intervalMs: 60_000,
+  });
+  const expired =
+    authorization?.status === "authorized" && authorization.refreshTokenExpiresAt <= now;
+  const canAuthorize = authorization?.status === "not_connected" || expired;
+  const canRevoke =
+    authorization?.status === "authorized" || authorization?.status === "different_account";
+  const status =
+    authorization === undefined
+      ? "Loading..."
+      : authorization.status === "not_connected"
+        ? "Authorization required"
+        : authorization.status === "different_account"
+          ? `Authorized as @${authorization.githubUserLogin}, not @${ownerLogin}.`
+          : expired
+            ? `Expired for @${authorization.githubUserLogin}`
+            : `Authorized as @${authorization.githubUserLogin}`;
+
+  return (
+    <div data-testid="personal-repository-creation" className="border-t border-border/50 pt-4">
+      <div className="font-medium text-foreground">Personal repository creation</div>
+      <div className="mt-1 text-muted-foreground">{status}</div>
+      <p className="mt-2 text-muted-foreground">
+        This authorization lets Samebase create repositories in this personal GitHub account. If you
+        revoke it, GitHub sign-in and the GitHub App installation stay connected.
+      </p>
+      {canAuthorize || canRevoke ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {canAuthorize ? (
+            <Button
+              disabled={requestState !== "idle"}
+              onClick={onAuthorize}
+              size="sm"
+              type="button"
+            >
+              {requestState === "authorizing" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {requestState === "authorizing"
+                ? "Opening..."
+                : expired
+                  ? "Reauthorize"
+                  : "Authorize"}
+            </Button>
+          ) : null}
+          {canRevoke ? (
+            <Button
+              disabled={requestState !== "idle"}
+              onClick={onRevoke}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {requestState === "revoking" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {requestState === "revoking" ? "Revoking..." : "Revoke"}
+            </Button>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
@@ -717,6 +824,8 @@ export function ProviderConnectionsPageView({
   disconnectingProvider,
   githubAccess,
   githubAccessError,
+  githubUserAuthorization,
+  githubUserAuthorizationRequestState,
   isCheckingCloudflareAccess,
   isCheckingConvexAccess,
   isCheckingGitHubAccess,
@@ -726,7 +835,9 @@ export function ProviderConnectionsPageView({
   onDisconnect,
   onOpenCloudflareApiTokenDialog,
   onOpenConvexApiKeyDialog,
+  onAuthorizeGitHubUser,
   onReconnectGitHubApp,
+  onRevokeGitHubUser,
   providerDisconnectNotice,
 }: ProviderConnectionsPageViewProps) {
   const canManageOrganization = organization.role === "owner";
@@ -740,7 +851,12 @@ export function ProviderConnectionsPageView({
       <GitHubInstallationDetails
         access={githubAccess}
         error={githubAccessError}
+        githubUserAuthorization={githubUserAuthorization}
+        githubUserAuthorizationRequestState={githubUserAuthorizationRequestState}
         isChecking={isCheckingGitHubAccess}
+        organization={organization}
+        onAuthorizeGitHubUser={onAuthorizeGitHubUser}
+        onRevokeGitHubUser={onRevokeGitHubUser}
       />
     ),
     icon: <GitHubProviderLogo />,
@@ -1215,11 +1331,17 @@ export function ProviderConnectionsPage({
   );
   const checkGitHubAccess = useAction(api.githubAppAccess.checkViewerInstallation);
   const getGitHubAppReconnectUrl = useMutation(api.githubAppInstallation.getGitHubAppReconnectUrl);
+  const getGitHubUserAuthorizationUrl = useMutation(
+    api.githubAppInstallation.getGitHubUserAuthorizationUrl,
+  );
   const refreshCloudflareMcpTokenIfNeeded = useAction(api.users.refreshCloudflareMcpTokenIfNeeded);
   const connectConvexWithApiKey = useAction(api.users.connectConvexWithApiKey);
   const connectCloudflareWithApiToken = useAction(api.users.connectCloudflareWithApiToken);
   const disconnectConvex = useAction(api.users.disconnectConvex);
   const disconnectCloudflare = useAction(api.users.disconnectCloudflare);
+  const revokeGitHubUserAuthorization = useAction(
+    api.githubUserAuthorizations.revokeViewerPersonalRepositoryAuthorization,
+  );
   const queryClient = useQueryClient();
   const organizationId = organization.organizationId;
   const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus, {
@@ -1228,6 +1350,10 @@ export function ProviderConnectionsPage({
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
     organizationId,
   });
+  const githubUserAuthorization = useConvexQuery(
+    api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization,
+    organization.githubOwnerType === "user" ? { organizationId } : "skip",
+  );
   const connectedConvexConnection =
     convexConnection?.state === "connected" ? convexConnection : null;
   const connectedCloudflareConnection =
@@ -1285,6 +1411,8 @@ export function ProviderConnectionsPage({
   const [disconnectingProvider, setDisconnectingProvider] = useState<ProviderKey | null>(null);
   const [providerDisconnectNotice, setProviderDisconnectNotice] = useState<string | null>(null);
   const [isReconnectingGitHubApp, setIsReconnectingGitHubApp] = useState(false);
+  const [githubUserAuthorizationRequestState, setGitHubUserAuthorizationRequestState] =
+    useState<GitHubUserAuthorizationRequestState>("idle");
   const providerRuntimeConfig: Record<ProviderKey, ProviderRuntimeConfig> = {
     convex: {
       disconnect: async () => {
@@ -1446,6 +1574,53 @@ export function ProviderConnectionsPage({
       });
   };
 
+  const handleAuthorizeGitHubUser = () => {
+    if (githubUserAuthorizationRequestState !== "idle") {
+      return;
+    }
+    setGitHubUserAuthorizationRequestState("authorizing");
+    void openGitHubAppSetupPopup("github-user", async () => {
+      return await getGitHubUserAuthorizationUrl({
+        organizationId,
+        returnToPath: getCurrentRootRelativeUrl(),
+      });
+    })
+      .catch((error: unknown) => {
+        console.error("Failed to start personal repository authorization.", {
+          errorName: error instanceof Error ? error.name : "unknown",
+        });
+        toast({
+          description: "Could not open GitHub authorization.",
+          title: "Could not authorize repository creation",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        setGitHubUserAuthorizationRequestState("idle");
+      });
+  };
+
+  const handleRevokeGitHubUser = async () => {
+    if (githubUserAuthorizationRequestState !== "idle") {
+      return;
+    }
+    setGitHubUserAuthorizationRequestState("revoking");
+    try {
+      await revokeGitHubUserAuthorization({ organizationId });
+    } catch (error) {
+      console.error("Failed to revoke personal repository authorization.", {
+        errorName: error instanceof Error ? error.name : "unknown",
+      });
+      toast({
+        description: "Could not revoke GitHub authorization.",
+        title: "Could not revoke repository creation access",
+        variant: "destructive",
+      });
+    } finally {
+      setGitHubUserAuthorizationRequestState("idle");
+    }
+  };
+
   return (
     <ProviderConnectionsPageView
       authorizationErrorMessage={authorizationErrorMessage}
@@ -1462,6 +1637,8 @@ export function ProviderConnectionsPage({
       disconnectingProvider={disconnectingProvider}
       githubAccess={githubAccessQuery.error === null ? (githubAccessQuery.data ?? null) : null}
       githubAccessError={githubAccessQuery.error !== null}
+      githubUserAuthorization={githubUserAuthorization}
+      githubUserAuthorizationRequestState={githubUserAuthorizationRequestState}
       isCheckingCloudflareAccess={cloudflareAccessQuery.isFetching}
       isCheckingConvexAccess={convexAccessQuery.isFetching}
       isCheckingGitHubAccess={githubAccessQuery.isFetching}
@@ -1475,7 +1652,11 @@ export function ProviderConnectionsPage({
       }}
       onOpenCloudflareApiTokenDialog={openCloudflareApiTokenDialog}
       onOpenConvexApiKeyDialog={openConvexApiKeyDialog}
+      onAuthorizeGitHubUser={handleAuthorizeGitHubUser}
       onReconnectGitHubApp={handleReconnectGitHubApp}
+      onRevokeGitHubUser={() => {
+        void handleRevokeGitHubUser();
+      }}
       providerDisconnectNotice={providerDisconnectNotice}
     />
   );

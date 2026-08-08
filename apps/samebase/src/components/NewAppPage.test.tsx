@@ -43,7 +43,7 @@ vi.mock("convex/react", async (importOriginal) => {
 });
 
 describe("NewAppPage", () => {
-  it("sends a blocked personal owner to Account settings for authorization", () => {
+  it("sends a blocked personal owner to the selected Providers page for authorization", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/org/nicubunu/new-app"]}>
         <NewAppPage
@@ -59,9 +59,9 @@ describe("NewAppPage", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain("Authorize nicubunu");
-    expect(markup).toContain('href="/settings"');
-    expect(markup).toContain("Account settings");
+    expect(markup).toContain("Authorize repository creation for nicubunu");
+    expect(markup).toContain('href="/org/nicubunu/providers"');
+    expect(markup).toContain("Providers");
     expect(markup).not.toContain("Install GitHub App");
   });
 });
