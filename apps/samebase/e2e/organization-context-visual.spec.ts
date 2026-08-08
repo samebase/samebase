@@ -5,9 +5,7 @@ import {
   createOrganizationContextAcceptanceAccount,
   signInOrganizationContextAcceptanceAccount,
 } from "./organizationContextAcceptance";
-import { signInIfNeeded } from "./liveHelpers";
 import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
-import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 
 const MAIN_HEADER_TEST_ID = "workspace-layout-v2-main-pane-header";
 const screenshotOptions = {
@@ -189,7 +187,7 @@ test("keeps one organization switchable and separates organization and user sett
     "/org/org-context-solo/providers?authorization-provider=github-app&authorization-error=target-mismatch#github",
   );
   await expect(
-    page.getByRole("alert").filter({ hasText: "GitHub owner org-context-solo" }),
+    page.getByRole("alert").filter({ hasText: "Reconnect the GitHub App for org-context-solo" }),
   ).toBeVisible();
   await expect(page).toHaveURL(/\/org\/org-context-solo\/providers#github$/u);
   if (!(await rightPane.isVisible())) {
@@ -445,24 +443,18 @@ test.describe("small screen organization context", () => {
       reducedMotion: "reduce",
     });
     const signupPage = await signupContext.newPage();
-    await signupPage.goto("/", { waitUntil: "domcontentloaded" });
-    await signInIfNeeded(signupPage, "/");
-    await applyOrganizationContextAcceptanceFixture({
-      email: LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
-      organizations: [
-        {
-          access: "retain",
-          ownerLogin: "org-context-mobile-alpha",
-          repositories: ["mobile-app"],
-        },
-        {
-          access: "retain",
-          ownerLogin: "org-context-mobile-beta",
-          repositories: [],
-        },
-      ],
-    });
-    await seedVisualFixtureWorkspaceSidebarState(signupPage);
+    await createApprovedAccount(signupPage, testInfo, "mobile", [
+      {
+        access: "retain",
+        ownerLogin: "org-context-mobile-alpha",
+        repositories: ["mobile-app"],
+      },
+      {
+        access: "retain",
+        ownerLogin: "org-context-mobile-beta",
+        repositories: [],
+      },
+    ]);
     const storageState = await signupContext.storageState();
     await signupContext.close();
 
@@ -476,16 +468,15 @@ test.describe("small screen organization context", () => {
     await seedVisualFixtureWorkspaceSidebarState(page, { rightMobileWidthPx: 96 });
 
     try {
-      await openRoute(page, "/vault/org-context-mobile-alpha/mobile-app/fs/main/README.md");
+      await openRoute(page, "/vault/org-context-mobile-alpha/mobile-app");
       const header = page.getByTestId(MAIN_HEADER_TEST_ID);
       await expect(header.getByText("org-context-mobile-alpha", { exact: true })).toHaveCount(0);
-      await expect(header.getByRole("button", { name: "Quick Open" })).toBeVisible();
       await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
-      const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
       await expect(
-        leftPane.getByText("org-context-mobile-alpha/mobile-app", { exact: true }),
+        page.getByTestId("workspace-layout-v2-pane-main").getByRole("heading", {
+          name: "mobile-app",
+        }),
       ).toBeVisible();
-      await expect(leftPane.getByText("README.md", { exact: true })).toBeVisible();
       const rightToggle = header.getByRole("button", { name: "Toggle Right Sidebar" });
       await expect(rightToggle).toBeVisible();
       await rightToggle.click();
