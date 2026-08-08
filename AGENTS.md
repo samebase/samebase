@@ -124,6 +124,9 @@ The full protocol for PR bodies, review, labels, and cleanup lives in `docs/agen
   this machine: clickable Markdown links everywhere, PR numbers as links, the Cloudflare tunnel URL
   alongside any localhost URL, and samebase.com vault file URLs instead of local filesystem paths
   whenever the branch is pushed.
+- In Codex Desktop responses, render inline images from absolute local filesystem paths. Remote
+  image URLs, including raw GitHub URLs, show as broken thumbnails. When off-machine access is also
+  needed, put a separate tappable remote URL beside the locally rendered image.
 - Code references need a precise line or anchor; do not cite only a large file.
 - Link a relevant localhost preview, or say none is running.
 - For preview deploy URLs, use the `?prod-ui` query param.
