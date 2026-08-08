@@ -1004,10 +1004,8 @@ export function ProviderConnectionsPageView({
           {providerDisconnectNotice}
         </div>
       ) : null}
-      <div className="flex-1 overflow-y-auto">
-        <div className="max-w-3xl">
-          <ProviderConnectionRows providerRows={providerRows} />
-        </div>
+      <div className="max-w-3xl">
+        <ProviderConnectionRows providerRows={providerRows} />
       </div>
       {convexApiKeyDialog}
       {cloudflareApiTokenDialog}
