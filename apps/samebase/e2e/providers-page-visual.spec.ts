@@ -18,6 +18,45 @@ test("providers page connected fixture", async ({ page }) => {
   );
 });
 
+test.describe("providers page mobile", () => {
+  test.use({ hasTouch: true, isMobile: true, viewport: { height: 664, width: 390 } });
+
+  test("keeps the scroll rail outside access status icons", async ({ page }) => {
+    await page.goto("/visual-fixture?mode=providers-page-connected", {
+      waitUntil: "domcontentloaded",
+    });
+    await page.waitForLoadState("networkidle");
+
+    const providerPage = page.getByTestId("provider-connections-page");
+    const geometry = await providerPage.evaluate((element) => {
+      let scrollport = element.parentElement;
+      while (scrollport && getComputedStyle(scrollport).overflowY !== "auto") {
+        scrollport = scrollport.parentElement;
+      }
+
+      const statusIcon = element.querySelector('[data-provider-access-check-state="ok"] svg');
+      if (!scrollport || !statusIcon) {
+        throw new Error("Provider page scroll geometry is not available.");
+      }
+
+      return {
+        pageRight: Math.round(element.getBoundingClientRect().right),
+        scrollportRight: Math.round(scrollport.getBoundingClientRect().right),
+        statusIconRight: Math.round(statusIcon.getBoundingClientRect().right),
+      };
+    });
+
+    expect(geometry.scrollportRight).toBe(geometry.pageRight);
+    expect(geometry.scrollportRight - geometry.statusIconRight).toBeGreaterThanOrEqual(24);
+    await expect(providerPage).toHaveScreenshot("providers-page-connected-mobile.png", {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.001,
+      scale: "css",
+    });
+  });
+});
+
 test("providers page authorization error fixture", async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 1400 });
   await page.goto("/visual-fixture?mode=providers-page-authorization-error", {
