@@ -429,7 +429,7 @@ describe("ProviderConnectionsPage", () => {
     expect(container.textContent).not.toContain(ORGANIZATION_ID);
   });
 
-  it("offers OAuth first and the correct direct credential term to organization owners", () => {
+  it("shows OAuth as the primary action and direct credentials as text", () => {
     setProviderQueries();
 
     const container = mountProviderConnectionsPage();
@@ -446,9 +446,9 @@ describe("ProviderConnectionsPage", () => {
       "Cloudflare OAuth",
       "Use API token",
     ]);
-    expect(convexButtons[0]?.className).toContain("border-border");
+    expect(convexButtons[0]?.className).toContain("bg-primary");
     expect(convexButtons[1]?.className).toContain("hover:underline");
-    expect(cloudflareButtons[0]?.className).toContain("border-border");
+    expect(cloudflareButtons[0]?.className).toContain("bg-primary");
     expect(cloudflareButtons[1]?.className).toContain("hover:underline");
 
     act(() => {
