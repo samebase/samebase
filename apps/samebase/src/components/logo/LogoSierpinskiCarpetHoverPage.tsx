@@ -4,9 +4,14 @@ import { getTailwindColorHex } from "@/components/logo/logoTailwindColors";
 import { readLogoRouteRenderState } from "@/components/logo/logoRouteRenderState";
 import { LogoSquareTouchSurface } from "@/components/logo/LogoSquareTouchSurface";
 import { SierpinskiCarpetHoverScene } from "@/components/logo/SierpinskiCarpetHoverScene";
+import {
+  SIERPINSKI_CARPET_SHUFFLE_HOVER_MAX_DEPTH,
+  SierpinskiCarpetShuffleHoverScene,
+} from "@/components/logo/SierpinskiCarpetShuffleHoverScene";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
 import {
   buildLogoCarpetHoverRouteSearch,
+  LOGO_CARPET_SHUFFLE_DEFAULT_MECHANIC,
   preserveLogoRouteDevModeSearch,
   type LogoCarpetHoverRouteSearch,
 } from "@/routeSearch/logo";
@@ -49,13 +54,23 @@ export function LogoSierpinskiCarpetHoverPage({
   );
   const { backgroundColor, faceColors } = useResolvedAppThemeColorState(routeState.themeColors);
   const carpetColor = getTailwindColorHex(faceColors.right);
-  const searchMechanic = routeSearch.mechanic ?? SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC;
+  const autoShuffleEnabled = routeState.autoShuffleEnabled;
+  const searchMechanic =
+    routeSearch.mechanic ??
+    (autoShuffleEnabled
+      ? LOGO_CARPET_SHUFFLE_DEFAULT_MECHANIC
+      : SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC);
   const searchRevealRadius = normalizeSierpinskiCarpetHoverRevealRadius(
     routeSearch.radius ?? SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
   );
-  const searchMaxDepth = readSierpinskiCarpetHoverDepth(
+  const requestedMaxDepth = readSierpinskiCarpetHoverDepth(
     routeSearch.depth ?? SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH,
   );
+  const searchMaxDepth = autoShuffleEnabled
+    ? readSierpinskiCarpetHoverDepth(
+        Math.min(requestedMaxDepth, SIERPINSKI_CARPET_SHUFFLE_HOVER_MAX_DEPTH),
+      )
+    : requestedMaxDepth;
   const [mechanic, setMechanic] = useState(searchMechanic);
   const [revealRadius, setRevealRadius] = useState(searchRevealRadius);
   const [maxDepth, setMaxDepth] = useState(searchMaxDepth);
@@ -75,6 +90,7 @@ export function LogoSierpinskiCarpetHoverPage({
 
   const commitSettings = useCallback(
     (next: {
+      autoShuffleEnabled: boolean;
       maxDepth: SierpinskiCarpetHoverDepth;
       mechanic: SierpinskiCarpetHoverMechanic;
       revealRadius: number;
@@ -83,6 +99,7 @@ export function LogoSierpinskiCarpetHoverPage({
         preserveLogoRouteDevModeSearch(
           buildLogoCarpetHoverRouteSearch({
             ...routeState,
+            autoShuffleEnabled: next.autoShuffleEnabled,
             carpetMechanic: next.mechanic,
             carpetRevealDepth: next.maxDepth,
             carpetRevealRadius: next.revealRadius,
@@ -97,9 +114,14 @@ export function LogoSierpinskiCarpetHoverPage({
   const updateMechanic = useCallback(
     (nextMechanic: SierpinskiCarpetHoverMechanic) => {
       setMechanic(nextMechanic);
-      commitSettings({ maxDepth, mechanic: nextMechanic, revealRadius });
+      commitSettings({
+        autoShuffleEnabled,
+        maxDepth,
+        mechanic: nextMechanic,
+        revealRadius,
+      });
     },
-    [commitSettings, maxDepth, revealRadius],
+    [autoShuffleEnabled, commitSettings, maxDepth, revealRadius],
   );
   // step="any" keeps the input's own value honest for URL-typed radii like
   // 0.055 (a step grid would snap them); slider emissions round to
@@ -117,8 +139,24 @@ export function LogoSierpinskiCarpetHoverPage({
   // Sliders render live through local state and publish to the URL when the
   // pointer or keyboard interaction ends, keeping history replaces sparse.
   const commitDraftSettings = useCallback(() => {
-    commitSettings({ maxDepth, mechanic, revealRadius });
-  }, [commitSettings, maxDepth, mechanic, revealRadius]);
+    commitSettings({ autoShuffleEnabled, maxDepth, mechanic, revealRadius });
+  }, [autoShuffleEnabled, commitSettings, maxDepth, mechanic, revealRadius]);
+  const updateAutoShuffleEnabled = useCallback(() => {
+    const nextMechanic =
+      !autoShuffleEnabled && routeSearch.mechanic === undefined
+        ? LOGO_CARPET_SHUFFLE_DEFAULT_MECHANIC
+        : mechanic;
+    commitSettings({
+      autoShuffleEnabled: !autoShuffleEnabled,
+      maxDepth: autoShuffleEnabled
+        ? maxDepth
+        : readSierpinskiCarpetHoverDepth(
+            Math.min(maxDepth, SIERPINSKI_CARPET_SHUFFLE_HOVER_MAX_DEPTH),
+          ),
+      mechanic: nextMechanic,
+      revealRadius,
+    });
+  }, [autoShuffleEnabled, commitSettings, maxDepth, mechanic, revealRadius, routeSearch.mechanic]);
 
   const controlsContent = useMemo(
     () => (
@@ -137,6 +175,16 @@ export function LogoSierpinskiCarpetHoverPage({
             Carpet hover
           </div>
         </div>
+
+        <Button
+          aria-pressed={autoShuffleEnabled}
+          className="rounded-none"
+          onClick={updateAutoShuffleEnabled}
+          size="sm"
+          variant={autoShuffleEnabled ? "default" : "outline"}
+        >
+          {autoShuffleEnabled ? "Stop shuffle" : "Start shuffle"}
+        </Button>
 
         <div className="grid gap-2">
           <div className="text-xs">Mechanic</div>
@@ -206,7 +254,11 @@ export function LogoSierpinskiCarpetHoverPage({
             id="carpet-hover-max-depth"
             aria-label="Reveal depth"
             className="h-2 w-full cursor-pointer accent-foreground"
-            max={SIERPINSKI_CARPET_HOVER_MAX_DEPTH}
+            max={
+              autoShuffleEnabled
+                ? SIERPINSKI_CARPET_SHUFFLE_HOVER_MAX_DEPTH
+                : SIERPINSKI_CARPET_HOVER_MAX_DEPTH
+            }
             min="1"
             onBlur={commitDraftSettings}
             onChange={updateMaxDepth}
@@ -230,12 +282,14 @@ export function LogoSierpinskiCarpetHoverPage({
     ),
     [
       commitDraftSettings,
+      autoShuffleEnabled,
       maxDepth,
       mechanic,
       revealRadius,
       updateMaxDepth,
       updateMechanic,
       updateRevealRadius,
+      updateAutoShuffleEnabled,
     ],
   );
   const leftPane = useMemo(() => ({ content: controlsContent }), [controlsContent]);
@@ -247,11 +301,20 @@ export function LogoSierpinskiCarpetHoverPage({
         data-max-depth={maxDepth}
         data-mechanic={mechanic}
         data-reveal-radius={String(revealRadius)}
+        data-shuffle={autoShuffleEnabled ? "active" : "off"}
         data-testid="logo-carpet-hover-page"
         style={{ backgroundColor }}
       >
         <LogoSquareTouchSurface>
-          <SierpinskiCarpetHoverScene carpetColor={carpetColor} config={config} touchReveal />
+          {autoShuffleEnabled ? (
+            <SierpinskiCarpetShuffleHoverScene
+              carpetColor={carpetColor}
+              config={config}
+              touchReveal
+            />
+          ) : (
+            <SierpinskiCarpetHoverScene carpetColor={carpetColor} config={config} touchReveal />
+          )}
         </LogoSquareTouchSurface>
       </div>
     </AppWorkspaceRouteChrome>

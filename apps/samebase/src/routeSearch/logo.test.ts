@@ -48,6 +48,7 @@ import {
   buildLogoMengerHoverRouteSearch,
   buildLogoRouteSearch,
   DEFAULT_LOGO_OPACITY,
+  LOGO_CARPET_SHUFFLE_DEFAULT_MECHANIC,
   LOGO_ROUTE_SEARCH_KEYS,
   PUBLIC_LANDING_LOGO_STATIC_FALLBACK_UNSAFE_SEARCH_KEYS,
   hasPublicLandingLogoStaticFallbackUnsafeSearch,
@@ -459,6 +460,28 @@ describe("logoRouteSearch", () => {
     expect(nonDefaultSearch.mechanic).toBe("grow");
     expect(nonDefaultSearch.depth).toBe(3);
     expect(nonDefaultSearch.radius).toBe(0.5);
+
+    const shuffleDefaultSearch = buildLogoCarpetHoverRouteSearch({
+      ...routeBuildDefaults,
+      autoShuffleEnabled: true,
+      carpetMechanic: LOGO_CARPET_SHUFFLE_DEFAULT_MECHANIC,
+      carpetRevealDepth: 3,
+      carpetRevealRadius: SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
+    });
+
+    expect(shuffleDefaultSearch["auto-shuffle"]).toBe(true);
+    expect("mechanic" in shuffleDefaultSearch).toBe(true);
+    expect(shuffleDefaultSearch.mechanic).toBeUndefined();
+
+    const shuffleSlideSearch = buildLogoCarpetHoverRouteSearch({
+      ...routeBuildDefaults,
+      autoShuffleEnabled: true,
+      carpetMechanic: "slide",
+      carpetRevealDepth: 3,
+      carpetRevealRadius: SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS,
+    });
+
+    expect(shuffleSlideSearch.mechanic).toBe("slide");
 
     const mengerDefaults = buildLogoMengerHoverRouteSearch({
       ...routeBuildDefaults,
