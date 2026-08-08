@@ -2,7 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { internalQuery, type ActionCtx, type DatabaseReader } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { Infer, v } from "convex/values";
+import { ConvexError, Infer, v } from "convex/values";
 import { vViewerAccess, vViewerRoleResult } from "./accessModelValidators";
 import { requireOrganizationMembership } from "./organizationAccess";
 import { action, mutation, query } from "./functions";
@@ -127,7 +127,7 @@ async function readProviderConnectorPresentation(
 function normalizeApiToken(token: string): string {
   const normalized = token.trim();
   if (!normalized) {
-    throw new Error("API key is required");
+    throw new ConvexError("API key is required");
   }
   return normalized;
 }
@@ -242,12 +242,12 @@ async function fetchConvexApiKeyTeamDetails(token: string): Promise<{
       error instanceof ConvexManagementApiError &&
       (error.status === 401 || error.status === 403)
     ) {
-      throw new Error("Invalid Convex API key");
+      throw new ConvexError("Invalid Convex API key");
     }
     if (error instanceof ConvexManagementApiError) {
-      throw new Error(`Convex API key check failed (${error.status}).`);
+      throw new ConvexError(`Convex API key check failed (${error.status}).`);
     }
-    throw new Error("Convex API key check failed.");
+    throw new ConvexError("Convex API key check failed.");
   }
 }
 
@@ -788,7 +788,7 @@ export const connectCloudflareWithApiToken = action({
     );
     const token = args.token.trim();
     if (!token) {
-      throw new Error("Cloudflare API token is required.");
+      throw new ConvexError("Cloudflare API token is required.");
     }
 
     const configuration = await ctx.runQuery(
@@ -808,19 +808,21 @@ export const connectCloudflareWithApiToken = action({
         { token },
       );
     } catch {
-      throw new Error("Cloudflare API token check failed.");
+      throw new ConvexError("Cloudflare API token check failed.");
     }
     if (accounts.length === 0) {
-      throw new Error("Cloudflare API token cannot access an account.");
+      throw new ConvexError("Cloudflare API token cannot access an account.");
     }
     if (accounts.length > 1) {
-      throw new Error("Cloudflare API token must access exactly one account.");
+      throw new ConvexError("Cloudflare API token must access exactly one account.");
     }
 
     const configuredAccount = configuration.cloudflareAccount;
     const [account] = accounts;
     if (configuredAccount !== undefined && account.accountId !== configuredAccount.accountId) {
-      throw new Error("Cloudflare API token cannot access the configured Cloudflare account.");
+      throw new ConvexError(
+        "Cloudflare API token cannot access the configured Cloudflare account.",
+      );
     }
 
     await ctx.runMutation(internal.organizationProviderCredentials.connectCloudflare, {
@@ -862,9 +864,14 @@ export const connectConvexWithApiKey = action({
         userId: ctx.viewer.userId,
       },
     );
+    const configuredTeam = configuration.convexTeam;
+    if (configuredTeam !== undefined && configuredTeam.teamId !== details.teamId) {
+      throw new ConvexError("Convex API key cannot access the configured Convex team.");
+    }
+
     const expectedProviderSnapshotHash = await hashOrganizationProviderSnapshot({
       provider: "convex",
-      teamId: configuration.convexTeam?.teamId,
+      teamId: configuredTeam?.teamId,
       credential: configuration.convexCredential,
     });
     await ctx.runMutation(internal.organizationProviderCredentials.connectConvex, {
