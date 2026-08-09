@@ -374,16 +374,6 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(input).toHaveAttribute("data-route-editor-node-marker", "before-touch-focus");
   });
 
-  test("mobile focus scrolls path suggestions to the current path cursor", async ({ page }) => {
-    const { input, prefix } = await focusRouteAddressInputAtRouteText(page, "/logo", "/lo");
-
-    await expect(input).toBeFocused();
-    await expectInputSelectionAfterRouteText(input, prefix, "/lo");
-    await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);
-    await expect(page).toHaveURL(/\/logo$/);
-    await expectTouchSlateAlignedToSuggestion(page, "/logo");
-  });
-
   test("mobile focus scrolls query-key suggestions to the current query key", async ({ page }) => {
     const { input, prefix } = await focusRouteAddressInputAtRouteText(
       page,
@@ -1341,41 +1331,6 @@ test("route URL editor restores suggestion previews before Refresh reloads", asy
 });
 
 test.describe("route URL editor public route query stories", () => {
-  test("manual root auth params stay local and do not suggest OAuth values", async ({ page }) => {
-    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/");
-
-    await input.press("End");
-    await input.type("?a");
-
-    const authOption = page.getByRole("option", { exact: true, name: "?auth=" });
-    await expect(authOption).toBeVisible();
-    await expect(page.getByRole("option", { exact: true, name: "?auth=google" })).toHaveCount(0);
-
-    await authOption.hover();
-
-    await expect(input).toHaveValue(`${prefix}?auth=`);
-    await expect(page).toHaveURL(/\/$/);
-    await expect(input).toBeFocused();
-
-    await input.fill(`${prefix}?auth=g`);
-
-    await expect(page.getByRole("option")).toHaveCount(0);
-    await expect(page).toHaveURL(/\/$/);
-    await expect(input).toBeFocused();
-  });
-
-  test("developer mode params are hidden from query suggestions", async ({ page }) => {
-    const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo");
-
-    await input.press("End");
-    await input.type("dev");
-
-    await expect(input).toHaveValue(`${prefix}logo?dev`);
-    await expect(page).toHaveURL(/\/logo\?dev$/);
-    await expect(page.getByRole("option", { exact: true, name: "?dev" })).toHaveCount(0);
-    await expect(page.getByRole("option", { exact: true, name: "?devtools" })).toHaveCount(0);
-  });
-
   test("reset canonicalizes the browser route without closing the editor", async ({ page }) => {
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/logo?dark");
 

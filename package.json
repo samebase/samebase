@@ -51,6 +51,7 @@
     "test:ci": "pnpm test && PLAYWRIGHT_VITE_PORT=43121 pnpm --filter samebase test:visual",
     "test:convex": "vp test --project convex",
     "test:logo-research": "node ./scripts/playwright-linux-docker.ts -c playwright.logo-research.config.ts",
+    "test:opt-in": "node ./scripts/playwright-linux-docker.ts -c playwright.opt-in.config.ts",
     "test:visual:linux": "node ./scripts/playwright-linux-docker.ts",
     "test:watch": "vp test watch",
     "dev:samebase": "node ./scripts/run-primary-dev.ts",

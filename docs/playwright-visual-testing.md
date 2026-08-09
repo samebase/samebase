@@ -134,6 +134,13 @@ suite only when logo rendering changes:
 pnpm test:logo-research
 ```
 
+Admin-only, dormant, or operator-owned route coverage uses the `@opt-in` tag. The default product
+suite excludes these tests, but it keeps them available for work on those surfaces. Run them with:
+
+```bash
+pnpm test:opt-in
+```
+
 Fixture ownership must match the product surface being changed. A dashboard, sidebar, or shell
 fixture may only cover that dashboard, sidebar, or shell behavior. It is not valid screenshot
 coverage for an independent route that happens to reuse one component. For page-owned UI, use the

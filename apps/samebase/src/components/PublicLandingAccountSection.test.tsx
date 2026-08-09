@@ -331,11 +331,12 @@ describe("PublicLandingAccountSection", () => {
     expect(hydratedMarkup).not.toContain("Sign in or create an account");
   });
 
-  it("shows Google auth in a static logged-out account section", () => {
+  it("shows OAuth methods in a static logged-out account section", () => {
     const markup = renderLandingAccountSection("/");
 
     expect(markup).toContain("Sign in or create an account");
     expect(markup).toContain("Continue with Google");
+    expect(markup).toContain("Continue with GitHub");
     expect(markup).not.toContain("lucide-chevron-down");
     expect(markup).not.toContain("The app is still internal.");
   });

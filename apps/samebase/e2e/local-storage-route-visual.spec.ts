@@ -53,7 +53,7 @@ async function notifyStorageChanged(page: Page): Promise<void> {
   });
 }
 
-test("localStorage route shows raw strings and formatted JSON values", async ({ page }) => {
+test("localStorage route shows raw strings and formatted JSON values @opt-in", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await signInForLocalStorageRoute(page);
   await seedLocalStorageRouteValues(page);
@@ -88,7 +88,9 @@ test("localStorage route shows raw strings and formatted JSON values", async ({ 
   );
 });
 
-test("storage sidebar links navigate through the same styled link surface", async ({ page }) => {
+test("storage sidebar links navigate through the same styled link surface @opt-in", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await signInForLocalStorageRoute(page);
   await page.goto(LOCAL_STORAGE_ROUTE, { waitUntil: "networkidle" });
@@ -112,7 +114,7 @@ test("storage sidebar links navigate through the same styled link surface", asyn
   await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveAttribute("aria-current", "page");
 });
 
-test("localStorage route reflects same-tab storage writes without manual refresh", async ({
+test("localStorage route reflects same-tab storage writes without manual refresh @opt-in", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1280, height: 900 });

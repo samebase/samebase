@@ -118,6 +118,24 @@ describe("appBootRecovery", () => {
     expect(currentUrl.searchParams.has("__samebase-reload")).toBe(false);
   });
 
+  it("installs usable browser storage before startup listeners read it", () => {
+    for (const storageKey of ["localStorage", "sessionStorage"] as const) {
+      Object.defineProperty(window, storageKey, {
+        configurable: true,
+        get() {
+          throw new DOMException("Access denied", "SecurityError");
+        },
+      });
+    }
+
+    expect(() => initializeAppBootRecovery()).not.toThrow();
+
+    window.localStorage.setItem("theme", "dark");
+    window.sessionStorage.setItem("auth", "session");
+    expect(window.localStorage.getItem("theme")).toBe("dark");
+    expect(window.sessionStorage.getItem("auth")).toBe("session");
+  });
+
   it("clears local app data even when service workers are unavailable", async () => {
     Object.defineProperty(window, "localStorage", {
       configurable: true,

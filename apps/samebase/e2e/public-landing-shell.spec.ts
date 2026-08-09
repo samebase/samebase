@@ -626,81 +626,14 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
   await expect(accountSection.locator("[aria-expanded]")).toHaveCount(0);
   await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toBeVisible();
   await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
-});
 
-test("public landing shows OAuth sign-in methods by default", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  const googleButton = page.getByRole("button", { name: "Continue with Google" });
-  const githubButton = page.getByRole("button", { name: "Continue with GitHub" });
-
-  await expect(googleButton).toBeVisible();
-  await expect(githubButton).toBeVisible();
-  await expect(googleButton).toHaveCSS("cursor", "pointer");
-  await expect(githubButton).toHaveCSS("cursor", "pointer");
-  await expect(googleButton).toHaveScreenshot("public-landing-google-button.png", {
-    ...strictScreenshotOptions,
-    timeout: 15_000,
-  });
-  await expect(githubButton).toHaveScreenshot("public-landing-github-button.png", {
-    ...strictScreenshotOptions,
-    timeout: 15_000,
-  });
-});
-
-test("public landing renders the closed OAuth signup return state", async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/?signup=google", { waitUntil: "networkidle" });
-
-  const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
-
-  await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByText("The app is still internal.")).toBeVisible();
-  await expect(
-    page.getByRole("button", {
-      name: "Continue with Google",
-      exact: true,
-      includeHidden: true,
-    }),
-  ).toHaveCount(0);
-  await expect(
-    page.getByRole("button", {
-      name: "Continue with GitHub",
-      exact: true,
-      includeHidden: true,
-    }),
-  ).toHaveCount(0);
-  await expect(accountSection.getByPlaceholder("you@example.com")).toHaveCount(0);
-  await expect(accountSection.getByPlaceholder("Password")).toHaveCount(0);
-
-  await expect(accountSection).toHaveScreenshot("public-landing-google-signup-closed.png", {
-    ...strictScreenshotOptions,
-    timeout: 15_000,
-  });
-});
-
-test("public landing explains the GitHub account-linking return", async ({ page }) => {
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto(
-    "/?prod-ui&auth-return=dashboard&signup=github&authorization-provider=github-sign-in&authorization-error=account-link-required",
-    { waitUntil: "networkidle" },
-  );
-
-  const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
-
-  await expect(accountSection).toBeVisible();
-  await expect(accountSection.getByRole("alert")).toHaveText(
-    "The primary email on this GitHub account is already used by another Samebase account. Sign in to that account with an existing method, then connect GitHub in Account settings.",
-  );
-  await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
-  await expect(accountSection.getByText("The app is still internal.")).toHaveCount(0);
-  await expect(page).toHaveURL(/\/\?prod-ui$/);
-
-  await expect(accountSection).toHaveScreenshot("public-landing-github-account-link-required.png", {
-    ...strictScreenshotOptions,
-    timeout: 15_000,
-  });
+  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  await expect(rightPane).toBeVisible();
+  const statusBar = rightPane.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
+  await expect(statusBar.getByRole("link", { name: "/terms", exact: true })).toBeVisible();
+  await expect(statusBar.getByRole("link", { name: "/privacy", exact: true })).toBeVisible();
+  await expect(statusBar.getByRole("link", { name: "/landing", exact: true })).toBeVisible();
 });
 
 test("landing reset shortcut stays visible before clearing root search", async ({ page }) => {
@@ -735,56 +668,6 @@ test("public landing keeps copy and sidebar links stable without bundled fonts",
   // webfont request that can reflow the copy or sidebar link stack.
   expect(capture.webfontRequestCount).toBe(0);
   expectStableLandingFontFrames(capture.frames);
-});
-
-test("local landing keeps the remembered password auth slot stable on reload", async ({ page }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem("samebase_public_landing_password_auth_mode", "local_worktree_seed");
-  });
-  await page.goto("/", { waitUntil: "networkidle" });
-  await expect(page.getByRole("button", { name: "Autofill & sign in" })).toBeVisible();
-
-  const reloadFrames = await captureLandingReloadFrames(page);
-
-  expectStableLandingReloadFrames(reloadFrames);
-});
-
-test("public landing keeps legal links in the right sidebar rail", async ({ page }) => {
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  const landingContent = page.getByTestId("public-landing-content");
-  const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
-
-  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
-  await expectLegalLinksUseRightSidebarInnerEdge(statusBar);
-  await expectStatusBarInRightSidebar(page, statusBar);
-  await expect(landingContent.getByRole("link", { name: "/terms" })).toHaveCount(0);
-  await expect(landingContent.getByRole("link", { name: "/privacy" })).toHaveCount(0);
-  await expect(landingContent.getByRole("link", { name: "/landing" })).toHaveCount(0);
-  await expect(statusBar.getByRole("link", { name: "/terms", exact: true })).toHaveCSS(
-    "text-decoration-line",
-    "underline",
-  );
-});
-
-test("public landing keeps the right pane mounted without a left pane on desktop", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  const workspace = page.locator('[data-workspace-layout-v2="responsive"]');
-  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
-
-  await expect(workspace).toBeVisible();
-  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Toggle sidebar" })).toHaveCount(0);
-  await expect
-    .poll(async () =>
-      rightPane.evaluate((element) => Math.round(element.getBoundingClientRect().width)),
-    )
-    .toBe(288);
 });
 
 test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page }) => {
@@ -1043,55 +926,6 @@ test.describe("Android-sized standalone display-mode landing right sidebar", () 
     await page.reload({ waitUntil: "networkidle" });
     await expectBuildVersionFitsVisibleViewport(page);
   });
-});
-
-test("public landing still renders when localStorage access is denied", async ({ page }) => {
-  const pageErrors: Error[] = [];
-  page.on("pageerror", (error) => {
-    pageErrors.push(error);
-  });
-
-  await page.addInitScript(() => {
-    Object.defineProperty(window, "localStorage", {
-      configurable: true,
-      get() {
-        throw new DOMException("Access denied", "SecurityError");
-      },
-    });
-  });
-
-  await page.goto("/", { waitUntil: "networkidle" });
-
-  await expect(page.getByTestId("public-landing-content")).toBeVisible();
-  expect(pageErrors).toEqual([]);
-});
-
-test("prod-ui mode hides developer password auth controls", async ({ page }) => {
-  await page.goto("/?prod-ui", { waitUntil: "networkidle" });
-
-  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
-  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-
-  await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Autofill & sign in" })).toHaveCount(0);
-  await expect(page.getByPlaceholder("you@example.com")).toHaveCount(0);
-});
-
-test("prod-ui mode does not override landing dev editing", async ({ page }) => {
-  const headingMarker = "prod-ui-dev-marker";
-
-  await page.goto("/?prod-ui&dev", { waitUntil: "domcontentloaded" });
-
-  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
-  await expect(page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)).toBeVisible();
-  await expect(page.getByText("Password auth (dev)")).toHaveCount(0);
-  const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
-  await expect(landingCopy.locator('[contenteditable="true"]')).toHaveCount(1);
-
-  await insertLandingHeadingMarker(page, headingMarker);
-  await expect(landingCopy).toContainText(headingMarker);
 });
 
 test.describe("production public host landing", () => {

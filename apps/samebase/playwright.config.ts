@@ -36,7 +36,7 @@ export default defineConfig({
   // CI shards should balance individual tests instead of entire files so the
   // large visual-fixture files do not bunch up on a single shard.
   fullyParallel: process.env.CI === "true",
-  grepInvert: /@logo-research/,
+  grepInvert: /@(?:logo-research|opt-in)/,
   retries: 0,
   workers: 1,
   reporter: [

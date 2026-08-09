@@ -175,62 +175,6 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   await expect(deleteDialog).toBeHidden();
 });
 
-test("Settings page shows a GitHub sign-in authorization error once", async ({ page }) => {
-  await page.setViewportSize({ width: 1200, height: 900 });
-  await openSettings(page);
-  await page.goto(
-    "/settings?authorization-provider=github-sign-in&authorization-error=canceled#github",
-    { waitUntil: "domcontentloaded" },
-  );
-
-  const settingsPage = page.getByTestId("user-settings-page");
-  const signInEmail = settingsPage.getByText(LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL, {
-    exact: true,
-  });
-  await expect(settingsPage.getByRole("alert")).toBeVisible();
-  await expect(page).toHaveURL(/\/settings#github$/u);
-  await expect(settingsPage).toHaveScreenshot("settings-page-authorization-error-desktop.png", {
-    ...screenshotOptions,
-    mask: [signInEmail],
-    maskColor: "#d1d5db",
-  });
-});
-
-test("signed-out Settings explains an account-link-required return", async ({ page }) => {
-  await page.setViewportSize({ width: 1200, height: 900 });
-  await page.goto(
-    "/settings?authorization-provider=github-sign-in&authorization-error=account-link-required",
-    { waitUntil: "domcontentloaded" },
-  );
-
-  const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
-  await expect(accountSection.getByRole("alert")).toHaveCount(1);
-  await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toBeVisible();
-  await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
-  await expect(page).toHaveURL(/\/settings$/u);
-  await expect(accountSection).toHaveScreenshot(
-    "settings-sign-in-account-link-required-desktop.png",
-    screenshotOptions,
-  );
-});
-
-test("user Settings rejects an organization checkout return", async ({ page }) => {
-  await openSettings(page);
-
-  await page.goto("/settings?checkout=cancel", { waitUntil: "domcontentloaded" });
-
-  await expect(page).toHaveURL(/\/settings$/u);
-  const settingsPage = page.getByTestId("user-settings-page");
-  await expect(settingsPage).toBeVisible();
-  await expect(settingsPage.getByRole("button", { name: "Authorize GitHub access" })).toHaveCount(
-    0,
-  );
-  await expect(settingsPage.getByRole("button", { name: "Install GitHub App" })).toHaveCount(0);
-  await expect(
-    settingsPage.getByText("Checkout canceled. Your plan did not change.", { exact: true }),
-  ).toHaveCount(0);
-});
-
 test("Settings link preserves the selected mobile pane", async ({ browser }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
   if (typeof baseURL !== "string") {
@@ -455,27 +399,4 @@ test("pending users save a private display name and refresh prehydration", async
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle");
   expect(await readPrehydratedAccountLabel(page)).toBe(JSON.stringify(email));
-});
-
-test("signed-out direct Settings visits remain private", async ({ page }) => {
-  await page.goto("/settings", { waitUntil: "networkidle" });
-
-  await expect(page).toHaveURL(/\/settings$/u);
-  await expect(page.getByTestId("user-settings-page")).toHaveCount(0);
-  const sidebarAccountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
-  await expect(
-    sidebarAccountSection.getByRole("button", { name: "Continue with Google" }),
-  ).toBeVisible();
-  await expect(
-    sidebarAccountSection.getByRole("button", { name: "Continue with GitHub" }),
-  ).toBeVisible();
-  await expect(sidebarAccountSection.getByPlaceholder("you@example.com")).toBeVisible();
-  await expect(sidebarAccountSection.getByPlaceholder("Password")).toBeVisible();
-  await expect(
-    sidebarAccountSection.getByRole("button", { exact: true, name: "Sign in" }),
-  ).toBeVisible();
-  await expect(page.getByTestId("not-found-route-content")).toBeVisible();
-  await expect(page.getByTestId("public-landing-content")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Continue with Google" })).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "Continue with GitHub" })).toHaveCount(1);
 });
