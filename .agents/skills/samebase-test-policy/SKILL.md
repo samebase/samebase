@@ -3,8 +3,9 @@ name: samebase-test-policy
 description: >
   Choose the smallest useful Samebase tests, review test ownership and cost, validate feature
   changes, and triage unrelated unit, Convex, CI, or Playwright failures. Use when Codex adds or
-  reviews tests, validates a feature, refactor, or bug fix, handles a test failure, or decides
-  between focused and full Playwright runs in this repository.
+  reviews tests, validates a feature, refactor, or bug fix, handles a test failure, decides between
+  focused and full Playwright runs, asks whether a flaky test is relevant, prepares a test-health
+  handoff, or runs a dedicated flaky-test investigation in this repository.
 ---
 
 # Samebase Test Policy
@@ -83,11 +84,58 @@ For an unrelated or unclear failure:
 
 1. Do not change production code or weaken an expectation.
 2. Do not rerun the full suite.
-3. Report the test file and title, exact command, first actionable error, artifact location,
-   ownership evidence, and whether it blocks CI.
-4. Recommend a separate suite-health task.
+3. Emit every field in the required test-health handoff below.
+4. Continue or finish the feature task. Do not investigate the unrelated failure further.
 
 An unrelated failure can block a merge. It must not expand every feature task into the same repair.
+The exact isolated run from the ownership check is the last allowed run in the feature task. Repeat
+runs and comparison with main belong to the separate suite-health task.
+
+## Hand off an unrelated failure
+
+Give the user one ready-to-paste block:
+
+```text
+Investigate this test failure as a dedicated suite-health task. Use the samebase-test-policy skill.
+Do not run the full suite. Diagnose first, and do not change code unless I also ask for a fix.
+
+Test-health handoff
+- Test: <file and exact title>
+- Source task: <branch, pull request, or task URL>
+- Exact command: <focused command>
+- First error: <first actionable error>
+- Artifact: <trace, screenshot, log, or none>
+- Ownership: <unrelated or unclear>
+- Evidence: <why the feature task does not own it>
+- Merge impact: <non-blocking or blocks the pull request>
+```
+
+The feature-task response is incomplete without the full block. Do not replace it with a prose
+summary or another investigation plan. Fill an unknown field with `not provided` so the missing
+evidence remains visible.
+
+If the user explicitly asks to start a separate task and a task-creation tool is available, create
+that user-owned task with the block. Otherwise, print the block without asking the user to reconstruct
+the failure context.
+
+## Investigate one flaky test
+
+In a dedicated suite-health task:
+
+1. Read the handoff and the first failure artifact.
+2. Name the current product contract that the test claims to protect.
+3. Run only the exact test. Use up to five isolated runs when repeat evidence is necessary.
+   Call the test flaky only when equivalent runs or recent CI evidence show both pass and fail
+   outcomes.
+4. Compare with main or a known-good commit when ownership or reproducibility is unclear.
+5. Read the test history and find lower-layer or stronger browser owners.
+6. Record focused runtime from the run or recent CI evidence.
+7. Recommend exactly one result: `keep and fix`, `move lower`, `merge`, `delete`, `opt-in`, or
+   `runner/infrastructure fix`.
+
+Do not run the full suite to diagnose one flaky test. Do not change product behavior to satisfy an
+obsolete or unrelated assertion. A research-only request stops after the evidence and recommendation.
+Implement a change only when the user also asks for a fix or cleanup.
 
 ## Review test-heavy changes
 
