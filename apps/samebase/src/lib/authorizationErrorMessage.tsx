@@ -93,12 +93,12 @@ export function formatAuthorizationErrorMessage(
         case "github-app":
           return targets.githubOwnerLogin ? (
             <>
-              Reconnect the GitHub App for{" "}
-              <strong className="font-semibold">{targets.githubOwnerLogin}</strong>. The selected
-              installation belongs to a different GitHub owner.
+              You selected a different GitHub account or organization. Select{" "}
+              <strong className="font-semibold">@{targets.githubOwnerLogin}</strong> to reconnect
+              this Samebase organization, or add your selection as a new Samebase organization.
             </>
           ) : (
-            "Reconnect the GitHub App for the configured owner. The selected installation belongs to a different GitHub owner."
+            "You selected a different GitHub account or organization. Select the configured GitHub owner to reconnect this Samebase organization, or add your selection as a new Samebase organization."
           );
         case "github-user":
           return targets.githubOwnerLogin

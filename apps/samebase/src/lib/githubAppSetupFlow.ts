@@ -8,6 +8,7 @@ import { readAuthorizationCompletionReturnTo } from "./authorizationCompletionMe
 
 const GITHUB_APP_SETUP_COMPLETION_TIMEOUT_MS = 10 * 60 * 1000;
 const GITHUB_APP_SETUP_POPUP_POLL_MS = 250;
+const GITHUB_APP_SETUP_POPUP_CLOSE_GRACE_MS = 1000;
 
 type GitHubAuthorizationProvider = Extract<AuthorizationProvider, "github-app" | "github-user">;
 
@@ -36,10 +37,14 @@ export async function openGitHubAppSetupPopup(
       }
       const activePopup = popup;
       let completionTimeout: number | undefined;
+      let popupCloseTimeout: number | undefined;
       let popupPoll: number | undefined;
       const cleanup = () => {
         if (completionTimeout !== undefined) {
           window.clearTimeout(completionTimeout);
+        }
+        if (popupCloseTimeout !== undefined) {
+          window.clearTimeout(popupCloseTimeout);
         }
         if (popupPoll !== undefined) {
           window.clearInterval(popupPoll);
@@ -66,8 +71,13 @@ export async function openGitHubAppSetupPopup(
         if (!activePopup.closed) {
           return;
         }
-        cleanup();
-        window.location.replace(canceledReturnUrl);
+        if (popupCloseTimeout !== undefined) {
+          return;
+        }
+        popupCloseTimeout = window.setTimeout(() => {
+          cleanup();
+          window.location.replace(canceledReturnUrl);
+        }, GITHUB_APP_SETUP_POPUP_CLOSE_GRACE_MS);
       }, GITHUB_APP_SETUP_POPUP_POLL_MS);
       activePopup.location.assign(setupUrl);
       return;

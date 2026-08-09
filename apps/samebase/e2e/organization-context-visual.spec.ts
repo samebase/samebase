@@ -215,7 +215,9 @@ test("keeps one organization switchable across settings, providers, and billing"
     "/org/org-context-solo/providers?authorization-provider=github-app&authorization-error=target-mismatch#github",
   );
   await expect(
-    page.getByRole("alert").filter({ hasText: "Reconnect the GitHub App for org-context-solo" }),
+    page
+      .getByRole("alert")
+      .filter({ hasText: "You selected a different GitHub account or organization" }),
   ).toBeVisible();
   await expect(page.getByText("Personal repository creation", { exact: true })).toHaveCount(0);
   await expect(page).toHaveURL(/\/org\/org-context-solo\/providers#github$/u);
