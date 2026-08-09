@@ -49,12 +49,14 @@ describe("VaultOverviewVaultPickerPane organization setup", () => {
               folderState={{ assignments: [], folders: [] }}
               globalInventory
               organizations={[]}
+              organizationTreeSettings={[]}
               onCreateVaultFolder={async () => {}}
               onDeleteVaultFolder={async () => {}}
               onMoveVaultFolder={async () => {}}
               onMoveVaultToFolder={async () => {}}
               onRenameVaultFolder={async () => {}}
               onSetVaultFolderCollapsed={async () => {}}
+              onSetVaultOrganizationCollapsed={async () => {}}
               sidebarSummaries={{ state: "loaded", summaries: [] }}
               vaults={[]}
             />

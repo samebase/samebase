@@ -13,6 +13,7 @@ import { buildProductionEnvironmentRoots } from "@/components/vault-dashboard/va
 import { buildVaultRepositorySettingsState } from "@/components/vault-dashboard/vaultRepositorySettingsState";
 import type {
   VaultFolderState,
+  VaultOrganizationTreeSettings,
   VaultWorkspaceSelected,
 } from "@/components/vault-dashboard/vaultWorkspaceModel";
 import {
@@ -321,6 +322,8 @@ const FIXTURE_VAULT_FOLDER_PROPS = {
   ...FIXTURE_FOLDER_CALLBACKS,
   folderState: VISUAL_FOLDER_STATE,
   onCreateVaultFolder: async () => {},
+  onSetVaultOrganizationCollapsed: async () => {},
+  organizationTreeSettings: [],
 };
 
 const VISUAL_ORGANIZATIONS = [
@@ -1219,6 +1222,8 @@ function VaultOverviewProviderSettingsFixture({
 
 export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisualMode }) {
   const [nextPullRequestPageLoaded, setNextPullRequestPageLoaded] = useState(false);
+  const [organizationTreeSettings, setOrganizationTreeSettings] =
+    useState<VaultOrganizationTreeSettings>([]);
   const page =
     mode === "vault-overview-v2-settings" || mode === "vault-overview-v2-settings-loading"
       ? "settings"
@@ -1262,6 +1267,17 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
                 {...FIXTURE_VAULT_FOLDER_PROPS}
                 globalInventory
                 organizations={VISUAL_ORGANIZATIONS}
+                organizationTreeSettings={organizationTreeSettings}
+                onSetVaultOrganizationCollapsed={async (setting) => {
+                  setOrganizationTreeSettings((currentSettings) =>
+                    currentSettings
+                      .filter(
+                        (currentSetting) =>
+                          currentSetting.organizationId !== setting.organizationId,
+                      )
+                      .concat(setting),
+                  );
+                }}
                 sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}
                 vaults={SIDEBAR_LIST_VAULTS}
               />

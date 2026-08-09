@@ -151,7 +151,6 @@ async function renderSidebar(callbacks: VaultFolderCallbacks) {
           organizationId={active.organizationId}
           page="overview"
           selectedVaultId={null}
-          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[active, unfiled]}
           workspace={null}

@@ -46,6 +46,27 @@ export function VaultDashboard({
   const moveVaultToFolder = useMutation(api.vault.folders.moveVaultToFolder);
   const renameVaultFolder = useMutation(api.vault.folders.renameVaultFolder);
   const setVaultFolderCollapsed = useMutation(api.vault.folders.setVaultFolderCollapsed);
+  const setVaultOrganizationCollapsed = useMutation(
+    api.vault.organizationTree.setVaultOrganizationCollapsed,
+  ).withOptimisticUpdate((localStore, args) => {
+    const currentSettings = localStore.getQuery(
+      api.vault.organizationTree.getVaultOrganizationTreeSettings,
+      {},
+    );
+    if (!currentSettings) {
+      return;
+    }
+
+    const nextSettings = currentSettings
+      .filter((setting) => setting.organizationId !== args.organizationId)
+      .concat({ collapsed: args.collapsed, organizationId: args.organizationId })
+      .sort((left, right) => left.organizationId.localeCompare(right.organizationId));
+    localStore.setQuery(
+      api.vault.organizationTree.getVaultOrganizationTreeSettings,
+      {},
+      nextSettings,
+    );
+  });
   const selectedVaultAvailable =
     workspaceModel.state === "loading" ? null : workspaceModel.selection.state === "selected";
   let unavailableDialog: VaultDashboardQueryDialog | null = null;
@@ -84,12 +105,14 @@ export function VaultDashboard({
           folderState={null}
           globalInventory={!organizationOwner}
           organizations={null}
+          organizationTreeSettings={null}
           onCreateVaultFolder={createVaultFolder}
           onDeleteVaultFolder={deleteVaultFolder}
           onMoveVaultFolder={moveVaultFolder}
           onMoveVaultToFolder={moveVaultToFolder}
           onRenameVaultFolder={renameVaultFolder}
           onSetVaultFolderCollapsed={setVaultFolderCollapsed}
+          onSetVaultOrganizationCollapsed={setVaultOrganizationCollapsed}
           sidebarSummaries={{ state: "loading" }}
           vaults={null}
         />
@@ -124,12 +147,14 @@ export function VaultDashboard({
       <VaultOverviewOrganizationSidebar
         folderState={workspaceModel.folderState}
         organizations={workspaceModel.organizations}
+        organizationTreeSettings={workspaceModel.organizationTreeSettings}
         onCreateVaultFolder={createVaultFolder}
         onDeleteVaultFolder={deleteVaultFolder}
         onMoveVaultFolder={moveVaultFolder}
         onMoveVaultToFolder={moveVaultToFolder}
         onRenameVaultFolder={renameVaultFolder}
         onSetVaultFolderCollapsed={setVaultFolderCollapsed}
+        onSetVaultOrganizationCollapsed={setVaultOrganizationCollapsed}
         page={page}
         selectedVaultId={selectedWorkspace?.vault._id ?? null}
         sidebarSummaries={workspaceModel.sidebarSummaries}
@@ -146,12 +171,14 @@ export function VaultDashboard({
             folderState={workspaceModel.folderState}
             globalInventory={!organizationOwner}
             organizations={workspaceModel.organizations}
+            organizationTreeSettings={workspaceModel.organizationTreeSettings}
             onCreateVaultFolder={createVaultFolder}
             onDeleteVaultFolder={deleteVaultFolder}
             onMoveVaultFolder={moveVaultFolder}
             onMoveVaultToFolder={moveVaultToFolder}
             onRenameVaultFolder={renameVaultFolder}
             onSetVaultFolderCollapsed={setVaultFolderCollapsed}
+            onSetVaultOrganizationCollapsed={setVaultOrganizationCollapsed}
             sidebarSummaries={workspaceModel.sidebarSummaries}
             vaults={workspaceModel.vaults}
           />

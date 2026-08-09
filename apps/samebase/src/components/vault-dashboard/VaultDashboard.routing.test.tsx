@@ -12,11 +12,18 @@ import { VaultDashboard } from "./VaultDashboard";
 const workspaceModelMock = vi.hoisted(() => vi.fn());
 const vaultPickerMock = vi.hoisted(() => vi.fn(() => null));
 
+function createMutationMock() {
+  const mutation = vi.fn();
+  return Object.assign(mutation, {
+    withOptimisticUpdate: () => mutation,
+  });
+}
+
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
   return {
     ...actual,
-    useMutation: () => vi.fn(),
+    useMutation: createMutationMock,
   };
 });
 vi.mock("@/components/AppWorkspaceShell", () => ({
@@ -119,6 +126,7 @@ describe("VaultDashboard dialog route cleanup", () => {
   ) {
     workspaceModelMock.mockReturnValue({
       folderState: { assignments: [], folders: [] },
+      organizationTreeSettings: [],
       organizations: [],
       state: "ready",
       selection,
@@ -150,6 +158,7 @@ describe("VaultDashboard dialog route cleanup", () => {
   it("passes the global organization inventory to the root vault picker", async () => {
     workspaceModelMock.mockReturnValue({
       folderState: { assignments: [], folders: [] },
+      organizationTreeSettings: [],
       organizations: [],
       selection: { state: "root" },
       sidebarSummaries: { state: "loaded", summaries: [] },

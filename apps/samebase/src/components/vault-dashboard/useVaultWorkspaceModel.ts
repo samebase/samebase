@@ -27,6 +27,9 @@ export function useVaultWorkspaceModel(
   const vaults = useCacheQuery(api.vault.dashboard.getUserVaults);
   const folderState = useCacheQuery(api.vault.folders.getVaultFolderState);
   const organizations = useConvexQuery(api.organizations.listForViewer);
+  const organizationTreeSettings = useConvexQuery(
+    api.vault.organizationTree.getVaultOrganizationTreeSettings,
+  );
   const sidebarSummaries = useVaultSidebarSummaries();
   const selectedVault = useMemo(
     () => selectVault(vaults, selectedRepositoryFullName),
@@ -57,7 +60,7 @@ export function useVaultWorkspaceModel(
   );
 
   const model = useMemo<VaultWorkspaceModel>(() => {
-    if (!vaults || !folderState || !organizations) {
+    if (!vaults || !folderState || !organizations || !organizationTreeSettings) {
       return { state: "loading" };
     }
     const requestedOrganization = organizationOwner
@@ -80,6 +83,7 @@ export function useVaultWorkspaceModel(
       );
       return {
         folderState,
+        organizationTreeSettings,
         state: "ready",
         sidebarSummaries,
         organizations: visibleOrganizations,
@@ -90,6 +94,7 @@ export function useVaultWorkspaceModel(
     if (!accessibleSelectedVault || !selectedOrganization) {
       return {
         folderState,
+        organizationTreeSettings,
         state: "ready",
         sidebarSummaries,
         organizations: [],
@@ -102,6 +107,7 @@ export function useVaultWorkspaceModel(
     }
     return {
       folderState,
+      organizationTreeSettings,
       state: "ready",
       sidebarSummaries,
       organizations,
@@ -147,6 +153,7 @@ export function useVaultWorkspaceModel(
     selectedOrganization,
     accessibleSelectedVault,
     folderState,
+    organizationTreeSettings,
     sidebarSummaries,
     organizationOwner,
     organizations,

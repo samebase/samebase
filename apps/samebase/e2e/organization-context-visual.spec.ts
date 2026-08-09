@@ -97,18 +97,20 @@ test("groups the global inventory and exposes every organization context", async
   ]);
   await openRoute(page, "/vault");
 
-  const organizationHeadings = (await page.getByRole("heading", { level: 2 }).allTextContents())
-    .map((heading) => heading.trim())
-    .filter((heading) => heading.startsWith("org-context-"));
-  expect(organizationHeadings).toEqual([
+  const vaultNavigation = page.getByRole("navigation", { name: "Vaults" });
+  const organizationButtons = vaultNavigation.locator('button[aria-expanded="true"]');
+  await expect(organizationButtons).toHaveCount(3);
+  expect((await organizationButtons.allTextContents()).map((label) => label.trim())).toEqual([
     "org-context-alpha",
     "org-context-beta",
     "org-context-zeta",
   ]);
-  const alphaSection = page.locator("section").filter({
-    has: page.getByRole("heading", { exact: true, name: "org-context-alpha" }),
+  const alphaButton = vaultNavigation.getByRole("button", {
+    name: "org-context-alpha",
+    exact: true,
   });
-  await expect(alphaSection.getByText("No vaults", { exact: true })).toBeVisible();
+  await expect(alphaButton).toHaveAttribute("aria-expanded", "true");
+  await expect(vaultNavigation.getByText("No vaults", { exact: true })).toBeVisible();
   await expect(page.getByRole("link", { name: /org-context-beta\/inventory-app,/u })).toBeVisible();
   await expect(page.getByRole("link", { name: /org-context-zeta\/web-app,/u })).toBeVisible();
 
@@ -132,6 +134,47 @@ test("groups the global inventory and exposes every organization context", async
   });
 });
 
+test("persists one user's collapsed organization across vault routes", async ({
+  page,
+}, testInfo) => {
+  const ownerLogin = `org-context-tree-${testInfo.workerIndex}-${Date.now()}`;
+  await createApprovedAccount(page, testInfo, "tree", [
+    {
+      access: "retain",
+      ownerLogin,
+      repositories: ["inventory-app"],
+    },
+  ]);
+  await openRoute(page, "/vault");
+
+  const vaultNavigation = page.getByRole("navigation", { name: "Vaults" });
+  const organizationButton = vaultNavigation.getByRole("button", {
+    name: ownerLogin,
+    exact: true,
+  });
+  const vaultLink = vaultNavigation.locator(`a[href="/vault/${ownerLogin}/inventory-app"]`);
+  await expect(organizationButton).toHaveAttribute("aria-expanded", "true");
+  await expect(vaultLink).toBeVisible();
+
+  await organizationButton.click();
+  await expect(organizationButton).toHaveAttribute("aria-expanded", "false");
+  await expect(vaultLink).toHaveCount(0);
+
+  await openRoute(page, `/vault/${ownerLogin}/inventory-app`);
+  await expect(
+    page
+      .getByTestId("workspace-layout-v2-pane-left")
+      .getByRole("button", { name: ownerLogin, exact: true }),
+  ).toHaveAttribute("aria-expanded", "false");
+
+  await openRoute(page, "/vault");
+  await expect(
+    page
+      .getByRole("navigation", { name: "Vaults" })
+      .getByRole("button", { name: ownerLogin, exact: true }),
+  ).toHaveAttribute("aria-expanded", "false");
+});
+
 test("keeps one organization switchable and separates organization and user settings", async ({
   page,
 }, testInfo) => {
@@ -143,6 +186,12 @@ test("keeps one organization switchable and separates organization and user sett
     },
   ]);
   await openRoute(page, "/vault");
+
+  await expect(
+    page
+      .getByRole("navigation", { name: "Vaults" })
+      .getByRole("button", { name: "org-context-solo", exact: true }),
+  ).toHaveAttribute("aria-expanded", "true");
 
   const globalHeader = page.getByTestId(MAIN_HEADER_TEST_ID);
   await expect(globalHeader.getByText("All vaults", { exact: true })).toHaveCount(0);

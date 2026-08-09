@@ -1,13 +1,17 @@
 // @vitest-environment jsdom
 
-import { act } from "react";
+import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import type { VaultFolderState, VaultOrganization } from "./vaultWorkspaceModel";
+import type {
+  VaultFolderState,
+  VaultOrganization,
+  VaultOrganizationTreeSettings,
+} from "./vaultWorkspaceModel";
 import {
   type VaultFolderCallbacks,
   VaultOverviewOrganizationSidebar,
@@ -98,7 +102,6 @@ describe("VaultOverviewSidebar", () => {
           organizationId={fakeOrganizationId()}
           page="overview"
           selectedVaultId={null}
-          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[
             vault("second", fakeVaultId("vault-second")),
@@ -144,7 +147,6 @@ describe("VaultOverviewSidebar", () => {
           organizationId={samebaseOrganizationId}
           page="overview"
           selectedVaultId={null}
-          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[]}
           workspace={null}
@@ -181,7 +183,6 @@ describe("VaultOverviewSidebar", () => {
           organizationId={organizationId}
           page="overview"
           selectedVaultId={null}
-          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[unfiledVault, filedVault]}
           workspace={null}
@@ -203,7 +204,6 @@ describe("VaultOverviewSidebar", () => {
           organizationId={selectedVault.organizationId}
           page="overview"
           selectedVaultId={selectedVault._id}
-          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[selectedVault]}
           workspace={null}
@@ -236,13 +236,26 @@ describe("VaultOverviewSidebar", () => {
     const root = createRoot(rootElement);
 
     function Sidebar({ selectedVaultId }: { selectedVaultId: Id<"vaults"> }) {
+      const [organizationTreeSettings, setOrganizationTreeSettings] =
+        useState<VaultOrganizationTreeSettings>([]);
+
       return (
         <TestRouterProvider initialEntries={["/vault/samebase/active"]}>
           <VaultOverviewOrganizationSidebar
             {...FOLDER_CALLBACKS}
             folderState={EMPTY_FOLDER_STATE}
             organizations={organizations}
+            organizationTreeSettings={organizationTreeSettings}
             onCreateVaultFolder={async () => {}}
+            onSetVaultOrganizationCollapsed={async (setting) => {
+              setOrganizationTreeSettings((currentSettings) =>
+                currentSettings
+                  .filter(
+                    (currentSetting) => currentSetting.organizationId !== setting.organizationId,
+                  )
+                  .concat(setting),
+              );
+            }}
             page="overview"
             selectedVaultId={selectedVaultId}
             sidebarSummaries={{ state: "loading" }}

@@ -65,6 +65,8 @@ const VAULT_PICKER_FOLDER_PROPS = {
   ...FOLDER_CALLBACKS,
   folderState: { assignments: [], folders: [] },
   onCreateVaultFolder: async () => {},
+  onSetVaultOrganizationCollapsed: async () => {},
+  organizationTreeSettings: [],
 };
 
 const FAILED_CLOUDFLARE_BUILDS_OBSERVATIONS = {
@@ -1254,8 +1256,8 @@ describe("VaultOverviewVaultPickerPane", () => {
     );
 
     expect(markup).toContain('<nav aria-label="Vaults"');
-    expect(markup).toContain('href="/org/ada/vaults"');
-    expect(markup).toContain("ada/");
+    expect(markup).toContain('aria-expanded="true"');
+    expect(markup).not.toContain('href="/org/ada/vaults"');
     expect(markup).toContain("demo");
     expect(markup).toContain("1/1 passed");
     expect(markup).not.toContain("3 PRs");
@@ -1308,10 +1310,10 @@ describe("VaultOverviewVaultPickerPane", () => {
       </TestRouterProvider>,
     );
     const orderedMarkers = [
-      'href="/org/zed/vaults"',
+      ">zed</span>",
       'href="/vault/zed/first"',
       'href="/vault/zed/second"',
-      'href="/org/ada/vaults"',
+      ">ada</span>",
       'href="/vault/ada/second"',
       'href="/vault/ada/first"',
     ];
@@ -1419,7 +1421,6 @@ describe("VaultOverviewVaultPickerPane", () => {
           organizationId={vault.organizationId}
           page="overview"
           selectedVaultId={null}
-          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[vault]}
           workspace={null}

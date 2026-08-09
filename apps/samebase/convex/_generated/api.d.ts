@@ -147,6 +147,8 @@ import type * as vault_folderModel from "../vault/folderModel.js";
 import type * as vault_folders from "../vault/folders.js";
 import type * as vault_infrastructureOperation from "../vault/infrastructureOperation.js";
 import type * as vault_model from "../vault/model.js";
+import type * as vault_organizationTree from "../vault/organizationTree.js";
+import type * as vault_organizationTreeModel from "../vault/organizationTreeModel.js";
 import type * as vault_providerDashboardUrls from "../vault/providerDashboardUrls.js";
 import type * as vault_providerObservationQueries from "../vault/providerObservationQueries.js";
 import type * as vault_providerObservations from "../vault/providerObservations.js";
@@ -304,6 +306,8 @@ declare const fullApi: ApiFromModules<{
   "vault/folders": typeof vault_folders;
   "vault/infrastructureOperation": typeof vault_infrastructureOperation;
   "vault/model": typeof vault_model;
+  "vault/organizationTree": typeof vault_organizationTree;
+  "vault/organizationTreeModel": typeof vault_organizationTreeModel;
   "vault/providerDashboardUrls": typeof vault_providerDashboardUrls;
   "vault/providerObservationQueries": typeof vault_providerObservationQueries;
   "vault/providerObservations": typeof vault_providerObservations;

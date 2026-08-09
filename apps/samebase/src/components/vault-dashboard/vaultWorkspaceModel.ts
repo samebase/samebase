@@ -14,6 +14,9 @@ export type VaultFolderState = (typeof api.vault.folders.getVaultFolderState)["_
 
 export type VaultOrganization = (typeof api.organizations.listForViewer)["_returnType"][number];
 
+export type VaultOrganizationTreeSettings =
+  (typeof api.vault.organizationTree.getVaultOrganizationTreeSettings)["_returnType"];
+
 export type VaultWorkspaceAccessState =
   | { state: "loading" }
   | { state: "ready"; accessKeys: readonly AccessKey[] };
@@ -46,6 +49,7 @@ export type VaultWorkspaceModel =
   | {
       state: "ready";
       folderState: VaultFolderState;
+      organizationTreeSettings: VaultOrganizationTreeSettings;
       sidebarSummaries: VaultSidebarSummariesState;
       organizations: readonly VaultOrganization[];
       selection: VaultWorkspaceSelection;

@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { Loader2 } from "lucide-react";
-import { Link } from "@tanstack/react-router";
 
 import { Button } from "@/components/ui/button";
 import type { VaultSidebarSummariesState } from "@/hooks/useVaultSidebarSummaries";
@@ -10,11 +9,16 @@ import { api } from "../../../convex/_generated/api";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import {
   type VaultFolderCallbacks,
-  VaultOverviewSidebar,
+  type VaultOrganizationTreeCallbacks,
+  VaultOverviewOrganizationSidebar,
   VaultOverviewSidebarLoading,
 } from "./VaultOverviewSidebar";
-import { VaultFolderCreateButton, type VaultFolderCreate } from "./VaultFolderCreateButton";
-import type { VaultFolderState, VaultOrganization } from "./vaultWorkspaceModel";
+import type { VaultFolderCreate } from "./VaultFolderCreateButton";
+import type {
+  VaultFolderState,
+  VaultOrganization,
+  VaultOrganizationTreeSettings,
+} from "./vaultWorkspaceModel";
 
 export type { VaultOrganization } from "./vaultWorkspaceModel";
 
@@ -68,22 +72,25 @@ export function VaultOverviewVaultPickerPane({
   onMoveVaultToFolder,
   onRenameVaultFolder,
   onSetVaultFolderCollapsed,
+  onSetVaultOrganizationCollapsed,
+  organizationTreeSettings,
   sidebarSummaries,
   vaults,
 }: {
   folderState: VaultFolderState | null;
   globalInventory: boolean;
   organizations: readonly VaultOrganization[] | null;
+  organizationTreeSettings: VaultOrganizationTreeSettings | null;
   onCreateVaultFolder: VaultFolderCreate;
   sidebarSummaries: VaultSidebarSummariesState;
   vaults: readonly UserVaultResult[] | null;
-} & VaultFolderCallbacks) {
-  const loading = folderState === null || organizations === null || vaults === null;
-  const vaultsByOrganizationId: Map<VaultOrganization["organizationId"], UserVaultResult[]> =
-    new Map(organizations?.map((organization) => [organization.organizationId, []]) ?? []);
-  for (const vault of vaults ?? []) {
-    vaultsByOrganizationId.get(vault.organizationId)?.push(vault);
-  }
+} & VaultFolderCallbacks &
+  VaultOrganizationTreeCallbacks) {
+  const loading =
+    folderState === null ||
+    organizations === null ||
+    organizationTreeSettings === null ||
+    vaults === null;
 
   return (
     <div className="mx-auto min-h-full w-full max-w-[1100px]">
@@ -103,55 +110,23 @@ export function VaultOverviewVaultPickerPane({
       ) : organizations.length === 0 ? (
         <div className="p-4 text-sm text-muted-foreground">No vaults</div>
       ) : (
-        <nav aria-label="Vaults" className="grid gap-6 p-4">
-          {organizations.map((organization) => {
-            const organizationVaults =
-              vaultsByOrganizationId.get(organization.organizationId) ?? [];
-            const organizationHasFolders = folderState.folders.some(
-              (folder) => folder.organizationId === organization.organizationId,
-            );
-
-            return (
-              <section key={organization.organizationId}>
-                <div className="flex min-w-0 items-center pr-1 pl-3">
-                  <h2 className="min-w-0 flex-1 truncate text-sm font-semibold">
-                    <Link
-                      className="no-underline hover:underline"
-                      params={{ owner: organization.githubOwnerLogin }}
-                      to="/org/$owner/vaults"
-                    >
-                      {organization.githubOwnerLogin}
-                    </Link>
-                  </h2>
-                  <VaultFolderCreateButton
-                    organizationId={organization.organizationId}
-                    organizationName={organization.githubOwnerLogin}
-                    onCreateVaultFolder={onCreateVaultFolder}
-                  />
-                </div>
-                {organizationVaults.length === 0 && !organizationHasFolders ? (
-                  <div className="px-3 pt-3 text-sm text-muted-foreground">No vaults</div>
-                ) : (
-                  <VaultOverviewSidebar
-                    folderState={folderState}
-                    organizationId={organization.organizationId}
-                    page="overview"
-                    selectedVaultId={null}
-                    showOwner
-                    sidebarSummaries={sidebarSummaries}
-                    vaults={organizationVaults}
-                    workspace={null}
-                    onDeleteVaultFolder={onDeleteVaultFolder}
-                    onMoveVaultFolder={onMoveVaultFolder}
-                    onMoveVaultToFolder={onMoveVaultToFolder}
-                    onRenameVaultFolder={onRenameVaultFolder}
-                    onSetVaultFolderCollapsed={onSetVaultFolderCollapsed}
-                  />
-                )}
-              </section>
-            );
-          })}
-        </nav>
+        <VaultOverviewOrganizationSidebar
+          folderState={folderState}
+          organizations={organizations}
+          organizationTreeSettings={organizationTreeSettings}
+          page="overview"
+          selectedVaultId={null}
+          sidebarSummaries={sidebarSummaries}
+          vaults={vaults}
+          workspace={null}
+          onCreateVaultFolder={onCreateVaultFolder}
+          onDeleteVaultFolder={onDeleteVaultFolder}
+          onMoveVaultFolder={onMoveVaultFolder}
+          onMoveVaultToFolder={onMoveVaultToFolder}
+          onRenameVaultFolder={onRenameVaultFolder}
+          onSetVaultFolderCollapsed={onSetVaultFolderCollapsed}
+          onSetVaultOrganizationCollapsed={onSetVaultOrganizationCollapsed}
+        />
       )}
     </div>
   );

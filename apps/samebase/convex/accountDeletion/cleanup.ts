@@ -40,6 +40,7 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   ui_vaultResourceLinks_settings: "account_data",
   ui_vaultFolders: "account_data",
   ui_vaultFolderAssignments: "account_data",
+  ui_vaultOrganizationTree_settings: "account_data",
   vaults: "organization_preserved",
   vaultCloudflareWorkers: "organization_preserved",
   vaultConvexProjects: "organization_preserved",
@@ -208,6 +209,13 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
     const rows = await ctx.db
       .query("ui_vaultFolders")
       .withIndex("by_userId_and_organizationId_and_position", (query) => query.eq("userId", userId))
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    return await deleteRowsById(ctx, rows);
+  },
+  ui_vaultOrganizationTree_settings: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("ui_vaultOrganizationTree_settings")
+      .withIndex("by_userId_and_organizationId", (query) => query.eq("userId", userId))
       .take(ACCOUNT_DATA_BATCH_SIZE);
     return await deleteRowsById(ctx, rows);
   },
