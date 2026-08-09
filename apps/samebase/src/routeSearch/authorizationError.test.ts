@@ -16,6 +16,12 @@ describe("authorization error search", () => {
         "authorization-error": "account-link-required",
       }),
     ).toEqual({ provider: "github-sign-in", code: "account-link-required" });
+    expect(
+      readAuthorizationError({
+        "authorization-provider": "github-user",
+        "authorization-error": "github-sign-in-mismatch",
+      }),
+    ).toEqual({ provider: "github-user", code: "github-sign-in-mismatch" });
     expect(readAuthorizationError({ "authorization-error": "failed" })).toBeNull();
   });
 

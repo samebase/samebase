@@ -1,6 +1,6 @@
 import { createOAuthUserAuth } from "@octokit/auth-app";
 import type { Octokit } from "@octokit/rest";
-import { Infer, v } from "convex/values";
+import { ConvexError, Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -20,12 +20,14 @@ import {
 } from "./githubApp";
 import { requireOrganizationAccessContext } from "./organizationAccess";
 
-const { id, literal, number, object, string, union } = v;
+const { boolean, id, literal, number, object, string, union } = v;
 
 const GITHUB_USER_TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
 const GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS = 60 * 1000;
 
 const vViewerPersonalRepositoryAuthorizationStatus = union(
+  object({ status: literal("sign_in_required"), authorizationPresent: boolean() }),
+  object({ status: literal("sign_in_mismatch"), authorizationPresent: boolean() }),
   object({ status: literal("not_connected") }),
   object({
     status: literal("authorized"),
@@ -107,6 +109,54 @@ async function getByUser(
     .unique();
 }
 
+export async function readGitHubSignInProviderAccountId(
+  db: DatabaseReader,
+  userId: Id<"users">,
+): Promise<string | null> {
+  const accounts = await db
+    .query("authAccounts")
+    .withIndex("userIdAndProvider", (query) => query.eq("userId", userId).eq("provider", "github"))
+    .take(2);
+  if (accounts.length > 1) {
+    throw new Error("This Samebase account has conflicting GitHub sign-in identities.");
+  }
+  const account = accounts.at(0);
+  if (account === undefined) {
+    return null;
+  }
+  return account.providerAccountId;
+}
+
+export async function readGitHubSignInMatch(
+  db: DatabaseReader,
+  args: {
+    userId: Id<"users">;
+    githubUserId: string;
+  },
+): Promise<"matched" | "missing" | "different"> {
+  const providerAccountId = await readGitHubSignInProviderAccountId(db, args.userId);
+  if (providerAccountId === null) {
+    return "missing";
+  }
+  return providerAccountId === args.githubUserId ? "matched" : "different";
+}
+
+export async function requireMatchingGitHubSignIn(
+  db: DatabaseReader,
+  args: {
+    userId: Id<"users">;
+    githubUserId: string;
+  },
+): Promise<void> {
+  const match = await readGitHubSignInMatch(db, args);
+  if (match === "missing") {
+    throw new ConvexError("github-sign-in-required");
+  }
+  if (match === "different") {
+    throw new ConvexError("github-sign-in-mismatch");
+  }
+}
+
 async function requirePersonalGitHubOwner(
   db: DatabaseReader,
   args: {
@@ -137,14 +187,24 @@ export const getViewerPersonalRepositoryAuthorization = query({
       userId: ctx.viewer.userId,
     });
     const authorization = await getByUser(ctx.db, ctx.viewer.userId);
-    if (authorization === null) {
-      return { status: "not_connected" };
-    }
-    if (authorization.githubUserId !== organization.githubOwnerId) {
+    if (authorization !== null && authorization.githubUserId !== organization.githubOwnerId) {
       return {
         status: "different_account",
         githubUserLogin: authorization.githubUserLogin,
       };
+    }
+    const signInMatch = await readGitHubSignInMatch(ctx.db, {
+      userId: ctx.viewer.userId,
+      githubUserId: organization.githubOwnerId,
+    });
+    if (signInMatch === "missing") {
+      return { status: "sign_in_required", authorizationPresent: authorization !== null };
+    }
+    if (signInMatch === "different") {
+      return { status: "sign_in_mismatch", authorizationPresent: authorization !== null };
+    }
+    if (authorization === null) {
+      return { status: "not_connected" };
     }
 
     return {
@@ -172,13 +232,12 @@ export async function upsertGitHubUserAuthorization(
     throw new Error("An active Samebase user is required.");
   }
 
-  const [signInAccounts, githubSignInOwners, githubOwners] = await Promise.all([
-    db
-      .query("authAccounts")
-      .withIndex("userIdAndProvider", (query) =>
-        query.eq("userId", args.userId).eq("provider", "github"),
-      )
-      .take(2),
+  await requireMatchingGitHubSignIn(db, {
+    userId: args.userId,
+    githubUserId: args.githubUserId,
+  });
+
+  const [githubSignInOwners, githubOwners] = await Promise.all([
     db
       .query("authAccounts")
       .withIndex("providerAndAccountId", (query) =>
@@ -190,13 +249,6 @@ export async function upsertGitHubUserAuthorization(
       .withIndex("by_github_user", (query) => query.eq("githubUserId", args.githubUserId))
       .take(2),
   ]);
-  if (signInAccounts.length > 1) {
-    throw new Error("This Samebase account has conflicting GitHub sign-in identities.");
-  }
-  const signInAccount = signInAccounts.at(0);
-  if (signInAccount !== undefined && signInAccount.providerAccountId !== args.githubUserId) {
-    throw new Error("GitHub access must use the connected GitHub sign-in account.");
-  }
   if (githubSignInOwners.length > 1) {
     throw new Error("This GitHub account has conflicting Samebase sign-in records.");
   }
@@ -244,6 +296,7 @@ export const claimForUse = internalMutation({
   },
   returns: vGitHubUserAuthorizationUse,
   handler: async (ctx, args) => {
+    await requireMatchingGitHubSignIn(ctx.db, args);
     const authorization = await getByUser(ctx.db, args.userId);
     if (authorization === null || authorization.githubUserId !== args.githubUserId) {
       throw new Error("GitHub user authorization is not available for this owner.");

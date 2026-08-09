@@ -46,6 +46,8 @@ import { CLOUDFLARE_TOKEN_REFRESH_SCHEDULER_TICK_MS } from "../../shared/cloudfl
 import type { AuthorizationError } from "../../shared/authorizationError";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { useNow } from "@/hooks/useNow";
+import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
+import { Link } from "@tanstack/react-router";
 
 const PROVIDER_KEYS = ["convex", "cloudflare"] as const;
 const PROVIDER_ACCESS_STALE_TIME_MS = 60 * 1000;
@@ -456,25 +458,44 @@ function PersonalRepositoryCreationDetails({
     authorization?.status === "authorized" && authorization.refreshTokenExpiresAt <= now;
   const canAuthorize = authorization?.status === "not_connected" || expired;
   const canRevoke =
-    authorization?.status === "authorized" || authorization?.status === "different_account";
+    authorization?.status === "authorized" ||
+    authorization?.status === "different_account" ||
+    ((authorization?.status === "sign_in_required" ||
+      authorization?.status === "sign_in_mismatch") &&
+      authorization.authorizationPresent);
+  const accountSettingsLink = (
+    <Link className="underline underline-offset-4" to={SETTINGS_ROUTE}>
+      Account settings
+    </Link>
+  );
   const status =
-    authorization === undefined
-      ? "Loading..."
-      : authorization.status === "not_connected"
-        ? "Authorization required"
-        : authorization.status === "different_account"
-          ? `Authorized as @${authorization.githubUserLogin}, not @${ownerLogin}.`
-          : expired
-            ? `Expired for @${authorization.githubUserLogin}`
-            : `Authorized as @${authorization.githubUserLogin}`;
+    authorization?.status === "sign_in_required" ? (
+      <>
+        Connect GitHub as @{ownerLogin} in {accountSettingsLink} first.
+      </>
+    ) : authorization === undefined ? (
+      "Loading..."
+    ) : authorization.status === "sign_in_mismatch" ? (
+      <>
+        Use the Samebase account connected to GitHub as @{ownerLogin}. Check {accountSettingsLink}.
+      </>
+    ) : authorization.status === "not_connected" ? (
+      "Authorization required"
+    ) : authorization.status === "different_account" ? (
+      `Authorized as @${authorization.githubUserLogin}, not @${ownerLogin}.`
+    ) : expired ? (
+      `Expired for @${authorization.githubUserLogin}`
+    ) : (
+      `Authorized as @${authorization.githubUserLogin}`
+    );
 
   return (
     <div data-testid="personal-repository-creation" className="border-t border-border/50 pt-4">
       <div className="font-medium text-foreground">Personal repository creation</div>
       <div className="mt-1 text-muted-foreground">{status}</div>
       <p className="mt-2 text-muted-foreground">
-        This authorization lets Samebase create repositories in this personal GitHub account. If you
-        revoke it, GitHub sign-in and the GitHub App installation stay connected.
+        Samebase uses this authorization only to create repositories in this personal GitHub
+        account.
       </p>
       {canAuthorize || canRevoke ? (
         <div className="mt-3 flex flex-wrap gap-2">

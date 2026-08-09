@@ -3,12 +3,80 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
+async function startGitHubOAuth(t: ReturnType<typeof makeConvexTest>) {
+  const start = await t.action(api.auth.signIn, {
+    provider: "github",
+    params: { redirectTo: "/" },
+  });
+  if (start.redirect === undefined) {
+    throw new Error("OAuth sign-in did not return a redirect.");
+  }
+  const internalRedirect = new URL(start.redirect);
+  const signInResponse = await t.fetch(`${internalRedirect.pathname}${internalRedirect.search}`);
+  const setCookie = signInResponse.headers.get("set-cookie");
+  if (setCookie === null) {
+    throw new Error("OAuth sign-in did not return its provider state.");
+  }
+  return setCookie
+    .split(/, (?=[^;,]+=)/)
+    .map((value) => value.split(";", 1)[0])
+    .join("; ");
+}
+
+function stubGitHubOAuthProfile(args: { email: string; id: number; login: string }) {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: string | URL | Request) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      if (url.origin === "https://github.com" && url.pathname === "/login/oauth/access_token") {
+        return new Response(
+          JSON.stringify({
+            access_token: "github-access-token",
+            token_type: "bearer",
+            scope: "read:user,user:email",
+          }),
+          { headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.origin === "https://api.github.com" && url.pathname === "/user") {
+        // Source shape: https://api.github.com/users/octocat, captured 2026-08-08.
+        return new Response(
+          JSON.stringify({
+            login: args.login,
+            id: args.id,
+            avatar_url: "https://avatars.githubusercontent.com/u/583231?v=4",
+            name: "The Octocat",
+            email: null,
+          }),
+          { headers: { "content-type": "application/json" } },
+        );
+      }
+      if (url.origin === "https://api.github.com" && url.pathname === "/user/emails") {
+        // Source shape: GitHub REST email response documentation, captured 2026-08-08.
+        return new Response(
+          JSON.stringify([
+            {
+              email: args.email,
+              primary: true,
+              verified: true,
+              visibility: "private",
+            },
+          ]),
+          { headers: { "content-type": "application/json" } },
+        );
+      }
+      throw new Error(`Unexpected GitHub OAuth request: ${url.toString()}`);
+    }),
+  );
+}
+
 describe("OAuth callback errors", () => {
   beforeEach(() => {
     vi.stubEnv("AUTH_GITHUB_ID", "github-client-id");
     vi.stubEnv("AUTH_GITHUB_SECRET", "github-client-secret");
     vi.stubEnv("AUTH_GOOGLE_ID", "google-client-id");
     vi.stubEnv("AUTH_GOOGLE_SECRET", "google-client-secret");
+    vi.stubEnv("CONVEX_DEPLOYMENT", "local:auth-oauth-test");
     vi.stubEnv("CONVEX_SITE_URL", "https://convex.test");
     vi.stubEnv("SITE_URL", "https://samebase.test");
   });
@@ -42,69 +110,8 @@ describe("OAuth callback errors", () => {
       });
     });
 
-    const start = await t.action(api.auth.signIn, {
-      provider: "github",
-      params: { redirectTo: "/" },
-    });
-    if (start.redirect === undefined) {
-      throw new Error("OAuth sign-in did not return a redirect.");
-    }
-    const internalRedirect = new URL(start.redirect);
-    const signInResponse = await t.fetch(`${internalRedirect.pathname}${internalRedirect.search}`);
-    const providerRedirect = signInResponse.headers.get("location");
-    const setCookie = signInResponse.headers.get("set-cookie");
-    if (providerRedirect === null || setCookie === null) {
-      throw new Error("OAuth sign-in did not return its provider state.");
-    }
-    const cookie = setCookie
-      .split(/, (?=[^;,]+=)/)
-      .map((value) => value.split(";", 1)[0])
-      .join("; ");
-
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input: string | URL | Request) => {
-        const url = new URL(input instanceof Request ? input.url : String(input));
-        if (url.origin === "https://github.com" && url.pathname === "/login/oauth/access_token") {
-          return new Response(
-            JSON.stringify({
-              access_token: "github-access-token",
-              token_type: "bearer",
-              scope: "read:user,user:email",
-            }),
-            { headers: { "content-type": "application/json" } },
-          );
-        }
-        if (url.origin === "https://api.github.com" && url.pathname === "/user") {
-          // Source: https://api.github.com/users/octocat, captured 2026-08-08.
-          return new Response(
-            JSON.stringify({
-              login: "octocat",
-              id: 583231,
-              avatar_url: "https://avatars.githubusercontent.com/u/583231?v=4",
-              name: "The Octocat",
-              email: null,
-            }),
-            { headers: { "content-type": "application/json" } },
-          );
-        }
-        if (url.origin === "https://api.github.com" && url.pathname === "/user/emails") {
-          // Source: GitHub REST email response documentation, captured 2026-08-08.
-          return new Response(
-            JSON.stringify([
-              {
-                email: "octocat@github.com",
-                primary: true,
-                verified: true,
-                visibility: "private",
-              },
-            ]),
-            { headers: { "content-type": "application/json" } },
-          );
-        }
-        throw new Error(`Unexpected GitHub OAuth request: ${url.toString()}`);
-      }),
-    );
+    const cookie = await startGitHubOAuth(t);
+    stubGitHubOAuthProfile({ email: "octocat@github.com", id: 583231, login: "octocat" });
 
     const callbackResponse = await t.fetch(`/api/auth/callback/github?code=github-code`, {
       headers: { cookie },
@@ -114,6 +121,48 @@ describe("OAuth callback errors", () => {
     expect(callbackResponse.headers.get("location")).toBe(
       "https://samebase.test/?authorization-provider=github-sign-in&authorization-error=account-link-required",
     );
+  });
+
+  it("stores and refreshes the GitHub login on its sign-in account", async () => {
+    const t = makeConvexTest();
+    const firstCookie = await startGitHubOAuth(t);
+    stubGitHubOAuthProfile({ email: "octocat@github.com", id: 583231, login: "octocat" });
+
+    const firstCallback = await t.fetch("/api/auth/callback/github?code=first-github-code", {
+      headers: { cookie: firstCookie },
+    });
+    expect(firstCallback.status).toBe(302);
+
+    const secondCookie = await startGitHubOAuth(t);
+    stubGitHubOAuthProfile({
+      email: "renamed-octocat@github.com",
+      id: 583231,
+      login: "renamed-octocat",
+    });
+    const secondCallback = await t.fetch("/api/auth/callback/github?code=second-github-code", {
+      headers: { cookie: secondCookie },
+    });
+    expect(secondCallback.status).toBe(302);
+
+    const snapshot = await t.run(async (ctx) => {
+      const account = await ctx.db
+        .query("authAccounts")
+        .withIndex("providerAndAccountId", (query) =>
+          query.eq("provider", "github").eq("providerAccountId", "583231"),
+        )
+        .unique();
+      return {
+        account,
+        user: account === null ? null : await ctx.db.get(account.userId),
+      };
+    });
+    expect(snapshot.account).toMatchObject({
+      provider: "github",
+      providerAccountId: "583231",
+      emailVerified: "renamed-octocat@github.com",
+      githubLogin: "renamed-octocat",
+    });
+    expect(snapshot.user).toMatchObject({ email: "octocat@github.com" });
   });
 
   it.each([
@@ -129,6 +178,28 @@ describe("OAuth callback errors", () => {
       });
       if (start.redirect === undefined) {
         throw new Error("OAuth sign-in did not return a redirect.");
+      }
+
+      if (provider === "google") {
+        vi.stubGlobal(
+          "fetch",
+          vi.fn(async (input: string | URL | Request) => {
+            const url = new URL(input instanceof Request ? input.url : String(input));
+            if (url.toString() !== "https://accounts.google.com/.well-known/openid-configuration") {
+              throw new Error(`Unexpected Google OAuth request: ${url.toString()}`);
+            }
+            return new Response(
+              JSON.stringify({
+                issuer: "https://accounts.google.com",
+                authorization_endpoint: "https://accounts.google.com/o/oauth2/v2/auth",
+                token_endpoint: "https://oauth2.googleapis.com/token",
+                userinfo_endpoint: "https://openidconnect.googleapis.com/v1/userinfo",
+                jwks_uri: "https://www.googleapis.com/oauth2/v3/certs",
+              }),
+              { headers: { "content-type": "application/json" } },
+            );
+          }),
+        );
       }
 
       const internalRedirect = new URL(start.redirect);

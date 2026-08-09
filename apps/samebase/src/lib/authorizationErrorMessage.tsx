@@ -56,6 +56,14 @@ export function formatAuthorizationErrorMessage(
           authorizationError.provider satisfies never;
           return "Sign in with an existing method and try again.";
       }
+    case "github-sign-in-required":
+      return targets.githubOwnerLogin
+        ? `Personal GitHub access requires @${targets.githubOwnerLogin} as the GitHub sign-in method for this Samebase account. Connect it in Account settings, then try again.`
+        : "Personal GitHub access requires the same GitHub account as the GitHub sign-in method for this Samebase account. Connect GitHub in Account settings, then try again.";
+    case "github-sign-in-mismatch":
+      return targets.githubOwnerLogin
+        ? `Use the Samebase account connected to GitHub as @${targets.githubOwnerLogin}, then try again.`
+        : "Use a Samebase account whose GitHub sign-in method matches the personal GitHub account, then try again.";
     case "expired":
       return `${authorizationLabel} expired. Start again.`;
     case "access-changed":

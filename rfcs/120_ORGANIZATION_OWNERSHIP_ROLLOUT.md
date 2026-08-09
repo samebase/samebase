@@ -4,8 +4,9 @@
 
 - Status: Active
 - Owner: Samebase backend
-- Last updated: 2026-08-07
-- Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
+- Last updated: 2026-08-09
+- Sources of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md` for organization ownership and
+  `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md` for account identity
 - Replacement branch: `codex-github-app-organizations`
 - Replacement PR: [#1367](https://github.com/samebase/samebase/pull/1367)
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
@@ -30,8 +31,8 @@ review transcripts, or a per-commit journal.
 - A verified Samebase GitHub App installation creates or reconnects the organization.
 - GitHub is not a deployment provider credential.
 - GitHub App installation tokens serve normal repository operations.
-- User-specific GitHub App authorization stays user-owned and separate. One Samebase user has one
-  current personal GitHub authorization.
+- GitHub App user authorization stays user-owned and separate. One Samebase user has at most one
+  current authorization. Spec 122 owns its personal-owner identity prerequisites.
 - Convex and Cloudflare destinations and credentials are organization-owned. During beta, each
   organization has at most one Convex team and one Cloudflare account. This is a product limit, not
   organization identity. `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md` owns its rollout.
@@ -155,7 +156,7 @@ Status: Complete on the replacement branch
 
 - A signed-in user with no membership saw no vaults and no provider connections.
 - Installing Samebase Dev for `samebase` created one organization, one membership, and one Free
-  billing account. No GitHub provider connection or user authorization row was created.
+  billing account.
 - The first member connected Convex and Cloudflare through OAuth. Live checks passed for Convex
   projects and deployments, and for Cloudflare accounts, Workers, and Workers Builds.
 - The first member created `tmp-8462-org-happy-path`. GitHub, Convex, and Cloudflare provisioning
@@ -171,11 +172,6 @@ Status: Complete on the replacement branch
 - The two-member provider page exposed that unrestricted memberships also allowed provider and
   billing administration. The accepted fix is a required `owner | member` role before beta, with no
   compatibility path or general role-management feature.
-- Installing Samebase Dev on `nicu-typescript` created a second organization and owner membership
-  for the same user. The installation was limited to one test repository. The two organizations had
-  separate provider state and separate Free billing accounts.
-- Connecting `nicu-typescript/codespace-test` created a vault only in that organization. Its clean
-  vault route reloaded and did not expose or require provider connections from `samebase`.
 - `/providers/samebase`, `/new-app/samebase`, and `/connect-repo/nicu-typescript` restored their
   selected organization after reload. Their selectors showed GitHub owner logins and did not show
   internal organization IDs.
@@ -252,30 +248,8 @@ Status: Complete on the replacement branch
   and installation identity. `pnpm dev` then loaded the vault, provider, and New App pages. The
   Connect repository page listed repositories through the shared GitHub App installation.
 
-## Manual Acceptance Order
-
-1. Confirm a user can exist with zero organizations.
-2. Install Samebase Dev for one GitHub owner and verify one organization, membership, and billing
-   row are created.
-3. Reinstall for the same owner and confirm no duplicate organization exists.
-4. Install for a second GitHub owner and confirm the same user can access both organizations.
-5. Add the second Samebase user through the internal function.
-6. Confirm that user needs no GitHub, Convex, or Cloudflare credential for organization operations.
-7. Connect one Convex and one Cloudflare account to the first organization.
-8. Create or connect a repository, create the Convex project and Cloudflare Worker, and open the
-   vault as both members.
-9. Reload `/vault/<owner>/<repository>` with no organization query parameter.
-10. Confirm both members see the same provider resources and observations.
-11. Confirm a non-member cannot read or change the vault.
-12. Confirm one MCP grant can access both organizations of its user, then confirm that removing one
-    membership removes access to that organization's vault.
-
 ## Focused Review Decisions
 
-- A first Samebase organization claim for a GitHub organization requires an active GitHub
-  administrator membership whose stable organization ID matches the installation owner.
-- GitHub organization repositories can be created by any Samebase member. A personal-owner
-  repository requires the acting Samebase user's exact GitHub user authorization.
 - MCP acts on behalf of the Samebase user across current memberships. The organization chooser and
   organization ID on MCP grants are removed instead of extended.
 - Cloudflare account visibility remains a simple business rule for this rollout. Attached resources

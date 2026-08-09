@@ -11,6 +11,8 @@ export type ProviderConnectionsPageVisualMode =
   | "providers-page-loading"
   | "providers-page-not-configured"
   | "providers-page-personal"
+  | "providers-page-personal-sign-in-mismatch"
+  | "providers-page-personal-sign-in-required"
   | "providers-page-recovery";
 
 function fakeOrganizationId(): Id<"organizations"> {
@@ -151,7 +153,10 @@ export function ProviderConnectionsPageVisualFixture({
   mode?: ProviderConnectionsPageVisualMode;
 }) {
   const isLoading = mode === "providers-page-loading";
-  const isPersonal = mode === "providers-page-personal";
+  const isPersonal =
+    mode === "providers-page-personal" ||
+    mode === "providers-page-personal-sign-in-mismatch" ||
+    mode === "providers-page-personal-sign-in-required";
   const state =
     mode === "providers-page-recovery"
       ? recoveryState
@@ -176,13 +181,17 @@ export function ProviderConnectionsPageVisualFixture({
       githubAccess={isLoading ? null : state.githubAccess}
       githubAccessError={false}
       githubUserAuthorization={
-        isPersonal
-          ? {
-              githubUserLogin: "octocat",
-              refreshTokenExpiresAt: Date.now() + 60_000,
-              status: "authorized",
-            }
-          : undefined
+        mode === "providers-page-personal-sign-in-required"
+          ? { status: "sign_in_required", authorizationPresent: false }
+          : mode === "providers-page-personal-sign-in-mismatch"
+            ? { status: "sign_in_mismatch", authorizationPresent: false }
+            : isPersonal
+              ? {
+                  githubUserLogin: "octocat",
+                  refreshTokenExpiresAt: Date.now() + 60_000,
+                  status: "authorized",
+                }
+              : undefined
       }
       githubUserAuthorizationRequestState="idle"
       isCheckingCloudflareAccess={false}

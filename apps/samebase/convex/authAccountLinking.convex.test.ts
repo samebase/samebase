@@ -126,7 +126,6 @@ describe("Samebase OAuth account linking", () => {
     expect(resolvedUserId).toBe(userId);
     await expect(t.run(async (ctx) => await ctx.db.get(userId))).resolves.toMatchObject({
       email: "stable-account@example.com",
-      githubSignInLogin: "oauth-user",
     });
   });
 
@@ -184,7 +183,6 @@ describe("Samebase OAuth account linking", () => {
       email: "new-github@example.com",
       name: "OAuth User",
       image: "https://example.com/avatar.png",
-      githubSignInLogin: "oauth-user",
     });
     expect(user?.emailVerificationTime).toEqual(expect.any(Number));
   });
@@ -228,7 +226,6 @@ describe("Samebase OAuth account linking", () => {
     expect(snapshot.session?.accountLinkIntent).toBeUndefined();
     expect(snapshot.user).toMatchObject({
       email: "current-session@example.com",
-      githubSignInLogin: "oauth-user",
     });
   });
 

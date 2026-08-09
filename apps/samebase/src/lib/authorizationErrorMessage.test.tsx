@@ -83,4 +83,40 @@ describe("formatAuthorizationErrorMessage", () => {
       "Reconnect the GitHub App for the configured owner. The selected installation belongs to a different GitHub owner.",
     );
   });
+
+  it("names the personal GitHub sign-in method that is required", () => {
+    expect(
+      renderAuthorizationError(
+        { code: "github-sign-in-required", provider: "github-user" },
+        { githubOwnerLogin: "octocat" },
+      ),
+    ).toBe(
+      "Personal GitHub access requires @octocat as the GitHub sign-in method for this Samebase account. Connect it in Account settings, then try again.",
+    );
+  });
+
+  it("uses a safe personal GitHub sign-in fallback when the owner is unavailable", () => {
+    expect(
+      renderAuthorizationError({ code: "github-sign-in-required", provider: "github-app" }),
+    ).toBe(
+      "Personal GitHub access requires the same GitHub account as the GitHub sign-in method for this Samebase account. Connect GitHub in Account settings, then try again.",
+    );
+  });
+
+  it("explains a personal GitHub sign-in mismatch without exposing another account", () => {
+    expect(
+      renderAuthorizationError(
+        { code: "github-sign-in-mismatch", provider: "github-user" },
+        { githubOwnerLogin: "octocat" },
+      ),
+    ).toBe("Use the Samebase account connected to GitHub as @octocat, then try again.");
+  });
+
+  it("uses a safe personal GitHub mismatch fallback when the owner is unavailable", () => {
+    expect(
+      renderAuthorizationError({ code: "github-sign-in-mismatch", provider: "github-app" }),
+    ).toBe(
+      "Use a Samebase account whose GitHub sign-in method matches the personal GitHub account, then try again.",
+    );
+  });
 });

@@ -86,11 +86,10 @@ function readVerifiedOAuthProfile(args: CreateOrUpdateAuthUserArgs) {
   }
   const name = readOptionalProfileString(args.profile, "name");
   const image = readOptionalProfileString(args.profile, "image");
-  const githubLogin =
-    args.provider.id === "github"
-      ? readRequiredProfileString(args.profile, "githubLogin", "GitHub username")
-      : undefined;
-  return { email, providerAccountId, name, image, githubLogin };
+  if (args.provider.id === "github") {
+    readRequiredProfileString(args.profile, "githubLogin", "GitHub username");
+  }
+  return { email, providerAccountId, name, image };
 }
 
 function readSeededPasswordEmail(passwordAuthMode: PasswordAuthMode): string | null {
@@ -173,16 +172,6 @@ async function assertGitHubAccessIdentity(
   }
 }
 
-async function updateGitHubSignInLogin(
-  ctx: MutationCtx,
-  user: Doc<"users">,
-  githubLogin: string | undefined,
-) {
-  if (githubLogin && user.githubSignInLogin !== githubLogin) {
-    await ctx.db.patch(user._id, { githubSignInLogin: githubLogin });
-  }
-}
-
 async function linkOAuthAccount(
   ctx: MutationCtx,
   args: CreateOrUpdateAuthUserArgs,
@@ -219,7 +208,6 @@ async function linkOAuthAccount(
     await assertGitHubAccessIdentity(ctx, user._id, profile.providerAccountId);
   }
 
-  await updateGitHubSignInLogin(ctx, user, profile.githubLogin);
   await ctx.db.patch(session._id, { accountLinkIntent: undefined });
   return user._id;
 }
@@ -251,7 +239,6 @@ async function createOrResolveOAuthUser(
     if (provider === "github") {
       await assertGitHubAccessIdentity(ctx, user._id, profile.providerAccountId);
     }
-    await updateGitHubSignInLogin(ctx, user, profile.githubLogin);
     return user._id;
   }
 
@@ -271,7 +258,6 @@ async function createOrResolveOAuthUser(
     emailVerificationTime: now,
     ...(profile.name ? { name: profile.name } : {}),
     ...(profile.image ? { image: profile.image } : {}),
-    ...(profile.githubLogin ? { githubSignInLogin: profile.githubLogin } : {}),
   });
   await sendNewUserNotification(ctx, {
     profile: args.profile,

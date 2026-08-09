@@ -292,13 +292,13 @@ export const getUserSettings = query({
           if (
             github !== null ||
             account.emailVerified === undefined ||
-            user.githubSignInLogin === undefined
+            account.githubLogin === undefined
           ) {
             throw new Error("GitHub sign-in identity is inconsistent.");
           }
           github = {
             email: normalizeAccountEmail(account.emailVerified),
-            login: user.githubSignInLogin,
+            login: account.githubLogin,
           };
           break;
         case "password":

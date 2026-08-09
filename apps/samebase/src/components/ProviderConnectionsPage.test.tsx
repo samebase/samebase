@@ -516,7 +516,7 @@ describe("ProviderConnectionsPage", () => {
 
     expect(container.textContent).toContain("Authorized as @nicubunu");
     expect(container.textContent).toContain(
-      "If you revoke it, GitHub sign-in and the GitHub App installation stay connected.",
+      "Samebase uses this authorization only to create repositories in this personal GitHub account.",
     );
     await act(async () => {
       findButton(container, "Revoke")?.click();
@@ -562,6 +562,43 @@ describe("ProviderConnectionsPage", () => {
     expect(findButton(container, "Authorize")).toBeUndefined();
     expect(findButton(container, "Revoke")).toBeDefined();
   });
+
+  it.each([
+    ["sign_in_required", "Connect GitHub as @nicubunu in Account settings first."],
+    [
+      "sign_in_mismatch",
+      "Use the Samebase account connected to GitHub as @nicubunu. Check Account settings.",
+    ],
+  ] as const)("does not offer personal authorization for %s", (status, message) => {
+    setProviderQueries();
+    testState.queries.set(
+      getFunctionName(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization),
+      { status, authorizationPresent: false },
+    );
+
+    const container = mountProviderConnectionsPage(personalOrganization);
+
+    expect(container.textContent).toContain(message);
+    expect(findButton(container, "Authorize")).toBeUndefined();
+    expect(findButton(container, "Revoke")).toBeUndefined();
+    expect(container.querySelector('a[href="/settings"]')?.textContent).toBe("Account settings");
+  });
+
+  it.each(["sign_in_required", "sign_in_mismatch"] as const)(
+    "offers stale personal authorization recovery for %s",
+    (status) => {
+      setProviderQueries();
+      testState.queries.set(
+        getFunctionName(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization),
+        { status, authorizationPresent: true },
+      );
+
+      const container = mountProviderConnectionsPage(personalOrganization);
+
+      expect(findButton(container, "Authorize")).toBeUndefined();
+      expect(findButton(container, "Revoke")).toBeDefined();
+    },
+  );
 
   it("shows OAuth as the primary action and direct credentials as text", () => {
     setProviderQueries();

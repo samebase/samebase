@@ -572,6 +572,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/public-landing-shell.live.spec.ts",
   "apps/samebase/e2e/public-landing-shell.spec.ts",
   "apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/mcp-consent-sign-in-no-left-sidebar.png",
+  "apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-github-account-link-required.png",
   "apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-github-button.png",
   "apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-button.png",
   "apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-signup-closed.png",

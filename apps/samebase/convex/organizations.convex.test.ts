@@ -181,6 +181,81 @@ describe("GitHub-backed organizations", () => {
     ]);
   });
 
+  it("requires matching GitHub sign-in and user authorization for personal repository creation", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "personal-capability@example.com",
+        isApproved: true,
+      });
+      const now = Date.now();
+      await ctx.db.insert("githubUserAuthorizations", {
+        userId,
+        githubUserId: "personal-owner-id",
+        githubUserLogin: "personal-owner",
+        accessToken: "personal-capability-access-token",
+        accessTokenExpiresAt: now + 60_000,
+        refreshToken: "personal-capability-refresh-token",
+        refreshTokenExpiresAt: now + 120_000,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return userId;
+    });
+    await t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
+      userId,
+      githubOwnerId: "organization-owner-id",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "organization-owner",
+      githubInstallationId: "organization-installation",
+    });
+    await t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
+      userId,
+      githubOwnerId: "personal-owner-id",
+      githubOwnerType: "user",
+      githubOwnerLogin: "personal-owner",
+      githubInstallationId: "personal-installation",
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|personal-capability`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const readCapabilities = async () => {
+      const organizations = await asUser.query(api.organizations.listForViewer, {});
+      return Object.fromEntries(
+        organizations.map((organization) => [
+          organization.githubOwnerId,
+          organization.canCreateRepository,
+        ]),
+      );
+    };
+
+    await expect(readCapabilities()).resolves.toEqual({
+      "organization-owner-id": true,
+      "personal-owner-id": false,
+    });
+    const signInAccountId = await t.run(async (ctx) => {
+      return await ctx.db.insert("authAccounts", {
+        userId,
+        provider: "github",
+        providerAccountId: "personal-owner-id",
+        emailVerified: "personal-owner@example.com",
+        githubLogin: "personal-owner",
+      });
+    });
+    await expect(readCapabilities()).resolves.toEqual({
+      "organization-owner-id": true,
+      "personal-owner-id": true,
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(signInAccountId, { providerAccountId: "different-owner-id" });
+    });
+    await expect(readCapabilities()).resolves.toEqual({
+      "organization-owner-id": true,
+      "personal-owner-id": false,
+    });
+  });
+
   it("adds or updates one membership and denies owner work to a member", async () => {
     const t = makeConvexTest();
     const { ownerUserId, secondUserId } = await t.run(async (ctx) => {

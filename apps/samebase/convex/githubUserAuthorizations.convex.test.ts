@@ -13,7 +13,9 @@ vi.mock("@octokit/auth-app", async (importOriginal) => {
   };
 });
 
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
+import type { MutationCtx } from "./_generated/server";
 import { upsertGitHubUserAuthorization } from "./githubUserAuthorizations";
 import { makeConvexTest } from "./test.setup";
 
@@ -26,6 +28,23 @@ beforeEach(() => {
 afterEach(() => {
   vi.unstubAllEnvs();
 });
+
+async function insertGitHubSignInAccount(
+  ctx: MutationCtx,
+  args: {
+    githubUserId: string;
+    githubUserLogin: string;
+    userId: Id<"users">;
+  },
+) {
+  return await ctx.db.insert("authAccounts", {
+    userId: args.userId,
+    provider: "github",
+    providerAccountId: args.githubUserId,
+    emailVerified: `${args.githubUserLogin}@example.com`,
+    githubLogin: args.githubUserLogin,
+  });
+}
 
 describe("viewer GitHub user authorization", () => {
   it("returns only the user-facing authorization state, login, and refresh expiry", async () => {
@@ -72,6 +91,30 @@ describe("viewer GitHub user authorization", () => {
       asUser.query(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization, {
         organizationId,
       }),
+    ).resolves.toEqual({ status: "sign_in_required", authorizationPresent: false });
+
+    const signInAccountId = await t.run(async (ctx) => {
+      return await insertGitHubSignInAccount(ctx, {
+        userId,
+        githubUserId: "102",
+        githubUserLogin: "monalisa",
+      });
+    });
+    await expect(
+      asUser.query(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization, {
+        organizationId,
+      }),
+    ).resolves.toEqual({ status: "sign_in_mismatch", authorizationPresent: false });
+    await t.run(async (ctx) => {
+      await ctx.db.patch(signInAccountId, {
+        providerAccountId: "101",
+        githubLogin: "octocat",
+      });
+    });
+    await expect(
+      asUser.query(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization, {
+        organizationId,
+      }),
     ).resolves.toEqual({ status: "not_connected" });
 
     const refreshTokenExpiresAt = Date.now() + 60_000;
@@ -99,6 +142,22 @@ describe("viewer GitHub user authorization", () => {
       githubUserLogin: "octocat",
       refreshTokenExpiresAt,
     });
+    await expect(
+      asUser.query(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization, {
+        organizationId: otherOrganizationId,
+      }),
+    ).resolves.toEqual({
+      status: "different_account",
+      githubUserLogin: "octocat",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.delete(signInAccountId);
+    });
+    await expect(
+      asUser.query(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization, {
+        organizationId,
+      }),
+    ).resolves.toEqual({ status: "sign_in_required", authorizationPresent: true });
     await expect(
       asUser.query(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization, {
         organizationId: otherOrganizationId,
@@ -190,6 +249,11 @@ describe("GitHub user authorization identity boundaries", () => {
         createdAt: now,
         updatedAt: now,
       });
+      await insertGitHubSignInAccount(ctx, {
+        userId,
+        githubUserId: "302",
+        githubUserLogin: "second-user",
+      });
       return { authorizationId, userId };
     });
 
@@ -237,6 +301,11 @@ describe("GitHub user authorization identity boundaries", () => {
         refreshTokenExpiresAt: now + 120_000,
         createdAt: now,
         updatedAt: now,
+      });
+      await insertGitHubSignInAccount(ctx, {
+        userId: secondUserId,
+        githubUserId: "401",
+        githubUserLogin: "shared-user",
       });
       return { authorizationId, secondUserId };
     });
@@ -297,7 +366,7 @@ describe("GitHub user authorization identity boundaries", () => {
           refreshTokenExpiresAt: Date.now() + 120_000,
         });
       }),
-    ).rejects.toThrow("GitHub access must use the connected GitHub sign-in account.");
+    ).rejects.toMatchObject({ data: "github-sign-in-mismatch" });
 
     await expect(
       t.run(async (ctx) =>
@@ -326,6 +395,11 @@ describe("GitHub user authorization identity boundaries", () => {
         providerAccountId: "601",
         emailVerified: "github-sign-in-owner@example.com",
       });
+      await insertGitHubSignInAccount(ctx, {
+        userId: secondUserId,
+        githubUserId: "601",
+        githubUserLogin: "sign-in-owner",
+      });
       return secondUserId;
     });
 
@@ -341,7 +415,7 @@ describe("GitHub user authorization identity boundaries", () => {
           refreshTokenExpiresAt: Date.now() + 120_000,
         });
       }),
-    ).rejects.toThrow("This GitHub account is a sign-in method for another Samebase account.");
+    ).rejects.toThrow("This GitHub account has conflicting Samebase sign-in records.");
 
     await expect(
       t.run(async (ctx) =>
@@ -351,5 +425,59 @@ describe("GitHub user authorization identity boundaries", () => {
           .unique(),
       ),
     ).resolves.toBeNull();
+  });
+
+  it("does not store personal GitHub access without a linked GitHub sign-in method", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        email: "github-sign-in-required@example.com",
+        isApproved: true,
+      });
+    });
+
+    await expect(
+      t.run(async (ctx) => {
+        await upsertGitHubUserAuthorization(ctx.db, {
+          userId,
+          githubUserId: "701",
+          githubUserLogin: "required-user",
+          accessToken: "access-token",
+          accessTokenExpiresAt: Date.now() + 60_000,
+          refreshToken: "refresh-token",
+          refreshTokenExpiresAt: Date.now() + 120_000,
+        });
+      }),
+    ).rejects.toMatchObject({ data: "github-sign-in-required" });
+  });
+
+  it("does not use a legacy personal authorization after GitHub sign-in is removed", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "github-use-sign-in-required@example.com",
+        isApproved: true,
+      });
+      const now = Date.now();
+      await ctx.db.insert("githubUserAuthorizations", {
+        userId,
+        githubUserId: "801",
+        githubUserLogin: "legacy-user",
+        accessToken: "legacy-access-token",
+        accessTokenExpiresAt: now + 60_000,
+        refreshToken: "legacy-refresh-token",
+        refreshTokenExpiresAt: now + 120_000,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return userId;
+    });
+
+    await expect(
+      t.mutation(internal.githubUserAuthorizations.claimForUse, {
+        userId,
+        githubUserId: "801",
+      }),
+    ).rejects.toMatchObject({ data: "github-sign-in-required" });
   });
 });
