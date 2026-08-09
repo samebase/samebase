@@ -70,6 +70,10 @@ apps/samebase/e2e/logo-carpet-hover-visual.spec.ts-snapshots/logo-carpet-hover-g
 apps/samebase/e2e/logo-carpet-hover-visual.spec.ts-snapshots/logo-carpet-hover-phone.png
 apps/samebase/e2e/logo-carpet-hover-visual.spec.ts-snapshots/logo-carpet-hover-resting.png
 apps/samebase/e2e/logo-carpet-hover-visual.spec.ts-snapshots/logo-carpet-hover-slide.png
+apps/samebase/e2e/logo-carpet-shuffle-hover-visual.spec.ts-snapshots/logo-carpet-shuffle-hover-midpoint.png
+apps/samebase/e2e/logo-carpet-shuffle-hover-visual.spec.ts-snapshots/logo-carpet-shuffle-midpoint-root.png
+apps/samebase/e2e/logo-carpet-shuffle-hover-visual.spec.ts-snapshots/logo-carpet-shuffle-post-dock.png
+apps/samebase/e2e/logo-carpet-shuffle-hover-visual.spec.ts-snapshots/logo-carpet-shuffle-source.png
 apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-color-controls.png
 apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-color-picker-popover.png
 apps/samebase/e2e/logo-iso-controls-visual.spec.ts-snapshots/logo-dark-wide-main-pane.png
@@ -133,14 +137,16 @@ apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-interactive.png
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print-mobile.png
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print.png
 apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-authorization-error.png
+apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-connected-mobile.png
 apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-connected.png
 apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-loading.png
+apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-not-configured.png
+apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-personal-sign-in-mismatch.png
+apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-personal-sign-in-required.png
+apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-personal.png
 apps/samebase/e2e/providers-page-visual.spec.ts-snapshots/providers-page-recovery.png
 apps/samebase/e2e/public-account-loading-visual.spec.ts-snapshots/public-account-checking-login.png
 apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/mcp-consent-sign-in-no-left-sidebar.png
-apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-button.png
-apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-google-signup-closed.png
-apps/samebase/e2e/public-landing-shell.spec.ts-snapshots/public-landing-mobile-sidebar-toggle.png
 apps/samebase/e2e/public-legal-route-shell.spec.ts-snapshots/privacy-shell.png
 apps/samebase/e2e/public-legal-route-shell.spec.ts-snapshots/public-route-right-sidebar-account.png
 apps/samebase/e2e/public-legal-route-shell.spec.ts-snapshots/terms-shell.png
@@ -154,6 +160,7 @@ apps/samebase/e2e/settings-page-visual.spec.ts-snapshots/settings-page-authoriza
 apps/samebase/e2e/settings-page-visual.spec.ts-snapshots/settings-page-desktop.png
 apps/samebase/e2e/settings-page-visual.spec.ts-snapshots/settings-page-mobile.png
 apps/samebase/e2e/settings-page-visual.spec.ts-snapshots/settings-sidebar-resize-grip-mobile.png
+apps/samebase/e2e/settings-page-visual.spec.ts-snapshots/settings-sign-in-account-link-required-desktop.png
 apps/samebase/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-desktop.png
 apps/samebase/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-build-status-unavailable-mobile.png
@@ -474,6 +481,7 @@ research/2026-07-29-bristol-tsx-netlify-to-cloudflare-workers.md
 research/2026-07-31-vault-folder-product-research.md
 research/2026-08-03-agent-context-removal-audit.md
 research/2026-08-06-provider-connection-authorization-audit.md
+research/2026-08-09-carpet-shuffle-hover-study.md
 research/agent-context-draft-bundle/noter-manifest.md
 research/agent-context-draft-overlays/noter-app-template.md
 research/agent-context-draft-overlays/noter-convex.md
@@ -626,6 +634,7 @@ specs/117_MANUAL_PASSWORD_AUTH_SPEC.md
 specs/119_POLAR_MONTHLY_BILLING_SPEC.md
 specs/120_ORGANIZATION_OWNERSHIP_SPEC.md
 specs/121_ORGANIZATION_CONTEXT_AND_ROUTE_MODEL.md
+specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md
 specs/README.md
 TODO.md
 VISION.md
