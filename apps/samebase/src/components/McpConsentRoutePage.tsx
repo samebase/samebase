@@ -174,7 +174,7 @@ export function McpConsentRoutePage() {
     [isAuthenticated],
   );
 
-  useCloseOAuthPopup(MCP_CONSENT_APP_PATH, requestId === null);
+  useCloseOAuthPopup(MCP_CONSENT_APP_PATH, undefined, requestId === null);
   usePageMetadata(pageMetadata);
 
   return (

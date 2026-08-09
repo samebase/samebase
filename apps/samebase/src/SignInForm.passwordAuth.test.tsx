@@ -159,14 +159,14 @@ describe("PasswordAuthForm", () => {
   it("marks every root Google sign-in as a public signup return", async () => {
     buildLocationMock.mockImplementation(
       (options: { search: (currentSearch: RootRouteSearch) => RootRouteSearch; to: string }) => {
-        expect(options.to).toBe("/vault");
+        expect(options.to).toBe("/");
         expect(options.search({ "prod-ui": true })).toEqual({
           "prod-ui": true,
-          signup: "google",
           auth: undefined,
-          "auth-return": undefined,
+          "auth-return": "dashboard",
+          signup: "google",
         });
-        return { href: "/vault?prod-ui&signup=google" };
+        return { href: "/?prod-ui&auth-return=dashboard&signup=google" };
       },
     );
     const rootElement = document.createElement("div");
@@ -189,7 +189,10 @@ describe("PasswordAuthForm", () => {
       googleButton.click();
     });
 
-    expect(signInWithOAuthMock).toHaveBeenCalledWith("google", "/vault?prod-ui&signup=google");
+    expect(signInWithOAuthMock).toHaveBeenCalledWith(
+      "google",
+      "/?prod-ui&auth-return=dashboard&signup=google",
+    );
   });
 
   it("hides Google and password controls in the closed-signup state", async () => {

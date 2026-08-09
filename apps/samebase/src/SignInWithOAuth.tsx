@@ -1,7 +1,6 @@
 import { isInIframe, openAuthPopup, useAppSignInActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import {
   PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID,
   PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
@@ -29,9 +28,12 @@ export function SignInWithOAuth({
     router.buildLocation({
       hash: true,
       search: (currentSearch) =>
-        buildOAuthRedirectSearch(currentSearch, provider, { markPublicSignupReturn }),
+        buildOAuthRedirectSearch(currentSearch, provider, {
+          authReturn,
+          markPublicSignupReturn,
+        }),
       state: true,
-      to: authReturn === "dashboard" ? DASHBOARD_ROUTE : ".",
+      to: authReturn === "dashboard" ? "/" : ".",
     }).href;
   const buildPopupPath = () =>
     router.buildLocation({

@@ -2,7 +2,6 @@ import { guard } from "@samebase/dependent";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { useRouter } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { buildOAuthRedirectSearch, type OAuthAuthProvider } from "@/lib/oauthAuthRedirect";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import { resetSamebasePostHogClient } from "@/lib/posthogClient";
@@ -48,7 +47,9 @@ const isAuthPopupRedirectTo = guard<unknown, string>((value) => {
 
   try {
     const redirectUrl = new URL(value, window.location.origin);
-    return redirectUrl.origin === window.location.origin && redirectUrl.pathname === DASHBOARD_ROUTE
+    return redirectUrl.origin === window.location.origin &&
+      redirectUrl.pathname === "/" &&
+      redirectUrl.searchParams.get("auth-return") === "dashboard"
       ? value
       : null;
   } catch {
@@ -226,10 +227,11 @@ export function useAutoSignIn(rootRouteSearch: RootRouteSearch) {
         hash: true,
         search: (currentSearch) =>
           buildOAuthRedirectSearch(currentSearch, authProvider, {
+            authReturn,
             markPublicSignupReturn: signupReturn === authProvider,
           }),
         state: true,
-        to: authReturn === "dashboard" ? DASHBOARD_ROUTE : ".",
+        to: authReturn === "dashboard" ? "/" : ".",
       }).href;
       // Preserve TanStack Router history metadata while stripping auth params
       // from the popup/bootstrap URL before the provider redirect begins.

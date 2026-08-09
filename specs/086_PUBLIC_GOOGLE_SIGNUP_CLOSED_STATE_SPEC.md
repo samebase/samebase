@@ -38,10 +38,10 @@ priority over this generic state.
    minimal notice plus the waitlist form. A recognized authorization error, such as
    `account-link-required`, must instead show its actionable guidance and the sign-in controls. Spec
    122 defines that error behavior.
-4. Successful authentication must clear the signup-return flag so it does not survive into later
-   signed-out sessions. Public Google or GitHub sign-in from `/` must use `/vault` as the provider
-   return route and clear its `signup=<provider>` marker after a successful authenticated return.
-   Direct authenticated visits to `/` must continue rendering the public landing route.
+4. Public Google or GitHub sign-in from `/` must use `/` as the provider return route and keep an
+   `auth-return=dashboard` marker. A failed return stays on `/` so the landing page can show its
+   notice. A successful authenticated return consumes the marker and navigates to `/vault`. Direct
+   authenticated visits to `/` must continue rendering the public landing route.
 5. The first version must not put the raw email address into the URL.
 
 ## Acceptance Criteria
@@ -53,8 +53,8 @@ priority over this generic state.
 - [x] A recognized authorization error takes priority over the signup-closed state and keeps the
       sign-in controls available.
 - [x] Successful Google or GitHub sign-in clears the signup-return marker.
-- [x] Successful public Google or GitHub sign-in completion returns to `/vault` instead of leaving
-      the signed-in user on the public landing route.
+- [x] Public Google or GitHub OAuth returns to `/`, then successful authentication navigates to
+      `/vault`.
 - [x] Direct authenticated visits to `/` still render the public landing route.
 - [x] Iframe-based OAuth preserves the signup-return marker through the popup bootstrap flow.
 - [x] No raw provider email address is put into a URL query param.

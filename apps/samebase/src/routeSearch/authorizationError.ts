@@ -28,6 +28,7 @@ export function clearAuthorizationErrorSearch(search: RootRouteSearch): RootRout
   return applySearchPatch(search, {
     [AUTHORIZATION_ERROR_QUERY_PARAM]: null,
     [AUTHORIZATION_PROVIDER_QUERY_PARAM]: null,
+    "auth-return": null,
     signup: null,
   });
 }

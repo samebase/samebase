@@ -30,6 +30,7 @@ describe("authorization error search", () => {
       clearAuthorizationErrorSearch({
         "authorization-provider": "convex" as const,
         "authorization-error": "target-mismatch" as const,
+        "auth-return": "dashboard" as const,
         "prod-ui": true as const,
         devtools: true as const,
         signup: "github" as const,
