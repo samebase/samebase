@@ -3,10 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
-async function startGitHubOAuth(t: ReturnType<typeof makeConvexTest>) {
-  const start = await t.action(api.auth.signIn, {
+type OAuthActor = Pick<ReturnType<typeof makeConvexTest>, "action">;
+
+async function startGitHubOAuth(
+  t: ReturnType<typeof makeConvexTest>,
+  options: {
+    actor?: OAuthActor;
+    redirectTo?: string;
+  } = {},
+) {
+  const start = await (options.actor ?? t).action(api.auth.signIn, {
     provider: "github",
-    params: { redirectTo: "/" },
+    params: { redirectTo: options.redirectTo ?? "/" },
   });
   if (start.redirect === undefined) {
     throw new Error("OAuth sign-in did not return a redirect.");
@@ -95,6 +103,57 @@ describe("OAuth callback errors", () => {
     );
   });
 
+  it("fails safely without linking when a signed-in callback has no Connect intent", async () => {
+    const t = makeConvexTest();
+    const { sessionId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "missing-intent@example.com",
+        emailVerificationTime: Date.now(),
+        isApproved: true,
+      });
+      await ctx.db.insert("authAccounts", {
+        userId,
+        provider: "google",
+        providerAccountId: "google-missing-intent",
+        emailVerified: "missing-intent@example.com",
+      });
+      const sessionId = await ctx.db.insert("authSessions", {
+        userId,
+        expirationTime: Date.now() + 60_000,
+      });
+      return { sessionId, userId };
+    });
+    const actor = t.withIdentity({
+      subject: `${userId}|${sessionId}`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const cookie = await startGitHubOAuth(t, { actor, redirectTo: "/settings" });
+    stubGitHubOAuthProfile({
+      email: "selected-github@example.com",
+      id: 583233,
+      login: "selected-github",
+    });
+
+    const callbackResponse = await t.fetch("/api/auth/callback/github?code=missing-intent-code", {
+      headers: { cookie },
+    });
+
+    expect(callbackResponse.status).toBe(302);
+    expect(callbackResponse.headers.get("location")).toBe(
+      "https://samebase.test/settings?authorization-provider=github-sign-in&authorization-error=failed",
+    );
+    await expect(
+      t.run(async (ctx) => {
+        return await ctx.db
+          .query("authAccounts")
+          .withIndex("providerAndAccountId", (query) =>
+            query.eq("provider", "github").eq("providerAccountId", "583233"),
+          )
+          .unique();
+      }),
+    ).resolves.toBeNull();
+  });
+
   it("returns the account-linking code after GitHub verifies an existing Google email", async () => {
     const t = makeConvexTest();
     await t.run(async (ctx) => {
@@ -148,23 +207,7 @@ describe("OAuth callback errors", () => {
       tokenIdentifier: `test:${userId}`,
     });
     await asUser.mutation(api.users.beginAuthAccountLink, { provider: "github" });
-    const start = await asUser.action(api.auth.signIn, {
-      provider: "github",
-      params: { redirectTo: "/settings" },
-    });
-    if (start.redirect === undefined) {
-      throw new Error("OAuth sign-in did not return a redirect.");
-    }
-    const internalRedirect = new URL(start.redirect);
-    const signInResponse = await t.fetch(`${internalRedirect.pathname}${internalRedirect.search}`);
-    const setCookie = signInResponse.headers.get("set-cookie");
-    if (setCookie === null) {
-      throw new Error("OAuth sign-in did not return its provider state.");
-    }
-    const cookie = setCookie
-      .split(/, (?=[^;,]+=)/)
-      .map((value) => value.split(";", 1)[0])
-      .join("; ");
+    const cookie = await startGitHubOAuth(t, { actor: asUser, redirectTo: "/settings" });
     await t.run(async (ctx) => {
       await ctx.db.insert("authAccounts", {
         userId,
