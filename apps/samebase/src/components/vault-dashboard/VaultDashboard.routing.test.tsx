@@ -50,7 +50,7 @@ vi.mock("./useVaultWorkspaceModel", () => ({
 
 const { act } = React;
 
-describe("VaultDashboard routing", () => {
+describe("VaultDashboard dialog route cleanup", () => {
   let root: Root | null = null;
   let rootElement: HTMLDivElement | null = null;
 
@@ -79,15 +79,6 @@ describe("VaultDashboard routing", () => {
     await new Promise((resolve) => window.setTimeout(resolve, 0));
   }
 
-  function dashboardTree(initialEntry: string, selectedRepositoryFullName?: string) {
-    return (
-      <TestRouterProvider initialEntries={[initialEntry]}>
-        <VaultDashboard selectedRepositoryFullName={selectedRepositoryFullName} />
-        <LocationProbe />
-      </TestRouterProvider>
-    );
-  }
-
   async function renderDashboard(initialEntry: string, selectedRepositoryFullName?: string) {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -95,7 +86,12 @@ describe("VaultDashboard routing", () => {
     root = mountedRoot;
 
     await act(async () => {
-      mountedRoot.render(dashboardTree(initialEntry, selectedRepositoryFullName));
+      mountedRoot.render(
+        <TestRouterProvider initialEntries={[initialEntry]}>
+          <VaultDashboard selectedRepositoryFullName={selectedRepositoryFullName} />
+          <LocationProbe />
+        </TestRouterProvider>,
+      );
       await settleRouteUpdate();
     });
   }

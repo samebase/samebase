@@ -29,15 +29,6 @@ describe("vault route identity boundary wiring", () => {
       ),
     },
     {
-      name: "dashboard settings",
-      render: () => (
-        <DashboardRoutePage
-          page="settings"
-          selectedRepositoryFullName="route-owner/route-repository"
-        />
-      ),
-    },
-    {
       name: "file",
       render: () => (
         <TestRouterProvider

@@ -13,10 +13,11 @@
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
 - Current checkpoint: PR #1367 merged as `db069c026`; the linked-worktree organization seed
   follow-up passed focused and manual validation. The GitHub identity lifecycle branch is rebased on
-  the current organization and provider model. Full tests and checks pass. A temporary managed
-  repository rename, open-route repair, current-route reload, and cleanup passed. The shared
-  development App has access to all repositories, so repository access removal and App uninstall
-  remain automated fail-closed tests instead of shared-installation manual changes.
+  the current organization and provider model. The focused identity, deletion, and route suites plus
+  Samebase typecheck and focused lint pass. A temporary managed repository rename, open-route
+  repair, current-route reload, and cleanup passed. The shared development App has access to all
+  repositories, so repository access removal and App uninstall remain automated fail-closed tests
+  instead of shared-installation manual changes.
 
 ## Purpose
 
@@ -83,7 +84,6 @@ Development App:
 - Installation target: Any account
 - User authorization during installation: Enabled
 - Expiring user tokens: Enabled
-- Webhooks: Disabled for the first main-flow implementation
 
 Production App:
 
@@ -97,11 +97,11 @@ Production App:
 - Production Convex settings and credentials: Configured and validated
 - User authorization during installation: Enabled
 - Expiring user tokens: Enabled
-- Webhooks: Disabled for the first main-flow implementation
 
-Both Apps have repository Administration read/write, Checks read, Commit statuses read, Contents
-read/write, Pull requests read/write, Workflows read/write, organization Members read, and automatic
-Metadata read. Both development installations accepted the added Members permission.
+Both Apps have webhooks disabled because the current lifecycle has no webhook consumer. Both Apps
+have repository Administration read/write, Checks read, Commit statuses read, Contents read/write,
+Pull requests read/write, Workflows read/write, organization Members read, and automatic Metadata
+read. Both development installations accepted the added Members permission.
 
 Development Convex has the App ID, slug, client ID, client secret, private key, and OAuth callback
 URL. The client secret and private key were validated against GitHub without printing them. Convert

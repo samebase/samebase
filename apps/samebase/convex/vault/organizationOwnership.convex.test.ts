@@ -532,7 +532,7 @@ describe("organization-owned vaults", () => {
     },
   );
 
-  it("uses the organization login after a GitHub owner rename", async () => {
+  it("uses the new organization login after verified reconnect", async () => {
     const t = makeConvexTest();
     const userId = await createUser(t, "nicu@samebase.com");
     const organizationId = await createOrganization(t, {
@@ -629,7 +629,7 @@ describe("organization-owned vaults", () => {
     });
   });
 
-  it("does not let a delayed repair overwrite newer coordinates", async () => {
+  it("does not let a delayed repair overwrite a newer repository name", async () => {
     const t = makeConvexTest();
     const userId = await createUser(t, "delayed-rename-repair@example.com");
     const organizationId = await createOrganization(t, {
@@ -706,7 +706,7 @@ describe("organization-owned vaults", () => {
     ).rejects.toThrow("Vault already exists for this repository.");
   });
 
-  it("does not repair coordinates after either stable identity changes", async () => {
+  it("does not repair the repository name after either stable identity changes", async () => {
     const t = makeConvexTest();
     const userId = await createUser(t, "rename-race@example.com");
     const organizationId = await createOrganization(t, {
@@ -760,7 +760,7 @@ describe("organization-owned vaults", () => {
     });
   });
 
-  it("does not repair coordinates after the acting user loses membership", async () => {
+  it("does not repair the repository name after the acting user loses membership", async () => {
     const t = makeConvexTest();
     const userId = await createUser(t, "rename-revoked@example.com");
     const organizationId = await createOrganization(t, {

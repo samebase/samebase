@@ -363,7 +363,8 @@ Organization deletion is a separate future product or operator action. GitHub Ap
 does not delete Samebase data.
 
 Whole-vault deletion remains available to both `owner` and `member` during pre-beta testing. This
-rollout does not add commit-aware deletion rules or stronger deletion UX. A later vault-lifecycle
+rollout adds only a fail-closed Samebase-only recovery after provider deletion fails. It does not
+add commit-aware deletion rules or broader customer deletion guardrails. A later vault-lifecycle
 task must define those guardrails before deletion is treated as a general customer workflow.
 
 ## Reset Cutover
@@ -423,7 +424,7 @@ required before production deployment, not before development implementation and
 ## Release Validation
 
 The rollout is ready only when focused tests prove the invariants below and the manual acceptance
-order validates the supported user flows:
+checks validate the supported user flows:
 
 - A new or uninvited pending-access user has zero memberships and no billing row.
 - A verified GitHub App installation creates one organization for one stable owner ID, one first
