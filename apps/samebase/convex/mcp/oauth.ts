@@ -6,9 +6,8 @@ import { action, query } from "../functions";
 import { randomToken } from "../oauthUtils";
 import {
   applyMcpDenyErrorParamsToRedirectUrl,
-  type McpAuthorizationSuccessSearchParams,
+  buildMcpAuthorizationSuccessRedirectUrl,
 } from "../../shared/mcpOAuth";
-import { buildUrlWithSearchParams } from "../../shared/urlSearchParams";
 import { isMcpOauthClientInactive } from "./client";
 import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "./model";
 import { getDefaultMcpProtocolValidationOptions, redirectUriMatchesRegistered } from "./protocol";
@@ -87,6 +86,7 @@ const issueAuthorizationCodeForAuthRequestResultValidator = union(
   object({
     ok: literal(true),
     redirectUri: string(),
+    resource: string(),
     state: optional(string()),
   }),
   mcpOauthErrorValidator,
@@ -130,6 +130,7 @@ const denyAuthorizationRequestResultValidator = union(
   object({
     ok: literal(true),
     redirectUri: string(),
+    resource: string(),
     state: optional(string()),
   }),
   mcpOauthErrorValidator,
@@ -166,6 +167,7 @@ const exchangeAuthorizationCodeArgsValidator = object({
   codeHash: string(),
   clientId: string(),
   redirectUri: string(),
+  resource: string(),
   codeVerifier: string(),
   allowLoopbackHttpRedirectUris: optional(boolean()),
   accessTokenHash: string(),
@@ -192,6 +194,7 @@ type TokenExchangeResult = Infer<typeof tokenExchangeResultValidator>;
 const exchangeRefreshTokenArgsValidator = object({
   refreshTokenHash: string(),
   clientId: string(),
+  resource: string(),
   accessTokenHash: string(),
   newRefreshTokenHash: string(),
   accessTokenExpiresAt: number(),
@@ -527,6 +530,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
     return {
       ok: true,
       redirectUri: authRequest.redirectUri,
+      resource: authRequest.resource,
       state: authRequest.state,
     };
   },
@@ -563,6 +567,7 @@ export const denyAuthorizationRequest = internalMutation({
     return {
       ok: true,
       redirectUri: authRequest.redirectUri,
+      resource: authRequest.resource,
       state: authRequest.state,
     };
   },
@@ -598,10 +603,11 @@ export const completeAuthorizationRequestForCurrentUser = action({
     }
 
     return {
-      redirectUrl: buildUrlWithSearchParams(issueResult.redirectUri, {
+      redirectUrl: buildMcpAuthorizationSuccessRedirectUrl(issueResult.redirectUri, {
         code: authorizationCode,
+        iss: new URL(issueResult.resource).origin,
         state: issueResult.state,
-      } satisfies McpAuthorizationSuccessSearchParams),
+      }),
     };
   },
 });
@@ -625,7 +631,11 @@ export const denyAuthorizationRequestForCurrentUser = action({
     }
 
     const redirectUrl = new URL(denyResult.redirectUri);
-    applyMcpDenyErrorParamsToRedirectUrl(redirectUrl, denyResult.state);
+    applyMcpDenyErrorParamsToRedirectUrl(
+      redirectUrl,
+      denyResult.state,
+      new URL(denyResult.resource).origin,
+    );
 
     return { redirectUrl: redirectUrl.toString() };
   },
@@ -672,6 +682,14 @@ export const exchangeAuthorizationCode = internalMutation({
         status: 400,
         error: "invalid_grant",
         errorDescription: "Authorization code does not match client binding.",
+      });
+    }
+
+    if (authorizationCode.resource !== args.resource) {
+      return oauthError({
+        status: 400,
+        error: "invalid_target",
+        errorDescription: "resource does not match the authorization code.",
       });
     }
 
@@ -919,6 +937,13 @@ export const exchangeRefreshToken = internalMutation({
         status: 400,
         error: "invalid_grant",
         errorDescription: "Grant is no longer active.",
+      });
+    }
+    if (grant.resource !== args.resource) {
+      return oauthError({
+        status: 400,
+        error: "invalid_target",
+        errorDescription: "resource does not match the authorization grant.",
       });
     }
     const client = await ctx.db

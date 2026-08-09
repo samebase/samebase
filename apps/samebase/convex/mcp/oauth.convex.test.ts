@@ -86,10 +86,13 @@ async function seedRefreshTokenFamily() {
     newRefreshTokenHash: string;
     accessTokenHash: string;
     now: number;
+    requestedResource?: string;
   }) => {
+    const { requestedResource, ...exchangeArgs } = args;
     return await t.mutation(internal.mcp.oauth.exchangeRefreshToken, {
-      ...args,
+      ...exchangeArgs,
       clientId,
+      resource: requestedResource ?? resource,
       accessTokenExpiresAt: args.now + 60_000,
       refreshTokenExpiresAt: args.now + 60_000,
     });
@@ -240,6 +243,78 @@ describe("MCP OAuth refresh token replay", () => {
     });
 
     await expect(readDatabaseState()).resolves.toEqual(before);
+  });
+
+  it("does not rotate a refresh token for a different resource", async () => {
+    const { exchange, readDatabaseState } = await seedRefreshTokenFamily();
+    const before = await readDatabaseState();
+
+    await expect(
+      exchange({
+        refreshTokenHash: initialRefreshTokenHash,
+        newRefreshTokenHash: "refresh_hash_wrong_resource_unused",
+        accessTokenHash: "access_hash_wrong_resource_unused",
+        now: now + 1,
+        requestedResource: "https://other.example/mcp",
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      status: 400,
+      error: "invalid_target",
+      errorDescription: "resource does not match the authorization grant.",
+    });
+
+    await expect(readDatabaseState()).resolves.toEqual(before);
+  });
+});
+
+describe("MCP OAuth token resource binding", () => {
+  it("does not redeem an authorization code for a different resource", async () => {
+    const t = makeConvexTest();
+    await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "authorization-code-resource@example.test",
+        isApproved: true,
+      });
+      await ctx.db.insert("mcpAuthorizationCodes", {
+        codeHash: "resource_bound_code_hash",
+        requestId: "mcpar_resource_bound_code",
+        grantId: "mcpg_resource_bound_code",
+        clientId,
+        userId,
+        redirectUri: "http://127.0.0.1/callback",
+        resource,
+        scope,
+        expiresAt: now + 60_000,
+      });
+    });
+    const before = await t.run(
+      async (ctx) => await ctx.db.query("mcpAuthorizationCodes").collect(),
+    );
+
+    await expect(
+      t.mutation(internal.mcp.oauth.exchangeAuthorizationCode, {
+        codeHash: "resource_bound_code_hash",
+        clientId,
+        redirectUri: "http://127.0.0.1/callback",
+        resource: "https://other.example/mcp",
+        codeVerifier: "unused-code-verifier",
+        accessTokenHash: "unused-access-token-hash",
+        refreshTokenHash: "unused-refresh-token-hash",
+        accessTokenExpiresAt: now + 60_000,
+        refreshTokenExpiresAt: now + 60_000,
+        now: now + 1,
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      status: 400,
+      error: "invalid_target",
+      errorDescription: "resource does not match the authorization code.",
+    });
+
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("mcpAuthorizationCodes").collect()),
+    ).resolves.toEqual(before);
   });
 });
 
@@ -769,6 +844,7 @@ describe("MCP OAuth account deletion access", () => {
         codeHash: "authorization_code_hash",
         clientId,
         redirectUri: "http://127.0.0.1/callback",
+        resource,
         codeVerifier,
         accessTokenHash: "unused_access_token_hash",
         refreshTokenHash: "unused_refresh_token_hash",
@@ -786,6 +862,7 @@ describe("MCP OAuth account deletion access", () => {
       t.mutation(internal.mcp.oauth.exchangeRefreshToken, {
         refreshTokenHash: "deleting_refresh_token_hash",
         clientId,
+        resource,
         accessTokenHash: "unused_refresh_access_token_hash",
         newRefreshTokenHash: "unused_rotated_refresh_token_hash",
         accessTokenExpiresAt: now + 60_000,

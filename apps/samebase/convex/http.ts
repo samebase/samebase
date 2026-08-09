@@ -12,6 +12,7 @@ import {
   getMcpOauthProtectedResourceMetadata,
   handleMcpRequest,
   registerMcpOauthClient,
+  rejectMcpLegacyTransportMethod,
 } from "./mcp/http";
 import { handlePolarWebhook } from "./polarWebhooks";
 import { env, httpAction } from "./_generated/server";
@@ -116,6 +117,18 @@ http.route({
   path: "/mcp",
   method: "POST",
   handler: handleMcpRequest,
+});
+
+http.route({
+  path: "/mcp",
+  method: "GET",
+  handler: rejectMcpLegacyTransportMethod,
+});
+
+http.route({
+  path: "/mcp",
+  method: "DELETE",
+  handler: rejectMcpLegacyTransportMethod,
 });
 
 http.route({
