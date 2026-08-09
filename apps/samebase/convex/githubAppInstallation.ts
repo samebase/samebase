@@ -250,7 +250,10 @@ export const deleteSetupState = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await ctx.db.delete(args.setupStateId);
+    const setupState = await ctx.db.get(args.setupStateId);
+    if (setupState !== null) {
+      await ctx.db.delete(setupState._id);
+    }
     return null;
   },
 });

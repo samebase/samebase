@@ -1,13 +1,12 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
 import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { useAppAuthActions, useAppSignInActions } from "@/authClient";
 import { AccountDeletionDialog } from "@/components/AccountDeletionDialog";
-import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import { McpClientsSettingsSection } from "@/components/McpClientsSettingsSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +16,7 @@ import { readCurrentAuthTokenProfileClaims } from "@/lib/authTokenProfileJwt";
 import { getRouteApi, useLocation, useRouter } from "@tanstack/react-router";
 import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
 import { applySearchPatch } from "@/routing/searchFlags";
-import type { AuthorizationError } from "../../shared/authorizationError";
-import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
+import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 
 const settingsRouteApi = getRouteApi("/settings");
 
@@ -42,11 +40,7 @@ function readErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-export function UserSettingsPage({
-  authorizationError = null,
-}: {
-  authorizationError?: AuthorizationError | null;
-}) {
+export function UserSettingsPage({ authorizationNotice }: { authorizationNotice: ReactNode }) {
   const router = useRouter();
   const navigate = settingsRouteApi.useNavigate();
   const search = settingsRouteApi.useSearch();
@@ -67,9 +61,19 @@ export function UserSettingsPage({
   const [authAccountLinkRequestState, setAuthAccountLinkRequestState] =
     useState<AuthAccountLinkRequestState>("idle");
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
-  const authorizationErrorMessage = authorizationError
-    ? formatAuthorizationErrorMessage(authorizationError)
-    : null;
+
+  useEffect(() => {
+    const resetRestoredAccountLinkRequest = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setAuthAccountLinkRequestState("idle");
+      }
+    };
+
+    window.addEventListener("pageshow", resetRestoredAccountLinkRequest);
+    return () => {
+      window.removeEventListener("pageshow", resetRestoredAccountLinkRequest);
+    };
+  }, []);
 
   if (settings === undefined) {
     return null;
@@ -162,10 +166,11 @@ export function UserSettingsPage({
     if (authAccountLinkRequestState !== "idle") {
       return;
     }
+    const returnToPath = getCurrentRootRelativeUrl();
     setAuthAccountLinkRequestState(provider);
     try {
       await beginAuthAccountLink({ provider });
-      await signInWithOAuth(provider, "/settings");
+      await signInWithOAuth(provider, returnToPath);
     } catch (error) {
       toast({
         description: readErrorMessage(error, `Could not connect ${provider}.`),
@@ -240,11 +245,7 @@ export function UserSettingsPage({
           {isSigningOut ? "Signing out..." : "Sign out"}
         </Button>
       </div>
-      {authorizationErrorMessage ? (
-        <div className="mt-4">
-          <AuthorizationErrorNotice>{authorizationErrorMessage}</AuthorizationErrorNotice>
-        </div>
-      ) : null}
+      {authorizationNotice ? <div className="mt-4">{authorizationNotice}</div> : null}
 
       <section className="mt-8 border-t pt-6" aria-labelledby="settings-profile-heading">
         <h2 id="settings-profile-heading" className="text-base font-semibold">

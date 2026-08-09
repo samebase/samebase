@@ -112,11 +112,13 @@ function setDefaultQueries() {
 let root: Root | null = null;
 let rootElement: HTMLDivElement | null = null;
 
-async function mountSettingsPage() {
+async function mountSettingsPage(authorizationNotice: React.ReactNode = null) {
   rootElement = document.createElement("div");
   document.body.append(rootElement);
   root = createRoot(rootElement);
-  await act(async () => root?.render(<UserSettingsPage />));
+  await act(async () =>
+    root?.render(<UserSettingsPage authorizationNotice={authorizationNotice} />),
+  );
   return rootElement;
 }
 
@@ -139,6 +141,7 @@ describe("UserSettingsPage", () => {
     testState.signInWithOAuth.mockReset();
     testState.signInWithOAuth.mockResolvedValue(undefined);
     testState.signOut.mockReset();
+    window.history.replaceState({}, "", "/settings");
     setDefaultQueries();
   });
 
@@ -155,6 +158,7 @@ describe("UserSettingsPage", () => {
     { label: "Google", provider: "google" },
     { label: "GitHub", provider: "github" },
   ] as const)("starts an explicit $label sign-in connection", async ({ label, provider }) => {
+    window.history.replaceState({}, "", "/settings?prod-ui&source=account#sign-in-methods");
     testState.queries.set(getFunctionName(api.users.getUserSettings), {
       accountEmail: "account@samebase.com",
       displayName: "Current name",
@@ -175,7 +179,51 @@ describe("UserSettingsPage", () => {
     });
 
     expect(beginAuthAccountLink).toHaveBeenCalledWith({ provider });
-    expect(testState.signInWithOAuth).toHaveBeenCalledWith(provider, "/settings");
+    expect(testState.signInWithOAuth).toHaveBeenCalledWith(
+      provider,
+      "/settings?prod-ui&source=account#sign-in-methods",
+    );
+  });
+
+  it("resets a pending sign-in connection only after a persisted page restore", async () => {
+    testState.queries.set(getFunctionName(api.users.getUserSettings), {
+      accountEmail: "account@samebase.com",
+      displayName: "Current name",
+      signInMethods: {
+        github: null,
+        google: null,
+        password: null,
+      },
+    });
+    testState.mutations.set(
+      getFunctionName(api.users.beginAuthAccountLink),
+      vi.fn(async () => null),
+    );
+    const container = await mountSettingsPage();
+
+    await act(async () => {
+      findButton(container, "Connect GitHub")?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(findButton(container, "Connecting...")).not.toBeUndefined();
+
+    const ordinaryPageShow = new Event("pageshow");
+    Object.defineProperty(ordinaryPageShow, "persisted", { value: false });
+    await act(async () => window.dispatchEvent(ordinaryPageShow));
+    expect(findButton(container, "Connecting...")).not.toBeUndefined();
+
+    const restoredPageShow = new Event("pageshow");
+    Object.defineProperty(restoredPageShow, "persisted", { value: true });
+    await act(async () => window.dispatchEvent(restoredPageShow));
+    expect(findButton(container, "Connect GitHub")).not.toBeUndefined();
+  });
+
+  it("places the route-owned authorization notice in authenticated settings", async () => {
+    const container = await mountSettingsPage(<div role="alert">Account link failed</div>);
+
+    expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1);
+    expect(container.textContent).toContain("Account link failed");
   });
 
   it("keeps Google and GitHub as fixed sign-in rows without removal actions", async () => {

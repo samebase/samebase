@@ -347,7 +347,7 @@ export const beginAuthAccountLink = mutation({
       throw new Error("The current sign-in session expired.");
     }
     if (account !== null) {
-      throw new Error(`This ${args.provider} sign-in method is already connected.`);
+      throw new ConvexError("This sign-in method is already connected.");
     }
     await ctx.db.patch(session._id, {
       accountLinkIntent: {

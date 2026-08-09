@@ -56,7 +56,12 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
 });
 
 vi.mock("@/SignInForm", () => ({
-  SignInForm: () => <div data-testid="sign-in-form">Sign in</div>,
+  SignInForm: ({ topNotice }: { topNotice: React.ReactNode }) => (
+    <div data-testid="sign-in-form">
+      {topNotice}
+      Sign in
+    </div>
+  ),
 }));
 
 vi.mock("@/components/ApprovalGate", () => ({
@@ -205,6 +210,56 @@ describe("AuthenticatedAppRoutePage", () => {
     expect(routerState.navigate).toHaveBeenCalledWith(
       expect.objectContaining({ hash: true, replace: true, resetScroll: false, to: "." }),
     );
+  });
+
+  it("keeps one route-owned Settings notice when temporary auth resolves signed out", async () => {
+    authState.isLoading = true;
+    locationState.pathname = "/settings";
+    rootSearchState.search = {
+      "authorization-provider": "github-sign-in",
+      "authorization-error": "account-link-required",
+    };
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    const createRoutePage = () => (
+      <AppAuthPresentationProvider storageNamespace={TEST_STORAGE_NAMESPACE}>
+        <AuthenticatedUserRoutePage
+          signInTopNotice={
+            <div data-testid="settings-authorization-notice">Account link failed</div>
+          }
+        >
+          <ProtectedRouteChild />
+        </AuthenticatedUserRoutePage>
+      </AppAuthPresentationProvider>
+    );
+
+    try {
+      await act(async () => {
+        root.render(createRoutePage());
+      });
+      expect(rootElement.innerHTML).toContain("temporary-auth-route-shell");
+      expect(rootElement.innerHTML).not.toContain("Account link failed");
+
+      authState.isLoading = false;
+      await act(async () => {
+        root.render(createRoutePage());
+      });
+
+      expect(rootElement.textContent).toContain("Sign in");
+      expect(rootElement.textContent).toContain("Account link failed");
+      expect(
+        rootElement.querySelectorAll('[data-testid="settings-authorization-notice"]'),
+      ).toHaveLength(1);
+      expect(toastState.toast).not.toHaveBeenCalled();
+      expect(routerState.navigate).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      rootElement.remove();
+    }
   });
 
   it("leaves a personal repository authorization error for the Providers route", async () => {

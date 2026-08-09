@@ -94,14 +94,14 @@ function FallbackAuthorizationErrorNotice({
   return null;
 }
 
-function AuthenticatedRouteSignInForm() {
+function AuthenticatedRouteSignInForm({ topNotice }: { topNotice: ReactNode }) {
   return (
     <Suspense fallback={null}>
       <SignInForm
         authPlacement="inline"
         landingPageMarkdown={landingPageMarkdown}
         logo="classic"
-        topNotice={null}
+        topNotice={topNotice}
       />
     </Suspense>
   );
@@ -110,9 +110,11 @@ function AuthenticatedRouteSignInForm() {
 function AuthenticatedRoutePage({
   approvalRequired,
   children,
+  signInTopNotice,
 }: {
   approvalRequired: boolean;
   children: ReactNode;
+  signInTopNotice: ReactNode;
 }) {
   const pathname = useLocation({
     select: (location) => location.pathname,
@@ -149,7 +151,7 @@ function AuthenticatedRoutePage({
     return (
       <>
         {fallbackAuthorizationErrorNotice}
-        <AuthenticatedRouteSignInForm />
+        <AuthenticatedRouteSignInForm topNotice={signInTopNotice} />
       </>
     );
   }
@@ -167,16 +169,30 @@ function AuthenticatedRoutePage({
         )}
       </Authenticated>
       <Unauthenticated>
-        <AuthenticatedRouteSignInForm />
+        <AuthenticatedRouteSignInForm topNotice={signInTopNotice} />
       </Unauthenticated>
     </>
   );
 }
 
 export function AuthenticatedAppRoutePage({ children }: { children: ReactNode }) {
-  return <AuthenticatedRoutePage approvalRequired>{children}</AuthenticatedRoutePage>;
+  return (
+    <AuthenticatedRoutePage approvalRequired signInTopNotice={null}>
+      {children}
+    </AuthenticatedRoutePage>
+  );
 }
 
-export function AuthenticatedUserRoutePage({ children }: { children: ReactNode }) {
-  return <AuthenticatedRoutePage approvalRequired={false}>{children}</AuthenticatedRoutePage>;
+export function AuthenticatedUserRoutePage({
+  children,
+  signInTopNotice = null,
+}: {
+  children: ReactNode;
+  signInTopNotice?: ReactNode;
+}) {
+  return (
+    <AuthenticatedRoutePage approvalRequired={false} signInTopNotice={signInTopNotice}>
+      {children}
+    </AuthenticatedRoutePage>
+  );
 }

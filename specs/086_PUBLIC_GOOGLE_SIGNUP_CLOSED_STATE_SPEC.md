@@ -10,7 +10,8 @@
 
 When a cold public landing visitor starts Google or GitHub auth from `/` and returns still
 unauthenticated, Samebase should show a dedicated signup-closed landing state instead of silently
-dropping the user back onto the default landing page.
+dropping the user back onto the default landing page. A recognized, safe authorization error takes
+priority over this generic state.
 
 ## Goals
 
@@ -22,8 +23,8 @@ dropping the user back onto the default landing page.
 ## Non-Goals
 
 - Prefilling the waitlist form from the provider profile email.
-- Distinguishing allowlist denial from every other unauthenticated OAuth return case in this first
-  version.
+- Defining account-linking error semantics, which belong to
+  `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md`.
 - Reworking the post-authenticated approval gate.
 
 ## Required Behavior
@@ -31,9 +32,12 @@ dropping the user back onto the default landing page.
 1. Every public landing Google or GitHub auth entrypoint, including the iframe popup fallback, must
    mark its OAuth `redirectTo` with an app-owned signup-return flag.
 2. If that OAuth round-trip returns to `/` without producing an authenticated session, the landing
-   page must render a signup-closed state.
+   page must render a signup-closed state unless the return contains a recognized, safe
+   `authorization-error`.
 3. The signup-closed state must hide Google, GitHub, and password auth controls and keep only the
-   minimal notice plus the waitlist form.
+   minimal notice plus the waitlist form. A recognized authorization error, such as
+   `account-link-required`, must instead show its actionable guidance and the sign-in controls. Spec
+   122 defines that error behavior.
 4. Successful authentication must clear the signup-return flag so it does not survive into later
    signed-out sessions. Public Google or GitHub sign-in from `/` must use `/vault` as the provider
    return route and clear its `signup=<provider>` marker after a successful authenticated return.
@@ -46,6 +50,8 @@ dropping the user back onto the default landing page.
       default landing state.
 - [x] The signup-closed state keeps the waitlist form available.
 - [x] The signup-closed state does not expose auth controls.
+- [x] A recognized authorization error takes priority over the signup-closed state and keeps the
+      sign-in controls available.
 - [x] Successful Google or GitHub sign-in clears the signup-return marker.
 - [x] Successful public Google or GitHub sign-in completion returns to `/vault` instead of leaving
       the signed-in user on the public landing route.

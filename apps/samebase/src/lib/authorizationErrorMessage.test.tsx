@@ -43,6 +43,10 @@ describe("formatAuthorizationErrorMessage", () => {
       expected:
         "The email on this Google account is already used by another Samebase account. Sign in to that account with an existing method, then connect Google in Account settings.",
     },
+    {
+      authorizationError: { code: "target-mismatch", provider: "github-sign-in" },
+      expected: "Select the provider account that is connected to this Samebase account.",
+    },
   ] satisfies readonly {
     authorizationError: AuthorizationError;
     expected: string;

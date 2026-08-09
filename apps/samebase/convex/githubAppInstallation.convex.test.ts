@@ -1077,6 +1077,28 @@ describe("verified GitHub App installation completion", () => {
     expect(githubAppMocks.revokeGitHubAppUserToken).not.toHaveBeenCalled();
   });
 
+  it("keeps setup-state cleanup idempotent after a callback race", async () => {
+    const t = makeConvexTest();
+    const setupStateId = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "callback-cleanup@example.com",
+        isApproved: true,
+      });
+      return await ctx.db.insert("githubAppSetupStates", {
+        userId,
+        state: "callback-cleanup-state",
+        returnToPath: "/",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+    });
+
+    await t.mutation(internal.githubAppInstallation.deleteSetupState, { setupStateId });
+    await t.mutation(internal.githubAppInstallation.deleteSetupState, { setupStateId });
+
+    await expect(t.run(async (ctx) => await ctx.db.get(setupStateId))).resolves.toBeNull();
+  });
+
   it("consumes canceled user authorization state and returns through Providers", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {

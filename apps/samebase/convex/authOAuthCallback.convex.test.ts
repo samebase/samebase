@@ -123,6 +123,83 @@ describe("OAuth callback errors", () => {
     );
   });
 
+  it("returns a safe target mismatch when another GitHub identity connects before callback", async () => {
+    const t = makeConvexTest();
+    const { sessionId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        email: "callback-race@example.com",
+        emailVerificationTime: Date.now(),
+        isApproved: true,
+      });
+      await ctx.db.insert("authAccounts", {
+        userId,
+        provider: "google",
+        providerAccountId: "google-callback-race",
+        emailVerified: "callback-race@example.com",
+      });
+      const sessionId = await ctx.db.insert("authSessions", {
+        userId,
+        expirationTime: Date.now() + 60_000,
+      });
+      return { sessionId, userId };
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|${sessionId}`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    await asUser.mutation(api.users.beginAuthAccountLink, { provider: "github" });
+    const start = await asUser.action(api.auth.signIn, {
+      provider: "github",
+      params: { redirectTo: "/settings" },
+    });
+    if (start.redirect === undefined) {
+      throw new Error("OAuth sign-in did not return a redirect.");
+    }
+    const internalRedirect = new URL(start.redirect);
+    const signInResponse = await t.fetch(`${internalRedirect.pathname}${internalRedirect.search}`);
+    const setCookie = signInResponse.headers.get("set-cookie");
+    if (setCookie === null) {
+      throw new Error("OAuth sign-in did not return its provider state.");
+    }
+    const cookie = setCookie
+      .split(/, (?=[^;,]+=)/)
+      .map((value) => value.split(";", 1)[0])
+      .join("; ");
+    await t.run(async (ctx) => {
+      await ctx.db.insert("authAccounts", {
+        userId,
+        provider: "github",
+        providerAccountId: "github-connected-first",
+        emailVerified: "callback-race@example.com",
+      });
+    });
+    stubGitHubOAuthProfile({
+      email: "callback-selection@example.com",
+      id: 583232,
+      login: "callback-selection",
+    });
+
+    const callbackResponse = await t.fetch("/api/auth/callback/github?code=github-race-code", {
+      headers: { cookie },
+    });
+
+    expect(callbackResponse.status).toBe(302);
+    expect(callbackResponse.headers.get("location")).toBe(
+      "https://samebase.test/settings?authorization-provider=github-sign-in&authorization-error=target-mismatch",
+    );
+    const snapshot = await t.run(async (ctx) => ({
+      account: await ctx.db
+        .query("authAccounts")
+        .withIndex("userIdAndProvider", (query) =>
+          query.eq("userId", userId).eq("provider", "github"),
+        )
+        .unique(),
+      session: await ctx.db.get(sessionId),
+    }));
+    expect(snapshot.account).toMatchObject({ providerAccountId: "github-connected-first" });
+    expect(snapshot.session).toMatchObject({ accountLinkIntent: { provider: "github" } });
+  });
+
   it("stores and refreshes the GitHub login on its sign-in account", async () => {
     const t = makeConvexTest();
     const firstCookie = await startGitHubOAuth(t);

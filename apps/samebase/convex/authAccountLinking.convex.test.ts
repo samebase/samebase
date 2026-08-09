@@ -391,6 +391,39 @@ describe("Samebase OAuth account linking", () => {
     );
   });
 
+  it("returns a safe error when the sign-in method connects before Connect starts", async () => {
+    const t = makeConvexTest();
+    const { sessionId, userId } = await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "begin-race@example.com");
+      const sessionId = await ctx.db.insert("authSessions", {
+        userId,
+        expirationTime: Date.now() + 60_000,
+      });
+      await ctx.db.insert("authAccounts", {
+        userId,
+        provider: "github",
+        providerAccountId: "github-already-connected",
+        emailVerified: "begin-race@example.com",
+      });
+      return { sessionId, userId };
+    });
+
+    await expect(
+      t
+        .withIdentity({
+          subject: `${userId}|${sessionId}`,
+          tokenIdentifier: `test:${userId}`,
+        })
+        .mutation(api.users.beginAuthAccountLink, { provider: "github" }),
+    ).rejects.toMatchObject({
+      data: "This sign-in method is already connected.",
+    });
+
+    await expect(t.run(async (ctx) => await ctx.db.get(sessionId))).resolves.not.toHaveProperty(
+      "accountLinkIntent",
+    );
+  });
+
   it("rejects a provider identity that belongs to another Samebase user", async () => {
     const t = makeConvexTest();
     const { otherUserId, sessionId } = await t.run(async (ctx) => {

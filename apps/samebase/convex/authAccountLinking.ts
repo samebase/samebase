@@ -199,7 +199,7 @@ async function linkOAuthAccount(
     currentAccount !== undefined &&
     currentAccount.providerAccountId !== profile.providerAccountId
   ) {
-    throw new Error(`A different ${providerLabel} account is already connected.`);
+    throw new ConvexError("target-mismatch");
   }
   if (currentAccount === undefined && args.existingUserId !== null) {
     throw new Error(`This ${providerLabel} account link is inconsistent.`);

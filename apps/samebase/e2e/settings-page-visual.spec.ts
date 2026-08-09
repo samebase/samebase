@@ -196,6 +196,24 @@ test("Settings page shows a GitHub sign-in authorization error once", async ({ p
   });
 });
 
+test("signed-out Settings explains an account-link-required return", async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto(
+    "/settings?authorization-provider=github-sign-in&authorization-error=account-link-required",
+    { waitUntil: "domcontentloaded" },
+  );
+
+  const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+  await expect(accountSection.getByRole("alert")).toHaveCount(1);
+  await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
+  await expect(page).toHaveURL(/\/settings$/u);
+  await expect(accountSection).toHaveScreenshot(
+    "settings-sign-in-account-link-required-desktop.png",
+    screenshotOptions,
+  );
+});
+
 test("user Settings rejects an organization checkout return", async ({ page }) => {
   await openSettings(page);
 
