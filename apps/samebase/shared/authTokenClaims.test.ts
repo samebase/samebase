@@ -4,10 +4,7 @@ import {
   AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH,
   buildAuthTokenProfileCustomClaims,
   readAuthTokenProfileClaims,
-  type AuthTokenAuthProvider,
 } from "./authTokenClaims";
-
-const AUTH_TOKEN_AUTH_PROVIDERS: AuthTokenAuthProvider[] = ["google", "password"];
 
 function createEmail(length: number) {
   const suffix = "@b.co";
@@ -37,18 +34,20 @@ describe("auth token claims", () => {
     });
   });
 
-  it.each(AUTH_TOKEN_AUTH_PROVIDERS)("keeps supported %s auth provider claims", (provider) => {
-    expect(
-      readAuthTokenProfileClaims({
-        accountLabelKind: "email",
-        accountLabel: "nicu@samebase.com",
-        authProvider: provider,
-      }),
-    ).toEqual({
-      accountPresentation: { kind: "email", label: "nicu@samebase.com" },
-      authProvider: provider,
-    });
-  });
+  it.each(["google", "github", "password", 123])(
+    "ignores legacy auth provider claim %j",
+    (provider) => {
+      expect(
+        readAuthTokenProfileClaims({
+          accountLabelKind: "email",
+          accountLabel: "nicu@samebase.com",
+          authProvider: provider,
+        }),
+      ).toEqual({
+        accountPresentation: { kind: "email", label: "nicu@samebase.com" },
+      });
+    },
+  );
 
   it.each([
     {},
@@ -94,26 +93,20 @@ describe("auth token claims", () => {
       accountLabelKind: "email",
       accountLabel: "a".repeat(AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH + 1),
     },
-    { accountLabelKind: "email", accountLabel: "nicu@samebase.com", authProvider: "netlify" },
-    { accountLabelKind: "email", accountLabel: "nicu@samebase.com", authProvider: "github" },
   ])("rejects invalid or incomplete presentation claims %j", (input) => {
     expect(readAuthTokenProfileClaims(input)).toBe(null);
   });
 
   it("builds flat display-name claims from a valid user", () => {
     expect(
-      buildAuthTokenProfileCustomClaims(
-        {
-          displayName: " Nicu ",
-          email: "nicu@samebase.com",
-          name: "Provider name",
-        },
-        "password",
-      ),
+      buildAuthTokenProfileCustomClaims({
+        displayName: " Nicu ",
+        email: "nicu@samebase.com",
+        name: "Provider name",
+      }),
     ).toEqual({
       accountLabelKind: "displayName",
       accountLabel: "Nicu",
-      authProvider: "password",
     });
   });
 

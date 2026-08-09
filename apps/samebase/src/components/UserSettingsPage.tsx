@@ -1,26 +1,22 @@
 import { useConvexAuth } from "@convex-dev/auth/react";
-import { useAction, useMutation, useQuery } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { Loader2 } from "lucide-react";
 import { api } from "../../convex/_generated/api";
 import { type AccountPresentation } from "../../shared/accountPresentation";
-import { useAppAuthActions } from "@/authClient";
+import { useAppAuthActions, useAppSignInActions } from "@/authClient";
 import { AccountDeletionDialog } from "@/components/AccountDeletionDialog";
-import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import { McpClientsSettingsSection } from "@/components/McpClientsSettingsSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { readCurrentAuthTokenProfileClaims } from "@/lib/authTokenProfileJwt";
-import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
-import { useNow } from "@/hooks/useNow";
 import { getRouteApi, useLocation, useRouter } from "@tanstack/react-router";
 import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
 import { applySearchPatch } from "@/routing/searchFlags";
-import type { AuthorizationError } from "../../shared/authorizationError";
-import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
+import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 
 const settingsRouteApi = getRouteApi("/settings");
 
@@ -35,7 +31,7 @@ type SessionRefreshState =
   | { kind: "refreshing" }
   | { kind: "stale"; expectedPresentation: AccountPresentation; message: string };
 
-type GitHubAuthorizationRequestState = "idle" | "authorizing" | "revoking";
+type AuthAccountLinkRequestState = "idle" | "google" | "github";
 
 function readErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ConvexError && typeof error.data === "string") {
@@ -44,11 +40,7 @@ function readErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-export function UserSettingsPage({
-  authorizationError = null,
-}: {
-  authorizationError?: AuthorizationError | null;
-}) {
+export function UserSettingsPage({ authorizationNotice }: { authorizationNotice: ReactNode }) {
   const router = useRouter();
   const navigate = settingsRouteApi.useNavigate();
   const search = settingsRouteApi.useSearch();
@@ -56,40 +48,36 @@ export function UserSettingsPage({
     select: (location) => location.state.settingsDeleteAccountDialog,
   });
   const settings = useQuery(api.users.getUserSettings);
-  const viewerAccess = useQuery(api.users.currentViewerAccess);
-  const githubAuthorization = useQuery(api.githubUserAuthorizations.getViewerStatus);
   const setDisplayName = useMutation(api.users.setDisplayName);
-  const getGitHubUserAuthorizationUrl = useMutation(
-    api.githubAppInstallation.getGitHubUserAuthorizationUrl,
-  );
-  const revokeGitHubAuthorization = useAction(
-    api.githubUserAuthorizations.revokeViewerAuthorization,
-  );
+  const beginAuthAccountLink = useMutation(api.users.beginAuthAccountLink);
   const { signOut } = useAppAuthActions();
+  const { signInWithOAuth } = useAppSignInActions();
   const { fetchAccessToken } = useConvexAuth();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [saveState, setSaveState] = useState<ProfileSaveState>({ kind: "idle" });
   const [sessionRefreshState, setSessionRefreshState] = useState<SessionRefreshState>({
     kind: "current",
   });
-  const [githubRequestState, setGitHubRequestState] =
-    useState<GitHubAuthorizationRequestState>("idle");
+  const [authAccountLinkRequestState, setAuthAccountLinkRequestState] =
+    useState<AuthAccountLinkRequestState>("idle");
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
-  const now = useNow({
-    enabled: githubAuthorization?.status === "authorized",
-    intervalMs: 60_000,
-  });
-  const authorizationErrorMessage = authorizationError
-    ? formatAuthorizationErrorMessage(authorizationError)
-    : null;
 
-  if (settings === undefined || viewerAccess === undefined || githubAuthorization === undefined) {
+  useEffect(() => {
+    const resetRestoredAccountLinkRequest = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setAuthAccountLinkRequestState("idle");
+      }
+    };
+
+    window.addEventListener("pageshow", resetRestoredAccountLinkRequest);
+    return () => {
+      window.removeEventListener("pageshow", resetRestoredAccountLinkRequest);
+    };
+  }, []);
+
+  if (settings === undefined) {
     return null;
   }
-
-  const canAuthorizeGitHub = viewerAccess.accessKeys.includes("access_provider_connections");
-  const githubAuthorizationExpired =
-    githubAuthorization.status === "authorized" && githubAuthorization.refreshTokenExpiresAt <= now;
 
   const refreshSession = async (expectedPresentation: AccountPresentation) => {
     const token = await fetchAccessToken({ forceRefreshToken: true });
@@ -174,41 +162,22 @@ export function UserSettingsPage({
     }
   };
 
-  const authorizeGitHubAccount = () => {
-    if (githubRequestState !== "idle") {
+  const connectAuthAccount = async (provider: "google" | "github") => {
+    if (authAccountLinkRequestState !== "idle") {
       return;
     }
-    setGitHubRequestState("authorizing");
-    void openGitHubAppSetupPopup("github-user", async () => {
-      return await getGitHubUserAuthorizationUrl({ returnToPath: "/settings" });
-    })
-      .catch((error: unknown) => {
-        toast({
-          description: readErrorMessage(error, "Could not open GitHub App setup."),
-          title: "Could not authorize GitHub account",
-          variant: "destructive",
-        });
-      })
-      .finally(() => {
-        setGitHubRequestState("idle");
-      });
-  };
-
-  const revokeAuthorization = async () => {
-    if (githubRequestState !== "idle") {
-      return;
-    }
-    setGitHubRequestState("revoking");
+    const returnToPath = getCurrentRootRelativeUrl();
+    setAuthAccountLinkRequestState(provider);
     try {
-      await revokeGitHubAuthorization({});
+      await beginAuthAccountLink({ provider });
+      await signInWithOAuth(provider, returnToPath);
     } catch (error) {
       toast({
-        description: readErrorMessage(error, "Could not revoke the GitHub authorization."),
-        title: "Could not revoke GitHub authorization",
+        description: readErrorMessage(error, `Could not connect ${provider}.`),
+        title: `Could not connect ${provider === "github" ? "GitHub" : "Google"}`,
         variant: "destructive",
       });
-    } finally {
-      setGitHubRequestState("idle");
+      setAuthAccountLinkRequestState("idle");
     }
   };
 
@@ -276,11 +245,7 @@ export function UserSettingsPage({
           {isSigningOut ? "Signing out..." : "Sign out"}
         </Button>
       </div>
-      {authorizationErrorMessage ? (
-        <div className="mt-4">
-          <AuthorizationErrorNotice>{authorizationErrorMessage}</AuthorizationErrorNotice>
-        </div>
-      ) : null}
+      {authorizationNotice ? <div className="mt-4">{authorizationNotice}</div> : null}
 
       <section className="mt-8 border-t pt-6" aria-labelledby="settings-profile-heading">
         <h2 id="settings-profile-heading" className="text-base font-semibold">
@@ -341,56 +306,64 @@ export function UserSettingsPage({
         </form>
       </section>
 
-      <section className="mt-8 border-t pt-6" aria-labelledby="settings-github-heading">
-        <h2 id="settings-github-heading" className="text-base font-semibold">
-          GitHub authorization
+      <section className="mt-8 border-t pt-6" aria-labelledby="settings-sign-in-methods-heading">
+        <h2 id="settings-sign-in-methods-heading" className="text-base font-semibold">
+          Sign-in methods
         </h2>
-        <dl className="mt-4 space-y-1">
-          {githubAuthorization.status === "not_connected" ? null : (
-            <>
-              <dt className="text-sm font-medium">GitHub user</dt>
-              <dd className="text-sm text-muted-foreground">
-                {githubAuthorization.githubUserLogin}
+        <dl className="mt-4 space-y-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <dt className="text-sm font-medium">Google</dt>
+              <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                {settings.signInMethods.google?.email ?? "Not connected"}
               </dd>
-            </>
-          )}
-          <dt className="text-sm font-medium">Status</dt>
-          <dd className="text-sm text-muted-foreground">
-            {githubAuthorization.status === "not_connected"
-              ? "Not connected"
-              : githubAuthorizationExpired
-                ? "Expired"
-                : "Connected"}
-          </dd>
+            </div>
+            {settings.signInMethods.google === null ? (
+              <Button
+                disabled={authAccountLinkRequestState !== "idle"}
+                onClick={() => void connectAuthAccount("google")}
+                type="button"
+                variant="outline"
+              >
+                {authAccountLinkRequestState === "google" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                {authAccountLinkRequestState === "google" ? "Connecting..." : "Connect Google"}
+              </Button>
+            ) : null}
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <dt className="text-sm font-medium">GitHub</dt>
+              <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                {settings.signInMethods.github
+                  ? `@${settings.signInMethods.github.login}`
+                  : "Not connected"}
+              </dd>
+            </div>
+            {settings.signInMethods.github === null ? (
+              <Button
+                disabled={authAccountLinkRequestState !== "idle"}
+                onClick={() => void connectAuthAccount("github")}
+                type="button"
+                variant="outline"
+              >
+                {authAccountLinkRequestState === "github" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                {authAccountLinkRequestState === "github" ? "Connecting..." : "Connect GitHub"}
+              </Button>
+            ) : null}
+          </div>
+          {settings.signInMethods.password ? (
+            <div>
+              <dt className="text-sm font-medium">Password</dt>
+              <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                {settings.signInMethods.password.email}
+              </dd>
+            </div>
+          ) : null}
         </dl>
-        <div className="mt-4 flex flex-wrap gap-3">
-          {canAuthorizeGitHub &&
-          (githubAuthorization.status === "not_connected" || githubAuthorizationExpired) ? (
-            <Button
-              disabled={githubRequestState !== "idle"}
-              onClick={authorizeGitHubAccount}
-              type="button"
-            >
-              {githubRequestState === "authorizing" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              {githubRequestState === "authorizing" ? "Opening..." : "Authorize GitHub account"}
-            </Button>
-          ) : null}
-          {githubAuthorization.status === "authorized" ? (
-            <Button
-              disabled={githubRequestState !== "idle"}
-              onClick={() => void revokeAuthorization()}
-              type="button"
-              variant="outline"
-            >
-              {githubRequestState === "revoking" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              {githubRequestState === "revoking" ? "Revoking..." : "Revoke authorization"}
-            </Button>
-          ) : null}
-        </div>
       </section>
 
       <McpClientsSettingsSection />
@@ -400,9 +373,9 @@ export function UserSettingsPage({
           Account
         </h2>
         <dl className="mt-4 space-y-1">
-          <dt className="text-sm font-medium">Sign-in email</dt>
+          <dt className="text-sm font-medium">Account email</dt>
           <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
-            {settings.signInEmail}
+            {settings.accountEmail}
           </dd>
         </dl>
         <div className="mt-6">

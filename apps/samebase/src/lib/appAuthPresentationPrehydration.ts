@@ -4,6 +4,12 @@ import {
 } from "@/lib/publicLanding";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
+import {
+  AUTHORIZATION_ERROR_CODES,
+  AUTHORIZATION_ERROR_QUERY_PARAM,
+  AUTHORIZATION_PROVIDERS,
+  AUTHORIZATION_PROVIDER_QUERY_PARAM,
+} from "../../shared/authorizationError";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 const APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID =
@@ -12,6 +18,10 @@ const APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE = "data-app-auth-present
 
 export type AppAuthPresentationPrehydrationArgs = {
   accountSectionTestId: string;
+  authorizationErrorCodes: readonly string[];
+  authorizationErrorQueryParam: string;
+  authorizationProviderQueryParam: string;
+  authorizationProviders: readonly string[];
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
@@ -23,6 +33,10 @@ export type AppAuthPresentationPrehydrationArgs = {
 
 const appAuthPresentationPrehydrationArgs = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  authorizationErrorCodes: AUTHORIZATION_ERROR_CODES,
+  authorizationErrorQueryParam: AUTHORIZATION_ERROR_QUERY_PARAM,
+  authorizationProviderQueryParam: AUTHORIZATION_PROVIDER_QUERY_PARAM,
+  authorizationProviders: AUTHORIZATION_PROVIDERS,
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env["VITE_CONVEX_URL"] ?? null,
   ignoredPathnames: ["/visual-fixture"],
@@ -66,28 +80,9 @@ function InlineScript_prehydrateAppAuthPresentation(
     return '"' + escaped + '"';
   }
 
-  function formatAuthProviderLabel(provider: string) {
-    if (provider === "google") return "Google";
-    if (provider === "password") return "Password";
-    return null;
-  }
-
-  function readAuthProviderLabel(profile: { authProvider?: string }) {
-    const provider = profile.authProvider?.trim();
-    if (provider && provider.length <= 64) {
-      const providerLabel = formatAuthProviderLabel(provider);
-      if (providerLabel !== null) {
-        return providerLabel;
-      }
-    }
-
-    return null;
-  }
-
   function installPrehydrationStyle(presentation: {
     kind: "signed-in" | "signed-out";
     label: string;
-    providerLabel: string | null;
   }) {
     if (document.getElementById(args.styleElementId) !== null) return;
 
@@ -109,8 +104,6 @@ function InlineScript_prehydrateAppAuthPresentation(
       staticAccountSectionSelector + " [data-app-auth-prehydration-signed-in]";
     const signedInAccountLabelSelector =
       staticAccountSectionSelector + " [data-app-auth-prehydration-account-label]";
-    const signedInProviderSelector =
-      staticAccountSectionSelector + " [data-app-auth-prehydration-provider]";
     const styleElement = document.createElement("style");
     styleElement.id = args.styleElementId;
     styleElement.textContent = `
@@ -189,20 +182,6 @@ html[${args.rootAttribute}="signed-in"] ${signedInSelector} {
 html[${args.rootAttribute}="signed-in"] ${signedInAccountLabelSelector}::after {
   content: ${cssStringLiteral(presentation.label)};
 }
-
-${
-  presentation.kind === "signed-in" && presentation.providerLabel !== null
-    ? `
-html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector} {
-  display: block !important;
-}
-
-html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector}::after {
-  content: ${cssStringLiteral(`Signed in with ${presentation.providerLabel}`)};
-}
-`
-    : ""
-}
     `;
     document.head.append(styleElement);
     document.documentElement.setAttribute(args.rootAttribute, presentation.kind);
@@ -236,19 +215,27 @@ html[${args.rootAttribute}="signed-in"] ${signedInProviderSelector}::after {
       installPrehydrationStyle({
         kind: "signed-in",
         label: authPresentationHint.label,
-        providerLabel: readAuthProviderLabel(authPresentationHint.profile),
       });
-    } else if (
-      authPresentationHint.kind === "signedOut" &&
-      !(
+    } else if (authPresentationHint.kind === "signedOut") {
+      const searchParams = new URL(window.location.href).searchParams;
+      const signup = searchParams.get("signup");
+      const authorizationError = searchParams.get(args.authorizationErrorQueryParam);
+      const authorizationProvider = searchParams.get(args.authorizationProviderQueryParam);
+      const hasAuthorizationError =
+        authorizationError !== null &&
+        authorizationProvider !== null &&
+        args.authorizationErrorCodes.includes(authorizationError) &&
+        args.authorizationProviders.includes(authorizationProvider);
+      if (
         window.location.pathname !== args.mcpConsentPathname &&
-        new URL(window.location.href).searchParams.get("signup") === "google"
-      )
-    ) {
+        (signup === "google" || signup === "github") &&
+        !hasAuthorizationError
+      ) {
+        return;
+      }
       installPrehydrationStyle({
         kind: "signed-out",
         label: "Sign in or create an account",
-        providerLabel: null,
       });
     }
   } catch {}

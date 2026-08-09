@@ -169,7 +169,6 @@ describe("app auth presentation runtime", () => {
           kind: "email",
           label: "nicu@samebase.com",
         },
-        authProvider: "password",
       },
     });
   });

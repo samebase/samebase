@@ -144,7 +144,6 @@ async function readAccountTextEvidence(accountSection: Locator) {
 
     return {
       accountLabelAfterContent: readAfterContent("[data-app-auth-prehydration-account-label]"),
-      providerAfterContent: readAfterContent("[data-app-auth-prehydration-provider]"),
       signedOutAfterContent: readAfterContent("[data-app-auth-prehydration-signed-out-label]"),
       textContent: element.textContent ?? "",
     };
@@ -235,7 +234,7 @@ test("signed-in app right sidebar keeps the account row inside the minimum mobil
   }
 });
 
-test("signed-out Google sign-in fits the minimum mobile right pane", async ({ page }) => {
+test("signed-out OAuth sign-in fits the minimum mobile right pane", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await seedAppWorkspaceSidebarState(page, {
     ...APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE,
@@ -256,7 +255,7 @@ test("signed-out Google sign-in fits the minimum mobile right pane", async ({ pa
   });
 });
 
-test("signed-in app right sidebar prehydration includes the password provider label", async ({
+test("signed-in app right sidebar prehydration matches the account row", async ({
   page,
 }, testInfo: TestInfo) => {
   await page.setViewportSize({ width: 1280, height: 900 });
@@ -265,9 +264,7 @@ test("signed-in app right sidebar prehydration includes the password provider la
 
   const rightSidebar = getRightSidebar(page);
   const hydratedAccountSection = getSignedInAccountSection(page);
-  await expect(
-    hydratedAccountSection.getByText("Signed in with Password", { exact: true }),
-  ).toBeVisible();
+  await expect(hydratedAccountSection.getByText("Signed in with", { exact: false })).toHaveCount(0);
   for (const linkName of ["Account settings", "All vaults"]) {
     const navigationLink = rightSidebar.getByRole("link", { name: linkName, exact: true });
     await expect(navigationLink).toHaveCSS("font-size", "16px");
@@ -317,6 +314,9 @@ test("signed-out app right sidebar prehydration matches the hydrated account row
   ).toBeVisible();
   await expect(
     hydratedAccountSection.getByRole("button", { name: "Continue with Google" }),
+  ).toBeVisible();
+  await expect(
+    hydratedAccountSection.getByRole("button", { name: "Continue with GitHub" }),
   ).toBeVisible();
   const hydratedScreenshot = await hydratedAccountSection.screenshot({
     animations: "disabled",
@@ -397,13 +397,7 @@ async function expectPrehydratedAccountSectionToMatchHydrated({
       prehydratedTextEvidence.accountLabelAfterContent,
     ),
   ).toBe(true);
-  expect(
-    accountTextEvidenceIncludes(
-      prehydratedTextEvidence,
-      "Signed in with Password",
-      prehydratedTextEvidence.providerAfterContent,
-    ),
-  ).toBe(true);
+  expect(prehydratedTextEvidence.textContent).not.toContain("Signed in with");
 
   const prehydratedScreenshot = await prehydratedAccountSection.screenshot({
     animations: "disabled",

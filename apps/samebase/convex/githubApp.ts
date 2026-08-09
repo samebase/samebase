@@ -1,5 +1,6 @@
 import {
   createAppAuth,
+  createOAuthUserAuth,
   type GitHubAppUserAuthentication,
   type GitHubAppUserAuthenticationWithExpiration,
 } from "@octokit/auth-app";
@@ -134,6 +135,18 @@ export function createGitHubUserOctokit(accessToken: string): Octokit {
     auth: requireTrimmed(accessToken, "GitHub user access token"),
     userAgent: "samebase-app",
   });
+}
+
+/** Revoke one uncommitted GitHub App user token without deleting the user's full App grant. */
+export async function revokeGitHubAppUserToken(accessToken: string): Promise<void> {
+  const configuration = getGitHubAppConfiguration();
+  const auth = createOAuthUserAuth({
+    clientType: "github-app",
+    clientId: configuration.clientId,
+    clientSecret: configuration.clientSecret,
+    token: requireTrimmed(accessToken, "GitHub user access token"),
+  });
+  await auth({ type: "delete" });
 }
 
 export function requireExpiringGitHubUserAuthentication(

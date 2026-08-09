@@ -20,7 +20,14 @@ import { readAuthorizationError } from "@/routeSearch/authorizationError";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { toast } from "@/components/ui/use-toast";
 
-const ALL_AUTHORIZATION_SOURCES = ["convex", "cloudflare", "github-app", "github-user"] as const;
+const ALL_AUTHORIZATION_SOURCES = [
+  "convex",
+  "cloudflare",
+  "github-app",
+  "github-user",
+  "google-sign-in",
+  "github-sign-in",
+] as const;
 const NO_AUTHORIZATION_SOURCES = [] as const;
 
 function isAuthorizationErrorHandledByRoute(
@@ -32,8 +39,10 @@ function isAuthorizationErrorHandledByRoute(
     case "cloudflare":
       return /^\/org\/[^/]+\/providers\/?$/.test(pathname);
     case "github-app":
-      return /^\/org\/[^/]+\/providers\/?$/.test(pathname);
     case "github-user":
+      return /^\/org\/[^/]+\/providers\/?$/.test(pathname);
+    case "google-sign-in":
+    case "github-sign-in":
       return pathname === "/settings";
     default:
       provider satisfies never;
@@ -85,14 +94,14 @@ function FallbackAuthorizationErrorNotice({
   return null;
 }
 
-function AuthenticatedRouteSignInForm() {
+function AuthenticatedRouteSignInForm({ topNotice }: { topNotice: ReactNode }) {
   return (
     <Suspense fallback={null}>
       <SignInForm
         authPlacement="inline"
         landingPageMarkdown={landingPageMarkdown}
         logo="classic"
-        topNotice={null}
+        topNotice={topNotice}
       />
     </Suspense>
   );
@@ -101,9 +110,11 @@ function AuthenticatedRouteSignInForm() {
 function AuthenticatedRoutePage({
   approvalRequired,
   children,
+  signInTopNotice,
 }: {
   approvalRequired: boolean;
   children: ReactNode;
+  signInTopNotice: ReactNode;
 }) {
   const pathname = useLocation({
     select: (location) => location.pathname,
@@ -140,7 +151,7 @@ function AuthenticatedRoutePage({
     return (
       <>
         {fallbackAuthorizationErrorNotice}
-        <AuthenticatedRouteSignInForm />
+        <AuthenticatedRouteSignInForm topNotice={signInTopNotice} />
       </>
     );
   }
@@ -158,16 +169,30 @@ function AuthenticatedRoutePage({
         )}
       </Authenticated>
       <Unauthenticated>
-        <AuthenticatedRouteSignInForm />
+        <AuthenticatedRouteSignInForm topNotice={signInTopNotice} />
       </Unauthenticated>
     </>
   );
 }
 
 export function AuthenticatedAppRoutePage({ children }: { children: ReactNode }) {
-  return <AuthenticatedRoutePage approvalRequired>{children}</AuthenticatedRoutePage>;
+  return (
+    <AuthenticatedRoutePage approvalRequired signInTopNotice={null}>
+      {children}
+    </AuthenticatedRoutePage>
+  );
 }
 
-export function AuthenticatedUserRoutePage({ children }: { children: ReactNode }) {
-  return <AuthenticatedRoutePage approvalRequired={false}>{children}</AuthenticatedRoutePage>;
+export function AuthenticatedUserRoutePage({
+  children,
+  signInTopNotice = null,
+}: {
+  children: ReactNode;
+  signInTopNotice?: ReactNode;
+}) {
+  return (
+    <AuthenticatedRoutePage approvalRequired={false} signInTopNotice={signInTopNotice}>
+      {children}
+    </AuthenticatedRoutePage>
+  );
 }

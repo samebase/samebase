@@ -102,7 +102,7 @@ async function focusRouteAddressInput(page: Page, route = "/privacy") {
 
   await expect(displayInput).toHaveValue(displayRouteAddress);
   const input = page.getByTestId("route-url-editor-input");
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     if (await input.isVisible({ timeout: 1000 }).catch(() => false)) {
       break;
     }
@@ -142,7 +142,7 @@ async function focusRouteAddressInputDirectly(page: Page, route = "/privacy") {
   await expect(displayInput).toHaveValue(displayRouteAddress);
 
   const input = page.getByTestId("route-url-editor-input");
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 6; attempt += 1) {
     if (await input.isVisible({ timeout: 1000 }).catch(() => false)) {
       break;
     }

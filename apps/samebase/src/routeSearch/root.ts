@@ -53,9 +53,9 @@ const RouteSearchSchema_root = defineRouteSearchParams({
     valueSuggestions: ["dashboard"],
     valueType: "options",
   }),
-  auth: routeSearchValueParam(routeSearchStringValue(["google"]), {
+  auth: routeSearchValueParam(routeSearchStringValue(["google", "github"]), {
     access: "access_public",
-    // Previewing auth=google starts OAuth; require typing/selecting the value explicitly.
+    // Previewing auth starts OAuth; require typing or selecting the value explicitly.
     suggestion: "route",
     valueType: "manual",
   }),
@@ -107,9 +107,9 @@ const RouteSearchSchema_root = defineRouteSearchParams({
     access: "access_public",
     suggestion: "global",
   }),
-  signup: routeSearchValueParam(routeSearchStringValue(["google"]), {
+  signup: routeSearchValueParam(routeSearchStringValue(["google", "github"]), {
     access: "access_public",
-    // signup=google is an auth-return marker, not a route option to preview.
+    // signup is an auth-return marker, not a route option to preview.
     suggestion: "route",
     valueType: "manual",
   }),

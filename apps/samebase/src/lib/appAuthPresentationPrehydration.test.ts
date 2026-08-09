@@ -15,11 +15,21 @@ import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
 } from "@/lib/publicLanding";
+import {
+  AUTHORIZATION_ERROR_CODES,
+  AUTHORIZATION_ERROR_QUERY_PARAM,
+  AUTHORIZATION_PROVIDERS,
+  AUTHORIZATION_PROVIDER_QUERY_PARAM,
+} from "../../shared/authorizationError";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 const TEST_STORAGE_NAMESPACE = "https://example.convex.cloud";
 const TEST_ARGS = {
   accountSectionTestId: PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  authorizationErrorCodes: AUTHORIZATION_ERROR_CODES,
+  authorizationErrorQueryParam: AUTHORIZATION_ERROR_QUERY_PARAM,
+  authorizationProviderQueryParam: AUTHORIZATION_PROVIDER_QUERY_PARAM,
+  authorizationProviders: AUTHORIZATION_PROVIDERS,
   browserConvexProxyPath: null,
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
@@ -201,7 +211,7 @@ describe("appAuthPresentationPrehydration", () => {
     },
   );
 
-  it("visually fills the signed-in account row with the JWT provider label", () => {
+  it("visually fills the signed-in account row and ignores a legacy provider claim", () => {
     writeLocalAuthSession(
       createJwt({
         accountLabelKind: "email",
@@ -223,8 +233,8 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain("[data-app-auth-prehydration-signed-in]");
     expect(styleText).toContain("[data-app-auth-prehydration-account-label]::after");
     expect(styleText).toContain('content: "nicu@samebase.com";');
-    expect(styleText).toContain("[data-app-auth-prehydration-provider]::after");
-    expect(styleText).toContain('content: "Signed in with Password";');
+    expect(styleText).not.toContain("data-app-auth-prehydration-provider");
+    expect(styleText).not.toContain("Signed in with");
   });
 
   it("does not use public landing password auth mode as session provider evidence", () => {
@@ -264,7 +274,7 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).not.toContain('content: "Signed in with Password";');
   });
 
-  it("rejects the inactive GitHub sign-in provider before hydration", () => {
+  it("ignores a legacy GitHub provider claim before hydration", () => {
     window.localStorage.setItem(
       convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE),
       createJwt({
@@ -281,10 +291,9 @@ describe("appAuthPresentationPrehydration", () => {
       "samebase-app-auth-presentation-prehydration",
     )?.textContent;
     expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
-      "signed-out",
+      "signed-in",
     );
-    expect(styleText).toContain('content: "Sign in or create an account";');
-    expect(styleText).not.toContain("Nicu");
+    expect(styleText).toContain('content: "Nicu";');
     expect(styleText).not.toContain("GitHub");
   });
 
@@ -360,7 +369,12 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).not.toContain("[aria-expanded]");
   });
 
-  it.each(["/?signup=google", "/settings?signup=google"])(
+  it.each([
+    "/?signup=google",
+    "/settings?signup=google",
+    "/?signup=github",
+    "/settings?signup=github",
+  ])(
     "does not reveal signed-out auth controls before the closed-signup state hydrates on %s",
     (route) => {
       window.history.replaceState({}, "", route);
@@ -373,6 +387,32 @@ describe("appAuthPresentationPrehydration", () => {
       expect(document.getElementById("samebase-app-auth-presentation-prehydration")).toBeNull();
     },
   );
+
+  it("uses signed-out presentation for an account-linking error return", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/?signup=github&authorization-provider=github-sign-in&authorization-error=account-link-required",
+    );
+
+    runAppAuthPresentationPrehydrationScript();
+
+    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      "signed-out",
+    );
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).not.toBeNull();
+  });
+
+  it("ignores an unknown signup marker before hydration", () => {
+    window.history.replaceState({}, "", "/?signup=unknown");
+
+    runAppAuthPresentationPrehydrationScript();
+
+    expect(document.documentElement.getAttribute("data-app-auth-presentation-prehydrated")).toBe(
+      "signed-out",
+    );
+    expect(document.getElementById("samebase-app-auth-presentation-prehydration")).not.toBeNull();
+  });
 
   it("keeps MCP consent controls available when a stale signup marker is present", () => {
     window.history.replaceState({}, "", `${MCP_CONSENT_APP_PATH}?signup=google`);

@@ -105,6 +105,13 @@ describe("organization-owned vaults", () => {
         userId: memberUserId,
         role: "member",
       });
+      await ctx.db.insert("authAccounts", {
+        userId: memberUserId,
+        provider: "github",
+        providerAccountId: "101",
+        emailVerified: "personal-member@example.com",
+        githubLogin: "personal-owner",
+      });
     });
     const asMember = t.withIdentity({
       subject: `${memberUserId}|test-session`,

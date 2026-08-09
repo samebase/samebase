@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AuthenticatedUserRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import { UserSettingsPage } from "@/components/UserSettingsPage";
+import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 import {
@@ -11,7 +13,7 @@ import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
 import { clearAuthorizationErrorSearch } from "@/routeSearch/authorizationError";
 import { useCallback } from "react";
 
-const GITHUB_USER_AUTHORIZATION_SOURCE = ["github-user"] as const;
+const SETTINGS_AUTHORIZATION_SOURCES = ["google-sign-in", "github-sign-in"] as const;
 
 function SettingsRouteComponent() {
   const navigate = Route.useNavigate();
@@ -26,14 +28,19 @@ function SettingsRouteComponent() {
     });
   }, [navigate]);
   const authorizationError = useAuthorizationErrorNotice({
-    allowedProviders: GITHUB_USER_AUTHORIZATION_SOURCE,
+    allowedProviders: SETTINGS_AUTHORIZATION_SOURCES,
     onConsume: consumeAuthorizationError,
     search,
     scopeKey: "user-settings",
   });
+  const authorizationNotice = authorizationError ? (
+    <AuthorizationErrorNotice>
+      {formatAuthorizationErrorMessage(authorizationError)}
+    </AuthorizationErrorNotice>
+  ) : null;
   return (
-    <AuthenticatedUserRoutePage>
-      <UserSettingsPage authorizationError={authorizationError} />
+    <AuthenticatedUserRoutePage signInTopNotice={authorizationNotice}>
+      <UserSettingsPage authorizationNotice={authorizationNotice} />
     </AuthenticatedUserRoutePage>
   );
 }

@@ -232,6 +232,9 @@ const PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES = [
   "providers-page-authorization-error",
   "providers-page-loading",
   "providers-page-not-configured",
+  "providers-page-personal",
+  "providers-page-personal-sign-in-mismatch",
+  "providers-page-personal-sign-in-required",
   "providers-page-recovery",
 ] as const satisfies readonly ProviderConnectionsPageVisualMode[];
 const CONNECT_REPOSITORY_VISUAL_MODES = [
@@ -429,6 +432,9 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     mode === "providers-page-authorization-error" ||
     mode === "providers-page-loading" ||
     mode === "providers-page-not-configured" ||
+    mode === "providers-page-personal" ||
+    mode === "providers-page-personal-sign-in-mismatch" ||
+    mode === "providers-page-personal-sign-in-required" ||
     mode === "providers-page-recovery"
   ) {
     return <ProviderConnectionsPageVisualFixture mode={mode} />;

@@ -14,6 +14,7 @@ export const vGitHubAppSetupState = object({
   state: string(),
   purpose: optional(vGitHubAppSetupPurpose),
   organizationId: optional(id("organizations")),
+  githubSignInProviderAccountId: optional(string()),
   returnToPath: optional(string()),
   createdAt: number(),
   expiresAt: number(),

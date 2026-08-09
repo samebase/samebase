@@ -10,6 +10,9 @@ export type ProviderConnectionsPageVisualMode =
   | "providers-page-authorization-error"
   | "providers-page-loading"
   | "providers-page-not-configured"
+  | "providers-page-personal"
+  | "providers-page-personal-sign-in-mismatch"
+  | "providers-page-personal-sign-in-required"
   | "providers-page-recovery";
 
 function fakeOrganizationId(): Id<"organizations"> {
@@ -150,6 +153,10 @@ export function ProviderConnectionsPageVisualFixture({
   mode?: ProviderConnectionsPageVisualMode;
 }) {
   const isLoading = mode === "providers-page-loading";
+  const isPersonal =
+    mode === "providers-page-personal" ||
+    mode === "providers-page-personal-sign-in-mismatch" ||
+    mode === "providers-page-personal-sign-in-required";
   const state =
     mode === "providers-page-recovery"
       ? recoveryState
@@ -173,15 +180,29 @@ export function ProviderConnectionsPageVisualFixture({
       disconnectingProvider={null}
       githubAccess={isLoading ? null : state.githubAccess}
       githubAccessError={false}
+      githubUserAuthorization={
+        mode === "providers-page-personal-sign-in-required"
+          ? { status: "sign_in_required", authorizationPresent: false }
+          : mode === "providers-page-personal-sign-in-mismatch"
+            ? { status: "sign_in_mismatch", authorizationPresent: false }
+            : isPersonal
+              ? {
+                  githubUserLogin: "octocat",
+                  refreshTokenExpiresAt: Date.now() + 60_000,
+                  status: "authorized",
+                }
+              : undefined
+      }
+      githubUserAuthorizationRequestState="idle"
       isCheckingCloudflareAccess={false}
       isCheckingConvexAccess={false}
       isCheckingGitHubAccess={isLoading}
       isReconnectingGitHubApp={false}
       organization={{
         canCreateRepository: true,
-        githubOwnerId: "456",
-        githubOwnerLogin: "acme",
-        githubOwnerType: "organization",
+        githubOwnerId: isPersonal ? "123" : "456",
+        githubOwnerLogin: isPersonal ? "octocat" : "acme",
+        githubOwnerType: isPersonal ? "user" : "organization",
         organizationId: ORGANIZATION_ID,
         role: "owner",
       }}
@@ -189,7 +210,9 @@ export function ProviderConnectionsPageVisualFixture({
       onDisconnect={noop}
       onOpenCloudflareApiTokenDialog={noop}
       onOpenConvexApiKeyDialog={noop}
+      onAuthorizeGitHubUser={noop}
       onReconnectGitHubApp={noop}
+      onRevokeGitHubUser={noop}
       providerDisconnectNotice={null}
     />
   );

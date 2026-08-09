@@ -3,9 +3,12 @@ import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarN
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, PersonIcon } from "@/lib/radixIcons";
-import { PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID } from "@/lib/publicLanding";
+import {
+  PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID,
+  PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
+} from "@/lib/publicLanding";
 import { clsx } from "clsx";
-import { Chrome } from "lucide-react";
+import { Github } from "lucide-react";
 import type { AccountPresentation } from "../../../shared/accountPresentation";
 import { Link } from "@tanstack/react-router";
 import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
@@ -28,13 +31,11 @@ export type VaultDashboardAccountSectionProps = {
   dataTestId?: string;
   onOpenChange: (isOpen: boolean) => void;
   open: boolean;
-  providerLabel: string | null;
 };
 
 export type VaultDashboardStaticAccountSectionProps = {
   accountPresentation: AccountPresentation;
   dataTestId?: string;
-  providerLabel: string | null;
 };
 
 export type VaultDashboardStaticAccountStatusSectionProps = {
@@ -130,8 +131,19 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
               variant="outline"
               type="button"
             >
-              <Chrome className="mr-2 h-4 w-4 @max-[120px]:hidden" />
               <span className="min-w-0">Continue with Google</span>
+            </Button>
+            <Button
+              aria-hidden="true"
+              data-testid={PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID}
+              className="h-auto min-w-0 flex-1 whitespace-normal py-2.5 disabled:opacity-100 @max-[200px]:leading-tight @max-[120px]:px-1.5"
+              disabled
+              tabIndex={-1}
+              variant="outline"
+              type="button"
+            >
+              <Github className="mr-2 h-4 w-4 @max-[120px]:hidden" />
+              <span className="min-w-0">Continue with GitHub</span>
             </Button>
           </div>
         </div>
@@ -146,13 +158,6 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
               <div
                 data-app-auth-prehydration-account-label
                 className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
-              />
-              <div
-                data-app-auth-prehydration-provider
-                className={clsx(
-                  SIDEBAR_METADATA_TEXT_CLASS,
-                  "hidden text-xs leading-5 text-muted-foreground",
-                )}
               />
             </div>
           </div>
@@ -176,7 +181,6 @@ export function VaultDashboardAccountSection({
   dataTestId,
   onOpenChange,
   open,
-  providerLabel,
 }: VaultDashboardAccountSectionProps) {
   return (
     <VaultDashboardAccountSectionFrame
@@ -186,31 +190,18 @@ export function VaultDashboardAccountSection({
       onOpenChange={onOpenChange}
     >
       <div className="flex flex-wrap items-start gap-3">
-        {accountPresentation.kind === "email" || providerLabel ? (
+        {accountPresentation.kind === "email" ? (
           <div data-testid="dashboard-sidebar-account-row" className={SIDEBAR_ROW_CONTENT_CLASS}>
             <div data-testid="dashboard-sidebar-account-icon" className={SIDEBAR_ROW_ICON_CLASS}>
               <PersonIcon className="h-4 w-4" />
             </div>
             <div data-testid="dashboard-sidebar-account-text" className={SIDEBAR_ROW_TEXT_CLASS}>
-              {accountPresentation.kind === "email" ? (
-                <div
-                  className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
-                  title={accountPresentation.label}
-                >
-                  {accountPresentation.label}
-                </div>
-              ) : null}
-              {providerLabel ? (
-                <div
-                  className={clsx(
-                    SIDEBAR_METADATA_TEXT_CLASS,
-                    "text-xs leading-5 text-muted-foreground",
-                  )}
-                  title={`Signed in with ${providerLabel}`}
-                >
-                  Signed in with {providerLabel}
-                </div>
-              ) : null}
+              <div
+                className={clsx(SIDEBAR_METADATA_TEXT_CLASS, "text-sm font-medium")}
+                title={accountPresentation.label}
+              >
+                {accountPresentation.label}
+              </div>
             </div>
           </div>
         ) : null}
@@ -227,7 +218,6 @@ export function VaultDashboardAccountSection({
 export function VaultDashboardStaticAccountSection({
   accountPresentation,
   dataTestId,
-  providerLabel,
 }: VaultDashboardStaticAccountSectionProps) {
   return (
     <div
@@ -246,17 +236,6 @@ export function VaultDashboardStaticAccountSection({
             >
               {accountPresentation.label}
             </div>
-            {providerLabel ? (
-              <div
-                className={clsx(
-                  SIDEBAR_METADATA_TEXT_CLASS,
-                  "text-xs leading-5 text-muted-foreground",
-                )}
-                title={`Signed in with ${providerLabel}`}
-              >
-                Signed in with {providerLabel}
-              </div>
-            ) : null}
           </div>
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">

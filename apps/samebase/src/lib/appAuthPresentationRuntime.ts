@@ -1,7 +1,4 @@
-import {
-  type AuthTokenAuthProvider,
-  type AuthTokenProfileClaims,
-} from "../../shared/authTokenClaims";
+import { type AuthTokenProfileClaims } from "../../shared/authTokenClaims";
 
 type AppAuthPresentationSearchParams = {
   get(name: string): string | null;
@@ -128,35 +125,7 @@ export function Inlineable_createAppAuthPresentationRuntime(
     };
   }
 
-  function readAuthProviderClaim(source: object):
-    | { kind: "absent" }
-    | { kind: "invalid" }
-    | {
-        kind: "present";
-        value: AuthTokenAuthProvider;
-      } {
-    const claim = readProfileClaim(source, "authProvider");
-    if (claim.kind === "absent") {
-      return { kind: "absent" };
-    }
-    if (claim.kind === "invalid") {
-      return { kind: "invalid" };
-    }
-
-    switch (claim.value) {
-      case "google":
-      case "password":
-        return {
-          kind: "present",
-          value: claim.value,
-        };
-      default:
-        return { kind: "invalid" };
-    }
-  }
-
   function readProfileClaims(source: object): AuthTokenProfileClaims | null {
-    const authProvider = readAuthProviderClaim(source);
     const accountLabelKind = readProfileClaim(source, "accountLabelKind");
     const accountLabel = readProfileClaim(source, "accountLabel");
     const legacyEmail = readProfileClaim(source, "email");
@@ -164,7 +133,6 @@ export function Inlineable_createAppAuthPresentationRuntime(
     const legacyName = readProfileClaim(source, "name");
 
     if (
-      authProvider.kind === "invalid" ||
       legacyEmail.kind !== "absent" ||
       legacyGithubUsername.kind !== "absent" ||
       legacyName.kind !== "absent"
@@ -212,7 +180,6 @@ export function Inlineable_createAppAuthPresentationRuntime(
     }
 
     return {
-      ...(authProvider.kind === "present" ? { authProvider: authProvider.value } : {}),
       accountPresentation,
     };
   }
@@ -276,7 +243,10 @@ export function Inlineable_createAppAuthPresentationRuntime(
 
     const SearchParams = host.URLSearchParams ?? window.URLSearchParams;
     const searchParams = new SearchParams(search);
-    return searchParams.get("auth") === "google" || Boolean(searchParams.get("code"));
+    const authProvider = searchParams.get("auth");
+    return (
+      authProvider === "google" || authProvider === "github" || Boolean(searchParams.get("code"))
+    );
   }
 
   function readLocalAppAuthPresentationHint({

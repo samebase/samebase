@@ -1,7 +1,9 @@
 # User Settings And Account Deletion Research
 
 > Historical exploration. The accepted implementation contract now lives in
-> `rfcs/097_ACCOUNT_DELETION_RELEASE_PLAN.md`.
+> `rfcs/097_ACCOUNT_DELETION_RELEASE_PLAN.md`. Its Google-only sign-in and account-email discussion
+> is also historical. The current account email, provider observation, and sign-in method contract
+> lives in `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md`.
 
 ## Document Control
 

@@ -7,12 +7,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "../../convex/_generated/api";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { UserSettingsPage } from "./UserSettingsPage";
-import type { GitHubAuthorizationSetup } from "@/lib/githubAppSetupFlow";
 
 const { act } = React;
 
 const testState = vi.hoisted(() => ({
-  actions: new Map<string, (args: unknown) => Promise<unknown>>(),
   fetchAccessToken: vi.fn(),
   mutations: new Map<string, (args: unknown) => Promise<unknown>>(),
   queries: new Map<string, unknown>(),
@@ -25,7 +23,7 @@ const testState = vi.hoisted(() => ({
     canGoBack: vi.fn(() => true),
     navigate: vi.fn(async () => undefined),
   },
-  setupPopup: vi.fn<(getSetup: () => Promise<GitHubAuthorizationSetup>) => Promise<void>>(),
+  signInWithOAuth: vi.fn(),
   signOut: vi.fn(),
 }));
 
@@ -35,6 +33,7 @@ vi.mock("@convex-dev/auth/react", () => ({
 
 vi.mock("@/authClient", () => ({
   useAppAuthActions: () => ({ signOut: testState.signOut }),
+  useAppSignInActions: () => ({ signInWithOAuth: testState.signInWithOAuth }),
 }));
 
 vi.mock("@/components/AccountDeletionDialog", () => ({
@@ -51,13 +50,6 @@ vi.mock("@/components/McpClientsSettingsSection", () => ({
 
 vi.mock("@/components/ui/use-toast", () => ({
   toast: vi.fn(),
-}));
-
-vi.mock("@/lib/githubAppSetupFlow", () => ({
-  openGitHubAppSetupPopup: (
-    _provider: "github-app" | "github-user",
-    getSetup: () => Promise<GitHubAuthorizationSetup>,
-  ) => testState.setupPopup(getSetup),
 }));
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
@@ -84,8 +76,6 @@ vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
   return {
     ...actual,
-    useAction: (reference: Parameters<typeof actual.useAction>[0]) =>
-      testState.actions.get(getFunctionName(reference)) ?? vi.fn(async () => undefined),
     useMutation: (reference: Parameters<typeof actual.useMutation>[0]) =>
       testState.mutations.get(getFunctionName(reference)) ?? vi.fn(async () => undefined),
     useQuery: (reference: Parameters<typeof actual.useQuery>[0]) =>
@@ -109,25 +99,26 @@ function createJwt(accountPresentation: AccountPresentation) {
 
 function setDefaultQueries() {
   testState.queries.set(getFunctionName(api.users.getUserSettings), {
+    accountEmail: "nicu@samebase.com",
     displayName: "Current name",
-    signInEmail: "nicu@samebase.com",
-  });
-  testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
-    accessKeys: ["access_public", "access_user_preferences", "access_provider_connections"],
-  });
-  testState.queries.set(getFunctionName(api.githubUserAuthorizations.getViewerStatus), {
-    status: "not_connected",
+    signInMethods: {
+      github: null,
+      google: { email: "nicu@samebase.com" },
+      password: null,
+    },
   });
 }
 
 let root: Root | null = null;
 let rootElement: HTMLDivElement | null = null;
 
-async function mountSettingsPage() {
+async function mountSettingsPage(authorizationNotice: React.ReactNode = null) {
   rootElement = document.createElement("div");
   document.body.append(rootElement);
   root = createRoot(rootElement);
-  await act(async () => root?.render(<UserSettingsPage />));
+  await act(async () =>
+    root?.render(<UserSettingsPage authorizationNotice={authorizationNotice} />),
+  );
   return rootElement;
 }
 
@@ -137,7 +128,6 @@ function findButton(container: HTMLElement, label: string) {
 
 describe("UserSettingsPage", () => {
   beforeEach(() => {
-    testState.actions.clear();
     testState.fetchAccessToken.mockReset();
     testState.mutations.clear();
     testState.queries.clear();
@@ -148,11 +138,10 @@ describe("UserSettingsPage", () => {
     testState.router.canGoBack.mockReturnValue(true);
     testState.router.navigate.mockReset();
     testState.router.navigate.mockResolvedValue(undefined);
-    testState.setupPopup.mockReset();
-    testState.setupPopup.mockImplementation(async (getSetupUrl) => {
-      await getSetupUrl();
-    });
+    testState.signInWithOAuth.mockReset();
+    testState.signInWithOAuth.mockResolvedValue(undefined);
     testState.signOut.mockReset();
+    window.history.replaceState({}, "", "/settings");
     setDefaultQueries();
   });
 
@@ -165,71 +154,122 @@ describe("UserSettingsPage", () => {
     rootElement = null;
   });
 
-  it("starts personal GitHub authorization from account settings", async () => {
-    const getAuthorizationUrl = vi.fn(async () => ({
-      callbackOrigin: "https://api.samebase.com",
-      setupUrl: "https://github.com/login/oauth/authorize",
-    }));
+  it.each([
+    { label: "Google", provider: "google" },
+    { label: "GitHub", provider: "github" },
+  ] as const)("starts an explicit $label sign-in connection", async ({ label, provider }) => {
+    window.history.replaceState({}, "", "/settings?prod-ui&source=account#sign-in-methods");
+    testState.queries.set(getFunctionName(api.users.getUserSettings), {
+      accountEmail: "account@samebase.com",
+      displayName: "Current name",
+      signInMethods: {
+        github: null,
+        google: null,
+        password: null,
+      },
+    });
+    const beginAuthAccountLink = vi.fn(async () => null);
+    testState.mutations.set(getFunctionName(api.users.beginAuthAccountLink), beginAuthAccountLink);
+    const container = await mountSettingsPage();
+
+    await act(async () => {
+      findButton(container, `Connect ${label}`)?.click();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(beginAuthAccountLink).toHaveBeenCalledWith({ provider });
+    expect(testState.signInWithOAuth).toHaveBeenCalledWith(
+      provider,
+      "/settings?prod-ui&source=account#sign-in-methods",
+    );
+  });
+
+  it("resets a pending sign-in connection only after a persisted page restore", async () => {
+    testState.queries.set(getFunctionName(api.users.getUserSettings), {
+      accountEmail: "account@samebase.com",
+      displayName: "Current name",
+      signInMethods: {
+        github: null,
+        google: null,
+        password: null,
+      },
+    });
     testState.mutations.set(
-      getFunctionName(api.githubAppInstallation.getGitHubUserAuthorizationUrl),
-      getAuthorizationUrl,
+      getFunctionName(api.users.beginAuthAccountLink),
+      vi.fn(async () => null),
     );
     const container = await mountSettingsPage();
 
-    expect(container.textContent).toContain("Not connected");
-    expect(container.textContent).toContain("MCP clients");
-    expect(container.textContent).not.toContain("Billing");
     await act(async () => {
-      findButton(container, "Authorize GitHub account")?.click();
+      findButton(container, "Connect GitHub")?.click();
+      await Promise.resolve();
       await Promise.resolve();
     });
+    expect(findButton(container, "Connecting...")).not.toBeUndefined();
 
-    expect(getAuthorizationUrl).toHaveBeenCalledWith({ returnToPath: "/settings" });
+    const ordinaryPageShow = new Event("pageshow");
+    Object.defineProperty(ordinaryPageShow, "persisted", { value: false });
+    await act(async () => window.dispatchEvent(ordinaryPageShow));
+    expect(findButton(container, "Connecting...")).not.toBeUndefined();
+
+    const restoredPageShow = new Event("pageshow");
+    Object.defineProperty(restoredPageShow, "persisted", { value: true });
+    await act(async () => window.dispatchEvent(restoredPageShow));
+    expect(findButton(container, "Connect GitHub")).not.toBeUndefined();
   });
 
-  it("does not offer GitHub authorization without provider access", async () => {
-    testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
-      accessKeys: ["access_public", "access_user_preferences"],
+  it("places the route-owned authorization notice in authenticated settings", async () => {
+    const container = await mountSettingsPage(<div role="alert">Account link failed</div>);
+
+    expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1);
+    expect(container.textContent).toContain("Account link failed");
+  });
+
+  it("keeps Google and GitHub as fixed sign-in rows without removal actions", async () => {
+    testState.queries.set(getFunctionName(api.users.getUserSettings), {
+      accountEmail: "account@samebase.com",
+      displayName: "Current name",
+      signInMethods: {
+        github: { login: "octocat" },
+        google: { email: "google@example.com" },
+        password: null,
+      },
     });
     const container = await mountSettingsPage();
-
-    expect(container.textContent).toContain("Not connected");
-    expect(findButton(container, "Authorize GitHub account")).toBeUndefined();
-  });
-
-  it("shows and revokes a current personal GitHub authorization", async () => {
-    testState.queries.set(getFunctionName(api.githubUserAuthorizations.getViewerStatus), {
-      githubUserLogin: "nicubunu",
-      refreshTokenExpiresAt: Date.now() + 60_000,
-      status: "authorized",
-    });
-    const revokeAuthorization = vi.fn(async () => null);
-    testState.actions.set(
-      getFunctionName(api.githubUserAuthorizations.revokeViewerAuthorization),
-      revokeAuthorization,
+    const signInMethodsSection = container.querySelector(
+      '[aria-labelledby="settings-sign-in-methods-heading"]',
     );
-    const container = await mountSettingsPage();
 
-    expect(container.textContent).toContain("nicubunu");
-    expect(container.textContent).toContain("Connected");
-    await act(async () => {
-      findButton(container, "Revoke authorization")?.click();
-      await Promise.resolve();
-    });
-
-    expect(revokeAuthorization).toHaveBeenCalledWith({});
+    expect(signInMethodsSection).not.toBeNull();
+    expect(
+      [...(signInMethodsSection?.querySelectorAll("dt") ?? [])].map((term) => term.textContent),
+    ).toEqual(["Google", "GitHub"]);
+    expect(signInMethodsSection?.textContent).toContain("google@example.com");
+    expect(signInMethodsSection?.textContent).toContain("@octocat");
+    expect(findButton(container, "Connect Google")).toBeUndefined();
+    expect(findButton(container, "Connect GitHub")).toBeUndefined();
+    expect(container.textContent).not.toContain("Remove");
+    expect(container.textContent).not.toContain("GitHub access");
+    expect(container.textContent).not.toContain("Personal repository creation");
   });
 
-  it("marks an expired personal GitHub authorization", async () => {
-    testState.queries.set(getFunctionName(api.githubUserAuthorizations.getViewerStatus), {
-      githubUserLogin: "nicubunu",
-      refreshTokenExpiresAt: 0,
-      status: "authorized",
+  it("labels the stable address as Account email", async () => {
+    testState.queries.set(getFunctionName(api.users.getUserSettings), {
+      accountEmail: "account@samebase.com",
+      displayName: "Current name",
+      signInMethods: {
+        github: null,
+        google: { email: "google@example.com" },
+        password: null,
+      },
     });
     const container = await mountSettingsPage();
+    const accountSection = container.querySelector('[aria-labelledby="settings-account-heading"]');
 
-    expect(container.textContent).toContain("Expired");
-    expect(findButton(container, "Authorize GitHub account")).toBeDefined();
+    expect(accountSection?.textContent).toContain("Account email");
+    expect(accountSection?.textContent).toContain("account@samebase.com");
+    expect(accountSection?.textContent).not.toContain("Sign-in email");
   });
 
   it("saves the profile and refreshes the session", async () => {

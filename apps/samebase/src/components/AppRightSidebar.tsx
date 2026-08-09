@@ -17,7 +17,6 @@ import {
   useAppAuthPresentation,
   type AppAuthPresentationProfile,
 } from "@/lib/appAuthPresentationState";
-import { formatAuthProviderLabel } from "@/lib/authProviderLabel";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import {
   ORGANIZATION_CONNECT_REPO_ROUTE,
@@ -31,7 +30,6 @@ import { Link } from "@tanstack/react-router";
 import { useQuery as useConvexQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
-type AppRightSidebarAuthProviders = (typeof api.users.getViewerAuthProviders)["_returnType"];
 type AppRightSidebarViewerAccess = (typeof api.users.currentViewerAccess)["_returnType"];
 type AppRightSidebarViewer = NonNullable<(typeof api.users.viewer)["_returnType"]>;
 
@@ -60,17 +58,13 @@ function PublicAppRightSidebarContent({ accountPending }: { accountPending: bool
 }
 
 function AppRightSidebarSignedInAccountSection({
-  authProviders,
   profile,
   user,
 }: {
-  authProviders?: AppRightSidebarAuthProviders;
   profile: AppAuthPresentationProfile | null;
   user?: AppRightSidebarViewer | null;
 }) {
   const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
-  const accountProvider = authProviders?.primaryProvider ?? profile?.authProvider;
-  const accountProviderLabel = accountProvider ? formatAuthProviderLabel(accountProvider) : null;
 
   if (accountPresentation === undefined) {
     return <AppRightSidebarAccountLoadingSection />;
@@ -80,7 +74,6 @@ function AppRightSidebarSignedInAccountSection({
     <VaultDashboardStaticAccountSection
       accountPresentation={accountPresentation}
       dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
-      providerLabel={accountProviderLabel}
     />
   );
 }
@@ -108,7 +101,6 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
   deleting: boolean;
 }) {
   const user = useConvexQuery(api.users.viewer);
-  const authProviders = useConvexQuery(api.users.getViewerAuthProviders, deleting ? "skip" : {});
   const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
 
   return (
@@ -120,11 +112,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
           statusLabel="Deleting account"
         />
       ) : (
-        <AppRightSidebarSignedInAccountSection
-          authProviders={authProviders}
-          profile={profile}
-          user={user}
-        />
+        <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
       )}
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
@@ -202,7 +190,6 @@ function AuthenticatedAppRightSidebarContent({
   profile: AppAuthPresentationProfile | null;
 }) {
   const user = useConvexQuery(api.users.viewer);
-  const authProviders = useConvexQuery(api.users.getViewerAuthProviders);
   const { organizations, surface } = useOrganizationContext();
   const routedOrganization =
     surface.kind === "organization" && organizations
@@ -212,11 +199,7 @@ function AuthenticatedAppRightSidebarContent({
 
   return (
     <VaultDashboardSidebarContent>
-      <AppRightSidebarSignedInAccountSection
-        authProviders={user ? authProviders : undefined}
-        profile={profile}
-        user={user}
-      />
+      <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
       <OrganizationContextControl />
       {organizationContextPending || routedOrganization === null ? null : (
         <OrganizationAppRightSidebarLinks organization={routedOrganization} />

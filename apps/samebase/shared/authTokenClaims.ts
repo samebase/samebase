@@ -19,8 +19,6 @@ import {
 
 export const AUTH_TOKEN_PROFILE_CLAIM_MAX_LENGTH = 256;
 
-const authTokenAuthProviderSchema = union(literal("google"), literal("password"));
-
 const authTokenProfileClaimValueSchema = after(string, (value) => {
   const trimmedValue = value.trim();
   if (trimmedValue.length === 0) {
@@ -33,7 +31,7 @@ const authTokenProfileClaimValueSchema = after(string, (value) => {
 });
 
 const authTokenProfileClaimFieldsSchema = object({
-  authProvider: optional(authTokenAuthProviderSchema),
+  authProvider: optional(unknownValue),
   accountLabelKind: union(literal("displayName"), literal("email")),
   accountLabel: authTokenProfileClaimValueSchema,
   email: optional(unknownValue),
@@ -68,7 +66,6 @@ const authTokenProfileClaimsSchema = after(authTokenProfileClaimFieldsSchema, (c
       };
     }
     return good({
-      ...(claims.authProvider === undefined ? {} : { authProvider: claims.authProvider }),
       accountPresentation,
     });
   } catch {
@@ -81,7 +78,6 @@ const authTokenProfileSourceSchema = object({
   email: string,
 });
 
-export type AuthTokenAuthProvider = InferGood<typeof authTokenAuthProviderSchema>;
 export type AuthTokenProfileClaims = InferGood<typeof authTokenProfileClaimsSchema>;
 
 export function readAuthTokenProfileClaims(payload: unknown): AuthTokenProfileClaims | null {
@@ -89,10 +85,7 @@ export function readAuthTokenProfileClaims(payload: unknown): AuthTokenProfileCl
   return hasProfileClaims ? claims : null;
 }
 
-export function buildAuthTokenProfileCustomClaims(
-  source: unknown,
-  authProvider?: AuthTokenAuthProvider | null,
-): Record<string, string> {
+export function buildAuthTokenProfileCustomClaims(source: unknown): Record<string, string> {
   const [hasProfileSource, profileSource] = authTokenProfileSourceSchema(source);
   if (!hasProfileSource) {
     throw new Error("Account presentation source is invalid.");
@@ -102,6 +95,5 @@ export function buildAuthTokenProfileCustomClaims(
   return {
     accountLabelKind: accountPresentation.kind,
     accountLabel: accountPresentation.label,
-    ...(authProvider === undefined || authProvider === null ? {} : { authProvider }),
   };
 }

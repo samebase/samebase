@@ -6,7 +6,7 @@ import {
   getVisiblePasswordAuthSurface,
   rememberPublicLandingPasswordAuthMode,
   resolvePublicLandingPasswordAuthMode,
-  shouldRenderGoogleSignupClosedState,
+  shouldRenderOAuthSignupClosedState,
   type PasswordAuthSurface,
 } from "@/lib/publicLandingAuthState";
 import {
@@ -17,7 +17,7 @@ import {
   shouldStripVisibleProdUiQuery,
 } from "@/lib/prodUiMode";
 import { readRootRouteSearch } from "@/routeSearch/root";
-import { SignInWithGoogle } from "@/SignInWithGoogle";
+import { SignInWithOAuth } from "@/SignInWithOAuth";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
@@ -120,9 +120,9 @@ function usePublicLandingPasswordAuthControls(): {
 }
 
 export function PublicLandingAuthControls({
-  googleAuthFlow,
+  oauthAuthFlow,
 }: {
-  googleAuthFlow: "current-route" | "public-signup";
+  oauthAuthFlow: "current-route" | "public-signup";
 }) {
   const navigate = useNavigate();
   const { isAuthenticated } = useConvexAuth();
@@ -133,22 +133,28 @@ export function PublicLandingAuthControls({
     }),
   });
   const rootRouteSearch = readRootRouteSearch(location.searchStr);
-  const showGoogleSignupClosedState = shouldRenderGoogleSignupClosedState(
+  const showOAuthSignupClosedState = shouldRenderOAuthSignupClosedState(
     location.pathname,
     rootRouteSearch,
   );
   const { passwordAuthSurface } = usePublicLandingPasswordAuthControls();
 
-  if (isAuthenticated || showGoogleSignupClosedState) {
+  if (isAuthenticated || showOAuthSignupClosedState) {
     return null;
   }
 
-  const publicSignup = googleAuthFlow === "public-signup";
+  const publicSignup = oauthAuthFlow === "public-signup";
   const markPublicSignupReturn = location.pathname !== MCP_CONSENT_APP_PATH;
 
   return (
     <div className="flex flex-col gap-2">
-      <SignInWithGoogle
+      <SignInWithOAuth
+        provider="google"
+        authReturn={publicSignup ? "dashboard" : undefined}
+        markPublicSignupReturn={markPublicSignupReturn}
+      />
+      <SignInWithOAuth
+        provider="github"
         authReturn={publicSignup ? "dashboard" : undefined}
         markPublicSignupReturn={markPublicSignupReturn}
       />

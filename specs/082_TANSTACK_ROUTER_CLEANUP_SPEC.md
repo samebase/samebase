@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase frontend/app shell
-- Last updated: 2026-06-06
+- Last updated: 2026-08-08
 - Depends on:
   - `apps/samebase/src/lib/appRouter.ts`
   - `apps/samebase/src/components/NotFoundRoutePage.tsx`
@@ -55,10 +55,11 @@ Intentional remaining router-level boundary:
    parser/stringifier because Samebase intentionally preserves key-only URLs such as `/?dev` instead
    of adopting TanStack Router's default JSON-style search semantics.
 2. `/` remains the public landing route, and `/vault` is the canonical signed-in dashboard route.
-   Public Google sign-in from `/` asks the provider to return directly to `/vault`, while
+   Public Google or GitHub sign-in from `/` asks the provider to return directly to `/vault`, while
    `apps/samebase/src/lib/useAppAuthRuntimeEffects.ts` preserves failed unauthenticated
-   `/vault?signup=google` returns by sending them back to `/?signup=google`. Authenticated users can
-   still open `/` directly because the runtime no longer redirects authenticated root renders.
+   `/vault?signup=<provider>` returns by sending them back to `/?signup=<provider>`. Authenticated
+   users can still open `/` directly because the runtime no longer redirects authenticated root
+   renders.
 
 Already completed in this step:
 
@@ -93,8 +94,8 @@ Already completed in this step:
     dedicated `apps/samebase/e2e/public-landing-shell.spec.ts` handoff assertions
 16. the generic query-param helper in `apps/samebase/src/lib/queryParams.ts`
 17. the local ESLint plugin that only existed to enforce the generic query-param helper
-18. the Google auth redirect search updates in `apps/samebase/src/lib/googleAuthRedirect.ts`, which
-    now return typed root search updates for router-owned URL construction
+18. the OAuth redirect search updates in `apps/samebase/src/lib/oauthAuthRedirect.ts`, which now
+    return typed root search updates for router-owned URL construction
 
 Important non-targets for this step:
 
@@ -177,7 +178,7 @@ Important non-targets for this step:
   already-typed TanStack literals. Tried: audit the remaining route literals after the
   `PathWithSearch` cleanup and separate helper-boundary debt from already-typed `Link` /
   `getRouteApi` usage. Result: the next cleanup step is now explicit: convert route-owned helper
-  boundaries such as `landingDevMode.ts`, `googleAuthRedirect.ts`, `noterSync.ts`, and a few
+  boundaries such as `landingDevMode.ts`, `oauthAuthRedirect.ts`, `noterSync.ts`, and a few
   route-local builders to typed route helpers, while leaving generic low-level URL builders and
   already-typed route literals alone.
 
@@ -218,9 +219,9 @@ Important non-targets for this step:
   route-owned and typed, while the remaining raw href/history escapes are narrowed to the encoded
   `/vault/$` path itself rather than its query state.
 
-- Problem: `googleAuthRedirect.ts` looked like another root-helper candidate, but its real behavior
+- Problem: `oauthAuthRedirect.ts` looked like another root-helper candidate, but its real behavior
   is preserving the current non-root route during flows like MCP consent. Tried: traced all usage
-  through `SignInWithGoogle`, `authClient.ts`, and the existing tests. Result: this helper is not a
+  through `SignInWithOAuth`, `authClient.ts`, and the existing tests. Result: this helper is not a
   clean step-4 typed-route target yet, so it stays generic for now and is recorded as an explicit
   non-target instead of accidental debt.
 

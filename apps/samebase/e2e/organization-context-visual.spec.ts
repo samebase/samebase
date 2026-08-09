@@ -189,6 +189,7 @@ test("keeps one organization switchable and separates organization and user sett
   await expect(
     page.getByRole("alert").filter({ hasText: "Reconnect the GitHub App for org-context-solo" }),
   ).toBeVisible();
+  await expect(page.getByText("Personal repository creation", { exact: true })).toHaveCount(0);
   await expect(page).toHaveURL(/\/org\/org-context-solo\/providers#github$/u);
   if (!(await rightPane.isVisible())) {
     await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
@@ -206,7 +207,8 @@ test("keeps one organization switchable and separates organization and user sett
   const userSettings = page.getByTestId("user-settings-page");
   await expect(userSettings.getByRole("heading", { name: "Account settings" })).toBeVisible();
   await expect(userSettings.getByRole("heading", { name: "Profile" })).toBeVisible();
-  await expect(userSettings.getByRole("heading", { name: "GitHub authorization" })).toBeVisible();
+  await expect(userSettings.getByRole("heading", { name: "Sign-in methods" })).toBeVisible();
+  await expect(userSettings.getByRole("heading", { name: "GitHub access" })).toHaveCount(0);
   const mcpSettings = userSettings.getByTestId("mcp-clients-settings-section");
   await expect(mcpSettings.getByRole("heading", { name: "MCP clients" })).toBeVisible();
   await expect(mcpSettings.getByText("No authorized MCP clients.", { exact: true })).toBeVisible();

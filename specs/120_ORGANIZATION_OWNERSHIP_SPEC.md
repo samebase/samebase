@@ -4,13 +4,14 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-07
+- Last updated: 2026-08-09
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
   - `specs/119_POLAR_MONTHLY_BILLING_SPEC.md`
   - `specs/121_ORGANIZATION_CONTEXT_AND_ROUTE_MODEL.md`
+  - `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md`
   - `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
@@ -31,18 +32,17 @@ one membership can exist for an exact organization and user pair. The schema doe
 organization ID on a user or a list of user IDs on an organization.
 
 Signup, sign-in, approval, and waitlist changes do not create an organization or billing account. A
-user with no membership is a valid user. Samebase login stays independent from GitHub. A member can
-use Google login and does not need a GitHub account for operations that use organization
-credentials.
+user with no membership is a valid user. The sign-in method used for the current Samebase session
+does not authorize GitHub operations. A member can use Google for the session and does not need a
+connected GitHub sign-in identity for operations on a GitHub organization. Spec 122 defines the
+required connected identity for a personal GitHub owner.
 
 Each membership has one required role: `owner` or `member`. Both roles can read and operate the
 organization's vaults and use organization credentials. Both roles can create repositories for a
-GitHub organization. Creating a repository for a personal GitHub owner additionally requires the
-acting Samebase user to have a GitHub App user authorization for that exact GitHub user. Only owners
-can manage deployment providers, reconnect the GitHub organization, or manage billing. The first
-verified GitHub App installation creates an owner membership. Until an invitation UI exists, an
-idempotent internal function adds an existing Samebase user with an explicit `owner` or `member`
-role.
+GitHub organization. Only owners can manage deployment providers, reconnect the GitHub organization,
+or manage billing. The first verified GitHub App installation creates an owner membership. Until an
+invitation UI exists, an idempotent internal function adds an existing Samebase user with an
+explicit `owner` or `member` role.
 
 Every organization must always have at least one owner. Account deletion, membership removal, and
 role changes must reject a transition that would leave an organization without an owner. The first
@@ -70,26 +70,33 @@ An organization is always bound to its GitHub owner when it is created. There is
 organization and no automatic personal organization during signup.
 
 Creating an organization requires a verified installation of the environment's Samebase GitHub App.
-For a GitHub organization, the signed-in GitHub user must have an active organization membership
-with the GitHub administrator role, and the membership's stable organization ID must match the
-installation owner ID. For a personal owner, the GitHub user ID must match the installation owner
-ID. This GitHub authority check also applies when the App is reinstalled or reconnected. The
-signed-in Samebase user who completes the first verified setup becomes the first owner. The same
-transaction creates the organization's Free billing row. Reinstalling the app for the same owner
-updates the installation ID and does not create another organization. Reconnecting an existing
-organization also requires a Samebase owner membership.
+The authority rule depends on the GitHub owner type:
+
+- For a GitHub organization, the GitHub App setup actor must have a live administrator membership in
+  the exact organization and must see the exact installation. Their GitHub user ID can differ from
+  the Samebase account's linked GitHub identity, or that Samebase account can have no GitHub sign-in
+  method.
+- For a personal owner, the setup actor must be that owner and the Samebase account must satisfy the
+  exact identity rule in Spec 122.
+
+This authority check also applies when the App is reinstalled or reconnected. The Samebase user who
+started the verified setup becomes the first owner. The same transaction creates the organization's
+Free billing row. Reinstalling the App for the same owner updates the installation ID and does not
+create another organization. Reconnecting an existing organization also requires a Samebase owner
+membership.
 
 The GitHub App requires organization Members read permission because the organization authority
-check reads the signed-in GitHub user's live organization membership and role.
+check reads the setup actor's live organization membership and role.
 
 The installation is not a deployment provider credential and is not a Samebase login method.
 Samebase creates short-lived installation access tokens for repository operations and does not store
 those tokens. The App private key and client secret stay in deployment secrets.
 
 The setup callback uses short-lived state bound to the signed-in Samebase user. It exchanges the
-GitHub code for that user's GitHub App authorization, reads the GitHub user, verifies the returned
-installation through GitHub's App API, and only then creates or reconnects the organization. It does
-not trust `installation_id` by itself.
+GitHub code for the setup actor's short-lived GitHub App authorization, reads that GitHub user,
+verifies the returned installation through GitHub's App API, and only then creates or reconnects the
+organization. It does not trust `installation_id` by itself. For a GitHub organization, Samebase
+attempts to revoke the setup actor token through GitHub after verification and does not store it.
 
 The stored installation ID means "the last verified installation for this owner." GitHub is the
 source of truth for its current status. Installation-token creation fails closed after suspension or
@@ -98,10 +105,14 @@ and rename updates when those states have a real consumer.
 
 GitHub App installation authentication is the default for repository reads and writes. A GitHub App
 user authorization is stored separately only for operations that require the acting GitHub user,
-such as repository creation under a personal account. It belongs to one Samebase user and GitHub
-user. It does not identify an organization, grant membership, or become available to another member.
-One Samebase user has at most one current GitHub App user authorization. Supporting several personal
-GitHub identities for one Samebase user is outside this contract.
+specifically repository creation under a personal account. A GitHub organization creates a
+repository with its installation token and does not need this user authorization. Existing
+repository reads and writes also use installation authentication.
+
+Personal repository creation requires both the matching GitHub sign-in identity defined by Spec 122
+and a matching GitHub App user authorization. The authorization belongs to one Samebase user. It is
+not shared, grants no membership, and stores no organization ID. One user has at most one current
+authorization.
 
 ## Deployment Providers
 
@@ -195,8 +206,8 @@ Provider OAuth returns to `/org/<owner>/providers`. Checkout and subscription re
 keep the GitHub owner login and never include an internal organization ID.
 
 User settings remain separate from organization administration. They contain personal profile and
-account actions, user-owned MCP clients, and the acting user's GitHub App user authorization. They
-contain no organization selector or organization billing.
+account actions, sign-in methods, and user-owned MCP clients. They contain no organization selector,
+personal repository authorization control, or organization billing.
 
 An operation on an existing resource loads that resource and derives its organization before it
 checks membership. A root creation operation identifies the GitHub owner through the verified App
@@ -274,11 +285,12 @@ authentication, approval, and waitlist rows remain.
 After deployment:
 
 1. A retained user signs in.
-2. The user installs the development Samebase GitHub App.
-3. The verified callback creates the GitHub-backed organization, first membership, and billing row.
-4. The operator adds the second retained user through the internal membership function.
-5. Waitlist users keep zero memberships.
-6. The operator reconnects Convex, Cloudflare, vaults, and MCP clients as needed.
+2. For a personal owner, the user connects the same GitHub identity as a sign-in method.
+3. The user installs the development Samebase GitHub App.
+4. The verified callback creates the GitHub-backed organization, first membership, and billing row.
+5. The operator adds the second retained user through the internal membership function.
+6. Waitlist users keep zero memberships.
+7. The operator reconnects Convex, Cloudflare, vaults, and MCP clients as needed.
 
 Development and production use separate GitHub App registrations and secrets. Production secrets are
 required before production deployment, not before development implementation and validation.
@@ -287,7 +299,8 @@ required before production deployment, not before development implementation and
 
 - Automatic organization creation during signup
 - Unbound or independently named Samebase organizations
-- Requiring GitHub as the Samebase login method
+- Requiring a connected GitHub sign-in identity for membership or for setup and operations of a
+  GitHub organization
 - Treating GitHub as a deployment provider connection
 - Grouping repositories from several GitHub owners in one Samebase organization
 - Email invitation, acceptance, role, or membership-management UI
@@ -308,12 +321,18 @@ The rollout is ready only when focused tests and real manual checks prove:
 - A new or waitlisted user has zero memberships and no billing row.
 - A verified GitHub App installation creates one organization for one stable owner ID, one first
   membership, and one billing row.
+- A personal installation fails when the exact linked GitHub sign-in identity was absent or
+  different at setup start, or is absent or different at callback. Connecting it between those
+  points creates no Samebase organization or personal user authorization.
+- A GitHub organization installation succeeds when its live administrator differs from the Samebase
+  account's linked GitHub identity, or when no GitHub sign-in method is connected.
 - Reinstalling the App for that owner updates the existing organization without a duplicate.
 - One user can belong to several organizations, and one organization can have several users.
-- A second member can use the organization's App and provider credentials without GitHub login or
-  personal provider credentials.
+- A second member can use a GitHub organization's App and provider credentials without GitHub
+  sign-in or personal provider credentials.
 - Every member can create a repository for a GitHub organization. A repository for a personal GitHub
-  owner can be created only by a Samebase user authorized as that exact GitHub user.
+  owner requires both the exact linked GitHub sign-in identity and the exact personal GitHub App
+  user authorization.
 - A vault owner ID must match its organization owner ID.
 - `/vault/<owner>/<repository>` reloads without an organization query parameter and shows the same
   repository, Cloudflare Worker, Convex project, and observations.
@@ -336,5 +355,4 @@ The rollout is ready only when focused tests and real manual checks prove:
 - User deletion does not delete the organization or shared resources.
 - An MCP grant acts as its Samebase user across all current memberships, and each tool call applies
   current membership and role checks for its target.
-- No caller or test keeps automatic personal organizations, GitHub provider connections, or opaque
-  organization URL selection.
+- No caller or test keeps automatic personal organizations or opaque organization URL selection.

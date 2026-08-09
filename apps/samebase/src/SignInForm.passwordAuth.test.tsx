@@ -11,13 +11,14 @@ import {
 import { type RootRouteSearch } from "@/routeSearch/root";
 import { type PublicDeploymentAuthPolicy } from "../convex/deploymentProfile";
 
-const { buildLocationMock, navigateMock, signInWithGoogleMock, signInWithPasswordMock } =
-  vi.hoisted(() => ({
+const { buildLocationMock, navigateMock, signInWithOAuthMock, signInWithPasswordMock } = vi.hoisted(
+  () => ({
     buildLocationMock: vi.fn(),
     navigateMock: vi.fn(),
-    signInWithGoogleMock: vi.fn(),
+    signInWithOAuthMock: vi.fn(),
     signInWithPasswordMock: vi.fn(),
-  }));
+  }),
+);
 const componentState = vi.hoisted<{
   deploymentAuthPolicy: PublicDeploymentAuthPolicy | undefined;
   isAuthenticated: boolean;
@@ -33,7 +34,7 @@ vi.mock("@/authClient", () => ({
   isInIframe: () => false,
   openAuthPopup: vi.fn(),
   useAppSignInActions: () => ({
-    signInWithGoogle: signInWithGoogleMock,
+    signInWithOAuth: signInWithOAuthMock,
     signInWithPassword: signInWithPasswordMock,
   }),
 }));
@@ -83,7 +84,7 @@ describe("PasswordAuthForm", () => {
     componentState.search = {};
     buildLocationMock.mockReset();
     navigateMock.mockReset();
-    signInWithGoogleMock.mockReset();
+    signInWithOAuthMock.mockReset();
     signInWithPasswordMock.mockReset();
     const mountedRoot = root;
     if (mountedRoot !== null) {
@@ -125,7 +126,7 @@ describe("PasswordAuthForm", () => {
     };
 
     const markup = renderToStaticMarkup(
-      <PublicLandingAuthControls googleAuthFlow="public-signup" />,
+      <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
     );
 
     expect(markup).toContain("Google");
@@ -144,7 +145,7 @@ describe("PasswordAuthForm", () => {
     root = localRoot;
 
     await act(async () => {
-      localRoot.render(<PublicLandingAuthControls googleAuthFlow="public-signup" />);
+      localRoot.render(<PublicLandingAuthControls oauthAuthFlow="public-signup" />);
       await settleHydrationUpdate();
     });
 
@@ -174,7 +175,7 @@ describe("PasswordAuthForm", () => {
     root = localRoot;
 
     await act(async () => {
-      localRoot.render(<PublicLandingAuthControls googleAuthFlow="public-signup" />);
+      localRoot.render(<PublicLandingAuthControls oauthAuthFlow="public-signup" />);
     });
 
     const googleButton = Array.from(rootElement.querySelectorAll("button")).find(
@@ -188,7 +189,7 @@ describe("PasswordAuthForm", () => {
       googleButton.click();
     });
 
-    expect(signInWithGoogleMock).toHaveBeenCalledWith("/vault?prod-ui&signup=google");
+    expect(signInWithOAuthMock).toHaveBeenCalledWith("google", "/vault?prod-ui&signup=google");
   });
 
   it("hides Google and password controls in the closed-signup state", async () => {
@@ -203,7 +204,7 @@ describe("PasswordAuthForm", () => {
     root = localRoot;
 
     await act(async () => {
-      localRoot.render(<PublicLandingAuthControls googleAuthFlow="public-signup" />);
+      localRoot.render(<PublicLandingAuthControls oauthAuthFlow="public-signup" />);
       await settleHydrationUpdate();
     });
 
@@ -216,22 +217,18 @@ describe("PasswordAuthForm", () => {
   it("hydrates without inserting remembered password auth before hydration completes", async () => {
     const rootElement = document.createElement("div");
     rootElement.innerHTML = renderToStaticMarkup(
-      <PublicLandingAuthControls googleAuthFlow="public-signup" />,
+      <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
     );
     document.body.append(rootElement);
     window.localStorage.setItem("samebase_public_landing_password_auth_mode", "preview_seed");
     const recoverableErrors: Array<unknown> = [];
 
     await act(async () => {
-      root = hydrateRoot(
-        rootElement,
-        <PublicLandingAuthControls googleAuthFlow="public-signup" />,
-        {
-          onRecoverableError(error: unknown) {
-            recoverableErrors.push(error);
-          },
+      root = hydrateRoot(rootElement, <PublicLandingAuthControls oauthAuthFlow="public-signup" />, {
+        onRecoverableError(error: unknown) {
+          recoverableErrors.push(error);
         },
-      );
+      });
       await settleHydrationUpdate();
     });
 
@@ -248,7 +245,7 @@ describe("PasswordAuthForm", () => {
     componentState.search = { "prod-ui": true };
 
     const markup = renderToStaticMarkup(
-      <PublicLandingAuthControls googleAuthFlow="public-signup" />,
+      <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
     );
 
     expect(markup).toContain("Google");
@@ -268,7 +265,7 @@ describe("PasswordAuthForm", () => {
     root = localRoot;
 
     await act(async () => {
-      localRoot.render(<PublicLandingAuthControls googleAuthFlow="public-signup" />);
+      localRoot.render(<PublicLandingAuthControls oauthAuthFlow="public-signup" />);
       await settleHydrationUpdate();
     });
 
@@ -285,7 +282,7 @@ describe("PasswordAuthForm", () => {
     componentState.isAuthenticated = true;
 
     const markup = renderToStaticMarkup(
-      <PublicLandingAuthControls googleAuthFlow="public-signup" />,
+      <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
     );
 
     expect(markup).not.toContain("Google");
@@ -385,7 +382,7 @@ describe("PasswordAuthForm", () => {
     root = localRoot;
 
     await act(async () => {
-      localRoot.render(<PublicLandingAuthControls googleAuthFlow="public-signup" />);
+      localRoot.render(<PublicLandingAuthControls oauthAuthFlow="public-signup" />);
     });
 
     const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
@@ -462,7 +459,7 @@ describe("PasswordAuthForm", () => {
     root = localRoot;
 
     await act(async () => {
-      localRoot.render(<PublicLandingAuthControls googleAuthFlow="current-route" />);
+      localRoot.render(<PublicLandingAuthControls oauthAuthFlow="current-route" />);
     });
 
     const autofillButton = Array.from(rootElement.querySelectorAll("button")).find(
@@ -478,7 +475,7 @@ describe("PasswordAuthForm", () => {
 
     componentState.isAuthenticated = true;
     await act(async () => {
-      localRoot.render(<PublicLandingAuthControls googleAuthFlow="current-route" />);
+      localRoot.render(<PublicLandingAuthControls oauthAuthFlow="current-route" />);
     });
 
     expect(signInWithPasswordMock).toHaveBeenCalledWith({

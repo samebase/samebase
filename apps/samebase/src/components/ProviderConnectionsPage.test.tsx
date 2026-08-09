@@ -14,6 +14,7 @@ import {
   ProviderConnectionsPage,
 } from "./ProviderConnectionsPage";
 import { ProviderConnectionsPageVisualFixture } from "./ProviderConnectionsPageVisualFixture";
+import type { GitHubAuthorizationSetup } from "@/lib/githubAppSetupFlow";
 
 const { act } = React;
 
@@ -33,6 +34,14 @@ const organization = {
   organizationId: ORGANIZATION_ID,
   role: "owner" as const,
 };
+const personalOrganization = {
+  canCreateRepository: false,
+  githubOwnerId: "123",
+  githubOwnerLogin: "nicubunu",
+  githubOwnerType: "user" as const,
+  organizationId: fakeOrganizationId("organization_nicubunu"),
+  role: "member" as const,
+};
 
 type TestOrganization = Parameters<typeof ProviderConnectionsPage>[0]["organization"];
 
@@ -42,6 +51,7 @@ const testState = vi.hoisted(() => ({
   mutations: new Map<string, (args: unknown) => Promise<unknown>>(),
   queries: new Map<string, unknown>(),
   queryCalls: new Array<{ args: unknown; name: string }>(),
+  setupPopup: vi.fn<(getSetup: () => Promise<GitHubAuthorizationSetup>) => Promise<void>>(),
 }));
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -64,6 +74,13 @@ vi.mock("@/authClient", () => ({
   isInIframe: () => false,
 }));
 
+vi.mock("@/lib/githubAppSetupFlow", () => ({
+  openGitHubAppSetupPopup: (
+    _provider: "github-app" | "github-user",
+    getSetup: () => Promise<GitHubAuthorizationSetup>,
+  ) => testState.setupPopup(getSetup),
+}));
+
 vi.mock("@/components/ApiKeyConnectDialog", () => ({
   useApiKeyConnectDialog: ({ provider }: { provider: "cloudflare" | "convex" }) => ({
     apiKeyDialog: null,
@@ -78,6 +95,10 @@ function setProviderQueries() {
   testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
     state: "not_configured",
   });
+}
+
+function findButton(container: HTMLElement, label: string) {
+  return [...container.querySelectorAll("button")].find((button) => button.textContent === label);
 }
 
 function convexAccess() {
@@ -163,11 +184,16 @@ function providerPopupConfig(popup: Window | null = window) {
 
 describe("ProviderConnectionsPage", () => {
   beforeEach(() => {
+    window.history.replaceState({}, "", "/org/samebase/providers");
     testState.actions.clear();
     testState.apiCredentialDialogOpens = [];
     testState.mutations.clear();
     testState.queries.clear();
     testState.queryCalls = [];
+    testState.setupPopup.mockReset();
+    testState.setupPopup.mockImplementation(async (getSetup) => {
+      await getSetup();
+    });
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -428,6 +454,151 @@ describe("ProviderConnectionsPage", () => {
     ).not.toBeNull();
     expect(container.textContent).not.toContain(ORGANIZATION_ID);
   });
+
+  it("does not show personal repository authorization for a GitHub organization", () => {
+    setProviderQueries();
+
+    const container = mountProviderConnectionsPage();
+
+    expect(container.textContent).not.toContain("Personal repository creation");
+    expect(testState.queryCalls).toContainEqual({
+      args: "skip",
+      name: getFunctionName(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization),
+    });
+  });
+
+  it("starts personal repository authorization for the selected personal owner", async () => {
+    window.history.replaceState({}, "", "/org/nicubunu/providers");
+    setProviderQueries();
+    testState.queries.set(
+      getFunctionName(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization),
+      { status: "not_connected" },
+    );
+    const getAuthorizationUrl = vi.fn(async () => ({
+      callbackOrigin: "https://api.samebase.com",
+      setupUrl: "https://github.com/login/oauth/authorize",
+    }));
+    testState.mutations.set(
+      getFunctionName(api.githubAppInstallation.getGitHubUserAuthorizationUrl),
+      getAuthorizationUrl,
+    );
+    const container = mountProviderConnectionsPage(personalOrganization);
+
+    expect(container.textContent).toContain("Personal repository creation");
+    expect(container.textContent).toContain("Authorization required");
+    await act(async () => {
+      findButton(container, "Authorize")?.click();
+      await Promise.resolve();
+    });
+
+    expect(getAuthorizationUrl).toHaveBeenCalledWith({
+      organizationId: personalOrganization.organizationId,
+      returnToPath: "/org/nicubunu/providers",
+    });
+  });
+
+  it("shows and revokes personal repository authorization", async () => {
+    setProviderQueries();
+    testState.queries.set(
+      getFunctionName(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization),
+      {
+        githubUserLogin: "nicubunu",
+        refreshTokenExpiresAt: Date.now() + 60_000,
+        status: "authorized",
+      },
+    );
+    const revokeAuthorization = vi.fn(async () => null);
+    testState.actions.set(
+      getFunctionName(api.githubUserAuthorizations.revokeViewerPersonalRepositoryAuthorization),
+      revokeAuthorization,
+    );
+    const container = mountProviderConnectionsPage(personalOrganization);
+
+    expect(container.textContent).toContain("Authorized as @nicubunu");
+    expect(container.textContent).toContain(
+      "Samebase uses this authorization only to create repositories in this personal GitHub account.",
+    );
+    await act(async () => {
+      findButton(container, "Revoke")?.click();
+      await Promise.resolve();
+    });
+
+    expect(revokeAuthorization).toHaveBeenCalledWith({
+      organizationId: personalOrganization.organizationId,
+    });
+  });
+
+  it("offers reauthorization after personal repository authorization expires", () => {
+    setProviderQueries();
+    testState.queries.set(
+      getFunctionName(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization),
+      {
+        githubUserLogin: "nicubunu",
+        refreshTokenExpiresAt: 0,
+        status: "authorized",
+      },
+    );
+
+    const container = mountProviderConnectionsPage(personalOrganization);
+
+    expect(container.textContent).toContain("Expired for @nicubunu");
+    expect(findButton(container, "Reauthorize")).toBeDefined();
+    expect(findButton(container, "Revoke")).toBeDefined();
+  });
+
+  it("shows a different personal authorization before it offers replacement", () => {
+    setProviderQueries();
+    testState.queries.set(
+      getFunctionName(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization),
+      {
+        githubUserLogin: "other-user",
+        status: "different_account",
+      },
+    );
+
+    const container = mountProviderConnectionsPage(personalOrganization);
+
+    expect(container.textContent).toContain("Authorized as @other-user, not @nicubunu.");
+    expect(findButton(container, "Authorize")).toBeUndefined();
+    expect(findButton(container, "Revoke")).toBeDefined();
+  });
+
+  it.each([
+    ["sign_in_required", "Connect GitHub as @nicubunu in Account settings first."],
+    [
+      "sign_in_mismatch",
+      "Use the Samebase account connected to GitHub as @nicubunu. Check Account settings.",
+    ],
+  ] as const)("does not offer personal authorization for %s", (status, message) => {
+    setProviderQueries();
+    testState.queries.set(
+      getFunctionName(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization),
+      { status, authorizationPresent: false },
+    );
+
+    const container = mountProviderConnectionsPage(personalOrganization);
+
+    expect(container.textContent).toContain(message);
+    expect(findButton(container, "Authorize")).toBeUndefined();
+    expect(findButton(container, "Revoke")).toBeUndefined();
+    expect(container.querySelector('a[href="/settings"]')?.textContent).toBe("Account settings");
+  });
+
+  it.each(["sign_in_required", "sign_in_mismatch"] as const)(
+    "offers stale personal authorization recovery for %s",
+    (status) => {
+      setProviderQueries();
+      testState.queries.set(
+        getFunctionName(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization),
+        { status, authorizationPresent: true },
+      );
+
+      const container = mountProviderConnectionsPage(personalOrganization);
+
+      expect(findButton(container, "Authorize")).toBeUndefined();
+      expect(findButton(container, "Revoke")).toBeDefined();
+    },
+  );
 
   it("shows OAuth as the primary action and direct credentials as text", () => {
     setProviderQueries();

@@ -16,14 +16,14 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated && pathname === DASHBOARD_ROUTE) {
-      if (signupReturn === "google") {
+      if (signupReturn !== undefined) {
         void router.navigate({
           replace: true,
           search: (currentSearch) => ({
             ...currentSearch,
             auth: undefined,
             "auth-return": undefined,
-            signup: "google",
+            signup: signupReturn,
           }),
           state: true,
           to: "/",
@@ -38,7 +38,7 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
       return;
     }
 
-    if (!isAuthenticated || signupReturn !== "google") {
+    if (!isAuthenticated || signupReturn === undefined) {
       return;
     }
 

@@ -89,126 +89,135 @@ describe("useAutoSignIn", () => {
     );
   }
 
-  it("passes redirectTo when auto-starting Google auth from the popup or shell route", () => {
-    const popupSearch = stringifyTanStackSearch({
-      mcp_consent_request: "mcpar_test",
-      mcp_login_required: "1",
-      auth: "google",
-    });
-    const expectedRedirectTo = buildPathWithTanStackSearch({
-      pathname: "/",
-      search: {
+  it.each(["google", "github"] as const)(
+    "passes redirectTo when auto-starting %s auth from the popup or shell route",
+    (provider) => {
+      const popupSearch = stringifyTanStackSearch({
         mcp_consent_request: "mcpar_test",
         mcp_login_required: "1",
-      },
-    });
-
-    vi.stubGlobal("window", {
-      location: {
+        auth: provider,
+      });
+      const expectedRedirectTo = buildPathWithTanStackSearch({
         pathname: "/",
-        search: popupSearch,
-        hash: "",
-      },
-      history: {
-        state: { __TSR_index: 7, __TSR_key: "popup-route" },
-        replaceState: replaceStateMock,
-      },
-    });
+        search: {
+          mcp_consent_request: "mcpar_test",
+          mcp_login_required: "1",
+        },
+      });
 
-    mockCurrentRouteLocationBuilder();
+      vi.stubGlobal("window", {
+        location: {
+          pathname: "/",
+          search: popupSearch,
+          hash: "",
+        },
+        history: {
+          state: { __TSR_index: 7, __TSR_key: "popup-route" },
+          replaceState: replaceStateMock,
+        },
+      });
 
-    useAutoSignIn({ auth: "google" });
+      mockCurrentRouteLocationBuilder();
 
-    expect(replaceStateMock).toHaveBeenCalledWith(
-      { __TSR_index: 7, __TSR_key: "popup-route" },
-      "",
-      expectedRedirectTo,
-    );
-    expect(signInMock).toHaveBeenCalledWith("google", {
-      redirectTo: expectedRedirectTo,
-    });
-  });
+      useAutoSignIn({ auth: provider });
 
-  it("preserves the public signup marker when popup Google auth auto-starts", () => {
-    const popupSearch = stringifyTanStackSearch({
-      auth: "google",
-      signup: "google",
-    });
-    const expectedRedirectTo = buildPathWithTanStackSearch({
-      pathname: "/",
-      search: {
-        signup: "google",
-      },
-    });
+      expect(replaceStateMock).toHaveBeenCalledWith(
+        { __TSR_index: 7, __TSR_key: "popup-route" },
+        "",
+        expectedRedirectTo,
+      );
+      expect(signInMock).toHaveBeenCalledWith(provider, {
+        redirectTo: expectedRedirectTo,
+      });
+    },
+  );
 
-    vi.stubGlobal("window", {
-      location: {
+  it.each(["google", "github"] as const)(
+    "preserves the public signup marker when popup %s auth auto-starts",
+    (provider) => {
+      const popupSearch = stringifyTanStackSearch({
+        auth: provider,
+        signup: provider,
+      });
+      const expectedRedirectTo = buildPathWithTanStackSearch({
         pathname: "/",
-        search: popupSearch,
-        hash: "",
-      },
-      history: {
-        state: { __TSR_index: 8, __TSR_key: "signup-route" },
-        replaceState: replaceStateMock,
-      },
-    });
+        search: {
+          signup: provider,
+        },
+      });
 
-    mockCurrentRouteLocationBuilder();
+      vi.stubGlobal("window", {
+        location: {
+          pathname: "/",
+          search: popupSearch,
+          hash: "",
+        },
+        history: {
+          state: { __TSR_index: 8, __TSR_key: "signup-route" },
+          replaceState: replaceStateMock,
+        },
+      });
 
-    useAutoSignIn({ auth: "google", signup: "google" });
+      mockCurrentRouteLocationBuilder();
 
-    expect(replaceStateMock).toHaveBeenCalledWith(
-      { __TSR_index: 8, __TSR_key: "signup-route" },
-      "",
-      expectedRedirectTo,
-    );
-    expect(signInMock).toHaveBeenCalledWith("google", {
-      redirectTo: expectedRedirectTo,
-    });
-  });
+      useAutoSignIn({ auth: provider, signup: provider });
 
-  it("preserves the dashboard return marker when public Google auth auto-starts", () => {
-    const popupSearch = stringifyTanStackSearch({
-      auth: "google",
-      "auth-return": "dashboard",
-      signup: "google",
-    });
-    const expectedRedirectTo = buildPathWithTanStackSearch({
-      pathname: "/vault",
-      search: {
-        signup: "google",
-      },
-    });
+      expect(replaceStateMock).toHaveBeenCalledWith(
+        { __TSR_index: 8, __TSR_key: "signup-route" },
+        "",
+        expectedRedirectTo,
+      );
+      expect(signInMock).toHaveBeenCalledWith(provider, {
+        redirectTo: expectedRedirectTo,
+      });
+    },
+  );
 
-    vi.stubGlobal("window", {
-      location: {
-        pathname: "/",
-        search: popupSearch,
-        hash: "",
-      },
-      history: {
-        state: { __TSR_index: 9, __TSR_key: "dashboard-return" },
-        replaceState: replaceStateMock,
-      },
-    });
+  it.each(["google", "github"] as const)(
+    "preserves the dashboard return marker when public %s auth auto-starts",
+    (provider) => {
+      const popupSearch = stringifyTanStackSearch({
+        auth: provider,
+        "auth-return": "dashboard",
+        signup: provider,
+      });
+      const expectedRedirectTo = buildPathWithTanStackSearch({
+        pathname: "/vault",
+        search: {
+          signup: provider,
+        },
+      });
 
-    mockCurrentRouteLocationBuilder();
+      vi.stubGlobal("window", {
+        location: {
+          pathname: "/",
+          search: popupSearch,
+          hash: "",
+        },
+        history: {
+          state: { __TSR_index: 9, __TSR_key: "dashboard-return" },
+          replaceState: replaceStateMock,
+        },
+      });
 
-    useAutoSignIn({
-      auth: "google",
-      "auth-return": "dashboard",
-      signup: "google",
-    });
+      mockCurrentRouteLocationBuilder();
 
-    expect(replaceStateMock).toHaveBeenCalledWith(
-      { __TSR_index: 9, __TSR_key: "dashboard-return" },
-      "",
-      expectedRedirectTo,
-    );
-    expect(signInMock).toHaveBeenCalledWith("google", {
-      redirectTo: expectedRedirectTo,
-    });
-  });
+      useAutoSignIn({
+        auth: provider,
+        "auth-return": "dashboard",
+        signup: provider,
+      });
+
+      expect(replaceStateMock).toHaveBeenCalledWith(
+        { __TSR_index: 9, __TSR_key: "dashboard-return" },
+        "",
+        expectedRedirectTo,
+      );
+      expect(signInMock).toHaveBeenCalledWith(provider, {
+        redirectTo: expectedRedirectTo,
+      });
+    },
+  );
 
   it("does nothing when the routed auth search is absent", () => {
     vi.stubGlobal("window", {

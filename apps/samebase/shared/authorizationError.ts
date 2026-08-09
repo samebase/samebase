@@ -8,11 +8,16 @@ export const AUTHORIZATION_PROVIDERS = [
   "cloudflare",
   "github-app",
   "github-user",
+  "google-sign-in",
+  "github-sign-in",
 ] as const;
 export type AuthorizationProvider = (typeof AUTHORIZATION_PROVIDERS)[number];
 
 export const AUTHORIZATION_ERROR_CODES = [
   "canceled",
+  "account-link-required",
+  "github-sign-in-required",
+  "github-sign-in-mismatch",
   "expired",
   "access-changed",
   "configuration-changed",
