@@ -161,12 +161,13 @@ describe("useAppAuthRuntimeEffects", () => {
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
-  it("preserves failed public Google signup returns when redirecting signed-out dashboard loads", () => {
+  it("preserves a GitHub account-linking error when redirecting signed-out dashboard loads", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
     vi.stubGlobal("window", {
       location: {
         pathname: "/vault",
-        search: "?signup=google",
+        search:
+          "?signup=github&authorization-provider=github-sign-in&authorization-error=account-link-required",
         hash: "",
       },
       history: {
@@ -175,7 +176,9 @@ describe("useAppAuthRuntimeEffects", () => {
     });
 
     useAppAuthRuntimeEffects("/vault", {
-      signup: "google",
+      "authorization-error": "account-link-required",
+      "authorization-provider": "github-sign-in",
+      signup: "github",
     });
 
     expect(navigateMock).toHaveBeenCalledWith({
@@ -192,13 +195,15 @@ describe("useAppAuthRuntimeEffects", () => {
       navigateOptions.search({
         "auth-return": "dashboard",
         "prod-ui": true,
-        signup: "google",
+        signup: "github",
       }),
     ).toEqual({
       auth: undefined,
       "auth-return": undefined,
+      "authorization-error": "account-link-required",
+      "authorization-provider": "github-sign-in",
       "prod-ui": true,
-      signup: "google",
+      signup: "github",
     });
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
