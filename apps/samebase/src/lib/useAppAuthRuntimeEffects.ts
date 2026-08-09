@@ -1,6 +1,7 @@
 import { useAutoSignIn } from "@/authClient";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useCloseOAuthPopup } from "@/lib/useCloseOAuthPopup";
+import { readAuthorizationError } from "@/routeSearch/authorizationError";
 import { type RootRouteSearch } from "@/routeSearch/root";
 import { useRouter } from "@tanstack/react-router";
 import { useConvexAuth } from "convex/react";
@@ -10,6 +11,9 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
   const { isAuthenticated, isLoading } = useConvexAuth();
   const router = useRouter();
   const signupReturn = rootRouteSearch.signup;
+  const authorizationError = readAuthorizationError(rootRouteSearch);
+  const authorizationErrorCode = authorizationError?.code;
+  const authorizationProvider = authorizationError?.provider;
 
   useAutoSignIn(rootRouteSearch);
   useCloseOAuthPopup(pathname, true);
@@ -23,6 +27,8 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
             ...currentSearch,
             auth: undefined,
             "auth-return": undefined,
+            "authorization-error": authorizationErrorCode,
+            "authorization-provider": authorizationProvider,
             signup: signupReturn,
           }),
           state: true,
@@ -56,5 +62,13 @@ export function useAppAuthRuntimeEffects(pathname: string, rootRouteSearch: Root
     // Preserve TanStack Router bookkeeping while removing the one-shot
     // signup-return flag from the visible URL.
     window.history.replaceState(window.history.state, "", nextPath);
-  }, [isAuthenticated, isLoading, pathname, router, signupReturn]);
+  }, [
+    authorizationErrorCode,
+    authorizationProvider,
+    isAuthenticated,
+    isLoading,
+    pathname,
+    router,
+    signupReturn,
+  ]);
 }
