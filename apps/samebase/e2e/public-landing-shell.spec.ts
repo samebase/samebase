@@ -682,7 +682,7 @@ test("public landing renders the closed OAuth signup return state", async ({ pag
 test("public landing explains the GitHub account-linking return", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(
-    "/?prod-ui&signup=github&authorization-provider=github-sign-in&authorization-error=account-link-required",
+    "/?prod-ui&auth-return=dashboard&signup=github&authorization-provider=github-sign-in&authorization-error=account-link-required",
     { waitUntil: "networkidle" },
   );
 

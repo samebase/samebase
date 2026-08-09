@@ -1,4 +1,3 @@
-import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import { useConvexAuth } from "convex/react";
 import { useEffect } from "react";
 
@@ -15,15 +14,22 @@ function readSameOriginOpener(): Window | null {
   }
 }
 
-function readPopupCompletionRedirect(pathname: string): string | undefined {
-  if (pathname !== DASHBOARD_ROUTE) {
+function readPopupCompletionRedirect(
+  pathname: string,
+  authReturn: "dashboard" | undefined,
+): string | undefined {
+  if (pathname !== "/" || authReturn !== "dashboard") {
     return undefined;
   }
 
   return `${window.location.pathname}${window.location.search}${window.location.hash}`;
 }
 
-export function useCloseOAuthPopup(pathname: string, enabled: boolean) {
+export function useCloseOAuthPopup(
+  pathname: string,
+  authReturn: "dashboard" | undefined,
+  enabled: boolean,
+) {
   const { isAuthenticated } = useConvexAuth();
 
   useEffect(() => {
@@ -38,7 +44,7 @@ export function useCloseOAuthPopup(pathname: string, enabled: boolean) {
     if (!opener) {
       return;
     }
-    const redirectTo = readPopupCompletionRedirect(pathname);
+    const redirectTo = readPopupCompletionRedirect(pathname, authReturn);
 
     const authKeys = Object.keys(localStorage).filter((key) => key.startsWith("__convexAuth"));
     const authTokens: Record<string, string> = {};
@@ -71,5 +77,5 @@ export function useCloseOAuthPopup(pathname: string, enabled: boolean) {
     }
 
     window.close();
-  }, [enabled, isAuthenticated, pathname]);
+  }, [authReturn, enabled, isAuthenticated, pathname]);
 }

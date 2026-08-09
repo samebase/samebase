@@ -40,7 +40,7 @@ describe("useCloseOAuthPopup", () => {
     vi.unstubAllGlobals();
   });
 
-  it("redirects the opener to the dashboard after popup auth completes on the dashboard route", () => {
+  it("returns the public dashboard marker to the opener after popup auth completes", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true });
     const openerLocation = {
       href: "https://samebase.com/",
@@ -52,8 +52,8 @@ describe("useCloseOAuthPopup", () => {
       location: {
         hash: "#ready",
         origin: "https://samebase.com",
-        pathname: "/vault",
-        search: "?prod-ui",
+        pathname: "/",
+        search: "?auth-return=dashboard&prod-ui&signup=github",
       },
       opener: {
         localStorage: {
@@ -67,10 +67,10 @@ describe("useCloseOAuthPopup", () => {
       getItem: vi.fn(() => "token"),
     });
 
-    useCloseOAuthPopup("/vault", true);
+    useCloseOAuthPopup("/", "dashboard", true);
 
     expect(openerLocalStorageSetItemMock).toHaveBeenCalledWith("__convexAuthAccessToken", "token");
-    expect(openerLocation.href).toBe("/vault?prod-ui#ready");
+    expect(openerLocation.href).toBe("/?auth-return=dashboard&prod-ui&signup=github#ready");
     expect(openerReloadMock).not.toHaveBeenCalled();
     expect(closeMock).toHaveBeenCalledTimes(1);
   });
@@ -96,8 +96,8 @@ describe("useCloseOAuthPopup", () => {
       location: {
         hash: "",
         origin: "https://samebase.com",
-        pathname: "/vault",
-        search: "?prod-ui",
+        pathname: "/",
+        search: "?auth-return=dashboard&prod-ui&signup=google",
       },
       opener,
     });
@@ -106,11 +106,11 @@ describe("useCloseOAuthPopup", () => {
       getItem: vi.fn(() => "token"),
     });
 
-    useCloseOAuthPopup("/vault", true);
+    useCloseOAuthPopup("/", "dashboard", true);
 
     expect(openerPostMessageMock).toHaveBeenCalledWith(
       {
-        redirectTo: "/vault?prod-ui",
+        redirectTo: "/?auth-return=dashboard&prod-ui&signup=google",
         type: "convex-auth-tokens",
         tokens: {
           __convexAuthAccessToken: "token",
@@ -129,8 +129,8 @@ describe("useCloseOAuthPopup", () => {
       location: {
         hash: "",
         origin: "https://samebase.com",
-        pathname: "/vault",
-        search: "",
+        pathname: "/",
+        search: "?auth-return=dashboard&signup=google",
       },
       opener: {
         localStorage: {
@@ -149,7 +149,7 @@ describe("useCloseOAuthPopup", () => {
       getItem: vi.fn(() => "token"),
     });
 
-    useCloseOAuthPopup("/vault", true);
+    useCloseOAuthPopup("/", "dashboard", true);
 
     expect(openerLocalStorageSetItemMock).not.toHaveBeenCalled();
     expect(openerPostMessageMock).not.toHaveBeenCalled();

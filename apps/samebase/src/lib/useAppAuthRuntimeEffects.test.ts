@@ -103,7 +103,7 @@ describe("useAppAuthRuntimeEffects", () => {
       "prod-ui": true,
       signup: "google",
     });
-    expect(useCloseOAuthPopupMock).toHaveBeenCalledWith("/settings", true);
+    expect(useCloseOAuthPopupMock).toHaveBeenCalledWith("/settings", undefined, true);
     expect(replaceStateMock).toHaveBeenCalledWith(
       { __TSR_index: 4, __TSR_key: "landing" },
       "",
@@ -161,53 +161,6 @@ describe("useAppAuthRuntimeEffects", () => {
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
-  it("preserves a GitHub account-linking error when redirecting signed-out dashboard loads", () => {
-    useConvexAuthMock.mockReturnValue({ isAuthenticated: false, isLoading: false });
-    vi.stubGlobal("window", {
-      location: {
-        pathname: "/vault",
-        search:
-          "?signup=github&authorization-provider=github-sign-in&authorization-error=account-link-required",
-        hash: "",
-      },
-      history: {
-        replaceState: replaceStateMock,
-      },
-    });
-
-    useAppAuthRuntimeEffects("/vault", {
-      "authorization-error": "account-link-required",
-      "authorization-provider": "github-sign-in",
-      signup: "github",
-    });
-
-    expect(navigateMock).toHaveBeenCalledWith({
-      replace: true,
-      search: expect.any(Function),
-      state: true,
-      to: "/",
-    });
-    const navigateOptions = navigateMock.mock.calls[0]?.[0];
-    if (!navigateOptions || typeof navigateOptions.search !== "function") {
-      throw new Error("Expected failed signup redirect with search updater.");
-    }
-    expect(
-      navigateOptions.search({
-        "auth-return": "dashboard",
-        "prod-ui": true,
-        signup: "github",
-      }),
-    ).toEqual({
-      auth: undefined,
-      "auth-return": undefined,
-      "authorization-error": "account-link-required",
-      "authorization-provider": "github-sign-in",
-      "prod-ui": true,
-      signup: "github",
-    });
-    expect(replaceStateMock).not.toHaveBeenCalled();
-  });
-
   it("keeps authenticated root loads on the public landing route without the dashboard return marker", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
     vi.stubGlobal("window", {
@@ -227,7 +180,7 @@ describe("useAppAuthRuntimeEffects", () => {
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
-  it("does not redirect authenticated root loads from the old dashboard return URL", () => {
+  it("redirects an authenticated public OAuth return to the dashboard", () => {
     useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
     vi.stubGlobal("window", {
       location: {
@@ -244,7 +197,28 @@ describe("useAppAuthRuntimeEffects", () => {
       "auth-return": "dashboard",
     });
 
-    expect(navigateMock).not.toHaveBeenCalled();
+    expect(navigateMock).toHaveBeenCalledWith({
+      replace: true,
+      search: expect.any(Function),
+      state: true,
+      to: "/vault",
+    });
+    const navigateOptions = navigateMock.mock.calls[0]?.[0];
+    if (!navigateOptions || typeof navigateOptions.search !== "function") {
+      throw new Error("Expected dashboard return navigation with a search updater.");
+    }
+    expect(
+      navigateOptions.search({
+        "auth-return": "dashboard",
+        "prod-ui": true,
+        signup: "github",
+      }),
+    ).toEqual({
+      auth: undefined,
+      "auth-return": undefined,
+      "prod-ui": true,
+      signup: undefined,
+    });
     expect(replaceStateMock).not.toHaveBeenCalled();
   });
 
@@ -265,32 +239,5 @@ describe("useAppAuthRuntimeEffects", () => {
 
     expect(navigateMock).not.toHaveBeenCalled();
     expect(replaceStateMock).not.toHaveBeenCalled();
-  });
-
-  it("clears the Google signup marker after successful authentication on the dashboard route", () => {
-    useConvexAuthMock.mockReturnValue({ isAuthenticated: true, isLoading: false });
-    vi.stubGlobal("window", {
-      location: {
-        pathname: "/vault",
-        search: "?signup=google",
-        hash: "",
-      },
-      history: {
-        state: { __TSR_index: 9, __TSR_key: "dashboard-return" },
-        replaceState: replaceStateMock,
-      },
-    });
-    mockCurrentRouteLocationBuilder();
-
-    useAppAuthRuntimeEffects("/vault", {
-      signup: "google",
-    });
-
-    expect(replaceStateMock).toHaveBeenCalledWith(
-      { __TSR_index: 9, __TSR_key: "dashboard-return" },
-      "",
-      "/vault",
-    );
-    expect(navigateMock).not.toHaveBeenCalled();
   });
 });

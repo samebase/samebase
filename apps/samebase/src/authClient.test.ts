@@ -182,8 +182,9 @@ describe("useAutoSignIn", () => {
         signup: provider,
       });
       const expectedRedirectTo = buildPathWithTanStackSearch({
-        pathname: "/vault",
+        pathname: "/",
         search: {
+          "auth-return": "dashboard",
           signup: provider,
         },
       });
@@ -317,7 +318,7 @@ describe("useAutoSignIn", () => {
     messageHandler(
       new MessageEvent("message", {
         data: {
-          redirectTo: "/vault?prod-ui",
+          redirectTo: "/?auth-return=dashboard&prod-ui&signup=google",
           tokens: {
             __convexAuthAccessToken: "token",
           },
@@ -329,7 +330,7 @@ describe("useAutoSignIn", () => {
     );
 
     expect(localStorageSetItemMock).toHaveBeenCalledWith("__convexAuthAccessToken", "token");
-    expect(locationState.href).toBe("/vault?prod-ui");
+    expect(locationState.href).toBe("/?auth-return=dashboard&prod-ui&signup=google");
     expect(locationReloadMock).not.toHaveBeenCalled();
   });
 

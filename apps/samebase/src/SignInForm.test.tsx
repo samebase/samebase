@@ -126,8 +126,9 @@ describe("SignInWithOAuth", () => {
         markPublicSignupReturn: true,
       });
       const expectedRedirectTo = buildPathWithTanStackSearch({
-        pathname: "/vault",
+        pathname: "/",
         search: {
+          "auth-return": "dashboard",
           "prod-ui": "",
           signup: provider,
         },
