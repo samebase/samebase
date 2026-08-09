@@ -146,6 +146,8 @@ const LOGO_ROTATION_AXIS_MODE_VALUES = [
   "screen-vertical",
 ] as const satisfies readonly LogoRotationAxisMode[];
 
+export const LOGO_CARPET_SHUFFLE_DEFAULT_MECHANIC = "grow" satisfies SierpinskiCarpetHoverMechanic;
+
 const LOGO_ISOMETRIC_STYLE_VALUES = [
   "flat",
   "shaded-edge",
@@ -1292,6 +1294,9 @@ export function buildLogoCarpetHoverRouteSearch(
   },
 ): LogoCarpetHoverRouteSearch {
   const revealRadius = normalizeSierpinskiCarpetHoverRevealRadius(args.carpetRevealRadius);
+  const defaultMechanic = args.autoShuffleEnabled
+    ? LOGO_CARPET_SHUFFLE_DEFAULT_MECHANIC
+    : SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC;
 
   return {
     ...buildLogoRouteSearch(args),
@@ -1303,10 +1308,7 @@ export function buildLogoCarpetHoverRouteSearch(
       args.carpetRevealDepth !== SIERPINSKI_CARPET_HOVER_DEFAULT_DEPTH
         ? args.carpetRevealDepth
         : undefined,
-    mechanic:
-      args.carpetMechanic !== SIERPINSKI_CARPET_HOVER_DEFAULT_MECHANIC
-        ? args.carpetMechanic
-        : undefined,
+    mechanic: args.carpetMechanic !== defaultMechanic ? args.carpetMechanic : undefined,
     radius:
       revealRadius !== SIERPINSKI_CARPET_HOVER_DEFAULT_REVEAL_RADIUS ? revealRadius : undefined,
   };
