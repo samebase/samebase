@@ -101,6 +101,26 @@ group with:
 
 Do not use added line count as proof of value. Use it only to identify expensive review targets.
 
+## Audit the existing suite
+
+Use a dedicated suite-health task for a suite-wide audit. Do not run the complete suite only to
+collect timing when recent main CI logs already contain the evidence.
+
+When parallel read-only work is available, use three lanes:
+
+1. Collect per-file and per-test runtime, repeated failure titles, and setup cost from recent main
+   runs.
+2. Map Playwright tests to current browser contracts and existing lower-layer owners.
+3. Map unit, component, and Convex tests to current contracts and stronger existing owners.
+
+Require every merge, delete, or opt-in recommendation to name the current contract, measured cost,
+existing owner or obsolete product surface, and confidence. Rank browser time and repeated main
+failures before line count. Keep security and data-integrity contracts unless a stronger test proves
+the same boundary.
+
+Apply one small cleanup pull request at a time. Record the measured cost before and after each
+change. Do not mix a browser-cost cleanup with security-contract deletion.
+
 ## Report completion
 
 List the changed product contracts, their owner tests, focused commands and results, and measured
