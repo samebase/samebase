@@ -19,23 +19,31 @@ screenshot baselines noisy.
 Local Linux visual runs are parallel by default. The wrapper adds `--fully-parallel --workers=4`
 unless the command already passes `--fully-parallel` or `--workers` / `-j`.
 
-## Acceptance Command
+## Run Scope
 
-The canonical local acceptance command for Playwright visual coverage is the unmodified Linux
-wrapper:
+The Linux wrapper is the canonical environment for Playwright visual coverage. Run an affected spec
+during a feature task:
+
+```bash
+pnpm test:visual:linux -- e2e/foo.spec.ts
+```
+
+Run the complete product suite only for main CI, a dedicated Playwright suite-health task, or an
+explicit user request:
 
 ```bash
 pnpm test:visual:linux
 ```
 
-Use focused spec runs as the inner development loop, not as proof that the Playwright suite is
-green. If a full local run fails, the fix is not done until the full unmodified wrapper passes
-again.
+A focused pass proves only the named spec. It is valid feature-task evidence for the contracts in
+that spec. It does not claim that the complete Playwright suite passed.
+
+If a full run fails, follow `../.agents/skills/samebase-test-policy/SKILL.md`. Do not repair or
+rerun an unrelated or unclear failure from the feature task.
 
 Do not substitute PR CI, Testbox shards, `--workers=1`, `--shard`, or
-`PLAYWRIGHT_LINUX_FULLY_PARALLEL=0` for this acceptance command. Those shapes are useful diagnostics
-when chasing a specific CI or isolation failure, but they are different execution surfaces and must
-be reported as such.
+`PLAYWRIGHT_LINUX_FULLY_PARALLEL=0` when claiming that the complete suite passed. Those shapes are
+useful diagnostics for a specific CI or isolation failure. Report the command shape.
 
 ## Daily Workflow
 
@@ -100,9 +108,8 @@ pnpm test:visual:linux -- --workers=1 --shard=2/3
 pnpm test:visual:linux -- --workers=1 --shard=3/3
 ```
 
-Passing those shards proves that shard shape only. It does not replace `pnpm test:visual:linux` for
-local acceptance unless the exact target is a main-CI-only failure and the full local surface is
-known to be irrelevant.
+Passing those shards proves that shard shape only. Use the full unmodified command only when the
+target is complete suite health.
 
 ## Suite Maintenance
 
@@ -114,7 +121,8 @@ needs a browser. Prefer this order:
    and route-shell behavior.
 3. Production-component visual fixtures only when the rendered surface itself needs screenshot
    coverage.
-4. Full `pnpm test:visual:linux` before calling a Playwright fix complete.
+4. The affected Linux spec before calling a feature fix complete. Run the full product suite only
+   for suite-health work.
 
 Logo labs and logo-specific visual research use the `@logo-research` tag. The default product suite
 excludes these tests. A logo route does not make a test logo research. Required product contracts

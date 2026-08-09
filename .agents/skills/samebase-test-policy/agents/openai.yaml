@@ -1,0 +1,6 @@
+interface:
+  display_name: "Samebase Test Policy"
+  short_description: "Control test scope and unrelated failure loops"
+  default_prompt:
+    "Use $samebase-test-policy to choose focused test coverage and triage unrelated
+    failures."

@@ -163,6 +163,7 @@ The full protocol for PR bodies, review, labels, and cleanup lives in `docs/agen
   research. It informs decisions but is not itself the source of truth.
 - `docs/` contains durable reference material such as workflow runbooks, compliance artifacts, and
   operator-facing documentation that does not define product behavior.
+- `.agents/skills/` contains repository skills that Codex discovers automatically.
 - `skills/` contains reusable, task-specific playbooks. Keep the `SKILL.md` focused and load heavier
   references/scripts only when needed.
 - `archive/` contains superseded or historical material that should not guide new implementation.
@@ -339,9 +340,14 @@ UI code:
   scrollport.
 - Temporary ProseMark workaround: prefix a Markdown link label that would equal its URL with `link`
   plus a leading space so the link renders visibly.
-- Add or update screenshot coverage whenever a patch changes shipped UI.
+- Load and follow `$samebase-test-policy` before adding or reviewing tests, choosing validation
+  scope, or triaging a test failure. Feature tasks run focused affected tests and do not repair
+  unrelated suite failures.
+- When a patch changes a shipped visual contract, update its existing screenshot owner or add the
+  narrowest useful screenshot coverage. Do not add a screenshot test only because a UI file changed.
 - Follow `skills/samebase-playwright-live/SKILL.md` and `docs/playwright-visual-testing.md` for
-  browser rules. `pnpm test:visual:linux` is the canonical acceptance command.
+  browser rules. The Linux wrapper is the canonical screenshot environment. Full Playwright runs
+  belong to main CI, dedicated suite-health tasks, or an explicit user request.
 - Use the route-first policy in `docs/agent-workflows.md` for interaction bugs.
 - Authenticated app routes keep the standard right sidebar for navigation unless a documented
   product requirement removes it.
@@ -363,6 +369,7 @@ UI code:
 - Git, PR, and shipping details: `docs/agent-workflows.md`.
 - Repository exports: `docs/repository-exports.md`.
 - Safe Convex production reads: `docs/convex-production-reads.md`.
+- Test selection, run scope, and failure ownership: `$samebase-test-policy`.
 - Live browser and route-first UI checks: `skills/samebase-playwright-live/SKILL.md`.
 - Agent plugin updates and model tests: `skills/update-samebase-agent-plugin/SKILL.md`.
 - PR authoring: `skills/create-pr/SKILL.md`.
