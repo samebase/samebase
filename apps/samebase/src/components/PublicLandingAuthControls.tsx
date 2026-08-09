@@ -1,6 +1,7 @@
 import { useAppSignInActions } from "@/authClient";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { GOOGLE_AUTH_UI_ENABLED } from "@/lib/authMethodAvailability";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import {
   getVisiblePasswordAuthSurface,
@@ -148,11 +149,13 @@ export function PublicLandingAuthControls({
 
   return (
     <div className="flex flex-col gap-2">
-      <SignInWithOAuth
-        provider="google"
-        authReturn={publicSignup ? "dashboard" : undefined}
-        markPublicSignupReturn={markPublicSignupReturn}
-      />
+      {GOOGLE_AUTH_UI_ENABLED ? (
+        <SignInWithOAuth
+          provider="google"
+          authReturn={publicSignup ? "dashboard" : undefined}
+          markPublicSignupReturn={markPublicSignupReturn}
+        />
+      ) : null}
       <SignInWithOAuth
         provider="github"
         authReturn={publicSignup ? "dashboard" : undefined}

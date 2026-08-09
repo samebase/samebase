@@ -609,12 +609,11 @@ test("landing preview CTA reopens the desktop public sidebar", async ({ page }) 
 
   await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}$`));
   await expect(rightPane).toHaveAttribute("style", /width: 288px/);
-  await expect(
-    page
-      .getByTestId("workspace-layout-v2-pane-right")
-      .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
-      .getByRole("button", { name: "Continue with Google" }),
-  ).toBeVisible();
+  const accountSection = page
+    .getByTestId("workspace-layout-v2-pane-right")
+    .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+  await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
+  await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
 });
 
 test.describe("mobile landing preview", () => {
@@ -658,11 +657,14 @@ test.describe("mobile landing preview", () => {
 
     await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}(?:\\?prod-ui)?$`));
     await expect(workspace).toHaveAttribute("data-mobile-pane", "right", { timeout: 30_000 });
+    const accountSection = page
+      .getByTestId("workspace-layout-v2-pane-right")
+      .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
+    await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toHaveCount(
+      0,
+    );
     await expect(
-      page
-        .getByTestId("workspace-layout-v2-pane-right")
-        .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID)
-        .getByRole("button", { name: "Continue with Google" }),
+      accountSection.getByRole("button", { name: "Continue with GitHub" }),
     ).toBeVisible();
   });
 

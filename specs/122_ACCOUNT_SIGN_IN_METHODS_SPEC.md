@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase auth/backend
-- Last updated: 2026-08-09
+- Last updated: 2026-08-10
 - Related:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -59,16 +59,23 @@ The account email lifecycle is:
    from `users.email`, that future action must include the staff-authorization effect in its
    security design. It cannot be implemented as a profile-only mutation.
 
-Settings can connect Google or GitHub to the current account. The action creates a five-minute link
-intent on the current authenticated session for one exact provider. The OAuth callback must return
-through that session. Samebase rejects an expired intent, the wrong provider, a provider identity
-owned by another Samebase account, or a second different identity for the same provider. A missing
-or expired starting session fails the Connect action and cannot become a signed-out sign-in. A safe
-provider-specific route error explains when the selected Google account email or the selected GitHub
-account's primary email is already used by another Samebase account. It tells the user to sign in to
-that account with an existing method, then connect the selected provider in Account settings. It
-does not reveal the existing account's sign-in methods, account email, or other provider details.
-The first beta does not have a Remove or Replace action.
+The account-linking backend can connect Google or GitHub to the current account. The action creates
+a five-minute link intent on the current authenticated session for one exact provider. The OAuth
+callback must return through that session. Samebase rejects an expired intent, the wrong provider, a
+provider identity owned by another Samebase account, or a second different identity for the same
+provider. A missing or expired starting session fails the Connect action and cannot become a
+signed-out sign-in. A safe provider-specific route error explains when the selected Google account
+email or the selected GitHub account's primary email is already used by another Samebase account.
+Both errors tell the user to sign in to that account with an existing method. The GitHub error also
+tells the user to connect GitHub in Account settings. The errors do not reveal the existing
+account's sign-in methods, account email, or other provider details. The first beta does not have a
+Remove or Replace action.
+
+The signed-out UI and Account settings show GitHub as the only OAuth choice while
+`GOOGLE_AUTH_UI_ENABLED` is false. This code constant hides Google sign-in buttons, the Google
+Settings row and Connect action, and Google prehydration placeholders. It does not delete stored
+Google identities. It also does not disable the Google OAuth provider, direct `auth=google`
+compatibility starts, Google callback processing, or safe Google-specific return errors.
 
 Password authentication stays available for operator-created accounts and Codex verification. It
 does not have a public sign-up or self-service Connect action.
@@ -140,11 +147,13 @@ behaviors before the patch changes or is removed.
   differ from the Samebase sign-in identity.
 - `authOAuthCallback.convex.test.ts` covers account-selection parameters, exact scopes, and safe
   callback error returns through the patched auth boundary.
-- `UserSettingsPage.test.tsx` covers connected methods, Connect actions, and no removal action.
+- `UserSettingsPage.test.tsx` covers the visible GitHub method and Connect action, the hidden Google
+  method and Connect action, and no removal action.
 - `ProviderConnectionsPage.test.tsx` covers the personal-owner authorization control and proves that
   it is absent for a GitHub organization owner.
-- `SignInForm.test.tsx`, `authClient.test.ts`, and the public landing tests cover both OAuth entry
-  points, provider-specific account-linking guidance, and safe return state.
+- `SignInForm.test.tsx` and `authClient.test.ts` cover both provider implementations, direct
+  compatibility starts, provider-specific account-linking guidance, and safe return state. The
+  public landing tests cover the visible GitHub entry point and the absence of Google controls.
 
 ## Rollout
 

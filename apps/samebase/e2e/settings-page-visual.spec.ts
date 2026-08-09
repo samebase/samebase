@@ -123,6 +123,9 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   await expect(settingsPage.getByRole("button", { name: "Sign out" })).toBeVisible();
   await expect(settingsPage.getByRole("heading", { name: "Profile" })).toBeVisible();
   await expect(settingsPage.getByRole("heading", { name: "Sign-in methods" })).toBeVisible();
+  await expect(settingsPage.getByText("Google", { exact: true })).toHaveCount(0);
+  await expect(settingsPage.getByRole("button", { name: "Connect Google" })).toHaveCount(0);
+  await expect(settingsPage.getByText("GitHub", { exact: true })).toBeVisible();
   await expect(settingsPage.getByRole("heading", { name: "GitHub access" })).toHaveCount(0);
   await expect(settingsPage.getByRole("heading", { exact: true, name: "Account" })).toBeVisible();
   await expect(settingsPage.getByRole("button", { name: "Authorize GitHub access" })).toHaveCount(
@@ -232,6 +235,10 @@ test("Settings link preserves the selected mobile pane", async ({ browser }, tes
     const settingsPage = page.getByTestId("user-settings-page");
     await expect(settingsPage).toBeVisible();
     await expect(settingsPage.getByRole("button", { name: "Sign out" })).toBeVisible();
+    await expect(settingsPage.getByText("Google", { exact: true })).toHaveCount(0);
+    await expect(settingsPage.getByRole("button", { name: "Connect Google" })).toHaveCount(0);
+    await expect(settingsPage.getByText("GitHub", { exact: true })).toBeVisible();
+    await expect(settingsPage.getByRole("button", { name: "Connect GitHub" })).toBeVisible();
     await expect(settingsPage.getByRole("heading", { name: "Billing" })).toHaveCount(0);
     await expect(settingsPage.getByRole("button", { name: "Install GitHub App" })).toHaveCount(0);
     await expect(settingsPage.getByRole("button", { name: "Authorize GitHub access" })).toHaveCount(

@@ -624,7 +624,7 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
     accountSection.getByText("Sign in or create an account", { exact: true }),
   ).toBeVisible();
   await expect(accountSection.locator("[aria-expanded]")).toHaveCount(0);
-  await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
   await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
 
   await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
@@ -692,7 +692,7 @@ test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page 
     page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID).getByRole("button", {
       name: "Continue with Google",
     }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID).getByRole("button", {
       name: "Continue with GitHub",

@@ -3,6 +3,7 @@ import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarN
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDownIcon, PersonIcon } from "@/lib/radixIcons";
+import { GOOGLE_AUTH_UI_ENABLED } from "@/lib/authMethodAvailability";
 import {
   PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID,
   PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
@@ -122,17 +123,19 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
         </div>
         <div className="mt-3">
           <div className="flex flex-col gap-2">
-            <Button
-              aria-hidden="true"
-              data-testid={PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID}
-              className="h-auto min-w-0 flex-1 whitespace-normal py-2.5 disabled:opacity-100 @max-[200px]:leading-tight @max-[120px]:px-1.5"
-              disabled
-              tabIndex={-1}
-              variant="outline"
-              type="button"
-            >
-              <span className="min-w-0">Continue with Google</span>
-            </Button>
+            {GOOGLE_AUTH_UI_ENABLED ? (
+              <Button
+                aria-hidden="true"
+                data-testid={PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID}
+                className="h-auto min-w-0 flex-1 whitespace-normal py-2.5 disabled:opacity-100 @max-[200px]:leading-tight @max-[120px]:px-1.5"
+                disabled
+                tabIndex={-1}
+                variant="outline"
+                type="button"
+              >
+                <span className="min-w-0">Continue with Google</span>
+              </Button>
+            ) : null}
             <Button
               aria-hidden="true"
               data-testid={PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID}

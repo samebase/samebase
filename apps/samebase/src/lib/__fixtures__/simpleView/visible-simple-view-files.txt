@@ -10,7 +10,7 @@ apps/samebase/e2e/account-deletion-visual.spec.ts-snapshots/account-deletion-att
 apps/samebase/e2e/account-deletion-visual.spec.ts-snapshots/account-deletion-attention-mobile.png
 apps/samebase/e2e/account-deletion-visual.spec.ts-snapshots/account-deletion-running-desktop.png
 apps/samebase/e2e/account-deletion-visual.spec.ts-snapshots/account-deletion-running-mobile.png
-apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-google-button-mobile-min.png
+apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-github-button-mobile-min.png
 apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-mobile-right-pane-min.png
 apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-signed-in-account-narrow.png
 apps/samebase/e2e/app-right-sidebar-visual.spec.ts-snapshots/app-right-sidebar-signed-in-account-section.png
