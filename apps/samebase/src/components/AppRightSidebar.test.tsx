@@ -340,31 +340,33 @@ describe("AppRightSidebarContent", () => {
     const markup = renderRightSidebar([]);
 
     expect(markup).toContain("Sign in or create an account");
-    expect(markup).toContain("Continue with Google");
+    expect(markup).toContain("Continue with GitHub");
+    expect(markup).not.toContain("Continue with Google");
     expect(markup).not.toContain("lucide-chevron-down");
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("/providers");
     expect(markup).not.toContain(">/vault<");
   });
 
-  it("keeps the prehydration Google placeholder non-interactive", () => {
+  it("keeps only the prehydration GitHub placeholder non-interactive", () => {
     authState.isAuthenticated = false;
     authState.isLoading = true;
 
     const markup = renderRightSidebar([]);
     const rootElement = document.createElement("div");
     rootElement.innerHTML = markup;
-    const googlePlaceholder = Array.from(rootElement.querySelectorAll("button")).find(
-      (button) => button.textContent.trim() === "Continue with Google",
+    const githubPlaceholder = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent.trim() === "Continue with GitHub",
     );
 
-    if (!(googlePlaceholder instanceof HTMLButtonElement)) {
-      throw new Error("Prehydration Google placeholder not found.");
+    if (!(githubPlaceholder instanceof HTMLButtonElement)) {
+      throw new Error("Prehydration GitHub placeholder not found.");
     }
 
-    expect(googlePlaceholder.disabled).toBe(true);
-    expect(googlePlaceholder.getAttribute("aria-hidden")).toBe("true");
-    expect(googlePlaceholder.tabIndex).toBe(-1);
+    expect(rootElement.textContent).not.toContain("Continue with Google");
+    expect(githubPlaceholder.disabled).toBe(true);
+    expect(githubPlaceholder.getAttribute("aria-hidden")).toBe("true");
+    expect(githubPlaceholder.tabIndex).toBe(-1);
   });
 
   it("uses the public signed-out account row after hydration when loading without local auth material", async () => {

@@ -154,10 +154,7 @@ describe("UserSettingsPage", () => {
     rootElement = null;
   });
 
-  it.each([
-    { label: "Google", provider: "google" },
-    { label: "GitHub", provider: "github" },
-  ] as const)("starts an explicit $label sign-in connection", async ({ label, provider }) => {
+  it("starts an explicit GitHub sign-in connection and hides Google connection", async () => {
     window.history.replaceState({}, "", "/settings?prod-ui&source=account#sign-in-methods");
     testState.queries.set(getFunctionName(api.users.getUserSettings), {
       accountEmail: "account@samebase.com",
@@ -173,14 +170,15 @@ describe("UserSettingsPage", () => {
     const container = await mountSettingsPage();
 
     await act(async () => {
-      findButton(container, `Connect ${label}`)?.click();
+      findButton(container, "Connect GitHub")?.click();
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(beginAuthAccountLink).toHaveBeenCalledWith({ provider });
+    expect(findButton(container, "Connect Google")).toBeUndefined();
+    expect(beginAuthAccountLink).toHaveBeenCalledWith({ provider: "github" });
     expect(testState.signInWithOAuth).toHaveBeenCalledWith(
-      provider,
+      "github",
       "/settings?prod-ui&source=account#sign-in-methods",
     );
   });
@@ -226,7 +224,7 @@ describe("UserSettingsPage", () => {
     expect(container.textContent).toContain("Account link failed");
   });
 
-  it("keeps Google and GitHub as fixed sign-in rows without removal actions", async () => {
+  it("shows the GitHub sign-in row and hides the connected Google account", async () => {
     testState.queries.set(getFunctionName(api.users.getUserSettings), {
       accountEmail: "account@samebase.com",
       displayName: "Current name",
@@ -244,8 +242,8 @@ describe("UserSettingsPage", () => {
     expect(signInMethodsSection).not.toBeNull();
     expect(
       [...(signInMethodsSection?.querySelectorAll("dt") ?? [])].map((term) => term.textContent),
-    ).toEqual(["Google", "GitHub"]);
-    expect(signInMethodsSection?.textContent).toContain("google@example.com");
+    ).toEqual(["GitHub"]);
+    expect(signInMethodsSection?.textContent).not.toContain("google@example.com");
     expect(signInMethodsSection?.textContent).toContain("@octocat");
     expect(findButton(container, "Connect Google")).toBeUndefined();
     expect(findButton(container, "Connect GitHub")).toBeUndefined();

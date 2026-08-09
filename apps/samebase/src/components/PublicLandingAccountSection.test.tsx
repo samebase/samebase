@@ -233,7 +233,8 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).not.toContain("/settings");
     expect(markup).not.toContain("Sign out");
     expect(hydratedMarkup).toContain("Sign in or create an account");
-    expect(hydratedMarkup).toContain("Continue with Google");
+    expect(hydratedMarkup).toContain("Continue with GitHub");
+    expect(hydratedMarkup).not.toContain("Continue with Google");
     expect(hydratedMarkup).not.toContain("checking login");
   });
 
@@ -331,12 +332,12 @@ describe("PublicLandingAccountSection", () => {
     expect(hydratedMarkup).not.toContain("Sign in or create an account");
   });
 
-  it("shows OAuth methods in a static logged-out account section", () => {
+  it("shows only GitHub OAuth in a static logged-out account section", () => {
     const markup = renderLandingAccountSection("/");
 
     expect(markup).toContain("Sign in or create an account");
-    expect(markup).toContain("Continue with Google");
     expect(markup).toContain("Continue with GitHub");
+    expect(markup).not.toContain("Continue with Google");
     expect(markup).not.toContain("lucide-chevron-down");
     expect(markup).not.toContain("The app is still internal.");
   });
@@ -350,9 +351,9 @@ describe("PublicLandingAccountSection", () => {
         expect(options.search({})).toEqual({
           auth: undefined,
           "auth-return": undefined,
-          signup: "google",
+          signup: "github",
         });
-        return { href: "/settings?signup=google" };
+        return { href: "/settings?signup=github" };
       },
     );
     const rootElement = document.createElement("div");
@@ -363,15 +364,15 @@ describe("PublicLandingAccountSection", () => {
       root.render(createLandingAccountSectionElement());
     });
 
-    const googleButton = Array.from(rootElement.querySelectorAll("button")).find(
-      (button) => button.textContent.trim() === "Continue with Google",
+    const githubButton = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent.trim() === "Continue with GitHub",
     );
-    if (!(googleButton instanceof HTMLButtonElement)) {
-      throw new Error("Google sign-in button not found.");
+    if (!(githubButton instanceof HTMLButtonElement)) {
+      throw new Error("GitHub sign-in button not found.");
     }
 
     await act(async () => {
-      googleButton.click();
+      githubButton.click();
     });
 
     expect(buildLocationMock).toHaveBeenCalledWith(
@@ -379,7 +380,7 @@ describe("PublicLandingAccountSection", () => {
         to: ".",
       }),
     );
-    expect(signInWithOAuthMock).toHaveBeenCalledWith("google", "/settings?signup=google");
+    expect(signInWithOAuthMock).toHaveBeenCalledWith("github", "/settings?signup=github");
 
     await act(async () => {
       root.unmount();
@@ -387,12 +388,12 @@ describe("PublicLandingAccountSection", () => {
     rootElement.remove();
   });
 
-  it("keeps the MCP consent route when Google auth starts", async () => {
-    prepareLandingAccountSection("/oauth/mcp/consent?signup=google");
+  it("keeps the MCP consent route when GitHub auth starts", async () => {
+    prepareLandingAccountSection("/oauth/mcp/consent?signup=github");
     buildLocationMock.mockImplementation(
       (options: { search: (currentSearch: RootRouteSearch) => RootRouteSearch; to: string }) => {
         expect(options.to).toBe(".");
-        expect(options.search({ signup: "google" })).toEqual({
+        expect(options.search({ signup: "github" })).toEqual({
           auth: undefined,
           "auth-return": undefined,
           signup: undefined,
@@ -408,15 +409,15 @@ describe("PublicLandingAccountSection", () => {
       root.render(createLandingAccountSectionElement());
     });
 
-    const googleButton = Array.from(rootElement.querySelectorAll("button")).find(
-      (button) => button.textContent.trim() === "Continue with Google",
+    const githubButton = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent.trim() === "Continue with GitHub",
     );
-    if (!(googleButton instanceof HTMLButtonElement)) {
-      throw new Error("Google sign-in button not found.");
+    if (!(githubButton instanceof HTMLButtonElement)) {
+      throw new Error("GitHub sign-in button not found.");
     }
 
     await act(async () => {
-      googleButton.click();
+      githubButton.click();
     });
 
     expect(buildLocationMock).toHaveBeenCalledWith(
@@ -424,7 +425,7 @@ describe("PublicLandingAccountSection", () => {
         to: ".",
       }),
     );
-    expect(signInWithOAuthMock).toHaveBeenCalledWith("google", "/oauth/mcp/consent");
+    expect(signInWithOAuthMock).toHaveBeenCalledWith("github", "/oauth/mcp/consent");
 
     await act(async () => {
       root.unmount();
@@ -450,7 +451,7 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).not.toContain("Google");
   });
 
-  it("explains how to link GitHub and keeps both sign-in methods available", async () => {
+  it("explains how to link GitHub and keeps GitHub sign-in available", async () => {
     const markup = await renderLandingAccountSectionAfterEffects(
       "/?signup=github&authorization-provider=github-sign-in&authorization-error=account-link-required",
     );
@@ -458,8 +459,8 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).toContain(
       "The primary email on this GitHub account is already used by another Samebase account. Sign in to that account with an existing method, then connect GitHub in Account settings.",
     );
-    expect(markup).toContain("Continue with Google");
     expect(markup).toContain("Continue with GitHub");
+    expect(markup).not.toContain("Continue with Google");
     expect(markup).not.toContain("The app is still internal.");
     expect(navigateMock).toHaveBeenCalledWith(
       expect.objectContaining({

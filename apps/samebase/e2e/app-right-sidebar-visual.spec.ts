@@ -2,7 +2,11 @@ import { devices, expect, test, type Locator, type Page, type TestInfo } from "@
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
-import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import {
+  APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID,
+  PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
+} from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
 import { expectScreenshotsToMatch } from "./visualDiff";
 
@@ -234,7 +238,7 @@ test("signed-in app right sidebar keeps the account row inside the minimum mobil
   }
 });
 
-test("signed-out OAuth sign-in fits the minimum mobile right pane", async ({ page }) => {
+test("signed-out GitHub sign-in fits the minimum mobile right pane", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await seedAppWorkspaceSidebarState(page, {
     ...APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE,
@@ -244,13 +248,14 @@ test("signed-out OAuth sign-in fits the minimum mobile right pane", async ({ pag
   await page.goto("/?prod-ui", { waitUntil: "networkidle" });
 
   const rightPane = getRightPane(page);
-  const googleButton = page.getByRole("button", { name: "Continue with Google" });
+  const githubButton = page.getByRole("button", { name: "Continue with GitHub" });
 
   await expect(rightPane).toHaveCSS("width", "96px");
-  await expect(googleButton).toBeVisible();
-  await expect(googleButton).toHaveCSS("white-space", "normal");
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
+  await expect(githubButton).toBeVisible();
+  await expect(githubButton).toHaveCSS("white-space", "normal");
   await expectNoHorizontalOverflow(rightPane);
-  await expect(googleButton).toHaveScreenshot("app-right-sidebar-google-button-mobile-min.png", {
+  await expect(githubButton).toHaveScreenshot("app-right-sidebar-github-button-mobile-min.png", {
     ...appRightSidebarScreenshotOptions,
   });
 });
@@ -313,8 +318,8 @@ test("signed-out app right sidebar prehydration matches the hydrated account row
     hydratedAccountSection.getByText("Sign in or create an account", { exact: true }),
   ).toBeVisible();
   await expect(
-    hydratedAccountSection.getByRole("button", { name: "Continue with Google" }),
-  ).toBeVisible();
+    hydratedAccountSection.getByTestId(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID),
+  ).toHaveCount(0);
   await expect(
     hydratedAccountSection.getByRole("button", { name: "Continue with GitHub" }),
   ).toBeVisible();
@@ -331,6 +336,12 @@ test("signed-out app right sidebar prehydration matches the hydrated account row
 
   const prehydratedAccountSection = getAccountSection(page);
   await expect(prehydratedAccountSection).toBeVisible();
+  await expect(
+    prehydratedAccountSection.getByTestId(PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID),
+  ).toHaveCount(0);
+  await expect(
+    prehydratedAccountSection.getByTestId(PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID),
+  ).toHaveCount(1);
   const prehydratedTextEvidence = await readAccountTextEvidence(prehydratedAccountSection);
   expect(
     accountTextEvidenceIncludes(

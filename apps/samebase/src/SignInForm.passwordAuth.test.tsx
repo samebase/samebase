@@ -129,7 +129,8 @@ describe("PasswordAuthForm", () => {
       <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
     );
 
-    expect(markup).toContain("Google");
+    expect(markup).toContain("Continue with GitHub");
+    expect(markup).not.toContain("Continue with Google");
     expect(markup).not.toContain("Password auth (dev)");
     expect(markup).not.toContain("Password sign in");
   });
@@ -149,14 +150,14 @@ describe("PasswordAuthForm", () => {
       await settleHydrationUpdate();
     });
 
-    expect(rootElement.innerHTML).toContain("Google");
+    expect(rootElement.innerHTML).toContain("GitHub");
     expect(rootElement.innerHTML).toContain("Password sign in");
     expect(rootElement.innerHTML).toContain('placeholder="you@example.com"');
     expect(rootElement.innerHTML).toContain('autocomplete="current-password"');
     expect(rootElement.innerHTML).not.toContain("Need an account?");
   });
 
-  it("marks every root Google sign-in as a public signup return", async () => {
+  it("marks every root GitHub sign-in as a public signup return", async () => {
     buildLocationMock.mockImplementation(
       (options: { search: (currentSearch: RootRouteSearch) => RootRouteSearch; to: string }) => {
         expect(options.to).toBe("/");
@@ -164,9 +165,9 @@ describe("PasswordAuthForm", () => {
           "prod-ui": true,
           auth: undefined,
           "auth-return": "dashboard",
-          signup: "google",
+          signup: "github",
         });
-        return { href: "/?prod-ui&auth-return=dashboard&signup=google" };
+        return { href: "/?prod-ui&auth-return=dashboard&signup=github" };
       },
     );
     const rootElement = document.createElement("div");
@@ -178,24 +179,24 @@ describe("PasswordAuthForm", () => {
       localRoot.render(<PublicLandingAuthControls oauthAuthFlow="public-signup" />);
     });
 
-    const googleButton = Array.from(rootElement.querySelectorAll("button")).find(
-      (button) => button.textContent.trim() === "Continue with Google",
+    const githubButton = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent.trim() === "Continue with GitHub",
     );
-    if (!(googleButton instanceof HTMLButtonElement)) {
-      throw new Error("Google sign-in button not found.");
+    if (!(githubButton instanceof HTMLButtonElement)) {
+      throw new Error("GitHub sign-in button not found.");
     }
 
     await act(async () => {
-      googleButton.click();
+      githubButton.click();
     });
 
     expect(signInWithOAuthMock).toHaveBeenCalledWith(
-      "google",
-      "/?prod-ui&auth-return=dashboard&signup=google",
+      "github",
+      "/?prod-ui&auth-return=dashboard&signup=github",
     );
   });
 
-  it("hides Google and password controls in the closed-signup state", async () => {
+  it("hides OAuth and password controls after a closed Google return", async () => {
     componentState.deploymentAuthPolicy = {
       deploymentProfile: { kind: "preview" },
       passwordAuthMode: "preview_seed",
@@ -211,7 +212,7 @@ describe("PasswordAuthForm", () => {
       await settleHydrationUpdate();
     });
 
-    expect(rootElement.innerHTML).not.toContain("Google");
+    expect(rootElement.innerHTML).not.toContain("GitHub");
     expect(rootElement.innerHTML).not.toContain("Password sign in");
     expect(rootElement.querySelector('input[type="email"]')).toBeNull();
     expect(rootElement.querySelector('input[type="password"]')).toBeNull();
@@ -236,7 +237,7 @@ describe("PasswordAuthForm", () => {
     });
 
     expect(recoverableErrors).toEqual([]);
-    expect(rootElement.innerHTML).toContain("Google");
+    expect(rootElement.innerHTML).toContain("GitHub");
     expect(rootElement.innerHTML).toContain("Password sign in");
   });
 
@@ -251,7 +252,7 @@ describe("PasswordAuthForm", () => {
       <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
     );
 
-    expect(markup).toContain("Google");
+    expect(markup).toContain("GitHub");
     expect(markup).not.toContain("Password auth (dev)");
     expect(markup).not.toContain("Password sign in");
   });
@@ -272,7 +273,7 @@ describe("PasswordAuthForm", () => {
       await settleHydrationUpdate();
     });
 
-    expect(rootElement.innerHTML).toContain("Google");
+    expect(rootElement.innerHTML).toContain("GitHub");
     expect(rootElement.innerHTML).toContain("Password sign in");
     expect(rootElement.innerHTML).not.toContain("Need an account?");
   });
@@ -288,7 +289,7 @@ describe("PasswordAuthForm", () => {
       <PublicLandingAuthControls oauthAuthFlow="public-signup" />,
     );
 
-    expect(markup).not.toContain("Google");
+    expect(markup).not.toContain("GitHub");
     expect(markup).not.toContain("Password auth (dev)");
     expect(markup).not.toContain("Password sign in");
   });

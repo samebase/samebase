@@ -17,6 +17,7 @@ import { getRouteApi, useLocation, useRouter } from "@tanstack/react-router";
 import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
 import { applySearchPatch } from "@/routing/searchFlags";
 import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
+import { GOOGLE_AUTH_UI_ENABLED } from "@/lib/authMethodAvailability";
 
 const settingsRouteApi = getRouteApi("/settings");
 
@@ -311,27 +312,29 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
           Sign-in methods
         </h2>
         <dl className="mt-4 space-y-4">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <dt className="text-sm font-medium">Google</dt>
-              <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
-                {settings.signInMethods.google?.email ?? "Not connected"}
-              </dd>
+          {GOOGLE_AUTH_UI_ENABLED ? (
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <dt className="text-sm font-medium">Google</dt>
+                <dd className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
+                  {settings.signInMethods.google?.email ?? "Not connected"}
+                </dd>
+              </div>
+              {settings.signInMethods.google === null ? (
+                <Button
+                  disabled={authAccountLinkRequestState !== "idle"}
+                  onClick={() => void connectAuthAccount("google")}
+                  type="button"
+                  variant="outline"
+                >
+                  {authAccountLinkRequestState === "google" ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : null}
+                  {authAccountLinkRequestState === "google" ? "Connecting..." : "Connect Google"}
+                </Button>
+              ) : null}
             </div>
-            {settings.signInMethods.google === null ? (
-              <Button
-                disabled={authAccountLinkRequestState !== "idle"}
-                onClick={() => void connectAuthAccount("google")}
-                type="button"
-                variant="outline"
-              >
-                {authAccountLinkRequestState === "google" ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : null}
-                {authAccountLinkRequestState === "google" ? "Connecting..." : "Connect Google"}
-              </Button>
-            ) : null}
-          </div>
+          ) : null}
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0">
               <dt className="text-sm font-medium">GitHub</dt>
