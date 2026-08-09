@@ -13,9 +13,13 @@ import { useVaultProviderObservations } from "./useVaultProviderObservations";
 function selectVault(
   vaults: readonly UserVaultResult[] | undefined,
   repositoryFullName: string | undefined,
-  activeVaultId: Id<"vaults"> | undefined,
+  activeVaultId: Id<"vaults"> | null | undefined,
 ): UserVaultResult | null {
   if (!vaults) {
+    return null;
+  }
+
+  if (activeVaultId === null) {
     return null;
   }
 
@@ -33,7 +37,7 @@ function selectVault(
 export function useVaultWorkspaceModel(
   selectedRepositoryFullName: string | undefined,
   organizationOwner?: string,
-  activeVaultId?: Id<"vaults">,
+  activeVaultId?: Id<"vaults"> | null,
 ): VaultWorkspaceModel {
   const vaults = useCacheQuery(api.vault.dashboard.getUserVaults);
   const folderState = useCacheQuery(api.vault.folders.getVaultFolderState);

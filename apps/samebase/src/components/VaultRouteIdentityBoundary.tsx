@@ -8,7 +8,6 @@ import type { Id } from "../../convex/_generated/dataModel";
 export type VaultRouteIdentity =
   | {
       state: "missing";
-      activeVaultId?: Id<"vaults">;
     }
   | {
       state: "selected";
@@ -18,23 +17,13 @@ export type VaultRouteIdentity =
       vaultId: Id<"vaults">;
     };
 
-function replaceVaultRepositoryPath(
-  pathname: string,
-  owner: string,
-  repoName: string,
-): string | null {
+function replaceVaultRepositoryPath(pathname: string, repoName: string): string | null {
   const segments = pathname.split("/");
   if (segments[0] !== "" || segments[1] !== "vault" || segments.length < 4) {
     return null;
   }
 
-  return [
-    "",
-    "vault",
-    encodeURIComponent(owner),
-    encodeURIComponent(repoName),
-    ...segments.slice(4),
-  ].join("/");
+  return ["", "vault", segments[2], encodeURIComponent(repoName), ...segments.slice(4)].join("/");
 }
 
 export function VaultRouteIdentityBoundary({
@@ -67,10 +56,8 @@ export function VaultRouteIdentityBoundary({
           ) ?? null)
         : (vaults.find((candidate) => candidate._id === activeRoute.vaultId) ?? null);
   const renamedPath =
-    activeRoute !== null &&
-    vault !== null &&
-    vault.repositoryFullName !== requestedRepositoryFullName
-      ? replaceVaultRepositoryPath(pathname, vault.ghRepoOwner, vault.ghRepoName)
+    activeRoute !== null && vault !== null && vault.ghRepoName !== repoName
+      ? replaceVaultRepositoryPath(pathname, vault.ghRepoName)
       : null;
 
   useEffect(() => {
@@ -104,14 +91,7 @@ export function VaultRouteIdentityBoundary({
   }
 
   if (vault === null) {
-    if (activeRoute === null) {
-      return children({ state: "missing" });
-    }
-
-    return children({
-      state: "missing",
-      activeVaultId: activeRoute.vaultId,
-    });
+    return children({ state: "missing" });
   }
 
   return children({

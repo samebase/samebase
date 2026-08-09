@@ -36,9 +36,7 @@ export function DashboardRoutePage({
         >
           {(identity) => (
             <VaultDashboard
-              activeVaultId={
-                identity.state === "selected" ? identity.vaultId : identity.activeVaultId
-              }
+              activeVaultId={identity.state === "selected" ? identity.vaultId : null}
               organizationOwner={organizationOwner}
               page={page}
               selectedRepositoryFullName={

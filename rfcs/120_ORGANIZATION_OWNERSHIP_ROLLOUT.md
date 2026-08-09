@@ -266,9 +266,9 @@ Status: Complete on the replacement branch
   role, removal, and leave flows. Every organization must retain an active owner.
 - Vaults use `organizations.githubOwnerLogin` as current route and display data. Historical workflow
   snapshots can retain the owner login observed when the workflow started.
-- GitHub owner and repository names use the live stable-ID read-repair rule in the accepted spec.
-  Both stored stable IDs must match before mutable names can change. No GitHub event moves a vault
-  or other organization-owned data.
+- Repository names use the live stable-ID read-repair rule in the accepted spec. Owner login changes
+  use the verified App reconnect flow. No GitHub event moves a vault or other organization-owned
+  data.
 - Account deletion waits for queued or running vault provisioning and deletion work started by the
   deleting user before it revokes credentials or removes memberships. Manual provider-write locks do
   not record an actor, so exact manual-write dependency tracking stays in a future provider
@@ -305,8 +305,8 @@ Clear `observations_vaultConvexSchema_snapshots` before deploying the schema tha
 - All legacy user billing fields were removed. No retained user has an active account deletion.
 - The Workflow component has no active run. Its internal history and configuration remain.
 
-The accepted identity lifecycle uses live GitHub checks and does not need a webhook endpoint or
-cached installation status for its current consumers.
+The accepted identity lifecycle uses live GitHub access checks and verified App reconnect. It does
+not need a webhook endpoint or cached installation status for its current consumers.
 
 ## Next Exact Task
 

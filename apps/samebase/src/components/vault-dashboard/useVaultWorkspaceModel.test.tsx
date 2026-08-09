@@ -164,6 +164,48 @@ describe("useVaultWorkspaceModel", () => {
     }
   });
 
+  it("does not use a cached route name after the live route is missing", async () => {
+    const vault = lostAccessVault();
+    const organization = {
+      canCreateRepository: true,
+      githubOwnerId: "github-owner-lost",
+      githubOwnerLogin: "lost",
+      githubOwnerType: "organization",
+      organizationId: vault.organizationId,
+      role: "owner",
+    } as const;
+    testState.cachedQueries.set(getFunctionName(api.vault.dashboard.getUserVaults), [vault]);
+    testState.liveQueries.set(getFunctionName(api.organizations.listForViewer), [organization]);
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    let latest: ReturnType<typeof useVaultWorkspaceModel> | undefined;
+
+    function Probe() {
+      latest = useVaultWorkspaceModel(vault.repositoryFullName, undefined, null);
+      return null;
+    }
+
+    try {
+      await act(async () => root.render(<Probe />));
+
+      expect(latest).toEqual({
+        folderState: EMPTY_FOLDER_STATE,
+        organizationTreeSettings: [],
+        organizations: [],
+        selection: { repositoryFullName: "lost/private", state: "missing" },
+        sidebarSummaries: { state: "loading" },
+        state: "ready",
+        vaults: [],
+      });
+      expect(testState.providerVaults).toEqual([null]);
+      expect(testState.pullRequestArgs).toEqual([{ vault: null }]);
+    } finally {
+      await act(async () => root.unmount());
+      rootElement.remove();
+    }
+  });
+
   it("keeps the active vault identity when another vault reuses its old route", async () => {
     const renamedVault = {
       ...lostAccessVault(),

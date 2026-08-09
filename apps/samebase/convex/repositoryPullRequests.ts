@@ -15,6 +15,7 @@ import {
   listGitHubInstallationRepositories,
   type GitHubRepositoryIdentity,
 } from "./githubRepoApi";
+import { normalizeGitHubOwnerLogin } from "./organizations";
 import type { VaultConnectedRepositoryTarget } from "./vault/model";
 
 const { array, boolean, id, literal, null: vNull, number, object, string, union } = v;
@@ -799,13 +800,17 @@ export const listVaultSidebarSummaries = action({
       try {
         const accessibleBatch = batch.flatMap((repository) => {
           const current = installationRepositories.repositories.get(repository.ghRepoId);
-          if (current === undefined || current.ownerId !== repository.githubOwnerId) {
+          if (
+            current === undefined ||
+            current.ownerId !== repository.githubOwnerId ||
+            normalizeGitHubOwnerLogin(current.ownerLogin) !==
+              normalizeGitHubOwnerLogin(repository.owner)
+          ) {
             return [];
           }
           return [
             {
               ...repository,
-              owner: current.ownerLogin,
               name: current.repositoryName,
               defaultBranch: current.defaultBranch,
             },
@@ -820,20 +825,15 @@ export const listVaultSidebarSummaries = action({
         );
         for (const repository of accessibleBatch) {
           const stored = storedByVaultId.get(repository.vaultId);
-          if (
-            stored === undefined ||
-            (stored.owner === repository.owner && stored.name === repository.name)
-          ) {
+          if (stored === undefined || stored.name === repository.name) {
             continue;
           }
-          await ctx.runMutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+          await ctx.runMutation(internal.vault.records.refreshGitHubRepositoryName, {
             userId: ctx.viewer.userId,
             vaultId: repository.vaultId,
             expectedGhRepoId: repository.ghRepoId,
             expectedGithubOwnerId: repository.githubOwnerId,
-            expectedGithubOwnerLogin: stored.owner,
             expectedRepositoryName: stored.name,
-            githubOwnerLogin: repository.owner,
             repositoryName: repository.name,
           });
         }

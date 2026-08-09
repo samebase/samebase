@@ -356,18 +356,13 @@ describe("organization-owned vaults", () => {
     ).rejects.toThrow("Vault already exists for this GitHub repository.");
   });
 
-  it("rejects an owner rename that collides with another organization", async () => {
+  it("requires verified reconnect when the owner login changes during setup", async () => {
     const t = makeConvexTest();
-    const userId = await createUser(t, "owner-login-collision@example.com");
+    const userId = await createUser(t, "owner-login-change@example.com");
     const organizationId = await createOrganization(t, {
       userId,
-      ownerId: "owner-login-collision-source",
+      ownerId: "owner-login-change-source",
       ownerLogin: "before-owner",
-    });
-    await createOrganization(t, {
-      userId,
-      ownerId: "owner-login-collision-target",
-      ownerLogin: "after-owner",
     });
     const vault = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
@@ -383,8 +378,8 @@ describe("organization-owned vaults", () => {
       t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
         ...vault,
         userId,
-        ghRepoId: "owner-login-collision-repository",
-        expectedGithubOwnerId: "owner-login-collision-source",
+        ghRepoId: "owner-login-change-repository",
+        expectedGithubOwnerId: "owner-login-change-source",
         expectedGithubOwnerLogin: "before-owner",
         expectedRepositoryName: "before-repository",
         ghRepoOwner: "after-owner",
@@ -392,7 +387,9 @@ describe("organization-owned vaults", () => {
         defaultBranch: "main",
         visibility: "private",
       }),
-    ).rejects.toThrow("GitHub owner login is already connected to another organization.");
+    ).rejects.toThrow(
+      "GitHub owner login changed. An organization owner must reconnect the GitHub App.",
+    );
     await expect(
       t.run(async (ctx) => ({
         organization: await ctx.db.get(organizationId),
@@ -468,7 +465,7 @@ describe("organization-owned vaults", () => {
   it.each([
     {
       changedCoordinate: "owner",
-      error: "GitHub owner login changed during repository setup.",
+      error: "GitHub owner login changed. An organization owner must reconnect the GitHub App.",
     },
     {
       changedCoordinate: "repository",
@@ -512,7 +509,7 @@ describe("organization-owned vaults", () => {
           expectedGithubOwnerId: `${changedCoordinate}-race-owner-id`,
           expectedGithubOwnerLogin: "before-owner",
           expectedRepositoryName: "before-repository",
-          ghRepoOwner: "after-owner",
+          ghRepoOwner: changedCoordinate === "owner" ? "after-owner" : "before-owner",
           ghRepoName: "after-repository",
           defaultBranch: "main",
           visibility: "private",
@@ -584,7 +581,7 @@ describe("organization-owned vaults", () => {
     );
   });
 
-  it("repairs mutable GitHub coordinates without changing stable identity", async () => {
+  it("repairs a repository name without changing stable identity or owner display", async () => {
     const t = makeConvexTest();
     const userId = await createUser(t, "rename-repair@example.com");
     const organizationId = await createOrganization(t, {
@@ -604,18 +601,16 @@ describe("organization-owned vaults", () => {
       vaultId,
       expectedGhRepoId: "stable-repository-id",
       expectedGithubOwnerId: "stable-owner-id",
-      expectedGithubOwnerLogin: "before-owner",
       expectedRepositoryName: "before-repository",
-      githubOwnerLogin: "after-owner",
       repositoryName: "after-repository",
     };
 
-    await t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, repair);
+    await t.mutation(internal.vault.records.refreshGitHubRepositoryName, repair);
     const firstSnapshot = await t.run(async (ctx) => ({
       organization: await ctx.db.get(organizationId),
       vault: await ctx.db.get(vaultId),
     }));
-    await t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, repair);
+    await t.mutation(internal.vault.records.refreshGitHubRepositoryName, repair);
     const secondSnapshot = await t.run(async (ctx) => ({
       organization: await ctx.db.get(organizationId),
       vault: await ctx.db.get(vaultId),
@@ -624,8 +619,8 @@ describe("organization-owned vaults", () => {
     expect(secondSnapshot).toEqual(firstSnapshot);
     expect(firstSnapshot.organization).toMatchObject({
       githubOwnerId: "stable-owner-id",
-      githubOwnerLogin: "after-owner",
-      githubOwnerLoginNormalized: "after-owner",
+      githubOwnerLogin: "before-owner",
+      githubOwnerLoginNormalized: "before-owner",
     });
     expect(firstSnapshot.vault).toMatchObject({
       ghRepoId: "stable-repository-id",
@@ -654,18 +649,15 @@ describe("organization-owned vaults", () => {
       vaultId,
       expectedGhRepoId: "stable-repository-id",
       expectedGithubOwnerId: "stable-owner-id",
-      expectedGithubOwnerLogin: "before-owner",
       expectedRepositoryName: "before-repository",
     };
 
-    await t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+    await t.mutation(internal.vault.records.refreshGitHubRepositoryName, {
       ...expectedCoordinates,
-      githubOwnerLogin: "newest-owner",
       repositoryName: "newest-repository",
     });
-    await t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+    await t.mutation(internal.vault.records.refreshGitHubRepositoryName, {
       ...expectedCoordinates,
-      githubOwnerLogin: "older-owner",
       repositoryName: "older-repository",
     });
 
@@ -675,7 +667,7 @@ describe("organization-owned vaults", () => {
         vault: await ctx.db.get(vaultId),
       })),
     ).resolves.toMatchObject({
-      organization: { githubOwnerLogin: "newest-owner" },
+      organization: { githubOwnerLogin: "before-owner" },
       vault: { name: "newest-repository" },
     });
   });
@@ -703,14 +695,12 @@ describe("organization-owned vaults", () => {
     });
 
     await expect(
-      t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+      t.mutation(internal.vault.records.refreshGitHubRepositoryName, {
         userId,
         vaultId,
         expectedGhRepoId: "stable-repository-id",
         expectedGithubOwnerId: "stable-owner-id",
-        expectedGithubOwnerLogin: "samebase",
         expectedRepositoryName: "before-repository",
-        githubOwnerLogin: "samebase",
         repositoryName: "reserved-repository",
       }),
     ).rejects.toThrow("Vault already exists for this repository.");
@@ -733,26 +723,22 @@ describe("organization-owned vaults", () => {
     });
 
     await expect(
-      t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+      t.mutation(internal.vault.records.refreshGitHubRepositoryName, {
         userId,
         vaultId,
         expectedGhRepoId: "another-repository-id",
         expectedGithubOwnerId: "owner-before-race",
-        expectedGithubOwnerLogin: "owner-before",
         expectedRepositoryName: "repository-before",
-        githubOwnerLogin: "owner-after",
         repositoryName: "repository-after",
       }),
     ).rejects.toThrow("Vault repository identity changed.");
     await expect(
-      t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+      t.mutation(internal.vault.records.refreshGitHubRepositoryName, {
         userId,
         vaultId,
         expectedGhRepoId: "repository-before-race",
         expectedGithubOwnerId: "another-owner-id",
-        expectedGithubOwnerLogin: "owner-before",
         expectedRepositoryName: "repository-before",
-        githubOwnerLogin: "owner-after",
         repositoryName: "repository-after",
       }),
     ).rejects.toThrow("Vault organization identity changed.");
@@ -804,14 +790,12 @@ describe("organization-owned vaults", () => {
     });
 
     await expect(
-      t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+      t.mutation(internal.vault.records.refreshGitHubRepositoryName, {
         userId,
         vaultId,
         expectedGhRepoId: "repository-before-revocation",
         expectedGithubOwnerId: "owner-before-revocation",
-        expectedGithubOwnerLogin: "owner-before",
         expectedRepositoryName: "repository-before",
-        githubOwnerLogin: "owner-after",
         repositoryName: "repository-after",
       }),
     ).rejects.toThrow("Vault not found");

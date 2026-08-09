@@ -176,7 +176,7 @@ beforeEach(() => {
       name: "after-repository",
       private: true,
       default_branch: "master",
-      owner: { id: 1, login: "after-owner" },
+      owner: { id: 1, login: "before-owner" },
     },
   });
   githubMocks.getBranch.mockResolvedValue({ data: { name: "master" } });
@@ -188,13 +188,13 @@ beforeEach(() => {
       name: "managed-repository",
       private: true,
       default_branch: "main",
-      owner: { id: 1, login: "after-owner" },
+      owner: { id: 1, login: "before-owner" },
     },
   });
 });
 
 describe("Samebase-managed GitHub repository creation", () => {
-  it("repairs a personal owner rename and keeps exact retries idempotent", async () => {
+  it("keeps exact repository creation retries idempotent without changing owner login", async () => {
     const { organizationId, runId, t, userId, vaultId } = await createManagedRepositoryRun();
     const repository = await t.action(
       internal.appProvisioningWorkflowActions.createGitHubRepository,
@@ -236,8 +236,8 @@ describe("Samebase-managed GitHub repository creation", () => {
     expect(retrySnapshot).toEqual(firstSnapshot);
     expect(firstSnapshot.organization).toMatchObject({
       githubOwnerId: "1",
-      githubOwnerLogin: "after-owner",
-      githubOwnerLoginNormalized: "after-owner",
+      githubOwnerLogin: "before-owner",
+      githubOwnerLoginNormalized: "before-owner",
     });
     expect(firstSnapshot.vault).toMatchObject({
       state: "connected",
@@ -251,7 +251,7 @@ describe("Samebase-managed GitHub repository creation", () => {
     });
   });
 
-  it("connects a delayed create response without restoring a newer owner login", async () => {
+  it("requires reconnect if the organization owner login changes before finalization", async () => {
     const { organizationId, runId, t, userId, vaultId } = await createManagedRepositoryRun();
     const repository = await t.action(
       internal.appProvisioningWorkflowActions.createGitHubRepository,
@@ -272,19 +272,23 @@ describe("Samebase-managed GitHub repository creation", () => {
       });
     });
 
-    await t.action(internal.appProvisioningWorkflowActions.createVaultForRepository, {
-      runId,
-      userId,
-      vaultId,
-      ghRepoId: repository.ghRepoId,
-      githubOwnerId: "1",
-      expectedGithubOwnerLogin: "before-owner",
-      expectedRepositoryName: "managed-repository",
-      ownerName: repository.ownerName,
-      repoName: repository.repoName,
-      defaultBranch: repository.defaultBranch,
-      visibility: repository.visibility,
-    });
+    await expect(
+      t.action(internal.appProvisioningWorkflowActions.createVaultForRepository, {
+        runId,
+        userId,
+        vaultId,
+        ghRepoId: repository.ghRepoId,
+        githubOwnerId: "1",
+        expectedGithubOwnerLogin: "before-owner",
+        expectedRepositoryName: "managed-repository",
+        ownerName: repository.ownerName,
+        repoName: repository.repoName,
+        defaultBranch: repository.defaultBranch,
+        visibility: repository.visibility,
+      }),
+    ).rejects.toThrow(
+      "GitHub owner login changed. An organization owner must reconnect the GitHub App.",
+    );
 
     await expect(
       t.run(async (ctx) => ({
@@ -293,7 +297,7 @@ describe("Samebase-managed GitHub repository creation", () => {
       })),
     ).resolves.toMatchObject({
       organization: { githubOwnerId: "1", githubOwnerLogin: "newest-owner" },
-      vault: { state: "connected", ghRepoId: "1296269", name: "managed-repository" },
+      vault: { state: "provisioning", name: "managed-repository" },
     });
   });
 
@@ -328,7 +332,7 @@ describe("Samebase-managed GitHub repository creation", () => {
 });
 
 describe("existing GitHub repository discovery", () => {
-  it("connects by stable identity after owner and repository renames", async () => {
+  it("connects by stable identity after a repository rename", async () => {
     const { organizationId, runId, t, userId, vaultId } = await createExistingRepositoryRun();
     const fetchArgs = {
       runId,
@@ -345,7 +349,7 @@ describe("existing GitHub repository discovery", () => {
 
     expect(repository).toEqual({
       ghRepoId: "1296269",
-      ownerName: "after-owner",
+      ownerName: "before-owner",
       repoName: "after-repository",
       defaultBranch: "master",
       visibility: "private",
@@ -383,8 +387,8 @@ describe("existing GitHub repository discovery", () => {
     expect(retrySnapshot).toEqual(firstSnapshot);
     expect(firstSnapshot.organization).toMatchObject({
       githubOwnerId: "1",
-      githubOwnerLogin: "after-owner",
-      githubOwnerLoginNormalized: "after-owner",
+      githubOwnerLogin: "before-owner",
+      githubOwnerLoginNormalized: "before-owner",
     });
     expect(firstSnapshot.vault).toMatchObject({
       state: "connected",
@@ -392,14 +396,12 @@ describe("existing GitHub repository discovery", () => {
       name: "after-repository",
     });
 
-    await t.mutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+    await t.mutation(internal.vault.records.refreshGitHubRepositoryName, {
       userId,
       vaultId,
       expectedGhRepoId: "1296269",
       expectedGithubOwnerId: "1",
-      expectedGithubOwnerLogin: "after-owner",
       expectedRepositoryName: "after-repository",
-      githubOwnerLogin: "newest-owner",
       repositoryName: "newest-repository",
     });
     await t.action(
@@ -412,7 +414,7 @@ describe("existing GitHub repository discovery", () => {
         vault: await ctx.db.get(vaultId),
       })),
     ).resolves.toMatchObject({
-      organization: { githubOwnerLogin: "newest-owner" },
+      organization: { githubOwnerLogin: "before-owner" },
       vault: { name: "newest-repository" },
     });
 
@@ -428,12 +430,12 @@ describe("existing GitHub repository discovery", () => {
       repo: "listed-repository",
     });
     expect(githubMocks.getBranch).toHaveBeenNthCalledWith(1, {
-      owner: "after-owner",
+      owner: "before-owner",
       repo: "after-repository",
       branch: "master",
     });
     await expect(t.run(async (ctx) => await ctx.db.get(runId))).resolves.toMatchObject({
-      repositoryFullName: "after-owner/after-repository",
+      repositoryFullName: "before-owner/after-repository",
     });
   });
 

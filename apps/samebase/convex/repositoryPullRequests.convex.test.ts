@@ -158,28 +158,38 @@ async function createSidebarFixture() {
       tokenIdentifier: `test:${userId}`,
     }),
     firstVaultId,
+    secondOrganizationId,
     secondVaultId,
+    t,
   };
 }
 
-function installationRepositoriesResponse(installationId: number | undefined) {
+function installationRepositoriesResponse(
+  installationId: number | undefined,
+  overrides: { ownerLogin?: string; repositoryName?: string } = {},
+) {
   switch (installationId) {
-    case 1001:
+    case 1001: {
+      const ownerLogin = overrides.ownerLogin ?? "blocked-owner";
+      const repositoryName = overrides.repositoryName ?? "blocked-repository";
       return {
         data: {
           total_count: 1,
           repositories: [
             {
               id: 10_001,
-              name: "blocked-repository",
-              full_name: "blocked-owner/blocked-repository",
+              name: repositoryName,
+              full_name: `${ownerLogin}/${repositoryName}`,
               default_branch: "main",
-              owner: { id: 101, login: "blocked-owner" },
+              owner: { id: 101, login: ownerLogin },
             },
           ],
         },
       };
-    case 2002:
+    }
+    case 2002: {
+      const ownerLogin = overrides.ownerLogin ?? "octocat";
+      const repositoryName = overrides.repositoryName ?? "Hello-World";
       // Subset of GitHub's official GET /installation/repositories response example.
       // https://docs.github.com/en/rest/apps/installations#list-repositories-accessible-to-the-app-installation
       return {
@@ -188,14 +198,15 @@ function installationRepositoriesResponse(installationId: number | undefined) {
           repositories: [
             {
               id: 1_296_269,
-              name: "Hello-World",
-              full_name: "octocat/Hello-World",
+              name: repositoryName,
+              full_name: `${ownerLogin}/${repositoryName}`,
               default_branch: "master",
-              owner: { id: 1, login: "octocat" },
+              owner: { id: 1, login: ownerLogin },
             },
           ],
         },
       };
+    }
     default:
       throw new Error(`Unexpected GitHub installation: ${installationId}`);
   }
@@ -277,5 +288,134 @@ describe("listVaultSidebarSummaries", () => {
       fixture.asUser.action(api.repositoryPullRequests.listVaultSidebarSummaries, {}),
     ).resolves.toEqual(expectedSidebarSummaries(fixture));
     expect(githubMocks.graphql).toHaveBeenCalledTimes(2);
+  });
+
+  it("repairs a repository name but preserves the stored owner display", async () => {
+    const fixture = await createSidebarFixture();
+    githubMocks.request.mockImplementation(async (installationId, route) => {
+      if (route !== "GET /installation/repositories") {
+        throw new Error(`Unexpected GitHub route: ${route}`);
+      }
+      if (installationId === 1001) {
+        throw new Error("Installation is unavailable.");
+      }
+      return installationRepositoriesResponse(installationId, {
+        ownerLogin: "OctoCat",
+        repositoryName: "Renamed-World",
+      });
+    });
+    githubMocks.graphql.mockResolvedValue(
+      sidebarGraphqlResponse({ repositoryId: 1_296_269, ownerId: 1, defaultBranch: "master" }),
+    );
+
+    await expect(
+      fixture.asUser.action(api.repositoryPullRequests.listVaultSidebarSummaries, {}),
+    ).resolves.toEqual(expectedSidebarSummaries(fixture));
+    await expect(
+      fixture.t.run(async (ctx) => ({
+        organization: await ctx.db.get(fixture.secondOrganizationId),
+        vault: await ctx.db.get(fixture.secondVaultId),
+      })),
+    ).resolves.toMatchObject({
+      organization: { githubOwnerLogin: "octocat", githubOwnerLoginNormalized: "octocat" },
+      vault: { name: "Renamed-World" },
+    });
+  });
+
+  it("does not use a repository whose owner login needs verified reconnect", async () => {
+    const fixture = await createSidebarFixture();
+    githubMocks.request.mockImplementation(async (installationId, route) => {
+      if (route !== "GET /installation/repositories") {
+        throw new Error(`Unexpected GitHub route: ${route}`);
+      }
+      if (installationId === 1001) {
+        throw new Error("Installation is unavailable.");
+      }
+      return installationRepositoriesResponse(installationId, { ownerLogin: "monalisa" });
+    });
+
+    await expect(
+      fixture.asUser.action(api.repositoryPullRequests.listVaultSidebarSummaries, {}),
+    ).resolves.toEqual([
+      { vaultId: fixture.firstVaultId, repository: null },
+      { vaultId: fixture.secondVaultId, repository: null },
+    ]);
+    expect(githubMocks.graphql).not.toHaveBeenCalled();
+    await expect(
+      fixture.t.run(async (ctx) => ({
+        organization: await ctx.db.get(fixture.secondOrganizationId),
+        vault: await ctx.db.get(fixture.secondVaultId),
+      })),
+    ).resolves.toMatchObject({
+      organization: { githubOwnerLogin: "octocat", githubOwnerLoginNormalized: "octocat" },
+      vault: { name: "Hello-World" },
+    });
+  });
+});
+
+describe("repository identity refresh", () => {
+  it("repairs the repository name and keeps the stored owner display", async () => {
+    const fixture = await createSidebarFixture();
+    githubMocks.request.mockImplementation(async (installationId, route) => {
+      if (installationId !== undefined || route !== "GET /installation/repositories") {
+        throw new Error(`Unexpected GitHub request: ${installationId} ${route}`);
+      }
+      return installationRepositoriesResponse(2002, {
+        ownerLogin: "OctoCat",
+        repositoryName: "Renamed-World",
+      });
+    });
+    githubMocks.graphql.mockResolvedValue({ repository: null });
+
+    await expect(
+      fixture.asUser.action(api.repositoryPullRequests.listOpenPullRequests, {
+        vaultId: fixture.secondVaultId,
+        first: 20,
+        after: null,
+      }),
+    ).resolves.toEqual({ repository: null });
+    expect(githubMocks.graphql).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({ owner: "octocat", name: "Renamed-World" }),
+    );
+    await expect(
+      fixture.t.run(async (ctx) => ({
+        organization: await ctx.db.get(fixture.secondOrganizationId),
+        vault: await ctx.db.get(fixture.secondVaultId),
+      })),
+    ).resolves.toMatchObject({
+      organization: { githubOwnerLogin: "octocat", githubOwnerLoginNormalized: "octocat" },
+      vault: { name: "Renamed-World" },
+    });
+  });
+
+  it("requires verified reconnect when the owner login changes", async () => {
+    const fixture = await createSidebarFixture();
+    githubMocks.request.mockImplementation(async (installationId, route) => {
+      if (installationId !== undefined || route !== "GET /installation/repositories") {
+        throw new Error(`Unexpected GitHub request: ${installationId} ${route}`);
+      }
+      return installationRepositoriesResponse(2002, { ownerLogin: "monalisa" });
+    });
+
+    await expect(
+      fixture.asUser.action(api.repositoryPullRequests.listOpenPullRequests, {
+        vaultId: fixture.secondVaultId,
+        first: 20,
+        after: null,
+      }),
+    ).rejects.toThrow(
+      "GitHub owner login changed. An organization owner must reconnect the GitHub App.",
+    );
+    expect(githubMocks.graphql).not.toHaveBeenCalled();
+    await expect(
+      fixture.t.run(async (ctx) => ({
+        organization: await ctx.db.get(fixture.secondOrganizationId),
+        vault: await ctx.db.get(fixture.secondVaultId),
+      })),
+    ).resolves.toMatchObject({
+      organization: { githubOwnerLogin: "octocat", githubOwnerLoginNormalized: "octocat" },
+      vault: { name: "Hello-World" },
+    });
   });
 });

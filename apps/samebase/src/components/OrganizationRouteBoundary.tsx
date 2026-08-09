@@ -7,9 +7,8 @@ import {
 } from "@/lib/organizationContext";
 import { Button } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { buildOrganizationRoutePath } from "@/lib/organizationRoutes";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { Fragment, useEffect, useRef, type ReactNode } from "react";
+import { Link } from "@tanstack/react-router";
+import { Fragment, type ReactNode } from "react";
 
 function OrganizationUnavailable({
   authorizationErrorMessage,
@@ -45,66 +44,12 @@ export function OrganizationRouteBoundary({
   children: (organization: ViewerOrganization) => ReactNode;
   owner: string;
 }) {
-  const navigate = useNavigate();
-  const { organizations, surface } = useOrganizationContext();
-  const activeOrganizationRouteRef = useRef<{
-    normalizedOwner: string;
-    organizationId: ViewerOrganization["organizationId"];
-  } | null>(null);
-  const normalizedOwner = owner.trim().toLowerCase();
-  const activeOrganizationRoute =
-    activeOrganizationRouteRef.current?.normalizedOwner === normalizedOwner
-      ? activeOrganizationRouteRef.current
-      : null;
-  const organization =
-    organizations === undefined
-      ? null
-      : activeOrganizationRoute === null
-        ? findViewerOrganization(organizations, owner)
-        : (organizations.find(
-            (candidate) => candidate.organizationId === activeOrganizationRoute.organizationId,
-          ) ?? null);
-  const renamedOrganizationPath =
-    organization !== null &&
-    surface.kind === "organization" &&
-    surface.source === "organization" &&
-    organization.githubOwnerLogin !== owner
-      ? buildOrganizationRoutePath({
-          owner: organization.githubOwnerLogin,
-          section: surface.section,
-        })
-      : null;
-
-  useEffect(() => {
-    if (organizations === undefined || activeOrganizationRoute !== null) {
-      return;
-    }
-    activeOrganizationRouteRef.current =
-      organization === null
-        ? null
-        : {
-            normalizedOwner,
-            organizationId: organization.organizationId,
-          };
-  }, [activeOrganizationRoute, normalizedOwner, organization, organizations]);
-
-  useEffect(() => {
-    if (renamedOrganizationPath === null) {
-      return;
-    }
-    void navigate({
-      hash: true,
-      replace: true,
-      resetScroll: false,
-      search: (currentSearch) => currentSearch,
-      to: renamedOrganizationPath,
-    });
-  }, [navigate, renamedOrganizationPath]);
-
+  const { organizations } = useOrganizationContext();
   if (organizations === undefined) {
     return null;
   }
 
+  const organization = findViewerOrganization(organizations, owner);
   if (organization === null) {
     return (
       <OrganizationUnavailable

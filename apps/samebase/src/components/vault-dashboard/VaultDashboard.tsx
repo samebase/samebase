@@ -26,7 +26,7 @@ import { useVaultWorkspaceModel } from "./useVaultWorkspaceModel";
 const DASHBOARD_DEVELOPER_TOOLS_QUERY_PARAM = "dev";
 
 export type VaultDashboardProps = {
-  activeVaultId?: Id<"vaults">;
+  activeVaultId?: Id<"vaults"> | null;
   organizationOwner?: string;
   page?: VaultOverviewPageKind;
   selectedRepositoryFullName?: string;

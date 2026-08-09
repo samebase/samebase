@@ -48,9 +48,7 @@ function BoundaryTree({ owner, repoName }: { owner: string; repoName: string }) 
     <VaultRouteIdentityBoundary owner={owner} repoName={repoName}>
       {(identity) => (
         <output
-          data-active-vault-id={
-            identity.state === "selected" ? identity.vaultId : identity.activeVaultId
-          }
+          data-active-vault-id={identity.state === "selected" ? identity.vaultId : undefined}
           data-repository={identity.state === "selected" ? identity.repositoryFullName : undefined}
           data-state={identity.state}
           data-testid="route-identity"
@@ -126,7 +124,7 @@ describe("VaultRouteIdentityBoundary", () => {
     return rootElement?.querySelector('[data-testid="route-identity"]');
   }
 
-  it("replaces only the repository segments on an encoded file route", async () => {
+  it("replaces only the repository segment on an encoded file route", async () => {
     const vault = testVault({
       id: "vault-stable",
       owner: "before-owner",
@@ -143,16 +141,15 @@ describe("VaultRouteIdentityBoundary", () => {
       {
         ...vault,
         ghRepoName: "after-repo",
-        ghRepoOwner: "after-owner",
-        repositoryFullName: "after-owner/after-repo",
+        repositoryFullName: "before-owner/after-repo",
       },
     ];
     await rerenderBoundary("before-owner", "before-repo");
 
     expect(readIdentity()?.getAttribute("data-active-vault-id")).toBe("vault-stable");
-    expect(readIdentity()?.getAttribute("data-repository")).toBe("after-owner/after-repo");
+    expect(readIdentity()?.getAttribute("data-repository")).toBe("before-owner/after-repo");
     expect(readLocationHref()).toBe(
-      "/vault/after-owner/after-repo/fs/feature%2Fone/src/file%20name.ts?dev#activity",
+      "/vault/before-owner/after-repo/fs/feature%2Fone/src/file%20name.ts?dev#activity",
     );
   });
 
@@ -174,15 +171,14 @@ describe("VaultRouteIdentityBoundary", () => {
       {
         ...activeVault,
         ghRepoName: "after-repo",
-        ghRepoOwner: "after-owner",
-        repositoryFullName: "after-owner/after-repo",
+        repositoryFullName: "before-owner/after-repo",
       },
     ];
     await rerenderBoundary("before-owner", "before-repo");
 
     expect(readIdentity()?.getAttribute("data-active-vault-id")).toBe("vault-active");
-    expect(readIdentity()?.getAttribute("data-repository")).toBe("after-owner/after-repo");
-    expect(readLocationHref()).toBe("/vault/after-owner/after-repo/settings?dev");
+    expect(readIdentity()?.getAttribute("data-repository")).toBe("before-owner/after-repo");
+    expect(readLocationHref()).toBe("/vault/before-owner/after-repo/settings?dev");
   });
 
   it("does not select a reused route after access to the active vault is lost", async () => {
@@ -197,7 +193,7 @@ describe("VaultRouteIdentityBoundary", () => {
     await rerenderBoundary("before-owner", "before-repo");
 
     expect(readIdentity()?.getAttribute("data-state")).toBe("missing");
-    expect(readIdentity()?.getAttribute("data-active-vault-id")).toBe("vault-active");
+    expect(readIdentity()?.hasAttribute("data-active-vault-id")).toBe(false);
     expect(readLocationHref()).toBe("/vault/before-owner/before-repo?dev");
   });
 

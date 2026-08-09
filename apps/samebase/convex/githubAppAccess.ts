@@ -303,14 +303,12 @@ export async function resolveGitHubVaultAccess(
     ghRepoId: vault.ghRepoId,
   });
   if (githubAccess.repositoryName !== vault.name) {
-    await ctx.runMutation(internal.vault.records.refreshGitHubRepositoryCoordinates, {
+    await ctx.runMutation(internal.vault.records.refreshGitHubRepositoryName, {
       userId: args.userId,
       vaultId: vault._id,
       expectedGhRepoId: vault.ghRepoId,
       expectedGithubOwnerId: access.githubOwnerId,
-      expectedGithubOwnerLogin: access.githubOwnerLogin,
       expectedRepositoryName: vault.name,
-      githubOwnerLogin: githubAccess.githubOwnerLogin,
       repositoryName: githubAccess.repositoryName,
     });
   }

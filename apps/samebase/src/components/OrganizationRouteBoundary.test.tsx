@@ -1,10 +1,5 @@
-// @vitest-environment jsdom
-
-import { useLocation } from "@tanstack/react-router";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Id } from "../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { OrganizationContextProvider } from "./OrganizationContext";
@@ -51,75 +46,10 @@ function renderBoundary(owner: string) {
   );
 }
 
-function LocationProbe() {
-  const location = useLocation();
-  return <output data-href={location.href} data-testid="router-location" />;
-}
-
-function mountedBoundaryTree(initialEntry: string, owner: string) {
-  return (
-    <TestRouterProvider initialEntries={[initialEntry]}>
-      <OrganizationContextProvider>
-        <OrganizationRouteBoundary owner={owner}>
-          {(selectedOrganization) => <div>{selectedOrganization.githubOwnerLogin} providers</div>}
-        </OrganizationRouteBoundary>
-        <LocationProbe />
-      </OrganizationContextProvider>
-    </TestRouterProvider>
-  );
-}
-
 describe("OrganizationRouteBoundary", () => {
-  let root: Root | null = null;
-  let rootElement: HTMLDivElement | null = null;
-
   beforeEach(() => {
     testState.organizations = undefined;
   });
-
-  afterEach(() => {
-    if (root) {
-      const mountedRoot = root;
-      act(() => mountedRoot.unmount());
-      root = null;
-    }
-    rootElement?.remove();
-    rootElement = null;
-  });
-
-  async function settleRouteUpdate() {
-    await Promise.resolve();
-    await Promise.resolve();
-    await new Promise((resolve) => window.setTimeout(resolve, 0));
-  }
-
-  async function renderMountedBoundary(initialEntry: string, owner: string) {
-    rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const mountedRoot = createRoot(rootElement);
-    root = mountedRoot;
-
-    await act(async () => {
-      mountedRoot.render(mountedBoundaryTree(initialEntry, owner));
-      await settleRouteUpdate();
-    });
-  }
-
-  async function rerenderMountedBoundary(initialEntry: string, owner: string) {
-    if (!root) {
-      throw new Error("Organization boundary test root is not mounted.");
-    }
-    await act(async () => {
-      root?.render(mountedBoundaryTree(initialEntry, owner));
-      await settleRouteUpdate();
-    });
-  }
-
-  function readLocationHref() {
-    return (
-      rootElement?.querySelector('[data-testid="router-location"]')?.getAttribute("data-href") ?? ""
-    );
-  }
 
   it("waits for the membership list before it selects a route", () => {
     expect(renderBoundary("samebase")).toBe("");
@@ -135,70 +65,9 @@ describe("OrganizationRouteBoundary", () => {
     expect(markup).toContain("All vaults");
   });
 
-  it("renders a matching organization", () => {
+  it("matches an owner login without case sensitivity", () => {
     testState.organizations = [organization];
 
-    expect(renderBoundary("samebase")).toContain("samebase providers");
-  });
-
-  it("replaces an active organization route after its owner login changes", async () => {
-    const beforeOrganization = {
-      ...organization,
-      githubOwnerLogin: "before-owner",
-    } satisfies ViewerOrganization;
-    testState.organizations = [beforeOrganization];
-    await renderMountedBoundary("/org/before-owner/providers?dev#connections", "before-owner");
-
-    testState.organizations = [
-      {
-        ...beforeOrganization,
-        githubOwnerLogin: "after-owner",
-      },
-    ];
-    await rerenderMountedBoundary("/org/before-owner/providers?dev#connections", "before-owner");
-
-    expect(rootElement?.textContent).toContain("after-owner providers");
-    expect(readLocationHref()).toBe("/org/after-owner/providers?dev#connections");
-  });
-
-  it("does not switch organizations when another organization reuses the old login", async () => {
-    const beforeOrganization = {
-      ...organization,
-      githubOwnerLogin: "before-owner",
-    } satisfies ViewerOrganization;
-    testState.organizations = [beforeOrganization];
-    await renderMountedBoundary("/org/before-owner/providers", "before-owner");
-
-    testState.organizations = [
-      {
-        ...beforeOrganization,
-        githubOwnerLogin: "after-owner",
-      },
-      {
-        ...organization,
-        githubOwnerId: "789",
-        organizationId: fakeOrganizationId("organization_replacement"),
-        githubOwnerLogin: "before-owner",
-      },
-    ];
-    await rerenderMountedBoundary("/org/before-owner/providers", "before-owner");
-
-    expect(rootElement?.textContent).toContain("after-owner providers");
-    expect(readLocationHref()).toBe("/org/after-owner/providers");
-  });
-
-  it("keeps an active route unavailable after organization access is lost", async () => {
-    const beforeOrganization = {
-      ...organization,
-      githubOwnerLogin: "before-owner",
-    } satisfies ViewerOrganization;
-    testState.organizations = [beforeOrganization];
-    await renderMountedBoundary("/org/before-owner/providers?dev", "before-owner");
-
-    testState.organizations = [];
-    await rerenderMountedBoundary("/org/before-owner/providers?dev", "before-owner");
-
-    expect(rootElement?.textContent).toContain("Organization unavailable");
-    expect(readLocationHref()).toBe("/org/before-owner/providers?dev");
+    expect(renderBoundary("Samebase")).toContain("samebase providers");
   });
 });
