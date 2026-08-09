@@ -82,14 +82,17 @@ organization with no vaults. Sections use normalized owner-login order with a st
 Each section shows that user's folders for the organization, followed by vaults that are not in a
 folder. Vaults inside each group keep the existing activity order.
 
-The section heading links to `/org/:owner/vaults`. Each vault links to `/vault/:owner/:repo`. A
-one-organization user still sees one named section. The page never redirects because of the
-membership count.
+The page uses the same organization, folder, and vault tree component as the vault detail picker.
+Each organization row is a disclosure control with the same layout and actions in both placements.
+When no saved disclosure choice exists, `/vault` starts each organization open. Each vault links to
+`/vault/:owner/:repo`. A one-organization user still sees one named section. The page never
+redirects because of the membership count.
 
-A vault detail picker groups all current organizations. The route organization is expanded by
-default, and the other organizations are collapsed by default. Expanding a group does not change the
-route or save an active organization. Each organization uses the same folder and ungrouped-vault
-layout as the global inventory. An empty organization shows `No vaults` when expanded. FileView
+A vault detail picker groups all current organizations with the same tree. When no saved disclosure
+choice exists, the route organization is expanded and the other organizations are collapsed. A
+user's explicit open or closed choice for an organization is saved and appears in `/vault`,
+`/org/:owner/vaults`, and the vault detail picker. Changing a disclosure does not change the route
+or save an active organization. An empty organization shows `No vaults` when expanded. FileView
 keeps its file tree instead of this picker.
 
 ## User And Organization Settings
@@ -159,6 +162,9 @@ Vault folders are a personal organization aid inside one Samebase organization. 
 one organization ID. A folder can contain only vaults owned by that organization. Folder names,
 order, and collapsed state belong to one user and one organization. An empty folder remains visible.
 
+Organization disclosure choices also belong to one user and one organization. They control only the
+shared vault tree presentation and do not define organization access or active context.
+
 The same folder layout appears in `/vault`, `/org/:owner/vaults`, and the vault detail picker. The
 create action belongs to an organization section because `/vault` has no active organization.
 Deleting a folder makes its vaults ungrouped inside the same organization.
@@ -202,7 +208,7 @@ provider reset in RFC 122, although the operator can perform both gates in one m
 Focused route, backend, and UI tests must prove:
 
 - one, several, zero, and removed membership states
-- grouped global inventory and a vault detail picker with route-derived organization expansion
+- one shared global inventory and vault detail tree with persisted organization disclosures
 - organization-scoped folders, empty folders, ungrouped vaults, and cross-organization move denial
 - organization access before the `/org/:owner` redirect
 - reload, direct-link, Back, and Forward behavior

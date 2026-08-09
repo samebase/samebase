@@ -69,19 +69,27 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
       exact: true,
     }),
   ).toHaveAttribute("href", "/vault/noter/guestbook");
-  await expect(fixture.getByRole("link", { name: "empty-owner", exact: true })).toHaveAttribute(
-    "href",
-    "/org/empty-owner/vaults",
-  );
-  await expect(fixture.getByRole("link", { name: "noter", exact: true })).toHaveAttribute(
-    "href",
-    "/org/noter/vaults",
-  );
-  await expect(fixture.getByRole("link", { name: "samebase", exact: true })).toHaveAttribute(
-    "href",
-    "/org/samebase/vaults",
-  );
+  const emptyOwnerButton = vaultNavigation.getByRole("button", {
+    name: "empty-owner",
+    exact: true,
+  });
+  const noterButton = vaultNavigation.getByRole("button", { name: "noter", exact: true });
+  const samebaseButton = vaultNavigation.getByRole("button", {
+    name: "samebase",
+    exact: true,
+  });
+  await expect(emptyOwnerButton).toHaveAttribute("aria-expanded", "true");
+  await expect(noterButton).toHaveAttribute("aria-expanded", "true");
+  await expect(samebaseButton).toHaveAttribute("aria-expanded", "true");
   await expect(fixture.getByText("No vaults", { exact: true })).toBeVisible();
+
+  await noterButton.click();
+  await expect(noterButton).toHaveAttribute("aria-expanded", "false");
+  await expect(
+    vaultNavigation.getByRole("link", { name: "noter/guestbook, 4/4 passed", exact: true }),
+  ).toHaveCount(0);
+  await noterButton.click();
+  await expect(noterButton).toHaveAttribute("aria-expanded", "true");
   await expect(fixture).toHaveScreenshot("vault-overview-v2-root.png", {
     animations: "disabled",
     caret: "hide",

@@ -117,6 +117,10 @@ describe("useVaultWorkspaceModel", () => {
     );
     testState.cacheQueryCalls.length = 0;
     testState.liveQueries.clear();
+    testState.liveQueries.set(
+      getFunctionName(api.vault.organizationTree.getVaultOrganizationTreeSettings),
+      [],
+    );
     testState.providerVaults.length = 0;
     testState.pullRequestArgs.length = 0;
     testState.queryCalls.length = 0;
@@ -141,6 +145,7 @@ describe("useVaultWorkspaceModel", () => {
 
       expect(latest).toEqual({
         folderState: EMPTY_FOLDER_STATE,
+        organizationTreeSettings: [],
         organizations: [],
         selection: { repositoryFullName: "lost/private", state: "missing" },
         sidebarSummaries: { state: "loading" },
@@ -359,6 +364,7 @@ describe("useVaultWorkspaceModel", () => {
 
       expect(latest).toEqual({
         folderState: EMPTY_FOLDER_STATE,
+        organizationTreeSettings: [],
         organizations: [samebaseOrganization],
         selection: { state: "root" },
         sidebarSummaries: { state: "loading" },
