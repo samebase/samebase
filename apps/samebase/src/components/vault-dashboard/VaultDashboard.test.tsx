@@ -1421,7 +1421,6 @@ describe("VaultOverviewVaultPickerPane", () => {
           organizationId={vault.organizationId}
           page="overview"
           selectedVaultId={null}
-          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[vault]}
           workspace={null}

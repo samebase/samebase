@@ -150,7 +150,6 @@ function VaultRow({
   page,
   selected,
   sidebarSummaries,
-  showOwner,
   summary,
   vault,
   workspace,
@@ -164,7 +163,6 @@ function VaultRow({
   page: VaultOverviewPageKind;
   selected: boolean;
   sidebarSummaries: VaultSidebarSummariesState;
-  showOwner: boolean;
   summary: VaultSidebarSummary | undefined;
   vault: UserVaultResult;
   workspace: VaultWorkspaceSelected | null;
@@ -189,11 +187,6 @@ function VaultRow({
         to={repositoryRoute(vault, page)}
       >
         <span className="block min-w-0 max-w-full text-sm leading-5">
-          {showOwner ? (
-            <span className="block min-w-0 truncate text-muted-foreground @max-[120px]:hidden">
-              {vault.ghRepoOwner}/
-            </span>
-          ) : null}
           <span className="block min-w-0 line-clamp-2 font-medium text-foreground [overflow-wrap:anywhere]">
             {vault.ghRepoName}
           </span>
@@ -270,7 +263,6 @@ export function VaultOverviewSidebar({
   page,
   selectedVaultId,
   sidebarSummaries,
-  showOwner,
   vaults,
   workspace,
 }: {
@@ -279,7 +271,6 @@ export function VaultOverviewSidebar({
   page: VaultOverviewPageKind;
   selectedVaultId: UserVaultResult["_id"] | null;
   sidebarSummaries: VaultSidebarSummariesState;
-  showOwner: boolean;
   vaults: readonly UserVaultResult[];
   workspace: VaultWorkspaceSelected | null;
 } & VaultFolderCallbacks) {
@@ -351,7 +342,6 @@ export function VaultOverviewSidebar({
         page={page}
         selected={vault._id === selectedVaultId}
         sidebarSummaries={sidebarSummaries}
-        showOwner={showOwner}
         summary={summaryByVaultId.get(vault._id)}
         vault={vault}
         workspace={workspace}
@@ -620,7 +610,6 @@ export function VaultOverviewOrganizationSidebar({
                   organizationId={organization.organizationId}
                   page={page}
                   selectedVaultId={selectedVaultId}
-                  showOwner={false}
                   sidebarSummaries={sidebarSummaries}
                   vaults={organizationVaults}
                   workspace={workspace}

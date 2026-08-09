@@ -102,7 +102,6 @@ describe("VaultOverviewSidebar", () => {
           organizationId={fakeOrganizationId()}
           page="overview"
           selectedVaultId={null}
-          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[
             vault("second", fakeVaultId("vault-second")),
@@ -148,7 +147,6 @@ describe("VaultOverviewSidebar", () => {
           organizationId={samebaseOrganizationId}
           page="overview"
           selectedVaultId={null}
-          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[]}
           workspace={null}
@@ -185,7 +183,6 @@ describe("VaultOverviewSidebar", () => {
           organizationId={organizationId}
           page="overview"
           selectedVaultId={null}
-          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[unfiledVault, filedVault]}
           workspace={null}
@@ -207,7 +204,6 @@ describe("VaultOverviewSidebar", () => {
           organizationId={selectedVault.organizationId}
           page="overview"
           selectedVaultId={selectedVault._id}
-          showOwner
           sidebarSummaries={{ state: "loading" }}
           vaults={[selectedVault]}
           workspace={null}
