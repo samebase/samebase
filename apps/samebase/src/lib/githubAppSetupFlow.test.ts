@@ -14,6 +14,7 @@ describe("GitHub App popup completion", () => {
     const returnReplace = vi.fn();
     const removeEventListener = vi.fn();
     let messageHandler: ((event: MessageEvent) => void) | undefined;
+    let popupPoll: (() => void) | undefined;
     const popup = {
       closed: false,
       close: vi.fn(),
@@ -37,8 +38,13 @@ describe("GitHub App popup completion", () => {
       },
       open: vi.fn(() => popup),
       removeEventListener,
-      setInterval: vi.fn(() => 43),
-      setTimeout: vi.fn(() => 42),
+      setInterval: vi.fn((handler: () => void) => {
+        popupPoll = handler;
+        return 43;
+      }),
+      setTimeout: vi.fn((_handler: () => void, timeoutMs: number) =>
+        timeoutMs === 1000 ? 44 : 42,
+      ),
     };
     vi.stubGlobal("window", fakeWindow);
 
@@ -53,6 +59,9 @@ describe("GitHub App popup completion", () => {
     if (messageHandler === undefined) {
       throw new Error("GitHub completion listener was not installed.");
     }
+    popup.closed = true;
+    popupPoll?.();
+    expect(returnReplace).not.toHaveBeenCalled();
     messageHandler(
       new MessageEvent("message", {
         data: {
@@ -68,12 +77,14 @@ describe("GitHub App popup completion", () => {
       "https://samebase.com/org/acme/providers?prod-ui#github",
     );
     expect(fakeWindow.clearTimeout).toHaveBeenCalledWith(42);
+    expect(fakeWindow.clearTimeout).toHaveBeenCalledWith(44);
     expect(fakeWindow.clearInterval).toHaveBeenCalledWith(43);
     expect(removeEventListener).toHaveBeenCalledWith("message", messageHandler);
   });
 
   it("returns to the current page when the GitHub popup closes without a callback", async () => {
     const returnReplace = vi.fn();
+    let popupClose: (() => void) | undefined;
     let popupPoll: (() => void) | undefined;
     const popup = {
       closed: false,
@@ -98,7 +109,13 @@ describe("GitHub App popup completion", () => {
         popupPoll = handler;
         return 43;
       }),
-      setTimeout: vi.fn(() => 42),
+      setTimeout: vi.fn((handler: () => void, timeoutMs: number) => {
+        if (timeoutMs === 1000) {
+          popupClose = handler;
+          return 44;
+        }
+        return 42;
+      }),
     };
     vi.stubGlobal("window", fakeWindow);
 
@@ -108,6 +125,8 @@ describe("GitHub App popup completion", () => {
     }));
     popup.closed = true;
     popupPoll?.();
+    expect(returnReplace).not.toHaveBeenCalled();
+    popupClose?.();
 
     expect(returnReplace).toHaveBeenCalledWith(
       "/org/acme/providers?prod-ui=&authorization-provider=github-app&authorization-error=canceled#github",

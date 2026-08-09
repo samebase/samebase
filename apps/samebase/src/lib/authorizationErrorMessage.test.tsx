@@ -78,13 +78,13 @@ describe("formatAuthorizationErrorMessage", () => {
         { githubOwnerLogin: "acme" },
       ),
     ).toBe(
-      'Reconnect the GitHub App for <strong class="font-semibold">acme</strong>. The selected installation belongs to a different GitHub owner.',
+      'You selected a different GitHub account or organization. Select <strong class="font-semibold">@acme</strong> to reconnect this Samebase organization, or add your selection as a new Samebase organization.',
     );
   });
 
   it("uses a safe GitHub App fallback when the owner is unavailable", () => {
     expect(renderAuthorizationError({ code: "target-mismatch", provider: "github-app" })).toBe(
-      "Reconnect the GitHub App for the configured owner. The selected installation belongs to a different GitHub owner.",
+      "You selected a different GitHub account or organization. Select the configured GitHub owner to reconnect this Samebase organization, or add your selection as a new Samebase organization.",
     );
   });
 
