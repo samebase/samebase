@@ -2,10 +2,13 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   buildMcpAuthorizationServerMetadata,
   buildMcpProtectedResourceMetadata,
+  MCP_PROTOCOL_VERSION,
   readBearerTokenFromAuthorizationHeader,
+  redirectUriMatchesRegistered,
   validateAuthorizeRequestFromUrl,
   validateDynamicClientRegistrationPayload,
   validateJsonRpcRequestPayload,
+  validateMcpHttpRequest,
   validateTokenRequestFromSearchParams,
 } from "./protocol";
 
@@ -33,6 +36,7 @@ describe("buildMcpAuthorizationServerMetadata", () => {
     expect(metadata.issuer).toBe("https://samebase.com");
     expect(metadata.authorization_endpoint).toBe("https://samebase.com/oauth/mcp/authorize");
     expect(metadata.registration_endpoint).toBe("https://samebase.com/oauth/mcp/register");
+    expect(metadata.authorization_response_iss_parameter_supported).toBe(true);
     expect(metadata.token_endpoint_auth_methods_supported).toEqual(["none"]);
     expect(metadata.code_challenge_methods_supported).toEqual(["S256"]);
   });
@@ -101,6 +105,14 @@ describe("validateDynamicClientRegistrationPayload", () => {
     if (!result.ok) {
       expect(result.error).toContain("redirect_uris");
     }
+  });
+
+  it("rejects redirect URIs with fragments", () => {
+    const result = validateDynamicClientRegistrationPayload({
+      redirect_uris: ["https://example.com/callback#fragment"],
+    });
+
+    expect(result.ok).toBe(false);
   });
 
   it("rejects loopback http redirect_uris when development mode is disabled", () => {
@@ -173,7 +185,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
     }
   });
 
-  it("defaults missing resource to same-origin /mcp", () => {
+  it("rejects a missing resource", () => {
     const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
@@ -183,13 +195,13 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("code_challenge_method", "S256");
 
     const result = validateAuthorizeRequestFromUrl(url);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.resource).toBe("https://samebase.com/mcp");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("resource is required.");
     }
   });
 
-  it("defaults blank resource to same-origin /mcp", () => {
+  it("rejects a blank resource", () => {
     const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
@@ -200,9 +212,9 @@ describe("validateAuthorizeRequestFromUrl", () => {
     url.searchParams.set("code_challenge_method", "S256");
 
     const result = validateAuthorizeRequestFromUrl(url);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.value.resource).toBe("https://samebase.com/mcp");
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("resource is required.");
     }
   });
   it("defaults missing scope to the original v1 surface without newer scopes", () => {
@@ -296,12 +308,14 @@ describe("validateTokenRequestFromSearchParams", () => {
       client_id: "client_123",
       redirect_uri: "https://example.com/callback",
       code_verifier: "0123456789012345678901234567890123456789012345678901234567890123",
+      resource: "https://samebase.com/mcp",
     });
 
     const result = validateTokenRequestFromSearchParams(params);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.grantType).toBe("authorization_code");
+      expect(result.value.resource).toBe("https://samebase.com/mcp");
       if (result.value.grantType === "authorization_code") {
         expect(result.value.clientId).toBe("client_123");
         expect(result.value.redirectUri).toBe("https://example.com/callback");
@@ -314,12 +328,14 @@ describe("validateTokenRequestFromSearchParams", () => {
       grant_type: "refresh_token",
       refresh_token: "mcprt_example",
       client_id: "client_123",
+      resource: "https://samebase.com/mcp",
     });
 
     const result = validateTokenRequestFromSearchParams(params);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.value.grantType).toBe("refresh_token");
+      expect(result.value.resource).toBe("https://samebase.com/mcp");
       if (result.value.grantType === "refresh_token") {
         expect(result.value.refreshToken).toBe("mcprt_example");
       }
@@ -330,6 +346,7 @@ describe("validateTokenRequestFromSearchParams", () => {
     const params = new URLSearchParams({
       grant_type: "client_credentials",
       client_id: "client_123",
+      resource: "https://samebase.com/mcp",
     });
 
     const result = validateTokenRequestFromSearchParams(params);
@@ -346,6 +363,7 @@ describe("validateTokenRequestFromSearchParams", () => {
       client_id: "client_123",
       redirect_uri: "http://localhost:5174/callback",
       code_verifier: "0123456789012345678901234567890123456789012345678901234567890123",
+      resource: "https://samebase.com/mcp",
     });
 
     const result = validateTokenRequestFromSearchParams(params);
@@ -362,12 +380,66 @@ describe("validateTokenRequestFromSearchParams", () => {
       client_id: "client_123",
       redirect_uri: "http://localhost:5174/callback",
       code_verifier: "0123456789012345678901234567890123456789012345678901234567890123",
+      resource: "https://samebase.com/mcp",
     });
 
     const result = validateTokenRequestFromSearchParams(params, {
       allowLoopbackHttpRedirectUris: true,
     });
     expect(result.ok).toBe(true);
+  });
+
+  it("rejects a missing resource", () => {
+    const result = validateTokenRequestFromSearchParams(
+      // eslint-disable-next-line no-restricted-globals -- This test exercises an OAuth form boundary.
+      new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: "mcprt_example",
+        client_id: "client_123",
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe("resource is required.");
+    }
+  });
+
+  it("rejects a resource URI with a fragment", () => {
+    const result = validateTokenRequestFromSearchParams(
+      // eslint-disable-next-line no-restricted-globals -- This test exercises an OAuth form boundary.
+      new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: "mcprt_example",
+        client_id: "client_123",
+        resource: "https://samebase.com/mcp#fragment",
+      }),
+    );
+
+    expect(result.ok).toBe(false);
+  });
+});
+
+describe("redirectUriMatchesRegistered", () => {
+  it("requires an exact registered redirect URI", () => {
+    expect(
+      redirectUriMatchesRegistered({
+        requestedRedirectUri: "https://example.com/callback",
+        registeredRedirectUris: ["https://example.com/callback"],
+      }),
+    ).toBe(true);
+    expect(
+      redirectUriMatchesRegistered({
+        requestedRedirectUri: "https://example.com:443/callback",
+        registeredRedirectUris: ["https://example.com/callback"],
+      }),
+    ).toBe(false);
+    expect(
+      redirectUriMatchesRegistered({
+        requestedRedirectUri: " https://example.com/callback ",
+        registeredRedirectUris: ["https://example.com/callback"],
+      }),
+    ).toBe(false);
   });
 });
 
@@ -410,15 +482,18 @@ describe("validateJsonRpcRequestPayload", () => {
     const result = validateJsonRpcRequestPayload({
       jsonrpc: "2.0",
       id: 1,
-      method: "initialize",
+      method: "tools/list",
       params: {
-        protocolVersion: "2025-03-26",
+        _meta: {
+          "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+          "io.modelcontextprotocol/clientCapabilities": {},
+        },
       },
     });
 
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.method).toBe("initialize");
+      expect(result.value.method).toBe("tools/list");
       expect(result.value.id).toBe(1);
     }
   });
@@ -427,19 +502,25 @@ describe("validateJsonRpcRequestPayload", () => {
     const result = validateJsonRpcRequestPayload({
       jsonrpc: "1.0",
       id: 1,
-      method: "initialize",
+      method: "tools/list",
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain("jsonrpc");
+      expect(result.id).toBe(1);
     }
   });
 
   it("keeps id undefined when omitted (notification shape)", () => {
     const result = validateJsonRpcRequestPayload({
       jsonrpc: "2.0",
-      method: "notifications/initialized",
-      params: {},
+      method: "tools/list",
+      params: {
+        _meta: {
+          "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+          "io.modelcontextprotocol/clientCapabilities": {},
+        },
+      },
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -451,12 +532,263 @@ describe("validateJsonRpcRequestPayload", () => {
     const result = validateJsonRpcRequestPayload({
       jsonrpc: "2.0",
       id: { nested: "not-valid" },
-      method: "initialize",
+      method: "tools/list",
       params: {},
     });
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error).toContain("id");
+      expect(result.id).toBeUndefined();
     }
+  });
+
+  it("rejects fractional numeric JSON-RPC ids", () => {
+    const result = validateJsonRpcRequestPayload({
+      jsonrpc: "2.0",
+      id: 1.5,
+      method: "tools/list",
+      params: {},
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toContain("integer");
+      expect(result.id).toBeUndefined();
+    }
+  });
+});
+
+describe("validateMcpHttpRequest", () => {
+  const metadata = {
+    "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+    "io.modelcontextprotocol/clientInfo": { name: "test-client", version: "1.0.0" },
+    "io.modelcontextprotocol/clientCapabilities": {},
+  };
+
+  function request(method: string, params: Record<string, unknown> = {}) {
+    const result = validateJsonRpcRequestPayload({
+      jsonrpc: "2.0",
+      id: 1,
+      method,
+      params: { _meta: metadata, ...params },
+    });
+    if (!result.ok) {
+      throw new Error(result.error);
+    }
+    return result.value;
+  }
+
+  function headers(method: string, name?: string, version = MCP_PROTOCOL_VERSION) {
+    const result = new Headers({
+      "MCP-Protocol-Version": version,
+      "Mcp-Method": method,
+    });
+    if (name !== undefined) {
+      result.set("Mcp-Name", name);
+    }
+    return result;
+  }
+
+  it("accepts a self-contained modern request", () => {
+    expect(validateMcpHttpRequest(request("tools/list"), headers("tools/list"))).toEqual({
+      ok: true,
+    });
+  });
+
+  it("rejects missing client capabilities", () => {
+    const rpcRequest = request("tools/list");
+    rpcRequest.params = {
+      _meta: {
+        "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+      },
+    };
+
+    expect(validateMcpHttpRequest(rpcRequest, headers("tools/list"))).toMatchObject({
+      ok: false,
+      kind: "invalid_params",
+      error: expect.stringContaining("clientCapabilities"),
+    });
+  });
+
+  it("rejects missing and mismatched standard headers", () => {
+    const missingMethod = headers("tools/list");
+    missingMethod.delete("Mcp-Method");
+    expect(validateMcpHttpRequest(request("tools/list"), missingMethod)).toMatchObject({
+      ok: false,
+      kind: "header_mismatch",
+      error: expect.stringContaining("Mcp-Method"),
+    });
+    expect(validateMcpHttpRequest(request("tools/list"), headers("server/discover"))).toMatchObject(
+      {
+        ok: false,
+        kind: "header_mismatch",
+        error: expect.stringContaining("does not match"),
+      },
+    );
+  });
+
+  it("returns the requested unsupported protocol version", () => {
+    const unsupportedVersion = "2025-03-26";
+    const rpcRequest = request("tools/list");
+    rpcRequest.params = {
+      _meta: {
+        ...metadata,
+        "io.modelcontextprotocol/protocolVersion": unsupportedVersion,
+      },
+    };
+
+    expect(
+      validateMcpHttpRequest(rpcRequest, headers("tools/list", undefined, unsupportedVersion)),
+    ).toEqual({
+      ok: false,
+      kind: "unsupported_protocol_version",
+      requested: unsupportedVersion,
+    });
+  });
+
+  it("validates plain and Base64-encoded tool names", () => {
+    expect(
+      validateMcpHttpRequest(
+        request("tools/call", { name: "get_weather", arguments: {} }),
+        headers("tools/call", "get_weather"),
+      ),
+    ).toEqual({ ok: true });
+    expect(
+      validateMcpHttpRequest(
+        request("tools/call", { name: "名前", arguments: {} }),
+        headers("tools/call", "=?base64?5ZCN5YmN?="),
+      ),
+    ).toEqual({ ok: true });
+    expect(
+      validateMcpHttpRequest(
+        request("tools/call", { name: "=?BASE64?literal?=", arguments: {} }),
+        headers("tools/call", "=?BASE64?literal?="),
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it("validates mirrored prompt names and resource URIs", () => {
+    expect(
+      validateMcpHttpRequest(
+        request("prompts/get", { name: "review_code" }),
+        headers("prompts/get", "review_code"),
+      ),
+    ).toEqual({ ok: true });
+    expect(
+      validateMcpHttpRequest(
+        request("resources/read", { uri: "file:///project/readme.md" }),
+        headers("resources/read", "file:///project/readme.md"),
+      ),
+    ).toEqual({ ok: true });
+
+    expect(
+      validateMcpHttpRequest(
+        request("resources/read", { uri: "file:///project/readme.md" }),
+        headers("resources/read"),
+      ),
+    ).toMatchObject({
+      ok: false,
+      kind: "header_mismatch",
+      error: expect.stringContaining("Mcp-Name"),
+    });
+  });
+
+  it("rejects malformed tools/call params", () => {
+    expect(
+      validateMcpHttpRequest(
+        request("tools/call", { name: "", arguments: {} }),
+        headers("tools/call", "named-tool"),
+      ),
+    ).toMatchObject({
+      ok: false,
+      kind: "invalid_params",
+      error: expect.stringContaining("non-empty"),
+    });
+    expect(
+      validateMcpHttpRequest(
+        request("tools/call", { name: "named-tool", arguments: "not-an-object" }),
+        headers("tools/call", "named-tool"),
+      ),
+    ).toMatchObject({
+      ok: false,
+      kind: "invalid_params",
+      error: expect.stringContaining("arguments"),
+    });
+  });
+
+  it("rejects every supplied tools/list cursor", () => {
+    expect(
+      validateMcpHttpRequest(request("tools/list", { cursor: 123 }), headers("tools/list")),
+    ).toMatchObject({
+      ok: false,
+      kind: "invalid_params",
+      error: expect.stringContaining("must be a string"),
+    });
+    expect(
+      validateMcpHttpRequest(request("tools/list", { cursor: "next-page" }), headers("tools/list")),
+    ).toMatchObject({
+      ok: false,
+      kind: "invalid_params",
+      error: expect.stringContaining("must be omitted"),
+    });
+  });
+
+  it("rejects malformed encoded names and unsafe plain names", () => {
+    for (const nameHeader of ["=?base64?%%%?=", "=?base64?/w==?="]) {
+      expect(
+        validateMcpHttpRequest(
+          request("tools/call", { name: "名前", arguments: {} }),
+          headers("tools/call", nameHeader),
+        ),
+      ).toMatchObject({
+        ok: false,
+        kind: "header_mismatch",
+        error: expect.stringContaining("Mcp-Name"),
+      });
+    }
+
+    class RawMcpNameHeaders extends Headers {
+      readonly rawName: string;
+
+      constructor(rawName: string) {
+        super(headers("tools/call", "placeholder"));
+        this.rawName = rawName;
+      }
+
+      override get(name: string): string | null {
+        if (name.toLowerCase() === "mcp-name") {
+          return this.rawName;
+        }
+        return super.get(name);
+      }
+    }
+
+    for (const rawHeaders of [" padded", "padded\t", "名前"].map(
+      (rawName) => new RawMcpNameHeaders(rawName),
+    )) {
+      expect(
+        validateMcpHttpRequest(
+          request("tools/call", { name: "padded", arguments: {} }),
+          rawHeaders,
+        ),
+      ).toMatchObject({
+        ok: false,
+        kind: "header_mismatch",
+        error: expect.stringContaining("malformed"),
+      });
+    }
+  });
+
+  it("rejects a mismatched tool name", () => {
+    expect(
+      validateMcpHttpRequest(
+        request("tools/call", { name: "get_weather", arguments: {} }),
+        headers("tools/call", "other_tool"),
+      ),
+    ).toMatchObject({
+      ok: false,
+      kind: "header_mismatch",
+      error: expect.stringContaining("Mcp-Name"),
+    });
   });
 });

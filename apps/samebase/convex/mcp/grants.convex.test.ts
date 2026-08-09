@@ -228,6 +228,7 @@ describe("MCP grant management", () => {
         accessTokenExpiresAt: now + 60_000,
         accessTokenHash: "unused_access_hash",
         clientId: "mcpc_named",
+        resource,
         newRefreshTokenHash: "unused_refresh_hash",
         now: now + 1,
         refreshTokenExpiresAt: now + 60_000,

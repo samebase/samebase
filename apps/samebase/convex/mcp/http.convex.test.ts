@@ -8,12 +8,43 @@ import { actionContracts } from "../toolRuntime/actionCatalog";
 import { ACCESS_KEYS } from "../../shared/accessModel";
 import { isRecord } from "../jsonUtils";
 import { sha256Hex } from "./tokens";
+import { MCP_PROTOCOL_VERSION } from "./protocol";
 import {
   buildMcpToolInvocationArgs,
   listMcpToolsForAccess,
   readMcpMethodForUsage,
   readMcpToolNameForUsage,
 } from "./http";
+
+const mcpRequestMetadata = {
+  "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
+  "io.modelcontextprotocol/clientInfo": { name: "samebase-test", version: "1.0.0" },
+  "io.modelcontextprotocol/clientCapabilities": {},
+};
+
+function mcpRequestHeaders(args: {
+  method: string;
+  accessToken?: string;
+  name?: string;
+  origin?: string;
+  version?: string;
+}) {
+  const headers = new Headers({
+    "content-type": "application/json",
+    "MCP-Protocol-Version": args.version ?? MCP_PROTOCOL_VERSION,
+    "Mcp-Method": args.method,
+  });
+  if (args.accessToken) {
+    headers.set("authorization", `Bearer ${args.accessToken}`);
+  }
+  if (args.name) {
+    headers.set("Mcp-Name", args.name);
+  }
+  if (args.origin) {
+    headers.set("origin", args.origin);
+  }
+  return headers;
+}
 
 describe("MCP HTTP tool invocation args", () => {
   it("uses trusted user and scope values instead of raw tool arguments", async () => {
@@ -233,17 +264,18 @@ describe("MCP tool listing access", () => {
 
 describe("MCP usage attribution dimensions", () => {
   it("maps request methods to closed usage values", () => {
-    expect(readMcpMethodForUsage("initialize")).toBe("initialize");
+    expect(readMcpMethodForUsage("server/discover")).toBe("server/discover");
     expect(readMcpMethodForUsage("tools/list")).toBe("tools/list");
     expect(readMcpMethodForUsage("tools/call")).toBe("tools/call");
-    expect(readMcpMethodForUsage("notifications/initialized")).toBe("notifications/initialized");
+    expect(readMcpMethodForUsage("initialize")).toBe("other");
     expect(readMcpMethodForUsage("caller controlled text")).toBe("other");
   });
 
   it("maps tool call params to catalog names or unknown", () => {
     for (const contract of actionContracts) {
-      expect(readMcpToolNameForUsage({ name: ` ${contract.mcp.name} ` })).toBe(contract.mcp.name);
+      expect(readMcpToolNameForUsage({ name: contract.mcp.name })).toBe(contract.mcp.name);
     }
+    expect(readMcpToolNameForUsage({ name: " vault_actions_createRepository " })).toBe("unknown");
     expect(readMcpToolNameForUsage({ name: "caller controlled text" })).toBe("unknown");
     expect(readMcpToolNameForUsage({ name: "" })).toBe("unknown");
     expect(readMcpToolNameForUsage(null)).toBe("unknown");
@@ -269,7 +301,25 @@ describe("MCP tools/call access enforcement", () => {
     expect(header).toContain(`error_description="${errorDescription}"`);
   }
 
-  async function seedMcpBearer(args: { isApproved: boolean; scopes?: string[] }) {
+  it("uses one authorization-server issuer in both metadata documents", async () => {
+    const t = makeConvexTest();
+    const rootResponse = await t.fetch("/.well-known/oauth-authorization-server");
+    const pathResponse = await t.fetch("/.well-known/oauth-authorization-server/mcp");
+    const rootMetadata = await rootResponse.json();
+    const pathMetadata = await pathResponse.json();
+
+    expect(rootMetadata).toMatchObject({
+      issuer: expect.any(String),
+      authorization_response_iss_parameter_supported: true,
+    });
+    expect(pathMetadata).toEqual(rootMetadata);
+  });
+
+  async function seedMcpBearer(args: {
+    isApproved: boolean;
+    scopes?: string[];
+    tokenResource?: string;
+  }) {
     const t = makeConvexTest();
     const metadataResponse = await t.fetch("/.well-known/oauth-protected-resource");
     const metadata = await metadataResponse.json();
@@ -277,6 +327,7 @@ describe("MCP tools/call access enforcement", () => {
       throw new Error("Protected resource metadata did not expose the MCP resource.");
     }
     const resource = metadata["resource"];
+    const tokenResource = args.tokenResource ?? resource;
 
     const accessToken = "test-mcp-access-token";
     const tokenHash = await sha256Hex(accessToken);
@@ -321,7 +372,7 @@ describe("MCP tools/call access enforcement", () => {
         grantId: "grant_test",
         userId: seededUserId,
         clientId: "client_test",
-        resource,
+        resource: tokenResource,
         scope,
         status: "active",
         createdAt: now,
@@ -332,7 +383,7 @@ describe("MCP tools/call access enforcement", () => {
         grantId: "grant_test",
         clientId: "client_test",
         userId: seededUserId,
-        resource,
+        resource: tokenResource,
         scope,
         createdAt: now,
         expiresAt: now + 60 * 60 * 1000,
@@ -343,15 +394,12 @@ describe("MCP tools/call access enforcement", () => {
     const callTool = async (name: string, toolArguments: Record<string, unknown> = {}) => {
       const response = await t.fetch("/mcp", {
         method: "POST",
-        headers: {
-          authorization: `Bearer ${accessToken}`,
-          "content-type": "application/json",
-        },
+        headers: mcpRequestHeaders({ method: "tools/call", name, accessToken }),
         body: JSON.stringify({
           jsonrpc: "2.0",
           id: 1,
           method: "tools/call",
-          params: { name, arguments: toolArguments },
+          params: { _meta: mcpRequestMetadata, name, arguments: toolArguments },
         }),
       });
       return await response.json();
@@ -360,23 +408,18 @@ describe("MCP tools/call access enforcement", () => {
     return { accessToken, callTool, t, ...ids };
   }
 
-  it("returns cross-tool workflow instructions during initialization", async () => {
+  it("discovers the modern server contract without initialization", async () => {
     const { accessToken, t } = await seedMcpBearer({ isApproved: true });
 
     const response = await t.fetch("/mcp", {
       method: "POST",
-      headers: {
-        authorization: `Bearer ${accessToken}`,
-        "content-type": "application/json",
-      },
+      headers: mcpRequestHeaders({ method: "server/discover", accessToken }),
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: 1,
-        method: "initialize",
+        method: "server/discover",
         params: {
-          protocolVersion: "2025-03-26",
-          capabilities: {},
-          clientInfo: { name: "test", version: "1.0.0" },
+          _meta: mcpRequestMetadata,
         },
       }),
     });
@@ -384,12 +427,19 @@ describe("MCP tools/call access enforcement", () => {
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       result: {
+        resultType: "complete",
+        supportedVersions: [MCP_PROTOCOL_VERSION],
+        capabilities: { tools: {} },
+        ttlMs: 0,
+        cacheScope: "private",
         instructions: expect.stringMatching(
           /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call vault_actions_createRepository directly with the human GitHub owner login[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
         ),
-        serverInfo: {
-          name: "Samebase",
-          version: "0.1.0",
+        _meta: {
+          "io.modelcontextprotocol/serverInfo": {
+            name: "Samebase",
+            version: "0.1.0",
+          },
         },
       },
     });
@@ -400,14 +450,12 @@ describe("MCP tools/call access enforcement", () => {
 
     const response = await t.fetch("/mcp", {
       method: "POST",
-      headers: {
-        "content-type": "application/json",
-      },
+      headers: mcpRequestHeaders({ method: "tools/list" }),
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: 1,
         method: "tools/list",
-        params: {},
+        params: { _meta: mcpRequestMetadata },
       }),
     });
 
@@ -424,15 +472,12 @@ describe("MCP tools/call access enforcement", () => {
 
     const response = await t.fetch("/mcp", {
       method: "POST",
-      headers: {
-        authorization: "Bearer rejected-token",
-        "content-type": "application/json",
-      },
+      headers: mcpRequestHeaders({ method: "tools/list", accessToken: "rejected-token" }),
       body: JSON.stringify({
         jsonrpc: "2.0",
         id: 1,
         method: "tools/list",
-        params: {},
+        params: { _meta: mcpRequestMetadata },
       }),
     });
 
@@ -441,6 +486,304 @@ describe("MCP tools/call access enforcement", () => {
     await expect(response.json()).resolves.toEqual({
       error: "invalid_token",
       error_description: "Access token is invalid.",
+    });
+  });
+
+  it("rejects legacy initialization before starting OAuth", async () => {
+    const t = makeConvexTest();
+
+    const response = await t.fetch("/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-03-26",
+          capabilities: {},
+          clientInfo: { name: "legacy-test", version: "1.0.0" },
+        },
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.headers.has("WWW-Authenticate")).toBe(false);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: -32020 },
+    });
+  });
+
+  it("returns supported versions before checking authorization", async () => {
+    const t = makeConvexTest();
+    const legacyVersion = "2025-03-26";
+
+    const response = await t.fetch("/mcp", {
+      method: "POST",
+      headers: mcpRequestHeaders({ method: "tools/list", version: legacyVersion }),
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: {
+          _meta: {
+            ...mcpRequestMetadata,
+            "io.modelcontextprotocol/protocolVersion": legacyVersion,
+          },
+        },
+      }),
+    });
+
+    expect(response.status).toBe(400);
+    expect(response.headers.has("WWW-Authenticate")).toBe(false);
+    await expect(response.json()).resolves.toEqual({
+      jsonrpc: "2.0",
+      id: 1,
+      error: {
+        code: -32022,
+        message: "Unsupported protocol version",
+        data: {
+          supported: [MCP_PROTOCOL_VERSION],
+          requested: legacyVersion,
+        },
+      },
+    });
+  });
+
+  it("rejects a foreign Origin", async () => {
+    const t = makeConvexTest();
+
+    const response = await t.fetch("/mcp", {
+      method: "POST",
+      headers: mcpRequestHeaders({
+        method: "tools/list",
+        origin: "https://attacker.example",
+      }),
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: { _meta: mcpRequestMetadata },
+      }),
+    });
+
+    expect(response.status).toBe(403);
+    const payload = await response.json();
+    expect(payload).not.toHaveProperty("id");
+  });
+
+  it("rejects GET and DELETE transport requests", async () => {
+    const t = makeConvexTest();
+
+    for (const method of ["GET", "DELETE"]) {
+      const response = await t.fetch("/mcp", { method });
+      expect(response.status).toBe(405);
+      expect(response.headers.get("Allow")).toBe("POST");
+
+      const foreignOriginResponse = await t.fetch("/mcp", {
+        method,
+        headers: { Origin: "https://attacker.example" },
+      });
+      expect(foreignOriginResponse.status).toBe(403);
+      expect(await foreignOriginResponse.json()).not.toHaveProperty("id");
+    }
+  });
+
+  it("uses only readable request IDs in invalid request errors", async () => {
+    const t = makeConvexTest();
+
+    for (const id of [17, "request-17"]) {
+      const response = await t.fetch("/mcp", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "1.0", id, method: "tools/list" }),
+      });
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        id,
+        error: { code: -32600 },
+      });
+    }
+
+    for (const id of [null, 1.5, { nested: "invalid" }]) {
+      const response = await t.fetch("/mcp", {
+        method: "POST",
+        headers: mcpRequestHeaders({ method: "tools/list" }),
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id,
+          method: "tools/list",
+          params: { _meta: mcpRequestMetadata },
+        }),
+      });
+      expect(response.status).toBe(400);
+      expect(await response.json()).not.toHaveProperty("id");
+    }
+
+    const parseErrorResponse = await t.fetch("/mcp", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{",
+    });
+    expect(parseErrorResponse.status).toBe(400);
+    expect(await parseErrorResponse.json()).not.toHaveProperty("id");
+  });
+
+  it("rejects every tools/list cursor before authorization", async () => {
+    const t = makeConvexTest();
+
+    for (const cursor of [123, "next-page"]) {
+      const response = await t.fetch("/mcp", {
+        method: "POST",
+        headers: mcpRequestHeaders({ method: "tools/list" }),
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/list",
+          params: { _meta: mcpRequestMetadata, cursor },
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.headers.has("WWW-Authenticate")).toBe(false);
+      await expect(response.json()).resolves.toMatchObject({
+        id: 1,
+        error: { code: -32602 },
+      });
+    }
+  });
+
+  it("returns private cache hints and server identity with tools", async () => {
+    const { accessToken, t } = await seedMcpBearer({ isApproved: true });
+    const response = await t.fetch("/mcp", {
+      method: "POST",
+      headers: mcpRequestHeaders({ method: "tools/list", accessToken }),
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: { _meta: mcpRequestMetadata },
+      }),
+    });
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      result: {
+        resultType: "complete",
+        ttlMs: 0,
+        cacheScope: "private",
+        tools: expect.any(Array),
+        _meta: {
+          "io.modelcontextprotocol/serverInfo": {
+            name: "Samebase",
+            version: "0.1.0",
+          },
+        },
+      },
+    });
+  });
+
+  it("returns HTTP 404 for removed and unknown methods", async () => {
+    const { accessToken, t } = await seedMcpBearer({ isApproved: true });
+    const response = await t.fetch("/mcp", {
+      method: "POST",
+      headers: mcpRequestHeaders({ method: "initialize", accessToken }),
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: { _meta: mcpRequestMetadata },
+      }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: -32601 },
+    });
+  });
+
+  it("returns HTTP 404 for an unknown notification", async () => {
+    const { accessToken, t } = await seedMcpBearer({ isApproved: true });
+    const response = await t.fetch("/mcp", {
+      method: "POST",
+      headers: mcpRequestHeaders({ method: "notifications/unknown", accessToken }),
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        method: "notifications/unknown",
+        params: { _meta: mcpRequestMetadata },
+      }),
+    });
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      error: { code: -32601 },
+    });
+  });
+
+  it("returns invalid params for malformed and unknown tool calls", async () => {
+    const { accessToken, t } = await seedMcpBearer({ isApproved: true });
+    const cases = [
+      {
+        headerName: "present-header-name",
+        params: { name: "", arguments: {} },
+      },
+      {
+        headerName: "samebase_auth_getAuthenticationStatus",
+        params: {
+          name: "samebase_auth_getAuthenticationStatus",
+          arguments: "not-an-object",
+        },
+      },
+      {
+        headerName: "unknown_tool",
+        params: { name: "unknown_tool", arguments: {} },
+      },
+    ];
+
+    for (const testCase of cases) {
+      const response = await t.fetch("/mcp", {
+        method: "POST",
+        headers: mcpRequestHeaders({
+          method: "tools/call",
+          name: testCase.headerName,
+          accessToken,
+        }),
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: { _meta: mcpRequestMetadata, ...testCase.params },
+        }),
+      });
+
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        error: { code: -32602 },
+      });
+    }
+  });
+
+  it("rejects a token for another resource with an OAuth challenge", async () => {
+    const { accessToken, t } = await seedMcpBearer({
+      isApproved: true,
+      tokenResource: "https://other.example/mcp",
+    });
+    const response = await t.fetch("/mcp", {
+      method: "POST",
+      headers: mcpRequestHeaders({ method: "tools/list", accessToken }),
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "tools/list",
+        params: { _meta: mcpRequestMetadata },
+      }),
+    });
+
+    expect(response.status).toBe(401);
+    expectMcpBearerChallenge(response, "Access token rejected.");
+    await expect(response.json()).resolves.toEqual({
+      error: "invalid_token",
+      error_description: "Token resource does not match this MCP endpoint.",
     });
   });
 
@@ -453,6 +796,7 @@ describe("MCP tools/call access enforcement", () => {
     const payload = await callTool("vault_actions_createRepository");
     expect(payload).toMatchObject({
       result: {
+        resultType: "complete",
         isError: true,
         content: [
           {
