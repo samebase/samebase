@@ -97,6 +97,7 @@ beforeEach(() => {
   githubMocks.loadInstallationAccess.mockResolvedValue({
     githubInstallationId: "1001",
     githubOwnerId: "101",
+    githubOwnerLogin: "before-rename",
   });
   githubMocks.createInstallationOctokit.mockResolvedValue({
     rest: { repos: { delete: githubMocks.deleteRepository } },
@@ -104,7 +105,7 @@ beforeEach(() => {
   githubMocks.resolveRepositoryIdentity.mockResolvedValue({
     repositoryId: "10001",
     ownerId: "101",
-    ownerLogin: "after-rename",
+    ownerLogin: "before-rename",
     repositoryName: "repository",
     defaultBranch: "main",
   });
@@ -121,6 +122,48 @@ describe("retained GitHub repository deletion", () => {
     expect(githubMocks.resolveRepositoryIdentity).toHaveBeenCalledTimes(1);
     expect(githubMocks.deleteRepository).toHaveBeenCalledOnce();
     expect(githubMocks.deleteRepository).toHaveBeenCalledWith({
+      owner: "before-rename",
+      repo: "repository",
+    });
+  });
+
+  it("requires verified reconnect after the GitHub owner login changes", async () => {
+    const { runId, t } = await seedGitHubRepositoryDeletionRun();
+    githubMocks.resolveRepositoryIdentity.mockResolvedValueOnce({
+      repositoryId: "10001",
+      ownerId: "101",
+      ownerLogin: "after-rename",
+      repositoryName: "repository",
+      defaultBranch: "main",
+    });
+
+    await expect(
+      t.action(internal.vault.deletion.providerActions.deleteGitHubRepository, { runId }),
+    ).rejects.toThrow(
+      "GitHub owner login changed. An organization owner must reconnect the GitHub App.",
+    );
+    expect(githubMocks.deleteRepository).not.toHaveBeenCalled();
+  });
+
+  it("uses the current owner login after verified reconnect", async () => {
+    const { runId, t } = await seedGitHubRepositoryDeletionRun();
+    githubMocks.loadInstallationAccess.mockResolvedValueOnce({
+      githubInstallationId: "1001",
+      githubOwnerId: "101",
+      githubOwnerLogin: "after-rename",
+    });
+    githubMocks.resolveRepositoryIdentity.mockResolvedValueOnce({
+      repositoryId: "10001",
+      ownerId: "101",
+      ownerLogin: "after-rename",
+      repositoryName: "repository",
+      defaultBranch: "main",
+    });
+
+    await expect(
+      t.action(internal.vault.deletion.providerActions.deleteGitHubRepository, { runId }),
+    ).resolves.toBeNull();
+    expect(githubMocks.deleteRepository).toHaveBeenCalledWith({
       owner: "after-rename",
       repo: "repository",
     });
@@ -132,7 +175,7 @@ describe("retained GitHub repository deletion", () => {
       new RequestError("GitHub repository was not found.", 404, {
         request: {
           method: "DELETE",
-          url: "https://api.github.com/repos/after-rename/repository",
+          url: "https://api.github.com/repos/before-rename/repository",
           headers: {},
         },
       }),
