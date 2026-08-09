@@ -143,14 +143,18 @@ await page.goto("/admin-route", { waitUntil: "networkidle" });
 4. In CI/bootstrap contexts, the Vite-only `Autofill & sign in` shortcut may be absent. Tests should
    fill the seeded email/password and click the exact `Sign in` button through `signInIfNeeded`.
 
-## Test Runner Acceptance
+## Test Runner Scope
 
-- `pnpm test:visual:linux` with no Playwright flags is the canonical local acceptance command for
-  the Playwright visual suite.
-- Never accept native macOS screenshots as baselines — only the Linux Docker wrapper produces
+- Load and follow `../../.agents/skills/samebase-test-policy/SKILL.md` before selecting tests or
+  handling a failure.
+- Never accept native macOS screenshots as baselines. Only the Linux Docker wrapper produces
   canonical ones.
-- Use focused commands such as `pnpm test:visual:linux -- e2e/foo.spec.ts` only as a triage loop. If
-  a full local run failed, rerun the full wrapper after the fix.
+- Use focused commands such as `pnpm test:visual:linux -- e2e/foo.spec.ts` as feature-task
+  acceptance for the affected browser contracts.
+- Run `pnpm test:visual:linux` with no Playwright flags only for main CI, a dedicated Playwright
+  suite-health task, or an explicit user request.
+- If a full run finds an unrelated or unclear failure, do not repair it or rerun the full suite from
+  the feature task. Report it through the test-policy handoff.
 - Do not treat PR Playwright rows marked `skipping`, Testbox shards, `--workers=1`, `--shard`, or
   `PLAYWRIGHT_LINUX_FULLY_PARALLEL=0` as equivalent to the default local wrapper.
 - Use CI-shaped shards only to diagnose that exact CI surface, and report the command shape in the

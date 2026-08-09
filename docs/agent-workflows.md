@@ -271,7 +271,8 @@ For interaction bugs involving scroll, touch, drag, focus, selection, pane layou
 behavior:
 
 1. Reproduce the issue on the real route first.
-2. Add a failing real-route or honest production-component Playwright repro.
+2. Add or update a failing real-route or honest production-component Playwright repro. Use the
+   existing test owner when it already covers the contract.
 3. Only add a narrower fixture after the real repro exists.
 
 If a fixture is used, it must mount the exact shipped component tree without invented layout or
