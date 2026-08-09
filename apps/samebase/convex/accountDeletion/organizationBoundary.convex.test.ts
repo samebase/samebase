@@ -157,6 +157,11 @@ async function seedRunningDeletion() {
       userId: deletingUserId,
       providersPanelOpen: true,
     });
+    const organizationTreeSettingId = await ctx.db.insert("ui_vaultOrganizationTree_settings", {
+      collapsed: true,
+      organizationId,
+      userId: deletingUserId,
+    });
     await ctx.db.insert("mcpGrants", {
       grantId: "grant-1",
       userId: deletingUserId,
@@ -187,6 +192,7 @@ async function seedRunningDeletion() {
       vaultId,
       stagedFileId,
       organizationProviderCredentialsId,
+      organizationTreeSettingId,
       teammateProviderCredentialsId,
     };
   });
@@ -452,6 +458,7 @@ describe("account deletion organization boundary", () => {
         .query("ui_user_settings")
         .withIndex("by_user", (query) => query.eq("userId", ids.deletingUserId))
         .first(),
+      organizationTreeSetting: await ctx.db.get(ids.organizationTreeSettingId),
       grant: await ctx.db
         .query("mcpGrants")
         .withIndex("by_user_id", (query) => query.eq("userId", ids.deletingUserId))
@@ -477,6 +484,7 @@ describe("account deletion organization boundary", () => {
     expect(snapshot.oauthState).toBeNull();
     expect(snapshot.setupState).toBeNull();
     expect(snapshot.preferences).toBeNull();
+    expect(snapshot.organizationTreeSetting).toBeNull();
     expect(snapshot.grant).toBeNull();
     expect(snapshot.accessToken).toBeNull();
     expect(snapshot.run).toMatchObject({
