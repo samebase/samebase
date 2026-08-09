@@ -128,8 +128,8 @@ describe("SignInWithOAuth", () => {
       const expectedRedirectTo = buildPathWithTanStackSearch({
         pathname: "/",
         search: {
-          "auth-return": "dashboard",
           "prod-ui": "",
+          "auth-return": "dashboard",
           signup: provider,
         },
       });
