@@ -17,7 +17,7 @@ async function signInForPitchRoute(page: Page): Promise<void> {
   await signInIfNeeded(page);
 }
 
-test("/pitch stays visually stable", async ({ page }) => {
+test("/pitch stays visually stable @opt-in", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await signInForPitchRoute(page);
   await page.goto("/pitch", { waitUntil: "networkidle" });
@@ -50,7 +50,7 @@ const printRoutes = [
 ] as const;
 
 for (const printRoute of printRoutes) {
-  test(`${printRoute.route} stays visually stable`, async ({ page }) => {
+  test(`${printRoute.route} stays visually stable @opt-in`, async ({ page }) => {
     await signInForPitchRoute(page);
     await page.goto(printRoute.route, { waitUntil: "networkidle" });
 

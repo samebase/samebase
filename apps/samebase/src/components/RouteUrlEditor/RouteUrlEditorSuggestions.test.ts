@@ -374,6 +374,23 @@ describe("readSuggestions", () => {
     expect(values).not.toContain("?devtools");
   });
 
+  it("keeps manual auth values out of route suggestions", () => {
+    const keyValues = readValues({
+      currentRouteAddress: "/",
+      routeAddress: "/?a",
+      routeTextBeforeCursor: "/?a",
+    });
+    const manualValueRows = readValues({
+      currentRouteAddress: "/",
+      routeAddress: "/?auth=g",
+      routeTextBeforeCursor: "/?auth=g",
+    });
+
+    expect(keyValues).toContain("?auth=");
+    expect(keyValues).not.toContain("?auth=google");
+    expect(manualValueRows).toEqual([]);
+  });
+
   it("uses member access for route and query suggestions", () => {
     const pathValues = readValues({
       routeAddress: "/v",

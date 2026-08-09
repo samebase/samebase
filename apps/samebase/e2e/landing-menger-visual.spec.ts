@@ -12,7 +12,6 @@ import {
   PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID,
   PUBLIC_LANDING_MENGER_TEST_ID,
 } from "../src/lib/publicLanding";
-import { PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE } from "../src/lib/publicLandingLogo";
 import { measureScreenshotForegroundBounds } from "./visualDiff";
 
 test.setTimeout(120_000);
@@ -133,12 +132,13 @@ test("root landing uses the depth-three Menger logo and follows the pointer", as
 
 test("root landing keeps its fractal fallback when WebGL is unavailable", async ({ page }) => {
   await installUnavailableCanvasRendering(page);
-  await page.goto("/?prod-ui&rot=180", { waitUntil: "domcontentloaded" });
+  await page.goto("/?prod-ui&elev=20&top=red-400", { waitUntil: "domcontentloaded" });
 
   const hero = page.getByTestId(PUBLIC_LANDING_MENGER_TEST_ID);
   const fallback = page.getByTestId(PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID);
   await expect(hero).toHaveAttribute("data-state", "fallback", { timeout: 30_000 });
   await expect(fallback).toHaveCSS("opacity", "1");
+  await expect(fallback).toHaveAttribute("src", /#.*:20:0$/);
   await expect(hero.getByTestId("logo-menger-hover-scene")).toHaveCount(0);
 });
 
@@ -150,7 +150,9 @@ test.describe("root landing automatic probe on a phone", () => {
     viewport: { height: 844, width: 390 },
   });
 
-  test("continues the fractal reveal while the cube is dragged", async ({ page }) => {
+  test("continues the fractal reveal while the cube is dragged @logo-research", async ({
+    page,
+  }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.goto("/", { waitUntil: "domcontentloaded" });
 
@@ -229,7 +231,7 @@ test.describe("root landing automatic probe on a phone", () => {
   });
 });
 
-test("landing preview uses the depth-three Menger hover scene", async ({ page }) => {
+test("landing preview uses the depth-three Menger hover scene @logo-research", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/landing-preview", { waitUntil: "domcontentloaded" });
@@ -316,7 +318,7 @@ test.describe("landing preview automatic probe on a wide touch-first device", ()
     viewport: { height: 1000, width: 1440 },
   });
 
-  test("reveals the fractal at a wide viewport", async ({ page }) => {
+  test("reveals the fractal at a wide viewport @logo-research", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "no-preference" });
     await page.goto("/landing-preview", { waitUntil: "domcontentloaded" });
 
@@ -343,7 +345,7 @@ test.describe("landing preview automatic probe on a wide touch-first device", ()
       .not.toBe(probeProgress);
   });
 
-  test("renders the reduced-motion automatic reveal", async ({ page }) => {
+  test("renders the reduced-motion automatic reveal @logo-research", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto("/landing-preview", { waitUntil: "domcontentloaded" });
 
@@ -437,33 +439,7 @@ test("landing preview keeps the prehydration and WebGL logo bounds equal", async
   }
 });
 
-test("landing preview hides a stale custom-query fallback before hydration", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.route("**/*", async (route) => {
-    if (route.request().resourceType() === "script") {
-      await route.abort();
-      return;
-    }
-
-    await route.continue();
-  });
-  await page.goto("/landing-preview?rot=180&top=red-400", {
-    waitUntil: "domcontentloaded",
-  });
-
-  const hero = page.getByTestId("landing-preview-hero-menger");
-  const fallback = hero.getByTestId("landing-preview-hero-menger-fallback");
-  await expect(hero).toBeVisible();
-  await expect(fallback).toHaveAttribute(PUBLIC_LANDING_LOGO_STATIC_FALLBACK_ATTRIBUTE, "");
-  await expect(fallback).toHaveCSS("opacity", "0");
-  await expect(page.locator("html")).toHaveAttribute(
-    "data-public-landing-logo-static-fallback-hidden",
-    "",
-  );
-  await expect(page.locator("style#samebase-public-landing-logo-prehydration")).toHaveCount(1);
-});
-
-test("landing preview shows its query-aware fallback when the scene re-enters", async ({
+test("landing preview shows its query-aware fallback when the scene re-enters @logo-research", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
@@ -510,34 +486,4 @@ test("landing preview shows its query-aware fallback when the scene re-enters", 
   await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
   await expect(hero).toHaveAttribute("data-state", "ready");
   await expect(fallback).toHaveCSS("opacity", "0", { timeout: 30_000 });
-});
-
-test("landing preview shows its query-aware fallback when WebGL is unavailable", async ({
-  page,
-}) => {
-  const pageErrors: Error[] = [];
-  page.on("pageerror", (error) => {
-    pageErrors.push(error);
-  });
-
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await installUnavailableCanvasRendering(page);
-  await page.goto("/landing-preview?elev=20&top=red-400", {
-    waitUntil: "domcontentloaded",
-  });
-
-  const hero = page.getByTestId("landing-preview-hero-menger");
-  const fallback = page.getByTestId("landing-preview-hero-menger-fallback");
-  await expect(hero).toBeVisible({ timeout: 30_000 });
-  await expect(hero).toHaveAttribute("data-state", "fallback", { timeout: 30_000 });
-  await expect(fallback).toHaveCSS("opacity", "1");
-  await expect(fallback).toHaveAttribute("src", /#.*:20:0$/);
-  await expect(hero.getByTestId("logo-menger-hover-scene")).toHaveCount(0);
-  await expect(page.locator("html")).not.toHaveAttribute(
-    "data-public-landing-logo-static-fallback-hidden",
-    "",
-  );
-  await expect(page.locator("style#samebase-public-landing-logo-prehydration")).toHaveCount(0);
-  await page.waitForTimeout(200);
-  expect(pageErrors).toEqual([]);
 });

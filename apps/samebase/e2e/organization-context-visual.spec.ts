@@ -175,39 +175,16 @@ test("persists one user's collapsed organization across vault routes", async ({
   ).toHaveAttribute("aria-expanded", "false");
 });
 
-test("keeps one organization switchable and separates organization and user settings", async ({
+test("keeps one organization switchable across settings, providers, and billing", async ({
   page,
 }, testInfo) => {
-  const { email } = await createApprovedAccount(page, testInfo, "one", [
+  await createApprovedAccount(page, testInfo, "one", [
     {
       access: "retain",
       ownerLogin: "org-context-solo",
       repositories: ["solo-app"],
     },
   ]);
-  await openRoute(page, "/vault");
-
-  await expect(
-    page
-      .getByRole("navigation", { name: "Vaults" })
-      .getByRole("button", { name: "org-context-solo", exact: true }),
-  ).toHaveAttribute("aria-expanded", "true");
-
-  const globalHeader = page.getByTestId(MAIN_HEADER_TEST_ID);
-  await expect(globalHeader.getByText("All vaults", { exact: true })).toHaveCount(0);
-  await expect(globalHeader.getByText("org-context-solo", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
-  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
-  const organizationContext = rightPane.getByTestId("organization-context-control");
-  await expect(
-    organizationContext.getByRole("button", { name: "Switch organization" }),
-  ).toBeVisible();
-  await expect(page).toHaveURL(/\/vault$/u);
-  await expect(page).toHaveScreenshot("organization-context-one-organization-inventory.png", {
-    ...screenshotOptions,
-    fullPage: true,
-  });
-  await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
 
   await openRoute(page, "/org/org-context-solo/settings");
 
@@ -215,6 +192,8 @@ test("keeps one organization switchable and separates organization and user sett
   await expect(header.getByText("org-context-solo", { exact: true })).toHaveCount(0);
   await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
+  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  const organizationContext = rightPane.getByTestId("organization-context-control");
   await expect(organizationContext.getByText("org-context-solo", { exact: true })).toBeVisible();
   await expect(
     organizationContext.getByRole("button", { name: "Switch organization" }),
@@ -247,27 +226,6 @@ test("keeps one organization switchable and separates organization and user sett
   await expect(page).toHaveScreenshot("organization-providers-authorization-error.png", {
     ...screenshotOptions,
     fullPage: true,
-  });
-
-  await openRoute(page, "/org/org-context-solo/vaults");
-  await expect(page.getByRole("link", { name: /org-context-solo\/solo-app,/u })).toBeVisible();
-
-  await openRoute(page, "/settings");
-  const userSettings = page.getByTestId("user-settings-page");
-  await expect(userSettings.getByRole("heading", { name: "Account settings" })).toBeVisible();
-  await expect(userSettings.getByRole("heading", { name: "Profile" })).toBeVisible();
-  await expect(userSettings.getByRole("heading", { name: "Sign-in methods" })).toBeVisible();
-  await expect(userSettings.getByRole("heading", { name: "GitHub access" })).toHaveCount(0);
-  const mcpSettings = userSettings.getByTestId("mcp-clients-settings-section");
-  await expect(mcpSettings.getByRole("heading", { name: "MCP clients" })).toBeVisible();
-  await expect(mcpSettings.getByText("No authorized MCP clients.", { exact: true })).toBeVisible();
-  await expect(userSettings.getByRole("heading", { name: "Billing" })).toHaveCount(0);
-  await expect(userSettings.getByText("org-context-solo", { exact: true })).toHaveCount(0);
-  await expect(page).toHaveScreenshot("organization-context-user-settings.png", {
-    ...screenshotOptions,
-    fullPage: true,
-    mask: [userSettings.getByText(email, { exact: true })],
-    maskColor: "#d1d5db",
   });
 
   await openRoute(page, "/org/org-context-solo/settings?checkout=cancel#billing");

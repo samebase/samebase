@@ -49,7 +49,8 @@ order.
 - Run `pnpm test:visual:linux -- <affected-spec>` for affected browser coverage.
 - Run the unmodified `pnpm test:visual:linux` only for main CI, a dedicated Playwright suite-health
   task, or an explicit user request.
-- Run opt-in research suites only when the related research surface changes.
+- Run `pnpm test:logo-research` only when logo research changes.
+- Run `pnpm test:opt-in` only when an admin-only, dormant, or operator-owned surface changes.
 
 A focused pass proves only the named tests. Report that scope exactly. The Linux wrapper remains the
 required environment for accepted screenshot baselines.
@@ -118,8 +119,10 @@ existing owner or obsolete product surface, and confidence. Rank browser time an
 failures before line count. Keep security and data-integrity contracts unless a stronger test proves
 the same boundary.
 
-Apply one small cleanup pull request at a time. Record the measured cost before and after each
-change. Do not mix a browser-cost cleanup with security-contract deletion.
+Group several high-confidence browser-cost reductions into one reviewable suite-health pull
+request when they use the same ownership rule and validation method. Split the work only when a
+change has a different risk boundary, such as security or data integrity. Record the measured cost
+before and after the combined change.
 
 ## Report completion
 

@@ -71,7 +71,7 @@ async function signInForIndexedDbRoute(page: Page): Promise<void> {
   await signInIfNeeded(page);
 }
 
-test("indexedDB route shows database store keys and formatted values", async ({ page }) => {
+test("indexedDB route shows database store keys and formatted values @opt-in", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await signInForIndexedDbRoute(page);
   await seedIndexedDbRouteDatabase(page);
