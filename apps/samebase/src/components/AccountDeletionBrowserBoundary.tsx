@@ -204,6 +204,14 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
       .catch(() => setCleanupState("cleanup_failed"));
   }, [authenticatedAccountDeleted, completion?.state, ownsCompletionReceipt, signOut]);
 
+  if (
+    viewerAccessQuery.status === "error" &&
+    !authenticatedAccountDeleted &&
+    !authenticatedAccountReferenceInvalid
+  ) {
+    throw viewerAccessQuery.error;
+  }
+
   if (cleanupState !== "idle") {
     return <AccountDeletionCompletionPage state={cleanupState} />;
   }

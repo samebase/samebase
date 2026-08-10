@@ -171,9 +171,14 @@ async function renderBoundary(strict = false) {
       <div data-testid="children">Normal route</div>
     </AccountDeletionBrowserBoundary>
   );
-  await act(async () => {
-    root.render(strict ? <StrictMode>{boundary}</StrictMode> : boundary);
-  });
+  try {
+    await act(async () => {
+      root.render(strict ? <StrictMode>{boundary}</StrictMode> : boundary);
+    });
+  } catch (error) {
+    rootElement.remove();
+    throw error;
+  }
   return { root, rootElement };
 }
 
@@ -573,22 +578,16 @@ describe("AccountDeletionBrowserBoundary", () => {
     }
   });
 
-  it("does not consume a receipt when the authenticated viewer has an unrelated error", async () => {
+  it("throws an unrelated viewer error without consuming the receipt", async () => {
     writeAccountDeletionBrowserMarker(completionCapability);
     locationState.pathname = "/account-deletion";
     queryState.viewerError = new Error("network unavailable");
     queryState.completion = { completedAt: 3, state: "succeeded" };
 
-    const mounted = await renderBoundary();
-    try {
-      expect(authActionState.signOut).not.toHaveBeenCalled();
-      expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
-      expect(window.localStorage.getItem("samebase:account-deletion")).not.toBeNull();
-      expect(mounted.rootElement.textContent).toBe("");
-    } finally {
-      await act(async () => mounted.root.unmount());
-      mounted.rootElement.remove();
-    }
+    await expect(renderBoundary()).rejects.toThrow("network unavailable");
+    expect(authActionState.signOut).not.toHaveBeenCalled();
+    expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
+    expect(window.localStorage.getItem("samebase:account-deletion")).not.toBeNull();
   });
 
   it("shows recovery without presenting a damaged user reference as deleted", async () => {
