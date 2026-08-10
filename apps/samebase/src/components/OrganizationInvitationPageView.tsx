@@ -1,9 +1,14 @@
 import { Button } from "@/components/ui/button";
+import type { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { ORGANIZATION_VAULTS_ROUTE } from "@/lib/organizationRoutes";
-import type { OrganizationInvitationResult } from "@/lib/organizationMembersApi";
 import { Link } from "@tanstack/react-router";
 import { Loader2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { api } from "../../convex/_generated/api";
+
+type OrganizationInvitationResult = GetFunctionReferenceReturnType<
+  typeof api.organizationMembers.getInvitation
+>;
 
 function InvitationPageFrame({ children }: { children: ReactNode }) {
   return (
@@ -58,11 +63,22 @@ export function OrganizationInvitationPageView({
       );
     }
 
+    if (!invitation.isViewerMember) {
+      return (
+        <InvitationPageFrame>
+          <h1 className="text-xl font-semibold @2xl:text-2xl">Invitation already used</h1>
+          <p className="text-sm text-muted-foreground">
+            Ask a Samebase owner for a new invitation.
+          </p>
+        </InvitationPageFrame>
+      );
+    }
+
     return (
       <InvitationPageFrame>
         <h1 className="text-xl font-semibold @2xl:text-2xl">Invitation accepted</h1>
         <p className="text-sm text-muted-foreground">
-          You are a member of {invitation.organizationOwnerLogin}.
+          You are a Samebase member of @{invitation.organizationOwnerLogin}.
         </p>
         <OpenOrganizationLink owner={invitation.organizationOwnerLogin} />
       </InvitationPageFrame>
@@ -97,7 +113,7 @@ export function OrganizationInvitationPageView({
     <InvitationPageFrame>
       <div>
         <h1 className="text-xl font-semibold @2xl:text-2xl">
-          Join {invitation.organizationOwnerLogin}
+          Join @{invitation.organizationOwnerLogin} on Samebase
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
           This invitation is for @{invitation.targetLogin}.
@@ -133,7 +149,21 @@ export function OrganizationInvitationPageView({
           </Button>
         </>
       ) : invitation.viewerState === "already_member" ? (
-        <OpenOrganizationLink owner={invitation.organizationOwnerLogin} />
+        <>
+          <p className="text-sm text-muted-foreground">
+            You already have access. Accept this invitation to close the link.
+          </p>
+          <Button disabled={pendingAction !== null} onClick={runJoin}>
+            {pendingAction === "join" ? (
+              <>
+                <Loader2 className="animate-spin" />
+                Accepting...
+              </>
+            ) : (
+              "Accept invitation"
+            )}
+          </Button>
+        </>
       ) : (
         <>
           <p className="text-sm text-muted-foreground">

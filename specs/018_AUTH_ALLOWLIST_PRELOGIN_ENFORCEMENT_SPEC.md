@@ -63,5 +63,5 @@ authenticated pending-access account state defined here.
 - [x] Approved signed-in users resolve to `role_member` and member access keys.
 - [x] Staff emails resolve to `role_staff`.
 - [x] Provider/dashboard/file functions deny pending-access users through access-key checks.
-- [x] Waitlisted users can persist public workspace sidebar state through `access_user_preferences`
-      so they can leave the right sidebar on public routes.
+- [x] Pending-access users can persist public workspace sidebar state through
+      `access_user_preferences` so they can leave the right sidebar on public routes.

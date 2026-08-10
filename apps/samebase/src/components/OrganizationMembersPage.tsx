@@ -1,34 +1,29 @@
 import { OrganizationMembersPageView } from "@/components/OrganizationMembersPageView";
 import type { ViewerOrganization } from "@/lib/organizationContext";
-import {
-  cancelOrganizationInvitation,
-  changeOrganizationMemberRole,
-  createOrganizationInvitation,
-  getOrganizationMemberGitHubRelationships,
-  getOrganizationMembersPage,
-  leaveOrganizationMembership,
-  removeOrganizationMember,
-  resolveOrganizationInvitationTarget,
-} from "@/lib/organizationMembersApi";
 import { useQuery } from "@tanstack/react-query";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 import { useState } from "react";
+import { api } from "../../convex/_generated/api";
 
 export function OrganizationMembersPage({ organization }: { organization: ViewerOrganization }) {
   const organizationId = organization.organizationId;
   const [now] = useState(() => Math.floor(Date.now() / 60_000) * 60_000);
-  const page = useConvexQuery(getOrganizationMembersPage, { now, organizationId });
-  const getGitHubRelationships = useAction(getOrganizationMemberGitHubRelationships);
-  const resolveInvitationTarget = useAction(resolveOrganizationInvitationTarget);
-  const createInvitation = useAction(createOrganizationInvitation);
-  const cancelInvitation = useMutation(cancelOrganizationInvitation);
-  const changeRole = useMutation(changeOrganizationMemberRole);
-  const removeMember = useMutation(removeOrganizationMember);
-  const leaveOrganization = useMutation(leaveOrganizationMembership);
+  const page = useConvexQuery(api.organizationMembers.getPage, { now, organizationId });
+  const getGitHubRelationships = useAction(api.organizationMembers.getGitHubRelationships);
+  const resolveInvitationTarget = useAction(api.organizationMembers.resolveInvitationTarget);
+  const createInvitation = useAction(api.organizationMembers.createInvitation);
+  const cancelInvitation = useMutation(api.organizationMembers.cancelInvitation);
+  const changeRole = useMutation(api.organizationMembers.changeRole);
+  const removeMember = useMutation(api.organizationMembers.removeMember);
+  const leaveOrganization = useMutation(api.organizationMembers.leaveOrganization);
   const githubRelationships = useQuery({
     enabled: page?.viewerRole === "owner",
     queryFn: async () => await getGitHubRelationships({ organizationId }),
-    queryKey: ["organization-member-github-relationships", organizationId],
+    queryKey: [
+      "organization-member-github-relationships",
+      organizationId,
+      page?.members.map((member) => `${member.userId}:${member.githubLogin ?? ""}`).join(",") ?? "",
+    ],
     refetchOnMount: "always",
     retry: 1,
   });

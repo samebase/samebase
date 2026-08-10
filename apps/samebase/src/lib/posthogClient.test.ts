@@ -68,6 +68,7 @@ describe("posthog client setup", () => {
         dev: false,
       }),
     ).toMatchObject({
+      advanced_disable_feature_flags: true,
       api_host: "https://posthog.samebase.com",
       capture_exceptions: true,
       capture_pageleave: true,
@@ -98,20 +99,36 @@ describe("posthog client setup", () => {
       event: "$exception",
       properties: {
         $current_url: "https://samebase.com/invite/current-secret?prod-ui#continue",
+        $initial_current_url: "https://samebase.com/invite/initial-secret",
+        $initial_pathname: "/invite/initial-path-secret",
         $pathname: "/invite/path-secret",
         $prev_pageview_pathname: "/settings",
         $referrer: "https://samebase.com/invite/referrer-secret",
+        $session_entry_pathname: "/invite/session-path-secret",
         $session_entry_url: "/invite/session-secret?source=github",
+        $set_once: {
+          $current_url: "https://samebase.com/invite/set-once-secret",
+          $pathname: "/invite/set-once-path-secret",
+          $referrer: "https://samebase.com/invite/set-once-referrer-secret",
+        },
       },
       uuid: "event-id",
     });
 
     expect(event?.properties).toMatchObject({
       $current_url: "https://samebase.com/invite/[invitation]?prod-ui#continue",
+      $initial_current_url: "https://samebase.com/invite/[invitation]",
+      $initial_pathname: "/invite/[invitation]",
       $pathname: "/invite/[invitation]",
       $prev_pageview_pathname: "/settings",
       $referrer: "https://samebase.com/invite/[invitation]",
+      $session_entry_pathname: "/invite/[invitation]",
       $session_entry_url: "/invite/[invitation]?source=github",
+      $set_once: {
+        $current_url: "https://samebase.com/invite/[invitation]",
+        $pathname: "/invite/[invitation]",
+        $referrer: "https://samebase.com/invite/[invitation]",
+      },
     });
   });
 

@@ -21,7 +21,7 @@ const vAddExistingUserResult = v.union(
   }),
 );
 
-/** Add an existing Samebase account to an organization without an invitation flow. */
+/** Operator recovery: add or update an existing Samebase organization membership. */
 export const addExistingUserToOrganization = internalMutation({
   args: {
     organizationId: v.id("organizations"),

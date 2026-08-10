@@ -386,6 +386,7 @@ function TechnicalValueList({ label, values }: { label: string; values: readonly
 
 function GitHubInstallationDetails({
   access,
+  canAuthorizeGitHubUser,
   error,
   githubUserAuthorization,
   githubUserAuthorizationRequestState,
@@ -395,6 +396,7 @@ function GitHubInstallationDetails({
   organization,
 }: {
   access: AppGitHubInstallationAccess | null;
+  canAuthorizeGitHubUser: boolean;
   error: boolean;
   githubUserAuthorization: AppGitHubUserAuthorization | undefined;
   githubUserAuthorizationRequestState: GitHubUserAuthorizationRequestState;
@@ -427,6 +429,7 @@ function GitHubInstallationDetails({
       {organization.githubOwnerType === "user" ? (
         <PersonalRepositoryCreationDetails
           authorization={githubUserAuthorization}
+          canAuthorizeGitHubUser={canAuthorizeGitHubUser}
           ownerLogin={organization.githubOwnerLogin}
           requestState={githubUserAuthorizationRequestState}
           onAuthorize={onAuthorizeGitHubUser}
@@ -439,12 +442,14 @@ function GitHubInstallationDetails({
 
 function PersonalRepositoryCreationDetails({
   authorization,
+  canAuthorizeGitHubUser,
   onAuthorize,
   onRevoke,
   ownerLogin,
   requestState,
 }: {
   authorization: AppGitHubUserAuthorization | undefined;
+  canAuthorizeGitHubUser: boolean;
   onAuthorize: () => void;
   onRevoke: () => void;
   ownerLogin: string;
@@ -456,7 +461,8 @@ function PersonalRepositoryCreationDetails({
   });
   const expired =
     authorization?.status === "authorized" && authorization.refreshTokenExpiresAt <= now;
-  const canAuthorize = authorization?.status === "not_connected" || expired;
+  const canAuthorize =
+    canAuthorizeGitHubUser && (authorization?.status === "not_connected" || expired);
   const canRevoke =
     authorization?.status === "authorized" ||
     authorization?.status === "different_account" ||
@@ -871,6 +877,7 @@ export function ProviderConnectionsPageView({
     details: (
       <GitHubInstallationDetails
         access={githubAccess}
+        canAuthorizeGitHubUser={canManageOrganization}
         error={githubAccessError}
         githubUserAuthorization={githubUserAuthorization}
         githubUserAuthorizationRequestState={githubUserAuthorizationRequestState}

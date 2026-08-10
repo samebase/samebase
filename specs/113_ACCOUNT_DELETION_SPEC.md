@@ -12,7 +12,7 @@ the exact phrase `delete my account`.
 
 The confirmation must distinguish the user's Samebase identity from organization data. Account
 deletion removes the user's login, profile, personal preferences, organization memberships, MCP
-access, pending provider authorization states, GitHub App user authorization, pending organization
+access, pending provider authorization states, GitHub App user authorization, organization
 invitations created by the user, accepted invitation records that identify the user, and every
 provider credential slot whose current `connectedByUserId` identifies that user. It does not delete
 an organization, organization billing, deployment destination, vault, staged file, attached

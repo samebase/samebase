@@ -4,9 +4,10 @@
 
 - Status: Active
 - Owner: Samebase backend
-- Last updated: 2026-08-09
+- Last updated: 2026-08-10
 - Sources of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md` for organization ownership and
-  `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md` for account identity
+  `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md` for account identity, and
+  `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md` for membership administration
 - Replacement branch: `codex-github-app-organizations`
 - Replacement PR: [#1367](https://github.com/samebase/samebase/pull/1367)
 - Superseded draft: [#1355](https://github.com/samebase/samebase/pull/1355)
@@ -24,8 +25,10 @@ review transcripts, or a per-commit journal.
 - Users can have zero, one, or several organization memberships.
 - Every membership is either `owner` or `member`. Members use organization resources; owners also
   manage providers, GitHub reconnection, and billing.
-- Every organization always has at least one owner. Account deletion, membership removal, and
-  demotion fail if they would remove the last owner.
+- Every organization always has at least one active owner. Account deletion, membership removal,
+  leave, and demotion fail if they would remove the last active owner.
+- A Samebase owner can invite one exact GitHub identity as a member. Samebase membership stays
+  separate from live GitHub organization membership and role.
 - Signup and waitlist entry do not create organizations or billing rows.
 - One Samebase organization maps to one stable GitHub repository owner.
 - A verified Samebase GitHub App installation creates or reconnects the organization.
@@ -255,8 +258,8 @@ Status: Complete on the replacement branch
 - Cloudflare account visibility remains a simple business rule for this rollout. Attached resources
   keep stable external account IDs. Operations use the current selected organization credential, and
   Cloudflare verifies its access to the resource account.
-- The operator membership function accepts a required role. Every organization must retain an owner,
-  with no invitation UI or general role editor in this rollout.
+- The operator membership function remains a recovery tool. Spec 123 adds the product invitation,
+  role, removal, and leave flows. Every organization must retain an active owner.
 - Vaults use `organizations.githubOwnerLogin` as current route and display data. Historical workflow
   snapshots can retain the owner login observed when the workflow started.
 - Do not add a repository-only rename patch. A future GitHub identity synchronization task must

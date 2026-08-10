@@ -2,7 +2,12 @@ import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { internalMutation, internalQuery, type DatabaseReader } from "./_generated/server";
+import {
+  internalMutation,
+  internalQuery,
+  type DatabaseReader,
+  type DatabaseWriter,
+} from "./_generated/server";
 import { action, mutation, query } from "./functions";
 import { createGitHubInstallationOctokit } from "./githubApp";
 import {
@@ -78,6 +83,7 @@ const vGetInvitationResult = union(
     organizationOwnerLogin: string(),
     targetLogin: string(),
     isAcceptedByViewer: boolean(),
+    isViewerMember: boolean(),
   }),
   object({ state: literal("unavailable") }),
 );
@@ -251,6 +257,27 @@ async function requireNoTargetOwnedActiveWork(
 ): Promise<void> {
   if (await hasTargetOwnedActiveWork(db, args)) {
     throw new Error("Wait for this member's active vault work to finish.");
+  }
+}
+
+async function deletePendingInvitationForUser(
+  db: DatabaseWriter,
+  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
+): Promise<void> {
+  const githubAccount = await readGitHubSignInAccount(db, args.userId);
+  if (githubAccount === null) {
+    return;
+  }
+  const invitation = await db
+    .query("organizationInvitations")
+    .withIndex("by_organization_and_github_account_id", (builder) =>
+      builder
+        .eq("organizationId", args.organizationId)
+        .eq("githubAccountId", githubAccount.providerAccountId),
+    )
+    .unique();
+  if (invitation?.state === "pending") {
+    await db.delete(invitation._id);
   }
 }
 
@@ -551,7 +578,7 @@ export const getPage = query({
             activeOwnerUserIds.size === 1 &&
             activeOwnerUserIds.has(membership.userId),
           isPersonalGithubOwnerIdentity:
-            viewerMembership.role === "owner" &&
+            (viewerMembership.role === "owner" || isViewer) &&
             organization.githubOwnerType === "user" &&
             githubAccount?.providerAccountId === organization.githubOwnerId,
         };
@@ -649,11 +676,23 @@ export const getInvitation = query({
       return { state: "unavailable" };
     }
     if (invitation.state === "accepted") {
+      const viewerUserId = ctx.viewer.userId;
+      const isAcceptedByViewer =
+        viewerUserId !== null && invitation.acceptedByUserId === viewerUserId;
+      const viewerMembership = isAcceptedByViewer
+        ? await ctx.db
+            .query("organizationMemberships")
+            .withIndex("by_organization_and_user", (builder) =>
+              builder.eq("organizationId", invitation.organizationId).eq("userId", viewerUserId),
+            )
+            .unique()
+        : null;
       return {
         state: "accepted",
         organizationOwnerLogin: organization.githubOwnerLogin,
         targetLogin: invitation.githubLogin,
-        isAcceptedByViewer: invitation.acceptedByUserId === ctx.viewer.userId,
+        isAcceptedByViewer,
+        isViewerMember: viewerMembership !== null,
       };
     }
     const viewerUserId = ctx.viewer.userId;
@@ -826,6 +865,10 @@ export const removeMember = mutation({
       organizationId: args.organizationId,
       userId: membership.userId,
     });
+    await deletePendingInvitationForUser(ctx.db, {
+      organizationId: args.organizationId,
+      userId: membership.userId,
+    });
     await ctx.db.delete(membership._id);
     return { state: "removed" as const };
   },
@@ -852,6 +895,10 @@ export const leaveOrganization = mutation({
       });
     }
     await requireNoTargetOwnedActiveWork(ctx.db, {
+      organizationId: args.organizationId,
+      userId: ctx.viewer.userId,
+    });
+    await deletePendingInvitationForUser(ctx.db, {
       organizationId: args.organizationId,
       userId: ctx.viewer.userId,
     });

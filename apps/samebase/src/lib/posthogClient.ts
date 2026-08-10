@@ -3,6 +3,7 @@ import {
   isAgentBrowserHandoffRoute,
 } from "../../shared/agentBrowserHandoff";
 import { isOrganizationInvitationPath } from "@/lib/organizationInvitationRoute";
+import { isRecord } from "@samebase/dependent";
 import type { BeforeSendFn as SamebasePostHogBeforeSend } from "posthog-js";
 
 type SamebasePostHogClient = (typeof import("posthog-js"))["default"];
@@ -21,10 +22,15 @@ const DEFAULT_POSTHOG_API_HOST = "https://eu.i.posthog.com";
 const DEFAULT_POSTHOG_UI_HOST = "https://eu.posthog.com";
 const POSTHOG_URL_PROPERTIES = [
   "$current_url",
-  "$session_entry_url",
-  "$referrer",
+  "$initial_current_url",
+  "$initial_pathname",
+  "$initial_referrer",
   "$pathname",
   "$prev_pageview_pathname",
+  "$session_entry_url",
+  "$session_entry_pathname",
+  "$session_entry_referrer",
+  "$referrer",
 ] as const;
 
 let postHogClientPromise: Promise<SamebasePostHogClient | null> | null = null;
@@ -67,6 +73,17 @@ const sanitizeSamebasePostHogEvent: SamebasePostHogBeforeSend = (event) => {
       properties[propertyName] = sanitizeSamebasePostHogUrlLikeValue(value);
     }
   }
+  const setOnce = properties["$set_once"];
+  if (isRecord(setOnce)) {
+    const sanitizedSetOnce = { ...setOnce };
+    for (const propertyName of POSTHOG_URL_PROPERTIES) {
+      const value = sanitizedSetOnce[propertyName];
+      if (typeof value === "string") {
+        sanitizedSetOnce[propertyName] = sanitizeSamebasePostHogUrlLikeValue(value);
+      }
+    }
+    properties["$set_once"] = sanitizedSetOnce;
+  }
 
   return { ...event, properties };
 };
@@ -96,6 +113,7 @@ export function buildSamebasePostHogInitConfig(args: {
 }): SamebasePostHogInitConfig {
   return {
     api_host: args.apiHost,
+    advanced_disable_feature_flags: true,
     before_send: sanitizeSamebasePostHogEvent,
     capture_exceptions: true,
     // Samebase captures route pageviews from TanStack Router so the first

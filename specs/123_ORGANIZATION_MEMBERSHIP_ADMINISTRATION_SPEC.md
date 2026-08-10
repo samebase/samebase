@@ -71,10 +71,17 @@ does not exist, and changes the invitation to `accepted`. It never changes an ex
 role. The approval effect is temporary release-gate compatibility. It is not a durable rule that an
 organization owner controls general Samebase account admission.
 
+If the recipient already has a membership, the page asks them to accept the invitation so the link
+becomes closed while their existing role stays unchanged.
+
 The same recipient can repeat acceptance and receive an `already accepted` result. A wrong account
 cannot accept either a pending or accepted invitation. Concurrent creation, cancellation,
 acceptance, and reissue read and write the same invitation record so Convex transaction conflict
 handling preserves one valid result.
+
+An accepted link shows organization access only while the accepting user still has a membership. If
+that membership was removed, the page says that the invitation was already used and asks the user to
+get a new invitation.
 
 ## Member List And GitHub Information
 
@@ -115,6 +122,10 @@ Leave or removal is blocked only while the target user owns a queued or running 
 run or vault deletion run in that organization. The membership mutation reads those indexed active
 ranges in its transaction. Role changes are not blocked.
 
+Leave or removal also deletes a pending invitation that matches the target user's currently linked
+GitHub identity. This makes the access loss durable when a legacy member linked GitHub after the
+owner created the invitation.
+
 Provider OAuth, a GitHub App callback, billing checkout, a credential lease, or other organization
 work is not a membership blocker. Those flows use their existing access rechecks and organization
 ownership rules.
@@ -139,9 +150,9 @@ after the membership subscription updates. MCP calls check current membership an
 that organization on the next call. Preserved organization-scoped preferences are hidden after leave
 and become visible if the user later rejoins.
 
-Account deletion removes pending invitations created by the user and accepted invitation records
-that identify the user as recipient. It keeps the organization and all organization-owned data.
-Future organization deletion must remove every invitation for that organization.
+Account deletion removes invitation records created by the user and accepted invitation records that
+identify the user as recipient. It keeps the organization and all organization-owned data. Future
+organization deletion must remove every invitation for that organization.
 
 ## Page Behavior
 

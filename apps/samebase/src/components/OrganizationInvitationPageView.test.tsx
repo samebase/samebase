@@ -49,7 +49,7 @@ describe("OrganizationInvitationPageView", () => {
     });
 
     expect(markup).toContain("data-posthog-block");
-    expect(markup).toContain("Join samebase");
+    expect(markup).toContain("Join @samebase on Samebase");
     expect(markup).toContain("Sign in with @noter-guest on GitHub from the account sidebar.");
     expect(markup).not.toContain("Joining gives your current Samebase sessions");
     expect(markup).not.toContain("Join organization");
@@ -100,15 +100,28 @@ describe("OrganizationInvitationPageView", () => {
     expect(markup).not.toContain("Join organization");
   });
 
+  it("lets an existing member consume the invitation before it can be reused", () => {
+    const markup = renderInvitation({
+      ...availableInvitation,
+      viewerState: "already_member",
+    });
+
+    expect(markup).toContain("You already have access. Accept this invitation to close the link.");
+    expect(markup).toContain("Accept invitation");
+    expect(markup).not.toContain("Open organization");
+  });
+
   it("links an accepted invitation to the organization", () => {
     const markup = renderInvitation({
       isAcceptedByViewer: true,
+      isViewerMember: true,
       organizationOwnerLogin: "samebase",
       state: "accepted",
       targetLogin: "noter-guest",
     });
 
     expect(markup).toContain("Invitation accepted");
+    expect(markup).toContain("You are a Samebase member of @samebase.");
     expect(markup).toContain('href="/org/samebase/vaults"');
     expect(markup).toContain("Open organization");
   });
@@ -117,6 +130,7 @@ describe("OrganizationInvitationPageView", () => {
     const unavailableMarkup = renderInvitation({ state: "unavailable" });
     const acceptedByOtherMarkup = renderInvitation({
       isAcceptedByViewer: false,
+      isViewerMember: false,
       organizationOwnerLogin: "private-owner",
       state: "accepted",
       targetLogin: "private-target",
@@ -128,5 +142,20 @@ describe("OrganizationInvitationPageView", () => {
     expect(acceptedByOtherMarkup).toContain("This invitation has already been used.");
     expect(acceptedByOtherMarkup).not.toContain("private-owner");
     expect(acceptedByOtherMarkup).not.toContain("private-target");
+  });
+
+  it("does not claim that a removed recipient still has access", () => {
+    const markup = renderInvitation({
+      isAcceptedByViewer: true,
+      isViewerMember: false,
+      organizationOwnerLogin: "samebase",
+      state: "accepted",
+      targetLogin: "noter-guest",
+    });
+
+    expect(markup).toContain("Invitation already used");
+    expect(markup).toContain("Ask a Samebase owner for a new invitation.");
+    expect(markup).not.toContain("You are a Samebase member");
+    expect(markup).not.toContain("Open organization");
   });
 });

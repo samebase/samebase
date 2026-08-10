@@ -16,77 +16,39 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { Loader2, MoreHorizontal } from "lucide-react";
 import { Fragment, useState } from "react";
+import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { GenericId } from "convex/values";
 
-export type OrganizationInvitationId = GenericId<"organizationInvitations">;
+export type OrganizationInvitationId = Id<"organizationInvitations">;
 
-export type OrganizationMemberRole = "owner" | "member";
+export type OrganizationMembersPageData = GetFunctionReferenceReturnType<
+  typeof api.organizationMembers.getPage
+>;
 
-export type OrganizationMember = {
-  avatarUrl?: string;
-  githubLogin?: string;
-  isDeleting: boolean;
-  isOnlyActiveOwner: boolean;
-  isPersonalGithubOwnerIdentity: boolean;
-  isViewer: boolean;
-  label: string;
-  membershipId: Id<"organizationMemberships">;
-  role: OrganizationMemberRole;
-  userId: Id<"users">;
-};
+export type OrganizationMember = OrganizationMembersPageData["members"][number];
 
-export type PendingOrganizationInvitation = {
-  code: string;
-  createdAt: number;
-  expiresAt: number;
-  githubAvatarUrl?: string;
-  githubLogin: string;
-  invitationId: OrganizationInvitationId;
-};
+export type OrganizationMemberRole = OrganizationMember["role"];
 
-export type OrganizationMembersPageData = {
-  members: readonly OrganizationMember[];
-  organization: {
-    githubOwnerLogin: string;
-    githubOwnerType: "organization" | "user";
-    organizationId: Id<"organizations">;
-  };
-  pendingInvitations?: readonly PendingOrganizationInvitation[];
-  viewerRole: OrganizationMemberRole;
-};
+export type PendingOrganizationInvitation = NonNullable<
+  OrganizationMembersPageData["pendingInvitations"]
+>[number];
 
-export type MemberGitHubRelationshipStatus =
-  | "organization_owner"
-  | "organization_member"
-  | "not_in_organization"
-  | "github_account_not_connected"
-  | "owner_account"
-  | "different_account"
-  | "unavailable";
+export type MemberGitHubRelationship = GetFunctionReferenceReturnType<
+  typeof api.organizationMembers.getGitHubRelationships
+>[number];
 
-export type MemberGitHubRelationship = {
-  status: MemberGitHubRelationshipStatus;
-  userId: Id<"users">;
-};
+export type MemberGitHubRelationshipStatus = MemberGitHubRelationship["status"];
 
-export type InvitationTarget = {
-  expectedGithubAccountId: string;
-  githubAvatarUrl?: string;
-  githubLogin: string;
-  relationship: MemberGitHubRelationshipStatus;
-};
+export type InvitationTarget = GetFunctionReferenceReturnType<
+  typeof api.organizationMembers.resolveInvitationTarget
+>;
 
-export type CreatedOrganizationInvitation = {
-  code: string;
-  expiresAt: number;
-  githubAvatarUrl?: string;
-  githubLogin: string;
-  invitationId: OrganizationInvitationId;
-  state: "created" | "existing";
-};
+export type CreatedOrganizationInvitation = GetFunctionReferenceReturnType<
+  typeof api.organizationMembers.createInvitation
+>;
 
 type MemberConfirmation =
   | { kind: "change-role"; member: OrganizationMember; role: OrganizationMemberRole }
@@ -330,6 +292,7 @@ function InviteMemberDialog({
     })
       .then(setCreatedInvitation)
       .catch((createError: unknown) => {
+        setTarget(null);
         setError(
           createError instanceof Error
             ? createError.message
@@ -363,7 +326,7 @@ function InviteMemberDialog({
         }
       }}
     >
-      <AppDialogContent data-posthog-block>
+      <AppDialogContent data-posthog-block showCloseButton={pending === null}>
         {createdInvitation === null ? (
           <>
             <DialogHeader>
@@ -512,7 +475,7 @@ function getConfirmationContent(confirmation: MemberConfirmation): {
     if (confirmation.role === "owner") {
       return {
         actionLabel: "Make Samebase owner",
-        description: "Owners can manage members, providers, billing, and the GitHub App.",
+        description: "Samebase owners can manage members, providers, billing, and the GitHub App.",
         pendingLabel: "Making Samebase owner...",
         title: `Make ${identity} a Samebase owner?`,
         variant: "default",
@@ -526,7 +489,7 @@ function getConfirmationContent(confirmation: MemberConfirmation): {
       title: `Make ${identity} a Samebase member?`,
       variant: "default",
       warning: confirmation.member.isPersonalGithubOwnerIdentity
-        ? `Another Owner cannot reconnect the GitHub App for this personal owner. ${identity} must become an Owner again to reconnect it.`
+        ? `Another Samebase owner cannot reconnect the GitHub App for this personal GitHub owner. ${identity} must become a Samebase owner again to reconnect it.`
         : null,
     };
   }
@@ -540,7 +503,7 @@ function getConfirmationContent(confirmation: MemberConfirmation): {
       title: `Remove ${identity}?`,
       variant: "destructive",
       warning: confirmation.member.isPersonalGithubOwnerIdentity
-        ? `Another Owner cannot reconnect the GitHub App for this personal owner. ${identity} must rejoin as an Owner to reconnect it.`
+        ? `Another Samebase owner cannot reconnect the GitHub App for this personal GitHub owner. ${identity} must rejoin as a Samebase owner to reconnect it.`
         : null,
     };
   }
@@ -554,7 +517,7 @@ function getConfirmationContent(confirmation: MemberConfirmation): {
       title: "Leave organization?",
       variant: "destructive",
       warning: confirmation.member.isPersonalGithubOwnerIdentity
-        ? `Another Owner cannot reconnect the GitHub App for this personal owner. ${identity} must rejoin as an Owner to reconnect it.`
+        ? `Another Samebase owner cannot reconnect the GitHub App for this personal GitHub owner. ${identity} must rejoin as a Samebase owner to reconnect it.`
         : null,
     };
   }
@@ -631,7 +594,7 @@ function MemberConfirmationDialog({
         }
       }}
     >
-      <AppDialogContent>
+      <AppDialogContent showCloseButton={!pending}>
         <DialogHeader>
           <DialogTitle>{content.title}</DialogTitle>
           <DialogDescription className="space-y-2">
