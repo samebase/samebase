@@ -70,6 +70,18 @@ async function seedCheckoutContinuation() {
 }
 
 describe("organization billing access", () => {
+  it("rejects a new checkout reservation after the owner starts account deletion", async () => {
+    const seed = await seedCheckoutContinuation();
+    await seed.makeInitiatorDeleting();
+
+    await expect(
+      seed.t.mutation(internal.polarCheckout.reserveAttempt, {
+        userId: seed.userId,
+        organizationId: seed.organizationId,
+      }),
+    ).rejects.toThrow();
+  });
+
   it("denies direct billing reads and reconciliation to a pending user with a membership", async () => {
     const t = makeConvexTest();
     const { organizationId, userId } = await t.run(async (ctx) => {

@@ -59,14 +59,24 @@ export const getByIdForUser = internalQuery({
   },
 });
 
-export const getByIdForProvisioningRun = internalQuery({
+const vVaultProviderTargets = object({
+  convexTeamId: string(),
+  cloudflareAccountId: string(),
+});
+
+export const getProviderTargetsForProvisioningRun = internalQuery({
   args: {
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     vaultId: id("vaults"),
   },
+  returns: vVaultProviderTargets,
   handler: async (ctx, args) => {
-    return (await requireActiveVaultProvisioningAuthority(ctx.db, args)).vault;
+    const vault = (await requireActiveVaultProvisioningAuthority(ctx.db, args)).vault;
+    return {
+      convexTeamId: vault.convexTeamId,
+      cloudflareAccountId: vault.cloudflareAccountId,
+    };
   },
 });
 

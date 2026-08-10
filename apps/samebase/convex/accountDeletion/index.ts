@@ -248,12 +248,6 @@ export const retry = mutation({
       retryCount: run.retryCount + 1,
       outcomes: run.outcomes,
     });
-    await ctx.db.replace(user._id, {
-      state: "deleting",
-      ...readUserProfile(lifecycle),
-      runId: run._id,
-      requestedAt: run.requestedAt,
-    });
     await ctx.db.insert("workflow_accountDeletion_events", {
       runId: run._id,
       step: run.currentStep,

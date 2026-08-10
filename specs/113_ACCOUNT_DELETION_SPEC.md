@@ -70,10 +70,14 @@ scrubbed receipt. The stale authenticated connection still rejects the deleted u
 is stored in the browser, never put in the URL, and never grants access to account data.
 Authentication loss, token expiry, or a missing receipt is not proof of success.
 
-After the receipt confirms success, the browser signs out and clears Samebase local storage, session
-storage, IndexedDB, caches, service workers, and PostHog browser identity before showing completion.
-If browser cleanup is blocked, the page stays in a finishing state and tells the user to close other
-Samebase tabs and retry.
+An authenticated terminal-deleted signal can start browser cleanup on another device without a local
+completion capability. The signal proves that the authenticated account reached the terminal state,
+but it does not grant access to the scrubbed receipt.
+
+After a successful receipt or an authenticated terminal-deleted signal confirms the terminal state,
+the browser signs out and clears Samebase local storage, session storage, IndexedDB, caches, service
+workers, and PostHog browser identity before showing completion. If browser cleanup is blocked, the
+page stays in a finishing state and tells the user to close other Samebase tabs and retry.
 
 ## Deletion Order
 
@@ -157,7 +161,10 @@ deletion framework and does not change another entity lifecycle by itself.
 
 This pre-beta cutover uses the final closed lifecycle union. It does not add fallback reads, dual
 writes, compatibility fields, or a migration framework. Existing pre-beta user data must match the
-final union before the schema deploy. Previously hard-deleted IDs cannot be restored.
+final union before the schema deploy. Existing manual provider-write lock rows must be absent or
+carry `owner.userId` before that deploy. Every stored provider credential `connectedByUserId` must
+resolve to an existing non-deleted user, or its damaged credential slot must be cleared. Previously
+hard-deleted IDs cannot be restored.
 
 ## Required Validation
 

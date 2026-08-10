@@ -246,7 +246,7 @@ export const validateCreateAppConnections = internalAction({
       expectedOwnerLogin: access.githubOwnerLogin,
       repositoryOwner: args.repositoryOwner,
     });
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForProvisioningRun, {
+    const vault = await ctx.runQuery(internal.vault.records.getProviderTargetsForProvisioningRun, {
       vaultId: args.vaultId,
       userId: args.userId,
       runId: args.runId,

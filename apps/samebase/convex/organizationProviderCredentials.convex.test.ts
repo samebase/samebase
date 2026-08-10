@@ -249,6 +249,20 @@ async function startDeletion(seed: Seed) {
 }
 
 describe("organization provider credential lifecycle", () => {
+  it("rejects a new token refresh claim after the member starts account deletion", async () => {
+    const seed = await seedCloudflareOAuth();
+    await startDeletion(seed);
+
+    await expect(
+      seed.t.mutation(internal.organizationProviderCredentials.claimCloudflareTokenRefresh, {
+        organizationId: seed.organizationId,
+        userId: seed.connectorId,
+        expectedAuth: seed.auth,
+        force: true,
+      }),
+    ).rejects.toThrow("Provider credentials are unavailable during account deletion.");
+  });
+
   it("reuses one credential document for both slots and same-target reauthorization", async () => {
     const seed = await seedConfiguredProviders();
     await connectConvex(seed, seed.otherOwnerId, apiKey("convex-new"));
