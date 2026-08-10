@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
+import { ConvexError } from "convex/values";
 import { Loader2, MoreHorizontal } from "lucide-react";
 import { Fragment, useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -73,6 +74,10 @@ type OrganizationMembersPageViewProps = {
   page: OrganizationMembersPageData;
 };
 
+function readProductError(error: unknown, fallback: string): string {
+  return error instanceof ConvexError && typeof error.data === "string" ? error.data : fallback;
+}
+
 function formatGitHubRelationship(status: MemberGitHubRelationshipStatus): string {
   switch (status) {
     case "organization_owner":
@@ -99,7 +104,6 @@ function formatInvitationExpiry(expiresAt: number): string {
   return new Intl.DateTimeFormat("en", {
     day: "numeric",
     month: "short",
-    timeZone: "UTC",
     year: "numeric",
   }).format(expiresAt);
 }
@@ -271,11 +275,7 @@ function InviteMemberDialog({
         setTarget(resolvedTarget);
       })
       .catch((resolveError: unknown) => {
-        setError(
-          resolveError instanceof Error
-            ? resolveError.message
-            : "Could not find this GitHub user. Try again.",
-        );
+        setError(readProductError(resolveError, "Could not find this GitHub user. Try again."));
       })
       .finally(() => setPending(null));
   };
@@ -293,11 +293,7 @@ function InviteMemberDialog({
       .then(setCreatedInvitation)
       .catch((createError: unknown) => {
         setTarget(null);
-        setError(
-          createError instanceof Error
-            ? createError.message
-            : "Could not create the invitation. Try again.",
-        );
+        setError(readProductError(createError, "Could not create the invitation. Try again."));
       })
       .finally(() => setPending(null));
   };
@@ -576,11 +572,7 @@ function MemberConfirmationDialog({
         return;
     }
     void promise.then(onClose).catch((confirmationError: unknown) => {
-      setError(
-        confirmationError instanceof Error
-          ? confirmationError.message
-          : "Could not complete this action. Try again.",
-      );
+      setError(readProductError(confirmationError, "Could not complete this action. Try again."));
       setPending(false);
     });
   };
@@ -754,7 +746,7 @@ export function OrganizationMembersPageView({
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-medium">@{invitation.githubLogin}</div>
                   <div className="mt-1 text-sm text-muted-foreground">
-                    Expires {formatInvitationExpiry(invitation.expiresAt)}
+                    {`Created by ${invitation.createdBy.label}. Expires ${formatInvitationExpiry(invitation.expiresAt)}.`}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">

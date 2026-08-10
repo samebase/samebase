@@ -24,7 +24,7 @@ const page = {
     {
       githubLogin: "nicu",
       isDeleting: false,
-      isOnlyActiveOwner: false,
+      isOnlyActiveOwner: true,
       isPersonalGithubOwnerIdentity: false,
       isViewer: true,
       label: "Nicu",
@@ -63,6 +63,7 @@ const page = {
   pendingInvitations: [
     {
       code: "fixture-invitation-code",
+      createdBy: { kind: "displayName", label: "Nicu" },
       createdAt: Date.UTC(2026, 7, 10),
       expiresAt: Date.UTC(2026, 7, 17),
       githubLogin: "octocat",

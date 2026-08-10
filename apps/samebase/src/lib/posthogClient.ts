@@ -61,6 +61,47 @@ function sanitizeSamebasePostHogCapturedNetworkRequest<
   return request;
 }
 
+function sanitizeSamebasePostHogSnapshotData(value: unknown): unknown {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  return value.map((snapshot) => {
+    if (!isRecord(snapshot)) {
+      return snapshot;
+    }
+    const data = snapshot["data"];
+    if (!isRecord(data) || typeof data["href"] !== "string") {
+      return snapshot;
+    }
+
+    return {
+      ...snapshot,
+      data: {
+        ...data,
+        href: sanitizeSamebasePostHogUrlLikeValue(data["href"]),
+      },
+    };
+  });
+}
+
+function sanitizeSamebasePostHogHeatmapData(value: unknown): unknown {
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  const sanitized: Record<string, unknown> = {};
+  for (const [url, entries] of Object.entries(value)) {
+    const sanitizedUrl = sanitizeSamebasePostHogUrlLikeValue(url);
+    const existingEntries = sanitized[sanitizedUrl];
+    sanitized[sanitizedUrl] =
+      Array.isArray(existingEntries) && Array.isArray(entries)
+        ? [...existingEntries, ...entries]
+        : entries;
+  }
+  return sanitized;
+}
+
 const sanitizeSamebasePostHogEvent: SamebasePostHogBeforeSend = (event) => {
   if (event === null) {
     return null;
@@ -84,6 +125,8 @@ const sanitizeSamebasePostHogEvent: SamebasePostHogBeforeSend = (event) => {
     }
     properties["$set_once"] = sanitizedSetOnce;
   }
+  properties["$snapshot_data"] = sanitizeSamebasePostHogSnapshotData(properties["$snapshot_data"]);
+  properties["$heatmap_data"] = sanitizeSamebasePostHogHeatmapData(properties["$heatmap_data"]);
 
   return { ...event, properties };
 };

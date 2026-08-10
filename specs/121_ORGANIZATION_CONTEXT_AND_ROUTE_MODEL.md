@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase product
-- Last updated: 2026-08-10
+- Last updated: 2026-08-11
 - Depends on: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Related: `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md`
 - Supersedes: `archive/118_VAULT_FOLDER_SPEC.md`
@@ -74,10 +74,10 @@ The switch keeps the same organization section when the target route supports it
 vault route opens the target organization's vault list. Each switch creates a normal browser history
 entry. Back, Forward, reload, and direct links read the owner from the route.
 
-The right navigation pane uses the route owner. Below the context control, it provides Vaults,
-Providers, New app, Connect repository, Members, and Organization settings. Shared account
-navigation provides All vaults and Account settings. The global vault page always provides Install
-GitHub App.
+The right navigation pane uses the route owner. Below the context control, it provides `Vaults`,
+`Providers`, `New app`, `Connect repository`, `Members`, and `Organization settings` in that order.
+Shared account navigation provides All vaults and Account settings. The global vault page always
+provides Install GitHub App.
 
 ## Global Vault Inventory
 

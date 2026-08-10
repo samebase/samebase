@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import type { GetFunctionReferenceReturnType } from "@/lib/convexUtils";
 import { ORGANIZATION_VAULTS_ROUTE } from "@/lib/organizationRoutes";
 import { Link } from "@tanstack/react-router";
+import { ConvexError } from "convex/values";
 import { Loader2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
@@ -48,21 +49,12 @@ export function OrganizationInvitationPageView({
     return (
       <InvitationPageFrame>
         <h1 className="text-xl font-semibold @2xl:text-2xl">Invitation unavailable</h1>
-        <p className="text-sm text-muted-foreground">This invitation expired or was canceled.</p>
+        <p className="text-sm text-muted-foreground">This invitation is not available.</p>
       </InvitationPageFrame>
     );
   }
 
   if (invitation.state === "accepted") {
-    if (!invitation.isAcceptedByViewer) {
-      return (
-        <InvitationPageFrame>
-          <h1 className="text-xl font-semibold @2xl:text-2xl">Invitation unavailable</h1>
-          <p className="text-sm text-muted-foreground">This invitation has already been used.</p>
-        </InvitationPageFrame>
-      );
-    }
-
     if (!invitation.isViewerMember) {
       return (
         <InvitationPageFrame>
@@ -92,7 +84,11 @@ export function OrganizationInvitationPageView({
     setPendingAction("join");
     setError(null);
     void onJoin().catch((joinError: unknown) => {
-      setError(joinError instanceof Error ? joinError.message : "Could not join. Try again.");
+      setError(
+        joinError instanceof ConvexError && typeof joinError.data === "string"
+          ? joinError.data
+          : "Could not join. Try again.",
+      );
       setPendingAction(null);
     });
   };

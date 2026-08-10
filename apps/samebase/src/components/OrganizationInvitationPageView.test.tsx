@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { ConvexError } from "convex/values";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -32,6 +33,36 @@ describe("OrganizationInvitationPageView", () => {
   let root: Root | null = null;
   let rootElement: HTMLDivElement | null = null;
 
+  async function mountInvitation(onJoin: () => Promise<unknown>): Promise<HTMLDivElement> {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    await act(async () => {
+      root?.render(
+        <TestRouterProvider initialEntries={["/invite/invitation-code"]}>
+          <OrganizationInvitationPageView
+            invitation={availableInvitation}
+            onJoin={onJoin}
+            onSignOut={async () => undefined}
+          />
+        </TestRouterProvider>,
+      );
+    });
+
+    return rootElement;
+  }
+
+  async function clickJoin(rootElement: HTMLDivElement): Promise<void> {
+    const joinButton = [...rootElement.querySelectorAll("button")].find(
+      (button) => button.textContent.trim() === "Join organization",
+    );
+    if (!joinButton) {
+      throw new Error("Join organization button was not rendered.");
+    }
+    await act(async () => joinButton.click());
+  }
+
   afterEach(() => {
     const mountedRoot = root;
     if (mountedRoot) {
@@ -57,35 +88,37 @@ describe("OrganizationInvitationPageView", () => {
 
   it("shows the session and MCP access effect before explicit acceptance", async () => {
     const join = vi.fn(() => new Promise<never>(() => {}));
-    rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    root = createRoot(rootElement);
+    const mountedRootElement = await mountInvitation(join);
 
-    await act(async () => {
-      root?.render(
-        <TestRouterProvider initialEntries={["/invite/invitation-code"]}>
-          <OrganizationInvitationPageView
-            invitation={availableInvitation}
-            onJoin={join}
-            onSignOut={async () => undefined}
-          />
-        </TestRouterProvider>,
-      );
-    });
-
-    expect(rootElement.textContent).toContain(
+    expect(mountedRootElement.textContent).toContain(
       "Joining gives your current Samebase sessions and MCP clients access to this organization.",
     );
-    const joinButton = [...rootElement.querySelectorAll("button")].find(
-      (button) => button.textContent.trim() === "Join organization",
-    );
-    if (!joinButton) {
-      throw new Error("Join organization button was not rendered.");
-    }
-    await act(async () => joinButton.click());
+    await clickJoin(mountedRootElement);
 
     expect(join).toHaveBeenCalledTimes(1);
-    expect(rootElement.textContent).toContain("Joining...");
+    expect(mountedRootElement.textContent).toContain("Joining...");
+  });
+
+  it("shows a transported invitation failure", async () => {
+    const mountedRootElement = await mountInvitation(async () => {
+      throw new ConvexError("Invitation has expired.");
+    });
+
+    await clickJoin(mountedRootElement);
+
+    expect(mountedRootElement.textContent).toContain("Invitation has expired.");
+    expect(mountedRootElement.textContent).not.toContain("Could not join. Try again.");
+  });
+
+  it("does not expose an internal invitation failure", async () => {
+    const mountedRootElement = await mountInvitation(async () => {
+      throw new Error("Invitation storage invariant failed.");
+    });
+
+    await clickJoin(mountedRootElement);
+
+    expect(mountedRootElement.textContent).toContain("Could not join. Try again.");
+    expect(mountedRootElement.textContent).not.toContain("Invitation storage invariant failed.");
   });
 
   it("does not expose acceptance to the wrong GitHub account", () => {
@@ -113,7 +146,6 @@ describe("OrganizationInvitationPageView", () => {
 
   it("links an accepted invitation to the organization", () => {
     const markup = renderInvitation({
-      isAcceptedByViewer: true,
       isViewerMember: true,
       organizationOwnerLogin: "samebase",
       state: "accepted",
@@ -126,27 +158,16 @@ describe("OrganizationInvitationPageView", () => {
     expect(markup).toContain("Open organization");
   });
 
-  it("conceals unavailable invitations and invitations accepted by another user", () => {
+  it("does not add details to an unavailable invitation", () => {
     const unavailableMarkup = renderInvitation({ state: "unavailable" });
-    const acceptedByOtherMarkup = renderInvitation({
-      isAcceptedByViewer: false,
-      isViewerMember: false,
-      organizationOwnerLogin: "private-owner",
-      state: "accepted",
-      targetLogin: "private-target",
-    });
 
     expect(unavailableMarkup).toContain("Invitation unavailable");
-    expect(unavailableMarkup).toContain("This invitation expired or was canceled.");
-    expect(acceptedByOtherMarkup).toContain("Invitation unavailable");
-    expect(acceptedByOtherMarkup).toContain("This invitation has already been used.");
-    expect(acceptedByOtherMarkup).not.toContain("private-owner");
-    expect(acceptedByOtherMarkup).not.toContain("private-target");
+    expect(unavailableMarkup).toContain("This invitation is not available.");
+    expect(unavailableMarkup).not.toContain("Join organization");
   });
 
   it("does not claim that a removed recipient still has access", () => {
     const markup = renderInvitation({
-      isAcceptedByViewer: true,
       isViewerMember: false,
       organizationOwnerLogin: "samebase",
       state: "accepted",

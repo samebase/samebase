@@ -155,6 +155,51 @@ describe("posthog client setup", () => {
     expect(request.url).toBe("/invite/[invitation]#continue");
   });
 
+  it("replaces invitation codes in replay snapshots and heatmap keys", () => {
+    const config = buildSamebasePostHogInitConfig({
+      apiHost: "https://posthog.samebase.com",
+      dev: false,
+    });
+    const beforeSend = config.before_send;
+    if (typeof beforeSend !== "function") {
+      throw new Error("PostHog before_send is not configured as one function.");
+    }
+
+    const event = beforeSend({
+      event: "$snapshot",
+      properties: {
+        $heatmap_data: {
+          "https://samebase.com/INVITE/first-secret": [{ type: "click", x: 1, y: 2 }],
+          "https://samebase.com/invite/second-secret/details": [{ type: "mousemove", x: 3, y: 4 }],
+        },
+        $snapshot_data: [
+          {
+            data: { href: "https://samebase.com/invite/replay-secret?prod-ui", width: 1280 },
+            timestamp: 1,
+            type: 4,
+          },
+          { data: { source: 1 }, timestamp: 2, type: 3 },
+        ],
+      },
+      uuid: "event-id",
+    });
+
+    expect(event?.properties["$snapshot_data"]).toEqual([
+      {
+        data: { href: "https://samebase.com/invite/[invitation]?prod-ui", width: 1280 },
+        timestamp: 1,
+        type: 4,
+      },
+      { data: { source: 1 }, timestamp: 2, type: 3 },
+    ]);
+    expect(event?.properties["$heatmap_data"]).toEqual({
+      "https://samebase.com/invite/[invitation]": [
+        { type: "click", x: 1, y: 2 },
+        { type: "mousemove", x: 3, y: 4 },
+      ],
+    });
+  });
+
   it("keeps localhost visible in development analytics", () => {
     expect(
       buildSamebasePostHogInitConfig({
@@ -208,6 +253,12 @@ describe("posthog client setup", () => {
     ).toBe("https://samebase.com/invite/[invitation]?prod-ui#continue");
     expect(
       sanitizeSamebasePostHogPageviewUrl("/invite/invitation_secret/", "https://samebase.com"),
+    ).toBe("https://samebase.com/invite/[invitation]");
+    expect(
+      sanitizeSamebasePostHogPageviewUrl(
+        "/INVITE/invitation_secret/details",
+        "https://samebase.com",
+      ),
     ).toBe("https://samebase.com/invite/[invitation]");
   });
 });

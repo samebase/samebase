@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import type { Id } from "../../convex/_generated/dataModel";
+import { ConvexError } from "convex/values";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -12,8 +13,23 @@ import {
 } from "./OrganizationMembersPageView";
 
 vi.mock("@/components/ui/dialog", () => ({
-  Dialog: ({ children, open }: { children: ReactNode; open?: boolean }) =>
-    open ? <div role="dialog">{children}</div> : null,
+  Dialog: ({
+    children,
+    onOpenChange,
+    open,
+  }: {
+    children: ReactNode;
+    onOpenChange?: (open: boolean) => void;
+    open?: boolean;
+  }) =>
+    open ? (
+      <div role="dialog">
+        {children}
+        <button onClick={() => onOpenChange?.(false)} type="button">
+          Request close
+        </button>
+      </div>
+    ) : null,
   DialogContent: ({
     children,
     showCloseButton: _showCloseButton,
@@ -73,8 +89,8 @@ const ownerPage = {
     {
       githubLogin: "nicu",
       isDeleting: false,
-      isOnlyActiveOwner: false,
-      isPersonalGithubOwnerIdentity: true,
+      isOnlyActiveOwner: true,
+      isPersonalGithubOwnerIdentity: false,
       isViewer: true,
       label: "Nicu",
       membershipId: fakeId("membership_nicu"),
@@ -101,6 +117,7 @@ const ownerPage = {
   pendingInvitations: [
     {
       code: "invitation-secret",
+      createdBy: { kind: "displayName", label: "Nicu" },
       createdAt: Date.UTC(2026, 7, 10),
       expiresAt: Date.UTC(2026, 7, 17),
       githubLogin: "octocat",
@@ -142,16 +159,27 @@ function getMountedRootElement(rootElement: HTMLDivElement | null): HTMLDivEleme
   return rootElement;
 }
 
+function setInputValue(input: HTMLInputElement, value: string): void {
+  const valueDescriptor = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype,
+    "value",
+  );
+  if (!valueDescriptor || typeof valueDescriptor.set !== "function") {
+    throw new Error("HTMLInputElement value setter is unavailable.");
+  }
+  valueDescriptor.set.call(input, value);
+}
+
 describe("OrganizationMembersPageView", () => {
   let root: Root | null = null;
   let rootElement: HTMLDivElement | null = null;
   const actions = {
     cancelInvitation: vi.fn(async () => null),
     changeRole: vi.fn(async () => null),
-    createInvitation: vi.fn(async () => createdInvitation),
+    createInvitation: vi.fn(async (): Promise<CreatedOrganizationInvitation> => createdInvitation),
     leaveOrganization: vi.fn(async () => null),
     removeMember: vi.fn(async () => null),
-    resolveInvitationTarget: vi.fn(async () => resolvedTarget),
+    resolveInvitationTarget: vi.fn(async (): Promise<InvitationTarget> => resolvedTarget),
   };
 
   beforeEach(() => {
@@ -216,18 +244,42 @@ describe("OrganizationMembersPageView", () => {
     expect(rootElement?.textContent).toContain("Samebase member");
     expect(rootElement?.textContent).toContain("GitHub organization member");
     expect(rootElement?.textContent).toContain("Pending invitations");
+    expect(rootElement?.textContent).toContain("Created by Nicu");
     expect(rootElement?.textContent).not.toContain("invitation-secret");
     expect(getButton(mountedRootElement, "Make Samebase owner").disabled).toBe(false);
   });
 
-  it("names the GitHub owner account on a personal-owner page", async () => {
+  it("shows the retained presentation for a deleted invitation creator", async () => {
     await renderPage({
       ...ownerPage,
-      organization: {
-        ...ownerPage.organization,
-        githubOwnerType: "user",
-      },
+      pendingInvitations: ownerPage.pendingInvitations.map((invitation) => ({
+        ...invitation,
+        createdBy: { kind: "deleted", label: "Deleted Samebase account" },
+      })),
     });
+
+    expect(rootElement?.textContent).toContain("Created by Deleted Samebase account");
+  });
+
+  it("names the GitHub owner account on a personal-owner page", async () => {
+    await renderPage(
+      {
+        ...ownerPage,
+        members: ownerPage.members.map((member) => ({
+          ...member,
+          isPersonalGithubOwnerIdentity: member.githubLogin === "nicu",
+        })),
+        organization: {
+          ...ownerPage.organization,
+          githubOwnerLogin: "nicu",
+          githubOwnerType: "user",
+        },
+      },
+      [
+        { status: "owner_account", userId: fakeId("user_nicu") },
+        { status: "different_account", userId: fakeId("user_guest") },
+      ],
+    );
 
     expect(rootElement?.textContent).toContain(
       "Samebase access and the GitHub owner account are separate.",
@@ -244,14 +296,7 @@ describe("OrganizationMembersPageView", () => {
     if (!input) {
       throw new Error("GitHub username input was not rendered.");
     }
-    const valueDescriptor = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      "value",
-    );
-    if (!valueDescriptor || typeof valueDescriptor.set !== "function") {
-      throw new Error("HTMLInputElement value setter is unavailable.");
-    }
-    valueDescriptor.set.call(input, "@octocat");
+    setInputValue(input, "@octocat");
     await act(async () => input.dispatchEvent(new Event("input", { bubbles: true })));
 
     expect(actions.resolveInvitationTarget).not.toHaveBeenCalled();
@@ -275,7 +320,7 @@ describe("OrganizationMembersPageView", () => {
 
   it("requires a fresh identity resolution after invitation creation fails", async () => {
     actions.createInvitation.mockRejectedValueOnce(
-      new Error("The GitHub account changed. Resolve the invitation target again."),
+      new ConvexError("The GitHub account changed. Resolve the invitation target again."),
     );
     await renderPage();
     const mountedRootElement = getMountedRootElement(rootElement);
@@ -284,14 +329,7 @@ describe("OrganizationMembersPageView", () => {
     if (!input) {
       throw new Error("GitHub username input was not rendered.");
     }
-    const valueDescriptor = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      "value",
-    );
-    if (!valueDescriptor || typeof valueDescriptor.set !== "function") {
-      throw new Error("HTMLInputElement value setter is unavailable.");
-    }
-    valueDescriptor.set.call(input, "octocat");
+    setInputValue(input, "octocat");
     await act(async () => input.dispatchEvent(new Event("input", { bubbles: true })));
     await act(async () => getButton(mountedRootElement, "Find GitHub user").click());
     await act(async () => getButton(mountedRootElement, "Create invitation").click());
@@ -300,6 +338,37 @@ describe("OrganizationMembersPageView", () => {
       "The GitHub account changed. Resolve the invitation target again.",
     );
     expect(getButton(mountedRootElement, "Find GitHub user").disabled).toBe(false);
+  });
+
+  it("does not close the invitation dialog while a lookup is pending", async () => {
+    let finishLookup: ((target: InvitationTarget) => void) | undefined;
+    actions.resolveInvitationTarget.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finishLookup = resolve;
+        }),
+    );
+    await renderPage();
+    const mountedRootElement = getMountedRootElement(rootElement);
+    await act(async () => getButton(mountedRootElement, "Invite member").click());
+    const input = rootElement?.querySelector<HTMLInputElement>("#organization-member-github-login");
+    if (!input) {
+      throw new Error("GitHub username input was not rendered.");
+    }
+    setInputValue(input, "octocat");
+    await act(async () => input.dispatchEvent(new Event("input", { bubbles: true })));
+    await act(async () => getButton(mountedRootElement, "Find GitHub user").click());
+
+    expect(getButton(mountedRootElement, "Finding...").disabled).toBe(true);
+    expect(getButton(mountedRootElement, "Cancel").disabled).toBe(true);
+    await act(async () => getButton(mountedRootElement, "Request close").click());
+    expect(rootElement?.textContent).toContain("Finding...");
+
+    const completeLookup = finishLookup;
+    if (!completeLookup) {
+      throw new Error("GitHub lookup did not start.");
+    }
+    await act(async () => completeLookup(resolvedTarget));
   });
 
   it("shows unavailable GitHub status and copies a recovered pending link", async () => {
@@ -316,14 +385,37 @@ describe("OrganizationMembersPageView", () => {
   });
 
   it("warns before demoting the personal GitHub owner identity", async () => {
-    await renderPage();
+    await renderPage(
+      {
+        ...ownerPage,
+        members: ownerPage.members.map((member) => ({
+          ...member,
+          isOnlyActiveOwner: false,
+          isPersonalGithubOwnerIdentity: member.githubLogin === "nicu",
+          role: "owner",
+        })),
+        organization: {
+          ...ownerPage.organization,
+          githubOwnerLogin: "nicu",
+          githubOwnerType: "user",
+        },
+      },
+      [
+        { status: "owner_account", userId: fakeId("user_nicu") },
+        { status: "different_account", userId: fakeId("user_guest") },
+      ],
+    );
     const mountedRootElement = getMountedRootElement(rootElement);
     await act(async () => getButton(mountedRootElement, "Make Samebase member").click());
 
     expect(rootElement?.textContent).toContain(
       "Another Samebase owner cannot reconnect the GitHub App for this personal GitHub owner.",
     );
-    await act(async () => getButton(mountedRootElement, "Make Samebase member", 1).click());
+    const confirmationDialog = rootElement?.querySelector<HTMLElement>("[role=dialog]");
+    if (!confirmationDialog) {
+      throw new Error("Role confirmation dialog was not rendered.");
+    }
+    await act(async () => getButton(confirmationDialog, "Make Samebase member").click());
     expect(actions.changeRole).toHaveBeenCalledWith(fakeId("membership_nicu"), "member");
   });
 
@@ -335,7 +427,14 @@ describe("OrganizationMembersPageView", () => {
           rejectRemove = reject;
         }),
     );
-    await renderPage();
+    await renderPage({
+      ...ownerPage,
+      members: ownerPage.members.map((member) => ({
+        ...member,
+        isOnlyActiveOwner: false,
+        role: "owner",
+      })),
+    });
     const mountedRootElement = getMountedRootElement(rootElement);
 
     await act(async () => getButton(mountedRootElement, "Remove member").click());
@@ -343,12 +442,14 @@ describe("OrganizationMembersPageView", () => {
     expect(actions.removeMember).toHaveBeenCalledWith(fakeId("membership_guest"));
     expect(getButton(mountedRootElement, "Removing...").disabled).toBe(true);
     expect(getButton(mountedRootElement, "Cancel").disabled).toBe(true);
+    await act(async () => getButton(mountedRootElement, "Request close").click());
+    expect(rootElement?.textContent).toContain("Removing...");
     const rejectRemoveMutation = rejectRemove;
     if (!rejectRemoveMutation) {
       throw new Error("Remove member did not start its mutation.");
     }
     await act(async () =>
-      rejectRemoveMutation(new Error("Membership changed. Refresh and try again.")),
+      rejectRemoveMutation(new ConvexError("Membership changed. Refresh and try again.")),
     );
     expect(rootElement?.textContent).toContain("Membership changed. Refresh and try again.");
     expect(getButton(mountedRootElement, "Remove member", 1).disabled).toBe(false);
@@ -363,18 +464,33 @@ describe("OrganizationMembersPageView", () => {
     expect(actions.cancelInvitation).toHaveBeenCalledWith(fakeInvitationId("invitation_octocat"));
   });
 
+  it("does not expose an internal member mutation failure", async () => {
+    actions.removeMember.mockRejectedValueOnce(new Error("Membership reference is corrupt."));
+    await renderPage();
+    const mountedRootElement = getMountedRootElement(rootElement);
+
+    await act(async () => getButton(mountedRootElement, "Remove member").click());
+    await act(async () => getButton(mountedRootElement, "Remove member", 1).click());
+
+    expect(rootElement?.textContent).toContain("Could not complete this action. Try again.");
+    expect(rootElement?.textContent).not.toContain("Membership reference is corrupt.");
+  });
+
   it("lets a Samebase member leave but does not show owner controls", async () => {
-    await renderPage({
-      ...ownerPage,
-      members: ownerPage.members.map((member) => ({
-        ...member,
-        isOnlyActiveOwner: false,
-        isPersonalGithubOwnerIdentity: false,
-        isViewer: member.githubLogin === "noter-guest",
-      })),
-      pendingInvitations: undefined,
-      viewerRole: "member",
-    });
+    await renderPage(
+      {
+        ...ownerPage,
+        members: ownerPage.members.map((member) => ({
+          ...member,
+          isOnlyActiveOwner: false,
+          isPersonalGithubOwnerIdentity: false,
+          isViewer: member.githubLogin === "noter-guest",
+        })),
+        pendingInvitations: undefined,
+        viewerRole: "member",
+      },
+      [],
+    );
     const mountedRootElement = getMountedRootElement(rootElement);
 
     expect(rootElement?.textContent).not.toContain("Invite member");
@@ -385,18 +501,26 @@ describe("OrganizationMembersPageView", () => {
   });
 
   it("warns a personal GitHub owner identity before self-leave as a member", async () => {
-    await renderPage({
-      ...ownerPage,
-      members: ownerPage.members.map((member) => ({
-        ...member,
-        isOnlyActiveOwner: false,
-        isPersonalGithubOwnerIdentity: member.githubLogin === "noter-guest",
-        isViewer: member.githubLogin === "noter-guest",
-      })),
-      organization: { ...ownerPage.organization, githubOwnerType: "user" },
-      pendingInvitations: undefined,
-      viewerRole: "member",
-    });
+    await renderPage(
+      {
+        ...ownerPage,
+        members: ownerPage.members.map((member) => ({
+          ...member,
+          isOnlyActiveOwner: false,
+          isPersonalGithubOwnerIdentity: member.githubLogin === "nicu",
+          isViewer: member.githubLogin === "nicu",
+          role: member.githubLogin === "nicu" ? "member" : "owner",
+        })),
+        organization: {
+          ...ownerPage.organization,
+          githubOwnerLogin: "nicu",
+          githubOwnerType: "user",
+        },
+        pendingInvitations: undefined,
+        viewerRole: "member",
+      },
+      [],
+    );
     const mountedRootElement = getMountedRootElement(rootElement);
 
     await act(async () => getButton(mountedRootElement, "Leave organization").click());
@@ -405,7 +529,7 @@ describe("OrganizationMembersPageView", () => {
       "Another Samebase owner cannot reconnect the GitHub App for this personal GitHub owner.",
     );
     expect(rootElement?.textContent).toContain(
-      "@noter-guest must rejoin as a Samebase owner to reconnect it.",
+      "@nicu must rejoin as a Samebase owner to reconnect it.",
     );
   });
 });
