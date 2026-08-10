@@ -4,6 +4,8 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type DatabaseReader } from "./_generated/server";
 import { vOrganizationMembershipRole } from "./organizationModel";
 import { readActiveUser } from "./userLifecycle";
+import { readViewerRoleForUser } from "./viewerRole";
+import { canAccess, readAccessKeysForRole } from "../shared/accessModel";
 
 export type OrganizationAccessContext = {
   userId: Id<"users">;
@@ -21,6 +23,16 @@ export async function requireActiveOrganizationActor(
   if (readActiveUser(user) === null) {
     throw new Error("An active Samebase user is required.");
   }
+}
+
+export function isDashboardCapableUser(user: Doc<"users">): boolean {
+  const activeUser = readActiveUser(user);
+  if (activeUser === null) {
+    return false;
+  }
+
+  const role = readViewerRoleForUser(activeUser);
+  return canAccess("access_dashboard", readAccessKeysForRole(role));
 }
 
 export async function findOrganizationMembership(
@@ -102,7 +114,7 @@ export async function requireAnotherActiveOrganizationOwner(
     if (user === null) {
       throw new Error("Organization membership user reference is invalid.");
     }
-    if (readActiveUser(user) !== null) {
+    if (isDashboardCapableUser(user)) {
       return;
     }
   }

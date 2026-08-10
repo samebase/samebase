@@ -28,6 +28,7 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   users: "user_finalization",
   organizations: "organization_preserved",
   organizationMemberships: "account_data",
+  organizationInvitations: "account_data",
   organizationBillingAccounts: "organization_preserved",
   githubAppSetupStates: "account_data",
   githubUserAuthorizations: "credential_revocation",
@@ -174,6 +175,21 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
       }
     }
     return await deleteRowsById(ctx, rows);
+  },
+  organizationInvitations: async (ctx, userId) => {
+    const createdRows = await ctx.db
+      .query("organizationInvitations")
+      .withIndex("by_created_by_user", (query) => query.eq("createdByUserId", userId))
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    if (createdRows.length > 0) {
+      return await deleteRowsById(ctx, createdRows);
+    }
+
+    const acceptedRows = await ctx.db
+      .query("organizationInvitations")
+      .withIndex("by_accepted_by_user", (query) => query.eq("acceptedByUserId", userId))
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    return await deleteRowsById(ctx, acceptedRows);
   },
   githubAppSetupStates: async (ctx, userId) => {
     const rows = await ctx.db

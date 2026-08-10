@@ -1,0 +1,1017 @@
+import { Infer, v } from "convex/values";
+
+import { internal } from "./_generated/api";
+import type { Doc, Id } from "./_generated/dataModel";
+import { internalMutation, internalQuery, type DatabaseReader } from "./_generated/server";
+import { action, mutation, query } from "./functions";
+import { createGitHubInstallationOctokit } from "./githubApp";
+import {
+  isDashboardCapableUser,
+  requireAnotherActiveOrganizationOwner,
+  requireOrganizationMembership,
+  requireOrganizationOwnerAccessContext,
+} from "./organizationAccess";
+import { readGitHubSignInProviderAccountId } from "./githubUserAuthorizations";
+import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
+import {
+  readGitHubOrganizationRelationship,
+  readGitHubUserByAccountId,
+  readGitHubUserByLogin,
+  readPublicGitHubUserByLogin,
+  type GitHubInvitationTarget,
+  type GitHubRelationship,
+} from "./organizationMemberGitHub";
+
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
+
+const vMember = object({
+  membershipId: id("organizationMemberships"),
+  userId: id("users"),
+  label: string(),
+  avatarUrl: optional(string()),
+  githubLogin: optional(string()),
+  role: vOrganizationMembershipRole,
+  isViewer: boolean(),
+  isDeleting: boolean(),
+  isOnlyActiveOwner: boolean(),
+  isPersonalGithubOwnerIdentity: boolean(),
+});
+
+const vPendingInvitation = object({
+  invitationId: id("organizationInvitations"),
+  githubLogin: string(),
+  githubAvatarUrl: optional(string()),
+  createdAt: number(),
+  expiresAt: number(),
+  code: string(),
+});
+
+const vGetPageResult = object({
+  organization: object({
+    organizationId: id("organizations"),
+    githubOwnerLogin: string(),
+    githubOwnerType: vGitHubOwnerType,
+  }),
+  viewerRole: vOrganizationMembershipRole,
+  members: array(vMember),
+  pendingInvitations: optional(array(vPendingInvitation)),
+});
+type GetPageResult = Infer<typeof vGetPageResult>;
+
+const vInvitationViewerState = union(
+  literal("signed_out"),
+  literal("can_accept"),
+  literal("wrong_github_account"),
+  literal("already_member"),
+);
+
+const vGetInvitationResult = union(
+  object({
+    state: literal("available"),
+    organizationOwnerLogin: string(),
+    targetLogin: string(),
+    targetAvatarUrl: optional(string()),
+    viewerState: vInvitationViewerState,
+  }),
+  object({
+    state: literal("accepted"),
+    organizationOwnerLogin: string(),
+    targetLogin: string(),
+    isAcceptedByViewer: boolean(),
+  }),
+  object({ state: literal("unavailable") }),
+);
+type GetInvitationResult = Infer<typeof vGetInvitationResult>;
+
+const vAcceptInvitationResult = object({
+  state: union(literal("joined"), literal("already_member"), literal("already_accepted")),
+  organizationOwnerLogin: string(),
+});
+type AcceptInvitationResult = Infer<typeof vAcceptInvitationResult>;
+
+const vChangeRoleResult = object({
+  state: union(literal("changed"), literal("unchanged")),
+  role: vOrganizationMembershipRole,
+});
+
+const vRemoveMemberResult = object({
+  state: union(literal("removed"), literal("already_removed")),
+});
+
+const vLeaveOrganizationResult = object({
+  state: union(literal("left"), literal("already_left")),
+});
+
+const vGitHubRelationship = union(
+  literal("organization_owner"),
+  literal("organization_member"),
+  literal("not_in_organization"),
+  literal("github_account_not_connected"),
+  literal("owner_account"),
+  literal("different_account"),
+  literal("unavailable"),
+);
+
+const vResolveInvitationTargetResult = object({
+  expectedGithubAccountId: string(),
+  githubLogin: string(),
+  githubAvatarUrl: optional(string()),
+  relationship: vGitHubRelationship,
+});
+type ResolveInvitationTargetResult = Infer<typeof vResolveInvitationTargetResult>;
+
+const vCreateInvitationResult = object({
+  invitationId: id("organizationInvitations"),
+  code: string(),
+  githubLogin: string(),
+  githubAvatarUrl: optional(string()),
+  expiresAt: number(),
+  state: union(literal("created"), literal("existing")),
+});
+type CreateInvitationResult = Infer<typeof vCreateInvitationResult>;
+
+const vCancelInvitationResult = object({
+  state: union(literal("canceled"), literal("already_canceled")),
+});
+
+const vGitHubRelationshipResult = object({
+  userId: id("users"),
+  status: vGitHubRelationship,
+});
+
+const vOwnerGitHubContext = object({
+  organizationId: id("organizations"),
+  githubInstallationId: string(),
+  githubOwnerId: string(),
+  githubOwnerType: vGitHubOwnerType,
+  githubOwnerLogin: string(),
+});
+type OwnerGitHubContext = Infer<typeof vOwnerGitHubContext>;
+
+const vMemberGitHubContext = object({
+  userId: id("users"),
+  githubAccountId: optional(string()),
+});
+
+const vGitHubRelationshipsContext = object({
+  organization: vOwnerGitHubContext,
+  members: array(vMemberGitHubContext),
+});
+type GitHubRelationshipsContext = Infer<typeof vGitHubRelationshipsContext>;
+
+function requireInvitationCode(code: string): string {
+  if (!/^[0-9a-f]{64}$/.test(code)) {
+    throw new Error("Invitation code is invalid.");
+  }
+  return code;
+}
+
+function requireFiniteNow(now: number): number {
+  if (!Number.isFinite(now) || now < 0 || now % 60_000 !== 0) {
+    throw new Error("Current time is invalid.");
+  }
+  return now;
+}
+
+function createInvitationCode(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function readGitHubSignInAccount(
+  db: DatabaseReader,
+  userId: Id<"users">,
+): Promise<Doc<"authAccounts"> | null> {
+  const accounts = await db
+    .query("authAccounts")
+    .withIndex("userIdAndProvider", (builder) =>
+      builder.eq("userId", userId).eq("provider", "github"),
+    )
+    .take(2);
+  if (accounts.length > 1) {
+    throw new Error("This Samebase account has conflicting GitHub sign-in identities.");
+  }
+  return accounts.at(0) ?? null;
+}
+
+function readMemberLabel(args: {
+  user: Doc<"users"> | null;
+  githubLogin: string | undefined;
+}): string {
+  const displayName = args.user?.displayName?.trim();
+  if (displayName) {
+    return displayName;
+  }
+  if (args.githubLogin) {
+    return args.githubLogin;
+  }
+  return "Samebase member";
+}
+
+function normalizeMemberLabelSortKey(label: string): string {
+  return label.trim().normalize("NFKC").toLowerCase();
+}
+
+async function hasTargetOwnedActiveWork(
+  db: DatabaseReader,
+  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
+): Promise<boolean> {
+  for (const state of ["queued", "running"] as const) {
+    const deletion = await db
+      .query("workflow_vaultDeletion_runs")
+      .withIndex("by_organization_and_user_and_state_and_updated_at", (builder) =>
+        builder
+          .eq("organizationId", args.organizationId)
+          .eq("userId", args.userId)
+          .eq("state", state),
+      )
+      .first();
+    if (deletion !== null) {
+      return true;
+    }
+
+    for await (const provisioning of db
+      .query("workflow_vaultProvisioning_runs")
+      .withIndex("by_user_and_state_and_updated_at", (builder) =>
+        builder.eq("userId", args.userId).eq("state", state),
+      )) {
+      const vault = await db.get(provisioning.vaultId);
+      if (vault?.organizationId === args.organizationId) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function requireNoTargetOwnedActiveWork(
+  db: DatabaseReader,
+  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
+): Promise<void> {
+  if (await hasTargetOwnedActiveWork(db, args)) {
+    throw new Error("Wait for this member's active vault work to finish.");
+  }
+}
+
+function readTargetRelationship(
+  context: OwnerGitHubContext,
+  target: GitHubInvitationTarget,
+  octokit: ReturnType<typeof createGitHubInstallationOctokit> | null,
+): Promise<GitHubRelationship> | GitHubRelationship {
+  if (context.githubOwnerType === "user") {
+    return target.expectedGithubAccountId === context.githubOwnerId
+      ? "owner_account"
+      : "different_account";
+  }
+  if (octokit === null) {
+    return "unavailable";
+  }
+  return readGitHubOrganizationRelationship(octokit, {
+    githubOrganizationId: context.githubOwnerId,
+    githubOrganizationLogin: context.githubOwnerLogin,
+    githubAccountId: target.expectedGithubAccountId,
+    githubLogin: target.githubLogin,
+  });
+}
+
+async function resolveInvitationTargetFromGitHub(
+  context: OwnerGitHubContext,
+  githubLogin: string,
+): Promise<{
+  target: GitHubInvitationTarget;
+  installationOctokit: ReturnType<typeof createGitHubInstallationOctokit> | null;
+}> {
+  let installationOctokit: ReturnType<typeof createGitHubInstallationOctokit> | null = null;
+  try {
+    installationOctokit = createGitHubInstallationOctokit(context.githubInstallationId);
+    const target = await readGitHubUserByLogin(installationOctokit, githubLogin);
+    return { target, installationOctokit };
+  } catch {
+    return {
+      target: await readPublicGitHubUserByLogin(githubLogin),
+      installationOctokit,
+    };
+  }
+}
+
+export const loadOwnerGitHubContext = internalQuery({
+  args: {
+    userId: id("users"),
+    organizationId: id("organizations"),
+  },
+  returns: vOwnerGitHubContext,
+  handler: async (ctx, args): Promise<OwnerGitHubContext> => {
+    await requireOrganizationOwnerAccessContext(ctx.db, args);
+    const organization = await ctx.db.get(args.organizationId);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+    return {
+      organizationId: organization._id,
+      githubInstallationId: organization.githubInstallationId,
+      githubOwnerId: organization.githubOwnerId,
+      githubOwnerType: organization.githubOwnerType,
+      githubOwnerLogin: organization.githubOwnerLogin,
+    };
+  },
+});
+
+export const loadGitHubRelationshipsContext = internalQuery({
+  args: {
+    userId: id("users"),
+    organizationId: id("organizations"),
+  },
+  returns: vGitHubRelationshipsContext,
+  handler: async (ctx, args): Promise<GitHubRelationshipsContext> => {
+    await requireOrganizationOwnerAccessContext(ctx.db, args);
+    const organization = await ctx.db.get(args.organizationId);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+    const members = [];
+    for await (const membership of ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_organization_and_user", (builder) =>
+        builder.eq("organizationId", args.organizationId),
+      )) {
+      const githubAccount = await readGitHubSignInAccount(ctx.db, membership.userId);
+      members.push({
+        userId: membership.userId,
+        ...(githubAccount ? { githubAccountId: githubAccount.providerAccountId } : {}),
+      });
+    }
+    return {
+      organization: {
+        organizationId: organization._id,
+        githubInstallationId: organization.githubInstallationId,
+        githubOwnerId: organization.githubOwnerId,
+        githubOwnerType: organization.githubOwnerType,
+        githubOwnerLogin: organization.githubOwnerLogin,
+      },
+      members,
+    };
+  },
+});
+
+export const requireCurrentOwner = internalQuery({
+  args: {
+    userId: id("users"),
+    organizationId: id("organizations"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await requireOrganizationOwnerAccessContext(ctx.db, args);
+    return null;
+  },
+});
+
+export const commitInvitation = internalMutation({
+  args: {
+    userId: id("users"),
+    organizationId: id("organizations"),
+    expectedGithubAccountId: string(),
+    githubLogin: string(),
+    githubAvatarUrl: optional(string()),
+    proposedCode: string(),
+  },
+  returns: vCreateInvitationResult,
+  handler: async (ctx, args): Promise<CreateInvitationResult> => {
+    await requireOrganizationOwnerAccessContext(ctx.db, args);
+    const proposedCode = requireInvitationCode(args.proposedCode);
+    const now = Date.now();
+    const accountOwners = await ctx.db
+      .query("authAccounts")
+      .withIndex("providerAndAccountId", (builder) =>
+        builder.eq("provider", "github").eq("providerAccountId", args.expectedGithubAccountId),
+      )
+      .take(2);
+    if (accountOwners.length > 1) {
+      throw new Error("This GitHub account belongs to conflicting Samebase accounts.");
+    }
+    const accountOwner = accountOwners.at(0);
+    if (accountOwner !== undefined) {
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (builder) =>
+          builder.eq("organizationId", args.organizationId).eq("userId", accountOwner.userId),
+        )
+        .unique();
+      if (membership !== null) {
+        throw new Error(
+          "This GitHub account is already linked to a Samebase member of this organization.",
+        );
+      }
+    }
+
+    const existing = await ctx.db
+      .query("organizationInvitations")
+      .withIndex("by_organization_and_github_account_id", (builder) =>
+        builder
+          .eq("organizationId", args.organizationId)
+          .eq("githubAccountId", args.expectedGithubAccountId),
+      )
+      .unique();
+    if (existing?.state === "pending" && existing.expiresAt > now) {
+      if (
+        existing.githubLogin !== args.githubLogin ||
+        existing.githubAvatarUrl !== args.githubAvatarUrl
+      ) {
+        await ctx.db.patch(existing._id, {
+          githubLogin: args.githubLogin,
+          githubAvatarUrl: args.githubAvatarUrl,
+        });
+      }
+      return {
+        invitationId: existing._id,
+        code: existing.code,
+        githubLogin: args.githubLogin,
+        ...(args.githubAvatarUrl ? { githubAvatarUrl: args.githubAvatarUrl } : {}),
+        expiresAt: existing.expiresAt,
+        state: "existing",
+      };
+    }
+    if (existing?.state === "accepted") {
+      const acceptedMembership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (builder) =>
+          builder.eq("organizationId", args.organizationId).eq("userId", existing.acceptedByUserId),
+        )
+        .unique();
+      if (acceptedMembership !== null) {
+        throw new Error(
+          "This GitHub account is already linked to a Samebase member of this organization.",
+        );
+      }
+    }
+
+    const codeOwner = await ctx.db
+      .query("organizationInvitations")
+      .withIndex("by_code", (builder) => builder.eq("code", proposedCode))
+      .unique();
+    if (codeOwner !== null) {
+      throw new Error("Invitation code collision.");
+    }
+    const code = proposedCode;
+    const expiresAt = now + 7 * 24 * 60 * 60 * 1000;
+    const pendingInvitation = {
+      organizationId: args.organizationId,
+      githubAccountId: args.expectedGithubAccountId,
+      githubLogin: args.githubLogin,
+      ...(args.githubAvatarUrl ? { githubAvatarUrl: args.githubAvatarUrl } : {}),
+      code,
+      createdByUserId: args.userId,
+      createdAt: now,
+      expiresAt,
+      state: "pending" as const,
+    };
+    let invitationId: Id<"organizationInvitations">;
+    if (existing === null) {
+      invitationId = await ctx.db.insert("organizationInvitations", pendingInvitation);
+    } else {
+      await ctx.db.replace(existing._id, pendingInvitation);
+      invitationId = existing._id;
+    }
+    return {
+      invitationId,
+      code,
+      githubLogin: args.githubLogin,
+      ...(args.githubAvatarUrl ? { githubAvatarUrl: args.githubAvatarUrl } : {}),
+      expiresAt,
+      state: "created",
+    };
+  },
+});
+
+export const getPage = query({
+  access: "access_dashboard",
+  args: {
+    organizationId: id("organizations"),
+    now: number(),
+  },
+  returns: vGetPageResult,
+  handler: async (ctx, args): Promise<GetPageResult> => {
+    requireFiniteNow(args.now);
+    const now = Date.now();
+    const viewerMembership = await requireOrganizationMembership(ctx.db, {
+      organizationId: args.organizationId,
+      userId: ctx.viewer.userId,
+    });
+    const organization = await ctx.db.get(args.organizationId);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+
+    const memberships: Doc<"organizationMemberships">[] = [];
+    for await (const membership of ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_organization_and_user", (builder) =>
+        builder.eq("organizationId", args.organizationId),
+      )) {
+      memberships.push(membership);
+    }
+
+    const memberSources = await Promise.all(
+      memberships.map(async (membership) => {
+        const [user, githubAccount] = await Promise.all([
+          ctx.db.get(membership.userId),
+          readGitHubSignInAccount(ctx.db, membership.userId),
+        ]);
+        return { membership, user, githubAccount };
+      }),
+    );
+    const activeOwnerUserIds = new Set(
+      memberSources
+        .filter(
+          ({ membership, user }) =>
+            membership.role === "owner" && user !== null && isDashboardCapableUser(user),
+        )
+        .map(({ membership }) => membership.userId),
+    );
+
+    const members = memberSources
+      .map(({ membership, user, githubAccount }) => {
+        const githubLogin = githubAccount?.githubLogin?.trim() || undefined;
+        const avatarUrl = user?.image?.trim() || undefined;
+        const isViewer = membership.userId === ctx.viewer.userId;
+        return {
+          membershipId: membership._id,
+          userId: membership.userId,
+          label: readMemberLabel({ user, githubLogin }),
+          ...(avatarUrl ? { avatarUrl } : {}),
+          ...(githubLogin ? { githubLogin } : {}),
+          role: membership.role,
+          isViewer,
+          isDeleting:
+            viewerMembership.role === "owner" &&
+            (user === null || user.accountDeletion !== undefined),
+          isOnlyActiveOwner:
+            viewerMembership.role === "owner" &&
+            membership.role === "owner" &&
+            activeOwnerUserIds.size === 1 &&
+            activeOwnerUserIds.has(membership.userId),
+          isPersonalGithubOwnerIdentity:
+            viewerMembership.role === "owner" &&
+            organization.githubOwnerType === "user" &&
+            githubAccount?.providerAccountId === organization.githubOwnerId,
+        };
+      })
+      .sort((left, right) => {
+        if (left.role !== right.role) {
+          return left.role === "owner" ? -1 : 1;
+        }
+        const leftLabel = normalizeMemberLabelSortKey(left.label);
+        const rightLabel = normalizeMemberLabelSortKey(right.label);
+        if (leftLabel !== rightLabel) {
+          return leftLabel < rightLabel ? -1 : 1;
+        }
+        if (left.membershipId === right.membershipId) {
+          return 0;
+        }
+        return left.membershipId < right.membershipId ? -1 : 1;
+      });
+
+    if (viewerMembership.role !== "owner") {
+      return {
+        organization: {
+          organizationId: organization._id,
+          githubOwnerLogin: organization.githubOwnerLogin,
+          githubOwnerType: organization.githubOwnerType,
+        },
+        viewerRole: viewerMembership.role,
+        members,
+      };
+    }
+
+    const pendingInvitations = [];
+    for await (const invitation of ctx.db
+      .query("organizationInvitations")
+      .withIndex("by_organization_and_state_and_expires_at", (builder) =>
+        builder.eq("organizationId", organization._id).eq("state", "pending").gt("expiresAt", now),
+      )) {
+      pendingInvitations.push({
+        invitationId: invitation._id,
+        githubLogin: invitation.githubLogin,
+        ...(invitation.githubAvatarUrl ? { githubAvatarUrl: invitation.githubAvatarUrl } : {}),
+        createdAt: invitation.createdAt,
+        expiresAt: invitation.expiresAt,
+        code: invitation.code,
+      });
+    }
+    pendingInvitations.sort((left, right) => {
+      const leftLogin = normalizeMemberLabelSortKey(left.githubLogin);
+      const rightLogin = normalizeMemberLabelSortKey(right.githubLogin);
+      if (leftLogin !== rightLogin) {
+        return leftLogin < rightLogin ? -1 : 1;
+      }
+      if (left.invitationId === right.invitationId) {
+        return 0;
+      }
+      return left.invitationId < right.invitationId ? -1 : 1;
+    });
+
+    return {
+      organization: {
+        organizationId: organization._id,
+        githubOwnerLogin: organization.githubOwnerLogin,
+        githubOwnerType: organization.githubOwnerType,
+      },
+      viewerRole: viewerMembership.role,
+      members,
+      pendingInvitations,
+    };
+  },
+});
+
+export const getInvitation = query({
+  access: "access_public",
+  args: {
+    code: string(),
+    now: number(),
+  },
+  returns: vGetInvitationResult,
+  handler: async (ctx, args): Promise<GetInvitationResult> => {
+    requireFiniteNow(args.now);
+    const now = Date.now();
+    if (!/^[0-9a-f]{64}$/.test(args.code)) {
+      return { state: "unavailable" };
+    }
+    const code = args.code;
+    const invitation = await ctx.db
+      .query("organizationInvitations")
+      .withIndex("by_code", (builder) => builder.eq("code", code))
+      .unique();
+    if (invitation === null || (invitation.state === "pending" && invitation.expiresAt <= now)) {
+      return { state: "unavailable" };
+    }
+    const organization = await ctx.db.get(invitation.organizationId);
+    if (organization === null) {
+      return { state: "unavailable" };
+    }
+    if (invitation.state === "accepted") {
+      return {
+        state: "accepted",
+        organizationOwnerLogin: organization.githubOwnerLogin,
+        targetLogin: invitation.githubLogin,
+        isAcceptedByViewer: invitation.acceptedByUserId === ctx.viewer.userId,
+      };
+    }
+    const viewerUserId = ctx.viewer.userId;
+    if (viewerUserId === null) {
+      return {
+        state: "available",
+        organizationOwnerLogin: organization.githubOwnerLogin,
+        targetLogin: invitation.githubLogin,
+        ...(invitation.githubAvatarUrl ? { targetAvatarUrl: invitation.githubAvatarUrl } : {}),
+        viewerState: "signed_out",
+      };
+    }
+
+    const githubAccountId = await readGitHubSignInProviderAccountId(ctx.db, viewerUserId);
+    let viewerState: Infer<typeof vInvitationViewerState>;
+    if (githubAccountId !== invitation.githubAccountId) {
+      viewerState = "wrong_github_account";
+    } else {
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (builder) =>
+          builder.eq("organizationId", invitation.organizationId).eq("userId", viewerUserId),
+        )
+        .unique();
+      viewerState = membership === null ? "can_accept" : "already_member";
+    }
+
+    return {
+      state: "available",
+      organizationOwnerLogin: organization.githubOwnerLogin,
+      targetLogin: invitation.githubLogin,
+      ...(invitation.githubAvatarUrl ? { targetAvatarUrl: invitation.githubAvatarUrl } : {}),
+      viewerState,
+    };
+  },
+});
+
+export const acceptInvitation = mutation({
+  access: "access_user_preferences",
+  args: { code: string() },
+  returns: vAcceptInvitationResult,
+  handler: async (ctx, args): Promise<AcceptInvitationResult> => {
+    const code = requireInvitationCode(args.code);
+    const invitation = await ctx.db
+      .query("organizationInvitations")
+      .withIndex("by_code", (builder) => builder.eq("code", code))
+      .unique();
+    if (invitation === null) {
+      throw new Error("Invitation is unavailable.");
+    }
+    const organization = await ctx.db.get(invitation.organizationId);
+    if (organization === null) {
+      throw new Error("Invitation is unavailable.");
+    }
+    if (ctx.viewer.user.accountDeletion !== undefined) {
+      throw new Error("A deleting user cannot accept an invitation.");
+    }
+    const githubAccountId = await readGitHubSignInProviderAccountId(ctx.db, ctx.viewer.userId);
+    if (githubAccountId !== invitation.githubAccountId) {
+      throw new Error("This invitation is for a different GitHub account.");
+    }
+    if (invitation.state === "accepted") {
+      if (invitation.acceptedByUserId !== ctx.viewer.userId) {
+        throw new Error("Invitation is unavailable.");
+      }
+      return {
+        state: "already_accepted",
+        organizationOwnerLogin: organization.githubOwnerLogin,
+      };
+    }
+    if (invitation.expiresAt <= Date.now()) {
+      throw new Error("Invitation has expired.");
+    }
+
+    const membership = await ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_organization_and_user", (builder) =>
+        builder.eq("organizationId", invitation.organizationId).eq("userId", ctx.viewer.userId),
+      )
+      .unique();
+    if (ctx.viewer.user.isApproved !== true) {
+      await ctx.db.patch(ctx.viewer.userId, { isApproved: true });
+    }
+    await ctx.db.patch(invitation._id, {
+      state: "accepted",
+      acceptedByUserId: ctx.viewer.userId,
+      acceptedAt: Date.now(),
+    });
+    if (membership !== null) {
+      return {
+        state: "already_member",
+        organizationOwnerLogin: organization.githubOwnerLogin,
+      };
+    }
+
+    await ctx.db.insert("organizationMemberships", {
+      organizationId: invitation.organizationId,
+      userId: ctx.viewer.userId,
+      role: "member",
+    });
+    return {
+      state: "joined",
+      organizationOwnerLogin: organization.githubOwnerLogin,
+    };
+  },
+});
+
+export const changeRole = mutation({
+  access: "access_dashboard",
+  args: {
+    organizationId: id("organizations"),
+    membershipId: id("organizationMemberships"),
+    role: vOrganizationMembershipRole,
+  },
+  returns: vChangeRoleResult,
+  handler: async (ctx, args) => {
+    await requireOrganizationOwnerAccessContext(ctx.db, {
+      organizationId: args.organizationId,
+      userId: ctx.viewer.userId,
+    });
+    const membership = await ctx.db.get(args.membershipId);
+    if (membership === null || membership.organizationId !== args.organizationId) {
+      throw new Error("Organization member not found.");
+    }
+    if (membership.role === args.role) {
+      return { state: "unchanged" as const, role: membership.role };
+    }
+    if (membership.role === "owner") {
+      await requireAnotherActiveOrganizationOwner(ctx.db, {
+        organizationId: args.organizationId,
+        excludedUserId: membership.userId,
+      });
+    } else {
+      const user = await ctx.db.get(membership.userId);
+      if (user === null || !isDashboardCapableUser(user)) {
+        throw new Error("Only an active Samebase user can become an Owner.");
+      }
+    }
+    await ctx.db.patch(membership._id, { role: args.role });
+    return { state: "changed" as const, role: args.role };
+  },
+});
+
+export const removeMember = mutation({
+  access: "access_dashboard",
+  args: {
+    organizationId: id("organizations"),
+    membershipId: id("organizationMemberships"),
+  },
+  returns: vRemoveMemberResult,
+  handler: async (ctx, args) => {
+    await requireOrganizationOwnerAccessContext(ctx.db, {
+      organizationId: args.organizationId,
+      userId: ctx.viewer.userId,
+    });
+    const membership = await ctx.db.get(args.membershipId);
+    if (membership === null || membership.organizationId !== args.organizationId) {
+      return { state: "already_removed" as const };
+    }
+    if (membership.userId === ctx.viewer.userId) {
+      throw new Error("Use Leave organization to remove your own membership.");
+    }
+    if (membership.role === "owner") {
+      await requireAnotherActiveOrganizationOwner(ctx.db, {
+        organizationId: args.organizationId,
+        excludedUserId: membership.userId,
+      });
+    }
+    await requireNoTargetOwnedActiveWork(ctx.db, {
+      organizationId: args.organizationId,
+      userId: membership.userId,
+    });
+    await ctx.db.delete(membership._id);
+    return { state: "removed" as const };
+  },
+});
+
+export const leaveOrganization = mutation({
+  access: "access_dashboard",
+  args: { organizationId: id("organizations") },
+  returns: vLeaveOrganizationResult,
+  handler: async (ctx, args) => {
+    const membership = await ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_organization_and_user", (builder) =>
+        builder.eq("organizationId", args.organizationId).eq("userId", ctx.viewer.userId),
+      )
+      .unique();
+    if (membership === null) {
+      return { state: "already_left" as const };
+    }
+    if (membership.role === "owner") {
+      await requireAnotherActiveOrganizationOwner(ctx.db, {
+        organizationId: args.organizationId,
+        excludedUserId: ctx.viewer.userId,
+      });
+    }
+    await requireNoTargetOwnedActiveWork(ctx.db, {
+      organizationId: args.organizationId,
+      userId: ctx.viewer.userId,
+    });
+    await ctx.db.delete(membership._id);
+    return { state: "left" as const };
+  },
+});
+
+export const resolveInvitationTarget = action({
+  access: "access_dashboard",
+  args: {
+    organizationId: id("organizations"),
+    githubLogin: string(),
+  },
+  returns: vResolveInvitationTargetResult,
+  handler: async (ctx, args): Promise<ResolveInvitationTargetResult> => {
+    const context: OwnerGitHubContext = await ctx.runQuery(
+      internal.organizationMembers.loadOwnerGitHubContext,
+      {
+        userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
+      },
+    );
+    const { target, installationOctokit } = await resolveInvitationTargetFromGitHub(
+      context,
+      args.githubLogin,
+    );
+    let relationship: GitHubRelationship;
+    try {
+      relationship = await readTargetRelationship(context, target, installationOctokit);
+    } catch {
+      relationship = "unavailable";
+    }
+    await ctx.runQuery(internal.organizationMembers.requireCurrentOwner, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
+    return {
+      ...target,
+      relationship,
+    };
+  },
+});
+
+export const createInvitation = action({
+  access: "access_dashboard",
+  args: {
+    organizationId: id("organizations"),
+    githubLogin: string(),
+    expectedGithubAccountId: string(),
+  },
+  returns: vCreateInvitationResult,
+  handler: async (ctx, args): Promise<CreateInvitationResult> => {
+    const context: OwnerGitHubContext = await ctx.runQuery(
+      internal.organizationMembers.loadOwnerGitHubContext,
+      {
+        userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
+      },
+    );
+    const { target } = await resolveInvitationTargetFromGitHub(context, args.githubLogin);
+    if (target.expectedGithubAccountId !== args.expectedGithubAccountId) {
+      throw new Error("The GitHub account changed. Resolve the invitation target again.");
+    }
+    return await ctx.runMutation(internal.organizationMembers.commitInvitation, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+      expectedGithubAccountId: target.expectedGithubAccountId,
+      githubLogin: target.githubLogin,
+      ...(target.githubAvatarUrl ? { githubAvatarUrl: target.githubAvatarUrl } : {}),
+      proposedCode: createInvitationCode(),
+    });
+  },
+});
+
+export const cancelInvitation = mutation({
+  access: "access_dashboard",
+  args: {
+    organizationId: id("organizations"),
+    invitationId: id("organizationInvitations"),
+  },
+  returns: vCancelInvitationResult,
+  handler: async (ctx, args) => {
+    await requireOrganizationOwnerAccessContext(ctx.db, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
+    const invitation = await ctx.db.get(args.invitationId);
+    if (invitation === null || invitation.organizationId !== args.organizationId) {
+      return { state: "already_canceled" as const };
+    }
+    if (invitation.state === "accepted") {
+      throw new Error("An accepted invitation cannot be canceled.");
+    }
+    await ctx.db.delete(invitation._id);
+    return { state: "canceled" as const };
+  },
+});
+
+export const getGitHubRelationships = action({
+  access: "access_dashboard",
+  args: { organizationId: id("organizations") },
+  returns: array(vGitHubRelationshipResult),
+  handler: async (ctx, args) => {
+    const context: GitHubRelationshipsContext = await ctx.runQuery(
+      internal.organizationMembers.loadGitHubRelationshipsContext,
+      {
+        userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
+      },
+    );
+    let octokit: ReturnType<typeof createGitHubInstallationOctokit> | null = null;
+    if (context.organization.githubOwnerType === "organization") {
+      try {
+        octokit = createGitHubInstallationOctokit(context.organization.githubInstallationId);
+      } catch {
+        octokit = null;
+      }
+    }
+
+    const relationships: Array<{ userId: Id<"users">; status: GitHubRelationship }> = [];
+    for (const member of context.members) {
+      if (member.githubAccountId === undefined) {
+        relationships.push({
+          userId: member.userId,
+          status: "github_account_not_connected",
+        });
+        continue;
+      }
+      if (context.organization.githubOwnerType === "user") {
+        relationships.push({
+          userId: member.userId,
+          status:
+            member.githubAccountId === context.organization.githubOwnerId
+              ? "owner_account"
+              : "different_account",
+        });
+        continue;
+      }
+      if (octokit === null) {
+        relationships.push({ userId: member.userId, status: "unavailable" });
+        continue;
+      }
+      try {
+        const currentUser = await readGitHubUserByAccountId(octokit, member.githubAccountId);
+        const status = await readGitHubOrganizationRelationship(octokit, {
+          githubOrganizationId: context.organization.githubOwnerId,
+          githubOrganizationLogin: context.organization.githubOwnerLogin,
+          githubAccountId: member.githubAccountId,
+          githubLogin: currentUser.githubLogin,
+        });
+        relationships.push({ userId: member.userId, status });
+      } catch {
+        relationships.push({ userId: member.userId, status: "unavailable" });
+      }
+    }
+    await ctx.runQuery(internal.organizationMembers.requireCurrentOwner, {
+      userId: ctx.viewer.userId,
+      organizationId: args.organizationId,
+    });
+    return relationships;
+  },
+});
