@@ -6,7 +6,10 @@ import type { FunctionReturnType } from "convex/server";
 import { ConvexError } from "convex/values";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
-import { AUTHENTICATED_ACCOUNT_DELETED } from "../../shared/authenticatedAccountAvailability";
+import {
+  AUTHENTICATED_ACCOUNT_DELETED,
+  AUTHENTICATED_ACCOUNT_REFERENCE_INVALID,
+} from "../../shared/authenticatedAccountAvailability";
 import {
   clearAccountDeletionBrowserMarker,
   readAccountDeletionBrowserMarker,
@@ -92,6 +95,10 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
     viewerAccessQuery.status === "error" &&
     viewerAccessQuery.error instanceof ConvexError &&
     viewerAccessQuery.error.data === AUTHENTICATED_ACCOUNT_DELETED;
+  const authenticatedAccountReferenceInvalid =
+    viewerAccessQuery.status === "error" &&
+    viewerAccessQuery.error instanceof ConvexError &&
+    viewerAccessQuery.error.data === AUTHENTICATED_ACCOUNT_REFERENCE_INVALID;
   const statusQuery = useQuery_experimental({
     query: api.accountDeletion.index.status,
     args: isAuthenticated && !isLoading && viewerAccess?.role === "role_deleting" ? {} : "skip",
@@ -183,7 +190,11 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
   }, [completionCapability, status, viewerAccess?.role]);
 
   useEffect(() => {
-    if (completion?.state !== "succeeded" || !ownsCompletionReceipt || cleanupStartedRef.current) {
+    if (
+      (!authenticatedAccountDeleted &&
+        (completion?.state !== "succeeded" || !ownsCompletionReceipt)) ||
+      cleanupStartedRef.current
+    ) {
       return;
     }
     cleanupStartedRef.current = true;
@@ -191,14 +202,39 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
     void clearDeletedAccountBrowserData(signOut)
       .then(() => setCleanupState("complete"))
       .catch(() => setCleanupState("cleanup_failed"));
-  }, [completion?.state, ownsCompletionReceipt, signOut]);
+  }, [authenticatedAccountDeleted, completion?.state, ownsCompletionReceipt, signOut]);
 
   if (cleanupState !== "idle") {
     return <AccountDeletionCompletionPage state={cleanupState} />;
   }
 
-  if (completion?.state === "succeeded" && ownsCompletionReceipt) {
+  if (authenticatedAccountDeleted || (completion?.state === "succeeded" && ownsCompletionReceipt)) {
     return <AccountDeletionCompletionPage state="clearing" />;
+  }
+
+  if (authenticatedAccountReferenceInvalid) {
+    return (
+      <main className="container mx-auto w-full max-w-2xl py-6" aria-live="polite">
+        <h1 className="text-xl font-semibold @2xl:text-2xl">Account unavailable</h1>
+        <p className="mt-4 text-sm text-muted-foreground" role="status">
+          This session refers to a Samebase user record that is not available.
+        </p>
+        <Button
+          className="mt-6"
+          type="button"
+          variant="outline"
+          onClick={() => {
+            if (completionCapability !== null) {
+              clearAccountDeletionBrowserMarker(completionCapability);
+              setCompletionCapability(null);
+            }
+            void signOut();
+          }}
+        >
+          Sign out
+        </Button>
+      </main>
+    );
   }
 
   if (

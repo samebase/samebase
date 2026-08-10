@@ -431,14 +431,22 @@ describe("AccountDeletionBrowserBoundary", () => {
     }
   });
 
-  it("does not mount normal routes for a deleted session without a browser marker", async () => {
+  it("clears a deleted session without a browser marker and shows completion", async () => {
     queryState.viewerError = new ConvexError(AUTHENTICATED_ACCOUNT_DELETED);
 
     const mounted = await renderBoundary();
     try {
-      expect(mounted.rootElement.textContent).toBe("");
-      expect(authActionState.signOut).not.toHaveBeenCalled();
-      expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(authActionState.signOut).toHaveBeenCalledTimes(1);
+      expect(posthogState.reset).toHaveBeenCalledTimes(1);
+      expect(cleanupState.resetLocalAppData).toHaveBeenCalledTimes(1);
+      expect(mounted.rootElement.textContent).toContain("Account deleted");
+      expect(mounted.rootElement.textContent).toContain(
+        "Your Samebase account and saved browser data have been deleted.",
+      );
+      expect(mounted.rootElement.textContent).not.toContain("Normal route");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.rootElement.remove();
@@ -457,36 +465,6 @@ describe("AccountDeletionBrowserBoundary", () => {
       expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
       expect(window.localStorage.getItem("samebase:account-deletion")).toBeNull();
       expect(mounted.rootElement.textContent).toContain("Normal route");
-    } finally {
-      await act(async () => mounted.root.unmount());
-      mounted.rootElement.remove();
-    }
-  });
-
-  it("keeps the deleted JWT behind verification while the completion receipt catches up", async () => {
-    writeAccountDeletionBrowserMarker(completionCapability);
-    locationState.pathname = "/account-deletion";
-    queryState.viewerError = new ConvexError(AUTHENTICATED_ACCOUNT_DELETED);
-    queryState.completion = null;
-
-    const mounted = await renderBoundary();
-    try {
-      expect(mounted.rootElement.textContent).toContain("Checking account deletion");
-      expect(mounted.rootElement.textContent).not.toContain("Normal route");
-      expect(mounted.rootElement.querySelector("button")).toBeNull();
-
-      queryState.completion = { completedAt: 3, state: "succeeded" };
-      await act(async () => {
-        notifyPublicCompletion(completionCapability);
-        mounted.root.render(
-          <AccountDeletionBrowserBoundary>
-            <div>Normal route</div>
-          </AccountDeletionBrowserBoundary>,
-        );
-        await Promise.resolve();
-      });
-      expect(authActionState.signOut).toHaveBeenCalledTimes(1);
-      expect(mounted.rootElement.textContent).toContain("Account deleted");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.rootElement.remove();
@@ -606,13 +584,14 @@ describe("AccountDeletionBrowserBoundary", () => {
       expect(authActionState.signOut).not.toHaveBeenCalled();
       expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
       expect(window.localStorage.getItem("samebase:account-deletion")).not.toBeNull();
+      expect(mounted.rootElement.textContent).toBe("");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.rootElement.remove();
     }
   });
 
-  it("does not present a damaged user reference as a deleted account", async () => {
+  it("shows recovery without presenting a damaged user reference as deleted", async () => {
     writeAccountDeletionBrowserMarker(completionCapability);
     locationState.pathname = "/account-deletion";
     queryState.viewerError = new ConvexError(AUTHENTICATED_ACCOUNT_REFERENCE_INVALID);
@@ -620,10 +599,29 @@ describe("AccountDeletionBrowserBoundary", () => {
 
     const mounted = await renderBoundary();
     try {
-      expect(mounted.rootElement.textContent).toBe("");
-      expect(authActionState.signOut).not.toHaveBeenCalled();
+      expect(mounted.rootElement.textContent).toContain("Account unavailable");
+      expect(mounted.rootElement.textContent).toContain(
+        "This session refers to a Samebase user record that is not available.",
+      );
+      expect(mounted.rootElement.textContent).not.toContain("Account deleted");
+      const signOut = Array.from(mounted.rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Sign out",
+      );
+      await act(async () => signOut?.click());
+      expect(authActionState.signOut).toHaveBeenCalledTimes(1);
       expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
-      expect(window.localStorage.getItem("samebase:account-deletion")).not.toBeNull();
+      expect(window.localStorage.getItem("samebase:account-deletion")).toBeNull();
+
+      authState.isAuthenticated = false;
+      await act(async () => {
+        mounted.root.render(
+          <AccountDeletionBrowserBoundary>
+            <div>Signed out</div>
+          </AccountDeletionBrowserBoundary>,
+        );
+      });
+      expect(mounted.rootElement.textContent).toContain("Signed out");
+      expect(mounted.rootElement.textContent).not.toContain("Account deleted");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.rootElement.remove();
