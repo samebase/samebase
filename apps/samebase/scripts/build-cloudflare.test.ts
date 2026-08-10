@@ -110,7 +110,7 @@ describe("build-cloudflare", () => {
         "exec",
         "convex",
         "deploy",
-        "--preview-create",
+        "--preview-name",
         "feature-branch",
         "--cmd",
         "pnpm run build:ci && node ./scripts/verify-current-branch-head.ts",

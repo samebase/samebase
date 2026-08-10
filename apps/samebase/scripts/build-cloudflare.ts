@@ -138,15 +138,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
         deployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
       }),
       routeEnvironment: "preview",
-      args: [
-        "exec",
-        "convex",
-        "deploy",
-        "--preview-create",
-        branch,
-        "--cmd",
-        WORKERS_BUILD_COMMAND,
-      ],
+      args: ["exec", "convex", "deploy", "--preview-name", branch, "--cmd", WORKERS_BUILD_COMMAND],
       seedArgs: ["exec", "convex", "run", "devAuth:seedPasswordAccount", "--preview-name", branch],
     };
   }
