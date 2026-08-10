@@ -2,17 +2,18 @@
 
 ## Document Control
 
-- Status: Active implementation tracker
+- Status: Superseded implementation record
 - Owner: Samebase platform
-- Last updated: 2026-08-02
+- Last updated: 2026-08-11
 - Accepted contract: `specs/119_POLAR_MONTHLY_BILLING_SPEC.md`
 - Integration branch: `codex-polar-monthly-billing`
-- Lifecycle: Update this file during the rollout. Archive it after production launch.
+- Lifecycle: Keep as the historical record of the first fixed-price billing rollout. Do not use its
+  prices, quotas, or non-goals for new work.
 
 ## Current State
 
-The goal is one working monthly offer and the first paying customer. The accepted product is Free at
-5 Workers and 5 Convex projects, and Pro at $4 per month for 40 of each.
+This tracker records the superseded fixed-price billing rollout. Spec 119 replaced its separate
+Worker and Convex limits and its no-seat-billing decision on 2026-08-11.
 
 The repository has an old Polar scaffold, but billing is not ready for a customer:
 
