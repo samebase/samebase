@@ -45,6 +45,7 @@ export const identityTables = {
 
   /** Samebase accounts linked to Convex Auth identities. */
   users: defineTable({
+    state: optional(literal("active")),
     name: optional(string()),
     displayName: optional(string()),
     image: optional(string()),
