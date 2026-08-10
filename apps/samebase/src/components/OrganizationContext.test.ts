@@ -28,6 +28,7 @@ describe("organization context", () => {
     ["/org/samebase/providers", "providers"],
     ["/org/samebase/new-app", "new-app"],
     ["/org/samebase/connect-repo", "connect-repo"],
+    ["/org/samebase/settings/members", "members"],
     ["/org/samebase/settings", "settings"],
   ] as const)("reads %s as an organization %s surface", (pathname, section) => {
     expect(readAppOrganizationSurface(pathname)).toEqual({

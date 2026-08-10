@@ -34,4 +34,18 @@ describe("buildOrganizationSwitchHref", () => {
       }),
     ).toBe("/vault?prod-ui&view=compact#billing");
   });
+
+  it("keeps the Members section when switching organizations", () => {
+    expect(
+      buildOrganizationSwitchHref({
+        hash: "",
+        search: { "prod-ui": true },
+        target: {
+          kind: "organization",
+          owner: "Target-Org",
+          section: "members",
+        },
+      }),
+    ).toBe("/org/Target-Org/settings/members?prod-ui");
+  });
 });

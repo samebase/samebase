@@ -13,6 +13,7 @@ import { MCP_CONSENT_APP_PATH } from "../shared/mcpOAuth";
 import {
   ORGANIZATION_CONNECT_REPO_ROUTE,
   ORGANIZATION_NEW_APP_ROUTE,
+  ORGANIZATION_MEMBERS_ROUTE,
   ORGANIZATION_PROVIDERS_ROUTE,
   ORGANIZATION_ROUTE,
   ORGANIZATION_SETTINGS_ROUTE,
@@ -20,6 +21,7 @@ import {
 } from "./lib/organizationRoutes";
 import { SETTINGS_ROUTE } from "./lib/settingsRoute";
 import { ACCOUNT_DELETION_ROUTE } from "./lib/accountDeletionRoute";
+import { ORGANIZATION_INVITATION_ROUTE } from "./lib/organizationInvitationRoute";
 
 /**
  * Use virtual file routes so the generated route tree can preserve the current
@@ -61,7 +63,9 @@ export const routes = rootRoute("root.tsx", [
   route(ORGANIZATION_PROVIDERS_ROUTE, "org-providers.tsx"),
   route(ORGANIZATION_NEW_APP_ROUTE, "org-new-app.tsx"),
   route(ORGANIZATION_CONNECT_REPO_ROUTE, "org-connect-repo.tsx"),
+  route(ORGANIZATION_MEMBERS_ROUTE, "org-members.tsx"),
   route(ORGANIZATION_SETTINGS_ROUTE, "org-settings.tsx"),
+  route(ORGANIZATION_INVITATION_ROUTE, "invite.tsx"),
   route(SETTINGS_ROUTE, "settings.tsx"),
   route(ACCOUNT_DELETION_ROUTE, "account-deletion.tsx"),
   route("/admin/account-deletions", "admin-account-deletions.tsx"),

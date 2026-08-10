@@ -84,6 +84,60 @@ describe("posthog client setup", () => {
     });
   });
 
+  it("replaces invitation codes in PostHog URL properties before send", () => {
+    const config = buildSamebasePostHogInitConfig({
+      apiHost: "https://posthog.samebase.com",
+      dev: false,
+    });
+    const beforeSend = config.before_send;
+    if (typeof beforeSend !== "function") {
+      throw new Error("PostHog before_send is not configured as one function.");
+    }
+
+    const event = beforeSend({
+      event: "$exception",
+      properties: {
+        $current_url: "https://samebase.com/invite/current-secret?prod-ui#continue",
+        $pathname: "/invite/path-secret",
+        $prev_pageview_pathname: "/settings",
+        $referrer: "https://samebase.com/invite/referrer-secret",
+        $session_entry_url: "/invite/session-secret?source=github",
+      },
+      uuid: "event-id",
+    });
+
+    expect(event?.properties).toMatchObject({
+      $current_url: "https://samebase.com/invite/[invitation]?prod-ui#continue",
+      $pathname: "/invite/[invitation]",
+      $prev_pageview_pathname: "/settings",
+      $referrer: "https://samebase.com/invite/[invitation]",
+      $session_entry_url: "/invite/[invitation]?source=github",
+    });
+  });
+
+  it("replaces invitation codes in session replay request URLs", () => {
+    const config = buildSamebasePostHogInitConfig({
+      apiHost: "https://posthog.samebase.com",
+      dev: false,
+    });
+    const maskRequest = config.session_recording?.maskCapturedNetworkRequestFn;
+    if (typeof maskRequest !== "function") {
+      throw new Error("PostHog session replay request masking is not configured.");
+    }
+    const request = {
+      duration: 0,
+      entryType: "navigation",
+      name: "https://samebase.com/invite/meta-secret?prod-ui",
+      startTime: 0,
+      url: "/invite/compatibility-secret#continue",
+    };
+
+    const maskedRequest = maskRequest(request);
+
+    expect(maskedRequest?.name).toBe("https://samebase.com/invite/[invitation]?prod-ui");
+    expect(request.url).toBe("/invite/[invitation]#continue");
+  });
+
   it("keeps localhost visible in development analytics", () => {
     expect(
       buildSamebasePostHogInitConfig({
@@ -126,5 +180,17 @@ describe("posthog client setup", () => {
     expect(
       sanitizeSamebasePostHogPageviewUrl("/docs#handoff=not-secret", "https://samebase.com"),
     ).toBe("https://samebase.com/docs#handoff=not-secret");
+  });
+
+  it("replaces invitation codes in pageview URLs", () => {
+    expect(
+      sanitizeSamebasePostHogPageviewUrl(
+        "/invite/invitation_secret?prod-ui#continue",
+        "https://samebase.com",
+      ),
+    ).toBe("https://samebase.com/invite/[invitation]?prod-ui#continue");
+    expect(
+      sanitizeSamebasePostHogPageviewUrl("/invite/invitation_secret/", "https://samebase.com"),
+    ).toBe("https://samebase.com/invite/[invitation]");
   });
 });

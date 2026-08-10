@@ -29,6 +29,12 @@ const routeAccessMetadataByPath = {
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
   "/indexDB": { access: "access_admin" },
+  "/invite/$code": {
+    access: "access_public",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+    pathSuggestion: "hidden",
+    prerender: false,
+  },
   "/landing": { access: "access_public", pathSuggestion: "redirect", prerender: false },
   "/docs/do-it-yourself": { access: "access_public", pathSuggestion: "hidden" },
   "/docs/receipts": { access: "access_public", pathSuggestion: "hidden" },
@@ -90,6 +96,10 @@ const routeAccessMetadataByPath = {
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
   "/org/$owner/settings": {
+    access: "access_dashboard",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
+  "/org/$owner/settings/members": {
     access: "access_dashboard",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },

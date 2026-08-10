@@ -90,6 +90,10 @@ import {
   NewAppPageVisualFixture,
   type NewAppPageVisualMode,
 } from "@/components/NewAppPageVisualFixture";
+import {
+  OrganizationMembersPageVisualFixture,
+  type OrganizationMembersPageVisualMode,
+} from "@/components/OrganizationMembersPageVisualFixture";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
@@ -116,7 +120,8 @@ type VisualFixtureMode =
   | "corner-notch-detail"
   | AccountDeletionStatusVisualMode
   | ConnectRepositoryVisualMode
-  | NewAppPageVisualMode;
+  | NewAppPageVisualMode
+  | OrganizationMembersPageVisualMode;
 
 type VisualFixtureSelection =
   | {
@@ -244,6 +249,9 @@ const CONNECT_REPOSITORY_VISUAL_MODES = [
 const NEW_APP_VISUAL_MODES = [
   "new-app-provider-blocked",
 ] as const satisfies readonly NewAppPageVisualMode[];
+const ORGANIZATION_MEMBERS_VISUAL_MODES = [
+  "organization-members-page-owner",
+] as const satisfies readonly OrganizationMembersPageVisualMode[];
 const MISC_VISUAL_MODES = [
   "account-deletion-running",
   "account-deletion-attention",
@@ -311,6 +319,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "New App",
     modes: NEW_APP_VISUAL_MODES,
+  },
+  {
+    label: "Organization Members",
+    modes: ORGANIZATION_MEMBERS_VISUAL_MODES,
   },
   {
     label: "Misc",
@@ -449,6 +461,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "new-app-provider-blocked") {
     return <NewAppPageVisualFixture />;
+  }
+
+  if (mode === "organization-members-page-owner") {
+    return <OrganizationMembersPageVisualFixture />;
   }
 
   if (mode === "button") {

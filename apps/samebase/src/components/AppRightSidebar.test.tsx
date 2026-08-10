@@ -626,7 +626,11 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain('href="/org/samebase/providers"');
     expect(hydratedMarkup).toContain('href="/org/samebase/new-app"');
     expect(hydratedMarkup).toContain('href="/org/samebase/connect-repo"');
+    expect(hydratedMarkup).toContain('href="/org/samebase/settings/members"');
     expect(hydratedMarkup).toContain('href="/org/samebase/settings"');
+    expect(hydratedMarkup.indexOf("Members")).toBeLessThan(
+      hydratedMarkup.indexOf("Organization settings"),
+    );
     expect(hydratedMarkup).not.toContain("/org/samebase/settings/billing");
     expect(hydratedMarkup).toContain("All vaults");
     expect(hydratedMarkup).toContain("Account settings");

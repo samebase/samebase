@@ -63,6 +63,12 @@ describe("publicLandingAuthState", () => {
     expect(shouldRenderOAuthSignupClosedState(MCP_CONSENT_APP_PATH, routeSearch)).toBe(false);
   });
 
+  it("keeps an invitation available when a stale signup marker is present", () => {
+    const routeSearch = validateRootRouteSearch({ signup: "github" });
+
+    expect(shouldRenderOAuthSignupClosedState("/invite/invitation-code", routeSearch)).toBe(false);
+  });
+
   it("keeps sign-in methods available after an account-linking error", () => {
     const routeSearch = validateRootRouteSearch({
       signup: "github",

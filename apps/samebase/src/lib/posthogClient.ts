@@ -2,6 +2,8 @@ import {
   hasAgentBrowserHandoffFragment,
   isAgentBrowserHandoffRoute,
 } from "../../shared/agentBrowserHandoff";
+import { isOrganizationInvitationPath } from "@/lib/organizationInvitationRoute";
+import type { BeforeSendFn as SamebasePostHogBeforeSend } from "posthog-js";
 
 type SamebasePostHogClient = (typeof import("posthog-js"))["default"];
 type SamebasePostHogInitConfig = NonNullable<Parameters<SamebasePostHogClient["init"]>[1]>;
@@ -17,8 +19,57 @@ type SamebasePostHogEnv = {
 
 const DEFAULT_POSTHOG_API_HOST = "https://eu.i.posthog.com";
 const DEFAULT_POSTHOG_UI_HOST = "https://eu.posthog.com";
+const POSTHOG_URL_PROPERTIES = [
+  "$current_url",
+  "$session_entry_url",
+  "$referrer",
+  "$pathname",
+  "$prev_pageview_pathname",
+] as const;
 
 let postHogClientPromise: Promise<SamebasePostHogClient | null> | null = null;
+
+function sanitizeSamebasePostHogUrlLikeValue(value: string): string {
+  const isPath = value.startsWith("/");
+  let url: URL;
+  try {
+    url = isPath ? new URL(value, "https://samebase.invalid") : new URL(value);
+  } catch {
+    return value;
+  }
+  if (!isOrganizationInvitationPath(url.pathname)) {
+    return value;
+  }
+
+  url.pathname = "/invite/[invitation]";
+  return isPath ? `${url.pathname}${url.search}${url.hash}` : url.href;
+}
+
+function sanitizeSamebasePostHogCapturedNetworkRequest<
+  Request extends { name: string; url?: string },
+>(request: Request): Request {
+  request.name = sanitizeSamebasePostHogUrlLikeValue(request.name);
+  if (request.url !== undefined) {
+    request.url = sanitizeSamebasePostHogUrlLikeValue(request.url);
+  }
+  return request;
+}
+
+const sanitizeSamebasePostHogEvent: SamebasePostHogBeforeSend = (event) => {
+  if (event === null) {
+    return null;
+  }
+
+  const properties = { ...event.properties };
+  for (const propertyName of POSTHOG_URL_PROPERTIES) {
+    const value: unknown = properties[propertyName];
+    if (typeof value === "string") {
+      properties[propertyName] = sanitizeSamebasePostHogUrlLikeValue(value);
+    }
+  }
+
+  return { ...event, properties };
+};
 
 /**
  * Keep PostHog as an optional browser capability. Local/dev/preview builds can
@@ -45,6 +96,7 @@ export function buildSamebasePostHogInitConfig(args: {
 }): SamebasePostHogInitConfig {
   return {
     api_host: args.apiHost,
+    before_send: sanitizeSamebasePostHogEvent,
     capture_exceptions: true,
     // Samebase captures route pageviews from TanStack Router so the first
     // pageview is tied to app mount, not to PostHog's SDK boot heuristics.
@@ -79,6 +131,7 @@ export function buildSamebasePostHogInitConfig(args: {
 
         return "*".repeat(text.length);
       },
+      maskCapturedNetworkRequestFn: sanitizeSamebasePostHogCapturedNetworkRequest,
       // Editor DOM is not always an <input>. CodeMirror/ProseMark and Monaco can
       // render repository files, prompts, assistant output, and provider data as
       // normal text nodes, so mask those surfaces by default.
@@ -121,6 +174,9 @@ export async function captureSamebasePostHogPageview(href: string) {
 
 export function sanitizeSamebasePostHogPageviewUrl(href: string, origin: string): string {
   const url = new URL(href, origin);
+  if (isOrganizationInvitationPath(url.pathname)) {
+    url.pathname = "/invite/[invitation]";
+  }
   if (isAgentBrowserHandoffRoute(url.pathname) && hasAgentBrowserHandoffFragment(url.hash)) {
     url.hash = "";
   }

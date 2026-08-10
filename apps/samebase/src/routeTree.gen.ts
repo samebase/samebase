@@ -32,6 +32,7 @@ import { Route as logoIsoStudyRouteImport } from "./routes/logo-iso-study";
 import { Route as logoRasterSeamsRouteImport } from "./routes/logo-raster-seams";
 import { Route as logoRasterRouteImport } from "./routes/logo-raster";
 import { Route as logoIsoRouteImport } from "./routes/logo-iso";
+import { Route as inviteRouteImport } from "./routes/invite";
 import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
 import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
@@ -51,6 +52,7 @@ import { Route as logoMengerTransitionResearchRouteImport } from "./routes/logo-
 import { Route as logoMengerHoverResearchRouteImport } from "./routes/logo-menger-hover-research";
 import { Route as logoCarpetHoverResearchRouteImport } from "./routes/logo-carpet-hover-research";
 import { Route as vaultSettingsRouteImport } from "./routes/vault-settings";
+import { Route as orgMembersRouteImport } from "./routes/org-members";
 import { Route as vaultSchemaProjectRouteImport } from "./routes/vault-schema-project";
 import { Route as vaultDatabaseProjectRouteImport } from "./routes/vault-database-project";
 
@@ -169,6 +171,11 @@ const logoIsoRoute = logoIsoRouteImport.update({
   path: "/logo/iso",
   getParentRoute: () => rootRouteImport,
 } as any);
+const inviteRoute = inviteRouteImport.update({
+  id: "/invite/$code",
+  path: "/invite/$code",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const docsTheStackRoute = docsTheStackRouteImport.update({
   id: "/docs/the-stack",
   path: "/docs/the-stack",
@@ -266,6 +273,11 @@ const vaultSettingsRoute = vaultSettingsRouteImport.update({
   path: "/vault/$owner/$repo/settings",
   getParentRoute: () => rootRouteImport,
 } as any);
+const orgMembersRoute = orgMembersRouteImport.update({
+  id: "/org/$owner/settings/members",
+  path: "/org/$owner/settings/members",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const vaultSchemaProjectRoute = vaultSchemaProjectRouteImport.update({
   id: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId",
   path: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId",
@@ -298,6 +310,7 @@ export interface FileRoutesByFullPath {
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
+  "/invite/$code": typeof inviteRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
   "/logo/raster-seams": typeof logoRasterSeamsRoute;
@@ -319,6 +332,7 @@ export interface FileRoutesByFullPath {
   "/org/$owner/vaults": typeof orgVaultsRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
+  "/org/$owner/settings/members": typeof orgMembersRoute;
   "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
@@ -344,6 +358,7 @@ export interface FileRoutesByTo {
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
+  "/invite/$code": typeof inviteRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
   "/logo/raster-seams": typeof logoRasterSeamsRoute;
@@ -365,6 +380,7 @@ export interface FileRoutesByTo {
   "/org/$owner/vaults": typeof orgVaultsRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
+  "/org/$owner/settings/members": typeof orgMembersRoute;
   "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
@@ -391,6 +407,7 @@ export interface FileRoutesById {
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
+  "/invite/$code": typeof inviteRoute;
   "/logo/iso": typeof logoIsoRoute;
   "/logo/raster": typeof logoRasterRoute;
   "/logo/raster-seams": typeof logoRasterSeamsRoute;
@@ -412,6 +429,7 @@ export interface FileRoutesById {
   "/org/$owner/vaults": typeof orgVaultsRoute;
   "/pitch/print/mobile": typeof pitchPrintMobileRoute;
   "/vault/$owner/$repo": typeof vaultDashboardRoute;
+  "/org/$owner/settings/members": typeof orgMembersRoute;
   "/vault/$owner/$repo/settings": typeof vaultSettingsRoute;
   "/vault/$owner/$repo/db/$branch/project/$convexProjectId": typeof vaultDatabaseProjectRoute;
   "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": typeof vaultSchemaProjectRoute;
@@ -439,6 +457,7 @@ export interface FileRouteTypes {
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
+    | "/invite/$code"
     | "/logo/iso"
     | "/logo/raster"
     | "/logo/raster-seams"
@@ -460,6 +479,7 @@ export interface FileRouteTypes {
     | "/org/$owner/vaults"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
+    | "/org/$owner/settings/members"
     | "/vault/$owner/$repo/settings"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -485,6 +505,7 @@ export interface FileRouteTypes {
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
+    | "/invite/$code"
     | "/logo/iso"
     | "/logo/raster"
     | "/logo/raster-seams"
@@ -506,6 +527,7 @@ export interface FileRouteTypes {
     | "/org/$owner/vaults"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
+    | "/org/$owner/settings/members"
     | "/vault/$owner/$repo/settings"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -531,6 +553,7 @@ export interface FileRouteTypes {
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
+    | "/invite/$code"
     | "/logo/iso"
     | "/logo/raster"
     | "/logo/raster-seams"
@@ -552,6 +575,7 @@ export interface FileRouteTypes {
     | "/org/$owner/vaults"
     | "/pitch/print/mobile"
     | "/vault/$owner/$repo"
+    | "/org/$owner/settings/members"
     | "/vault/$owner/$repo/settings"
     | "/vault/$owner/$repo/db/$branch/project/$convexProjectId"
     | "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -578,6 +602,7 @@ export interface RootRouteChildren {
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
   docsReceiptsRoute: typeof docsReceiptsRoute;
   docsTheStackRoute: typeof docsTheStackRoute;
+  inviteRoute: typeof inviteRoute;
   logoIsoRoute: typeof logoIsoRoute;
   logoRasterRoute: typeof logoRasterRoute;
   logoRasterSeamsRoute: typeof logoRasterSeamsRoute;
@@ -599,6 +624,7 @@ export interface RootRouteChildren {
   orgVaultsRoute: typeof orgVaultsRoute;
   pitchPrintMobileRoute: typeof pitchPrintMobileRoute;
   vaultDashboardRoute: typeof vaultDashboardRoute;
+  orgMembersRoute: typeof orgMembersRoute;
   vaultSettingsRoute: typeof vaultSettingsRoute;
   vaultDatabaseProjectRoute: typeof vaultDatabaseProjectRoute;
   vaultSchemaProjectRoute: typeof vaultSchemaProjectRoute;
@@ -767,6 +793,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof logoIsoRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/invite/$code": {
+      id: "/invite/$code";
+      path: "/invite/$code";
+      fullPath: "/invite/$code";
+      preLoaderRoute: typeof inviteRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/docs/the-stack": {
       id: "/docs/the-stack";
       path: "/docs/the-stack";
@@ -900,6 +933,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof vaultSettingsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/org/$owner/settings/members": {
+      id: "/org/$owner/settings/members";
+      path: "/org/$owner/settings/members";
+      fullPath: "/org/$owner/settings/members";
+      preLoaderRoute: typeof orgMembersRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/vault/$owner/$repo/schema/$branch/project/$convexProjectId": {
       id: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
       path: "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -938,6 +978,7 @@ const rootRouteChildren: RootRouteChildren = {
   docsDoItYourselfRoute: docsDoItYourselfRoute,
   docsReceiptsRoute: docsReceiptsRoute,
   docsTheStackRoute: docsTheStackRoute,
+  inviteRoute: inviteRoute,
   logoIsoRoute: logoIsoRoute,
   logoRasterRoute: logoRasterRoute,
   logoRasterSeamsRoute: logoRasterSeamsRoute,
@@ -959,6 +1000,7 @@ const rootRouteChildren: RootRouteChildren = {
   orgVaultsRoute: orgVaultsRoute,
   pitchPrintMobileRoute: pitchPrintMobileRoute,
   vaultDashboardRoute: vaultDashboardRoute,
+  orgMembersRoute: orgMembersRoute,
   vaultSettingsRoute: vaultSettingsRoute,
   vaultDatabaseProjectRoute: vaultDatabaseProjectRoute,
   vaultSchemaProjectRoute: vaultSchemaProjectRoute,

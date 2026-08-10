@@ -1,0 +1,857 @@
+import { AppDialogContent } from "@/components/AppDialogContent";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Loader2, MoreHorizontal } from "lucide-react";
+import { Fragment, useState } from "react";
+import type { Id } from "../../convex/_generated/dataModel";
+import type { GenericId } from "convex/values";
+
+export type OrganizationInvitationId = GenericId<"organizationInvitations">;
+
+export type OrganizationMemberRole = "owner" | "member";
+
+export type OrganizationMember = {
+  avatarUrl?: string;
+  githubLogin?: string;
+  isDeleting: boolean;
+  isOnlyActiveOwner: boolean;
+  isPersonalGithubOwnerIdentity: boolean;
+  isViewer: boolean;
+  label: string;
+  membershipId: Id<"organizationMemberships">;
+  role: OrganizationMemberRole;
+  userId: Id<"users">;
+};
+
+export type PendingOrganizationInvitation = {
+  code: string;
+  createdAt: number;
+  expiresAt: number;
+  githubAvatarUrl?: string;
+  githubLogin: string;
+  invitationId: OrganizationInvitationId;
+};
+
+export type OrganizationMembersPageData = {
+  members: readonly OrganizationMember[];
+  organization: {
+    githubOwnerLogin: string;
+    githubOwnerType: "organization" | "user";
+    organizationId: Id<"organizations">;
+  };
+  pendingInvitations?: readonly PendingOrganizationInvitation[];
+  viewerRole: OrganizationMemberRole;
+};
+
+export type MemberGitHubRelationshipStatus =
+  | "organization_owner"
+  | "organization_member"
+  | "not_in_organization"
+  | "github_account_not_connected"
+  | "owner_account"
+  | "different_account"
+  | "unavailable";
+
+export type MemberGitHubRelationship = {
+  status: MemberGitHubRelationshipStatus;
+  userId: Id<"users">;
+};
+
+export type InvitationTarget = {
+  expectedGithubAccountId: string;
+  githubAvatarUrl?: string;
+  githubLogin: string;
+  relationship: MemberGitHubRelationshipStatus;
+};
+
+export type CreatedOrganizationInvitation = {
+  code: string;
+  expiresAt: number;
+  githubAvatarUrl?: string;
+  githubLogin: string;
+  invitationId: OrganizationInvitationId;
+  state: "created" | "existing";
+};
+
+type MemberConfirmation =
+  | { kind: "change-role"; member: OrganizationMember; role: OrganizationMemberRole }
+  | { kind: "remove"; member: OrganizationMember }
+  | { kind: "leave"; member: OrganizationMember }
+  | { kind: "cancel-invitation"; invitation: PendingOrganizationInvitation };
+
+type OrganizationMembersPageViewProps = {
+  githubRelationships: readonly MemberGitHubRelationship[] | null | undefined;
+  onCancelInvitation: (invitationId: OrganizationInvitationId) => Promise<unknown>;
+  onChangeRole: (
+    membershipId: Id<"organizationMemberships">,
+    role: OrganizationMemberRole,
+  ) => Promise<unknown>;
+  onCreateInvitation: (args: {
+    expectedGithubAccountId: string;
+    githubLogin: string;
+  }) => Promise<CreatedOrganizationInvitation>;
+  onLeaveOrganization: () => Promise<unknown>;
+  onRemoveMember: (membershipId: Id<"organizationMemberships">) => Promise<unknown>;
+  onResolveInvitationTarget: (githubLogin: string) => Promise<InvitationTarget>;
+  page: OrganizationMembersPageData;
+};
+
+function formatGitHubRelationship(status: MemberGitHubRelationshipStatus): string {
+  switch (status) {
+    case "organization_owner":
+      return "GitHub organization owner";
+    case "organization_member":
+      return "GitHub organization member";
+    case "not_in_organization":
+      return "Not in GitHub organization";
+    case "github_account_not_connected":
+      return "GitHub account not connected";
+    case "owner_account":
+      return "GitHub owner account";
+    case "different_account":
+      return "Different GitHub account";
+    case "unavailable":
+      return "GitHub status unavailable";
+    default:
+      status satisfies never;
+      return "GitHub status unavailable";
+  }
+}
+
+function formatInvitationExpiry(expiresAt: number): string {
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    timeZone: "UTC",
+    year: "numeric",
+  }).format(expiresAt);
+}
+
+function getMemberIdentity(member: OrganizationMember): string {
+  return member.githubLogin ? `@${member.githubLogin}` : member.label;
+}
+
+function getMemberStatusParts(args: {
+  githubRelationship: MemberGitHubRelationshipStatus | null;
+  member: OrganizationMember;
+  showGitHubStatus: boolean;
+}): string[] {
+  const parts = [args.member.role === "owner" ? "Samebase owner" : "Samebase member"];
+  if (args.member.isDeleting) {
+    parts.push("Deleting account");
+  } else if (args.member.isOnlyActiveOwner) {
+    parts.push("Only Samebase owner");
+  }
+  if (args.showGitHubStatus) {
+    parts.push(
+      args.githubRelationship === null
+        ? "Checking GitHub status..."
+        : formatGitHubRelationship(args.githubRelationship),
+    );
+  }
+  return parts;
+}
+
+function MemberAvatar({ avatarUrl, label }: { avatarUrl?: string; label: string }) {
+  return avatarUrl ? (
+    <img
+      alt=""
+      className="size-9 shrink-0 rounded-full bg-muted object-cover"
+      height={36}
+      loading="lazy"
+      src={avatarUrl}
+      width={36}
+    />
+  ) : (
+    <span
+      aria-hidden="true"
+      className="flex size-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium"
+    >
+      {label.trim().slice(0, 1).toUpperCase() || "?"}
+    </span>
+  );
+}
+
+function MemberActionsMenu({
+  member,
+  onConfirm,
+  viewerRole,
+}: {
+  member: OrganizationMember;
+  onConfirm: (confirmation: MemberConfirmation) => void;
+  viewerRole: OrganizationMemberRole;
+}) {
+  const actions: Array<{
+    disabled?: boolean;
+    key: string;
+    label: string;
+    onSelect: () => void;
+    variant?: "destructive";
+  }> = [];
+
+  if (viewerRole === "owner") {
+    if (member.role === "owner") {
+      actions.push({
+        disabled: member.isOnlyActiveOwner,
+        key: "make-member",
+        label: "Make Samebase member",
+        onSelect: () => onConfirm({ kind: "change-role", member, role: "member" }),
+      });
+    } else {
+      actions.push({
+        disabled: member.isDeleting,
+        key: "make-owner",
+        label: "Make Samebase owner",
+        onSelect: () => onConfirm({ kind: "change-role", member, role: "owner" }),
+      });
+    }
+
+    actions.push({
+      disabled: member.isOnlyActiveOwner,
+      key: member.isViewer ? "leave" : "remove",
+      label: member.isViewer ? "Leave organization" : "Remove member",
+      onSelect: () =>
+        onConfirm(member.isViewer ? { kind: "leave", member } : { kind: "remove", member }),
+      variant: "destructive",
+    });
+  } else if (member.isViewer) {
+    actions.push({
+      key: "leave",
+      label: "Leave organization",
+      onSelect: () => onConfirm({ kind: "leave", member }),
+      variant: "destructive",
+    });
+  }
+
+  if (actions.length === 0) {
+    return null;
+  }
+
+  const destructiveActionIndex = actions.findIndex((action) => action.variant === "destructive");
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild nativeButton>
+        <Button
+          aria-label={`${member.label} actions`}
+          disabled={actions.every((action) => action.disabled)}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <MoreHorizontal />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-48 rounded-none shadow-none">
+        {actions.map((action, index) => (
+          <Fragment key={action.key}>
+            {index === destructiveActionIndex && index > 0 ? <DropdownMenuSeparator /> : null}
+            <DropdownMenuItem
+              disabled={action.disabled}
+              onSelect={action.onSelect}
+              variant={action.variant}
+            >
+              {action.label}
+            </DropdownMenuItem>
+          </Fragment>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function InviteMemberDialog({
+  onClose,
+  onCreateInvitation,
+  onResolveInvitationTarget,
+}: {
+  onClose: () => void;
+  onCreateInvitation: OrganizationMembersPageViewProps["onCreateInvitation"];
+  onResolveInvitationTarget: OrganizationMembersPageViewProps["onResolveInvitationTarget"];
+}) {
+  const [githubLogin, setGithubLogin] = useState("");
+  const [target, setTarget] = useState<InvitationTarget | null>(null);
+  const [createdInvitation, setCreatedInvitation] = useState<CreatedOrganizationInvitation | null>(
+    null,
+  );
+  const [pending, setPending] = useState<"resolve" | "create" | "copy" | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const normalizedLogin = githubLogin.trim().replace(/^@/, "");
+  const invitationUrl =
+    createdInvitation === null
+      ? null
+      : `${window.location.origin}/invite/${encodeURIComponent(createdInvitation.code)}`;
+
+  const resolveTarget = () => {
+    if (!normalizedLogin || pending !== null) {
+      return;
+    }
+    setPending("resolve");
+    setError(null);
+    void onResolveInvitationTarget(normalizedLogin)
+      .then((resolvedTarget) => {
+        setGithubLogin(resolvedTarget.githubLogin);
+        setTarget(resolvedTarget);
+      })
+      .catch((resolveError: unknown) => {
+        setError(
+          resolveError instanceof Error
+            ? resolveError.message
+            : "Could not find this GitHub user. Try again.",
+        );
+      })
+      .finally(() => setPending(null));
+  };
+
+  const createInvitation = () => {
+    if (target === null || pending !== null) {
+      return;
+    }
+    setPending("create");
+    setError(null);
+    void onCreateInvitation({
+      expectedGithubAccountId: target.expectedGithubAccountId,
+      githubLogin: target.githubLogin,
+    })
+      .then(setCreatedInvitation)
+      .catch((createError: unknown) => {
+        setError(
+          createError instanceof Error
+            ? createError.message
+            : "Could not create the invitation. Try again.",
+        );
+      })
+      .finally(() => setPending(null));
+  };
+
+  const copyInvitationLink = () => {
+    if (invitationUrl === null || pending !== null) {
+      return;
+    }
+    setPending("copy");
+    setError(null);
+    void navigator.clipboard
+      .writeText(invitationUrl)
+      .then(() => setCopied(true))
+      .catch(() => {
+        setError("Could not copy the invitation link. Copy it from the field.");
+      })
+      .finally(() => setPending(null));
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && pending === null) {
+          onClose();
+        }
+      }}
+    >
+      <AppDialogContent data-posthog-block>
+        {createdInvitation === null ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Invite member</DialogTitle>
+              <DialogDescription>
+                The invitation works only for this GitHub account. They will join as a Samebase
+                member.
+              </DialogDescription>
+            </DialogHeader>
+            <form
+              className="space-y-4"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (target === null) {
+                  resolveTarget();
+                } else {
+                  createInvitation();
+                }
+              }}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="organization-member-github-login">GitHub username</Label>
+                <Input
+                  id="organization-member-github-login"
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  autoCorrect="off"
+                  disabled={pending !== null}
+                  onChange={(event) => {
+                    setGithubLogin(event.target.value);
+                    setTarget(null);
+                    setError(null);
+                  }}
+                  spellCheck={false}
+                  value={githubLogin}
+                />
+              </div>
+              {target === null ? null : (
+                <div className="flex items-center gap-3 border-y border-border/50 py-3">
+                  <MemberAvatar avatarUrl={target.githubAvatarUrl} label={target.githubLogin} />
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">@{target.githubLogin}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {formatGitHubRelationship(target.relationship)}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {error === null ? null : (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              )}
+              <DialogFooter>
+                <Button
+                  disabled={pending !== null}
+                  onClick={onClose}
+                  type="button"
+                  variant="outline"
+                >
+                  Cancel
+                </Button>
+                {target === null ? (
+                  <Button disabled={!normalizedLogin || pending !== null} type="submit">
+                    {pending === "resolve" ? (
+                      <>
+                        <Loader2 className="animate-spin" />
+                        Finding...
+                      </>
+                    ) : (
+                      "Find GitHub user"
+                    )}
+                  </Button>
+                ) : (
+                  <Button disabled={pending !== null} type="submit">
+                    {pending === "create" ? (
+                      <>
+                        <Loader2 className="animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      "Create invitation"
+                    )}
+                  </Button>
+                )}
+              </DialogFooter>
+            </form>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>Invitation created</DialogTitle>
+              <DialogDescription>
+                Share this link with @{createdInvitation.githubLogin}. It works only for that GitHub
+                account.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <Label htmlFor="organization-member-invitation-link">Invitation link</Label>
+              <Input
+                id="organization-member-invitation-link"
+                onFocus={(event) => event.currentTarget.select()}
+                readOnly
+                value={invitationUrl ?? ""}
+              />
+              {error === null ? null : (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button disabled={pending !== null} onClick={onClose} type="button" variant="outline">
+                Done
+              </Button>
+              <Button disabled={pending !== null} onClick={copyInvitationLink} type="button">
+                {pending === "copy" ? (
+                  <>
+                    <Loader2 className="animate-spin" />
+                    Copying...
+                  </>
+                ) : copied ? (
+                  "Copied"
+                ) : (
+                  "Copy link"
+                )}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </AppDialogContent>
+    </Dialog>
+  );
+}
+
+function getConfirmationContent(confirmation: MemberConfirmation): {
+  actionLabel: string;
+  description: string;
+  pendingLabel: string;
+  title: string;
+  variant: "default" | "destructive";
+  warning: string | null;
+} {
+  if (confirmation.kind === "change-role") {
+    const identity = getMemberIdentity(confirmation.member);
+    if (confirmation.role === "owner") {
+      return {
+        actionLabel: "Make Samebase owner",
+        description: "Owners can manage members, providers, billing, and the GitHub App.",
+        pendingLabel: "Making Samebase owner...",
+        title: `Make ${identity} a Samebase owner?`,
+        variant: "default",
+        warning: null,
+      };
+    }
+    return {
+      actionLabel: "Make Samebase member",
+      description: "They will keep organization access but lose owner controls.",
+      pendingLabel: "Making Samebase member...",
+      title: `Make ${identity} a Samebase member?`,
+      variant: "default",
+      warning: confirmation.member.isPersonalGithubOwnerIdentity
+        ? `Another Owner cannot reconnect the GitHub App for this personal owner. ${identity} must become an Owner again to reconnect it.`
+        : null,
+    };
+  }
+
+  if (confirmation.kind === "remove") {
+    const identity = getMemberIdentity(confirmation.member);
+    return {
+      actionLabel: "Remove member",
+      description: "They will lose Samebase access. Their account and organization data will stay.",
+      pendingLabel: "Removing...",
+      title: `Remove ${identity}?`,
+      variant: "destructive",
+      warning: confirmation.member.isPersonalGithubOwnerIdentity
+        ? `Another Owner cannot reconnect the GitHub App for this personal owner. ${identity} must rejoin as an Owner to reconnect it.`
+        : null,
+    };
+  }
+
+  if (confirmation.kind === "leave") {
+    const identity = getMemberIdentity(confirmation.member);
+    return {
+      actionLabel: "Leave organization",
+      description: "You will lose Samebase access. Your account and organization data will stay.",
+      pendingLabel: "Leaving...",
+      title: "Leave organization?",
+      variant: "destructive",
+      warning: confirmation.member.isPersonalGithubOwnerIdentity
+        ? `Another Owner cannot reconnect the GitHub App for this personal owner. ${identity} must rejoin as an Owner to reconnect it.`
+        : null,
+    };
+  }
+
+  return {
+    actionLabel: "Cancel invitation",
+    description: "The invitation link will stop working.",
+    pendingLabel: "Canceling...",
+    title: `Cancel invitation for @${confirmation.invitation.githubLogin}?`,
+    variant: "destructive",
+    warning: null,
+  };
+}
+
+function MemberConfirmationDialog({
+  confirmation,
+  onCancelInvitation,
+  onChangeRole,
+  onClose,
+  onLeaveOrganization,
+  onRemoveMember,
+}: {
+  confirmation: MemberConfirmation;
+  onCancelInvitation: OrganizationMembersPageViewProps["onCancelInvitation"];
+  onChangeRole: OrganizationMembersPageViewProps["onChangeRole"];
+  onClose: () => void;
+  onLeaveOrganization: OrganizationMembersPageViewProps["onLeaveOrganization"];
+  onRemoveMember: OrganizationMembersPageViewProps["onRemoveMember"];
+}) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const content = getConfirmationContent(confirmation);
+
+  const confirm = () => {
+    if (pending) {
+      return;
+    }
+    setPending(true);
+    setError(null);
+    let promise: Promise<unknown>;
+    switch (confirmation.kind) {
+      case "change-role":
+        promise = onChangeRole(confirmation.member.membershipId, confirmation.role);
+        break;
+      case "remove":
+        promise = onRemoveMember(confirmation.member.membershipId);
+        break;
+      case "leave":
+        promise = onLeaveOrganization();
+        break;
+      case "cancel-invitation":
+        promise = onCancelInvitation(confirmation.invitation.invitationId);
+        break;
+      default:
+        confirmation satisfies never;
+        return;
+    }
+    void promise.then(onClose).catch((confirmationError: unknown) => {
+      setError(
+        confirmationError instanceof Error
+          ? confirmationError.message
+          : "Could not complete this action. Try again.",
+      );
+      setPending(false);
+    });
+  };
+
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !pending) {
+          onClose();
+        }
+      }}
+    >
+      <AppDialogContent>
+        <DialogHeader>
+          <DialogTitle>{content.title}</DialogTitle>
+          <DialogDescription className="space-y-2">
+            <span className="block">{content.description}</span>
+            {content.warning === null ? null : (
+              <span className="block text-foreground">{content.warning}</span>
+            )}
+          </DialogDescription>
+        </DialogHeader>
+        {error === null ? null : (
+          <p className="text-sm text-destructive" role="alert">
+            {error}
+          </p>
+        )}
+        <DialogFooter>
+          <Button disabled={pending} onClick={onClose} type="button" variant="outline">
+            Cancel
+          </Button>
+          <Button disabled={pending} onClick={confirm} type="button" variant={content.variant}>
+            {pending ? (
+              <>
+                <Loader2 className="animate-spin" />
+                {content.pendingLabel}
+              </>
+            ) : (
+              content.actionLabel
+            )}
+          </Button>
+        </DialogFooter>
+      </AppDialogContent>
+    </Dialog>
+  );
+}
+
+export function OrganizationMembersPageView({
+  githubRelationships,
+  onCancelInvitation,
+  onChangeRole,
+  onCreateInvitation,
+  onLeaveOrganization,
+  onRemoveMember,
+  onResolveInvitationTarget,
+  page,
+}: OrganizationMembersPageViewProps) {
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [confirmation, setConfirmation] = useState<MemberConfirmation | null>(null);
+  const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState<string | null>(null);
+  const relationshipByUserId = new Map(
+    githubRelationships?.map((relationship) => [relationship.userId, relationship.status]),
+  );
+  const pendingInvitations = page.pendingInvitations ?? [];
+
+  const copyPendingInvitation = (invitation: PendingOrganizationInvitation) => {
+    const invitationUrl = `${window.location.origin}/invite/${encodeURIComponent(invitation.code)}`;
+    setCopyError(null);
+    void navigator.clipboard
+      .writeText(invitationUrl)
+      .then(() => setCopiedInvitationId(invitation.invitationId))
+      .catch(() => setCopyError("Could not copy the invitation link. Try again."));
+  };
+
+  return (
+    <main
+      className="container flex min-h-0 flex-1 flex-col py-6"
+      data-testid="organization-members-page"
+    >
+      <div className="flex max-w-3xl items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold @2xl:text-2xl">Members</h1>
+          <p className="mt-2 text-sm text-muted-foreground">
+            {page.organization.githubOwnerType === "organization"
+              ? "Samebase access and GitHub organization membership are separate."
+              : "Samebase access and the GitHub owner account are separate."}
+          </p>
+        </div>
+        {page.viewerRole === "owner" ? (
+          <Button onClick={() => setInviteOpen(true)} type="button">
+            Invite member
+          </Button>
+        ) : null}
+      </div>
+
+      <section aria-labelledby="organization-members-heading" className="mt-6 max-w-3xl">
+        <h2 className="sr-only" id="organization-members-heading">
+          Current members
+        </h2>
+        <ul className="space-y-5">
+          {page.members.map((member) => {
+            const githubRelationship =
+              githubRelationships === null
+                ? "unavailable"
+                : (relationshipByUserId.get(member.userId) ?? null);
+            const statusParts = getMemberStatusParts({
+              githubRelationship,
+              member,
+              showGitHubStatus: page.viewerRole === "owner",
+            });
+            return (
+              <li
+                className="flex items-start gap-3 border-b border-border/50 pb-5 last:border-b-0"
+                data-testid="organization-member-row"
+                key={member.membershipId}
+              >
+                <MemberAvatar avatarUrl={member.avatarUrl} label={member.label} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">
+                    {member.label}
+                    {member.isViewer ? <span className="text-muted-foreground"> (you)</span> : null}
+                  </div>
+                  {member.githubLogin ? (
+                    <div className="truncate text-sm text-muted-foreground">
+                      @{member.githubLogin}
+                    </div>
+                  ) : null}
+                  <div className="mt-1 flex flex-wrap gap-x-2 text-sm text-muted-foreground">
+                    {statusParts.map((part, index) => (
+                      <Fragment key={part}>
+                        {index === 0 ? null : <span aria-hidden="true">·</span>}
+                        <span>{part}</span>
+                      </Fragment>
+                    ))}
+                  </div>
+                  {member.isOnlyActiveOwner ? (
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Add another Samebase owner before you change this role or leave.
+                    </p>
+                  ) : null}
+                </div>
+                <MemberActionsMenu
+                  member={member}
+                  onConfirm={setConfirmation}
+                  viewerRole={page.viewerRole}
+                />
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
+      {page.viewerRole === "owner" && pendingInvitations.length > 0 ? (
+        <section aria-labelledby="pending-invitations-heading" className="mt-8 max-w-3xl">
+          <h2 className="text-base font-semibold" id="pending-invitations-heading">
+            Pending invitations
+          </h2>
+          <ul className="mt-4 space-y-5">
+            {pendingInvitations.map((invitation) => (
+              <li
+                className="flex items-start gap-3 border-b border-border/50 pb-5 last:border-b-0"
+                data-testid="organization-invitation-row"
+                key={invitation.invitationId}
+              >
+                <MemberAvatar
+                  avatarUrl={invitation.githubAvatarUrl}
+                  label={invitation.githubLogin}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">@{invitation.githubLogin}</div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    Expires {formatInvitationExpiry(invitation.expiresAt)}
+                  </div>
+                </div>
+                <div className="flex shrink-0 items-center gap-1">
+                  <Button
+                    onClick={() => copyPendingInvitation(invitation)}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    {copiedInvitationId === invitation.invitationId ? "Copied" : "Copy link"}
+                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild nativeButton>
+                      <Button
+                        aria-label={`@${invitation.githubLogin} invitation actions`}
+                        size="icon-sm"
+                        type="button"
+                        variant="ghost"
+                      >
+                        <MoreHorizontal />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44 rounded-none shadow-none">
+                      <DropdownMenuItem
+                        onSelect={() => setConfirmation({ kind: "cancel-invitation", invitation })}
+                        variant="destructive"
+                      >
+                        Cancel invitation
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </li>
+            ))}
+          </ul>
+          {copyError === null ? null : (
+            <p className="mt-3 text-sm text-destructive" role="alert">
+              {copyError}
+            </p>
+          )}
+        </section>
+      ) : null}
+
+      {inviteOpen ? (
+        <InviteMemberDialog
+          onClose={() => setInviteOpen(false)}
+          onCreateInvitation={onCreateInvitation}
+          onResolveInvitationTarget={onResolveInvitationTarget}
+        />
+      ) : null}
+      {confirmation === null ? null : (
+        <MemberConfirmationDialog
+          confirmation={confirmation}
+          onCancelInvitation={onCancelInvitation}
+          onChangeRole={onChangeRole}
+          onClose={() => setConfirmation(null)}
+          onLeaveOrganization={onLeaveOrganization}
+          onRemoveMember={onRemoveMember}
+        />
+      )}
+    </main>
+  );
+}

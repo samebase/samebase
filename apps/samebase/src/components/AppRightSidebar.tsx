@@ -20,6 +20,7 @@ import {
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import {
   ORGANIZATION_CONNECT_REPO_ROUTE,
+  ORGANIZATION_MEMBERS_ROUTE,
   ORGANIZATION_NEW_APP_ROUTE,
   ORGANIZATION_PROVIDERS_ROUTE,
   ORGANIZATION_SETTINGS_ROUTE,
@@ -145,6 +146,13 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
       aria-label="Organization"
       className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
     >
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_MEMBERS_ROUTE}
+      >
+        Members
+      </Link>
       <Link
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
