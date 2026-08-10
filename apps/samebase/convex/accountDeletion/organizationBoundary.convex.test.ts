@@ -301,7 +301,7 @@ describe("account deletion organization boundary", () => {
     });
   });
 
-  it("removes invitations that identify the deleting user", async () => {
+  it("preserves creator attribution and scrubs an accepted recipient", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const deletingUserId = await ctx.db.insert("users", {
@@ -320,6 +320,11 @@ describe("account deletion organization boundary", () => {
         githubOwnerLogin: "invitation-cleanup-owner",
         githubOwnerLoginNormalized: "invitation-cleanup-owner",
         githubInstallationId: "invitation-cleanup-installation",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: ownerUserId,
+        role: "owner",
       });
       const createdInvitationId = await ctx.db.insert("organizationInvitations", {
         organizationId,
@@ -355,6 +360,8 @@ describe("account deletion organization boundary", () => {
       });
       return {
         deletingUserId,
+        ownerUserId,
+        organizationId,
         createdInvitationId,
         acceptedInvitationId,
         retainedInvitationId,
@@ -368,17 +375,50 @@ describe("account deletion organization boundary", () => {
       );
     }
     expect(done).toBe(true);
-    await expect(
-      t.run(async (ctx) => ({
-        created: await ctx.db.get(ids.createdInvitationId),
-        accepted: await ctx.db.get(ids.acceptedInvitationId),
-        retained: await ctx.db.get(ids.retainedInvitationId),
-      })),
-    ).resolves.toEqual({
-      created: null,
-      accepted: null,
-      retained: expect.objectContaining({ githubAccountId: "803" }),
+    const snapshot = await t.run(async (ctx) => ({
+      created: await ctx.db.get(ids.createdInvitationId),
+      accepted: await ctx.db.get(ids.acceptedInvitationId),
+      retained: await ctx.db.get(ids.retainedInvitationId),
+      acceptedCodeOwner: await ctx.db
+        .query("organizationInvitations")
+        .withIndex("by_code", (query) => query.eq("code", "e".repeat(64)))
+        .unique(),
+    }));
+    expect(snapshot.created).toMatchObject({
+      state: "pending",
+      createdByUserId: ids.deletingUserId,
+      githubAccountId: "801",
     });
+    expect(snapshot.accepted).toMatchObject({
+      state: "accepted_recipient_deleted",
+      organizationId: ids.organizationId,
+      createdByUserId: ids.ownerUserId,
+      acceptedByUserId: ids.deletingUserId,
+      createdAt: 1,
+      acceptedAt: 2,
+    });
+    expect(Object.keys(snapshot.accepted ?? {}).sort()).toEqual([
+      "_creationTime",
+      "_id",
+      "acceptedAt",
+      "acceptedByUserId",
+      "createdAt",
+      "createdByUserId",
+      "organizationId",
+      "state",
+    ]);
+    expect(snapshot.retained).toMatchObject({ githubAccountId: "803" });
+    expect(snapshot.acceptedCodeOwner).toBeNull();
+
+    await expect(
+      t.mutation(internal.organizationMembers.commitInvitation, {
+        userId: ids.ownerUserId,
+        organizationId: ids.organizationId,
+        expectedGithubAccountId: "802",
+        githubLogin: "accepted-target",
+        proposedCode: "a".repeat(64),
+      }),
+    ).resolves.toMatchObject({ state: "created", code: "a".repeat(64) });
   });
 
   it("waits for the deleting member's active work and a fresh GitHub refresh", async () => {

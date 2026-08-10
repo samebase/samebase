@@ -535,6 +535,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const { memberId, ownerId } = await t.run(async (ctx) => {
       const memberId = await ctx.db.insert("users", {
+        state: "active",
         email: "member-authorization@example.com",
         isApproved: true,
       });
@@ -544,6 +545,7 @@ describe("verified GitHub App installation completion", () => {
         githubUserLogin: "member-personal-owner",
       });
       const ownerId = await ctx.db.insert("users", {
+        state: "active",
         email: "remaining-owner@example.com",
         isApproved: true,
       });
@@ -590,6 +592,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const { ownerId, remainingOwnerId } = await t.run(async (ctx) => {
       const ownerId = await ctx.db.insert("users", {
+        state: "active",
         email: "demoted-authorization@example.com",
         isApproved: true,
       });
@@ -599,6 +602,7 @@ describe("verified GitHub App installation completion", () => {
         githubUserLogin: "demoted-personal-owner",
       });
       const remainingOwnerId = await ctx.db.insert("users", {
+        state: "active",
         email: "demotion-remaining-owner@example.com",
         isApproved: true,
       });

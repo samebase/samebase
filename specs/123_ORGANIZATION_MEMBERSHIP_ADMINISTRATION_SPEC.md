@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase product/backend
-- Last updated: 2026-08-10
+- Last updated: 2026-08-11
 - Related:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -32,12 +32,14 @@ accounts. The owner enters one exact GitHub username, creates a link, and shares
 
 ## Invitation Model
 
-One `organizationInvitations` row exists for an exact organization and stable GitHub user ID. Its
-closed state is one of:
+At most one live `organizationInvitations` row exists for an exact organization and stable GitHub
+user ID. Its closed state is one of:
 
-- `pending`, with creator, creation time, expiry, current GitHub login observation, optional avatar
-  URL, and an opaque 256-bit code.
+- `pending`, with creator user ID, creation time, expiry, current GitHub login observation, optional
+  avatar URL, and an opaque 256-bit code.
 - `accepted`, with the same invitation data plus acceptance time and accepting Samebase user ID.
+- `accepted_recipient_deleted`, with organization ID, creator and acceptor user IDs, creation time,
+  and acceptance time. It has no code, GitHub ID, login, avatar, or expiry.
 
 The code is an observable locator. It is not bearer authority. A forwarded link cannot be accepted
 by a different GitHub account. Samebase can keep the raw code so the owner can copy the same link
@@ -47,6 +49,11 @@ An invitation expires seven days after creation. Repeating creation for the same
 recipient returns the same row and code. An expired invitation, or an accepted invitation whose
 membership was later removed, can become a new pending invitation with a new code. Canceling a
 pending invitation deletes it. Repeating a completed action is safe.
+
+When an accepting user deletes their Samebase account, account deletion changes each matching
+`accepted` row to `accepted_recipient_deleted`. This keeps stable Samebase attribution without
+linking the deleted user to GitHub PII. The old link becomes unavailable. A later invitation for the
+same GitHub user creates a new live row.
 
 Before creation, Samebase resolves the entered login through GitHub. Creation resolves it again and
 requires the same stable GitHub user ID that the owner previewed. Samebase rejects GitHub
@@ -113,10 +120,11 @@ Only a current Samebase owner can promote a member, demote an owner, or remove a
 owner cannot use the remove action on their own membership. They must use `Leave organization`.
 Changing to the current role is an idempotent success.
 
-An active owner is a present user who is not deleting and who has normal dashboard access. A role
-change, removal, leave, or account deletion must not leave an organization without an active owner.
-The check and write occur in one mutation. A deleting user does not satisfy the active-owner rule. A
-deleting member can be removed, but a deleting user cannot be promoted.
+An active owner has an `owner` membership and an active `users` row. Approval and temporary release
+gates do not decide owner continuity. A role change, removal, leave, or account deletion must not
+leave an organization without an active owner. The check and write occur in one mutation. A deleting
+or deleted user does not satisfy the active-owner rule. A deleting member can be removed, but a
+deleting user cannot be promoted.
 
 Leave or removal is blocked only while the target user owns a queued or running vault provisioning
 run or vault deletion run in that organization. The membership mutation reads those indexed active
@@ -150,9 +158,13 @@ after the membership subscription updates. MCP calls check current membership an
 that organization on the next call. Preserved organization-scoped preferences are hidden after leave
 and become visible if the user later rejoins.
 
-Account deletion removes invitation records created by the user and accepted invitation records that
-identify the user as recipient. It keeps the organization and all organization-owned data. Future
-organization deletion must remove every invitation for that organization.
+Account deletion preserves organization invitation records and their `createdByUserId` and
+`acceptedByUserId` references. It scrubs the GitHub recipient fields from an accepted invitation
+when that recipient deletes the account. The terminal user row keeps the Samebase references valid
+without retaining PII. A creator presentation uses display name, then normalized account email. A
+deleted creator uses the exact term `Deleted Samebase account`. A missing referenced user is data
+damage and the query fails. Future organization deletion must remove every invitation for that
+organization.
 
 ## Page Behavior
 
@@ -162,7 +174,8 @@ sidebar. It does not use a route-owned scroll container.
 
 The owner action is `Invite member`. Member row actions are `Make Samebase owner`,
 `Make Samebase member`, and `Remove member`. The current user's action is `Leave organization`.
-Pending invitation rows use `Cancel invitation` and keep the copyable link available after reload.
+Pending invitation rows show `Created by <account presentation>`, use `Cancel invitation`, and keep
+the copyable link available after reload. Only owners receive pending invitation data.
 
 Destructive and role actions use confirmation dialogs. Controls are disabled while the mutation is
 pending, the confirm button shows the pending operation, and a mutation error stays in the open
@@ -176,7 +189,7 @@ organization-unavailable state.
 - Importing or filtering a directory of GitHub organization members
 - Invitations that grant the owner role
 - Outside-collaborator repository discovery
-- Expiry extension, invitation history, and a general organization audit log
+- Expiry extension, invitation history UI, and a general organization audit log
 - Custom roles and resource-specific permissions
 - Organization deletion
 
@@ -186,7 +199,8 @@ organization-unavailable state.
   acceptance, scoped approval, expiry, repeat creation, cancellation, replay, and reissue.
 - One Convex membership owner covers visibility authority, role changes, deleting users, last active
   owner, removal, leave, and the two active-work blockers.
-- The account-deletion boundary owner covers invitation cleanup.
+- The account-deletion boundary owner proves that invitation attribution survives account deletion
+  and resolves the deleted creator safely.
 - One frontend interaction owner covers owner and member actions, confirmation and pending states,
   invitation link recovery, and unavailable GitHub status.
 - One invitation-page owner covers signed out, matching account, wrong account, accepted, expired,

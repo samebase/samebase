@@ -1,4 +1,4 @@
-import { Infer, v } from "convex/values";
+import { ConvexError, Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -11,9 +11,9 @@ import {
 import { action, mutation, query } from "./functions";
 import { createGitHubInstallationOctokit } from "./githubApp";
 import {
-  isDashboardCapableUser,
   requireAnotherActiveOrganizationOwner,
   requireOrganizationMembership,
+  requireOrganizationMembershipUser,
   requireOrganizationOwnerAccessContext,
 } from "./organizationAccess";
 import { readGitHubSignInProviderAccountId } from "./githubUserAuthorizations";
@@ -26,6 +26,12 @@ import {
   type GitHubInvitationTarget,
   type GitHubRelationship,
 } from "./organizationMemberGitHub";
+import {
+  readActiveUser,
+  resolveUserReferencePresentation,
+  type NonDeletedUserLifecycleDoc,
+} from "./userLifecycle";
+import { vUserReferencePresentation } from "../shared/userReferencePresentation";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -49,6 +55,7 @@ const vPendingInvitation = object({
   createdAt: number(),
   expiresAt: number(),
   code: string(),
+  createdBy: vUserReferencePresentation,
 });
 
 const vGetPageResult = object({
@@ -82,7 +89,6 @@ const vGetInvitationResult = union(
     state: literal("accepted"),
     organizationOwnerLogin: string(),
     targetLogin: string(),
-    isAcceptedByViewer: boolean(),
     isViewerMember: boolean(),
   }),
   object({ state: literal("unavailable") }),
@@ -202,10 +208,10 @@ async function readGitHubSignInAccount(
 }
 
 function readMemberLabel(args: {
-  user: Doc<"users"> | null;
+  user: NonDeletedUserLifecycleDoc;
   githubLogin: string | undefined;
 }): string {
-  const displayName = args.user?.displayName?.trim();
+  const displayName = args.user.displayName?.trim();
   if (displayName) {
     return displayName;
   }
@@ -256,7 +262,7 @@ async function requireNoTargetOwnedActiveWork(
   args: { organizationId: Id<"organizations">; userId: Id<"users"> },
 ): Promise<void> {
   if (await hasTargetOwnedActiveWork(db, args)) {
-    throw new Error("Wait for this member's active vault work to finish.");
+    throw new ConvexError("Wait for this member's active vault work to finish.");
   }
 }
 
@@ -362,6 +368,7 @@ export const loadGitHubRelationshipsContext = internalQuery({
       .withIndex("by_organization_and_user", (builder) =>
         builder.eq("organizationId", args.organizationId),
       )) {
+      requireOrganizationMembershipUser(await ctx.db.get(membership.userId));
       const githubAccount = await readGitHubSignInAccount(ctx.db, membership.userId);
       members.push({
         userId: membership.userId,
@@ -425,7 +432,7 @@ export const commitInvitation = internalMutation({
         )
         .unique();
       if (membership !== null) {
-        throw new Error(
+        throw new ConvexError(
           "This GitHub account is already linked to a Samebase member of this organization.",
         );
       }
@@ -466,7 +473,7 @@ export const commitInvitation = internalMutation({
         )
         .unique();
       if (acceptedMembership !== null) {
-        throw new Error(
+        throw new ConvexError(
           "This GitHub account is already linked to a Samebase member of this organization.",
         );
       }
@@ -518,8 +525,7 @@ export const getPage = query({
   },
   returns: vGetPageResult,
   handler: async (ctx, args): Promise<GetPageResult> => {
-    requireFiniteNow(args.now);
-    const now = Date.now();
+    const now = requireFiniteNow(args.now);
     const viewerMembership = await requireOrganizationMembership(ctx.db, {
       organizationId: args.organizationId,
       userId: ctx.viewer.userId,
@@ -540,18 +546,15 @@ export const getPage = query({
 
     const memberSources = await Promise.all(
       memberships.map(async (membership) => {
-        const [user, githubAccount] = await Promise.all([
-          ctx.db.get(membership.userId),
-          readGitHubSignInAccount(ctx.db, membership.userId),
-        ]);
+        const user = requireOrganizationMembershipUser(await ctx.db.get(membership.userId));
+        const githubAccount = await readGitHubSignInAccount(ctx.db, membership.userId);
         return { membership, user, githubAccount };
       }),
     );
     const activeOwnerUserIds = new Set(
       memberSources
         .filter(
-          ({ membership, user }) =>
-            membership.role === "owner" && user !== null && isDashboardCapableUser(user),
+          ({ membership, user }) => membership.role === "owner" && readActiveUser(user) !== null,
         )
         .map(({ membership }) => membership.userId),
     );
@@ -559,7 +562,7 @@ export const getPage = query({
     const members = memberSources
       .map(({ membership, user, githubAccount }) => {
         const githubLogin = githubAccount?.githubLogin?.trim() || undefined;
-        const avatarUrl = user?.image?.trim() || undefined;
+        const avatarUrl = user.image?.trim() || undefined;
         const isViewer = membership.userId === ctx.viewer.userId;
         return {
           membershipId: membership._id,
@@ -569,9 +572,7 @@ export const getPage = query({
           ...(githubLogin ? { githubLogin } : {}),
           role: membership.role,
           isViewer,
-          isDeleting:
-            viewerMembership.role === "owner" &&
-            (user === null || user.accountDeletion !== undefined),
+          isDeleting: viewerMembership.role === "owner" && user.state === "deleting",
           isOnlyActiveOwner:
             viewerMembership.role === "owner" &&
             membership.role === "owner" &&
@@ -616,13 +617,24 @@ export const getPage = query({
       .withIndex("by_organization_and_state_and_expires_at", (builder) =>
         builder.eq("organizationId", organization._id).eq("state", "pending").gt("expiresAt", now),
       )) {
+      // @ts-expect-error The compound index fixes state to pending, but Convex does not narrow it.
+      const pendingInvitation: Extract<
+        Doc<"organizationInvitations">,
+        { state: "pending" }
+      > = invitation;
+      const createdBy = resolveUserReferencePresentation(
+        await ctx.db.get(pendingInvitation.createdByUserId),
+      );
       pendingInvitations.push({
-        invitationId: invitation._id,
-        githubLogin: invitation.githubLogin,
-        ...(invitation.githubAvatarUrl ? { githubAvatarUrl: invitation.githubAvatarUrl } : {}),
-        createdAt: invitation.createdAt,
-        expiresAt: invitation.expiresAt,
-        code: invitation.code,
+        invitationId: pendingInvitation._id,
+        githubLogin: pendingInvitation.githubLogin,
+        ...(pendingInvitation.githubAvatarUrl
+          ? { githubAvatarUrl: pendingInvitation.githubAvatarUrl }
+          : {}),
+        createdAt: pendingInvitation.createdAt,
+        expiresAt: pendingInvitation.expiresAt,
+        code: pendingInvitation.code,
+        createdBy,
       });
     }
     pendingInvitations.sort((left, right) => {
@@ -658,8 +670,7 @@ export const getInvitation = query({
   },
   returns: vGetInvitationResult,
   handler: async (ctx, args): Promise<GetInvitationResult> => {
-    requireFiniteNow(args.now);
-    const now = Date.now();
+    const now = requireFiniteNow(args.now);
     if (!/^[0-9a-f]{64}$/.test(args.code)) {
       return { state: "unavailable" };
     }
@@ -668,32 +679,38 @@ export const getInvitation = query({
       .query("organizationInvitations")
       .withIndex("by_code", (builder) => builder.eq("code", code))
       .unique();
-    if (invitation === null || (invitation.state === "pending" && invitation.expiresAt <= now)) {
-      return { state: "unavailable" };
-    }
-    const organization = await ctx.db.get(invitation.organizationId);
-    if (organization === null) {
+    if (
+      invitation === null ||
+      invitation.state === "accepted_recipient_deleted" ||
+      (invitation.state === "pending" && invitation.expiresAt <= now)
+    ) {
       return { state: "unavailable" };
     }
     if (invitation.state === "accepted") {
       const viewerUserId = ctx.viewer.userId;
-      const isAcceptedByViewer =
-        viewerUserId !== null && invitation.acceptedByUserId === viewerUserId;
-      const viewerMembership = isAcceptedByViewer
-        ? await ctx.db
-            .query("organizationMemberships")
-            .withIndex("by_organization_and_user", (builder) =>
-              builder.eq("organizationId", invitation.organizationId).eq("userId", viewerUserId),
-            )
-            .unique()
-        : null;
+      if (viewerUserId === null || invitation.acceptedByUserId !== viewerUserId) {
+        return { state: "unavailable" };
+      }
+      const organization = await ctx.db.get(invitation.organizationId);
+      if (organization === null) {
+        return { state: "unavailable" };
+      }
+      const viewerMembership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (builder) =>
+          builder.eq("organizationId", invitation.organizationId).eq("userId", viewerUserId),
+        )
+        .unique();
       return {
         state: "accepted",
         organizationOwnerLogin: organization.githubOwnerLogin,
         targetLogin: invitation.githubLogin,
-        isAcceptedByViewer,
         isViewerMember: viewerMembership !== null,
       };
+    }
+    const organization = await ctx.db.get(invitation.organizationId);
+    if (organization === null) {
+      return { state: "unavailable" };
     }
     const viewerUserId = ctx.viewer.userId;
     if (viewerUserId === null) {
@@ -741,30 +758,30 @@ export const acceptInvitation = mutation({
       .withIndex("by_code", (builder) => builder.eq("code", code))
       .unique();
     if (invitation === null) {
-      throw new Error("Invitation is unavailable.");
+      throw new ConvexError("Invitation is unavailable.");
+    }
+    if (invitation.state === "accepted_recipient_deleted") {
+      throw new ConvexError("Invitation is unavailable.");
     }
     const organization = await ctx.db.get(invitation.organizationId);
     if (organization === null) {
-      throw new Error("Invitation is unavailable.");
+      throw new ConvexError("Invitation is unavailable.");
     }
-    if (ctx.viewer.user.accountDeletion !== undefined) {
-      throw new Error("A deleting user cannot accept an invitation.");
+    if (invitation.state === "accepted" && invitation.acceptedByUserId !== ctx.viewer.userId) {
+      throw new ConvexError("Invitation is unavailable.");
     }
     const githubAccountId = await readGitHubSignInProviderAccountId(ctx.db, ctx.viewer.userId);
     if (githubAccountId !== invitation.githubAccountId) {
-      throw new Error("This invitation is for a different GitHub account.");
+      throw new ConvexError("This invitation is for a different GitHub account.");
     }
     if (invitation.state === "accepted") {
-      if (invitation.acceptedByUserId !== ctx.viewer.userId) {
-        throw new Error("Invitation is unavailable.");
-      }
       return {
         state: "already_accepted",
         organizationOwnerLogin: organization.githubOwnerLogin,
       };
     }
     if (invitation.expiresAt <= Date.now()) {
-      throw new Error("Invitation has expired.");
+      throw new ConvexError("Invitation has expired.");
     }
 
     const membership = await ctx.db
@@ -815,8 +832,9 @@ export const changeRole = mutation({
     });
     const membership = await ctx.db.get(args.membershipId);
     if (membership === null || membership.organizationId !== args.organizationId) {
-      throw new Error("Organization member not found.");
+      throw new ConvexError("Organization member not found.");
     }
+    const user = requireOrganizationMembershipUser(await ctx.db.get(membership.userId));
     if (membership.role === args.role) {
       return { state: "unchanged" as const, role: membership.role };
     }
@@ -826,9 +844,8 @@ export const changeRole = mutation({
         excludedUserId: membership.userId,
       });
     } else {
-      const user = await ctx.db.get(membership.userId);
-      if (user === null || !isDashboardCapableUser(user)) {
-        throw new Error("Only an active Samebase user can become an Owner.");
+      if (readActiveUser(user) === null) {
+        throw new ConvexError("Only an active Samebase user can become an Owner.");
       }
     }
     await ctx.db.patch(membership._id, { role: args.role });
@@ -853,8 +870,9 @@ export const removeMember = mutation({
       return { state: "already_removed" as const };
     }
     if (membership.userId === ctx.viewer.userId) {
-      throw new Error("Use Leave organization to remove your own membership.");
+      throw new ConvexError("Use Leave organization to remove your own membership.");
     }
+    requireOrganizationMembershipUser(await ctx.db.get(membership.userId));
     if (membership.role === "owner") {
       await requireAnotherActiveOrganizationOwner(ctx.db, {
         organizationId: args.organizationId,
@@ -961,7 +979,7 @@ export const createInvitation = action({
     );
     const { target } = await resolveInvitationTargetFromGitHub(context, args.githubLogin);
     if (target.expectedGithubAccountId !== args.expectedGithubAccountId) {
-      throw new Error("The GitHub account changed. Resolve the invitation target again.");
+      throw new ConvexError("The GitHub account changed. Resolve the invitation target again.");
     }
     return await ctx.runMutation(internal.organizationMembers.commitInvitation, {
       userId: ctx.viewer.userId,
@@ -990,8 +1008,8 @@ export const cancelInvitation = mutation({
     if (invitation === null || invitation.organizationId !== args.organizationId) {
       return { state: "already_canceled" as const };
     }
-    if (invitation.state === "accepted") {
-      throw new Error("An accepted invitation cannot be canceled.");
+    if (invitation.state === "accepted" || invitation.state === "accepted_recipient_deleted") {
+      throw new ConvexError("An accepted invitation cannot be canceled.");
     }
     await ctx.db.delete(invitation._id);
     return { state: "canceled" as const };

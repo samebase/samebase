@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-10
+- Last updated: 2026-08-11
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -50,8 +50,9 @@ flow.
 
 Every organization must always have at least one active owner. Account deletion, membership removal,
 and role changes must reject a transition that would leave an organization without an active owner.
-The first beta has invitation records and owner/member administration. It has no permission arrays
-or custom roles.
+An active owner has an `owner` membership and an active user row. Approval and temporary release
+gates do not decide owner continuity. The first beta has invitation records and owner/member
+administration. It has no permission arrays or custom roles.
 
 ## GitHub Owner And App Installation
 
@@ -278,9 +279,11 @@ All members can read plan and usage. Only owners can start checkout or open subs
 
 Deleting a user is not organization deletion. User deletion removes authentication data, personal
 state, memberships, MCP grants, user-owned GitHub authorizations, and provider credentials connected
-by that user. It leaves the PII-free terminal user row that Spec 113 defines. It does not delete an
-organization, deployment destination, vault, billing row, or another member's data. Deleted and
-deleting users do not count as members or active owners.
+by that user. It leaves the PII-free terminal user row that Spec 113 defines. Organization
+invitations keep their creator and acceptor user references for attribution. An accepted invitation
+whose recipient deletes the account loses its GitHub recipient identity, login, avatar, code, and
+expiry. It does not delete an organization, deployment destination, vault, billing row, or another
+member's data. Deleted and deleting users do not count as members or active owners.
 
 Organization deletion is a separate future product or operator action. GitHub App uninstall also
 does not delete Samebase data.

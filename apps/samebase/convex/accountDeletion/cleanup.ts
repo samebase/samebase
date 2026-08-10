@@ -1,4 +1,4 @@
-import type { Id, TableNames } from "../_generated/dataModel";
+import type { Doc, Id, TableNames } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { v, type Infer } from "convex/values";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../githubUserAuthorizations";
@@ -177,19 +177,28 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
     return await deleteRowsById(ctx, rows);
   },
   organizationInvitations: async (ctx, userId) => {
-    const createdRows = await ctx.db
+    const rows = await ctx.db
       .query("organizationInvitations")
-      .withIndex("by_created_by_user", (query) => query.eq("createdByUserId", userId))
+      .withIndex("by_accepted_by_user_and_state", (query) =>
+        query.eq("acceptedByUserId", userId).eq("state", "accepted"),
+      )
       .take(ACCOUNT_DATA_BATCH_SIZE);
-    if (createdRows.length > 0) {
-      return await deleteRowsById(ctx, createdRows);
+    for (const invitation of rows) {
+      // @ts-expect-error The compound index fixes state to accepted, but Convex does not narrow it.
+      const acceptedInvitation: Extract<
+        Doc<"organizationInvitations">,
+        { state: "accepted" }
+      > = invitation;
+      await ctx.db.replace(acceptedInvitation._id, {
+        state: "accepted_recipient_deleted",
+        organizationId: acceptedInvitation.organizationId,
+        createdByUserId: acceptedInvitation.createdByUserId,
+        acceptedByUserId: acceptedInvitation.acceptedByUserId,
+        createdAt: acceptedInvitation.createdAt,
+        acceptedAt: acceptedInvitation.acceptedAt,
+      });
     }
-
-    const acceptedRows = await ctx.db
-      .query("organizationInvitations")
-      .withIndex("by_accepted_by_user", (query) => query.eq("acceptedByUserId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    return await deleteRowsById(ctx, acceptedRows);
+    return rows.length;
   },
   githubAppSetupStates: async (ctx, userId) => {
     const rows = await ctx.db

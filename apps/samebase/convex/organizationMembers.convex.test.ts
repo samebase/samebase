@@ -31,15 +31,18 @@ async function seedMembers() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const ownerUserId = await ctx.db.insert("users", {
+      state: "active",
       email: "owner@example.invalid",
       displayName: "Owner",
       isApproved: true,
     });
     const inviteeUserId = await ctx.db.insert("users", {
+      state: "active",
       email: "invitee@example.invalid",
       isApproved: false,
     });
     const memberUserId = await ctx.db.insert("users", {
+      state: "active",
       email: "member@example.invalid",
       displayName: "Member",
       isApproved: true,
@@ -201,7 +204,11 @@ describe("organization member lifecycle", () => {
       now: roundedNow,
     });
     expect(ownerPage.pendingInvitations).toEqual([
-      expect.objectContaining({ githubLogin: "pending-target", code }),
+      expect.objectContaining({
+        githubLogin: "pending-target",
+        code,
+        createdBy: { kind: "displayName", label: "Owner" },
+      }),
     ]);
     expect(ownerPage.members.find((member) => member.userId === ids.ownerUserId)).toMatchObject({
       isOnlyActiveOwner: true,
@@ -319,15 +326,23 @@ describe("organization member lifecycle", () => {
         },
         workflow: { state: "started", workflowId: "invitee-deletion", attempt: 1 },
       });
-      await ctx.db.patch(ids.inviteeUserId, {
-        accountDeletion: { state: "deleting", runId, requestedAt: roundedNow },
+      await ctx.db.replace(ids.inviteeUserId, {
+        state: "deleting",
+        email: "invitee@example.invalid",
+        isApproved: false,
+        runId,
+        requestedAt: roundedNow,
       });
     });
     await expect(
       asInvitee.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
     ).rejects.toThrow("Access denied");
     await t.run(async (ctx) => {
-      await ctx.db.patch(ids.inviteeUserId, { accountDeletion: undefined });
+      await ctx.db.replace(ids.inviteeUserId, {
+        state: "active",
+        email: "invitee@example.invalid",
+        isApproved: false,
+      });
     });
 
     await expect(
@@ -349,7 +364,10 @@ describe("organization member lifecycle", () => {
         .unique(),
       invitation: await ctx.db.get(created.invitationId),
     }));
-    expect(snapshot.user?.isApproved).toBe(true);
+    if (snapshot.user?.state !== "active") {
+      throw new Error("Invitation acceptance did not keep an active user.");
+    }
+    expect(snapshot.user.isApproved).toBe(true);
     expect(snapshot.membership?.role).toBe("member");
     expect(snapshot.invitation).toMatchObject({
       state: "accepted",
@@ -362,9 +380,17 @@ describe("organization member lifecycle", () => {
       }),
     ).resolves.toMatchObject({
       state: "accepted",
-      isAcceptedByViewer: true,
       isViewerMember: true,
     });
+    await expect(
+      asOwner.query(api.organizationMembers.getInvitation, {
+        code: created.code,
+        now: roundedNow,
+      }),
+    ).resolves.toEqual({ state: "unavailable" });
+    await expect(
+      asOwner.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
+    ).rejects.toThrow("Invitation is unavailable.");
 
     await asOwner.mutation(api.organizationMembers.removeMember, {
       organizationId: ids.organizationId,
@@ -377,9 +403,25 @@ describe("organization member lifecycle", () => {
       }),
     ).resolves.toMatchObject({
       state: "accepted",
-      isAcceptedByViewer: true,
       isViewerMember: false,
     });
+    await expect(
+      asInvitee.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
+    ).resolves.toEqual({
+      state: "already_accepted",
+      organizationOwnerLogin: "samebase-test-org",
+    });
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("organizationMemberships")
+            .withIndex("by_organization_and_user", (builder) =>
+              builder.eq("organizationId", ids.organizationId).eq("userId", ids.inviteeUserId),
+            )
+            .unique(),
+      ),
+    ).resolves.toBeNull();
     const reissued = await asOwner.action(api.organizationMembers.createInvitation, {
       organizationId: ids.organizationId,
       githubLogin: "invitee-login",
@@ -390,6 +432,102 @@ describe("organization member lifecycle", () => {
       invitationId: created.invitationId,
     });
     expect(reissued.code).not.toBe(created.code);
+  });
+
+  it("retains invitation creator attribution through the deleted user tombstone", async () => {
+    const { asOwner, ids, t } = await seedMembers();
+    const code = "8".repeat(64);
+    const invitationId = await t.run(async (ctx) => {
+      return await ctx.db.insert("organizationInvitations", {
+        organizationId: ids.organizationId,
+        githubAccountId: "408",
+        githubLogin: "creator-target",
+        code,
+        createdByUserId: ids.memberUserId,
+        createdAt: roundedNow,
+        expiresAt: roundedNow + 60_000,
+        state: "pending",
+      });
+    });
+
+    await expect(
+      asOwner.query(api.organizationMembers.getPage, {
+        organizationId: ids.organizationId,
+        now: roundedNow,
+      }),
+    ).resolves.toMatchObject({
+      pendingInvitations: [
+        {
+          invitationId,
+          createdBy: { kind: "displayName", label: "Member" },
+        },
+      ],
+    });
+
+    await t.run(async (ctx) => {
+      const sessionId = await ctx.db.insert("authSessions", {
+        userId: ids.memberUserId,
+        expirationTime: roundedNow + 60_000,
+      });
+      const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
+        state: "running",
+        identity: {
+          state: "active",
+          userId: ids.memberUserId,
+          email: "member@example.invalid",
+        },
+        completionCapability: "8".repeat(64),
+        currentStep: "request_accepted",
+        requestedAt: roundedNow,
+        updatedAt: roundedNow,
+        initiatingSessionId: sessionId,
+        retryCount: 0,
+        outcomes: {
+          providerRevocation: { state: "not_started" },
+          completionEmail: { state: "not_started" },
+        },
+        workflow: { state: "started", workflowId: "creator-deletion", attempt: 1 },
+      });
+      await ctx.db.replace(ids.memberUserId, {
+        state: "deleting",
+        email: "member@example.invalid",
+        displayName: "Member",
+        isApproved: true,
+        runId,
+        requestedAt: roundedNow,
+      });
+    });
+    await expect(
+      asOwner.query(api.organizationMembers.getPage, {
+        organizationId: ids.organizationId,
+        now: roundedNow,
+      }),
+    ).resolves.toMatchObject({
+      pendingInvitations: [{ createdBy: { kind: "displayName", label: "Member" } }],
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.delete(ids.memberMembershipId);
+      await ctx.db.replace(ids.memberUserId, { state: "deleted", deletedAt: roundedNow + 1 });
+    });
+    await expect(
+      asOwner.query(api.organizationMembers.getPage, {
+        organizationId: ids.organizationId,
+        now: roundedNow,
+      }),
+    ).resolves.toMatchObject({
+      pendingInvitations: [{ createdBy: { kind: "deleted", label: "Deleted Samebase account" } }],
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.delete(ids.memberUserId);
+    });
+    await expect(
+      asOwner.query(api.organizationMembers.getPage, {
+        organizationId: ids.organizationId,
+        now: roundedNow,
+      }),
+    ).rejects.toThrow("Samebase user reference is invalid.");
   });
 
   it("keeps an existing role and checks GitHub identity before existing membership", async () => {
@@ -433,7 +571,7 @@ describe("organization member lifecycle", () => {
         code: expiredCode,
         createdByUserId: ids.ownerUserId,
         createdAt: 1,
-        expiresAt: Date.now() - 1,
+        expiresAt: roundedNow - 1,
         state: "pending",
       });
       const cancelInvitationId = await ctx.db.insert("organizationInvitations", {
@@ -450,7 +588,10 @@ describe("organization member lifecycle", () => {
     });
 
     await expect(
-      asInvitee.query(api.organizationMembers.getInvitation, { code: expiredCode, now: 0 }),
+      asInvitee.query(api.organizationMembers.getInvitation, {
+        code: expiredCode,
+        now: roundedNow,
+      }),
     ).resolves.toEqual({ state: "unavailable" });
     await expect(
       asInvitee.mutation(api.organizationMembers.acceptInvitation, { code: expiredCode }),
@@ -625,30 +766,27 @@ describe("organization member lifecycle", () => {
     await expect(
       t.run(async (ctx) => await ctx.db.get(matchingPendingInvitationId)),
     ).resolves.toBeNull();
-    await t.run(async (ctx) => {
+    const inactiveOwnerIds = await t.run(async (ctx) => {
       const unapprovedOwnerId = await ctx.db.insert("users", {
+        state: "active",
         email: "unapproved-owner@example.invalid",
         isApproved: false,
       });
-      await ctx.db.insert("organizationMemberships", {
+      const unapprovedMembershipId = await ctx.db.insert("organizationMemberships", {
         organizationId: ids.organizationId,
         userId: unapprovedOwnerId,
-        role: "owner",
-      });
-      const deletingOwnerId = await ctx.db.insert("users", {
-        email: "deleting-owner@example.invalid",
-        isApproved: true,
+        role: "member",
       });
       const sessionId = await ctx.db.insert("authSessions", {
-        userId: deletingOwnerId,
+        userId: unapprovedOwnerId,
         expirationTime: roundedNow + 60_000,
       });
       const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
         state: "running",
         identity: {
           state: "active",
-          userId: deletingOwnerId,
-          email: "deleting-owner@example.invalid",
+          userId: unapprovedOwnerId,
+          email: "unapproved-owner@example.invalid",
         },
         completionCapability: "d".repeat(64),
         currentStep: "request_accepted",
@@ -660,15 +798,35 @@ describe("organization member lifecycle", () => {
           providerRevocation: { state: "not_started" },
           completionEmail: { state: "not_started" },
         },
-        workflow: { state: "started", workflowId: "owner-deletion", attempt: 1 },
+        workflow: { state: "started", workflowId: "unapproved-owner-deletion", attempt: 1 },
       });
-      await ctx.db.patch(deletingOwnerId, {
-        accountDeletion: { state: "deleting", runId, requestedAt: roundedNow },
-      });
+      return { unapprovedOwnerId, unapprovedMembershipId, runId };
+    });
+    await expect(
+      asOwner.mutation(api.organizationMembers.changeRole, {
+        organizationId: ids.organizationId,
+        membershipId: inactiveOwnerIds.unapprovedMembershipId,
+        role: "owner",
+      }),
+    ).resolves.toEqual({ state: "changed", role: "owner" });
+    await expect(
+      asOwner.mutation(api.organizationMembers.leaveOrganization, {
+        organizationId: ids.organizationId,
+      }),
+    ).resolves.toEqual({ state: "left" });
+
+    await t.run(async (ctx) => {
       await ctx.db.insert("organizationMemberships", {
         organizationId: ids.organizationId,
-        userId: deletingOwnerId,
+        userId: ids.ownerUserId,
         role: "owner",
+      });
+      await ctx.db.replace(inactiveOwnerIds.unapprovedOwnerId, {
+        state: "deleting",
+        email: "unapproved-owner@example.invalid",
+        isApproved: false,
+        runId: inactiveOwnerIds.runId,
+        requestedAt: roundedNow,
       });
     });
     await expect(
@@ -676,6 +834,26 @@ describe("organization member lifecycle", () => {
         organizationId: ids.organizationId,
       }),
     ).rejects.toThrow("An organization must have at least one active owner.");
+  });
+
+  it("rejects a membership that still references a deleted user", async () => {
+    const { asOwner, ids, t } = await seedMembers();
+    await t.run(async (ctx) => {
+      await ctx.db.replace(ids.memberUserId, { state: "deleted", deletedAt: roundedNow });
+    });
+
+    await expect(
+      asOwner.query(api.organizationMembers.getPage, {
+        organizationId: ids.organizationId,
+        now: roundedNow,
+      }),
+    ).rejects.toThrow("Organization membership references a deleted user.");
+    await expect(
+      asOwner.mutation(api.organizationMembers.removeMember, {
+        organizationId: ids.organizationId,
+        membershipId: ids.memberMembershipId,
+      }),
+    ).rejects.toThrow("Organization membership references a deleted user.");
   });
 
   it("rejects an internal invitation-code collision", async () => {
