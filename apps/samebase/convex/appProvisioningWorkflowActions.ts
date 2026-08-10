@@ -4,8 +4,11 @@ import { v, type Infer } from "convex/values";
 import { internalAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireGitHubRepositoryOwnerId, resolveGitHubAppAccess } from "./githubAppAccess";
-import { resolveGitHubUserOctokit } from "./githubUserAuthorizations";
+import {
+  requireGitHubRepositoryOwnerId,
+  resolveGitHubAppAccessForProvisioningRun,
+} from "./githubAppAccess";
+import { resolveGitHubUserOctokitForProvisioningRun } from "./githubUserAuthorizations";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "../shared/repoName";
 import type {
@@ -234,28 +237,32 @@ export const validateCreateAppConnections = internalAction({
     if (!repoName) {
       throw new Error("Repository name is required.");
     }
-    const access = await resolveGitHubAppAccess(ctx, {
+    const access = await resolveGitHubAppAccessForProvisioningRun(ctx, {
+      runId: args.runId,
       userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
+      vaultId: args.vaultId,
     });
     requireMatchingGitHubOwnerLogin({
       expectedOwnerLogin: access.githubOwnerLogin,
       repositoryOwner: args.repositoryOwner,
     });
-    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
+    const vault = await ctx.runQuery(internal.vault.records.getProviderTargetsForProvisioningRun, {
       vaultId: args.vaultId,
       userId: args.userId,
+      runId: args.runId,
     });
-    if (!vault) {
-      throw new Error("Vault not found.");
-    }
-    const providerConfiguration = await ctx.runQuery(
-      internal.organizationProviderCredentials.loadForOrganization,
+    const provider = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForVaultProviderWorkflow,
       {
-        userId: args.userId,
-        organizationId: access.organizationId,
+        authority: {
+          kind: "provisioning",
+          runId: args.runId,
+          userId: args.userId,
+          vaultId: args.vaultId,
+        },
       },
     );
+    const providerConfiguration = provider.configuration;
 
     if (
       providerConfiguration.convexTeam?.teamId !== vault.convexTeamId ||
@@ -292,9 +299,10 @@ export const createGitHubRepository = internalAction({
     if (!repoName) {
       throw new Error("Repository name is required.");
     }
-    const access = await resolveGitHubAppAccess(ctx, {
+    const access = await resolveGitHubAppAccessForProvisioningRun(ctx, {
+      runId: args.runId,
       userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
+      vaultId: args.vaultId,
     });
     const repositoryOwner = requireMatchingGitHubOwnerLogin({
       expectedOwnerLogin: access.githubOwnerLogin,
@@ -323,8 +331,10 @@ export const createGitHubRepository = internalAction({
     const repo = await (async () => {
       switch (access.githubOwnerType) {
         case "user": {
-          const octokit = await resolveGitHubUserOctokit(ctx, {
+          const octokit = await resolveGitHubUserOctokitForProvisioningRun(ctx, {
+            runId: args.runId,
             userId: args.userId,
+            vaultId: args.vaultId,
             githubUserId: access.githubOwnerId,
           });
           await recordApiCall({
@@ -403,9 +413,10 @@ export const validateExistingRepositoryConnection = internalAction({
     });
 
     const repository = readRepositoryCoordinates(args);
-    const access = await resolveGitHubAppAccess(ctx, {
+    const access = await resolveGitHubAppAccessForProvisioningRun(ctx, {
+      runId: args.runId,
       userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
+      vaultId: args.vaultId,
     });
     requireMatchingGitHubOwnerLogin({
       expectedOwnerLogin: access.githubOwnerLogin,
@@ -437,9 +448,10 @@ export const fetchExistingGitHubRepository = internalAction({
       state: "running",
     });
 
-    const access = await resolveGitHubAppAccess(ctx, {
+    const access = await resolveGitHubAppAccessForProvisioningRun(ctx, {
+      runId: args.runId,
       userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
+      vaultId: args.vaultId,
     });
     requireMatchingGitHubOwnerLogin({
       expectedOwnerLogin: access.githubOwnerLogin,
@@ -536,9 +548,10 @@ export const seedStarterRepository = internalAction({
       state: "running",
     });
 
-    const access = await resolveGitHubAppAccess(ctx, {
+    const access = await resolveGitHubAppAccessForProvisioningRun(ctx, {
+      runId: args.runId,
       userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
+      vaultId: args.vaultId,
     });
     requireMatchingGitHubOwnerLogin({
       expectedOwnerLogin: access.githubOwnerLogin,
@@ -689,9 +702,10 @@ export const syncVaultTreeForRepository = internalAction({
       state: "running",
     });
 
-    const access = await resolveGitHubAppAccess(ctx, {
+    const access = await resolveGitHubAppAccessForProvisioningRun(ctx, {
+      runId: args.runId,
       userId: args.userId,
-      target: { kind: "vault", vaultId: args.vaultId },
+      vaultId: args.vaultId,
     });
     requireMatchingGitHubOwnerLogin({
       expectedOwnerLogin: access.githubOwnerLogin,

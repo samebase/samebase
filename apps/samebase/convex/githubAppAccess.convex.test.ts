@@ -77,6 +77,7 @@ describe("viewer GitHub installation health", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "github-installation@example.com",
         isApproved: true,
       });

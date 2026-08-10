@@ -22,6 +22,7 @@ vi.mock("./cloudflareApi/client", async (importOriginal) => {
 });
 
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
 import type { OAuthProvider } from "./oauthState";
@@ -43,6 +44,8 @@ const callbackScenarios = [
     accessChange: "member",
   },
 ] as const;
+type CallbackScenario = (typeof callbackScenarios)[number];
+type TestBackend = ReturnType<typeof makeConvexTest>;
 const storageBoundaryScenarios = [
   {
     completionEventType: "convex-oauth-complete",
@@ -152,6 +155,50 @@ function readCompletionEventType(provider: OAuthProvider) {
   }
 }
 
+async function createCallbackState(
+  t: TestBackend,
+  args: {
+    organizationId: Id<"organizations">;
+    scenario: CallbackScenario;
+    state: string;
+    userId: Id<"users">;
+  },
+) {
+  const now = Date.now();
+  const commonState = {
+    userId: args.userId,
+    organizationId: args.organizationId,
+    state: args.state,
+    createdAt: now,
+    expiresAt: now + 60_000,
+  };
+  switch (args.scenario.provider) {
+    case "convex":
+      await t.mutation(internal.oauthState.createOauthState, {
+        ...commonState,
+        provider: "convex",
+        codeVerifier: "convex-code-verifier",
+      });
+      return;
+    case "cloudflare":
+      await t.mutation(internal.oauthState.createOauthState, {
+        ...commonState,
+        provider: "cloudflare",
+      });
+      return;
+    case "cloudflare_mcp":
+      await t.mutation(internal.oauthState.createOauthState, {
+        ...commonState,
+        provider: "cloudflare_mcp",
+        clientId: "cloudflare-client",
+        codeVerifier: "cloudflare-code-verifier",
+      });
+      return;
+    default:
+      args.scenario satisfies never;
+  }
+}
+
 async function expectCompletionResponse(
   response: Response,
   args: { eventType: string; returnUrl: string },
@@ -188,6 +235,7 @@ describe("provider OAuth callback organization returns", () => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
         return await ctx.db.insert("users", {
+          state: "active",
           email: `${scenario.provider}@example.com`,
           isApproved: true,
         });
@@ -203,39 +251,12 @@ describe("provider OAuth callback organization returns", () => {
         },
       );
       const state = `${scenario.provider}-state`;
-      const now = Date.now();
-      const commonState = {
+      await createCallbackState(t, {
         userId,
         organizationId,
+        scenario,
         state,
-        createdAt: now,
-        expiresAt: now + 60_000,
-      };
-      switch (scenario.provider) {
-        case "convex":
-          await t.mutation(internal.oauthState.createOauthState, {
-            ...commonState,
-            provider: "convex",
-            codeVerifier: "convex-code-verifier",
-          });
-          break;
-        case "cloudflare":
-          await t.mutation(internal.oauthState.createOauthState, {
-            ...commonState,
-            provider: "cloudflare",
-          });
-          break;
-        case "cloudflare_mcp":
-          await t.mutation(internal.oauthState.createOauthState, {
-            ...commonState,
-            provider: "cloudflare_mcp",
-            clientId: "cloudflare-client",
-            codeVerifier: "cloudflare-code-verifier",
-          });
-          break;
-        default:
-          scenario satisfies never;
-      }
+      });
 
       await t.run(async (ctx) => {
         const membership = await ctx.db
@@ -279,11 +300,51 @@ describe("provider OAuth callback organization returns", () => {
   );
 
   it.each(callbackScenarios)(
+    "rejects a stale $provider callback before provider exchange for a deleted user",
+    async (scenario) => {
+      const t = makeConvexTest();
+      const userId = await t.run(async (ctx) => {
+        return await ctx.db.insert("users", {
+          state: "active",
+          email: `${scenario.provider}-deleted@example.test`,
+          isApproved: true,
+        });
+      });
+      const { organizationId } = await t.mutation(
+        internal.organizations.createOrReconnectVerifiedOrganization,
+        {
+          userId,
+          githubOwnerId: `${scenario.provider}-deleted-owner`,
+          githubOwnerType: "organization",
+          githubOwnerLogin: `${scenario.provider}-deleted-owner`,
+          githubInstallationId: `${scenario.provider}-deleted-installation`,
+        },
+      );
+      const state = `${scenario.provider}-deleted-state`;
+      await createCallbackState(t, { organizationId, scenario, state, userId });
+      await t.run(async (ctx) => {
+        await ctx.db.replace(userId, { state: "deleted", deletedAt: Date.now() });
+      });
+      const providerFetch = vi.fn();
+      vi.stubGlobal("fetch", providerFetch);
+
+      const response = await t.fetch(`${scenario.path}?code=provider-code&state=${state}`);
+
+      expect(response.status).toBe(400);
+      await expect(response.text()).resolves.toBe("Invalid OAuth state");
+      expect(providerFetch).not.toHaveBeenCalled();
+      expect(providerMocks.fetchConvexTeamTokenDetails).not.toHaveBeenCalled();
+      expect(providerMocks.requestCloudflareApi).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each(callbackScenarios)(
     "returns $provider provider-declined callbacks to the scoped route",
     async (scenario) => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
         return await ctx.db.insert("users", {
+          state: "active",
           email: `${scenario.provider}-declined@example.com`,
           isApproved: true,
         });
@@ -352,6 +413,7 @@ describe("provider OAuth callback organization returns", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "cloudflare-exchange-failure@example.com",
         isApproved: true,
       });
@@ -411,6 +473,7 @@ describe("provider OAuth callback organization returns", () => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
         return await ctx.db.insert("users", {
+          state: "active",
           email: `${scenario.provider}-success@example.com`,
           isApproved: true,
         });
@@ -515,6 +578,7 @@ describe("provider OAuth callback organization returns", () => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
         return await ctx.db.insert("users", {
+          state: "active",
           email: `${scenario.provider}-storage@example.com`,
           isApproved: true,
         });
@@ -638,6 +702,7 @@ describe("provider OAuth callback organization returns", () => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
         return await ctx.db.insert("users", {
+          state: "active",
           email: `${scenario.provider}-${scenario.accountCase}@example.com`,
           isApproved: true,
         });
@@ -738,6 +803,7 @@ describe("provider OAuth callback organization returns", () => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
         return await ctx.db.insert("users", {
+          state: "active",
           email: `${scenario.provider}-current-grant@example.com`,
           isApproved: true,
         });
@@ -893,6 +959,7 @@ describe("provider OAuth callback organization returns", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "convex-target-mismatch@example.com",
         isApproved: true,
       });
@@ -979,6 +1046,7 @@ describe("provider OAuth callback organization returns", () => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
         return await ctx.db.insert("users", {
+          state: "active",
           email: `${scenario.provider}-target-mismatch@example.com`,
           isApproved: true,
         });

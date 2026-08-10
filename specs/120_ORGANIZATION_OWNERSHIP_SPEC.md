@@ -23,7 +23,8 @@ product resources and independent Samebase workspaces that group several GitHub 
 
 Samebase has three separate identity records:
 
-1. A `users` row is one Samebase account.
+1. An active or deleting `users` row is one Samebase account. A terminal deleted row is only a
+   PII-free attribution target, as Spec 113 defines.
 2. An `organizations` row is one workspace for exactly one GitHub repository owner.
 3. An `organizationMemberships` row grants one user access to one organization.
 
@@ -166,6 +167,12 @@ again and fail closed. Reconnect must prove that the new credential can access t
 account. It does not change that destination. A separate owner action can change a destination only
 after Disconnect and only when the organization has no `vaults` row in any lifecycle condition.
 
+A new Cloudflare credential refresh claim requires an active organization member. After a successful
+claim, the exact expected authorization and lease authorize only the matching replacement. The exact
+lease alone authorizes the matching release, which clears only that lease. This continuation can
+finish after the actor is deleting or deleted only while the unchanged shared credential slot
+exists. It cannot recreate a slot that cleanup removed.
+
 Every vault stores required `convexTeamId` and `cloudflareAccountId` fields. Vault creation copies
 them from the organization in the same transaction. These fields bind all later provider work for
 that vault. They do not store a credential ID.
@@ -216,9 +223,10 @@ credentials are not proof of access.
 
 ## Authorization And Ownership
 
-An organization operation requires both the existing Samebase application access gate and a current
-membership in the resource organization. Provider administration, organization reconnection, and
-billing management additionally require an owner membership.
+An organization operation requires an active Samebase user, the existing Samebase application access
+gate, and a current membership in the resource organization. Provider administration, organization
+reconnection, and billing management additionally require an owner membership. A membership row or
+user row cannot grant access by its existence alone.
 
 Durable ownership is:
 
@@ -234,12 +242,15 @@ Durable ownership is:
 | MCP grant                                  | User delegation across current memberships        |
 | Auth accounts, sessions, profile, approval | User                                              |
 | GitHub App user authorization              | Exact user                                        |
-| Actor provenance and personal UI settings  | User                                              |
+| Retained actor provenance                  | Active or deleted user reference                  |
+| Personal UI settings                       | Active user                                       |
 
 Staged files remain one shared draft for a vault, branch, and path. FileView is not a release gate
 for this rollout. A staged row has no user owner. Parent-vault organization membership authorizes
-access, and `lastEditUserId` records the user who made the latest edit. Multi-writer FileView
-recovery is outside this contract.
+access, and `lastEditUserId` records the user who made the latest edit. When an approved retained
+reference points to a deleted user, the shared safe presentation is `Deleted Samebase account`. A
+missing referenced user is data damage and is not a deleted account. Multi-writer FileView recovery
+is outside this contract.
 
 MCP consent delegates a subset of one user's Samebase access. It does not select or store an
 organization. Each tool call uses the current user and the target resource or GitHub owner, then
@@ -263,8 +274,9 @@ All members can read plan and usage. Only owners can start checkout or open subs
 
 Deleting a user is not organization deletion. User deletion removes authentication data, personal
 state, memberships, MCP grants, user-owned GitHub authorizations, and provider credentials connected
-by that user. It does not delete an organization, deployment destination, vault, billing row, or
-another member's data.
+by that user. It leaves the PII-free terminal user row that Spec 113 defines. It does not delete an
+organization, deployment destination, vault, billing row, or another member's data. Deleted and
+deleting users do not count as members or active owners.
 
 Organization deletion is a separate future product or operator action. GitHub App uninstall also
 does not delete Samebase data.
@@ -353,6 +365,8 @@ The rollout is ready only when focused tests and real manual checks prove:
   ID.
 - Billing and quotas belong to the organization.
 - User deletion does not delete the organization or shared resources.
+- A deleted, deleting, or missing user cannot use a retained membership, session, MCP credential,
+  callback, or provider credential to get organization authority.
 - An MCP grant acts as its Samebase user across all current memberships, and each tool call applies
   current membership and role checks for its target.
 - No caller or test keeps automatic personal organizations or opaque organization URL selection.

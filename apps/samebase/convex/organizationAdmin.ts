@@ -4,6 +4,7 @@ import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { internalMutation } from "./_generated/server";
 import { requireAnotherActiveOrganizationOwner } from "./organizationAccess";
 import { vOrganizationMembershipRole } from "./organizationModel";
+import { readActiveUser } from "./userLifecycle";
 
 const vAddExistingUserResult = v.union(
   v.object({
@@ -41,10 +42,11 @@ export const addExistingUserToOrganization = internalMutation({
     if (user === null) {
       throw new Error("User not found.");
     }
-    if (user.accountDeletion !== undefined) {
+    const activeUser = readActiveUser(user);
+    if (activeUser === null) {
       throw new Error("A deleting user cannot join an organization.");
     }
-    if (user.isApproved !== true) {
+    if (activeUser.isApproved !== true) {
       throw new Error("An unapproved user cannot join an organization.");
     }
     if (organization === null) {
@@ -54,7 +56,7 @@ export const addExistingUserToOrganization = internalMutation({
     const membership = await ctx.db
       .query("organizationMemberships")
       .withIndex("by_organization_and_user", (query) =>
-        query.eq("organizationId", args.organizationId).eq("userId", user._id),
+        query.eq("organizationId", args.organizationId).eq("userId", activeUser._id),
       )
       .unique();
     if (membership !== null) {
@@ -62,7 +64,7 @@ export const addExistingUserToOrganization = internalMutation({
         if (membership.role === "owner" && args.role === "member") {
           await requireAnotherActiveOrganizationOwner(ctx.db, {
             organizationId: args.organizationId,
-            excludedUserId: user._id,
+            excludedUserId: activeUser._id,
           });
         }
         await ctx.db.patch(membership._id, { role: args.role });
@@ -79,7 +81,7 @@ export const addExistingUserToOrganization = internalMutation({
 
     const membershipId = await ctx.db.insert("organizationMemberships", {
       organizationId: args.organizationId,
-      userId: user._id,
+      userId: activeUser._id,
       role: args.role,
     });
 

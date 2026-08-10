@@ -2,8 +2,9 @@ import { authTables } from "@convex-dev/auth/server";
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 import { vAuthAccountLinkIntent } from "./authAccountModel";
+import { vUserLifecycle } from "./userLifecycle";
 
-const { boolean, id, literal, number, object, optional, string, union } = v;
+const { id, number, optional, string } = v;
 const {
   users: _authUsers,
   authAccounts: _authAccounts,
@@ -43,33 +44,6 @@ export const identityTables = {
     .index("userIdAndProvider", ["userId", "provider"])
     .index("providerAndAccountId", ["provider", "providerAccountId"]),
 
-  /** Samebase accounts linked to Convex Auth identities. */
-  users: defineTable({
-    state: optional(literal("active")),
-    name: optional(string()),
-    displayName: optional(string()),
-    image: optional(string()),
-    email: string(),
-    emailVerificationTime: optional(number()),
-    phone: optional(string()),
-    phoneVerificationTime: optional(number()),
-    isAnonymous: optional(boolean()),
-    isApproved: optional(boolean()),
-    accountDeletion: optional(
-      union(
-        object({
-          state: literal("deleting"),
-          runId: id("workflow_accountDeletion_runs"),
-          requestedAt: number(),
-        }),
-        object({
-          state: literal("finalizing"),
-          runId: id("workflow_accountDeletion_runs"),
-          requestedAt: number(),
-        }),
-      ),
-    ),
-  })
-    .index("email", ["email"])
-    .index("phone", ["phone"]),
+  /** Samebase accounts with an explicit terminal lifecycle. */
+  users: defineTable(vUserLifecycle).index("email", ["email"]).index("phone", ["phone"]),
 };

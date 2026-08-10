@@ -14,6 +14,8 @@ import { readVaultDeletionEligibility } from "./eligibility";
 import { isConnectedVault } from "../state";
 import { readVaultDeletionState } from "./state";
 import { requireVaultForUser, requireVaultOrganization } from "../../organizationAccess";
+import { requireActiveVaultDeletionAuthority } from "../../vaultWorkflowAuthority";
+import { readActiveUser } from "../../userLifecycle";
 
 const { boolean, id, literal, object, string, union } = v;
 
@@ -290,7 +292,7 @@ export const createInitialRun = internalMutation({
   }),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
-    if (!user || user.accountDeletion) {
+    if (!user || readActiveUser(user) === null) {
       throw new Error("Account deletion is in progress.");
     }
     const vault = await requireVaultForUser(ctx.db, args);
@@ -360,7 +362,7 @@ export const createRetryRun = internalMutation({
   }),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
-    if (!user || user.accountDeletion) {
+    if (!user || readActiveUser(user) === null) {
       throw new Error("Account deletion is in progress.");
     }
     const failedRun = await ctx.db.get(args.failedRunId);
@@ -509,21 +511,12 @@ export const claimWorkflowRun = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const run = await ctx.db.get(args.runId);
-    if (!run) {
-      throw new Error("Deletion run not found.");
-    }
+    const authority = await requireActiveVaultDeletionAuthority(ctx.db, {
+      runId: args.runId,
+    });
+    const { run } = authority;
     if (run.userId !== args.userId || run.vaultId !== args.vaultId) {
       throw new Error("Deletion run does not match vault.");
-    }
-
-    const vault = await requireVaultForUser(ctx.db, args);
-    if (run.organizationId !== vault.organizationId) {
-      throw new Error("Deletion run does not match vault organization.");
-    }
-    const deletion = readVaultDeletionState(vault);
-    if (deletion.state !== "deleting" || deletion.runId !== args.runId) {
-      throw new Error("Vault deletion gate does not match run.");
     }
 
     const now = Date.now();

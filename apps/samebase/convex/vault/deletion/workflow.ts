@@ -98,7 +98,7 @@ export const deleteVaultWorkflow = workflow.define({
         internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch,
         {
           vaultId: args.vaultId,
-          userId: args.userId,
+          runId: args.runId,
           step: cleanupStep,
         },
         { name: `${cleanupStep}_batch_0` },
@@ -109,7 +109,7 @@ export const deleteVaultWorkflow = workflow.define({
           internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch,
           {
             vaultId: args.vaultId,
-            userId: args.userId,
+            runId: args.runId,
             step: cleanupStep,
           },
           { name: `${cleanupStep}_batch_${batchNumber}` },
@@ -132,7 +132,7 @@ export const deleteVaultWorkflow = workflow.define({
       internal.vault.deletion.cleanup.deleteVaultRow,
       {
         vaultId: args.vaultId,
-        userId: args.userId,
+        runId: args.runId,
       },
       { name: "delete_vault" },
     );

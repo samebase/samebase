@@ -7,12 +7,17 @@ import type { ActionCtx, MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { action } from "./functions";
 import { formatCloudflareOAuthEndpointError } from "./cloudflareMcpOAuth";
-import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealth } from "./mcpTokenHealth";
+import {
+  deriveMcpTokenStatusFromExpiry,
+  vMcpTokenHealth,
+  type McpTokenHealth,
+} from "./mcpTokenHealth";
 import { OAUTH_STATE_TTL_MS, randomToken, readRequiredEnv } from "./oauthUtils";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import { requireCloudflareAuthUsableDuringRefresh, vCloudflareProviderAuth } from "./providerAuth";
 import { connectCloudflareCredential } from "./organizationProviderCredentials";
 import { vOrganizationCloudflareAccount } from "./organizationModel";
+import { vCloudflareTokenRefreshLease } from "./organizationProviderCredentialModel";
 import {
   listCloudflareAccountsForToken,
   resolveCloudflareAccountAfterAuthorization,
@@ -27,6 +32,10 @@ import {
   buildProviderOAuthStoreReturnUrl,
   classifyAuthorizationCallbackError,
 } from "./authorizationCompletion";
+import {
+  vVaultProviderWorkflowAuthority,
+  type VaultProviderWorkflowAuthority,
+} from "./vaultWorkflowAuthority";
 
 const CLOUDFLARE_OAUTH_AUTHORIZATION_URL = "https://dash.cloudflare.com/oauth2/auth";
 const CLOUDFLARE_OAUTH_TOKEN_URL = "https://dash.cloudflare.com/oauth2/token";
@@ -59,6 +68,18 @@ type CloudflareOAuthTokenResponse = {
   expiresIn: number;
 };
 type CloudflareOAuthAuth = Extract<Infer<typeof vCloudflareProviderAuth>, { method: "oauth" }>;
+type CloudflareProviderAuth = Infer<typeof vCloudflareProviderAuth>;
+type CloudflareConnectionAuthority =
+  | {
+      kind: "user";
+      organizationId: Id<"organizations">;
+      userId: Id<"users">;
+    }
+  | {
+      kind: "vault_workflow";
+      authority: VaultProviderWorkflowAuthority;
+    };
+type CloudflareTokenRefreshLease = Infer<typeof vCloudflareTokenRefreshLease>;
 
 export const CLOUDFLARE_OAUTH_SCOPES = [
   "workers-ci.read",
@@ -318,6 +339,134 @@ export const storeCloudflareOauthConnection = internalMutation({
   },
 });
 
+async function loadCloudflareProviderConfiguration(
+  ctx: Pick<ActionCtx, "runQuery">,
+  authority: CloudflareConnectionAuthority,
+) {
+  switch (authority.kind) {
+    case "user":
+      return {
+        organizationId: authority.organizationId,
+        userId: authority.userId,
+        configuration: await ctx.runQuery(
+          internal.organizationProviderCredentials.loadForOrganization,
+          {
+            organizationId: authority.organizationId,
+            userId: authority.userId,
+          },
+        ),
+      };
+    case "vault_workflow":
+      return await ctx.runQuery(
+        internal.organizationProviderCredentials.loadForVaultProviderWorkflow,
+        { authority: authority.authority },
+      );
+    default:
+      authority satisfies never;
+      throw new Error("Cloudflare connection authority is invalid.");
+  }
+}
+
+async function replaceCloudflareCredentialForAuthority(
+  ctx: Pick<ActionCtx, "runMutation">,
+  authority: CloudflareConnectionAuthority,
+  organizationId: Id<"organizations">,
+  args: {
+    expectedAuth: CloudflareProviderAuth;
+    auth: CloudflareProviderAuth;
+    tokenHealth: McpTokenHealth;
+    expectedTokenRefreshLease?: CloudflareTokenRefreshLease;
+  },
+) {
+  switch (authority.kind) {
+    case "user":
+      return await ctx.runMutation(
+        internal.organizationProviderCredentials.replaceCloudflareCredential,
+        {
+          organizationId,
+          userId: authority.userId,
+          ...args,
+        },
+      );
+    case "vault_workflow":
+      return await ctx.runMutation(
+        internal.organizationProviderCredentials.replaceCloudflareCredentialForVaultWorkflow,
+        {
+          authority: authority.authority,
+          ...args,
+        },
+      );
+    default:
+      authority satisfies never;
+      throw new Error("Cloudflare connection authority is invalid.");
+  }
+}
+
+async function claimCloudflareTokenRefreshForAuthority(
+  ctx: Pick<ActionCtx, "runMutation">,
+  authority: CloudflareConnectionAuthority,
+  organizationId: Id<"organizations">,
+  args: {
+    expectedAuth: CloudflareProviderAuth;
+    force?: boolean;
+  },
+) {
+  switch (authority.kind) {
+    case "user":
+      return await ctx.runMutation(
+        internal.organizationProviderCredentials.claimCloudflareTokenRefresh,
+        {
+          organizationId,
+          userId: authority.userId,
+          ...args,
+        },
+      );
+    case "vault_workflow":
+      return await ctx.runMutation(
+        internal.organizationProviderCredentials.claimCloudflareTokenRefreshForVaultWorkflow,
+        {
+          authority: authority.authority,
+          ...args,
+        },
+      );
+    default:
+      authority satisfies never;
+      throw new Error("Cloudflare connection authority is invalid.");
+  }
+}
+
+async function releaseCloudflareTokenRefreshForAuthority(
+  ctx: Pick<ActionCtx, "runMutation">,
+  authority: CloudflareConnectionAuthority,
+  organizationId: Id<"organizations">,
+  args: {
+    expectedTokenRefreshLease: CloudflareTokenRefreshLease;
+    recordLastTokenRefreshAt?: boolean;
+  },
+) {
+  switch (authority.kind) {
+    case "user":
+      return await ctx.runMutation(
+        internal.organizationProviderCredentials.releaseCloudflareTokenRefresh,
+        {
+          organizationId,
+          ...args,
+        },
+      );
+    case "vault_workflow":
+      return await ctx.runMutation(
+        internal.organizationProviderCredentials.releaseCloudflareTokenRefreshForVaultWorkflow,
+        {
+          authority: authority.authority,
+          ...args,
+        },
+      );
+    default:
+      authority satisfies never;
+      throw new Error("Cloudflare connection authority is invalid.");
+  }
+}
+
 const resolvedCloudflareConnectionValidator = object({
   auth: vCloudflareProviderAuth,
   account: vOrganizationCloudflareAccount,
@@ -350,6 +499,186 @@ function isLikelyInvalidCloudflareTokenError(error: unknown): boolean {
   );
 }
 
+async function resolveConnectionForAuthority(
+  ctx: ActionCtx,
+  authority: CloudflareConnectionAuthority,
+  forceRefresh?: boolean,
+): Promise<ResolvedCloudflareConnection | null> {
+  const loaded = await loadCloudflareProviderConfiguration(ctx, authority);
+  const { configuration, organizationId } = loaded;
+  const credential = configuration.cloudflareCredential;
+  if (credential === undefined) {
+    return null;
+  }
+  const account = configuration.cloudflareAccount;
+  if (account === undefined) {
+    throw new Error("Cloudflare credential has no configured account.");
+  }
+
+  if (credential.auth.method === "mcp_oauth") {
+    switch (authority.kind) {
+      case "user":
+        return await ctx.runAction(internal.cloudflareMcpOAuth.resolveConnectionForOrganization, {
+          organizationId,
+          userId: authority.userId,
+          forceRefresh,
+        });
+      case "vault_workflow":
+        return await ctx.runAction(internal.cloudflareMcpOAuth.resolveConnectionForVaultWorkflow, {
+          authority: authority.authority,
+          forceRefresh,
+        });
+      default:
+        authority satisfies never;
+        throw new Error("Cloudflare connection authority is invalid.");
+    }
+  }
+  if (credential.auth.method !== "oauth") {
+    return {
+      auth: credential.auth,
+      account,
+    };
+  }
+
+  const expiresAt = credential.auth.credentialExpiresAt;
+  const checkedAt = Date.now();
+  const derivedTokenHealth: Infer<typeof vMcpTokenHealth> = {
+    status: deriveMcpTokenStatusFromExpiry(expiresAt, checkedAt),
+    checkedAt,
+    expiresAt,
+    source: "expiry_metadata",
+  };
+  const effectiveTokenHealth = credential.tokenHealth ?? derivedTokenHealth;
+  const shouldRefresh =
+    forceRefresh === true ||
+    derivedTokenHealth.status === "expiring_soon" ||
+    derivedTokenHealth.status === "expired";
+  if (!shouldRefresh) {
+    return {
+      auth: credential.auth,
+      account,
+      tokenHealth: effectiveTokenHealth,
+    };
+  }
+
+  const refreshToken = credential.auth.refreshCredential.trim();
+  if (!refreshToken) {
+    const message = "Cloudflare OAuth refresh token is empty. Reconnect Cloudflare and retry.";
+    const tokenHealth: Infer<typeof vMcpTokenHealth> = {
+      status: "invalid",
+      checkedAt: Date.now(),
+      expiresAt,
+      source: "refresh_attempt",
+      errorMessage: message,
+    };
+    await replaceCloudflareCredentialForAuthority(ctx, authority, organizationId, {
+      expectedAuth: credential.auth,
+      auth: credential.auth,
+      tokenHealth,
+    });
+    throw new Error(message);
+  }
+
+  const clientId = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID");
+  const clientSecret = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET");
+  const claim = await claimCloudflareTokenRefreshForAuthority(ctx, authority, organizationId, {
+    expectedAuth: credential.auth,
+    force: forceRefresh,
+  });
+  if (!claim.claimed) {
+    const current = (await loadCloudflareProviderConfiguration(ctx, authority)).configuration;
+    if (current.cloudflareCredential === undefined) {
+      return null;
+    }
+    if (current.cloudflareAccount === undefined) {
+      throw new Error("Cloudflare credential has no configured account.");
+    }
+    requireCloudflareAuthUsableDuringRefresh(current.cloudflareCredential.auth, Date.now());
+    return {
+      auth: current.cloudflareCredential.auth,
+      account: current.cloudflareAccount,
+      tokenHealth: current.cloudflareCredential.tokenHealth,
+    };
+  }
+  const refreshLease = claim.tokenRefreshLease;
+
+  let recordLastTokenRefreshAt = false;
+  try {
+    let refreshed: Awaited<ReturnType<typeof refreshCloudflareOAuthToken>>;
+    try {
+      refreshed = await refreshCloudflareOAuthToken({
+        refreshToken,
+        clientId,
+        clientSecret,
+      });
+    } catch (error) {
+      const invalidToken = isLikelyInvalidCloudflareTokenError(error);
+      const tokenHealth: Infer<typeof vMcpTokenHealth> = {
+        status: invalidToken ? "invalid" : derivedTokenHealth.status,
+        checkedAt: Date.now(),
+        expiresAt,
+        source: invalidToken ? "refresh_attempt" : "runtime_error",
+        errorMessage: sanitizeTokenHealthError(error),
+      };
+      await replaceCloudflareCredentialForAuthority(ctx, authority, organizationId, {
+        expectedAuth: credential.auth,
+        expectedTokenRefreshLease: refreshLease,
+        auth: credential.auth,
+        tokenHealth,
+      });
+      throw new Error("Cloudflare token refresh failed.");
+    }
+
+    const nextExpiresAt = Date.now() + refreshed.expiresIn * 1000;
+    const refreshedAuth: CloudflareOAuthAuth = {
+      method: "oauth",
+      credential: refreshed.accessToken,
+      refreshCredential: refreshed.refreshToken,
+      credentialExpiresAt: nextExpiresAt,
+    };
+    const nowAfterRefresh = Date.now();
+    const refreshedTokenHealth: Infer<typeof vMcpTokenHealth> = {
+      status: deriveMcpTokenStatusFromExpiry(nextExpiresAt, nowAfterRefresh),
+      checkedAt: nowAfterRefresh,
+      expiresAt: nextExpiresAt,
+      source: "refresh_attempt",
+    };
+
+    await replaceCloudflareCredentialForAuthority(ctx, authority, organizationId, {
+      expectedAuth: credential.auth,
+      expectedTokenRefreshLease: refreshLease,
+      auth: refreshedAuth,
+      tokenHealth: refreshedTokenHealth,
+    });
+    recordLastTokenRefreshAt = true;
+    if (authority.kind === "user") {
+      const current = (await loadCloudflareProviderConfiguration(ctx, authority)).configuration;
+      if (current.cloudflareCredential === undefined) {
+        return null;
+      }
+      if (current.cloudflareAccount === undefined) {
+        throw new Error("Cloudflare credential has no configured account.");
+      }
+      return {
+        auth: current.cloudflareCredential.auth,
+        account: current.cloudflareAccount,
+        tokenHealth: current.cloudflareCredential.tokenHealth,
+      };
+    }
+
+    return {
+      auth: refreshedAuth,
+      account,
+      tokenHealth: refreshedTokenHealth,
+    };
+  } finally {
+    await releaseCloudflareTokenRefreshForAuthority(ctx, authority, organizationId, {
+      expectedTokenRefreshLease: refreshLease,
+      recordLastTokenRefreshAt,
+    });
+  }
+}
+
 export const resolveConnectionForOrganization = internalAction({
   args: {
     organizationId: id("organizations"),
@@ -357,187 +686,26 @@ export const resolveConnectionForOrganization = internalAction({
     forceRefresh: optional(boolean()),
   },
   returns: resolveConnectionForOrganizationResultValidator,
-  handler: async (ctx, args): Promise<ResolvedCloudflareConnection | null> => {
-    const configuration = await ctx.runQuery(
-      internal.organizationProviderCredentials.loadForOrganization,
-      {
-        organizationId: args.organizationId,
-        userId: args.userId,
-      },
-    );
-    const credential = configuration.cloudflareCredential;
-    if (credential === undefined) {
-      return null;
-    }
-    const account = configuration.cloudflareAccount;
-    if (account === undefined) {
-      throw new Error("Cloudflare credential has no configured account.");
-    }
+  handler: async (ctx, args): Promise<ResolvedCloudflareConnection | null> =>
+    await resolveConnectionForAuthority(
+      ctx,
+      { kind: "user", organizationId: args.organizationId, userId: args.userId },
+      args.forceRefresh,
+    ),
+});
 
-    if (credential.auth.method === "mcp_oauth") {
-      return await ctx.runAction(
-        internal.cloudflareMcpOAuth.resolveConnectionForOrganization,
-        args,
-      );
-    }
-    if (credential.auth.method !== "oauth") {
-      return {
-        auth: credential.auth,
-        account,
-      };
-    }
-
-    const expiresAt = credential.auth.credentialExpiresAt;
-    const checkedAt = Date.now();
-    const derivedTokenHealth: Infer<typeof vMcpTokenHealth> = {
-      status: deriveMcpTokenStatusFromExpiry(expiresAt, checkedAt),
-      checkedAt,
-      expiresAt,
-      source: "expiry_metadata",
-    };
-    const effectiveTokenHealth = credential.tokenHealth ?? derivedTokenHealth;
-    const shouldRefresh =
-      args.forceRefresh === true ||
-      derivedTokenHealth.status === "expiring_soon" ||
-      derivedTokenHealth.status === "expired";
-    if (!shouldRefresh) {
-      return {
-        auth: credential.auth,
-        account,
-        tokenHealth: effectiveTokenHealth,
-      };
-    }
-
-    const refreshToken = credential.auth.refreshCredential.trim();
-    if (!refreshToken) {
-      const message = "Cloudflare OAuth refresh token is empty. Reconnect Cloudflare and retry.";
-      const tokenHealth: Infer<typeof vMcpTokenHealth> = {
-        status: "invalid",
-        checkedAt: Date.now(),
-        expiresAt,
-        source: "refresh_attempt",
-        errorMessage: message,
-      };
-      await ctx.runMutation(internal.organizationProviderCredentials.replaceCloudflareCredential, {
-        organizationId: args.organizationId,
-        userId: args.userId,
-        expectedAuth: credential.auth,
-        auth: credential.auth,
-        tokenHealth,
-      });
-      throw new Error(message);
-    }
-
-    const clientId = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID");
-    const clientSecret = readRequiredEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET");
-    const claim = await ctx.runMutation(
-      internal.organizationProviderCredentials.claimCloudflareTokenRefresh,
-      {
-        organizationId: args.organizationId,
-        userId: args.userId,
-        expectedAuth: credential.auth,
-        force: args.forceRefresh,
-      },
-    );
-    if (!claim.claimed) {
-      const current = await ctx.runQuery(
-        internal.organizationProviderCredentials.loadForOrganization,
-        {
-          organizationId: args.organizationId,
-          userId: args.userId,
-        },
-      );
-      if (current.cloudflareCredential === undefined) {
-        return null;
-      }
-      if (current.cloudflareAccount === undefined) {
-        throw new Error("Cloudflare credential has no configured account.");
-      }
-      requireCloudflareAuthUsableDuringRefresh(current.cloudflareCredential.auth, Date.now());
-      return {
-        auth: current.cloudflareCredential.auth,
-        account: current.cloudflareAccount,
-        tokenHealth: current.cloudflareCredential.tokenHealth,
-      };
-    }
-    const refreshLease = claim.tokenRefreshLease;
-
-    let releaseExpectedAuth = credential.auth;
-    let recordLastTokenRefreshAt = false;
-    try {
-      let refreshed: Awaited<ReturnType<typeof refreshCloudflareOAuthToken>>;
-      try {
-        refreshed = await refreshCloudflareOAuthToken({
-          refreshToken,
-          clientId,
-          clientSecret,
-        });
-      } catch (error) {
-        const invalidToken = isLikelyInvalidCloudflareTokenError(error);
-        const tokenHealth: Infer<typeof vMcpTokenHealth> = {
-          status: invalidToken ? "invalid" : derivedTokenHealth.status,
-          checkedAt: Date.now(),
-          expiresAt,
-          source: invalidToken ? "refresh_attempt" : "runtime_error",
-          errorMessage: sanitizeTokenHealthError(error),
-        };
-        await ctx.runMutation(
-          internal.organizationProviderCredentials.replaceCloudflareCredential,
-          {
-            organizationId: args.organizationId,
-            userId: args.userId,
-            expectedAuth: credential.auth,
-            expectedTokenRefreshLease: refreshLease,
-            auth: credential.auth,
-            tokenHealth,
-          },
-        );
-        throw new Error("Cloudflare token refresh failed.");
-      }
-
-      const nextExpiresAt = Date.now() + refreshed.expiresIn * 1000;
-      const refreshedAuth: CloudflareOAuthAuth = {
-        method: "oauth",
-        credential: refreshed.accessToken,
-        refreshCredential: refreshed.refreshToken,
-        credentialExpiresAt: nextExpiresAt,
-      };
-      const nowAfterRefresh = Date.now();
-      const refreshedTokenHealth: Infer<typeof vMcpTokenHealth> = {
-        status: deriveMcpTokenStatusFromExpiry(nextExpiresAt, nowAfterRefresh),
-        checkedAt: nowAfterRefresh,
-        expiresAt: nextExpiresAt,
-        source: "refresh_attempt",
-      };
-
-      await ctx.runMutation(internal.organizationProviderCredentials.replaceCloudflareCredential, {
-        organizationId: args.organizationId,
-        userId: args.userId,
-        expectedAuth: credential.auth,
-        expectedTokenRefreshLease: refreshLease,
-        auth: refreshedAuth,
-        tokenHealth: refreshedTokenHealth,
-      });
-      releaseExpectedAuth = refreshedAuth;
-      recordLastTokenRefreshAt = true;
-
-      return {
-        auth: refreshedAuth,
-        account,
-        tokenHealth: refreshedTokenHealth,
-      };
-    } finally {
-      await ctx.runMutation(
-        internal.organizationProviderCredentials.releaseCloudflareTokenRefresh,
-        {
-          organizationId: args.organizationId,
-          expectedAuth: releaseExpectedAuth,
-          expectedTokenRefreshLease: refreshLease,
-          recordLastTokenRefreshAt,
-        },
-      );
-    }
+export const resolveConnectionForVaultWorkflow = internalAction({
+  args: {
+    authority: vVaultProviderWorkflowAuthority,
+    forceRefresh: optional(boolean()),
   },
+  returns: resolveConnectionForOrganizationResultValidator,
+  handler: async (ctx, args): Promise<ResolvedCloudflareConnection | null> =>
+    await resolveConnectionForAuthority(
+      ctx,
+      { kind: "vault_workflow", authority: args.authority },
+      args.forceRefresh,
+    ),
 });
 
 export const getCloudflareOAuthUrl = action({

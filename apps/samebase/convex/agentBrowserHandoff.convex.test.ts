@@ -16,6 +16,7 @@ async function seedGrant(args?: { approved?: boolean; scope?: string }) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
+      state: "active",
       email: "handoff@example.test",
       isApproved: args?.approved ?? true,
       name: "Handoff User",
@@ -126,6 +127,32 @@ describe("agent browser handoff lifecycle", () => {
       ok: false,
       reason: "scope_missing",
     });
+  });
+
+  it("rejects stale handoff access for a deleted user", async () => {
+    const { ids, t } = await seedGrant();
+    const createArgs = await createHandoff(ids.userId);
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.createForMcp, createArgs),
+    ).resolves.toEqual({ ok: true });
+    await t.run(async (ctx) => {
+      await ctx.db.replace(ids.userId, { state: "deleted", deletedAt: now + 1 });
+    });
+
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.redeemForAuth, {
+        tokenHash: createArgs.tokenHash,
+        now: now + 2,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "access_missing" });
+    await expect(
+      t.mutation(internal.agentBrowserHandoff.createForMcp, {
+        ...createArgs,
+        tokenHash: "deleted-user-handoff",
+        createdAt: now + 3,
+        expiresAt: now + 60_003,
+      }),
+    ).resolves.toEqual({ ok: false, reason: "access_missing" });
   });
 
   it("limits handoff creation per grant within the five-minute window", async () => {
@@ -257,6 +284,7 @@ describe("agent browser handoff lifecycle", () => {
     const { ids, t } = await seedGrant();
     const otherUserId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "other@example.test",
         isApproved: true,
       });

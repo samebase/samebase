@@ -452,6 +452,55 @@ export async function resolveConvexProvisioningConnection(
   };
 }
 
+export async function resolveConvexProvisioningConnectionForVaultWorkflow(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    runId: Id<"workflow_vaultProvisioning_runs">;
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    teamId: string;
+  },
+): Promise<{
+  organizationId: Id<"organizations">;
+  convexToken: string;
+  convexAuthMethod: ConvexProvisioningAuthMethod;
+  convexTeamId: string;
+}> {
+  const loaded = await ctx.runQuery(
+    internal.organizationProviderCredentials.loadForVaultProviderWorkflow,
+    {
+      authority: {
+        kind: "provisioning",
+        runId: args.runId,
+        userId: args.userId,
+        vaultId: args.vaultId,
+      },
+    },
+  );
+  const team = loaded.configuration.convexTeam;
+  const credential = loaded.configuration.convexCredential;
+  if (team?.teamId !== args.teamId || credential === undefined) {
+    throw new Error(
+      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
+    );
+  }
+
+  const convexToken = credential.auth.credential.trim();
+  const convexTeamId = team.teamId.trim();
+  if (!convexToken || !convexTeamId) {
+    throw new Error(
+      "Convex connection is required to provision infrastructure. Connect Convex and retry.",
+    );
+  }
+
+  return {
+    organizationId: loaded.organizationId,
+    convexToken,
+    convexAuthMethod: credential.auth.method,
+    convexTeamId,
+  };
+}
+
 export const markWorkflowStartupFailed = internalMutation({
   args: {
     runId: v.id("workflow_vaultProvisioning_runs"),

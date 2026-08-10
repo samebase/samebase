@@ -1,7 +1,10 @@
 import { v, type Infer } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
-import { requireBillingResourceCapacity } from "../billingResourceQuotas";
+import {
+  requireBillingResourceCapacityForAuthority,
+  type BillingResourceAuthority,
+} from "../billingResourceQuotas";
 import { requireVaultForUser, requireVaultOrganization } from "../organizationAccess";
 import {
   internalMutation,
@@ -16,6 +19,7 @@ import {
   recordManagedProviderWrite,
 } from "./infrastructureOperation";
 import { isLiveConnectedVault } from "./state";
+import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
 
 const { array, id, literal, null: nullValue, object, string, union } = v;
 
@@ -87,9 +91,11 @@ async function requireActiveManagedProvisioning(
   vault: Extract<Doc<"vaults">, { state: "connected" }>;
   plan: Doc<"workflow_vaultProvisioning_plans">;
 }> {
-  const vault = await requireConnectedVault(ctx, args);
-  const [run, writeLock, plan] = await Promise.all([
-    ctx.db.get(args.runId),
+  const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+  if (!isLiveConnectedVault(authority.vault)) {
+    throw new Error("Vault not found.");
+  }
+  const [writeLock, plan] = await Promise.all([
     ctx.db
       .query("workflow_vaultProvisioning_writeLocks")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
@@ -99,12 +105,7 @@ async function requireActiveManagedProvisioning(
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .unique(),
   ]);
-  if (
-    !run ||
-    run.vaultId !== args.vaultId ||
-    run.userId !== args.userId ||
-    (run.trigger !== "create" && run.trigger !== "retry")
-  ) {
+  if (authority.run.trigger !== "create" && authority.run.trigger !== "retry") {
     throw new Error("Managed provisioning run does not match vault.");
   }
   if (
@@ -118,7 +119,7 @@ async function requireActiveManagedProvisioning(
   if (!plan) {
     throw new Error("Infrastructure provisioning plan not found for vault.");
   }
-  return { vault, plan };
+  return { vault: authority.vault, plan };
 }
 
 async function requireWorker(
@@ -126,7 +127,6 @@ async function requireWorker(
   vault: Extract<Doc<"vaults">, { state: "connected" }>,
   args: {
     vaultId: Id<"vaults">;
-    userId: Id<"users">;
     workerId: Id<"vaultCloudflareWorkers">;
   },
 ) {
@@ -211,7 +211,7 @@ async function insertWorker(
   vault: Extract<Doc<"vaults">, { state: "connected" }>,
   args: {
     vaultId: Id<"vaults">;
-    userId: Id<"users">;
+    billingAuthority: BillingResourceAuthority;
     accountId: string;
     workerName: string;
     workerTag: string;
@@ -235,11 +235,29 @@ async function insertWorker(
     return existing._id;
   }
 
-  await requireBillingResourceCapacity(ctx, {
-    kind: "cloudflare_worker",
-    organizationId: vault.organizationId,
-    userId: args.userId,
-  });
+  switch (args.billingAuthority.kind) {
+    case "user":
+      await requireBillingResourceCapacityForAuthority(ctx, {
+        authority: args.billingAuthority,
+        kind: "cloudflare_worker",
+      });
+      break;
+    case "vault_provisioning":
+      await requireBillingResourceCapacityForAuthority(ctx, {
+        authority: args.billingAuthority,
+        kind: "cloudflare_worker",
+      });
+      break;
+    case "manual_provider_write":
+      await requireBillingResourceCapacityForAuthority(ctx, {
+        authority: args.billingAuthority,
+        kind: "cloudflare_worker",
+      });
+      break;
+    default:
+      args.billingAuthority satisfies never;
+      throw new Error("Billing resource authority is invalid.");
+  }
 
   return await ctx.db.insert("vaultCloudflareWorkers", {
     vaultId: args.vaultId,
@@ -288,7 +306,11 @@ export const attachWorkers = internalMutation({
       workerAttachmentIds.push(
         await insertWorker(ctx, vault, {
           vaultId: args.vaultId,
-          userId: args.userId,
+          billingAuthority: {
+            kind: "user",
+            organizationId: vault.organizationId,
+            userId: args.userId,
+          },
           ...worker,
         }),
       );
@@ -416,7 +438,16 @@ export const recordManagedWorkerCreated = internalMutation({
         throw new Error("Managed Cloudflare Worker checkpoint already names another Worker.");
       }
       workerId = await insertWorker(ctx, vault, {
-        ...args,
+        vaultId: args.vaultId,
+        billingAuthority: {
+          kind: "vault_provisioning",
+          runId: args.runId,
+          userId: args.userId,
+          vaultId: args.vaultId,
+        },
+        accountId: args.accountId,
+        workerName: args.workerName,
+        workerTag: args.workerTag,
         origin: "provisioned",
       });
     } else {
@@ -433,7 +464,16 @@ export const recordManagedWorkerCreated = internalMutation({
         updatedAt: Date.now(),
       });
       workerId = await insertWorker(ctx, vault, {
-        ...args,
+        vaultId: args.vaultId,
+        billingAuthority: {
+          kind: "vault_provisioning",
+          runId: args.runId,
+          userId: args.userId,
+          vaultId: args.vaultId,
+        },
+        accountId: args.accountId,
+        workerName: args.workerName,
+        workerTag: args.workerTag,
         origin: "provisioned",
       });
     }
@@ -457,14 +497,19 @@ export const recordManualConnectedWorker = internalMutation({
   },
   returns: id("vaultCloudflareWorkers"),
   handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
-    await requireManualProviderWriteCheckpoint(ctx, {
+    const vault = await requireManualProviderWriteCheckpoint(ctx, {
       vaultId: args.vaultId,
       actionId: args.actionId,
+      userId: args.userId,
     });
-    const vault = await requireConnectedVault(ctx, args);
     return await insertWorker(ctx, vault, {
       vaultId: args.vaultId,
-      userId: args.userId,
+      billingAuthority: {
+        kind: "manual_provider_write",
+        actionId: args.actionId,
+        userId: args.userId,
+        vaultId: args.vaultId,
+      },
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
@@ -484,14 +529,19 @@ export const recordManualWorkerCreated = internalMutation({
   },
   returns: id("vaultCloudflareWorkers"),
   handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
-    await requireManualProviderWriteCheckpoint(ctx, {
+    const vault = await requireManualProviderWriteCheckpoint(ctx, {
       vaultId: args.vaultId,
       actionId: args.actionId,
+      userId: args.userId,
     });
-    const vault = await requireConnectedVault(ctx, args);
     return await insertWorker(ctx, vault, {
       vaultId: args.vaultId,
-      userId: args.userId,
+      billingAuthority: {
+        kind: "manual_provider_write",
+        actionId: args.actionId,
+        userId: args.userId,
+        vaultId: args.vaultId,
+      },
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,

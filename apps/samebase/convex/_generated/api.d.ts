@@ -110,6 +110,7 @@ import type * as toolRuntime_mcpScopes from "../toolRuntime/mcpScopes.js";
 import type * as toolRuntime_runtime from "../toolRuntime/runtime.js";
 import type * as usageAttribution from "../usageAttribution.js";
 import type * as userAccess from "../userAccess.js";
+import type * as userLifecycle from "../userLifecycle.js";
 import type * as userPreferenceModel from "../userPreferenceModel.js";
 import type * as users from "../users.js";
 import type * as vault_actions from "../vault/actions.js";
@@ -157,6 +158,7 @@ import type * as vault_pullRequestResources from "../vault/pullRequestResources.
 import type * as vault_records from "../vault/records.js";
 import type * as vault_state from "../vault/state.js";
 import type * as vault_workersBuildsConvexDeployKeyNames from "../vault/workersBuildsConvexDeployKeyNames.js";
+import type * as vaultWorkflowAuthority from "../vaultWorkflowAuthority.js";
 import type * as viewerRole from "../viewerRole.js";
 import type * as workspaceSidebarState from "../workspaceSidebarState.js";
 
@@ -269,6 +271,7 @@ declare const fullApi: ApiFromModules<{
   "toolRuntime/runtime": typeof toolRuntime_runtime;
   usageAttribution: typeof usageAttribution;
   userAccess: typeof userAccess;
+  userLifecycle: typeof userLifecycle;
   userPreferenceModel: typeof userPreferenceModel;
   users: typeof users;
   "vault/actions": typeof vault_actions;
@@ -316,6 +319,7 @@ declare const fullApi: ApiFromModules<{
   "vault/records": typeof vault_records;
   "vault/state": typeof vault_state;
   "vault/workersBuildsConvexDeployKeyNames": typeof vault_workersBuildsConvexDeployKeyNames;
+  vaultWorkflowAuthority: typeof vaultWorkflowAuthority;
   viewerRole: typeof viewerRole;
   workspaceSidebarState: typeof workspaceSidebarState;
 }>;

@@ -12,6 +12,7 @@ describe("Convex organization OAuth", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "member@example.com",
         isApproved: true,
       });

@@ -7,6 +7,7 @@ import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeleti
 import { mutation, query } from "../functions";
 import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
 import { isAdminUser } from "../userAccess";
+import { readUserProfile } from "../userLifecycle";
 import {
   vAccountDeletionEventLevel,
   vAccountDeletionOutcomeSummary,
@@ -112,9 +113,8 @@ export const request = mutation({
       throw new Error("Staff accounts cannot request account deletion.");
     }
 
-    const existingMarker = ctx.viewer.user.accountDeletion;
-    if (existingMarker !== undefined) {
-      const existingRun = await ctx.db.get(existingMarker.runId);
+    if (ctx.viewer.user.state !== "active") {
+      const existingRun = await ctx.db.get(ctx.viewer.user.runId);
       if (
         existingRun === null ||
         existingRun.identity.state !== "active" ||
@@ -189,12 +189,11 @@ export const request = mutation({
       message: "Account deletion was requested.",
       createdAt: now,
     });
-    await ctx.db.patch(ctx.viewer.userId, {
-      accountDeletion: {
-        state: "deleting",
-        runId,
-        requestedAt: now,
-      },
+    await ctx.db.replace(ctx.viewer.userId, {
+      state: "deleting",
+      ...readUserProfile(ctx.viewer.user),
+      runId,
+      requestedAt: now,
     });
 
     const workflowId = await startAccountDeletionWorkflow(ctx, runId);
@@ -223,7 +222,10 @@ export const retry = mutation({
     }
 
     const user = await ctx.db.get(run.identity.userId);
-    if (user === null || user.accountDeletion?.runId !== run._id) {
+    if (user === null) {
+      throw new Error("Account deletion marker is inconsistent.");
+    }
+    if (user.state !== "deleting" || user.runId !== run._id) {
       throw new Error("Account deletion marker is inconsistent.");
     }
 
@@ -244,13 +246,6 @@ export const retry = mutation({
       initiatingSessionId: run.initiatingSessionId,
       retryCount: run.retryCount + 1,
       outcomes: run.outcomes,
-    });
-    await ctx.db.patch(user._id, {
-      accountDeletion: {
-        state: "deleting",
-        runId: run._id,
-        requestedAt: run.requestedAt,
-      },
     });
     await ctx.db.insert("workflow_accountDeletion_events", {
       runId: run._id,
@@ -273,12 +268,11 @@ export const status = query({
   args: {},
   returns: union(v.null(), vAccountDeletionStatus),
   handler: async (ctx) => {
-    const marker = ctx.viewer.user.accountDeletion;
-    if (marker === undefined) {
+    if (ctx.viewer.user.state === "active") {
       return null;
     }
 
-    const run = await ctx.db.get(marker.runId);
+    const run = await ctx.db.get(ctx.viewer.user.runId);
     if (
       run === null ||
       run.identity.state !== "active" ||

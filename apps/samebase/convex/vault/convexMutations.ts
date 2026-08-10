@@ -15,8 +15,12 @@ import {
 } from "../../shared/convexCodeLocation";
 import { normalizeConvexConfigPath } from "../../shared/convexConfigPath";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
-import { requireBillingResourceCapacity } from "../billingResourceQuotas";
+import {
+  requireBillingResourceCapacityForAuthority,
+  type BillingResourceAuthority,
+} from "../billingResourceQuotas";
 import { requireVaultForUser } from "../organizationAccess";
+import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
 import { vVaultProviderResourceOrigin, type VaultProviderResourceOrigin } from "./model";
 import {
   requireUserVaultInfrastructureIdle,
@@ -51,9 +55,11 @@ async function requireActiveManagedProvisioning(
   vault: Extract<Doc<"vaults">, { state: "connected" }>;
   plan: Doc<"workflow_vaultProvisioning_plans">;
 }> {
-  const vault = await requireConnectedVault(ctx, args);
-  const [run, writeLock, plan] = await Promise.all([
-    ctx.db.get(args.runId),
+  const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+  if (!isLiveConnectedVault(authority.vault)) {
+    throw new Error("Vault not found.");
+  }
+  const [writeLock, plan] = await Promise.all([
     ctx.db
       .query("workflow_vaultProvisioning_writeLocks")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
@@ -63,12 +69,7 @@ async function requireActiveManagedProvisioning(
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
       .unique(),
   ]);
-  if (
-    !run ||
-    run.vaultId !== args.vaultId ||
-    run.userId !== args.userId ||
-    (run.trigger !== "create" && run.trigger !== "retry")
-  ) {
+  if (authority.run.trigger !== "create" && authority.run.trigger !== "retry") {
     throw new Error("Managed provisioning run does not match vault.");
   }
   if (
@@ -82,7 +83,7 @@ async function requireActiveManagedProvisioning(
   if (!plan) {
     throw new Error("Infrastructure provisioning plan not found for vault.");
   }
-  return { vault, plan };
+  return { vault: authority.vault, plan };
 }
 
 function readPlanConvexConfigPath(plan: Doc<"workflow_vaultProvisioning_plans">): string {
@@ -123,7 +124,7 @@ async function insertProject(
   vault: Extract<Doc<"vaults">, { state: "connected" }>,
   args: {
     vaultId: Id<"vaults">;
-    userId: Id<"users">;
+    billingAuthority: BillingResourceAuthority;
     teamId: string;
     projectId: string;
     codeLocation: ConvexCodeLocation;
@@ -148,11 +149,29 @@ async function insertProject(
     return existing._id;
   }
 
-  await requireBillingResourceCapacity(ctx, {
-    kind: "convex_project",
-    organizationId: vault.organizationId,
-    userId: args.userId,
-  });
+  switch (args.billingAuthority.kind) {
+    case "user":
+      await requireBillingResourceCapacityForAuthority(ctx, {
+        authority: args.billingAuthority,
+        kind: "convex_project",
+      });
+      break;
+    case "vault_provisioning":
+      await requireBillingResourceCapacityForAuthority(ctx, {
+        authority: args.billingAuthority,
+        kind: "convex_project",
+      });
+      break;
+    case "manual_provider_write":
+      await requireBillingResourceCapacityForAuthority(ctx, {
+        authority: args.billingAuthority,
+        kind: "convex_project",
+      });
+      break;
+    default:
+      args.billingAuthority satisfies never;
+      throw new Error("Billing resource authority is invalid.");
+  }
 
   const commonFields = {
     vaultId: args.vaultId,
@@ -314,7 +333,15 @@ export const recordManagedProjectCreated = internalMutation({
         throw new Error("Managed Convex project checkpoint already names another project.");
       }
       convexProjectId = await insertProject(ctx, vault, {
-        ...args,
+        vaultId: args.vaultId,
+        billingAuthority: {
+          kind: "vault_provisioning",
+          runId: args.runId,
+          userId: args.userId,
+          vaultId: args.vaultId,
+        },
+        teamId: args.teamId,
+        projectId: args.projectId,
         codeLocation: { kind: "config", convexConfigPath },
         origin: "provisioned",
       });
@@ -331,7 +358,15 @@ export const recordManagedProjectCreated = internalMutation({
         updatedAt: Date.now(),
       });
       convexProjectId = await insertProject(ctx, vault, {
-        ...args,
+        vaultId: args.vaultId,
+        billingAuthority: {
+          kind: "vault_provisioning",
+          runId: args.runId,
+          userId: args.userId,
+          vaultId: args.vaultId,
+        },
+        teamId: args.teamId,
+        projectId: args.projectId,
         codeLocation: { kind: "config", convexConfigPath },
         origin: "provisioned",
       });
@@ -356,14 +391,19 @@ export const recordManualProjectCreated = internalMutation({
   },
   returns: id("vaultConvexProjects"),
   handler: async (ctx, args): Promise<Id<"vaultConvexProjects">> => {
-    await requireManualProviderWriteCheckpoint(ctx, {
+    const vault = await requireManualProviderWriteCheckpoint(ctx, {
       vaultId: args.vaultId,
       actionId: args.actionId,
+      userId: args.userId,
     });
-    const vault = await requireConnectedVault(ctx, args);
     return await insertProject(ctx, vault, {
       vaultId: args.vaultId,
-      userId: args.userId,
+      billingAuthority: {
+        kind: "manual_provider_write",
+        actionId: args.actionId,
+        userId: args.userId,
+        vaultId: args.vaultId,
+      },
       teamId: args.teamId,
       projectId: args.projectId,
       codeLocation: args.codeLocation,
@@ -409,7 +449,11 @@ export const attachProjects = internalMutation({
       projectAttachmentIds.push(
         await insertProject(ctx, vault, {
           vaultId: args.vaultId,
-          userId: args.userId,
+          billingAuthority: {
+            kind: "user",
+            organizationId: vault.organizationId,
+            userId: args.userId,
+          },
           ...project,
         }),
       );

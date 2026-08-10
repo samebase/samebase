@@ -13,6 +13,7 @@ import {
 } from "./organizationBilling";
 import { randomToken } from "./oauthUtils";
 import { reconcilePolarCustomerBilling } from "./polarBillingState";
+import { vActiveUserDoc } from "./userLifecycle";
 import {
   canClearPolarCheckoutAfterObservation,
   isDefinitivePolarCheckoutFailure,
@@ -68,11 +69,6 @@ const vPolarCustomerSeed = object({
   email: string(),
 });
 
-const vUserDoc = schema.tables.users.validator.extend({
-  _id: id("users"),
-  _creationTime: number(),
-});
-
 const vOrganizationBillingAccountDoc = schema.tables.organizationBillingAccounts.validator.extend({
   _id: id("organizationBillingAccounts"),
   _creationTime: number(),
@@ -81,7 +77,7 @@ const vOrganizationBillingAccountDoc = schema.tables.organizationBillingAccounts
 const vUserBillingAccount = object({
   account: vOrganizationBillingAccountDoc,
   role: vOrganizationMembershipRole,
-  user: vUserDoc,
+  user: vActiveUserDoc,
 });
 
 function isOrganizationSettingsPath(url: URL, githubOwnerLoginNormalized: string): boolean {
@@ -335,7 +331,6 @@ export const createPolarCheckoutSession = action({
       }
 
       const cleared: boolean = await ctx.runMutation(internal.polarCheckout.clearOpen, {
-        userId,
         organizationId,
         attemptId: reservation.attemptId,
         checkoutId: reservation.checkoutId,
@@ -374,7 +369,6 @@ export const createPolarCheckoutSession = action({
     } catch (error) {
       if (isDefinitivePolarCheckoutFailure(error)) {
         await ctx.runMutation(internal.polarCheckout.clearPending, {
-          userId,
           organizationId,
           attemptId: reservation.attemptId,
         });
@@ -399,7 +393,6 @@ export const createPolarCheckoutSession = action({
     }
 
     const recorded: boolean = await ctx.runMutation(internal.polarCheckout.recordOpen, {
-      userId,
       organizationId,
       attemptId: reservation.attemptId,
       checkoutId: checkout.id,
@@ -518,7 +511,6 @@ export const reconcileViewerBillingFromPolar = action({
             canClearPolarCheckoutAfterObservation({ checkout, observedPlan: state.plan })
           ) {
             await ctx.runMutation(internal.polarCheckout.clearOpen, {
-              userId,
               organizationId,
               attemptId: attempt.attemptId,
               checkoutId: attempt.checkoutId,

@@ -4,6 +4,7 @@ import { internalMutation, internalQuery } from "./_generated/server";
 import { query } from "./functions";
 import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
 import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
+import { readActiveUser } from "./userLifecycle";
 
 const { boolean, id, object, string } = v;
 
@@ -118,7 +119,7 @@ export const createOrReconnectVerifiedOrganization = internalMutation({
     );
 
     const user = await ctx.db.get(args.userId);
-    if (user === null || user.accountDeletion !== undefined) {
+    if (user === null || readActiveUser(user) === null) {
       throw new Error("An active Samebase user is required.");
     }
 

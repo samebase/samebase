@@ -12,7 +12,7 @@ import {
   isCloudflareWorkerNotFoundError,
 } from "../../cloudflareResources";
 import { resolveCloudflareApiTransport } from "../../cloudflareApi/client";
-import { resolveGitHubAppAccess } from "../../githubAppAccess";
+import { resolveGitHubAppAccessForVaultDeletionRun } from "../../githubAppAccess";
 import { readRetainedSnapshot } from "./runs";
 import { type VaultDeletionEventLevel, type VaultDeletionStep } from "./model";
 
@@ -79,10 +79,9 @@ export const deleteCloudflare = internalAction({
       throw new Error("Cloudflare connection is required to remove resources.");
     }
     const connection = await ctx.runAction(
-      internal.cloudflareOAuth.resolveConnectionForOrganization,
+      internal.cloudflareOAuth.resolveConnectionForVaultWorkflow,
       {
-        organizationId: run.organizationId,
-        userId: run.userId,
+        authority: { kind: "deletion", runId: args.runId },
       },
     );
     if (!connection || connection.account.accountId !== firstWorker.accountId) {
@@ -128,17 +127,16 @@ export const deleteConvex = internalAction({
     if (plan.convex.projects.length === 0) {
       throw new Error("Convex deletion plan must include at least one project.");
     }
+    const provider = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForVaultProviderWorkflow,
+      { authority: { kind: "deletion", runId: args.runId } },
+    );
     for (const project of plan.convex.projects) {
-      const connection = await ctx.runQuery(
-        internal.organizationProviderCredentials.loadConvexForOrganizationTeam,
-        {
-          organizationId: run.organizationId,
-          teamId: project.teamId,
-          userId: run.userId,
-        },
-      );
-      const credential = connection?.credential;
-      if (!connection || !credential) {
+      const credential = provider.configuration.convexCredential;
+      if (
+        provider.configuration.convexTeam?.teamId !== project.teamId ||
+        credential === undefined
+      ) {
         throw new Error("Convex connection is required to remove resources.");
       }
       try {
@@ -177,9 +175,8 @@ export const deleteGitHubRepository = internalAction({
       return null;
     }
 
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId: run.userId,
-      target: { kind: "organization", organizationId: run.organizationId },
+    const githubAccess = await resolveGitHubAppAccessForVaultDeletionRun(ctx, {
+      runId: args.runId,
     });
     try {
       const repository = await githubAccess.octokit.rest.repos.get({

@@ -20,11 +20,13 @@ async function seedGrants() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const ownerId = await ctx.db.insert("users", {
+      state: "active",
       email: "owner@example.test",
       isApproved: true,
       name: "Owner",
     });
     const otherUserId = await ctx.db.insert("users", {
+      state: "active",
       email: "other@example.test",
       isApproved: true,
       name: "Other",

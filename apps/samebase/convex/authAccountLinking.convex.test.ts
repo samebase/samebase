@@ -39,6 +39,7 @@ function oauthArgs(args: {
 
 async function insertUser(ctx: MutationCtx, email: string): Promise<Id<"users">> {
   return await ctx.db.insert("users", {
+    state: "active",
     email,
     emailVerificationTime: Date.now(),
     isApproved: true,
@@ -183,8 +184,8 @@ describe("Samebase OAuth account linking", () => {
       email: "new-github@example.com",
       name: "OAuth User",
       image: "https://example.com/avatar.png",
+      emailVerificationTime: expect.any(Number),
     });
-    expect(user?.emailVerificationTime).toEqual(expect.any(Number));
   });
 
   it("links GitHub to the user whose current session has a valid intent", async () => {
@@ -503,10 +504,74 @@ describe("Samebase OAuth account linking", () => {
     );
   });
 
-  it("rejects sign-in for an account whose deletion is finalizing", async () => {
+  it("rejects a known provider identity whose Samebase user is deleted", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
-      const userId = await insertUser(ctx, "finalizing@example.com");
+      const userId = await insertUser(ctx, "deleted-provider@example.com");
+      await ctx.db.insert("authAccounts", {
+        userId,
+        provider: "google",
+        providerAccountId: "google-deleted-provider",
+        emailVerified: "deleted-provider@example.com",
+      });
+      await ctx.db.replace(userId, { state: "deleted", deletedAt: Date.now() });
+      return userId;
+    });
+
+    await expect(
+      t.run(async (ctx) =>
+        createOrUpdateSamebaseUser(
+          ctx,
+          oauthArgs({
+            provider: "google",
+            providerAccountId: "google-deleted-provider",
+            email: "deleted-provider@example.com",
+            existingSessionId: null,
+            existingUserId: userId,
+          }),
+        ),
+      ),
+    ).rejects.toThrow("Account is unavailable.");
+  });
+
+  it("creates a new user ID when a deleted person signs up again", async () => {
+    const t = makeConvexTest();
+    const deletedUserId = await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "returning@example.com");
+      await ctx.db.replace(userId, { state: "deleted", deletedAt: 1 });
+      return userId;
+    });
+
+    const newUserId = await t.run(async (ctx) =>
+      createOrUpdateSamebaseUser(
+        ctx,
+        oauthArgs({
+          provider: "github",
+          providerAccountId: "github-returning",
+          email: "returning@example.com",
+          existingSessionId: null,
+          existingUserId: null,
+        }),
+      ),
+    );
+
+    expect(newUserId).not.toBe(deletedUserId);
+    const rows = await t.run(async (ctx) => await ctx.db.query("users").collect());
+    expect(rows).toHaveLength(2);
+    expect(rows.find((row) => row._id === deletedUserId)).toMatchObject({
+      state: "deleted",
+      deletedAt: 1,
+    });
+    expect(rows.find((row) => row._id === newUserId)).toMatchObject({
+      state: "active",
+      email: "returning@example.com",
+    });
+  });
+
+  it("rejects sign-in for a deleting account", async () => {
+    const t = makeConvexTest();
+    const userId = await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "deleting-sign-in@example.com");
       const initiatingSessionId = await ctx.db.insert("authSessions", {
         userId,
         expirationTime: Date.now() + 60_000,
@@ -517,7 +582,7 @@ describe("Samebase OAuth account linking", () => {
         identity: {
           state: "active",
           userId,
-          email: "finalizing@example.com",
+          email: "deleting-sign-in@example.com",
         },
         completionCapability: "c".repeat(64),
         currentStep: "request_accepted",
@@ -529,20 +594,18 @@ describe("Samebase OAuth account linking", () => {
           providerRevocation: { state: "not_started" },
           completionEmail: { state: "not_started" },
         },
-        workflow: { state: "started", workflowId: "finalizing-workflow", attempt: 1 },
+        workflow: { state: "started", workflowId: "deleting-sign-in-workflow", attempt: 1 },
       });
       await ctx.db.patch(userId, {
-        accountDeletion: {
-          state: "finalizing",
-          runId,
-          requestedAt: now,
-        },
+        state: "deleting",
+        runId,
+        requestedAt: now,
       });
       await ctx.db.insert("authAccounts", {
         userId,
         provider: "google",
-        providerAccountId: "google-finalizing",
-        emailVerified: "finalizing@example.com",
+        providerAccountId: "google-deleting-sign-in",
+        emailVerified: "deleting-sign-in@example.com",
       });
       return userId;
     });
@@ -553,13 +616,13 @@ describe("Samebase OAuth account linking", () => {
           ctx,
           oauthArgs({
             provider: "google",
-            providerAccountId: "google-finalizing",
-            email: "finalizing@example.com",
+            providerAccountId: "google-deleting-sign-in",
+            email: "deleting-sign-in@example.com",
             existingSessionId: null,
             existingUserId: userId,
           }),
         ),
       ),
-    ).rejects.toThrow("Account deletion is already finalizing.");
+    ).rejects.toThrow("Account deletion is in progress.");
   });
 });

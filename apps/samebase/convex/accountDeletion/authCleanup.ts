@@ -288,25 +288,26 @@ export const finishIdentityDeletion = internalMutation({
 
     const user = await ctx.db.get(run.identity.userId);
 
-    if (
-      user === null ||
-      user.accountDeletion?.state !== "finalizing" ||
-      user.accountDeletion.runId !== run._id
-    ) {
+    if (user === null) {
+      throw new Error("Account deletion is not ready to finalize.");
+    }
+    if (user.state !== "deleting" || user.runId !== run._id) {
       throw new Error("Account deletion is not ready to finalize.");
     }
 
     await assertIdentityDeletionReady(ctx, run);
 
     const initiatingSession = await ctx.db.get(run.initiatingSessionId);
+    const completedAt = Date.now();
 
     if (initiatingSession?.userId === run.identity.userId) {
       await ctx.db.delete(initiatingSession._id);
     }
 
-    await ctx.db.delete(run.identity.userId);
-
-    const completedAt = Date.now();
+    await ctx.db.replace(run.identity.userId, {
+      state: "deleted",
+      deletedAt: completedAt,
+    });
 
     await ctx.db.replace(run._id, {
       identity: { state: "scrubbed" },

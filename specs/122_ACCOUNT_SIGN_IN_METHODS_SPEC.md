@@ -13,16 +13,18 @@
 
 ## Current Contract
 
-A `users` row is one Samebase account. Google, GitHub, and password are sign-in methods for that
-account. An `authAccounts` row stores one stable provider identity. The Samebase user ID is the
-product identity. An email address or GitHub login is not the product identity.
+An active or deleting `users` row is one Samebase account. Google, GitHub, and password are sign-in
+methods for that account. An `authAccounts` row stores one stable provider identity. The Samebase
+user ID is the product identity. An email address or GitHub login is not the product identity. Spec
+113 defines the terminal PII-free deleted row.
 
-`users.email` is one stable, verified Samebase account email. One normalized account email belongs
-to at most one active Samebase account. It is not recomputed from the user's connected sign-in
-methods. Each OAuth `authAccounts.emailVerified` value is the latest verified email observation for
-that sign-in method. Settings shows the stable account email separately from these method-specific
-observations. A GitHub `authAccounts.githubLogin` value is the latest login observation for that
-GitHub sign-in identity. It can change without changing the stable `providerAccountId`.
+`users.email` is one stable, verified email on a non-deleted Samebase account. One normalized
+account email belongs to at most one active Samebase account. A deleted row has no email. The email
+is not recomputed from the user's connected sign-in methods. Each OAuth `authAccounts.emailVerified`
+value is the latest verified email observation for that sign-in method. Settings shows the stable
+account email separately from these method-specific observations. A GitHub
+`authAccounts.githubLogin` value is the latest login observation for that GitHub sign-in identity.
+It can change without changing the stable `providerAccountId`.
 
 Google and GitHub sign-in require a verified provider email. The Google observation is the verified
 email returned for the selected Google account. The GitHub observation is only the current primary,
@@ -40,6 +42,12 @@ Signed-out OAuth resolution follows these rules:
 3. A new provider ID whose current provider email observation matches no stable `users.email` value
    creates a Samebase account.
 4. A later provider email change does not change the Samebase account email.
+
+A known provider identity can create a session only for an active account. Deleting and deleted
+reject session creation. The existing initiating session keeps only account-deletion access until
+the workflow removes it. OAuth Connect and account linking require active. A deleted row cannot
+match email or provider identity because account deletion removes those values and auth accounts. If
+the same person signs up later, Samebase creates a new active row with a new user ID.
 
 For an unlinked GitHub provider ID, changing the primary GitHub email changes the email observation
 used by the next signed-out attempt. If that new primary email is unique in Samebase, the attempt
@@ -136,7 +144,7 @@ behaviors before the patch changes or is removed.
 
 - `authAccountLinking.convex.test.ts` covers known identities, stable account email, explicit
   session-bound linking, missing and expired sessions, cross-table identity conflicts, and account
-  deletion.
+  deletion. It also covers terminal rejection and later signup with a new user ID.
 - `githubSignIn.test.ts` covers the verified primary email parser, exact OAuth parameters, and
   provider API failures.
 - `githubUserAuthorizations.convex.test.ts` covers target-scoped status, revocation, GitHub sign-in,

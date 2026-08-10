@@ -9,6 +9,7 @@ import {
 } from "../shared/accessModel";
 import { isMcpOauthClientInactive } from "./mcp/client";
 import { parseScopeTokens } from "./mcp/scopes";
+import { readNonDeletedUser } from "./userLifecycle";
 import { readViewerRoleForUser } from "./viewerRole";
 
 const { id, literal, number, object, optional, string, union } = v;
@@ -67,10 +68,14 @@ async function canUserCreateBrowserHandoff(ctx: Pick<MutationCtx, "db">, userId:
   if (!user) {
     return false;
   }
+  const lifecycle = readNonDeletedUser(user);
+  if (lifecycle === null) {
+    return false;
+  }
 
   return canAccess(
     ACCESS_BROWSER_LOGIN_HANDOFF,
-    readAccessKeysForRole(readViewerRoleForUser(user)),
+    readAccessKeysForRole(readViewerRoleForUser(lifecycle)),
   );
 }
 

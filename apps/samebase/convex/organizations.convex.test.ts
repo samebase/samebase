@@ -8,6 +8,7 @@ describe("GitHub-backed organizations", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "pending@example.com",
         isApproved: false,
       });
@@ -24,6 +25,7 @@ describe("GitHub-backed organizations", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "owner@example.com",
         isApproved: true,
       });
@@ -128,6 +130,7 @@ describe("GitHub-backed organizations", () => {
     const t = makeConvexTest();
     const ownerUserId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "owner-return@example.com",
         isApproved: true,
       });
@@ -153,6 +156,7 @@ describe("GitHub-backed organizations", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "sorted-owner@example.com",
         isApproved: true,
       });
@@ -185,6 +189,7 @@ describe("GitHub-backed organizations", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "personal-capability@example.com",
         isApproved: true,
       });
@@ -260,10 +265,12 @@ describe("GitHub-backed organizations", () => {
     const t = makeConvexTest();
     const { ownerUserId, secondUserId } = await t.run(async (ctx) => {
       const ownerUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "owner@example.com",
         isApproved: true,
       });
       const secondUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "member@example.com",
         isApproved: true,
       });
@@ -348,16 +355,18 @@ describe("GitHub-backed organizations", () => {
 
   it("does not allow an organization to lose its last active owner", async () => {
     const t = makeConvexTest();
-    const { firstUserId } = await t.run(async (ctx) => {
+    const { firstUserId, secondUserId } = await t.run(async (ctx) => {
       const firstUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "first-owner@example.com",
         isApproved: true,
       });
-      await ctx.db.insert("users", {
+      const secondUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "second-owner@example.com",
         isApproved: true,
       });
-      return { firstUserId };
+      return { firstUserId, secondUserId };
     });
     const organization = await t.mutation(
       internal.organizations.createOrReconnectVerifiedOrganization,
@@ -390,5 +399,106 @@ describe("GitHub-backed organizations", () => {
         userEmail: "first-owner@example.com",
       }),
     ).resolves.toMatchObject({ state: "updated" });
+
+    await t.mutation(internal.organizationAdmin.addExistingUserToOrganization, {
+      organizationId: organization.organizationId,
+      role: "owner",
+      userEmail: "first-owner@example.com",
+    });
+    const runId = await t.run(async (ctx) => {
+      const initiatingSessionId = await ctx.db.insert("authSessions", {
+        userId: secondUserId,
+        expirationTime: Date.now() + 60_000,
+      });
+      return await ctx.db.insert("workflow_accountDeletion_runs", {
+        state: "running",
+        identity: {
+          state: "active",
+          userId: secondUserId,
+          email: "second-owner@example.com",
+        },
+        completionCapability: "d".repeat(64),
+        currentStep: "request_accepted",
+        requestedAt: 1,
+        updatedAt: 1,
+        initiatingSessionId,
+        retryCount: 0,
+        outcomes: {
+          providerRevocation: { state: "not_started" },
+          completionEmail: { state: "not_started" },
+        },
+        workflow: { state: "started", workflowId: "active-owner-matrix", attempt: 1 },
+      });
+    });
+    const expectFirstOwnerDemotionRejected = async () => {
+      await expect(
+        t.mutation(internal.organizationAdmin.addExistingUserToOrganization, {
+          organizationId: organization.organizationId,
+          role: "member",
+          userEmail: "first-owner@example.com",
+        }),
+      ).rejects.toThrowError("An organization must have at least one active owner.");
+    };
+
+    await t.run(async (ctx) => {
+      await ctx.db.replace(secondUserId, {
+        state: "deleting",
+        email: "second-owner@example.com",
+        isApproved: true,
+        runId,
+        requestedAt: 1,
+      });
+    });
+    await expectFirstOwnerDemotionRejected();
+    await t.run(async (ctx) => {
+      await ctx.db.replace(secondUserId, { state: "deleted", deletedAt: 2 });
+    });
+    await expectFirstOwnerDemotionRejected();
+  });
+
+  it("does not grant organization authority from stale membership rows", async () => {
+    const t = makeConvexTest();
+    const { deletedUserId, missingUserId, organizationId } = await t.run(async (ctx) => {
+      const deletedUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "deleted-member@example.test",
+        isApproved: true,
+      });
+      const missingUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "missing-member@example.test",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {
+        githubOwnerId: "stale-membership-owner",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "stale-membership-owner",
+        githubOwnerLoginNormalized: "stale-membership-owner",
+        githubInstallationId: "stale-membership-installation",
+      });
+      for (const userId of [deletedUserId, missingUserId]) {
+        await ctx.db.insert("organizationMemberships", {
+          organizationId,
+          userId,
+          role: "owner",
+        });
+      }
+      await ctx.db.replace(deletedUserId, { state: "deleted", deletedAt: 1 });
+      await ctx.db.delete(missingUserId);
+      return { deletedUserId, missingUserId, organizationId };
+    });
+
+    await expect(
+      t.query(internal.organizationAccess.requireOrganizationIdForUser, {
+        organizationId,
+        userId: deletedUserId,
+      }),
+    ).rejects.toThrow("An active Samebase user is required.");
+    await expect(
+      t.query(internal.organizationAccess.requireOrganizationIdForUser, {
+        organizationId,
+        userId: missingUserId,
+      }),
+    ).rejects.toThrow("Organization actor user reference is invalid.");
   });
 });

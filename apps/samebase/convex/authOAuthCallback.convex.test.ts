@@ -107,6 +107,7 @@ describe("OAuth callback errors", () => {
     const t = makeConvexTest();
     const { sessionId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "missing-intent@example.com",
         emailVerificationTime: Date.now(),
         isApproved: true,
@@ -158,6 +159,7 @@ describe("OAuth callback errors", () => {
     const t = makeConvexTest();
     await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "octocat@github.com",
         emailVerificationTime: Date.now(),
       });
@@ -186,6 +188,7 @@ describe("OAuth callback errors", () => {
     const t = makeConvexTest();
     const { sessionId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "callback-race@example.com",
         emailVerificationTime: Date.now(),
         isApproved: true,

@@ -7,10 +7,7 @@ import {
   type DatabaseReader,
   type MutationCtx,
 } from "./_generated/server";
-import {
-  requireOrganizationAccessContext,
-  requireOrganizationMembership,
-} from "./organizationAccess";
+import { requireOrganizationMembership } from "./organizationAccess";
 import { vOrganizationCloudflareAccount, vOrganizationConvexTeam } from "./organizationModel";
 import {
   vCloudflareProviderCredential,
@@ -23,12 +20,17 @@ import {
   vCloudflareProviderAuth,
   vStandardProviderAuth,
 } from "./providerAuth";
-import { vMcpTokenHealth } from "./mcpTokenHealth";
+import { vMcpTokenHealth, type McpTokenHealth } from "./mcpTokenHealth";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import {
   CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS,
   CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
 } from "../shared/cloudflareTokenRefresh";
+import { readActiveUser } from "./userLifecycle";
+import {
+  requireVaultProviderWorkflowAuthority,
+  vVaultProviderWorkflowAuthority,
+} from "./vaultWorkflowAuthority";
 
 const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
@@ -39,6 +41,11 @@ const vOrganizationProviderConfiguration = object({
   cloudflareCredential: optional(vCloudflareProviderCredential),
 });
 export type OrganizationProviderConfiguration = Infer<typeof vOrganizationProviderConfiguration>;
+
+const vCloudflareTokenRefreshConfiguration = object({
+  cloudflareAccount: optional(vOrganizationCloudflareAccount),
+  cloudflareCredential: vCloudflareProviderCredential,
+});
 
 export const vConnectedProviderCredential = union(
   object({
@@ -54,17 +61,24 @@ export const vConnectedProviderCredential = union(
 );
 export type ConnectedProviderCredential = Infer<typeof vConnectedProviderCredential>;
 
+async function requireActiveOrganizationProviderUser(
+  db: DatabaseReader,
+  userId: Id<"users">,
+): Promise<void> {
+  const user = await db.get(userId);
+  if (user === null || readActiveUser(user) === null) {
+    throw new Error("Provider credentials are unavailable during account deletion.");
+  }
+}
+
 async function requireActiveOrganizationProviderMember(
   db: DatabaseReader,
   args: { organizationId: Id<"organizations">; userId: Id<"users"> },
 ): Promise<Doc<"organizationMemberships">> {
-  const [user, organization] = await Promise.all([
-    db.get(args.userId),
+  const [, organization] = await Promise.all([
+    requireActiveOrganizationProviderUser(db, args.userId),
     db.get(args.organizationId),
   ]);
-  if (user === null || user.accountDeletion !== undefined) {
-    throw new Error("Provider credentials are unavailable during account deletion.");
-  }
   if (organization === null) {
     throw new Error("Organization not found.");
   }
@@ -126,7 +140,7 @@ async function findActiveOrganizationProviderOwner(
   ]);
   if (
     user === null ||
-    user.accountDeletion !== undefined ||
+    readActiveUser(user) === null ||
     organization === null ||
     membership?.role !== "owner"
   ) {
@@ -179,8 +193,63 @@ export const loadForOrganization = internalQuery({
   },
   returns: vOrganizationProviderConfiguration,
   handler: async (ctx, args) => {
-    await requireOrganizationAccessContext(ctx.db, args);
+    await requireActiveOrganizationProviderMember(ctx.db, args);
     return await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
+  },
+});
+
+export const loadCloudflareTokenRefreshContinuation = internalQuery({
+  args: {
+    organizationId: id("organizations"),
+    expectedAuth: vCloudflareProviderAuth,
+    expectedTokenRefreshLease: vCloudflareTokenRefreshLease,
+  },
+  returns: vCloudflareTokenRefreshConfiguration,
+  handler: async (ctx, args) => {
+    const [organization, credentials] = await Promise.all([
+      ctx.db.get(args.organizationId),
+      getOrganizationProviderCredentials(ctx.db, args.organizationId),
+    ]);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+    const credential = credentials?.cloudflare;
+    if (credential === undefined) {
+      throw new Error("Cloudflare credential not found.");
+    }
+    if (!providerAuthMatches(credential.auth, args.expectedAuth)) {
+      throw new Error("Cloudflare credential changed before token refresh continuation.");
+    }
+    if (
+      credential.tokenRefreshLease?.startedAt !== args.expectedTokenRefreshLease.startedAt ||
+      credential.tokenRefreshLease.expiresAt !== args.expectedTokenRefreshLease.expiresAt
+    ) {
+      throw new Error("Cloudflare token refresh lease changed before continuation.");
+    }
+
+    return {
+      ...(organization.cloudflareAccount
+        ? { cloudflareAccount: organization.cloudflareAccount }
+        : {}),
+      cloudflareCredential: credential,
+    };
+  },
+});
+
+export const loadForVaultProviderWorkflow = internalQuery({
+  args: { authority: vVaultProviderWorkflowAuthority },
+  returns: object({
+    organizationId: id("organizations"),
+    userId: id("users"),
+    configuration: vOrganizationProviderConfiguration,
+  }),
+  handler: async (ctx, args) => {
+    const authority = await requireVaultProviderWorkflowAuthority(ctx.db, args.authority);
+    return {
+      organizationId: authority.organizationId,
+      userId: authority.run.userId,
+      configuration: await getOrganizationProviderConfiguration(ctx.db, authority.organizationId),
+    };
   },
 });
 
@@ -211,7 +280,7 @@ export const loadConvexForOrganizationTeam = internalQuery({
     vNull(),
   ),
   handler: async (ctx, args) => {
-    await requireOrganizationAccessContext(ctx.db, args);
+    await requireActiveOrganizationProviderMember(ctx.db, args);
     const configuration = await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
     if (configuration.convexTeam?.teamId !== args.teamId) {
       return null;
@@ -515,6 +584,31 @@ export const connectCloudflare = internalMutation({
   },
 });
 
+async function setConvexTeamSlugAfterAuthority(
+  ctx: Pick<MutationCtx, "db">,
+  organizationId: Id<"organizations">,
+  args: {
+    expectedAuth: Infer<typeof vStandardProviderAuth>;
+    teamId: string;
+    teamSlug: string;
+  },
+): Promise<void> {
+  const organization = await ctx.db.get(organizationId);
+  if (organization?.convexTeam?.teamId !== args.teamId) {
+    throw new Error("Convex team changed before team slug update.");
+  }
+  const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
+  if (
+    credentials?.convex === undefined ||
+    !providerAuthMatches(credentials.convex.auth, args.expectedAuth)
+  ) {
+    throw new Error("Convex credential changed before team slug update.");
+  }
+  await ctx.db.patch(organization._id, {
+    convexTeam: { ...organization.convexTeam, teamSlug: args.teamSlug },
+  });
+}
+
 export const setConvexTeamSlug = internalMutation({
   args: {
     organizationId: id("organizations"),
@@ -526,23 +620,153 @@ export const setConvexTeamSlug = internalMutation({
   returns: vNull(),
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderMember(ctx.db, args);
-    const organization = await ctx.db.get(args.organizationId);
-    if (organization?.convexTeam?.teamId !== args.teamId) {
-      throw new Error("Convex team changed before team slug update.");
-    }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
-    if (
-      credentials?.convex === undefined ||
-      !providerAuthMatches(credentials.convex.auth, args.expectedAuth)
-    ) {
-      throw new Error("Convex credential changed before team slug update.");
-    }
-    await ctx.db.patch(organization._id, {
-      convexTeam: { ...organization.convexTeam, teamSlug: args.teamSlug },
-    });
+    await setConvexTeamSlugAfterAuthority(ctx, args.organizationId, args);
     return null;
   },
 });
+
+export const setConvexTeamSlugForVaultWorkflow = internalMutation({
+  args: {
+    authority: vVaultProviderWorkflowAuthority,
+    expectedAuth: vStandardProviderAuth,
+    teamId: string(),
+    teamSlug: string(),
+  },
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    const authority = await requireVaultProviderWorkflowAuthority(ctx.db, args.authority);
+    await setConvexTeamSlugAfterAuthority(ctx, authority.organizationId, args);
+    return null;
+  },
+});
+
+type CloudflareProviderCredential = NonNullable<
+  OrganizationProviderConfiguration["cloudflareCredential"]
+>;
+type CloudflareProviderAuth = CloudflareProviderCredential["auth"];
+type CloudflareTokenRefreshLease = NonNullable<CloudflareProviderCredential["tokenRefreshLease"]>;
+
+async function replaceCloudflareCredentialAfterAuthority(
+  ctx: Pick<MutationCtx, "db">,
+  organizationId: Id<"organizations">,
+  args: {
+    expectedAuth: CloudflareProviderAuth;
+    auth: CloudflareProviderAuth;
+    tokenHealth: McpTokenHealth;
+    expectedTokenRefreshLease?: CloudflareTokenRefreshLease;
+  },
+): Promise<void> {
+  const credentials = await getOrganizationProviderCredentials(ctx.db, organizationId);
+  if (credentials?.cloudflare === undefined) {
+    throw new Error("Cloudflare credential not found.");
+  }
+  if (!providerAuthMatches(credentials.cloudflare.auth, args.expectedAuth)) {
+    throw new Error("Cloudflare credential changed before the update completed.");
+  }
+  if (
+    args.expectedTokenRefreshLease !== undefined &&
+    (credentials.cloudflare.tokenRefreshLease?.startedAt !==
+      args.expectedTokenRefreshLease.startedAt ||
+      credentials.cloudflare.tokenRefreshLease.expiresAt !==
+        args.expectedTokenRefreshLease.expiresAt)
+  ) {
+    throw new Error("Cloudflare token refresh lease changed before the update completed.");
+  }
+  await ctx.db.patch(credentials._id, {
+    cloudflare: {
+      ...credentials.cloudflare,
+      auth: args.auth,
+      tokenHealth: args.tokenHealth,
+      updatedAt: providerAuthMatches(credentials.cloudflare.auth, args.auth)
+        ? credentials.cloudflare.updatedAt
+        : Date.now(),
+    },
+  });
+}
+
+async function claimCloudflareTokenRefreshAfterAuthority(
+  ctx: Pick<MutationCtx, "db">,
+  organizationId: Id<"organizations">,
+  args: {
+    expectedAuth: CloudflareProviderAuth;
+    force?: boolean;
+    debounceMs?: number;
+  },
+) {
+  const credentials = await getOrganizationProviderCredentials(ctx.db, organizationId);
+  const credential = credentials?.cloudflare;
+  if (credentials === null || credential === undefined) {
+    return { claimed: false as const };
+  }
+  if (!providerAuthMatches(credential.auth, args.expectedAuth)) {
+    throw new Error("Cloudflare credential changed before token refresh claim.");
+  }
+  if (credential.auth.method !== "oauth" && credential.auth.method !== "mcp_oauth") {
+    return { claimed: false as const };
+  }
+
+  const now = Date.now();
+  const debounceMs =
+    args.debounceMs === undefined
+      ? CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS
+      : Math.max(0, Math.floor(args.debounceMs));
+  if (credential.tokenRefreshLease !== undefined && credential.tokenRefreshLease.expiresAt > now) {
+    return {
+      claimed: false as const,
+      nextAllowedRefreshAt: credential.tokenRefreshLease.expiresAt,
+    };
+  }
+  if (
+    !args.force &&
+    credential.lastTokenRefreshAt !== undefined &&
+    now - credential.lastTokenRefreshAt < debounceMs
+  ) {
+    return {
+      claimed: false as const,
+      nextAllowedRefreshAt: credential.lastTokenRefreshAt + debounceMs,
+    };
+  }
+
+  const tokenRefreshLease = {
+    startedAt: now,
+    expiresAt: now + CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
+  };
+  await ctx.db.patch(credentials._id, {
+    cloudflare: { ...credential, tokenRefreshLease },
+  });
+  return { claimed: true as const, tokenRefreshLease };
+}
+
+async function releaseCloudflareTokenRefreshAfterAuthority(
+  ctx: Pick<MutationCtx, "db">,
+  organizationId: Id<"organizations">,
+  args: {
+    expectedTokenRefreshLease: CloudflareTokenRefreshLease;
+    recordLastTokenRefreshAt?: boolean;
+  },
+): Promise<{ lastTokenRefreshAt?: number }> {
+  const credentials = await getOrganizationProviderCredentials(ctx.db, organizationId);
+  const credential = credentials?.cloudflare;
+  if (credentials === null || credential === undefined) {
+    return {};
+  }
+  if (
+    credential.tokenRefreshLease?.startedAt !== args.expectedTokenRefreshLease.startedAt ||
+    credential.tokenRefreshLease.expiresAt !== args.expectedTokenRefreshLease.expiresAt
+  ) {
+    throw new Error("Cloudflare token refresh lease changed before release.");
+  }
+
+  const now = Date.now();
+  await ctx.db.patch(credentials._id, {
+    cloudflare: {
+      ...credential,
+      tokenRefreshLease: undefined,
+      ...(args.recordLastTokenRefreshAt ? { lastTokenRefreshAt: now } : {}),
+    },
+  });
+  return args.recordLastTokenRefreshAt ? { lastTokenRefreshAt: now } : {};
+}
 
 export const replaceCloudflareCredential = internalMutation({
   args: {
@@ -558,36 +782,23 @@ export const replaceCloudflareCredential = internalMutation({
     if (args.expectedTokenRefreshLease === undefined) {
       await requireActiveOrganizationProviderMember(ctx.db, args);
     }
-    const organization = await ctx.db.get(args.organizationId);
-    if (organization === null) {
-      throw new Error("Organization not found.");
-    }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
-    if (credentials?.cloudflare === undefined) {
-      throw new Error("Cloudflare credential not found.");
-    }
-    if (!providerAuthMatches(credentials.cloudflare.auth, args.expectedAuth)) {
-      throw new Error("Cloudflare credential changed before the update completed.");
-    }
-    if (
-      args.expectedTokenRefreshLease !== undefined &&
-      (credentials.cloudflare.tokenRefreshLease?.startedAt !==
-        args.expectedTokenRefreshLease.startedAt ||
-        credentials.cloudflare.tokenRefreshLease.expiresAt !==
-          args.expectedTokenRefreshLease.expiresAt)
-    ) {
-      throw new Error("Cloudflare token refresh lease changed before the update completed.");
-    }
-    await ctx.db.patch(credentials._id, {
-      cloudflare: {
-        ...credentials.cloudflare,
-        auth: args.auth,
-        tokenHealth: args.tokenHealth,
-        updatedAt: providerAuthMatches(credentials.cloudflare.auth, args.auth)
-          ? credentials.cloudflare.updatedAt
-          : Date.now(),
-      },
-    });
+    await replaceCloudflareCredentialAfterAuthority(ctx, args.organizationId, args);
+    return null;
+  },
+});
+
+export const replaceCloudflareCredentialForVaultWorkflow = internalMutation({
+  args: {
+    authority: vVaultProviderWorkflowAuthority,
+    expectedAuth: vCloudflareProviderAuth,
+    auth: vCloudflareProviderAuth,
+    tokenHealth: vMcpTokenHealth,
+    expectedTokenRefreshLease: optional(vCloudflareTokenRefreshLease),
+  },
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    const authority = await requireVaultProviderWorkflowAuthority(ctx.db, args.authority);
+    await replaceCloudflareCredentialAfterAuthority(ctx, authority.organizationId, args);
     return null;
   },
 });
@@ -676,62 +887,36 @@ export const claimCloudflareTokenRefresh = internalMutation({
   ),
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderMember(ctx.db, args);
-    const organization = await ctx.db.get(args.organizationId);
-    if (organization === null) {
-      throw new Error("Organization not found.");
-    }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
-    const credential = credentials?.cloudflare;
-    if (credentials === null || credential === undefined) {
-      return { claimed: false as const };
-    }
-    if (!providerAuthMatches(credential.auth, args.expectedAuth)) {
-      throw new Error("Cloudflare credential changed before token refresh claim.");
-    }
-    if (credential.auth.method !== "oauth" && credential.auth.method !== "mcp_oauth") {
-      return { claimed: false as const };
-    }
+    return await claimCloudflareTokenRefreshAfterAuthority(ctx, args.organizationId, args);
+  },
+});
 
-    const now = Date.now();
-    const debounceMs =
-      args.debounceMs === undefined
-        ? CLOUDFLARE_TOKEN_REFRESH_DEBOUNCE_MS
-        : Math.max(0, Math.floor(args.debounceMs));
-    if (
-      credential.tokenRefreshLease !== undefined &&
-      credential.tokenRefreshLease.expiresAt > now
-    ) {
-      return {
-        claimed: false as const,
-        nextAllowedRefreshAt: credential.tokenRefreshLease.expiresAt,
-      };
-    }
-    if (
-      !args.force &&
-      credential.lastTokenRefreshAt !== undefined &&
-      now - credential.lastTokenRefreshAt < debounceMs
-    ) {
-      return {
-        claimed: false as const,
-        nextAllowedRefreshAt: credential.lastTokenRefreshAt + debounceMs,
-      };
-    }
-
-    const tokenRefreshLease = {
-      startedAt: now,
-      expiresAt: now + CLOUDFLARE_TOKEN_REFRESH_STALE_LOCK_MS,
-    };
-    await ctx.db.patch(credentials._id, {
-      cloudflare: { ...credential, tokenRefreshLease },
-    });
-    return { claimed: true as const, tokenRefreshLease };
+export const claimCloudflareTokenRefreshForVaultWorkflow = internalMutation({
+  args: {
+    authority: vVaultProviderWorkflowAuthority,
+    expectedAuth: vCloudflareProviderAuth,
+    force: optional(boolean()),
+    debounceMs: optional(number()),
+  },
+  returns: union(
+    object({
+      claimed: literal(true),
+      tokenRefreshLease: vCloudflareTokenRefreshLease,
+    }),
+    object({
+      claimed: literal(false),
+      nextAllowedRefreshAt: optional(number()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const authority = await requireVaultProviderWorkflowAuthority(ctx.db, args.authority);
+    return await claimCloudflareTokenRefreshAfterAuthority(ctx, authority.organizationId, args);
   },
 });
 
 export const releaseCloudflareTokenRefresh = internalMutation({
   args: {
     organizationId: id("organizations"),
-    expectedAuth: vCloudflareProviderAuth,
     expectedTokenRefreshLease: vCloudflareTokenRefreshLease,
     recordLastTokenRefreshAt: optional(boolean()),
   },
@@ -739,36 +924,21 @@ export const releaseCloudflareTokenRefresh = internalMutation({
     lastTokenRefreshAt: optional(number()),
   }),
   handler: async (ctx, args) => {
-    const organization = await ctx.db.get(args.organizationId);
-    if (organization === null) {
-      throw new Error("Organization not found.");
-    }
-    const credentials = await getOrganizationProviderCredentials(ctx.db, organization._id);
-    const credential = credentials?.cloudflare;
-    if (credentials === null || credential === undefined) {
-      return {};
-    }
-    if (!providerAuthMatches(credential.auth, args.expectedAuth)) {
-      throw new Error("Cloudflare credential changed before token refresh release.");
-    }
-    if (credential.auth.method !== "oauth" && credential.auth.method !== "mcp_oauth") {
-      return {};
-    }
-    if (
-      credential.tokenRefreshLease?.startedAt !== args.expectedTokenRefreshLease.startedAt ||
-      credential.tokenRefreshLease.expiresAt !== args.expectedTokenRefreshLease.expiresAt
-    ) {
-      throw new Error("Cloudflare token refresh lease changed before release.");
-    }
+    return await releaseCloudflareTokenRefreshAfterAuthority(ctx, args.organizationId, args);
+  },
+});
 
-    const now = Date.now();
-    await ctx.db.patch(credentials._id, {
-      cloudflare: {
-        ...credential,
-        tokenRefreshLease: undefined,
-        ...(args.recordLastTokenRefreshAt ? { lastTokenRefreshAt: now } : {}),
-      },
-    });
-    return args.recordLastTokenRefreshAt ? { lastTokenRefreshAt: now } : {};
+export const releaseCloudflareTokenRefreshForVaultWorkflow = internalMutation({
+  args: {
+    authority: vVaultProviderWorkflowAuthority,
+    expectedTokenRefreshLease: vCloudflareTokenRefreshLease,
+    recordLastTokenRefreshAt: optional(boolean()),
+  },
+  returns: object({
+    lastTokenRefreshAt: optional(number()),
+  }),
+  handler: async (ctx, args) => {
+    const authority = await requireVaultProviderWorkflowAuthority(ctx.db, args.authority);
+    return await releaseCloudflareTokenRefreshAfterAuthority(ctx, authority.organizationId, args);
   },
 });

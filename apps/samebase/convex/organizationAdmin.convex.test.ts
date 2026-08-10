@@ -15,10 +15,12 @@ describe("organization membership administration", () => {
         githubInstallationId: "membership-target-installation",
       });
       await ctx.db.insert("users", {
+        state: "active",
         email: "pending-member@example.invalid",
         isApproved: false,
       });
       const deletingUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "deleting-member@example.invalid",
         isApproved: true,
       });
@@ -46,7 +48,9 @@ describe("organization membership administration", () => {
         workflow: { state: "started", workflowId: "membership-target-deletion", attempt: 1 },
       });
       await ctx.db.patch(deletingUserId, {
-        accountDeletion: { state: "deleting", runId, requestedAt: 1 },
+        state: "deleting",
+        runId,
+        requestedAt: 1,
       });
       return organizationId;
     });

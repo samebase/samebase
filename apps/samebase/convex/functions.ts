@@ -6,7 +6,7 @@ import {
   customMutation,
   customQuery,
 } from "convex-helpers/server/customFunctions";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
@@ -20,8 +20,12 @@ import {
   type QueryCtx,
 } from "./_generated/server";
 import { vAccessKey, vViewerRole } from "./accessModelValidators";
-import schema from "./schema";
 import { logAppFunctionUsageContext } from "./usageAttribution";
+import {
+  readNonDeletedUser,
+  vNonDeletedUserLifecycleDoc,
+  type NonDeletedUserLifecycleDoc,
+} from "./userLifecycle";
 import { readViewerRoleForUser } from "./viewerRole";
 import {
   canAccess,
@@ -36,8 +40,12 @@ import type {
   AppFunctionBuilder,
   AppFunctionPolicy,
 } from "../shared/convexFunctionPolicyTypes";
+import {
+  AUTHENTICATED_ACCOUNT_DELETED,
+  AUTHENTICATED_ACCOUNT_REFERENCE_INVALID,
+} from "../shared/authenticatedAccountAvailability";
 
-const { id, literal, null: vNull, number, object, union } = v;
+const { id, literal, null: vNull, object, union } = v;
 
 // Viewer model exposed through ctx.viewer on app-owned Convex builders.
 type AnonymousViewerRole = "role_anonymous";
@@ -45,7 +53,7 @@ type AnonymousViewerRole = "role_anonymous";
 type SignedOutResolvedViewer = {
   role: AnonymousViewerRole;
   accessKeys: AccessKey[];
-  userId: Id<"users"> | null;
+  userId: null;
   user: null;
 };
 
@@ -53,7 +61,7 @@ type UserResolvedViewer = {
   role: ViewerRole;
   accessKeys: AccessKey[];
   userId: Id<"users">;
-  user: Doc<"users">;
+  user: NonDeletedUserLifecycleDoc;
 };
 
 type ResolvedViewer = SignedOutResolvedViewer | UserResolvedViewer;
@@ -68,15 +76,10 @@ export type AuthenticatedAppViewer = UserResolvedViewer & {
 
 export type AppViewer = PublicAppViewer | AuthenticatedAppViewer;
 
-const vUserDoc = schema.tables.users.validator.extend({
-  _id: id("users"),
-  _creationTime: number(),
-});
-
 const vSignedOutResolvedViewer = object({
   role: literal("role_anonymous"),
   accessKeys: v.array(vAccessKey),
-  userId: union(id("users"), vNull()),
+  userId: vNull(),
   user: vNull(),
 });
 
@@ -84,7 +87,7 @@ const vUserResolvedViewer = object({
   role: vViewerRole,
   accessKeys: v.array(vAccessKey),
   userId: id("users"),
-  user: vUserDoc,
+  user: vNonDeletedUserLifecycleDoc,
 });
 
 const vResolvedViewer = union(vSignedOutResolvedViewer, vUserResolvedViewer);
@@ -93,12 +96,12 @@ function readViewerAccessKeys(role: ViewerRole): AccessKey[] {
   return [...readAccessKeysForRole(role)];
 }
 
-function resolveSignedOutViewer(userId: Id<"users"> | null): SignedOutResolvedViewer {
+function resolveSignedOutViewer(): SignedOutResolvedViewer {
   const role = "role_anonymous";
   return {
     role,
     accessKeys: readViewerAccessKeys(role),
-    userId,
+    userId: null,
     user: null,
   };
 }
@@ -106,7 +109,7 @@ function resolveSignedOutViewer(userId: Id<"users"> | null): SignedOutResolvedVi
 function resolveUserViewer(args: {
   role: ViewerRole;
   userId: Id<"users">;
-  user: Doc<"users">;
+  user: NonDeletedUserLifecycleDoc;
 }): UserResolvedViewer {
   return {
     role: args.role,
@@ -120,14 +123,22 @@ function resolveViewerForUserRecord(args: {
   userId: Id<"users"> | null;
   user: Doc<"users"> | null;
 }): ResolvedViewer {
-  if (args.userId === null || args.user === null) {
-    return resolveSignedOutViewer(args.userId);
+  if (args.userId === null) {
+    return resolveSignedOutViewer();
+  }
+  if (args.user === null) {
+    throw new ConvexError(AUTHENTICATED_ACCOUNT_REFERENCE_INVALID);
+  }
+
+  const user = readNonDeletedUser(args.user);
+  if (user === null) {
+    throw new ConvexError(AUTHENTICATED_ACCOUNT_DELETED);
   }
 
   return resolveUserViewer({
-    role: readViewerRoleForUser(args.user),
+    role: readViewerRoleForUser(user),
     userId: args.userId,
-    user: args.user,
+    user,
   });
 }
 

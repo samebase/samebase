@@ -59,11 +59,22 @@ function usePostHogViewerIdentity() {
   }, [viewer]);
 }
 
+function AppAccountRuntime() {
+  usePostHogViewerIdentity();
+
+  return (
+    <AppWorkspaceShell>
+      <RouteAvailabilityOutlet>
+        <RouteAccessOutlet />
+      </RouteAvailabilityOutlet>
+    </AppWorkspaceShell>
+  );
+}
+
 function AppRouterRoot() {
   const { background, border, dark, light, primary, secondary } = useRootRouteSearch();
   const themeMode = readRootThemeMode({ dark, light });
   usePostHogPageviews();
-  usePostHogViewerIdentity();
 
   useLayoutEffect(() => {
     syncDocumentRootThemeMode(themeMode);
@@ -77,13 +88,9 @@ function AppRouterRoot() {
 
   return (
     <OptionalThemeProvider forcedTheme={themeMode}>
-      <AppWorkspaceShell>
-        <AccountDeletionBrowserBoundary>
-          <RouteAvailabilityOutlet>
-            <RouteAccessOutlet />
-          </RouteAvailabilityOutlet>
-        </AccountDeletionBrowserBoundary>
-      </AppWorkspaceShell>
+      <AccountDeletionBrowserBoundary>
+        <AppAccountRuntime />
+      </AccountDeletionBrowserBoundary>
       <RouterGestureDebugOverlay />
     </OptionalThemeProvider>
   );

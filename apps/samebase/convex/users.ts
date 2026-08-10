@@ -1,5 +1,5 @@
-import { getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
-import { internalQuery, type ActionCtx, type DatabaseReader } from "./_generated/server";
+import { getAuthSessionId } from "@convex-dev/auth/server";
+import type { ActionCtx, DatabaseReader } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, Infer, v } from "convex/values";
@@ -10,7 +10,6 @@ import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import type { CloudflareAccount } from "./cloudflareAccountDiscovery";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealthStatus } from "./mcpTokenHealth";
-import type { CloudflareProviderCredential } from "./organizationProviderCredentialModel";
 import { AUTH_ACCOUNT_LINK_INTENT_DURATION_MS, vAuthAccountProvider } from "./authAccountModel";
 import {
   getOrganizationProviderConfiguration,
@@ -100,7 +99,13 @@ async function readProviderConnectorPresentation(
   viewerUserId: Id<"users">,
 ): Promise<AccountPresentation | undefined> {
   const user = await db.get(connectedByUserId);
-  if (user === null || user.accountDeletion !== undefined) {
+  if (user === null) {
+    throw new Error("Provider connector user reference is invalid.");
+  }
+  if (user.state === "deleted") {
+    throw new Error("Provider connector user reference is invalid.");
+  }
+  if (user.state !== "active") {
     return undefined;
   }
   const accountPresentation = resolveAccountPresentation(user);
@@ -607,7 +612,6 @@ async function runCloudflareMcpTokenRefresh(args: {
   }
   const refreshLease = claim.tokenRefreshLease;
 
-  let releaseExpectedAuth: CloudflareProviderCredential["auth"] = credential.auth;
   let shouldRecordLastTokenRefreshAt = false;
   try {
     const resolvedConnection = await args.ctx.runAction(
@@ -629,7 +633,6 @@ async function runCloudflareMcpTokenRefresh(args: {
       );
       return buildCloudflareConnectionStatus(current);
     }
-    releaseExpectedAuth = resolvedConnection.auth;
     shouldRecordLastTokenRefreshAt = true;
     const nowAfterRefresh = Date.now();
     const refreshedConfiguration = await args.ctx.runQuery(
@@ -693,7 +696,6 @@ async function runCloudflareMcpTokenRefresh(args: {
       internal.organizationProviderCredentials.releaseCloudflareTokenRefresh,
       {
         organizationId,
-        expectedAuth: releaseExpectedAuth,
         expectedTokenRefreshLease: refreshLease,
         recordLastTokenRefreshAt: shouldRecordLastTokenRefreshAt,
       },
@@ -876,26 +878,5 @@ export const connectConvexWithApiKey = action({
     });
 
     return { teamId: details.teamId };
-  },
-});
-
-// Internal
-export const getAuthUser = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return null;
-    }
-    return await ctx.db.get(userId);
-  },
-});
-
-export const getById = internalQuery({
-  args: {
-    userId: v.id("users"),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.userId);
   },
 });

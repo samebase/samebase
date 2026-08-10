@@ -17,6 +17,7 @@ async function createConnectedVault() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
+      state: "active",
       name: "Ada",
       email: "ada@example.com",
       isApproved: true,
@@ -198,7 +199,9 @@ describe("manual provider write ownership", () => {
         },
       });
       await ctx.db.patch(ids.userId, {
-        accountDeletion: { state: "deleting", runId: deletionRunId, requestedAt: now },
+        state: "deleting",
+        runId: deletionRunId,
+        requestedAt: now,
       });
     });
 
@@ -209,7 +212,7 @@ describe("manual provider write ownership", () => {
         actionId: "late-action",
         action: "create_convex_project",
       }),
-    ).rejects.toThrow("Account deletion is in progress.");
+    ).rejects.toThrow("An active Samebase user is required.");
   });
 
   it("rejects delayed completion from an older action", async () => {
@@ -274,6 +277,7 @@ describe("manual provider write ownership", () => {
           await requireManualProviderWriteCheckpoint(ctx, {
             vaultId: ids.vaultId,
             actionId: "timed-out-action",
+            userId: ids.userId,
           });
           return true;
         }),

@@ -131,14 +131,17 @@ async function seedProviderOrganization(options?: {
   const { memberId, organizationId, outsiderId, providerCredentialsId, userId } = await t.run(
     async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "owner@example.com",
         isApproved: true,
       });
       const memberId = await ctx.db.insert("users", {
+        state: "active",
         email: "member@example.com",
         isApproved: true,
       });
       const outsiderId = await ctx.db.insert("users", {
+        state: "active",
         email: "outsider@example.com",
         isApproved: true,
       });
@@ -333,7 +336,9 @@ describe("organization provider status", () => {
         workflow: { state: "started", workflowId: "provider-status-test", attempt: 1 },
       });
       await ctx.db.patch(userId, {
-        accountDeletion: { state: "deleting", runId, requestedAt: now },
+        state: "deleting",
+        runId,
+        requestedAt: now,
         displayName: "Provider Owner",
       });
     });
@@ -346,11 +351,12 @@ describe("organization provider status", () => {
     await t.run(async (ctx) => {
       await ctx.db.delete(userId);
     });
-    const missingConnectorStatuses = await Promise.all([
+    await expect(
       asMember.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).rejects.toThrow("Provider connector user reference is invalid.");
+    await expect(
       asMember.query(api.users.getCloudflareConnectionStatus, { organizationId }),
-    ]);
-    expect(missingConnectorStatuses.every((status) => !("connectedBy" in status))).toBe(true);
+    ).rejects.toThrow("Provider connector user reference is invalid.");
   });
 
   it("disconnects credentials but preserves both destinations", async () => {
@@ -843,6 +849,58 @@ describe("organization provider status", () => {
         t.run(async (ctx) => (await ctx.db.get(organizationId))?.cloudflareAccount),
       ).resolves.toEqual(targetBefore);
     }
+  });
+
+  it("clears a shared MCP refresh lease when account deletion wins the return race", async () => {
+    const { memberId, organizationId, providerCredentialsId, t, userId } =
+      await seedProviderOrganization({ cloudflareAuthMethod: "mcp_oauth" });
+    await t.run(async (ctx) => {
+      const credentials = await ctx.db.get(providerCredentialsId);
+      if (credentials?.cloudflare === undefined) {
+        throw new Error("Expected a Cloudflare credential.");
+      }
+      await ctx.db.patch(credentials._id, {
+        cloudflare: { ...credentials.cloudflare, connectedByUserId: memberId },
+      });
+    });
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const fetch = vi.fn(async (input: string | URL | Request) => {
+      const url = input instanceof Request ? input.url : input.toString();
+      expect(url).toBe("https://mcp.cloudflare.com/token");
+      await t.run(async (ctx) => {
+        await ctx.db.replace(userId, { state: "deleted", deletedAt: Date.now() });
+      });
+      return Response.json({
+        access_token: "new-access-token",
+        refresh_token: "new-refresh-token",
+        expires_in: 3_600,
+      });
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      asOwner.action(api.users.refreshCloudflareMcpTokenIfNeeded, {
+        organizationId,
+        force: true,
+      }),
+    ).rejects.toThrow("Provider credentials are unavailable during account deletion.");
+
+    const credentials = await t.run(async (ctx) => await ctx.db.get(providerCredentialsId));
+    expect(credentials).toMatchObject({
+      cloudflare: {
+        connectedByUserId: memberId,
+        auth: {
+          method: "mcp_oauth",
+          credential: "new-access-token",
+          refreshCredential: "new-refresh-token",
+        },
+      },
+    });
+    expect(credentials?.cloudflare?.tokenRefreshLease).toBeUndefined();
+    expect(fetch).toHaveBeenCalledOnce();
   });
 
   it("replaces direct and MCP refresh errors at the shared resolver boundary", async () => {

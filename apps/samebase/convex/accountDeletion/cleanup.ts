@@ -1,6 +1,7 @@
 import type { Id, TableNames } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { v, type Infer } from "convex/values";
+import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../githubUserAuthorizations";
 import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
 import { readOwnedActiveRun } from "./stepContext";
 
@@ -80,6 +81,11 @@ const accountDeletionQuiescenceResult = v.union(
   v.object({ state: v.literal("done") }),
   v.object({ state: v.literal("waiting"), blocker: v.literal("active_vault_deletion") }),
   v.object({ state: v.literal("waiting"), blocker: v.literal("active_app_provisioning") }),
+  v.object({ state: v.literal("waiting"), blocker: v.literal("active_manual_provider_write") }),
+  v.object({
+    state: v.literal("waiting"),
+    blocker: v.literal("active_github_user_authorization_refresh"),
+  }),
 );
 type AccountDeletionQuiescenceResult = Infer<typeof accountDeletionQuiescenceResult>;
 
@@ -121,6 +127,19 @@ async function findActiveAppProvisioning(
   }
 
   return null;
+}
+
+async function findActiveManualProviderWrite(
+  ctx: AccountDataCleanupCtx,
+  userId: Id<"users">,
+): Promise<Id<"workflow_vaultProvisioning_writeLocks"> | null> {
+  const write = await ctx.db
+    .query("workflow_vaultProvisioning_writeLocks")
+    .withIndex("by_manual_user_and_state", (query) =>
+      query.eq("owner.userId", userId).eq("state", "active"),
+    )
+    .first();
+  return write?._id ?? null;
 }
 
 async function deleteRowsById<TableName extends TableNames>(
@@ -324,6 +343,20 @@ export const inspectQuiescence = internalMutation({
     }
     if (await findActiveAppProvisioning(ctx, run.identity.userId)) {
       return { state: "waiting", blocker: "active_app_provisioning" };
+    }
+    if (await findActiveManualProviderWrite(ctx, run.identity.userId)) {
+      return { state: "waiting", blocker: "active_manual_provider_write" };
+    }
+    const githubUserAuthorization = await ctx.db
+      .query("githubUserAuthorizations")
+      .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
+      .unique();
+    if (
+      githubUserAuthorization?.refreshStartedAt !== undefined &&
+      Date.now() - githubUserAuthorization.refreshStartedAt <
+        GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS
+    ) {
+      return { state: "waiting", blocker: "active_github_user_authorization_refresh" };
     }
 
     return { state: "done" };

@@ -10,7 +10,7 @@ afterEach(() => {
 async function insertPasswordAccount(email: string) {
   const t = makeConvexTest();
   const userId = await t.run(async (ctx) => {
-    const insertedUserId = await ctx.db.insert("users", { email });
+    const insertedUserId = await ctx.db.insert("users", { state: "active", email });
     await ctx.db.insert("authAccounts", {
       userId: insertedUserId,
       provider: "password",
@@ -87,7 +87,7 @@ describe("organization context acceptance fixtures", () => {
       vaults: await ctx.db.query("vaults").collect(),
     }));
 
-    expect(snapshot.user?.isApproved).toBe(true);
+    expect(snapshot.user).toMatchObject({ isApproved: true });
     expect(snapshot.organizations).toHaveLength(3);
     for (const organization of snapshot.organizations) {
       expect(organization.convexTeam).toEqual({

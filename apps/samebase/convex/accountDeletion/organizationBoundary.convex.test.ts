@@ -1,10 +1,34 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../githubUserAuthorizations";
 import { makeConvexTest } from "../test.setup";
 
 const workflowId = "account-deletion-organization-boundary";
+
+async function generateTestJwtPrivateKey(): Promise<string> {
+  const keyPair = await crypto.subtle.generateKey(
+    {
+      name: "RSASSA-PKCS1-v1_5",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["sign", "verify"],
+  );
+  const privateKey = new Uint8Array(await crypto.subtle.exportKey("pkcs8", keyPair.privateKey));
+  let binary = "";
+  for (const byte of privateKey) {
+    binary += String.fromCharCode(byte);
+  }
+  const lines = btoa(binary).match(/.{1,64}/g);
+  if (lines === null) {
+    throw new Error("Test JWT private key encoding failed.");
+  }
+  return `-----BEGIN PRIVATE KEY-----\n${lines.join("\n")}\n-----END PRIVATE KEY-----`;
+}
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -15,10 +39,12 @@ async function seedRunningDeletion() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const deletingUserId = await ctx.db.insert("users", {
+      state: "active",
       email: "deleting@example.invalid",
       isApproved: true,
     });
     const teammateUserId = await ctx.db.insert("users", {
+      state: "active",
       email: "teammate@example.invalid",
       isApproved: true,
     });
@@ -80,7 +106,9 @@ async function seedRunningDeletion() {
       workflow: { state: "started", workflowId, attempt: 1 },
     });
     await ctx.db.patch(deletingUserId, {
-      accountDeletion: { state: "deleting", runId, requestedAt: 1 },
+      state: "deleting",
+      runId,
+      requestedAt: 1,
     });
     const vaultId = await ctx.db.insert("vaults", {
       state: "not_connected",
@@ -182,9 +210,15 @@ async function seedRunningDeletion() {
       createdAt: 1,
       expiresAt: 2_000_000_000_000,
     });
+    const deletingUser = await ctx.db.get(deletingUserId);
+    if (deletingUser === null) {
+      throw new Error("Deleting user is missing.");
+    }
 
     return {
+      deletingUserCreationTime: deletingUser._creationTime,
       deletingUserId,
+      initiatingSessionId,
       teammateUserId,
       organizationId,
       organizationBillingId,
@@ -216,8 +250,57 @@ async function cleanAccountData(
   throw new Error("Account data cleanup did not finish.");
 }
 
+async function prepareIdentityDeletionData(
+  t: ReturnType<typeof makeConvexTest>,
+  runId: Id<"workflow_accountDeletion_runs">,
+) {
+  await t.mutation(internal.accountDeletion.workflow.startProviderRevocation, {
+    runId,
+    workflowId,
+  });
+  const providerResult = await t.action(
+    internal.accountDeletion.providerActions.revokeConnectionBatch,
+    {
+      runId,
+      workflowId,
+    },
+  );
+  await t.mutation(internal.accountDeletion.workflow.recordProviderBatch, {
+    runId,
+    workflowId,
+    convexManualRevocationRequired: providerResult.convexManualRevocationRequired,
+  });
+  await t.mutation(internal.accountDeletion.workflow.finishProviderRevocation, {
+    runId,
+    workflowId,
+  });
+  await t.mutation(internal.accountDeletion.workflow.recordCompletionEmailOutcome, {
+    runId,
+    workflowId,
+    outcome: { state: "sent" },
+  });
+  await cleanAccountData(t, runId);
+  return providerResult;
+}
+
 describe("account deletion organization boundary", () => {
-  it("waits for the deleting member's active vault work", async () => {
+  it("keeps the workflow claim result free of user identity", async () => {
+    const { ids, t } = await seedRunningDeletion();
+
+    await expect(
+      t.mutation(internal.accountDeletion.workflow.claimWorkflowRun, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({
+      outcomes: {
+        providerRevocation: { state: "not_started" },
+        completionEmail: { state: "not_started" },
+      },
+    });
+  });
+
+  it("waits for the deleting member's active work and a fresh GitHub refresh", async () => {
     const { ids, t } = await seedRunningDeletion();
     const provisioningRunId = await t.run(async (ctx) => {
       return await ctx.db.insert("workflow_vaultProvisioning_runs", {
@@ -282,7 +365,7 @@ describe("account deletion organization boundary", () => {
       }),
     ).resolves.toEqual({ state: "waiting", blocker: "active_vault_deletion" });
 
-    await t.run(async (ctx) => {
+    const { githubAuthorizationId, manualWriteId } = await t.run(async (ctx) => {
       await ctx.db.patch(deletionRunId, {
         state: "failed",
         updatedAt: 5,
@@ -299,8 +382,60 @@ describe("account deletion organization boundary", () => {
         createdAt: 6,
         updatedAt: 6,
       });
+      const manualWriteId = await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId: ids.vaultId,
+        owner: {
+          kind: "manual_provider_write",
+          userId: ids.deletingUserId,
+          actionId: "deleting-user-provider-write",
+          action: "create_convex_project",
+          expiresAt: 60_000,
+        },
+        state: "active",
+        lastWriteAt: {},
+        updatedAt: 6,
+      });
+      const now = Date.now();
+      const githubAuthorizationId = await ctx.db.insert("githubUserAuthorizations", {
+        userId: ids.deletingUserId,
+        githubUserId: "deleting-user-github-id",
+        githubUserLogin: "deleting-user",
+        accessToken: "old-access-token",
+        accessTokenExpiresAt: now - 1,
+        refreshToken: "old-refresh-token",
+        refreshTokenExpiresAt: now + 120_000,
+        refreshStartedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return { githubAuthorizationId, manualWriteId };
     });
 
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "waiting", blocker: "active_manual_provider_write" });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(manualWriteId, { state: "succeeded", updatedAt: 7 });
+    });
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({
+      state: "waiting",
+      blocker: "active_github_user_authorization_refresh",
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(githubAuthorizationId, {
+        refreshStartedAt: Date.now() - GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS,
+      });
+    });
     await expect(
       t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
         runId: ids.runId,
@@ -393,39 +528,26 @@ describe("account deletion organization boundary", () => {
     const fetch = vi.fn(async () => new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetch);
 
-    await t.mutation(internal.accountDeletion.workflow.startProviderRevocation, {
-      runId: ids.runId,
-      workflowId,
-    });
-    const providerResult = await t.action(
-      internal.accountDeletion.providerActions.revokeConnectionBatch,
-      {
-        runId: ids.runId,
-        workflowId,
-      },
-    );
+    const providerResult = await prepareIdentityDeletionData(t, ids.runId);
     expect(providerResult).toEqual({
       done: true,
       convexManualRevocationRequired: true,
     });
-    await t.mutation(internal.accountDeletion.workflow.recordProviderBatch, {
-      runId: ids.runId,
-      workflowId,
-      convexManualRevocationRequired: providerResult.convexManualRevocationRequired,
-    });
-    await t.mutation(internal.accountDeletion.workflow.finishProviderRevocation, {
+    await t.mutation(internal.accountDeletion.workflow.recordIdentityDeletionStart, {
       runId: ids.runId,
       workflowId,
     });
-    await t.mutation(internal.accountDeletion.workflow.recordCompletionEmailOutcome, {
+    const beforeFinalMutation = await t.run(async (ctx) => ({
+      run: await ctx.db.get(ids.runId),
+      user: await ctx.db.get(ids.deletingUserId),
+    }));
+    expect(beforeFinalMutation.user).toMatchObject({
+      state: "deleting",
       runId: ids.runId,
-      workflowId,
-      outcome: { state: "sent" },
     });
-    await cleanAccountData(t, ids.runId);
-    await t.mutation(internal.accountDeletion.workflow.markFinalizing, {
-      runId: ids.runId,
-      workflowId,
+    expect(beforeFinalMutation.run).toMatchObject({
+      state: "running",
+      currentStep: "delete_identity",
     });
     await t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, {
       runId: ids.runId,
@@ -434,6 +556,7 @@ describe("account deletion organization boundary", () => {
 
     const snapshot = await t.run(async (ctx) => ({
       deletingUser: await ctx.db.get(ids.deletingUserId),
+      initiatingSession: await ctx.db.get(ids.initiatingSessionId),
       organization: await ctx.db.get(ids.organizationId),
       organizationBilling: await ctx.db.get(ids.organizationBillingId),
       vault: await ctx.db.get(ids.vaultId),
@@ -471,7 +594,19 @@ describe("account deletion organization boundary", () => {
     }));
 
     expect(fetch).not.toHaveBeenCalled();
-    expect(snapshot.deletingUser).toBeNull();
+    expect(snapshot.deletingUser).toMatchObject({
+      _creationTime: ids.deletingUserCreationTime,
+      _id: ids.deletingUserId,
+      state: "deleted",
+      deletedAt: expect.any(Number),
+    });
+    expect(Object.keys(snapshot.deletingUser ?? {}).sort()).toEqual([
+      "_creationTime",
+      "_id",
+      "deletedAt",
+      "state",
+    ]);
+    expect(snapshot.initiatingSession).toBeNull();
     expect(snapshot.organizationBilling).not.toBeNull();
     expect(snapshot.vault).not.toBeNull();
     expect(snapshot.stagedFile).not.toBeNull();
@@ -497,6 +632,220 @@ describe("account deletion organization boundary", () => {
         },
       },
     });
+    const deletedUser = snapshot.deletingUser;
+    if (deletedUser?.state !== "deleted" || snapshot.run?.state !== "succeeded") {
+      throw new Error("Account deletion did not reach its terminal state.");
+    }
+    expect(deletedUser.deletedAt).toBe(snapshot.run.completedAt);
+  });
+
+  it("rejects final identity deletion when the user is not deleting", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await t.mutation(internal.accountDeletion.workflow.recordIdentityDeletionStart, {
+      runId: ids.runId,
+      workflowId,
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.replace(ids.deletingUserId, {
+        state: "active",
+        email: "deleting@example.invalid",
+        isApproved: true,
+      });
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).rejects.toThrow("Account deletion is not ready to finalize.");
+
+    const snapshot = await t.run(async (ctx) => ({
+      initiatingSession: await ctx.db.get(ids.initiatingSessionId),
+      run: await ctx.db.get(ids.runId),
+      user: await ctx.db.get(ids.deletingUserId),
+    }));
+    expect(snapshot.user).toMatchObject({ state: "active" });
+    expect(snapshot.initiatingSession).not.toBeNull();
+    expect(snapshot.run).toMatchObject({
+      state: "running",
+      currentStep: "delete_identity",
+      identity: { state: "active", userId: ids.deletingUserId },
+    });
+  });
+
+  it("rejects final identity deletion atomically when a refresh token remains", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await prepareIdentityDeletionData(t, ids.runId);
+    const refreshTokenId = await t.run(async (ctx) => {
+      return await ctx.db.insert("authRefreshTokens", {
+        sessionId: ids.initiatingSessionId,
+        expirationTime: 2_000_000_000_000,
+      });
+    });
+    await t.mutation(internal.accountDeletion.workflow.recordIdentityDeletionStart, {
+      runId: ids.runId,
+      workflowId,
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).rejects.toThrow("Initiating auth session children remain during finalization.");
+
+    const snapshot = await t.run(async (ctx) => ({
+      initiatingSession: await ctx.db.get(ids.initiatingSessionId),
+      refreshToken: await ctx.db.get(refreshTokenId),
+      run: await ctx.db.get(ids.runId),
+      user: await ctx.db.get(ids.deletingUserId),
+    }));
+    expect(snapshot.user).toMatchObject({
+      state: "deleting",
+      runId: ids.runId,
+    });
+    expect(snapshot.run).toMatchObject({
+      state: "running",
+      currentStep: "delete_identity",
+      identity: { state: "active", userId: ids.deletingUserId },
+    });
+    expect(snapshot.initiatingSession).not.toBeNull();
+    expect(snapshot.refreshToken).not.toBeNull();
+  });
+
+  it("refreshes the deleting session before cleanup and rejects it after completion", async () => {
+    vi.stubEnv("JWT_PRIVATE_KEY", await generateTestJwtPrivateKey());
+    vi.stubEnv("CONVEX_SITE_URL", "https://convex.test");
+    const { ids, t } = await seedRunningDeletion();
+    const refreshTokenId = await t.run(async (ctx) => {
+      return await ctx.db.insert("authRefreshTokens", {
+        sessionId: ids.initiatingSessionId,
+        expirationTime: 2_000_000_000_000,
+      });
+    });
+    const refreshToken = `${refreshTokenId}|${ids.initiatingSessionId}`;
+
+    const refreshed = await t.action(api.auth.signIn, { refreshToken });
+    if (refreshed.tokens === undefined || refreshed.tokens === null) {
+      throw new Error("Deleting session refresh did not return tokens.");
+    }
+    expect(refreshed.tokens.token).toEqual(expect.any(String));
+    expect(refreshed.tokens.refreshToken).not.toBe(refreshToken);
+    const rotatedRefreshToken = refreshed.tokens.refreshToken;
+    await expect(
+      t.run(async (ctx) => ({
+        refreshTokens: await ctx.db
+          .query("authRefreshTokens")
+          .withIndex("sessionId", (query) => query.eq("sessionId", ids.initiatingSessionId))
+          .collect(),
+        user: await ctx.db.get(ids.deletingUserId),
+      })),
+    ).resolves.toMatchObject({
+      refreshTokens: [{ _id: refreshTokenId }, { parentRefreshTokenId: refreshTokenId }],
+      user: { state: "deleting", runId: ids.runId },
+    });
+
+    await prepareIdentityDeletionData(t, ids.runId);
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.deleteInitiatingSessionBatch, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toBe(false);
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.deleteInitiatingSessionBatch, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toBe(true);
+    await t.mutation(internal.accountDeletion.workflow.recordIdentityDeletionStart, {
+      runId: ids.runId,
+      workflowId,
+    });
+    await t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, {
+      runId: ids.runId,
+      workflowId,
+    });
+
+    await expect(t.action(api.auth.signIn, { refreshToken: rotatedRefreshToken })).resolves.toEqual(
+      {
+        tokens: null,
+      },
+    );
+    await expect(
+      t.run(async (ctx) => ({
+        refreshTokens: await ctx.db
+          .query("authRefreshTokens")
+          .withIndex("sessionId", (query) => query.eq("sessionId", ids.initiatingSessionId))
+          .collect(),
+        run: await ctx.db.get(ids.runId),
+        session: await ctx.db.get(ids.initiatingSessionId),
+        user: await ctx.db.get(ids.deletingUserId),
+      })),
+    ).resolves.toMatchObject({
+      refreshTokens: [],
+      run: { state: "succeeded", identity: { state: "scrubbed" } },
+      session: null,
+      user: { state: "deleted" },
+    });
+  });
+
+  it("keeps the user deleting after failure and retries the same run", async () => {
+    const { ids, t } = await seedRunningDeletion();
+
+    await t.mutation(internal.accountDeletion.workflow.handleWorkflowComplete, {
+      workflowId,
+      context: { runId: ids.runId },
+      result: { kind: "failed", error: "Private workflow failure details" },
+    });
+
+    const failed = await t.run(async (ctx) => ({
+      run: await ctx.db.get(ids.runId),
+      user: await ctx.db.get(ids.deletingUserId),
+      events: await ctx.db
+        .query("workflow_accountDeletion_events")
+        .withIndex("by_run_and_created_at", (query) => query.eq("runId", ids.runId))
+        .collect(),
+    }));
+    expect(failed.user).toMatchObject({
+      state: "deleting",
+      runId: ids.runId,
+      requestedAt: 1,
+    });
+    expect(failed.run).toMatchObject({
+      state: "needs_attention",
+      latestSafeError: "Account deletion needs staff attention.",
+    });
+    expect(failed.events.at(-1)).toMatchObject({
+      message: "Account deletion needs staff attention.",
+    });
+
+    const staffUserId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        state: "active",
+        email: "nicu@samebase.com",
+        isApproved: true,
+      });
+    });
+    const asStaff = t.withIdentity({
+      subject: `${staffUserId}|staff-session`,
+      tokenIdentifier: `test:${staffUserId}`,
+    });
+    await expect(
+      asStaff.mutation(api.accountDeletion.index.retry, { runId: ids.runId }),
+    ).resolves.toMatchObject({
+      runId: ids.runId,
+      state: "running",
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.runId))).resolves.toMatchObject({
+      state: "running",
+      retryCount: 1,
+      workflow: { attempt: 2 },
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.deletingUserId))).resolves.toMatchObject(
+      { state: "deleting", runId: ids.runId },
+    );
   });
 
   it("lets the remaining member edit the shared staged file", async () => {
