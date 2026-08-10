@@ -104,6 +104,7 @@ const vaultProviderWriteBase = {
 
 const manualProviderWriteOwner = {
   kind: literal("manual_provider_write"),
+  userId: optional(id("users")),
   actionId: string(),
   action: vManualProviderWriteAction,
   expiresAt: number(),
