@@ -10,6 +10,7 @@
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
   - `specs/117_MANUAL_PASSWORD_AUTH_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
+  - `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md`
 
 ## Current Contract
 
@@ -125,6 +126,11 @@ installation checks. Samebase attempts to revoke the actor's short-lived setup t
 and does not store it as personal authorization. Organization repository creation and normal
 operations use installation authentication.
 
+An organization invitation uses one stable GitHub `providerAccountId` to identify its exact
+recipient. A current Samebase owner grants the membership, and the matching recipient explicitly
+accepts it. The GitHub identity does not grant membership by itself and is not an ongoing access
+check after acceptance. GitHub login, email, and organization role are not acceptance proof.
+
 ## Non-Goals
 
 - Silent account merging by email
@@ -133,7 +139,8 @@ operations use installation authentication.
 - Self-service sign-in method removal or replacement
 - Several Google or GitHub identities for one Samebase account
 - Using a GitHub login or email as organization membership proof
-- Requiring a connected GitHub sign-in identity for membership or GitHub organization operations
+- Requiring a connected GitHub sign-in identity for ongoing membership or GitHub organization
+  operations
 
 ## Validation
 

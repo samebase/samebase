@@ -12,11 +12,12 @@ the exact phrase `delete my account`.
 
 The confirmation must distinguish the user's Samebase identity from organization data. Account
 deletion removes the user's login, profile, personal preferences, organization memberships, MCP
-access, pending provider authorization states, GitHub App user authorization, and every provider
-credential slot whose current `connectedByUserId` identifies that user. It does not delete an
-organization, organization billing, deployment destination, vault, staged file, attached resource,
-observation, or organization workflow record. It deletes the organization provider credential
-document only when it clears the last credential slot.
+access, pending provider authorization states, GitHub App user authorization, pending organization
+invitations created by the user, accepted invitation records that identify the user, and every
+provider credential slot whose current `connectedByUserId` identifies that user. It does not delete
+an organization, organization billing, deployment destination, vault, staged file, attached
+resource, observation, or organization workflow record. It deletes the organization provider
+credential document only when it clears the last credential slot.
 
 Account deletion is rejected while the user is the last active owner of any organization. The user
 must add or promote another owner first. Account deletion can then remove the user's memberships
@@ -91,8 +92,9 @@ The workflow must:
 4. Clear each current Convex credential slot whose `connectedByUserId` identifies the user. When a
    slot used Convex OAuth, retain the manual revocation notice because Samebase cannot revoke the
    upstream authorization.
-5. Delete personal preferences, organization memberships, MCP grants and tokens, provider callback
-   states, and GitHub App setup states in bounded batches.
+5. Delete personal preferences, organization memberships, organization invitation records that
+   identify the user, MCP grants and tokens, provider callback states, and GitHub App setup states
+   in bounded batches.
 6. Attempt the completion email with the opaque deletion operation ID as the support reference.
 7. Repeat every final readiness check, then delete the final auth session. In the same transaction,
    replace the matching `deleting` user row with the exact PII-free `deleted` variant and replace

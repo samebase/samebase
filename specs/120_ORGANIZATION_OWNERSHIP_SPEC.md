@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-09
+- Last updated: 2026-08-10
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -12,6 +12,7 @@
   - `specs/119_POLAR_MONTHLY_BILLING_SPEC.md`
   - `specs/121_ORGANIZATION_CONTEXT_AND_ROUTE_MODEL.md`
   - `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md`
+  - `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md`
   - `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
@@ -41,13 +42,16 @@ required connected identity for a personal GitHub owner.
 Each membership has one required role: `owner` or `member`. Both roles can read and operate the
 organization's vaults and use organization credentials. Both roles can create repositories for a
 GitHub organization. Only owners can manage deployment providers, reconnect the GitHub organization,
-or manage billing. The first verified GitHub App installation creates an owner membership. Until an
-invitation UI exists, an idempotent internal function adds an existing Samebase user with an
-explicit `owner` or `member` role.
+or manage billing. The first verified GitHub App installation creates an owner membership. A
+Samebase owner can invite one exact GitHub user as a member. The recipient must explicitly join.
+Spec 123 defines invitation, role, removal, leave, and live GitHub relationship behavior. The
+internal existing-user function remains an operator recovery tool and is not the product membership
+flow.
 
-Every organization must always have at least one owner. Account deletion, membership removal, and
-role changes must reject a transition that would leave an organization without an owner. The first
-release has no invitation records, general role-editing flow, permission arrays, or custom roles.
+Every organization must always have at least one active owner. Account deletion, membership removal,
+and role changes must reject a transition that would leave an organization without an active owner.
+The first beta has invitation records and owner/member administration. It has no permission arrays
+or custom roles.
 
 ## GitHub Owner And App Installation
 
@@ -311,18 +315,18 @@ required before production deployment, not before development implementation and
 
 - Automatic organization creation during signup
 - Unbound or independently named Samebase organizations
-- Requiring a connected GitHub sign-in identity for membership or for setup and operations of a
-  GitHub organization
+- Requiring a connected GitHub sign-in identity for ongoing membership or for setup and operations
+  of a GitHub organization
 - Treating GitHub as a deployment provider connection
 - Grouping repositories from several GitHub owners in one Samebase organization
-- Email invitation, acceptance, role, or membership-management UI
+- Automatic email delivery for invitation links
 - Fine-grained vault, branch, file, or provider-resource roles
 - Persisted active-organization state or opaque organization query parameters
 - WorkOS, Clerk, SSO, Directory Sync, or SCIM implementation
 - GitHub installation lifecycle webhooks before the main installation flow works
 - Unified GitHub organization and repository rename synchronization
 - Several Convex teams or Cloudflare accounts in one organization
-- Changing the temporary waitlist and approval gate
+- General signup auto-approval before the beta release gate changes
 - Multi-member FileView commit coordination
 - Backward-compatible pre-beta migration machinery
 
@@ -330,7 +334,7 @@ required before production deployment, not before development implementation and
 
 The rollout is ready only when focused tests and real manual checks prove:
 
-- A new or waitlisted user has zero memberships and no billing row.
+- A new or uninvited pending-access user has zero memberships and no billing row.
 - A verified GitHub App installation creates one organization for one stable owner ID, one first
   membership, and one billing row.
 - A personal installation fails when the exact linked GitHub sign-in identity was absent or
