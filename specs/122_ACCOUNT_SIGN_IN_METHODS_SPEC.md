@@ -13,10 +13,10 @@
 
 ## Current Contract
 
-An active, deleting, or finalizing `users` row is one Samebase account. Google, GitHub, and password
-are sign-in methods for that account. An `authAccounts` row stores one stable provider identity. The
-Samebase user ID is the product identity. An email address or GitHub login is not the product
-identity. Spec 113 defines the terminal PII-free deleted row.
+An active or deleting `users` row is one Samebase account. Google, GitHub, and password are sign-in
+methods for that account. An `authAccounts` row stores one stable provider identity. The Samebase
+user ID is the product identity. An email address or GitHub login is not the product identity. Spec
+113 defines the terminal PII-free deleted row.
 
 `users.email` is one stable, verified email on a non-deleted Samebase account. One normalized
 account email belongs to at most one active Samebase account. A deleted row has no email. The email
@@ -43,11 +43,11 @@ Signed-out OAuth resolution follows these rules:
    creates a Samebase account.
 4. A later provider email change does not change the Samebase account email.
 
-A known provider identity can create a session only for an active or deleting account. Deleting can
-create the deletion-recovery session that Spec 113 requires. Finalizing and deleted reject session
-creation. OAuth Connect and account linking require active. A deleted row cannot match email or
-provider identity because account deletion removes those values and auth accounts. If the same
-person signs up later, Samebase creates a new active row with a new user ID.
+A known provider identity can create a session only for an active account. Deleting and deleted
+reject session creation. The existing initiating session keeps only account-deletion access until
+the workflow removes it. OAuth Connect and account linking require active. A deleted row cannot
+match email or provider identity because account deletion removes those values and auth accounts. If
+the same person signs up later, Samebase creates a new active row with a new user ID.
 
 For an unlinked GitHub provider ID, changing the primary GitHub email changes the email observation
 used by the next signed-out attempt. If that new primary email is unique in Samebase, the attempt

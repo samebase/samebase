@@ -5,8 +5,6 @@ import { v, type Infer } from "convex/values";
 import { components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
-import { readUserLifecycle, readUserProfile } from "../userLifecycle";
-import { assertIdentityDeletionReady } from "./authCleanup";
 import {
   CONVEX_MANUAL_REVOCATION_NOTICE,
   vAccountDeletionEventLevel,
@@ -31,7 +29,6 @@ const vClosedEmailOutcome = union(
 );
 
 const vClaimedWorkflowRun = object({
-  userId: id("users"),
   outcomes: vAccountDeletionOutcomeSummary,
 });
 
@@ -84,7 +81,7 @@ export const claimWorkflowRun = internalMutation({
   returns: vClaimedWorkflowRun,
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
-    return { userId: run.identity.userId, outcomes: run.outcomes };
+    return { outcomes: run.outcomes };
   },
 });
 
@@ -219,31 +216,14 @@ export const recordCompletionEmailOutcome = internalMutation({
   },
 });
 
-export const markFinalizing = internalMutation({
+export const recordIdentityDeletionStart = internalMutation({
   args: workflowOwnershipArgs,
   returns: v.null(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
-    const user = await ctx.db.get(run.identity.userId);
-    if (user === null) {
-      throw new Error("Account deletion marker is inconsistent.");
-    }
-    const lifecycle = readUserLifecycle(user);
-    if (lifecycle.state !== "deleting" || lifecycle.runId !== run._id) {
-      throw new Error("Account deletion marker is inconsistent.");
-    }
-
-    await assertIdentityDeletionReady(ctx, run);
-    const now = Date.now();
-    await ctx.db.replace(user._id, {
-      state: "finalizing",
-      ...readUserProfile(lifecycle),
-      runId: run._id,
-      requestedAt: run.requestedAt,
-    });
     await ctx.db.patch(run._id, {
       currentStep: latestAccountDeletionStep(run.currentStep, "delete_identity"),
-      updatedAt: now,
+      updatedAt: Date.now(),
     });
     return null;
   },
@@ -316,11 +296,10 @@ export const deleteAccountWorkflow = workflow.define({
       await step.runMutation(internal.accountDeletion.workflow.startProviderRevocation, ownedArgs, {
         name: "start_provider_revocation",
       });
-      await step.runAction(
-        internal.githubUserAuthorizations.revokeAndDeleteByUser,
-        { userId: claimed.userId },
-        { name: "revoke_github_user_authorization", retry: false },
-      );
+      await step.runAction(internal.githubUserAuthorizations.revokeForAccountDeletion, ownedArgs, {
+        name: "revoke_github_user_authorization",
+        retry: false,
+      });
 
       for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
         const result = await step.runAction(
@@ -445,9 +424,11 @@ export const deleteAccountWorkflow = workflow.define({
       }
     }
 
-    await step.runMutation(internal.accountDeletion.workflow.markFinalizing, ownedArgs, {
-      name: "mark_finalizing",
-    });
+    await step.runMutation(
+      internal.accountDeletion.workflow.recordIdentityDeletionStart,
+      ownedArgs,
+      { name: "record_identity_deletion_start" },
+    );
     await step.runMutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, ownedArgs, {
       name: "finish_identity_deletion",
     });
@@ -469,19 +450,6 @@ export const handleWorkflowComplete = internalMutation({
     }
     if (run.state !== "running" || run.workflow.workflowId !== args.workflowId) {
       return null;
-    }
-
-    const user = await ctx.db.get(run.identity.userId);
-    if (user !== null) {
-      const lifecycle = readUserLifecycle(user);
-      if (lifecycle.state === "finalizing" && lifecycle.runId === run._id) {
-        await ctx.db.replace(user._id, {
-          state: "deleting",
-          ...readUserProfile(lifecycle),
-          runId: run._id,
-          requestedAt: run.requestedAt,
-        });
-      }
     }
 
     const now = Date.now();

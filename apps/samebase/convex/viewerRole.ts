@@ -5,7 +5,6 @@ import type { ViewerRole } from "../shared/accessModel";
 export function readViewerRoleForUser(user: NonDeletedUserLifecycleDoc): ViewerRole {
   switch (user.state) {
     case "deleting":
-    case "finalizing":
       return "role_deleting";
     case "active":
       if (isAdminUser(user.email)) {

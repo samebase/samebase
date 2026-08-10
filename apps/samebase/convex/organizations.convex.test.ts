@@ -451,16 +451,6 @@ describe("GitHub-backed organizations", () => {
     });
     await expectFirstOwnerDemotionRejected();
     await t.run(async (ctx) => {
-      await ctx.db.replace(secondUserId, {
-        state: "finalizing",
-        email: "second-owner@example.com",
-        isApproved: true,
-        runId,
-        requestedAt: 1,
-      });
-    });
-    await expectFirstOwnerDemotionRejected();
-    await t.run(async (ctx) => {
       await ctx.db.replace(secondUserId, { state: "deleted", deletedAt: 2 });
     });
     await expectFirstOwnerDemotionRejected();

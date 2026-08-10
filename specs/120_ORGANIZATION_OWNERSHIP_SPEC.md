@@ -23,8 +23,8 @@ product resources and independent Samebase workspaces that group several GitHub 
 
 Samebase has three separate identity records:
 
-1. An active, deleting, or finalizing `users` row is one Samebase account. A terminal deleted row is
-   only a PII-free attribution target, as Spec 113 defines.
+1. An active or deleting `users` row is one Samebase account. A terminal deleted row is only a
+   PII-free attribution target, as Spec 113 defines.
 2. An `organizations` row is one workspace for exactly one GitHub repository owner.
 3. An `organizationMemberships` row grants one user access to one organization.
 
@@ -269,8 +269,8 @@ All members can read plan and usage. Only owners can start checkout or open subs
 Deleting a user is not organization deletion. User deletion removes authentication data, personal
 state, memberships, MCP grants, user-owned GitHub authorizations, and provider credentials connected
 by that user. It leaves the PII-free terminal user row that Spec 113 defines. It does not delete an
-organization, deployment destination, vault, billing row, or another member's data. Deleted,
-deleting, and finalizing users do not count as members or active owners.
+organization, deployment destination, vault, billing row, or another member's data. Deleted and
+deleting users do not count as members or active owners.
 
 Organization deletion is a separate future product or operator action. GitHub App uninstall also
 does not delete Samebase data.
@@ -359,8 +359,8 @@ The rollout is ready only when focused tests and real manual checks prove:
   ID.
 - Billing and quotas belong to the organization.
 - User deletion does not delete the organization or shared resources.
-- A deleted, deleting, finalizing, or missing user cannot use a retained membership, session, MCP
-  credential, callback, or provider credential to get organization authority.
+- A deleted, deleting, or missing user cannot use a retained membership, session, MCP credential,
+  callback, or provider credential to get organization authority.
 - An MCP grant acts as its Samebase user across all current memberships, and each tool call applies
   current membership and role checks for its target.
 - No caller or test keeps automatic personal organizations or opaque organization URL selection.

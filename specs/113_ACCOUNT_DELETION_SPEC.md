@@ -27,7 +27,8 @@ reconnects the same destination.
 Acceptance creates one durable deletion run, marks the user as deleting, and routes every signed-in
 session to `/account-deletion`. Repeated requests return the same active run without rechecking the
 phrase. A deleting user cannot use ordinary authenticated product routes or create new user-owned
-data.
+data. A deleting user cannot create a new auth session. The initiating session remains available
+only for account-deletion access until the workflow removes it.
 
 ## User Lifecycle
 
@@ -36,15 +37,12 @@ The `users` table has one closed lifecycle union:
 1. `active` contains the account profile and normal account authority.
 2. `deleting` contains the profile, deletion run ID, and request time. It grants only the access
    that this deletion flow requires.
-3. `finalizing` contains the same deletion fields while the workflow performs its final transaction.
-   It grants only the access that this deletion flow requires.
-4. `deleted` contains only the existing Convex `_id`, system `_creationTime`, `state: "deleted"`,
+3. `deleted` contains only the existing Convex `_id`, system `_creationTime`, `state: "deleted"`,
    and `deletedAt`. It grants no authority and is terminal.
 
-The allowed forward transitions are `active` to `deleting`, `deleting` to `finalizing`, and
-`finalizing` to `deleted`. A workflow failure can restore `finalizing` to `deleting` before it marks
-the run as needing attention. No transition can leave `deleted`. A later signup by the same person
-creates a new active row with a new user ID.
+The allowed forward transitions are `active` to `deleting` and `deleting` to `deleted`. A workflow
+failure leaves the user deleting and marks the run as needing attention. No transition can leave
+`deleted`. A later signup by the same person creates a new active row with a new user ID.
 
 A missing user row means that a stored user reference is invalid or damaged. Product code must not
 present it as a deleted account. An approved durable user reference resolves a deleted row to the
@@ -92,9 +90,10 @@ The workflow must:
 5. Delete personal preferences, organization memberships, MCP grants and tokens, provider callback
    states, and GitHub App setup states in bounded batches.
 6. Attempt the completion email with the opaque deletion operation ID as the support reference.
-7. Delete the final auth session and auth accounts. In the same transaction, replace the
-   `finalizing` user row with the exact PII-free `deleted` variant and replace the deletion run with
-   its scrubbed successful receipt. Use one completion time for `deletedAt` and the receipt.
+7. Repeat every final readiness check, then delete the final auth session. In the same transaction,
+   replace the matching `deleting` user row with the exact PII-free `deleted` variant and replace
+   the live deletion run with its scrubbed successful receipt. Use one completion time for
+   `deletedAt` and the receipt.
 8. Retain only the scrubbed operation receipt in application tables. The workflow component can
    retain an identity-free execution journal for operational recovery.
 
@@ -103,14 +102,15 @@ attention. It never silently reactivates the account. Staff can inspect and retr
 `/admin/account-deletions` but cannot skip required steps or force success.
 
 Row existence never grants authority. Active users get their normal account, staff, approval,
-organization, provider, vault, billing, browser handoff, and MCP access. Deleting and finalizing
-users get only account-deletion access. Deleted users get no authenticated access. Stale sessions,
-JWTs, MCP credentials, OAuth callbacks, browser handoffs, provider callbacks, and provider refreshes
-must reject deleted users. Deleted, deleting, and finalizing users do not count as staff, approved
-users, organization members, or active owners. A durable workflow that already owns a run or lock
-can finish from that run or lock. It must not use the user row as continuation authority. Manual
-provider-write locks store the initiating user ID. Account deletion waits for an active lock owned
-by that user, and the lock authorizes its bounded local completion writes.
+organization, provider, vault, billing, browser handoff, and MCP access. Deleting users get only
+account-deletion access through an existing session and cannot create another session. Deleted users
+get no authenticated access. Stale sessions, JWTs, MCP credentials, OAuth callbacks, browser
+handoffs, provider callbacks, and provider refreshes must reject deleted users. Deleted and deleting
+users do not count as staff, approved users, organization members, or active owners. A durable
+workflow that already owns a run or lock can finish from that run or lock. It must not use the user
+row as continuation authority. Manual provider-write locks store the initiating user ID. Account
+deletion waits for an active lock owned by that user, and the lock authorizes its bounded local
+completion writes.
 
 Clearing a matching local credential slot is required. Samebase does not call Convex or Cloudflare
 revocation endpoints during account deletion. Manual provider revocation is not a completion gate.
@@ -158,8 +158,8 @@ final union before the schema deploy. Previously hard-deleted IDs cannot be rest
 
 - A request is idempotent and capability retries keep observing the same run.
 - Normal routes and writes reject a deleting user.
-- Viewer, session, OAuth, browser handoff, provider callback, and MCP state-matrix tests reject
-  finalizing and deleted users as required. Missing user references fail as corruption.
+- Viewer, session, OAuth, browser handoff, provider callback, and MCP state-matrix tests enforce the
+  deleting and deleted boundaries. Missing user references fail as corruption.
 - Staff, approval, membership, billing, and active-owner checks count only active users.
 - Each matching local credential slot is cleared without a Convex or Cloudflare revocation request.
   The completion email gives the manual upstream revocation steps.
@@ -171,8 +171,8 @@ final union before the schema deploy. Previously hard-deleted IDs cannot be rest
   workflows survive unchanged.
 - Completion-email failure remains visible without retaining the account indefinitely.
 - Successful runs retain only the scrubbed application receipt plus identity-free workflow state.
-- The final transaction writes the deleted user variant and scrubbed receipt atomically. Failure
-  recovery restores `finalizing` to `deleting`, and retry can complete the same run.
+- The final transaction rechecks readiness and writes the deleted user variant and scrubbed receipt
+  atomically. Failure leaves the user deleting, and retry can complete the same run.
 - A later signup creates a new active user ID. It does not reactivate the deleted row.
 - Approved retained attribution presents the exact term `Deleted Samebase account`. A missing
   reference is not presented as deletion.

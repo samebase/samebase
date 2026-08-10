@@ -7,7 +7,7 @@ import { makeConvexTest } from "./test.setup";
 import { resolveUserReferencePresentation } from "./userLifecycle";
 
 type TestBackend = ReturnType<typeof makeConvexTest>;
-type LifecycleState = "active" | "deleting" | "finalizing" | "deleted";
+type LifecycleState = "active" | "deleting" | "deleted";
 
 async function insertDeletionRun(
   ctx: MutationCtx,
@@ -49,8 +49,7 @@ async function seedLifecycleUser(args: {
     switch (args.state) {
       case "active":
         return userId;
-      case "deleting":
-      case "finalizing": {
+      case "deleting": {
         const runId = await insertDeletionRun(ctx, { userId, email: args.email });
         await ctx.db.replace(userId, {
           state: args.state,
@@ -162,12 +161,6 @@ describe("user lifecycle authorization", () => {
         isApproved: true,
         role: "role_deleting",
       },
-      {
-        state: "finalizing" as const,
-        email: "member-finalizing@example.test",
-        isApproved: true,
-        role: "role_deleting",
-      },
     ];
 
     for (const testCase of cases) {
@@ -202,7 +195,7 @@ describe("user lifecycle authorization", () => {
   });
 
   it("requires an active user at delayed vault and provider boundaries", async () => {
-    const states = ["active", "deleting", "finalizing", "deleted"] as const;
+    const states = ["active", "deleting", "deleted"] as const;
     for (const state of states) {
       const { t, userId } = await seedLifecycleUser({
         state,

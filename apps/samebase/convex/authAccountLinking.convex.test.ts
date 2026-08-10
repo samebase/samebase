@@ -568,10 +568,10 @@ describe("Samebase OAuth account linking", () => {
     });
   });
 
-  it("rejects sign-in for an account whose deletion is finalizing", async () => {
+  it("rejects sign-in for a deleting account", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
-      const userId = await insertUser(ctx, "finalizing@example.com");
+      const userId = await insertUser(ctx, "deleting-sign-in@example.com");
       const initiatingSessionId = await ctx.db.insert("authSessions", {
         userId,
         expirationTime: Date.now() + 60_000,
@@ -582,7 +582,7 @@ describe("Samebase OAuth account linking", () => {
         identity: {
           state: "active",
           userId,
-          email: "finalizing@example.com",
+          email: "deleting-sign-in@example.com",
         },
         completionCapability: "c".repeat(64),
         currentStep: "request_accepted",
@@ -594,18 +594,18 @@ describe("Samebase OAuth account linking", () => {
           providerRevocation: { state: "not_started" },
           completionEmail: { state: "not_started" },
         },
-        workflow: { state: "started", workflowId: "finalizing-workflow", attempt: 1 },
+        workflow: { state: "started", workflowId: "deleting-sign-in-workflow", attempt: 1 },
       });
       await ctx.db.patch(userId, {
-        state: "finalizing",
+        state: "deleting",
         runId,
         requestedAt: now,
       });
       await ctx.db.insert("authAccounts", {
         userId,
         provider: "google",
-        providerAccountId: "google-finalizing",
-        emailVerified: "finalizing@example.com",
+        providerAccountId: "google-deleting-sign-in",
+        emailVerified: "deleting-sign-in@example.com",
       });
       return userId;
     });
@@ -616,13 +616,13 @@ describe("Samebase OAuth account linking", () => {
           ctx,
           oauthArgs({
             provider: "google",
-            providerAccountId: "google-finalizing",
-            email: "finalizing@example.com",
+            providerAccountId: "google-deleting-sign-in",
+            email: "deleting-sign-in@example.com",
             existingSessionId: null,
             existingUserId: userId,
           }),
         ),
       ),
-    ).rejects.toThrow("Account deletion is already finalizing.");
+    ).rejects.toThrow("Account deletion is in progress.");
   });
 });

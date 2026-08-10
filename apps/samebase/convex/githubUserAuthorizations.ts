@@ -558,15 +558,20 @@ async function revokeGitHubUserAuthorization(
   return null;
 }
 
-export const revokeAndDeleteByUser = internalAction({
+export const revokeForAccountDeletion = internalAction({
   args: {
-    userId: id("users"),
+    runId: id("workflow_accountDeletion_runs"),
+    workflowId: string(),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
+    const identity = await ctx.runQuery(
+      internal.accountDeletion.stepContext.getOwnedIdentity,
+      args,
+    );
     const authorization: GitHubUserAuthorizationForRevocation | null = await ctx.runQuery(
       internal.githubUserAuthorizations.getForRevocation,
-      args,
+      { userId: identity.userId },
     );
     return authorization === null ? null : await revokeGitHubUserAuthorization(ctx, authorization);
   },

@@ -293,7 +293,7 @@ export const finishIdentityDeletion = internalMutation({
       throw new Error("Account deletion is not ready to finalize.");
     }
     const lifecycle = readUserLifecycle(user);
-    if (lifecycle.state !== "finalizing" || lifecycle.runId !== run._id) {
+    if (lifecycle.state !== "deleting" || lifecycle.runId !== run._id) {
       throw new Error("Account deletion is not ready to finalize.");
     }
 

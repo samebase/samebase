@@ -40,19 +40,14 @@ export const vDeletingUser = object({
   ...deletingUserFields,
 });
 
-export const vFinalizingUser = object({
-  state: literal("finalizing"),
-  ...deletingUserFields,
-});
-
 export const vDeletedUser = object({
   state: literal("deleted"),
   deletedAt: number(),
 });
 
-export const vUserLifecycle = union(vActiveUser, vDeletingUser, vFinalizingUser, vDeletedUser);
+export const vUserLifecycle = union(vActiveUser, vDeletingUser, vDeletedUser);
 
-export const vNonDeletedUserLifecycle = union(vActiveUser, vDeletingUser, vFinalizingUser);
+export const vNonDeletedUserLifecycle = union(vActiveUser, vDeletingUser);
 export type NonDeletedUserLifecycle = Infer<typeof vNonDeletedUserLifecycle>;
 
 const userDocFields = {
@@ -72,30 +67,15 @@ const vDeletingUserDoc = object({
   ...deletingUserFields,
 });
 
-const vFinalizingUserDoc = object({
-  state: literal("finalizing"),
-  ...userDocFields,
-  ...deletingUserFields,
-});
-
 const vDeletedUserDoc = object({
   state: literal("deleted"),
   ...userDocFields,
   deletedAt: number(),
 });
 
-export const vUserLifecycleDoc = union(
-  vActiveUserDoc,
-  vDeletingUserDoc,
-  vFinalizingUserDoc,
-  vDeletedUserDoc,
-);
+export const vUserLifecycleDoc = union(vActiveUserDoc, vDeletingUserDoc, vDeletedUserDoc);
 
-export const vNonDeletedUserLifecycleDoc = union(
-  vActiveUserDoc,
-  vDeletingUserDoc,
-  vFinalizingUserDoc,
-);
+export const vNonDeletedUserLifecycleDoc = union(vActiveUserDoc, vDeletingUserDoc);
 
 export type UserLifecycleDoc = Infer<typeof vUserLifecycleDoc>;
 export type NonDeletedUserLifecycleDoc = Infer<typeof vNonDeletedUserLifecycleDoc>;

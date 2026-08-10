@@ -33,10 +33,7 @@ export function requireAuthSessionUserCanSignIn(user: unknown) {
     return user;
   }
   if (user.state === "deleting") {
-    return user;
-  }
-  if (user.state === "finalizing") {
-    throw new Error("Account deletion is already finalizing.");
+    throw new Error("Account deletion is in progress.");
   }
   if (user.state === "deleted") {
     throw new Error("Account is unavailable.");
@@ -149,8 +146,6 @@ async function requireActiveUser(ctx: MutationCtx, userId: Id<"users">) {
       return lifecycle;
     case "deleting":
       throw new Error("Account deletion is in progress.");
-    case "finalizing":
-      throw new Error("Account deletion is already finalizing.");
     case "deleted":
       throw new Error("Account is unavailable.");
     default:
