@@ -331,7 +331,6 @@ export const createPolarCheckoutSession = action({
       }
 
       const cleared: boolean = await ctx.runMutation(internal.polarCheckout.clearOpen, {
-        userId,
         organizationId,
         attemptId: reservation.attemptId,
         checkoutId: reservation.checkoutId,
@@ -370,7 +369,6 @@ export const createPolarCheckoutSession = action({
     } catch (error) {
       if (isDefinitivePolarCheckoutFailure(error)) {
         await ctx.runMutation(internal.polarCheckout.clearPending, {
-          userId,
           organizationId,
           attemptId: reservation.attemptId,
         });
@@ -395,7 +393,6 @@ export const createPolarCheckoutSession = action({
     }
 
     const recorded: boolean = await ctx.runMutation(internal.polarCheckout.recordOpen, {
-      userId,
       organizationId,
       attemptId: reservation.attemptId,
       checkoutId: checkout.id,
@@ -514,7 +511,6 @@ export const reconcileViewerBillingFromPolar = action({
             canClearPolarCheckoutAfterObservation({ checkout, observedPlan: state.plan })
           ) {
             await ctx.runMutation(internal.polarCheckout.clearOpen, {
-              userId,
               organizationId,
               attemptId: attempt.attemptId,
               checkoutId: attempt.checkoutId,
