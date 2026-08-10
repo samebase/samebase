@@ -25,7 +25,7 @@ import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthorit
 const { boolean, id, literal, number, object, string, union } = v;
 
 const GITHUB_USER_TOKEN_REFRESH_BUFFER_MS = 60 * 1000;
-const GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS = 60 * 1000;
+export const GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS = 60 * 1000;
 
 const vViewerPersonalRepositoryAuthorizationStatus = union(
   object({ status: literal("sign_in_required"), authorizationPresent: boolean() }),
@@ -402,10 +402,6 @@ export const finishRefresh = internalMutation({
     if (authorization === null || authorization.refreshStartedAt !== args.refreshStartedAt) {
       throw new Error("GitHub user authorization refresh lock changed.");
     }
-    const user = await ctx.db.get(authorization.userId);
-    if (user === null || readActiveUser(user) === null) {
-      throw new Error("An active Samebase user is required.");
-    }
     await finishRefreshAfterAuthority(ctx.db, authorization.userId, args);
     return null;
   },
@@ -454,10 +450,6 @@ export const releaseRefresh = internalMutation({
   handler: async (ctx, args) => {
     const authorization = await ctx.db.get(args.authorizationId);
     if (authorization?.refreshStartedAt === args.refreshStartedAt) {
-      const user = await ctx.db.get(authorization.userId);
-      if (user === null || readActiveUser(user) === null) {
-        throw new Error("An active Samebase user is required.");
-      }
       await releaseRefreshAfterAuthority(ctx.db, authorization.userId, args);
     }
     return null;

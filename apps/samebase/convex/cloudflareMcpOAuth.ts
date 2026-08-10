@@ -19,11 +19,7 @@ import {
 } from "./mcpTokenHealth";
 import { vProviderOAuthStoreResult, type ProviderOAuthStoreResult } from "./oauthState";
 import { connectCloudflareCredential } from "./organizationProviderCredentials";
-import {
-  providerAuthMatches,
-  requireCloudflareAuthUsableDuringRefresh,
-  vCloudflareProviderAuth,
-} from "./providerAuth";
+import { requireCloudflareAuthUsableDuringRefresh, vCloudflareProviderAuth } from "./providerAuth";
 import { vOrganizationCloudflareAccount } from "./organizationModel";
 import { vCloudflareTokenRefreshLease } from "./organizationProviderCredentialModel";
 import {
@@ -117,6 +113,10 @@ type CloudflareMcpOAuthAuth = Extract<
 >;
 type CloudflareProviderAuth = Infer<typeof vCloudflareProviderAuth>;
 type CloudflareTokenRefreshLease = Infer<typeof vCloudflareTokenRefreshLease>;
+type CloudflareRefreshLease = {
+  auth: CloudflareProviderAuth;
+  tokenRefreshLease: CloudflareTokenRefreshLease;
+};
 type CloudflareConnectionAuthority =
   | {
       kind: "user";
@@ -462,18 +462,26 @@ export const storeCloudflareMcpOauthConnection = internalMutation({
 async function loadCloudflareProviderConfiguration(
   ctx: Pick<ActionCtx, "runQuery">,
   authority: CloudflareConnectionAuthority,
+  refreshLease?: CloudflareRefreshLease,
 ) {
   switch (authority.kind) {
     case "user":
       return {
         organizationId: authority.organizationId,
-        configuration: await ctx.runQuery(
-          internal.organizationProviderCredentials.loadForOrganization,
-          {
-            organizationId: authority.organizationId,
-            userId: authority.userId,
-          },
-        ),
+        configuration:
+          refreshLease === undefined
+            ? await ctx.runQuery(internal.organizationProviderCredentials.loadForOrganization, {
+                organizationId: authority.organizationId,
+                userId: authority.userId,
+              })
+            : await ctx.runQuery(
+                internal.organizationProviderCredentials.loadCloudflareTokenRefreshContinuation,
+                {
+                  organizationId: authority.organizationId,
+                  expectedAuth: refreshLease.auth,
+                  expectedTokenRefreshLease: refreshLease.tokenRefreshLease,
+                },
+              ),
       };
     case "vault_workflow":
       return await ctx.runQuery(
@@ -559,7 +567,6 @@ async function releaseCloudflareTokenRefreshForAuthority(
   authority: CloudflareConnectionAuthority,
   organizationId: Id<"organizations">,
   args: {
-    expectedAuth: CloudflareProviderAuth;
     expectedTokenRefreshLease: CloudflareTokenRefreshLease;
     recordLastTokenRefreshAt?: boolean;
   },
@@ -570,7 +577,6 @@ async function releaseCloudflareTokenRefreshForAuthority(
         internal.organizationProviderCredentials.releaseCloudflareTokenRefresh,
         {
           organizationId,
-          userId: authority.userId,
           ...args,
         },
       );
@@ -600,11 +606,6 @@ const resolveConnectionForOrganizationResultValidator = union(
 const getCloudflareMcpOAuthUrlResultValidator = string();
 type ResolvedCloudflareConnection = Infer<typeof resolvedCloudflareConnectionValidator>;
 
-type CloudflareRefreshLease = {
-  auth: CloudflareProviderAuth;
-  tokenRefreshLease: CloudflareTokenRefreshLease;
-};
-
 async function resolveConnectionForAuthority(
   ctx: ActionCtx,
   authority: CloudflareConnectionAuthority,
@@ -613,7 +614,7 @@ async function resolveConnectionForAuthority(
     refreshLease?: CloudflareRefreshLease;
   },
 ): Promise<ResolvedCloudflareConnection | null> {
-  const loaded = await loadCloudflareProviderConfiguration(ctx, authority);
+  const loaded = await loadCloudflareProviderConfiguration(ctx, authority, args.refreshLease);
   const { configuration, organizationId } = loaded;
   const credential = configuration.cloudflareCredential;
   if (credential === undefined) {
@@ -629,20 +630,6 @@ async function resolveConnectionForAuthority(
       auth: credential.auth,
       account,
     };
-  }
-
-  if (
-    args.refreshLease !== undefined &&
-    !providerAuthMatches(credential.auth, args.refreshLease.auth)
-  ) {
-    throw new Error("Cloudflare credential changed after the token refresh lease was claimed.");
-  }
-  if (
-    args.refreshLease !== undefined &&
-    (credential.tokenRefreshLease?.startedAt !== args.refreshLease.tokenRefreshLease.startedAt ||
-      credential.tokenRefreshLease.expiresAt !== args.refreshLease.tokenRefreshLease.expiresAt)
-  ) {
-    throw new Error("Cloudflare token refresh lease changed before refresh.");
   }
 
   const expiresAt = credential.auth.credentialExpiresAt;
@@ -758,7 +745,6 @@ async function resolveConnectionForAuthority(
     refreshLease = args.refreshLease.tokenRefreshLease;
   }
 
-  let releaseExpectedAuth = credential.auth;
   let recordLastTokenRefreshAt = false;
   try {
     console.log("cloudflare:mcp_token:refresh_start", {
@@ -822,7 +808,6 @@ async function resolveConnectionForAuthority(
       auth: refreshedAuth,
       tokenHealth: refreshedTokenHealth,
     });
-    releaseExpectedAuth = refreshedAuth;
     recordLastTokenRefreshAt = true;
     console.log("cloudflare:mcp_token:refresh_success", {
       organizationId,
@@ -830,6 +815,20 @@ async function resolveConnectionForAuthority(
       nextExpiresAt,
       clientIdLength: clientId.length,
     });
+    if (authority.kind === "user") {
+      const current = (await loadCloudflareProviderConfiguration(ctx, authority)).configuration;
+      if (current.cloudflareCredential === undefined) {
+        return null;
+      }
+      if (current.cloudflareAccount === undefined) {
+        throw new Error("Cloudflare credential has no configured account.");
+      }
+      return {
+        auth: current.cloudflareCredential.auth,
+        account: current.cloudflareAccount,
+        tokenHealth: current.cloudflareCredential.tokenHealth,
+      };
+    }
 
     return {
       auth: refreshedAuth,
@@ -839,7 +838,6 @@ async function resolveConnectionForAuthority(
   } finally {
     if (claimedHere) {
       await releaseCloudflareTokenRefreshForAuthority(ctx, authority, organizationId, {
-        expectedAuth: releaseExpectedAuth,
         expectedTokenRefreshLease: refreshLease,
         recordLastTokenRefreshAt,
       });

@@ -42,6 +42,11 @@ const vOrganizationProviderConfiguration = object({
 });
 export type OrganizationProviderConfiguration = Infer<typeof vOrganizationProviderConfiguration>;
 
+const vCloudflareTokenRefreshConfiguration = object({
+  cloudflareAccount: optional(vOrganizationCloudflareAccount),
+  cloudflareCredential: vCloudflareProviderCredential,
+});
+
 export const vConnectedProviderCredential = union(
   object({
     provider: literal("convex"),
@@ -190,6 +195,44 @@ export const loadForOrganization = internalQuery({
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderMember(ctx.db, args);
     return await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
+  },
+});
+
+export const loadCloudflareTokenRefreshContinuation = internalQuery({
+  args: {
+    organizationId: id("organizations"),
+    expectedAuth: vCloudflareProviderAuth,
+    expectedTokenRefreshLease: vCloudflareTokenRefreshLease,
+  },
+  returns: vCloudflareTokenRefreshConfiguration,
+  handler: async (ctx, args) => {
+    const [organization, credentials] = await Promise.all([
+      ctx.db.get(args.organizationId),
+      getOrganizationProviderCredentials(ctx.db, args.organizationId),
+    ]);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+    const credential = credentials?.cloudflare;
+    if (credential === undefined) {
+      throw new Error("Cloudflare credential not found.");
+    }
+    if (!providerAuthMatches(credential.auth, args.expectedAuth)) {
+      throw new Error("Cloudflare credential changed before token refresh continuation.");
+    }
+    if (
+      credential.tokenRefreshLease?.startedAt !== args.expectedTokenRefreshLease.startedAt ||
+      credential.tokenRefreshLease.expiresAt !== args.expectedTokenRefreshLease.expiresAt
+    ) {
+      throw new Error("Cloudflare token refresh lease changed before continuation.");
+    }
+
+    return {
+      ...(organization.cloudflareAccount
+        ? { cloudflareAccount: organization.cloudflareAccount }
+        : {}),
+      cloudflareCredential: credential,
+    };
   },
 });
 
@@ -698,7 +741,6 @@ async function releaseCloudflareTokenRefreshAfterAuthority(
   ctx: Pick<MutationCtx, "db">,
   organizationId: Id<"organizations">,
   args: {
-    expectedAuth: CloudflareProviderAuth;
     expectedTokenRefreshLease: CloudflareTokenRefreshLease;
     recordLastTokenRefreshAt?: boolean;
   },
@@ -706,12 +748,6 @@ async function releaseCloudflareTokenRefreshAfterAuthority(
   const credentials = await getOrganizationProviderCredentials(ctx.db, organizationId);
   const credential = credentials?.cloudflare;
   if (credentials === null || credential === undefined) {
-    return {};
-  }
-  if (!providerAuthMatches(credential.auth, args.expectedAuth)) {
-    throw new Error("Cloudflare credential changed before token refresh release.");
-  }
-  if (credential.auth.method !== "oauth" && credential.auth.method !== "mcp_oauth") {
     return {};
   }
   if (
@@ -745,8 +781,6 @@ export const replaceCloudflareCredential = internalMutation({
   handler: async (ctx, args) => {
     if (args.expectedTokenRefreshLease === undefined) {
       await requireActiveOrganizationProviderMember(ctx.db, args);
-    } else {
-      await requireActiveOrganizationProviderUser(ctx.db, args.userId);
     }
     await replaceCloudflareCredentialAfterAuthority(ctx, args.organizationId, args);
     return null;
@@ -883,8 +917,6 @@ export const claimCloudflareTokenRefreshForVaultWorkflow = internalMutation({
 export const releaseCloudflareTokenRefresh = internalMutation({
   args: {
     organizationId: id("organizations"),
-    userId: id("users"),
-    expectedAuth: vCloudflareProviderAuth,
     expectedTokenRefreshLease: vCloudflareTokenRefreshLease,
     recordLastTokenRefreshAt: optional(boolean()),
   },
@@ -892,7 +924,6 @@ export const releaseCloudflareTokenRefresh = internalMutation({
     lastTokenRefreshAt: optional(number()),
   }),
   handler: async (ctx, args) => {
-    await requireActiveOrganizationProviderUser(ctx.db, args.userId);
     return await releaseCloudflareTokenRefreshAfterAuthority(ctx, args.organizationId, args);
   },
 });
@@ -900,7 +931,6 @@ export const releaseCloudflareTokenRefresh = internalMutation({
 export const releaseCloudflareTokenRefreshForVaultWorkflow = internalMutation({
   args: {
     authority: vVaultProviderWorkflowAuthority,
-    expectedAuth: vCloudflareProviderAuth,
     expectedTokenRefreshLease: vCloudflareTokenRefreshLease,
     recordLastTokenRefreshAt: optional(boolean()),
   },

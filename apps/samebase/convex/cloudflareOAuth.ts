@@ -440,7 +440,6 @@ async function releaseCloudflareTokenRefreshForAuthority(
   authority: CloudflareConnectionAuthority,
   organizationId: Id<"organizations">,
   args: {
-    expectedAuth: CloudflareProviderAuth;
     expectedTokenRefreshLease: CloudflareTokenRefreshLease;
     recordLastTokenRefreshAt?: boolean;
   },
@@ -451,7 +450,6 @@ async function releaseCloudflareTokenRefreshForAuthority(
         internal.organizationProviderCredentials.releaseCloudflareTokenRefresh,
         {
           organizationId,
-          userId: authority.userId,
           ...args,
         },
       );
@@ -604,7 +602,6 @@ async function resolveConnectionForAuthority(
   }
   const refreshLease = claim.tokenRefreshLease;
 
-  let releaseExpectedAuth = credential.auth;
   let recordLastTokenRefreshAt = false;
   try {
     let refreshed: Awaited<ReturnType<typeof refreshCloudflareOAuthToken>>;
@@ -653,8 +650,21 @@ async function resolveConnectionForAuthority(
       auth: refreshedAuth,
       tokenHealth: refreshedTokenHealth,
     });
-    releaseExpectedAuth = refreshedAuth;
     recordLastTokenRefreshAt = true;
+    if (authority.kind === "user") {
+      const current = (await loadCloudflareProviderConfiguration(ctx, authority)).configuration;
+      if (current.cloudflareCredential === undefined) {
+        return null;
+      }
+      if (current.cloudflareAccount === undefined) {
+        throw new Error("Cloudflare credential has no configured account.");
+      }
+      return {
+        auth: current.cloudflareCredential.auth,
+        account: current.cloudflareAccount,
+        tokenHealth: current.cloudflareCredential.tokenHealth,
+      };
+    }
 
     return {
       auth: refreshedAuth,
@@ -663,7 +673,6 @@ async function resolveConnectionForAuthority(
     };
   } finally {
     await releaseCloudflareTokenRefreshForAuthority(ctx, authority, organizationId, {
-      expectedAuth: releaseExpectedAuth,
       expectedTokenRefreshLease: refreshLease,
       recordLastTokenRefreshAt,
     });

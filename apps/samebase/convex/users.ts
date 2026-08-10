@@ -10,7 +10,6 @@ import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
 import type { CloudflareAccount } from "./cloudflareAccountDiscovery";
 import { deriveMcpTokenStatusFromExpiry, vMcpTokenHealthStatus } from "./mcpTokenHealth";
-import type { CloudflareProviderCredential } from "./organizationProviderCredentialModel";
 import { AUTH_ACCOUNT_LINK_INTENT_DURATION_MS, vAuthAccountProvider } from "./authAccountModel";
 import {
   getOrganizationProviderConfiguration,
@@ -615,7 +614,6 @@ async function runCloudflareMcpTokenRefresh(args: {
   }
   const refreshLease = claim.tokenRefreshLease;
 
-  let releaseExpectedAuth: CloudflareProviderCredential["auth"] = credential.auth;
   let shouldRecordLastTokenRefreshAt = false;
   try {
     const resolvedConnection = await args.ctx.runAction(
@@ -637,7 +635,6 @@ async function runCloudflareMcpTokenRefresh(args: {
       );
       return buildCloudflareConnectionStatus(current);
     }
-    releaseExpectedAuth = resolvedConnection.auth;
     shouldRecordLastTokenRefreshAt = true;
     const nowAfterRefresh = Date.now();
     const refreshedConfiguration = await args.ctx.runQuery(
@@ -701,8 +698,6 @@ async function runCloudflareMcpTokenRefresh(args: {
       internal.organizationProviderCredentials.releaseCloudflareTokenRefresh,
       {
         organizationId,
-        userId: args.userId,
-        expectedAuth: releaseExpectedAuth,
         expectedTokenRefreshLease: refreshLease,
         recordLastTokenRefreshAt: shouldRecordLastTokenRefreshAt,
       },

@@ -19,6 +19,8 @@ import type { MutationCtx } from "./_generated/server";
 import { upsertGitHubUserAuthorization } from "./githubUserAuthorizations";
 import { makeConvexTest } from "./test.setup";
 
+const accountDeletionWorkflowId = "github-refresh-account-deletion";
+
 beforeEach(() => {
   vi.clearAllMocks();
   githubAuthMocks.createOAuthUserAuth.mockReturnValue(githubAuthMocks.auth);
@@ -43,6 +45,74 @@ async function insertGitHubSignInAccount(
     providerAccountId: args.githubUserId,
     emailVerified: `${args.githubUserLogin}@example.com`,
     githubLogin: args.githubUserLogin,
+  });
+}
+
+async function seedClaimedGitHubRefresh(email: string, githubUserId: string) {
+  const t = makeConvexTest();
+  const { authorizationId, userId } = await t.run(async (ctx) => {
+    const userId = await ctx.db.insert("users", {
+      state: "active",
+      email,
+      isApproved: true,
+    });
+    await insertGitHubSignInAccount(ctx, {
+      userId,
+      githubUserId,
+      githubUserLogin: `refresh-${githubUserId}`,
+    });
+    const now = Date.now();
+    const authorizationId = await ctx.db.insert("githubUserAuthorizations", {
+      userId,
+      githubUserId,
+      githubUserLogin: `refresh-${githubUserId}`,
+      accessToken: "old-access-token",
+      accessTokenExpiresAt: now - 1,
+      refreshToken: "old-refresh-token",
+      refreshTokenExpiresAt: now + 120_000,
+      createdAt: now,
+      updatedAt: now,
+    });
+    return { authorizationId, userId };
+  });
+  const claim = await t.mutation(internal.githubUserAuthorizations.claimForUse, {
+    userId,
+    githubUserId,
+  });
+  if (claim.kind !== "claimed") {
+    throw new Error("Expected a GitHub refresh claim.");
+  }
+  return { authorizationId, claim, t, userId };
+}
+
+async function startAccountDeletion(
+  t: ReturnType<typeof makeConvexTest>,
+  userId: Id<"users">,
+  email: string,
+) {
+  return await t.run(async (ctx) => {
+    const initiatingSessionId = await ctx.db.insert("authSessions", {
+      userId,
+      expirationTime: Date.now() + 60_000,
+    });
+    const now = Date.now();
+    const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
+      state: "running",
+      identity: { state: "active", userId, email },
+      completionCapability: "g".repeat(64),
+      currentStep: "revoke_access",
+      requestedAt: now,
+      updatedAt: now,
+      initiatingSessionId,
+      retryCount: 0,
+      outcomes: {
+        providerRevocation: { state: "not_started" },
+        completionEmail: { state: "not_started" },
+      },
+      workflow: { state: "started", workflowId: accountDeletionWorkflowId, attempt: 1 },
+    });
+    await ctx.db.patch(userId, { state: "deleting", runId, requestedAt: now });
+    return runId;
   });
 }
 
@@ -491,39 +561,77 @@ describe("GitHub user authorization identity boundaries", () => {
     ).rejects.toMatchObject({ data: "github-sign-in-required" });
   });
 
-  it("rejects a claimed refresh after the Samebase user becomes deleted", async () => {
-    const t = makeConvexTest();
-    const { authorizationId, userId } = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        state: "active",
-        email: "github-refresh-deleted@example.test",
-        isApproved: true,
-      });
-      await insertGitHubSignInAccount(ctx, {
+  it("finishes a claimed refresh during deletion and revokes the stored token", async () => {
+    const email = "github-refresh-deleting@example.test";
+    const { authorizationId, claim, t, userId } = await seedClaimedGitHubRefresh(email, "901");
+    const runId = await startAccountDeletion(t, userId, email);
+
+    await expect(
+      t.mutation(internal.githubUserAuthorizations.claimForUse, {
         userId,
         githubUserId: "901",
-        githubUserLogin: "refresh-deleted",
-      });
-      const now = Date.now();
-      const authorizationId = await ctx.db.insert("githubUserAuthorizations", {
-        userId,
-        githubUserId: "901",
-        githubUserLogin: "refresh-deleted",
-        accessToken: "old-access-token",
-        accessTokenExpiresAt: now - 1,
-        refreshToken: "old-refresh-token",
-        refreshTokenExpiresAt: now + 120_000,
-        createdAt: now,
-        updatedAt: now,
-      });
-      return { authorizationId, userId };
+      }),
+    ).rejects.toThrow("An active Samebase user is required.");
+    const finishArgs = {
+      authorizationId,
+      refreshStartedAt: claim.refreshStartedAt,
+      accessToken: "new-access-token",
+      accessTokenExpiresAt: Date.now() + 60_000,
+      refreshToken: "new-refresh-token",
+      refreshTokenExpiresAt: Date.now() + 120_000,
+    };
+    await expect(
+      t.mutation(internal.githubUserAuthorizations.finishRefresh, {
+        ...finishArgs,
+        refreshStartedAt: claim.refreshStartedAt + 1,
+      }),
+    ).rejects.toThrow("GitHub user authorization refresh lock changed.");
+    await t.mutation(internal.githubUserAuthorizations.finishRefresh, finishArgs);
+
+    vi.stubEnv("GITHUB_APP_ID", "42");
+    vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
+    vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
+    vi.stubEnv("GITHUB_APP_CLIENT_SECRET", "client-secret");
+    vi.stubEnv("GITHUB_APP_PRIVATE_KEY", "private-key");
+    vi.stubEnv("GITHUB_APP_OAUTH_CALLBACK_URL", "https://samebase.test/oauth/github/callback");
+    await t.action(internal.githubUserAuthorizations.revokeForAccountDeletion, {
+      runId,
+      workflowId: accountDeletionWorkflowId,
     });
-    const claim = await t.mutation(internal.githubUserAuthorizations.claimForUse, {
-      userId,
-      githubUserId: "901",
+
+    expect(githubAuthMocks.createOAuthUserAuth).toHaveBeenCalledWith({
+      clientType: "github-app",
+      clientId: "client-id",
+      clientSecret: "client-secret",
+      token: "new-access-token",
     });
-    if (claim.kind !== "claimed") throw new Error("Expected a GitHub refresh claim.");
+    await expect(t.run(async (ctx) => await ctx.db.get(authorizationId))).resolves.toBeNull();
+  });
+
+  it("releases a claimed refresh after the Samebase user starts deletion", async () => {
+    const email = "github-refresh-release@example.test";
+    const { authorizationId, claim, t, userId } = await seedClaimedGitHubRefresh(email, "902");
+    await startAccountDeletion(t, userId, email);
+
+    await t.mutation(internal.githubUserAuthorizations.releaseRefresh, {
+      authorizationId,
+      refreshStartedAt: claim.refreshStartedAt,
+    });
+    const authorization = await t.run(async (ctx) => await ctx.db.get(authorizationId));
+    expect(authorization).toMatchObject({
+      accessToken: "old-access-token",
+      refreshToken: "old-refresh-token",
+    });
+    expect(authorization?.refreshStartedAt).toBeUndefined();
+  });
+
+  it("rejects a claimed refresh after terminal cleanup removes its authorization", async () => {
+    const { authorizationId, claim, t, userId } = await seedClaimedGitHubRefresh(
+      "github-refresh-deleted@example.test",
+      "903",
+    );
     await t.run(async (ctx) => {
+      await ctx.db.delete(authorizationId);
       await ctx.db.replace(userId, { state: "deleted", deletedAt: Date.now() });
     });
 
@@ -536,12 +644,12 @@ describe("GitHub user authorization identity boundaries", () => {
         refreshToken: "new-refresh-token",
         refreshTokenExpiresAt: Date.now() + 120_000,
       }),
-    ).rejects.toThrow("An active Samebase user is required.");
+    ).rejects.toThrow("GitHub user authorization refresh lock changed.");
     await expect(
       t.mutation(internal.githubUserAuthorizations.releaseRefresh, {
         authorizationId,
         refreshStartedAt: claim.refreshStartedAt,
       }),
-    ).rejects.toThrow("An active Samebase user is required.");
+    ).resolves.toBeNull();
   });
 });

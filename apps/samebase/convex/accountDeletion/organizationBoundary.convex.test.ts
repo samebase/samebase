@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../githubUserAuthorizations";
 import { makeConvexTest } from "../test.setup";
 import { readUserLifecycle } from "../userLifecycle";
 
@@ -300,7 +301,7 @@ describe("account deletion organization boundary", () => {
     });
   });
 
-  it("waits for the deleting member's active vault work", async () => {
+  it("waits for the deleting member's active work and a fresh GitHub refresh", async () => {
     const { ids, t } = await seedRunningDeletion();
     const provisioningRunId = await t.run(async (ctx) => {
       return await ctx.db.insert("workflow_vaultProvisioning_runs", {
@@ -365,7 +366,7 @@ describe("account deletion organization boundary", () => {
       }),
     ).resolves.toEqual({ state: "waiting", blocker: "active_vault_deletion" });
 
-    const manualWriteId = await t.run(async (ctx) => {
+    const { githubAuthorizationId, manualWriteId } = await t.run(async (ctx) => {
       await ctx.db.patch(deletionRunId, {
         state: "failed",
         updatedAt: 5,
@@ -382,7 +383,7 @@ describe("account deletion organization boundary", () => {
         createdAt: 6,
         updatedAt: 6,
       });
-      return await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+      const manualWriteId = await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId: ids.vaultId,
         owner: {
           kind: "manual_provider_write",
@@ -395,6 +396,20 @@ describe("account deletion organization boundary", () => {
         lastWriteAt: {},
         updatedAt: 6,
       });
+      const now = Date.now();
+      const githubAuthorizationId = await ctx.db.insert("githubUserAuthorizations", {
+        userId: ids.deletingUserId,
+        githubUserId: "deleting-user-github-id",
+        githubUserLogin: "deleting-user",
+        accessToken: "old-access-token",
+        accessTokenExpiresAt: now - 1,
+        refreshToken: "old-refresh-token",
+        refreshTokenExpiresAt: now + 120_000,
+        refreshStartedAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return { githubAuthorizationId, manualWriteId };
     });
 
     await expect(
@@ -406,6 +421,21 @@ describe("account deletion organization boundary", () => {
 
     await t.run(async (ctx) => {
       await ctx.db.patch(manualWriteId, { state: "succeeded", updatedAt: 7 });
+    });
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({
+      state: "waiting",
+      blocker: "active_github_user_authorization_refresh",
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(githubAuthorizationId, {
+        refreshStartedAt: Date.now() - GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS,
+      });
     });
     await expect(
       t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {

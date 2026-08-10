@@ -167,6 +167,12 @@ again and fail closed. Reconnect must prove that the new credential can access t
 account. It does not change that destination. A separate owner action can change a destination only
 after Disconnect and only when the organization has no `vaults` row in any lifecycle condition.
 
+A new Cloudflare credential refresh claim requires an active organization member. After a successful
+claim, the exact expected authorization and lease authorize only the matching replacement. The exact
+lease alone authorizes the matching release, which clears only that lease. This continuation can
+finish after the actor is deleting or deleted only while the unchanged shared credential slot
+exists. It cannot recreate a slot that cleanup removed.
+
 Every vault stores required `convexTeamId` and `cloudflareAccountId` fields. Vault creation copies
 them from the organization in the same transaction. These fields bind all later provider work for
 that vault. They do not store a credential ID.

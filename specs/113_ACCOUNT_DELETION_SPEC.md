@@ -110,7 +110,12 @@ users do not count as staff, approved users, organization members, or active own
 workflow that already owns a run or lock can finish from that run or lock. It must not use the user
 row as continuation authority. Manual provider-write locks store the initiating user ID. Account
 deletion waits for an active lock owned by that user, and the lock authorizes its bounded local
-completion writes.
+completion writes. A new provider refresh claim requires an active user and the normal provider
+authority. An exact refresh lock authorizes only its matching GitHub finish or release. A Cloudflare
+replacement requires the exact expected authorization and lease. Cloudflare release requires only
+the exact lease and clears only that lease. A Cloudflare continuation can finish after the actor is
+deleting or deleted only while the unchanged shared credential slot and exact lease still exist. It
+must fail and cannot recreate the slot if cleanup removed or changed it.
 
 Clearing a matching local credential slot is required. Samebase does not call Convex or Cloudflare
 revocation endpoints during account deletion. Manual provider revocation is not a completion gate.
