@@ -1,5 +1,5 @@
-import { getAuthSessionId, getAuthUserId } from "@convex-dev/auth/server";
-import { internalQuery, type ActionCtx, type DatabaseReader } from "./_generated/server";
+import { getAuthSessionId } from "@convex-dev/auth/server";
+import type { ActionCtx, DatabaseReader } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, Infer, v } from "convex/values";
@@ -880,26 +880,5 @@ export const connectConvexWithApiKey = action({
     });
 
     return { teamId: details.teamId };
-  },
-});
-
-// Internal
-export const getAuthUser = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (userId === null) {
-      return null;
-    }
-    return await ctx.db.get(userId);
-  },
-});
-
-export const getById = internalQuery({
-  args: {
-    userId: v.id("users"),
-  },
-  handler: async (ctx, args) => {
-    return await ctx.db.get(args.userId);
   },
 });

@@ -47,9 +47,6 @@ export const vDeletedUser = object({
 
 export const vUserLifecycle = union(vActiveUser, vDeletingUser, vDeletedUser);
 
-export const vNonDeletedUserLifecycle = union(vActiveUser, vDeletingUser);
-export type NonDeletedUserLifecycle = Infer<typeof vNonDeletedUserLifecycle>;
-
 const userDocFields = {
   _id: id("users"),
   _creationTime: number(),
