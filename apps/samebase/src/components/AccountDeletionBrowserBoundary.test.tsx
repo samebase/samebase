@@ -2,9 +2,14 @@
 
 import { act, StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { ConvexError } from "convex/values";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { AccountDeletionBrowserBoundary } from "./AccountDeletionBrowserBoundary";
 import { writeAccountDeletionBrowserMarker } from "@/lib/accountDeletionBrowserState";
+import {
+  AUTHENTICATED_ACCOUNT_DELETED,
+  AUTHENTICATED_ACCOUNT_REFERENCE_INVALID,
+} from "../../shared/authenticatedAccountAvailability";
 
 const completionCapability = "a".repeat(64);
 
@@ -24,15 +29,21 @@ const queryState = vi.hoisted<{
     runId: string;
     state: "needs_attention" | "running";
   };
-  viewer:
-    | undefined
-    | { role: "role_anonymous" | "role_deleting" | "role_member" | "role_pending_access" };
+  viewerError: Error | null;
+  viewer: undefined | { role: "role_deleting" | "role_member" | "role_pending_access" };
 }>(() => ({
   completion: null,
   completionByCapability: new Map(),
   status: null,
+  viewerError: null,
   viewer: undefined,
 }));
+const publicClientState = vi.hoisted<{
+  listeners: Set<{
+    completionCapability: string;
+    update: (value: null | { completedAt: number; state: "succeeded" }) => void;
+  }>;
+}>(() => ({ listeners: new Set() }));
 const routerState = vi.hoisted(() => ({ navigate: vi.fn() }));
 const cleanupState = vi.hoisted(() => ({ resetLocalAppData: vi.fn() }));
 const authActionState = vi.hoisted(() => ({ signOut: vi.fn() }));
@@ -58,29 +69,50 @@ vi.mock("convex/react", async (importOriginal) => {
   const { getFunctionName } = await import("convex/server");
   return {
     ...actual,
+    useConvex: () => ({ url: "https://samebase.test" }),
     useConvexAuth: () => authState,
-    useQuery: (reference: Parameters<typeof getFunctionName>[0], args: object | "skip") => {
+    useQuery_experimental: ({
+      query,
+      args,
+    }: {
+      query: Parameters<typeof getFunctionName>[0];
+      args: object | "skip";
+    }) => {
       if (args === "skip") {
-        return undefined;
+        return { status: "pending" };
       }
-      const functionName = getFunctionName(reference);
+      const functionName = getFunctionName(query);
       if (functionName === "users:currentViewerAccess") {
-        return queryState.viewer;
-      }
-      if (functionName === "accountDeletion/index:completion") {
-        if (
-          "completionCapability" in args &&
-          typeof args.completionCapability === "string" &&
-          queryState.completionByCapability.has(args.completionCapability)
-        ) {
-          return queryState.completionByCapability.get(args.completionCapability);
+        if (queryState.viewerError !== null) {
+          return { status: "error", error: queryState.viewerError };
         }
-        return queryState.completion;
+        return queryState.viewer === undefined
+          ? { status: "pending" }
+          : { status: "success", data: queryState.viewer };
       }
-      return queryState.status;
+      return { status: "success", data: queryState.status };
     },
   };
 });
+
+vi.mock("convex/browser", () => ({
+  ConvexClient: class {
+    onUpdate(
+      _query: unknown,
+      args: { completionCapability: string },
+      update: (value: null | { completedAt: number; state: "succeeded" }) => void,
+    ) {
+      const listener = { completionCapability: args.completionCapability, update };
+      publicClientState.listeners.add(listener);
+      update(readCompletion(args.completionCapability));
+      return () => publicClientState.listeners.delete(listener);
+    }
+
+    close() {
+      return Promise.resolve();
+    }
+  },
+}));
 
 vi.mock("@/lib/appBootRecovery", () => ({
   resetLocalAppData: cleanupState.resetLocalAppData,
@@ -116,6 +148,20 @@ function createDeferred<Value>() {
   return { promise, resolve: control.resolve };
 }
 
+function readCompletion(capability: string) {
+  return queryState.completionByCapability.has(capability)
+    ? (queryState.completionByCapability.get(capability) ?? null)
+    : (queryState.completion ?? null);
+}
+
+function notifyPublicCompletion(capability: string) {
+  for (const listener of publicClientState.listeners) {
+    if (listener.completionCapability === capability) {
+      listener.update(readCompletion(capability));
+    }
+  }
+}
+
 async function renderBoundary(strict = false) {
   const rootElement = document.createElement("div");
   document.body.append(rootElement);
@@ -143,7 +189,9 @@ describe("AccountDeletionBrowserBoundary", () => {
     queryState.completion = null;
     queryState.completionByCapability = new Map();
     queryState.status = null;
+    queryState.viewerError = null;
     queryState.viewer = undefined;
+    publicClientState.listeners.clear();
     routerState.navigate.mockReset();
     routerState.navigate.mockResolvedValue(undefined);
     cleanupState.resetLocalAppData.mockReset();
@@ -226,6 +274,7 @@ describe("AccountDeletionBrowserBoundary", () => {
       queryState.viewer = undefined;
       queryState.completion = { completedAt: 3, state: "succeeded" };
       await act(async () => {
+        notifyPublicCompletion(completionCapability);
         mounted.root.render(
           <AccountDeletionBrowserBoundary>
             <div>Signed out</div>
@@ -343,7 +392,7 @@ describe("AccountDeletionBrowserBoundary", () => {
   it("shows completion while the deleted session still appears authenticated", async () => {
     writeAccountDeletionBrowserMarker(completionCapability);
     locationState.pathname = "/account-deletion";
-    queryState.viewer = { role: "role_anonymous" };
+    queryState.viewerError = new ConvexError(AUTHENTICATED_ACCOUNT_DELETED);
     queryState.completion = { completedAt: 3, state: "succeeded" };
 
     const mounted = await renderBoundary();
@@ -364,7 +413,7 @@ describe("AccountDeletionBrowserBoundary", () => {
 
   it("recovers an authenticated deleted session from the root route", async () => {
     writeAccountDeletionBrowserMarker(completionCapability);
-    queryState.viewer = { role: "role_anonymous" };
+    queryState.viewerError = new ConvexError(AUTHENTICATED_ACCOUNT_DELETED);
     queryState.completion = { completedAt: 3, state: "succeeded" };
 
     const mounted = await renderBoundary();
@@ -376,6 +425,20 @@ describe("AccountDeletionBrowserBoundary", () => {
       expect(authActionState.signOut).toHaveBeenCalledTimes(1);
       expect(mounted.rootElement.textContent).toContain("Account deleted");
       expect(mounted.rootElement.textContent).not.toContain("Normal route");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("does not mount normal routes for a deleted session without a browser marker", async () => {
+    queryState.viewerError = new ConvexError(AUTHENTICATED_ACCOUNT_DELETED);
+
+    const mounted = await renderBoundary();
+    try {
+      expect(mounted.rootElement.textContent).toBe("");
+      expect(authActionState.signOut).not.toHaveBeenCalled();
+      expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.rootElement.remove();
@@ -403,7 +466,7 @@ describe("AccountDeletionBrowserBoundary", () => {
   it("keeps the deleted JWT behind verification while the completion receipt catches up", async () => {
     writeAccountDeletionBrowserMarker(completionCapability);
     locationState.pathname = "/account-deletion";
-    queryState.viewer = { role: "role_anonymous" };
+    queryState.viewerError = new ConvexError(AUTHENTICATED_ACCOUNT_DELETED);
     queryState.completion = null;
 
     const mounted = await renderBoundary();
@@ -414,6 +477,7 @@ describe("AccountDeletionBrowserBoundary", () => {
 
       queryState.completion = { completedAt: 3, state: "succeeded" };
       await act(async () => {
+        notifyPublicCompletion(completionCapability);
         mounted.root.render(
           <AccountDeletionBrowserBoundary>
             <div>Normal route</div>
@@ -525,6 +589,41 @@ describe("AccountDeletionBrowserBoundary", () => {
       expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
       expect(window.localStorage.getItem("samebase:account-deletion")).toBeNull();
       expect(mounted.rootElement.textContent).toContain("Normal route");
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("does not consume a receipt when the authenticated viewer has an unrelated error", async () => {
+    writeAccountDeletionBrowserMarker(completionCapability);
+    locationState.pathname = "/account-deletion";
+    queryState.viewerError = new Error("network unavailable");
+    queryState.completion = { completedAt: 3, state: "succeeded" };
+
+    const mounted = await renderBoundary();
+    try {
+      expect(authActionState.signOut).not.toHaveBeenCalled();
+      expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
+      expect(window.localStorage.getItem("samebase:account-deletion")).not.toBeNull();
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("does not present a damaged user reference as a deleted account", async () => {
+    writeAccountDeletionBrowserMarker(completionCapability);
+    locationState.pathname = "/account-deletion";
+    queryState.viewerError = new ConvexError(AUTHENTICATED_ACCOUNT_REFERENCE_INVALID);
+    queryState.completion = { completedAt: 3, state: "succeeded" };
+
+    const mounted = await renderBoundary();
+    try {
+      expect(mounted.rootElement.textContent).toBe("");
+      expect(authActionState.signOut).not.toHaveBeenCalled();
+      expect(cleanupState.resetLocalAppData).not.toHaveBeenCalled();
+      expect(window.localStorage.getItem("samebase:account-deletion")).not.toBeNull();
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.rootElement.remove();

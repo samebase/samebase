@@ -13,6 +13,7 @@ import {
 } from "./organizationBilling";
 import { randomToken } from "./oauthUtils";
 import { reconcilePolarCustomerBilling } from "./polarBillingState";
+import { vActiveUserDoc } from "./userLifecycle";
 import {
   canClearPolarCheckoutAfterObservation,
   isDefinitivePolarCheckoutFailure,
@@ -68,11 +69,6 @@ const vPolarCustomerSeed = object({
   email: string(),
 });
 
-const vUserDoc = schema.tables.users.validator.extend({
-  _id: id("users"),
-  _creationTime: number(),
-});
-
 const vOrganizationBillingAccountDoc = schema.tables.organizationBillingAccounts.validator.extend({
   _id: id("organizationBillingAccounts"),
   _creationTime: number(),
@@ -81,7 +77,7 @@ const vOrganizationBillingAccountDoc = schema.tables.organizationBillingAccounts
 const vUserBillingAccount = object({
   account: vOrganizationBillingAccountDoc,
   role: vOrganizationMembershipRole,
-  user: vUserDoc,
+  user: vActiveUserDoc,
 });
 
 function isOrganizationSettingsPath(url: URL, githubOwnerLoginNormalized: string): boolean {

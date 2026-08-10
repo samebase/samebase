@@ -10,6 +10,7 @@ import type { Id } from "./_generated/dataModel";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { assertPasswordAuthLogLevelAllowed } from "./deploymentProfile";
 import { readOptionalEnv } from "./oauthUtils";
+import { readActiveUser } from "./userLifecycle";
 
 const { boolean, id, literal, null: vNull, object, string, union } = v;
 
@@ -41,7 +42,8 @@ export const resolvePasswordAccount = internalQuery({
     for await (const user of ctx.db
       .query("users")
       .withIndex("email", (q) => q.eq("email", email))) {
-      if (user.emailVerificationTime !== undefined) {
+      const activeUser = readActiveUser(user);
+      if (activeUser?.emailVerificationTime !== undefined) {
         if (verifiedUserId !== null) {
           throw new Error(`Multiple verified users exist for ${email}`);
         }
@@ -56,7 +58,11 @@ export const resolvePasswordAccount = internalQuery({
     if (accountUser === null) {
       throw new Error(`Password account user does not exist for ${email}`);
     }
-    if (normalizeAccountEmail(accountUser.email) !== email) {
+    const activeAccountUser = readActiveUser(accountUser);
+    if (activeAccountUser === null) {
+      throw new Error(`Password account user is not active for ${email}`);
+    }
+    if (normalizeAccountEmail(activeAccountUser.email) !== email) {
       throw new Error(`Password account user email does not match ${email}`);
     }
     if (verifiedUserId !== null && account.userId !== verifiedUserId) {
@@ -95,8 +101,12 @@ export const approvePasswordAccount = internalMutation({
     if (user === null) {
       throw new Error(`Password account user does not exist for ${email}`);
     }
-    if (!user.isApproved) {
-      await ctx.db.patch(user._id, { isApproved: true });
+    const activeUser = readActiveUser(user);
+    if (activeUser === null) {
+      throw new Error(`Password account user is not active for ${email}`);
+    }
+    if (!activeUser.isApproved) {
+      await ctx.db.patch(activeUser._id, { isApproved: true });
     }
 
     return null;
@@ -144,6 +154,7 @@ export const createOrUpdatePasswordAccount = internalAction({
           secret: args.password,
         },
         profile: {
+          state: "active",
           email,
           emailVerificationTime: Date.now(),
           isApproved: true,

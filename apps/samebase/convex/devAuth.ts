@@ -16,6 +16,7 @@ import { toSafeRepoName } from "../shared/repoName";
 import { discoverPreviewSeedGitHubAppInstallations } from "./githubApp";
 import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
+import { readActiveUser } from "./userLifecycle";
 
 const { array, boolean, id, literal, null: vNull, object, optional, string, union } = v;
 
@@ -220,9 +221,13 @@ export const approveSeedPasswordAccount = internalMutation({
     if (user === null) {
       throw new Error(`Cannot approve missing seed user ${args.userId}`);
     }
+    const activeUser = readActiveUser(user);
+    if (activeUser === null) {
+      throw new Error(`Cannot approve inactive seed user ${args.userId}`);
+    }
     // Seeded preview/local password accounts must skip the pending access gate so
     // operators do not need a parallel code-side allowlist for dev access.
-    if (user.isApproved !== true) {
+    if (activeUser.isApproved !== true) {
       await ctx.db.patch(args.userId, { isApproved: true });
     }
     return null;
@@ -412,12 +417,14 @@ async function ensureOrganizationContextAcceptanceOrganization(
       .unique();
     let vaultId: Id<"vaults">;
     let runId: Id<"workflow_vaultProvisioning_runs">;
+    let connectRepository: boolean;
     if (existingVault?.state === "connected") {
       if (existingVault.githubMode !== "connect_existing_repository") {
         throw new Error("Acceptance vault has an unsupported existing state.");
       }
       vaultId = existingVault._id;
       runId = existingVault.runId;
+      connectRepository = false;
     } else if (existingVault === null) {
       const created = await ctx.runMutation(
         internal.vault.records.createInitializingExistingRepositoryVaultForUser,
@@ -430,26 +437,30 @@ async function ensureOrganizationContextAcceptanceOrganization(
       );
       vaultId = created.vaultId;
       runId = created.runId;
+      connectRepository = true;
     } else if (
       existingVault.state === "provisioning" &&
       existingVault.githubMode === "connect_existing_repository"
     ) {
       vaultId = existingVault._id;
       runId = existingVault.runId;
+      connectRepository = true;
     } else {
       throw new Error("Acceptance vault has an unsupported existing state.");
     }
 
-    await ctx.runMutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
-      vaultId,
-      runId,
-      userId: args.userId,
-      ghRepoId: `acceptance-repository:${ownerLogin}/${repositoryName}`,
-      ghRepoOwner: ownerLogin,
-      ghRepoName: repositoryName,
-      defaultBranch: "main",
-      visibility: "private",
-    });
+    if (connectRepository) {
+      await ctx.runMutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+        vaultId,
+        runId,
+        userId: args.userId,
+        ghRepoId: `acceptance-repository:${ownerLogin}/${repositoryName}`,
+        ghRepoOwner: ownerLogin,
+        ghRepoName: repositoryName,
+        defaultBranch: "main",
+        visibility: "private",
+      });
+    }
     await ctx.runMutation(internal.vault.branches.upsertVaultBranchTree, {
       vaultId,
       branch: "main",
@@ -530,10 +541,14 @@ export const applyOrganizationContextAcceptanceFixture = internalMutation({
 
     const userId = accounts[0].userId;
     const user = await ctx.db.get(userId);
-    if (user === null || user.accountDeletion !== undefined) {
+    if (user === null) {
       throw new Error("An active acceptance user is required.");
     }
-    if (user.isApproved !== true) {
+    const activeUser = readActiveUser(user);
+    if (activeUser === null) {
+      throw new Error("An active acceptance user is required.");
+    }
+    if (activeUser.isApproved !== true) {
       await ctx.db.patch(userId, { isApproved: true });
     }
 
@@ -645,6 +660,7 @@ export const seedPasswordAccount = internalAction({
           secret: password,
         },
         profile: {
+          state: "active",
           email,
           emailVerificationTime: Date.now(),
         },

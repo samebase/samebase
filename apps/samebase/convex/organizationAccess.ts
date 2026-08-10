@@ -3,11 +3,25 @@ import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type DatabaseReader } from "./_generated/server";
 import { vOrganizationMembershipRole } from "./organizationModel";
+import { readActiveUser } from "./userLifecycle";
 
 export type OrganizationAccessContext = {
   userId: Id<"users">;
   organizationId: Id<"organizations">;
 };
+
+export async function requireActiveOrganizationActor(
+  db: DatabaseReader,
+  userId: Id<"users">,
+): Promise<void> {
+  const user = await db.get(userId);
+  if (user === null) {
+    throw new Error("Organization actor user reference is invalid.");
+  }
+  if (readActiveUser(user) === null) {
+    throw new Error("An active Samebase user is required.");
+  }
+}
 
 export async function findOrganizationMembership(
   db: DatabaseReader,
@@ -25,6 +39,7 @@ export async function findOrganizationAccessContext(
   db: DatabaseReader,
   access: OrganizationAccessContext,
 ): Promise<OrganizationAccessContext | null> {
+  await requireActiveOrganizationActor(db, access.userId);
   const membership = await findOrganizationMembership(db, access);
 
   return membership === null ? null : access;
@@ -35,6 +50,7 @@ export async function requireOrganizationMembership(
   db: DatabaseReader,
   access: OrganizationAccessContext,
 ): Promise<Doc<"organizationMemberships">> {
+  await requireActiveOrganizationActor(db, access.userId);
   const membership = await findOrganizationMembership(db, access);
   if (membership === null) {
     throw new Error("Organization membership is required.");
@@ -83,7 +99,10 @@ export async function requireAnotherActiveOrganizationOwner(
       continue;
     }
     const user = await db.get(membership.userId);
-    if (user !== null && user.accountDeletion === undefined) {
+    if (user === null) {
+      throw new Error("Organization membership user reference is invalid.");
+    }
+    if (readActiveUser(user) !== null) {
       return;
     }
   }

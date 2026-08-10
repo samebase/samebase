@@ -6,7 +6,7 @@ import { makeConvexTest } from "../test.setup";
 
 async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
   return await t.run(async (ctx) => {
-    return await ctx.db.insert("users", { email, isApproved: true });
+    return await ctx.db.insert("users", { state: "active", email, isApproved: true });
   });
 }
 

@@ -7,6 +7,8 @@ import {
   readBillingAccountState,
   requireBillingAccountForOrganization,
 } from "./organizationBilling";
+import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
+import { requireManualProviderWriteCheckpoint } from "./vault/infrastructureOperation";
 
 const { id, literal, null: nullValue, number, object, union } = v;
 
@@ -17,6 +19,24 @@ const RESOURCE_USAGE_READ_LIMIT = PRO_RESOURCE_ATTACHMENT_LIMIT + 1;
 const vBillingResourceKind = union(literal("cloudflare_worker"), literal("convex_project"));
 type BillingResourceKind = Infer<typeof vBillingResourceKind>;
 type BillingResourceReadCtx = Pick<QueryCtx, "db">;
+export type BillingResourceAuthority =
+  | {
+      kind: "user";
+      organizationId: Id<"organizations">;
+      userId: Id<"users">;
+    }
+  | {
+      kind: "vault_provisioning";
+      runId: Id<"workflow_vaultProvisioning_runs">;
+      userId: Id<"users">;
+      vaultId: Id<"vaults">;
+    }
+  | {
+      kind: "manual_provider_write";
+      actionId: string;
+      userId: Id<"users">;
+      vaultId: Id<"vaults">;
+    };
 
 const vResourceAttachmentCount = union(
   object({
@@ -101,14 +121,22 @@ export async function requireBillingResourceCapacity(
   },
 ): Promise<void> {
   const billing = await requireBillingAccountForOrganization(ctx.db, args);
-  const limit = readResourceAttachmentLimit(billing.account);
+  await requireBillingResourceCapacityForAccount(ctx, args.kind, billing.account);
+}
+
+async function requireBillingResourceCapacityForAccount(
+  ctx: BillingResourceReadCtx,
+  kind: BillingResourceKind,
+  account: Doc<"organizationBillingAccounts">,
+): Promise<void> {
+  const limit = readResourceAttachmentLimit(account);
   const used = await readResourceAttachmentCount(ctx, {
-    kind: args.kind,
-    organizationId: billing.account.organizationId,
+    kind,
+    organizationId: account.organizationId,
     maximumRows: limit + 1,
   });
   if (used >= limit) {
-    throwBillingResourceLimit(args.kind, limit);
+    throwBillingResourceLimit(kind, limit);
   }
 }
 
@@ -121,6 +149,87 @@ export const requireBillingResourceCapacityForProviderCreate = internalQuery({
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
     await requireBillingResourceCapacity(ctx, args);
+    return null;
+  },
+});
+
+export async function requireBillingResourceCapacityForVaultProvisioningRun(
+  ctx: BillingResourceReadCtx,
+  args: {
+    runId: Id<"workflow_vaultProvisioning_runs">;
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    kind: BillingResourceKind;
+  },
+): Promise<void> {
+  await requireBillingResourceCapacityForAuthority(ctx, {
+    authority: {
+      kind: "vault_provisioning",
+      runId: args.runId,
+      userId: args.userId,
+      vaultId: args.vaultId,
+    },
+    kind: args.kind,
+  });
+}
+
+export async function requireBillingResourceCapacityForAuthority(
+  ctx: BillingResourceReadCtx,
+  args: {
+    authority: BillingResourceAuthority;
+    kind: BillingResourceKind;
+  },
+): Promise<void> {
+  switch (args.authority.kind) {
+    case "user":
+      await requireBillingResourceCapacity(ctx, {
+        kind: args.kind,
+        organizationId: args.authority.organizationId,
+        userId: args.authority.userId,
+      });
+      return;
+    case "vault_provisioning": {
+      const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args.authority);
+      const account = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) =>
+          query.eq("organizationId", authority.organizationId),
+        )
+        .unique();
+      if (account === null) {
+        throw new Error("Organization billing account is required.");
+      }
+      await requireBillingResourceCapacityForAccount(ctx, args.kind, account);
+      return;
+    }
+    case "manual_provider_write": {
+      const vault = await requireManualProviderWriteCheckpoint(ctx, args.authority);
+      const account = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", vault.organizationId))
+        .unique();
+      if (account === null) {
+        throw new Error("Organization billing account is required.");
+      }
+      await requireBillingResourceCapacityForAccount(ctx, args.kind, account);
+      return;
+    }
+    default:
+      args.authority satisfies never;
+      throw new Error("Billing resource authority is invalid.");
+  }
+}
+
+export const requireBillingResourceCapacityForVaultProvisioning = internalQuery({
+  args: {
+    runId: id("workflow_vaultProvisioning_runs"),
+    userId: id("users"),
+    vaultId: id("vaults"),
+    kind: vBillingResourceKind,
+  },
+  returns: nullValue(),
+  handler: async (ctx, args): Promise<null> => {
+    await requireBillingResourceCapacityForVaultProvisioningRun(ctx, args);
     return null;
   },
 });

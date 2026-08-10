@@ -97,10 +97,39 @@ afterEach(() => {
 });
 
 describe("verified GitHub App installation completion", () => {
+  it("rejects a stale callback before GitHub exchange for a deleted user", async () => {
+    const t = makeConvexTest();
+    await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        state: "active",
+        email: "deleted-github-callback@example.test",
+        isApproved: true,
+      });
+      await ctx.db.insert("githubAppSetupStates", {
+        userId,
+        state: "deleted-github-callback",
+        purpose: "installation",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+      await ctx.db.replace(userId, { state: "deleted", deletedAt: Date.now() });
+    });
+
+    const response = await t.fetch(
+      "/oauth/github/callback?code=provider-code&installation_id=5001&state=deleted-github-callback",
+    );
+
+    expect(response.status).toBe(400);
+    await expect(response.text()).resolves.toBe("Invalid GitHub App setup state");
+    expect(githubAppMocks.verifyGitHubAppInstallation).not.toHaveBeenCalled();
+    expect(githubAppMocks.verifyGitHubUserAuthorization).not.toHaveBeenCalled();
+  });
+
   it("atomically creates a personal organization, saves its user authorization, and consumes state", async () => {
     const t = makeConvexTest();
     const { setupStateId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "owner@example.com",
         isApproved: true,
       });
@@ -177,6 +206,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const { setupStateId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "installation-access-lost@example.com",
         isApproved: true,
       });
@@ -232,6 +262,7 @@ describe("verified GitHub App installation completion", () => {
       const t = makeConvexTest();
       const { setupStateId, userId } = await t.run(async (ctx) => {
         const userId = await ctx.db.insert("users", {
+          state: "active",
           email: `personal-${signInState}@example.com`,
           isApproved: true,
         });
@@ -291,6 +322,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const { setupStateId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "personal-linked-after-start@example.com",
         isApproved: true,
       });
@@ -342,6 +374,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const { setupStateId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "organization-installer@example.com",
         isApproved: true,
       });
@@ -400,6 +433,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "authorization@example.com",
         isApproved: true,
       });
@@ -501,6 +535,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "pending-authorization@example.com",
         isApproved: false,
       });
@@ -535,6 +570,7 @@ describe("verified GitHub App installation completion", () => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
         const userId = await ctx.db.insert("users", {
+          state: "active",
           email: `authorization-${signInState}@example.com`,
           isApproved: true,
         });
@@ -576,6 +612,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const { accountId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "authorization-link-changed@example.com",
         isApproved: true,
       });
@@ -666,6 +703,7 @@ describe("verified GitHub App installation completion", () => {
       const t = makeConvexTest();
       const userId = await t.run(async (ctx) => {
         return await ctx.db.insert("users", {
+          state: "active",
           email: `${purpose}-${signInState}@example.com`,
           isApproved: true,
         });
@@ -769,6 +807,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "organization-authorization@example.com",
         isApproved: true,
       });
@@ -800,10 +839,12 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const { memberId, viewerId } = await t.run(async (ctx) => {
       const memberId = await ctx.db.insert("users", {
+        state: "active",
         email: "authorization-member@example.com",
         isApproved: true,
       });
       const viewerId = await ctx.db.insert("users", {
+        state: "active",
         email: "authorization-non-member@example.com",
         isApproved: true,
       });
@@ -836,6 +877,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "authorization-target-mismatch@example.com",
         isApproved: true,
       });
@@ -899,6 +941,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "authorization-membership-lost@example.com",
         isApproved: true,
       });
@@ -959,6 +1002,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "authorization-access-lost@example.com",
         isApproved: true,
       });
@@ -1011,6 +1055,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "authorization-callback@example.com",
         isApproved: true,
       });
@@ -1081,6 +1126,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const setupStateId = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "callback-cleanup@example.com",
         isApproved: true,
       });
@@ -1103,6 +1149,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "authorization-canceled@example.com",
         isApproved: true,
       });
@@ -1167,6 +1214,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "reconnect-mismatch@example.com",
         isApproved: true,
       });
@@ -1269,6 +1317,7 @@ describe("verified GitHub App installation completion", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "verification-failure@example.com",
         isApproved: true,
       });

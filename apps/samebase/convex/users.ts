@@ -31,6 +31,7 @@ import {
   resolveAccountPresentation,
   vAccountPresentation,
 } from "../shared/accountPresentation";
+import { readUserLifecycle } from "./userLifecycle";
 
 const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
@@ -100,10 +101,17 @@ async function readProviderConnectorPresentation(
   viewerUserId: Id<"users">,
 ): Promise<AccountPresentation | undefined> {
   const user = await db.get(connectedByUserId);
-  if (user === null || user.accountDeletion !== undefined) {
+  if (user === null) {
+    throw new Error("Provider connector user reference is invalid.");
+  }
+  const lifecycle = readUserLifecycle(user);
+  if (lifecycle.state === "deleted") {
+    throw new Error("Provider connector user reference is invalid.");
+  }
+  if (lifecycle.state !== "active") {
     return undefined;
   }
-  const accountPresentation = resolveAccountPresentation(user);
+  const accountPresentation = resolveAccountPresentation(lifecycle);
   if (connectedByUserId !== viewerUserId && accountPresentation.kind === "email") {
     return undefined;
   }
@@ -693,6 +701,7 @@ async function runCloudflareMcpTokenRefresh(args: {
       internal.organizationProviderCredentials.releaseCloudflareTokenRefresh,
       {
         organizationId,
+        userId: args.userId,
         expectedAuth: releaseExpectedAuth,
         expectedTokenRefreshLease: refreshLease,
         recordLastTokenRefreshAt: shouldRecordLastTokenRefreshAt,

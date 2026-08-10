@@ -13,6 +13,7 @@ import { vMcpAuthRequestStatus, vMcpOauthClientRegistrationStatus } from "./mode
 import { getDefaultMcpProtocolValidationOptions, redirectUriMatchesRegistered } from "./protocol";
 import { revokeActiveMcpGrant } from "./grants";
 import { parseScopeTokens } from "./scopes";
+import { readActiveUser } from "../userLifecycle";
 import {
   createAuthorizationCodeValue,
   MCP_AUTHORIZATION_CODE_TTL_MS,
@@ -330,7 +331,7 @@ export const createAuthRequest = internalMutation({
     if (args.userId) {
       const user = await ctx.db.get(args.userId);
 
-      if (!user || user.accountDeletion) {
+      if (!user || readActiveUser(user) === null) {
         throw new Error("Account deletion is in progress.");
       }
     }
@@ -410,7 +411,7 @@ export const issueAuthorizationCodeForAuthRequest = internalMutation({
     const { authRequest } = authRequestResult;
 
     const user = await ctx.db.get(args.userId);
-    if (!user || user.accountDeletion) {
+    if (!user || readActiveUser(user) === null) {
       return oauthError({
         status: 400,
         error: "invalid_grant",
@@ -694,7 +695,7 @@ export const exchangeAuthorizationCode = internalMutation({
     }
 
     const user = await ctx.db.get(authorizationCode.userId);
-    if (!user || user.accountDeletion) {
+    if (!user || readActiveUser(user) === null) {
       return oauthError({
         status: 400,
         error: "invalid_grant",
@@ -874,7 +875,7 @@ export const exchangeRefreshToken = internalMutation({
     }
 
     const user = await ctx.db.get(refreshToken.userId);
-    if (!user || user.accountDeletion) {
+    if (!user || readActiveUser(user) === null) {
       return oauthError({
         status: 400,
         error: "invalid_grant",
@@ -1065,7 +1066,7 @@ export const validateAccessToken = internalMutation({
     }
 
     const user = await ctx.db.get(accessToken.userId);
-    if (!user || user.accountDeletion) {
+    if (!user || readActiveUser(user) === null) {
       return oauthError({
         status: 401,
         error: "invalid_token",

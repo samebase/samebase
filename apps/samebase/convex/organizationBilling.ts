@@ -1,9 +1,10 @@
 import type { Doc, Id } from "./_generated/dataModel";
 import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
 import { requireOrganizationMembership } from "./organizationAccess";
+import { readActiveUser, type ActiveUserDoc } from "./userLifecycle";
 
 export type OrganizationBillingAccess = {
-  user: Doc<"users">;
+  user: ActiveUserDoc;
   account: Doc<"organizationBillingAccounts">;
   role: Doc<"organizationMemberships">["role"];
 };
@@ -31,6 +32,10 @@ export async function findBillingAccountForOrganization(
   if (user === null) {
     return null;
   }
+  const activeUser = readActiveUser(user);
+  if (activeUser === null) {
+    return null;
+  }
 
   const membership = await requireOrganizationMembership(db, args);
 
@@ -45,7 +50,7 @@ export async function findBillingAccountForOrganization(
   return {
     account,
     role: membership.role,
-    user,
+    user: activeUser,
   };
 }
 

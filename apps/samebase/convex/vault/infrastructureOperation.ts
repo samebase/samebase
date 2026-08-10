@@ -188,11 +188,17 @@ type ManualProviderWriteOwnerArgs = {
   vaultId: Id<"vaults">;
   actionId: string;
 };
+type ManualProviderWriteActorArgs = ManualProviderWriteOwnerArgs & {
+  userId: Id<"users">;
+};
 
 async function requireManualProviderWriteOwner(
   ctx: Pick<QueryCtx, "db">,
   args: ManualProviderWriteOwnerArgs,
-): Promise<ManualProviderWrite> {
+): Promise<{
+  vault: Extract<Doc<"vaults">, { state: "connected" }>;
+  write: ManualProviderWrite;
+}> {
   const [vault, write] = await Promise.all([
     ctx.db.get(args.vaultId),
     ctx.db
@@ -210,17 +216,21 @@ async function requireManualProviderWriteOwner(
   ) {
     throw new Error("Manual provider action no longer owns the vault write.");
   }
-  return { ...write, owner: write.owner };
+  return { vault, write: { ...write, owner: write.owner } };
 }
 
 export async function requireManualProviderWriteCheckpoint(
   ctx: Pick<QueryCtx, "db">,
-  args: ManualProviderWriteOwnerArgs,
-): Promise<void> {
-  const write = await requireManualProviderWriteOwner(ctx, args);
+  args: ManualProviderWriteActorArgs,
+): Promise<Extract<Doc<"vaults">, { state: "connected" }>> {
+  const { vault, write } = await requireManualProviderWriteOwner(ctx, args);
+  if (write.owner.userId !== args.userId) {
+    throw new Error("Manual provider action no longer owns the vault write.");
+  }
   if (write.state !== "active" || Date.now() >= write.owner.expiresAt) {
     throw new Error("Manual provider action state changed before its checkpoint was recorded.");
   }
+  return vault;
 }
 
 const vManualProviderWriteResult = union(literal("succeeded"), literal("failed"));
@@ -234,17 +244,11 @@ export const claimManualProviderWrite = internalMutation({
   },
   returns: vManualProviderWriteClaim,
   handler: async (ctx, args): Promise<ManualProviderWriteClaim> => {
-    const [vault, user] = await Promise.all([
-      requireVaultForUser(ctx.db, args),
-      ctx.db.get(args.userId),
-    ]);
+    const vault = await requireVaultForUser(ctx.db, args);
     if (vault.state !== "connected") {
       throw new Error("Vault not found.");
     }
     const connectedVault = assertConnectedVault(vault);
-    if (!user || user.accountDeletion !== undefined) {
-      throw new Error("Account deletion is in progress.");
-    }
     const infrastructure = await readVaultInfrastructureState(ctx, connectedVault);
     if (infrastructure.operation.kind !== "none") {
       throw new Error("Another vault infrastructure operation is active.");
@@ -255,6 +259,7 @@ export const claimManualProviderWrite = internalMutation({
     const expiresAt = now + MANUAL_PROVIDER_WRITE_EXPIRY_MS;
     const owner = {
       kind: "manual_provider_write" as const,
+      userId: args.userId,
       actionId: args.actionId,
       action: args.action,
       expiresAt,
@@ -296,7 +301,7 @@ export const finishManualProviderWriteResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const write = await requireManualProviderWriteOwner(ctx, args);
+    const { write } = await requireManualProviderWriteOwner(ctx, args);
     if (write.state !== "active" || Date.now() >= write.owner.expiresAt) {
       throw new Error("Manual provider action state changed before result was recorded.");
     }

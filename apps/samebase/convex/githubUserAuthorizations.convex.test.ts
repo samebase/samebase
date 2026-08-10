@@ -51,6 +51,7 @@ describe("viewer GitHub user authorization", () => {
     const t = makeConvexTest();
     const { organizationId, otherOrganizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "github-status@example.com",
         isApproved: true,
       });
@@ -172,6 +173,7 @@ describe("viewer GitHub user authorization", () => {
     const t = makeConvexTest();
     const { userId, authorizationId, organizationId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "github-revoke@example.com",
         isApproved: true,
       });
@@ -234,6 +236,7 @@ describe("GitHub user authorization identity boundaries", () => {
     const t = makeConvexTest();
     const { authorizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "github-switch@example.com",
         isApproved: true,
       });
@@ -283,10 +286,12 @@ describe("GitHub user authorization identity boundaries", () => {
     const t = makeConvexTest();
     const { authorizationId, secondUserId } = await t.run(async (ctx) => {
       const firstUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "github-owner@example.com",
         isApproved: true,
       });
       const secondUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "github-other@example.com",
         isApproved: true,
       });
@@ -342,6 +347,7 @@ describe("GitHub user authorization identity boundaries", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "github-sign-in@example.com",
         isApproved: true,
       });
@@ -382,10 +388,12 @@ describe("GitHub user authorization identity boundaries", () => {
     const t = makeConvexTest();
     const secondUserId = await t.run(async (ctx) => {
       const firstUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "github-sign-in-owner@example.com",
         isApproved: true,
       });
       const secondUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "github-access-candidate@example.com",
         isApproved: true,
       });
@@ -431,6 +439,7 @@ describe("GitHub user authorization identity boundaries", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "github-sign-in-required@example.com",
         isApproved: true,
       });
@@ -455,6 +464,7 @@ describe("GitHub user authorization identity boundaries", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "github-use-sign-in-required@example.com",
         isApproved: true,
       });
@@ -479,5 +489,59 @@ describe("GitHub user authorization identity boundaries", () => {
         githubUserId: "801",
       }),
     ).rejects.toMatchObject({ data: "github-sign-in-required" });
+  });
+
+  it("rejects a claimed refresh after the Samebase user becomes deleted", async () => {
+    const t = makeConvexTest();
+    const { authorizationId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        state: "active",
+        email: "github-refresh-deleted@example.test",
+        isApproved: true,
+      });
+      await insertGitHubSignInAccount(ctx, {
+        userId,
+        githubUserId: "901",
+        githubUserLogin: "refresh-deleted",
+      });
+      const now = Date.now();
+      const authorizationId = await ctx.db.insert("githubUserAuthorizations", {
+        userId,
+        githubUserId: "901",
+        githubUserLogin: "refresh-deleted",
+        accessToken: "old-access-token",
+        accessTokenExpiresAt: now - 1,
+        refreshToken: "old-refresh-token",
+        refreshTokenExpiresAt: now + 120_000,
+        createdAt: now,
+        updatedAt: now,
+      });
+      return { authorizationId, userId };
+    });
+    const claim = await t.mutation(internal.githubUserAuthorizations.claimForUse, {
+      userId,
+      githubUserId: "901",
+    });
+    if (claim.kind !== "claimed") throw new Error("Expected a GitHub refresh claim.");
+    await t.run(async (ctx) => {
+      await ctx.db.replace(userId, { state: "deleted", deletedAt: Date.now() });
+    });
+
+    await expect(
+      t.mutation(internal.githubUserAuthorizations.finishRefresh, {
+        authorizationId,
+        refreshStartedAt: claim.refreshStartedAt,
+        accessToken: "new-access-token",
+        accessTokenExpiresAt: Date.now() + 60_000,
+        refreshToken: "new-refresh-token",
+        refreshTokenExpiresAt: Date.now() + 120_000,
+      }),
+    ).rejects.toThrow("An active Samebase user is required.");
+    await expect(
+      t.mutation(internal.githubUserAuthorizations.releaseRefresh, {
+        authorizationId,
+        refreshStartedAt: claim.refreshStartedAt,
+      }),
+    ).rejects.toThrow("An active Samebase user is required.");
   });
 });

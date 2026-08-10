@@ -10,6 +10,7 @@ import {
 } from "./organizationProviderCredentialModel";
 import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
+import { readActiveUser } from "./userLifecycle";
 
 export {
   vOAuthProvider,
@@ -46,7 +47,7 @@ export const createOauthState = internalMutation({
       ctx.db.get(args.userId),
       ctx.db.get(args.organizationId),
     ]);
-    if (user === null || user.accountDeletion !== undefined) {
+    if (user === null || readActiveUser(user) === null) {
       throw new Error("Account deletion is in progress.");
     }
     if (organization === null) {
@@ -122,6 +123,10 @@ export const getOauthStateByState = internalQuery({
       .withIndex("by_state", (query) => query.eq("state", args.state))
       .first();
     if (record?.provider !== args.provider) {
+      return null;
+    }
+    const user = await ctx.db.get(record.userId);
+    if (user === null || readActiveUser(user) === null) {
       return null;
     }
     return record;

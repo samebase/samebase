@@ -1,8 +1,9 @@
 import { v, type Infer } from "convex/values";
 import { internalMutation, type MutationCtx } from "../../_generated/server";
 import type { Doc, Id } from "../../_generated/dataModel";
-import { requireOrganizationAccessContext } from "../../organizationAccess";
+import { requireActiveVaultDeletionRun } from "../../vaultWorkflowAuthority";
 import { vVaultDeletionCleanupStep, type VaultDeletionCleanupStep } from "./model";
+import { readVaultDeletionState } from "./state";
 
 const { id, literal, number, object, union } = v;
 
@@ -31,18 +32,6 @@ const vaultLocalCleanupTable = union(
 );
 type VaultLocalCleanupTable = Infer<typeof vaultLocalCleanupTable>;
 
-const vaultLocalCleanupBatchResult = union(
-  object({
-    state: literal("needs_more"),
-    table: vaultLocalCleanupTable,
-    rowsChanged: number(),
-  }),
-  object({
-    state: literal("deleted"),
-  }),
-);
-export type VaultLocalCleanupBatchResult = Infer<typeof vaultLocalCleanupBatchResult>;
-
 const vaultLocalCleanupStepBatchResult = union(
   object({
     state: literal("needs_more"),
@@ -60,7 +49,7 @@ export const VAULT_LOCAL_CLEANUP_BATCH_SIZE = 50;
 type VaultLocalCleanupCtx = Pick<MutationCtx, "db" | "storage">;
 type VaultLocalCleanupArgs = {
   vaultId: Id<"vaults">;
-  userId: Id<"users">;
+  runId: Id<"workflow_vaultDeletion_runs">;
 };
 type VaultLocalCleanupHandler = (
   ctx: VaultLocalCleanupCtx,
@@ -71,14 +60,21 @@ async function loadVaultForDeletionActor(
   ctx: VaultLocalCleanupCtx,
   args: VaultLocalCleanupArgs,
 ): Promise<Doc<"vaults"> | null> {
+  const run = await requireActiveVaultDeletionRun(ctx.db, { runId: args.runId });
+  if (run.vaultId !== args.vaultId) {
+    throw new Error("Vault deletion run does not match its vault.");
+  }
   const vault = await ctx.db.get(args.vaultId);
   if (!vault) {
     return null;
   }
-  await requireOrganizationAccessContext(ctx.db, {
-    organizationId: vault.organizationId,
-    userId: args.userId,
-  });
+  if (vault.organizationId !== run.organizationId) {
+    throw new Error("Vault deletion run does not match its vault.");
+  }
+  const deletion = readVaultDeletionState(vault);
+  if (deletion.state !== "deleting" || deletion.runId !== run._id) {
+    throw new Error("Vault deletion gate does not match run.");
+  }
   return vault;
 }
 
@@ -299,45 +295,10 @@ const vaultLocalCleanupRegistryByStep = {
   ],
 } satisfies Record<VaultDeletionCleanupStep, readonly VaultLocalCleanupTable[]>;
 
-export async function deleteVaultLocalDataBatchForUser(
-  ctx: VaultLocalCleanupCtx,
-  args: VaultLocalCleanupArgs,
-): Promise<VaultLocalCleanupBatchResult> {
-  const vault = await loadVaultForDeletionActor(ctx, args);
-  if (!vault) {
-    return { state: "deleted" };
-  }
-
-  // Deletion is fail-closed: every vault-scoped table must live in this
-  // registry or be intentionally preserved by the deletion spec.
-  for (const entry of vaultLocalCleanupRegistry) {
-    const rowsChanged = await entry.cleanup(ctx, args);
-    if (rowsChanged > 0) {
-      return {
-        state: "needs_more",
-        table: entry.table,
-        rowsChanged,
-      };
-    }
-  }
-
-  await ctx.db.delete(vault._id);
-  return { state: "deleted" };
-}
-
-export const deleteVaultLocalDataBatch = internalMutation({
-  args: {
-    vaultId: id("vaults"),
-    userId: id("users"),
-  },
-  returns: vaultLocalCleanupBatchResult,
-  handler: deleteVaultLocalDataBatchForUser,
-});
-
 export const cleanupVaultLocalDataStepBatch = internalMutation({
   args: {
     vaultId: id("vaults"),
-    userId: id("users"),
+    runId: id("workflow_vaultDeletion_runs"),
     step: vVaultDeletionCleanupStep,
   },
   returns: vaultLocalCleanupStepBatchResult,
@@ -373,7 +334,7 @@ export const cleanupVaultLocalDataStepBatch = internalMutation({
 export const deleteVaultRow = internalMutation({
   args: {
     vaultId: id("vaults"),
-    userId: id("users"),
+    runId: id("workflow_vaultDeletion_runs"),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

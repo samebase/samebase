@@ -131,14 +131,17 @@ async function seedProviderOrganization(options?: {
   const { memberId, organizationId, outsiderId, providerCredentialsId, userId } = await t.run(
     async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "owner@example.com",
         isApproved: true,
       });
       const memberId = await ctx.db.insert("users", {
+        state: "active",
         email: "member@example.com",
         isApproved: true,
       });
       const outsiderId = await ctx.db.insert("users", {
+        state: "active",
         email: "outsider@example.com",
         isApproved: true,
       });
@@ -333,7 +336,9 @@ describe("organization provider status", () => {
         workflow: { state: "started", workflowId: "provider-status-test", attempt: 1 },
       });
       await ctx.db.patch(userId, {
-        accountDeletion: { state: "deleting", runId, requestedAt: now },
+        state: "deleting",
+        runId,
+        requestedAt: now,
         displayName: "Provider Owner",
       });
     });
@@ -346,11 +351,12 @@ describe("organization provider status", () => {
     await t.run(async (ctx) => {
       await ctx.db.delete(userId);
     });
-    const missingConnectorStatuses = await Promise.all([
+    await expect(
       asMember.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).rejects.toThrow("Provider connector user reference is invalid.");
+    await expect(
       asMember.query(api.users.getCloudflareConnectionStatus, { organizationId }),
-    ]);
-    expect(missingConnectorStatuses.every((status) => !("connectedBy" in status))).toBe(true);
+    ).rejects.toThrow("Provider connector user reference is invalid.");
   });
 
   it("disconnects credentials but preserves both destinations", async () => {

@@ -8,6 +8,7 @@ describe("vault branch mutations", () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         name: "Ada",
         email: "ada@example.com",
         isApproved: true,

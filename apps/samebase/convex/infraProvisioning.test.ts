@@ -18,6 +18,7 @@ type SeedRunArgs = {
 async function seedRun(t: ConvexTest, args: SeedRunArgs) {
   return await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
+      state: "active",
       name: "Ada",
       email: "ada@example.com",
       isApproved: true,

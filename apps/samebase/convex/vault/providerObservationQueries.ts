@@ -1,10 +1,12 @@
 import { v, type Infer } from "convex/values";
 
-import { internalQuery } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
+import { internalQuery, type DatabaseReader } from "../_generated/server";
 import { getConvexCodeLocationKey, readConvexCodeLocation } from "../../shared/convexCodeLocation";
 import { requireVaultForUser, requireVaultOrganization } from "../organizationAccess";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { isLiveConnectedVault } from "./state";
+import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
 
 const { array, id, object, string } = v;
 
@@ -35,35 +37,54 @@ const vVaultProviderObservationContext = object({
 });
 export type VaultProviderObservationContext = Infer<typeof vVaultProviderObservationContext>;
 
+const vProviderAttachmentVaultContext = object({
+  organizationId: id("organizations"),
+  convexTeamId: string(),
+  cloudflareAccountId: string(),
+  ghRepoId: string(),
+  owner: string(),
+  name: string(),
+  defaultBranch: string(),
+});
+
+async function readProviderAttachmentContext(db: DatabaseReader, vault: Doc<"vaults">) {
+  if (!isLiveConnectedVault(vault)) {
+    throw new Error("Vault not found.");
+  }
+  const organization = await requireVaultOrganization(db, vault);
+  return {
+    organizationId: vault.organizationId,
+    convexTeamId: vault.convexTeamId,
+    cloudflareAccountId: vault.cloudflareAccountId,
+    ghRepoId: vault.ghRepoId,
+    owner: organization.githubOwnerLogin,
+    name: vault.name,
+    defaultBranch: vault.defaultBranch,
+  };
+}
+
 export const readProviderAttachmentVaultContext = internalQuery({
   args: {
     vaultId: id("vaults"),
     userId: id("users"),
   },
-  returns: object({
-    organizationId: id("organizations"),
-    convexTeamId: string(),
-    cloudflareAccountId: string(),
-    ghRepoId: string(),
-    owner: string(),
-    name: string(),
-    defaultBranch: string(),
-  }),
+  returns: vProviderAttachmentVaultContext,
   handler: async (ctx, args) => {
     const vault = await requireVaultForUser(ctx.db, args);
-    if (!isLiveConnectedVault(vault)) {
-      throw new Error("Vault not found.");
-    }
-    const organization = await requireVaultOrganization(ctx.db, vault);
-    return {
-      organizationId: vault.organizationId,
-      convexTeamId: vault.convexTeamId,
-      cloudflareAccountId: vault.cloudflareAccountId,
-      ghRepoId: vault.ghRepoId,
-      owner: organization.githubOwnerLogin,
-      name: vault.name,
-      defaultBranch: vault.defaultBranch,
-    };
+    return await readProviderAttachmentContext(ctx.db, vault);
+  },
+});
+
+export const readProviderAttachmentVaultContextForProvisioningRun = internalQuery({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    runId: id("workflow_vaultProvisioning_runs"),
+  },
+  returns: vProviderAttachmentVaultContext,
+  handler: async (ctx, args) => {
+    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    return await readProviderAttachmentContext(ctx.db, authority.vault);
   },
 });
 

@@ -41,6 +41,7 @@ describe("workspace sidebar state Convex contract", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         name: "Pending Access",
         email: "pending-access@example.com",
         isApproved: false,

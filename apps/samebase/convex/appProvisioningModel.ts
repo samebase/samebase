@@ -104,7 +104,7 @@ const vaultProviderWriteBase = {
 
 const manualProviderWriteOwner = {
   kind: literal("manual_provider_write"),
-  userId: optional(id("users")),
+  userId: id("users"),
   actionId: string(),
   action: vManualProviderWriteAction,
   expiresAt: number(),
@@ -182,7 +182,9 @@ export const vaultProvisioningTables = {
         state: union(literal("active"), literal("succeeded"), literal("failed")),
       }),
     ),
-  ).index("by_vault", ["vaultId"]),
+  )
+    .index("by_vault", ["vaultId"])
+    .index("by_manual_user_and_state", ["owner.userId", "state"]),
 
   /**
    * One managed attempt to create, connect, or retry a vault, including

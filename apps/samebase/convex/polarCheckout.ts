@@ -84,10 +84,6 @@ export const reserveAttempt = internalMutation({
   returns: vPolarCheckoutReservation,
   handler: async (ctx, args): Promise<PolarCheckoutReservation> => {
     const billing = await requireOwnerBillingAccountForOrganization(ctx.db, args);
-    const user = billing.user;
-    if (user.accountDeletion !== undefined) {
-      throw new Error("Checkout is unavailable.");
-    }
 
     const existing = readBillingAccountState(billing.account).polarCheckoutAttempt;
     if (existing?.state === "open") {

@@ -8,6 +8,7 @@ describe("organization billing access", () => {
     const t = makeConvexTest();
     const { organizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "pending-billing@example.invalid",
         isApproved: false,
       });

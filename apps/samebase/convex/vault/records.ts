@@ -12,8 +12,8 @@ import {
   findOrganizationAccessContext,
   findVaultForUser,
   listOrganizationIdsForUser,
+  requireActiveOrganizationActor,
   requireOrganizationAccessContext,
-  requireVaultForUser,
 } from "../organizationAccess";
 import {
   parseRepositoryFullName,
@@ -23,6 +23,8 @@ import {
 import { VAULT_ROOT_DIRECTORY } from "../../shared/vaultRootDirectory";
 import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
+import { readActiveUser } from "../userLifecycle";
+import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
 
 const nullValidator = v.null();
 const { array, id, object, optional, string, union } = v;
@@ -57,12 +59,24 @@ export const getByIdForUser = internalQuery({
   },
 });
 
+export const getByIdForProvisioningRun = internalQuery({
+  args: {
+    runId: id("workflow_vaultProvisioning_runs"),
+    userId: id("users"),
+    vaultId: id("vaults"),
+  },
+  handler: async (ctx, args) => {
+    return (await requireActiveVaultProvisioningAuthority(ctx.db, args)).vault;
+  },
+});
+
 export const listConnectedRepositoriesForUser = internalQuery({
   args: {
     userId: id("users"),
   },
   returns: array(vVaultConnectedRepositoryTarget),
   handler: async (ctx, args) => {
+    await requireActiveOrganizationActor(ctx.db, args.userId);
     const repositories = [];
     const organizationIds = await listOrganizationIdsForUser(ctx.db, args.userId);
     for (const organizationId of organizationIds) {
@@ -216,7 +230,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     if (!user) {
       throw new Error("User not found");
     }
-    if (user.accountDeletion) {
+    if (readActiveUser(user) === null) {
       throw new Error("Account deletion is in progress.");
     }
     const requestedOwner = args.ghRepoOwner.trim();
@@ -296,7 +310,11 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
-    const vault = await requireVaultForUser(ctx.db, args);
+    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    if (authority.run.trigger !== "connect_existing_repository") {
+      throw new Error("Provisioning run does not match existing repository setup.");
+    }
+    const vault = authority.vault;
     if (isVaultDeletingOrDeleteFailed(vault)) {
       return null;
     }
@@ -379,7 +397,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     if (!user) {
       throw new Error("User not found");
     }
-    if (user.accountDeletion) {
+    if (readActiveUser(user) === null) {
       throw new Error("Account deletion is in progress.");
     }
 
@@ -516,7 +534,11 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
-    const vault = await requireVaultForUser(ctx.db, args);
+    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    if (authority.run.trigger !== "create") {
+      throw new Error("Provisioning run does not match managed repository setup.");
+    }
+    const vault = authority.vault;
     if (isVaultDeletingOrDeleteFailed(vault)) {
       return null;
     }

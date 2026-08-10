@@ -17,6 +17,7 @@ import {
   type StagedFileChangeCandidate,
 } from "./stagingChanges";
 import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
+import { readActiveUser } from "./userLifecycle";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 const { array, boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
@@ -255,7 +256,7 @@ async function assertConnectedVaultForStagingWrite(
 ) {
   const vault = await assertVaultForStagingAccess(ctx, args);
   const user = await ctx.db.get(args.userId);
-  if (!user || user.accountDeletion) {
+  if (!user || readActiveUser(user) === null) {
     throw new Error("Account deletion is in progress.");
   }
   return assertConnectedVault(vault);

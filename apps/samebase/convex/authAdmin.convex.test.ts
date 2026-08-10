@@ -33,14 +33,15 @@ describe("authAdmin password accounts", () => {
     expect(snapshot.user).toMatchObject({
       email: "manual@example.com",
       isApproved: true,
+      emailVerificationTime: expect.any(Number),
     });
-    expect(snapshot.user?.emailVerificationTime).toEqual(expect.any(Number));
   });
 
   it("links a new password account to one verified user", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "linked@example.com",
         emailVerificationTime: 1,
       });
@@ -70,7 +71,7 @@ describe("authAdmin password accounts", () => {
     });
 
     expect(snapshot.account?.userId).toBe(userId);
-    expect(snapshot.user?.isApproved).toBe(true);
+    expect(snapshot.user).toMatchObject({ isApproved: true });
   });
 
   it("rotates the stored password and ends existing sessions", async () => {
@@ -131,10 +132,12 @@ describe("authAdmin password accounts", () => {
     const t = makeConvexTest();
     await t.run(async (ctx) => {
       await ctx.db.insert("users", {
+        state: "active",
         email: "duplicate@example.com",
         emailVerificationTime: 1,
       });
       await ctx.db.insert("users", {
+        state: "active",
         email: "duplicate@example.com",
         emailVerificationTime: 2,
       });
@@ -152,9 +155,11 @@ describe("authAdmin password accounts", () => {
     const t = makeConvexTest();
     const existing = await t.run(async (ctx) => {
       const accountUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "mismatch@example.com",
       });
       await ctx.db.insert("users", {
+        state: "active",
         email: "mismatch@example.com",
         emailVerificationTime: 1,
       });
@@ -186,13 +191,14 @@ describe("authAdmin password accounts", () => {
       };
     });
     expect(unchanged.account?.secret).toBe("original-secret");
-    expect(unchanged.user?.isApproved).not.toBe(true);
+    expect(unchanged.user).not.toMatchObject({ isApproved: true });
   });
 
   it("rejects an existing password account whose linked user is missing", async () => {
     const t = makeConvexTest();
     await t.run(async (ctx) => {
       const deletedUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "missing-user@example.com",
       });
       await ctx.db.delete(deletedUserId);
@@ -216,6 +222,7 @@ describe("authAdmin password accounts", () => {
     const t = makeConvexTest();
     await t.run(async (ctx) => {
       const accountUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "other@example.com",
       });
       await ctx.db.insert("authAccounts", {

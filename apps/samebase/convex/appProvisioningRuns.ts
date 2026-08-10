@@ -12,6 +12,7 @@ import { readVaultInfrastructureState } from "./vault/infrastructureOperation";
 import { assertConnectedVault } from "./vault/state";
 import { startVaultInfrastructureProvisioningWorkflow } from "./appProvisioningWorkflow";
 import { requireVaultForUser, requireVaultOrganization } from "./organizationAccess";
+import { readActiveUser } from "./userLifecycle";
 
 const { id, literal, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
@@ -65,7 +66,7 @@ export const createRetryForVault = internalMutation({
   handler: async (ctx, args) => {
     const vault = await requireVaultForUser(ctx.db, args);
     const user = await ctx.db.get(args.userId);
-    if (!user || user.accountDeletion !== undefined) {
+    if (!user || readActiveUser(user) === null) {
       throw new Error("App provisioning is unavailable during account deletion.");
     }
     const connectedVault = assertConnectedVault(vault);

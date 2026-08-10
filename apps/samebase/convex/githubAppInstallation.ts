@@ -39,6 +39,7 @@ import {
   buildAuthorizationCompletionResponse,
   classifyAuthorizationCallbackError,
 } from "./authorizationCompletion";
+import { readActiveUser } from "./userLifecycle";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -200,7 +201,7 @@ export const createSetupState = internalMutation({
   returns: id("githubAppSetupStates"),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
-    if (user === null || user.accountDeletion !== undefined) {
+    if (user === null || readActiveUser(user) === null) {
       throw new Error("An active Samebase user is required.");
     }
     if (args.expiresAt <= args.createdAt) {
@@ -228,6 +229,10 @@ export const getSetupStateByState = internalQuery({
       .withIndex("by_state", (query) => query.eq("state", args.state))
       .unique();
     if (setupState === null) {
+      return null;
+    }
+    const user = await ctx.db.get(setupState.userId);
+    if (user === null || readActiveUser(user) === null) {
       return null;
     }
 

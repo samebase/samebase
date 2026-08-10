@@ -50,6 +50,7 @@ describe("devAuth password account seed", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       const insertedUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "seed@example.com",
         emailVerificationTime: 1,
         isApproved: true,
@@ -76,6 +77,7 @@ describe("devAuth password account seed", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "seed@example.com",
       });
     });
@@ -84,13 +86,16 @@ describe("devAuth password account seed", () => {
       t.mutation(internal.devAuth.approveSeedPasswordAccount, { userId }),
     ).resolves.toBeNull();
 
-    await expect(t.run(async (ctx) => (await ctx.db.get(userId))?.isApproved)).resolves.toBe(true);
+    await expect(t.run(async (ctx) => await ctx.db.get(userId))).resolves.toMatchObject({
+      isApproved: true,
+    });
   });
 
   it("seeds one repeat-safe organization graph with singleton provider credentials", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
+        state: "active",
         email: "seed@example.com",
         isApproved: true,
       });
@@ -284,6 +289,7 @@ describe("devAuth password account seed", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       const insertedUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "missing@example.com",
       });
       await ctx.db.delete(insertedUserId);

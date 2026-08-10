@@ -80,6 +80,7 @@ const accountDeletionQuiescenceResult = v.union(
   v.object({ state: v.literal("done") }),
   v.object({ state: v.literal("waiting"), blocker: v.literal("active_vault_deletion") }),
   v.object({ state: v.literal("waiting"), blocker: v.literal("active_app_provisioning") }),
+  v.object({ state: v.literal("waiting"), blocker: v.literal("active_manual_provider_write") }),
 );
 type AccountDeletionQuiescenceResult = Infer<typeof accountDeletionQuiescenceResult>;
 
@@ -121,6 +122,19 @@ async function findActiveAppProvisioning(
   }
 
   return null;
+}
+
+async function findActiveManualProviderWrite(
+  ctx: AccountDataCleanupCtx,
+  userId: Id<"users">,
+): Promise<Id<"workflow_vaultProvisioning_writeLocks"> | null> {
+  const write = await ctx.db
+    .query("workflow_vaultProvisioning_writeLocks")
+    .withIndex("by_manual_user_and_state", (query) =>
+      query.eq("owner.userId", userId).eq("state", "active"),
+    )
+    .first();
+  return write?._id ?? null;
 }
 
 async function deleteRowsById<TableName extends TableNames>(
@@ -324,6 +338,9 @@ export const inspectQuiescence = internalMutation({
     }
     if (await findActiveAppProvisioning(ctx, run.identity.userId)) {
       return { state: "waiting", blocker: "active_app_provisioning" };
+    }
+    if (await findActiveManualProviderWrite(ctx, run.identity.userId)) {
+      return { state: "waiting", blocker: "active_manual_provider_write" };
     }
 
     return { state: "done" };

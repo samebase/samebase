@@ -32,9 +32,21 @@ function cloudflareOAuth(version: string): CloudflareOAuthAuth {
 async function seedOrganization() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
-    const connectorId = await ctx.db.insert("users", { email: "a@x.test", isApproved: true });
-    const otherOwnerId = await ctx.db.insert("users", { email: "b@x.test", isApproved: true });
-    const memberId = await ctx.db.insert("users", { email: "c@x.test", isApproved: true });
+    const connectorId = await ctx.db.insert("users", {
+      state: "active",
+      email: "a@x.test",
+      isApproved: true,
+    });
+    const otherOwnerId = await ctx.db.insert("users", {
+      state: "active",
+      email: "b@x.test",
+      isApproved: true,
+    });
+    const memberId = await ctx.db.insert("users", {
+      state: "active",
+      email: "c@x.test",
+      isApproved: true,
+    });
     const organizationId = await ctx.db.insert("organizations", {
       githubOwnerId: "owner-1",
       githubOwnerType: "organization",
@@ -228,7 +240,9 @@ async function startDeletion(seed: Seed) {
       workflow: { state: "started", workflowId: "provider-takeover", attempt: 1 },
     });
     await ctx.db.patch(seed.connectorId, {
-      accountDeletion: { state: "deleting", runId, requestedAt: Date.now() },
+      state: "deleting",
+      runId,
+      requestedAt: Date.now(),
     });
     return runId;
   });
@@ -432,6 +446,7 @@ describe("organization provider credential lifecycle", () => {
     ).rejects.toThrow("Cloudflare token refresh lease changed before the update completed.");
     await seed.t.mutation(internal.organizationProviderCredentials.releaseCloudflareTokenRefresh, {
       organizationId: seed.organizationId,
+      userId: seed.memberId,
       expectedAuth: refreshedAuth,
       expectedTokenRefreshLease: claim.tokenRefreshLease,
     });
@@ -478,6 +493,41 @@ describe("organization provider credential lifecycle", () => {
     expect(
       (await loadProviderState(seed.t, seed.organizationId)).credentials?.cloudflare,
     ).toBeUndefined();
+  });
+
+  it("rejects a token refresh callback after the user becomes deleted", async () => {
+    const seed = await seedCloudflareOAuth();
+    const claim = await seed.t.mutation(
+      internal.organizationProviderCredentials.claimCloudflareTokenRefresh,
+      {
+        organizationId: seed.organizationId,
+        userId: seed.connectorId,
+        expectedAuth: seed.auth,
+        force: true,
+      },
+    );
+    if (!claim.claimed) throw new Error("Expected a refresh lease.");
+    await seed.t.run(async (ctx) => {
+      await ctx.db.replace(seed.connectorId, { state: "deleted", deletedAt: Date.now() });
+    });
+
+    await expect(
+      replaceCloudflare(
+        seed,
+        seed.connectorId,
+        seed.auth,
+        cloudflareOAuth("deleted-user"),
+        claim.tokenRefreshLease,
+      ),
+    ).rejects.toThrow("Provider credentials are unavailable during account deletion.");
+    await expect(
+      seed.t.mutation(internal.organizationProviderCredentials.releaseCloudflareTokenRefresh, {
+        organizationId: seed.organizationId,
+        userId: seed.connectorId,
+        expectedAuth: seed.auth,
+        expectedTokenRefreshLease: claim.tokenRefreshLease,
+      }),
+    ).rejects.toThrow("Provider credentials are unavailable during account deletion.");
   });
 
   it("preserves another owner's takeover during old connector account deletion", async () => {

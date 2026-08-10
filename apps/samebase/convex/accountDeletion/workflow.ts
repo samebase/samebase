@@ -5,6 +5,7 @@ import { v, type Infer } from "convex/values";
 import { components, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
+import { readUserLifecycle, readUserProfile } from "../userLifecycle";
 import { assertIdentityDeletionReady } from "./authCleanup";
 import {
   CONVEX_MANUAL_REVOCATION_NOTICE,
@@ -224,22 +225,21 @@ export const markFinalizing = internalMutation({
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
     const user = await ctx.db.get(run.identity.userId);
-    if (
-      user === null ||
-      user.accountDeletion?.runId !== run._id ||
-      user.accountDeletion.state !== "deleting"
-    ) {
+    if (user === null) {
+      throw new Error("Account deletion marker is inconsistent.");
+    }
+    const lifecycle = readUserLifecycle(user);
+    if (lifecycle.state !== "deleting" || lifecycle.runId !== run._id) {
       throw new Error("Account deletion marker is inconsistent.");
     }
 
     await assertIdentityDeletionReady(ctx, run);
     const now = Date.now();
-    await ctx.db.patch(user._id, {
-      accountDeletion: {
-        state: "finalizing",
-        runId: run._id,
-        requestedAt: run.requestedAt,
-      },
+    await ctx.db.replace(user._id, {
+      state: "finalizing",
+      ...readUserProfile(lifecycle),
+      runId: run._id,
+      requestedAt: run.requestedAt,
     });
     await ctx.db.patch(run._id, {
       currentStep: latestAccountDeletionStep(run.currentStep, "delete_identity"),
@@ -472,14 +472,16 @@ export const handleWorkflowComplete = internalMutation({
     }
 
     const user = await ctx.db.get(run.identity.userId);
-    if (user?.accountDeletion?.runId === run._id && user.accountDeletion.state === "finalizing") {
-      await ctx.db.patch(user._id, {
-        accountDeletion: {
+    if (user !== null) {
+      const lifecycle = readUserLifecycle(user);
+      if (lifecycle.state === "finalizing" && lifecycle.runId === run._id) {
+        await ctx.db.replace(user._id, {
           state: "deleting",
+          ...readUserProfile(lifecycle),
           runId: run._id,
           requestedAt: run.requestedAt,
-        },
-      });
+        });
+      }
     }
 
     const now = Date.now();

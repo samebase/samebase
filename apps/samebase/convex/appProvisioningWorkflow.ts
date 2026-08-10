@@ -6,8 +6,8 @@ import { internalMutation, internalQuery, type MutationCtx } from "./_generated/
 import type { Id } from "./_generated/dataModel";
 import { toErrorMessage } from "./jsonUtils";
 import type { AppProvisioningStep } from "./appProvisioningModel";
-import { requireVaultForUser } from "./organizationAccess";
 import { isLiveConnectedVault } from "./vault/state";
+import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
 
 const workflow = new WorkflowManager(components.workflow);
 const { boolean, id, literal, null: nullValue, object, string, union } = v;
@@ -120,11 +120,13 @@ export function resolveWorkflowCompletionError(result: RunResult): string | null
 export const readComposedInfrastructureState = internalQuery({
   args: {
     vaultId: id("vaults"),
+    runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
   },
   returns: composedInfrastructureState,
   handler: async (ctx, args): Promise<ComposedInfrastructureState> => {
-    const vault = await requireVaultForUser(ctx.db, args);
+    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    const vault = authority.vault;
 
     const plan = await ctx.db
       .query("workflow_vaultProvisioning_plans")
@@ -217,16 +219,17 @@ export const readComposedInfrastructureRetryContext = internalQuery({
     if (!run || run.vaultId !== args.vaultId) {
       throw new Error("Provisioning run not found.");
     }
-    const vault = await requireVaultForUser(ctx.db, {
+    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, {
+      runId: args.runId,
       userId: run.userId,
       vaultId: args.vaultId,
     });
-    if (!isLiveConnectedVault(vault)) {
+    if (!isLiveConnectedVault(authority.vault)) {
       throw new Error("Vault not found.");
     }
 
     return {
-      userId: run.userId,
+      userId: authority.run.userId,
     };
   },
 });
@@ -239,16 +242,11 @@ export const claimComposedInfrastructureProvisioning = internalMutation({
   },
   returns: object({ claimed: boolean() }),
   handler: async (ctx, args): Promise<{ claimed: boolean }> => {
-    const run = await ctx.db.get(args.runId);
-    if (
-      !run ||
-      run.vaultId !== args.vaultId ||
-      run.userId !== args.userId ||
-      (run.trigger !== "create" && run.trigger !== "retry")
-    ) {
+    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    if (authority.run.trigger !== "create" && authority.run.trigger !== "retry") {
       throw new Error("Composed infrastructure run does not match vault.");
     }
-    const vault = await requireVaultForUser(ctx.db, args);
+    const vault = authority.vault;
     if (!isLiveConnectedVault(vault)) {
       throw new Error("Vault not found.");
     }
@@ -300,16 +298,10 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    const run = await ctx.db.get(args.runId);
-    if (
-      !run ||
-      run.vaultId !== args.vaultId ||
-      run.userId !== args.userId ||
-      (run.trigger !== "create" && run.trigger !== "retry")
-    ) {
+    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    if (authority.run.trigger !== "create" && authority.run.trigger !== "retry") {
       throw new Error("Composed infrastructure run does not match vault.");
     }
-    await requireVaultForUser(ctx.db, args);
     const writeLock = await ctx.db
       .query("workflow_vaultProvisioning_writeLocks")
       .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
@@ -337,6 +329,7 @@ async function readCurrentComposedInfrastructureState(
   step: WorkflowCtx,
   args: {
     vaultId: Id<"vaults">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
     name: string;
   },
@@ -345,6 +338,7 @@ async function readCurrentComposedInfrastructureState(
     internal.appProvisioningWorkflow.readComposedInfrastructureState,
     {
       vaultId: args.vaultId,
+      runId: args.runId,
       userId: args.userId,
     },
     { name: args.name },
@@ -542,6 +536,7 @@ async function runComposedInfrastructure(
 ): Promise<void> {
   const initialState = await readCurrentComposedInfrastructureState(step, {
     vaultId: args.vaultId,
+    runId: args.parentRunId,
     userId: args.userId,
     name: "read_infra_target",
   });
@@ -574,6 +569,7 @@ async function runComposedInfrastructure(
 
   const afterConvex = await readCurrentComposedInfrastructureState(step, {
     vaultId: args.vaultId,
+    runId: args.parentRunId,
     userId: args.userId,
     name: "read_infra_after_convex",
   });

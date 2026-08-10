@@ -13,6 +13,7 @@ afterEach(() => {
 async function createUser(t: ConvexTest, email: string): Promise<Id<"users">> {
   return await t.run(async (ctx) => {
     return await ctx.db.insert("users", {
+      state: "active",
       email,
       isApproved: true,
     });

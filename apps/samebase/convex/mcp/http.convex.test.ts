@@ -51,11 +51,13 @@ describe("MCP HTTP tool invocation args", () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const tokenUserId = await ctx.db.insert("users", {
+        state: "active",
         name: "Token User",
         email: "token@example.com",
         isApproved: true,
       });
       const argumentUserId = await ctx.db.insert("users", {
+        state: "active",
         name: "Argument User",
         email: "argument@example.com",
         isApproved: true,
@@ -335,6 +337,7 @@ describe("MCP tools/call access enforcement", () => {
     const scope = (args.scopes ?? ["access_dashboard", "access_app_create"]).join(" ");
     const ids = await t.run(async (ctx) => {
       const seededUserId = await ctx.db.insert("users", {
+        state: "active",
         name: "Ada",
         email: "ada@example.com",
         isApproved: args.isApproved,

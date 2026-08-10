@@ -13,6 +13,7 @@ import {
 } from "./deploymentProfile";
 import { buildNewUserNotification } from "./newUserNotification";
 import { readOptionalEnv } from "./oauthUtils";
+import { readUserLifecycle } from "./userLifecycle";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import type { AuthAccountProvider } from "./authAccountModel";
 
@@ -20,24 +21,27 @@ type ConvexAuthCallbacks = NonNullable<ConvexAuthConfig["callbacks"]>;
 type CreateOrUpdateUser = NonNullable<ConvexAuthCallbacks["createOrUpdateUser"]>;
 export type CreateOrUpdateAuthUserArgs = Parameters<CreateOrUpdateUser>[1];
 
-const isAuthSessionUser = guard<unknown, { accountDeletion?: unknown }>((value) =>
+const isAuthSessionUser = guard<unknown, { state?: unknown }>((value) =>
   typeof value === "object" && value !== null ? value : null,
 );
-
-function isDeletingAccountMarker(value: unknown) {
-  return (
-    typeof value === "object" && value !== null && "state" in value && value.state === "deleting"
-  );
-}
 
 export function requireAuthSessionUserCanSignIn(user: unknown) {
   if (!isAuthSessionUser(user)) {
     throw new Error("Account is unavailable.");
   }
-  if (user.accountDeletion === undefined || isDeletingAccountMarker(user.accountDeletion)) {
+  if (user.state === "active") {
     return user;
   }
-  throw new Error("Account deletion is already finalizing.");
+  if (user.state === "deleting") {
+    return user;
+  }
+  if (user.state === "finalizing") {
+    throw new Error("Account deletion is already finalizing.");
+  }
+  if (user.state === "deleted") {
+    throw new Error("Account is unavailable.");
+  }
+  throw new Error("Account is unavailable.");
 }
 
 function readRequiredProfileString(
@@ -139,8 +143,29 @@ async function requireActiveUser(ctx: MutationCtx, userId: Id<"users">) {
   if (user === null) {
     throw new Error("Account is unavailable.");
   }
+  const lifecycle = readUserLifecycle(user);
+  switch (lifecycle.state) {
+    case "active":
+      return lifecycle;
+    case "deleting":
+      throw new Error("Account deletion is in progress.");
+    case "finalizing":
+      throw new Error("Account deletion is already finalizing.");
+    case "deleted":
+      throw new Error("Account is unavailable.");
+    default:
+      lifecycle satisfies never;
+      throw new Error("Account is unavailable.");
+  }
+}
+
+async function requireUserCanSignIn(ctx: MutationCtx, userId: Id<"users">) {
+  const user = await ctx.db.get(userId);
   requireAuthSessionUserCanSignIn(user);
-  return user;
+  if (user === null) {
+    throw new Error("Account is unavailable.");
+  }
+  return readUserLifecycle(user);
 }
 
 async function assertGitHubAccessIdentity(
@@ -235,7 +260,7 @@ async function createOrResolveOAuthUser(
   }
 
   if (args.existingUserId !== null) {
-    const user = await requireActiveUser(ctx, args.existingUserId);
+    const user = await requireUserCanSignIn(ctx, args.existingUserId);
     if (provider === "github") {
       await assertGitHubAccessIdentity(ctx, user._id, profile.providerAccountId);
     }
@@ -254,6 +279,7 @@ async function createOrResolveOAuthUser(
   }
 
   const userId = await ctx.db.insert("users", {
+    state: "active",
     email: profile.email,
     emailVerificationTime: now,
     ...(profile.name ? { name: profile.name } : {}),
@@ -275,7 +301,7 @@ async function createOrResolvePasswordUser(
     throw new Error("This credentials provider is not supported.");
   }
   if (args.existingUserId !== null) {
-    await requireActiveUser(ctx, args.existingUserId);
+    await requireUserCanSignIn(ctx, args.existingUserId);
     return args.existingUserId;
   }
 
@@ -301,6 +327,7 @@ async function createOrResolvePasswordUser(
   const emailVerificationTime = args.profile["emailVerificationTime"];
   const isApproved = args.profile["isApproved"];
   const userId = await ctx.db.insert("users", {
+    state: "active",
     email,
     ...(typeof emailVerificationTime === "number" && Number.isFinite(emailVerificationTime)
       ? { emailVerificationTime }

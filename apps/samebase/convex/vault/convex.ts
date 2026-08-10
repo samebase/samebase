@@ -14,6 +14,7 @@ import {
 import type { ProjectResponse } from "../convexManagementApi/types.generated";
 import { action } from "../functions";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
+import { resolveConvexProvisioningConnectionForVaultWorkflow } from "../infraProvisioning";
 import {
   fetchGitHubConvexCodeLocationDiscovery,
   type GitHubConvexCodeLocationDiscovery,
@@ -82,6 +83,24 @@ async function resolveConvexConnectionForTeam(
     auth: credential.auth,
     token,
     teamId: connection.teamId,
+  };
+}
+
+async function resolveConvexConnectionForProvisioningRun(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
+    userId: Id<"users">;
+    teamId: string;
+  },
+): Promise<ConvexActionConnection> {
+  const connection = await resolveConvexProvisioningConnectionForVaultWorkflow(ctx, args);
+  return {
+    organizationId: connection.organizationId,
+    auth: { method: connection.convexAuthMethod, credential: connection.convexToken },
+    token: connection.convexToken,
+    teamId: connection.convexTeamId,
   };
 }
 
@@ -254,6 +273,32 @@ async function recordConvexTeamSlug(
     teamId: args.connection.teamId,
     teamSlug: args.project.teamSlug,
   });
+}
+
+async function recordConvexTeamSlugForProvisioningRun(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
+    userId: Id<"users">;
+    connection: ConvexActionConnection;
+    project: ProjectResponse;
+  },
+): Promise<void> {
+  await ctx.runMutation(
+    internal.organizationProviderCredentials.setConvexTeamSlugForVaultWorkflow,
+    {
+      authority: {
+        kind: "provisioning",
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+      },
+      expectedAuth: args.connection.auth,
+      teamId: args.connection.teamId,
+      teamSlug: args.project.teamSlug,
+    },
+  );
 }
 
 async function readConvexWorkerReferences(
@@ -525,10 +570,14 @@ async function createProjectForManagedWorkflow(
   if (!validation.valid) {
     throw new Error(validation.message);
   }
-  const context = await readProviderAttachmentVaultContext(ctx, args);
-  const connection = await resolveConvexConnectionForTeam(ctx, {
+  const context = await ctx.runQuery(
+    internal.vault.providerObservationQueries.readProviderAttachmentVaultContextForProvisioningRun,
+    args,
+  );
+  const connection = await resolveConvexConnectionForProvisioningRun(ctx, {
+    vaultId: args.vaultId,
+    runId: args.runId,
     userId: args.userId,
-    organizationId: context.organizationId,
     teamId: context.convexTeamId,
   });
   const checkpoint = await ctx.runQuery(
@@ -562,10 +611,11 @@ async function createProjectForManagedWorkflow(
       );
     }
     await ctx.runQuery(
-      internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
+      internal.billingResourceQuotas.requireBillingResourceCapacityForVaultProvisioning,
       {
+        vaultId: args.vaultId,
+        runId: args.runId,
         userId: args.userId,
-        organizationId: connection.organizationId,
         kind: "convex_project",
       },
     );
@@ -592,7 +642,13 @@ async function createProjectForManagedWorkflow(
   }
 
   const project = await readConvexProject({ connection, projectId });
-  await recordConvexTeamSlug(ctx, { userId: args.userId, connection, project });
+  await recordConvexTeamSlugForProvisioningRun(ctx, {
+    vaultId: args.vaultId,
+    runId: args.runId,
+    userId: args.userId,
+    connection,
+    project,
+  });
   try {
     return await ctx.runMutation(internal.vault.convexMutations.recordManagedProjectCreated, {
       vaultId: args.vaultId,

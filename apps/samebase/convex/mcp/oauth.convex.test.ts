@@ -42,6 +42,7 @@ async function seedRefreshTokenFamily() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const seededUserId = await ctx.db.insert("users", {
+      state: "active",
       email: "refresh-replay@example.test",
       isApproved: true,
       name: "Refresh Replay User",
@@ -273,6 +274,7 @@ describe("MCP OAuth token resource binding", () => {
     const t = makeConvexTest();
     await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "authorization-code-resource@example.test",
         isApproved: true,
       });
@@ -323,6 +325,7 @@ describe("MCP OAuth authorization request boundaries", () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "revoked-grant@example.test",
         isApproved: true,
       });
@@ -431,10 +434,12 @@ describe("MCP OAuth authorization request boundaries", () => {
     const t = makeConvexTest();
     const { otherUserId, ownerUserId } = await t.run(async (ctx) => {
       const ownerUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "authorization-owner@example.test",
         isApproved: true,
       });
       const otherUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "authorization-other@example.test",
         isApproved: true,
       });
@@ -555,10 +560,12 @@ describe("MCP OAuth account deletion access", () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const deletingUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "deleting-auth-request@example.test",
         isApproved: true,
       });
       const missingUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "missing-auth-request@example.test",
         isApproved: true,
       });
@@ -586,7 +593,9 @@ describe("MCP OAuth account deletion access", () => {
         },
       });
       await ctx.db.patch(deletingUserId, {
-        accountDeletion: { state: "deleting", runId, requestedAt: now },
+        state: "deleting",
+        runId,
+        requestedAt: now,
       });
       await ctx.db.delete(missingUserId);
       return { deletingUserId, missingUserId };
@@ -630,10 +639,12 @@ describe("MCP OAuth account deletion access", () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const deletingUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "deleting-code-owner@example.test",
         isApproved: true,
       });
       const missingUserId = await ctx.db.insert("users", {
+        state: "active",
         email: "missing-code-owner@example.test",
         isApproved: true,
       });
@@ -661,7 +672,9 @@ describe("MCP OAuth account deletion access", () => {
         },
       });
       await ctx.db.patch(deletingUserId, {
-        accountDeletion: { state: "deleting", runId, requestedAt: now },
+        state: "deleting",
+        runId,
+        requestedAt: now,
       });
       await ctx.db.insert("mcpOauthClients", {
         clientId,
@@ -727,12 +740,13 @@ describe("MCP OAuth account deletion access", () => {
     await expect(readIssuanceState()).resolves.toEqual(before);
   });
 
-  it("rejects every existing MCP credential without rotating or recording usage", async () => {
+  it("rejects every stale MCP credential for a deleted user without recording usage", async () => {
     const t = makeConvexTest();
     const codeVerifier = "account-deletion-code-verifier";
     const codeChallenge = await createCodeChallenge(codeVerifier);
     await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "deleting-mcp@example.test",
         isApproved: true,
       });
@@ -756,7 +770,9 @@ describe("MCP OAuth account deletion access", () => {
         },
       });
       await ctx.db.patch(userId, {
-        accountDeletion: { state: "deleting", runId, requestedAt: now },
+        state: "deleting",
+        runId,
+        requestedAt: now,
       });
 
       await ctx.db.insert("mcpOauthClients", {
@@ -826,6 +842,7 @@ describe("MCP OAuth account deletion access", () => {
         createdAt: now,
         expiresAt: now + 60_000,
       });
+      await ctx.db.replace(userId, { state: "deleted", deletedAt: now });
     });
 
     const readCredentialState = async () => {

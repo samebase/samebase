@@ -91,6 +91,7 @@ async function readFetchBody(
 async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convexAuth: ConvexAuth) {
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
+      state: "active",
       name: "Ada",
       email: "nicu@samebase.com",
       isApproved: true,

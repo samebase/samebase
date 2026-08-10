@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { makeConvexTest } from "../test.setup";
+import { readUserLifecycle } from "../userLifecycle";
 
 const workflowId = "account-deletion-organization-boundary";
 
@@ -15,10 +16,12 @@ async function seedRunningDeletion() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const deletingUserId = await ctx.db.insert("users", {
+      state: "active",
       email: "deleting@example.invalid",
       isApproved: true,
     });
     const teammateUserId = await ctx.db.insert("users", {
+      state: "active",
       email: "teammate@example.invalid",
       isApproved: true,
     });
@@ -80,7 +83,9 @@ async function seedRunningDeletion() {
       workflow: { state: "started", workflowId, attempt: 1 },
     });
     await ctx.db.patch(deletingUserId, {
-      accountDeletion: { state: "deleting", runId, requestedAt: 1 },
+      state: "deleting",
+      runId,
+      requestedAt: 1,
     });
     const vaultId = await ctx.db.insert("vaults", {
       state: "not_connected",
@@ -182,9 +187,15 @@ async function seedRunningDeletion() {
       createdAt: 1,
       expiresAt: 2_000_000_000_000,
     });
+    const deletingUser = await ctx.db.get(deletingUserId);
+    if (deletingUser === null) {
+      throw new Error("Deleting user is missing.");
+    }
 
     return {
+      deletingUserCreationTime: deletingUser._creationTime,
       deletingUserId,
+      initiatingSessionId,
       teammateUserId,
       organizationId,
       organizationBillingId,
@@ -282,7 +293,7 @@ describe("account deletion organization boundary", () => {
       }),
     ).resolves.toEqual({ state: "waiting", blocker: "active_vault_deletion" });
 
-    await t.run(async (ctx) => {
+    const manualWriteId = await t.run(async (ctx) => {
       await ctx.db.patch(deletionRunId, {
         state: "failed",
         updatedAt: 5,
@@ -299,8 +310,31 @@ describe("account deletion organization boundary", () => {
         createdAt: 6,
         updatedAt: 6,
       });
+      return await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+        vaultId: ids.vaultId,
+        owner: {
+          kind: "manual_provider_write",
+          userId: ids.deletingUserId,
+          actionId: "deleting-user-provider-write",
+          action: "create_convex_project",
+          expiresAt: 60_000,
+        },
+        state: "active",
+        lastWriteAt: {},
+        updatedAt: 6,
+      });
     });
 
+    await expect(
+      t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toEqual({ state: "waiting", blocker: "active_manual_provider_write" });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(manualWriteId, { state: "succeeded", updatedAt: 7 });
+    });
     await expect(
       t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
         runId: ids.runId,
@@ -434,6 +468,7 @@ describe("account deletion organization boundary", () => {
 
     const snapshot = await t.run(async (ctx) => ({
       deletingUser: await ctx.db.get(ids.deletingUserId),
+      initiatingSession: await ctx.db.get(ids.initiatingSessionId),
       organization: await ctx.db.get(ids.organizationId),
       organizationBilling: await ctx.db.get(ids.organizationBillingId),
       vault: await ctx.db.get(ids.vaultId),
@@ -471,7 +506,19 @@ describe("account deletion organization boundary", () => {
     }));
 
     expect(fetch).not.toHaveBeenCalled();
-    expect(snapshot.deletingUser).toBeNull();
+    expect(snapshot.deletingUser).toMatchObject({
+      _creationTime: ids.deletingUserCreationTime,
+      _id: ids.deletingUserId,
+      state: "deleted",
+      deletedAt: expect.any(Number),
+    });
+    expect(Object.keys(snapshot.deletingUser ?? {}).sort()).toEqual([
+      "_creationTime",
+      "_id",
+      "deletedAt",
+      "state",
+    ]);
+    expect(snapshot.initiatingSession).toBeNull();
     expect(snapshot.organizationBilling).not.toBeNull();
     expect(snapshot.vault).not.toBeNull();
     expect(snapshot.stagedFile).not.toBeNull();
@@ -497,6 +544,78 @@ describe("account deletion organization boundary", () => {
         },
       },
     });
+    const deletedUser =
+      snapshot.deletingUser === null ? null : readUserLifecycle(snapshot.deletingUser);
+    if (deletedUser?.state !== "deleted" || snapshot.run?.state !== "succeeded") {
+      throw new Error("Account deletion did not reach its terminal state.");
+    }
+    expect(deletedUser.deletedAt).toBe(snapshot.run.completedAt);
+  });
+
+  it("restores finalizing to deleting after failure and retries the same run", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await t.run(async (ctx) => {
+      await ctx.db.replace(ids.deletingUserId, {
+        state: "finalizing",
+        email: "deleting@example.invalid",
+        isApproved: true,
+        runId: ids.runId,
+        requestedAt: 1,
+      });
+    });
+
+    await t.mutation(internal.accountDeletion.workflow.handleWorkflowComplete, {
+      workflowId,
+      context: { runId: ids.runId },
+      result: { kind: "failed", error: "Private workflow failure details" },
+    });
+
+    const failed = await t.run(async (ctx) => ({
+      run: await ctx.db.get(ids.runId),
+      user: await ctx.db.get(ids.deletingUserId),
+      events: await ctx.db
+        .query("workflow_accountDeletion_events")
+        .withIndex("by_run_and_created_at", (query) => query.eq("runId", ids.runId))
+        .collect(),
+    }));
+    expect(failed.user).toMatchObject({
+      state: "deleting",
+      runId: ids.runId,
+      requestedAt: 1,
+    });
+    expect(failed.run).toMatchObject({
+      state: "needs_attention",
+      latestSafeError: "Account deletion needs staff attention.",
+    });
+    expect(failed.events.at(-1)).toMatchObject({
+      message: "Account deletion needs staff attention.",
+    });
+
+    const staffUserId = await t.run(async (ctx) => {
+      return await ctx.db.insert("users", {
+        state: "active",
+        email: "nicu@samebase.com",
+        isApproved: true,
+      });
+    });
+    const asStaff = t.withIdentity({
+      subject: `${staffUserId}|staff-session`,
+      tokenIdentifier: `test:${staffUserId}`,
+    });
+    await expect(
+      asStaff.mutation(api.accountDeletion.index.retry, { runId: ids.runId }),
+    ).resolves.toMatchObject({
+      runId: ids.runId,
+      state: "running",
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.runId))).resolves.toMatchObject({
+      state: "running",
+      retryCount: 1,
+      workflow: { attempt: 2 },
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.deletingUserId))).resolves.toMatchObject(
+      { state: "deleting", runId: ids.runId },
+    );
   });
 
   it("lets the remaining member edit the shared staged file", async () => {

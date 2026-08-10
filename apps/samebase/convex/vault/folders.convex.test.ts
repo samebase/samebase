@@ -6,7 +6,7 @@ import { makeConvexTest } from "../test.setup";
 
 async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
   return await t.run(async (ctx) => {
-    return await ctx.db.insert("users", { email, isApproved: true });
+    return await ctx.db.insert("users", { state: "active", email, isApproved: true });
   });
 }
 
@@ -437,7 +437,7 @@ describe("organization-scoped vault folders", () => {
     );
   });
 
-  it("removes a folder assignment during vault deletion", async () => {
+  it("continues live vault deletion without membership and rejects a terminal run", async () => {
     const t = makeConvexTest();
     const userId = await seedUser(t, "ada@example.com");
     const organizationId = await seedOrganization(t, { owner: "samebase", userId });
@@ -449,8 +449,56 @@ describe("organization-scoped vault folders", () => {
     });
     await viewer.mutation(api.vault.folders.moveVaultToFolder, { folderId, vaultId });
 
+    const deletionRunId = await t.run(async (ctx) => {
+      const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+        state: "running",
+        organizationId,
+        userId,
+        vaultId,
+        repositoryFullName: "samebase/repository",
+        createdAt: 1,
+        updatedAt: 1,
+        attempt: { kind: "initial" },
+        workflow: { state: "started", workflowId: "folder-cleanup-test" },
+        currentStep: "cleanup_source_caches",
+        snapshot: {
+          state: "retained_for_retry",
+          plan: {
+            target: {
+              kind: "samebase_managed_repository",
+              ghRepoId: "repository-id",
+              owner: "samebase",
+              name: "repository",
+              repositoryFullName: "samebase/repository",
+            },
+            convex: { action: "skip", reason: "not_requested" },
+            cloudflare: { action: "skip", reason: "not_requested" },
+            githubRepository: { action: "skip", reason: "not_requested" },
+          },
+        },
+      });
+      await ctx.db.patch(vaultId, {
+        deletion: { state: "deleting", runId, requestedAt: 1 },
+      });
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", organizationId).eq("userId", userId),
+        )
+        .unique();
+      if (!membership) {
+        throw new Error("Test membership not found.");
+      }
+      await ctx.db.delete(membership._id);
+      return runId;
+    });
+
     await expect(
-      t.mutation(internal.vault.deletion.cleanup.deleteVaultLocalDataBatch, { userId, vaultId }),
+      t.mutation(internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch, {
+        runId: deletionRunId,
+        step: "cleanup_source_caches",
+        vaultId,
+      }),
     ).resolves.toEqual({
       rowsChanged: 1,
       state: "needs_more",
@@ -465,6 +513,44 @@ describe("organization-scoped vault folders", () => {
           .withIndex("by_vaultId", (query) => query.eq("vaultId", vaultId))
           .first(),
       ).toBeNull();
+
+      await ctx.db.replace(deletionRunId, {
+        state: "failed",
+        organizationId,
+        userId,
+        vaultId,
+        repositoryFullName: "samebase/repository",
+        createdAt: 1,
+        updatedAt: 2,
+        attempt: { kind: "initial" },
+        workflow: { state: "started", workflowId: "folder-cleanup-test" },
+        currentStep: "cleanup_source_caches",
+        snapshot: {
+          state: "retained_for_retry",
+          plan: {
+            target: {
+              kind: "samebase_managed_repository",
+              ghRepoId: "repository-id",
+              owner: "samebase",
+              name: "repository",
+              repositoryFullName: "samebase/repository",
+            },
+            convex: { action: "skip", reason: "not_requested" },
+            cloudflare: { action: "skip", reason: "not_requested" },
+            githubRepository: { action: "skip", reason: "not_requested" },
+          },
+        },
+        lastError: "test terminal state",
+        completedAt: 2,
+      });
     });
+
+    await expect(
+      t.mutation(internal.vault.deletion.cleanup.cleanupVaultLocalDataStepBatch, {
+        runId: deletionRunId,
+        step: "cleanup_source_caches",
+        vaultId,
+      }),
+    ).rejects.toThrow("Vault deletion run does not authorize vault access.");
   });
 });
