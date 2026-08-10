@@ -7,7 +7,7 @@ import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeleti
 import { mutation, query } from "../functions";
 import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
 import { isAdminUser } from "../userAccess";
-import { readUserLifecycle, readUserProfile } from "../userLifecycle";
+import { readUserProfile } from "../userLifecycle";
 import {
   vAccountDeletionEventLevel,
   vAccountDeletionOutcomeSummary,
@@ -225,8 +225,7 @@ export const retry = mutation({
     if (user === null) {
       throw new Error("Account deletion marker is inconsistent.");
     }
-    const lifecycle = readUserLifecycle(user);
-    if (lifecycle.state !== "deleting" || lifecycle.runId !== run._id) {
+    if (user.state !== "deleting" || user.runId !== run._id) {
       throw new Error("Account deletion marker is inconsistent.");
     }
 

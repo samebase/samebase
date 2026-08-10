@@ -4,7 +4,6 @@ import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../githubUserAuthorizations";
 import { makeConvexTest } from "../test.setup";
-import { readUserLifecycle } from "../userLifecycle";
 
 const workflowId = "account-deletion-organization-boundary";
 
@@ -633,8 +632,7 @@ describe("account deletion organization boundary", () => {
         },
       },
     });
-    const deletedUser =
-      snapshot.deletingUser === null ? null : readUserLifecycle(snapshot.deletingUser);
+    const deletedUser = snapshot.deletingUser;
     if (deletedUser?.state !== "deleted" || snapshot.run?.state !== "succeeded") {
       throw new Error("Account deletion did not reach its terminal state.");
     }

@@ -30,7 +30,6 @@ import {
   resolveAccountPresentation,
   vAccountPresentation,
 } from "../shared/accountPresentation";
-import { readUserLifecycle } from "./userLifecycle";
 
 const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
@@ -103,14 +102,13 @@ async function readProviderConnectorPresentation(
   if (user === null) {
     throw new Error("Provider connector user reference is invalid.");
   }
-  const lifecycle = readUserLifecycle(user);
-  if (lifecycle.state === "deleted") {
+  if (user.state === "deleted") {
     throw new Error("Provider connector user reference is invalid.");
   }
-  if (lifecycle.state !== "active") {
+  if (user.state !== "active") {
     return undefined;
   }
-  const accountPresentation = resolveAccountPresentation(lifecycle);
+  const accountPresentation = resolveAccountPresentation(user);
   if (connectedByUserId !== viewerUserId && accountPresentation.kind === "email") {
     return undefined;
   }

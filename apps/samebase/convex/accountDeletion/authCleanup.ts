@@ -2,7 +2,6 @@ import { v } from "convex/values";
 
 import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
-import { readUserLifecycle } from "../userLifecycle";
 import { cleanupAccountDataBatchForUser } from "./cleanup";
 import { readOwnedActiveRun } from "./stepContext";
 
@@ -292,8 +291,7 @@ export const finishIdentityDeletion = internalMutation({
     if (user === null) {
       throw new Error("Account deletion is not ready to finalize.");
     }
-    const lifecycle = readUserLifecycle(user);
-    if (lifecycle.state !== "deleting" || lifecycle.runId !== run._id) {
+    if (user.state !== "deleting" || user.runId !== run._id) {
       throw new Error("Account deletion is not ready to finalize.");
     }
 

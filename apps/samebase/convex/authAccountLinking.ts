@@ -13,7 +13,6 @@ import {
 } from "./deploymentProfile";
 import { buildNewUserNotification } from "./newUserNotification";
 import { readOptionalEnv } from "./oauthUtils";
-import { readUserLifecycle } from "./userLifecycle";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import type { AuthAccountProvider } from "./authAccountModel";
 
@@ -140,16 +139,15 @@ async function requireActiveUser(ctx: MutationCtx, userId: Id<"users">) {
   if (user === null) {
     throw new Error("Account is unavailable.");
   }
-  const lifecycle = readUserLifecycle(user);
-  switch (lifecycle.state) {
+  switch (user.state) {
     case "active":
-      return lifecycle;
+      return user;
     case "deleting":
       throw new Error("Account deletion is in progress.");
     case "deleted":
       throw new Error("Account is unavailable.");
     default:
-      lifecycle satisfies never;
+      user satisfies never;
       throw new Error("Account is unavailable.");
   }
 }
@@ -160,7 +158,7 @@ async function requireUserCanSignIn(ctx: MutationCtx, userId: Id<"users">) {
   if (user === null) {
     throw new Error("Account is unavailable.");
   }
-  return readUserLifecycle(user);
+  return user;
 }
 
 async function assertGitHubAccessIdentity(

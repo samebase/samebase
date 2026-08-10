@@ -64,32 +64,17 @@ const vDeletingUserDoc = object({
   ...deletingUserFields,
 });
 
-const vDeletedUserDoc = object({
-  state: literal("deleted"),
-  ...userDocFields,
-  deletedAt: number(),
-});
-
-export const vUserLifecycleDoc = union(vActiveUserDoc, vDeletingUserDoc, vDeletedUserDoc);
-
 export const vNonDeletedUserLifecycleDoc = union(vActiveUserDoc, vDeletingUserDoc);
 
-export type UserLifecycleDoc = Infer<typeof vUserLifecycleDoc>;
 export type NonDeletedUserLifecycleDoc = Infer<typeof vNonDeletedUserLifecycleDoc>;
-export type ActiveUserDoc = Extract<UserLifecycleDoc, { state: "active" }>;
-
-export function readUserLifecycle(user: Doc<"users">): UserLifecycleDoc {
-  return user;
-}
+export type ActiveUserDoc = Extract<Doc<"users">, { state: "active" }>;
 
 export function readActiveUser(user: Doc<"users">): ActiveUserDoc | null {
-  const lifecycle = readUserLifecycle(user);
-  return lifecycle.state === "active" ? lifecycle : null;
+  return user.state === "active" ? user : null;
 }
 
 export function readNonDeletedUser(user: Doc<"users">): NonDeletedUserLifecycleDoc | null {
-  const lifecycle = readUserLifecycle(user);
-  return lifecycle.state === "deleted" ? null : lifecycle;
+  return user.state === "deleted" ? null : user;
 }
 
 /** Copy only the profile fields allowed on non-deleted lifecycle variants. */
@@ -119,13 +104,12 @@ export function resolveUserReferencePresentation(
     throw new Error("Samebase user reference is invalid.");
   }
 
-  const lifecycle = readUserLifecycle(user);
-  if (lifecycle.state === "deleted") {
+  if (user.state === "deleted") {
     return {
       kind: "deleted",
       label: DELETED_SAMEBASE_ACCOUNT_LABEL,
     };
   }
 
-  return resolveAccountPresentation(lifecycle);
+  return resolveAccountPresentation(user);
 }
