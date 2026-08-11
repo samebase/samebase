@@ -3,15 +3,18 @@ import { OrganizationInvitationPageView } from "@/components/OrganizationInvitat
 import { ORGANIZATION_VAULTS_ROUTE } from "@/lib/organizationRoutes";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useConvexAuth, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
 export function OrganizationInvitationPage({ code }: { code: string }) {
   const getInvitation = useAction(api.organizationMembers.getInvitation);
+  const { isAuthenticated, isLoading } = useConvexAuth();
   const invitationQuery = useQuery({
+    enabled: !isLoading,
     queryFn: async () => await getInvitation({ code }),
-    queryKey: ["organization-invitation", code],
-    refetchOnMount: "always",
+    queryKey: ["organization-invitation", code, isAuthenticated],
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
     retry: 1,
   });
   const acceptInvitation = useMutation(api.organizationMembers.acceptInvitation);
@@ -35,10 +38,7 @@ export function OrganizationInvitationPage({ code }: { code: string }) {
           to: ORGANIZATION_VAULTS_ROUTE,
         });
       }}
-      onSignOut={async () => {
-        await signOut();
-        await invitationQuery.refetch();
-      }}
+      onSignOut={signOut}
     />
   );
 }
