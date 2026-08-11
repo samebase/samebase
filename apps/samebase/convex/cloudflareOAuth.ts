@@ -385,7 +385,10 @@ async function replaceCloudflareCredentialForAuthority(
         {
           organizationId,
           userId: authority.userId,
-          ...args,
+          expectedAuth: args.expectedAuth,
+          auth: args.auth,
+          tokenHealth: args.tokenHealth,
+          expectedTokenRefreshLease: args.expectedTokenRefreshLease,
         },
       );
     case "vault_workflow":
@@ -393,7 +396,10 @@ async function replaceCloudflareCredentialForAuthority(
         internal.organizationProviderCredentials.replaceCloudflareCredentialForVaultWorkflow,
         {
           authority: authority.authority,
-          ...args,
+          expectedAuth: args.expectedAuth,
+          auth: args.auth,
+          tokenHealth: args.tokenHealth,
+          expectedTokenRefreshLease: args.expectedTokenRefreshLease,
         },
       );
     default:
@@ -418,7 +424,8 @@ async function claimCloudflareTokenRefreshForAuthority(
         {
           organizationId,
           userId: authority.userId,
-          ...args,
+          expectedAuth: args.expectedAuth,
+          force: args.force,
         },
       );
     case "vault_workflow":
@@ -426,7 +433,8 @@ async function claimCloudflareTokenRefreshForAuthority(
         internal.organizationProviderCredentials.claimCloudflareTokenRefreshForVaultWorkflow,
         {
           authority: authority.authority,
-          ...args,
+          expectedAuth: args.expectedAuth,
+          force: args.force,
         },
       );
     default:
@@ -450,7 +458,8 @@ async function releaseCloudflareTokenRefreshForAuthority(
         internal.organizationProviderCredentials.releaseCloudflareTokenRefresh,
         {
           organizationId,
-          ...args,
+          expectedTokenRefreshLease: args.expectedTokenRefreshLease,
+          recordLastTokenRefreshAt: args.recordLastTokenRefreshAt,
         },
       );
     case "vault_workflow":
@@ -458,7 +467,8 @@ async function releaseCloudflareTokenRefreshForAuthority(
         internal.organizationProviderCredentials.releaseCloudflareTokenRefreshForVaultWorkflow,
         {
           authority: authority.authority,
-          ...args,
+          expectedTokenRefreshLease: args.expectedTokenRefreshLease,
+          recordLastTokenRefreshAt: args.recordLastTokenRefreshAt,
         },
       );
     default:

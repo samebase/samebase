@@ -169,7 +169,10 @@ export async function resolveGitHubAppAccess(
 ): Promise<GitHubAppAccess> {
   const access: GitHubAppInstallationAccess = await ctx.runQuery(
     internal.githubAppAccess.loadInstallationAccess,
-    args,
+    {
+      userId: args.userId,
+      target: args.target,
+    },
   );
   return {
     ...access,
@@ -187,7 +190,11 @@ export async function resolveGitHubAppAccessForProvisioningRun(
 ): Promise<GitHubAppAccess> {
   const access: GitHubAppInstallationAccess = await ctx.runQuery(
     internal.githubAppAccess.loadInstallationAccessForProvisioningRun,
-    args,
+    {
+      runId: args.runId,
+      userId: args.userId,
+      vaultId: args.vaultId,
+    },
   );
   return {
     ...access,
@@ -203,7 +210,9 @@ export async function resolveGitHubAppAccessForVaultDeletionRun(
 ): Promise<GitHubAppAccess> {
   const access: GitHubAppInstallationAccess = await ctx.runQuery(
     internal.githubAppAccess.loadInstallationAccessForVaultDeletionRun,
-    args,
+    {
+      runId: args.runId,
+    },
   );
   return {
     ...access,

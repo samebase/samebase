@@ -100,7 +100,10 @@ export const revokeConnectionBatch = internalAction({
   handler: async (ctx, args): Promise<RevokeProviderConnectionBatchResult> => {
     const credentials = await ctx.runQuery(
       internal.accountDeletion.providerActions.loadConnectionBatch,
-      args,
+      {
+        runId: args.runId,
+        workflowId: args.workflowId,
+      },
     );
     let convexManualRevocationRequired = false;
 
@@ -108,7 +111,8 @@ export const revokeConnectionBatch = internalAction({
       const deleted = await ctx.runMutation(
         internal.accountDeletion.providerActions.deleteRevokedConnection,
         {
-          ...args,
+          runId: args.runId,
+          workflowId: args.workflowId,
           expected: connection,
         },
       );
@@ -126,7 +130,10 @@ export const revokeConnectionBatch = internalAction({
 
     const remainingCredentials = await ctx.runQuery(
       internal.accountDeletion.providerActions.loadConnectionBatch,
-      args,
+      {
+        runId: args.runId,
+        workflowId: args.workflowId,
+      },
     );
     return {
       done: remainingCredentials.length === 0,

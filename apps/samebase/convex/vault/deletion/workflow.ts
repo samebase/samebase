@@ -56,9 +56,17 @@ export const deleteVaultWorkflow = workflow.define({
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
-    await step.runMutation(internal.vault.deletion.runs.claimWorkflowRun, args, {
-      name: "lock_vault",
-    });
+    await step.runMutation(
+      internal.vault.deletion.runs.claimWorkflowRun,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+      },
+      {
+        name: "lock_vault",
+      },
+    );
     await step.runAction(
       internal.vault.deletion.providerActions.deleteCloudflare,
       {
@@ -160,7 +168,11 @@ export const startVaultDeletion = internalMutation({
       const workflowId: string = await workflow.start(
         ctx,
         internal.vault.deletion.workflow.deleteVaultWorkflow,
-        args,
+        {
+          vaultId: args.vaultId,
+          runId: args.runId,
+          userId: args.userId,
+        },
         {
           startAsync: true,
           onComplete: internal.vault.deletion.workflow.handleVaultDeletionWorkflowComplete,

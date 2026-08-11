@@ -119,7 +119,7 @@ async function createGitHubAppSetupState(
     state,
     purpose,
     organizationId,
-    ...(githubSignInProviderAccountId === null ? {} : { githubSignInProviderAccountId }),
+    githubSignInProviderAccountId: githubSignInProviderAccountId ?? undefined,
     returnToPath: normalizedReturnToPath,
     createdAt: now,
     expiresAt: now + OAUTH_STATE_TTL_MS,
@@ -647,7 +647,16 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
           completion = await ctx.runMutation(internal.githubAppInstallation.completeVerifiedSetup, {
             setupStateId: setupState.setupStateId,
             state,
-            ...installation,
+            accessToken: installation.accessToken,
+            accessTokenExpiresAt: installation.accessTokenExpiresAt,
+            refreshToken: installation.refreshToken,
+            refreshTokenExpiresAt: installation.refreshTokenExpiresAt,
+            installationId: installation.installationId,
+            githubOwnerId: installation.githubOwnerId,
+            githubOwnerType: installation.githubOwnerType,
+            githubOwnerLogin: installation.githubOwnerLogin,
+            githubUserId: installation.githubUserId,
+            githubUserLogin: installation.githubUserLogin,
           });
         } catch (error) {
           await revokeUncommittedGitHubUserToken(installation.accessToken);
@@ -713,7 +722,12 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
             {
               setupStateId: setupState.setupStateId,
               state,
-              ...authorization,
+              accessToken: authorization.accessToken,
+              accessTokenExpiresAt: authorization.accessTokenExpiresAt,
+              refreshToken: authorization.refreshToken,
+              refreshTokenExpiresAt: authorization.refreshTokenExpiresAt,
+              githubUserId: authorization.githubUserId,
+              githubUserLogin: authorization.githubUserLogin,
             },
           );
         } catch (error) {

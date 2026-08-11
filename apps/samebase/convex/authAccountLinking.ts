@@ -130,7 +130,11 @@ async function sendNewUserNotification(
     userId: args.userId,
   });
   if (notification) {
-    await ctx.scheduler.runAfter(0, internal.email.send, notification);
+    await ctx.scheduler.runAfter(0, internal.email.send, {
+      to: notification.to,
+      subject: notification.subject,
+      text: notification.text,
+    });
   }
 }
 

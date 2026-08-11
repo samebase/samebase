@@ -203,6 +203,9 @@ describe("lint config", () => {
     const appWideOverride = oxlintConfig.overrides?.find((override) =>
       override.files?.includes("apps/samebase/**/*.{ts,tsx}"),
     );
+    const convexOverride = oxlintConfig.overrides?.find((override) =>
+      override.files?.includes("apps/samebase/convex/**/*.ts"),
+    );
     expect(oxlintConfig.options).toMatchObject({ typeAware: true });
     expect(oxlintConfig.ignorePatterns).not.toContain("**/vite.config.ts");
     expect(appWideOverride?.rules?.["@typescript-eslint/no-explicit-any"]).toBeUndefined();
@@ -246,6 +249,9 @@ describe("lint config", () => {
           message: expect.stringContaining("route search"),
         },
       ],
+    });
+    expect(convexOverride?.rules).toMatchObject({
+      "samebase/no-forwarded-convex-function-args": "error",
     });
   });
 

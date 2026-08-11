@@ -251,6 +251,11 @@ Types and validation:
   responses. Keep independent state axes small.
 - For important state models, start tests by enumerating state axes and allowed combinations.
 - Give all returned collections and lists a deterministic order with stable tie-breakers.
+- Pass registered Convex function arguments as explicit top-level object literals without spreads.
+  This includes `runQuery`, `runMutation`, `runAction`, scheduled functions, workflows, and crons.
+  Convex rejects undeclared fields recursively, but TypeScript does not reject wider variables or
+  spread properties. Project nested objects too when their source can be wider than the nested
+  `v.object` validator.
 
 Simplicity and deletion:
 

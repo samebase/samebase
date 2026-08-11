@@ -268,9 +268,7 @@ export const seedOrganizationWithProviderCredentials = internalMutation({
         expectedProviderSnapshotHash,
         auth: { method: "api_key", credential: args.convexConnection.credential },
         teamId: args.convexConnection.teamId,
-        ...(args.convexConnection.teamSlug === undefined
-          ? {}
-          : { teamSlug: args.convexConnection.teamSlug }),
+        teamSlug: args.convexConnection.teamSlug,
       });
     }
 
@@ -675,15 +673,24 @@ export const seedPasswordAccount = internalAction({
     if (worktreeOrganizationConfig !== null) {
       await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
         userId,
-        ...worktreeOrganizationConfig,
+        githubOwnerId: worktreeOrganizationConfig.githubOwnerId,
+        githubOwnerType: worktreeOrganizationConfig.githubOwnerType,
+        githubOwnerLogin: worktreeOrganizationConfig.githubOwnerLogin,
+        githubInstallationId: worktreeOrganizationConfig.githubInstallationId,
+        convexConnection: worktreeOrganizationConfig.convexConnection,
+        cloudflareConnection: worktreeOrganizationConfig.cloudflareConnection,
       });
     }
     if (previewSeed !== null) {
       for (const installation of previewSeed.installations) {
         await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
           userId,
-          ...installation,
-          ...previewSeed.providerCredentials,
+          githubOwnerId: installation.githubOwnerId,
+          githubOwnerType: installation.githubOwnerType,
+          githubOwnerLogin: installation.githubOwnerLogin,
+          githubInstallationId: installation.githubInstallationId,
+          convexConnection: previewSeed.providerCredentials.convexConnection,
+          cloudflareConnection: previewSeed.providerCredentials.cloudflareConnection,
         });
       }
     }

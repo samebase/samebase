@@ -173,6 +173,7 @@ export default defineConfig({
           "@convex-dev/import-wrong-runtime": "off",
           "@convex-dev/no-old-registered-function-syntax": "error",
           "@convex-dev/require-args-validator": ["error", { ignoreUnusedArguments: true }],
+          "samebase/no-forwarded-convex-function-args": "error",
         },
       },
     ],

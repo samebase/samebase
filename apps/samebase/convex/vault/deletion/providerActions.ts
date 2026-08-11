@@ -47,7 +47,10 @@ async function appendRunEvent(
   },
 ): Promise<void> {
   await ctx.runMutation(internal.vault.deletion.runs.appendRunEvent, {
-    ...args,
+    runId: args.runId,
+    step: args.step,
+    level: args.level,
+    message: args.message,
     state: "running",
   });
 }

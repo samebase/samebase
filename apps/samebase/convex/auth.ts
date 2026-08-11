@@ -70,8 +70,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         const result = await ctx.runMutation(internal.agentBrowserHandoff.redeemForAuth, {
           tokenHash: await sha256Hex(rawToken),
           now: Date.now(),
-          ...(currentUserId !== null ? { currentUserId } : {}),
-          ...(currentSessionId !== null ? { currentSessionId } : {}),
+          currentUserId: currentUserId ?? undefined,
+          currentSessionId: currentSessionId ?? undefined,
         });
         if (!result.ok) {
           throw new Error("Browser handoff is invalid or no longer available.");

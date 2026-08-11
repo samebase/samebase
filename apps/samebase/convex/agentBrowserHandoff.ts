@@ -174,7 +174,7 @@ export const deleteExpired = internalMutation({
       await ctx.scheduler.runAfter(
         handoff.expiresAt - now,
         internal.agentBrowserHandoff.deleteExpired,
-        args,
+        { handoffId: args.handoffId },
       );
       return null;
     }

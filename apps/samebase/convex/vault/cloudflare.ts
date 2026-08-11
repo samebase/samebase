@@ -130,7 +130,10 @@ async function resolveCloudflareConnection(
 ): Promise<CloudflareActionConnection> {
   const connection = await ctx.runAction(
     internal.cloudflareOAuth.resolveConnectionForOrganization,
-    args,
+    {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    },
   );
   const token = connection?.auth.credential.trim();
   if (!connection || !token) {
@@ -314,7 +317,12 @@ async function readWorkerConvexProjectConfigurationContext(
 ): Promise<WorkerConvexProjectConfigurationContext> {
   return await ctx.runQuery(
     internal.vault.cloudflareMutations.readWorkerConvexProjectConfigurationContext,
-    args,
+    {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      workerId: args.workerId,
+      convexProjectId: args.convexProjectId,
+    },
   );
 }
 
@@ -1436,7 +1444,8 @@ export const detachWorker = action({
       userId: ctx.viewer.userId,
     });
     await ctx.runMutation(internal.vault.cloudflareMutations.detachWorker, {
-      ...args,
+      vaultId: args.vaultId,
+      workerId: args.workerId,
       userId: ctx.viewer.userId,
       accountId: context.accountId,
       workerName: context.workerName,

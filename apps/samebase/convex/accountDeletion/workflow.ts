@@ -235,17 +235,22 @@ export const deleteAccountWorkflow = workflow.define({
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
-    const ownedArgs = { runId: args.runId, workflowId: step.workflowId };
     const claimed = await step.runMutation(
       internal.accountDeletion.workflow.claimWorkflowRun,
-      ownedArgs,
+      {
+        runId: args.runId,
+        workflowId: step.workflowId,
+      },
       { name: "claim_workflow" },
     );
 
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.authCleanup.deleteOtherSessionBatch,
-        ownedArgs,
+        {
+          runId: args.runId,
+          workflowId: step.workflowId,
+        },
         { name: `delete_other_sessions_${batch}` },
       );
       if (done) {
@@ -259,7 +264,8 @@ export const deleteAccountWorkflow = workflow.define({
     await step.runMutation(
       internal.accountDeletion.workflow.appendRunEvent,
       {
-        ...ownedArgs,
+        runId: args.runId,
+        workflowId: step.workflowId,
         step: "request_accepted",
         level: "info",
         message: "Waiting for active Samebase work to stop.",
@@ -269,7 +275,10 @@ export const deleteAccountWorkflow = workflow.define({
     for (let check = 0; check < MAX_QUIESCE_CHECKS; check += 1) {
       const result = await step.runMutation(
         internal.accountDeletion.cleanup.inspectQuiescence,
-        ownedArgs,
+        {
+          runId: args.runId,
+          workflowId: step.workflowId,
+        },
         { name: `inspect_quiescence_${check}` },
       );
       if (result.state === "done") {
@@ -286,31 +295,50 @@ export const deleteAccountWorkflow = workflow.define({
       await step.runMutation(
         internal.accountDeletion.workflow.appendRunEvent,
         {
-          ...ownedArgs,
+          runId: args.runId,
+          workflowId: step.workflowId,
           step: "revoke_access",
           level: "info",
           message: "Removing user-authorized provider access.",
         },
         { name: "start_provider_revocation_event" },
       );
-      await step.runMutation(internal.accountDeletion.workflow.startProviderRevocation, ownedArgs, {
-        name: "start_provider_revocation",
-      });
-      await step.runAction(internal.githubUserAuthorizations.revokeForAccountDeletion, ownedArgs, {
-        name: "revoke_github_user_authorization",
-        retry: false,
-      });
+      await step.runMutation(
+        internal.accountDeletion.workflow.startProviderRevocation,
+        {
+          runId: args.runId,
+          workflowId: step.workflowId,
+        },
+        {
+          name: "start_provider_revocation",
+        },
+      );
+      await step.runAction(
+        internal.githubUserAuthorizations.revokeForAccountDeletion,
+        {
+          runId: args.runId,
+          workflowId: step.workflowId,
+        },
+        {
+          name: "revoke_github_user_authorization",
+          retry: false,
+        },
+      );
 
       for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
         const result = await step.runAction(
           internal.accountDeletion.providerActions.revokeConnectionBatch,
-          ownedArgs,
+          {
+            runId: args.runId,
+            workflowId: step.workflowId,
+          },
           { name: `revoke_provider_connections_${batch}`, retry: false },
         );
         await step.runMutation(
           internal.accountDeletion.workflow.recordProviderBatch,
           {
-            ...ownedArgs,
+            runId: args.runId,
+            workflowId: step.workflowId,
             convexManualRevocationRequired: result.convexManualRevocationRequired,
           },
           { name: `record_provider_connections_${batch}` },
@@ -325,7 +353,10 @@ export const deleteAccountWorkflow = workflow.define({
 
       await step.runMutation(
         internal.accountDeletion.workflow.finishProviderRevocation,
-        ownedArgs,
+        {
+          runId: args.runId,
+          workflowId: step.workflowId,
+        },
         { name: "finish_provider_revocation" },
       );
     }
@@ -333,7 +364,8 @@ export const deleteAccountWorkflow = workflow.define({
     await step.runMutation(
       internal.accountDeletion.workflow.appendRunEvent,
       {
-        ...ownedArgs,
+        runId: args.runId,
+        workflowId: step.workflowId,
         step: "delete_samebase_data",
         level: "info",
         message: "Deleting personal Samebase account data.",
@@ -343,7 +375,10 @@ export const deleteAccountWorkflow = workflow.define({
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.cleanup.cleanupAccountDataBatch,
-        ownedArgs,
+        {
+          runId: args.runId,
+          workflowId: step.workflowId,
+        },
         { name: `delete_account_data_${batch}` },
       );
       if (done) {
@@ -358,7 +393,8 @@ export const deleteAccountWorkflow = workflow.define({
       await step.runMutation(
         internal.accountDeletion.workflow.appendRunEvent,
         {
-          ...ownedArgs,
+          runId: args.runId,
+          workflowId: step.workflowId,
           step: "send_completion_email",
           level: "info",
           message: "Sending account deletion confirmation.",
@@ -367,12 +403,19 @@ export const deleteAccountWorkflow = workflow.define({
       );
       const email = await step.runAction(
         internal.accountDeletion.completionEmail.sendForAccountDeletion,
-        ownedArgs,
+        {
+          runId: args.runId,
+          workflowId: step.workflowId,
+        },
         { name: "send_completion_email", retry: false },
       );
       await step.runMutation(
         internal.accountDeletion.workflow.recordCompletionEmailOutcome,
-        { ...ownedArgs, outcome: email },
+        {
+          runId: args.runId,
+          workflowId: step.workflowId,
+          outcome: email,
+        },
         { name: "record_completion_email_outcome" },
       );
     }
@@ -380,7 +423,10 @@ export const deleteAccountWorkflow = workflow.define({
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.authCleanup.deleteAuthAccountBatch,
-        ownedArgs,
+        {
+          runId: args.runId,
+          workflowId: step.workflowId,
+        },
         { name: `delete_auth_accounts_${batch}` },
       );
       if (done) {
@@ -392,14 +438,20 @@ export const deleteAccountWorkflow = workflow.define({
     }
     await step.runMutation(
       internal.accountDeletion.authCleanup.deleteIdentityRateLimit,
-      ownedArgs,
+      {
+        runId: args.runId,
+        workflowId: step.workflowId,
+      },
       { name: "delete_identity_rate_limit" },
     );
 
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.authCleanup.deleteInitiatingSessionBatch,
-        ownedArgs,
+        {
+          runId: args.runId,
+          workflowId: step.workflowId,
+        },
         { name: `delete_initiating_session_children_${batch}` },
       );
       if (done) {
@@ -413,7 +465,10 @@ export const deleteAccountWorkflow = workflow.define({
     for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
       const done = await step.runMutation(
         internal.accountDeletion.authCleanup.deleteEventBatch,
-        ownedArgs,
+        {
+          runId: args.runId,
+          workflowId: step.workflowId,
+        },
         { name: `delete_account_deletion_events_${batch}` },
       );
       if (done) {
@@ -426,12 +481,22 @@ export const deleteAccountWorkflow = workflow.define({
 
     await step.runMutation(
       internal.accountDeletion.workflow.recordIdentityDeletionStart,
-      ownedArgs,
+      {
+        runId: args.runId,
+        workflowId: step.workflowId,
+      },
       { name: "record_identity_deletion_start" },
     );
-    await step.runMutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, ownedArgs, {
-      name: "finish_identity_deletion",
-    });
+    await step.runMutation(
+      internal.accountDeletion.authCleanup.finishIdentityDeletion,
+      {
+        runId: args.runId,
+        workflowId: step.workflowId,
+      },
+      {
+        name: "finish_identity_deletion",
+      },
+    );
     return null;
   },
 });

@@ -255,7 +255,13 @@ async function startConnectExistingRepositoryProvisioningOrFail(
   try {
     await ctx.runMutation(
       internal.appProvisioningWorkflow.startConnectExistingRepositoryProvisioning,
-      args,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        repositoryName: args.repositoryName,
+        repositoryOwner: args.repositoryOwner,
+      },
     );
   } catch (error) {
     await markProvisioningStartupFailed(ctx, {
@@ -323,7 +329,10 @@ async function resolveOrganizationConvexProvisioningConnection(
 ) {
   const configuration = await ctx.runQuery(
     internal.organizationProviderCredentials.loadForOrganization,
-    args,
+    {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    },
   );
   const credential = configuration.convexCredential;
   const convexTeamId = configuration.convexTeam?.teamId.trim();
@@ -352,7 +361,7 @@ async function resolveOrganizationCloudflareProvisioningConnection(
   const resolved = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
     userId: args.userId,
     organizationId: args.organizationId,
-    ...(args.forceRefresh === true ? { forceRefresh: true } : {}),
+    forceRefresh: args.forceRefresh,
   });
   if (resolved === null) {
     throw new Error(

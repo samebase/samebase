@@ -850,16 +850,20 @@ export async function clearAllStagingImpl(ctx: MutationCtx, args: ClearAllStagin
 
   // Delete collaborative updates in batches to avoid hitting read limits.
   // Schedule the first batch. It will chain further batches if needed.
-  await ctx.scheduler.runAfter(
-    0,
-    internal.fileStaging.deleteCollaborativeUpdatesBatch,
-    plan.deleteCollaborativeUpdatesArgs,
-  );
+  await ctx.scheduler.runAfter(0, internal.fileStaging.deleteCollaborativeUpdatesBatch, {
+    vaultId: plan.deleteCollaborativeUpdatesArgs.vaultId,
+    branch: plan.deleteCollaborativeUpdatesArgs.branch,
+    cutoffTimestamp: plan.deleteCollaborativeUpdatesArgs.cutoffTimestamp,
+  });
 
   // Update tree to ensure it's fresh after clearing staging
   // Skip when called from commitAllStaged (tree is already updated there)
   if (plan.treeRefreshArgs && !args.skipTreeUpdate) {
-    await ctx.scheduler.runAfter(0, internal.github.updateRepositoryTree, plan.treeRefreshArgs);
+    await ctx.scheduler.runAfter(0, internal.github.updateRepositoryTree, {
+      userId: plan.treeRefreshArgs.userId,
+      vaultId: plan.treeRefreshArgs.vaultId,
+      branch: plan.treeRefreshArgs.branch,
+    });
   }
 
   return null;
@@ -982,7 +986,12 @@ export const deleteCollaborativeUpdatesForFilePathBatch = internalMutation({
       await ctx.scheduler.runAfter(
         0,
         internal.fileStaging.deleteCollaborativeUpdatesForFilePathBatch,
-        args,
+        {
+          vaultId: args.vaultId,
+          branch: args.branch,
+          filePath: args.filePath,
+          cutoffTimestamp: args.cutoffTimestamp,
+        },
       );
     }
 

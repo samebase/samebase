@@ -221,7 +221,10 @@ async function readObservationContext(
 ): Promise<VaultProviderObservationContext> {
   return await ctx.runQuery(
     internal.vault.providerObservationQueries.readVaultProviderObservationContext,
-    args,
+    {
+      vaultId: args.vaultId,
+      userId: args.userId,
+    },
   );
 }
 
