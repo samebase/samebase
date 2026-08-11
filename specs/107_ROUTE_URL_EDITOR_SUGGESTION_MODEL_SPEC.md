@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase frontend/app shell
-- Last updated: 2026-07-24
+- Last updated: 2026-08-11
 - Depends on:
   - `apps/samebase/src/components/RouteUrlEditor/RouteUrlEditorNext.tsx`
   - `apps/samebase/src/components/RouteUrlEditor/useRouteEditorVm.ts`
@@ -34,9 +34,9 @@ grammar: whether selecting a rendered row commits a URL fragment or opens the ne
    cursor after `border=` so value suggestions stay visible.
 3. Sample text must be visually distinct from the editing boundary. In `border=stone-300`, `border=`
    is where the cursor lands and `stone-300` is the seeded value.
-4. Params whose concrete values trigger one-shot runtime effects, such as `auth=google`, must use
-   the manual value type. The key row may still offer `?auth=`, but the editor must not recommend or
-   preview the concrete value.
+4. Internal auth-flow and deployment-control params, including `auth`, `signup`, and `prod-ui`, are
+   valid for direct URLs but hidden from editor recommendations. Params whose concrete values
+   trigger one-shot runtime effects must also use the manual value type.
 5. Value suggestions can also contain a sample suffix. For Tailwind color families, a row such as
    `red-500` seeds `red-500`, then places the cursor after `red-` so the user can choose the final
    shade from explicit options such as `50`, `100`, `500`, and `900`.

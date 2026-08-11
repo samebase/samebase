@@ -263,9 +263,9 @@ describe("readSuggestions", () => {
     expect(
       logoRows.slice(0, 3).map((row) => [row.kind === "search" ? row.group : null, row.value]),
     ).toEqual([
-      [null, "?prod-ui"],
       [null, "?reset"],
       ["theme", "?background=stone-50"],
+      ["theme", "?border=stone-300"],
     ]);
     expect(
       logoRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
@@ -364,31 +364,17 @@ describe("readSuggestions", () => {
     expect(values).toContain("&secondary=rose-500");
   });
 
-  it("hides developer query params marked hidden in metadata", () => {
+  it("hides non-recommended root query params", () => {
     const values = readValues({
-      routeAddress: "/logo?",
-      routeTextBeforeCursor: "/logo?",
+      routeAddress: "/?",
+      routeTextBeforeCursor: "/?",
     });
 
+    expect(values).not.toContain("?auth=");
     expect(values).not.toContain("?dev");
     expect(values).not.toContain("?devtools");
-  });
-
-  it("keeps manual auth values out of route suggestions", () => {
-    const keyValues = readValues({
-      currentRouteAddress: "/",
-      routeAddress: "/?a",
-      routeTextBeforeCursor: "/?a",
-    });
-    const manualValueRows = readValues({
-      currentRouteAddress: "/",
-      routeAddress: "/?auth=g",
-      routeTextBeforeCursor: "/?auth=g",
-    });
-
-    expect(keyValues).toContain("?auth=");
-    expect(keyValues).not.toContain("?auth=google");
-    expect(manualValueRows).toEqual([]);
+    expect(values).not.toContain("?prod-ui");
+    expect(values).not.toContain("?signup=");
   });
 
   it("uses member access for route and query suggestions", () => {

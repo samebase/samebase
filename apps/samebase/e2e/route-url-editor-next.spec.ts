@@ -500,7 +500,7 @@ test.describe("route URL editor touch scroll picker", () => {
         options.map((option) => option.getAttribute("data-route-url-editor-suggestion-index")),
       ),
     ).toEqual(await suggestions.evaluateAll((options) => options.map((_, index) => `${index}`)));
-    await expectTouchSlateAlignedToSuggestion(page, "?prod-ui");
+    await expectTouchSlateAlignedToSuggestion(page, "?reset");
 
     await scrollTouchPickerToSuggestion(page, "?auto-rotate");
     await expect(input).toHaveValue(`${prefix}logo?auto-rotate&`);

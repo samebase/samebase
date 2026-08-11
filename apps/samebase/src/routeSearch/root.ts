@@ -55,8 +55,8 @@ const RouteSearchSchema_root = defineRouteSearchParams({
   }),
   auth: routeSearchValueParam(routeSearchStringValue(["google", "github"]), {
     access: "access_public",
-    // Previewing auth starts OAuth; require typing or selecting the value explicitly.
-    suggestion: "route",
+    // auth starts OAuth and is valid only for direct auth-flow URLs.
+    suggestion: "hidden",
     valueType: "manual",
   }),
   [AUTHORIZATION_ERROR_QUERY_PARAM]: routeSearchValueParam(
@@ -101,7 +101,7 @@ const RouteSearchSchema_root = defineRouteSearchParams({
   }),
   "prod-ui": routeSearchPresenceParam({
     access: "access_public",
-    suggestion: "global",
+    suggestion: "hidden",
   }),
   [SEARCH_RESET_QUERY_PARAM]: routeSearchPresenceParam({
     access: "access_public",
@@ -110,7 +110,7 @@ const RouteSearchSchema_root = defineRouteSearchParams({
   signup: routeSearchValueParam(routeSearchStringValue(["google", "github"]), {
     access: "access_public",
     // signup is an auth-return marker, not a route option to preview.
-    suggestion: "route",
+    suggestion: "hidden",
     valueType: "manual",
   }),
 });
