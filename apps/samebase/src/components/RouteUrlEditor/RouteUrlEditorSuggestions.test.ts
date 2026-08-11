@@ -428,13 +428,17 @@ describe("readSuggestions", () => {
   });
 
   it("shows all Tailwind color families while the cursor is before the family dash", () => {
-    const rows = readRows({
+    const topRows = readRows({
       routeAddress: "/logo?top=blue-200",
       routeTextBeforeCursor: "/logo?top=bl",
     });
-    const values = rows.map((suggestion) => suggestion.value);
+    const backgroundValues = readValues({
+      routeAddress: "/logo?background=stone-50",
+      routeTextBeforeCursor: "/logo?background=",
+    });
+    const topValues = topRows.map((suggestion) => suggestion.value);
 
-    expect(rows).toContainEqual({
+    expect(topRows).toContainEqual({
       kind: "searchValuePrefix",
       nextSelectionRouteIndex: "/logo?top=blue-".length,
       previewRouteAddress: "/logo?top=blue-500",
@@ -443,7 +447,7 @@ describe("readSuggestions", () => {
       selectedRouteAddress: "/logo?top=blue-500",
       value: "blue-500",
     });
-    expect(rows).toContainEqual({
+    expect(topRows).toContainEqual({
       kind: "searchValuePrefix",
       nextSelectionRouteIndex: "/logo?top=red-".length,
       previewRouteAddress: "/logo?top=red-500",
@@ -452,7 +456,9 @@ describe("readSuggestions", () => {
       selectedRouteAddress: "/logo?top=red-500",
       value: "red-500",
     });
-    expect(values).not.toContain("blue-");
+    expect(topValues).not.toContain("blue-");
+    expect(backgroundValues).toContain("red-50");
+    expect(backgroundValues).not.toContain("red-500");
   });
 
   it("replaces the whole active query value when showing family suggestions", () => {

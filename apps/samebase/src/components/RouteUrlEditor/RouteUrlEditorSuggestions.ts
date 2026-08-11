@@ -258,9 +258,11 @@ function readTailwindColorFamilyValues(valueSuggestions: readonly string[]): str
 
 function readTailwindColorFamilySampleValue(
   prefix: string,
+  paramSampleValue: string,
   valueSuggestions: readonly string[],
 ): string {
-  const sampleValue = `${prefix}500`;
+  const sampleShadeStart = paramSampleValue.lastIndexOf("-") + 1;
+  const sampleValue = `${prefix}${paramSampleValue.slice(sampleShadeStart)}`;
   return valueSuggestions.includes(sampleValue) ? sampleValue : prefix;
 }
 
@@ -513,6 +515,7 @@ function readValueRows(args: {
       (value): Suggestion => {
         const sampleValue = readTailwindColorFamilySampleValue(
           value,
+          searchParamSuggestion.sampleValue,
           searchParamSuggestion.valueSuggestions,
         );
 
