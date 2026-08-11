@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test as base } from "@playwright/test";
 import { z } from "zod";
 import { parseRepositoryFullName } from "../shared/repoName";
 import { signInIfNeeded } from "./liveHelpers";
@@ -6,9 +6,12 @@ import { signInIfNeeded } from "./liveHelpers";
 const TEMP_RESOURCE_PREFIX = process.env.PLAYWRIGHT_TEMP_RESOURCE_PREFIX?.trim() || "tmp-e19d-live";
 const EXISTING_REPOSITORY_FULL_NAME = process.env.PLAYWRIGHT_EXISTING_REPOSITORY_FULL_NAME?.trim();
 const APP_CREATION_INTENT = "app-create";
-const APP_CREATION_TEST_TIMEOUT_MS = 120_000;
+// Playwright gives explicit fixture teardown its own timeout slot. Keep the creation and cleanup
+// budgets separate so a creation timeout cannot cancel provider cleanup, while both total two minutes.
+const APP_CREATION_PHASE_TIMEOUT_MS = 75_000;
 const APP_PROVISIONING_TIMEOUT_MS = 60_000;
-const APP_CLEANUP_TIMEOUT_MS = 45_000;
+const APP_CLEANUP_FIXTURE_TIMEOUT_MS = 45_000;
+const APP_CLEANUP_WORKFLOW_TIMEOUT_MS = 30_000;
 const APP_DASHBOARD_TIMEOUT_MS = 15_000;
 
 const setupSummarySchema = z.object({
@@ -463,7 +466,7 @@ async function waitForVaultRemoval(page: Page, repositoryFullName: string): Prom
         {
           intervals: [1_000, 2_000, 5_000],
           message: `Wait for durable dashboard cleanup of ${repositoryName}.`,
-          timeout: APP_CLEANUP_TIMEOUT_MS,
+          timeout: APP_CLEANUP_WORKFLOW_TIMEOUT_MS,
         },
       )
       .toBe("terminal");
@@ -711,6 +714,87 @@ async function removeCreatedApp(
   });
 }
 
+type AppCreationCleanupController = {
+  markCreationStarted(repositoryFullName: string): void;
+  recordProductFailure(error: unknown): void;
+};
+
+const test = base.extend<{ appCreationCleanup: AppCreationCleanupController }>({
+  appCreationCleanup: [
+    async ({ page }, use) => {
+      let startedRepositoryFullName: string | null = null;
+      let productFailure: unknown = null;
+
+      await use({
+        markCreationStarted(repositoryFullName) {
+          if (startedRepositoryFullName !== null) {
+            throw new Error("The app-creation cleanup target was already registered.");
+          }
+          startedRepositoryFullName = repositoryFullName;
+        },
+        recordProductFailure(error) {
+          productFailure = error;
+        },
+      });
+
+      if (startedRepositoryFullName === null) {
+        return;
+      }
+
+      let recordedFailure: ReturnType<typeof readProvisioningFailure> = null;
+      let cleanupFailure: unknown = null;
+      try {
+        const cleanupContract = await readCreatedAppForCleanup(page, startedRepositoryFullName);
+        if (!cleanupContract) {
+          throw new Error(
+            "The submit started, but the dashboard did not expose the test vault for supported cleanup.",
+          );
+        }
+        recordedFailure = readProvisioningFailure(cleanupContract);
+        await removeCreatedApp(page, startedRepositoryFullName, cleanupContract);
+      } catch (error) {
+        cleanupFailure = error;
+      }
+
+      const recordedFailureMessage = recordedFailure
+        ? `App provisioning failed during ${recordedFailure.phase} step ${recordedFailure.step}: ${recordedFailure.message}`
+        : null;
+      const productFailureMessage =
+        productFailure instanceof Error
+          ? productFailure.message
+          : typeof productFailure === "string"
+            ? productFailure
+            : null;
+      const productFailureIncludesRecordedFailure =
+        recordedFailureMessage !== null && productFailureMessage?.includes(recordedFailureMessage);
+
+      if (cleanupFailure !== null) {
+        const cleanupMessage =
+          cleanupFailure instanceof Error
+            ? cleanupFailure.message
+            : typeof cleanupFailure === "string"
+              ? cleanupFailure
+              : "Unknown dashboard cleanup failure.";
+        if (recordedFailureMessage !== null && !productFailureIncludesRecordedFailure) {
+          throw new Error(
+            `${recordedFailureMessage}\nFail-closed dashboard cleanup also failed: ${cleanupMessage}`,
+            { cause: cleanupFailure },
+          );
+        }
+        throw cleanupFailure;
+      }
+      if (recordedFailureMessage !== null && !productFailureIncludesRecordedFailure) {
+        throw new Error(recordedFailureMessage);
+      }
+    },
+    {
+      scope: "test",
+      timeout: APP_CLEANUP_FIXTURE_TIMEOUT_MS,
+      title: "fail-closed app cleanup",
+    },
+  ],
+});
+
 test.describe("vault create app live flow", () => {
   test("shows the new app form without a cancel control", async ({ page }) => {
     await openOrganizationOnboardingRoute(page, { linkName: "New app", route: "new-app" });
@@ -724,8 +808,9 @@ test.describe("vault create app live flow", () => {
 
   test("creates and fully provisions a temporary app, then removes its resources", async ({
     page,
+    appCreationCleanup,
   }, testInfo) => {
-    test.setTimeout(APP_CREATION_TEST_TIMEOUT_MS);
+    test.setTimeout(APP_CREATION_PHASE_TIMEOUT_MS);
     test.skip(
       testInfo.project.name !== "chromium-desktop",
       "This live test mutates external state, so it runs once on the desktop project.",
@@ -783,10 +868,8 @@ test.describe("vault create app live flow", () => {
       contentType: "application/json",
     });
 
-    let creationStarted = false;
-    let productFailure: unknown = null;
     try {
-      creationStarted = true;
+      appCreationCleanup.markCreationStarted(repositoryFullName);
       await createButton.click();
 
       try {
@@ -865,54 +948,8 @@ test.describe("vault create app live flow", () => {
         contentType: "text/plain",
       });
     } catch (error) {
-      productFailure = error;
-    }
-
-    let cleanupFailure: unknown = null;
-    if (creationStarted) {
-      try {
-        const cleanupContract = await readCreatedAppForCleanup(page, repositoryFullName);
-        if (!cleanupContract) {
-          throw new Error(
-            "The submit started, but the dashboard did not expose the test vault for supported cleanup.",
-          );
-        }
-        const recordedFailure = readProvisioningFailure(cleanupContract);
-        if (recordedFailure) {
-          productFailure = new Error(
-            `App provisioning failed during ${recordedFailure.phase} step ${recordedFailure.step}: ${recordedFailure.message}`,
-            productFailure === null ? undefined : { cause: productFailure },
-          );
-        }
-        await removeCreatedApp(page, repositoryFullName, cleanupContract);
-      } catch (error) {
-        cleanupFailure = error;
-      }
-    }
-
-    if (productFailure !== null && cleanupFailure !== null) {
-      const productMessage =
-        productFailure instanceof Error
-          ? productFailure.message
-          : typeof productFailure === "string"
-            ? productFailure
-            : "Unknown app creation failure.";
-      const cleanupMessage =
-        cleanupFailure instanceof Error
-          ? cleanupFailure.message
-          : typeof cleanupFailure === "string"
-            ? cleanupFailure
-            : "Unknown dashboard cleanup failure.";
-      throw new Error(
-        `App creation failed: ${productMessage}\nFail-closed dashboard cleanup also failed: ${cleanupMessage}`,
-        { cause: productFailure },
-      );
-    }
-    if (cleanupFailure !== null) {
-      throw cleanupFailure;
-    }
-    if (productFailure !== null) {
-      throw productFailure;
+      appCreationCleanup.recordProductFailure(error);
+      throw error;
     }
   });
 
