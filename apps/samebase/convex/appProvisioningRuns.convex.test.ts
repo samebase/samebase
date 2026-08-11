@@ -4,7 +4,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, it } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 import schema from "./schema";
 
 const modules = import.meta.glob([
@@ -33,6 +33,7 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       githubOwnerLoginNormalized: "ada",
       githubOwnerType: "user",
     });
+    await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,

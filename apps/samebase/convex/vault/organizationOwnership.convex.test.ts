@@ -106,6 +106,22 @@ describe("organization-owned vaults", () => {
         userId: memberUserId,
         role: "member",
       });
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) =>
+          query.eq("organizationId", organization.organizationId),
+        )
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Organization billing fixture is missing.");
+      }
+      await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        status: "active",
+        polarBillingUserId: ownerUserId,
+        polarExternalCustomerId: `test-polar-customer-${organization.organizationId}`,
+        polarSeatQuantity: 2,
+      });
       await ctx.db.insert("authAccounts", {
         userId: memberUserId,
         provider: "github",

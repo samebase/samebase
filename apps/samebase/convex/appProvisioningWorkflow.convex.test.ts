@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
 async function createComposedVault() {
   const t = makeConvexTest();
@@ -24,6 +24,7 @@ async function createComposedVault() {
         accountName: "Cloudflare account",
       },
     });
+    await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,

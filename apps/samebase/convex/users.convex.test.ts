@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { ConvexError } from "convex/values";
 
 import { api, internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
 const primaryCloudflareAccountId = "a".repeat(32);
 const secondaryCloudflareAccountId = "b".repeat(32);
@@ -161,6 +161,7 @@ async function seedProviderOrganization(options?: {
               },
             }),
       });
+      await insertTestOrganizationBillingAccount(ctx.db, organizationId);
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId,
