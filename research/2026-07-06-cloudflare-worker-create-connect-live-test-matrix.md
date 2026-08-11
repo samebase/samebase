@@ -10,7 +10,19 @@ provisioning and deletion workflows. They are not proof of the current full app-
 The current owner is `vault-create-app.live.spec.ts`,
 `creates and fully provisions a temporary app, then removes its resources`.
 
-Temporary external resources must use the `tmp-e19d-` prefix.
+The historical resources used the `tmp-e19d-` prefix. The current owner creates each managed app as
+`tmp-<worktree-id>-app-create-<timestamp>-<random>`.
+
+## Gate Recommendation
+
+Run the current owner as one serialized scheduled or manual gate in a protected development/test
+deployment. Do not make it a required pull-request CI check. One run can use the full 20-minute test
+budget and writes a GitHub repository, a Convex project/deployment, and a Cloudflare Worker before
+the asynchronous dashboard cleanup removes them. The gate therefore needs a dedicated authenticated
+Samebase test user, a test-owned GitHub organization, Convex team, and Cloudflare account, plus
+their live provider credentials, GitHub App installations, and Workers Builds token. Normal
+pull-request CI does not have that secret or external-write authority. The gate must stay failed
+until the dashboard reports two loaded vault-absence checks after cleanup.
 
 ## User Stories
 
@@ -33,11 +45,11 @@ Temporary external resources must use the `tmp-e19d-` prefix.
 ## Live Commands
 
 ```sh
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 PLAYWRIGHT_TEMP_REPO_PREFIX=tmp-e19d-create-stack pnpm exec playwright test -c apps/samebase/playwright.live.config.ts apps/samebase/e2e/vault-create-app.live.spec.ts --project=chromium-desktop -g "creates a temporary app"
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 PLAYWRIGHT_WORKTREE_ID=e19d PLAYWRIGHT_TEST_GITHUB_OWNER=<test-owned-github-organization> pnpm exec playwright test -c apps/samebase/playwright.live.config.ts apps/samebase/e2e/vault-create-app.live.spec.ts --project=chromium-desktop -g "creates and fully provisions a temporary app, then removes its resources"
 ```
 
 ```sh
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 PLAYWRIGHT_EXISTING_REPOSITORY_FULL_NAME=nicu-chiciuc/tmp-my-new-app-2 PLAYWRIGHT_TEMP_REPO_PREFIX=tmp-e19d-create-stack pnpm exec playwright test -c apps/samebase/playwright.live.config.ts apps/samebase/e2e/vault-create-app.live.spec.ts --project=chromium-desktop
+PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 PLAYWRIGHT_EXISTING_REPOSITORY_FULL_NAME=nicu-chiciuc/tmp-my-new-app-2 pnpm exec playwright test -c apps/samebase/playwright.live.config.ts apps/samebase/e2e/vault-create-app.live.spec.ts --project=chromium-desktop
 ```
 
 ```sh
