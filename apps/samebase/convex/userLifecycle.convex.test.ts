@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { makeConvexTest } from "./test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 import { resolveUserReferencePresentation } from "./userLifecycle";
 
 type TestBackend = ReturnType<typeof makeConvexTest>;
@@ -90,6 +90,7 @@ async function insertOrganizationVaultForUser(
       githubOwnerLoginNormalized: `owner-${userId}`,
       githubInstallationId: `installation-${userId}`,
     });
+    await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId,
@@ -298,11 +299,6 @@ describe("user lifecycle authorization", () => {
         visibility: "private",
         defaultBranch: "main",
         connectedAt: 1,
-      });
-      await ctx.db.insert("organizationBillingAccounts", {
-        organizationId,
-        plan: "free",
-        status: "inactive",
       });
       await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
         vaultId,

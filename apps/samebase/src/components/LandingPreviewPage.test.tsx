@@ -267,13 +267,11 @@ describe("LandingPreviewPage", () => {
   it("renders the pricing page separately", () => {
     const markup = renderToStaticMarkup(<DocsPricingPage />);
 
-    expect(markup).toContain(
-      "Start free. Upgrade only when you need to connect more infrastructure.",
-    );
-    expect(markup).toContain("Monthly price");
-    expect(markup).toContain("$4");
-    expect(markup).toContain("Up to 5");
-    expect(markup).toContain("Up to 40");
+    expect(markup).toContain("Start free. Upgrade when you need more connections.");
+    expect(markup).toContain("Personal account    | Free");
+    expect(markup).toContain("GitHub organization | Pro");
+    expect(markup).toContain("Each member above the included number costs $2 per month.");
+    expect(markup).toContain("one connected Cloudflare Worker");
     expect(markup).toContain("Samebase does not disconnect or delete existing resources.");
     expect(markup).not.toContain("FileView");
   });

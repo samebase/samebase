@@ -19,7 +19,7 @@ vi.mock("./githubApp", async (importOriginal) => {
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { makeConvexTest } from "./test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 import { buildAuthorizationErrorUrl } from "../shared/authorizationError";
 
 async function expectGitHubCompletion(response: Response, returnUrl: string) {
@@ -78,6 +78,7 @@ async function insertOrganizationForUser(
       githubOwnerLoginNormalized: args.githubOwnerLogin.toLowerCase(),
       githubInstallationId: `installation-${args.githubOwnerId}`,
     });
+    await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId: args.userId,
@@ -567,11 +568,25 @@ describe("verified GitHub App installation completion", () => {
       if (membership === null) {
         throw new Error("Member organization membership is required.");
       }
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Organization billing fixture is missing.");
+      }
       await ctx.db.patch(membership._id, { role: "member" });
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId: ownerId,
         role: "owner",
+      });
+      await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        status: "active",
+        polarBillingUserId: ownerId,
+        polarExternalCustomerId: `test-polar-customer-${organizationId}`,
+        polarSeatQuantity: 2,
       });
     });
 
@@ -639,12 +654,26 @@ describe("verified GitHub App installation completion", () => {
       if (membership === null) {
         throw new Error("Owner organization membership is required.");
       }
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Organization billing fixture is missing.");
+      }
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId: remainingOwnerId,
         role: "owner",
       });
       await ctx.db.patch(membership._id, { role: "member" });
+      await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        status: "active",
+        polarBillingUserId: remainingOwnerId,
+        polarExternalCustomerId: `test-polar-customer-${organizationId}`,
+        polarSeatQuantity: 2,
+      });
       return setupState;
     });
     if (setupState === null) {

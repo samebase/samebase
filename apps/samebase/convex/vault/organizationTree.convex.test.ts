@@ -2,7 +2,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import { api } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { makeConvexTest } from "../test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
 async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
   return await t.run(async (ctx) => {
@@ -22,6 +22,7 @@ async function seedOrganization(
       githubOwnerLoginNormalized: args.owner.toLowerCase(),
       githubOwnerType: "organization",
     });
+    await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", {
       organizationId,
       role: "member",

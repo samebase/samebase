@@ -17,7 +17,7 @@ import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { upsertGitHubUserAuthorization } from "./githubUserAuthorizations";
-import { makeConvexTest } from "./test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
 const accountDeletionWorkflowId = "github-refresh-account-deletion";
 
@@ -139,6 +139,10 @@ describe("viewer GitHub user authorization", () => {
         githubOwnerLoginNormalized: "monalisa",
         githubInstallationId: "installation-monalisa",
       });
+      await Promise.all([
+        insertTestOrganizationBillingAccount(ctx.db, organizationId),
+        insertTestOrganizationBillingAccount(ctx.db, otherOrganizationId),
+      ]);
       await Promise.all([
         ctx.db.insert("organizationMemberships", {
           organizationId,
@@ -266,6 +270,7 @@ describe("viewer GitHub user authorization", () => {
         githubOwnerLoginNormalized: "another-owner",
         githubInstallationId: "installation-another-owner",
       });
+      await insertTestOrganizationBillingAccount(ctx.db, organizationId);
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId,

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { makeConvexTest } from "../test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 import {
   MANUAL_PROVIDER_ACTION_LIMIT_MS,
   MANUAL_PROVIDER_WRITE_EXPIRY_MS,
@@ -29,6 +29,7 @@ async function createConnectedVault() {
       githubOwnerLoginNormalized: "ada",
       githubOwnerType: "user",
     });
+    await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
