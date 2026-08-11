@@ -1,30 +1,96 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { z } from "zod";
 import { parseRepositoryFullName } from "../shared/repoName";
 import { signInIfNeeded } from "./liveHelpers";
 
-// Worktree runs can override this so the temporary repo prefix follows the
-// repo's tmp-<worktree-id>-<intent> convention without hard-coding one value.
-const TEMP_REPOSITORY_PREFIX =
-  process.env.PLAYWRIGHT_TEMP_REPO_PREFIX?.trim() || "tmp-e19d-create-stack";
 const TEMP_RESOURCE_PREFIX = process.env.PLAYWRIGHT_TEMP_RESOURCE_PREFIX?.trim() || "tmp-e19d-live";
 const EXISTING_REPOSITORY_FULL_NAME = process.env.PLAYWRIGHT_EXISTING_REPOSITORY_FULL_NAME?.trim();
+const APP_CREATION_INTENT = "app-create";
+
+const setupSummarySchema = z.object({
+  status: z.enum(["not_applicable", "ready", "running", "failed"]),
+  step: z.string().optional(),
+  message: z.string().optional(),
+});
+const providerPlanSchema = z
+  .object({
+    convex: z.object({
+      state: z.enum(["planned", "creating", "created"]),
+      projectName: z.string(),
+      projectId: z.string().optional(),
+    }),
+    cloudflare: z.object({
+      state: z.enum(["planned", "creating", "created"]),
+      workerName: z.string(),
+      workerTag: z.string().optional(),
+    }),
+  })
+  .nullable();
+const vaultContractSchema = z.object({
+  repositoryFullName: z.string(),
+  sourceSetup: setupSummarySchema,
+  providerSetup: setupSummarySchema,
+  providerPlan: providerPlanSchema,
+  deletion: z.object({
+    state: z.enum(["not_deleting", "deleting", "delete_failed"]),
+    currentStep: z.string().optional(),
+    message: z.string().optional(),
+  }),
+  isSamebaseManaged: z.boolean(),
+  hasConnectedGitHubRepository: z.boolean(),
+  hasConvexProvision: z.boolean(),
+  hasCloudflareProvision: z.boolean(),
+  canRemoveConvexProvision: z.boolean(),
+  canRemoveCloudflareProvision: z.boolean(),
+  cloudflareWorkers: z.array(
+    z.object({
+      workerName: z.string(),
+      workerTag: z.string(),
+    }),
+  ),
+  convexProjects: z.array(
+    z.object({
+      projectId: z.string(),
+    }),
+  ),
+});
+type VaultContract = z.infer<typeof vaultContractSchema>;
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function buildTemporaryRepositoryName(): string {
+  const worktreeId = process.env.PLAYWRIGHT_WORKTREE_ID?.trim();
+  if (!worktreeId || !/^[a-z0-9]+$/.test(worktreeId)) {
+    throw new Error("Set PLAYWRIGHT_WORKTREE_ID to the current lower-case worktree id.");
+  }
   const randomSuffix = Math.random().toString(36).slice(2, 8);
-  return `${TEMP_REPOSITORY_PREFIX}-${Date.now()}-${randomSuffix}`;
+  return `tmp-${worktreeId}-${APP_CREATION_INTENT}-${Date.now()}-${randomSuffix}`;
+}
+
+function readTestGitHubOwner(): string {
+  const owner = process.env.PLAYWRIGHT_TEST_GITHUB_OWNER?.trim();
+  if (!owner || !/^[a-z0-9](?:[a-z0-9-]{0,37}[a-z0-9])?$/.test(owner)) {
+    throw new Error(
+      "Set PLAYWRIGHT_TEST_GITHUB_OWNER to the exact lower-case GitHub owner for test resources.",
+    );
+  }
+  return owner;
+}
+
+function assertLocalLiveEnvironment(urlValue: string): void {
+  const url = new URL(urlValue);
+  if (url.protocol !== "http:" || !["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)) {
+    throw new Error(
+      "The app-creation contract test only writes through a loopback pnpm dev environment.",
+    );
+  }
 }
 
 function buildTemporaryResourceName(): string {
   const randomSuffix = Math.random().toString(36).slice(2, 8);
   return `${TEMP_RESOURCE_PREFIX}-${Date.now().toString(36)}-${randomSuffix}`;
-}
-
-function getRepositoryName(repositoryFullName: string): string {
-  return parseRepositoryFullName(repositoryFullName).name;
 }
 
 function cloudflareWorkerActionName(action: string, workerName: string): RegExp {
@@ -43,20 +109,78 @@ function removeVaultControl(page: Page): Locator {
   return page.getByRole("button", { exact: true, name: "Remove vault" });
 }
 
-function vaultListLink(page: Page, repoName: string): Locator {
+function vaultListLink(page: Page, repositoryFullName: string): Locator {
   return page
     .getByRole("navigation", { name: "Vaults" })
     .getByRole("link", {
-      name: new RegExp(`^[^/]+/${escapeRegExp(repoName)}$`),
+      name: new RegExp(`^${escapeRegExp(repositoryFullName)}(?:, .+)?$`),
     })
     .first();
 }
 
-async function selectTemporaryVault(page: Page, repoName: string): Promise<void> {
-  const link = vaultListLink(page, repoName);
+async function openVaultContractInspector(page: Page): Promise<Locator> {
+  const summary = page.getByText("Vault contract", { exact: true });
+  await expect(summary).toBeVisible({ timeout: 120_000 });
+
+  const details = summary.locator("..");
+  if ((await details.getAttribute("open")) === null) {
+    await summary.click();
+  }
+
+  const output = details.locator("pre");
+  await expect(output).toBeVisible();
+  return output;
+}
+
+async function readVaultContract(output: Locator): Promise<VaultContract> {
+  const text = await output.textContent();
+  if (!text) {
+    throw new Error("The Vault contract inspector did not contain JSON.");
+  }
+
+  const value: unknown = JSON.parse(text);
+  return vaultContractSchema.parse(value);
+}
+
+function readProvisioningFailure(contract: VaultContract) {
+  if (contract.sourceSetup.status === "failed") {
+    if (!contract.sourceSetup.step || !contract.sourceSetup.message) {
+      throw new Error("The failed source setup did not record its step and message.");
+    }
+    return {
+      phase: "source",
+      step: contract.sourceSetup.step,
+      message: contract.sourceSetup.message,
+    } as const;
+  }
+  if (contract.providerSetup.status === "failed") {
+    if (!contract.providerSetup.step || !contract.providerSetup.message) {
+      throw new Error("The failed provider setup did not record its step and message.");
+    }
+    return {
+      phase: "provider",
+      step: contract.providerSetup.step,
+      message: contract.providerSetup.message,
+    } as const;
+  }
+  return null;
+}
+
+function readActiveProvisioningStep(contract: VaultContract): string {
+  if (contract.sourceSetup.status === "running") {
+    return `source step ${contract.sourceSetup.step ?? "unknown"}`;
+  }
+  if (contract.providerSetup.status === "running") {
+    return `provider step ${contract.providerSetup.step ?? "unknown"}`;
+  }
+  return `source ${contract.sourceSetup.status}, provider ${contract.providerSetup.status}`;
+}
+
+async function selectTemporaryVault(page: Page, repositoryFullName: string): Promise<void> {
+  const link = vaultListLink(page, repositoryFullName);
   await expect(link).toBeVisible({ timeout: 120_000 });
   await link.click();
-  await expect(page).toHaveURL(new RegExp(`/vault/[^/]+/${escapeRegExp(repoName)}(?:[?#]|$)`));
+  await expect(page).toHaveURL(new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`));
 }
 
 async function openVaultSettings(page: Page): Promise<void> {
@@ -194,38 +318,54 @@ async function setCloudflareConvexDeployKeys(page: Page, workerName: string): Pr
   ).toHaveCount(0);
 }
 
-async function createAppIfAvailable(page: Page, repoName: string): Promise<void> {
-  await openOrganizationOnboardingRoute(page, { linkName: "New app", route: "new-app" });
+async function openNewAppWithProviderPreflight(page: Page, owner: string): Promise<Locator> {
+  const route = `/org/${encodeURIComponent(owner)}/new-app?dev`;
+  await page.goto(route, { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page, route);
+  await expect(page).toHaveURL(
+    new RegExp(`/org/${escapeRegExp(encodeURIComponent(owner))}/new-app(?:[?#]|$)`),
+  );
+  assertLocalLiveEnvironment(page.url());
 
   const newAppPage = page.getByTestId("new-app-page");
   const repositoryNameInput = newAppPage.getByPlaceholder("GitHub repo name");
-  const createError = page.locator(".text-red-600").last();
   await expect(repositoryNameInput).toBeVisible({ timeout: 15_000 });
 
+  const providerReadiness = newAppPage.getByTestId("new-app-provider-readiness");
+  await expect
+    .poll(
+      async () => {
+        if (!(await repositoryNameInput.isDisabled())) {
+          return "ready";
+        }
+        return (await providerReadiness.isVisible()) ? "blocked" : "loading";
+      },
+      {
+        message: "Wait for the New App provider preflight to finish.",
+        timeout: 30_000,
+      },
+    )
+    .not.toBe("loading");
+
+  const providerMessage = (await providerReadiness.textContent())?.trim();
   test.skip(
     await repositoryNameInput.isDisabled(),
-    "App creation is unavailable. Connect GitHub, Convex, and Cloudflare before running this live spec.",
+    providerMessage
+      ? `App creation provider setup is unavailable: ${providerMessage}`
+      : "App creation provider setup is unavailable.",
   );
 
-  await repositoryNameInput.fill(repoName);
-  await newAppPage.getByRole("button", { name: "New App" }).click();
+  const githubBlocker = newAppPage.getByText(/Authorize repository creation for/);
+  const githubBlocked = await githubBlocker.isVisible();
+  const githubBlockerMessage = githubBlocked ? (await githubBlocker.textContent())?.trim() : null;
+  test.skip(
+    githubBlocked,
+    githubBlockerMessage
+      ? `App creation provider setup is unavailable: ${githubBlockerMessage}`
+      : "GitHub repository creation is unavailable.",
+  );
 
-  // Catch the route-leave assertion so we can inspect createError and skip
-  // cleanly when vaultActions.ts reports an environment-only starter seeding
-  // failure instead of treating that provider setup issue as a product bug.
-  try {
-    await expect(page).toHaveURL(new RegExp(`/vault/[^/]+/${escapeRegExp(repoName)}(?:[?#]|$)`), {
-      timeout: 30_000,
-    });
-    return;
-  } catch (error) {
-    const createErrorMessage = (await createError.textContent())?.trim() ?? "";
-    test.skip(
-      createErrorMessage.includes("Failed to seed starter repository"),
-      "App creation is unavailable because starter repository seeding failed in this environment.",
-    );
-    throw error;
-  }
+  return newAppPage;
 }
 
 type VaultCleanupTargets = {
@@ -234,10 +374,119 @@ type VaultCleanupTargets = {
   githubRepository: boolean;
 };
 
-async function removeTemporaryVault(page: Page, targets: VaultCleanupTargets): Promise<void> {
+async function prepareVaultListForOwner(page: Page, owner: string): Promise<void> {
+  await expect(page.getByLabel("Loading vaults", { exact: true }).first()).not.toBeVisible({
+    timeout: 120_000,
+  });
+
+  const navigation = page.getByRole("navigation", { name: "Vaults" }).first();
+  await expect(navigation).toBeVisible();
+  const ownerToggle = navigation.getByRole("button", { exact: true, name: owner });
+  await expect(ownerToggle).toBeVisible();
+  if ((await ownerToggle.getAttribute("aria-expanded")) !== "true") {
+    await ownerToggle.click();
+  }
+  await expect(ownerToggle).toHaveAttribute("aria-expanded", "true");
+}
+
+async function readVaultRemovalState(
+  page: Page,
+  repositoryFullName: string,
+): Promise<"absent" | "deleting" | "failed" | "loading"> {
+  if (await page.getByLabel("Loading vaults", { exact: true }).first().isVisible()) {
+    return "loading";
+  }
+
+  const owner = parseRepositoryFullName(repositoryFullName).owner;
+  const navigation = page.getByRole("navigation", { name: "Vaults" }).first();
+  const ownerToggle = navigation.getByRole("button", { exact: true, name: owner });
+  if (!(await ownerToggle.isVisible().catch(() => false))) {
+    return "loading";
+  }
+  if ((await ownerToggle.getAttribute("aria-expanded")) !== "true") {
+    await ownerToggle.click();
+    return "loading";
+  }
+
+  const link = vaultListLink(page, repositoryFullName);
+  if ((await link.count()) === 0) {
+    return "absent";
+  }
+  return (await link.getAttribute("data-vault-status")) === "Delete failed" ? "failed" : "deleting";
+}
+
+async function readVaultDeletionDetail(
+  page: Page,
+  repositoryFullName: string,
+): Promise<string | null> {
+  const owner = parseRepositoryFullName(repositoryFullName).owner;
+  await prepareVaultListForOwner(page, owner);
+  const link = vaultListLink(page, repositoryFullName);
+  if ((await link.count()) === 0) {
+    return null;
+  }
+
+  await selectTemporaryVault(page, repositoryFullName);
+  const contract = await readVaultContract(await openVaultContractInspector(page));
+  if (contract.deletion.state === "not_deleting") {
+    return "the vault has no recorded deletion run";
+  }
+  return `${contract.deletion.currentStep ?? "unknown step"}: ${contract.deletion.message ?? "no error message"}`;
+}
+
+async function waitForVaultRemoval(page: Page, repositoryFullName: string): Promise<void> {
+  const { name: repositoryName, owner } = parseRepositoryFullName(repositoryFullName);
+  await prepareVaultListForOwner(page, owner);
+  let consecutiveLoadedAbsences = 0;
+  let terminalState: "failed" | "removed" | null = null;
+
+  try {
+    await expect
+      .poll(
+        async () => {
+          const state = await readVaultRemovalState(page, repositoryFullName);
+          if (state === "failed") {
+            terminalState = "failed";
+            return "terminal";
+          }
+          consecutiveLoadedAbsences = state === "absent" ? consecutiveLoadedAbsences + 1 : 0;
+          if (consecutiveLoadedAbsences >= 2) {
+            terminalState = "removed";
+            return "terminal";
+          }
+          return "waiting";
+        },
+        {
+          intervals: [1_000, 2_000, 5_000],
+          message: `Wait for durable dashboard cleanup of ${repositoryName}.`,
+          timeout: 360_000,
+        },
+      )
+      .toBe("terminal");
+  } catch (error) {
+    const detail = await readVaultDeletionDetail(page, repositoryFullName);
+    throw new Error(
+      `Vault cleanup did not reach stable loaded absence${detail ? ` at ${detail}` : "."}`,
+      { cause: error },
+    );
+  }
+
+  if (terminalState === "removed") {
+    return;
+  }
+  const detail = await readVaultDeletionDetail(page, repositoryFullName);
+  throw new Error(`Vault cleanup failed at ${detail ?? "an unknown deletion step"}`);
+}
+
+async function removeTemporaryVault(
+  page: Page,
+  repositoryFullName: string,
+  targets: VaultCleanupTargets,
+): Promise<void> {
   await openVaultSettings(page);
   const removeControl = removeVaultControl(page);
   await expect(removeControl).toBeVisible({ timeout: 120_000 });
+  await expect(removeControl).toBeEnabled();
 
   await removeControl.click();
 
@@ -263,10 +512,22 @@ async function removeTemporaryVault(page: Page, targets: VaultCleanupTargets): P
     const cleanupCheckbox = removeDialog.getByRole("checkbox", {
       name: label,
     });
-    if ((await cleanupCheckbox.count()) > 0 && !(await cleanupCheckbox.isDisabled())) {
-      if ((await cleanupCheckbox.isChecked()) !== enabled) {
-        await cleanupCheckbox.click();
-      }
+    if (enabled) {
+      await expect(
+        cleanupCheckbox,
+        `${label} must be available for fail-closed cleanup.`,
+      ).toHaveCount(1);
+      await expect(
+        cleanupCheckbox,
+        `${label} must be enabled for fail-closed cleanup.`,
+      ).toBeEnabled();
+    }
+    if (
+      (await cleanupCheckbox.count()) > 0 &&
+      !(await cleanupCheckbox.isDisabled()) &&
+      (await cleanupCheckbox.isChecked()) !== enabled
+    ) {
+      await cleanupCheckbox.click();
     }
   }
 
@@ -274,40 +535,176 @@ async function removeTemporaryVault(page: Page, targets: VaultCleanupTargets): P
   await expect(removeDialog).not.toBeVisible({ timeout: 120_000 });
   await expect(page).toHaveURL(/(?:\?|&)dev(?:[=&]|&|#|$)/);
   await expect(page).not.toHaveURL(/(?:\?|&)delete(?:&|#|$)/);
-  await expect(removeControl).toHaveCount(0, { timeout: 120_000 });
+  await waitForVaultRemoval(page, repositoryFullName);
 }
 
 async function removeVaultIfPresent(
   page: Page,
-  repoName: string,
+  repositoryFullName: string,
   targets: VaultCleanupTargets,
 ): Promise<void> {
   await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
   await signInIfNeeded(page, "/vault?dev");
 
-  const link = vaultListLink(page, repoName);
+  await prepareVaultListForOwner(page, parseRepositoryFullName(repositoryFullName).owner);
+  const link = vaultListLink(page, repositoryFullName);
   if (!(await link.isVisible().catch(() => false))) {
     return;
   }
 
-  await selectTemporaryVault(page, repoName);
-  await removeTemporaryVault(page, targets);
+  await selectTemporaryVault(page, repositoryFullName);
+  await removeTemporaryVault(page, repositoryFullName, targets);
 }
 
-async function waitForVaultCreationResult(
+async function waitForVaultProvisioning(
   page: Page,
-  repoName: string,
-): Promise<"ready" | "setup-failed"> {
-  const link = vaultListLink(page, repoName);
+  repositoryFullName: string,
+): Promise<VaultContract> {
+  const link = vaultListLink(page, repositoryFullName);
   await expect(link).toBeVisible({ timeout: 120_000 });
-  await expect
-    .poll(async () => (await link.getAttribute("data-vault-status")) === "Setting up", {
-      timeout: 120_000,
-    })
-    .toBe(false);
+  const contractOutput = await openVaultContractInspector(page);
 
+  try {
+    await expect
+      .poll(
+        async () => {
+          const contract = await readVaultContract(contractOutput);
+          const status = await link.getAttribute("data-vault-status");
+          if (status === "Needs attention" || readProvisioningFailure(contract)) {
+            return "failed";
+          }
+          if (
+            contract.sourceSetup.status === "ready" &&
+            contract.providerSetup.status === "ready"
+          ) {
+            return "ready";
+          }
+          return "running";
+        },
+        {
+          intervals: [1_000, 2_000, 5_000],
+          message: `Wait for the full app provisioning workflow for ${repositoryFullName}.`,
+          timeout: 360_000,
+        },
+      )
+      .not.toBe("running");
+  } catch (error) {
+    const contract = await readVaultContract(contractOutput);
+    const failure = readProvisioningFailure(contract);
+    if (failure) {
+      throw new Error(
+        `App provisioning failed during ${failure.phase} step ${failure.step}: ${failure.message}`,
+        { cause: error },
+      );
+    }
+    throw new Error(
+      `App provisioning did not finish. The last recorded state was ${readActiveProvisioningStep(contract)}.`,
+      { cause: error },
+    );
+  }
+
+  const contract = await readVaultContract(contractOutput);
   const status = await link.getAttribute("data-vault-status");
-  return status === "Needs attention" ? "setup-failed" : "ready";
+  const failure = readProvisioningFailure(contract);
+  if (failure) {
+    throw new Error(
+      `App provisioning failed during ${failure.phase} step ${failure.step}: ${failure.message}`,
+    );
+  }
+  if (status === "Needs attention") {
+    throw new Error(
+      `App provisioning reached Needs attention, but the Vault contract did not contain a failed step. The recorded state was ${readActiveProvisioningStep(contract)}.`,
+    );
+  }
+
+  return contract;
+}
+
+function sourceSetupMayHaveCreatedRepository(contract: VaultContract): boolean {
+  if (contract.hasConnectedGitHubRepository || contract.sourceSetup.status === "ready") {
+    return true;
+  }
+  if (contract.sourceSetup.status === "not_applicable") {
+    return false;
+  }
+  return !["run_created", "initialize_vault", "validate_connections"].includes(
+    contract.sourceSetup.step ?? "unknown",
+  );
+}
+
+async function readCreatedAppForCleanup(
+  page: Page,
+  repositoryFullName: string,
+): Promise<VaultContract | null> {
+  await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
+  await signInIfNeeded(page, "/vault?dev");
+
+  const owner = parseRepositoryFullName(repositoryFullName).owner;
+  await prepareVaultListForOwner(page, owner);
+  const link = vaultListLink(page, repositoryFullName);
+  const vaultExists = await link
+    .waitFor({ state: "visible", timeout: 120_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (!vaultExists) {
+    return null;
+  }
+
+  await selectTemporaryVault(page, repositoryFullName);
+  const contract = await readVaultContract(await openVaultContractInspector(page));
+  if (contract.repositoryFullName !== repositoryFullName) {
+    throw new Error(
+      "Refusing cleanup because the selected vault owner and name do not match the test target.",
+    );
+  }
+  if (!contract.isSamebaseManaged) {
+    throw new Error("Refusing cleanup because the temporary vault is not Samebase-managed.");
+  }
+  return contract;
+}
+
+async function removeCreatedApp(
+  page: Page,
+  repositoryFullName: string,
+  contract: VaultContract,
+): Promise<void> {
+  const githubMayExist = sourceSetupMayHaveCreatedRepository(contract);
+  if (githubMayExist && !contract.hasConnectedGitHubRepository) {
+    throw new Error(
+      "The GitHub repository may exist, but the dashboard cannot confirm it for supported cleanup.",
+    );
+  }
+  if (contract.hasConvexProvision && !contract.canRemoveConvexProvision) {
+    throw new Error("The attached Convex project is not available for supported cleanup.");
+  }
+  if (contract.hasCloudflareProvision && !contract.canRemoveCloudflareProvision) {
+    throw new Error("The attached Cloudflare Worker is not available for supported cleanup.");
+  }
+  const providerPlan = contract.providerPlan;
+  if (
+    providerPlan &&
+    providerPlan.convex.state !== "planned" &&
+    !contract.canRemoveConvexProvision
+  ) {
+    throw new Error(
+      "Convex provisioning may have created a project, but the dashboard cannot remove it.",
+    );
+  }
+  if (
+    providerPlan &&
+    providerPlan.cloudflare.state !== "planned" &&
+    !contract.canRemoveCloudflareProvision
+  ) {
+    throw new Error(
+      "Cloudflare provisioning may have created a Worker, but the dashboard cannot remove it.",
+    );
+  }
+
+  await removeTemporaryVault(page, repositoryFullName, {
+    cloudflareWorker: contract.canRemoveCloudflareProvision,
+    convexProject: contract.canRemoveConvexProvision,
+    githubRepository: githubMayExist,
+  });
 }
 
 test.describe("vault create app live flow", () => {
@@ -321,37 +718,141 @@ test.describe("vault create app live flow", () => {
     await expect(newAppPage.getByRole("link", { exact: true, name: "Cancel" })).toHaveCount(0);
   });
 
-  test("creates a temporary app and shows it on the dashboard", async ({ page }, testInfo) => {
+  test("creates and fully provisions a temporary app, then removes its resources", async ({
+    page,
+  }, testInfo) => {
     test.slow();
-    test.setTimeout(240_000);
+    test.setTimeout(1_200_000);
     test.skip(
       testInfo.project.name !== "chromium-desktop",
       "This live test mutates external state, so it runs once on the desktop project.",
     );
 
+    const configuredBaseUrl = testInfo.project.use.baseURL;
+    if (typeof configuredBaseUrl !== "string") {
+      throw new Error("The app-creation contract test requires a configured Playwright base URL.");
+    }
+    assertLocalLiveEnvironment(configuredBaseUrl);
+
+    const testOwner = readTestGitHubOwner();
     const repositoryName = buildTemporaryRepositoryName();
-    let createdRepository = false;
+    const repositoryFullName = `${testOwner}/${repositoryName}`;
 
     await testInfo.attach("temporary-repository-name", {
-      body: repositoryName,
+      body: repositoryFullName,
       contentType: "text/plain",
     });
 
+    const newAppPage = await openNewAppWithProviderPreflight(page, testOwner);
+    const repositoryNameInput = newAppPage.getByPlaceholder("GitHub repo name");
+    const createButton = newAppPage.getByRole("button", { exact: true, name: "New App" });
+    await expect
+      .poll(
+        async () => {
+          if ((await repositoryNameInput.inputValue()) !== repositoryName) {
+            await repositoryNameInput.fill(repositoryName);
+          }
+          return (await createButton.isEnabled()) ? repositoryNameInput.inputValue() : null;
+        },
+        {
+          message: "Wait for the exact temporary names to pass provider availability checks.",
+          timeout: 120_000,
+        },
+      )
+      .toBe(repositoryName);
+    await expect(repositoryNameInput).toHaveValue(repositoryName);
+    const expectedConvexProjectName = await newAppPage
+      .getByPlaceholder("Convex project name")
+      .inputValue();
+    const expectedCloudflareWorkerName = await newAppPage
+      .getByPlaceholder("Cloudflare Worker name")
+      .inputValue();
+
+    await testInfo.attach("temporary-provider-resource-names", {
+      body: JSON.stringify(
+        {
+          cloudflareWorker: expectedCloudflareWorkerName,
+          convexProject: expectedConvexProjectName,
+        },
+        null,
+        2,
+      ),
+      contentType: "application/json",
+    });
+
+    let creationStarted = false;
+    let productFailure: unknown = null;
     try {
+      creationStarted = true;
+      await createButton.click();
+
+      try {
+        await expect(page).toHaveURL(
+          new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`),
+          { timeout: 120_000 },
+        );
+      } catch (error) {
+        const createErrors = await page.locator(".text-red-600").allTextContents();
+        const createError = createErrors.at(-1)?.trim();
+        if (createError) {
+          throw new Error(`App creation failed after submit: ${createError}`, { cause: error });
+        }
+        throw error;
+      }
+
       await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
       await signInIfNeeded(page, "/vault?dev");
-      await createAppIfAvailable(page, repositoryName);
-      createdRepository = true;
-      await selectTemporaryVault(page, repositoryName);
+      await selectTemporaryVault(page, repositoryFullName);
 
-      const creationResult = await waitForVaultCreationResult(page, repositoryName);
-      test.skip(
-        creationResult === "setup-failed",
-        "App creation is unavailable because provisioning failed in this environment.",
+      const contract = await waitForVaultProvisioning(page, repositoryFullName);
+      expect(contract.repositoryFullName).toBe(repositoryFullName);
+      expect(contract.sourceSetup).toEqual({ status: "ready" });
+      expect(contract.providerSetup).toEqual({ status: "ready" });
+      expect(contract.isSamebaseManaged).toBe(true);
+      expect(contract.hasConnectedGitHubRepository).toBe(true);
+      expect(contract.hasConvexProvision).toBe(true);
+      expect(contract.hasCloudflareProvision).toBe(true);
+      expect(contract.canRemoveConvexProvision).toBe(true);
+      expect(contract.canRemoveCloudflareProvision).toBe(true);
+
+      const providerPlan = contract.providerPlan;
+      if (!providerPlan) {
+        throw new Error("Successful app provisioning did not retain its provider plan.");
+      }
+      if (providerPlan.convex.state !== "created") {
+        throw new Error(
+          `Convex provisioning ended with provider plan state ${providerPlan.convex.state}.`,
+        );
+      }
+      if (!providerPlan.convex.projectId) {
+        throw new Error("Successful Convex provisioning did not record its project id.");
+      }
+      if (providerPlan.cloudflare.state !== "created") {
+        throw new Error(
+          `Cloudflare provisioning ended with provider plan state ${providerPlan.cloudflare.state}.`,
+        );
+      }
+      if (!providerPlan.cloudflare.workerTag) {
+        throw new Error("Successful Cloudflare provisioning did not record its Worker tag.");
+      }
+      expect(providerPlan.convex.projectName).toBe(expectedConvexProjectName);
+      expect(providerPlan.cloudflare.workerName).toBe(expectedCloudflareWorkerName);
+      expect(contract.convexProjects).toEqual([{ projectId: providerPlan.convex.projectId }]);
+      expect(contract.cloudflareWorkers).toEqual([
+        {
+          workerName: expectedCloudflareWorkerName,
+          workerTag: providerPlan.cloudflare.workerTag,
+        },
+      ]);
+
+      const vaultLink = vaultListLink(page, repositoryFullName);
+      await expect(vaultLink).not.toHaveAttribute(
+        "data-vault-status",
+        /^(?:Needs attention|Setting up)$/,
       );
 
       const repositoryLink = page.getByRole("link", {
-        name: new RegExp(`^Open [^/]+/${escapeRegExp(repositoryName)} on GitHub$`),
+        name: `Open ${repositoryFullName} on GitHub`,
       });
 
       await expect(repositoryLink).toBeVisible({ timeout: 120_000 });
@@ -360,19 +861,55 @@ test.describe("vault create app live flow", () => {
         body: (await repositoryLink.first().getAttribute("href")) ?? "",
         contentType: "text/plain",
       });
-    } finally {
-      // Exercise the same dashboard removal path operators use so the temporary
-      // repo does not linger after the live test completes.
-      if (createdRepository) {
-        await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
-        await signInIfNeeded(page, "/vault?dev");
-        await selectTemporaryVault(page, repositoryName);
-        await removeTemporaryVault(page, {
-          cloudflareWorker: true,
-          convexProject: true,
-          githubRepository: true,
-        });
+    } catch (error) {
+      productFailure = error;
+    }
+
+    let cleanupFailure: unknown = null;
+    if (creationStarted) {
+      try {
+        const cleanupContract = await readCreatedAppForCleanup(page, repositoryFullName);
+        if (!cleanupContract) {
+          throw new Error(
+            "The submit started, but the dashboard did not expose the test vault for supported cleanup.",
+          );
+        }
+        const recordedFailure = readProvisioningFailure(cleanupContract);
+        if (recordedFailure) {
+          productFailure = new Error(
+            `App provisioning failed during ${recordedFailure.phase} step ${recordedFailure.step}: ${recordedFailure.message}`,
+            productFailure === null ? undefined : { cause: productFailure },
+          );
+        }
+        await removeCreatedApp(page, repositoryFullName, cleanupContract);
+      } catch (error) {
+        cleanupFailure = error;
       }
+    }
+
+    if (productFailure !== null && cleanupFailure !== null) {
+      const productMessage =
+        productFailure instanceof Error
+          ? productFailure.message
+          : typeof productFailure === "string"
+            ? productFailure
+            : "Unknown app creation failure.";
+      const cleanupMessage =
+        cleanupFailure instanceof Error
+          ? cleanupFailure.message
+          : typeof cleanupFailure === "string"
+            ? cleanupFailure
+            : "Unknown dashboard cleanup failure.";
+      throw new Error(
+        `App creation failed: ${productMessage}\nFail-closed dashboard cleanup also failed: ${cleanupMessage}`,
+        { cause: productFailure },
+      );
+    }
+    if (cleanupFailure !== null) {
+      throw cleanupFailure;
+    }
+    if (productFailure !== null) {
+      throw productFailure;
     }
   });
 
@@ -393,7 +930,6 @@ test.describe("vault create app live flow", () => {
       throw new Error("PLAYWRIGHT_EXISTING_REPOSITORY_FULL_NAME is required for this live test.");
     }
 
-    const repositoryName = getRepositoryName(EXISTING_REPOSITORY_FULL_NAME);
     const resourceName = buildTemporaryResourceName();
     let vaultConnected = false;
     const cleanupTargets = {
@@ -412,10 +948,10 @@ test.describe("vault create app live flow", () => {
     });
 
     try {
-      await removeVaultIfPresent(page, repositoryName, cleanupTargets);
+      await removeVaultIfPresent(page, EXISTING_REPOSITORY_FULL_NAME, cleanupTargets);
       await connectExistingTemporaryRepository(page, EXISTING_REPOSITORY_FULL_NAME);
       vaultConnected = true;
-      await selectTemporaryVault(page, repositoryName);
+      await selectTemporaryVault(page, EXISTING_REPOSITORY_FULL_NAME);
 
       await createCloudflareWorkerFromSettings(page, resourceName);
       await configureWorkersBuildsForGitHub(page, resourceName);
@@ -425,8 +961,8 @@ test.describe("vault create app live flow", () => {
       if (vaultConnected) {
         await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
         await signInIfNeeded(page, "/vault?dev");
-        await selectTemporaryVault(page, repositoryName);
-        await removeTemporaryVault(page, cleanupTargets);
+        await selectTemporaryVault(page, EXISTING_REPOSITORY_FULL_NAME);
+        await removeTemporaryVault(page, EXISTING_REPOSITORY_FULL_NAME, cleanupTargets);
       }
     }
   });
