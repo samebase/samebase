@@ -334,14 +334,11 @@ async function expectTouchSlateAlignedToSuggestion(
 }
 
 async function scrollTouchPickerTo(page: Page, scrollTop: number): Promise<void> {
-  await page
-    .getByTestId("route-url-editor-suggestions")
-    .evaluate(async (element, nextScrollTop) => {
-      element.dispatchEvent(new Event("touchstart", { bubbles: true }));
-      element.scrollTop = nextScrollTop;
-      element.dispatchEvent(new Event("scroll", { bubbles: true }));
-      await new Promise((resolve) => setTimeout(resolve, 120));
-    }, scrollTop);
+  await page.getByTestId("route-url-editor-suggestions").evaluate((element, nextScrollTop) => {
+    element.dispatchEvent(new Event("touchstart", { bubbles: true }));
+    element.scrollTop = nextScrollTop;
+    element.dispatchEvent(new Event("scroll", { bubbles: true }));
+  }, scrollTop);
 }
 
 test.describe("route URL editor touch scroll picker", () => {
@@ -403,22 +400,28 @@ test.describe("route URL editor touch scroll picker", () => {
   });
 
   test("touch path suggestion lists use the same scroll picker", async ({ page }) => {
+    await page.clock.install();
     const { input, prefix } = await focusRouteAddressInputDirectly(page, "/");
 
     await expect(input).toHaveValue(prefix);
     await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
     await expect(input).not.toHaveAttribute("aria-activedescendant", /.+/);
 
+    await page.clock.pauseAt(Date.now() + 1_000);
     await scrollTouchPickerTo(page, 13);
+    await page.clock.runFor(17);
 
-    await expect(input).toHaveValue(prefix);
-    await expect(page).toHaveURL(/\/$/);
+    expect(await input.inputValue()).toBe(prefix);
+    expect(new URL(page.url()).pathname).toBe("/");
 
     const logoSuggestion = await scrollTouchPickerToSuggestion(page, "/logo");
+    await page.clock.runFor(17);
 
-    await expect(input).toHaveValue(`${prefix}logo?`);
+    expect(await input.inputValue()).toBe(`${prefix}logo?`);
+    expect(new URL(page.url()).pathname).toBe("/logo");
+    await page.clock.resume();
+
     await expectInputSelection(input, prefix.length);
-    await expect(page).toHaveURL(/\/logo$/);
     await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
 
     const logoSuggestionBox = await logoSuggestion.boundingBox();

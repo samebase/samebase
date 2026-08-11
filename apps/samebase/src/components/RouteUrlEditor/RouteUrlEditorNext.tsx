@@ -91,6 +91,12 @@ export function RouteUrlEditorNext() {
   const touchScrollPicker = useRouteUrlEditorTouchScrollPicker({
     currentSuggestionIndex: vm.currentSuggestionIndex,
     currentSuggestionScrollEnabled: vm.state.kind === "focused" && vm.state.focusMode === "editing",
+    previewedTouchSuggestionIndex:
+      vm.state.kind === "focused" &&
+      vm.state.focusMode === "suggestion" &&
+      vm.state.previewRoute.source === "touch"
+        ? vm.state.previewRoute.suggestionIndex
+        : null,
     previewTouchSuggestion: vm.previewTouchSuggestion,
     suggestions: vm.suggestions,
     suggestionsVisible: vm.suggestionsVisible,
