@@ -21,7 +21,7 @@ export function OrganizationInvitationPage({ code }: { code: string }) {
   const { signOut } = useAppAuthActions();
   const navigate = useNavigate();
 
-  if (invitationQuery.isError) {
+  if (invitationQuery.isError && invitationQuery.data === undefined) {
     throw invitationQuery.error;
   }
   if (invitationQuery.data === undefined) {

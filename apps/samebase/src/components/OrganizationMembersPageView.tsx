@@ -648,6 +648,11 @@ export function OrganizationMembersPageView({
     githubRelationships?.map((relationship) => [relationship.userId, relationship.status]),
   );
   const pendingInvitations = page.pendingInvitations ?? [];
+  const visibleCopyFallback =
+    copyFallback !== null &&
+    pendingInvitations.some((invitation) => invitation.invitationId === copyFallback.invitationId)
+      ? copyFallback
+      : null;
 
   const copyPendingInvitation = (invitation: PendingOrganizationInvitation) => {
     if (copyingInvitationId !== null) {
@@ -858,21 +863,21 @@ export function OrganizationMembersPageView({
                 ))}
               </tbody>
             </table>
-            {copyFallback === null ? null : (
+            {visibleCopyFallback === null ? null : (
               <div className="mt-3 space-y-2" data-posthog-block>
-                <Label htmlFor={`pending-invitation-link-${copyFallback.invitationId}`}>
+                <Label htmlFor={`pending-invitation-link-${visibleCopyFallback.invitationId}`}>
                   Invitation link
                 </Label>
                 <Input
-                  aria-describedby={`pending-invitation-copy-error-${copyFallback.invitationId}`}
-                  id={`pending-invitation-link-${copyFallback.invitationId}`}
+                  aria-describedby={`pending-invitation-copy-error-${visibleCopyFallback.invitationId}`}
+                  id={`pending-invitation-link-${visibleCopyFallback.invitationId}`}
                   onFocus={(event) => event.currentTarget.select()}
                   readOnly
-                  value={copyFallback.invitationUrl}
+                  value={visibleCopyFallback.invitationUrl}
                 />
                 <p
                   className="text-sm text-destructive"
-                  id={`pending-invitation-copy-error-${copyFallback.invitationId}`}
+                  id={`pending-invitation-copy-error-${visibleCopyFallback.invitationId}`}
                   role="alert"
                 >
                   Could not copy the invitation link. Copy it from the field.

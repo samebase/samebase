@@ -485,6 +485,30 @@ describe("OrganizationMembersPageView", () => {
     expect(fallbackInput.selectionEnd).toBe(invitationUrl.length);
   });
 
+  it("hides a failed-copy link when that invitation is no longer pending", async () => {
+    clipboardWriteText.mockRejectedValueOnce(new Error("Clipboard access was denied."));
+    const remainingInvitation = {
+      ...ownerPage.pendingInvitations[0],
+      code: "second-invitation-secret",
+      githubLogin: "hubot",
+      invitationId: fakeInvitationId("invitation_hubot"),
+    };
+    await renderPage({
+      ...ownerPage,
+      pendingInvitations: [...ownerPage.pendingInvitations, remainingInvitation],
+    });
+    const mountedRootElement = getMountedRootElement(rootElement);
+
+    await act(async () => getButton(mountedRootElement, "Copy link").click());
+    expect(rootElement?.querySelector("[data-posthog-block] input[readonly]")).not.toBeNull();
+
+    await renderPage({ ...ownerPage, pendingInvitations: [remainingInvitation] });
+
+    expect(rootElement?.querySelector("[data-posthog-block] input[readonly]")).toBeNull();
+    expect(rootElement?.textContent).toContain("@hubot");
+    expect(rootElement?.textContent).toContain("Pending invitations");
+  });
+
   it("warns before demoting the personal GitHub owner identity", async () => {
     await renderPage(
       {

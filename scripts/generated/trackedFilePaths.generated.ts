@@ -930,6 +930,7 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/OrganizationInvitationPage.tsx",
   "apps/samebase/src/components/OrganizationInvitationPageView.test.tsx",
   "apps/samebase/src/components/OrganizationInvitationPageView.tsx",
+  "apps/samebase/src/components/OrganizationMembersPage.test.tsx",
   "apps/samebase/src/components/OrganizationMembersPage.tsx",
   "apps/samebase/src/components/OrganizationMembersPageView.test.tsx",
   "apps/samebase/src/components/OrganizationMembersPageView.tsx",

@@ -145,4 +145,36 @@ describe("OrganizationInvitationPage", () => {
       expect(rootElement.textContent).toBe("unavailable");
     });
   });
+
+  it("keeps cached invitation data after a failed poll and polls again", async () => {
+    vi.useFakeTimers();
+    testState.auth.isAuthenticated = true;
+    testState.auth.isLoading = false;
+    testState.getInvitation
+      .mockResolvedValueOnce(availableInvitation("can_accept"))
+      .mockRejectedValueOnce(new Error("Invitation refresh failed."))
+      .mockRejectedValueOnce(new Error("Invitation refresh retry failed."))
+      .mockResolvedValueOnce({ state: "unavailable" as const });
+
+    await renderPage();
+    await act(async () => vi.advanceTimersByTimeAsync(0));
+    expect(rootElement.textContent).toBe("can_accept");
+
+    await act(async () => vi.advanceTimersByTimeAsync(61_000));
+
+    expect(testState.getInvitation).toHaveBeenCalledTimes(3);
+    expect(rootElement.textContent).toBe("can_accept");
+
+    await act(async () => vi.advanceTimersByTimeAsync(59_000));
+    await act(async () => vi.advanceTimersByTimeAsync(1_000));
+    await act(async () => {
+      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(testState.getInvitation).toHaveBeenCalledTimes(4);
+    await vi.waitFor(() => {
+      expect(rootElement.textContent).toBe("unavailable");
+    });
+  });
 });
