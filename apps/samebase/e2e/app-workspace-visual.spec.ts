@@ -57,6 +57,15 @@ test("app workspace address chrome exposes the route URL editor", async ({ page 
   const routeUrlInput = page.getByTestId("route-url-editor-input");
   await expect(routeUrlInput).toHaveValue(`${origin}/?dev&`);
   const suggestionsPopover = page.getByTestId("route-url-editor-suggestions-popover");
+  await expect(suggestionsPopover.getByRole("option", { exact: true, name: "&auth=" })).toHaveCount(
+    0,
+  );
+  await expect(
+    suggestionsPopover.getByRole("option", { exact: true, name: "&prod-ui" }),
+  ).toHaveCount(0);
+  await expect(
+    suggestionsPopover.getByRole("option", { exact: true, name: "&signup=" }),
+  ).toHaveCount(0);
   await expect(suggestionsPopover.getByRole("group", { name: "Theme" })).toBeVisible();
   await expect(suggestionsPopover.getByRole("group", { name: "Logo", exact: true })).toHaveCount(0);
   await expect(suggestionsPopover).toHaveScreenshot("route-url-editor-suggestion-groups.png", {

@@ -263,9 +263,9 @@ describe("readSuggestions", () => {
     expect(
       logoRows.slice(0, 3).map((row) => [row.kind === "search" ? row.group : null, row.value]),
     ).toEqual([
-      [null, "?prod-ui"],
       [null, "?reset"],
-      ["theme", "?background=stone-50"],
+      ["theme", "?background=lime-50"],
+      ["theme", "?border=rose-300"],
     ]);
     expect(
       logoRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
@@ -289,7 +289,7 @@ describe("readSuggestions", () => {
       termsRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
     ).toEqual(Array(6).fill("theme"));
     expect(termsRows.map((row) => row.value)).toEqual(
-      expect.arrayContaining(["?dark", "?primary=emerald-500"]),
+      expect.arrayContaining(["?dark", "?primary=emerald-700"]),
     );
     expect(termsRows.map((row) => row.value)).not.toContain("?dev");
     expect(termsRows.map((row) => row.value)).not.toEqual(
@@ -321,7 +321,7 @@ describe("readSuggestions", () => {
     });
 
     expect(values).toContain("?top=sky-500");
-    expect(values).toContain("?border=stone-300");
+    expect(values).toContain("?border=rose-300");
   });
 
   it("replaces the active key-value token when selecting a query key", () => {
@@ -334,11 +334,11 @@ describe("readSuggestions", () => {
       kind: "search",
       group: "theme",
       nextSelectionRouteIndex: "/logo?dark&border=".length,
-      previewRouteAddress: "/logo?dark&border=stone-300&top=blue-200",
+      previewRouteAddress: "/logo?dark&border=rose-300&top=blue-200",
       previewSelectionRouteIndex: "/logo?dark&".length,
       sampleValueStart: "&border=".length,
-      selectedRouteAddress: "/logo?dark&border=stone-300&top=blue-200",
-      value: "&border=stone-300",
+      selectedRouteAddress: "/logo?dark&border=rose-300&top=blue-200",
+      value: "&border=rose-300",
     });
   });
 
@@ -348,7 +348,7 @@ describe("readSuggestions", () => {
       routeTextBeforeCursor: "/terms?bo",
     });
 
-    expect(values).toContain("?border=stone-300");
+    expect(values).toContain("?border=rose-300");
     expect(values).not.toContain("?dev");
     expect(values).not.toContain("?depth=2");
   });
@@ -364,31 +364,17 @@ describe("readSuggestions", () => {
     expect(values).toContain("&secondary=rose-500");
   });
 
-  it("hides developer query params marked hidden in metadata", () => {
+  it("hides non-recommended root query params", () => {
     const values = readValues({
-      routeAddress: "/logo?",
-      routeTextBeforeCursor: "/logo?",
+      routeAddress: "/?",
+      routeTextBeforeCursor: "/?",
     });
 
+    expect(values).not.toContain("?auth=");
     expect(values).not.toContain("?dev");
     expect(values).not.toContain("?devtools");
-  });
-
-  it("keeps manual auth values out of route suggestions", () => {
-    const keyValues = readValues({
-      currentRouteAddress: "/",
-      routeAddress: "/?a",
-      routeTextBeforeCursor: "/?a",
-    });
-    const manualValueRows = readValues({
-      currentRouteAddress: "/",
-      routeAddress: "/?auth=g",
-      routeTextBeforeCursor: "/?auth=g",
-    });
-
-    expect(keyValues).toContain("?auth=");
-    expect(keyValues).not.toContain("?auth=google");
-    expect(manualValueRows).toEqual([]);
+    expect(values).not.toContain("?prod-ui");
+    expect(values).not.toContain("?signup=");
   });
 
   it("uses member access for route and query suggestions", () => {
@@ -442,13 +428,25 @@ describe("readSuggestions", () => {
   });
 
   it("shows all Tailwind color families while the cursor is before the family dash", () => {
-    const rows = readRows({
+    const topRows = readRows({
       routeAddress: "/logo?top=blue-200",
       routeTextBeforeCursor: "/logo?top=bl",
     });
-    const values = rows.map((suggestion) => suggestion.value);
+    const backgroundValues = readValues({
+      routeAddress: "/logo?background=lime-50",
+      routeTextBeforeCursor: "/logo?background=",
+    });
+    const borderValues = readValues({
+      routeAddress: "/logo?border=rose-300",
+      routeTextBeforeCursor: "/logo?border=",
+    });
+    const primaryValues = readValues({
+      routeAddress: "/logo?primary=emerald-700",
+      routeTextBeforeCursor: "/logo?primary=",
+    });
+    const topValues = topRows.map((suggestion) => suggestion.value);
 
-    expect(rows).toContainEqual({
+    expect(topRows).toContainEqual({
       kind: "searchValuePrefix",
       nextSelectionRouteIndex: "/logo?top=blue-".length,
       previewRouteAddress: "/logo?top=blue-500",
@@ -457,7 +455,7 @@ describe("readSuggestions", () => {
       selectedRouteAddress: "/logo?top=blue-500",
       value: "blue-500",
     });
-    expect(rows).toContainEqual({
+    expect(topRows).toContainEqual({
       kind: "searchValuePrefix",
       nextSelectionRouteIndex: "/logo?top=red-".length,
       previewRouteAddress: "/logo?top=red-500",
@@ -466,7 +464,11 @@ describe("readSuggestions", () => {
       selectedRouteAddress: "/logo?top=red-500",
       value: "red-500",
     });
-    expect(values).not.toContain("blue-");
+    expect(topValues).not.toContain("blue-");
+    expect(backgroundValues).toContain("red-50");
+    expect(backgroundValues).not.toContain("red-500");
+    expect(borderValues).toContain("red-300");
+    expect(primaryValues).toContain("red-700");
   });
 
   it("replaces the whole active query value when showing family suggestions", () => {

@@ -500,7 +500,7 @@ test.describe("route URL editor touch scroll picker", () => {
         options.map((option) => option.getAttribute("data-route-url-editor-suggestion-index")),
       ),
     ).toEqual(await suggestions.evaluateAll((options) => options.map((_, index) => `${index}`)));
-    await expectTouchSlateAlignedToSuggestion(page, "?prod-ui");
+    await expectTouchSlateAlignedToSuggestion(page, "?reset");
 
     await scrollTouchPickerToSuggestion(page, "?auto-rotate");
     await expect(input).toHaveValue(`${prefix}logo?auto-rotate&`);
@@ -619,15 +619,15 @@ test.describe("route URL editor touch scroll picker", () => {
 
     await expect(input).toHaveValue(`${prefix}logo?depth=2&`);
     await expect(
-      page.getByRole("option", { exact: true, name: "&background=stone-50" }),
+      page.getByRole("option", { exact: true, name: "&background=lime-50" }),
     ).toBeVisible();
 
-    await scrollTouchPickerToSuggestion(page, "&background=stone-50");
+    await scrollTouchPickerToSuggestion(page, "&background=lime-50");
 
-    await expect(input).toHaveValue(`${prefix}logo?depth=2&background=stone-50`);
+    await expect(input).toHaveValue(`${prefix}logo?depth=2&background=lime-50`);
     await expect(page.getByTestId("route-url-editor-scroll-slate")).toBeVisible();
     await expect(
-      page.getByRole("option", { exact: true, name: "&background=stone-50" }),
+      page.getByRole("option", { exact: true, name: "&background=lime-50" }),
     ).toBeVisible();
     await expect(input).toBeFocused();
   });
@@ -647,7 +647,7 @@ test.describe("route URL editor touch scroll picker", () => {
     await expect(page.getByRole("option", { exact: true, name: "&dev" })).toHaveCount(0);
     await expect(page.getByRole("option", { exact: true, name: "&top=sky-500" })).toHaveCount(0);
     await expect(
-      page.getByRole("option", { exact: true, name: "&background=stone-50" }),
+      page.getByRole("option", { exact: true, name: "&background=lime-50" }),
     ).toBeVisible();
 
     await input.press("Home");
@@ -678,9 +678,7 @@ test.describe("route URL editor touch scroll picker", () => {
 
     await expect(page.getByRole("option", { exact: true, name: "?dev" })).toHaveCount(0);
     await expect(page.getByRole("option", { exact: true, name: "?depth=2" })).toHaveCount(0);
-    await expect(
-      page.getByRole("option", { exact: true, name: "?border=stone-300" }),
-    ).toBeVisible();
+    await expect(page.getByRole("option", { exact: true, name: "?border=rose-300" })).toBeVisible();
     await expect(input).toBeFocused();
   });
 
@@ -1346,7 +1344,7 @@ test.describe("route URL editor public route query stories", () => {
     await expect(input).toBeFocused();
     await expect(page.getByRole("option", { exact: true, name: "&dark" })).toHaveCount(0);
     await expect(
-      page.getByRole("option", { exact: true, name: "&background=stone-50" }),
+      page.getByRole("option", { exact: true, name: "&background=lime-50" }),
     ).toBeVisible();
 
     await input.press("Escape");

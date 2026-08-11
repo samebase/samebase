@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase frontend/app shell
-- Last updated: 2026-07-24
+- Last updated: 2026-08-11
 - Depends on:
   - `apps/samebase/src/components/RouteUrlEditor/RouteUrlEditorNext.tsx`
   - `apps/samebase/src/components/RouteUrlEditor/useRouteEditorVm.ts`
@@ -30,16 +30,18 @@ grammar: whether selecting a rendered row commits a URL fragment or opens the ne
 1. Key-only presence params commit on selection. Selecting `?dark` or `&dark` applies that param and
    then opens the next search-param slot when more suggestions are available.
 2. Value-bearing param rows show a sample value when route metadata provides one. Selecting
-   `?border=stone-300` from the search-param dropdown applies `?border=stone-300`, then places the
+   `?border=rose-300` from the search-param dropdown applies `?border=rose-300`, then places the
    cursor after `border=` so value suggestions stay visible.
-3. Sample text must be visually distinct from the editing boundary. In `border=stone-300`, `border=`
-   is where the cursor lands and `stone-300` is the seeded value.
-4. Params whose concrete values trigger one-shot runtime effects, such as `auth=google`, must use
-   the manual value type. The key row may still offer `?auth=`, but the editor must not recommend or
-   preview the concrete value.
-5. Value suggestions can also contain a sample suffix. For Tailwind color families, a row such as
-   `red-500` seeds `red-500`, then places the cursor after `red-` so the user can choose the final
-   shade from explicit options such as `50`, `100`, `500`, and `900`.
+3. Sample text must be visually distinct from the editing boundary. In `border=rose-300`, `border=`
+   is where the cursor lands and `rose-300` is the seeded value.
+4. Internal auth-flow and deployment-control params, including `auth`, `signup`, and `prod-ui`, are
+   valid for direct URLs but hidden from editor recommendations. Params whose concrete values
+   trigger one-shot runtime effects must also use the manual value type.
+5. Value suggestions can also contain a sample suffix. Tailwind color-family rows use the shade from
+   that parameter's sample value. For example, `background=lime-50` produces a `red-50` family row,
+   while `primary=emerald-700` produces a `red-700` row. Selecting either row places the cursor
+   after `red-` so the user can choose the final shade from explicit options such as `50`, `100`,
+   `500`, and `900`.
 6. Selecting a suggestion commits the visible suggestion text, then places the cursor at the next
    meaningful editing boundary. Presence params move after `&`, value-param key rows move after `=`,
    color families move after `-`, and final concrete values move after the value.
