@@ -115,7 +115,13 @@ async function appendRunEvent(
     state: "unchanged" | AppProvisioningRunState;
   },
 ): Promise<void> {
-  await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, args);
+  await ctx.runMutation(internal.appProvisioningRuns.appendRunEvent, {
+    runId: args.runId,
+    step: args.step,
+    level: args.level,
+    message: args.message,
+    state: args.state,
+  });
 }
 
 async function appendProviderApiCallEvent(

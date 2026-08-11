@@ -332,7 +332,8 @@ export async function attemptManualProviderWriteFailureRecord(
 ): Promise<void> {
   try {
     await ctx.runMutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
-      ...args,
+      vaultId: args.vaultId,
+      actionId: args.actionId,
       result: "failed",
     });
   } catch (error) {

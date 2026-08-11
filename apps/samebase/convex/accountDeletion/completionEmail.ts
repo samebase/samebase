@@ -20,10 +20,10 @@ export const sendForAccountDeletion = internalAction({
   },
   returns: vCompletionEmailResult,
   handler: async (ctx, args) => {
-    const identity = await ctx.runQuery(
-      internal.accountDeletion.stepContext.getOwnedIdentity,
-      args,
-    );
+    const identity = await ctx.runQuery(internal.accountDeletion.stepContext.getOwnedIdentity, {
+      runId: args.runId,
+      workflowId: args.workflowId,
+    });
     try {
       await sendEmail({
         to: identity.email,

@@ -180,6 +180,7 @@ function createMcpRuntimeToolCall<
   Tool extends FunctionReference<"action", "internal", Record<string, Value>, McpToolResult>,
 >(tool: Tool): McpToolCall {
   return async (ctx, invocation) =>
+    // eslint-disable-next-line samebase/no-forwarded-convex-function-args -- Each registered target action validates its dynamic MCP tool input.
     await ctx.runAction(
       tool,
       // @ts-expect-error Raw MCP arguments intentionally flow to Convex action validation.
@@ -191,6 +192,7 @@ async function callCreateBrowserHandoffMcpTool(
   ctx: ActionCtx,
   invocation: McpToolInvocation,
 ): Promise<McpToolResult> {
+  // eslint-disable-next-line samebase/no-forwarded-convex-function-args -- The target action validates raw MCP input after reserved fields are replaced.
   return await ctx.runAction(internal.toolRuntime.runtime.createBrowserHandoffTool, {
     ...buildMcpToolInvocationArgs(invocation),
     grantId: invocation.grantId,

@@ -1844,6 +1844,7 @@ export const trackedFilePaths = [
   "scripts/lib/scriptRuntime.ts",
   "scripts/lib/trackedFilePath.ts",
   "scripts/lint/eslint-plugin-samebase.ts",
+  "scripts/lint/rules/no-forwarded-convex-function-args.ts",
   "scripts/lint/rules/no-hand-written-type-predicate.ts",
   "scripts/lint/rules/no-ios-small-text-entry-control.ts",
   "scripts/lint/rules/no-raw-public-convex-function-builders.ts",

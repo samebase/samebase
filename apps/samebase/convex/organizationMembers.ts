@@ -1009,7 +1009,7 @@ export const createInvitation = action({
       organizationId: args.organizationId,
       expectedGithubAccountId: target.expectedGithubAccountId,
       githubLogin: target.githubLogin,
-      ...(target.githubAvatarUrl ? { githubAvatarUrl: target.githubAvatarUrl } : {}),
+      githubAvatarUrl: target.githubAvatarUrl ? target.githubAvatarUrl : undefined,
       proposedCode: createInvitationCode(),
     });
   },

@@ -68,7 +68,11 @@ async function resolveConvexConnectionForTeam(
 ): Promise<ConvexActionConnection> {
   const connection = await ctx.runQuery(
     internal.organizationProviderCredentials.loadConvexForOrganizationTeam,
-    args,
+    {
+      userId: args.userId,
+      organizationId: args.organizationId,
+      teamId: args.teamId,
+    },
   );
   const credential = connection?.credential;
   if (!connection || !credential) {
@@ -572,7 +576,11 @@ async function createProjectForManagedWorkflow(
   }
   const context = await ctx.runQuery(
     internal.vault.providerObservationQueries.readProviderAttachmentVaultContextForProvisioningRun,
-    args,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+    },
   );
   const connection = await resolveConvexConnectionForProvisioningRun(ctx, {
     vaultId: args.vaultId,
@@ -735,10 +743,15 @@ export const detachProject = action({
   handler: async (ctx, args): Promise<null> => {
     const attachment = await ctx.runQuery(
       internal.vault.convexMutations.readProjectAttachmentContext,
-      { ...args, userId: ctx.viewer.userId },
+      {
+        vaultId: args.vaultId,
+        convexProjectId: args.convexProjectId,
+        userId: ctx.viewer.userId,
+      },
     );
     await ctx.runMutation(internal.vault.convexMutations.detachProject, {
-      ...args,
+      vaultId: args.vaultId,
+      convexProjectId: args.convexProjectId,
       userId: ctx.viewer.userId,
       teamId: attachment.teamId,
       projectId: attachment.projectId,

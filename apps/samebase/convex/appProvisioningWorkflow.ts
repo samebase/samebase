@@ -72,13 +72,26 @@ export async function startCreateAppProvisioningWorkflow(
     private: boolean;
   },
 ): Promise<string> {
-  return await workflow.start(ctx, internal.appProvisioningWorkflow.provisionApp, args, {
-    startAsync: true,
-    onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
-    context: {
+  return await workflow.start(
+    ctx,
+    internal.appProvisioningWorkflow.provisionApp,
+    {
+      vaultId: args.vaultId,
       runId: args.runId,
+      userId: args.userId,
+      repositoryName: args.repositoryName,
+      repositoryOwner: args.repositoryOwner,
+      description: args.description,
+      private: args.private,
     },
-  });
+    {
+      startAsync: true,
+      onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
+      context: {
+        runId: args.runId,
+      },
+    },
+  );
 }
 
 export async function startVaultInfrastructureProvisioningWorkflow(
@@ -91,7 +104,10 @@ export async function startVaultInfrastructureProvisioningWorkflow(
   return await workflow.start(
     ctx,
     internal.appProvisioningWorkflow.provisionVaultInfrastructure,
-    args,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+    },
     {
       startAsync: true,
       onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,
@@ -833,7 +849,13 @@ export const startConnectExistingRepositoryProvisioning = internalMutation({
     const workflowId: string = await workflow.start(
       ctx,
       internal.appProvisioningWorkflow.connectExistingRepository,
-      args,
+      {
+        vaultId: args.vaultId,
+        runId: args.runId,
+        userId: args.userId,
+        repositoryName: args.repositoryName,
+        repositoryOwner: args.repositoryOwner,
+      },
       {
         startAsync: true,
         onComplete: internal.appProvisioningWorkflow.handleProvisioningWorkflowComplete,

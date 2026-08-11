@@ -208,6 +208,12 @@ declaring one.
   scoped wrapper such as `samebaseAppFilePath(...)` before using an untyped string path.
 - In Convex modules, define result validators before handlers, derive types via `Infer<typeof ...>`,
   and prefer destructuring validator builders once instead of repeated `v.<fn>()` call sites.
+- Pass arguments to registered Convex functions as explicit top-level object literals without
+  spreads. This includes `runQuery`, `runMutation`, `runAction`, Workflow step and start calls,
+  scheduled functions, and crons. Convex rejects undeclared object fields recursively, while
+  TypeScript accepts structurally wider variables and properties introduced by spreads. The lint
+  rule protects the top-level argument object. When one accepted field is itself a declared
+  `v.object`, explicitly project that nested object if its source can be wider than the validator.
 - Reserve the leading `v` prefix for reusable Convex value validators from `convex/values`, such as
   `vProviderAuth`; name the inferred type without the prefix, such as `ProviderAuth`. Runtime
   validators from other systems use a system-specific prefix, such as `ajvProjectResponse`.

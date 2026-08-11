@@ -557,10 +557,10 @@ export const revokeForAccountDeletion = internalAction({
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
-    const identity = await ctx.runQuery(
-      internal.accountDeletion.stepContext.getOwnedIdentity,
-      args,
-    );
+    const identity = await ctx.runQuery(internal.accountDeletion.stepContext.getOwnedIdentity, {
+      runId: args.runId,
+      workflowId: args.workflowId,
+    });
     const authorization: GitHubUserAuthorizationForRevocation | null = await ctx.runQuery(
       internal.githubUserAuthorizations.getForRevocation,
       { userId: identity.userId },
@@ -634,14 +634,26 @@ async function finishGitHubUserAuthorizationRefresh(
 ): Promise<void> {
   switch (authority.kind) {
     case "user":
-      await ctx.runMutation(internal.githubUserAuthorizations.finishRefresh, args);
+      await ctx.runMutation(internal.githubUserAuthorizations.finishRefresh, {
+        authorizationId: args.authorizationId,
+        refreshStartedAt: args.refreshStartedAt,
+        accessToken: args.accessToken,
+        accessTokenExpiresAt: args.accessTokenExpiresAt,
+        refreshToken: args.refreshToken,
+        refreshTokenExpiresAt: args.refreshTokenExpiresAt,
+      });
       return;
     case "provisioning":
       await ctx.runMutation(internal.githubUserAuthorizations.finishRefreshForProvisioningRun, {
         runId: authority.runId,
         userId: authority.userId,
         vaultId: authority.vaultId,
-        ...args,
+        authorizationId: args.authorizationId,
+        refreshStartedAt: args.refreshStartedAt,
+        accessToken: args.accessToken,
+        accessTokenExpiresAt: args.accessTokenExpiresAt,
+        refreshToken: args.refreshToken,
+        refreshTokenExpiresAt: args.refreshTokenExpiresAt,
       });
       return;
     default:
@@ -660,14 +672,18 @@ async function releaseGitHubUserAuthorizationRefresh(
 ): Promise<void> {
   switch (authority.kind) {
     case "user":
-      await ctx.runMutation(internal.githubUserAuthorizations.releaseRefresh, args);
+      await ctx.runMutation(internal.githubUserAuthorizations.releaseRefresh, {
+        authorizationId: args.authorizationId,
+        refreshStartedAt: args.refreshStartedAt,
+      });
       return;
     case "provisioning":
       await ctx.runMutation(internal.githubUserAuthorizations.releaseRefreshForProvisioningRun, {
         runId: authority.runId,
         userId: authority.userId,
         vaultId: authority.vaultId,
-        ...args,
+        authorizationId: args.authorizationId,
+        refreshStartedAt: args.refreshStartedAt,
       });
       return;
     default:
