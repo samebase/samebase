@@ -1,3 +1,4 @@
+import { RequestError } from "@octokit/request-error";
 import { ConvexError, Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
@@ -178,7 +179,7 @@ function requireInvitationCode(code: string): string {
   return code;
 }
 
-function requireFiniteNow(now: number): number {
+function requireRoundedFiniteNow(now: number): number {
   if (!Number.isFinite(now) || now < 0 || now % 60_000 !== 0) {
     throw new Error("Current time is invalid.");
   }
@@ -315,16 +316,30 @@ async function resolveInvitationTargetFromGitHub(
   target: GitHubInvitationTarget;
   installationOctokit: ReturnType<typeof createGitHubInstallationOctokit> | null;
 }> {
-  let installationOctokit: ReturnType<typeof createGitHubInstallationOctokit> | null = null;
+  let installationOctokit: ReturnType<typeof createGitHubInstallationOctokit>;
   try {
     installationOctokit = createGitHubInstallationOctokit(context.githubInstallationId);
-    const target = await readGitHubUserByLogin(installationOctokit, githubLogin);
-    return { target, installationOctokit };
   } catch {
     return {
       target: await readPublicGitHubUserByLogin(githubLogin),
-      installationOctokit,
+      installationOctokit: null,
     };
+  }
+
+  try {
+    const target = await readGitHubUserByLogin(installationOctokit, githubLogin);
+    return { target, installationOctokit };
+  } catch (error) {
+    if (
+      error instanceof RequestError &&
+      (error.status === 401 || error.status === 403 || error.status === 429 || error.status >= 500)
+    ) {
+      return {
+        target: await readPublicGitHubUserByLogin(githubLogin),
+        installationOctokit,
+      };
+    }
+    throw error;
   }
 }
 
@@ -525,7 +540,7 @@ export const getPage = query({
   },
   returns: vGetPageResult,
   handler: async (ctx, args): Promise<GetPageResult> => {
-    const now = requireFiniteNow(args.now);
+    const now = requireRoundedFiniteNow(args.now);
     const viewerMembership = await requireOrganizationMembership(ctx.db, {
       organizationId: args.organizationId,
       userId: ctx.viewer.userId,
@@ -662,15 +677,23 @@ export const getPage = query({
   },
 });
 
-export const getInvitation = query({
-  access: "access_public",
+export const getInvitationAtTime = internalQuery({
   args: {
     code: string(),
     now: number(),
+    viewerUserId: union(id("users"), v.null()),
   },
   returns: vGetInvitationResult,
   handler: async (ctx, args): Promise<GetInvitationResult> => {
-    const now = requireFiniteNow(args.now);
+    if (!Number.isFinite(args.now) || args.now < 0) {
+      throw new Error("Current time is invalid.");
+    }
+    if (args.viewerUserId !== null) {
+      const viewerUser = await ctx.db.get(args.viewerUserId);
+      if (viewerUser === null || readActiveUser(viewerUser) === null) {
+        return { state: "unavailable" };
+      }
+    }
     if (!/^[0-9a-f]{64}$/.test(args.code)) {
       return { state: "unavailable" };
     }
@@ -682,12 +705,12 @@ export const getInvitation = query({
     if (
       invitation === null ||
       invitation.state === "accepted_recipient_deleted" ||
-      (invitation.state === "pending" && invitation.expiresAt <= now)
+      (invitation.state === "pending" && invitation.expiresAt <= args.now)
     ) {
       return { state: "unavailable" };
     }
     if (invitation.state === "accepted") {
-      const viewerUserId = ctx.viewer.userId;
+      const viewerUserId = args.viewerUserId;
       if (viewerUserId === null || invitation.acceptedByUserId !== viewerUserId) {
         return { state: "unavailable" };
       }
@@ -712,7 +735,7 @@ export const getInvitation = query({
     if (organization === null) {
       return { state: "unavailable" };
     }
-    const viewerUserId = ctx.viewer.userId;
+    const viewerUserId = args.viewerUserId;
     if (viewerUserId === null) {
       return {
         state: "available",
@@ -744,6 +767,19 @@ export const getInvitation = query({
       ...(invitation.githubAvatarUrl ? { targetAvatarUrl: invitation.githubAvatarUrl } : {}),
       viewerState,
     };
+  },
+});
+
+export const getInvitation = action({
+  access: "access_public",
+  args: { code: string() },
+  returns: vGetInvitationResult,
+  handler: async (ctx, args): Promise<GetInvitationResult> => {
+    return await ctx.runQuery(internal.organizationMembers.getInvitationAtTime, {
+      code: args.code,
+      now: Date.now(),
+      viewerUserId: ctx.viewer.userId,
+    });
   },
 });
 

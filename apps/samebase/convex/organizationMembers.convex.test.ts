@@ -1,3 +1,4 @@
+import { RequestError } from "@octokit/request-error";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const githubMocks = vi.hoisted(() => ({ request: vi.fn() }));
@@ -25,6 +26,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
 });
 
 async function seedMembers() {
@@ -111,7 +113,7 @@ async function seedMembers() {
 
 // Source: https://api.github.com/users/octocat
 // Captured 2026-08-08. Cases override only the stable identity observations.
-function githubUser(id: number, login: string) {
+function githubUser(id: number, login: string, overrides?: Record<string, unknown>) {
   return {
     login,
     id,
@@ -146,6 +148,7 @@ function githubUser(id: number, login: string) {
     following: 9,
     created_at: "2011-01-25T18:44:36Z",
     updated_at: "2026-07-22T11:29:09Z",
+    ...overrides,
   };
 }
 
@@ -176,6 +179,16 @@ function githubMembership(userId: number, role: "admin" | "member" = "member") {
       site_admin: false,
     },
   };
+}
+
+function githubRequestError(status: number): RequestError {
+  return new RequestError(`GitHub request failed with status ${status}.`, status, {
+    request: {
+      method: "GET",
+      url: "https://api.github.com/users/invitation-target",
+      headers: {},
+    },
+  });
 }
 
 describe("organization member lifecycle", () => {
@@ -247,8 +260,67 @@ describe("organization member lifecycle", () => {
     ).toMatchObject({ isPersonalGithubOwnerIdentity: false });
   });
 
+  it("orders members and pending invitations with stable ties", async () => {
+    const { asOwner, ids, t } = await seedMembers();
+    const orderIds = await t.run(async (ctx) => {
+      const tiedMembershipIds = [];
+      for (const [email, displayName] of [
+        ["first-tied-member@example.invalid", "alpha"],
+        ["second-tied-member@example.invalid", "Alpha"],
+      ] as const) {
+        const userId = await ctx.db.insert("users", {
+          state: "active",
+          email,
+          displayName,
+          isApproved: true,
+        });
+        tiedMembershipIds.push(
+          await ctx.db.insert("organizationMemberships", {
+            organizationId: ids.organizationId,
+            userId,
+            role: "member",
+          }),
+        );
+      }
+      const invitationIds = [];
+      for (const [githubAccountId, githubLogin, codeDigit] of [
+        ["410", "alpha", "4"],
+        ["411", "Alpha", "5"],
+        ["412", "zulu", "6"],
+      ] as const) {
+        invitationIds.push(
+          await ctx.db.insert("organizationInvitations", {
+            organizationId: ids.organizationId,
+            githubAccountId,
+            githubLogin,
+            code: codeDigit.repeat(64),
+            createdByUserId: ids.ownerUserId,
+            createdAt: roundedNow,
+            expiresAt: roundedNow + 60_000,
+            state: "pending",
+          }),
+        );
+      }
+      return { tiedMembershipIds, invitationIds };
+    });
+
+    const page = await asOwner.query(api.organizationMembers.getPage, {
+      organizationId: ids.organizationId,
+      now: roundedNow,
+    });
+    expect(page.members.map((member) => member.membershipId)).toEqual([
+      ids.ownerMembershipId,
+      ...orderIds.tiedMembershipIds.sort(),
+      ids.memberMembershipId,
+    ]);
+    expect(page.pendingInvitations?.map((invitation) => invitation.invitationId)).toEqual([
+      ...orderIds.invitationIds.slice(0, 2).sort(),
+      orderIds.invitationIds.at(2),
+    ]);
+  });
+
   it("creates one stable-identity invitation and requires explicit matching acceptance", async () => {
-    const { asInvitee, asOwner, ids, t } = await seedMembers();
+    const { asInvitee, asMember, asOwner, ids, t } = await seedMembers();
     githubMocks.request.mockImplementation(async (route: string) => {
       if (route === "GET /users/{username}") {
         return { data: githubUser(200, "invitee-login") };
@@ -287,22 +359,16 @@ describe("organization member lifecycle", () => {
       code: created.code,
     });
     await expect(
-      asOwner.query(api.organizationMembers.getInvitation, {
-        code: created.code,
-        now: roundedNow,
-      }),
+      asOwner.action(api.organizationMembers.getInvitation, { code: created.code }),
     ).resolves.toMatchObject({ state: "available", viewerState: "wrong_github_account" });
     await expect(
-      asInvitee.query(api.organizationMembers.getInvitation, {
-        code: created.code,
-        now: roundedNow,
-      }),
+      asInvitee.action(api.organizationMembers.getInvitation, { code: created.code }),
     ).resolves.toMatchObject({ state: "available", viewerState: "can_accept" });
 
     await expect(
       asOwner.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
     ).rejects.toThrow("This invitation is for a different GitHub account.");
-    await t.run(async (ctx) => {
+    const deletingInviteeMembershipId = await t.run(async (ctx) => {
       const sessionId = await ctx.db.insert("authSessions", {
         userId: ids.inviteeUserId,
         expirationTime: roundedNow + 60_000,
@@ -333,11 +399,30 @@ describe("organization member lifecycle", () => {
         runId,
         requestedAt: roundedNow,
       });
+      return await ctx.db.insert("organizationMemberships", {
+        organizationId: ids.organizationId,
+        userId: ids.inviteeUserId,
+        role: "member",
+      });
+    });
+    await expect(
+      asInvitee.action(api.organizationMembers.getInvitation, { code: created.code }),
+    ).resolves.toEqual({ state: "unavailable" });
+    await expect(
+      asMember.query(api.organizationMembers.getPage, {
+        organizationId: ids.organizationId,
+        now: roundedNow,
+      }),
+    ).resolves.toMatchObject({
+      members: expect.arrayContaining([
+        expect.objectContaining({ userId: ids.inviteeUserId, isDeleting: false }),
+      ]),
     });
     await expect(
       asInvitee.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
     ).rejects.toThrow("Access denied");
     await t.run(async (ctx) => {
+      await ctx.db.delete(deletingInviteeMembershipId);
       await ctx.db.replace(ids.inviteeUserId, {
         state: "active",
         email: "invitee@example.invalid",
@@ -374,19 +459,13 @@ describe("organization member lifecycle", () => {
       acceptedByUserId: ids.inviteeUserId,
     });
     await expect(
-      asInvitee.query(api.organizationMembers.getInvitation, {
-        code: created.code,
-        now: roundedNow,
-      }),
+      asInvitee.action(api.organizationMembers.getInvitation, { code: created.code }),
     ).resolves.toMatchObject({
       state: "accepted",
       isViewerMember: true,
     });
     await expect(
-      asOwner.query(api.organizationMembers.getInvitation, {
-        code: created.code,
-        now: roundedNow,
-      }),
+      asOwner.action(api.organizationMembers.getInvitation, { code: created.code }),
     ).resolves.toEqual({ state: "unavailable" });
     await expect(
       asOwner.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
@@ -397,10 +476,7 @@ describe("organization member lifecycle", () => {
       membershipId: snapshot.membership?._id ?? ids.memberMembershipId,
     });
     await expect(
-      asInvitee.query(api.organizationMembers.getInvitation, {
-        code: created.code,
-        now: roundedNow,
-      }),
+      asInvitee.action(api.organizationMembers.getInvitation, { code: created.code }),
     ).resolves.toMatchObject({
       state: "accepted",
       isViewerMember: false,
@@ -546,7 +622,7 @@ describe("organization member lifecycle", () => {
       });
     });
     await expect(
-      asOwner.query(api.organizationMembers.getInvitation, { code, now: roundedNow }),
+      asOwner.action(api.organizationMembers.getInvitation, { code }),
     ).resolves.toMatchObject({ state: "available", viewerState: "already_member" });
     await expect(
       asOwner.mutation(api.organizationMembers.acceptInvitation, { code }),
@@ -559,10 +635,32 @@ describe("organization member lifecycle", () => {
     ).resolves.toBe("owner");
   });
 
+  it("rejects self-demotion and self-removal by the last active owner", async () => {
+    const { asOwner, ids, t } = await seedMembers();
+
+    await expect(
+      asOwner.mutation(api.organizationMembers.changeRole, {
+        organizationId: ids.organizationId,
+        membershipId: ids.ownerMembershipId,
+        role: "member",
+      }),
+    ).rejects.toThrow("An organization must have at least one active owner.");
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(ids.ownerMembershipId))?.role),
+    ).resolves.toBe("owner");
+    await expect(
+      asOwner.mutation(api.organizationMembers.removeMember, {
+        organizationId: ids.organizationId,
+        membershipId: ids.ownerMembershipId,
+      }),
+    ).rejects.toThrow("Use Leave organization to remove your own membership.");
+  });
+
   it("derives expiry, deletes canceled invitations, and denies member administration", async () => {
     const { asInvitee, asMember, asOwner, ids, t } = await seedMembers();
     const expiredCode = "1".repeat(64);
     const cancelCode = "2".repeat(64);
+    const expiredAt = roundedNow - 1;
     const invitationIds = await t.run(async (ctx) => {
       const expiredInvitationId = await ctx.db.insert("organizationInvitations", {
         organizationId: ids.organizationId,
@@ -571,7 +669,7 @@ describe("organization member lifecycle", () => {
         code: expiredCode,
         createdByUserId: ids.ownerUserId,
         createdAt: 1,
-        expiresAt: roundedNow - 1,
+        expiresAt: expiredAt,
         state: "pending",
       });
       const cancelInvitationId = await ctx.db.insert("organizationInvitations", {
@@ -588,14 +686,47 @@ describe("organization member lifecycle", () => {
     });
 
     await expect(
-      asInvitee.query(api.organizationMembers.getInvitation, {
+      t.query(internal.organizationMembers.getInvitationAtTime, {
         code: expiredCode,
-        now: roundedNow,
+        now: expiredAt - 1,
+        viewerUserId: ids.inviteeUserId,
       }),
+    ).resolves.toMatchObject({ state: "available", viewerState: "can_accept" });
+    await expect(
+      t.query(internal.organizationMembers.getInvitationAtTime, {
+        code: expiredCode,
+        now: expiredAt,
+        viewerUserId: ids.inviteeUserId,
+      }),
+    ).resolves.toEqual({ state: "unavailable" });
+    await expect(
+      asInvitee.action(api.organizationMembers.getInvitation, {
+        code: expiredCode,
+        // @ts-expect-error The public action must reject a forged client clock.
+        now: 0,
+      }),
+    ).rejects.toThrow();
+    await expect(
+      asInvitee.action(api.organizationMembers.getInvitation, { code: expiredCode }),
     ).resolves.toEqual({ state: "unavailable" });
     await expect(
       asInvitee.mutation(api.organizationMembers.acceptInvitation, { code: expiredCode }),
     ).rejects.toThrow("Invitation has expired.");
+    const reissued = await t.mutation(internal.organizationMembers.commitInvitation, {
+      userId: ids.ownerUserId,
+      organizationId: ids.organizationId,
+      expectedGithubAccountId: "200",
+      githubLogin: "invitee-login",
+      proposedCode: "3".repeat(64),
+    });
+    expect(reissued).toMatchObject({
+      state: "created",
+      invitationId: invitationIds.expiredInvitationId,
+      code: "3".repeat(64),
+    });
+    await expect(
+      asInvitee.action(api.organizationMembers.getInvitation, { code: reissued.code }),
+    ).resolves.toMatchObject({ state: "available", viewerState: "can_accept" });
     await expect(
       asMember.mutation(api.organizationMembers.cancelInvitation, {
         organizationId: ids.organizationId,
@@ -620,6 +751,17 @@ describe("organization member lifecycle", () => {
         organizationId: ids.organizationId,
         githubLogin: "new-target",
         expectedGithubAccountId: "401",
+      }),
+    ).rejects.toThrow("Organization owner access is required.");
+    await expect(
+      asMember.action(api.organizationMembers.resolveInvitationTarget, {
+        organizationId: ids.organizationId,
+        githubLogin: "new-target",
+      }),
+    ).rejects.toThrow("Organization owner access is required.");
+    await expect(
+      asMember.action(api.organizationMembers.getGitHubRelationships, {
+        organizationId: ids.organizationId,
       }),
     ).rejects.toThrow("Organization owner access is required.");
     await expect(
@@ -652,6 +794,50 @@ describe("organization member lifecycle", () => {
         expectedGithubAccountId: target.expectedGithubAccountId,
       }),
     ).rejects.toThrow("The GitHub account changed. Resolve the invitation target again.");
+  });
+
+  it("does not retry anonymous GitHub lookup after a 404 or invalid profile", async () => {
+    const { asOwner, ids } = await seedMembers();
+    const fetch = vi.fn(async () => Response.json(githubUser(200, "invitation-target")));
+    vi.stubGlobal("fetch", fetch);
+
+    githubMocks.request.mockRejectedValueOnce(githubRequestError(404));
+    await expect(
+      asOwner.action(api.organizationMembers.resolveInvitationTarget, {
+        organizationId: ids.organizationId,
+        githubLogin: "missing-target",
+      }),
+    ).rejects.toThrow("GitHub request failed with status 404.");
+
+    githubMocks.request.mockResolvedValueOnce({
+      data: githubUser(200, "invalid-target", { id: "invalid" }),
+    });
+    await expect(
+      asOwner.action(api.organizationMembers.resolveInvitationTarget, {
+        organizationId: ids.organizationId,
+        githubLogin: "invalid-target",
+      }),
+    ).rejects.toThrow("GitHub returned an invalid user ID.");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("retries anonymous GitHub lookup when the installation request is unavailable", async () => {
+    const { asOwner, ids } = await seedMembers();
+    githubMocks.request.mockRejectedValue(githubRequestError(503));
+    const fetch = vi.fn(async () => Response.json(githubUser(205, "fallback-target")));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      asOwner.action(api.organizationMembers.resolveInvitationTarget, {
+        organizationId: ids.organizationId,
+        githubLogin: "fallback-target",
+      }),
+    ).resolves.toMatchObject({
+      expectedGithubAccountId: "205",
+      githubLogin: "fallback-target",
+      relationship: "unavailable",
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it("enforces active owners and blocks only target-owned active vault work", async () => {

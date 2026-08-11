@@ -48,7 +48,8 @@ after reload and recover from a response that was lost after creation.
 An invitation expires seven days after creation. Repeating creation for the same unexpired pending
 recipient returns the same row and code. An expired invitation, or an accepted invitation whose
 membership was later removed, can become a new pending invitation with a new code. Canceling a
-pending invitation deletes it. Repeating a completed action is safe.
+pending invitation deletes it. Repeating a completed action is safe. Server time decides whether the
+public invitation preview and acceptance are available. Client time is not an expiry authority.
 
 When an accepting user deletes their Samebase account, account deletion changes each matching
 `accepted` row to `accepted_recipient_deleted`. This keeps stable Samebase attribution without
@@ -63,7 +64,8 @@ the target has a Samebase account.
 The invitation page is `/invite/:code`. It is public, not prerendered, and hidden from route
 suggestions. Analytics replace the code with a fixed placeholder. Session replay blocks the
 invitation surface. Opening the page does not create a membership. The signed-in recipient must
-select `Join organization`.
+select `Join organization`. A deleting account sees `Invitation unavailable` and receives no join
+action.
 
 Acceptance requires all of these facts in one mutation:
 
@@ -93,8 +95,8 @@ get a new invitation.
 ## Member List And GitHub Information
 
 Members use stable ordering: Samebase owners first, then normalized display label, then membership
-ID. The label uses `users.displayName`, then the linked GitHub login, then `Samebase member`. The
-page does not expose another user's Samebase account email.
+ID. The label uses `users.displayName`, then the linked GitHub login, then `Samebase member`. Member
+rows do not expose another user's Samebase account email.
 
 The page uses these exact role and relationship terms:
 

@@ -382,6 +382,31 @@ describe("OrganizationMembersPageView", () => {
       `${window.location.origin}/invite/invitation-secret`,
     );
     expect(rootElement?.textContent).toContain("Copied");
+    expect(rootElement?.querySelector("input[readonly]")).toBeNull();
+  });
+
+  it("shows a selectable invitation link when clipboard access fails", async () => {
+    clipboardWriteText.mockRejectedValueOnce(new Error("Clipboard access was denied."));
+    await renderPage();
+    const mountedRootElement = getMountedRootElement(rootElement);
+
+    await act(async () => getButton(mountedRootElement, "Copy link").click());
+
+    const fallbackInput = rootElement?.querySelector<HTMLInputElement>(
+      "[data-posthog-block] input[readonly]",
+    );
+    if (!fallbackInput) {
+      throw new Error("Invitation link fallback was not rendered.");
+    }
+    const invitationUrl = `${window.location.origin}/invite/invitation-secret`;
+    expect(fallbackInput.value).toBe(invitationUrl);
+    expect(rootElement?.textContent).toContain(
+      "Could not copy the invitation link. Copy it from the field.",
+    );
+
+    fallbackInput.focus();
+    expect(fallbackInput.selectionStart).toBe(0);
+    expect(fallbackInput.selectionEnd).toBe(invitationUrl.length);
   });
 
   it("warns before demoting the personal GitHub owner identity", async () => {
@@ -410,6 +435,9 @@ describe("OrganizationMembersPageView", () => {
 
     expect(rootElement?.textContent).toContain(
       "Another Samebase owner cannot reconnect the GitHub App for this personal GitHub owner.",
+    );
+    expect(rootElement?.textContent).toContain(
+      "You will keep organization access but lose owner controls.",
     );
     const confirmationDialog = rootElement?.querySelector<HTMLElement>("[role=dialog]");
     if (!confirmationDialog) {

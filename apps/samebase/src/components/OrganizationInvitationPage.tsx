@@ -1,25 +1,33 @@
 import { useAppAuthActions } from "@/authClient";
 import { OrganizationInvitationPageView } from "@/components/OrganizationInvitationPageView";
 import { ORGANIZATION_VAULTS_ROUTE } from "@/lib/organizationRoutes";
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useMutation, useQuery } from "convex/react";
-import { useState } from "react";
+import { useAction, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 
 export function OrganizationInvitationPage({ code }: { code: string }) {
-  const [now] = useState(() => Math.floor(Date.now() / 60_000) * 60_000);
-  const invitation = useQuery(api.organizationMembers.getInvitation, { code, now });
+  const getInvitation = useAction(api.organizationMembers.getInvitation);
+  const invitationQuery = useQuery({
+    queryFn: async () => await getInvitation({ code }),
+    queryKey: ["organization-invitation", code],
+    refetchOnMount: "always",
+    retry: 1,
+  });
   const acceptInvitation = useMutation(api.organizationMembers.acceptInvitation);
   const { signOut } = useAppAuthActions();
   const navigate = useNavigate();
 
-  if (invitation === undefined) {
+  if (invitationQuery.isError) {
+    throw invitationQuery.error;
+  }
+  if (invitationQuery.data === undefined) {
     return null;
   }
 
   return (
     <OrganizationInvitationPageView
-      invitation={invitation}
+      invitation={invitationQuery.data}
       onJoin={async () => {
         const result = await acceptInvitation({ code });
         await navigate({
@@ -27,7 +35,10 @@ export function OrganizationInvitationPage({ code }: { code: string }) {
           to: ORGANIZATION_VAULTS_ROUTE,
         });
       }}
-      onSignOut={signOut}
+      onSignOut={async () => {
+        await signOut();
+        await invitationQuery.refetch();
+      }}
     />
   );
 }

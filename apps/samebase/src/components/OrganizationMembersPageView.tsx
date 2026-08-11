@@ -480,7 +480,9 @@ function getConfirmationContent(confirmation: MemberConfirmation): {
     }
     return {
       actionLabel: "Make Samebase member",
-      description: "They will keep organization access but lose owner controls.",
+      description: confirmation.member.isViewer
+        ? "You will keep organization access but lose owner controls."
+        : "They will keep organization access but lose owner controls.",
       pendingLabel: "Making Samebase member...",
       title: `Make ${identity} a Samebase member?`,
       variant: "default",
@@ -634,7 +636,10 @@ export function OrganizationMembersPageView({
   const [inviteOpen, setInviteOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<MemberConfirmation | null>(null);
   const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
-  const [copyError, setCopyError] = useState<string | null>(null);
+  const [copyFallback, setCopyFallback] = useState<{
+    invitationId: OrganizationInvitationId;
+    invitationUrl: string;
+  } | null>(null);
   const relationshipByUserId = new Map(
     githubRelationships?.map((relationship) => [relationship.userId, relationship.status]),
   );
@@ -642,11 +647,12 @@ export function OrganizationMembersPageView({
 
   const copyPendingInvitation = (invitation: PendingOrganizationInvitation) => {
     const invitationUrl = `${window.location.origin}/invite/${encodeURIComponent(invitation.code)}`;
-    setCopyError(null);
-    void navigator.clipboard
-      .writeText(invitationUrl)
+    setCopiedInvitationId(null);
+    setCopyFallback(null);
+    void Promise.resolve()
+      .then(() => navigator.clipboard.writeText(invitationUrl))
       .then(() => setCopiedInvitationId(invitation.invitationId))
-      .catch(() => setCopyError("Could not copy the invitation link. Try again."));
+      .catch(() => setCopyFallback({ invitationId: invitation.invitationId, invitationUrl }));
   };
 
   return (
@@ -748,6 +754,27 @@ export function OrganizationMembersPageView({
                   <div className="mt-1 text-sm text-muted-foreground">
                     {`Created by ${invitation.createdBy.label}. Expires ${formatInvitationExpiry(invitation.expiresAt)}.`}
                   </div>
+                  {copyFallback?.invitationId === invitation.invitationId ? (
+                    <div className="mt-3 space-y-2" data-posthog-block>
+                      <Label htmlFor={`pending-invitation-link-${invitation.invitationId}`}>
+                        Invitation link
+                      </Label>
+                      <Input
+                        aria-describedby={`pending-invitation-copy-error-${invitation.invitationId}`}
+                        id={`pending-invitation-link-${invitation.invitationId}`}
+                        onFocus={(event) => event.currentTarget.select()}
+                        readOnly
+                        value={copyFallback.invitationUrl}
+                      />
+                      <p
+                        className="text-sm text-destructive"
+                        id={`pending-invitation-copy-error-${invitation.invitationId}`}
+                        role="alert"
+                      >
+                        Could not copy the invitation link. Copy it from the field.
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
                   <Button
@@ -782,11 +809,6 @@ export function OrganizationMembersPageView({
               </li>
             ))}
           </ul>
-          {copyError === null ? null : (
-            <p className="mt-3 text-sm text-destructive" role="alert">
-              {copyError}
-            </p>
-          )}
         </section>
       ) : null}
 
