@@ -35,6 +35,7 @@ async function createValidationFixture() {
       deletion: { state: "not_deleting" },
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId,
       userId,
       vaultId,
       repositoryFullName: "ada/demo",

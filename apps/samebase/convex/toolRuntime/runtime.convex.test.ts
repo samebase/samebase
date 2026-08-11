@@ -88,6 +88,7 @@ describe("MCP tool runtime boundaries", () => {
         state: "not_connected",
       });
       const authorizedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId,
         userId,
         vaultId: authorizedVaultId,
         repositoryFullName: "tool-runtime-owner/authorized",
@@ -132,6 +133,7 @@ describe("MCP tool runtime boundaries", () => {
         state: "not_connected",
       });
       const otherRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId: otherOrganizationId,
         userId,
         vaultId: otherRunVaultId,
         repositoryFullName: "other-owner/hidden",

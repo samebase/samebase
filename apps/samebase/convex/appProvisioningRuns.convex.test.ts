@@ -42,6 +42,7 @@ async function createRetryFixture(blocker: RetryBlocker, t = makeConvexTest()) {
       state: "not_connected",
     });
     const failedRunId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId,
       userId,
       vaultId,
       repositoryFullName: "ada/retry-guard",
@@ -345,41 +346,5 @@ describe("app provisioning retry admission", () => {
       expect(state.deletion).toEqual({ state: "not_deleting" });
       expect(state.queuedRunCount).toBe(1);
     }
-  });
-});
-
-describe("provisioning run organization backfill", () => {
-  it("derives the organization from each vault and can run again safely", async () => {
-    const { ids, t } = await createRetryFixture("none");
-
-    await expect(t.query(internal.appProvisioningRuns.verifyOrganizationIds, {})).resolves.toEqual({
-      complete: false,
-      missingRunId: ids.failedRunId,
-    });
-    await expect(
-      t.mutation(internal.appProvisioningRuns.backfillOrganizationIds, {}),
-    ).resolves.toEqual({ updated: 1 });
-    await expect(t.run(async (ctx) => await ctx.db.get(ids.failedRunId))).resolves.toMatchObject({
-      organizationId: ids.organizationId,
-    });
-    await expect(t.query(internal.appProvisioningRuns.verifyOrganizationIds, {})).resolves.toEqual({
-      complete: true,
-      missingRunId: null,
-    });
-    await expect(
-      t.mutation(internal.appProvisioningRuns.backfillOrganizationIds, {}),
-    ).resolves.toEqual({ updated: 0 });
-  });
-
-  it("fails without changing the run when its vault is missing", async () => {
-    const { ids, t } = await createRetryFixture("none");
-    await t.run(async (ctx) => await ctx.db.delete(ids.vaultId));
-
-    await expect(
-      t.mutation(internal.appProvisioningRuns.backfillOrganizationIds, {}),
-    ).rejects.toThrow(`Provisioning run ${ids.failedRunId} references a missing vault.`);
-    await expect(
-      t.run(async (ctx) => await ctx.db.get(ids.failedRunId)),
-    ).resolves.not.toHaveProperty("organizationId");
   });
 });

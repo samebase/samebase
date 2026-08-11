@@ -68,6 +68,7 @@ describe("posthog client setup", () => {
         dev: false,
       }),
     ).toMatchObject({
+      advanced_disable_feature_flags: true,
       api_host: "https://posthog.samebase.com",
       capture_exceptions: true,
       capture_pageleave: true,
@@ -81,6 +82,133 @@ describe("posthog client setup", () => {
         maskInputFn: expect.any(Function),
         maskTextSelector: ".cm-editor, .monaco-editor, [data-posthog-mask]",
       },
+    });
+  });
+
+  it("replaces invitation codes in PostHog event and person URL properties before send", () => {
+    const config = buildSamebasePostHogInitConfig({
+      apiHost: "https://posthog.samebase.com",
+      dev: false,
+    });
+    const beforeSend = config.before_send;
+    if (typeof beforeSend !== "function") {
+      throw new Error("PostHog before_send is not configured as one function.");
+    }
+
+    const event = beforeSend({
+      event: "$exception",
+      properties: {
+        $current_url: "https://samebase.com/invite/current-secret?prod-ui#continue",
+        $initial_current_url: "https://samebase.com/invite/initial-secret",
+        $initial_pathname: "/invite/initial-path-secret",
+        $pathname: "/invite/path-secret",
+        $prev_pageview_pathname: "/settings",
+        $referrer: "https://samebase.com/invite/referrer-secret",
+        $session_entry_pathname: "/invite/session-path-secret",
+        $session_entry_url: "/invite/session-secret?source=github",
+      },
+      $set: {
+        $current_url: "https://samebase.com/invite/set-secret",
+        $pathname: "/invite/set-path-secret",
+        $referrer: "https://samebase.com/invite/set-referrer-secret",
+      },
+      $set_once: {
+        $initial_current_url: "https://samebase.com/invite/set-once-secret",
+        $initial_pathname: "/invite/set-once-path-secret",
+        $initial_referrer: "https://samebase.com/invite/set-once-referrer-secret",
+      },
+      uuid: "event-id",
+    });
+
+    expect(event).toMatchObject({
+      properties: {
+        $current_url: "https://samebase.com/invite/[invitation]?prod-ui#continue",
+        $initial_current_url: "https://samebase.com/invite/[invitation]",
+        $initial_pathname: "/invite/[invitation]",
+        $pathname: "/invite/[invitation]",
+        $prev_pageview_pathname: "/settings",
+        $referrer: "https://samebase.com/invite/[invitation]",
+        $session_entry_pathname: "/invite/[invitation]",
+        $session_entry_url: "/invite/[invitation]?source=github",
+      },
+      $set: {
+        $current_url: "https://samebase.com/invite/[invitation]",
+        $pathname: "/invite/[invitation]",
+        $referrer: "https://samebase.com/invite/[invitation]",
+      },
+      $set_once: {
+        $initial_current_url: "https://samebase.com/invite/[invitation]",
+        $initial_pathname: "/invite/[invitation]",
+        $initial_referrer: "https://samebase.com/invite/[invitation]",
+      },
+    });
+  });
+
+  it("replaces invitation codes in session replay request URLs", () => {
+    const config = buildSamebasePostHogInitConfig({
+      apiHost: "https://posthog.samebase.com",
+      dev: false,
+    });
+    const maskRequest = config.session_recording?.maskCapturedNetworkRequestFn;
+    if (typeof maskRequest !== "function") {
+      throw new Error("PostHog session replay request masking is not configured.");
+    }
+    const request = {
+      duration: 0,
+      entryType: "navigation",
+      name: "https://samebase.com/invite/meta-secret?prod-ui",
+      startTime: 0,
+      url: "/invite/compatibility-secret#continue",
+    };
+
+    const maskedRequest = maskRequest(request);
+
+    expect(maskedRequest?.name).toBe("https://samebase.com/invite/[invitation]?prod-ui");
+    expect(request.url).toBe("/invite/[invitation]#continue");
+  });
+
+  it("replaces invitation codes in replay snapshots and heatmap keys", () => {
+    const config = buildSamebasePostHogInitConfig({
+      apiHost: "https://posthog.samebase.com",
+      dev: false,
+    });
+    const beforeSend = config.before_send;
+    if (typeof beforeSend !== "function") {
+      throw new Error("PostHog before_send is not configured as one function.");
+    }
+
+    const event = beforeSend({
+      event: "$snapshot",
+      properties: {
+        $heatmap_data: {
+          "https://samebase.com/INVITE/first-secret": [{ type: "click", x: 1, y: 2 }],
+          "https://samebase.com/invite/second-secret/details": [{ type: "mousemove", x: 3, y: 4 }],
+        },
+        $snapshot_data: [
+          {
+            data: { href: "https://samebase.com/invite/replay-secret?prod-ui", width: 1280 },
+            timestamp: 1,
+            type: 4,
+          },
+          { data: { source: 1 }, timestamp: 2, type: 3 },
+        ],
+      },
+      uuid: "event-id",
+    });
+
+    expect(event?.properties["$snapshot_data"]).toEqual([
+      {
+        data: { href: "https://samebase.com/invite/[invitation]?prod-ui", width: 1280 },
+        timestamp: 1,
+        type: 4,
+      },
+      { data: { source: 1 }, timestamp: 2, type: 3 },
+    ]);
+    expect(event?.properties["$heatmap_data"]).toEqual({
+      "https://samebase.com/invite/[invitation]": [
+        { type: "click", x: 1, y: 2 },
+        { type: "mousemove", x: 3, y: 4 },
+      ],
     });
   });
 
@@ -126,5 +254,23 @@ describe("posthog client setup", () => {
     expect(
       sanitizeSamebasePostHogPageviewUrl("/docs#handoff=not-secret", "https://samebase.com"),
     ).toBe("https://samebase.com/docs#handoff=not-secret");
+  });
+
+  it("replaces invitation codes in pageview URLs", () => {
+    expect(
+      sanitizeSamebasePostHogPageviewUrl(
+        "/invite/invitation_secret?prod-ui#continue",
+        "https://samebase.com",
+      ),
+    ).toBe("https://samebase.com/invite/[invitation]?prod-ui#continue");
+    expect(
+      sanitizeSamebasePostHogPageviewUrl("/invite/invitation_secret/", "https://samebase.com"),
+    ).toBe("https://samebase.com/invite/[invitation]");
+    expect(
+      sanitizeSamebasePostHogPageviewUrl(
+        "/INVITE/invitation_secret/details",
+        "https://samebase.com",
+      ),
+    ).toBe("https://samebase.com/invite/[invitation]");
   });
 });

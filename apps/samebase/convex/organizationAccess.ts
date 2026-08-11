@@ -1,14 +1,26 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type DatabaseReader } from "./_generated/server";
 import { vOrganizationMembershipRole } from "./organizationModel";
-import { readActiveUser } from "./userLifecycle";
+import { readActiveUser, type NonDeletedUserLifecycleDoc } from "./userLifecycle";
 
 export type OrganizationAccessContext = {
   userId: Id<"users">;
   organizationId: Id<"organizations">;
 };
+
+export function requireOrganizationMembershipUser(
+  user: Doc<"users"> | null,
+): NonDeletedUserLifecycleDoc {
+  if (user === null) {
+    throw new Error("Organization membership user reference is invalid.");
+  }
+  if (user.state === "deleted") {
+    throw new Error("Organization membership references a deleted user.");
+  }
+  return user;
+}
 
 export async function requireActiveOrganizationActor(
   db: DatabaseReader,
@@ -98,16 +110,13 @@ export async function requireAnotherActiveOrganizationOwner(
     if (membership.userId === args.excludedUserId) {
       continue;
     }
-    const user = await db.get(membership.userId);
-    if (user === null) {
-      throw new Error("Organization membership user reference is invalid.");
-    }
+    const user = requireOrganizationMembershipUser(await db.get(membership.userId));
     if (readActiveUser(user) !== null) {
       return;
     }
   }
 
-  throw new Error("An organization must have at least one active owner.");
+  throw new ConvexError("An organization must have at least one active owner.");
 }
 
 /** Load the organization that owns a vault and its current GitHub owner identity. */

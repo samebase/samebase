@@ -453,7 +453,13 @@ describe("GitHub-backed organizations", () => {
     await t.run(async (ctx) => {
       await ctx.db.replace(secondUserId, { state: "deleted", deletedAt: 2 });
     });
-    await expectFirstOwnerDemotionRejected();
+    await expect(
+      t.mutation(internal.organizationAdmin.addExistingUserToOrganization, {
+        organizationId: organization.organizationId,
+        role: "member",
+        userEmail: "first-owner@example.com",
+      }),
+    ).rejects.toThrowError("Organization membership references a deleted user.");
   });
 
   it("does not grant organization authority from stale membership rows", async () => {

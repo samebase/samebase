@@ -33,6 +33,7 @@ async function createComposedVault() {
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId,
       userId,
       vaultId,
       repositoryFullName: "ada/composed-app",
@@ -224,6 +225,7 @@ describe("app provisioning workflow composition", () => {
     const { ids, t } = await createComposedVault();
     const newerRunId = await t.run(async (ctx) => {
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId: ids.organizationId,
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/composed-app",
@@ -323,6 +325,7 @@ describe("app provisioning workflow composition", () => {
     const { ids, t } = await createComposedVault();
     const retryRunId = await t.run(async (ctx) => {
       return await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId: ids.organizationId,
         userId: ids.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/composed-app",

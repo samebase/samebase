@@ -8,6 +8,7 @@ import { githubUserAuthorizationTables } from "./githubUserAuthorizationModel";
 import { identityTables } from "./identityModel";
 import { mcpTables } from "./mcp/model";
 import { organizationTables } from "./organizationModel";
+import { organizationInvitationTables } from "./organizationInvitationModel";
 import { organizationProviderCredentialTables } from "./organizationProviderCredentialModel";
 import { userPreferenceTables } from "./userPreferenceModel";
 import { vaultBranchTables } from "./vault/branchModel";
@@ -21,6 +22,7 @@ import { vaultOrganizationTreeTables } from "./vault/organizationTreeModel";
 export default defineSchema({
   ...identityTables,
   ...organizationTables,
+  ...organizationInvitationTables,
   ...githubAppSetupTables,
   ...githubUserAuthorizationTables,
   ...accountDeletionTables,

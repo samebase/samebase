@@ -1,4 +1,5 @@
 import { v, type Infer } from "convex/values";
+import { omitUndefined } from "@samebase/dependent/object";
 
 import type { Doc } from "./_generated/dataModel";
 import { resolveAccountPresentation } from "../shared/accountPresentation";
@@ -79,21 +80,17 @@ export function readNonDeletedUser(user: Doc<"users">): NonDeletedUserLifecycleD
 
 /** Copy only the profile fields allowed on non-deleted lifecycle variants. */
 export function readUserProfile(user: NonDeletedUserLifecycleDoc): UserProfile {
-  return {
+  return omitUndefined({
     email: user.email,
-    ...(user.name === undefined ? {} : { name: user.name }),
-    ...(user.displayName === undefined ? {} : { displayName: user.displayName }),
-    ...(user.image === undefined ? {} : { image: user.image }),
-    ...(user.emailVerificationTime === undefined
-      ? {}
-      : { emailVerificationTime: user.emailVerificationTime }),
-    ...(user.phone === undefined ? {} : { phone: user.phone }),
-    ...(user.phoneVerificationTime === undefined
-      ? {}
-      : { phoneVerificationTime: user.phoneVerificationTime }),
-    ...(user.isAnonymous === undefined ? {} : { isAnonymous: user.isAnonymous }),
-    ...(user.isApproved === undefined ? {} : { isApproved: user.isApproved }),
-  };
+    name: user.name,
+    displayName: user.displayName,
+    image: user.image,
+    emailVerificationTime: user.emailVerificationTime,
+    phone: user.phone,
+    phoneVerificationTime: user.phoneVerificationTime,
+    isAnonymous: user.isAnonymous,
+    isApproved: user.isApproved,
+  });
 }
 
 /** Resolve an approved durable user reference without hiding a missing row. */

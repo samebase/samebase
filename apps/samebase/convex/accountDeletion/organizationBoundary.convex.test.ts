@@ -4,6 +4,7 @@ import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../githubUserAuthorizations";
 import { makeConvexTest } from "../test.setup";
+import { cleanupAccountDataBatchForUser } from "./cleanup";
 
 const workflowId = "account-deletion-organization-boundary";
 
@@ -300,10 +301,160 @@ describe("account deletion organization boundary", () => {
     });
   });
 
+  it("preserves creator attribution and scrubs an accepted recipient", async () => {
+    const t = makeConvexTest();
+    const ids = await t.run(async (ctx) => {
+      const deletingUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "invitation-deleting@example.invalid",
+        isApproved: true,
+      });
+      const ownerUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "invitation-owner@example.invalid",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {
+        githubOwnerId: "invitation-cleanup-owner",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "invitation-cleanup-owner",
+        githubOwnerLoginNormalized: "invitation-cleanup-owner",
+        githubInstallationId: "invitation-cleanup-installation",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: ownerUserId,
+        role: "owner",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: deletingUserId,
+        role: "member",
+      });
+      const createdInvitationId = await ctx.db.insert("organizationInvitations", {
+        organizationId,
+        githubAccountId: "801",
+        githubLogin: "created-target",
+        code: "d".repeat(64),
+        createdByUserId: deletingUserId,
+        createdAt: 1,
+        expiresAt: 2,
+        state: "pending",
+      });
+      const acceptedInvitationId = await ctx.db.insert("organizationInvitations", {
+        organizationId,
+        githubAccountId: "802",
+        githubLogin: "accepted-target",
+        code: "e".repeat(64),
+        createdByUserId: ownerUserId,
+        createdAt: 1,
+        expiresAt: 2,
+        state: "accepted",
+        acceptedByUserId: deletingUserId,
+        acceptedAt: 2,
+      });
+      const retainedInvitationId = await ctx.db.insert("organizationInvitations", {
+        organizationId,
+        githubAccountId: "803",
+        githubLogin: "retained-target",
+        code: "f".repeat(64),
+        createdByUserId: ownerUserId,
+        createdAt: 1,
+        expiresAt: 2,
+        state: "pending",
+      });
+      return {
+        deletingUserId,
+        ownerUserId,
+        organizationId,
+        createdInvitationId,
+        acceptedInvitationId,
+        retainedInvitationId,
+      };
+    });
+
+    const membershipCleanupDone = await t.run(async (ctx) =>
+      cleanupAccountDataBatchForUser(ctx, { userId: ids.deletingUserId }),
+    );
+    expect(membershipCleanupDone).toBe(false);
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db
+          .query("organizationMemberships")
+          .withIndex("by_organization_and_user", (query) =>
+            query.eq("organizationId", ids.organizationId).eq("userId", ids.deletingUserId),
+          )
+          .unique(),
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(ids.acceptedInvitationId)),
+    ).resolves.toMatchObject({ state: "accepted" });
+
+    const reissued = await t.mutation(internal.organizationMembers.commitInvitation, {
+      userId: ids.ownerUserId,
+      organizationId: ids.organizationId,
+      expectedGithubAccountId: "802",
+      githubLogin: "accepted-target",
+      proposedCode: "a".repeat(64),
+    });
+    expect(reissued).toMatchObject({ state: "created", code: "a".repeat(64) });
+    expect(reissued.invitationId).not.toBe(ids.acceptedInvitationId);
+
+    let done = false;
+    for (let attempt = 0; attempt < 3 && !done; attempt += 1) {
+      done = await t.run(async (ctx) =>
+        cleanupAccountDataBatchForUser(ctx, { userId: ids.deletingUserId }),
+      );
+    }
+    expect(done).toBe(true);
+    const snapshot = await t.run(async (ctx) => ({
+      created: await ctx.db.get(ids.createdInvitationId),
+      accepted: await ctx.db.get(ids.acceptedInvitationId),
+      retained: await ctx.db.get(ids.retainedInvitationId),
+      acceptedCodeOwner: await ctx.db
+        .query("organizationInvitations")
+        .withIndex("by_code", (query) => query.eq("code", "e".repeat(64)))
+        .unique(),
+      reissued: await ctx.db.get(reissued.invitationId),
+    }));
+    expect(snapshot.created).toMatchObject({
+      state: "pending",
+      createdByUserId: ids.deletingUserId,
+      githubAccountId: "801",
+    });
+    expect(snapshot.accepted).toMatchObject({
+      state: "accepted_recipient_deleted",
+      organizationId: ids.organizationId,
+      createdByUserId: ids.ownerUserId,
+      acceptedByUserId: ids.deletingUserId,
+      createdAt: 1,
+      acceptedAt: 2,
+    });
+    expect(Object.keys(snapshot.accepted ?? {}).sort()).toEqual([
+      "_creationTime",
+      "_id",
+      "acceptedAt",
+      "acceptedByUserId",
+      "createdAt",
+      "createdByUserId",
+      "organizationId",
+      "state",
+    ]);
+    expect(snapshot.retained).toMatchObject({ githubAccountId: "803" });
+    expect(snapshot.acceptedCodeOwner).toBeNull();
+    expect(snapshot.reissued).toMatchObject({
+      state: "pending",
+      githubAccountId: "802",
+      code: "a".repeat(64),
+    });
+  });
+
   it("waits for the deleting member's active work and a fresh GitHub refresh", async () => {
     const { ids, t } = await seedRunningDeletion();
     const provisioningRunId = await t.run(async (ctx) => {
       return await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId: ids.organizationId,
         userId: ids.deletingUserId,
         vaultId: ids.vaultId,
         repositoryFullName: "example/shared",
@@ -373,6 +524,7 @@ describe("account deletion organization boundary", () => {
         completedAt: 5,
       });
       await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId: ids.organizationId,
         userId: ids.teammateUserId,
         vaultId: ids.vaultId,
         repositoryFullName: "example/shared",
@@ -852,6 +1004,7 @@ describe("account deletion organization boundary", () => {
     const { ids, t } = await seedRunningDeletion();
     await t.run(async (ctx) => {
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId: ids.organizationId,
         userId: ids.teammateUserId,
         vaultId: ids.vaultId,
         repositoryFullName: "example/shared",

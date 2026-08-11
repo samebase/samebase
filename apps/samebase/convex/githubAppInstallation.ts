@@ -31,10 +31,7 @@ import {
 import { mutation } from "./functions";
 import { OAUTH_STATE_TTL_MS, randomToken } from "./oauthUtils";
 import { vGitHubOwnerType } from "./organizationModel";
-import {
-  requireOrganizationAccessContext,
-  requireOrganizationOwnerAccessContext,
-} from "./organizationAccess";
+import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
 import {
   buildAuthorizationCompletionResponse,
   classifyAuthorizationCallbackError,
@@ -421,7 +418,7 @@ export const completeUserAuthorization = internalMutation({
       return { status: "access_lost" };
     }
     try {
-      await requireOrganizationAccessContext(ctx.db, {
+      await requireOrganizationOwnerAccessContext(ctx.db, {
         organizationId: organization._id,
         userId: setupState.userId,
       });
@@ -523,7 +520,7 @@ export const getGitHubUserAuthorizationUrl = mutation({
   },
   returns: vGitHubAuthorizationStart,
   handler: async (ctx, args) => {
-    const { organizationId } = await requireOrganizationAccessContext(ctx.db, {
+    const { organizationId } = await requireOrganizationOwnerAccessContext(ctx.db, {
       organizationId: args.organizationId,
       userId: ctx.viewer.userId,
     });

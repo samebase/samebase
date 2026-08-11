@@ -70,6 +70,36 @@ async function seedCheckoutContinuation() {
 }
 
 describe("organization billing access", () => {
+  it("rejects the final billing owner check after membership removal", async () => {
+    const seed = await seedCheckoutContinuation();
+    await expect(
+      seed.t.query(internal.billing.confirmCurrentBillingOwner, {
+        userId: seed.userId,
+        organizationId: seed.organizationId,
+      }),
+    ).resolves.toBeNull();
+
+    await seed.t.run(async (ctx) => {
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", seed.organizationId).eq("userId", seed.userId),
+        )
+        .unique();
+      if (membership === null) {
+        throw new Error("Billing owner membership is required.");
+      }
+      await ctx.db.delete(membership._id);
+    });
+
+    await expect(
+      seed.t.query(internal.billing.confirmCurrentBillingOwner, {
+        userId: seed.userId,
+        organizationId: seed.organizationId,
+      }),
+    ).rejects.toThrow("Organization owner access is required.");
+  });
+
   it("rejects a new checkout reservation after the owner starts account deletion", async () => {
     const seed = await seedCheckoutContinuation();
     await seed.makeInitiatorDeleting();

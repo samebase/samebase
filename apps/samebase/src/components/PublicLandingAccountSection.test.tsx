@@ -433,6 +433,46 @@ describe("PublicLandingAccountSection", () => {
     rootElement.remove();
   });
 
+  it("keeps an invitation route when GitHub auth starts", async () => {
+    prepareLandingAccountSection("/invite/invitation-code?signup=github");
+    buildLocationMock.mockImplementation(
+      (options: { search: (currentSearch: RootRouteSearch) => RootRouteSearch; to: string }) => {
+        expect(options.to).toBe(".");
+        expect(options.search({ signup: "github" })).toEqual({
+          auth: undefined,
+          "auth-return": undefined,
+          signup: undefined,
+        });
+        return { href: "/invite/invitation-code" };
+      },
+    );
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    await act(async () => {
+      root.render(createLandingAccountSectionElement());
+    });
+
+    const githubButton = Array.from(rootElement.querySelectorAll("button")).find(
+      (button) => button.textContent.trim() === "Continue with GitHub",
+    );
+    if (!(githubButton instanceof HTMLButtonElement)) {
+      throw new Error("GitHub sign-in button not found.");
+    }
+
+    await act(async () => {
+      githubButton.click();
+    });
+
+    expect(signInWithOAuthMock).toHaveBeenCalledWith("github", "/invite/invitation-code");
+
+    await act(async () => {
+      root.unmount();
+    });
+    rootElement.remove();
+  });
+
   it("shows the internal-app message after a failed public Google signup return", () => {
     const markup = renderLandingAccountSection("/?signup=google");
 

@@ -4,6 +4,7 @@ import { ConvexError, Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { action, query } from "./functions";
+import { findOrganizationMembership } from "./organizationAccess";
 import {
   findBillingAccountForOrganization,
   patchBillingAccount,
@@ -13,7 +14,7 @@ import {
 } from "./organizationBilling";
 import { randomToken } from "./oauthUtils";
 import { reconcilePolarCustomerBilling } from "./polarBillingState";
-import { vActiveUserDoc } from "./userLifecycle";
+import { readActiveUser, vActiveUserDoc } from "./userLifecycle";
 import {
   canClearPolarCheckoutAfterObservation,
   isDefinitivePolarCheckoutFailure,
@@ -31,7 +32,7 @@ import { normalizeAccountEmail, resolveAccountPresentation } from "../shared/acc
 import schema from "./schema";
 import { vOrganizationMembershipRole } from "./organizationModel";
 
-const { boolean, id, literal, number, object, optional, string, union } = v;
+const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
 const vBillingPlan = union(literal("free"), literal("pro"));
 type BillingPlan = Infer<typeof vBillingPlan>;
@@ -183,6 +184,25 @@ export const getBillingAccountForOrganization = internalQuery({
   handler: async (ctx, args) => await findBillingAccountForOrganization(ctx.db, args),
 });
 
+export const confirmCurrentBillingOwner = internalQuery({
+  args: {
+    userId: id("users"),
+    organizationId: id("organizations"),
+  },
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(args.userId);
+    if (user === null) {
+      throw new Error("Billing actor user reference is invalid.");
+    }
+    const membership = await findOrganizationMembership(ctx.db, args);
+    if (readActiveUser(user) === null || membership?.role !== "owner") {
+      throw new ConvexError("Organization owner access is required.");
+    }
+    return null;
+  },
+});
+
 export const ensurePolarExternalCustomerId = internalMutation({
   args: {
     userId: id("users"),
@@ -238,7 +258,7 @@ export const createPolarCheckoutSession = action({
       throw new Error("User not found.");
     }
     if (currentBilling.role !== "owner") {
-      throw new Error("Organization owner access is required.");
+      throw new ConvexError("Organization owner access is required.");
     }
     const githubOwnerLogin = await ctx.runQuery(
       internal.organizations.getExternalReturnOwnerLogin,
@@ -316,6 +336,10 @@ export const createPolarCheckoutSession = action({
           successUrl,
         })
       ) {
+        await ctx.runQuery(internal.billing.confirmCurrentBillingOwner, {
+          userId,
+          organizationId,
+        });
         return { url: storedCheckout.url };
       }
       if (
@@ -400,6 +424,10 @@ export const createPolarCheckoutSession = action({
     if (!recorded) {
       throw new ConvexError("Polar checkout could not be started.");
     }
+    await ctx.runQuery(internal.billing.confirmCurrentBillingOwner, {
+      userId,
+      organizationId,
+    });
     return { url: checkout.url };
   },
 });
@@ -421,7 +449,7 @@ export const createPolarCustomerPortalSession = action({
       throw new Error("User not found.");
     }
     if (currentBilling.role !== "owner") {
-      throw new Error("Organization owner access is required.");
+      throw new ConvexError("Organization owner access is required.");
     }
     const githubOwnerLogin = await ctx.runQuery(
       internal.organizations.getExternalReturnOwnerLogin,
@@ -445,19 +473,24 @@ export const createPolarCustomerPortalSession = action({
       server,
     });
 
+    let portalUrl: string;
     try {
       const session = await createPolarClient().customerSessions.create({
         externalCustomerId,
         returnUrl,
       });
-
-      return { url: session.customerPortalUrl };
+      portalUrl = session.customerPortalUrl;
     } catch (error) {
       console.error("billing:polar:portal_failed", {
         errorName: error instanceof Error ? error.name : "UnknownError",
       });
       throw new ConvexError("The billing portal could not be opened.");
     }
+    await ctx.runQuery(internal.billing.confirmCurrentBillingOwner, {
+      userId,
+      organizationId: args.organizationId,
+    });
+    return { url: portalUrl };
   },
 });
 

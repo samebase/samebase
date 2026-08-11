@@ -121,6 +121,7 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId,
       userId,
       vaultId,
       repositoryFullName: "ada/demo",

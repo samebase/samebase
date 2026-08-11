@@ -40,7 +40,7 @@ const personalOrganization = {
   githubOwnerLogin: "nicubunu",
   githubOwnerType: "user" as const,
   organizationId: fakeOrganizationId("organization_nicubunu"),
-  role: "member" as const,
+  role: "owner" as const,
 };
 
 type TestOrganization = Parameters<typeof ProviderConnectionsPage>[0]["organization"];
@@ -496,6 +496,32 @@ describe("ProviderConnectionsPage", () => {
       returnToPath: "/org/nicubunu/providers",
     });
   });
+
+  it.each([
+    { authorization: { status: "not_connected" as const }, label: "Authorize" },
+    {
+      authorization: {
+        githubUserLogin: "nicubunu",
+        refreshTokenExpiresAt: 0,
+        status: "authorized" as const,
+      },
+      label: "Reauthorize",
+    },
+  ])(
+    "does not offer $label personal repository authorization to a member",
+    ({ authorization, label }) => {
+      setProviderQueries();
+      testState.queries.set(
+        getFunctionName(api.githubUserAuthorizations.getViewerPersonalRepositoryAuthorization),
+        authorization,
+      );
+
+      const container = mountProviderConnectionsPage({ ...personalOrganization, role: "member" });
+
+      expect(container.textContent).toContain("Personal repository creation");
+      expect(findButton(container, label)).toBeUndefined();
+    },
+  );
 
   it("shows and revokes personal repository authorization", async () => {
     setProviderQueries();

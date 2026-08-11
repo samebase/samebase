@@ -24,6 +24,7 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
+import { isOrganizationInvitationPath } from "@/lib/organizationInvitationRoute";
 
 /**
  * SSG cannot read per-browser auth preferences. Password auth controls that
@@ -145,7 +146,8 @@ export function PublicLandingAuthControls({
   }
 
   const publicSignup = oauthAuthFlow === "public-signup";
-  const markPublicSignupReturn = location.pathname !== MCP_CONSENT_APP_PATH;
+  const markPublicSignupReturn =
+    location.pathname !== MCP_CONSENT_APP_PATH && !isOrganizationInvitationPath(location.pathname);
 
   return (
     <div className="flex flex-col gap-2">

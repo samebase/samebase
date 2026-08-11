@@ -20,6 +20,7 @@ import {
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import {
   ORGANIZATION_CONNECT_REPO_ROUTE,
+  ORGANIZATION_MEMBERS_ROUTE,
   ORGANIZATION_NEW_APP_ROUTE,
   ORGANIZATION_PROVIDERS_ROUTE,
   ORGANIZATION_SETTINGS_ROUTE,
@@ -172,6 +173,13 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
         to={ORGANIZATION_CONNECT_REPO_ROUTE}
       >
         Connect repository
+      </Link>
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_MEMBERS_ROUTE}
+      >
+        Members
       </Link>
       <Link
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}

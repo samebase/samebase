@@ -20,7 +20,7 @@ import {
   type SafeOmit,
   type UnionToIntersection,
 } from "../src/index.ts";
-import { entries, fromEntries, keys, mapEntries, pick } from "../src/object.ts";
+import { entries, fromEntries, keys, mapEntries, omitUndefined, pick } from "../src/object.ts";
 
 describe("dependent array helpers", () => {
   it("keeps tuple guarantees for map, reverse, and promiseAll", async () => {
@@ -121,6 +121,24 @@ describe("dependent object helpers", () => {
 
     expectType<{ readonly a: 1; readonly c?: true }>()(picked, true);
     expect(picked).toEqual({ a: 1 });
+  });
+
+  it("omits undefined object values", () => {
+    const value: {
+      readonly required: string;
+      readonly optional: number | undefined;
+      readonly missing?: boolean;
+    } = {
+      required: "value",
+      optional: undefined,
+    };
+
+    const result = omitUndefined(value);
+
+    expectType<string>()(result.required, true);
+    expectType<number | undefined>()(result.optional, true);
+    expectType<boolean | undefined>()(result.missing, true);
+    expect(result).toEqual({ required: "value" });
   });
 });
 

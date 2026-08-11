@@ -4,8 +4,9 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase product
-- Last updated: 2026-08-08
+- Last updated: 2026-08-11
 - Depends on: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
+- Related: `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md`
 - Supersedes: `archive/118_VAULT_FOLDER_SPEC.md`
 - Approved proposal: <https://github.com/samebase/samebase/pull/1371>
 - Active reset coordination: `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
@@ -33,17 +34,19 @@ User-owned pages use these routes:
 
 Organization-owned pages use these routes:
 
-| Route                      | Contract                                                                                                    |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `/org/:owner`              | Check access, then redirect to `/org/:owner/vaults`.                                                        |
-| `/org/:owner/vaults`       | Show only vaults owned by this organization.                                                                |
-| `/org/:owner/providers`    | Show GitHub App health, personal repository authorization when needed, and deployment provider connections. |
-| `/org/:owner/new-app`      | Create a repository and provider resources in this organization.                                            |
-| `/org/:owner/connect-repo` | Connect a repository owned by this GitHub owner.                                                            |
-| `/org/:owner/settings`     | Show identity, role, billing, usage, quota, and plan controls.                                              |
+| Route                          | Contract                                                                                                    |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `/org/:owner`                  | Check access, then redirect to `/org/:owner/vaults`.                                                        |
+| `/org/:owner/vaults`           | Show only vaults owned by this organization.                                                                |
+| `/org/:owner/providers`        | Show GitHub App health, personal repository authorization when needed, and deployment provider connections. |
+| `/org/:owner/new-app`          | Create a repository and provider resources in this organization.                                            |
+| `/org/:owner/connect-repo`     | Connect a repository owned by this GitHub owner.                                                            |
+| `/org/:owner/settings/members` | List and administer Samebase membership and show live GitHub relationship information.                      |
+| `/org/:owner/settings`         | Show identity, role, billing, usage, quota, and plan controls.                                              |
 
-The future members route is `/org/:owner/settings/members`. Samebase must not ship the route until
-member administration has real behavior.
+The public invitation route is `/invite/:code`. Its opaque code identifies one invitation, but the
+exact linked GitHub identity and explicit recipient action authorize acceptance. Spec 123 owns this
+route and the Members page behavior.
 
 Vault resources keep `/vault/:owner/:repo` and its existing child routes. This includes the shipped
 FileView path `/vault/:owner/:repo/fs/:branch/*`. This work changes the shared context around
@@ -71,9 +74,10 @@ The switch keeps the same organization section when the target route supports it
 vault route opens the target organization's vault list. Each switch creates a normal browser history
 entry. Back, Forward, reload, and direct links read the owner from the route.
 
-The right navigation pane uses the route owner. Below the context control, it provides Vaults,
-Providers, New app, Connect repository, and Organization settings. Shared account navigation
-provides All vaults and Account settings. The global vault page always provides Install GitHub App.
+The right navigation pane uses the route owner. Below the context control, it provides `Vaults`,
+`Providers`, `New app`, `Connect repository`, `Members`, and `Organization settings` in that order.
+Shared account navigation provides All vaults and Account settings. The global vault page always
+provides Install GitHub App.
 
 ## Global Vault Inventory
 
@@ -102,8 +106,8 @@ and MCP grants. User settings contain no organization selector, personal reposit
 or organization billing.
 
 Organization settings own the GitHub owner identity, Samebase role, GitHub App installation health,
-billing, and future member administration. Convex and Cloudflare connections use the organization
-providers route.
+billing, and member administration. Convex and Cloudflare connections use the organization providers
+route.
 
 The providers route shows `Personal repository creation` only when the selected organization has
 `githubOwnerType: "user"`. This authorization lets Samebase call GitHub as the exact personal owner

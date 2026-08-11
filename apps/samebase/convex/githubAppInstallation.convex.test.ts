@@ -81,7 +81,7 @@ async function insertOrganizationForUser(
     await ctx.db.insert("organizationMemberships", {
       organizationId,
       userId: args.userId,
-      role: "member",
+      role: "owner",
     });
     return organizationId;
   });
@@ -529,6 +529,146 @@ describe("verified GitHub App installation completion", () => {
       githubOwnerType: "user",
     });
     expect(snapshot.setupState).toBeNull();
+  });
+
+  it("denies personal GitHub authorization setup to a Samebase member", async () => {
+    const t = makeConvexTest();
+    const { memberId, ownerId } = await t.run(async (ctx) => {
+      const memberId = await ctx.db.insert("users", {
+        state: "active",
+        email: "member-authorization@example.com",
+        isApproved: true,
+      });
+      await insertGitHubSignInAccount(ctx, {
+        userId: memberId,
+        githubUserId: "member-personal-owner",
+        githubUserLogin: "member-personal-owner",
+      });
+      const ownerId = await ctx.db.insert("users", {
+        state: "active",
+        email: "remaining-owner@example.com",
+        isApproved: true,
+      });
+      return { memberId, ownerId };
+    });
+    const organizationId = await insertOrganizationForUser(t, {
+      githubOwnerId: "member-personal-owner",
+      githubOwnerLogin: "member-personal-owner",
+      githubOwnerType: "user",
+      userId: memberId,
+    });
+    await t.run(async (ctx) => {
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", organizationId).eq("userId", memberId),
+        )
+        .unique();
+      if (membership === null) {
+        throw new Error("Member organization membership is required.");
+      }
+      await ctx.db.patch(membership._id, { role: "member" });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: ownerId,
+        role: "owner",
+      });
+    });
+
+    await expect(
+      t
+        .withIdentity({
+          subject: `${memberId}|member-authorization-session`,
+          tokenIdentifier: `test:${memberId}`,
+        })
+        .mutation(api.githubAppInstallation.getGitHubUserAuthorizationUrl, { organizationId }),
+    ).rejects.toThrowError("Organization owner access is required.");
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("githubAppSetupStates").first()),
+    ).resolves.toBeNull();
+  });
+
+  it("loses personal GitHub authorization access after owner demotion", async () => {
+    const t = makeConvexTest();
+    const { ownerId, remainingOwnerId } = await t.run(async (ctx) => {
+      const ownerId = await ctx.db.insert("users", {
+        state: "active",
+        email: "demoted-authorization@example.com",
+        isApproved: true,
+      });
+      await insertGitHubSignInAccount(ctx, {
+        userId: ownerId,
+        githubUserId: "demoted-personal-owner",
+        githubUserLogin: "demoted-personal-owner",
+      });
+      const remainingOwnerId = await ctx.db.insert("users", {
+        state: "active",
+        email: "demotion-remaining-owner@example.com",
+        isApproved: true,
+      });
+      return { ownerId, remainingOwnerId };
+    });
+    const organizationId = await insertOrganizationForUser(t, {
+      githubOwnerId: "demoted-personal-owner",
+      githubOwnerLogin: "demoted-personal-owner",
+      githubOwnerType: "user",
+      userId: ownerId,
+    });
+    stubGitHubAppConfiguration();
+    const setup = await t
+      .withIdentity({
+        subject: `${ownerId}|demoted-authorization-session`,
+        tokenIdentifier: `test:${ownerId}`,
+      })
+      .mutation(api.githubAppInstallation.getGitHubUserAuthorizationUrl, { organizationId });
+    const state = new URL(setup.setupUrl).searchParams.get("state");
+    if (state === null) {
+      throw new Error("GitHub authorization state is required.");
+    }
+    const setupState = await t.run(async (ctx) => {
+      const setupState = await ctx.db
+        .query("githubAppSetupStates")
+        .withIndex("by_state", (query) => query.eq("state", state))
+        .unique();
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", organizationId).eq("userId", ownerId),
+        )
+        .unique();
+      if (membership === null) {
+        throw new Error("Owner organization membership is required.");
+      }
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: remainingOwnerId,
+        role: "owner",
+      });
+      await ctx.db.patch(membership._id, { role: "member" });
+      return setupState;
+    });
+    if (setupState === null) {
+      throw new Error("GitHub authorization setup state is required.");
+    }
+
+    await expect(
+      t.mutation(internal.githubAppInstallation.completeUserAuthorization, {
+        setupStateId: setupState._id,
+        state,
+        githubUserId: "demoted-personal-owner",
+        githubUserLogin: "demoted-personal-owner",
+        accessToken: "demoted-access-token",
+        accessTokenExpiresAt: Date.now() + 60_000,
+        refreshToken: "demoted-refresh-token",
+        refreshTokenExpiresAt: Date.now() + 120_000,
+      }),
+    ).resolves.toEqual({ status: "access_lost" });
+    await expect(
+      t.run(async (ctx) => ({
+        authorization: await ctx.db.query("githubUserAuthorizations").first(),
+        setupState: await ctx.db.get(setupState._id),
+      })),
+    ).resolves.toEqual({ authorization: null, setupState: null });
   });
 
   it("denies personal GitHub authorization setup to a pending user", async () => {
