@@ -6,6 +6,10 @@ import { signInIfNeeded } from "./liveHelpers";
 const TEMP_RESOURCE_PREFIX = process.env.PLAYWRIGHT_TEMP_RESOURCE_PREFIX?.trim() || "tmp-e19d-live";
 const EXISTING_REPOSITORY_FULL_NAME = process.env.PLAYWRIGHT_EXISTING_REPOSITORY_FULL_NAME?.trim();
 const APP_CREATION_INTENT = "app-create";
+const APP_CREATION_TEST_TIMEOUT_MS = 120_000;
+const APP_PROVISIONING_TIMEOUT_MS = 60_000;
+const APP_CLEANUP_TIMEOUT_MS = 45_000;
+const APP_DASHBOARD_TIMEOUT_MS = 15_000;
 
 const setupSummarySchema = z.object({
   status: z.enum(["not_applicable", "ready", "running", "failed"]),
@@ -120,7 +124,7 @@ function vaultListLink(page: Page, repositoryFullName: string): Locator {
 
 async function openVaultContractInspector(page: Page): Promise<Locator> {
   const summary = page.getByText("Vault contract", { exact: true });
-  await expect(summary).toBeVisible({ timeout: 120_000 });
+  await expect(summary).toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
 
   const details = summary.locator("..");
   if ((await details.getAttribute("open")) === null) {
@@ -178,7 +182,7 @@ function readActiveProvisioningStep(contract: VaultContract): string {
 
 async function selectTemporaryVault(page: Page, repositoryFullName: string): Promise<void> {
   const link = vaultListLink(page, repositoryFullName);
-  await expect(link).toBeVisible({ timeout: 120_000 });
+  await expect(link).toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
   await link.click();
   await expect(page).toHaveURL(new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`));
 }
@@ -376,7 +380,7 @@ type VaultCleanupTargets = {
 
 async function prepareVaultListForOwner(page: Page, owner: string): Promise<void> {
   await expect(page.getByLabel("Loading vaults", { exact: true }).first()).not.toBeVisible({
-    timeout: 120_000,
+    timeout: APP_DASHBOARD_TIMEOUT_MS,
   });
 
   const navigation = page.getByRole("navigation", { name: "Vaults" }).first();
@@ -459,7 +463,7 @@ async function waitForVaultRemoval(page: Page, repositoryFullName: string): Prom
         {
           intervals: [1_000, 2_000, 5_000],
           message: `Wait for durable dashboard cleanup of ${repositoryName}.`,
-          timeout: 360_000,
+          timeout: APP_CLEANUP_TIMEOUT_MS,
         },
       )
       .toBe("terminal");
@@ -485,7 +489,7 @@ async function removeTemporaryVault(
 ): Promise<void> {
   await openVaultSettings(page);
   const removeControl = removeVaultControl(page);
-  await expect(removeControl).toBeVisible({ timeout: 120_000 });
+  await expect(removeControl).toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
   await expect(removeControl).toBeEnabled();
 
   await removeControl.click();
@@ -532,7 +536,7 @@ async function removeTemporaryVault(
   }
 
   await removeDialog.getByRole("button", { name: "Remove Vault" }).click();
-  await expect(removeDialog).not.toBeVisible({ timeout: 120_000 });
+  await expect(removeDialog).not.toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
   await expect(page).toHaveURL(/(?:\?|&)dev(?:[=&]|&|#|$)/);
   await expect(page).not.toHaveURL(/(?:\?|&)delete(?:&|#|$)/);
   await waitForVaultRemoval(page, repositoryFullName);
@@ -561,7 +565,7 @@ async function waitForVaultProvisioning(
   repositoryFullName: string,
 ): Promise<VaultContract> {
   const link = vaultListLink(page, repositoryFullName);
-  await expect(link).toBeVisible({ timeout: 120_000 });
+  await expect(link).toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
   const contractOutput = await openVaultContractInspector(page);
 
   try {
@@ -584,7 +588,7 @@ async function waitForVaultProvisioning(
         {
           intervals: [1_000, 2_000, 5_000],
           message: `Wait for the full app provisioning workflow for ${repositoryFullName}.`,
-          timeout: 360_000,
+          timeout: APP_PROVISIONING_TIMEOUT_MS,
         },
       )
       .not.toBe("running");
@@ -643,7 +647,7 @@ async function readCreatedAppForCleanup(
   await prepareVaultListForOwner(page, owner);
   const link = vaultListLink(page, repositoryFullName);
   const vaultExists = await link
-    .waitFor({ state: "visible", timeout: 120_000 })
+    .waitFor({ state: "visible", timeout: APP_DASHBOARD_TIMEOUT_MS })
     .then(() => true)
     .catch(() => false);
   if (!vaultExists) {
@@ -721,8 +725,7 @@ test.describe("vault create app live flow", () => {
   test("creates and fully provisions a temporary app, then removes its resources", async ({
     page,
   }, testInfo) => {
-    test.slow();
-    test.setTimeout(1_200_000);
+    test.setTimeout(APP_CREATION_TEST_TIMEOUT_MS);
     test.skip(
       testInfo.project.name !== "chromium-desktop",
       "This live test mutates external state, so it runs once on the desktop project.",
@@ -756,7 +759,7 @@ test.describe("vault create app live flow", () => {
         },
         {
           message: "Wait for the exact temporary names to pass provider availability checks.",
-          timeout: 120_000,
+          timeout: 30_000,
         },
       )
       .toBe(repositoryName);
@@ -789,7 +792,7 @@ test.describe("vault create app live flow", () => {
       try {
         await expect(page).toHaveURL(
           new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`),
-          { timeout: 120_000 },
+          { timeout: 30_000 },
         );
       } catch (error) {
         const createErrors = await page.locator(".text-red-600").allTextContents();
@@ -855,7 +858,7 @@ test.describe("vault create app live flow", () => {
         name: `Open ${repositoryFullName} on GitHub`,
       });
 
-      await expect(repositoryLink).toBeVisible({ timeout: 120_000 });
+      await expect(repositoryLink).toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
 
       await testInfo.attach("created-repository-link", {
         body: (await repositoryLink.first().getAttribute("href")) ?? "",

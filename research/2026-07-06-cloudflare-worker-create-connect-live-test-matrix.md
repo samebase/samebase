@@ -16,13 +16,13 @@ The historical resources used the `tmp-e19d-` prefix. The current owner creates 
 ## Gate Recommendation
 
 Run the current owner as one serialized scheduled or manual gate in a protected development/test
-deployment. Do not make it a required pull-request CI check. One run can use the full 20-minute test
-budget and writes a GitHub repository, a Convex project/deployment, and a Cloudflare Worker before
-the asynchronous dashboard cleanup removes them. The gate therefore needs a dedicated authenticated
-Samebase test user, a test-owned GitHub organization, Convex team, and Cloudflare account, plus
-their live provider credentials, GitHub App installations, and Workers Builds token. Normal
-pull-request CI does not have that secret or external-write authority. The gate must stay failed
-until the dashboard reports two loaded vault-absence checks after cleanup.
+deployment. Do not make it a required pull-request CI check. The full create, verify, and cleanup
+run has a two-minute hard limit. It writes a GitHub repository, a Convex project/deployment, and a
+Cloudflare Worker before the asynchronous dashboard cleanup removes them. The gate therefore needs a
+dedicated authenticated Samebase test user, a test-owned GitHub organization, Convex team, and
+Cloudflare account, plus their live provider credentials, GitHub App installations, and Workers
+Builds token. Normal pull-request CI does not have that secret or external-write authority. The gate
+must stay failed until the dashboard reports two loaded vault-absence checks after cleanup.
 
 ## User Stories
 
