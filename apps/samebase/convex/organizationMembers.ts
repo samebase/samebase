@@ -24,6 +24,7 @@ import {
   readGitHubUserByAccountId,
   readGitHubUserByLogin,
   readPublicGitHubUserByLogin,
+  vGitHubRelationship,
   type GitHubInvitationTarget,
   type GitHubRelationship,
 } from "./organizationMemberGitHub";
@@ -114,16 +115,6 @@ const vRemoveMemberResult = object({
 const vLeaveOrganizationResult = object({
   state: union(literal("left"), literal("already_left")),
 });
-
-const vGitHubRelationship = union(
-  literal("organization_owner"),
-  literal("organization_member"),
-  literal("not_in_organization"),
-  literal("github_account_not_connected"),
-  literal("owner_account"),
-  literal("different_account"),
-  literal("unavailable"),
-);
 
 const vResolveInvitationTargetResult = object({
   expectedGithubAccountId: string(),
@@ -587,7 +578,7 @@ export const getPage = query({
           ...(githubLogin ? { githubLogin } : {}),
           role: membership.role,
           isViewer,
-          isDeleting: viewerMembership.role === "owner" && user.state === "deleting",
+          isDeleting: user.state === "deleting",
           isOnlyActiveOwner:
             viewerMembership.role === "owner" &&
             membership.role === "owner" &&

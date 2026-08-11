@@ -1,11 +1,32 @@
 import { RequestError } from "@octokit/request-error";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-const githubMocks = vi.hoisted(() => ({ request: vi.fn() }));
+const githubMocks = vi.hoisted(() => ({
+  getInstallationUserByAccountId: vi.fn(),
+  getInstallationUserByLogin: vi.fn(),
+  getOrganizationMembershipForUser: vi.fn(),
+  getPublicUserByLogin: vi.fn(),
+}));
 
 vi.mock("@octokit/rest", () => ({
   Octokit: class {
-    readonly request = githubMocks.request;
+    readonly rest;
+
+    constructor(options?: { auth?: unknown; authStrategy?: unknown }) {
+      const getByUsername =
+        options?.auth === undefined && options?.authStrategy === undefined
+          ? githubMocks.getPublicUserByLogin
+          : githubMocks.getInstallationUserByLogin;
+      this.rest = {
+        orgs: {
+          getMembershipForUser: githubMocks.getOrganizationMembershipForUser,
+        },
+        users: {
+          getById: githubMocks.getInstallationUserByAccountId,
+          getByUsername,
+        },
+      };
+    }
   },
 }));
 
@@ -321,14 +342,11 @@ describe("organization member lifecycle", () => {
 
   it("creates one stable-identity invitation and requires explicit matching acceptance", async () => {
     const { asInvitee, asMember, asOwner, ids, t } = await seedMembers();
-    githubMocks.request.mockImplementation(async (route: string) => {
-      if (route === "GET /users/{username}") {
-        return { data: githubUser(200, "invitee-login") };
-      }
-      if (route === "GET /orgs/{org}/memberships/{username}") {
-        return { data: githubMembership(200) };
-      }
-      throw new Error(`Unexpected GitHub route: ${route}`);
+    githubMocks.getInstallationUserByLogin.mockResolvedValue({
+      data: githubUser(200, "invitee-login"),
+    });
+    githubMocks.getOrganizationMembershipForUser.mockResolvedValue({
+      data: githubMembership(200),
     });
 
     const target = await asOwner.action(api.organizationMembers.resolveInvitationTarget, {
@@ -415,7 +433,7 @@ describe("organization member lifecycle", () => {
       }),
     ).resolves.toMatchObject({
       members: expect.arrayContaining([
-        expect.objectContaining({ userId: ids.inviteeUserId, isDeleting: false }),
+        expect.objectContaining({ userId: ids.inviteeUserId, isDeleting: true }),
       ]),
     });
     await expect(
@@ -781,12 +799,16 @@ describe("organization member lifecycle", () => {
 
   it("rejects a username that resolves to a different stable ID during create", async () => {
     const { asOwner, ids } = await seedMembers();
-    githubMocks.request.mockResolvedValue({ data: githubUser(200, "race-target") });
+    githubMocks.getInstallationUserByLogin.mockResolvedValue({
+      data: githubUser(200, "race-target"),
+    });
     const target = await asOwner.action(api.organizationMembers.resolveInvitationTarget, {
       organizationId: ids.organizationId,
       githubLogin: "race-target",
     });
-    githubMocks.request.mockResolvedValue({ data: githubUser(201, "race-target") });
+    githubMocks.getInstallationUserByLogin.mockResolvedValue({
+      data: githubUser(201, "race-target"),
+    });
     await expect(
       asOwner.action(api.organizationMembers.createInvitation, {
         organizationId: ids.organizationId,
@@ -798,10 +820,7 @@ describe("organization member lifecycle", () => {
 
   it("does not retry anonymous GitHub lookup after a 404 or invalid profile", async () => {
     const { asOwner, ids } = await seedMembers();
-    const fetch = vi.fn(async () => Response.json(githubUser(200, "invitation-target")));
-    vi.stubGlobal("fetch", fetch);
-
-    githubMocks.request.mockRejectedValueOnce(githubRequestError(404));
+    githubMocks.getInstallationUserByLogin.mockRejectedValueOnce(githubRequestError(404));
     await expect(
       asOwner.action(api.organizationMembers.resolveInvitationTarget, {
         organizationId: ids.organizationId,
@@ -809,7 +828,7 @@ describe("organization member lifecycle", () => {
       }),
     ).rejects.toThrow("GitHub request failed with status 404.");
 
-    githubMocks.request.mockResolvedValueOnce({
+    githubMocks.getInstallationUserByLogin.mockResolvedValueOnce({
       data: githubUser(200, "invalid-target", { id: "invalid" }),
     });
     await expect(
@@ -818,14 +837,15 @@ describe("organization member lifecycle", () => {
         githubLogin: "invalid-target",
       }),
     ).rejects.toThrow("GitHub returned an invalid user ID.");
-    expect(fetch).not.toHaveBeenCalled();
+    expect(githubMocks.getPublicUserByLogin).not.toHaveBeenCalled();
   });
 
   it("retries anonymous GitHub lookup when the installation request is unavailable", async () => {
     const { asOwner, ids } = await seedMembers();
-    githubMocks.request.mockRejectedValue(githubRequestError(503));
-    const fetch = vi.fn(async () => Response.json(githubUser(205, "fallback-target")));
-    vi.stubGlobal("fetch", fetch);
+    githubMocks.getInstallationUserByLogin.mockRejectedValue(githubRequestError(503));
+    githubMocks.getPublicUserByLogin.mockResolvedValue({
+      data: githubUser(205, "fallback-target"),
+    });
 
     await expect(
       asOwner.action(api.organizationMembers.resolveInvitationTarget, {
@@ -837,7 +857,7 @@ describe("organization member lifecycle", () => {
       githubLogin: "fallback-target",
       relationship: "unavailable",
     });
-    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(githubMocks.getPublicUserByLogin).toHaveBeenCalledTimes(1);
   });
 
   it("enforces active owners and blocks only target-owned active vault work", async () => {
@@ -1070,25 +1090,26 @@ describe("organization member lifecycle", () => {
 
   it("resolves current GitHub logins by stable account ID before membership", async () => {
     const { asOwner, ids } = await seedMembers();
-    githubMocks.request.mockImplementation(
-      async (route: string, options: { account_id?: number; username?: string }) => {
-        if (route === "GET /user/{account_id}") {
-          if (options.account_id === 100) {
-            return { data: githubUser(100, "renamed-owner") };
-          }
-          if (options.account_id === 300) {
-            return { data: githubUser(300, "renamed-member") };
-          }
+    githubMocks.getInstallationUserByAccountId.mockImplementation(
+      async (options: { account_id?: number }) => {
+        if (options.account_id === 100) {
+          return { data: githubUser(100, "renamed-owner") };
         }
-        if (route === "GET /orgs/{org}/memberships/{username}") {
-          if (options.username === "renamed-owner") {
-            return { data: githubMembership(100, "admin") };
-          }
-          if (options.username === "renamed-member") {
-            return { data: githubMembership(300) };
-          }
+        if (options.account_id === 300) {
+          return { data: githubUser(300, "renamed-member") };
         }
-        throw new Error(`Unexpected GitHub route: ${route}`);
+        throw new Error(`Unexpected GitHub account ID: ${options.account_id}`);
+      },
+    );
+    githubMocks.getOrganizationMembershipForUser.mockImplementation(
+      async (options: { username?: string }) => {
+        if (options.username === "renamed-owner") {
+          return { data: githubMembership(100, "admin") };
+        }
+        if (options.username === "renamed-member") {
+          return { data: githubMembership(300) };
+        }
+        throw new Error(`Unexpected GitHub username: ${options.username}`);
       },
     );
 

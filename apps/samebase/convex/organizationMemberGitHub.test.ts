@@ -51,7 +51,7 @@ function githubUser(overrides?: Record<string, unknown>) {
   };
 }
 
-// Source: https://docs.github.com/en/rest/orgs/members#list-organization-memberships-for-the-authenticated-user
+// Source: https://docs.github.com/en/rest/orgs/members#get-organization-membership-for-a-user
 // Captured 2026-08-07. Negative cases mutate this official provider example.
 function githubMembership(overrides?: Record<string, unknown>) {
   return {

@@ -1,17 +1,20 @@
 import { RequestError } from "@octokit/request-error";
 import { Octokit } from "@octokit/rest";
+import { v, type Infer } from "convex/values";
 import { z } from "zod";
 
-import { isRecord } from "./jsonUtils";
+const { literal, union } = v;
 
-export type GitHubRelationship =
-  | "organization_owner"
-  | "organization_member"
-  | "not_in_organization"
-  | "github_account_not_connected"
-  | "owner_account"
-  | "different_account"
-  | "unavailable";
+export const vGitHubRelationship = union(
+  literal("organization_owner"),
+  literal("organization_member"),
+  literal("not_in_organization"),
+  literal("github_account_not_connected"),
+  literal("owner_account"),
+  literal("different_account"),
+  literal("unavailable"),
+);
+export type GitHubRelationship = Infer<typeof vGitHubRelationship>;
 
 const GITHUB_LOGIN_MAX_LENGTH = 39;
 const INVALID_GITHUB_AVATAR_URL = "GitHub returned an invalid user avatar URL.";
@@ -47,6 +50,20 @@ const githubInvitationTargetSchema = z
 
 export type GitHubInvitationTarget = z.infer<typeof githubInvitationTargetSchema>;
 
+const githubOrganizationMembershipSchema = z.object(
+  {
+    state: z.enum(["active", "pending"]),
+    role: z.enum(["admin", "member", "billing_manager"]),
+    organization: z.object({
+      id: z.number().int().positive(),
+    }),
+    user: z.object({
+      id: z.number().int().positive(),
+    }),
+  },
+  "GitHub returned an invalid organization membership.",
+);
+
 const publicGitHubOctokit = new Octokit({ userAgent: "samebase-app" });
 
 function normalizeGitHubLogin(githubLogin: string): string {
@@ -60,13 +77,6 @@ function normalizeGitHubLogin(githubLogin: string): string {
   return normalizedLogin;
 }
 
-function requireProviderPositiveSafeInteger(value: unknown, label: string): string {
-  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`GitHub returned an invalid ${label}.`);
-  }
-  return String(value);
-}
-
 export function parseGitHubInvitationTarget(value: unknown) {
   return githubInvitationTargetSchema.parse(value);
 }
@@ -78,34 +88,22 @@ export function parseGitHubOrganizationRelationship(
     githubAccountId: string;
   },
 ): GitHubRelationship {
-  if (!isRecord(value) || !isRecord(value["organization"]) || !isRecord(value["user"])) {
-    throw new Error("GitHub returned an invalid organization membership.");
-  }
-
-  const githubOrganizationId = requireProviderPositiveSafeInteger(
-    value["organization"]["id"],
-    "organization ID",
-  );
-  const githubAccountId = requireProviderPositiveSafeInteger(value["user"]["id"], "member ID");
+  const membership = githubOrganizationMembershipSchema.parse(value);
+  const githubOrganizationId = String(membership.organization.id);
+  const githubAccountId = String(membership.user.id);
   if (
     githubOrganizationId !== expected.githubOrganizationId ||
     githubAccountId !== expected.githubAccountId
   ) {
     throw new Error("GitHub organization membership did not match the requested identities.");
   }
-  if (value["state"] === "pending") {
+  if (membership.state === "pending") {
     return "not_in_organization";
   }
-  if (value["state"] !== "active") {
-    throw new Error("GitHub returned an invalid organization membership state.");
-  }
-  if (value["role"] === "admin") {
+  if (membership.role === "admin") {
     return "organization_owner";
   }
-  if (value["role"] === "member" || value["role"] === "billing_manager") {
-    return "organization_member";
-  }
-  throw new Error("GitHub returned an invalid organization membership role.");
+  return "organization_member";
 }
 
 export async function readGitHubUserByLogin(
@@ -162,7 +160,7 @@ export async function readGitHubOrganizationRelationship(
   },
 ): Promise<GitHubRelationship> {
   try {
-    const response = await octokit.request("GET /orgs/{org}/memberships/{username}", {
+    const response = await octokit.rest.orgs.getMembershipForUser({
       org: args.githubOrganizationLogin,
       username: args.githubLogin,
     });

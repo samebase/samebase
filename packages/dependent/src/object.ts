@@ -8,6 +8,17 @@ type ObjectEntry<Obj extends object> = {
   [Key in keyof Obj & string]: [Key, Obj[Key]];
 }[keyof Obj & string];
 
+type KeysWithUndefined<Obj extends object> = {
+  [Key in keyof Obj]-?: undefined extends Obj[Key] ? Key : never;
+}[keyof Obj];
+
+export type UndefinedOmitted<Obj extends object> = Pick<
+  Obj,
+  Exclude<keyof Obj, KeysWithUndefined<Obj>>
+> & {
+  [Key in KeysWithUndefined<Obj>]?: Exclude<Obj[Key], undefined>;
+};
+
 export function entries<Obj extends object>(value: Obj): Array<ObjectEntry<Obj>> {
   // @ts-expect-error Object.entries returns the same entries with weaker types.
   return Object.entries(value);
@@ -18,6 +29,13 @@ export function fromEntries<Key extends PropKey, Value>(
 ): Record<Key, Value> {
   // @ts-expect-error Object.fromEntries preserves the runtime key/value pairs.
   return Object.fromEntries(entries);
+}
+
+export function omitUndefined<Obj extends object>(value: Obj): UndefinedOmitted<Obj> {
+  const definedEntries = Object.entries(value).filter(([, entryValue]) => entryValue !== undefined);
+
+  // @ts-expect-error The filter removes each undefined value and Object.fromEntries preserves the keys.
+  return Object.fromEntries(definedEntries);
 }
 
 export function pick<Obj extends object, const Keys extends readonly (keyof Obj)[]>(
