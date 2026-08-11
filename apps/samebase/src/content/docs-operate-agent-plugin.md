@@ -33,6 +33,22 @@ Add the marketplace, install, and reload:
 
 Open `/mcp` to complete Samebase authentication if Claude Code prompts for it.
 
+## GitHub Copilot enterprise allowlist
+
+GitHub Copilot enterprise settings can block MCP servers that are not on the enterprise allowlist.
+Add the Samebase server to `copilot/managed-settings.json` in the enterprise `.github-private`
+repository:
+
+```json
+{
+  "allowedMcpServers": [{ "serverUrl": "https://api.samebase.com/mcp" }]
+}
+```
+
+Keep the existing entries for other approved MCP servers. GitHub Copilot CLI, VS Code, and the
+GitHub Copilot app enforce this setting. See the
+[GitHub enterprise managed settings reference](https://docs.github.com/en/copilot/reference/enterprise-administrators/enterprise-managed-settings#allowedmcpservers).
+
 ## Responsibility split
 
 - The `samebase` skill selects the create, connect, or existing-app path. It then guides repository
