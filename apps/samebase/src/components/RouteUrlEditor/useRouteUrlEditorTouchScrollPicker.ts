@@ -5,7 +5,6 @@ const routeUrlEditorTouchScrollPickerMediaQuery = "(hover: none), (pointer: coar
 const routeUrlEditorTouchScrollSlateOptionOffset = 2;
 
 export const routeUrlEditorTouchSuggestionRowHeightPx = 28;
-const routeUrlEditorTouchScrollSettleDelayMs = 80;
 
 type RouteUrlEditorTouchScrollPickerMetrics = {
   bottomSpacerHeightPx: number;
@@ -116,36 +115,39 @@ suggestion behavior.
 export function useRouteUrlEditorTouchScrollPicker({
   currentSuggestionIndex,
   currentSuggestionScrollEnabled,
+  previewedTouchSuggestionIndex,
   previewTouchSuggestion,
   suggestions,
   suggestionsVisible,
 }: {
   currentSuggestionIndex: number | null;
   currentSuggestionScrollEnabled: boolean;
+  previewedTouchSuggestionIndex: number | null;
   previewTouchSuggestion: (suggestion: Suggestion, suggestionIndex: number) => void;
   suggestions: readonly Suggestion[];
   suggestionsVisible: boolean;
 }): RouteUrlEditorTouchScrollPicker {
   const suggestionsRef = useRef<HTMLDivElement>(null);
-  const touchScrollSettleTimeoutRef = useRef<number | null>(null);
+  const touchScrollPreviewFrameRef = useRef<number | null>(null);
+  const previewedTouchSuggestionIndexRef = useRef(previewedTouchSuggestionIndex);
   const touchScrollPickingArmedRef = useRef(false);
   const skipNextTouchScrollEventRef = useRef(false);
   const [touchScrollPickerEnabled, setTouchScrollPickerEnabled] = useState(false);
   const [touchScrollPickerMetrics, setTouchScrollPickerMetrics] =
     useState<RouteUrlEditorTouchScrollPickerMetrics | null>(null);
 
-  const clearTouchScrollSettleTimeout = useCallback(() => {
-    if (touchScrollSettleTimeoutRef.current === null || typeof window === "undefined") {
+  const cancelTouchScrollPreviewFrame = useCallback(() => {
+    if (touchScrollPreviewFrameRef.current === null) {
       return;
     }
 
-    window.clearTimeout(touchScrollSettleTimeoutRef.current);
-    touchScrollSettleTimeoutRef.current = null;
+    window.cancelAnimationFrame(touchScrollPreviewFrameRef.current);
+    touchScrollPreviewFrameRef.current = null;
   }, []);
 
   const scrollToSuggestionIndex = useCallback(
     (suggestionIndex: number | null) => {
-      clearTouchScrollSettleTimeout();
+      cancelTouchScrollPreviewFrame();
       touchScrollPickingArmedRef.current = false;
 
       const suggestionsElement = suggestionsRef.current;
@@ -174,7 +176,7 @@ export function useRouteUrlEditorTouchScrollPicker({
       skipNextTouchScrollEventRef.current = true;
       suggestionsElement.scrollTop = nextScrollTop;
     },
-    [clearTouchScrollSettleTimeout],
+    [cancelTouchScrollPreviewFrame],
   );
 
   const resetScrollPosition = useCallback(() => {
@@ -207,10 +209,17 @@ export function useRouteUrlEditorTouchScrollPicker({
     };
   }, []);
 
-  useEffect(() => () => clearTouchScrollSettleTimeout(), [clearTouchScrollSettleTimeout]);
+  useEffect(() => () => cancelTouchScrollPreviewFrame(), [cancelTouchScrollPreviewFrame]);
+
+  useLayoutEffect(() => {
+    // A scheduled frame can outlive the render that requested it. Read the current touch-owned
+    // preview before the next paint so keyboard and pointer previews cannot leave this guard stale.
+    previewedTouchSuggestionIndexRef.current = previewedTouchSuggestionIndex;
+  }, [previewedTouchSuggestionIndex]);
 
   useLayoutEffect(() => {
     if (!touchScrollPickerEnabled || !suggestionsVisible) {
+      cancelTouchScrollPreviewFrame();
       touchScrollPickingArmedRef.current = false;
       setTouchScrollPickerMetrics(null);
       return;
@@ -232,7 +241,7 @@ export function useRouteUrlEditorTouchScrollPicker({
     return () => {
       window.removeEventListener("resize", syncMetrics);
     };
-  }, [suggestionsVisible, touchScrollPickerEnabled]);
+  }, [cancelTouchScrollPreviewFrame, suggestionsVisible, touchScrollPickerEnabled]);
 
   useLayoutEffect(() => {
     if (
@@ -261,20 +270,24 @@ export function useRouteUrlEditorTouchScrollPicker({
       return;
     }
 
-    clearTouchScrollSettleTimeout();
-
     if (
       !touchScrollPickingArmedRef.current ||
       !touchScrollPickerEnabled ||
       touchScrollPickerMetrics === null ||
       !suggestionsVisible ||
-      typeof window === "undefined"
+      touchScrollPreviewFrameRef.current !== null
     ) {
       return;
     }
 
-    touchScrollSettleTimeoutRef.current = window.setTimeout(() => {
-      touchScrollSettleTimeoutRef.current = null;
+    // Native momentum can send several scroll events in one paint. Read layout once on the next
+    // paint so the page follows the slate without waiting for scrolling to stop.
+    touchScrollPreviewFrameRef.current = window.requestAnimationFrame(() => {
+      touchScrollPreviewFrameRef.current = null;
+      if (!touchScrollPickingArmedRef.current) {
+        return;
+      }
+
       const suggestionsElement = suggestionsRef.current;
       if (!suggestionsElement || suggestions.length === 0) {
         return;
@@ -301,17 +314,20 @@ export function useRouteUrlEditorTouchScrollPicker({
         nearestTarget = target;
       }
 
-      if (nearestTarget === null) {
+      if (
+        nearestTarget === null ||
+        nearestTarget.suggestionIndex === previewedTouchSuggestionIndexRef.current
+      ) {
         return;
       }
 
+      previewedTouchSuggestionIndexRef.current = nearestTarget.suggestionIndex;
       previewTouchSuggestion(
         suggestions[nearestTarget.suggestionIndex],
         nearestTarget.suggestionIndex,
       );
-    }, routeUrlEditorTouchScrollSettleDelayMs);
+    });
   }, [
-    clearTouchScrollSettleTimeout,
     previewTouchSuggestion,
     suggestions,
     suggestionsVisible,
