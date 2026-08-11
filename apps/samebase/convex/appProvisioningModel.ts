@@ -192,6 +192,7 @@ export const vaultProvisioningTables = {
    * create runs.
    */
   workflow_vaultProvisioning_runs: defineTable({
+    organizationId: optional(id("organizations")),
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),
@@ -204,6 +205,12 @@ export const vaultProvisioningTables = {
     updatedAt: number(),
     completedAt: optional(number()),
   })
+    .index("by_organization_and_user_and_state_and_updated_at", [
+      "organizationId",
+      "userId",
+      "state",
+      "updatedAt",
+    ])
     .index("by_vault_and_updated_at", ["vaultId", "updatedAt"])
     .index("by_vault_and_state", ["vaultId", "state"])
     .index("by_user_and_state_and_updated_at", ["userId", "state", "updatedAt"])

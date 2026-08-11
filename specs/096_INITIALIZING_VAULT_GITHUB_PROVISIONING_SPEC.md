@@ -572,13 +572,18 @@ are read from providers when needed.
 
 ## Migration
 
-Samebase has one operator who can remove existing vault data before a narrow schema deployment.
-Schema and code therefore move directly to the required target shape. Do not widen validators,
-dual-read, dual-write, or preserve old table/field variants.
+Existing vaults and their durable provisioning history must remain. Adding
+`workflow_vaultProvisioning_runs.organizationId` therefore uses two deployment checkpoints:
 
-The operator clears rows that conflict with a required validator and removes rows from dropped
-tables before deployment. Product runtime must not hide destructive migration behavior inside normal
-requests.
+1. widen the run validator with optional `organizationId`, add the organization-owned index, and
+   make every new run write the field
+2. run the bounded internal backfill that derives the organization from each referenced vault, and
+   verify that no run remains incomplete
+3. require `organizationId`, remove the temporary backfill functions, and use the exact
+   organization, user, and state index for membership-operation blockers
+
+A missing referenced vault is data damage and stops the backfill. Product runtime does not carry a
+fallback after the required-field deployment.
 
 ## Testing Plan
 
@@ -601,7 +606,8 @@ Backend:
     expose a dashboard source-setup failure summary derived from the run/events
 14. source and staging paths read exact branch state from `observations_vaultRepository_branchTrees`
     without a vault-row fallback
-15. provisioning events require `runId` and provisioning runs require `vaultId`
+15. provisioning events require `runId`; after the organization backfill is complete, provisioning
+    runs require `organizationId` and `vaultId`
 16. dashboard/provisioning summaries derive from direct attachments, live provider observations, and
     run/write-lock state
 17. the vault row has no aggregate `vaults.infra*` mirrors
