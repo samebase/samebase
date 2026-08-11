@@ -39,12 +39,22 @@ One Samebase organization maps to one Polar team Customer. The team Customer is 
 and owns the subscription. A Samebase user can be the owner Member of several isolated team
 Customers. Samebase does not add a billing account that groups several organizations.
 
-One organization has at most one current Polar subscription. Polar has four monthly products, one
-for each combination of GitHub owner type and Samebase plan. Each product contains one fixed base
-price and one graduated seat-based price:
+Samebase creates checkout sessions with the reserved external Customer ID. This keeps the returned
+checkout tied to the same external identity that Samebase uses to verify retries. It does not switch
+to Polar's internal Customer ID at checkout creation.
 
-- A Free product has a $0 fixed base price.
-- A Pro product has a $4 fixed base price.
+The first current Samebase owner who starts a checkout or paid billing change becomes the
+organization's designated billing payer. Samebase stores that user on the organization billing row
+and creates that user as the Polar team Customer's owner Member. Only the designated payer can start
+later billing changes or open that Customer's portal. The designated payer cannot be demoted,
+removed, leave the organization, or delete their Samebase account until billing ownership is
+transferred. Self-serve billing-owner transfer is not part of this rollout.
+
+One organization has at most one current Polar subscription. Polar has four monthly products, one
+for each combination of GitHub owner type and Samebase plan:
+
+- A Free product contains only a graduated seat price. Polar does not accept a $0 fixed price.
+- A Pro product contains a $4 fixed price and the same graduated seat price.
 - A personal-owner product includes the first seat and charges $2 for each later seat.
 - A GitHub-organization product includes the first two seats and charges $2 for each later seat.
 
@@ -52,6 +62,18 @@ Samebase calculates the target subscription seat quantity from the current membe
 matching Free product handles paid members on Free. A matching Pro product handles the Pro base
 price and paid members. A plan change updates the current subscription to the matching product
 instead of starting a second subscription.
+
+An organization buys capacity before a new invitation can become a membership. When current
+memberships fit within verified capacity, a seat purchase uses `current memberships + 1` as its
+target. When the organization is already above verified capacity, the purchase targets the current
+membership count and buys only the capacity needed to restore access. Samebase grants the capacity
+only after canonical Polar reconciliation. The invited user can then accept the invitation.
+Invitation acceptance checks the stored capacity and inserts the membership in one Convex
+transaction. If capacity is not yet available, the invitation stays pending and acceptance returns a
+billing-capacity error.
+
+Seat additions invoice immediately. Seat reductions after membership removal use Polar proration. A
+Pro-to-Free product change takes effect in the next billing period.
 
 The organization billing row remains the local provider-state boundary. It stores provider state for
 exactly one organization. Product IDs remain deployment configuration because Sandbox and production
@@ -68,6 +90,10 @@ webhook or a trusted reconciliation operation.
 - Payment recovery keeps paid entitlement active while Polar still grants it.
 - Repeated or out-of-order webhook deliveries must converge on current Polar Customer state.
 - Invalid or malformed provider data must not remove an existing entitlement.
+- A pending invitation does not consume capacity. A current membership always consumes one seat.
+- Removing a member, leaving an organization, or deleting a non-payer member schedules a Polar seat
+  reduction after the local membership deletion commits. A provider failure can temporarily
+  overcharge the organization, but it cannot preserve removed access.
 
 `subscription.updated` is the required wake-up for plan and seat changes. `customer.state_changed`
 can remain as a broader reconciliation signal. Both events must lead to a full canonical
@@ -85,16 +111,24 @@ An organization can be above its current limit after Pro ends. Samebase keeps ex
 usable and does not disconnect or delete them. It blocks new counted resources until usage is below
 the current limit or Pro becomes active again.
 
+An organization becomes billing-limited when its current membership count is above its verified
+member capacity. Normal organization work is blocked. Owners can still open billing and member
+management so they can restore capacity or remove members. The limitation ends automatically when
+verified capacity or the membership count makes the organization valid again.
+
 ### Customer Surfaces
 
 The organization settings page shows the current plan, one pooled connection count, the current
-membership count, included members, paid seats, the next billing or end date when known, and one
-billing action.
+membership count, included members, paid capacity, the designated payer state, and the next billing
+or end date when known.
 
 - Free organizations within the included member count can start the matching Pro checkout.
 - Free organizations that need a paid member can start the matching Free seat checkout.
+- The designated payer can buy one additional member seat.
+- The designated payer can schedule Pro to change to the matching Free product in the next billing
+  period. Settings shows the pending Free plan until Polar applies it.
 - Organizations with a subscription can open the Polar Customer Portal. The session must use the
-  correct Polar Customer and Member.
+  correct Polar Customer and designated payer Member.
 
 The public pricing page shows the same four-row contract. Polar owns payment methods, invoices,
 receipts, and cancellation controls through its hosted checkout and Customer Portal.
@@ -102,10 +136,24 @@ receipts, and cancellation controls through its hosted checkout and Customer Por
 ### Environments
 
 - Local development uses Polar Sandbox and Polar CLI webhook forwarding.
+- Polar Customer Portal seat management and product switching are disabled. Samebase changes seat
+  quantity and selects the matching owner-type product through its server actions.
 - Pull request previews do not make real Polar checkout or webhook calls. They test billing UI with
   controlled application state.
 - Production uses the stable Samebase origin, four production Polar products, and one stable
   production webhook. Production configuration needs operator approval.
+
+### Beta Cutover
+
+The previous Polar prototype used an individual Customer and one Pro product. Samebase has no paying
+customers under that model. Before this rollout reaches production, the operator must verify that
+production has no organization billing row with a Polar Customer, open checkout, active or past-due
+subscription, or paid seat state. The operator must also configure all four production product IDs
+before checkout becomes available.
+
+If the production check finds any old Polar billing state, the rollout stops. That data needs an
+explicit Customer, payer, product, and seat migration before this code can become active. The code
+must not silently reuse an individual Customer as a team Customer.
 
 ### Operational Simplicity
 
@@ -142,8 +190,21 @@ The contract is complete only when tests and Sandbox checks prove:
 - Existing resources stay usable after a downgrade above the Free limit.
 - Personal workspaces include one member. GitHub organization workspaces include two members.
 - A pending invitation does not count as a current membership.
+- Invitation acceptance fails without verified capacity and succeeds after that capacity is
+  reconciled from Polar.
+- Concurrent invitation acceptances cannot both consume the last available seat.
+- The first billing owner becomes the designated payer, and other owners cannot use that payer's
+  checkout or portal access.
+- A designated payer cannot be demoted, removed, leave, or delete their account.
+- An organization above verified member capacity blocks normal work but keeps billing and member
+  removal available.
 - The matching Polar product charges $4 for Pro plus $2 for each member above the included count.
+- Each Free Polar product has no fixed-price component. Each Pro product has one $4 fixed-price
+  component.
 - One Samebase user can be the owner Member of several isolated Polar team Customers.
+- A Pro-to-Free change keeps the current seat quantity and records the matching Free product as the
+  pending next-period plan.
+- A later seat increase or reduction preserves the pending Free product change.
 - Checkout redirects do not grant a plan or seat capacity.
 - Signed provider state grants, keeps, and removes plan and seat capacity according to the
   subscription rules.
