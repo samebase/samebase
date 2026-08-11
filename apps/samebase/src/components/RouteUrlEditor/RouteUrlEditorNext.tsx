@@ -4,6 +4,7 @@ import {
   ROUTE_SEARCH_PARAM_SUGGESTION_GROUPS,
   type RouteSearchParamSuggestionGroup,
 } from "@/routing/permissions";
+import { LOGO_PRESENTATION_TILT_SUSPEND_ATTRIBUTE } from "@/components/logo/logoPresentationTilt";
 import { Badge } from "@/components/ui/badge";
 import { useRouteEditorVm } from "./useRouteEditorVm";
 import type { Suggestion } from "./RouteUrlEditorSuggestions";
@@ -181,6 +182,7 @@ export function RouteUrlEditorNext() {
   return (
     <form
       {...vm.rootProps}
+      {...{ [LOGO_PRESENTATION_TILT_SUSPEND_ATTRIBUTE]: "" }}
       className="relative flex h-7 w-full min-w-0 items-center gap-1 px-1 text-foreground"
       data-testid="route-url-editor"
       onSubmit={(event) => {

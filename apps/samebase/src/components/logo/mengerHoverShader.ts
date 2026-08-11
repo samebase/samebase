@@ -227,6 +227,15 @@ ${apertureChecks}
 `;
 }
 
+export type MengerHoverFaceMaterialState = {
+  colorUniforms: {
+    left: THREE.IUniform<THREE.Color>;
+    right: THREE.IUniform<THREE.Color>;
+    top: THREE.IUniform<THREE.Color>;
+  };
+  materials: THREE.ShaderMaterial[];
+};
+
 export function createMengerHoverSurfaceMaterials({
   leftColor,
   rightColor,
@@ -241,15 +250,15 @@ export function createMengerHoverSurfaceMaterials({
   stateTexture: MengerHoverTexture;
   topColor: THREE.ColorRepresentation;
   worldSize: number;
-}): THREE.ShaderMaterial[] {
+}): MengerHoverFaceMaterialState {
   const fragmentShader = createSurfaceFragmentShader(stages);
-  const createMaterial = (color: THREE.ColorRepresentation, faceAxis: number) =>
+  const createMaterial = (color: THREE.IUniform<THREE.Color>, faceAxis: number) =>
     new THREE.ShaderMaterial({
       depthFunc: THREE.LessEqualDepth,
       depthWrite: true,
       fragmentShader,
       uniforms: {
-        hoverColor: { value: new THREE.Color(color) },
+        hoverColor: color,
         hoverFaceAxis: { value: faceAxis },
         hoverStateTexture: { value: stateTexture.texture },
         hoverStateTextureSize: { value: stateTexture.size },
@@ -257,11 +266,19 @@ export function createMengerHoverSurfaceMaterials({
       },
       vertexShader: SURFACE_VERTEX_SHADER,
     });
-  const rightMaterial = createMaterial(rightColor, 0);
-  const topMaterial = createMaterial(topColor, 1);
-  const leftMaterial = createMaterial(leftColor, 2);
+  const colorUniforms = {
+    left: { value: new THREE.Color(leftColor) },
+    right: { value: new THREE.Color(rightColor) },
+    top: { value: new THREE.Color(topColor) },
+  };
+  const rightMaterial = createMaterial(colorUniforms.right, 0);
+  const topMaterial = createMaterial(colorUniforms.top, 1);
+  const leftMaterial = createMaterial(colorUniforms.left, 2);
 
-  return [rightMaterial, rightMaterial, topMaterial, topMaterial, leftMaterial, leftMaterial];
+  return {
+    colorUniforms,
+    materials: [rightMaterial, rightMaterial, topMaterial, topMaterial, leftMaterial, leftMaterial],
+  };
 }
 
 const COVER_VERTEX_SHADER = `
@@ -513,23 +530,31 @@ export function createMengerHoverCoverMaterials({
   stateTexture: MengerHoverTexture;
   topColor: THREE.ColorRepresentation;
   worldSize: number;
-}): THREE.ShaderMaterial[] {
-  const createMaterial = (color: THREE.ColorRepresentation) =>
+}): MengerHoverFaceMaterialState {
+  const createMaterial = (color: THREE.IUniform<THREE.Color>) =>
     new THREE.ShaderMaterial({
       fragmentShader: createCoverFragmentShader(maximumBlockerLinksPerMove),
       uniforms: {
         hoverBlockerLinkTexture: { value: blockerLinkTexture.texture },
         hoverBlockerLinkTextureSize: { value: blockerLinkTexture.size },
-        hoverColor: { value: new THREE.Color(color) },
+        hoverColor: color,
         hoverStateTexture: { value: stateTexture.texture },
         hoverStateTextureSize: { value: stateTexture.size },
         hoverWorldSize: { value: worldSize },
       },
       vertexShader: COVER_VERTEX_SHADER,
     });
-  const rightMaterial = createMaterial(rightColor);
-  const topMaterial = createMaterial(topColor);
-  const leftMaterial = createMaterial(leftColor);
+  const colorUniforms = {
+    left: { value: new THREE.Color(leftColor) },
+    right: { value: new THREE.Color(rightColor) },
+    top: { value: new THREE.Color(topColor) },
+  };
+  const rightMaterial = createMaterial(colorUniforms.right);
+  const topMaterial = createMaterial(colorUniforms.top);
+  const leftMaterial = createMaterial(colorUniforms.left);
 
-  return [rightMaterial, rightMaterial, topMaterial, topMaterial, leftMaterial, leftMaterial];
+  return {
+    colorUniforms,
+    materials: [rightMaterial, rightMaterial, topMaterial, topMaterial, leftMaterial, leftMaterial],
+  };
 }
