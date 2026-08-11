@@ -264,8 +264,8 @@ describe("readSuggestions", () => {
       logoRows.slice(0, 3).map((row) => [row.kind === "search" ? row.group : null, row.value]),
     ).toEqual([
       [null, "?reset"],
-      ["theme", "?background=stone-50"],
-      ["theme", "?border=stone-300"],
+      ["theme", "?background=lime-50"],
+      ["theme", "?border=rose-300"],
     ]);
     expect(
       logoRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
@@ -289,7 +289,7 @@ describe("readSuggestions", () => {
       termsRows.map((row) => (row.kind === "search" ? row.group : null)).filter(Boolean),
     ).toEqual(Array(6).fill("theme"));
     expect(termsRows.map((row) => row.value)).toEqual(
-      expect.arrayContaining(["?dark", "?primary=emerald-500"]),
+      expect.arrayContaining(["?dark", "?primary=emerald-700"]),
     );
     expect(termsRows.map((row) => row.value)).not.toContain("?dev");
     expect(termsRows.map((row) => row.value)).not.toEqual(
@@ -321,7 +321,7 @@ describe("readSuggestions", () => {
     });
 
     expect(values).toContain("?top=sky-500");
-    expect(values).toContain("?border=stone-300");
+    expect(values).toContain("?border=rose-300");
   });
 
   it("replaces the active key-value token when selecting a query key", () => {
@@ -334,11 +334,11 @@ describe("readSuggestions", () => {
       kind: "search",
       group: "theme",
       nextSelectionRouteIndex: "/logo?dark&border=".length,
-      previewRouteAddress: "/logo?dark&border=stone-300&top=blue-200",
+      previewRouteAddress: "/logo?dark&border=rose-300&top=blue-200",
       previewSelectionRouteIndex: "/logo?dark&".length,
       sampleValueStart: "&border=".length,
-      selectedRouteAddress: "/logo?dark&border=stone-300&top=blue-200",
-      value: "&border=stone-300",
+      selectedRouteAddress: "/logo?dark&border=rose-300&top=blue-200",
+      value: "&border=rose-300",
     });
   });
 
@@ -348,7 +348,7 @@ describe("readSuggestions", () => {
       routeTextBeforeCursor: "/terms?bo",
     });
 
-    expect(values).toContain("?border=stone-300");
+    expect(values).toContain("?border=rose-300");
     expect(values).not.toContain("?dev");
     expect(values).not.toContain("?depth=2");
   });
@@ -433,8 +433,16 @@ describe("readSuggestions", () => {
       routeTextBeforeCursor: "/logo?top=bl",
     });
     const backgroundValues = readValues({
-      routeAddress: "/logo?background=stone-50",
+      routeAddress: "/logo?background=lime-50",
       routeTextBeforeCursor: "/logo?background=",
+    });
+    const borderValues = readValues({
+      routeAddress: "/logo?border=rose-300",
+      routeTextBeforeCursor: "/logo?border=",
+    });
+    const primaryValues = readValues({
+      routeAddress: "/logo?primary=emerald-700",
+      routeTextBeforeCursor: "/logo?primary=",
     });
     const topValues = topRows.map((suggestion) => suggestion.value);
 
@@ -459,6 +467,8 @@ describe("readSuggestions", () => {
     expect(topValues).not.toContain("blue-");
     expect(backgroundValues).toContain("red-50");
     expect(backgroundValues).not.toContain("red-500");
+    expect(borderValues).toContain("red-300");
+    expect(primaryValues).toContain("red-700");
   });
 
   it("replaces the whole active query value when showing family suggestions", () => {

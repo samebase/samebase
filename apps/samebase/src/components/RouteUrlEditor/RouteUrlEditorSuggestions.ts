@@ -334,8 +334,8 @@ function canRecommendSearchParam(
 Turns route metadata into query-key dropdown rows.
 
 Example: in `/logo?dark&depth=2&top=blue-200`, a cursor inside `depth` shows
-all query-key rows. The `&border=stone-300` row selects
-`/logo?dark&border=stone-300&top=blue-200`, but places the cursor after `border=` so the user can
+all query-key rows. The `&border=rose-300` row selects
+`/logo?dark&border=rose-300&top=blue-200`, but places the cursor after `border=` so the user can
 still choose a different value.
 */
 function readSearchRows(args: {
