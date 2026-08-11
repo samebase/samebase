@@ -2,6 +2,7 @@ import { Infer, v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import type { DatabaseReader } from "./_generated/server";
+import { requireOrganizationNotBillingLimited } from "./organizationBillingLimits";
 import { readVaultDeletionState } from "./vault/deletion/state";
 
 const { id, literal, object, union } = v;
@@ -46,6 +47,7 @@ export async function requireActiveVaultProvisioningAuthority(
   if (vault === null || run.organizationId !== vault.organizationId) {
     throw new Error("Provisioning run does not match its vault.");
   }
+  await requireOrganizationNotBillingLimited(db, run.organizationId);
   return { run, vault, organizationId: run.organizationId };
 }
 

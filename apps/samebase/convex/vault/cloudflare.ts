@@ -573,12 +573,12 @@ async function createWorkerForManagedWorkflow(
   } catch (error) {
     if (
       !workerCreated ||
-      !toErrorMessage(error).includes("Cloudflare Worker attachment limit reached")
+      !toErrorMessage(error).includes("Organization connection limit reached")
     ) {
       throw error;
     }
     throw new Error(
-      `Cloudflare Worker attachment limit reached after Worker ${validation.value} was created. Delete it in the Cloudflare dashboard, then retry.`,
+      `Organization connection limit reached after Worker ${validation.value} was created. Delete it in the Cloudflare dashboard, then retry.`,
     );
   }
 }

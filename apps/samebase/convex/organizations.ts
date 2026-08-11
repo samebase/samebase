@@ -169,6 +169,26 @@ export const createOrReconnectVerifiedOrganization = internalMutation({
         throw new Error("GitHub installation is already connected to another organization.");
       }
 
+      if (args.githubOwnerType !== existingOrganization.githubOwnerType) {
+        const billingAccount = await ctx.db
+          .query("organizationBillingAccounts")
+          .withIndex("by_organization", (query) =>
+            query.eq("organizationId", existingOrganization._id),
+          )
+          .unique();
+        if (billingAccount === null) {
+          throw new Error("Organization billing account is required.");
+        }
+        if (
+          billingAccount.provider === "polar" ||
+          billingAccount.polarExternalCustomerId ||
+          billingAccount.polarBillingUserId ||
+          billingAccount.status !== "inactive"
+        ) {
+          throw new Error("Organization billing must be removed before GitHub owner type changes.");
+        }
+      }
+
       await ctx.db.patch(existingOrganization._id, {
         githubOwnerType: args.githubOwnerType,
         githubOwnerLogin,

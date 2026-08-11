@@ -3,6 +3,10 @@ import { v } from "convex/values";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { internalMutation } from "./_generated/server";
 import { requireAnotherActiveOrganizationOwner } from "./organizationAccess";
+import {
+  requireAdditionalOrganizationMemberCapacity,
+  requireUserIsNotOrganizationBillingPayer,
+} from "./organizationBillingLimits";
 import { vOrganizationMembershipRole } from "./organizationModel";
 import { readActiveUser } from "./userLifecycle";
 
@@ -62,6 +66,10 @@ export const addExistingUserToOrganization = internalMutation({
     if (membership !== null) {
       if (membership.role !== args.role) {
         if (membership.role === "owner" && args.role === "member") {
+          await requireUserIsNotOrganizationBillingPayer(ctx.db, {
+            organizationId: args.organizationId,
+            userId: activeUser._id,
+          });
           await requireAnotherActiveOrganizationOwner(ctx.db, {
             organizationId: args.organizationId,
             excludedUserId: activeUser._id,
@@ -79,6 +87,7 @@ export const addExistingUserToOrganization = internalMutation({
       };
     }
 
+    await requireAdditionalOrganizationMemberCapacity(ctx.db, args.organizationId);
     const membershipId = await ctx.db.insert("organizationMemberships", {
       organizationId: args.organizationId,
       userId: activeUser._id,

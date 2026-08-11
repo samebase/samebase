@@ -172,13 +172,13 @@ describe("markWorkflowProvisioningFailed", () => {
   });
 
   it.each([
-    ["cloudflare-quota", "attach_worker", "Cloudflare Worker attachment limit reached (5)."],
+    ["cloudflare-quota", "attach_worker", "Organization connection limit reached (6)."],
     [
       "cloudflare-interrupted-create",
       "attach_worker",
       "Cloudflare Worker managed-worker exists after an interrupted create. Delete it in the Cloudflare dashboard, then retry.",
     ],
-    ["convex-quota", "attach_convex", "Convex project attachment limit reached (5)."],
+    ["convex-quota", "attach_convex", "Organization connection limit reached (6)."],
     [
       "convex-interrupted-create",
       "attach_convex",

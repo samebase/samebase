@@ -42,13 +42,13 @@ describe("GitHub-backed organizations", () => {
       await ctx.db.patch(userId, { name: "Provider profile name", displayName: "Samebase name" });
     });
     await expect(
-      t.mutation(internal.billing.ensurePolarExternalCustomerId, {
+      t.mutation(internal.billing.reservePolarTeamCustomerIdentity, {
         userId,
         organizationId: created.organizationId,
       }),
     ).resolves.toMatchObject({
-      name: "Samebase name",
-      email: "owner@example.com",
+      payerName: "Samebase name",
+      payerEmail: "owner@example.com",
     });
     const providerCredentialsId = await t.run(async (ctx) => {
       await ctx.db.patch(created.organizationId, {
@@ -83,6 +83,15 @@ describe("GitHub-backed organizations", () => {
       organizationId: created.organizationId,
       created: false,
     });
+    await expect(
+      t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
+        userId,
+        githubOwnerId: "101",
+        githubOwnerType: "user",
+        githubOwnerLogin: "Samebase-Renamed",
+        githubInstallationId: "1002",
+      }),
+    ).rejects.toThrow("Organization billing must be removed before GitHub owner type changes.");
 
     const snapshot = await t.run(async (ctx) => {
       return {
@@ -283,6 +292,19 @@ describe("GitHub-backed organizations", () => {
       githubOwnerLogin: "owner",
       githubInstallationId: "1001",
     });
+    await t.run(async (ctx) => {
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", created.organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Billing account is required.");
+      }
+      await ctx.db.patch(billingAccount._id, {
+        status: "active",
+        polarSeatQuantity: 2,
+      });
+    });
 
     await expect(
       t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
@@ -330,7 +352,7 @@ describe("GitHub-backed organizations", () => {
       }),
     ).rejects.toThrowError("Organization owner access is required.");
     await expect(
-      t.mutation(internal.billing.ensurePolarExternalCustomerId, {
+      t.mutation(internal.billing.reservePolarTeamCustomerIdentity, {
         userId: secondUserId,
         organizationId: created.organizationId,
       }),

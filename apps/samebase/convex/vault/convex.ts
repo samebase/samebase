@@ -670,12 +670,12 @@ async function createProjectForManagedWorkflow(
   } catch (error) {
     if (
       !projectCreated ||
-      !toErrorMessage(error).includes("Convex project attachment limit reached")
+      !toErrorMessage(error).includes("Organization connection limit reached")
     ) {
       throw error;
     }
     throw new Error(
-      `Convex project attachment limit reached after project ${validation.value} was created. Delete it in the Convex dashboard, then retry.`,
+      `Organization connection limit reached after project ${validation.value} was created. Delete it in the Convex dashboard, then retry.`,
     );
   }
 }
