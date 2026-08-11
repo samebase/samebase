@@ -1093,7 +1093,15 @@ describe("organization member lifecycle", () => {
         runId: inactiveOwnerIds.runId,
         requestedAt: roundedNow,
       });
+      await ctx.db.patch(inactiveOwnerIds.unapprovedMembershipId, { role: "member" });
     });
+    await expect(
+      asOwner.mutation(api.organizationMembers.changeRole, {
+        organizationId: ids.organizationId,
+        membershipId: inactiveOwnerIds.unapprovedMembershipId,
+        role: "owner",
+      }),
+    ).rejects.toThrow("Only an active Samebase user can become an Owner.");
     await expect(
       asOwner.mutation(api.organizationMembers.leaveOrganization, {
         organizationId: ids.organizationId,

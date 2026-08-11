@@ -213,13 +213,7 @@ function MemberActionsMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild nativeButton>
-        <Button
-          aria-label={`${member.label} actions`}
-          disabled={actions.every((action) => action.disabled)}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
+        <Button aria-label={`${member.label} actions`} size="icon-sm" type="button" variant="ghost">
           <MoreHorizontal />
         </Button>
       </DropdownMenuTrigger>

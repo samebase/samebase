@@ -152,6 +152,19 @@ describe("OrganizationMembersPage", () => {
     );
     expect(testState.githubRelationships).toHaveBeenCalledTimes(1);
     expect(testState.getPage).toHaveBeenCalledTimes(1);
+    expect(testState.getPage).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        queryKey: [
+          "convexQuery",
+          expect.anything(),
+          {
+            now: Date.UTC(2026, 7, 11, 12, 34),
+            organizationId: organization.organizationId,
+          },
+        ],
+      }),
+    );
 
     await act(async () => vi.advanceTimersByTimeAsync(60_000));
 
