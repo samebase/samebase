@@ -419,21 +419,16 @@ search params reclassify alongside their routes: dashboard/billing params (`dele
 such as logo/landing `dev`, `prod-ui`, and devtools visibility remain `access_public`; operator-only
 debug params and landing-preview params → `access_admin`.
 
-### Billing stays orthogonal
+### Billing and access keys
 
-- Access keys gate reachability. During the current member rollout, approved members may create
-  Noter-managed apps after `access_app_create` and provider-readiness checks pass, regardless of
-  Polar billing state. Billing fields, `free`/`pro` labels, checkout state, and past billing specs
-  are not authorization inputs. Future app-creation guardrails need an explicit quota, credit,
-  rate-limit, or plan-enforcement rollout.
-- Members can still `connectRepository` (BYO infra) after passing `access_repo_connect`.
-- The target billing posture is still undecided. This migration keeps
-  `billing.getViewerBillingStatus`, `billing.createPolarCheckoutSession`,
-  `billing.createPolarCustomerPortalSession`, and `billing.syncViewerBillingFromPolar` under
-  `access_admin` until a future billing decision says which member-facing surfaces should ship.
-  `/pricing` route metadata remains `access_dashboard` so the route shell can exist without making
-  billing an authorization boundary.
-- No `pro` role and no `access_pro` key — plan checks never enter the GRANTS table.
+- Access keys gate feature reachability. Spec 119 separately enforces organization connection and
+  member capacity after the access-key check.
+- An organization above verified member capacity cannot do normal organization work. Billing and
+  member management stay available so an owner can buy capacity or remove a member.
+- `billing.getViewerBillingStatus`, `billing.requestPolarBillingChange`, and
+  `billing.createPolarCustomerPortalSession` use `access_dashboard`. Owner role and designated-payer
+  checks protect billing changes.
+- No `pro` role and no `access_pro` key. Plan and capacity checks do not enter the GRANTS table.
 
 ### MCP direction (Phase 4, own spec)
 
