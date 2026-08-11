@@ -216,7 +216,11 @@ async function resolveGitHubAppAccessForAuthority(
         target: { kind: "vault", vaultId: authority.vaultId },
       });
     case "provisioning":
-      return await resolveGitHubAppAccessForProvisioningRun(ctx, authority);
+      return await resolveGitHubAppAccessForProvisioningRun(ctx, {
+        runId: authority.runId,
+        userId: authority.userId,
+        vaultId: authority.vaultId,
+      });
     default:
       authority satisfies never;
       throw new Error("Vault action authority is invalid.");
