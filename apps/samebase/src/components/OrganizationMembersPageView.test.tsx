@@ -232,19 +232,30 @@ describe("OrganizationMembersPageView", () => {
     });
   }
 
-  it("shows separate Samebase and GitHub status with owner actions", async () => {
+  it("shows Samebase roles and GitHub organization status in separate columns", async () => {
     await renderPage();
     const mountedRootElement = getMountedRootElement(rootElement);
-
-    expect(rootElement?.textContent).toContain(
-      "Samebase access and GitHub organization membership are separate.",
+    const memberRows = [
+      ...mountedRootElement.querySelectorAll("[data-testid=organization-member-row]"),
+    ];
+    const memberHeaders = [...mountedRootElement.querySelectorAll("section:first-of-type th")].map(
+      (header) => header.textContent.trim(),
     );
-    expect(rootElement?.textContent).toContain("Samebase owner");
-    expect(rootElement?.textContent).toContain("GitHub organization owner");
-    expect(rootElement?.textContent).toContain("Samebase member");
-    expect(rootElement?.textContent).toContain("GitHub organization member");
+    const ownerCells = [...(memberRows.at(0)?.querySelectorAll("td") ?? [])].map((cell) =>
+      cell.textContent.trim(),
+    );
+    const guestCells = [...(memberRows.at(1)?.querySelectorAll("td") ?? [])].map((cell) =>
+      cell.textContent.trim(),
+    );
+
+    expect(memberHeaders).toEqual(["Member", "Samebase role", "GitHub org", "Actions"]);
+    expect(ownerCells.slice(1, 3)).toEqual(["Owner", "Owner"]);
+    expect(guestCells.slice(1, 3)).toEqual(["Member", "Member"]);
+    expect(rootElement?.textContent).not.toContain("Only Samebase owner");
+    expect(rootElement?.textContent).not.toContain("Add another Samebase owner");
     expect(rootElement?.textContent).toContain("Pending invitations");
-    expect(rootElement?.textContent).toContain("Created by Nicu");
+    expect(rootElement?.textContent).toContain("Created by");
+    expect(rootElement?.textContent).toContain("Nicu");
     expect(rootElement?.textContent).not.toContain("invitation-secret");
     expect(getButton(mountedRootElement, "Make Samebase owner").disabled).toBe(false);
   });
@@ -258,10 +269,13 @@ describe("OrganizationMembersPageView", () => {
       })),
     });
 
-    expect(rootElement?.textContent).toContain("Created by Deleted Samebase account");
+    const createdByCell = rootElement?.querySelector(
+      "[data-testid=organization-invitation-row] td:nth-child(2)",
+    );
+    expect(createdByCell?.textContent).toBe("Deleted Samebase account");
   });
 
-  it("names the GitHub owner account on a personal-owner page", async () => {
+  it("uses a GitHub owner column for a personal-owner page", async () => {
     await renderPage(
       {
         ...ownerPage,
@@ -281,10 +295,13 @@ describe("OrganizationMembersPageView", () => {
       ],
     );
 
-    expect(rootElement?.textContent).toContain(
-      "Samebase access and the GitHub owner account are separate.",
+    const mountedRootElement = getMountedRootElement(rootElement);
+    const memberHeaders = [...mountedRootElement.querySelectorAll("section:first-of-type th")].map(
+      (header) => header.textContent.trim(),
     );
-    expect(rootElement?.textContent).not.toContain("GitHub organization membership");
+    expect(memberHeaders).toEqual(["Member", "Samebase role", "GitHub owner", "Actions"]);
+    expect(rootElement?.textContent).toContain("Owner account");
+    expect(rootElement?.textContent).toContain("Different account");
   });
 
   it("resolves one exact GitHub user before it creates a blocked invitation link", async () => {
@@ -375,7 +392,7 @@ describe("OrganizationMembersPageView", () => {
     await renderPage(ownerPage, null);
     const mountedRootElement = getMountedRootElement(rootElement);
 
-    expect(rootElement?.textContent).toContain("GitHub status unavailable");
+    expect(rootElement?.textContent).toContain("Unavailable");
     await act(async () => getButton(mountedRootElement, "Copy link").click());
 
     expect(clipboardWriteText).toHaveBeenCalledWith(
@@ -523,7 +540,7 @@ describe("OrganizationMembersPageView", () => {
 
     expect(rootElement?.textContent).not.toContain("Invite member");
     expect(rootElement?.textContent).not.toContain("Pending invitations");
-    expect(rootElement?.textContent).not.toContain("GitHub organization owner");
+    expect(rootElement?.textContent).not.toContain("GitHub org");
     expect(rootElement?.textContent).not.toContain("Make Samebase owner");
     expect(getButton(mountedRootElement, "Leave organization").disabled).toBe(false);
   });

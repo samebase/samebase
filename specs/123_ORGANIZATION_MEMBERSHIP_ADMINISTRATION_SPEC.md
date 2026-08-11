@@ -98,18 +98,18 @@ Members use stable ordering: Samebase owners first, then normalized display labe
 ID. The label uses `users.displayName`, then the linked GitHub login, then `Samebase member`. Member
 rows do not expose another user's Samebase account email.
 
-The page uses these exact role and relationship terms:
+The member table uses these exact columns and values:
 
-- `Samebase owner`
-- `Samebase member`
-- `GitHub organization owner`
-- `GitHub organization member`
-- `Not in GitHub organization`
-- `GitHub account not connected`
-- `GitHub status unavailable`
-- `GitHub owner account`
-- `Different GitHub account`
-- `Only Samebase owner`
+- `Member` shows the account label, GitHub login, and avatar.
+- `Samebase role` shows `Owner` or `Member`. It also shows `Deleting` while account deletion is
+  active.
+- `GitHub org` shows `Owner`, `Member`, `Not a member`, `Not connected`, `Checking...`, or
+  `Unavailable` for a GitHub organization.
+- `GitHub owner` shows `Owner account`, `Different account`, `Not connected`, `Checking...`, or
+  `Unavailable` for a personal GitHub owner.
+
+The table does not explain last-owner rules. It disables or omits unavailable actions. The backend
+still enforces the last-active-owner rule.
 
 For a GitHub organization, Samebase uses the existing installation and Members read permission to
 read current organization members and owners. It compares stable GitHub IDs. For a personal GitHub

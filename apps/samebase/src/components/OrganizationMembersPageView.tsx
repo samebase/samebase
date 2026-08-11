@@ -100,6 +100,28 @@ function formatGitHubRelationship(status: MemberGitHubRelationshipStatus): strin
   }
 }
 
+function formatGitHubTableStatus(status: MemberGitHubRelationshipStatus): string {
+  switch (status) {
+    case "organization_owner":
+      return "Owner";
+    case "organization_member":
+      return "Member";
+    case "not_in_organization":
+      return "Not a member";
+    case "github_account_not_connected":
+      return "Not connected";
+    case "owner_account":
+      return "Owner account";
+    case "different_account":
+      return "Different account";
+    case "unavailable":
+      return "Unavailable";
+    default:
+      status satisfies never;
+      return "Unavailable";
+  }
+}
+
 function formatInvitationExpiry(expiresAt: number): string {
   return new Intl.DateTimeFormat("en", {
     day: "numeric",
@@ -110,27 +132,6 @@ function formatInvitationExpiry(expiresAt: number): string {
 
 function getMemberIdentity(member: OrganizationMember): string {
   return member.githubLogin ? `@${member.githubLogin}` : member.label;
-}
-
-function getMemberStatusParts(args: {
-  githubRelationship: MemberGitHubRelationshipStatus | null;
-  member: OrganizationMember;
-  showGitHubStatus: boolean;
-}): string[] {
-  const parts = [args.member.role === "owner" ? "Samebase owner" : "Samebase member"];
-  if (args.member.isDeleting) {
-    parts.push("Deleting account");
-  } else if (args.member.isOnlyActiveOwner) {
-    parts.push("Only Samebase owner");
-  }
-  if (args.showGitHubStatus) {
-    parts.push(
-      args.githubRelationship === null
-        ? "Checking GitHub status..."
-        : formatGitHubRelationship(args.githubRelationship),
-    );
-  }
-  return parts;
 }
 
 function MemberAvatar({ avatarUrl, label }: { avatarUrl?: string; label: string }) {
@@ -204,7 +205,7 @@ function MemberActionsMenu({
     });
   }
 
-  if (actions.length === 0) {
+  if (actions.length === 0 || actions.every((action) => action.disabled)) {
     return null;
   }
 
@@ -660,15 +661,8 @@ export function OrganizationMembersPageView({
       className="container flex min-h-0 flex-1 flex-col py-6"
       data-testid="organization-members-page"
     >
-      <div className="flex max-w-3xl items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold @2xl:text-2xl">Members</h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {page.organization.githubOwnerType === "organization"
-              ? "Samebase access and GitHub organization membership are separate."
-              : "Samebase access and the GitHub owner account are separate."}
-          </p>
-        </div>
+      <div className="flex max-w-3xl items-center justify-between gap-4">
+        <h1 className="text-xl font-semibold @2xl:text-2xl">Members</h1>
         {page.viewerRole === "owner" ? (
           <Button onClick={() => setInviteOpen(true)} type="button">
             Invite member
@@ -676,61 +670,87 @@ export function OrganizationMembersPageView({
         ) : null}
       </div>
 
-      <section aria-labelledby="organization-members-heading" className="mt-6 max-w-3xl">
+      <section aria-labelledby="organization-members-heading" className="mt-8 max-w-3xl">
         <h2 className="sr-only" id="organization-members-heading">
           Current members
         </h2>
-        <ul className="space-y-5">
-          {page.members.map((member) => {
-            const githubRelationship =
-              githubRelationships === null
-                ? "unavailable"
-                : (relationshipByUserId.get(member.userId) ?? null);
-            const statusParts = getMemberStatusParts({
-              githubRelationship,
-              member,
-              showGitHubStatus: page.viewerRole === "owner",
-            });
-            return (
-              <li
-                className="flex items-start gap-3 border-b border-border/50 pb-5 last:border-b-0"
-                data-testid="organization-member-row"
-                key={member.membershipId}
-              >
-                <MemberAvatar avatarUrl={member.avatarUrl} label={member.label} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">
-                    {member.label}
-                    {member.isViewer ? <span className="text-muted-foreground"> (you)</span> : null}
-                  </div>
-                  {member.githubLogin ? (
-                    <div className="truncate text-sm text-muted-foreground">
-                      @{member.githubLogin}
+        <table
+          aria-labelledby="organization-members-heading"
+          className="w-full table-fixed text-left text-sm"
+        >
+          <thead className="border-y text-xs text-muted-foreground">
+            <tr>
+              <th className="w-[44%] py-3 pr-4 font-medium" scope="col">
+                Member
+              </th>
+              <th className="w-[24%] py-3 pr-2 font-medium" scope="col">
+                Samebase role
+              </th>
+              {page.viewerRole === "owner" ? (
+                <th className="py-3 pr-1 font-medium" scope="col">
+                  {page.organization.githubOwnerType === "organization"
+                    ? "GitHub org"
+                    : "GitHub owner"}
+                </th>
+              ) : null}
+              <th className="w-10 py-3" scope="col">
+                <span className="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {page.members.map((member) => {
+              const githubRelationship =
+                githubRelationships === null
+                  ? "unavailable"
+                  : (relationshipByUserId.get(member.userId) ?? null);
+              return (
+                <tr
+                  className="border-b last:border-b-0"
+                  data-testid="organization-member-row"
+                  key={member.membershipId}
+                >
+                  <td className="py-4 pr-2 align-middle">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <MemberAvatar avatarUrl={member.avatarUrl} label={member.label} />
+                      <div className="min-w-0">
+                        <div className="truncate font-medium">
+                          {member.label}
+                          {member.isViewer ? (
+                            <span className="text-muted-foreground"> (you)</span>
+                          ) : null}
+                        </div>
+                        {member.githubLogin ? (
+                          <div className="truncate text-muted-foreground">
+                            @{member.githubLogin}
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
+                  </td>
+                  <td className="py-4 pr-2 align-middle">
+                    <div>{member.role === "owner" ? "Owner" : "Member"}</div>
+                    {member.isDeleting ? <div className="text-destructive">Deleting</div> : null}
+                  </td>
+                  {page.viewerRole === "owner" ? (
+                    <td className="py-4 pr-2 align-middle">
+                      {githubRelationship === null
+                        ? "Checking..."
+                        : formatGitHubTableStatus(githubRelationship)}
+                    </td>
                   ) : null}
-                  <div className="mt-1 flex flex-wrap gap-x-2 text-sm text-muted-foreground">
-                    {statusParts.map((part, index) => (
-                      <Fragment key={part}>
-                        {index === 0 ? null : <span aria-hidden="true">·</span>}
-                        <span>{part}</span>
-                      </Fragment>
-                    ))}
-                  </div>
-                  {member.isOnlyActiveOwner ? (
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Add another Samebase owner before you change this role or leave.
-                    </p>
-                  ) : null}
-                </div>
-                <MemberActionsMenu
-                  member={member}
-                  onConfirm={setConfirmation}
-                  viewerRole={page.viewerRole}
-                />
-              </li>
-            );
-          })}
-        </ul>
+                  <td className="py-4 text-right align-middle">
+                    <MemberActionsMenu
+                      member={member}
+                      onConfirm={setConfirmation}
+                      viewerRole={page.viewerRole}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </section>
 
       {page.viewerRole === "owner" && pendingInvitations.length > 0 ? (
@@ -738,77 +758,110 @@ export function OrganizationMembersPageView({
           <h2 className="text-base font-semibold" id="pending-invitations-heading">
             Pending invitations
           </h2>
-          <ul className="mt-4 space-y-5">
-            {pendingInvitations.map((invitation) => (
-              <li
-                className="flex items-start gap-3 border-b border-border/50 pb-5 last:border-b-0"
-                data-testid="organization-invitation-row"
-                key={invitation.invitationId}
-              >
-                <MemberAvatar
-                  avatarUrl={invitation.githubAvatarUrl}
-                  label={invitation.githubLogin}
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">@{invitation.githubLogin}</div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    {`Created by ${invitation.createdBy.label}. Expires ${formatInvitationExpiry(invitation.expiresAt)}.`}
-                  </div>
-                  {copyFallback?.invitationId === invitation.invitationId ? (
-                    <div className="mt-3 space-y-2" data-posthog-block>
-                      <Label htmlFor={`pending-invitation-link-${invitation.invitationId}`}>
-                        Invitation link
-                      </Label>
-                      <Input
-                        aria-describedby={`pending-invitation-copy-error-${invitation.invitationId}`}
-                        id={`pending-invitation-link-${invitation.invitationId}`}
-                        onFocus={(event) => event.currentTarget.select()}
-                        readOnly
-                        value={copyFallback.invitationUrl}
-                      />
-                      <p
-                        className="text-sm text-destructive"
-                        id={`pending-invitation-copy-error-${invitation.invitationId}`}
-                        role="alert"
-                      >
-                        Could not copy the invitation link. Copy it from the field.
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <Button
-                    onClick={() => copyPendingInvitation(invitation)}
-                    size="sm"
-                    type="button"
-                    variant="outline"
+          <div className="mt-4">
+            <table
+              aria-labelledby="pending-invitations-heading"
+              className="w-full table-fixed text-left text-sm"
+            >
+              <thead className="border-y text-xs text-muted-foreground">
+                <tr>
+                  <th className="w-[40%] py-3 pr-4 font-medium" scope="col">
+                    GitHub account
+                  </th>
+                  <th className="w-[24%] py-3 pr-4 font-medium" scope="col">
+                    Created by
+                  </th>
+                  <th className="hidden w-[20%] py-3 pr-4 font-medium @2xl:table-cell" scope="col">
+                    Expires
+                  </th>
+                  <th className="py-3 font-medium" scope="col">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingInvitations.map((invitation) => (
+                  <tr
+                    className="border-b last:border-b-0"
+                    data-testid="organization-invitation-row"
+                    key={invitation.invitationId}
                   >
-                    {copiedInvitationId === invitation.invitationId ? "Copied" : "Copy link"}
-                  </Button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild nativeButton>
-                      <Button
-                        aria-label={`@${invitation.githubLogin} invitation actions`}
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <MoreHorizontal />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44 rounded-none shadow-none">
-                      <DropdownMenuItem
-                        onSelect={() => setConfirmation({ kind: "cancel-invitation", invitation })}
-                        variant="destructive"
-                      >
-                        Cancel invitation
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </li>
-            ))}
-          </ul>
+                    <td className="py-4 pr-4 align-middle">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <MemberAvatar
+                          avatarUrl={invitation.githubAvatarUrl}
+                          label={invitation.githubLogin}
+                        />
+                        <div className="truncate font-medium">@{invitation.githubLogin}</div>
+                      </div>
+                    </td>
+                    <td className="py-4 pr-4 align-middle">{invitation.createdBy.label}</td>
+                    <td className="hidden py-4 pr-4 align-middle @2xl:table-cell">
+                      {formatInvitationExpiry(invitation.expiresAt)}
+                    </td>
+                    <td className="py-4 align-middle">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          onClick={() => copyPendingInvitation(invitation)}
+                          size="sm"
+                          type="button"
+                          variant="outline"
+                        >
+                          {copiedInvitationId === invitation.invitationId ? "Copied" : "Copy link"}
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild nativeButton>
+                            <Button
+                              aria-label={`@${invitation.githubLogin} invitation actions`}
+                              size="icon-sm"
+                              type="button"
+                              variant="ghost"
+                            >
+                              <MoreHorizontal />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-44 rounded-none shadow-none"
+                          >
+                            <DropdownMenuItem
+                              onSelect={() =>
+                                setConfirmation({ kind: "cancel-invitation", invitation })
+                              }
+                              variant="destructive"
+                            >
+                              Cancel invitation
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {copyFallback === null ? null : (
+              <div className="mt-3 space-y-2" data-posthog-block>
+                <Label htmlFor={`pending-invitation-link-${copyFallback.invitationId}`}>
+                  Invitation link
+                </Label>
+                <Input
+                  aria-describedby={`pending-invitation-copy-error-${copyFallback.invitationId}`}
+                  id={`pending-invitation-link-${copyFallback.invitationId}`}
+                  onFocus={(event) => event.currentTarget.select()}
+                  readOnly
+                  value={copyFallback.invitationUrl}
+                />
+                <p
+                  className="text-sm text-destructive"
+                  id={`pending-invitation-copy-error-${copyFallback.invitationId}`}
+                  role="alert"
+                >
+                  Could not copy the invitation link. Copy it from the field.
+                </p>
+              </div>
+            )}
+          </div>
         </section>
       ) : null}
 
