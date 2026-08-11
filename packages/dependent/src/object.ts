@@ -8,15 +8,16 @@ type ObjectEntry<Obj extends object> = {
   [Key in keyof Obj & string]: [Key, Obj[Key]];
 }[keyof Obj & string];
 
-type KeysWithUndefined<Obj extends object> = {
-  [Key in keyof Obj]-?: undefined extends Obj[Key] ? Key : never;
-}[keyof Obj];
+type StringKeyOf<Obj extends object> = keyof Obj & string;
+type StringKeysWithUndefined<Obj extends object> = {
+  [Key in StringKeyOf<Obj>]-?: undefined extends Obj[Key] ? Key : never;
+}[StringKeyOf<Obj>];
 
 export type UndefinedOmitted<Obj extends object> = Pick<
   Obj,
-  Exclude<keyof Obj, KeysWithUndefined<Obj>>
+  Exclude<StringKeyOf<Obj>, StringKeysWithUndefined<Obj>>
 > & {
-  [Key in KeysWithUndefined<Obj>]?: Exclude<Obj[Key], undefined>;
+  [Key in StringKeysWithUndefined<Obj>]?: Exclude<Obj[Key], undefined>;
 };
 
 export function entries<Obj extends object>(value: Obj): Array<ObjectEntry<Obj>> {

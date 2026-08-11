@@ -87,8 +87,9 @@ becomes closed while their existing role stays unchanged.
 
 The same recipient can repeat acceptance and receive an `already accepted` result. A wrong account
 cannot accept either a pending or accepted invitation. Creation and reissue read the exact pending
-index range. Cancellation and acceptance read the exact code row. Convex transaction conflict
-handling preserves one pending invitation and one valid result for concurrent operations.
+index range. Cancellation reads the exact invitation ID row. Acceptance reads the exact code row.
+Convex transaction conflict handling preserves one pending invitation and one valid result for
+concurrent operations.
 
 An accepted link shows organization access only while the accepting user still has a membership. If
 that membership was removed, the page says that the invitation was already used and asks the user to

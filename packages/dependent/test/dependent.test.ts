@@ -140,6 +140,14 @@ describe("dependent object helpers", () => {
     expectType<boolean | undefined>()(result.missing, true);
     expect(result).toEqual({ required: "value" });
   });
+
+  it("does not claim to preserve symbol keys", () => {
+    const symbolKey = Symbol("symbol-key");
+    const result = omitUndefined({ visible: "value", [symbolKey]: "symbol-value" });
+
+    expectType<{ visible: string }>()(result, true);
+    expect(Reflect.ownKeys(result)).toEqual(["visible"]);
+  });
 });
 
 describe("dependent type helpers", () => {

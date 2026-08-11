@@ -260,6 +260,27 @@ describe("OrganizationMembersPageView", () => {
     expect(getButton(mountedRootElement, "Make Samebase owner").disabled).toBe(false);
   });
 
+  it("shows a deleting member and prevents promotion", async () => {
+    await renderPage({
+      ...ownerPage,
+      members: ownerPage.members.map((member) => ({
+        ...member,
+        isDeleting: member.githubLogin === "noter-guest",
+      })),
+    });
+
+    const memberRows = [
+      ...(rootElement?.querySelectorAll<HTMLElement>("[data-testid=organization-member-row]") ??
+        []),
+    ];
+    const deletingMemberRow = memberRows.at(1);
+    if (!deletingMemberRow) {
+      throw new Error("The deleting member row was not rendered.");
+    }
+    expect(deletingMemberRow.textContent).toContain("Deleting");
+    expect(getButton(deletingMemberRow, "Make Samebase owner").disabled).toBe(true);
+  });
+
   it("shows the retained presentation for a deleted invitation creator", async () => {
     await renderPage({
       ...ownerPage,
