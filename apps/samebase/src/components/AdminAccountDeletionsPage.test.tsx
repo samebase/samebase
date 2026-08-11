@@ -2,12 +2,17 @@
 
 import { act } from "react";
 import { createRoot } from "react-dom/client";
+import { getFunctionName } from "convex/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { api } from "../../convex/_generated/api";
 import { AdminAccountDeletionsPage } from "./AdminAccountDeletionsPage";
 
-const mutationState = vi.hoisted(() => ({ retry: vi.fn() }));
+const mutationState = vi.hoisted(() => ({
+  accountRetry: vi.fn(),
+  organizationRetry: vi.fn(),
+}));
 const queryState = vi.hoisted(() => ({
-  detail: {
+  accountDetail: {
     run: {
       runId: "run_id-1",
       state: "needs_attention",
@@ -42,26 +47,48 @@ const queryState = vi.hoisted(() => ({
       },
     ],
   },
+  organizationRun: {
+    runId: "organization_run_id-1",
+    state: "needs_attention",
+    currentStep: "stop_billing",
+    requestedAt: 3,
+    latestProgressAt: 4,
+    retryCount: 2,
+    githubOwnerLogin: "samebase",
+    latestSafeError: "Polar customer cleanup needs staff attention.",
+  },
 }));
 
 vi.mock("convex/react", () => ({
-  useMutation: () => mutationState.retry,
-  usePaginatedQuery: () => ({
-    results: [queryState.detail.run],
-    status: "Exhausted",
-    loadMore: vi.fn(),
-  }),
+  useMutation: (reference: Parameters<typeof getFunctionName>[0]) =>
+    getFunctionName(reference) === getFunctionName(api.organizationDeletion.index.retryForAdmin)
+      ? mutationState.organizationRetry
+      : mutationState.accountRetry,
+  usePaginatedQuery: (reference: Parameters<typeof getFunctionName>[0]) =>
+    getFunctionName(reference) === getFunctionName(api.organizationDeletion.index.listForAdmin)
+      ? {
+          results: [queryState.organizationRun],
+          status: "Exhausted",
+          loadMore: vi.fn(),
+        }
+      : {
+          results: [queryState.accountDetail.run],
+          status: "Exhausted",
+          loadMore: vi.fn(),
+        },
   useQuery: (_reference: unknown, args: object | "skip") =>
-    args === "skip" ? undefined : queryState.detail,
+    args === "skip" ? undefined : queryState.accountDetail,
 }));
 
 describe("AdminAccountDeletionsPage", () => {
   beforeEach(() => {
-    mutationState.retry.mockReset();
-    mutationState.retry.mockResolvedValue(undefined);
+    mutationState.accountRetry.mockReset();
+    mutationState.accountRetry.mockResolvedValue(undefined);
+    mutationState.organizationRetry.mockReset();
+    mutationState.organizationRetry.mockResolvedValue(undefined);
   });
 
-  it("masks operations and exposes safe provider outcomes with retry only on attention", async () => {
+  it("shows safe account and organization recovery details", async () => {
     const rootElement = document.createElement("div");
     document.body.append(rootElement);
     const root = createRoot(rootElement);
@@ -107,7 +134,28 @@ describe("AdminAccountDeletionsPage", () => {
         retry?.click();
         await Promise.resolve();
       });
-      expect(mutationState.retry).toHaveBeenCalledWith({ runId: "run_id-1" });
+      expect(mutationState.accountRetry).toHaveBeenCalledWith({ runId: "run_id-1" });
+
+      const organizationSection = rootElement.querySelector(
+        "section[aria-labelledby='organization-deletions-heading']",
+      );
+      expect(organizationSection?.textContent).toContain("samebase");
+      expect(organizationSection?.textContent).toContain("needs attention");
+      expect(organizationSection?.textContent).toContain("stop billing");
+      expect(organizationSection?.textContent).toContain(
+        "Polar customer cleanup needs staff attention.",
+      );
+      const organizationRetry = Array.from(
+        organizationSection?.querySelectorAll("button") ?? [],
+      ).find((button) => button.textContent === "Retry");
+      expect(organizationRetry).toBeDefined();
+      await act(async () => {
+        organizationRetry?.click();
+        await Promise.resolve();
+      });
+      expect(mutationState.organizationRetry).toHaveBeenCalledWith({
+        runId: "organization_run_id-1",
+      });
     } finally {
       await act(async () => root.unmount());
       rootElement.remove();

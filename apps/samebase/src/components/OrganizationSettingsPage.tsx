@@ -1,6 +1,9 @@
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { OrganizationBillingSection } from "@/components/OrganizationBillingSection";
+import { OrganizationDeletionSection } from "@/components/OrganizationDeletionSection";
 import type { OrganizationBillingSearch } from "@/routeSearch/organizationBilling";
+import { useQuery } from "convex/react";
+import { api } from "../../convex/_generated/api";
 
 export function OrganizationSettingsPage({
   organization,
@@ -9,6 +12,13 @@ export function OrganizationSettingsPage({
   organization: ViewerOrganization;
   search: OrganizationBillingSearch;
 }) {
+  const deletionSettings = useQuery(api.organizationDeletion.index.settings, {
+    organizationId: organization.organizationId,
+  });
+  const deletionActive =
+    deletionSettings?.deletion.state === "running" ||
+    deletionSettings?.deletion.state === "needs_attention";
+
   return (
     <main
       data-testid="organization-settings-page"
@@ -32,7 +42,10 @@ export function OrganizationSettingsPage({
           </div>
         </dl>
       </section>
-      <OrganizationBillingSection organization={organization} search={search} />
+      {deletionSettings && !deletionActive ? (
+        <OrganizationBillingSection organization={organization} search={search} />
+      ) : null}
+      {deletionSettings ? <OrganizationDeletionSection settings={deletionSettings} /> : null}
     </main>
   );
 }

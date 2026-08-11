@@ -141,6 +141,23 @@ function GlobalAppRightSidebarLinks({ showAllVaults }: { showAllVaults: boolean 
 
 function OrganizationAppRightSidebarLinks({ organization }: { organization: ViewerOrganization }) {
   const params = { owner: organization.githubOwnerLogin };
+  if (organization.deletionState !== "not_deleting") {
+    return (
+      <nav
+        aria-label="Organization"
+        className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
+      >
+        <Link
+          className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+          params={params}
+          to={ORGANIZATION_SETTINGS_ROUTE}
+        >
+          Organization settings
+        </Link>
+      </nav>
+    );
+  }
+
   return (
     <nav
       aria-label="Organization"

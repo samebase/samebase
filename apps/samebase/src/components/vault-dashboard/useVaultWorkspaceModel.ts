@@ -44,7 +44,8 @@ export function useVaultWorkspaceModel(
         : null,
     [organizations, selectedVault],
   );
-  const accessibleSelectedVault = selectedOrganization ? selectedVault : null;
+  const accessibleSelectedVault =
+    selectedOrganization?.deletionState === "not_deleting" ? selectedVault : null;
   const providerObservations = useVaultProviderObservations(accessibleSelectedVault);
   const pullRequests = useVaultPullRequests({
     vault:
@@ -63,21 +64,24 @@ export function useVaultWorkspaceModel(
     if (!vaults || !folderState || !organizations || !organizationTreeSettings) {
       return { state: "loading" };
     }
+    const activeOrganizations = organizations.filter(
+      (organization) => organization.deletionState === "not_deleting",
+    );
     const requestedOrganization = organizationOwner
-      ? (organizations.find(
+      ? (activeOrganizations.find(
           (organization) =>
             organization.githubOwnerLogin.toLowerCase() === organizationOwner.toLowerCase(),
         ) ?? null)
       : null;
     const accessibleOrganizationIds = new Set(
-      organizations.map((organization) => organization.organizationId),
+      activeOrganizations.map((organization) => organization.organizationId),
     );
     if (!selectedRepositoryFullName) {
       const visibleOrganizations = organizationOwner
         ? requestedOrganization
           ? [requestedOrganization]
           : []
-        : organizations;
+        : activeOrganizations;
       const visibleOrganizationIds = new Set(
         visibleOrganizations.map((organization) => organization.organizationId),
       );
@@ -89,6 +93,24 @@ export function useVaultWorkspaceModel(
         organizations: visibleOrganizations,
         selection: { state: "root" },
         vaults: vaults.filter((vault) => visibleOrganizationIds.has(vault.organizationId)),
+      };
+    }
+    if (
+      selectedVault &&
+      selectedOrganization &&
+      selectedOrganization.deletionState !== "not_deleting"
+    ) {
+      return {
+        folderState,
+        organizationTreeSettings,
+        state: "ready",
+        sidebarSummaries,
+        organizations: [],
+        selection: {
+          state: "organization_deleting",
+          owner: selectedOrganization.githubOwnerLogin,
+        },
+        vaults: [],
       };
     }
     if (!accessibleSelectedVault || !selectedOrganization) {
@@ -110,7 +132,7 @@ export function useVaultWorkspaceModel(
       organizationTreeSettings,
       state: "ready",
       sidebarSummaries,
-      organizations,
+      organizations: activeOrganizations,
       selection: {
         state: "selected",
         workspace: {
@@ -151,6 +173,7 @@ export function useVaultWorkspaceModel(
     pullRequests,
     selectedRepositoryFullName,
     selectedOrganization,
+    selectedVault,
     accessibleSelectedVault,
     folderState,
     organizationTreeSettings,

@@ -12,21 +12,26 @@ export function readUploadStorageId(value: unknown): string {
   throw new Error("Upload response did not include a storage id.");
 }
 
+export type PendingMediaUploadTarget = {
+  uploadId: string;
+  uploadUrl: string;
+};
+
 export async function uploadMediaWithCleanup(args: {
-  requestUploadUrl: () => Promise<string>;
-  uploadFile: (uploadUrl: string) => Promise<string>;
-  stageUploadedMedia: (storageId: string) => Promise<void>;
-  deleteUploadedMedia: (storageId: string) => Promise<void>;
+  requestUploadUrl: () => Promise<PendingMediaUploadTarget>;
+  uploadFile: (target: PendingMediaUploadTarget) => Promise<string>;
+  stageUploadedMedia: (storageId: string, uploadId: string) => Promise<void>;
+  deleteUploadedMedia: (storageId: string, uploadId: string) => Promise<void>;
   onCleanupError?: (error: unknown, storageId: string) => void;
 }): Promise<void> {
-  const uploadUrl = await args.requestUploadUrl();
-  const storageId = await args.uploadFile(uploadUrl);
+  const target = await args.requestUploadUrl();
+  const storageId = await args.uploadFile(target);
 
   try {
-    await args.stageUploadedMedia(storageId);
+    await args.stageUploadedMedia(storageId, target.uploadId);
   } catch (error) {
     try {
-      await args.deleteUploadedMedia(storageId);
+      await args.deleteUploadedMedia(storageId, target.uploadId);
     } catch (cleanupError) {
       args.onCleanupError?.(cleanupError, storageId);
     }

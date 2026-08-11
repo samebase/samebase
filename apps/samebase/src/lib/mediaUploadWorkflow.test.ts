@@ -14,7 +14,11 @@ describe("readUploadStorageId", () => {
 
 describe("uploadMediaWithCleanup", () => {
   it("stages the uploaded media when upload succeeds", async () => {
-    const requestUploadUrl = vi.fn(async () => "https://upload.example.test");
+    const target = {
+      uploadId: "upload-123",
+      uploadUrl: "https://upload.example.test",
+    };
+    const requestUploadUrl = vi.fn(async () => target);
     const uploadFile = vi.fn(async () => "storage-123");
     const stageUploadedMedia = vi.fn(async () => {});
     const deleteUploadedMedia = vi.fn(async () => {});
@@ -27,8 +31,8 @@ describe("uploadMediaWithCleanup", () => {
     });
 
     expect(requestUploadUrl).toHaveBeenCalledOnce();
-    expect(uploadFile).toHaveBeenCalledWith("https://upload.example.test");
-    expect(stageUploadedMedia).toHaveBeenCalledWith("storage-123");
+    expect(uploadFile).toHaveBeenCalledWith(target);
+    expect(stageUploadedMedia).toHaveBeenCalledWith("storage-123", "upload-123");
     expect(deleteUploadedMedia).not.toHaveBeenCalled();
   });
 
@@ -38,7 +42,10 @@ describe("uploadMediaWithCleanup", () => {
 
     await expect(
       uploadMediaWithCleanup({
-        requestUploadUrl: async () => "https://upload.example.test",
+        requestUploadUrl: async () => ({
+          uploadId: "upload-123",
+          uploadUrl: "https://upload.example.test",
+        }),
         uploadFile: async () => "storage-123",
         stageUploadedMedia: async () => {
           throw stageError;
@@ -47,7 +54,7 @@ describe("uploadMediaWithCleanup", () => {
       }),
     ).rejects.toThrow(stageError);
 
-    expect(deleteUploadedMedia).toHaveBeenCalledWith("storage-123");
+    expect(deleteUploadedMedia).toHaveBeenCalledWith("storage-123", "upload-123");
   });
 
   it("does not attempt cleanup when upload fails before a storage id exists", async () => {
@@ -56,7 +63,10 @@ describe("uploadMediaWithCleanup", () => {
 
     await expect(
       uploadMediaWithCleanup({
-        requestUploadUrl: async () => "https://upload.example.test",
+        requestUploadUrl: async () => ({
+          uploadId: "upload-123",
+          uploadUrl: "https://upload.example.test",
+        }),
         uploadFile: async () => {
           throw uploadError;
         },
@@ -75,7 +85,10 @@ describe("uploadMediaWithCleanup", () => {
 
     await expect(
       uploadMediaWithCleanup({
-        requestUploadUrl: async () => "https://upload.example.test",
+        requestUploadUrl: async () => ({
+          uploadId: "upload-123",
+          uploadUrl: "https://upload.example.test",
+        }),
         uploadFile: async () => "storage-123",
         stageUploadedMedia: async () => {
           throw stageError;

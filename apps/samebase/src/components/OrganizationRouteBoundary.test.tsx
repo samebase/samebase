@@ -6,6 +6,16 @@ import { OrganizationContextProvider } from "./OrganizationContext";
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { OrganizationRouteBoundary } from "./OrganizationRouteBoundary";
 
+vi.mock("@tanstack/react-router", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-router")>();
+  return {
+    ...actual,
+    Navigate: ({ params, to }: { params: { owner: string }; to: string }) => (
+      <span data-owner={params.owner} data-testid="organization-deletion-redirect" data-to={to} />
+    ),
+  };
+});
+
 function fakeOrganizationId(value: string): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this test only needs
   // a stable value for route matching.
@@ -14,6 +24,7 @@ function fakeOrganizationId(value: string): Id<"organizations"> {
 
 const organization = {
   canCreateRepository: true,
+  deletionState: "not_deleting" as const,
   githubOwnerId: "456",
   githubOwnerLogin: "samebase",
   githubOwnerType: "organization" as const,
@@ -34,12 +45,16 @@ vi.mock("convex/react", async (importOriginal) => {
   };
 });
 
-function renderBoundary(owner: string) {
+function renderBoundary(owner: string, section = "providers") {
   return renderToStaticMarkup(
-    <TestRouterProvider initialEntries={[`/org/${owner}/providers`]}>
+    <TestRouterProvider initialEntries={[`/org/${owner}/${section}`]}>
       <OrganizationContextProvider>
         <OrganizationRouteBoundary owner={owner}>
-          {(selectedOrganization) => <div>{selectedOrganization.githubOwnerLogin} providers</div>}
+          {(selectedOrganization) => (
+            <div>
+              {selectedOrganization.githubOwnerLogin} {section}
+            </div>
+          )}
         </OrganizationRouteBoundary>
       </OrganizationContextProvider>
     </TestRouterProvider>,
@@ -69,5 +84,22 @@ describe("OrganizationRouteBoundary", () => {
     testState.organizations = [organization];
 
     expect(renderBoundary("Samebase")).toContain("samebase providers");
+  });
+
+  it("routes a deleting organization to its settings status", () => {
+    testState.organizations = [{ ...organization, deletionState: "deleting" }];
+
+    const markup = renderBoundary("samebase");
+
+    expect(markup).toContain('data-testid="organization-deletion-redirect"');
+    expect(markup).toContain('data-to="/org/$owner/settings"');
+    expect(markup).toContain('data-owner="samebase"');
+    expect(markup).not.toContain("samebase providers");
+  });
+
+  it("keeps a deleting organization on its settings status", () => {
+    testState.organizations = [{ ...organization, deletionState: "deleting" }];
+
+    expect(renderBoundary("samebase", "settings")).toContain("samebase settings");
   });
 });

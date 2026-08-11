@@ -110,6 +110,7 @@ describe("VaultDashboard dialog route cleanup", () => {
     selection:
       | { state: "root" }
       | { state: "missing"; repositoryFullName: string }
+      | { state: "organization_deleting"; owner: string }
       | {
           state: "selected";
           workspace: {
@@ -193,6 +194,14 @@ describe("VaultDashboard dialog route cleanup", () => {
     expect(rootElement?.textContent).toContain("All vaults");
     expect(rootElement?.textContent).not.toContain("samebase/missing");
     expect(rootElement?.querySelector("a")?.getAttribute("href")).toContain("/vault");
+  });
+
+  it("routes a deleting organization vault to organization settings", async () => {
+    setSettledWorkspace({ state: "organization_deleting", owner: "samebase" });
+
+    await renderDashboard("/vault/samebase/samebase", "samebase/samebase");
+
+    expect(readLocationHref()).toContain("/org/samebase/settings");
   });
 
   it("keeps a permitted dialog for the selected vault", async () => {

@@ -168,6 +168,7 @@ describe("useVaultWorkspaceModel", () => {
     const vault = lostAccessVault();
     const organization = {
       canCreateRepository: true,
+      deletionState: "not_deleting",
       githubOwnerId: "github-owner-lost",
       githubOwnerLogin: "lost",
       githubOwnerType: "organization",
@@ -221,6 +222,49 @@ describe("useVaultWorkspaceModel", () => {
     }
   });
 
+  it("removes a deleting organization from vault data and requests a settings redirect", async () => {
+    const vault = lostAccessVault();
+    const organization = {
+      canCreateRepository: true,
+      deletionState: "deleting",
+      githubOwnerId: "github-owner-lost",
+      githubOwnerLogin: "lost",
+      githubOwnerType: "organization",
+      organizationId: vault.organizationId,
+      role: "owner",
+    } as const;
+    testState.cachedQueries.set(getFunctionName(api.vault.dashboard.getUserVaults), [vault]);
+    testState.liveQueries.set(getFunctionName(api.organizations.listForViewer), [organization]);
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    let latest: ReturnType<typeof useVaultWorkspaceModel> | undefined;
+
+    function Probe() {
+      latest = useVaultWorkspaceModel(vault.repositoryFullName);
+      return null;
+    }
+
+    try {
+      await act(async () => root.render(<Probe />));
+
+      expect(latest).toEqual({
+        folderState: EMPTY_FOLDER_STATE,
+        organizationTreeSettings: [],
+        organizations: [],
+        selection: { owner: "lost", state: "organization_deleting" },
+        sidebarSummaries: { state: "loading" },
+        state: "ready",
+        vaults: [],
+      });
+      expect(testState.providerVaults).toEqual([null]);
+      expect(testState.pullRequestArgs).toEqual([{ vault: null }]);
+    } finally {
+      await act(async () => root.unmount());
+      rootElement.remove();
+    }
+  });
+
   it("keeps all accessible organization groups in a selected vault picker", async () => {
     const selectedVault = {
       ...lostAccessVault(),
@@ -248,6 +292,7 @@ describe("useVaultWorkspaceModel", () => {
     } satisfies UserVaultResult;
     const samebaseOrganization = {
       canCreateRepository: true,
+      deletionState: "not_deleting",
       githubOwnerId: "github-owner-samebase",
       githubOwnerLogin: "samebase",
       githubOwnerType: "organization",
@@ -256,6 +301,7 @@ describe("useVaultWorkspaceModel", () => {
     } as const;
     const noterOrganization = {
       canCreateRepository: true,
+      deletionState: "not_deleting",
       githubOwnerId: "github-owner-noter",
       githubOwnerLogin: "noter",
       githubOwnerType: "organization",
@@ -326,6 +372,7 @@ describe("useVaultWorkspaceModel", () => {
     } satisfies UserVaultResult;
     const samebaseOrganization = {
       canCreateRepository: true,
+      deletionState: "not_deleting",
       githubOwnerId: "github-owner-samebase",
       githubOwnerLogin: "samebase",
       githubOwnerType: "organization",
@@ -334,6 +381,7 @@ describe("useVaultWorkspaceModel", () => {
     } as const;
     const otherOrganization = {
       canCreateRepository: true,
+      deletionState: "not_deleting",
       githubOwnerId: "github-owner-other",
       githubOwnerLogin: "other",
       githubOwnerType: "organization",

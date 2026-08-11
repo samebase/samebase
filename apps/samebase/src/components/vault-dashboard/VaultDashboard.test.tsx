@@ -1211,6 +1211,7 @@ describe("VaultOverviewVaultPickerPane", () => {
   function organizationForVault(vault: RepositorySettingsBuilderVault): VaultOrganization {
     return {
       canCreateRepository: true,
+      deletionState: "not_deleting",
       githubOwnerId: "github-owner-ada",
       githubOwnerLogin: vault.ghRepoOwner,
       githubOwnerType: "user",

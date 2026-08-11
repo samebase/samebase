@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "@tanstack/react-router";
+import { ConvexError } from "convex/values";
 
 import { api } from "../../convex/_generated/api";
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
@@ -61,9 +62,13 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
 
       writeAccountDeletionBrowserMarker(result.status.completionCapability);
       void router.navigate({ href: ACCOUNT_DELETION_ROUTE, replace: true });
-    } catch {
+    } catch (error) {
       // A transport failure cannot prove that the request did not commit.
-      setDeletionError("Could not start account deletion. Please try again.");
+      setDeletionError(
+        error instanceof ConvexError && typeof error.data === "string"
+          ? error.data
+          : "Could not start account deletion. Please try again.",
+      );
       setIsRequestingDeletion(false);
     }
   };

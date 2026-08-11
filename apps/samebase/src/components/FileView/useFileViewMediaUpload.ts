@@ -13,15 +13,20 @@ import { usePageLeaveGuard } from "@/lib/pageLeaveGuard";
 type VaultId = NonNullable<(typeof api.vault.records.getVaultByRepository)["_returnType"]>["_id"];
 type StorageId = Id<"_storage">;
 
-type GenerateUploadUrl = (args: { vaultId: VaultId }) => Promise<string>;
+type GenerateUploadUrl = (args: {
+  vaultId: VaultId;
+  contentType: string;
+}) => Promise<(typeof api.fileStaging.generateUploadUrl)["_returnType"]>;
 type StageUploadedMedia = (args: {
   repositoryFullName: string;
   filePath: string;
+  uploadId: Id<"vaultPendingUploads">;
   storageId: StorageId;
   branch: string;
   replaceExisting: boolean;
 }) => Promise<unknown>;
 type DeletePendingUploadBlob = (args: {
+  uploadId: Id<"vaultPendingUploads">;
   vaultId: VaultId;
   storageId: StorageId;
 }) => Promise<unknown>;
@@ -109,12 +114,17 @@ export function useFileViewMediaUpload({
       setMediaUploadError(null);
 
       void uploadMediaWithCleanup({
-        requestUploadUrl: () => generateUploadUrl({ vaultId }),
-        uploadFile: async (uploadUrl) => {
-          const response = await fetch(uploadUrl, {
+        requestUploadUrl: () =>
+          generateUploadUrl({ vaultId, contentType: pendingMediaUpload.file.type }),
+        uploadFile: async (target) => {
+          const convexSiteUrl = import.meta.env["VITE_CONVEX_SITE_URL"];
+          if (!convexSiteUrl) {
+            throw new Error("File upload service is not configured.");
+          }
+          const response = await fetch(new URL(target.uploadUrl, convexSiteUrl), {
             method: "POST",
             headers: {
-              "Content-Type": pendingMediaUpload.file.type || "application/octet-stream",
+              "Content-Type": pendingMediaUpload.file.type,
             },
             body: pendingMediaUpload.file,
           });
@@ -123,10 +133,13 @@ export function useFileViewMediaUpload({
           }
           return readUploadStorageId(await response.json());
         },
-        stageUploadedMedia: async (storageId) => {
+        stageUploadedMedia: async (storageId, uploadId) => {
           await stageUploadedMedia({
             repositoryFullName,
             filePath: targetPath,
+            // Convex ids are opaque strings after the generic workflow boundary.
+            // @ts-expect-error The reservation id brand cannot cross that boundary.
+            uploadId,
             // Convex returns upload ids as opaque strings over HTTP even though
             // the generated client types brand storage ids locally.
             // @ts-expect-error Upload responses cannot preserve the `_storage` brand across fetch JSON.
@@ -135,8 +148,11 @@ export function useFileViewMediaUpload({
             replaceExisting,
           });
         },
-        deleteUploadedMedia: async (storageId) => {
+        deleteUploadedMedia: async (storageId, uploadId) => {
           await deletePendingUploadBlob({
+            // Convex ids are opaque strings after the generic workflow boundary.
+            // @ts-expect-error The reservation id brand cannot cross that boundary.
+            uploadId,
             vaultId,
             // Upload responses cannot preserve the storage id brand.
             // @ts-expect-error Upload responses are plain strings from fetch JSON.

@@ -43,9 +43,13 @@ function fakeOrganizationId(value: string): Id<"organizations"> {
   return value;
 }
 
-function organization(githubOwnerLogin: string): ViewerOrganization {
+function organization(
+  githubOwnerLogin: string,
+  deletionState: ViewerOrganization["deletionState"] = "not_deleting",
+): ViewerOrganization {
   return {
     canCreateRepository: true,
+    deletionState,
     githubOwnerId: `github-${githubOwnerLogin}`,
     githubOwnerLogin,
     githubOwnerType: "organization",
@@ -280,6 +284,31 @@ describe("OrganizationContextControl", () => {
 
     expect(testState.navigate).toHaveBeenCalledWith({
       href: "/org/alpha/vaults?prod-ui#README",
+    });
+  });
+
+  it("routes a deleting organization to its settings status", async () => {
+    testState.context.organizations = [organization("zeta"), organization("alpha", "deleting")];
+    testState.context.surface = {
+      kind: "organization",
+      owner: "zeta",
+      section: "providers",
+      source: "organization",
+    };
+    testState.location.hash = "#provider";
+    testState.location.search = { "prod-ui": true };
+    const container = await mountControl();
+    const menuItems = [
+      ...container.querySelectorAll('[data-testid="organization-context-menu-item"]'),
+    ];
+
+    await act(async () => {
+      menuItems[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(testState.navigate).toHaveBeenCalledWith({
+      href: "/org/alpha/settings?prod-ui#provider",
     });
   });
 

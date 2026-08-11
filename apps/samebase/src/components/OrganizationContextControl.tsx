@@ -1,4 +1,8 @@
-import { useOrganizationContext, type AppOrganizationSurface } from "@/lib/organizationContext";
+import {
+  useOrganizationContext,
+  type AppOrganizationSurface,
+  type ViewerOrganization,
+} from "@/lib/organizationContext";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -95,16 +99,22 @@ export function OrganizationContextControl() {
       }),
     });
   };
-  const navigateToOrganization = (owner: string) => {
+  const navigateToOrganization = (organization: ViewerOrganization) => {
     const section =
-      surface.kind === "organization" && surface.source === "organization"
-        ? surface.section
-        : "vaults";
+      organization.deletionState !== "not_deleting"
+        ? "settings"
+        : surface.kind === "organization" && surface.source === "organization"
+          ? surface.section
+          : "vaults";
     void navigate({
       href: buildOrganizationSwitchHref({
         hash: location.hash,
         search: location.search,
-        target: { kind: "organization", owner, section },
+        target: {
+          kind: "organization",
+          owner: organization.githubOwnerLogin,
+          section,
+        },
       }),
     });
   };
@@ -132,7 +142,7 @@ export function OrganizationContextControl() {
           {organizations?.map((organization) => (
             <DropdownMenuItem
               key={organization.organizationId}
-              onSelect={() => navigateToOrganization(organization.githubOwnerLogin)}
+              onSelect={() => navigateToOrganization(organization)}
             >
               {organization.githubOwnerLogin}
             </DropdownMenuItem>

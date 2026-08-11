@@ -28,6 +28,7 @@ const ORGANIZATION_ID = fakeOrganizationId("organization_samebase");
 
 const organization = {
   canCreateRepository: true,
+  deletionState: "not_deleting" as const,
   githubOwnerId: "456",
   githubOwnerLogin: "samebase",
   githubOwnerType: "organization" as const,
@@ -36,6 +37,7 @@ const organization = {
 };
 const personalOrganization = {
   canCreateRepository: false,
+  deletionState: "not_deleting" as const,
   githubOwnerId: "123",
   githubOwnerLogin: "nicubunu",
   githubOwnerType: "user" as const,

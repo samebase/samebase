@@ -84,6 +84,7 @@ function organization(
 ): VaultOrganization {
   return {
     canCreateRepository: true,
+    deletionState: "not_deleting",
     githubOwnerId: `github-owner-${githubOwnerLogin}`,
     githubOwnerLogin,
     githubOwnerType: "organization",

@@ -8,9 +8,15 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Id } from "../../convex/_generated/dataModel";
 
-const { appWorkspaceMountMock, appWorkspaceUnmountMock, useConvexAuthMock } = vi.hoisted(() => ({
+const {
+  appWorkspaceMountMock,
+  appWorkspaceUnmountMock,
+  organizationRouteOwnerMock,
+  useConvexAuthMock,
+} = vi.hoisted(() => ({
   appWorkspaceMountMock: vi.fn(),
   appWorkspaceUnmountMock: vi.fn(),
+  organizationRouteOwnerMock: vi.fn(),
   useConvexAuthMock: vi.fn(),
 }));
 
@@ -162,6 +168,7 @@ vi.mock("@/components/OrganizationRouteBoundary", () => ({
     children: (organization: ViewerOrganization) => React.ReactNode;
     owner: string;
   }) => {
+    organizationRouteOwnerMock(owner);
     const normalizedOwner = owner.toLowerCase();
     if (normalizedOwner !== "samebase" && normalizedOwner !== "acme") {
       return <div data-testid="organization-unavailable">Organization unavailable</div>;
@@ -171,6 +178,7 @@ vi.mock("@/components/OrganizationRouteBoundary", () => ({
     const organizationId: Id<"organizations"> = `organization_${normalizedOwner}`;
     return children({
       canCreateRepository: true,
+      deletionState: "not_deleting",
       githubOwnerId: organizationId,
       githubOwnerLogin: normalizedOwner,
       githubOwnerType: "organization",
@@ -358,6 +366,7 @@ describe("appRouter", () => {
   beforeEach(() => {
     appWorkspaceMountMock.mockClear();
     appWorkspaceUnmountMock.mockClear();
+    organizationRouteOwnerMock.mockClear();
     scrollToMock.mockClear();
     useConvexAuthMock.mockReturnValue({
       isAuthenticated: false,
@@ -1026,6 +1035,7 @@ describe("appRouter", () => {
   it("renders the generic vault route through an explicit TanStack route instead of the App fallback", async () => {
     await renderRoute("/vault/samebase/samebase/fs/main/README.md");
 
+    expect(organizationRouteOwnerMock).toHaveBeenCalledWith("samebase");
     expect(rootElement?.querySelector('[data-testid="file-view-page"]')?.textContent).toBe(
       "File view page",
     );
@@ -1062,6 +1072,7 @@ describe("appRouter", () => {
   it("renders the vault database route through the database route", async () => {
     await renderRoute("/vault/samebase/samebase/db/main/project/convex-attachment");
 
+    expect(organizationRouteOwnerMock).toHaveBeenCalledWith("samebase");
     expect(rootElement?.querySelector('[data-testid="vault-database-page"]')?.textContent).toBe(
       "Vault database page",
     );

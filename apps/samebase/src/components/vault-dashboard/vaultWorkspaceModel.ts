@@ -42,6 +42,7 @@ export type VaultWorkspaceSelected = {
 export type VaultWorkspaceSelection =
   | { state: "root" }
   | { state: "missing"; repositoryFullName: string }
+  | { state: "organization_deleting"; owner: string }
   | { state: "selected"; workspace: VaultWorkspaceSelected };
 
 export type VaultWorkspaceModel =

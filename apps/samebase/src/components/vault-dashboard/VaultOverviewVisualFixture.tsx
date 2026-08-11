@@ -329,6 +329,7 @@ const FIXTURE_VAULT_FOLDER_PROPS = {
 const VISUAL_ORGANIZATIONS = [
   {
     canCreateRepository: true,
+    deletionState: "not_deleting",
     githubOwnerId: "github-owner-empty",
     githubOwnerLogin: "empty-owner",
     githubOwnerType: "organization",
@@ -337,6 +338,7 @@ const VISUAL_ORGANIZATIONS = [
   },
   {
     canCreateRepository: true,
+    deletionState: "not_deleting",
     githubOwnerId: "github-owner-noter",
     githubOwnerLogin: "noter",
     githubOwnerType: "user",
@@ -345,6 +347,7 @@ const VISUAL_ORGANIZATIONS = [
   },
   {
     canCreateRepository: true,
+    deletionState: "not_deleting",
     githubOwnerId: "github-owner-samebase",
     githubOwnerLogin: "samebase",
     githubOwnerType: "organization",
@@ -527,6 +530,7 @@ const PROVISIONING_CONVEX_PROJECT_ID = fakeConvexProjectId("convex-project-provi
 const PROVISIONING_RUN_ID = fakeVaultProvisioningRunId("vault-provisioning-run-fixture");
 const PROVISIONING_ORGANIZATION = {
   canCreateRepository: true,
+  deletionState: "not_deleting",
   githubOwnerId: "github-owner-nicu-chiciuc",
   githubOwnerLogin: "nicu-chiciuc",
   githubOwnerType: "user",

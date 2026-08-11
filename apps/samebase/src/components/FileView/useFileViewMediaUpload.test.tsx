@@ -13,12 +13,21 @@ function fakeVaultId(): Id<"vaults"> {
   return "k976ryb9d1m2gyvxhps87dac257mv5ps";
 }
 
+function fakePendingUploadId(): Id<"vaultPendingUploads"> {
+  // @ts-expect-error Convex ids are strings at runtime; this hook test only
+  // needs a stable pending-upload id for generated function arguments.
+  return "k976ryb9d1m2gyvxhps87dac257mv5pu";
+}
+
 function MediaUploadProbe() {
   const mediaUpload = useFileViewMediaUpload({
     branch: "main",
     buildVaultFileUrl: (path) => `/vault/octo/repo/fs/main/${path}`,
     deletePendingUploadBlob: vi.fn(async () => null),
-    generateUploadUrl: vi.fn(async () => "/upload"),
+    generateUploadUrl: vi.fn(async () => ({
+      uploadId: fakePendingUploadId(),
+      uploadUrl: "/upload",
+    })),
     navigateByHref: vi.fn(),
     repositoryFullName: "octo/repo",
     selectedFile: "README.md",

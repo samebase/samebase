@@ -7,7 +7,8 @@ import {
 } from "@/lib/organizationContext";
 import { Button } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
-import { Link } from "@tanstack/react-router";
+import { ORGANIZATION_SETTINGS_ROUTE } from "@/lib/organizationRoutes";
+import { Link, Navigate, useLocation } from "@tanstack/react-router";
 import { Fragment, type ReactNode } from "react";
 
 function OrganizationUnavailable({
@@ -45,6 +46,7 @@ export function OrganizationRouteBoundary({
   owner: string;
 }) {
   const { organizations } = useOrganizationContext();
+  const location = useLocation();
   if (organizations === undefined) {
     return null;
   }
@@ -55,6 +57,19 @@ export function OrganizationRouteBoundary({
       <OrganizationUnavailable
         authorizationErrorMessage={authorizationErrorMessage}
         owner={owner}
+      />
+    );
+  }
+  if (
+    organization.deletionState !== "not_deleting" &&
+    location.pathname !== `/org/${encodeURIComponent(organization.githubOwnerLogin)}/settings`
+  ) {
+    return (
+      <Navigate
+        params={{ owner: organization.githubOwnerLogin }}
+        replace
+        search
+        to={ORGANIZATION_SETTINGS_ROUTE}
       />
     );
   }

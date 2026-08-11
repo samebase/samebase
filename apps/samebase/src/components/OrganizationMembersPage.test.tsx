@@ -63,6 +63,7 @@ function setInputValue(input: HTMLInputElement, value: string): void {
 
 const organization = {
   canCreateRepository: true,
+  deletionState: "not_deleting",
   githubOwnerId: "456",
   githubOwnerLogin: "samebase",
   githubOwnerType: "organization",

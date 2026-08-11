@@ -10,6 +10,7 @@ import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
 import { useEffect } from "react";
 import { api } from "../../../convex/_generated/api";
+import { ORGANIZATION_SETTINGS_ROUTE } from "@/lib/organizationRoutes";
 import { VaultOverviewLoadingPage, type VaultOverviewPageKind } from "./VaultOverviewPage";
 import {
   VaultOverviewOrganizationSidebar,
@@ -69,6 +70,10 @@ export function VaultDashboard({
   });
   const selectedVaultAvailable =
     workspaceModel.state === "loading" ? null : workspaceModel.selection.state === "selected";
+  const deletingOrganizationOwner =
+    workspaceModel.state === "ready" && workspaceModel.selection.state === "organization_deleting"
+      ? workspaceModel.selection.owner
+      : null;
   let unavailableDialog: VaultDashboardQueryDialog | null = null;
   if (selectedVaultAvailable === false) {
     if (rootRouteSearch.delete === true) {
@@ -97,6 +102,17 @@ export function VaultDashboard({
       to: pathname,
     });
   }, [navigate, pathname, unavailableDialog]);
+
+  useEffect(() => {
+    if (deletingOrganizationOwner === null) {
+      return;
+    }
+    void navigate({
+      params: { owner: deletingOrganizationOwner },
+      replace: true,
+      to: ORGANIZATION_SETTINGS_ROUTE,
+    });
+  }, [deletingOrganizationOwner, navigate]);
 
   if (workspaceModel.state === "loading") {
     if (!selectedRepositoryFullName) {
@@ -136,6 +152,10 @@ export function VaultDashboard({
         />
       </AppWorkspaceRouteChrome>
     );
+  }
+
+  if (workspaceModel.selection.state === "organization_deleting") {
+    return null;
   }
 
   const selectedWorkspace =

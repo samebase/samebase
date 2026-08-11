@@ -19,6 +19,7 @@ function fakeOrganizationId(value: string): Id<"organizations"> {
 
 const organization = {
   canCreateRepository: true,
+  deletionState: "not_deleting" as const,
   githubOwnerId: "456",
   githubOwnerLogin: "Samebase",
   githubOwnerType: "organization" as const,

@@ -49,6 +49,7 @@ describe("NewAppPage", () => {
         <NewAppPage
           organization={{
             canCreateRepository: false,
+            deletionState: "not_deleting",
             githubOwnerId: "123",
             githubOwnerLogin: "nicubunu",
             githubOwnerType: "user",

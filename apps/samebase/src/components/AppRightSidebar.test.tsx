@@ -587,6 +587,7 @@ describe("AppRightSidebarContent", () => {
   it("renders the approved organization navigation without a billing item", async () => {
     const organization = {
       canCreateRepository: true,
+      deletionState: "not_deleting" as const,
       githubOwnerId: "456",
       githubOwnerLogin: "samebase",
       githubOwnerType: "organization" as const,
@@ -640,6 +641,53 @@ describe("AppRightSidebarContent", () => {
     expect(accountIndex).toBeGreaterThanOrEqual(0);
     expect(contextIndex).toBeGreaterThan(accountIndex);
     expect(organizationNavigationIndex).toBeGreaterThan(contextIndex);
+  });
+
+  it("shows only settings navigation for a deleting organization", async () => {
+    organizationContextState.organizations = [
+      {
+        canCreateRepository: true,
+        deletionState: "deleting",
+        githubOwnerId: "456",
+        githubOwnerLogin: "samebase",
+        githubOwnerType: "organization",
+        organizationId: fakeOrganizationId("organization_samebase"),
+        role: "owner",
+      },
+    ];
+    organizationContextState.surface = {
+      kind: "organization",
+      owner: "samebase",
+      section: "settings",
+      source: "organization",
+    };
+    window.localStorage.setItem(convexAuthJwtStorageKey(TEST_STORAGE_NAMESPACE), PROFILE_JWT);
+
+    const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
+      new Map([
+        [
+          getFunctionName(api.users.currentViewerAccess),
+          {
+            role: "role_member",
+            accessKeys: ["access_public", "access_provider_connections"],
+          },
+        ],
+        [
+          getFunctionName(api.users.viewer),
+          {
+            _id: "user_123",
+            accountPresentation: { kind: "email", label: "nicu@samebase.md" },
+          },
+        ],
+      ]),
+    );
+
+    expect(hydratedMarkup).toContain('href="/org/samebase/settings"');
+    expect(hydratedMarkup).not.toContain("/org/samebase/vaults");
+    expect(hydratedMarkup).not.toContain("/org/samebase/providers");
+    expect(hydratedMarkup).not.toContain("/org/samebase/new-app");
+    expect(hydratedMarkup).not.toContain("/org/samebase/connect-repo");
+    expect(hydratedMarkup).not.toContain("/org/samebase/settings/members");
   });
 
   it("does not show global links while organization memberships load", async () => {

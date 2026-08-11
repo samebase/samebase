@@ -15,11 +15,16 @@ function OutcomeState({ label, state }: { label: string; state: string }) {
 }
 
 export function AdminAccountDeletionsPage() {
-  const { results, status, loadMore } = usePaginatedQuery(
-    api.accountDeletion.index.listForAdmin,
-    {},
-    { initialNumItems: 25 },
-  );
+  const {
+    results: accountRuns,
+    status: accountStatus,
+    loadMore: loadMoreAccountRuns,
+  } = usePaginatedQuery(api.accountDeletion.index.listForAdmin, {}, { initialNumItems: 25 });
+  const {
+    results: organizationRuns,
+    status: organizationStatus,
+    loadMore: loadMoreOrganizationRuns,
+  } = usePaginatedQuery(api.organizationDeletion.index.listForAdmin, {}, { initialNumItems: 25 });
   const [selectedRunId, setSelectedRunId] = useState<Id<"workflow_accountDeletion_runs"> | null>(
     null,
   );
@@ -28,10 +33,14 @@ export function AdminAccountDeletionsPage() {
     selectedRunId === null ? "skip" : { runId: selectedRunId },
   );
   const retry = useMutation(api.accountDeletion.index.retry);
+  const retryOrganizationDeletion = useMutation(api.organizationDeletion.index.retryForAdmin);
   const [retryingRunId, setRetryingRunId] = useState<Id<"workflow_accountDeletion_runs"> | null>(
     null,
   );
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [retryingOrganizationRunId, setRetryingOrganizationRunId] =
+    useState<Id<"workflow_organizationDeletion_runs"> | null>(null);
+  const [organizationRetryError, setOrganizationRetryError] = useState<string | null>(null);
 
   const handleRetry = async (runId: Id<"workflow_accountDeletion_runs">) => {
     if (retryingRunId !== null) {
@@ -48,63 +57,83 @@ export function AdminAccountDeletionsPage() {
     }
   };
 
+  const handleOrganizationRetry = async (runId: Id<"workflow_organizationDeletion_runs">) => {
+    if (retryingOrganizationRunId !== null) {
+      return;
+    }
+    setRetryingOrganizationRunId(runId);
+    setOrganizationRetryError(null);
+    try {
+      await retryOrganizationDeletion({ runId });
+    } catch {
+      setOrganizationRetryError("Could not retry organization deletion. Please try again.");
+    } finally {
+      setRetryingOrganizationRunId(null);
+    }
+  };
+
   return (
     <main
       data-testid="admin-account-deletions-page"
       data-posthog-mask
       className="container mx-auto w-full max-w-6xl py-6"
     >
-      <h1 className="text-xl font-semibold @2xl:text-2xl">Account deletions</h1>
-      <div className="mt-8 overflow-x-auto border-t">
-        <table className="w-full min-w-3xl text-left text-sm">
-          <thead className="border-b">
-            <tr>
-              <th className="py-3 pr-4 font-medium">Operation</th>
-              <th className="py-3 pr-4 font-medium">Account</th>
-              <th className="py-3 pr-4 font-medium">State</th>
-              <th className="py-3 pr-4 font-medium">Step</th>
-              <th className="py-3 font-medium">Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {results.map((run) => (
-              <tr key={run.runId} className="border-b">
-                <td className="py-3 pr-4">
-                  <button
-                    type="button"
-                    className="font-mono text-xs underline underline-offset-4"
-                    aria-pressed={selectedRunId === run.runId}
-                    onClick={() => {
-                      setSelectedRunId(run.runId);
-                      setRetryError(null);
-                    }}
-                  >
-                    {run.runId}
-                  </button>
-                </td>
-                <td className="py-3 pr-4">{run.email ?? "Scrubbed"}</td>
-                <td className="py-3 pr-4">{run.state.replace(/_/g, " ")}</td>
-                <td className="py-3 pr-4">{run.currentStep.replace(/_/g, " ")}</td>
-                <td className="py-3">{new Date(run.latestProgressAt).toLocaleString()}</td>
+      <h1 className="text-xl font-semibold @2xl:text-2xl">Deletion operations</h1>
+      <section className="mt-8" aria-labelledby="account-deletions-heading">
+        <h2 id="account-deletions-heading" className="text-base font-semibold">
+          Account deletions
+        </h2>
+        <div className="mt-4 overflow-x-auto border-t">
+          <table className="w-full min-w-3xl text-left text-sm">
+            <thead className="border-b">
+              <tr>
+                <th className="py-3 pr-4 font-medium">Operation</th>
+                <th className="py-3 pr-4 font-medium">Account</th>
+                <th className="py-3 pr-4 font-medium">State</th>
+                <th className="py-3 pr-4 font-medium">Step</th>
+                <th className="py-3 font-medium">Updated</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {status === "LoadingFirstPage" ? null : results.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">No account deletions.</p>
-      ) : null}
-      {status === "CanLoadMore" || status === "LoadingMore" ? (
-        <Button
-          type="button"
-          variant="outline"
-          className="mt-4"
-          disabled={status === "LoadingMore"}
-          onClick={() => loadMore(25)}
-        >
-          {status === "LoadingMore" ? "Loading..." : "Load more"}
-        </Button>
-      ) : null}
+            </thead>
+            <tbody>
+              {accountRuns.map((run) => (
+                <tr key={run.runId} className="border-b">
+                  <td className="py-3 pr-4">
+                    <button
+                      type="button"
+                      className="font-mono text-xs underline underline-offset-4"
+                      aria-pressed={selectedRunId === run.runId}
+                      onClick={() => {
+                        setSelectedRunId(run.runId);
+                        setRetryError(null);
+                      }}
+                    >
+                      {run.runId}
+                    </button>
+                  </td>
+                  <td className="py-3 pr-4">{run.email ?? "Scrubbed"}</td>
+                  <td className="py-3 pr-4">{run.state.replace(/_/g, " ")}</td>
+                  <td className="py-3 pr-4">{run.currentStep.replace(/_/g, " ")}</td>
+                  <td className="py-3">{new Date(run.latestProgressAt).toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {accountStatus === "LoadingFirstPage" ? null : accountRuns.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">No account deletions.</p>
+        ) : null}
+        {accountStatus === "CanLoadMore" || accountStatus === "LoadingMore" ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-4"
+            disabled={accountStatus === "LoadingMore"}
+            onClick={() => loadMoreAccountRuns(25)}
+          >
+            {accountStatus === "LoadingMore" ? "Loading..." : "Load more"}
+          </Button>
+        ) : null}
+      </section>
 
       {selectedRunId === null ? null : detail === undefined ? null : detail === null ? (
         <p className="mt-8 text-sm text-destructive" role="alert">
@@ -209,6 +238,82 @@ export function AdminAccountDeletionsPage() {
           </ol>
         </section>
       )}
+
+      <section className="mt-12 border-t pt-6" aria-labelledby="organization-deletions-heading">
+        <h2 id="organization-deletions-heading" className="text-base font-semibold">
+          Organization deletions
+        </h2>
+        <div className="mt-4 overflow-x-auto border-t">
+          <table className="w-full min-w-3xl text-left text-sm">
+            <thead className="border-b">
+              <tr>
+                <th className="py-3 pr-4 font-medium">Operation</th>
+                <th className="py-3 pr-4 font-medium">Organization</th>
+                <th className="py-3 pr-4 font-medium">State</th>
+                <th className="py-3 pr-4 font-medium">Step</th>
+                <th className="py-3 pr-4 font-medium">Updated</th>
+                <th className="py-3 font-medium">Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {organizationRuns.map((run) => (
+                <tr key={run.runId} className="border-b">
+                  <td className="py-3 pr-4 font-mono text-xs">{run.runId}</td>
+                  <td className="py-3 pr-4">{run.githubOwnerLogin ?? "Scrubbed"}</td>
+                  <td className="py-3 pr-4">
+                    <span>{run.state.replace(/_/g, " ")}</span>
+                    {run.latestSafeError === undefined ? null : (
+                      <p className="mt-1 max-w-sm text-destructive" role="alert">
+                        {run.latestSafeError}
+                      </p>
+                    )}
+                  </td>
+                  <td className="py-3 pr-4">{run.currentStep.replace(/_/g, " ")}</td>
+                  <td className="py-3 pr-4">{new Date(run.latestProgressAt).toLocaleString()}</td>
+                  <td className="py-3">
+                    {run.state === "needs_attention" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={retryingOrganizationRunId !== null}
+                        onClick={() => void handleOrganizationRetry(run.runId)}
+                      >
+                        {retryingOrganizationRunId === run.runId ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Retrying...
+                          </>
+                        ) : (
+                          "Retry"
+                        )}
+                      </Button>
+                    ) : null}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {organizationStatus === "LoadingFirstPage" ? null : organizationRuns.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">No organization deletions.</p>
+        ) : null}
+        {organizationStatus === "CanLoadMore" || organizationStatus === "LoadingMore" ? (
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-4"
+            disabled={organizationStatus === "LoadingMore"}
+            onClick={() => loadMoreOrganizationRuns(25)}
+          >
+            {organizationStatus === "LoadingMore" ? "Loading..." : "Load more"}
+          </Button>
+        ) : null}
+        {organizationRetryError === null ? null : (
+          <p className="mt-4 text-sm text-destructive" role="alert">
+            {organizationRetryError}
+          </p>
+        )}
+      </section>
     </main>
   );
 }

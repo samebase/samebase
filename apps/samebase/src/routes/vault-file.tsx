@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy } from "react";
 import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AuthenticatedOrganizationRoutePage } from "@/components/OrganizationRouteBoundary";
+import { parseVaultPathContext } from "@/lib/vaultRoutes";
 import {
   FILE_VIEW_ROUTE_SEARCH_STATIC_DATA,
   validateFileViewRouteSearch,
@@ -19,6 +21,17 @@ const FileView = lazy(async () => {
  * without preloading the full file-view bundle.
  */
 function FileViewRouteComponent() {
+  const { _splat } = Route.useParams();
+  const { owner } = parseVaultPathContext(`/vault/${_splat}`);
+
+  if (owner) {
+    return (
+      <AuthenticatedOrganizationRoutePage owner={owner}>
+        {() => <FileView />}
+      </AuthenticatedOrganizationRoutePage>
+    );
+  }
+
   return (
     <AuthenticatedAppRoutePage>
       <FileView />

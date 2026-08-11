@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { lazy } from "react";
-import { AuthenticatedAppRoutePage } from "@/components/AuthenticatedAppRoutePage";
+import { AuthenticatedOrganizationRoutePage } from "@/components/OrganizationRouteBoundary";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
 
 const pathname = "/vault/$owner/$repo/schema/$branch/project/$convexProjectId";
@@ -14,14 +14,16 @@ function VaultSchemaRouteComponent() {
   const { branch, convexProjectId, owner, repo } = Route.useParams();
 
   return (
-    <AuthenticatedAppRoutePage>
-      <VaultConvexSchemaGraphView
-        owner={owner}
-        repoName={repo}
-        branch={branch}
-        convexProjectId={convexProjectId}
-      />
-    </AuthenticatedAppRoutePage>
+    <AuthenticatedOrganizationRoutePage owner={owner}>
+      {() => (
+        <VaultConvexSchemaGraphView
+          owner={owner}
+          repoName={repo}
+          branch={branch}
+          convexProjectId={convexProjectId}
+        />
+      )}
+    </AuthenticatedOrganizationRoutePage>
   );
 }
 

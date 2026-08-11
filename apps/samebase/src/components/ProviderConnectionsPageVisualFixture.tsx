@@ -200,6 +200,7 @@ export function ProviderConnectionsPageVisualFixture({
       isReconnectingGitHubApp={false}
       organization={{
         canCreateRepository: true,
+        deletionState: "not_deleting",
         githubOwnerId: isPersonal ? "123" : "456",
         githubOwnerLogin: isPersonal ? "octocat" : "acme",
         githubOwnerType: isPersonal ? "user" : "organization",
