@@ -1,5 +1,6 @@
 import { RequestError } from "@octokit/request-error";
-import type { Octokit } from "@octokit/rest";
+import { Octokit } from "@octokit/rest";
+import { z } from "zod";
 
 import { isRecord } from "./jsonUtils";
 
@@ -12,13 +13,41 @@ export type GitHubRelationship =
   | "different_account"
   | "unavailable";
 
-export type GitHubInvitationTarget = {
-  expectedGithubAccountId: string;
-  githubLogin: string;
-  githubAvatarUrl?: string;
-};
-
 const GITHUB_LOGIN_MAX_LENGTH = 39;
+const INVALID_GITHUB_AVATAR_URL = "GitHub returned an invalid user avatar URL.";
+
+const githubInvitationTargetSchema = z
+  .object(
+    {
+      id: z
+        .number("GitHub returned an invalid user ID.")
+        .int("GitHub returned an invalid user ID.")
+        .positive("GitHub returned an invalid user ID."),
+      login: z
+        .string("GitHub returned an invalid user login.")
+        .trim()
+        .min(1, "GitHub returned an invalid user login."),
+      type: z.literal("User", "Only a GitHub user can be invited."),
+      avatar_url: z
+        .string(INVALID_GITHUB_AVATAR_URL)
+        .trim()
+        .min(1, INVALID_GITHUB_AVATAR_URL)
+        .pipe(z.url(INVALID_GITHUB_AVATAR_URL))
+        .refine((value) => new URL(value).protocol === "https:", INVALID_GITHUB_AVATAR_URL)
+        .nullable()
+        .optional(),
+    },
+    "GitHub returned an invalid user profile.",
+  )
+  .transform(({ id, login, avatar_url: avatarUrl }) => ({
+    expectedGithubAccountId: String(id),
+    githubLogin: login,
+    ...(avatarUrl ? { githubAvatarUrl: avatarUrl } : {}),
+  }));
+
+export type GitHubInvitationTarget = z.infer<typeof githubInvitationTargetSchema>;
+
+const publicGitHubOctokit = new Octokit({ userAgent: "samebase-app" });
 
 function normalizeGitHubLogin(githubLogin: string): string {
   const normalizedLogin = githubLogin.trim();
@@ -38,46 +67,8 @@ function requireProviderPositiveSafeInteger(value: unknown, label: string): stri
   return String(value);
 }
 
-function requireProviderLogin(value: unknown): string {
-  if (typeof value !== "string" || value.trim().length === 0) {
-    throw new Error("GitHub returned an invalid user login.");
-  }
-  return value.trim();
-}
-
-export function parseGitHubInvitationTarget(value: unknown): GitHubInvitationTarget {
-  if (!isRecord(value)) {
-    throw new Error("GitHub returned an invalid user profile.");
-  }
-  if (value["type"] !== "User") {
-    throw new Error("Only a GitHub user can be invited.");
-  }
-
-  const githubAvatarUrl = value["avatar_url"];
-  if (
-    githubAvatarUrl !== null &&
-    githubAvatarUrl !== undefined &&
-    (typeof githubAvatarUrl !== "string" || githubAvatarUrl.trim().length === 0)
-  ) {
-    throw new Error("GitHub returned an invalid user avatar URL.");
-  }
-  if (typeof githubAvatarUrl === "string") {
-    let parsedAvatarUrl: URL;
-    try {
-      parsedAvatarUrl = new URL(githubAvatarUrl);
-    } catch {
-      throw new Error("GitHub returned an invalid user avatar URL.");
-    }
-    if (parsedAvatarUrl.protocol !== "https:") {
-      throw new Error("GitHub returned an invalid user avatar URL.");
-    }
-  }
-
-  return {
-    expectedGithubAccountId: requireProviderPositiveSafeInteger(value["id"], "user ID"),
-    githubLogin: requireProviderLogin(value["login"]),
-    ...(typeof githubAvatarUrl === "string" ? { githubAvatarUrl: githubAvatarUrl.trim() } : {}),
-  };
+export function parseGitHubInvitationTarget(value: unknown) {
+  return githubInvitationTargetSchema.parse(value);
 }
 
 export function parseGitHubOrganizationRelationship(
@@ -122,7 +113,7 @@ export async function readGitHubUserByLogin(
   githubLogin: string,
 ): Promise<GitHubInvitationTarget> {
   const normalizedLogin = normalizeGitHubLogin(githubLogin);
-  const response = await octokit.request("GET /users/{username}", { username: normalizedLogin });
+  const response = await octokit.rest.users.getByUsername({ username: normalizedLogin });
   return parseGitHubInvitationTarget(response.data);
 }
 
@@ -130,7 +121,7 @@ export async function readGitHubUserByAccountId(
   octokit: Octokit,
   githubAccountId: string,
 ): Promise<GitHubInvitationTarget> {
-  const response = await octokit.request("GET /user/{account_id}", {
+  const response = await octokit.rest.users.getById({
     account_id: Number(githubAccountId),
   });
   const target = parseGitHubInvitationTarget(response.data);
@@ -144,23 +135,21 @@ export async function readPublicGitHubUserByLogin(
   githubLogin: string,
 ): Promise<GitHubInvitationTarget> {
   const normalizedLogin = normalizeGitHubLogin(githubLogin);
-  const response = await fetch(
-    `https://api.github.com/users/${encodeURIComponent(normalizedLogin)}`,
-    {
+  const response = await publicGitHubOctokit.rest.users
+    .getByUsername({
+      username: normalizedLogin,
       headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "samebase-app",
-        "X-GitHub-Api-Version": "2022-11-28",
+        accept: "application/vnd.github+json",
+        "x-github-api-version": "2022-11-28",
       },
-    },
-  );
-  if (response.status === 404) {
-    throw new Error("GitHub user not found.");
-  }
-  if (!response.ok) {
-    throw new Error("GitHub user lookup is unavailable.");
-  }
-  return parseGitHubInvitationTarget(await response.json());
+    })
+    .catch((error: unknown) => {
+      if (error instanceof RequestError && error.status === 404) {
+        throw new Error("GitHub user not found.");
+      }
+      throw new Error("GitHub user lookup is unavailable.");
+    });
+  return parseGitHubInvitationTarget(response.data);
 }
 
 export async function readGitHubOrganizationRelationship(

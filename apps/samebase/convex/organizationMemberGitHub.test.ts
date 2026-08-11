@@ -92,6 +92,9 @@ describe("organization member GitHub responses", () => {
       "Only a GitHub user can be invited.",
     );
     expect(() =>
+      parseGitHubInvitationTarget(githubUser({ id: Number.MAX_SAFE_INTEGER + 1 })),
+    ).toThrow("GitHub returned an invalid user ID.");
+    expect(() =>
       parseGitHubInvitationTarget(githubUser({ avatar_url: "http://example.com/avatar.png" })),
     ).toThrow("GitHub returned an invalid user avatar URL.");
   });
@@ -121,12 +124,31 @@ describe("organization member GitHub responses", () => {
     await expect(readPublicGitHubUserByLogin("octocat")).resolves.toMatchObject({
       expectedGithubAccountId: "583231",
     });
-    expect(fetch).toHaveBeenCalledWith("https://api.github.com/users/octocat", {
-      headers: {
-        Accept: "application/vnd.github+json",
-        "User-Agent": "samebase-app",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-    });
+    expect(fetch).toHaveBeenCalledWith(
+      "https://api.github.com/users/octocat",
+      expect.objectContaining({
+        headers: {
+          accept: "application/vnd.github+json",
+          "user-agent": expect.stringContaining("samebase-app octokit-rest.js/"),
+          "x-github-api-version": "2022-11-28",
+        },
+        method: "GET",
+      }),
+    );
+  });
+
+  it("maps unauthenticated GitHub user request failures", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(Response.json({ message: "Not Found" }, { status: 404 }))
+      .mockResolvedValueOnce(Response.json({ message: "Unavailable" }, { status: 503 }));
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(readPublicGitHubUserByLogin("missing-user")).rejects.toThrow(
+      "GitHub user not found.",
+    );
+    await expect(readPublicGitHubUserByLogin("octocat")).rejects.toThrow(
+      "GitHub user lookup is unavailable.",
+    );
   });
 });
