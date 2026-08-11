@@ -572,7 +572,11 @@ async function createProjectForManagedWorkflow(
   }
   const context = await ctx.runQuery(
     internal.vault.providerObservationQueries.readProviderAttachmentVaultContextForProvisioningRun,
-    args,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+    },
   );
   const connection = await resolveConvexConnectionForProvisioningRun(ctx, {
     vaultId: args.vaultId,

@@ -477,7 +477,11 @@ async function createWorkerForManagedWorkflow(
   );
   const context = await ctx.runQuery(
     internal.vault.providerObservationQueries.readProviderAttachmentVaultContextForProvisioningRun,
-    args,
+    {
+      vaultId: args.vaultId,
+      runId: args.runId,
+      userId: args.userId,
+    },
   );
   const connection = await resolveCloudflareConnectionForProvisioningRun(ctx, {
     vaultId: args.vaultId,

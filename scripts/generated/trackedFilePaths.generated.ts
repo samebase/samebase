@@ -385,6 +385,7 @@ export const trackedFilePaths = [
   "apps/samebase/convex/vault/organizationTree.convex.test.ts",
   "apps/samebase/convex/vault/organizationTree.ts",
   "apps/samebase/convex/vault/organizationTreeModel.ts",
+  "apps/samebase/convex/vault/providerAttachmentActions.convex.test.ts",
   "apps/samebase/convex/vault/providerDashboardUrls.ts",
   "apps/samebase/convex/vault/providerObservationQueries.ts",
   "apps/samebase/convex/vault/providerObservations.ts",
