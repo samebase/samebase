@@ -3,6 +3,7 @@ import {
   getRadialPointerLogoPresentationTiltTarget,
   getLogoPresentationTiltTransitionAlpha,
   LOGO_POINTER_TILT_MEDIA_QUERY,
+  LOGO_PRESENTATION_TILT_SUSPEND_ATTRIBUTE,
   LOGO_PRESENTATION_TILT_SETTLED_DEGREES,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   normalizeLogoPresentationTiltRadiusScale,
@@ -18,6 +19,7 @@ import {
   createMengerHoverCoverMaterials,
   createMengerHoverSurfaceMaterials,
   createMengerHoverStateTexture,
+  type MengerHoverFaceMaterialState,
   type MengerHoverTexture,
 } from "@/components/logo/mengerHoverShader";
 import {
@@ -87,11 +89,26 @@ function hasFiniteVector3(vector: THREE.Vector3): boolean {
 type MengerHoverStageMeshes = {
   blockerLinkTexture: MengerHoverTexture;
   coverGeometry: THREE.BufferGeometry;
-  coverMaterials: THREE.ShaderMaterial[];
+  coverMaterialState: MengerHoverFaceMaterialState;
   coverMesh: THREE.InstancedMesh;
   settledMesh: THREE.InstancedMesh;
   stage: MengerDepthTransitionStage;
 };
+
+type ResolvedMengerHoverFaceColors = {
+  left: string;
+  right: string;
+  top: string;
+};
+
+function applyMengerHoverShaderFaceColors(
+  materialState: MengerHoverFaceMaterialState,
+  faceColors: ResolvedMengerHoverFaceColors,
+) {
+  materialState.colorUniforms.left.value.set(faceColors.left);
+  materialState.colorUniforms.right.value.set(faceColors.right);
+  materialState.colorUniforms.top.value.set(faceColors.top);
+}
 
 export function MengerHoverScene({
   automaticProbe,
@@ -155,6 +172,14 @@ export function MengerHoverScene({
   const leftFaceColor = getTailwindColorHex(faceColors.left);
   const rightFaceColor = getTailwindColorHex(faceColors.right);
   const topFaceColor = getTailwindColorHex(faceColors.top);
+  const resolvedFaceColorsRef = useRef<ResolvedMengerHoverFaceColors>({
+    left: leftFaceColor,
+    right: rightFaceColor,
+    top: topFaceColor,
+  });
+  const applyFaceColorsRef = useRef<(nextFaceColors: ResolvedMengerHoverFaceColors) => void>(
+    () => {},
+  );
   const model = useMemo(
     () =>
       createMengerDepthTransitionModel({
@@ -164,6 +189,16 @@ export function MengerHoverScene({
       }),
     [maximumDepth],
   );
+
+  useEffect(() => {
+    const nextFaceColors = {
+      left: leftFaceColor,
+      right: rightFaceColor,
+      top: topFaceColor,
+    };
+    resolvedFaceColorsRef.current = nextFaceColors;
+    applyFaceColorsRef.current(nextFaceColors);
+  }, [leftFaceColor, rightFaceColor, topFaceColor]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -203,9 +238,10 @@ export function MengerHoverScene({
     const localMatrix = new THREE.Matrix4();
     const localRay = new THREE.Ray();
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const rightMaterial = new THREE.MeshBasicMaterial({ color: rightFaceColor });
-    const topMaterial = new THREE.MeshBasicMaterial({ color: topFaceColor });
-    const leftMaterial = new THREE.MeshBasicMaterial({ color: leftFaceColor });
+    const resolvedFaceColors = resolvedFaceColorsRef.current;
+    const rightMaterial = new THREE.MeshBasicMaterial({ color: resolvedFaceColors.right });
+    const topMaterial = new THREE.MeshBasicMaterial({ color: resolvedFaceColors.top });
+    const leftMaterial = new THREE.MeshBasicMaterial({ color: resolvedFaceColors.left });
     const materials = [
       rightMaterial,
       rightMaterial,
@@ -219,17 +255,17 @@ export function MengerHoverScene({
     const hoverTargetState = createMengerHoverState(model);
     const hoverRenderedState = createMengerHoverState(model);
     const stateTexture = createMengerHoverStateTexture(topology.channelCount);
-    const surfaceMaterials = depthOneOnly
+    const surfaceMaterialState = depthOneOnly
       ? null
       : createMengerHoverSurfaceMaterials({
-          leftColor: leftFaceColor,
-          rightColor: rightFaceColor,
+          leftColor: resolvedFaceColors.left,
+          rightColor: resolvedFaceColors.right,
           stages: model.stages.map((stage, stageIndex) => ({
             channelStateOffset: topology.stages[stageIndex].channelStateOffset,
             gridSize: stage.gridSize,
           })),
           stateTexture,
-          topColor: topFaceColor,
+          topColor: resolvedFaceColors.top,
           worldSize: MENGER_SCENE_WORLD_SIZE,
         });
     const depthOneSurface = depthOneOnly
@@ -240,7 +276,9 @@ export function MengerHoverScene({
         })
       : null;
     const shellSurfaceMesh =
-      surfaceMaterials === null ? null : new THREE.InstancedMesh(geometry, surfaceMaterials, 1);
+      surfaceMaterialState === null
+        ? null
+        : new THREE.InstancedMesh(geometry, surfaceMaterialState.materials, 1);
     if (shellSurfaceMesh) {
       const shellSurfaceMatrix = new THREE.Matrix4().makeScale(
         MENGER_SCENE_WORLD_SIZE,
@@ -293,22 +331,26 @@ export function MengerHoverScene({
       );
       const coverGeometry = createMengerHoverCoverGeometry(geometry, stageTopology);
       const blockerLinkTexture = createMengerHoverBlockerLinkTexture(stageTopology);
-      const coverMaterials = createMengerHoverCoverMaterials({
+      const coverMaterialState = createMengerHoverCoverMaterials({
         blockerLinkTexture,
-        leftColor: leftFaceColor,
+        leftColor: resolvedFaceColors.left,
         maximumBlockerLinksPerMove: stageTopology.maximumBlockerLinksPerMove,
-        rightColor: rightFaceColor,
+        rightColor: resolvedFaceColors.right,
         stateTexture,
-        topColor: topFaceColor,
+        topColor: resolvedFaceColors.top,
         worldSize: MENGER_SCENE_WORLD_SIZE,
       });
-      const coverMesh = new THREE.InstancedMesh(coverGeometry, coverMaterials, stage.moves.length);
+      const coverMesh = new THREE.InstancedMesh(
+        coverGeometry,
+        coverMaterialState.materials,
+        stage.moves.length,
+      );
       coverMesh.frustumCulled = false;
 
       return {
         blockerLinkTexture,
         coverGeometry,
-        coverMaterials,
+        coverMaterialState,
         coverMesh,
         settledMesh,
         stage,
@@ -369,6 +411,7 @@ export function MengerHoverScene({
     const presentationTiltNeutralQuaternion = new THREE.Quaternion();
     const presentationTiltTargetQuaternion = new THREE.Quaternion();
     let presentationTiltClientPoint: ClientPoint | null = null;
+    let presentationTiltSuspended = false;
     let presentationTiltTarget = NEUTRAL_LOGO_PRESENTATION_TILT_TARGET;
     let lastPresentationTiltFrameTime: number | null = null;
 
@@ -699,6 +742,12 @@ export function MengerHoverScene({
         return true;
       }
 
+      if (presentationTiltSuspended) {
+        presentationTiltTargetQuaternion.copy(presentationTiltGroup.quaternion);
+        lastPresentationTiltFrameTime = timestampMs;
+        return true;
+      }
+
       if (interactionRef.current.status !== "idle") {
         presentationTiltTargetQuaternion.copy(presentationTiltGroup.quaternion);
       } else {
@@ -880,6 +929,19 @@ export function MengerHoverScene({
       }
     };
 
+    applyFaceColorsRef.current = (nextFaceColors) => {
+      leftMaterial.color.set(nextFaceColors.left);
+      rightMaterial.color.set(nextFaceColors.right);
+      topMaterial.color.set(nextFaceColors.top);
+      if (surfaceMaterialState !== null) {
+        applyMengerHoverShaderFaceColors(surfaceMaterialState, nextFaceColors);
+      }
+      for (const stageMesh of stageMeshes) {
+        applyMengerHoverShaderFaceColors(stageMesh.coverMaterialState, nextFaceColors);
+      }
+      scheduleFrame();
+    };
+
     const resizeScene = () => {
       const width = container.clientWidth || 640;
       const height = container.clientHeight || 640;
@@ -910,6 +972,14 @@ export function MengerHoverScene({
         document.visibilityState !== "visible" ||
         !sceneIsVisible
       ) {
+        return;
+      }
+
+      presentationTiltSuspended =
+        event.target instanceof Element &&
+        event.target.closest(`[${LOGO_PRESENTATION_TILT_SUSPEND_ATTRIBUTE}]`) !== null;
+      if (presentationTiltSuspended) {
+        scheduleFrame();
         return;
       }
 
@@ -1018,6 +1088,7 @@ export function MengerHoverScene({
       document.documentElement.removeEventListener("pointerleave", onPagePointerLeave);
       sceneVisibilityObserver.disconnect();
       renderSceneRef.current = () => {};
+      applyFaceColorsRef.current = () => {};
       if (animationFrame !== 0) {
         window.cancelAnimationFrame(animationFrame);
       }
@@ -1029,8 +1100,8 @@ export function MengerHoverScene({
       rightMaterial.dispose();
       topMaterial.dispose();
       leftMaterial.dispose();
-      if (surfaceMaterials) {
-        for (const material of new Set(surfaceMaterials)) {
+      if (surfaceMaterialState) {
+        for (const material of new Set(surfaceMaterialState.materials)) {
           material.dispose();
         }
       }
@@ -1062,7 +1133,7 @@ export function MengerHoverScene({
       for (const stageMesh of stageMeshes) {
         stageMesh.blockerLinkTexture.texture.dispose();
         stageMesh.coverGeometry.dispose();
-        for (const material of new Set(stageMesh.coverMaterials)) {
+        for (const material of new Set(stageMesh.coverMaterialState.materials)) {
           material.dispose();
         }
       }
@@ -1073,13 +1144,10 @@ export function MengerHoverScene({
   }, [
     cameraFrustumPadding,
     interactionRef,
-    leftFaceColor,
     maximumDepth,
     model,
     onRenderReady,
     onRenderUnavailable,
-    rightFaceColor,
-    topFaceColor,
   ]);
 
   useEffect(() => {

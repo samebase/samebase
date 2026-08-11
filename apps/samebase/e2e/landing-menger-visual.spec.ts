@@ -130,6 +130,46 @@ test("root landing uses the depth-three Menger logo and follows the pointer", as
   await expect(hero).toHaveScreenshot("root-landing-menger.png", SCREENSHOT_OPTIONS);
 });
 
+test("root theme preview changes color without moving the Menger logo", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+
+  const scene = page
+    .getByTestId(PUBLIC_LANDING_MENGER_TEST_ID)
+    .getByTestId("logo-menger-hover-scene");
+  const canvas = scene.locator("canvas");
+  await expect(canvas).toBeVisible({ timeout: 30_000 });
+
+  await page.getByTestId("route-url-editor-display").click();
+  const routeUrlInput = page.getByTestId("route-url-editor-input");
+  await expect(routeUrlInput).toBeFocused();
+  await routeUrlInput.press("End");
+  await routeUrlInput.press("?");
+  const darkThemeOption = page.getByRole("option", { exact: true, name: "?dark" });
+  await expect(darkThemeOption).toBeVisible();
+  await expect(scene).toHaveAttribute("data-hover-settled", "true", { timeout: 30_000 });
+  const poseAttributes = [
+    "data-presentation-applied-angle-degrees",
+    "data-presentation-horizontal-degrees",
+    "data-presentation-vertical-degrees",
+  ] as const;
+  const poseBeforePreview = await Promise.all(
+    poseAttributes.map((attribute) => scene.getAttribute(attribute)),
+  );
+  const canvasBeforePreview = await canvas.screenshot();
+
+  await darkThemeOption.hover();
+
+  await expect(page).toHaveURL(/\?dark$/);
+  await waitForPaint(page);
+  await expect(canvas).toHaveCount(1);
+  await expect(scene).toHaveAttribute("data-presentation-tilt-settled", "true");
+  expect(
+    await Promise.all(poseAttributes.map((attribute) => scene.getAttribute(attribute))),
+  ).toEqual(poseBeforePreview);
+  expect((await canvas.screenshot()).equals(canvasBeforePreview)).toBe(false);
+});
+
 test("root landing keeps its fractal fallback when WebGL is unavailable", async ({ page }) => {
   await installUnavailableCanvasRendering(page);
   await page.goto("/?prod-ui&elev=20&top=red-400", { waitUntil: "domcontentloaded" });
