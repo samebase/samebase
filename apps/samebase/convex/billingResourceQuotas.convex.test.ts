@@ -66,6 +66,7 @@ async function createQuotaFixture(args: {
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId,
       userId,
       vaultId,
       repositoryFullName: "quota-owner/host",
