@@ -18,6 +18,12 @@ import {
 } from "./stagingChanges";
 import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 import { readActiveUser } from "./userLifecycle";
+import {
+  discardPendingUploadBlob,
+  normalizePendingUploadContentType,
+  PENDING_UPLOAD_RESERVATION_MS,
+  requireClaimedPendingUpload,
+} from "./pendingUploads";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
 const { array, boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
@@ -98,7 +104,10 @@ const stagedFilesBranchSummariesByVaultValidator = object({
 const stagedFilesBranchSummariesByVaultListValidator = array(
   stagedFilesBranchSummariesByVaultValidator,
 );
-const uploadUrlResultValidator = string();
+const uploadUrlResultValidator = object({
+  uploadId: id("vaultPendingUploads"),
+  uploadUrl: string(),
+});
 
 const getByNewPathArgsValidator = {
   vaultId: vaultIdValidator,
@@ -166,6 +175,7 @@ const saveToStagingArgsValidator = {
   userId: userIdValidator,
 };
 const saveBinaryUploadToStagingArgsValidator = {
+  uploadId: optional(id("vaultPendingUploads")),
   vaultId: vaultIdValidator,
   filePath: filePathValidator,
   branch: branchValidator,
@@ -412,47 +422,50 @@ export const generateUploadUrl = mutation({
   access: "access_files_write",
   args: {
     vaultId: vaultIdValidator,
+    contentType: string(),
   },
   returns: uploadUrlResultValidator,
   handler: async (ctx, args) => {
-    await assertConnectedVaultForStagingWrite(ctx, {
+    const vault = await assertConnectedVaultForStagingWrite(ctx, {
       vaultId: args.vaultId,
       userId: ctx.viewer.userId,
     });
-    return await ctx.storage.generateUploadUrl();
+    const expiresAt = Date.now() + PENDING_UPLOAD_RESERVATION_MS;
+    const originalContentType = normalizePendingUploadContentType(args.contentType);
+    const uploadId = await ctx.db.insert("vaultPendingUploads", {
+      organizationId: vault.organizationId,
+      vaultId: vault._id,
+      userId: ctx.viewer.userId,
+      purpose: "browser_media",
+      originalContentType,
+      expiresAt,
+    });
+    await ctx.scheduler.runAt(expiresAt, internal.pendingUploads.cleanupExpired, { uploadId });
+    return {
+      uploadId,
+      uploadUrl: `/uploads/staged-media?uploadId=${encodeURIComponent(uploadId)}`,
+    };
   },
 });
 
 export const deletePendingUploadBlob = mutation({
   access: "access_files_write",
   args: {
+    uploadId: id("vaultPendingUploads"),
     vaultId: vaultIdValidator,
     storageId: storageIdValidator,
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    await assertConnectedVaultForStagingWrite(ctx, {
-      vaultId: args.vaultId,
+    const deleted = await discardPendingUploadBlob(ctx, {
+      uploadId: args.uploadId,
+      storageId: args.storageId,
       userId: ctx.viewer.userId,
+      vaultId: args.vaultId,
     });
-
-    const stagedFile = await ctx.db
-      .query("vaultStagedFiles")
-      .withIndex("by_vault_and_storageId", (q) =>
-        q.eq("vaultId", args.vaultId).eq("storageId", args.storageId),
-      )
-      .first();
-    const cachedBlob = await ctx.db
-      .query("observations_vaultFiles_blobs")
-      .withIndex("by_vault_and_storageId", (q) =>
-        q.eq("vaultId", args.vaultId).eq("storageId", args.storageId),
-      )
-      .first();
-    if (stagedFile || cachedBlob) {
-      throw new Error("Cannot delete a blob that is already attached to staging.");
+    if (!deleted) {
+      throw new Error("Pending upload blob is not available for cleanup.");
     }
-
-    await ctx.storage.delete(args.storageId);
     return null;
   },
 });
@@ -1300,6 +1313,9 @@ export const saveBinaryUploadToStaging = internalMutation({
       vaultId: args.vaultId,
       userId: args.userId,
     });
+    if (args.uploadId !== undefined) {
+      await requireClaimedPendingUpload(ctx, { ...args, uploadId: args.uploadId });
+    }
 
     const currentTimestamp = Date.now();
     const existingStagingByPath = await ctx.db
@@ -1406,6 +1422,10 @@ export const saveBinaryUploadToStaging = internalMutation({
         }
       }
 
+      if (args.uploadId !== undefined) {
+        await ctx.db.delete(args.uploadId);
+      }
+
       return updatedStaging;
     }
 
@@ -1431,6 +1451,10 @@ export const saveBinaryUploadToStaging = internalMutation({
     const insertedStaging = await ctx.db.get(insertedId);
     if (!insertedStaging) {
       throw new Error("Staged binary upload disappeared after insert");
+    }
+
+    if (args.uploadId !== undefined) {
+      await ctx.db.delete(args.uploadId);
     }
 
     return insertedStaging;

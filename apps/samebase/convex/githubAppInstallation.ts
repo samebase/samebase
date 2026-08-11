@@ -201,6 +201,19 @@ export const createSetupState = internalMutation({
     if (user === null || readActiveUser(user) === null) {
       throw new Error("An active Samebase user is required.");
     }
+    if (args.purpose === "installation") {
+      for (const state of ["running", "needs_attention"] as const) {
+        const organizationDeletion = await ctx.db
+          .query("workflow_organizationDeletion_runs")
+          .withIndex("by_requested_by_user_and_state_and_updated_at", (query) =>
+            query.eq("requestedByUserId", args.userId).eq("state", state),
+          )
+          .first();
+        if (organizationDeletion !== null) {
+          throw new Error("Finish organization deletion before you connect another organization.");
+        }
+      }
+    }
     if (args.expiresAt <= args.createdAt) {
       throw new Error("GitHub App setup state expiry must follow creation.");
     }

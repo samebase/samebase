@@ -288,7 +288,12 @@ export const deleteAccountWorkflow = workflow.define({
         throw new Error(SAFE_WORKFLOW_ERROR);
       }
 
-      await step.sleep(1_000, { name: `wait_for_active_work_${check}` });
+      await step.sleep(
+        result.blocker === "active_media_upload" || result.blocker === "active_vault_action"
+          ? result.retryAfterMs
+          : 1_000,
+        { name: `wait_for_active_work_${check}` },
+      );
     }
 
     if (claimed.outcomes.providerRevocation.state !== "completed") {

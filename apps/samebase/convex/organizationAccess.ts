@@ -4,6 +4,7 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type DatabaseReader } from "./_generated/server";
 import { requireOrganizationNotBillingLimited } from "./organizationBillingLimits";
 import { vOrganizationMembershipRole } from "./organizationModel";
+import { requireOrganizationNotDeleting } from "./organizationDeletion/state";
 import { readActiveUser, type NonDeletedUserLifecycleDoc } from "./userLifecycle";
 
 export type OrganizationAccessContext = {
@@ -57,6 +58,14 @@ export async function findOrganizationAccessContext(
   if (membership === null) {
     return null;
   }
+  const organization = await db.get(access.organizationId);
+  if (organization === null) {
+    throw new Error("Organization membership refers to a missing organization.");
+  }
+  if (organization.deletion) {
+    return null;
+  }
+
   await requireOrganizationNotBillingLimited(db, access.organizationId);
   return access;
 }
@@ -71,6 +80,11 @@ export async function requireOrganizationSettingsMembership(
   if (membership === null) {
     throw new Error("Organization membership is required.");
   }
+  const organization = await db.get(access.organizationId);
+  if (organization === null) {
+    throw new Error("Organization membership refers to a missing organization.");
+  }
+  requireOrganizationNotDeleting(organization);
 
   return membership;
 }

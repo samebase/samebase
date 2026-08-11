@@ -1,4 +1,4 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 
 import { internalMutation, internalQuery } from "./_generated/server";
 import { query } from "./functions";
@@ -6,7 +6,7 @@ import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
 import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
 import { readActiveUser } from "./userLifecycle";
 
-const { boolean, id, object, string } = v;
+const { boolean, id, literal, object, string, union } = v;
 
 const vOrganizationSummary = object({
   canCreateRepository: boolean(),
@@ -14,6 +14,7 @@ const vOrganizationSummary = object({
   githubOwnerId: string(),
   githubOwnerType: vGitHubOwnerType,
   githubOwnerLogin: string(),
+  deletionState: union(literal("not_deleting"), literal("deleting"), literal("delete_failed")),
   role: vOrganizationMembershipRole,
 });
 
@@ -40,7 +41,7 @@ export const listForViewer = query({
   args: {},
   returns: v.array(vOrganizationSummary),
   handler: async (ctx) => {
-    const organizations = [];
+    const organizations: Array<Infer<typeof vOrganizationSummary>> = [];
     const [githubSignInAccount, githubUserAuthorization] = await Promise.all([
       ctx.db
         .query("authAccounts")
@@ -71,6 +72,7 @@ export const listForViewer = query({
         githubOwnerId: organization.githubOwnerId,
         githubOwnerType: organization.githubOwnerType,
         githubOwnerLogin: organization.githubOwnerLogin,
+        deletionState: organization.deletion?.state ?? "not_deleting",
         role: membership.role,
       });
     }

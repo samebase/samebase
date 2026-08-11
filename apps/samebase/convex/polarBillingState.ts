@@ -172,6 +172,9 @@ export const beginObservation = internalMutation({
     if (organization === null) {
       throw new Error("Organization billing account reference is invalid.");
     }
+    if (organization.deletion) {
+      return null;
+    }
     const account = readBillingAccountState(target);
 
     const revision =
@@ -200,6 +203,10 @@ export const applyObservation = internalMutation({
       state.externalCustomerId,
     );
     if (target === null) {
+      return false;
+    }
+    const organization = await ctx.db.get(target.organizationId);
+    if (organization === null || organization.deletion) {
       return false;
     }
     const account = readBillingAccountState(target);

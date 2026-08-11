@@ -192,6 +192,24 @@ export async function assertIdentityDeletionReady(
     throw new Error("Samebase account data remains during finalization.");
   }
 
+  const remainingPendingUpload = await ctx.db
+    .query("vaultPendingUploads")
+    .withIndex("by_user_and_expires_at", (query) => query.eq("userId", run.identity.userId))
+    .first();
+
+  if (remainingPendingUpload !== null) {
+    throw new Error("Pending storage uploads remain during finalization.");
+  }
+
+  const remainingVaultActionLease = await ctx.db
+    .query("vaultActionLeases")
+    .withIndex("by_user_and_expires_at", (query) => query.eq("userId", run.identity.userId))
+    .first();
+
+  if (remainingVaultActionLease !== null) {
+    throw new Error("Vault action leases remain during finalization.");
+  }
+
   const initiatingSession = await ctx.db.get(run.initiatingSessionId);
 
   if (initiatingSession !== null && initiatingSession.userId !== run.identity.userId) {

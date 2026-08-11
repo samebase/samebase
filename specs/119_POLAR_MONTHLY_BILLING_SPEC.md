@@ -7,6 +7,7 @@
 - Last updated: 2026-08-11
 - Previous rollout plan: `rfcs/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md`
 - Supersedes: `specs/033_POLAR_BILLING_SPEC.md` and `specs/034_POLAR_BILLING_PHASED_ROLLOUT_SPEC.md`
+- Related: `specs/124_ORGANIZATION_DELETION_SPEC.md`
 
 ## Current Contract
 
@@ -168,6 +169,26 @@ If the production check finds any old Polar billing state, the rollout stops. Th
 explicit Customer, payer, product, and seat migration before this code can become active. The code
 must not silently reuse an individual Customer as a team Customer.
 
+### Organization Deletion Compatibility
+
+Spec 124 owns the organization-deletion lifecycle. After the organization-scoped billing model in PR
+1414 is present, one Samebase organization maps to one Polar team Customer and one designated
+billing payer. Organization deletion must use that existing Customer and payer state. It must not
+create a second billing model or a second Customer identity.
+
+The deletion request first blocks all new checkout, portal, seat, and plan writes. The scheduled
+deletion process then waits for every `open` and `confirmed` checkout for the exact Customer. It
+immediately revokes every nonterminal subscription, including one that is set to cancel at period
+end. It then deletes the Customer with `anonymize=true` and verifies that the Customer identity and
+nonterminal subscriptions are absent. Only then can it delete the local organization billing row.
+Delayed webhooks and seat synchronization cannot restore billing state for a deleting or missing
+organization.
+
+Account deletion does not remove a designated payer from a shared organization. It requires billing
+ownership transfer first. A sole member can explicitly delete the organization, which closes its
+Polar billing relationship before account deletion starts. Samebase does not delete its Polar seller
+Organization, and it does not refund historical orders as part of this lifecycle.
+
 ### Operational Simplicity
 
 - A failed webhook returns an error so Polar can retry it. Samebase does not run a local retry
@@ -229,3 +250,7 @@ The contract is complete only when tests and Sandbox checks prove:
 - Duplicate, out-of-order, invalid, and malformed webhook deliveries are safe.
 - Local Polar Sandbox checkout, portal isolation, seat changes, cancellation, and entitlement
   changes work without a manual database edit.
+- Organization deletion waits for `open` and `confirmed` checkout state, revokes every nonterminal
+  subscription, anonymizes the team Customer, and cannot be undone by a delayed webhook.
+- A shared organization's designated payer cannot leave or delete their account before billing
+  ownership transfer. A sole member must delete the organization before account deletion.

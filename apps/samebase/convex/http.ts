@@ -15,6 +15,7 @@ import {
   rejectMcpLegacyTransportMethod,
 } from "./mcp/http";
 import { handlePolarWebhook } from "./polarWebhooks";
+import { optionsPendingMediaUpload, uploadPendingMedia } from "./pendingUploadHttp";
 import { env, httpAction } from "./_generated/server";
 
 const http = httpRouter();
@@ -135,6 +136,18 @@ http.route({
   path: "/webhooks/polar",
   method: "POST",
   handler: handlePolarWebhook,
+});
+
+http.route({
+  path: "/uploads/staged-media",
+  method: "POST",
+  handler: uploadPendingMedia,
+});
+
+http.route({
+  path: "/uploads/staged-media",
+  method: "OPTIONS",
+  handler: optionsPendingMediaUpload,
 });
 
 export default http;

@@ -4,6 +4,43 @@ import { v } from "convex/values";
 const { boolean, id, literal, number, optional, string, union } = v;
 
 export const vaultEditorTables = {
+  /** One bounded continuation fence for a GitHub or staging action. */
+  vaultActionLeases: defineTable({
+    organizationId: id("organizations"),
+    vaultId: id("vaults"),
+    userId: id("users"),
+    operation: union(
+      literal("cache_repository_files"),
+      literal("commit_staged_files"),
+      literal("create_draft_pull_request"),
+      literal("pull_from_github"),
+      literal("rename_staged_file"),
+      literal("restore_compare_file"),
+      literal("stage_repository_file"),
+    ),
+    expiresAt: number(),
+  })
+    .index("by_organization_and_expires_at", ["organizationId", "expiresAt"])
+    .index("by_user_and_expires_at", ["userId", "expiresAt"])
+    .index("by_vault_and_expires_at", ["vaultId", "expiresAt"]),
+
+  /** One short-lived capability for a server-attributed storage write. */
+  vaultPendingUploads: defineTable({
+    organizationId: id("organizations"),
+    vaultId: id("vaults"),
+    userId: id("users"),
+    purpose: union(literal("browser_media"), literal("action_blob_cache")),
+    originalContentType: string(),
+    expiresAt: number(),
+    uploadAttemptId: optional(string()),
+    uploadAttemptExpiresAt: optional(number()),
+    storageId: optional(id("_storage")),
+    storageScanCursor: optional(string()),
+  })
+    .index("by_organization_and_expires_at", ["organizationId", "expiresAt"])
+    .index("by_user_and_expires_at", ["userId", "expiresAt"])
+    .index("by_vault", ["vaultId"]),
+
   /**
    * The current uncommitted state of each changed file on a vault branch,
    * including edits, renames, deletions, and binary uploads.

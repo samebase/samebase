@@ -8,6 +8,7 @@ import {
   type MutationCtx,
 } from "./_generated/server";
 import { requireOrganizationMembership } from "./organizationAccess";
+import { requireOrganizationNotDeleting } from "./organizationDeletion/state";
 import { vOrganizationCloudflareAccount, vOrganizationConvexTeam } from "./organizationModel";
 import {
   vCloudflareProviderCredential,
@@ -146,6 +147,7 @@ async function findActiveOrganizationProviderOwner(
   ) {
     return null;
   }
+  requireOrganizationNotDeleting(organization);
   return organization;
 }
 

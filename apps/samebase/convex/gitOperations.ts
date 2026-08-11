@@ -27,17 +27,29 @@ export const saveFileBlob = internalMutation({
     size: v.number(),
     text: v.optional(v.string()),
     storageId: v.optional(v.id("_storage")),
+    storageIdIsDisposable: v.optional(v.boolean()),
     ext: v.string(),
     mime: v.string(),
 
     // only used for debugging
     debugFilePath: v.optional(v.string()),
   },
-  returns: v.id("observations_vaultFiles_blobs"),
+  returns: v.union(v.id("observations_vaultFiles_blobs"), v.null()),
   handler: async (ctx, args) => {
+    const rejectAfterDisposableStorageCleanup = async (message: string) => {
+      if (args.storageIdIsDisposable && args.storageId) {
+        await ctx.storage.delete(args.storageId);
+        return null;
+      }
+      throw new Error(message);
+    };
     const vault = await ctx.db.get(args.vaultId);
     if (!vault) {
-      throw new Error("Vault not found");
+      return await rejectAfterDisposableStorageCleanup("Vault not found");
+    }
+    const organization = await ctx.db.get(vault.organizationId);
+    if (organization === null || organization.deletion) {
+      return await rejectAfterDisposableStorageCleanup("Organization is not available.");
     }
 
     // empty text is also valid
@@ -45,11 +57,11 @@ export const saveFileBlob = internalMutation({
 
     // Only text or storageId should be provided
     if (textDefined && args.storageId) {
-      console.log("saveFileBlob", args);
-      throw new Error("Only one of text or storageId should be provided");
+      return await rejectAfterDisposableStorageCleanup(
+        "Only one of text or storageId should be provided",
+      );
     }
     if (!textDefined && !args.storageId) {
-      console.log("saveFileBlob", args);
       throw new Error("One of text or storageId must be provided");
     }
 
@@ -60,7 +72,9 @@ export const saveFileBlob = internalMutation({
       .first();
 
     if (existingBlob) {
-      console.log(`File blob already exists for SHA: ${args.sha}`);
+      if (args.storageIdIsDisposable && args.storageId) {
+        await ctx.storage.delete(args.storageId);
+      }
       return existingBlob._id;
     }
 

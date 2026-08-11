@@ -11,13 +11,15 @@
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
   - `specs/121_ORGANIZATION_CONTEXT_AND_ROUTE_MODEL.md`
   - `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md`
+  - `specs/124_ORGANIZATION_DELETION_SPEC.md`
 
 ## Product Contract
 
 The organization Members page is `/org/:owner/settings/members`. Every current organization member
 can see the Samebase member list. Only a current Samebase owner can create or cancel invitations,
 change roles, remove another member, or see live GitHub organization relationship data. Any member
-can leave the organization. Staff status does not bypass organization membership.
+can leave the organization when the active-owner, active-work, and designated-payer rules permit it.
+Staff status does not bypass organization membership.
 
 Samebase membership and GitHub membership are separate:
 
@@ -76,6 +78,7 @@ Acceptance requires all of these facts in one mutation:
 - The user has a linked GitHub `authAccounts` row whose stable `providerAccountId` equals the
   invitation recipient ID.
 - The organization still exists.
+- The organization has no deleting or delete-failed gate.
 
 Acceptance sets `users.isApproved` to `true` when required, creates a `member` membership when one
 does not exist, and changes the invitation to `accepted`. It never changes an existing membership
@@ -131,6 +134,12 @@ leave an organization without an active owner. The check and write occur in one 
 or deleted user does not satisfy the active-owner rule. A deleting member can be removed, but a
 deleting user cannot be promoted.
 
+A sole-member owner cannot leave. They can use the explicit organization deletion lifecycle in
+Spec 124. An owner cannot delete a shared organization. They must use this membership flow to remove
+members or resolve ownership. After the organization-scoped Polar billing model is present, a
+designated payer cannot be demoted, removed, leave a shared organization, or delete their account
+until billing ownership is transferred.
+
 Leave or removal is blocked only while the target user owns a queued or running vault provisioning
 run or vault deletion run in that organization. The membership mutation reads those indexed active
 ranges in its transaction. Role changes are not blocked.
@@ -168,8 +177,7 @@ Account deletion preserves organization invitation records and their `createdByU
 when that recipient deletes the account. The terminal user row keeps the Samebase references valid
 without retaining PII. A creator presentation uses display name, then normalized account email. A
 deleted creator uses the exact term `Deleted Samebase account`. A missing referenced user is data
-damage and the query fails. Future organization deletion must remove every invitation for that
-organization.
+damage and the query fails. Organization deletion removes every invitation for that organization.
 
 ## Page Behavior
 
@@ -196,14 +204,16 @@ organization-unavailable state.
 - Outside-collaborator repository discovery
 - Expiry extension, invitation history UI, and a general organization audit log
 - Custom roles and resource-specific permissions
-- Organization deletion
+- Self-serve designated billing payer transfer
 
 ## Focused Validation
 
 - One Convex invitation owner covers stable identity binding, wrong-account denial, explicit
   acceptance, scoped approval, expiry, repeat creation, cancellation, replay, and reissue.
 - One Convex membership owner covers visibility authority, role changes, deleting users, last active
-  owner, removal, leave, and the two active-work blockers.
+  owner, removal, leave, the designated-payer block, and the two active-work blockers.
+- The organization-deletion boundary proves that a second membership preserves the organization,
+  while a sole-member owner can use the separate explicit deletion lifecycle.
 - The account-deletion boundary owner proves that invitation attribution survives account deletion
   and resolves the deleted creator safely.
 - One frontend interaction owner covers owner and member actions, confirmation and pending states,

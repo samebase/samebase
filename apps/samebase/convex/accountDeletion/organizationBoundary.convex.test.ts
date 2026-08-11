@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../githubUserAuthorizations";
+import { buildPendingUploadStorageContentType } from "../pendingUploads";
 import { makeConvexTest } from "../test.setup";
 import { cleanupAccountDataBatchForUser } from "./cleanup";
 
@@ -599,6 +600,75 @@ describe("account deletion organization boundary", () => {
         workflowId,
       }),
     ).resolves.toEqual({ state: "done" });
+  });
+
+  it("waits for and removes the deleting user's expired upload storage", async () => {
+    vi.useFakeTimers();
+    try {
+      const now = 10_000;
+      vi.setSystemTime(now);
+      const { ids, t } = await seedRunningDeletion();
+      const pending = await t.run(async (ctx) => {
+        const originalContentType = "image/png";
+        const expiresAt = now + 10_000;
+        const uploadId = await ctx.db.insert("vaultPendingUploads", {
+          organizationId: ids.organizationId,
+          vaultId: ids.vaultId,
+          userId: ids.deletingUserId,
+          purpose: "action_blob_cache",
+          originalContentType,
+          expiresAt,
+        });
+        const storageContentType = buildPendingUploadStorageContentType({
+          originalContentType,
+          uploadId,
+        });
+        const storageId = await ctx.storage.store(
+          new Blob(["unfinished upload"], { type: storageContentType }),
+        );
+        // convex-test 0.0.53 omits Blob.type from its synthetic _storage row.
+        // @ts-expect-error Test-only system-table patch models real storage metadata.
+        await ctx.db.patch(storageId, { contentType: storageContentType });
+        return { expiresAt, storageId, uploadId };
+      });
+
+      await expect(
+        t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
+          runId: ids.runId,
+          workflowId,
+        }),
+      ).resolves.toEqual({
+        state: "waiting",
+        blocker: "active_media_upload",
+        retryAfterMs: 10_000,
+      });
+
+      vi.setSystemTime(pending.expiresAt + 1);
+      await expect(
+        t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
+          runId: ids.runId,
+          workflowId,
+        }),
+      ).resolves.toEqual({
+        state: "waiting",
+        blocker: "active_media_upload",
+        retryAfterMs: 1_000,
+      });
+      await expect(
+        t.run(async (ctx) => ({
+          storage: await ctx.storage.get(pending.storageId),
+          upload: await ctx.db.get(pending.uploadId),
+        })),
+      ).resolves.toEqual({ storage: null, upload: null });
+      await expect(
+        t.mutation(internal.accountDeletion.cleanup.inspectQuiescence, {
+          runId: ids.runId,
+          workflowId,
+        }),
+      ).resolves.toEqual({ state: "done" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("removes personal folder assignments before folders and preserves teammate state", async () => {

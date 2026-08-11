@@ -23,6 +23,7 @@ import {
 } from "./organizationBillingLimits";
 import { readGitHubSignInProviderAccountId } from "./githubUserAuthorizations";
 import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
+import { requireOrganizationNotDeleting } from "./organizationDeletion/state";
 import {
   readGitHubOrganizationRelationship,
   readGitHubUserByAccountId,
@@ -706,7 +707,7 @@ export const getInvitationAtTime = internalQuery({
         return { state: "unavailable" };
       }
       const organization = await ctx.db.get(invitation.organizationId);
-      if (organization === null) {
+      if (organization === null || organization.deletion) {
         return { state: "unavailable" };
       }
       const viewerMembership = await ctx.db
@@ -723,7 +724,7 @@ export const getInvitationAtTime = internalQuery({
       };
     }
     const organization = await ctx.db.get(invitation.organizationId);
-    if (organization === null) {
+    if (organization === null || organization.deletion) {
       return { state: "unavailable" };
     }
     const viewerUserId = args.viewerUserId;
@@ -794,6 +795,7 @@ export const acceptInvitation = mutation({
     if (organization === null) {
       throw new ConvexError("Invitation is unavailable.");
     }
+    requireOrganizationNotDeleting(organization);
     if (invitation.state === "accepted" && invitation.acceptedByUserId !== ctx.viewer.userId) {
       throw new ConvexError("Invitation is unavailable.");
     }

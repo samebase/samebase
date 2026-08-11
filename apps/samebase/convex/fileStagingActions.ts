@@ -26,6 +26,7 @@ import { resolveGitHubAppAccess } from "./githubAppAccess";
 import { assertConnectedVault } from "./vault/state";
 import { getRepositoryMediaKind } from "../shared/repositoryMedia";
 import { isStaleBaseVersionError } from "../shared/stagingErrors";
+import type { VaultActionOperation } from "./pendingUploads";
 
 const { boolean, number, object, optional, string } = v;
 
@@ -89,6 +90,23 @@ async function getGitHubOctokit(
     target: { kind: "vault", vaultId },
   });
   return access.octokit;
+}
+
+async function withVaultActionLease<Result>(
+  ctx: ActionCtx,
+  args: {
+    operation: VaultActionOperation;
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+  },
+  run: () => Promise<Result>,
+): Promise<Result> {
+  const leaseId = await ctx.runMutation(internal.pendingUploads.acquireVaultActionLease, args);
+  try {
+    return await run();
+  } finally {
+    await ctx.runMutation(internal.pendingUploads.releaseVaultActionLease, { leaseId });
+  }
 }
 
 function readDefaultBranch(repoData: unknown): string {
@@ -1862,31 +1880,37 @@ export const renameFileInStaging = action({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const connectedVault = assertConnectedVault(vault);
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId,
-      target: { kind: "vault", vaultId: args.vaultId },
-    });
+    return await withVaultActionLease(
+      ctx,
+      { operation: "rename_staged_file", userId, vaultId: vault._id },
+      async () => {
+        const connectedVault = assertConnectedVault(vault);
+        const githubAccess = await resolveGitHubAppAccess(ctx, {
+          userId,
+          target: { kind: "vault", vaultId: args.vaultId },
+        });
 
-    // So that we guarantee that we have the file in staging
-    await ctx.runAction(api.fileStagingActions.getFileForEditing, {
-      repositoryFullName: `${githubAccess.githubOwnerLogin}/${connectedVault.name}`,
-      originalFilePath: args.originalPath,
-      branch,
-    });
+        // So that we guarantee that we have the file in staging
+        await ctx.runAction(api.fileStagingActions.getFileForEditing, {
+          repositoryFullName: `${githubAccess.githubOwnerLogin}/${connectedVault.name}`,
+          originalFilePath: args.originalPath,
+          branch,
+        });
 
-    // Update existing staging record with new path
-    const updatedFile = await ctx.runMutation(internal.fileStaging.rename, {
-      vaultId: args.vaultId,
-      initialFilePath: args.originalPath,
-      branch,
-      newPath: args.newPath,
-      userId,
-    });
+        // Update existing staging record with new path
+        const updatedFile = await ctx.runMutation(internal.fileStaging.rename, {
+          vaultId: args.vaultId,
+          initialFilePath: args.originalPath,
+          branch,
+          newPath: args.newPath,
+          userId,
+        });
 
-    return {
-      content: updatedFile.content,
-    };
+        return {
+          content: updatedFile.content,
+        };
+      },
+    );
   },
 });
 
@@ -1913,172 +1937,196 @@ export const getFileForEditing = action({
       throw new Error("Vault not found");
     }
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
-    const targetBranch =
-      args.branch ??
-      (await getRepositoryDefaultBranch({
-        octokit,
-        owner: vault.owner,
-        repo: vault.name,
-      }));
+    return await withVaultActionLease(
+      ctx,
+      { operation: "stage_repository_file", userId, vaultId: vault._id },
+      async () => {
+        const octokit = await getGitHubOctokit(ctx, userId, vault._id);
+        const targetBranch =
+          args.branch ??
+          (await getRepositoryDefaultBranch({
+            octokit,
+            owner: vault.owner,
+            repo: vault.name,
+          }));
 
-    // Check if there's staged content for this file
-    const staging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
-      vaultId: vault._id,
-      originalFilePath: args.originalFilePath,
-      branch: targetBranch,
-    });
-
-    // TODO: Maybe also check the github, if it has updates
-    if (staging) {
-      // Return staged content
-      return {
-        content: staging.content,
-        parentCommitSha: staging.parentCommitSha,
-        lastEditTime: staging.lastEditTime,
-        branch: staging.branch,
-        version: staging.version,
-      };
-    }
-
-    try {
-      const file = await octokit.rest.repos.getContent({
-        owner: vault.owner,
-        repo: vault.name,
-        path: args.originalFilePath,
-        ref: targetBranch,
-      });
-
-      if (Array.isArray(file.data)) {
-        throw new Error("Path is a directory");
-      }
-
-      if (file.data.type !== "file") {
-        throw new Error("Path is not a file");
-      }
-
-      const filePath = file.data.path;
-      const fileSha = file.data.sha;
-      if (typeof fileSha !== "string" || fileSha.length === 0) {
-        throw new Error("File SHA is missing");
-      }
-
-      const cachedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-        sha: fileSha,
-      });
-
-      if (cachedBlob) {
-        if (typeof cachedBlob.text !== "string") {
-          return stageRepositoryBinaryBlobForEditing({
-            ctx,
-            vaultId: vault._id,
-            originalFilePath: args.originalFilePath,
-            targetBranch,
-            filePath,
-            fileSha,
-            userId,
-            storageId: cachedBlob.storageId,
-            mime: cachedBlob.mime,
-            size: file.data.size,
-            missingStorageError: "Cached binary blob is missing storage data.",
-          });
-        }
-
-        const stagedFile = await ctx.runMutation(internal.fileStaging.saveToStaging, {
-          branch: targetBranch,
-          vaultId: vault._id,
-          initialFilePath: args.originalFilePath,
-          content: cachedBlob.text,
-          initialContent: cachedBlob.text,
-          parentCommitSha: fileSha,
-          userId,
-        });
-
-        return readEditableFileState(stagedFile);
-      }
-
-      const blobResponse = await octokit.rest.git.getBlob({
-        owner: vault.owner,
-        repo: vault.name,
-        file_sha: fileSha,
-      });
-      const buffer = Buffer.from(blobResponse.data.content, "base64");
-      const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
-      const isText = isTextBuffer(new Uint8Array(buffer));
-      let mime = guessMime(filePath);
-      if (mime === "application/octet-stream" && isText) {
-        mime = "text/plain; charset=utf-8";
-      }
-
-      if (isText && file.data.size < INLINE_TEXT_MAX) {
-        await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-          vaultId: vault._id,
-          sha: fileSha,
-          size: file.data.size,
-          mime,
-          text: buffer.toString("utf-8"),
-          storageId: undefined,
-          ext,
-          debugFilePath: filePath,
-        });
-      } else {
-        const storageId = await withRetry(() =>
-          ctx.storage.store(new Blob([buffer], { type: mime })),
-        );
-
-        await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-          vaultId: vault._id,
-          sha: fileSha,
-          size: file.data.size,
-          mime,
-          text: undefined,
-          storageId,
-          ext,
-          debugFilePath: filePath,
-        });
-      }
-
-      const savedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-        sha: fileSha,
-      });
-
-      if (!savedBlob) {
-        throw new Error(
-          "File not found in observations_vaultFiles_blobs table after literally saving it there?!?",
-        );
-      }
-
-      if (typeof savedBlob.text !== "string") {
-        return stageRepositoryBinaryBlobForEditing({
-          ctx,
+        // Check if there's staged content for this file
+        const staging = await ctx.runQuery(internal.fileStaging.getByOriginalPath, {
           vaultId: vault._id,
           originalFilePath: args.originalFilePath,
-          targetBranch,
-          filePath,
-          fileSha,
-          userId,
-          storageId: savedBlob.storageId,
-          mime,
-          size: file.data.size,
-          missingStorageError: "Saved binary blob is missing storage data.",
+          branch: targetBranch,
         });
-      }
 
-      const stagedFile = await ctx.runMutation(internal.fileStaging.saveToStaging, {
-        branch: targetBranch,
-        vaultId: vault._id,
-        initialFilePath: args.originalFilePath,
-        content: savedBlob.text,
-        initialContent: savedBlob.text,
-        parentCommitSha: fileSha,
-        userId,
-      });
+        // TODO: Maybe also check the github, if it has updates
+        if (staging) {
+          // Return staged content
+          return {
+            content: staging.content,
+            parentCommitSha: staging.parentCommitSha,
+            lastEditTime: staging.lastEditTime,
+            branch: staging.branch,
+            version: staging.version,
+          };
+        }
 
-      return readEditableFileState(stagedFile);
-    } catch (error) {
-      console.error("error", error);
-      throw error;
-    }
+        try {
+          const file = await octokit.rest.repos.getContent({
+            owner: vault.owner,
+            repo: vault.name,
+            path: args.originalFilePath,
+            ref: targetBranch,
+          });
+
+          if (Array.isArray(file.data)) {
+            throw new Error("Path is a directory");
+          }
+
+          if (file.data.type !== "file") {
+            throw new Error("Path is not a file");
+          }
+
+          const filePath = file.data.path;
+          const fileSha = file.data.sha;
+          if (typeof fileSha !== "string" || fileSha.length === 0) {
+            throw new Error("File SHA is missing");
+          }
+
+          const cachedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+            sha: fileSha,
+          });
+
+          if (cachedBlob) {
+            if (typeof cachedBlob.text !== "string") {
+              return stageRepositoryBinaryBlobForEditing({
+                ctx,
+                vaultId: vault._id,
+                originalFilePath: args.originalFilePath,
+                targetBranch,
+                filePath,
+                fileSha,
+                userId,
+                storageId: cachedBlob.storageId,
+                mime: cachedBlob.mime,
+                size: file.data.size,
+                missingStorageError: "Cached binary blob is missing storage data.",
+              });
+            }
+
+            const stagedFile = await ctx.runMutation(internal.fileStaging.saveToStaging, {
+              branch: targetBranch,
+              vaultId: vault._id,
+              initialFilePath: args.originalFilePath,
+              content: cachedBlob.text,
+              initialContent: cachedBlob.text,
+              parentCommitSha: fileSha,
+              userId,
+            });
+
+            return readEditableFileState(stagedFile);
+          }
+
+          const blobResponse = await octokit.rest.git.getBlob({
+            owner: vault.owner,
+            repo: vault.name,
+            file_sha: fileSha,
+          });
+          const buffer = Buffer.from(blobResponse.data.content, "base64");
+          const ext = filePath.split(".").pop()?.toLowerCase() ?? "";
+          const isText = isTextBuffer(new Uint8Array(buffer));
+          let mime = guessMime(filePath);
+          if (mime === "application/octet-stream" && isText) {
+            mime = "text/plain; charset=utf-8";
+          }
+
+          if (isText && file.data.size < INLINE_TEXT_MAX) {
+            await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+              vaultId: vault._id,
+              sha: fileSha,
+              size: file.data.size,
+              mime,
+              text: buffer.toString("utf-8"),
+              storageId: undefined,
+              ext,
+              debugFilePath: filePath,
+            });
+          } else {
+            const storageReservation = await ctx.runMutation(
+              internal.pendingUploads.reserveActionBlob,
+              {
+                vaultId: vault._id,
+                userId,
+                contentType: mime,
+              },
+            );
+            const storageId = await withRetry(() =>
+              ctx.storage.store(
+                new Blob([buffer], { type: storageReservation.storageContentType }),
+              ),
+            );
+
+            const savedBlobId = await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+              vaultId: vault._id,
+              sha: fileSha,
+              size: file.data.size,
+              mime,
+              text: undefined,
+              storageId,
+              storageIdIsDisposable: true,
+              ext,
+              debugFilePath: filePath,
+            });
+            await ctx.runMutation(internal.pendingUploads.releaseActionBlob, {
+              uploadId: storageReservation.uploadId,
+              storageId,
+            });
+            if (savedBlobId === null) {
+              throw new Error("Organization is not available.");
+            }
+          }
+
+          const savedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+            sha: fileSha,
+          });
+
+          if (!savedBlob) {
+            throw new Error(
+              "File not found in observations_vaultFiles_blobs table after literally saving it there?!?",
+            );
+          }
+
+          if (typeof savedBlob.text !== "string") {
+            return stageRepositoryBinaryBlobForEditing({
+              ctx,
+              vaultId: vault._id,
+              originalFilePath: args.originalFilePath,
+              targetBranch,
+              filePath,
+              fileSha,
+              userId,
+              storageId: savedBlob.storageId,
+              mime,
+              size: file.data.size,
+              missingStorageError: "Saved binary blob is missing storage data.",
+            });
+          }
+
+          const stagedFile = await ctx.runMutation(internal.fileStaging.saveToStaging, {
+            branch: targetBranch,
+            vaultId: vault._id,
+            initialFilePath: args.originalFilePath,
+            content: savedBlob.text,
+            initialContent: savedBlob.text,
+            parentCommitSha: fileSha,
+            userId,
+          });
+
+          return readEditableFileState(stagedFile);
+        } catch (error) {
+          console.error("error", error);
+          throw error;
+        }
+      },
+    );
   },
 });
 
@@ -2093,6 +2141,7 @@ export const stageUploadedMedia = action({
   args: {
     repositoryFullName: string(),
     filePath: string(),
+    uploadId: v.id("vaultPendingUploads"),
     storageId: v.id("_storage"),
     branch: optional(string()),
     replaceExisting: boolean(),
@@ -2104,48 +2153,67 @@ export const stageUploadedMedia = action({
     }
 
     const userId = ctx.viewer.userId;
-    const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
-      repositoryFullName: args.repositoryFullName,
-      userId,
-    });
-    if (!vault) {
-      throw new Error("Vault not found");
-    }
-
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
-    const targetBranch =
-      args.branch ??
-      (await getRepositoryDefaultBranch({
-        octokit,
-        owner: vault.owner,
-        repo: vault.name,
-      }));
-
-    const uploadedBlob = await ctx.storage.get(args.storageId);
-    if (!uploadedBlob) {
-      throw new Error("Uploaded media is no longer available.");
-    }
-
-    const uploadedBuffer = Buffer.from(await uploadedBlob.arrayBuffer());
-    const stagedBlobSha = computeGitBlobShaFromBuffer(uploadedBuffer);
-    const stagedFile = await ctx.runMutation(internal.fileStaging.saveBinaryUploadToStaging, {
-      vaultId: vault._id,
-      filePath: args.filePath,
-      branch: targetBranch,
+    const claim = await ctx.runMutation(internal.pendingUploads.claimUploadedBlob, {
+      uploadId: args.uploadId,
       storageId: args.storageId,
-      mime: uploadedBlob.type || guessMime(args.filePath),
-      size: uploadedBlob.size,
-      stagedBlobSha,
-      replaceExisting: args.replaceExisting,
       userId,
     });
+    if (claim.state === "unavailable") {
+      throw new Error("Organization is not available.");
+    }
 
-    return {
-      filePath: stagedFile.filePath,
-      branch: stagedFile.branch,
-      parentCommitSha: stagedFile.parentCommitSha ?? undefined,
-      replacedExisting: stagedFile.parentCommitSha !== null,
-    };
+    try {
+      const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
+        repositoryFullName: args.repositoryFullName,
+        userId,
+      });
+      if (!vault || vault._id !== claim.vaultId) {
+        throw new Error("Vault not found");
+      }
+
+      const octokit = await getGitHubOctokit(ctx, userId, vault._id);
+      const targetBranch =
+        args.branch ??
+        (await getRepositoryDefaultBranch({
+          octokit,
+          owner: vault.owner,
+          repo: vault.name,
+        }));
+
+      const uploadedBlob = await ctx.storage.get(args.storageId);
+      if (!uploadedBlob) {
+        throw new Error("Uploaded media is no longer available.");
+      }
+
+      const uploadedBuffer = Buffer.from(await uploadedBlob.arrayBuffer());
+      const stagedBlobSha = computeGitBlobShaFromBuffer(uploadedBuffer);
+      const stagedFile = await ctx.runMutation(internal.fileStaging.saveBinaryUploadToStaging, {
+        uploadId: args.uploadId,
+        vaultId: vault._id,
+        filePath: args.filePath,
+        branch: targetBranch,
+        storageId: args.storageId,
+        mime: claim.contentType || guessMime(args.filePath),
+        size: uploadedBlob.size,
+        stagedBlobSha,
+        replaceExisting: args.replaceExisting,
+        userId,
+      });
+
+      return {
+        filePath: stagedFile.filePath,
+        branch: stagedFile.branch,
+        parentCommitSha: stagedFile.parentCommitSha ?? undefined,
+        replacedExisting: stagedFile.parentCommitSha !== null,
+      };
+    } catch (error) {
+      await ctx.runMutation(internal.pendingUploads.discardUploadedBlob, {
+        uploadId: args.uploadId,
+        storageId: args.storageId,
+        userId,
+      });
+      throw error;
+    }
   },
 });
 
@@ -2157,7 +2225,7 @@ export const commitStaging = action({
     branch: v.optional(v.string()),
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<null> => {
     const userId = ctx.viewer.userId;
 
     // Get the vault information while we have auth context
@@ -2169,15 +2237,19 @@ export const commitStaging = action({
       throw new Error("Vault not found");
     }
 
-    // Commit all staged files to GitHub
-    // commitAllStaged handles: commit → update tree → save blobs → clear staging
-    await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
-      userId,
-      vaultId: vault._id,
-      branch: args.branch,
-    });
-
-    return null;
+    return await withVaultActionLease(
+      ctx,
+      { operation: "commit_staged_files", userId, vaultId: vault._id },
+      async () => {
+        // commitAllStaged handles the GitHub commit, tree refresh, blob save, and staging clear.
+        await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
+          userId,
+          vaultId: vault._id,
+          branch: args.branch,
+        });
+        return null;
+      },
+    );
   },
 });
 
@@ -2198,100 +2270,106 @@ export const createDraftPullRequest = action({
       throw new Error("Vault not found");
     }
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
-    const defaultBranch = await getRepositoryDefaultBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
-    });
-    const branch = args.branch?.trim() || defaultBranch;
+    return await withVaultActionLease(
+      ctx,
+      { operation: "create_draft_pull_request", userId, vaultId: vault._id },
+      async () => {
+        const octokit = await getGitHubOctokit(ctx, userId, vault._id);
+        const defaultBranch = await getRepositoryDefaultBranch({
+          octokit,
+          owner: vault.owner,
+          repo: vault.name,
+        });
+        const branch = args.branch?.trim() || defaultBranch;
 
-    if (branch === defaultBranch) {
-      throw new Error("Create the draft PR from a non-default branch.");
-    }
+        if (branch === defaultBranch) {
+          throw new Error("Create the draft PR from a non-default branch.");
+        }
 
-    const stagedFiles: StagedFileForCommit[] = await ctx.runQuery(
-      internal.fileStaging.listAllStagedFiles,
-      {
-        vaultId: vault._id,
-        branch,
-      },
-    );
-    if (stagedFiles.length > 0) {
-      await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
-        userId,
-        vaultId: vault._id,
-        branch,
-      });
-    }
+        const stagedFiles: StagedFileForCommit[] = await ctx.runQuery(
+          internal.fileStaging.listAllStagedFiles,
+          {
+            vaultId: vault._id,
+            branch,
+          },
+        );
+        if (stagedFiles.length > 0) {
+          await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
+            userId,
+            vaultId: vault._id,
+            branch,
+          });
+        }
 
-    const existingPullRequest = await getOpenPullRequestForBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
-      branch,
-      baseBranch: defaultBranch,
-    });
-    if (existingPullRequest) {
-      return {
-        ...existingPullRequest,
-        existing: true,
-      };
-    }
-
-    const comparison = await octokit.rest.repos.compareCommitsWithBasehead({
-      owner: vault.owner,
-      repo: vault.name,
-      basehead: `${defaultBranch}...${branch}`,
-    });
-    if (comparison.data.ahead_by === 0) {
-      throw new Error("This branch has no changes to open as a pull request.");
-    }
-
-    try {
-      const response = await octokit.rest.pulls.create({
-        owner: vault.owner,
-        repo: vault.name,
-        title: buildDraftPullRequestTitle({
+        const existingPullRequest = await getOpenPullRequestForBranch({
+          octokit,
+          owner: vault.owner,
+          repo: vault.name,
           branch,
-          commitMessage: await getBranchHeadCommitMessage({
+          baseBranch: defaultBranch,
+        });
+        if (existingPullRequest) {
+          return {
+            ...existingPullRequest,
+            existing: true,
+          };
+        }
+
+        const comparison = await octokit.rest.repos.compareCommitsWithBasehead({
+          owner: vault.owner,
+          repo: vault.name,
+          basehead: `${defaultBranch}...${branch}`,
+        });
+        if (comparison.data.ahead_by === 0) {
+          throw new Error("This branch has no changes to open as a pull request.");
+        }
+
+        try {
+          const response = await octokit.rest.pulls.create({
+            owner: vault.owner,
+            repo: vault.name,
+            title: buildDraftPullRequestTitle({
+              branch,
+              commitMessage: await getBranchHeadCommitMessage({
+                octokit,
+                owner: vault.owner,
+                repo: vault.name,
+                branch,
+              }),
+            }),
+            head: branch,
+            base: defaultBranch,
+            draft: true,
+          });
+
+          return {
+            url: response.data.html_url,
+            number: response.data.number,
+            existing: false,
+          };
+        } catch (error) {
+          const currentPullRequest = await getOpenPullRequestForBranch({
             octokit,
             owner: vault.owner,
             repo: vault.name,
             branch,
-          }),
-        }),
-        head: branch,
-        base: defaultBranch,
-        draft: true,
-      });
+            baseBranch: defaultBranch,
+          });
+          if (currentPullRequest) {
+            return {
+              ...currentPullRequest,
+              existing: true,
+            };
+          }
 
-      return {
-        url: response.data.html_url,
-        number: response.data.number,
-        existing: false,
-      };
-    } catch (error) {
-      const currentPullRequest = await getOpenPullRequestForBranch({
-        octokit,
-        owner: vault.owner,
-        repo: vault.name,
-        branch,
-        baseBranch: defaultBranch,
-      });
-      if (currentPullRequest) {
-        return {
-          ...currentPullRequest,
-          existing: true,
-        };
-      }
-
-      const friendlyMessage = getDraftPullRequestCreateErrorMessage(error);
-      if (friendlyMessage) {
-        throw new Error(friendlyMessage);
-      }
-      throw error;
-    }
+          const friendlyMessage = getDraftPullRequestCreateErrorMessage(error);
+          if (friendlyMessage) {
+            throw new Error(friendlyMessage);
+          }
+          throw error;
+        }
+      },
+    );
   },
 });
 
@@ -2312,138 +2390,62 @@ export const createDraftPullRequestFromDefaultBranch = action({
       throw new Error("Vault not found");
     }
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
-    const defaultBranch = await getRepositoryDefaultBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
-    });
-    const sourceBranch = args.branch?.trim() || defaultBranch;
-    if (sourceBranch !== defaultBranch) {
-      throw new Error("Create a new draft branch from the default branch.");
-    }
-
-    const stagedFilesResult: DraftSourceStagingRecord[] = await ctx.runQuery(
-      internal.fileStaging.listAllStagedFiles,
-      {
-        vaultId: vault._id,
-        branch: defaultBranch,
-      },
-    );
-    const stagedFiles: DraftSourceStagingSnapshot[] = stagedFilesResult.map(
-      stripCreationTimeFromStagingRecord,
-    );
-    if (stagedFiles.length === 0) {
-      throw new Error("Stage changes on the default branch before drafting.");
-    }
-
-    const targetBranch = buildDraftBranchName({
-      stagedFiles,
-      now: Date.now(),
-    });
-    const defaultRef = await octokit.rest.git.getRef({
-      owner: vault.owner,
-      repo: vault.name,
-      ref: `heads/${defaultBranch}`,
-    });
-
-    await octokit.rest.git.createRef({
-      owner: vault.owner,
-      repo: vault.name,
-      ref: `refs/heads/${targetBranch}`,
-      sha: defaultRef.data.object.sha,
-    });
-
-    const initialTargetBranchSha = defaultRef.data.object.sha;
-    try {
-      await ctx.runMutation(internal.fileStaging.duplicateBranchStaging, {
-        vaultId: vault._id,
-        sourceBranch: defaultBranch,
-        targetBranch,
-        stagedFiles,
-        userId,
-      });
-    } catch (error) {
-      await cleanupTemporaryDraftBranch({
-        ctx,
-        octokit,
-        vaultId: vault._id,
-        owner: vault.owner,
-        repo: vault.name,
-        branch: targetBranch,
-      });
-
-      if (error instanceof Error && error.message.length > 0) {
-        throw error;
-      }
-      throw new Error("Failed to create draft pull request");
-    }
-
-    try {
-      await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
-        userId,
-        vaultId: vault._id,
-        branch: targetBranch,
-      });
-    } catch (error) {
-      // commitAllStaged can fail after GitHub advances the branch ref, so
-      // re-check the head before rolling back the newly created branch.
-      const currentTargetBranchSha = await getBranchHeadShaOrNull({
-        octokit,
-        owner: vault.owner,
-        repo: vault.name,
-        branch: targetBranch,
-      });
-      if (currentTargetBranchSha === initialTargetBranchSha) {
-        await cleanupTemporaryDraftBranch({
-          ctx,
-          octokit,
-          vaultId: vault._id,
-          owner: vault.owner,
-          repo: vault.name,
-          branch: targetBranch,
-        });
-      }
-
-      if (error instanceof Error && error.message.length > 0) {
-        throw error;
-      }
-      throw new Error("Failed to create draft pull request");
-    }
-
-    try {
-      let url: string;
-      let number: number;
-      try {
-        const response = await octokit.rest.pulls.create({
-          owner: vault.owner,
-          repo: vault.name,
-          title: buildDraftPullRequestTitle({
-            branch: targetBranch,
-            commitMessage: await getBranchHeadCommitMessage({
-              octokit,
-              owner: vault.owner,
-              repo: vault.name,
-              branch: targetBranch,
-            }),
-          }),
-          head: targetBranch,
-          base: defaultBranch,
-          draft: true,
-        });
-        url = response.data.html_url;
-        number = response.data.number;
-      } catch (error) {
-        const currentPullRequest = await getOpenPullRequestForBranch({
+    return await withVaultActionLease(
+      ctx,
+      { operation: "create_draft_pull_request", userId, vaultId: vault._id },
+      async () => {
+        const octokit = await getGitHubOctokit(ctx, userId, vault._id);
+        const defaultBranch = await getRepositoryDefaultBranch({
           octokit,
           owner: vault.owner,
           repo: vault.name,
-          branch: targetBranch,
-          baseBranch: defaultBranch,
         });
-        if (!currentPullRequest) {
-          // If GitHub never confirmed a PR, keep the default-branch staging
-          // intact so the user can retry from the same source state.
+        const sourceBranch = args.branch?.trim() || defaultBranch;
+        if (sourceBranch !== defaultBranch) {
+          throw new Error("Create a new draft branch from the default branch.");
+        }
+
+        const stagedFilesResult: DraftSourceStagingRecord[] = await ctx.runQuery(
+          internal.fileStaging.listAllStagedFiles,
+          {
+            vaultId: vault._id,
+            branch: defaultBranch,
+          },
+        );
+        const stagedFiles: DraftSourceStagingSnapshot[] = stagedFilesResult.map(
+          stripCreationTimeFromStagingRecord,
+        );
+        if (stagedFiles.length === 0) {
+          throw new Error("Stage changes on the default branch before drafting.");
+        }
+
+        const targetBranch = buildDraftBranchName({
+          stagedFiles,
+          now: Date.now(),
+        });
+        const defaultRef = await octokit.rest.git.getRef({
+          owner: vault.owner,
+          repo: vault.name,
+          ref: `heads/${defaultBranch}`,
+        });
+
+        await octokit.rest.git.createRef({
+          owner: vault.owner,
+          repo: vault.name,
+          ref: `refs/heads/${targetBranch}`,
+          sha: defaultRef.data.object.sha,
+        });
+
+        const initialTargetBranchSha = defaultRef.data.object.sha;
+        try {
+          await ctx.runMutation(internal.fileStaging.duplicateBranchStaging, {
+            vaultId: vault._id,
+            sourceBranch: defaultBranch,
+            targetBranch,
+            stagedFiles,
+            userId,
+          });
+        } catch (error) {
           await cleanupTemporaryDraftBranch({
             ctx,
             octokit,
@@ -2458,30 +2460,112 @@ export const createDraftPullRequestFromDefaultBranch = action({
           }
           throw new Error("Failed to create draft pull request");
         }
-        url = currentPullRequest.url;
-        number = currentPullRequest.number;
-      }
 
-      // Once GitHub confirms the draft PR, clear only the unchanged source
-      // snapshot so newer default-branch edits survive while retries do not
-      // re-draft the same work.
-      await ctx.runMutation(internal.fileStaging.clearMatchingStagingSnapshot, {
-        vaultId: vault._id,
-        branch: defaultBranch,
-        stagedFiles,
-      });
+        try {
+          await ctx.runAction(internal.fileStagingActions.commitAllStaged, {
+            userId,
+            vaultId: vault._id,
+            branch: targetBranch,
+          });
+        } catch (error) {
+          // commitAllStaged can fail after GitHub advances the branch ref, so
+          // re-check the head before rolling back the newly created branch.
+          const currentTargetBranchSha = await getBranchHeadShaOrNull({
+            octokit,
+            owner: vault.owner,
+            repo: vault.name,
+            branch: targetBranch,
+          });
+          if (currentTargetBranchSha === initialTargetBranchSha) {
+            await cleanupTemporaryDraftBranch({
+              ctx,
+              octokit,
+              vaultId: vault._id,
+              owner: vault.owner,
+              repo: vault.name,
+              branch: targetBranch,
+            });
+          }
 
-      return {
-        branch: targetBranch,
-        url,
-        number,
-      };
-    } catch (error) {
-      if (error instanceof Error && error.message.length > 0) {
-        throw error;
-      }
-      throw new Error("Failed to create draft pull request");
-    }
+          if (error instanceof Error && error.message.length > 0) {
+            throw error;
+          }
+          throw new Error("Failed to create draft pull request");
+        }
+
+        try {
+          let url: string;
+          let number: number;
+          try {
+            const response = await octokit.rest.pulls.create({
+              owner: vault.owner,
+              repo: vault.name,
+              title: buildDraftPullRequestTitle({
+                branch: targetBranch,
+                commitMessage: await getBranchHeadCommitMessage({
+                  octokit,
+                  owner: vault.owner,
+                  repo: vault.name,
+                  branch: targetBranch,
+                }),
+              }),
+              head: targetBranch,
+              base: defaultBranch,
+              draft: true,
+            });
+            url = response.data.html_url;
+            number = response.data.number;
+          } catch (error) {
+            const currentPullRequest = await getOpenPullRequestForBranch({
+              octokit,
+              owner: vault.owner,
+              repo: vault.name,
+              branch: targetBranch,
+              baseBranch: defaultBranch,
+            });
+            if (!currentPullRequest) {
+              // If GitHub never confirmed a PR, keep the default-branch staging
+              // intact so the user can retry from the same source state.
+              await cleanupTemporaryDraftBranch({
+                ctx,
+                octokit,
+                vaultId: vault._id,
+                owner: vault.owner,
+                repo: vault.name,
+                branch: targetBranch,
+              });
+
+              if (error instanceof Error && error.message.length > 0) {
+                throw error;
+              }
+              throw new Error("Failed to create draft pull request");
+            }
+            url = currentPullRequest.url;
+            number = currentPullRequest.number;
+          }
+
+          // Once GitHub confirms the draft PR, clear only the unchanged source
+          // snapshot so newer default-branch edits survive while retries do not
+          // re-draft the same work.
+          await ctx.runMutation(internal.fileStaging.clearMatchingStagingSnapshot, {
+            vaultId: vault._id,
+            branch: defaultBranch,
+            stagedFiles,
+          });
+
+          return {
+            branch: targetBranch,
+            url,
+            number,
+          };
+        } catch (error) {
+          if (error instanceof Error && error.message.length > 0) {
+            throw error;
+          }
+          throw new Error("Failed to create draft pull request");
+        }
+      },
+    );
   },
 });
 
@@ -2494,15 +2578,27 @@ export const pullFromGitHub = action({
     vaultId: v.id("vaults"),
   },
   returns: v.null(),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<null> => {
     const userId = ctx.viewer.userId;
-
-    await ctx.runAction(internal.fileStagingActions.pullFromGitHubInternal, {
+    const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
       userId,
       vaultId: args.vaultId,
     });
+    if (!vault) {
+      throw new Error("Vault not found");
+    }
 
-    return null;
+    return await withVaultActionLease(
+      ctx,
+      { operation: "pull_from_github", userId, vaultId: vault._id },
+      async () => {
+        await ctx.runAction(internal.fileStagingActions.pullFromGitHubInternal, {
+          userId,
+          vaultId: vault._id,
+        });
+        return null;
+      },
+    );
   },
 });
 
@@ -2751,7 +2847,7 @@ export const batchReadFiles = action({
     filePaths: v.array(v.string()),
   },
   returns: v.array(v.object({ path: v.string(), content: v.string() })),
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Array<{ path: string; content: string }>> => {
     const userId = ctx.viewer.userId;
     const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {
       vaultId: args.vaultId,
@@ -2760,144 +2856,153 @@ export const batchReadFiles = action({
     if (!vault) {
       throw new Error("Vault not found");
     }
-    const connectedVault = assertConnectedVault(vault);
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId,
-      target: { kind: "vault", vaultId: args.vaultId },
-    });
-    const octokit = githubAccess.octokit;
-
-    const requestedBranch =
-      typeof args.branch === "string" && args.branch.trim().length > 0
-        ? args.branch.trim()
-        : undefined;
-    let branchTreeData: GithubTree[] | null = null;
-    const defaultBranch = connectedVault.defaultBranch;
-    const branchToLoad = requestedBranch ?? defaultBranch;
-    if (branchToLoad) {
-      let branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
-        vaultId: args.vaultId,
-        branch: branchToLoad,
-      });
-
-      if (!branchTree) {
-        await ctx.runAction(internal.github.updateRepositoryTree, {
+    return await withVaultActionLease(
+      ctx,
+      { operation: "cache_repository_files", userId, vaultId: vault._id },
+      async () => {
+        const connectedVault = assertConnectedVault(vault);
+        const githubAccess = await resolveGitHubAppAccess(ctx, {
           userId,
-          vaultId: args.vaultId,
-          branch: branchToLoad,
+          target: { kind: "vault", vaultId: args.vaultId },
         });
-        branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
-          vaultId: args.vaultId,
-          branch: branchToLoad,
-        });
-      }
+        const octokit = githubAccess.octokit;
 
-      if (branchTree) {
-        branchTreeData = branchTree.treeData.tree;
-      }
-    }
-    const repositoryTree = selectBatchReadRepositoryTree({
-      requestedBranch,
-      branchTree: branchTreeData,
-    });
-
-    // Build a map of path → tree entry for fast lookups
-    const treeMap = new Map<string, { sha: string; size?: number }>();
-    for (const item of repositoryTree) {
-      if (item.type === "blob" && item.sha) {
-        treeMap.set(item.path, { sha: item.sha, size: item.size });
-      }
-    }
-
-    const uniqueFilePaths = Array.from(new Set(args.filePaths));
-    const MAX_FILE_SIZE = 100_000; // 100KB – skip large generated files
-    const results: Array<{ path: string; content: string }> = [];
-    const misses: Array<{ path: string; sha: string }> = [];
-
-    for (const filePath of uniqueFilePaths) {
-      const entry = treeMap.get(filePath);
-      if (!entry) continue; // file not in tree, skip
-
-      // Skip files that are too large
-      if (entry.size !== undefined && entry.size > MAX_FILE_SIZE) continue;
-
-      // 1. Try blob cache
-      const cached = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
-        sha: entry.sha,
-      });
-
-      if (cached && typeof cached.text === "string") {
-        results.push({ path: filePath, content: cached.text });
-        continue;
-      }
-
-      misses.push({ path: filePath, sha: entry.sha });
-    }
-
-    const getOctokit = () => octokit;
-
-    for (const miss of misses) {
-      const knownResetAtMs = getKnownRateLimitResetAtMs(userId);
-      if (knownResetAtMs !== null) {
-        console.warn(
-          "batchReadFiles: skipping uncached GitHub reads due to active rate-limit cooldown",
-          {
-            userId,
-            resetAtMs: knownResetAtMs,
-          },
-        );
-        break;
-      }
-
-      // 2. Fetch from GitHub (blob API by SHA – lightweight)
-      try {
-        const blob = await getOctokit().rest.git.getBlob({
-          owner: githubAccess.githubOwnerLogin,
-          repo: connectedVault.name,
-          file_sha: miss.sha,
-        });
-
-        const buffer = Buffer.from(blob.data.content, "base64");
-
-        // Skip binary files
-        if (!isTextBuffer(new Uint8Array(buffer))) continue;
-
-        const text = buffer.toString("utf-8");
-
-        // Cache in blob store for future reads
-        if (buffer.byteLength <= INLINE_TEXT_MAX) {
-          const ext = miss.path.split(".").pop()?.toLowerCase() ?? "";
-          await ctx.runMutation(internal.gitOperations.saveFileBlob, {
-            vaultId: vault._id,
-            sha: miss.sha,
-            size: buffer.byteLength,
-            text,
-            storageId: undefined,
-            ext,
-            mime: "text/plain; charset=utf-8",
-            debugFilePath: miss.path,
+        const requestedBranch =
+          typeof args.branch === "string" && args.branch.trim().length > 0
+            ? args.branch.trim()
+            : undefined;
+        let branchTreeData: GithubTree[] | null = null;
+        const defaultBranch = connectedVault.defaultBranch;
+        const branchToLoad = requestedBranch ?? defaultBranch;
+        if (branchToLoad) {
+          let branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
+            vaultId: args.vaultId,
+            branch: branchToLoad,
           });
+
+          if (!branchTree) {
+            await ctx.runAction(internal.github.updateRepositoryTree, {
+              userId,
+              vaultId: args.vaultId,
+              branch: branchToLoad,
+            });
+            branchTree = await ctx.runQuery(internal.vault.branches.getVaultBranchTree, {
+              vaultId: args.vaultId,
+              branch: branchToLoad,
+            });
+          }
+
+          if (branchTree) {
+            branchTreeData = branchTree.treeData.tree;
+          }
+        }
+        const repositoryTree = selectBatchReadRepositoryTree({
+          requestedBranch,
+          branchTree: branchTreeData,
+        });
+
+        // Build a map of path → tree entry for fast lookups
+        const treeMap = new Map<string, { sha: string; size?: number }>();
+        for (const item of repositoryTree) {
+          if (item.type === "blob" && item.sha) {
+            treeMap.set(item.path, { sha: item.sha, size: item.size });
+          }
         }
 
-        results.push({ path: miss.path, content: text });
-      } catch (error) {
-        if (isGitHubRateLimitError(error)) {
-          const failure = describeRepositoryTreeRefreshFailure(error);
-          const resetAtMs = rememberRateLimitResetAtMs(userId, failure.cooldownUntil);
-          console.warn("batchReadFiles: hit GitHub rate limit, stopping uncached reads for now", {
-            userId,
-            resetAtMs,
-            failedPath: miss.path,
+        const uniqueFilePaths = Array.from(new Set(args.filePaths));
+        const MAX_FILE_SIZE = 100_000; // 100KB – skip large generated files
+        const results: Array<{ path: string; content: string }> = [];
+        const misses: Array<{ path: string; sha: string }> = [];
+
+        for (const filePath of uniqueFilePaths) {
+          const entry = treeMap.get(filePath);
+          if (!entry) continue; // file not in tree, skip
+
+          // Skip files that are too large
+          if (entry.size !== undefined && entry.size > MAX_FILE_SIZE) continue;
+
+          // 1. Try blob cache
+          const cached = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+            sha: entry.sha,
           });
-          break;
+
+          if (cached && typeof cached.text === "string") {
+            results.push({ path: filePath, content: cached.text });
+            continue;
+          }
+
+          misses.push({ path: filePath, sha: entry.sha });
         }
 
-        // Skip files that fail to fetch (permissions, deleted, etc.)
-        console.warn(`batchReadFiles: failed to fetch ${miss.path}:`, error);
-      }
-    }
+        const getOctokit = () => octokit;
 
-    return results;
+        for (const miss of misses) {
+          const knownResetAtMs = getKnownRateLimitResetAtMs(userId);
+          if (knownResetAtMs !== null) {
+            console.warn(
+              "batchReadFiles: skipping uncached GitHub reads due to active rate-limit cooldown",
+              {
+                userId,
+                resetAtMs: knownResetAtMs,
+              },
+            );
+            break;
+          }
+
+          // 2. Fetch from GitHub (blob API by SHA – lightweight)
+          try {
+            const blob = await getOctokit().rest.git.getBlob({
+              owner: githubAccess.githubOwnerLogin,
+              repo: connectedVault.name,
+              file_sha: miss.sha,
+            });
+
+            const buffer = Buffer.from(blob.data.content, "base64");
+
+            // Skip binary files
+            if (!isTextBuffer(new Uint8Array(buffer))) continue;
+
+            const text = buffer.toString("utf-8");
+
+            // Cache in blob store for future reads
+            if (buffer.byteLength <= INLINE_TEXT_MAX) {
+              const ext = miss.path.split(".").pop()?.toLowerCase() ?? "";
+              await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+                vaultId: vault._id,
+                sha: miss.sha,
+                size: buffer.byteLength,
+                text,
+                storageId: undefined,
+                ext,
+                mime: "text/plain; charset=utf-8",
+                debugFilePath: miss.path,
+              });
+            }
+
+            results.push({ path: miss.path, content: text });
+          } catch (error) {
+            if (isGitHubRateLimitError(error)) {
+              const failure = describeRepositoryTreeRefreshFailure(error);
+              const resetAtMs = rememberRateLimitResetAtMs(userId, failure.cooldownUntil);
+              console.warn(
+                "batchReadFiles: hit GitHub rate limit, stopping uncached reads for now",
+                {
+                  userId,
+                  resetAtMs,
+                  failedPath: miss.path,
+                },
+              );
+              break;
+            }
+
+            // Skip files that fail to fetch (permissions, deleted, etc.)
+            console.warn(`batchReadFiles: failed to fetch ${miss.path}:`, error);
+          }
+        }
+
+        return results;
+      },
+    );
   },
 });
 
@@ -3135,71 +3240,78 @@ export const restoreComparedDeletedFileToStaging = action({
       throw new Error("Vault not found");
     }
 
-    const octokit = await getGitHubOctokit(ctx, userId, vault._id);
-    const defaultBranch = await getRepositoryDefaultBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
-    });
-    const branch = args.branch?.trim() || defaultBranch;
-    const currentPullRequest = await getLatestOpenPullRequestForBranch({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
-      branch,
-    });
-    const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
-    const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead({
-      owner: vault.owner,
-      repo: vault.name,
-      basehead: `${baseBranch}...${branch}`,
-    });
-    const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
-    const baseCommitSha = compareResponse.data.base_commit.sha;
-    const mergeBaseSha =
-      mergeBaseCommitSha.length > 0
-        ? mergeBaseCommitSha
-        : baseCommitSha.length > 0
-          ? baseCommitSha
-          : baseBranch;
-    const baseShaByPath = await getTreeMapForRef({
-      octokit,
-      owner: vault.owner,
-      repo: vault.name,
-      ref: mergeBaseSha,
-    });
-    const basePath =
-      typeof args.previousPath === "string" && baseShaByPath.has(args.previousPath)
-        ? args.previousPath
-        : args.filePath;
-    const baseSha = baseShaByPath.get(basePath);
-    if (typeof baseSha !== "string") {
-      throw new Error("Deleted compare file is not available from the PR base.");
-    }
+    return await withVaultActionLease(
+      ctx,
+      { operation: "restore_compare_file", userId, vaultId: vault._id },
+      async () => {
+        const octokit = await getGitHubOctokit(ctx, userId, vault._id);
+        const defaultBranch = await getRepositoryDefaultBranch({
+          octokit,
+          owner: vault.owner,
+          repo: vault.name,
+        });
+        const branch = args.branch?.trim() || defaultBranch;
+        const currentPullRequest = await getLatestOpenPullRequestForBranch({
+          octokit,
+          owner: vault.owner,
+          repo: vault.name,
+          branch,
+        });
+        const baseBranch = currentPullRequest?.baseBranch ?? defaultBranch;
+        const compareResponse = await octokit.rest.repos.compareCommitsWithBasehead({
+          owner: vault.owner,
+          repo: vault.name,
+          basehead: `${baseBranch}...${branch}`,
+        });
+        const mergeBaseCommitSha = compareResponse.data.merge_base_commit.sha;
+        const baseCommitSha = compareResponse.data.base_commit.sha;
+        const mergeBaseSha =
+          mergeBaseCommitSha.length > 0
+            ? mergeBaseCommitSha
+            : baseCommitSha.length > 0
+              ? baseCommitSha
+              : baseBranch;
+        const baseShaByPath = await getTreeMapForRef({
+          octokit,
+          owner: vault.owner,
+          repo: vault.name,
+          ref: mergeBaseSha,
+        });
+        const basePath =
+          typeof args.previousPath === "string" && baseShaByPath.has(args.previousPath)
+            ? args.previousPath
+            : args.filePath;
+        const baseSha = baseShaByPath.get(basePath);
+        if (typeof baseSha !== "string") {
+          throw new Error("Deleted compare file is not available from the PR base.");
+        }
 
-    const blobResponse = await octokit.rest.git.getBlob({
-      owner: vault.owner,
-      repo: vault.name,
-      file_sha: baseSha,
-    });
-    const buffer = new Uint8Array(
-      Buffer.from(blobResponse.data.content.replace(/\n/g, ""), "base64"),
+        const blobResponse = await octokit.rest.git.getBlob({
+          owner: vault.owner,
+          repo: vault.name,
+          file_sha: baseSha,
+        });
+        const buffer = new Uint8Array(
+          Buffer.from(blobResponse.data.content.replace(/\n/g, ""), "base64"),
+        );
+        if (!canHydrateInlineDiffText(basePath, buffer)) {
+          throw new Error("Only text compare files can be restored into staging right now.");
+        }
+        const content = Buffer.from(
+          blobResponse.data.content.replace(/\n/g, ""),
+          "base64",
+        ).toString("utf-8");
+
+        await ctx.runMutation(api.fileStaging.createFileInStaging, {
+          vaultId: vault._id,
+          filePath: args.filePath,
+          content,
+          branch,
+        });
+
+        return null;
+      },
     );
-    if (!canHydrateInlineDiffText(basePath, buffer)) {
-      throw new Error("Only text compare files can be restored into staging right now.");
-    }
-    const content = Buffer.from(blobResponse.data.content.replace(/\n/g, ""), "base64").toString(
-      "utf-8",
-    );
-
-    await ctx.runMutation(api.fileStaging.createFileInStaging, {
-      vaultId: vault._id,
-      filePath: args.filePath,
-      content,
-      branch,
-    });
-
-    return null;
   },
 });
 

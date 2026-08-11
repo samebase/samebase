@@ -5,6 +5,7 @@ import { v, type Infer } from "convex/values";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../githubUserAuthorizations";
 import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
 import { requireUserIsNotOrganizationBillingPayer } from "../organizationBillingLimits";
+import { cleanupExpiredPendingUploadPage } from "../pendingUploads";
 import { readOwnedActiveRun } from "./stepContext";
 
 type AccountDeletionTablePolicy =
@@ -13,6 +14,7 @@ type AccountDeletionTablePolicy =
   | "auth_finalization"
   | "user_finalization"
   | "receipt"
+  | "transient_quiescence"
   | "organization_preserved"
   | "global";
 
@@ -36,7 +38,10 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   githubUserAuthorizations: "credential_revocation",
   workflow_accountDeletion_runs: "receipt",
   workflow_accountDeletion_events: "receipt",
+  workflow_organizationDeletion_runs: "organization_preserved",
+  workflow_organizationDeletion_events: "organization_preserved",
   organizationProviderCredentials: "credential_revocation",
+  vaultActionLeases: "transient_quiescence",
   providerOAuthCallbackStates: "account_data",
   ui_user_settings: "account_data",
   ui_workspaceSidebar_layouts: "account_data",
@@ -57,6 +62,7 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   workflow_vaultProvisioning_events: "organization_preserved",
   workflow_vaultDeletion_runs: "organization_preserved",
   workflow_vaultDeletion_events: "organization_preserved",
+  vaultPendingUploads: "transient_quiescence",
   vaultStagedFiles: "organization_preserved",
   observations_vaultFiles_blobs: "organization_preserved",
   ui_vaultFileTree_folderExpansions: "account_data",
@@ -85,6 +91,16 @@ const accountDeletionQuiescenceResult = v.union(
   v.object({ state: v.literal("waiting"), blocker: v.literal("active_vault_deletion") }),
   v.object({ state: v.literal("waiting"), blocker: v.literal("active_app_provisioning") }),
   v.object({ state: v.literal("waiting"), blocker: v.literal("active_manual_provider_write") }),
+  v.object({
+    state: v.literal("waiting"),
+    blocker: v.literal("active_media_upload"),
+    retryAfterMs: v.number(),
+  }),
+  v.object({
+    state: v.literal("waiting"),
+    blocker: v.literal("active_vault_action"),
+    retryAfterMs: v.number(),
+  }),
   v.object({
     state: v.literal("waiting"),
     blocker: v.literal("active_github_user_authorization_refresh"),
@@ -395,6 +411,36 @@ export const inspectQuiescence = internalMutation({
         GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS
     ) {
       return { state: "waiting", blocker: "active_github_user_authorization_refresh" };
+    }
+    const pendingUpload = await ctx.db
+      .query("vaultPendingUploads")
+      .withIndex("by_user_and_expires_at", (query) => query.eq("userId", run.identity.userId))
+      .first();
+    if (pendingUpload !== null) {
+      const now = Date.now();
+      if (pendingUpload.expiresAt <= now) {
+        await cleanupExpiredPendingUploadPage(ctx, pendingUpload);
+      }
+      return {
+        state: "waiting",
+        blocker: "active_media_upload",
+        retryAfterMs: Math.max(1_000, pendingUpload.expiresAt - now),
+      };
+    }
+    const actionLease = await ctx.db
+      .query("vaultActionLeases")
+      .withIndex("by_user_and_expires_at", (query) => query.eq("userId", run.identity.userId))
+      .first();
+    if (actionLease !== null) {
+      const now = Date.now();
+      if (actionLease.expiresAt <= now) {
+        await ctx.db.delete(actionLease._id);
+      }
+      return {
+        state: "waiting",
+        blocker: "active_vault_action",
+        retryAfterMs: Math.max(1_000, actionLease.expiresAt - now),
+      };
     }
 
     return { state: "done" };

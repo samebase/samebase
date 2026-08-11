@@ -1,6 +1,6 @@
 import { getAuthSessionId } from "@convex-dev/auth/server";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 
 import type { Doc } from "../_generated/dataModel";
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
@@ -156,6 +156,23 @@ export const request = mutation({
         userId: ctx.viewer.userId,
       });
       if (membership.role === "owner") {
+        const [organization, memberships] = await Promise.all([
+          ctx.db.get(membership.organizationId),
+          ctx.db
+            .query("organizationMemberships")
+            .withIndex("by_organization_and_role", (query) =>
+              query.eq("organizationId", membership.organizationId),
+            )
+            .take(2),
+        ]);
+        if (organization === null) {
+          throw new Error("Organization membership refers to a missing organization.");
+        }
+        if (memberships.length === 1 && memberships[0]?._id === membership._id) {
+          throw new ConvexError(
+            `Delete the ${organization.githubOwnerLogin} organization before you delete your account.`,
+          );
+        }
         await requireAnotherActiveOrganizationOwner(ctx.db, {
           organizationId: membership.organizationId,
           excludedUserId: ctx.viewer.userId,

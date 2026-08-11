@@ -6,7 +6,10 @@ import { ConvexError, Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { internalAction, internalMutation, internalQuery } from "./_generated/server";
 import { action, query } from "./functions";
-import { findOrganizationMembership } from "./organizationAccess";
+import {
+  requireOrganizationOwnerAccessContext,
+  requireOrganizationSettingsOwnerAccessContext,
+} from "./organizationAccess";
 import {
   findBillingAccountForOrganization,
   patchBillingAccount,
@@ -322,18 +325,19 @@ export const confirmCurrentBillingPayer = internalQuery({
   args: { userId: id("users"), organizationId: id("organizations") },
   returns: vNull(),
   handler: async (ctx, args) => {
-    const user = await ctx.db.get(args.userId);
-    const membership = await findOrganizationMembership(ctx.db, args);
+    try {
+      await requireOrganizationSettingsOwnerAccessContext(ctx.db, args);
+    } catch (error) {
+      if (error instanceof ConvexError) {
+        throw error;
+      }
+      throw new ConvexError("Only the designated billing payer can manage this subscription.");
+    }
     const account = await ctx.db
       .query("organizationBillingAccounts")
       .withIndex("by_organization", (builder) => builder.eq("organizationId", args.organizationId))
       .unique();
-    if (
-      user === null ||
-      readActiveUser(user) === null ||
-      membership?.role !== "owner" ||
-      account?.polarBillingUserId !== args.userId
-    ) {
+    if (account?.polarBillingUserId !== args.userId) {
       throw new ConvexError("Only the designated billing payer can manage this subscription.");
     }
     return null;

@@ -7,6 +7,7 @@ import {
   requireAdditionalOrganizationMemberCapacity,
   requireUserIsNotOrganizationBillingPayer,
 } from "./organizationBillingLimits";
+import { requireOrganizationNotDeleting } from "./organizationDeletion/state";
 import { vOrganizationMembershipRole } from "./organizationModel";
 import { readActiveUser } from "./userLifecycle";
 
@@ -56,6 +57,7 @@ export const addExistingUserToOrganization = internalMutation({
     if (organization === null) {
       throw new Error("Organization not found.");
     }
+    requireOrganizationNotDeleting(organization);
 
     const membership = await ctx.db
       .query("organizationMemberships")

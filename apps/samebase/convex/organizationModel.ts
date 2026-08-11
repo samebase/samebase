@@ -1,6 +1,8 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import { vOrganizationDeletionGate } from "./organizationDeletion/model";
+
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
 export const vOrganizationConvexTeam = object({
@@ -38,6 +40,7 @@ export const vOrganizationBillingState = object({
       object({
         state: literal("pending"),
         attemptId: string(),
+        startedAt: optional(number()),
       }),
       object({
         state: literal("open"),
@@ -58,6 +61,7 @@ export const organizationTables = {
     githubInstallationId: string(),
     convexTeam: optional(vOrganizationConvexTeam),
     cloudflareAccount: optional(vOrganizationCloudflareAccount),
+    deletion: optional(vOrganizationDeletionGate),
   })
     .index("by_github_owner_id", ["githubOwnerId"])
     .index("by_github_owner_login_normalized", ["githubOwnerLoginNormalized"])

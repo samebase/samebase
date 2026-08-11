@@ -1001,22 +1001,37 @@ export const getRepositoryMediaAsset = action({
       const mimeType = guessMime(args.filePath);
       const content = blob.data.content.replace(/\n/g, "");
       const buffer = Buffer.from(content, "base64");
+      const storageReservation = await ctx.runMutation(internal.pendingUploads.reserveActionBlob, {
+        vaultId: vault._id,
+        userId,
+        contentType: mimeType,
+      });
       const storageId = await withRetry(() =>
-        ctx.storage.store(new Blob([buffer], { type: mimeType })),
+        ctx.storage.store(new Blob([buffer], { type: storageReservation.storageContentType })),
       );
 
-      await ctx.runMutation(internal.gitOperations.saveFileBlob, {
+      const savedBlobId = await ctx.runMutation(internal.gitOperations.saveFileBlob, {
         vaultId: vault._id,
         sha: targetFileSha,
         size: buffer.byteLength,
         mime: mimeType,
         text: undefined,
         storageId,
+        storageIdIsDisposable: true,
         ext: getRepositoryMediaExtension(args.filePath),
         debugFilePath: args.filePath,
       });
-
-      const url = await ctx.storage.getUrl(storageId);
+      await ctx.runMutation(internal.pendingUploads.releaseActionBlob, {
+        uploadId: storageReservation.uploadId,
+        storageId,
+      });
+      if (savedBlobId === null) {
+        throw new Error("Organization is not available.");
+      }
+      const savedBlob = await ctx.runQuery(internal.gitOperations.getBlobBySha, {
+        sha: targetFileSha,
+      });
+      const url = savedBlob?.storageId ? await ctx.storage.getUrl(savedBlob.storageId) : null;
       if (typeof url !== "string" || url.length === 0) {
         throw new Error("Failed to create media preview URL");
       }

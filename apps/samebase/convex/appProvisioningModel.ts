@@ -205,6 +205,7 @@ export const vaultProvisioningTables = {
     updatedAt: number(),
     completedAt: optional(number()),
   })
+    .index("by_organization_and_state_and_updated_at", ["organizationId", "state", "updatedAt"])
     .index("by_organization_and_user_and_state_and_updated_at", [
       "organizationId",
       "userId",

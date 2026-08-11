@@ -24,5 +24,6 @@ export const githubAppSetupTables = {
   /** One-use state for GitHub App installation or personal user authorization. */
   githubAppSetupStates: defineTable(vGitHubAppSetupState)
     .index("by_state", ["state"])
-    .index("by_user", ["userId"]),
+    .index("by_user", ["userId"])
+    .index("by_organization", ["organizationId"]),
 };

@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
+import { buildOrganizationDeletionConfirmationPhrase } from "../../shared/organizationDeletionPhrase";
 import { api } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
@@ -224,5 +225,60 @@ describe("account deletion request and status", () => {
         confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
       }),
     ).rejects.toThrow("Account deletion state is inconsistent.");
+  });
+
+  it("requires explicit sole-member organization deletion before account deletion", async () => {
+    vi.useFakeTimers();
+    try {
+      const t = makeConvexTest();
+      const { userId, viewer } = await seedActiveViewer(
+        t,
+        "sole-organization-owner@example.invalid",
+      );
+      const organizationId = await t.run(async (ctx) => {
+        const organizationId = await ctx.db.insert("organizations", {
+          githubOwnerId: "solo-owner-id",
+          githubOwnerType: "organization",
+          githubOwnerLogin: "SoloOrg",
+          githubOwnerLoginNormalized: "soloorg",
+          githubInstallationId: "solo-installation",
+        });
+        await ctx.db.insert("organizationMemberships", {
+          organizationId,
+          userId,
+          role: "owner",
+        });
+        await ctx.db.insert("organizationBillingAccounts", {
+          organizationId,
+          plan: "free",
+          status: "inactive",
+        });
+        return organizationId;
+      });
+
+      await expect(
+        viewer.mutation(api.accountDeletion.index.request, {
+          completionCapability: "f".repeat(64),
+          confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+        }),
+      ).rejects.toThrow("Delete the SoloOrg organization before you delete your account.");
+
+      await viewer.mutation(api.organizationDeletion.index.request, {
+        organizationId,
+        confirmationPhrase: buildOrganizationDeletionConfirmationPhrase("SoloOrg"),
+      });
+      await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+      const deletedOrganization = await t.run(async (ctx) => await ctx.db.get(organizationId));
+      expect(deletedOrganization).toBeNull();
+      await expect(
+        viewer.mutation(api.accountDeletion.index.request, {
+          completionCapability: "0".repeat(64),
+          confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+        }),
+      ).resolves.toMatchObject({ state: "accepted" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

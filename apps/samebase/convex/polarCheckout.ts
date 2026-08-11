@@ -12,6 +12,9 @@ import { randomToken } from "./oauthUtils";
 
 const { boolean, id, literal, object, string, union } = v;
 
+/** Exceeds the 30-minute Convex action limit so a reserved checkout cannot cross the fence. */
+export const POLAR_CHECKOUT_CONTINUATION_FENCE_MS = 35 * 60 * 1000;
+
 const vPolarCheckoutReservation = union(
   object({
     state: literal("pending"),
@@ -126,6 +129,7 @@ export const reserveAttempt = internalMutation({
       polarCheckoutAttempt: {
         state: "pending",
         attemptId,
+        startedAt: Date.now(),
       },
     });
     return { state: "pending", attemptId, canCreate: true };

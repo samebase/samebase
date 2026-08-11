@@ -13,6 +13,7 @@
   - `specs/121_ORGANIZATION_CONTEXT_AND_ROUTE_MODEL.md`
   - `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md`
   - `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md`
+  - `specs/124_ORGANIZATION_DELETION_SPEC.md`
   - `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
@@ -48,11 +49,13 @@ Spec 123 defines invitation, role, removal, leave, and live GitHub relationship 
 internal existing-user function remains an operator recovery tool and is not the product membership
 flow.
 
-Every organization must always have at least one active owner. Account deletion, membership removal,
-and role changes must reject a transition that would leave an organization without an active owner.
-An active owner has an `owner` membership and an active user row. Approval and temporary release
-gates do not decide owner continuity. The first beta has invitation records and owner/member
-administration. It has no permission arrays or custom roles.
+Every surviving organization must always have at least one active owner. Account deletion,
+membership removal, and role changes must reject a transition that would leave an organization
+without an active owner. An active owner has an `owner` membership and an active user row. Approval
+and temporary release gates do not decide owner continuity. Spec 124 provides the only exception:
+its final transaction removes the sole membership and the organization together after required
+cleanup succeeds. The first beta has invitation records and owner/member administration. It has no
+permission arrays or custom roles.
 
 ## GitHub Owner And App Installation
 
@@ -285,8 +288,11 @@ whose recipient deletes the account loses its GitHub recipient identity, login, 
 expiry. It does not delete an organization, deployment destination, vault, billing row, or another
 member's data. Deleted and deleting users do not count as members or active owners.
 
-Organization deletion is a separate future product or operator action. GitHub App uninstall also
-does not delete Samebase data.
+Organization deletion is the separate, explicit lifecycle in Spec 124. An active owner can request
+it only while they are the sole membership. A shared organization is preserved until its members
+leave or an owner resolves ownership. Success removes all Samebase-owned organization data. It does
+not uninstall the GitHub App or delete GitHub repositories, Convex projects or deployments,
+Cloudflare Workers, or domains.
 
 Whole-vault deletion remains available to both `owner` and `member` during pre-beta testing. This
 rollout does not add commit-aware deletion rules or stronger deletion UX. A later vault-lifecycle
@@ -372,6 +378,11 @@ The rollout is ready only when focused tests and real manual checks prove:
   ID.
 - Billing and quotas belong to the organization.
 - User deletion does not delete the organization or shared resources.
+- A sole member must explicitly delete the organization before account deletion. A shared
+  organization survives account deletion when the normal ownership and payer rules allow the user to
+  leave.
+- Organization deletion removes the sole membership and organization in one final transaction. It
+  preserves external GitHub, Convex, and Cloudflare infrastructure.
 - A deleted, deleting, or missing user cannot use a retained membership, session, MCP credential,
   callback, or provider credential to get organization authority.
 - An MCP grant acts as its Samebase user across all current memberships, and each tool call applies
