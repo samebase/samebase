@@ -304,7 +304,7 @@ describe("OrganizationMembersPageView", () => {
     expect(rootElement?.textContent).toContain("Different account");
   });
 
-  it("resolves one exact GitHub user before it creates a blocked invitation link", async () => {
+  it("resolves one exact GitHub user and keeps a created link usable after copy fails", async () => {
     await renderPage();
     const mountedRootElement = getMountedRootElement(rootElement);
     await act(async () => getButton(mountedRootElement, "Invite member").click());
@@ -333,6 +333,17 @@ describe("OrganizationMembersPageView", () => {
     expect(invitationLinkInput.value).toBe(
       `${window.location.origin}/invite/created-invitation-code`,
     );
+
+    clipboardWriteText.mockImplementationOnce(() => {
+      throw new Error("Clipboard access was denied.");
+    });
+    await act(async () => getButton(mountedRootElement, "Copy link").click());
+
+    expect(rootElement?.textContent).toContain(
+      "Could not copy the invitation link. Copy it from the field.",
+    );
+    expect(getButton(mountedRootElement, "Copy link").disabled).toBe(false);
+    expect(getButton(mountedRootElement, "Done").disabled).toBe(false);
   });
 
   it("requires a fresh identity resolution after invitation creation fails", async () => {
@@ -400,6 +411,54 @@ describe("OrganizationMembersPageView", () => {
     );
     expect(rootElement?.textContent).toContain("Copied");
     expect(rootElement?.querySelector("input[readonly]")).toBeNull();
+  });
+
+  it("copies only one recovered pending invitation at a time", async () => {
+    let finishCopy: (() => void) | undefined;
+    clipboardWriteText.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          finishCopy = resolve;
+        }),
+    );
+    await renderPage({
+      ...ownerPage,
+      pendingInvitations: [
+        ...ownerPage.pendingInvitations,
+        {
+          ...ownerPage.pendingInvitations[0],
+          code: "second-invitation-secret",
+          githubLogin: "hubot",
+          invitationId: fakeInvitationId("invitation_hubot"),
+        },
+      ],
+    });
+    const invitationRows = [
+      ...(rootElement?.querySelectorAll<HTMLElement>("[data-testid=organization-invitation-row]") ??
+        []),
+    ];
+    const firstRow = invitationRows.at(0);
+    const secondRow = invitationRows.at(1);
+    if (!firstRow || !secondRow) {
+      throw new Error("Both pending invitation rows were not rendered.");
+    }
+
+    await act(async () => getButton(firstRow, "Copy link").click());
+
+    expect(getButton(firstRow, "Copying...").disabled).toBe(true);
+    const secondCopyButton = getButton(secondRow, "Copy link");
+    expect(secondCopyButton.disabled).toBe(true);
+    secondCopyButton.click();
+    expect(clipboardWriteText).toHaveBeenCalledTimes(1);
+
+    const completeCopy = finishCopy;
+    if (!completeCopy) {
+      throw new Error("The pending invitation copy did not start.");
+    }
+    await act(async () => completeCopy());
+
+    expect(getButton(firstRow, "Copied").disabled).toBe(false);
+    expect(getButton(secondRow, "Copy link").disabled).toBe(false);
   });
 
   it("shows a selectable invitation link when clipboard access fails", async () => {

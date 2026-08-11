@@ -268,13 +268,14 @@ async function deletePendingInvitationForUser(
   }
   const invitation = await db
     .query("organizationInvitations")
-    .withIndex("by_organization_and_github_account_id", (builder) =>
+    .withIndex("by_organization_and_state_and_github_account_id", (builder) =>
       builder
         .eq("organizationId", args.organizationId)
+        .eq("state", "pending")
         .eq("githubAccountId", githubAccount.providerAccountId),
     )
     .unique();
-  if (invitation?.state === "pending") {
+  if (invitation !== null) {
     await db.delete(invitation._id);
   }
 }
@@ -300,6 +301,17 @@ function readTargetRelationship(
   });
 }
 
+async function readPublicInvitationTarget(githubLogin: string): Promise<GitHubInvitationTarget> {
+  try {
+    return await readPublicGitHubUserByLogin(githubLogin);
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 404) {
+      throw new ConvexError("GitHub user not found.");
+    }
+    throw new ConvexError("GitHub user lookup is unavailable.");
+  }
+}
+
 async function resolveInvitationTargetFromGitHub(
   context: OwnerGitHubContext,
   githubLogin: string,
@@ -312,7 +324,7 @@ async function resolveInvitationTargetFromGitHub(
     installationOctokit = createGitHubInstallationOctokit(context.githubInstallationId);
   } catch {
     return {
-      target: await readPublicGitHubUserByLogin(githubLogin),
+      target: await readPublicInvitationTarget(githubLogin),
       installationOctokit: null,
     };
   }
@@ -321,12 +333,15 @@ async function resolveInvitationTargetFromGitHub(
     const target = await readGitHubUserByLogin(installationOctokit, githubLogin);
     return { target, installationOctokit };
   } catch (error) {
+    if (error instanceof RequestError && error.status === 404) {
+      throw new ConvexError("GitHub user not found.");
+    }
     if (
       error instanceof RequestError &&
       (error.status === 401 || error.status === 403 || error.status === 429 || error.status >= 500)
     ) {
       return {
-        target: await readPublicGitHubUserByLogin(githubLogin),
+        target: await readPublicInvitationTarget(githubLogin),
         installationOctokit,
       };
     }
@@ -429,60 +444,37 @@ export const commitInvitation = internalMutation({
     if (accountOwners.length > 1) {
       throw new Error("This GitHub account belongs to conflicting Samebase accounts.");
     }
-    const accountOwner = accountOwners.at(0);
-    if (accountOwner !== undefined) {
-      const membership = await ctx.db
-        .query("organizationMemberships")
-        .withIndex("by_organization_and_user", (builder) =>
-          builder.eq("organizationId", args.organizationId).eq("userId", accountOwner.userId),
-        )
-        .unique();
-      if (membership !== null) {
-        throw new ConvexError(
-          "This GitHub account is already linked to a Samebase member of this organization.",
-        );
-      }
-    }
 
-    const existing = await ctx.db
+    const pendingCandidate = await ctx.db
       .query("organizationInvitations")
-      .withIndex("by_organization_and_github_account_id", (builder) =>
+      .withIndex("by_organization_and_state_and_github_account_id", (builder) =>
         builder
           .eq("organizationId", args.organizationId)
+          .eq("state", "pending")
           .eq("githubAccountId", args.expectedGithubAccountId),
       )
       .unique();
-    if (existing?.state === "pending" && existing.expiresAt > now) {
+    // @ts-expect-error The compound index fixes state to pending, but Convex does not narrow it.
+    const pending: Extract<Doc<"organizationInvitations">, { state: "pending" }> | null =
+      pendingCandidate;
+    if (pending !== null && pending.expiresAt > now) {
       if (
-        existing.githubLogin !== args.githubLogin ||
-        existing.githubAvatarUrl !== args.githubAvatarUrl
+        pending.githubLogin !== args.githubLogin ||
+        pending.githubAvatarUrl !== args.githubAvatarUrl
       ) {
-        await ctx.db.patch(existing._id, {
+        await ctx.db.patch(pending._id, {
           githubLogin: args.githubLogin,
           githubAvatarUrl: args.githubAvatarUrl,
         });
       }
       return {
-        invitationId: existing._id,
-        code: existing.code,
+        invitationId: pending._id,
+        code: pending.code,
         githubLogin: args.githubLogin,
         ...(args.githubAvatarUrl ? { githubAvatarUrl: args.githubAvatarUrl } : {}),
-        expiresAt: existing.expiresAt,
+        expiresAt: pending.expiresAt,
         state: "existing",
       };
-    }
-    if (existing?.state === "accepted") {
-      const acceptedMembership = await ctx.db
-        .query("organizationMemberships")
-        .withIndex("by_organization_and_user", (builder) =>
-          builder.eq("organizationId", args.organizationId).eq("userId", existing.acceptedByUserId),
-        )
-        .unique();
-      if (acceptedMembership !== null) {
-        throw new ConvexError(
-          "This GitHub account is already linked to a Samebase member of this organization.",
-        );
-      }
     }
 
     const codeOwner = await ctx.db
@@ -506,11 +498,11 @@ export const commitInvitation = internalMutation({
       state: "pending" as const,
     };
     let invitationId: Id<"organizationInvitations">;
-    if (existing === null) {
+    if (pending === null) {
       invitationId = await ctx.db.insert("organizationInvitations", pendingInvitation);
     } else {
-      await ctx.db.replace(existing._id, pendingInvitation);
-      invitationId = existing._id;
+      await ctx.db.replace(pending._id, pendingInvitation);
+      invitationId = pending._id;
     }
     return {
       invitationId,
@@ -568,7 +560,9 @@ export const getPage = query({
     const members = memberSources
       .map(({ membership, user, githubAccount }) => {
         const githubLogin = githubAccount?.githubLogin?.trim() || undefined;
-        const avatarUrl = user.image?.trim() || undefined;
+        const avatarUrl = githubAccount
+          ? `https://avatars.githubusercontent.com/u/${githubAccount.providerAccountId}?v=4`
+          : undefined;
         const isViewer = membership.userId === ctx.viewer.userId;
         return {
           membershipId: membership._id,

@@ -137,18 +137,16 @@ describe("organization member GitHub responses", () => {
     );
   });
 
-  it("maps unauthenticated GitHub user request failures", async () => {
+  it("preserves unauthenticated GitHub request failures for the product boundary", async () => {
     const fetch = vi
       .fn()
       .mockResolvedValueOnce(Response.json({ message: "Not Found" }, { status: 404 }))
       .mockResolvedValueOnce(Response.json({ message: "Unavailable" }, { status: 503 }));
     vi.stubGlobal("fetch", fetch);
 
-    await expect(readPublicGitHubUserByLogin("missing-user")).rejects.toThrow(
-      "GitHub user not found.",
-    );
-    await expect(readPublicGitHubUserByLogin("octocat")).rejects.toThrow(
-      "GitHub user lookup is unavailable.",
-    );
+    await expect(readPublicGitHubUserByLogin("missing-user")).rejects.toMatchObject({
+      status: 404,
+    });
+    await expect(readPublicGitHubUserByLogin("octocat")).rejects.toMatchObject({ status: 503 });
   });
 });

@@ -305,8 +305,8 @@ function InviteMemberDialog({
     }
     setPending("copy");
     setError(null);
-    void navigator.clipboard
-      .writeText(invitationUrl)
+    void Promise.resolve()
+      .then(() => navigator.clipboard.writeText(invitationUrl))
       .then(() => setCopied(true))
       .catch(() => {
         setError("Could not copy the invitation link. Copy it from the field.");
@@ -636,6 +636,9 @@ export function OrganizationMembersPageView({
 }: OrganizationMembersPageViewProps) {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [confirmation, setConfirmation] = useState<MemberConfirmation | null>(null);
+  const [copyingInvitationId, setCopyingInvitationId] = useState<OrganizationInvitationId | null>(
+    null,
+  );
   const [copiedInvitationId, setCopiedInvitationId] = useState<string | null>(null);
   const [copyFallback, setCopyFallback] = useState<{
     invitationId: OrganizationInvitationId;
@@ -647,13 +650,18 @@ export function OrganizationMembersPageView({
   const pendingInvitations = page.pendingInvitations ?? [];
 
   const copyPendingInvitation = (invitation: PendingOrganizationInvitation) => {
+    if (copyingInvitationId !== null) {
+      return;
+    }
     const invitationUrl = `${window.location.origin}/invite/${encodeURIComponent(invitation.code)}`;
+    setCopyingInvitationId(invitation.invitationId);
     setCopiedInvitationId(null);
     setCopyFallback(null);
     void Promise.resolve()
       .then(() => navigator.clipboard.writeText(invitationUrl))
       .then(() => setCopiedInvitationId(invitation.invitationId))
-      .catch(() => setCopyFallback({ invitationId: invitation.invitationId, invitationUrl }));
+      .catch(() => setCopyFallback({ invitationId: invitation.invitationId, invitationUrl }))
+      .finally(() => setCopyingInvitationId(null));
   };
 
   return (
@@ -802,12 +810,22 @@ export function OrganizationMembersPageView({
                     <td className="py-4 align-middle">
                       <div className="flex items-center justify-end gap-1">
                         <Button
+                          disabled={copyingInvitationId !== null}
                           onClick={() => copyPendingInvitation(invitation)}
                           size="sm"
                           type="button"
                           variant="outline"
                         >
-                          {copiedInvitationId === invitation.invitationId ? "Copied" : "Copy link"}
+                          {copyingInvitationId === invitation.invitationId ? (
+                            <>
+                              <Loader2 className="animate-spin" />
+                              Copying...
+                            </>
+                          ) : copiedInvitationId === invitation.invitationId ? (
+                            "Copied"
+                          ) : (
+                            "Copy link"
+                          )}
                         </Button>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild nativeButton>

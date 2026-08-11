@@ -15,7 +15,7 @@ const invitationFields = {
 };
 
 export const organizationInvitationTables = {
-  /** One current invitation or one scrubbed accepted-attribution row. */
+  /** Pending invitations and closed accepted history for organization membership. */
   organizationInvitations: defineTable(
     union(
       object({
@@ -39,7 +39,11 @@ export const organizationInvitationTables = {
     ),
   )
     .index("by_code", ["code"])
-    .index("by_organization_and_github_account_id", ["organizationId", "githubAccountId"])
+    .index("by_organization_and_state_and_github_account_id", [
+      "organizationId",
+      "state",
+      "githubAccountId",
+    ])
     .index("by_organization_and_state_and_expires_at", ["organizationId", "state", "expiresAt"])
     .index("by_accepted_by_user_and_state", ["acceptedByUserId", "state"]),
 };

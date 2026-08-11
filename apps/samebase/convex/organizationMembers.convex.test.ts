@@ -245,8 +245,12 @@ describe("organization member lifecycle", () => {
       }),
     ]);
     expect(ownerPage.members.find((member) => member.userId === ids.ownerUserId)).toMatchObject({
+      avatarUrl: "https://avatars.githubusercontent.com/u/100?v=4",
       isOnlyActiveOwner: true,
       isPersonalGithubOwnerIdentity: true,
+    });
+    expect(ownerPage.members.find((member) => member.userId === ids.memberUserId)).toMatchObject({
+      avatarUrl: "https://avatars.githubusercontent.com/u/300?v=4",
     });
 
     const memberPage = await asMember.query(api.organizationMembers.getPage, {
@@ -523,9 +527,15 @@ describe("organization member lifecycle", () => {
     });
     expect(reissued).toMatchObject({
       state: "created",
-      invitationId: created.invitationId,
     });
+    expect(reissued.invitationId).not.toBe(created.invitationId);
     expect(reissued.code).not.toBe(created.code);
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(created.invitationId)),
+    ).resolves.toMatchObject({
+      state: "accepted",
+      acceptedByUserId: ids.inviteeUserId,
+    });
   });
 
   it("retains invitation creator attribution through the deleted user tombstone", async () => {
@@ -626,24 +636,19 @@ describe("organization member lifecycle", () => {
 
   it("keeps an existing role and checks GitHub identity before existing membership", async () => {
     const { asOwner, ids, t } = await seedMembers();
-    const code = "b".repeat(64);
-    await t.run(async (ctx) => {
-      await ctx.db.insert("organizationInvitations", {
-        organizationId: ids.organizationId,
-        githubAccountId: "100",
-        githubLogin: "owner-login",
-        code,
-        createdByUserId: ids.ownerUserId,
-        createdAt: roundedNow,
-        expiresAt: roundedNow + 60_000,
-        state: "pending",
-      });
+    githubMocks.getInstallationUserByLogin.mockResolvedValue({
+      data: githubUser(100, "owner-login"),
+    });
+    const created = await asOwner.action(api.organizationMembers.createInvitation, {
+      organizationId: ids.organizationId,
+      githubLogin: "owner-login",
+      expectedGithubAccountId: "100",
     });
     await expect(
-      asOwner.action(api.organizationMembers.getInvitation, { code }),
+      asOwner.action(api.organizationMembers.getInvitation, { code: created.code }),
     ).resolves.toMatchObject({ state: "available", viewerState: "already_member" });
     await expect(
-      asOwner.mutation(api.organizationMembers.acceptInvitation, { code }),
+      asOwner.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
     ).resolves.toEqual({
       state: "already_member",
       organizationOwnerLogin: "samebase-test-org",
@@ -826,7 +831,7 @@ describe("organization member lifecycle", () => {
         organizationId: ids.organizationId,
         githubLogin: "missing-target",
       }),
-    ).rejects.toThrow("GitHub request failed with status 404.");
+    ).rejects.toThrow("GitHub user not found.");
 
     githubMocks.getInstallationUserByLogin.mockResolvedValueOnce({
       data: githubUser(200, "invalid-target", { id: "invalid" }),
@@ -838,6 +843,27 @@ describe("organization member lifecycle", () => {
       }),
     ).rejects.toThrow("GitHub returned an invalid user ID.");
     expect(githubMocks.getPublicUserByLogin).not.toHaveBeenCalled();
+  });
+
+  it("returns a product error when the anonymous GitHub lookup cannot resolve a user", async () => {
+    const { asOwner, ids } = await seedMembers();
+    githubMocks.getInstallationUserByLogin.mockRejectedValue(githubRequestError(503));
+    githubMocks.getPublicUserByLogin.mockRejectedValueOnce(githubRequestError(404));
+
+    await expect(
+      asOwner.action(api.organizationMembers.resolveInvitationTarget, {
+        organizationId: ids.organizationId,
+        githubLogin: "missing-target",
+      }),
+    ).rejects.toThrow("GitHub user not found.");
+
+    githubMocks.getPublicUserByLogin.mockRejectedValueOnce(githubRequestError(503));
+    await expect(
+      asOwner.action(api.organizationMembers.resolveInvitationTarget, {
+        organizationId: ids.organizationId,
+        githubLogin: "unavailable-target",
+      }),
+    ).rejects.toThrow("GitHub user lookup is unavailable.");
   });
 
   it("retries anonymous GitHub lookup when the installation request is unavailable", async () => {

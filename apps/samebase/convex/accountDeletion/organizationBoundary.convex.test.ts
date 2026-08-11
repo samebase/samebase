@@ -326,6 +326,11 @@ describe("account deletion organization boundary", () => {
         userId: ownerUserId,
         role: "owner",
       });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: deletingUserId,
+        role: "member",
+      });
       const createdInvitationId = await ctx.db.insert("organizationInvitations", {
         organizationId,
         githubAccountId: "801",
@@ -368,8 +373,36 @@ describe("account deletion organization boundary", () => {
       };
     });
 
+    const membershipCleanupDone = await t.run(async (ctx) =>
+      cleanupAccountDataBatchForUser(ctx, { userId: ids.deletingUserId }),
+    );
+    expect(membershipCleanupDone).toBe(false);
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db
+          .query("organizationMemberships")
+          .withIndex("by_organization_and_user", (query) =>
+            query.eq("organizationId", ids.organizationId).eq("userId", ids.deletingUserId),
+          )
+          .unique(),
+      ),
+    ).resolves.toBeNull();
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(ids.acceptedInvitationId)),
+    ).resolves.toMatchObject({ state: "accepted" });
+
+    const reissued = await t.mutation(internal.organizationMembers.commitInvitation, {
+      userId: ids.ownerUserId,
+      organizationId: ids.organizationId,
+      expectedGithubAccountId: "802",
+      githubLogin: "accepted-target",
+      proposedCode: "a".repeat(64),
+    });
+    expect(reissued).toMatchObject({ state: "created", code: "a".repeat(64) });
+    expect(reissued.invitationId).not.toBe(ids.acceptedInvitationId);
+
     let done = false;
-    for (let attempt = 0; attempt < 4 && !done; attempt += 1) {
+    for (let attempt = 0; attempt < 3 && !done; attempt += 1) {
       done = await t.run(async (ctx) =>
         cleanupAccountDataBatchForUser(ctx, { userId: ids.deletingUserId }),
       );
@@ -383,6 +416,7 @@ describe("account deletion organization boundary", () => {
         .query("organizationInvitations")
         .withIndex("by_code", (query) => query.eq("code", "e".repeat(64)))
         .unique(),
+      reissued: await ctx.db.get(reissued.invitationId),
     }));
     expect(snapshot.created).toMatchObject({
       state: "pending",
@@ -409,16 +443,11 @@ describe("account deletion organization boundary", () => {
     ]);
     expect(snapshot.retained).toMatchObject({ githubAccountId: "803" });
     expect(snapshot.acceptedCodeOwner).toBeNull();
-
-    await expect(
-      t.mutation(internal.organizationMembers.commitInvitation, {
-        userId: ids.ownerUserId,
-        organizationId: ids.organizationId,
-        expectedGithubAccountId: "802",
-        githubLogin: "accepted-target",
-        proposedCode: "a".repeat(64),
-      }),
-    ).resolves.toMatchObject({ state: "created", code: "a".repeat(64) });
+    expect(snapshot.reissued).toMatchObject({
+      state: "pending",
+      githubAccountId: "802",
+      code: "a".repeat(64),
+    });
   });
 
   it("waits for the deleting member's active work and a fresh GitHub refresh", async () => {

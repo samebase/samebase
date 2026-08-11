@@ -133,20 +133,13 @@ export async function readPublicGitHubUserByLogin(
   githubLogin: string,
 ): Promise<GitHubInvitationTarget> {
   const normalizedLogin = normalizeGitHubLogin(githubLogin);
-  const response = await publicGitHubOctokit.rest.users
-    .getByUsername({
-      username: normalizedLogin,
-      headers: {
-        accept: "application/vnd.github+json",
-        "x-github-api-version": "2022-11-28",
-      },
-    })
-    .catch((error: unknown) => {
-      if (error instanceof RequestError && error.status === 404) {
-        throw new Error("GitHub user not found.");
-      }
-      throw new Error("GitHub user lookup is unavailable.");
-    });
+  const response = await publicGitHubOctokit.rest.users.getByUsername({
+    username: normalizedLogin,
+    headers: {
+      accept: "application/vnd.github+json",
+      "x-github-api-version": "2022-11-28",
+    },
+  });
   return parseGitHubInvitationTarget(response.data);
 }
 

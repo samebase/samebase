@@ -32,8 +32,8 @@ accounts. The owner enters one exact GitHub username, creates a link, and shares
 
 ## Invitation Model
 
-At most one live `organizationInvitations` row exists for an exact organization and stable GitHub
-user ID. Its closed state is one of:
+At most one `pending` `organizationInvitations` row exists for an exact organization and stable
+GitHub user ID. Accepted rows are closed history. Each row has one of these states:
 
 - `pending`, with creator user ID, creation time, expiry, current GitHub login observation, optional
   avatar URL, and an opaque 256-bit code.
@@ -46,10 +46,12 @@ by a different GitHub account. Samebase can keep the raw code so the owner can c
 after reload and recover from a response that was lost after creation.
 
 An invitation expires seven days after creation. Repeating creation for the same unexpired pending
-recipient returns the same row and code. An expired invitation, or an accepted invitation whose
-membership was later removed, can become a new pending invitation with a new code. Canceling a
-pending invitation deletes it. Repeating a completed action is safe. Server time decides whether the
-public invitation preview and acceptance are available. Client time is not an expiry authority.
+recipient returns the same row and code. Repeating creation for an expired pending recipient puts a
+new code on that pending row. An accepted invitation never becomes pending. Creating another
+invitation for the same GitHub user inserts a separate pending row, whether or not the user still
+has membership. Canceling a pending invitation deletes it. Repeating a completed action is safe.
+Server time decides whether the public invitation preview and acceptance are available. Client time
+is not an expiry authority.
 
 When an accepting user deletes their Samebase account, account deletion changes each matching
 `accepted` row to `accepted_recipient_deleted`. This keeps stable Samebase attribution without
@@ -84,9 +86,9 @@ If the recipient already has a membership, the page asks them to accept the invi
 becomes closed while their existing role stays unchanged.
 
 The same recipient can repeat acceptance and receive an `already accepted` result. A wrong account
-cannot accept either a pending or accepted invitation. Concurrent creation, cancellation,
-acceptance, and reissue read and write the same invitation record so Convex transaction conflict
-handling preserves one valid result.
+cannot accept either a pending or accepted invitation. Creation and reissue read the exact pending
+index range. Cancellation and acceptance read the exact code row. Convex transaction conflict
+handling preserves one pending invitation and one valid result for concurrent operations.
 
 An accepted link shows organization access only while the accepting user still has a membership. If
 that membership was removed, the page says that the invitation was already used and asks the user to
@@ -171,8 +173,8 @@ organization.
 ## Page Behavior
 
 The standard right navigation shows `Members` before `Organization settings`. Organization switching
-keeps the Members section. The page uses a responsive semantic row list and the existing right
-sidebar. It does not use a route-owned scroll container.
+keeps the Members section. The page uses a responsive semantic table and the existing right sidebar.
+It does not use a route-owned scroll container.
 
 The owner action is `Invite member`. Member row actions are `Make Samebase owner`,
 `Make Samebase member`, and `Remove member`. The current user's action is `Leave organization`.

@@ -1,13 +1,13 @@
 import { OrganizationMembersPageView } from "@/components/OrganizationMembersPageView";
+import { useNow } from "@/hooks/useNow";
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { useQuery } from "@tanstack/react-query";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
-import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 
 export function OrganizationMembersPage({ organization }: { organization: ViewerOrganization }) {
   const organizationId = organization.organizationId;
-  const [now] = useState(() => Math.floor(Date.now() / 60_000) * 60_000);
+  const now = Math.floor(useNow({ intervalMs: 60_000 }) / 60_000) * 60_000;
   const page = useConvexQuery(api.organizationMembers.getPage, { now, organizationId });
   const getGitHubRelationships = useAction(api.organizationMembers.getGitHubRelationships);
   const resolveInvitationTarget = useAction(api.organizationMembers.resolveInvitationTarget);

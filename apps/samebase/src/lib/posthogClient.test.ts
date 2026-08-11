@@ -85,7 +85,7 @@ describe("posthog client setup", () => {
     });
   });
 
-  it("replaces invitation codes in PostHog URL properties before send", () => {
+  it("replaces invitation codes in PostHog event and person URL properties before send", () => {
     const config = buildSamebasePostHogInitConfig({
       apiHost: "https://posthog.samebase.com",
       dev: false,
@@ -106,28 +106,40 @@ describe("posthog client setup", () => {
         $referrer: "https://samebase.com/invite/referrer-secret",
         $session_entry_pathname: "/invite/session-path-secret",
         $session_entry_url: "/invite/session-secret?source=github",
-        $set_once: {
-          $current_url: "https://samebase.com/invite/set-once-secret",
-          $pathname: "/invite/set-once-path-secret",
-          $referrer: "https://samebase.com/invite/set-once-referrer-secret",
-        },
+      },
+      $set: {
+        $current_url: "https://samebase.com/invite/set-secret",
+        $pathname: "/invite/set-path-secret",
+        $referrer: "https://samebase.com/invite/set-referrer-secret",
+      },
+      $set_once: {
+        $initial_current_url: "https://samebase.com/invite/set-once-secret",
+        $initial_pathname: "/invite/set-once-path-secret",
+        $initial_referrer: "https://samebase.com/invite/set-once-referrer-secret",
       },
       uuid: "event-id",
     });
 
-    expect(event?.properties).toMatchObject({
-      $current_url: "https://samebase.com/invite/[invitation]?prod-ui#continue",
-      $initial_current_url: "https://samebase.com/invite/[invitation]",
-      $initial_pathname: "/invite/[invitation]",
-      $pathname: "/invite/[invitation]",
-      $prev_pageview_pathname: "/settings",
-      $referrer: "https://samebase.com/invite/[invitation]",
-      $session_entry_pathname: "/invite/[invitation]",
-      $session_entry_url: "/invite/[invitation]?source=github",
-      $set_once: {
+    expect(event).toMatchObject({
+      properties: {
+        $current_url: "https://samebase.com/invite/[invitation]?prod-ui#continue",
+        $initial_current_url: "https://samebase.com/invite/[invitation]",
+        $initial_pathname: "/invite/[invitation]",
+        $pathname: "/invite/[invitation]",
+        $prev_pageview_pathname: "/settings",
+        $referrer: "https://samebase.com/invite/[invitation]",
+        $session_entry_pathname: "/invite/[invitation]",
+        $session_entry_url: "/invite/[invitation]?source=github",
+      },
+      $set: {
         $current_url: "https://samebase.com/invite/[invitation]",
         $pathname: "/invite/[invitation]",
         $referrer: "https://samebase.com/invite/[invitation]",
+      },
+      $set_once: {
+        $initial_current_url: "https://samebase.com/invite/[invitation]",
+        $initial_pathname: "/invite/[invitation]",
+        $initial_referrer: "https://samebase.com/invite/[invitation]",
       },
     });
   });

@@ -102,33 +102,36 @@ function sanitizeSamebasePostHogHeatmapData(value: unknown): unknown {
   return sanitized;
 }
 
+function sanitizeSamebasePostHogUrlProperties(
+  properties: Record<string, unknown>,
+): Record<string, unknown> {
+  const sanitized = { ...properties };
+  for (const propertyName of POSTHOG_URL_PROPERTIES) {
+    const value = sanitized[propertyName];
+    if (typeof value === "string") {
+      sanitized[propertyName] = sanitizeSamebasePostHogUrlLikeValue(value);
+    }
+  }
+  return sanitized;
+}
+
 const sanitizeSamebasePostHogEvent: SamebasePostHogBeforeSend = (event) => {
   if (event === null) {
     return null;
   }
 
-  const properties = { ...event.properties };
-  for (const propertyName of POSTHOG_URL_PROPERTIES) {
-    const value: unknown = properties[propertyName];
-    if (typeof value === "string") {
-      properties[propertyName] = sanitizeSamebasePostHogUrlLikeValue(value);
-    }
-  }
-  const setOnce = properties["$set_once"];
-  if (isRecord(setOnce)) {
-    const sanitizedSetOnce = { ...setOnce };
-    for (const propertyName of POSTHOG_URL_PROPERTIES) {
-      const value = sanitizedSetOnce[propertyName];
-      if (typeof value === "string") {
-        sanitizedSetOnce[propertyName] = sanitizeSamebasePostHogUrlLikeValue(value);
-      }
-    }
-    properties["$set_once"] = sanitizedSetOnce;
-  }
+  const properties = sanitizeSamebasePostHogUrlProperties(event.properties);
   properties["$snapshot_data"] = sanitizeSamebasePostHogSnapshotData(properties["$snapshot_data"]);
   properties["$heatmap_data"] = sanitizeSamebasePostHogHeatmapData(properties["$heatmap_data"]);
 
-  return { ...event, properties };
+  return {
+    ...event,
+    properties,
+    ...(event.$set ? { $set: sanitizeSamebasePostHogUrlProperties(event.$set) } : {}),
+    ...(event.$set_once
+      ? { $set_once: sanitizeSamebasePostHogUrlProperties(event.$set_once) }
+      : {}),
+  };
 };
 
 /**
