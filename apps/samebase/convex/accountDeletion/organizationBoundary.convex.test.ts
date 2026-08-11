@@ -316,6 +316,11 @@ describe("account deletion organization boundary", () => {
         githubOwnerLoginNormalized: "invitation-cleanup-owner",
         githubInstallationId: "invitation-cleanup-installation",
       });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId: ownerUserId,
