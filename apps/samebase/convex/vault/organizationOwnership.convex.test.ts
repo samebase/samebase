@@ -429,13 +429,17 @@ describe("organization-owned vaults", () => {
       },
     );
     const initialManagedState = await t.run(async (ctx) => {
+      const existingRun = await ctx.db.get(existing.runId);
+      const managedRun = await ctx.db.get(managed.runId);
       const vault = await ctx.db.get(managed.vaultId);
       const plan = await ctx.db
         .query("workflow_vaultProvisioning_plans")
         .withIndex("by_vault", (query) => query.eq("vaultId", managed.vaultId))
         .unique();
-      return { plan, vault };
+      return { existingRun, managedRun, plan, vault };
     });
+    expect(initialManagedState.existingRun).toMatchObject({ organizationId });
+    expect(initialManagedState.managedRun).toMatchObject({ organizationId });
     expect(initialManagedState.vault).toMatchObject(expectedDestinations);
     expect(initialManagedState.plan?.convex).not.toHaveProperty("teamId");
     expect(initialManagedState.plan?.cloudflare).not.toHaveProperty("accountId");

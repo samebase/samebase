@@ -14,8 +14,15 @@ import { startVaultInfrastructureProvisioningWorkflow } from "./appProvisioningW
 import { requireVaultForUser, requireVaultOrganization } from "./organizationAccess";
 import { readActiveUser } from "./userLifecycle";
 
-const { id, literal, string, union } = v;
+const { boolean, id, literal, null: nullValue, number, object, string, union } = v;
 const MAX_EVENTS_TO_LINK_TO_VAULT = 20;
+const PROVISIONING_RUN_ORGANIZATION_BACKFILL_LIMIT = 500;
+
+const provisioningRunOrganizationBackfillResult = object({ updated: number() });
+const provisioningRunOrganizationVerificationResult = object({
+  complete: boolean(),
+  missingRunId: union(id("workflow_vaultProvisioning_runs"), nullValue()),
+});
 
 async function recordRepositoryFullNameForRun(
   ctx: MutationCtx,
@@ -54,6 +61,50 @@ export const getById = internalQuery({
   },
   handler: async (ctx, args) => {
     return await ctx.db.get(args.runId);
+  },
+});
+
+export const backfillOrganizationIds = internalMutation({
+  args: {},
+  returns: provisioningRunOrganizationBackfillResult,
+  handler: async (ctx) => {
+    const runs = await ctx.db
+      .query("workflow_vaultProvisioning_runs")
+      .withIndex("by_organization_and_user_and_state_and_updated_at", (query) =>
+        query.eq("organizationId", undefined),
+      )
+      .take(PROVISIONING_RUN_ORGANIZATION_BACKFILL_LIMIT + 1);
+    if (runs.length > PROVISIONING_RUN_ORGANIZATION_BACKFILL_LIMIT) {
+      throw new Error("Provisioning run organization backfill requires a batched migration.");
+    }
+
+    for (const run of runs) {
+      const vault = await ctx.db.get(run.vaultId);
+      if (vault === null) {
+        throw new Error(`Provisioning run ${run._id} references a missing vault.`);
+      }
+      await ctx.db.patch(run._id, { organizationId: vault.organizationId });
+    }
+
+    return { updated: runs.length };
+  },
+});
+
+export const verifyOrganizationIds = internalQuery({
+  args: {},
+  returns: provisioningRunOrganizationVerificationResult,
+  handler: async (ctx) => {
+    const missing = await ctx.db
+      .query("workflow_vaultProvisioning_runs")
+      .withIndex("by_organization_and_user_and_state_and_updated_at", (query) =>
+        query.eq("organizationId", undefined),
+      )
+      .first();
+
+    return {
+      complete: missing === null,
+      missingRunId: missing?._id ?? null,
+    };
   },
 });
 
@@ -100,6 +151,7 @@ export const createRetryForVault = internalMutation({
     const now = Date.now();
     const repositoryFullName = `${organization.githubOwnerLogin}/${connectedVault.name}`;
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId: connectedVault.organizationId,
       userId: args.userId,
       vaultId: args.vaultId,
       repositoryFullName,

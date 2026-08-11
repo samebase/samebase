@@ -274,6 +274,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     });
     const repositoryFullName = `${owner}/${name}`;
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId: organization._id,
       userId: args.userId,
       vaultId,
       repositoryFullName,
@@ -448,6 +449,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     });
     const repositoryFullName = `${owner}/${name}`;
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId: organization._id,
       userId: args.userId,
       vaultId,
       repositoryFullName,
