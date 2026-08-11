@@ -454,6 +454,7 @@ describe("account deletion organization boundary", () => {
     const { ids, t } = await seedRunningDeletion();
     const provisioningRunId = await t.run(async (ctx) => {
       return await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId: ids.organizationId,
         userId: ids.deletingUserId,
         vaultId: ids.vaultId,
         repositoryFullName: "example/shared",
@@ -523,6 +524,7 @@ describe("account deletion organization boundary", () => {
         completedAt: 5,
       });
       await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId: ids.organizationId,
         userId: ids.teammateUserId,
         vaultId: ids.vaultId,
         repositoryFullName: "example/shared",
@@ -1002,6 +1004,7 @@ describe("account deletion organization boundary", () => {
     const { ids, t } = await seedRunningDeletion();
     await t.run(async (ctx) => {
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId: ids.organizationId,
         userId: ids.teammateUserId,
         vaultId: ids.vaultId,
         repositoryFullName: "example/shared",

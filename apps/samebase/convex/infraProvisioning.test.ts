@@ -39,6 +39,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId,
       userId,
       vaultId,
       repositoryFullName: `ada/${args.repoName}`,
@@ -90,7 +91,7 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       });
     }
 
-    return { runId, vaultId };
+    return { organizationId, runId, vaultId };
   });
 }
 
@@ -324,6 +325,7 @@ describe("markWorkflowProvisioningFailed", () => {
         throw new Error("Expected old provisioning run.");
       }
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId: ids.organizationId,
         userId: oldRun.userId,
         vaultId: ids.vaultId,
         repositoryFullName: "ada/stale-workflow-failure",

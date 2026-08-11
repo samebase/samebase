@@ -38,6 +38,7 @@ async function createConnectedVault() {
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId,
       userId,
       vaultId,
       repositoryFullName: "ada/manual-provider-write",

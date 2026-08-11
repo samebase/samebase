@@ -235,15 +235,17 @@ async function hasTargetOwnedActiveWork(
       return true;
     }
 
-    for await (const provisioning of db
+    const provisioning = await db
       .query("workflow_vaultProvisioning_runs")
-      .withIndex("by_user_and_state_and_updated_at", (builder) =>
-        builder.eq("userId", args.userId).eq("state", state),
-      )) {
-      const vault = await db.get(provisioning.vaultId);
-      if (vault?.organizationId === args.organizationId) {
-        return true;
-      }
+      .withIndex("by_organization_and_user_and_state_and_updated_at", (builder) =>
+        builder
+          .eq("organizationId", args.organizationId)
+          .eq("userId", args.userId)
+          .eq("state", state),
+      )
+      .first();
+    if (provisioning !== null) {
+      return true;
     }
   }
   return false;

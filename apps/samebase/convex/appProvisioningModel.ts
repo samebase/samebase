@@ -192,7 +192,7 @@ export const vaultProvisioningTables = {
    * create runs.
    */
   workflow_vaultProvisioning_runs: defineTable({
-    organizationId: optional(id("organizations")),
+    organizationId: id("organizations"),
     userId: id("users"),
     vaultId: id("vaults"),
     repositoryFullName: string(),

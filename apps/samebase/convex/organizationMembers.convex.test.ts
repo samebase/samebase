@@ -897,6 +897,7 @@ describe("organization member lifecycle", () => {
         deletion: { state: "not_deleting" },
       });
       await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId: ids.organizationId,
         userId: ids.memberUserId,
         vaultId,
         repositoryFullName: "samebase-test-org/app",
@@ -938,6 +939,38 @@ describe("organization member lifecycle", () => {
       if (run !== null) {
         await ctx.db.patch(run._id, { state: "failed", completedAt: roundedNow + 1 });
       }
+    });
+    await t.run(async (ctx) => {
+      const otherOrganizationId = await ctx.db.insert("organizations", {
+        githubInstallationId: "other-installation",
+        githubOwnerId: "other-owner",
+        githubOwnerLogin: "other-owner",
+        githubOwnerLoginNormalized: "other-owner",
+        githubOwnerType: "organization",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: otherOrganizationId,
+        userId: ids.memberUserId,
+        role: "member",
+      });
+      const otherVaultId = await ctx.db.insert("vaults", {
+        state: "not_connected",
+        organizationId: otherOrganizationId,
+        convexTeamId: "other-team",
+        cloudflareAccountId: "other-account",
+        deletion: { state: "not_deleting" },
+      });
+      await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId: otherOrganizationId,
+        userId: ids.memberUserId,
+        vaultId: otherVaultId,
+        repositoryFullName: "other-owner/app",
+        trigger: "create",
+        state: "queued",
+        currentStep: "run_created",
+        createdAt: roundedNow,
+        updatedAt: roundedNow,
+      });
     });
     const deletionRunId = await t.run(async (ctx) => {
       return await ctx.db.insert("workflow_vaultDeletion_runs", {

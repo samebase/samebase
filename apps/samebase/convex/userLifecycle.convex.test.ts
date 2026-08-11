@@ -275,6 +275,7 @@ describe("user lifecycle authorization", () => {
     await insertProviderConfiguration(t, { organizationId, userId });
     const runId = await t.run(async (ctx) => {
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId,
         userId,
         vaultId,
         repositoryFullName: "owner/repository",
@@ -326,6 +327,29 @@ describe("user lifecycle authorization", () => {
         updatedAt: 1,
       });
       return runId;
+    });
+
+    const mismatchedOrganizationId = await t.run(async (ctx) => {
+      const mismatchedOrganizationId = await ctx.db.insert("organizations", {
+        githubInstallationId: "mismatched-installation",
+        githubOwnerId: "mismatched-owner",
+        githubOwnerLogin: "mismatched-owner",
+        githubOwnerLoginNormalized: "mismatched-owner",
+        githubOwnerType: "organization",
+      });
+      await ctx.db.patch(runId, { organizationId: mismatchedOrganizationId });
+      return mismatchedOrganizationId;
+    });
+    await expect(
+      t.query(internal.githubAppAccess.loadInstallationAccessForProvisioningRun, {
+        runId,
+        userId,
+        vaultId,
+      }),
+    ).rejects.toThrow("Provisioning run does not match its vault.");
+    await t.run(async (ctx) => {
+      await ctx.db.patch(runId, { organizationId });
+      await ctx.db.delete(mismatchedOrganizationId);
     });
 
     await expect(
@@ -411,7 +435,7 @@ describe("user lifecycle authorization", () => {
       email: "provisioning-github-user@example.test",
       isApproved: true,
     });
-    const { vaultId } = await insertOrganizationVaultForUser(t, userId);
+    const { organizationId, vaultId } = await insertOrganizationVaultForUser(t, userId);
     const runId = await t.run(async (ctx) => {
       await ctx.db.insert("authAccounts", {
         userId,
@@ -432,6 +456,7 @@ describe("user lifecycle authorization", () => {
         updatedAt: 1,
       });
       return await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId,
         userId,
         vaultId,
         repositoryFullName: "owner/repository",

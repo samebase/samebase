@@ -43,10 +43,10 @@ export async function requireActiveVaultProvisioningAuthority(
   ) {
     throw new Error("Provisioning run does not authorize vault access.");
   }
-  if (vault === null) {
-    throw new Error("Vault not found.");
+  if (vault === null || run.organizationId !== vault.organizationId) {
+    throw new Error("Provisioning run does not match its vault.");
   }
-  return { run, vault, organizationId: vault.organizationId };
+  return { run, vault, organizationId: run.organizationId };
 }
 
 export type ActiveVaultDeletionAuthority = {
