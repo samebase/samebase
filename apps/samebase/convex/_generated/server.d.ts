@@ -41,7 +41,12 @@ type Env = {
   readonly OPENAI_APPS_CHALLENGE_TOKEN: string | undefined;
   readonly PASSWORD_AUTH_ENABLED: string | undefined;
   readonly POLAR_ACCESS_TOKEN: string | undefined;
-  readonly POLAR_PRO_MONTHLY_PRODUCT_ID: string | undefined;
+  readonly POLAR_GITHUB_ORGANIZATION_FREE_MONTHLY_PRODUCT_ID:
+    | string
+    | undefined;
+  readonly POLAR_GITHUB_ORGANIZATION_PRO_MONTHLY_PRODUCT_ID: string | undefined;
+  readonly POLAR_GITHUB_USER_FREE_MONTHLY_PRODUCT_ID: string | undefined;
+  readonly POLAR_GITHUB_USER_PRO_MONTHLY_PRODUCT_ID: string | undefined;
   readonly POLAR_WEBHOOK_SECRET: string | undefined;
 };
 

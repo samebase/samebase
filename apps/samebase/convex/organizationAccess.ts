@@ -2,6 +2,7 @@ import { ConvexError, v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type DatabaseReader } from "./_generated/server";
+import { requireOrganizationNotBillingLimited } from "./organizationBillingLimits";
 import { vOrganizationMembershipRole } from "./organizationModel";
 import { readActiveUser, type NonDeletedUserLifecycleDoc } from "./userLifecycle";
 
@@ -53,12 +54,15 @@ export async function findOrganizationAccessContext(
 ): Promise<OrganizationAccessContext | null> {
   await requireActiveOrganizationActor(db, access.userId);
   const membership = await findOrganizationMembership(db, access);
-
-  return membership === null ? null : access;
+  if (membership === null) {
+    return null;
+  }
+  await requireOrganizationNotBillingLimited(db, access.organizationId);
+  return access;
 }
 
-/** Resolve the acting user's required organization membership. */
-export async function requireOrganizationMembership(
+/** Resolve membership for billing and member-management recovery surfaces. */
+export async function requireOrganizationSettingsMembership(
   db: DatabaseReader,
   access: OrganizationAccessContext,
 ): Promise<Doc<"organizationMemberships">> {
@@ -68,6 +72,16 @@ export async function requireOrganizationMembership(
     throw new Error("Organization membership is required.");
   }
 
+  return membership;
+}
+
+/** Resolve the acting user's membership for normal organization work. */
+export async function requireOrganizationMembership(
+  db: DatabaseReader,
+  access: OrganizationAccessContext,
+): Promise<Doc<"organizationMemberships">> {
+  const membership = await requireOrganizationSettingsMembership(db, access);
+  await requireOrganizationNotBillingLimited(db, access.organizationId);
   return membership;
 }
 
@@ -87,6 +101,19 @@ export async function requireOrganizationOwnerAccessContext(
   access: OrganizationAccessContext,
 ): Promise<OrganizationAccessContext> {
   const membership = await requireOrganizationMembership(db, access);
+  if (membership.role !== "owner") {
+    throw new Error("Organization owner access is required.");
+  }
+
+  return access;
+}
+
+/** Resolve owner access for billing and member-management recovery surfaces. */
+export async function requireOrganizationSettingsOwnerAccessContext(
+  db: DatabaseReader,
+  access: OrganizationAccessContext,
+): Promise<OrganizationAccessContext> {
+  const membership = await requireOrganizationSettingsMembership(db, access);
   if (membership.role !== "owner") {
     throw new Error("Organization owner access is required.");
   }

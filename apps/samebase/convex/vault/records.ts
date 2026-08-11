@@ -25,6 +25,10 @@ import { isConnectedVault, isLiveConnectedVault, isSamebaseManagedVault } from "
 import { isVaultDeletingOrDeleteFailed } from "./deletion/state";
 import { readActiveUser } from "../userLifecycle";
 import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
+import {
+  requireBillingResourceCapacity,
+  requireBillingResourceCapacityForAuthority,
+} from "../billingResourceQuotas";
 
 const nullValidator = v.null();
 const { array, id, object, optional, string, union } = v;
@@ -259,6 +263,11 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       organizationId: organization._id,
       name,
     });
+    await requireBillingResourceCapacity(ctx, {
+      kind: "github_repository",
+      organizationId: organization._id,
+      userId: args.userId,
+    });
 
     const now = Date.now();
     const vaultId = await ctx.db.insert("vaults", {
@@ -360,6 +369,15 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     ) {
       throw new Error("Vault is not waiting for existing repository setup.");
     }
+    await requireBillingResourceCapacityForAuthority(ctx, {
+      authority: {
+        kind: "vault_provisioning",
+        runId: args.runId,
+        userId: args.userId,
+        vaultId: args.vaultId,
+      },
+      kind: "github_repository",
+    });
 
     await ctx.db.replace(args.vaultId, {
       organizationId: vault.organizationId,
@@ -433,6 +451,11 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     await assertOrganizationHasNoVaultForRepository(ctx, {
       organizationId: organization._id,
       name,
+    });
+    await requireBillingResourceCapacity(ctx, {
+      kind: "github_repository",
+      organizationId: organization._id,
+      userId: args.userId,
     });
 
     const now = Date.now();
@@ -582,6 +605,15 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
     ) {
       throw new Error("Vault is not waiting for GitHub provisioning.");
     }
+    await requireBillingResourceCapacityForAuthority(ctx, {
+      authority: {
+        kind: "vault_provisioning",
+        runId: args.runId,
+        userId: args.userId,
+        vaultId: args.vaultId,
+      },
+      kind: "github_repository",
+    });
 
     await ctx.db.replace(args.vaultId, {
       organizationId: vault.organizationId,

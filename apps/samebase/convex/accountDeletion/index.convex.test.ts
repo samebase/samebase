@@ -95,6 +95,50 @@ describe("account deletion request and status", () => {
     });
   });
 
+  it("requires billing transfer before the designated payer deletes their account", async () => {
+    const t = makeConvexTest();
+    const { userId, viewer } = await seedActiveViewer(t, "payer@example.invalid");
+    await t.run(async (ctx) => {
+      const secondOwnerId = await ctx.db.insert("users", {
+        state: "active",
+        email: "second-owner@example.invalid",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {
+        githubOwnerId: "payer-organization",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "payer-organization",
+        githubOwnerLoginNormalized: "payer-organization",
+        githubInstallationId: "payer-installation",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId,
+        role: "owner",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: secondOwnerId,
+        role: "owner",
+      });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+        polarBillingUserId: userId,
+      });
+    });
+
+    await expect(
+      viewer.mutation(api.accountDeletion.index.request, {
+        completionCapability: "f".repeat(64),
+        confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+      }),
+    ).rejects.toThrow(
+      "Transfer organization billing before changing or removing the billing payer.",
+    );
+  });
+
   it("rejects deleting markers whose run is missing or owned by another user", async () => {
     const t = makeConvexTest();
     const { sessionId, userId, viewer } = await seedActiveViewer(t, "inconsistent@example.invalid");

@@ -149,29 +149,10 @@ async function insertProject(
     return existing._id;
   }
 
-  switch (args.billingAuthority.kind) {
-    case "user":
-      await requireBillingResourceCapacityForAuthority(ctx, {
-        authority: args.billingAuthority,
-        kind: "convex_project",
-      });
-      break;
-    case "vault_provisioning":
-      await requireBillingResourceCapacityForAuthority(ctx, {
-        authority: args.billingAuthority,
-        kind: "convex_project",
-      });
-      break;
-    case "manual_provider_write":
-      await requireBillingResourceCapacityForAuthority(ctx, {
-        authority: args.billingAuthority,
-        kind: "convex_project",
-      });
-      break;
-    default:
-      args.billingAuthority satisfies never;
-      throw new Error("Billing resource authority is invalid.");
-  }
+  await requireBillingResourceCapacityForAuthority(ctx, {
+    authority: args.billingAuthority,
+    kind: "convex_project",
+  });
 
   const commonFields = {
     vaultId: args.vaultId,

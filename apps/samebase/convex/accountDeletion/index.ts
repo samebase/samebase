@@ -6,6 +6,7 @@ import type { Doc } from "../_generated/dataModel";
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
 import { mutation, query } from "../functions";
 import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
+import { requireUserIsNotOrganizationBillingPayer } from "../organizationBillingLimits";
 import { isAdminUser } from "../userAccess";
 import { readUserProfile } from "../userLifecycle";
 import {
@@ -150,6 +151,10 @@ export const request = mutation({
     for await (const membership of ctx.db
       .query("organizationMemberships")
       .withIndex("by_user", (query) => query.eq("userId", ctx.viewer.userId))) {
+      await requireUserIsNotOrganizationBillingPayer(ctx.db, {
+        organizationId: membership.organizationId,
+        userId: ctx.viewer.userId,
+      });
       if (membership.role === "owner") {
         await requireAnotherActiveOrganizationOwner(ctx.db, {
           organizationId: membership.organizationId,

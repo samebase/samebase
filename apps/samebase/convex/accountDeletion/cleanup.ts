@@ -1,8 +1,10 @@
 import type { Doc, Id, TableNames } from "../_generated/dataModel";
+import { internal } from "../_generated/api";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { v, type Infer } from "convex/values";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../githubUserAuthorizations";
 import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
+import { requireUserIsNotOrganizationBillingPayer } from "../organizationBillingLimits";
 import { readOwnedActiveRun } from "./stepContext";
 
 type AccountDeletionTablePolicy =
@@ -76,7 +78,7 @@ type AccountDataTableName = {
 }[TableNames];
 
 const ACCOUNT_DATA_BATCH_SIZE = 25;
-type AccountDataCleanupCtx = Pick<MutationCtx, "db">;
+type AccountDataCleanupCtx = Pick<MutationCtx, "db" | "scheduler">;
 
 const accountDeletionQuiescenceResult = v.union(
   v.object({ state: v.literal("done") }),
@@ -167,6 +169,10 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
       .withIndex("by_user", (query) => query.eq("userId", userId))
       .take(ACCOUNT_DATA_BATCH_SIZE);
     for (const membership of rows) {
+      await requireUserIsNotOrganizationBillingPayer(ctx.db, {
+        organizationId: membership.organizationId,
+        userId,
+      });
       if (membership.role === "owner") {
         await requireAnotherActiveOrganizationOwner(ctx.db, {
           organizationId: membership.organizationId,
@@ -174,7 +180,14 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
         });
       }
     }
-    return await deleteRowsById(ctx, rows);
+    const deleted = await deleteRowsById(ctx, rows);
+    const organizationIds = new Set(rows.map((membership) => membership.organizationId));
+    for (const organizationId of organizationIds) {
+      await ctx.scheduler.runAfter(0, internal.billing.syncPolarSubscriptionSeats, {
+        organizationId,
+      });
+    }
+    return deleted;
   },
   organizationInvitations: async (ctx, userId) => {
     const rows = await ctx.db

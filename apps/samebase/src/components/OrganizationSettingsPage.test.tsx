@@ -23,14 +23,23 @@ vi.mock("convex/react", async (importOriginal) => {
     useQuery: (reference: Parameters<typeof actual.useQuery>[0]) => {
       const functionName = getFunctionName(reference);
       if (functionName === getFunctionName(api.billing.getViewerBillingStatus)) {
-        return { canStartCheckout: true, plan: "free", status: "inactive" };
+        return {
+          billingLimited: false,
+          canManageBilling: true,
+          hasSubscription: false,
+          includedMembers: 2,
+          memberCapacity: 2,
+          memberCount: 2,
+          payerState: "unassigned",
+          plan: "free",
+          status: "inactive",
+        };
       }
       if (
         functionName === getFunctionName(api.billingResourceQuotas.getViewerBillingResourceUsage)
       ) {
         return {
-          cloudflareWorkers: { limit: 5, used: { count: 1, state: "exact" } },
-          convexProjects: { limit: 5, used: { count: 2, state: "exact" } },
+          connections: { limit: 6, used: { count: 3, state: "exact" } },
         };
       }
       throw new Error(`Unexpected query: ${functionName}`);
@@ -62,8 +71,8 @@ describe("OrganizationSettingsPage", () => {
     expect(markup).toContain("Organization settings");
     expect(markup).toContain("Billing");
     expect(markup).toContain("Current plan");
-    expect(markup).toContain("Cloudflare Workers");
-    expect(markup).toContain("Convex projects");
+    expect(markup).toContain("Connections");
+    expect(markup).toContain("3 of 6");
     expect(markup).not.toContain("Open billing");
     expect(markup).not.toContain("/settings/billing");
   });

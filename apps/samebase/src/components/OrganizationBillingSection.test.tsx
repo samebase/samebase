@@ -112,13 +112,18 @@ async function mountBillingSection(
 
 function setBillingQueries() {
   testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
-    canStartCheckout: true,
+    billingLimited: false,
+    canManageBilling: true,
+    hasSubscription: false,
+    includedMembers: 2,
+    memberCapacity: 2,
+    memberCount: 2,
+    payerState: "unassigned",
     plan: "free",
     status: "inactive",
   });
   testState.queries.set(getFunctionName(api.billingResourceQuotas.getViewerBillingResourceUsage), {
-    cloudflareWorkers: { limit: 5, used: { count: 1, state: "exact" } },
-    convexProjects: { limit: 5, used: { count: 2, state: "exact" } },
+    connections: { limit: 6, used: { count: 3, state: "exact" } },
   });
 }
 
@@ -143,7 +148,7 @@ describe("OrganizationBillingSection", () => {
 
   it("reads and starts billing for the routed organization", async () => {
     const createCheckout = vi.fn(() => new Promise<never>(() => undefined));
-    testState.actions.set(getFunctionName(api.billing.createPolarCheckoutSession), createCheckout);
+    testState.actions.set(getFunctionName(api.billing.requestPolarBillingChange), createCheckout);
     const container = await mountBillingSection();
 
     expect(testState.queryCalls).toContainEqual({
@@ -163,15 +168,84 @@ describe("OrganizationBillingSection", () => {
     });
 
     expect(createCheckout).toHaveBeenCalledWith({
+      change: "upgrade_to_pro",
       organizationId: organization.organizationId,
       returnUrl: `${window.location.origin}/org/samebase/settings?checkout=cancel#billing`,
       successUrl: `${window.location.origin}/org/samebase/settings?checkout=success#billing`,
     });
   });
 
+  it("shows the payer and schedules Pro to change to Free", async () => {
+    testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
+      billingLimited: false,
+      canManageBilling: true,
+      hasSubscription: true,
+      includedMembers: 2,
+      memberCapacity: 2,
+      memberCount: 2,
+      payerState: "viewer",
+      plan: "pro",
+      status: "active",
+    });
+    const changePlan = vi.fn(() => new Promise<never>(() => undefined));
+    testState.actions.set(getFunctionName(api.billing.requestPolarBillingChange), changePlan);
+    const container = await mountBillingSection();
+
+    expect(container.textContent).toContain("Billing payerYou");
+    const downgradeButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Switch to Free next billing period",
+    );
+    await act(async () => {
+      downgradeButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(changePlan).toHaveBeenCalledWith({
+      change: "downgrade_to_free",
+      organizationId: organization.organizationId,
+      returnUrl: `${window.location.origin}/org/samebase/settings?checkout=cancel#billing`,
+      successUrl: `${window.location.origin}/org/samebase/settings?checkout=success#billing`,
+    });
+  });
+
+  it("offers a recovery action to a billing-limited organization", async () => {
+    testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
+      billingLimited: true,
+      canManageBilling: true,
+      hasSubscription: true,
+      includedMembers: 2,
+      memberCapacity: 2,
+      memberCount: 3,
+      payerState: "viewer",
+      plan: "free",
+      status: "active",
+    });
+    const restoreCapacity = vi.fn(() => new Promise<never>(() => undefined));
+    testState.actions.set(getFunctionName(api.billing.requestPolarBillingChange), restoreCapacity);
+    const container = await mountBillingSection();
+
+    const restoreButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Restore member access",
+    );
+    await act(async () => {
+      restoreButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(restoreCapacity).toHaveBeenCalledWith(
+      expect.objectContaining({ change: "add_member_seat" }),
+    );
+  });
+
   it("shows billing data but hides billing actions from a member", async () => {
     testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
-      canStartCheckout: false,
+      billingLimited: false,
+      canManageBilling: false,
+      hasSubscription: true,
+      includedMembers: 2,
+      memberCapacity: 3,
+      memberCount: 3,
+      payerState: "another_owner",
       plan: "pro",
       status: "active",
     });
@@ -179,6 +253,7 @@ describe("OrganizationBillingSection", () => {
 
     expect(container.textContent).toContain("Current plan");
     expect(container.textContent).toContain("Pro");
+    expect(container.textContent).toContain("3 of 3");
     expect(container.textContent).not.toContain("Manage subscription");
     expect(container.textContent).not.toContain("Upgrade to Pro");
   });

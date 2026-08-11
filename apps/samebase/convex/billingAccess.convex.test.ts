@@ -27,6 +27,7 @@ async function seedCheckoutContinuation() {
       organizationId,
       plan: "free",
       status: "inactive",
+      polarBillingUserId: userId,
     });
     return { organizationId, userId };
   });
@@ -70,10 +71,10 @@ async function seedCheckoutContinuation() {
 }
 
 describe("organization billing access", () => {
-  it("rejects the final billing owner check after membership removal", async () => {
+  it("rejects the final billing payer check after membership removal", async () => {
     const seed = await seedCheckoutContinuation();
     await expect(
-      seed.t.query(internal.billing.confirmCurrentBillingOwner, {
+      seed.t.query(internal.billing.confirmCurrentBillingPayer, {
         userId: seed.userId,
         organizationId: seed.organizationId,
       }),
@@ -93,11 +94,11 @@ describe("organization billing access", () => {
     });
 
     await expect(
-      seed.t.query(internal.billing.confirmCurrentBillingOwner, {
+      seed.t.query(internal.billing.confirmCurrentBillingPayer, {
         userId: seed.userId,
         organizationId: seed.organizationId,
       }),
-    ).rejects.toThrow("Organization owner access is required.");
+    ).rejects.toThrow("Only the designated billing payer can manage this subscription.");
   });
 
   it("rejects a new checkout reservation after the owner starts account deletion", async () => {
@@ -155,6 +156,48 @@ describe("organization billing access", () => {
     await expect(
       asPendingUser.action(api.billing.reconcileViewerBillingFromPolar, { organizationId }),
     ).rejects.toThrowError("Access denied");
+  });
+
+  it("blocks normal organization access but keeps billing visible above member capacity", async () => {
+    const seed = await seedCheckoutContinuation();
+    await seed.t.run(async (ctx) => {
+      for (const index of [1, 2]) {
+        const userId = await ctx.db.insert("users", {
+          state: "active",
+          email: `limited-member-${index}@example.invalid`,
+          isApproved: true,
+        });
+        await ctx.db.insert("organizationMemberships", {
+          organizationId: seed.organizationId,
+          userId,
+          role: "member",
+        });
+      }
+    });
+
+    await expect(
+      seed.t.query(internal.organizationAccess.requireOrganizationIdForUser, {
+        userId: seed.userId,
+        organizationId: seed.organizationId,
+      }),
+    ).rejects.toThrow("This organization needs more paid member seats.");
+
+    const asPayer = seed.t.withIdentity({
+      subject: `${seed.userId}|billing-payer-session`,
+      tokenIdentifier: `test:${seed.userId}`,
+    });
+    await expect(
+      asPayer.query(api.billing.getViewerBillingStatus, {
+        organizationId: seed.organizationId,
+      }),
+    ).resolves.toMatchObject({
+      billingLimited: true,
+      canManageBilling: true,
+      includedMembers: 2,
+      memberCapacity: 2,
+      memberCount: 3,
+      payerState: "viewer",
+    });
   });
 
   it("clears the matching pending checkout after the initiating owner starts deletion", async () => {

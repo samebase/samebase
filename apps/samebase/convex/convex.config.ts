@@ -20,7 +20,10 @@ const app = defineApp({
     OPENAI_APPS_CHALLENGE_TOKEN: v.optional(v.string()),
     PASSWORD_AUTH_ENABLED: v.optional(v.string()),
     POLAR_ACCESS_TOKEN: v.optional(v.string()),
-    POLAR_PRO_MONTHLY_PRODUCT_ID: v.optional(v.string()),
+    POLAR_GITHUB_ORGANIZATION_FREE_MONTHLY_PRODUCT_ID: v.optional(v.string()),
+    POLAR_GITHUB_ORGANIZATION_PRO_MONTHLY_PRODUCT_ID: v.optional(v.string()),
+    POLAR_GITHUB_USER_FREE_MONTHLY_PRODUCT_ID: v.optional(v.string()),
+    POLAR_GITHUB_USER_PRO_MONTHLY_PRODUCT_ID: v.optional(v.string()),
     POLAR_WEBHOOK_SECRET: v.optional(v.string()),
   },
 });

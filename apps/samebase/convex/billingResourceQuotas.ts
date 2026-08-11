@@ -7,16 +7,22 @@ import {
   readBillingAccountState,
   requireBillingAccountForOrganization,
 } from "./organizationBilling";
+import { requireOrganizationNotBillingLimited } from "./organizationBillingLimits";
 import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
 import { requireManualProviderWriteCheckpoint } from "./vault/infrastructureOperation";
 
 const { id, literal, null: nullValue, number, object, union } = v;
 
-const FREE_RESOURCE_ATTACHMENT_LIMIT = 5;
-const PRO_RESOURCE_ATTACHMENT_LIMIT = 40;
-const RESOURCE_USAGE_READ_LIMIT = PRO_RESOURCE_ATTACHMENT_LIMIT + 1;
+const PERSONAL_FREE_CONNECTION_LIMIT = 15;
+const ORGANIZATION_FREE_CONNECTION_LIMIT = 6;
+const PRO_CONNECTION_LIMIT = 120;
+const CONNECTION_USAGE_READ_LIMIT = PRO_CONNECTION_LIMIT + 1;
 
-const vBillingResourceKind = union(literal("cloudflare_worker"), literal("convex_project"));
+const vBillingResourceKind = union(
+  literal("github_repository"),
+  literal("cloudflare_worker"),
+  literal("convex_project"),
+);
 type BillingResourceKind = Infer<typeof vBillingResourceKind>;
 type BillingResourceReadCtx = Pick<QueryCtx, "db">;
 export type BillingResourceAuthority =
@@ -55,61 +61,63 @@ const vResourceAttachmentUsage = object({
 });
 
 const vBillingResourceUsage = object({
-  cloudflareWorkers: vResourceAttachmentUsage,
-  convexProjects: vResourceAttachmentUsage,
+  connections: vResourceAttachmentUsage,
 });
 export type BillingResourceUsage = Infer<typeof vBillingResourceUsage>;
 
-function readResourceAttachmentLimit(account: Doc<"organizationBillingAccounts">): number {
+type OrganizationConnectionCounts = {
+  repositories: number;
+  cloudflareWorkers: number;
+  convexProjects: number;
+  total: number;
+};
+
+function readOrganizationConnectionLimit(
+  account: Doc<"organizationBillingAccounts">,
+  organization: Doc<"organizations">,
+): number {
   const state = readBillingAccountState(account);
-  return state.plan === "pro" && (state.status === "active" || state.status === "past_due")
-    ? PRO_RESOURCE_ATTACHMENT_LIMIT
-    : FREE_RESOURCE_ATTACHMENT_LIMIT;
+  if (state.plan === "pro" && (state.status === "active" || state.status === "past_due")) {
+    return PRO_CONNECTION_LIMIT;
+  }
+  return organization.githubOwnerType === "user"
+    ? PERSONAL_FREE_CONNECTION_LIMIT
+    : ORGANIZATION_FREE_CONNECTION_LIMIT;
 }
 
-async function readResourceAttachmentCount(
+async function readOrganizationConnectionCounts(
   ctx: BillingResourceReadCtx,
   args: {
-    kind: BillingResourceKind;
     organizationId: Id<"organizations">;
     maximumRows: number;
   },
-): Promise<number> {
-  let count: number;
-  switch (args.kind) {
-    case "cloudflare_worker":
-      count = (
-        await ctx.db
-          .query("vaultCloudflareWorkers")
-          .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
-          .take(args.maximumRows)
-      ).length;
-      break;
-    case "convex_project":
-      count = (
-        await ctx.db
-          .query("vaultConvexProjects")
-          .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
-          .take(args.maximumRows)
-      ).length;
-      break;
-    default:
-      args.kind satisfies never;
-      return 0;
-  }
-  return count;
+): Promise<OrganizationConnectionCounts> {
+  const [repositories, cloudflareWorkers, convexProjects] = await Promise.all([
+    ctx.db
+      .query("vaults")
+      .withIndex("by_organization_and_state_and_deletion_state", (query) =>
+        query.eq("organizationId", args.organizationId).eq("state", "connected"),
+      )
+      .take(args.maximumRows),
+    ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
+      .take(args.maximumRows),
+    ctx.db
+      .query("vaultConvexProjects")
+      .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
+      .take(args.maximumRows),
+  ]);
+  return {
+    repositories: repositories.length,
+    cloudflareWorkers: cloudflareWorkers.length,
+    convexProjects: convexProjects.length,
+    total: repositories.length + cloudflareWorkers.length + convexProjects.length,
+  };
 }
 
-function throwBillingResourceLimit(kind: BillingResourceKind, limit: number): never {
-  switch (kind) {
-    case "cloudflare_worker":
-      throw new ConvexError(`Cloudflare Worker attachment limit reached (${limit}).`);
-    case "convex_project":
-      throw new ConvexError(`Convex project attachment limit reached (${limit}).`);
-    default:
-      kind satisfies never;
-      throw new Error("Unsupported billing resource kind.");
-  }
+function throwBillingResourceLimit(limit: number): never {
+  throw new ConvexError(`Organization connection limit reached (${limit}).`);
 }
 
 export async function requireBillingResourceCapacity(
@@ -121,22 +129,25 @@ export async function requireBillingResourceCapacity(
   },
 ): Promise<void> {
   const billing = await requireBillingAccountForOrganization(ctx.db, args);
-  await requireBillingResourceCapacityForAccount(ctx, args.kind, billing.account);
+  await requireBillingResourceCapacityForAccount(ctx, billing.account);
 }
 
 async function requireBillingResourceCapacityForAccount(
   ctx: BillingResourceReadCtx,
-  kind: BillingResourceKind,
   account: Doc<"organizationBillingAccounts">,
 ): Promise<void> {
-  const limit = readResourceAttachmentLimit(account);
-  const used = await readResourceAttachmentCount(ctx, {
-    kind,
+  const organization = await ctx.db.get(account.organizationId);
+  if (organization === null) {
+    throw new Error("Organization billing account refers to a missing organization.");
+  }
+  await requireOrganizationNotBillingLimited(ctx.db, account.organizationId);
+  const limit = readOrganizationConnectionLimit(account, organization);
+  const used = await readOrganizationConnectionCounts(ctx, {
     organizationId: account.organizationId,
     maximumRows: limit + 1,
   });
-  if (used >= limit) {
-    throwBillingResourceLimit(kind, limit);
+  if (used.total >= limit) {
+    throwBillingResourceLimit(limit);
   }
 }
 
@@ -199,7 +210,7 @@ export async function requireBillingResourceCapacityForAuthority(
       if (account === null) {
         throw new Error("Organization billing account is required.");
       }
-      await requireBillingResourceCapacityForAccount(ctx, args.kind, account);
+      await requireBillingResourceCapacityForAccount(ctx, account);
       return;
     }
     case "manual_provider_write": {
@@ -211,7 +222,7 @@ export async function requireBillingResourceCapacityForAuthority(
       if (account === null) {
         throw new Error("Organization billing account is required.");
       }
-      await requireBillingResourceCapacityForAccount(ctx, args.kind, account);
+      await requireBillingResourceCapacityForAccount(ctx, account);
       return;
     }
     default:
@@ -245,28 +256,28 @@ export const getViewerBillingResourceUsage = query({
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    const limit = readResourceAttachmentLimit(billing.account);
-    const [cloudflareWorkers, convexProjects] = await Promise.all([
-      readResourceAttachmentCount(ctx, {
-        kind: "cloudflare_worker",
-        organizationId: billing.account.organizationId,
-        maximumRows: RESOURCE_USAGE_READ_LIMIT,
-      }),
-      readResourceAttachmentCount(ctx, {
-        kind: "convex_project",
-        organizationId: billing.account.organizationId,
-        maximumRows: RESOURCE_USAGE_READ_LIMIT,
-      }),
-    ]);
+    const organization = await ctx.db.get(billing.account.organizationId);
+    if (organization === null) {
+      throw new Error("Organization billing account refers to a missing organization.");
+    }
+    const limit = readOrganizationConnectionLimit(billing.account, organization);
+    const usage = await readOrganizationConnectionCounts(ctx, {
+      organizationId: billing.account.organizationId,
+      maximumRows: CONNECTION_USAGE_READ_LIMIT,
+    });
 
-    const toUsageCount = (count: number) =>
-      count === RESOURCE_USAGE_READ_LIMIT
-        ? { state: "at_least" as const, count }
-        : { state: "exact" as const, count };
+    const isBounded =
+      usage.repositories === CONNECTION_USAGE_READ_LIMIT ||
+      usage.cloudflareWorkers === CONNECTION_USAGE_READ_LIMIT ||
+      usage.convexProjects === CONNECTION_USAGE_READ_LIMIT;
 
     return {
-      cloudflareWorkers: { used: toUsageCount(cloudflareWorkers), limit },
-      convexProjects: { used: toUsageCount(convexProjects), limit },
+      connections: {
+        used: isBounded
+          ? { state: "at_least", count: usage.total }
+          : { state: "exact", count: usage.total },
+        limit,
+      },
     };
   },
 });
