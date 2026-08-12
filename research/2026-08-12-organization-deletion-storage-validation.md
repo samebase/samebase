@@ -37,3 +37,9 @@ Focused Convex tests also cover these stop points:
 - another organization still refers to the same storage ID
 
 In each case, cleanup deletes only unreferenced Samebase-owned storage for the target organization.
+
+The initial rollout also waits 65 minutes after the deletion request before local data cleanup.
+Polar billing cleanup starts after the active provider-write fences drain and does not wait for this
+storage fence. Convex documents a one-hour upload URL lifetime and a two-minute upload timeout. The
+wait covers a URL or action that the deployment before these reservations authorized but could not
+mark.

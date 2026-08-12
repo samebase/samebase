@@ -101,7 +101,11 @@ async function withVaultActionLease<Result>(
   },
   run: () => Promise<Result>,
 ): Promise<Result> {
-  const leaseId = await ctx.runMutation(internal.pendingUploads.acquireVaultActionLease, args);
+  const leaseId = await ctx.runMutation(internal.pendingUploads.acquireVaultActionLease, {
+    operation: args.operation,
+    userId: args.userId,
+    vaultId: args.vaultId,
+  });
   try {
     return await run();
   } finally {

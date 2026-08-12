@@ -48,6 +48,13 @@ vault, and provisioning actions reject a deleting or failed organization. An alr
 workflow can finish its exact current work. Organization deletion waits for that work before it
 removes local rows.
 
+The first safe version keeps the deletion gate closed for at least 65 minutes before local data
+cleanup starts. Polar cleanup starts as soon as active provider-write fences drain, so Samebase does
+not leave a chargeable subscription active during the settling period. A Convex upload URL issued by
+the deployment before these gates existed can stay valid for one hour, and an upload can use two
+more minutes. The same settling period exceeds the maximum action lifetime. It prevents old,
+untracked authorization from writing after local cleanup.
+
 An action that can write Polar must acquire a durable organization billing-action lease before its
 first provider call. The lease expires after the maximum action lifetime and is released after the
 provider and local recording steps finish. Organization deletion waits for active billing-change,
@@ -223,6 +230,7 @@ Focused Convex tests must prove:
 - timeouts and already-removed provider objects are reconciled without a false success
 - local cleanup is bounded, retryable, storage-safe, and complete for every policy table
 - active vault work blocks cleanup and a terminal retry can continue
+- cleanup waits through the pre-deployment upload and action authorization lifetime
 - failure keeps the organization and staff-visible status
 - finalization removes the organization and membership atomically and scrubs the receipt
 - external resource APIs are not called
@@ -244,3 +252,9 @@ replace PR 1414 billing work.
 The deletion gate is an optional organization field for the first deployment. Existing rows with no
 gate are active. New deletion requests write the gate before cleanup. A later schema-tightening
 change can add an explicit active variant only after a bounded backfill has completed.
+
+The first release keeps local data cleanup for every accepted deletion behind the 65-minute
+authorization settling period. Polar cleanup does not wait for this rollout fence. This permits a
+single safe deployment of the new gates, leases, upload reservations, API, and UI. The settling
+period can be removed in a later accepted change after all supported deployments have used the new
+authorization fences for longer than the old maximum lifetime.

@@ -103,9 +103,9 @@ webhook or a trusted reconciliation operation.
 - Repeated or out-of-order webhook deliveries must converge on current Polar Customer state.
 - Invalid or malformed provider data must not remove an existing entitlement.
 - A pending invitation does not consume capacity. A current membership always consumes one seat.
-- Removing a member, leaving an organization, or deleting a non-payer member schedules a Polar seat
-  reduction after the local membership deletion commits. A provider failure can temporarily
-  overcharge the organization, but it cannot preserve removed access.
+- Removing a member or leaving an organization schedules a Polar seat reduction after the local
+  membership deletion commits. A provider failure can temporarily overcharge the organization, but
+  it cannot preserve removed access.
 
 `subscription.updated` is the required wake-up for plan and seat changes. `customer.state_changed`
 can remain as a broader reconciliation signal. Both events must lead to a full canonical

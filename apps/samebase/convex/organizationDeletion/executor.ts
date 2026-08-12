@@ -25,6 +25,10 @@ const POLAR_CHECKOUT_RECHECK_DELAY_MS = 30_000;
 const QUIESCENCE_RECHECK_DELAY_MS = 5_000;
 const EXECUTION_WATCHDOG_INTERVAL_MS = 60_000;
 const MAX_AUTOMATIC_STALE_RESTARTS = 1;
+// A Convex upload URL from the deployment before organization deletion can stay valid for one
+// hour, and its upload can run for two more minutes. This settling period also exceeds the
+// 30-minute action limit, so old untracked authorization cannot cross local cleanup.
+export const ORGANIZATION_DELETION_AUTHORIZATION_SETTLE_MS = 65 * 60_000;
 // A default Convex action can run for 30 minutes. The watchdog must not start
 // a second provider cleanup while the first action can still be running.
 export const ORGANIZATION_DELETION_STALE_EXECUTION_MS = 35 * 60_000;
@@ -46,7 +50,8 @@ export async function scheduleOrganizationDeletion(
   },
 ): Promise<void> {
   await ctx.scheduler.runAfter(0, internal.organizationDeletion.executor.advance, {
-    ...args,
+    runId: args.runId,
+    executionAttempt: args.executionAttempt,
     quiescenceChecks: 0,
     providerSteps: 0,
     cleanupBatches: 0,
@@ -54,7 +59,10 @@ export async function scheduleOrganizationDeletion(
   await ctx.scheduler.runAfter(
     EXECUTION_WATCHDOG_INTERVAL_MS,
     internal.organizationDeletion.executor.restartStaleExecution,
-    args,
+    {
+      runId: args.runId,
+      executionAttempt: args.executionAttempt,
+    },
   );
 }
 
@@ -63,7 +71,13 @@ async function scheduleAdvance(
   args: ExecutionArgs,
   delayMs: number,
 ): Promise<void> {
-  await ctx.scheduler.runAfter(delayMs, internal.organizationDeletion.executor.advance, args);
+  await ctx.scheduler.runAfter(delayMs, internal.organizationDeletion.executor.advance, {
+    runId: args.runId,
+    executionAttempt: args.executionAttempt,
+    quiescenceChecks: args.quiescenceChecks,
+    providerSteps: args.providerSteps,
+    cleanupBatches: args.cleanupBatches,
+  });
 }
 
 export const recordPolarCustomerIdentity = internalMutation({
@@ -137,7 +151,10 @@ export const restartStaleExecution = internalMutation({
       await ctx.scheduler.runAfter(
         EXECUTION_WATCHDOG_INTERVAL_MS,
         internal.organizationDeletion.executor.restartStaleExecution,
-        args,
+        {
+          runId: args.runId,
+          executionAttempt: args.executionAttempt,
+        },
       );
       return false;
     }
@@ -210,11 +227,11 @@ export const beginSamebaseDataCleanup = internalMutation({
     runId: id("workflow_organizationDeletion_runs"),
     executionAttempt: number(),
   },
-  returns: v.null(),
+  returns: v.boolean(),
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
     if (run.currentStep === "delete_samebase_data") {
-      return null;
+      return true;
     }
     if (run.currentStep !== "stop_billing") {
       throw new Error("Billing cleanup step is not active.");
@@ -223,6 +240,9 @@ export const beginSamebaseDataCleanup = internalMutation({
       throw new Error("Polar cleanup is not complete.");
     }
     const now = Date.now();
+    if (now < run.requestedAt + ORGANIZATION_DELETION_AUTHORIZATION_SETTLE_MS) {
+      return false;
+    }
     await ctx.db.patch(run._id, {
       currentStep: "delete_samebase_data",
       updatedAt: now,
@@ -234,7 +254,7 @@ export const beginSamebaseDataCleanup = internalMutation({
       message: "Deleting Samebase organization data.",
       createdAt: now,
     });
-    return null;
+    return true;
   },
 });
 
@@ -292,26 +312,29 @@ export const advance = internalAction({
       runId: args.runId,
       executionAttempt: args.executionAttempt,
     };
-    const execution = await ctx.runQuery(
-      internal.organizationDeletion.stepContext.getExecution,
-      executionIdentity,
-    );
+    const execution = await ctx.runQuery(internal.organizationDeletion.stepContext.getExecution, {
+      runId: executionIdentity.runId,
+      executionAttempt: executionIdentity.executionAttempt,
+    });
     if (execution === null) {
       return null;
     }
 
     try {
-      await ctx.runMutation(
-        internal.organizationDeletion.executor.recordExecutionHeartbeat,
-        executionIdentity,
-      );
+      await ctx.runMutation(internal.organizationDeletion.executor.recordExecutionHeartbeat, {
+        runId: executionIdentity.runId,
+        executionAttempt: executionIdentity.executionAttempt,
+      });
       if (
         execution.currentStep === "request_accepted" ||
         execution.currentStep === "wait_for_active_work"
       ) {
         const result = await ctx.runMutation(
           internal.organizationDeletion.cleanup.inspectQuiescence,
-          executionIdentity,
+          {
+            runId: executionIdentity.runId,
+            executionAttempt: executionIdentity.executionAttempt,
+          },
         );
         if (result.state === "waiting") {
           if (args.quiescenceChecks >= MAX_QUIESCENCE_CHECKS - 1) {
@@ -321,7 +344,13 @@ export const advance = internalAction({
           }
           await scheduleAdvance(
             ctx,
-            { ...args, quiescenceChecks: args.quiescenceChecks + 1 },
+            {
+              runId: args.runId,
+              executionAttempt: args.executionAttempt,
+              quiescenceChecks: args.quiescenceChecks + 1,
+              providerSteps: args.providerSteps,
+              cleanupBatches: args.cleanupBatches,
+            },
             QUIESCENCE_RECHECK_DELAY_MS,
           );
           return null;
@@ -335,10 +364,32 @@ export const advance = internalAction({
           execution.providerCleanup.state === "not_required" ||
           execution.providerCleanup.state === "completed"
         ) {
-          await ctx.runMutation(
+          const cleanupStarted = await ctx.runMutation(
             internal.organizationDeletion.executor.beginSamebaseDataCleanup,
-            executionIdentity,
+            {
+              runId: executionIdentity.runId,
+              executionAttempt: executionIdentity.executionAttempt,
+            },
           );
+          if (!cleanupStarted) {
+            if (args.quiescenceChecks >= MAX_QUIESCENCE_CHECKS - 1) {
+              throw new OrganizationDeletionAttentionError(
+                "Pre-deployment Samebase work did not settle before organization deletion.",
+              );
+            }
+            await scheduleAdvance(
+              ctx,
+              {
+                runId: args.runId,
+                executionAttempt: args.executionAttempt,
+                quiescenceChecks: args.quiescenceChecks + 1,
+                providerSteps: args.providerSteps,
+                cleanupBatches: args.cleanupBatches,
+              },
+              QUIESCENCE_RECHECK_DELAY_MS,
+            );
+            return null;
+          }
           await scheduleAdvance(ctx, args, 0);
           return null;
         }
@@ -354,31 +405,61 @@ export const advance = internalAction({
         if (result.state === "customer_identified") {
           await ctx.runMutation(
             internal.organizationDeletion.executor.recordPolarCustomerIdentity,
-            { ...executionIdentity, customerId: result.customerId },
+            {
+              runId: executionIdentity.runId,
+              executionAttempt: executionIdentity.executionAttempt,
+              customerId: result.customerId,
+            },
           );
-          await scheduleAdvance(ctx, { ...args, providerSteps: args.providerSteps + 1 }, 0);
+          await scheduleAdvance(
+            ctx,
+            {
+              runId: args.runId,
+              executionAttempt: args.executionAttempt,
+              quiescenceChecks: args.quiescenceChecks,
+              providerSteps: args.providerSteps + 1,
+              cleanupBatches: args.cleanupBatches,
+            },
+            0,
+          );
           return null;
         }
         if (result.state === "needs_more") {
-          await scheduleAdvance(ctx, { ...args, providerSteps: args.providerSteps + 1 }, 0);
+          await scheduleAdvance(
+            ctx,
+            {
+              runId: args.runId,
+              executionAttempt: args.executionAttempt,
+              quiescenceChecks: args.quiescenceChecks,
+              providerSteps: args.providerSteps + 1,
+              cleanupBatches: args.cleanupBatches,
+            },
+            0,
+          );
           return null;
         }
         if (result.state === "waiting_for_checkout") {
           await scheduleAdvance(
             ctx,
-            { ...args, providerSteps: args.providerSteps + 1 },
+            {
+              runId: args.runId,
+              executionAttempt: args.executionAttempt,
+              quiescenceChecks: args.quiescenceChecks,
+              providerSteps: args.providerSteps + 1,
+              cleanupBatches: args.cleanupBatches,
+            },
             POLAR_CHECKOUT_RECHECK_DELAY_MS,
           );
           return null;
         }
-        await ctx.runMutation(
-          internal.organizationDeletion.executor.recordPolarCleanupCompleted,
-          executionIdentity,
-        );
-        await ctx.runMutation(
-          internal.organizationDeletion.executor.beginSamebaseDataCleanup,
-          executionIdentity,
-        );
+        await ctx.runMutation(internal.organizationDeletion.executor.recordPolarCleanupCompleted, {
+          runId: executionIdentity.runId,
+          executionAttempt: executionIdentity.executionAttempt,
+        });
+        await ctx.runMutation(internal.organizationDeletion.executor.beginSamebaseDataCleanup, {
+          runId: executionIdentity.runId,
+          executionAttempt: executionIdentity.executionAttempt,
+        });
         await scheduleAdvance(ctx, args, 0);
         return null;
       }
@@ -391,10 +472,23 @@ export const advance = internalAction({
         }
         const done = await ctx.runMutation(
           internal.organizationDeletion.cleanup.cleanupOrganizationDataBatch,
-          executionIdentity,
+          {
+            runId: executionIdentity.runId,
+            executionAttempt: executionIdentity.executionAttempt,
+          },
         );
         if (!done) {
-          await scheduleAdvance(ctx, { ...args, cleanupBatches: args.cleanupBatches + 1 }, 0);
+          await scheduleAdvance(
+            ctx,
+            {
+              runId: args.runId,
+              executionAttempt: args.executionAttempt,
+              quiescenceChecks: args.quiescenceChecks,
+              providerSteps: args.providerSteps,
+              cleanupBatches: args.cleanupBatches + 1,
+            },
+            0,
+          );
         }
         return null;
       }

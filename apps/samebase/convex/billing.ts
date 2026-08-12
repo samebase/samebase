@@ -404,7 +404,7 @@ export const cleanupExpiredOrganizationBillingActionLease = internalMutation({
       await ctx.scheduler.runAt(
         lease.expiresAt,
         internal.billing.cleanupExpiredOrganizationBillingActionLease,
-        args,
+        { leaseId: args.leaseId },
       );
       return null;
     }
@@ -923,7 +923,7 @@ export const syncPolarSubscriptionSeats = internalAction({
     try {
       const syncContext: OrganizationBillingSyncContext = await ctx.runQuery(
         internal.billing.getOrganizationBillingSyncContext,
-        args,
+        { organizationId: args.organizationId },
       );
       const externalCustomerId = syncContext.externalCustomerId?.trim();
       if (!externalCustomerId) {

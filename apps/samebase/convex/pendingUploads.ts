@@ -202,7 +202,7 @@ export const cleanupExpiredVaultActionLease = internalMutation({
       await ctx.scheduler.runAt(
         lease.expiresAt,
         internal.pendingUploads.cleanupExpiredVaultActionLease,
-        args,
+        { leaseId: args.leaseId },
       );
       return null;
     }
@@ -487,11 +487,15 @@ export const cleanupExpired = internalMutation({
       return null;
     }
     if (Date.now() < upload.expiresAt) {
-      await ctx.scheduler.runAt(upload.expiresAt, internal.pendingUploads.cleanupExpired, args);
+      await ctx.scheduler.runAt(upload.expiresAt, internal.pendingUploads.cleanupExpired, {
+        uploadId: args.uploadId,
+      });
       return null;
     }
     if ((await cleanupExpiredPendingUploadPage(ctx, upload)) === "more") {
-      await ctx.scheduler.runAfter(0, internal.pendingUploads.cleanupExpired, args);
+      await ctx.scheduler.runAfter(0, internal.pendingUploads.cleanupExpired, {
+        uploadId: args.uploadId,
+      });
     }
     return null;
   },

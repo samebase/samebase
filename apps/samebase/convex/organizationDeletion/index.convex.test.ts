@@ -7,7 +7,10 @@ import {
   ACTION_BLOB_RESERVATION_MS,
   buildPendingUploadStorageContentType,
 } from "../pendingUploads";
-import { ORGANIZATION_DELETION_STALE_EXECUTION_MS } from "./executor";
+import {
+  ORGANIZATION_DELETION_AUTHORIZATION_SETTLE_MS,
+  ORGANIZATION_DELETION_STALE_EXECUTION_MS,
+} from "./executor";
 
 afterEach(() => {
   vi.useRealTimers();
@@ -268,6 +271,41 @@ describe("organization deletion request", () => {
     await expect(
       seed.member.mutation(api.organizationMembers.acceptInvitation, { code: "a".repeat(64) }),
     ).rejects.toThrow("Organization deletion is in progress.");
+  });
+
+  it("waits for authorization from the prior deployment to expire", async () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    const t = makeConvexTest();
+    const seed = await seedOrganization(t);
+    const accepted = await seed.owner.mutation(api.organizationDeletion.index.request, {
+      organizationId: seed.organizationId,
+      confirmationPhrase: buildOrganizationDeletionConfirmationPhrase("Samebase"),
+    });
+    if (accepted.state !== "accepted") {
+      throw new Error("Organization deletion request was not accepted.");
+    }
+
+    await expect(
+      t.mutation(internal.organizationDeletion.cleanup.inspectQuiescence, {
+        runId: accepted.status.runId,
+        executionAttempt: 1,
+      }),
+    ).resolves.toEqual({ state: "done" });
+    await expect(
+      t.mutation(internal.organizationDeletion.executor.beginSamebaseDataCleanup, {
+        runId: accepted.status.runId,
+        executionAttempt: 1,
+      }),
+    ).resolves.toBe(false);
+
+    vi.setSystemTime(now + ORGANIZATION_DELETION_AUTHORIZATION_SETTLE_MS + 1);
+    await expect(
+      t.mutation(internal.organizationDeletion.executor.beginSamebaseDataCleanup, {
+        runId: accepted.status.runId,
+        executionAttempt: 1,
+      }),
+    ).resolves.toBe(true);
   });
 
   it("waits for a reserved Polar checkout to record its provider identity", async () => {
