@@ -1,13 +1,10 @@
 # Terms of Service
 
-Last updated: April 25, 2026
+Last updated: August 12, 2026
 
 These Terms of Service govern your use of Samebase and the samebase.com website. In these Terms,
 "Samebase", "we", "us", and "our" refer to the operator of the Samebase service. By using Samebase,
 you agree to these Terms.
-
-These Terms are intended to describe the current rules and legal conditions for using Samebase
-without overclaiming features or promises that are not in the product today.
 
 ## 1. Operator
 
@@ -15,9 +12,8 @@ Samebase is operated by the Samebase team.
 
 ## 2. What Samebase is
 
-Samebase is a GitHub-backed workspace for notes, code, and AI-assisted workflows. The service may
-connect to third-party providers that you authorize, including repository, infrastructure,
-Cloudflare, and AI tooling providers.
+Samebase is a workspace for code and agent-assisted workflows. It can connect to third-party
+services that you authorize.
 
 ## 3. Eligibility and accounts
 
@@ -29,12 +25,10 @@ Cloudflare, and AI tooling providers.
 
 ## 4. Connected providers and permissions
 
-- Samebase may act on information and permissions you give it through connected providers such as
-  GitHub, Convex, Cloudflare, Codex, or other services you authorize.
-- You authorize Samebase to send the minimum necessary requests and data to those providers to
+- Samebase may act on information and permissions you give it through connected services.
+- You authorize Samebase to send the minimum necessary requests and data to those services to
   operate the features you enable.
-- Third-party provider terms, policies, and availability also apply to your use of those
-  integrations.
+- Third-party terms, policies, and availability also apply to your use of those services.
 
 ## 5. Acceptable use
 
@@ -46,13 +40,12 @@ You may not use Samebase to:
 - submit malware, exploit code, or harmful automation
 - upload or expose secrets, passwords, API keys, MFA codes, payment card data, health data, or other
   regulated or highly sensitive data unless clearly required and lawfully authorized
-- use the service in a way that violates the terms of a connected provider or the policies of the AI
-  platform through which Samebase is made available
+- use the service in a way that violates the terms of a connected third-party service
 
-## 6. AI and automation
+## 6. Automation
 
-- AI outputs, code suggestions, plans, diffs, and operational recommendations may be wrong,
-  incomplete, or unsafe.
+- Automated outputs, including code suggestions, plans, diffs, and operational recommendations, may
+  be wrong, incomplete, or unsafe.
 - You are responsible for reviewing high-impact actions before you rely on them, especially for code
   changes, production operations, infrastructure actions, billing decisions, or security-sensitive
   work.
@@ -118,4 +111,4 @@ effect means you accept the updated Terms.
 
 ## 15. Contact
 
-For support, legal notices, or questions about these Terms, contact nicu@samebase.com.
+For support, legal notices, or questions about these Terms, email contact@samebase.com.
