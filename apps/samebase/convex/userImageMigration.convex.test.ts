@@ -3,7 +3,7 @@ import { expect, it } from "vite-plus/test";
 import { internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
-it("clears stored user profile fields that Samebase does not read", async () => {
+it("clears stored user images without changing names", async () => {
   const t = makeConvexTest();
   const userIds = await t.run(async (ctx) => {
     const storedProfileUserId = await ctx.db.insert("users", {
@@ -23,16 +23,19 @@ it("clears stored user profile fields that Samebase does not read", async () => 
     return [storedProfileUserId, minimalUserId, deletedUserId];
   });
 
-  await expect(
-    t.mutation(internal.userProfileMigration.cleanupUnusedUserProfileFields, {}),
-  ).resolves.toEqual({
-    scanned: 3,
-    updated: 1,
-  });
+  await expect(t.mutation(internal.userImageMigration.cleanupUnusedUserImage, {})).resolves.toEqual(
+    {
+      scanned: 3,
+      updated: 1,
+    },
+  );
 
-  const users = await t.run(async (ctx) => await Promise.all(userIds.map((id) => ctx.db.get(id))));
+  const [storedProfileUser, minimalUser, deletedUser] = await t.run(
+    async (ctx) => await Promise.all(userIds.map((id) => ctx.db.get(id))),
+  );
+  expect(storedProfileUser).toMatchObject({ name: "Provider name" });
+  const users = [storedProfileUser, minimalUser, deletedUser];
   for (const user of users) {
-    expect(user).not.toHaveProperty("name");
     expect(user).not.toHaveProperty("image");
   }
 });

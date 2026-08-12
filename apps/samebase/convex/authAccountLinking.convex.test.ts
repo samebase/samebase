@@ -182,9 +182,9 @@ describe("Samebase OAuth account linking", () => {
     const user = await t.run(async (ctx) => await ctx.db.get(userId));
     expect(user).toMatchObject({
       email: "new-github@example.com",
+      name: "OAuth User",
       emailVerificationTime: expect.any(Number),
     });
-    expect(user).not.toHaveProperty("name");
     expect(user).not.toHaveProperty("image");
   });
 
