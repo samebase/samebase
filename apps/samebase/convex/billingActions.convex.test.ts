@@ -93,10 +93,36 @@ vi.mock("./polarClient", async (importOriginal) => {
         },
       },
     }),
-    readPolarProductCatalog: () => ({
-      organization: { free: "organization-free", pro: "organization-pro" },
-      user: { free: "user-free", pro: "user-pro" },
-    }),
+    readPolarProductCatalog: () => [
+      {
+        productId: "organization-free",
+        ownerType: "organization",
+        plan: "free",
+        version: 1,
+        availableForCheckout: true,
+      },
+      {
+        productId: "organization-pro",
+        ownerType: "organization",
+        plan: "pro",
+        version: 1,
+        availableForCheckout: true,
+      },
+      {
+        productId: "user-free",
+        ownerType: "user",
+        plan: "free",
+        version: 1,
+        availableForCheckout: true,
+      },
+      {
+        productId: "user-pro",
+        ownerType: "user",
+        plan: "pro",
+        version: 1,
+        availableForCheckout: true,
+      },
+    ],
     resolvePolarServer: () => "sandbox",
   };
 });
