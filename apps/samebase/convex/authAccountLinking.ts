@@ -85,10 +85,11 @@ function readVerifiedOAuthProfile(args: CreateOrUpdateAuthUserArgs) {
     throw new Error(`${providerLabel} account ID is unavailable.`);
   }
   const name = readOptionalProfileString(args.profile, "name");
+  const image = readOptionalProfileString(args.profile, "image");
   if (args.provider.id === "github") {
     readRequiredProfileString(args.profile, "githubLogin", "GitHub username");
   }
-  return { email, providerAccountId, name };
+  return { email, providerAccountId, name, image };
 }
 
 function readSeededPasswordEmail(passwordAuthMode: PasswordAuthMode): string | null {
@@ -279,6 +280,7 @@ async function createOrResolveOAuthUser(
     email: profile.email,
     emailVerificationTime: now,
     ...(profile.name ? { name: profile.name } : {}),
+    ...(profile.image ? { image: profile.image } : {}),
   });
   await sendNewUserNotification(ctx, {
     profile: args.profile,

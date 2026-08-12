@@ -113,7 +113,6 @@ import type * as toolRuntime_mcpScopes from "../toolRuntime/mcpScopes.js";
 import type * as toolRuntime_runtime from "../toolRuntime/runtime.js";
 import type * as usageAttribution from "../usageAttribution.js";
 import type * as userAccess from "../userAccess.js";
-import type * as userImageMigration from "../userImageMigration.js";
 import type * as userLifecycle from "../userLifecycle.js";
 import type * as userPreferenceModel from "../userPreferenceModel.js";
 import type * as users from "../users.js";
@@ -278,7 +277,6 @@ declare const fullApi: ApiFromModules<{
   "toolRuntime/runtime": typeof toolRuntime_runtime;
   usageAttribution: typeof usageAttribution;
   userAccess: typeof userAccess;
-  userImageMigration: typeof userImageMigration;
   userLifecycle: typeof userLifecycle;
   userPreferenceModel: typeof userPreferenceModel;
   users: typeof users;

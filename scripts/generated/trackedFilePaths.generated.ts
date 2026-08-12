@@ -333,8 +333,6 @@ export const trackedFilePaths = [
   "apps/samebase/convex/usageAttribution.ts",
   "apps/samebase/convex/userAccess.test.ts",
   "apps/samebase/convex/userAccess.ts",
-  "apps/samebase/convex/userImageMigration.convex.test.ts",
-  "apps/samebase/convex/userImageMigration.ts",
   "apps/samebase/convex/userLifecycle.convex.test.ts",
   "apps/samebase/convex/userLifecycle.ts",
   "apps/samebase/convex/userPreferenceModel.ts",

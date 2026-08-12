@@ -10,14 +10,10 @@ import {
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
-// Existing deployments allow this field until cleanupUnusedUserImage finishes.
-const storedUnusedUserImageField = {
-  image: optional(string()),
-};
-
 const userProfileFields = {
   name: optional(string()),
   displayName: optional(string()),
+  image: optional(string()),
   email: string(),
   emailVerificationTime: optional(number()),
   isApproved: optional(boolean()),
@@ -27,7 +23,6 @@ export const vUserProfile = object(userProfileFields);
 export type UserProfile = Infer<typeof vUserProfile>;
 
 const deletingUserFields = {
-  ...storedUnusedUserImageField,
   ...userProfileFields,
   runId: id("workflow_accountDeletion_runs"),
   requestedAt: number(),
@@ -35,7 +30,6 @@ const deletingUserFields = {
 
 export const vActiveUser = object({
   state: literal("active"),
-  ...storedUnusedUserImageField,
   ...userProfileFields,
 });
 
@@ -59,7 +53,6 @@ const userDocFields = {
 export const vActiveUserDoc = object({
   state: literal("active"),
   ...userDocFields,
-  ...storedUnusedUserImageField,
   ...userProfileFields,
 });
 
@@ -88,6 +81,7 @@ export function readUserProfile(user: NonDeletedUserLifecycleDoc): UserProfile {
     email: user.email,
     name: user.name,
     displayName: user.displayName,
+    image: user.image,
     emailVerificationTime: user.emailVerificationTime,
     isApproved: user.isApproved,
   });
