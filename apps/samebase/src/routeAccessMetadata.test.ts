@@ -2,6 +2,14 @@ import { describe, expect, it } from "vite-plus/test";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "./routeAccessMetadata";
 
 describe("route access metadata", () => {
+  it("keeps organization connection in the global app surface", () => {
+    expect(ROUTE_ACCESS_METADATA_BY_PATH["/connect-organization"]).toMatchObject({
+      access: "access_app_create",
+      appWorkspaceRouteChrome: { leftPane: "none" },
+      pathSuggestion: "hidden",
+    });
+  });
+
   it("requires dashboard access for organization settings", () => {
     expect(ROUTE_ACCESS_METADATA_BY_PATH["/org/$owner/settings"].access).toBe("access_dashboard");
     expect(ROUTE_ACCESS_METADATA_BY_PATH["/org/$owner/settings/members"].access).toBe(

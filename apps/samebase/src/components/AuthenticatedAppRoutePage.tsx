@@ -40,7 +40,7 @@ function isAuthorizationErrorHandledByRoute(
       return /^\/org\/[^/]+\/providers\/?$/.test(pathname);
     case "github-app":
     case "github-user":
-      return /^\/org\/[^/]+\/providers\/?$/.test(pathname);
+      return pathname === "/connect-organization" || /^\/org\/[^/]+\/providers\/?$/.test(pathname);
     case "google-sign-in":
     case "github-sign-in":
       return pathname === "/settings";

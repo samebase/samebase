@@ -61,6 +61,8 @@ import type * as gitOperationsActions from "../gitOperationsActions.js";
 import type * as github from "../github.js";
 import type * as githubApp from "../githubApp.js";
 import type * as githubAppAccess from "../githubAppAccess.js";
+import type * as githubAppConnection from "../githubAppConnection.js";
+import type * as githubAppConnectionModel from "../githubAppConnectionModel.js";
 import type * as githubAppInstallation from "../githubAppInstallation.js";
 import type * as githubAppSetupModel from "../githubAppSetupModel.js";
 import type * as githubChecks from "../githubChecks.js";
@@ -225,6 +227,8 @@ declare const fullApi: ApiFromModules<{
   github: typeof github;
   githubApp: typeof githubApp;
   githubAppAccess: typeof githubAppAccess;
+  githubAppConnection: typeof githubAppConnection;
+  githubAppConnectionModel: typeof githubAppConnectionModel;
   githubAppInstallation: typeof githubAppInstallation;
   githubAppSetupModel: typeof githubAppSetupModel;
   githubChecks: typeof githubChecks;

@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase product
-- Last updated: 2026-08-11
+- Last updated: 2026-08-12
 - Depends on: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Related: `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md`
 - Supersedes: `archive/118_VAULT_FOLDER_SPEC.md`
@@ -27,10 +27,11 @@ does not change the organization schema or membership model in Spec 120.
 
 User-owned pages use these routes:
 
-| Route       | Contract                                                                   |
-| ----------- | -------------------------------------------------------------------------- |
-| `/vault`    | Show all current organizations as sections and their vaults.               |
-| `/settings` | Show profile, sign-in methods, MCP grants, sign-out, and account deletion. |
+| Route                   | Contract                                                                                  |
+| ----------------------- | ----------------------------------------------------------------------------------------- |
+| `/vault`                | Show all current organizations as sections and their vaults.                              |
+| `/connect-organization` | Find visible Samebase GitHub App installations and connect one verified repository owner. |
+| `/settings`             | Show profile, sign-in methods, MCP grants, sign-out, and account deletion.                |
 
 Organization-owned pages use these routes:
 
@@ -68,7 +69,7 @@ sees a static `All vaults` label. The switch control contains these items:
 
 1. `All vaults`
 2. Current organizations, sorted by owner login
-3. `Install GitHub App`
+3. `Connect organization`
 
 The switch keeps the same organization section when the target route supports it. A switch from a
 vault route opens the target organization's vault list. Each switch creates a normal browser history
@@ -77,7 +78,30 @@ entry. Back, Forward, reload, and direct links read the owner from the route.
 The right navigation pane uses the route owner. Below the context control, it provides `Vaults`,
 `Providers`, `New app`, `Connect repository`, `Members`, and `Organization settings` in that order.
 Shared account navigation provides All vaults and Account settings. The global vault page always
-provides Install GitHub App.
+provides Connect organization.
+
+## Organization Connection
+
+`/connect-organization` is a user-global route with the standard right navigation pane and no
+organization context. The page first asks the Samebase user to authorize GitHub. Samebase then lists
+the environment's GitHub App installations that this GitHub user can access.
+
+GitHub installation visibility does not authorize Samebase organization creation. Each list item
+uses this order:
+
+1. If the Samebase user already has membership, show `Connected to Samebase` and an `Open` action.
+2. If GitHub does not verify the exact personal owner or a live organization administrator, show
+   `Owner required`. Do not reveal if that GitHub owner is already connected to Samebase.
+3. If GitHub verifies owner authority but the owner is already connected without this user's
+   Samebase membership, show `Invite required` and
+   `Someone already connected this GitHub organization to Samebase. Ask a Samebase organization owner to invite you.`
+4. If GitHub verifies owner authority and the owner is unbound, show `Not connected to Samebase` and
+   a `Connect` action.
+
+A personal owner also needs the exact GitHub sign-in identity that Spec 122 defines. The page gives
+the matching sign-in explanation when that identity is missing or different.
+`Install for another account or organization` starts the GitHub App installation flow. Installing or
+configuring the App is not required when the selected installation already appears in this list.
 
 ## Global Vault Inventory
 
@@ -150,14 +174,20 @@ checks organization or vault access after authentication is ready.
 A user with no memberships can still use `/settings`. On `/vault`, Samebase shows:
 
 - Heading: `No organizations`
-- Body: `Install the Samebase GitHub App for a repository owner.`
-- Action: `Install GitHub App`
+- Body: `Connect a GitHub account or organization to Samebase.`
+- Action: `Connect organization`
 
 ## External Returns
 
 Provider OAuth returns to `/org/:owner/providers`. Checkout and billing-portal sessions return to
 `/org/:owner/settings#billing`. The return value carries the GitHub owner login and no internal
 organization ID.
+
+GitHub installation discovery returns to `/connect-organization` with an opaque, user-bound,
+short-lived session. The session is not a GitHub token, an internal organization ID, or membership
+proof. The route keeps unrelated accepted search and hash values across the external return. After a
+successful connection, Samebase replaces this route in browser history. A Back action does not
+return to the consumed chooser.
 
 The server validates the return route and owner. A full-page return checks current membership before
 it shows organization data. If access changed during the external flow, Samebase keeps the scoped
@@ -223,8 +253,10 @@ Focused route, backend, and UI tests must prove:
 - scoped provider OAuth, checkout, and billing-portal returns
 - user-owned sign-in methods and MCP clients in user settings
 - personal repository authorization only on a personal owner's organization providers route
+- connection discovery, Open, Invite required, Owner required, Connect, and final race states
 - no internal organization ID in public links or messages
 
 Screenshot coverage must include the global inventory, one-organization and several-organization
-context, organization settings, user settings, zero membership, lost organization access, and lost
-vault access. Final UI acceptance uses the canonical Linux visual test command.
+context, organization connection, organization settings, user settings, zero membership, lost
+organization access, and lost vault access. Final UI acceptance uses the canonical Linux visual test
+command.

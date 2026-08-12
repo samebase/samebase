@@ -138,6 +138,12 @@ vi.mock("@/components/ConnectRepository", () => ({
   ),
 }));
 
+vi.mock("@/components/ConnectOrganizationPage", () => ({
+  ConnectOrganizationPage: () => (
+    <div data-testid="connect-organization-page">Connect organization page</div>
+  ),
+}));
+
 vi.mock("@/components/NewAppPage", () => ({
   NewAppPage: ({ organization }: { organization: ViewerOrganization }) => (
     <div data-testid="new-app-page" data-owner={organization.githubOwnerLogin}>
@@ -851,6 +857,15 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector(`[data-testid="${testId}"]`)?.getAttribute("data-owner"),
     ).toBe("samebase");
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders organization connection through a global route", async () => {
+    await renderRoute("/connect-organization?github-connection-session=test-session");
+
+    expect(
+      rootElement?.querySelector('[data-testid="connect-organization-page"]')?.textContent,
+    ).toBe("Connect organization page");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

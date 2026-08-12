@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase auth/backend
-- Last updated: 2026-08-10
+- Last updated: 2026-08-12
 - Related:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -102,11 +102,20 @@ The GitHub OAuth App creates or refreshes only the first record. It requests `re
 always asks the user to select an account, and discards the OAuth access token. The GitHub App flow
 supplies repository permissions through the other two relationship types.
 
-The target-neutral new-install flow can start without a GitHub sign-in row. It records the current
-GitHub `providerAccountId`, if one exists, in its one-use setup state. A returned personal target
-succeeds only when that recorded ID, the current sign-in row, the returned owner ID, and the
-returned GitHub App user ID all match. Connecting GitHub after setup starts cannot make that setup
-valid.
+The target-neutral new-install and `/connect-organization` discovery flows can start without a
+GitHub sign-in row. They record the current GitHub `providerAccountId`, if one exists, in their
+one-use setup state. A selected personal target succeeds only when that recorded ID, the current
+sign-in row, the owner ID, and the GitHub App user ID all match. The connection action repeats the
+live GitHub installation and personal-owner checks. Connecting GitHub after either flow starts
+cannot make that flow valid.
+
+The discovery callback stores its GitHub App user credential only in a server-side, user-bound,
+ten-minute connection session. The browser receives a random session handle. It never receives the
+GitHub token. A successful personal-owner connection moves the credential into the existing personal
+user-authorization record. Organization connection, expiry, replacement, and account deletion
+attempt upstream revocation when the temporary authorization is consumed or removed. A successful
+connection replaces the temporary credential with a token-free completed result for the remaining
+retry window.
 
 A personal reconnect and an explicit personal authorization know their target. They reject a missing
 or different GitHub sign-in identity before redirect, record the matching stable ID, and check it

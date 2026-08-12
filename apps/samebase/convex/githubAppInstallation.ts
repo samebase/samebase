@@ -211,7 +211,10 @@ export const createSetupState = internalMutation({
     if (args.returnToPath !== undefined && !isSafeGitHubAppReturnToPath(args.returnToPath)) {
       throw new Error("GitHub App setup return path is invalid.");
     }
-    if ((args.purpose !== "installation") !== (args.organizationId !== undefined)) {
+    if (
+      (args.purpose === "installation" || args.purpose === "organization_connection") ===
+      (args.organizationId !== undefined)
+    ) {
       throw new Error("GitHub App setup state organization does not match its purpose.");
     }
 
@@ -502,6 +505,29 @@ export const getGitHubAppInstallationUrl = mutation({
   },
 });
 
+export const getGitHubOrganizationConnectionUrl = mutation({
+  access: "access_app_create",
+  args: { returnToPath: optional(string()) },
+  returns: vGitHubAuthorizationStart,
+  handler: async (ctx, args) => {
+    const configuration = getGitHubAppConfiguration();
+    const state = await createGitHubAppSetupState(
+      ctx,
+      ctx.viewer.userId,
+      "organization_connection",
+      args.returnToPath,
+    );
+    return {
+      callbackOrigin: new URL(configuration.oauthCallbackUrl).origin,
+      setupUrl: buildGitHubUserAuthorizationUrl({
+        clientId: configuration.clientId,
+        redirectUri: configuration.oauthCallbackUrl,
+        state,
+      }),
+    };
+  },
+});
+
 export const getGitHubAppReconnectUrl = mutation({
   access: "access_app_create",
   args: {
@@ -578,6 +604,7 @@ function readGitHubAuthorizationProvider(
     case "installation":
     case "installation_reconnect":
       return "github-app";
+    case "organization_connection":
     case "user_authorization":
       return "github-user";
     default:
@@ -807,6 +834,48 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
           outcome: completion.status,
           purpose: setupState.purpose,
         });
+        break;
+      }
+      case "organization_connection": {
+        const authorization = await verifyGitHubUserAuthorization({ code, state });
+        try {
+          const stored = await ctx.runMutation(internal.githubAppConnection.storeCredential, {
+            setupStateId: setupState.setupStateId,
+            state,
+            githubUserId: authorization.githubUserId,
+            githubUserLogin: authorization.githubUserLogin,
+            accessToken: authorization.accessToken,
+            accessTokenExpiresAt: authorization.accessTokenExpiresAt,
+            refreshToken: authorization.refreshToken,
+            refreshTokenExpiresAt: authorization.refreshTokenExpiresAt,
+          });
+          if (stored.status === "access_lost") {
+            await revokeUncommittedGitHubUserToken(authorization.accessToken);
+            completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+              provider,
+              code: "access-changed",
+            });
+            console.log("github:authorization:callback_completed", {
+              outcome: stored.status,
+              purpose: setupState.purpose,
+            });
+            break;
+          }
+          if (stored.replacedAccessToken !== undefined) {
+            await revokeUncommittedGitHubUserToken(stored.replacedAccessToken);
+          }
+          const connectionUrl = new URL(returnUrl);
+          connectionUrl.pathname = "/connect-organization";
+          connectionUrl.searchParams.set("github-connection-session", stored.session);
+          completionReturnUrl = connectionUrl.toString();
+          console.log("github:authorization:callback_completed", {
+            outcome: stored.status,
+            purpose: setupState.purpose,
+          });
+        } catch (error) {
+          await revokeUncommittedGitHubUserToken(authorization.accessToken);
+          throw error;
+        }
         break;
       }
       default:

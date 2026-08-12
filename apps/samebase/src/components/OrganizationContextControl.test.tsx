@@ -6,7 +6,6 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { OrganizationContextControl } from "./OrganizationContextControl";
-import type { GitHubAuthorizationSetup } from "@/lib/githubAppSetupFlow";
 
 const { act } = React;
 
@@ -17,24 +16,18 @@ type TestOrganizationContext = {
 
 const testState = vi.hoisted<{
   context: TestOrganizationContext;
-  getInstallationUrl: ReturnType<typeof vi.fn<() => Promise<GitHubAuthorizationSetup>>>;
   location: {
     hash: string;
     search: Record<string, unknown>;
   };
-  navigate: ReturnType<typeof vi.fn<(options: { href: string }) => Promise<void>>>;
-  openSetup: ReturnType<
-    typeof vi.fn<(getSetup: () => Promise<GitHubAuthorizationSetup>) => Promise<void>>
-  >;
+  navigate: ReturnType<typeof vi.fn<(options: { href?: string; to?: string }) => Promise<void>>>;
 }>(() => ({
   context: {
     organizations: undefined,
     surface: { kind: "allVaults" },
   },
-  getInstallationUrl: vi.fn<() => Promise<GitHubAuthorizationSetup>>(),
   location: { hash: "", search: {} },
-  navigate: vi.fn<(options: { href: string }) => Promise<void>>(),
-  openSetup: vi.fn<(getSetup: () => Promise<GitHubAuthorizationSetup>) => Promise<void>>(),
+  navigate: vi.fn<(options: { href?: string; to?: string }) => Promise<void>>(),
 }));
 
 function fakeOrganizationId(value: string): Id<"organizations"> {
@@ -61,21 +54,6 @@ vi.mock("@/lib/organizationContext", async (importOriginal) => {
     useOrganizationContext: () => testState.context,
   };
 });
-
-vi.mock("@/lib/githubAppSetupFlow", () => ({
-  openGitHubAppSetupPopup: (
-    _provider: "github-app" | "github-user",
-    getSetup: () => Promise<GitHubAuthorizationSetup>,
-  ) => testState.openSetup(getSetup),
-}));
-
-vi.mock("@/lib/currentRootRelativeUrl", () => ({
-  getCurrentRootRelativeUrl: () => "/vault?prod-ui",
-}));
-
-vi.mock("@/components/ui/use-toast", () => ({
-  toast: vi.fn(),
-}));
 
 vi.mock("@/components/ui/dropdown-menu", () => ({
   DropdownMenu: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -113,14 +91,6 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
   };
 });
 
-vi.mock("convex/react", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("convex/react")>();
-  return {
-    ...actual,
-    useMutation: () => testState.getInstallationUrl,
-  };
-});
-
 let root: Root | null = null;
 let rootElement: HTMLDivElement | null = null;
 
@@ -138,19 +108,8 @@ describe("OrganizationContextControl", () => {
     testState.context.surface = { kind: "allVaults" };
     testState.location.hash = "";
     testState.location.search = {};
-    testState.getInstallationUrl.mockReset();
-    testState.getInstallationUrl.mockResolvedValue({
-      callbackOrigin: "https://api.samebase.com",
-      setupUrl: "https://github.com/apps/samebase/installations/new",
-    });
     testState.navigate.mockReset();
     testState.navigate.mockResolvedValue(undefined);
-    testState.openSetup.mockReset();
-    testState.openSetup.mockImplementation(
-      async (getSetup: () => Promise<GitHubAuthorizationSetup>) => {
-        await getSetup();
-      },
-    );
   });
 
   afterEach(async () => {
@@ -178,17 +137,14 @@ describe("OrganizationContextControl", () => {
     expect(menuItems.map((item) => item.textContent)).toEqual([
       "All vaults",
       "samebase",
-      "Install GitHub App",
+      "Connect organization",
     ]);
     await act(async () => {
       menuItems[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await Promise.resolve();
     });
 
-    expect(testState.openSetup).toHaveBeenCalledOnce();
-    expect(testState.getInstallationUrl).toHaveBeenCalledWith({
-      returnToPath: "/vault?prod-ui",
-    });
+    expect(testState.navigate).toHaveBeenCalledWith({ to: "/connect-organization" });
   });
 
   it("shows All vaults for zero organizations", async () => {
@@ -231,7 +187,7 @@ describe("OrganizationContextControl", () => {
       "All vaults",
       "zeta",
       "alpha",
-      "Install GitHub App",
+      "Connect organization",
     ]);
     await act(async () => {
       menuItems[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));

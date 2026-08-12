@@ -24,6 +24,11 @@ const routeAccessMetadataByPath = {
     access: "access_account_deletion",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
+  "/connect-organization": {
+    access: "access_app_create",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+    pathSuggestion: "hidden",
+  },
   "/admin/account-deletions": {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },

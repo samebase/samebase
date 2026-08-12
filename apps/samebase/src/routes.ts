@@ -22,6 +22,7 @@ import {
 import { SETTINGS_ROUTE } from "./lib/settingsRoute";
 import { ACCOUNT_DELETION_ROUTE } from "./lib/accountDeletionRoute";
 import { ORGANIZATION_INVITATION_ROUTE } from "./lib/organizationInvitationRoute";
+import { CONNECT_ORGANIZATION_ROUTE } from "./lib/connectOrganizationRoute";
 
 /**
  * Use virtual file routes so the generated route tree can preserve the current
@@ -66,6 +67,7 @@ export const routes = rootRoute("root.tsx", [
   route(ORGANIZATION_MEMBERS_ROUTE, "org-members.tsx"),
   route(ORGANIZATION_SETTINGS_ROUTE, "org-settings.tsx"),
   route(ORGANIZATION_INVITATION_ROUTE, "invite.tsx"),
+  route(CONNECT_ORGANIZATION_ROUTE, "connect-organization.tsx"),
   route(SETTINGS_ROUTE, "settings.tsx"),
   route(ACCOUNT_DELETION_ROUTE, "account-deletion.tsx"),
   route("/admin/account-deletions", "admin-account-deletions.tsx"),

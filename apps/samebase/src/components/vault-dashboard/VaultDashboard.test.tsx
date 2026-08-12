@@ -1469,12 +1469,13 @@ describe("VaultOverviewVaultPickerPane", () => {
 
     expect(loadingMarkup).toContain('aria-label="Loading vaults"');
     expect(emptyMarkup).toContain("No organizations");
-    expect(emptyMarkup).toContain("Install the Samebase GitHub App for a repository owner.");
-    expect(emptyMarkup).toContain("Install GitHub App");
+    expect(emptyMarkup).toContain("Connect a GitHub account or organization to Samebase.");
+    expect(emptyMarkup).toContain("Connect organization");
+    expect(emptyMarkup).toContain('href="/connect-organization"');
     expect(emptyOrganizationMarkup).toContain("ada");
     expect(emptyOrganizationMarkup).toContain('<nav aria-label="Vaults"');
     expect(emptyOrganizationMarkup).toContain("No vaults");
-    expect(emptyOrganizationMarkup).not.toContain("Install GitHub App");
+    expect(emptyOrganizationMarkup).not.toContain("Connect organization");
   });
 });
 

@@ -59,9 +59,9 @@ test("shows the explicit zero-membership global inventory", async ({ page }, tes
   const emptyInventory = page.getByRole("heading", { name: "No organizations" }).locator("..");
   await expect(emptyInventory).toBeVisible();
   await expect(
-    page.getByText("Install the Samebase GitHub App for a repository owner.", { exact: true }),
+    page.getByText("Connect a GitHub account or organization to Samebase.", { exact: true }),
   ).toBeVisible();
-  await expect(emptyInventory.getByRole("button", { name: "Install GitHub App" })).toBeVisible();
+  await expect(emptyInventory.getByRole("button", { name: "Connect organization" })).toBeVisible();
   await expect(page).toHaveScreenshot("organization-context-zero-membership.png", {
     ...screenshotOptions,
     fullPage: true,
@@ -71,7 +71,7 @@ test("shows the explicit zero-membership global inventory", async ({ page }, tes
   const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
   const contextControl = rightPane.getByTestId("organization-context-control");
   await expect(contextControl.getByText("All vaults", { exact: true })).toBeVisible();
-  await expect(contextControl.getByRole("button", { name: "Install GitHub App" })).toBeVisible();
+  await expect(contextControl.getByRole("button", { name: "Connect organization" })).toBeVisible();
   await expect(rightPane.getByRole("navigation", { name: "Organization" })).toHaveCount(0);
 });
 
@@ -123,7 +123,7 @@ test("groups the global inventory and exposes every organization context", async
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-alpha" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-beta" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-zeta" })).toBeVisible();
-  await expect(contextMenu.getByRole("menuitem", { name: "Install GitHub App" })).toBeVisible();
+  await expect(contextMenu.getByRole("menuitem", { name: "Connect organization" })).toBeVisible();
   const renderedMarkup = await page.locator("body").innerHTML();
   for (const organizationId of fixture.organizationIds) {
     expect(renderedMarkup).not.toContain(organizationId);

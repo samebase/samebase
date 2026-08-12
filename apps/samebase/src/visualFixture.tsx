@@ -94,6 +94,7 @@ import {
   OrganizationMembersPageVisualFixture,
   type OrganizationMembersPageVisualMode,
 } from "@/components/OrganizationMembersPageVisualFixture";
+import { ConnectOrganizationPageVisualFixture } from "@/components/ConnectOrganizationPageVisualFixture";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
@@ -121,7 +122,8 @@ type VisualFixtureMode =
   | AccountDeletionStatusVisualMode
   | ConnectRepositoryVisualMode
   | NewAppPageVisualMode
-  | OrganizationMembersPageVisualMode;
+  | OrganizationMembersPageVisualMode
+  | "connect-organization-page";
 
 type VisualFixtureSelection =
   | {
@@ -252,6 +254,9 @@ const NEW_APP_VISUAL_MODES = [
 const ORGANIZATION_MEMBERS_VISUAL_MODES = [
   "organization-members-page-owner",
 ] as const satisfies readonly OrganizationMembersPageVisualMode[];
+const CONNECT_ORGANIZATION_VISUAL_MODES = [
+  "connect-organization-page",
+] as const satisfies readonly VisualFixtureMode[];
 const MISC_VISUAL_MODES = [
   "account-deletion-running",
   "account-deletion-attention",
@@ -323,6 +328,10 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "Organization Members",
     modes: ORGANIZATION_MEMBERS_VISUAL_MODES,
+  },
+  {
+    label: "Connect Organization",
+    modes: CONNECT_ORGANIZATION_VISUAL_MODES,
   },
   {
     label: "Misc",
@@ -465,6 +474,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "organization-members-page-owner") {
     return <OrganizationMembersPageVisualFixture />;
+  }
+
+  if (mode === "connect-organization-page") {
+    return <ConnectOrganizationPageVisualFixture />;
   }
 
   if (mode === "button") {
