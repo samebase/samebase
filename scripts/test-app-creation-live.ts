@@ -65,6 +65,11 @@ function main(): void {
   if (!originState) {
     fail("No active pnpm dev URL exists for this worktree. Start `pnpm dev`, then try again.");
   }
+  try {
+    process.kill(originState.processId, 0);
+  } catch {
+    fail("The recorded pnpm dev process is not running. Restart `pnpm dev`, then try again.");
+  }
 
   const origin = originState.origin;
   let parsedOrigin: URL;

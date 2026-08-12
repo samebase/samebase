@@ -6,12 +6,14 @@ import { signInIfNeeded } from "./liveHelpers";
 const TEMP_RESOURCE_PREFIX = process.env.PLAYWRIGHT_TEMP_RESOURCE_PREFIX?.trim() || "tmp-e19d-live";
 const EXISTING_REPOSITORY_FULL_NAME = process.env.PLAYWRIGHT_EXISTING_REPOSITORY_FULL_NAME?.trim();
 const APP_CREATION_INTENT = "app-create";
-// Playwright gives explicit fixture teardown its own timeout slot. Keep the creation and cleanup
-// budgets separate so a creation timeout cannot cancel provider cleanup, while both total two minutes.
-const APP_CREATION_PHASE_TIMEOUT_MS = 75_000;
-const APP_PROVISIONING_TIMEOUT_MS = 60_000;
+const APP_PREFLIGHT_PHASE_TIMEOUT_MS = 90_000;
+// The submit, provisioning, and fixture teardown phases have separate deadlines. After submit,
+// their budgets total two minutes, and a product timeout cannot cancel provider cleanup.
+const APP_SUBMIT_PHASE_TIMEOUT_MS = 15_000;
+const APP_PROVISIONING_PHASE_TIMEOUT_MS = 60_000;
+const APP_PROVISIONING_TIMEOUT_MS = 40_000;
 const APP_CLEANUP_FIXTURE_TIMEOUT_MS = 45_000;
-const APP_CLEANUP_WORKFLOW_TIMEOUT_MS = 30_000;
+const APP_CLEANUP_WORKFLOW_TIMEOUT_MS = 25_000;
 const APP_DASHBOARD_TIMEOUT_MS = 15_000;
 const TEST_CONVEX_TEAM_ID = "522530";
 const TEST_CONVEX_TEAM_SLUG = "samebase-live-tests";
@@ -723,14 +725,12 @@ async function removeCreatedApp(
 
 type AppCreationCleanupController = {
   markCreationStarted(repositoryFullName: string): void;
-  recordProductFailure(error: unknown): void;
 };
 
 const test = base.extend<{ appCreationCleanup: AppCreationCleanupController }>({
   appCreationCleanup: [
     async ({ page }, use) => {
       let startedRepositoryFullName: string | null = null;
-      let productFailure: unknown = null;
 
       await use({
         markCreationStarted(repositoryFullName) {
@@ -738,9 +738,6 @@ const test = base.extend<{ appCreationCleanup: AppCreationCleanupController }>({
             throw new Error("The app-creation cleanup target was already registered.");
           }
           startedRepositoryFullName = repositoryFullName;
-        },
-        recordProductFailure(error) {
-          productFailure = error;
         },
       });
 
@@ -754,18 +751,17 @@ const test = base.extend<{ appCreationCleanup: AppCreationCleanupController }>({
           "The submit started, but the dashboard did not expose the test vault for supported cleanup.",
         );
       }
-      const recordedFailure = readProvisioningFailure(cleanupContract);
-      const recordedFailureMessage = recordedFailure
-        ? `App provisioning failed during ${recordedFailure.phase} step ${recordedFailure.step}: ${recordedFailure.message}`
-        : null;
-      const productFailureMessage =
-        productFailure instanceof Error
-          ? productFailure.message
-          : typeof productFailure === "string"
-            ? productFailure
-            : null;
-      const productFailureIncludesRecordedFailure =
-        recordedFailureMessage !== null && productFailureMessage?.includes(recordedFailureMessage);
+      let provisioningFailure: Error | null = null;
+      try {
+        const recordedFailure = readProvisioningFailure(cleanupContract);
+        if (recordedFailure) {
+          provisioningFailure = new Error(
+            `App provisioning failed during ${recordedFailure.phase} step ${recordedFailure.step}: ${recordedFailure.message}`,
+          );
+        }
+      } catch (error) {
+        provisioningFailure = error instanceof Error ? error : new Error(String(error));
+      }
       try {
         await removeCreatedApp(page, startedRepositoryFullName, cleanupContract);
       } catch (error) {
@@ -775,16 +771,16 @@ const test = base.extend<{ appCreationCleanup: AppCreationCleanupController }>({
             : typeof error === "string"
               ? error
               : "Unknown dashboard cleanup failure.";
-        if (recordedFailureMessage !== null && !productFailureIncludesRecordedFailure) {
+        if (provisioningFailure) {
           throw new Error(
-            `${recordedFailureMessage}\nFail-closed dashboard cleanup also failed: ${cleanupMessage}`,
+            `${provisioningFailure.message}\nFail-closed dashboard cleanup also failed: ${cleanupMessage}`,
             { cause: error },
           );
         }
         throw error;
       }
-      if (recordedFailureMessage !== null && !productFailureIncludesRecordedFailure) {
-        throw new Error(recordedFailureMessage);
+      if (provisioningFailure) {
+        throw provisioningFailure;
       }
     },
     {
@@ -810,7 +806,8 @@ test.describe("vault create app live flow", () => {
     page,
     appCreationCleanup,
   }, testInfo) => {
-    test.setTimeout(APP_CREATION_PHASE_TIMEOUT_MS);
+    const testBodyStartedAt = Date.now();
+    test.setTimeout(APP_PREFLIGHT_PHASE_TIMEOUT_MS);
     test.skip(
       testInfo.project.name !== "chromium-desktop",
       "This live test mutates external state, so it runs once on the desktop project.",
@@ -868,86 +865,83 @@ test.describe("vault create app live flow", () => {
       contentType: "application/json",
     });
 
+    testInfo.setTimeout(Date.now() - testBodyStartedAt + APP_SUBMIT_PHASE_TIMEOUT_MS);
+    appCreationCleanup.markCreationStarted(repositoryFullName);
+    await createButton.click();
+
     try {
-      appCreationCleanup.markCreationStarted(repositoryFullName);
-      await createButton.click();
-
-      try {
-        await expect(page).toHaveURL(
-          new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`),
-          { timeout: 30_000 },
-        );
-      } catch (error) {
-        const createErrors = await page.locator(".text-red-600").allTextContents();
-        const createError = createErrors.at(-1)?.trim();
-        if (createError) {
-          throw new Error(`App creation failed after submit: ${createError}`, { cause: error });
-        }
-        throw error;
-      }
-
-      await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
-      await signInIfNeeded(page, "/vault?dev");
-      await selectTemporaryVault(page, repositoryFullName);
-
-      const contract = await waitForVaultProvisioning(page, repositoryFullName);
-      expect(contract).toMatchObject({
-        repositoryFullName,
-        convexTeamId: TEST_CONVEX_TEAM_ID,
-        cloudflareAccountId: TEST_CLOUDFLARE_ACCOUNT_ID,
-        sourceSetup: { status: "ready" },
-        providerSetup: { status: "ready" },
-        providerPlan: {
-          convex: {
-            state: "created",
-            projectName: expectedConvexProjectName,
-          },
-          cloudflare: {
-            state: "created",
-            workerName: expectedCloudflareWorkerName,
-          },
-        },
-        isSamebaseManaged: true,
-        hasConnectedGitHubRepository: true,
-        hasConvexProvision: true,
-        hasCloudflareProvision: true,
-        canRemoveConvexProvision: true,
-        canRemoveCloudflareProvision: true,
-        convexProjects: [
-          {
-            teamId: TEST_CONVEX_TEAM_ID,
-            projectId: expect.any(String),
-          },
-        ],
-        cloudflareWorkers: [
-          {
-            accountId: TEST_CLOUDFLARE_ACCOUNT_ID,
-            workerName: expectedCloudflareWorkerName,
-            workerTag: expect.any(String),
-          },
-        ],
-      });
-
-      const vaultLink = vaultListLink(page, repositoryFullName);
-      await expect(vaultLink).not.toHaveAttribute(
-        "data-vault-status",
-        /^(?:Needs attention|Setting up)$/,
+      await expect(page).toHaveURL(
+        new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`),
+        { timeout: APP_SUBMIT_PHASE_TIMEOUT_MS },
       );
-
-      const repositoryLink = page.getByRole("link", {
-        name: `Open ${repositoryFullName} on GitHub`,
-      });
-
-      await expect(repositoryLink).toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
-
-      await testInfo.attach("created-repository-link", {
-        body: (await repositoryLink.first().getAttribute("href")) ?? "",
-        contentType: "text/plain",
-      });
     } catch (error) {
-      appCreationCleanup.recordProductFailure(error);
+      const createErrors = await page.locator(".text-red-600").allTextContents();
+      const createError = createErrors.at(-1)?.trim();
+      if (createError) {
+        throw new Error(`App creation failed after submit: ${createError}`, { cause: error });
+      }
       throw error;
     }
+
+    testInfo.setTimeout(Date.now() - testBodyStartedAt + APP_PROVISIONING_PHASE_TIMEOUT_MS);
+    await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
+    await signInIfNeeded(page, "/vault?dev");
+    await selectTemporaryVault(page, repositoryFullName);
+
+    const contract = await waitForVaultProvisioning(page, repositoryFullName);
+    expect(contract).toMatchObject({
+      repositoryFullName,
+      convexTeamId: TEST_CONVEX_TEAM_ID,
+      cloudflareAccountId: TEST_CLOUDFLARE_ACCOUNT_ID,
+      sourceSetup: { status: "ready" },
+      providerSetup: { status: "ready" },
+      providerPlan: {
+        convex: {
+          state: "created",
+          projectName: expectedConvexProjectName,
+        },
+        cloudflare: {
+          state: "created",
+          workerName: expectedCloudflareWorkerName,
+        },
+      },
+      isSamebaseManaged: true,
+      hasConnectedGitHubRepository: true,
+      hasConvexProvision: true,
+      hasCloudflareProvision: true,
+      canRemoveConvexProvision: true,
+      canRemoveCloudflareProvision: true,
+      convexProjects: [
+        {
+          teamId: TEST_CONVEX_TEAM_ID,
+          projectId: expect.any(String),
+        },
+      ],
+      cloudflareWorkers: [
+        {
+          accountId: TEST_CLOUDFLARE_ACCOUNT_ID,
+          workerName: expectedCloudflareWorkerName,
+          workerTag: expect.any(String),
+        },
+      ],
+    });
+
+    const vaultLink = vaultListLink(page, repositoryFullName);
+    await expect(vaultLink).not.toHaveAttribute(
+      "data-vault-status",
+      /^(?:Needs attention|Setting up)$/,
+    );
+
+    const repositoryLink = page.getByRole("link", {
+      name: `Open ${repositoryFullName} on GitHub`,
+    });
+
+    await expect(repositoryLink).toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
+
+    await testInfo.attach("created-repository-link", {
+      body: (await repositoryLink.first().getAttribute("href")) ?? "",
+      contentType: "text/plain",
+    });
   });
 
   test("connects an existing repository and wires Cloudflare plus Convex through dashboard actions", async ({
