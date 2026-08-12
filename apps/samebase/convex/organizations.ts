@@ -216,7 +216,7 @@ export const createOrReconnectVerifiedOrganization = internalMutation({
 
 /** Delete one organization while its last active owner is still authenticated. */
 export const deleteOrganization = mutation({
-  access: "access_user_preferences",
+  access: "access_dashboard",
   args: {
     organizationId: id("organizations"),
     deletionConfirmationText: string(),
@@ -300,10 +300,10 @@ export const deleteOrganization = mutation({
         query.eq("organizationId", organization._id),
       )
       .take(ORGANIZATION_DELETION_ROW_LIMIT + 1);
-    if (
-      deletionRuns.length > ORGANIZATION_DELETION_ROW_LIMIT ||
-      deletionRuns.some((run) => run.state !== "succeeded")
-    ) {
+    if (deletionRuns.length > ORGANIZATION_DELETION_ROW_LIMIT) {
+      throw new ConvexError("This organization cannot be deleted automatically.");
+    }
+    if (deletionRuns.some((run) => run.state !== "succeeded")) {
       throw new ConvexError("Finish organization vault cleanup before deletion.");
     }
 
@@ -365,7 +365,7 @@ export const deleteOrganization = mutation({
       providerOAuthStates,
     ];
     if (cleanupRows.some((rows) => rows.length > ORGANIZATION_DELETION_ROW_LIMIT)) {
-      throw new ConvexError("Organization data cleanup requires Samebase support.");
+      throw new ConvexError("This organization cannot be deleted automatically.");
     }
 
     await deleteRows(ctx, deletionEvents);

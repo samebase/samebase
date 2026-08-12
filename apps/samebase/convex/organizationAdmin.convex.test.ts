@@ -266,6 +266,24 @@ describe("organization deletion", () => {
     ).resolves.not.toBeNull();
   });
 
+  it("rejects an unapproved owner", async () => {
+    const t = makeConvexTest();
+    const seed = await seedDeletableOrganization(t, "unapproved");
+    await t.run(async (ctx) => {
+      await ctx.db.patch(seed.ownerId, { isApproved: false });
+    });
+
+    await expect(
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
+        organizationId: seed.organizationId,
+        deletionConfirmationText: "organization-unapproved",
+      }),
+    ).rejects.toThrow("Access denied");
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(seed.organizationId)),
+    ).resolves.not.toBeNull();
+  });
+
   it("rejects an organization with another member", async () => {
     const t = makeConvexTest();
     const seed = await seedDeletableOrganization(t, "shared");
@@ -374,5 +392,46 @@ describe("organization deletion", () => {
         deletionConfirmationText: "organization-provisioning",
       }),
     ).rejects.toThrow("Finish organization vault cleanup before deletion.");
+  });
+
+  it("rejects excessive completed vault deletion history without asking for more cleanup", async () => {
+    const t = makeConvexTest();
+    const seed = await seedDeletableOrganization(t, "deletion-history");
+    await t.run(async (ctx) => {
+      const vaultId = await ctx.db.insert("vaults", {
+        state: "not_connected",
+        organizationId: seed.organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
+        deletion: { state: "not_deleting" },
+      });
+      for (let runIndex = 0; runIndex <= 500; runIndex += 1) {
+        await ctx.db.insert("workflow_vaultDeletion_runs", {
+          state: "succeeded",
+          organizationId: seed.organizationId,
+          userId: seed.ownerId,
+          vaultId,
+          repositoryFullName: `organization-deletion-history/old-vault-${runIndex}`,
+          createdAt: runIndex,
+          updatedAt: runIndex,
+          attempt: { kind: "initial" },
+          workflow: { state: "started", workflowId: `old-vault-deletion-${runIndex}` },
+          currentStep: "finish",
+          snapshot: { state: "scrubbed_after_success" },
+          completedAt: runIndex,
+        });
+      }
+      await ctx.db.delete(vaultId);
+    });
+
+    await expect(
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
+        organizationId: seed.organizationId,
+        deletionConfirmationText: "organization-deletion-history",
+      }),
+    ).rejects.toThrow("This organization cannot be deleted automatically.");
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(seed.organizationId)),
+    ).resolves.not.toBeNull();
   });
 });

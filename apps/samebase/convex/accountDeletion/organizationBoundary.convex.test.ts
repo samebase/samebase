@@ -781,6 +781,41 @@ describe("account deletion organization boundary", () => {
     expect(deletedUser.deletedAt).toBe(snapshot.run.completedAt);
   });
 
+  it("rejects final identity deletion when an older run still has an organization membership", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const membershipId = await t.run(async (ctx) => {
+      return await ctx.db.insert("organizationMemberships", {
+        organizationId: ids.organizationId,
+        userId: ids.deletingUserId,
+        role: "member",
+      });
+    });
+    await prepareIdentityDeletionData(t, ids.runId);
+    await t.mutation(internal.accountDeletion.workflow.recordIdentityDeletionStart, {
+      runId: ids.runId,
+      workflowId,
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).rejects.toThrow("Organization membership remains during account deletion.");
+
+    await expect(
+      t.run(async (ctx) => ({
+        membership: await ctx.db.get(membershipId),
+        run: await ctx.db.get(ids.runId),
+        user: await ctx.db.get(ids.deletingUserId),
+      })),
+    ).resolves.toMatchObject({
+      membership: { userId: ids.deletingUserId },
+      run: { state: "running", currentStep: "delete_identity" },
+      user: { state: "deleting", runId: ids.runId },
+    });
+  });
+
   it("rejects final identity deletion when the user is not deleting", async () => {
     const { ids, t } = await seedRunningDeletion();
     await t.mutation(internal.accountDeletion.workflow.recordIdentityDeletionStart, {
