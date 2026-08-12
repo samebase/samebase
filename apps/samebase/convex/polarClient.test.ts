@@ -1,52 +1,142 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 
-import { readPolarProductCatalog, resolvePolarProduct } from "./polarClient";
+import {
+  readPolarCheckoutProductId,
+  readPolarProductCatalog,
+  readPolarProductCatalogFromEntries,
+  resolvePolarProduct,
+  type PolarProductCatalog,
+} from "./polarClient";
 
-function stubPolarProductCatalog() {
-  vi.stubEnv("POLAR_GITHUB_ORGANIZATION_FREE_MONTHLY_PRODUCT_ID", "organization-free");
-  vi.stubEnv("POLAR_GITHUB_ORGANIZATION_PRO_MONTHLY_PRODUCT_ID", "organization-pro");
-  vi.stubEnv("POLAR_GITHUB_USER_FREE_MONTHLY_PRODUCT_ID", "user-free");
-  vi.stubEnv("POLAR_GITHUB_USER_PRO_MONTHLY_PRODUCT_ID", "user-pro");
+const catalogEntries = [
+  {
+    productId: "organization-free-v1",
+    ownerType: "organization",
+    plan: "free",
+    version: 1,
+    availableForCheckout: false,
+  },
+  {
+    productId: "organization-free-v2",
+    ownerType: "organization",
+    plan: "free",
+    version: 2,
+    availableForCheckout: true,
+  },
+  {
+    productId: "organization-pro-v1",
+    ownerType: "organization",
+    plan: "pro",
+    version: 1,
+    availableForCheckout: true,
+  },
+  {
+    productId: "user-free-v1",
+    ownerType: "user",
+    plan: "free",
+    version: 1,
+    availableForCheckout: true,
+  },
+  {
+    productId: "user-pro-v1",
+    ownerType: "user",
+    plan: "pro",
+    version: 1,
+    availableForCheckout: true,
+  },
+] satisfies PolarProductCatalog;
+
+function requireCatalog(entries: PolarProductCatalog): PolarProductCatalog {
+  const catalog = readPolarProductCatalogFromEntries(entries);
+  if (catalog === null) {
+    throw new Error("Polar product catalog is required.");
+  }
+  return catalog;
 }
 
-afterEach(() => {
-  vi.unstubAllEnvs();
-});
-
 describe("Polar product catalog", () => {
-  it("maps every configured owner and plan product", () => {
-    stubPolarProductCatalog();
+  it("keeps billing unavailable until real product IDs are recorded", () => {
+    expect(readPolarProductCatalog()).toBeNull();
+  });
 
-    const catalog = readPolarProductCatalog();
-    expect(catalog).not.toBeNull();
-    if (catalog === null) {
-      throw new Error("Polar product catalog is required.");
-    }
+  it("selects current products and recognizes historical products", () => {
+    const catalog = requireCatalog(catalogEntries);
 
-    expect(resolvePolarProduct(catalog, "organization-free")).toEqual({
+    expect(readPolarCheckoutProductId(catalog, "organization", "free")).toBe(
+      "organization-free-v2",
+    );
+    expect(readPolarCheckoutProductId(catalog, "organization", "pro")).toBe("organization-pro-v1");
+    expect(readPolarCheckoutProductId(catalog, "user", "free")).toBe("user-free-v1");
+    expect(readPolarCheckoutProductId(catalog, "user", "pro")).toBe("user-pro-v1");
+    expect(resolvePolarProduct(catalog, "organization-free-v1")).toEqual({
+      productId: "organization-free-v1",
       ownerType: "organization",
       plan: "free",
-    });
-    expect(resolvePolarProduct(catalog, "organization-pro")).toEqual({
-      ownerType: "organization",
-      plan: "pro",
-    });
-    expect(resolvePolarProduct(catalog, "user-free")).toEqual({
-      ownerType: "user",
-      plan: "free",
-    });
-    expect(resolvePolarProduct(catalog, "user-pro")).toEqual({
-      ownerType: "user",
-      plan: "pro",
+      version: 1,
+      availableForCheckout: false,
     });
     expect(resolvePolarProduct(catalog, "unknown-product")).toBeNull();
   });
 
-  it("fails closed when a product is missing or product IDs overlap", () => {
-    expect(readPolarProductCatalog()).toBeNull();
+  it("fails closed when a current product is missing", () => {
+    const missingUserPro = catalogEntries.filter(
+      (entry) => entry.ownerType !== "user" || entry.plan !== "pro",
+    );
 
-    stubPolarProductCatalog();
-    vi.stubEnv("POLAR_GITHUB_USER_PRO_MONTHLY_PRODUCT_ID", "organization-pro");
-    expect(() => readPolarProductCatalog()).toThrow("Polar billing product IDs must be unique.");
+    expect(readPolarProductCatalogFromEntries(missingUserPro)).toBeNull();
+  });
+
+  it("rejects duplicate and malformed catalog entries", () => {
+    expect(() =>
+      readPolarProductCatalogFromEntries([
+        ...catalogEntries,
+        {
+          productId: "user-pro-v1",
+          ownerType: "user",
+          plan: "pro",
+          version: 2,
+          availableForCheckout: false,
+        },
+      ]),
+    ).toThrow("Polar billing product IDs must be unique within one server.");
+
+    expect(() =>
+      readPolarProductCatalogFromEntries([
+        ...catalogEntries,
+        {
+          productId: "organization-free-other-v1",
+          ownerType: "organization",
+          plan: "free",
+          version: 1,
+          availableForCheckout: false,
+        },
+      ]),
+    ).toThrow("Polar billing product versions must be unique within one product line.");
+
+    expect(() =>
+      readPolarProductCatalogFromEntries([
+        ...catalogEntries,
+        {
+          productId: "organization-free-v3",
+          ownerType: "organization",
+          plan: "free",
+          version: 3,
+          availableForCheckout: true,
+        },
+      ]),
+    ).toThrow("Polar billing requires exactly one checkout product for each owner type and plan.");
+
+    expect(() =>
+      readPolarProductCatalogFromEntries([
+        ...catalogEntries,
+        {
+          productId: "organization-pro-v0",
+          ownerType: "organization",
+          plan: "pro",
+          version: 0,
+          availableForCheckout: false,
+        },
+      ]),
+    ).toThrow("Polar billing product versions must be positive integers.");
   });
 });

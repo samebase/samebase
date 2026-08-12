@@ -50,8 +50,8 @@ later billing changes or open that Customer's portal. The designated payer canno
 removed, leave the organization, or delete their Samebase account until billing ownership is
 transferred. Self-serve billing-owner transfer is not part of this rollout.
 
-One organization has at most one current Polar subscription. Polar has four monthly products, one
-for each combination of GitHub owner type and Samebase plan:
+One organization has at most one current Polar subscription. The current catalog selection has four
+monthly products, one for each combination of GitHub owner type and Samebase plan:
 
 - A Free product contains only a graduated seat price. Polar does not accept a $0 fixed price.
 - A Pro product contains a $4 fixed price and the same graduated seat price.
@@ -62,6 +62,18 @@ Samebase calculates the target subscription seat quantity from the current membe
 matching Free product handles paid members on Free. A matching Pro product handles the Pro base
 price and paid members. A plan change updates the current subscription to the matching product
 instead of starting a second subscription.
+
+Samebase keeps a typed, versioned product catalog in code. The catalog is separate for Polar Sandbox
+and production. Each entry records the product ID, GitHub owner type, Samebase plan, positive
+version, and whether checkout can select it. Exactly one product for each owner type and plan is
+available for checkout. When a product is replaced or archived in Polar, its catalog entry remains
+as a historical version so Samebase can still reconcile existing subscriptions and pending product
+changes.
+
+Each Polar product records a `samebase_sku` and `samebase_catalog_version` in product metadata. The
+SKU is `github-<owner type>-<plan>`. Before a catalog entry becomes available for checkout, the
+operator verifies its ID, metadata, monthly interval, archive state, and fixed and seat prices
+against the Polar product.
 
 An organization buys capacity before a new invitation can become a membership. When current
 memberships fit within verified capacity, a seat purchase uses `current memberships + 1` as its
@@ -76,9 +88,8 @@ Seat additions invoice immediately. Seat reductions after membership removal use
 Pro-to-Free product change takes effect in the next billing period.
 
 The organization billing row remains the local provider-state boundary. It stores provider state for
-exactly one organization. Product IDs remain deployment configuration because Sandbox and production
-use different Polar products. Product IDs are not secrets. The Polar access token and webhook secret
-are secrets.
+exactly one organization. Product IDs are non-secret tracked configuration. The Polar access token
+and webhook secret remain secret deployment environment variables.
 
 ### Subscription And Member State
 
@@ -140,16 +151,19 @@ receipts, and cancellation controls through its hosted checkout and Customer Por
   quantity and selects the matching owner-type product through its server actions.
 - Pull request previews do not make real Polar checkout or webhook calls. They test billing UI with
   controlled application state.
-- Production uses the stable Samebase origin, four production Polar products, and one stable
-  production webhook. Production configuration needs operator approval.
+- Production uses the stable Samebase origin, four current production Polar products, retained
+  historical product entries, and one stable production webhook. Production configuration needs
+  operator approval.
 
 ### Beta Cutover
 
 The previous Polar prototype used an individual Customer and one Pro product. Samebase has no paying
 customers under that model. Before this rollout reaches production, the operator must verify that
 production has no organization billing row with a Polar Customer, open checkout, active or past-due
-subscription, or paid seat state. The operator must also configure all four production product IDs
-before checkout becomes available.
+subscription, or paid seat state. The operator must also record all four current production product
+IDs in the tracked production catalog before checkout becomes available. The operator must keep
+every historical product ID that an existing subscription or pending product change can still
+reference.
 
 If the production check finds any old Polar billing state, the rollout stops. That data needs an
 explicit Customer, payer, product, and seat migration before this code can become active. The code
@@ -201,6 +215,11 @@ The contract is complete only when tests and Sandbox checks prove:
 - The matching Polar product charges $4 for Pro plus $2 for each member above the included count.
 - Each Free Polar product has no fixed-price component. Each Pro product has one $4 fixed-price
   component.
+- Checkout selects the only current catalog version for the matching owner type and plan.
+- Reconciliation accepts every retained current or historical catalog version and rejects an unknown
+  product ID.
+- Every current catalog entry matches the corresponding Polar product metadata, monthly interval,
+  archive state, and fixed and seat prices.
 - One Samebase user can be the owner Member of several isolated Polar team Customers.
 - A Pro-to-Free change keeps the current seat quantity and records the matching Free product as the
   pending next-period plan.

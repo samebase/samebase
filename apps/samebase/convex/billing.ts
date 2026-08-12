@@ -30,10 +30,9 @@ import {
 } from "./polarCheckout";
 import {
   createPolarClient,
+  readPolarCheckoutProductId,
   readPolarProductCatalog,
   resolvePolarServer,
-  type PolarProductCatalog,
-  type PolarProductPlan,
   type PolarServer,
 } from "./polarClient";
 import { readActiveUser, vActiveUserDoc } from "./userLifecycle";
@@ -184,14 +183,6 @@ export function validateOrganizationBillingReturnUrls(args: {
   }
 
   return { successUrl: success.toString(), returnUrl: ret.toString() };
-}
-
-function readPolarProductId(
-  catalog: PolarProductCatalog,
-  githubOwnerType: PolarCustomerSeed["githubOwnerType"],
-  plan: PolarProductPlan,
-): string {
-  return catalog[githubOwnerType][plan];
 }
 
 function hasPolarSubscription(state: PolarBillingState): boolean {
@@ -486,7 +477,7 @@ export const requestPolarBillingChange = action({
           )
         : (observedSubscription?.polarSeatQuantity ??
           Math.max(seed.memberCount, seed.includedMembers));
-    const productId = readPolarProductId(catalog, seed.githubOwnerType, targetPlan);
+    const productId = readPolarCheckoutProductId(catalog, seed.githubOwnerType, targetPlan);
 
     if (observedSubscription !== null) {
       await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
@@ -819,7 +810,7 @@ export const syncPolarSubscriptionSeats = internalAction({
   handler: async (ctx, args) => {
     const syncContext: OrganizationBillingSyncContext = await ctx.runQuery(
       internal.billing.getOrganizationBillingSyncContext,
-      args,
+      { organizationId: args.organizationId },
     );
     const externalCustomerId = syncContext.externalCustomerId?.trim();
     if (!externalCustomerId) {
