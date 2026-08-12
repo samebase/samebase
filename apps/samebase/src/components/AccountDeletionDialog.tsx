@@ -51,10 +51,15 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
     try {
       const result = await requestAccountDeletion({
         completionCapability,
-        confirmationPhrase: confirmationInput,
+        deletionConfirmationText: confirmationInput,
       });
       if (result.state === "confirmation_mismatch") {
         setDeletionError(`Type ${ACCOUNT_DELETION_CONFIRMATION_PHRASE} to confirm.`);
+        setIsRequestingDeletion(false);
+        return;
+      }
+      if (result.state === "organization_membership_exists") {
+        setDeletionError("Leave or delete every organization before you delete your account.");
         setIsRequestingDeletion(false);
         return;
       }
@@ -82,19 +87,19 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
           <DialogTitle>Delete account?</DialogTitle>
           <DialogDescription className="space-y-2 text-foreground">
             <span className="block font-medium">
-              This permanently deletes your Samebase account, removes your organization access, and
-              disconnects provider connections you added.
+              This permanently deletes your Samebase account and disconnects provider connections
+              you added.
             </span>
             <span className="block text-muted-foreground">
-              Organization subscriptions are not canceled. Organizations, vaults, staged changes,
-              GitHub repositories, Convex projects, and Cloudflare Workers are not deleted.
+              First, leave or delete every organization. GitHub repositories, Convex projects,
+              Cloudflare Workers, and domains are not deleted.
             </span>
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 text-sm">
           <div className="space-y-2">
             <Label htmlFor="settings-delete-account-confirmation">Type the phrase to confirm</Label>
-            <code className="block cursor-text select-all bg-muted px-3 py-2 font-mono text-sm leading-6 [overflow-wrap:anywhere]">
+            <code className="block cursor-text bg-muted px-3 py-2 font-mono text-sm leading-6 [overflow-wrap:anywhere]">
               {ACCOUNT_DELETION_CONFIRMATION_PHRASE}
             </code>
             <Input

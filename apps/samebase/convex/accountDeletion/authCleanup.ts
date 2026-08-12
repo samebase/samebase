@@ -192,6 +192,15 @@ export async function assertIdentityDeletionReady(
     throw new Error("Samebase account data remains during finalization.");
   }
 
+  const remainingMembership = await ctx.db
+    .query("organizationMemberships")
+    .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
+    .first();
+
+  if (remainingMembership !== null) {
+    throw new Error("Organization membership remains during account deletion.");
+  }
+
   const initiatingSession = await ctx.db.get(run.initiatingSessionId);
 
   if (initiatingSession !== null && initiatingSession.userId !== run.identity.userId) {

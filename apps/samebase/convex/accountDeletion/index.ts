@@ -5,7 +5,6 @@ import { v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
 import { mutation, query } from "../functions";
-import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
 import { isAdminUser } from "../userAccess";
 import { readUserProfile } from "../userLifecycle";
 import {
@@ -42,6 +41,7 @@ const vAccountDeletionStatus = object({
 const vAccountDeletionRequestResult = union(
   object({ state: literal("accepted"), status: vAccountDeletionStatus }),
   object({ state: literal("confirmation_mismatch") }),
+  object({ state: literal("organization_membership_exists") }),
 );
 
 const vAccountDeletionEvent = object({
@@ -105,7 +105,7 @@ export const request = mutation({
   access: "access_account_deletion",
   args: {
     completionCapability: string(),
-    confirmationPhrase: string(),
+    deletionConfirmationText: string(),
   },
   returns: vAccountDeletionRequestResult,
   handler: async (ctx, args) => {
@@ -125,8 +125,16 @@ export const request = mutation({
       return { state: "accepted" as const, status: projectStatus(existingRun) };
     }
 
-    if (args.confirmationPhrase !== ACCOUNT_DELETION_CONFIRMATION_PHRASE) {
+    if (args.deletionConfirmationText !== ACCOUNT_DELETION_CONFIRMATION_PHRASE) {
       return { state: "confirmation_mismatch" as const };
+    }
+
+    const membership = await ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_user", (query) => query.eq("userId", ctx.viewer.userId))
+      .first();
+    if (membership !== null) {
+      return { state: "organization_membership_exists" as const };
     }
 
     const initiatingSessionId = await getAuthSessionId(ctx);
@@ -145,17 +153,6 @@ export const request = mutation({
       .unique();
     if (existingCapability !== null) {
       throw new Error("Account deletion completion capability is already in use.");
-    }
-
-    for await (const membership of ctx.db
-      .query("organizationMemberships")
-      .withIndex("by_user", (query) => query.eq("userId", ctx.viewer.userId))) {
-      if (membership.role === "owner") {
-        await requireAnotherActiveOrganizationOwner(ctx.db, {
-          organizationId: membership.organizationId,
-          excludedUserId: ctx.viewer.userId,
-        });
-      }
     }
 
     const now = Date.now();

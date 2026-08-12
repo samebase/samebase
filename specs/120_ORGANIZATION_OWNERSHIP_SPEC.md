@@ -54,6 +54,9 @@ An active owner has an `owner` membership and an active user row. Approval and t
 gates do not decide owner continuity. The first beta has invitation records and owner/member
 administration. It has no permission arrays or custom roles.
 
+Organization deletion removes the final owner membership and the organization in one transaction. No
+committed organization has zero active owners.
+
 ## GitHub Owner And App Installation
 
 One Samebase organization maps to exactly one GitHub repository owner. The owner can be a GitHub

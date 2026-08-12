@@ -150,13 +150,13 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   const deleteDialog = page.getByRole("dialog", { name: "Delete account?" });
   await expect(
     deleteDialog.getByText(
-      "This permanently deletes your Samebase account, removes your organization access, and disconnects provider connections you added.",
+      "This permanently deletes your Samebase account and disconnects provider connections you added.",
       { exact: true },
     ),
   ).toBeVisible();
   await expect(
     deleteDialog.getByText(
-      "Organization subscriptions are not canceled. Organizations, vaults, staged changes, GitHub repositories, Convex projects, and Cloudflare Workers are not deleted.",
+      "First, leave or delete every organization. GitHub repositories, Convex projects, Cloudflare Workers, and domains are not deleted.",
       { exact: true },
     ),
   ).toBeVisible();
@@ -168,6 +168,15 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
     "font-size",
     "16px",
   );
+  const accountDeletionConfirmationText = deleteDialog.locator("code");
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
+  await accountDeletionConfirmationText.click();
+  await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe("");
+  await accountDeletionConfirmationText.selectText();
+  await expect
+    .poll(() => page.evaluate(() => window.getSelection()?.toString()))
+    .toBe((await accountDeletionConfirmationText.textContent())?.trim());
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
   await expect(deleteDialog).toHaveScreenshot(
     "settings-delete-account-dialog-desktop.png",
     screenshotOptions,

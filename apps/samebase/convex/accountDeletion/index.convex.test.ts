@@ -42,7 +42,7 @@ describe("account deletion request and status", () => {
     await expect(
       viewer.mutation(api.accountDeletion.index.request, {
         completionCapability: "a".repeat(64),
-        confirmationPhrase: "keep my account",
+        deletionConfirmationText: "keep my account",
       }),
     ).resolves.toEqual({ state: "confirmation_mismatch" });
 
@@ -61,7 +61,7 @@ describe("account deletion request and status", () => {
     const initiatingSession = await t.run(async (ctx) => await ctx.db.get(sessionId));
     const args = {
       completionCapability: "b".repeat(64),
-      confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+      deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
     };
 
     const first = await viewer.mutation(api.accountDeletion.index.request, args);
@@ -93,6 +93,40 @@ describe("account deletion request and status", () => {
       runId: first.status.runId,
       state: "deleting",
     });
+  });
+
+  it("rejects account deletion while any organization membership exists", async () => {
+    const t = makeConvexTest();
+    const { userId, viewer } = await seedActiveViewer(t, "member@example.invalid");
+    await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {
+        githubOwnerId: "account-deletion-membership",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "account-deletion-membership",
+        githubOwnerLoginNormalized: "account-deletion-membership",
+        githubInstallationId: "account-deletion-membership-installation",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId,
+        role: "member",
+      });
+    });
+
+    await expect(
+      viewer.mutation(api.accountDeletion.index.request, {
+        completionCapability: "f".repeat(64),
+        deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+      }),
+    ).resolves.toEqual({ state: "organization_membership_exists" });
+    const snapshot = await t.run(async (ctx) => ({
+      events: await ctx.db.query("workflow_accountDeletion_events").collect(),
+      runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
+      user: await ctx.db.get(userId),
+    }));
+    expect(snapshot.events).toEqual([]);
+    expect(snapshot.runs).toEqual([]);
+    expect(snapshot.user).toMatchObject({ _id: userId, state: "active" });
   });
 
   it("rejects deleting markers whose run is missing or owned by another user", async () => {
@@ -134,7 +168,7 @@ describe("account deletion request and status", () => {
     await expect(
       viewer.mutation(api.accountDeletion.index.request, {
         completionCapability: "e".repeat(64),
-        confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+        deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
       }),
     ).rejects.toThrow("Account deletion state is inconsistent.");
 
@@ -177,7 +211,7 @@ describe("account deletion request and status", () => {
     await expect(
       viewer.mutation(api.accountDeletion.index.request, {
         completionCapability: "e".repeat(64),
-        confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+        deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
       }),
     ).rejects.toThrow("Account deletion state is inconsistent.");
   });
