@@ -1349,6 +1349,74 @@ describe("verified GitHub App installation completion", () => {
     expect(githubAppMocks.revokeGitHubAppUserToken).not.toHaveBeenCalled();
   });
 
+  it("creates a short-lived installation discovery session without creating an organization", async () => {
+    const t = makeConvexTest();
+    const { setupStateId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        state: "active",
+        email: "connection-callback@example.com",
+        isApproved: true,
+      });
+      await insertGitHubSignInAccount(ctx, {
+        userId,
+        githubUserId: "connection-user",
+        githubUserLogin: "connection-user",
+      });
+      const setupStateId = await ctx.db.insert("githubAppSetupStates", {
+        userId,
+        state: "organization-connection-state",
+        purpose: "organization_connection",
+        githubSignInProviderAccountId: "connection-user",
+        returnToPath: "/connect-organization?prod-ui#installations",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+      return { setupStateId, userId };
+    });
+    const now = Date.now();
+    githubAppMocks.verifyGitHubUserAuthorization.mockResolvedValue({
+      githubUserId: "connection-user",
+      githubUserLogin: "connection-user",
+      accessToken: "connection-access-token",
+      accessTokenExpiresAt: now + 8 * 60 * 60 * 1000,
+      refreshToken: "connection-refresh-token",
+      refreshTokenExpiresAt: now + 180 * 24 * 60 * 60 * 1000,
+    });
+    vi.stubEnv("SITE_URL", "https://samebase.com");
+
+    const response = await t.fetch(
+      "/oauth/github/callback?code=connection-code&state=organization-connection-state",
+    );
+    const snapshot = await t.run(async (ctx) => ({
+      credential: await ctx.db
+        .query("githubAppConnectionCredentials")
+        .withIndex("by_user", (query) => query.eq("userId", userId))
+        .unique(),
+      organization: await ctx.db.query("organizations").first(),
+      setupState: await ctx.db.get(setupStateId),
+    }));
+    if (snapshot.credential === null) {
+      throw new Error("Expected a GitHub App connection credential.");
+    }
+
+    const html = await expectGitHubCompletion(
+      response,
+      `https://samebase.com/connect-organization?prod-ui=&github-connection-session=${snapshot.credential.session}#installations`,
+    );
+    expect(snapshot.credential).toMatchObject({
+      userId,
+      githubUserId: "connection-user",
+      githubSignInProviderAccountId: "connection-user",
+      accessToken: "connection-access-token",
+    });
+    expect(snapshot.organization).toBeNull();
+    expect(snapshot.setupState).toBeNull();
+    expect(githubAppMocks.revokeGitHubAppUserToken).not.toHaveBeenCalled();
+    expect(html).not.toContain("connection-code");
+    expect(html).not.toContain("connection-access-token");
+    expect(html).not.toContain("connection-refresh-token");
+  });
+
   it("keeps setup-state cleanup idempotent after a callback race", async () => {
     const t = makeConvexTest();
     const setupStateId = await t.run(async (ctx) => {

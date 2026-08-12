@@ -866,6 +866,48 @@ describe("account deletion organization boundary", () => {
     expect(snapshot.refreshToken).not.toBeNull();
   });
 
+  it("rejects final identity deletion when a GitHub connection credential remains", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    await prepareIdentityDeletionData(t, ids.runId);
+    const credentialId = await t.run(async (ctx) => {
+      return await ctx.db.insert("githubAppConnectionCredentials", {
+        userId: ids.deletingUserId,
+        session: "deleting-user-connection-session",
+        githubUserId: "deleting-user-github-id",
+        githubUserLogin: "deleting-user",
+        accessToken: "deleting-user-access-token",
+        accessTokenExpiresAt: Date.now() + 60_000,
+        refreshToken: "deleting-user-refresh-token",
+        refreshTokenExpiresAt: Date.now() + 120_000,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+    });
+    await t.mutation(internal.accountDeletion.workflow.recordIdentityDeletionStart, {
+      runId: ids.runId,
+      workflowId,
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).rejects.toThrow("GitHub connection authorization remains for the deleting account.");
+
+    await expect(
+      t.run(async (ctx) => ({
+        credential: await ctx.db.get(credentialId),
+        run: await ctx.db.get(ids.runId),
+        user: await ctx.db.get(ids.deletingUserId),
+      })),
+    ).resolves.toMatchObject({
+      credential: { userId: ids.deletingUserId },
+      run: { state: "running", currentStep: "delete_identity" },
+      user: { state: "deleting", runId: ids.runId },
+    });
+  });
+
   it("refreshes the deleting session before cleanup and rejects it after completion", async () => {
     vi.stubEnv("JWT_PRIVATE_KEY", await generateTestJwtPrivateKey());
     vi.stubEnv("CONVEX_SITE_URL", "https://convex.test");

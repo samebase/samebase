@@ -13,10 +13,11 @@ the exact phrase `delete my account`.
 The confirmation must distinguish the user's Samebase identity from organization data. Account
 deletion removes the user's login, profile, personal preferences, organization memberships, MCP
 access, pending provider authorization states, GitHub App user authorization, and every provider
-credential slot whose current `connectedByUserId` identifies that user. It does not delete an
-organization, organization invitation, organization billing, deployment destination, vault, staged
-file, attached resource, observation, or organization workflow record. It deletes the organization
-provider credential document only when it clears the last credential slot.
+credential slot whose current `connectedByUserId` identifies that user. It also revokes and removes
+any temporary GitHub App organization connection authorization. It does not delete an organization,
+organization invitation, organization billing, deployment destination, vault, staged file, attached
+resource, observation, or organization workflow record. It deletes the organization provider
+credential document only when it clears the last credential slot.
 
 Account deletion is rejected while the user is the last active owner of any organization. The user
 must add or promote another owner first. Account deletion can then remove the user's memberships
@@ -84,7 +85,8 @@ page stays in a finishing state and tells the user to close other Samebase tabs 
 The workflow must:
 
 1. Stop the user's other Samebase sessions.
-2. Revoke the user's GitHub App user authorization.
+2. Revoke the user's GitHub App user authorization and any temporary GitHub App organization
+   connection authorization.
 3. Clear each current Cloudflare credential slot whose `connectedByUserId` identifies the user. Do
    not revoke the upstream authorization automatically. The completion email tells the user to
    remove Samebase from Cloudflare Connected Applications if they also want to revoke that grant.
@@ -182,9 +184,9 @@ hard-deleted IDs cannot be restored.
 - At most one Convex and one Cloudflare slot per organization are processed in bounded batches
   across the user's organizations.
 - Personal preferences, memberships, OAuth states, MCP grants and tokens, GitHub user authorization,
-  and auth data are removed. Organization invitations keep their creator and acceptor user IDs. The
-  original user ID resolves through the exact deleted variant. An accepted invitation does not keep
-  GitHub recipient PII for that deleted acceptor.
+  temporary GitHub App connection authorization, and auth data are removed. Organization invitations
+  keep their creator and acceptor user IDs. The original user ID resolves through the exact deleted
+  variant. An accepted invitation does not keep GitHub recipient PII for that deleted acceptor.
 - Organizations, billing, vaults, staged files, attached resources, observations, and organization
   workflows survive unchanged.
 - Completion-email failure remains visible without retaining the account indefinitely.

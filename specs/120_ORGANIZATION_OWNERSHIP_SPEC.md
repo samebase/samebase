@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-11
+- Last updated: 2026-08-12
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -99,10 +99,27 @@ Samebase creates short-lived installation access tokens for repository operation
 those tokens. The App private key and client secret stay in deployment secrets.
 
 The setup callback uses short-lived state bound to the signed-in Samebase user. It exchanges the
-GitHub code for the setup actor's short-lived GitHub App authorization, reads that GitHub user,
-verifies the returned installation through GitHub's App API, and only then creates or reconnects the
-organization. It does not trust `installation_id` by itself. For a GitHub organization, Samebase
-attempts to revoke the setup actor token through GitHub after verification and does not store it.
+GitHub code for the setup actor's short-lived GitHub App authorization and reads that GitHub user.
+The `/connect-organization` flow keeps that authorization in a server-only, ten-minute connection
+session. It uses the session to list App installations that the GitHub user can see. Visibility is
+not creation authority.
+
+When the user selects an installation, Samebase reads that exact installation again through both the
+user and App APIs. It checks the App ID, stable owner ID, owner type, current installation state,
+and current personal-owner or organization-administrator authority. One final mutation checks the
+session user and expiry, then creates the organization only when the stable owner, owner login, and
+installation ID are still unbound. It does not trust a callback or client `installation_id` by
+itself.
+
+If the owner is already connected, Samebase opens it for a current member. A verified GitHub owner
+or organization administrator without Samebase membership gets an invitation explanation and no
+membership. A GitHub user without live owner authority gets no Samebase binding information. A
+GitHub role never grants Samebase membership.
+
+For a GitHub organization, Samebase attempts to revoke the temporary actor token after connection,
+session expiry, replacement, or account deletion. It does not keep that token as a personal user
+authorization. A successful personal-owner connection moves the matching authorization into the
+existing personal user-authorization record that repository creation needs.
 
 The stored installation ID means "the last verified installation for this owner." GitHub is the
 source of truth for its current status. Installation-token creation fails closed after suspension or
@@ -305,8 +322,9 @@ After deployment:
 
 1. A retained user signs in.
 2. For a personal owner, the user connects the same GitHub identity as a sign-in method.
-3. The user installs the development Samebase GitHub App.
-4. The verified callback creates the GitHub-backed organization, first membership, and billing row.
+3. The user opens `/connect-organization` and authorizes GitHub installation discovery.
+4. The user selects an unbound verified installation. The final live check creates the GitHub-backed
+   organization, first membership, and billing row.
 5. The operator adds the second retained user through the internal membership function.
 6. Waitlist users keep zero memberships.
 7. The operator reconnects Convex, Cloudflare, vaults, and MCP clients as needed.
@@ -345,6 +363,13 @@ The rollout is ready only when focused tests and real manual checks prove:
   points creates no Samebase organization or personal user authorization.
 - A GitHub organization installation succeeds when its live administrator differs from the Samebase
   account's linked GitHub identity, or when no GitHub sign-in method is connected.
+- `/connect-organization` lists only current App installations visible to the authorized GitHub
+  user. It rechecks live owner authority when Connect is selected.
+- A current Samebase member gets an Open action. A verified GitHub owner without Samebase membership
+  gets an invitation explanation. A GitHub user without live owner authority gets no connection
+  disclosure or Connect action.
+- If another user binds an installation between listing and selection, the final mutation creates no
+  membership and does not replace the stored installation.
 - Reinstalling the App for that owner updates the existing organization without a duplicate.
 - One user can belong to several organizations, and one organization can have several users.
 - A second member can use a GitHub organization's App and provider credentials without GitHub

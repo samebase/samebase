@@ -37,7 +37,9 @@ vi.mock("@octokit/rest", () => ({
 
 import {
   discoverPreviewSeedGitHubAppInstallations,
+  listGitHubAppConnectionInstallations,
   readGitHubAppInstallation,
+  verifyGitHubAppConnectionInstallation,
   verifyGitHubAppInstallation,
   verifyGitHubUserAuthorization,
 } from "./githubApp";
@@ -413,6 +415,106 @@ describe("GitHub App installation verification", () => {
         installationId: 1001,
       }),
     ).rejects.toThrow("GitHub organization administrator verification failed.");
+  });
+
+  it("classifies visible installations by live GitHub owner authority", async () => {
+    const adminInstallation = installation();
+    const memberInstallation = appInstallationFixture();
+    memberInstallation.id = 1002;
+    memberInstallation.app_id = 42;
+    memberInstallation.account = {
+      ...memberInstallation.account,
+      id: 303,
+      login: "member-org",
+      type: "Organization",
+    };
+    const personalInstallation = appInstallationFixture();
+    personalInstallation.id = 1003;
+    personalInstallation.app_id = 42;
+    personalInstallation.account = {
+      ...personalInstallation.account,
+      id: 202,
+      login: "alice",
+      type: "User",
+    };
+    const memberships = [
+      {
+        organization: { id: 101 },
+        role: "admin",
+        state: "active",
+      },
+      {
+        organization: { id: 303 },
+        role: "member",
+        state: "active",
+      },
+    ];
+    githubMocks.request.mockImplementation(async (route: string) => {
+      if (route === "GET /user/installations") {
+        return {
+          data: {
+            installations: [adminInstallation, memberInstallation, personalInstallation],
+          },
+        };
+      }
+      if (route === "GET /user/memberships/orgs/{org}") {
+        const nextMembership = memberships.shift();
+        if (nextMembership === undefined) {
+          throw new Error("Missing organization membership fixture.");
+        }
+        return { data: nextMembership };
+      }
+      throw new Error(`Unexpected GitHub route: ${route}`);
+    });
+
+    await expect(
+      listGitHubAppConnectionInstallations({
+        accessToken: "access-token",
+        githubUserId: "202",
+      }),
+    ).resolves.toEqual([
+      {
+        installationId: "1003",
+        githubOwnerId: "202",
+        githubOwnerType: "user",
+        githubOwnerLogin: "alice",
+        canManage: true,
+      },
+      {
+        installationId: "1002",
+        githubOwnerId: "303",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "member-org",
+        canManage: false,
+      },
+      {
+        installationId: "1001",
+        githubOwnerId: "101",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "samebase",
+        canManage: true,
+      },
+    ]);
+    expect(githubMocks.request).not.toHaveBeenCalledWith(
+      "GET /app/installations/{installation_id}",
+      expect.anything(),
+    );
+  });
+
+  it("rechecks live GitHub administrator authority when an installation is selected", async () => {
+    githubMocks.membership.role = "member";
+
+    await expect(
+      verifyGitHubAppConnectionInstallation({
+        accessToken: "access-token",
+        githubUserId: "202",
+        installationId: "1001",
+      }),
+    ).resolves.toMatchObject({
+      githubOwnerId: "101",
+      githubOwnerType: "organization",
+      canManage: false,
+    });
   });
 
   it("requires the membership organization stable ID to match the installation owner", async () => {

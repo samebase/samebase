@@ -278,6 +278,15 @@ export async function assertIdentityDeletionReady(
   if (remainingGitHubAuthorization !== null) {
     throw new Error("GitHub user authorization remains for the deleting account.");
   }
+
+  const remainingGitHubConnectionCredential = await ctx.db
+    .query("githubAppConnectionCredentials")
+    .withIndex("by_user", (query) => query.eq("userId", run.identity.userId))
+    .first();
+
+  if (remainingGitHubConnectionCredential !== null) {
+    throw new Error("GitHub connection authorization remains for the deleting account.");
+  }
 }
 
 export const finishIdentityDeletion = internalMutation({
