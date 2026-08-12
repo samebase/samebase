@@ -1,7 +1,8 @@
-import { Link, useNavigate } from "@tanstack/react-router";
-import { useAction, useMutation } from "convex/react";
+import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
+import { Link, Navigate, useNavigate } from "@tanstack/react-router";
+import { useAction, useMutation as useConvexMutation } from "convex/react";
 import { Loader2 } from "lucide-react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { api } from "../../convex/_generated/api";
 import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
@@ -9,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { GitHubProviderLogo } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
-import { buildOrganizationRoutePath } from "@/lib/organizationRoutes";
+import { buildOrganizationRoutePath, ORGANIZATION_VAULTS_ROUTE } from "@/lib/organizationRoutes";
 
 type ListResult = (typeof api.githubAppConnection.listOptions)["_returnType"];
 export type ConnectOrganizationOption = Extract<ListResult, { status: "ready" }>["options"][number];
@@ -199,63 +200,87 @@ export function ConnectOrganizationPage({
   session: string | undefined;
 }) {
   const navigate = useNavigate();
-  const getConnectionUrl = useMutation(
+  const getConnectionUrl = useConvexMutation(
     api.githubAppInstallation.getGitHubOrganizationConnectionUrl,
   );
-  const getInstallationUrl = useMutation(api.githubAppInstallation.getGitHubAppInstallationUrl);
+  const getInstallationUrl = useConvexMutation(
+    api.githubAppInstallation.getGitHubAppInstallationUrl,
+  );
   const listOptions = useAction(api.githubAppConnection.listOptions);
   const connectInstallation = useAction(api.githubAppConnection.connectInstallation);
-  const [options, setOptions] = useState<readonly ConnectOrganizationOption[] | null>(null);
-  const [loading, setLoading] = useState(session !== undefined);
   const [error, setError] = useState<string | null>(null);
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [isInstalling, setIsInstalling] = useState(false);
-  const [pendingInstallationId, setPendingInstallationId] = useState<string | null>(null);
-
-  const openOrganization = useCallback(
-    async (organizationOwnerLogin: string) => {
-      await navigate({
-        href: buildOrganizationRoutePath({
-          owner: organizationOwnerLogin,
-          section: "vaults",
-        }),
-        replace: true,
-      });
+  const optionsQuery = useQuery({
+    queryFn: session ? async () => await listOptions({ session }) : skipToken,
+    queryKey: ["github-app-connection-options", session],
+    refetchOnMount: "always",
+    retry: false,
+  });
+  const connectMutation = useMutation({
+    mutationFn: async (args: (typeof api.githubAppConnection.connectInstallation)["_args"]) =>
+      await connectInstallation(args),
+    onError: () => setError("Could not connect this GitHub App installation."),
+    onSuccess: async (result) => {
+      switch (result.status) {
+        case "connected":
+        case "open":
+          await navigate({
+            href: buildOrganizationRoutePath({
+              owner: result.organizationOwnerLogin,
+              section: "vaults",
+            }),
+            replace: true,
+          });
+          return;
+        case "access_lost":
+          setError("You no longer have permission to connect an organization.");
+          return;
+        case "invite_required":
+        case "owner_required":
+          await optionsQuery.refetch();
+          return;
+        case "session_expired":
+          setError("GitHub authorization expired. Authorize GitHub again.");
+          return;
+        case "github_sign_in_required":
+          setError("Add this GitHub account as a Samebase sign-in method before you connect it.");
+          return;
+        case "github_sign_in_mismatch":
+          setError("This GitHub account does not match your Samebase GitHub sign-in method.");
+          return;
+        default:
+          result satisfies never;
+      }
     },
-    [navigate],
-  );
+  });
 
-  const loadOptions = useCallback(async () => {
-    if (session === undefined) {
-      setOptions(null);
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await listOptions({ session });
-      if (result.status === "session_expired") {
-        setOptions(null);
-        setError("GitHub authorization expired. Authorize GitHub again.");
-        return;
-      }
-      if (result.status === "completed") {
-        await openOrganization(result.organizationOwnerLogin);
-        return;
-      }
-      setOptions(result.options);
-    } catch {
-      setOptions(null);
-      setError("Could not load GitHub App installations. Authorize GitHub again.");
-    } finally {
-      setLoading(false);
-    }
-  }, [listOptions, openOrganization, session]);
-
-  useEffect(() => {
-    void loadOptions();
-  }, [loadOptions]);
+  const optionsResult = optionsQuery.data;
+  if (optionsResult?.status === "completed") {
+    return (
+      <Navigate
+        params={{ owner: optionsResult.organizationOwnerLogin }}
+        replace
+        to={ORGANIZATION_VAULTS_ROUTE}
+      />
+    );
+  }
+  const connectionUnavailable =
+    connectMutation.data?.status === "access_lost" ||
+    connectMutation.data?.status === "session_expired";
+  const options =
+    !connectionUnavailable && !optionsQuery.isError && optionsResult?.status === "ready"
+      ? optionsResult.options
+      : null;
+  const queryError = optionsQuery.isError
+    ? "Could not load GitHub App installations. Authorize GitHub again."
+    : optionsResult?.status === "session_expired"
+      ? "GitHub authorization expired. Authorize GitHub again."
+      : null;
+  const displayedError = error ?? (isAuthorizing || isInstalling ? null : queryError);
+  const pendingInstallationId = connectMutation.isPending
+    ? connectMutation.variables.installationId
+    : null;
 
   const authorize = () => {
     if (isAuthorizing) {
@@ -286,50 +311,20 @@ export function ConnectOrganizationPage({
   };
 
   const connect = (installationId: string) => {
-    if (session === undefined || pendingInstallationId !== null) {
+    if (!session || connectMutation.isPending) {
       return;
     }
-    setPendingInstallationId(installationId);
     setError(null);
-    void connectInstallation({ session, installationId })
-      .then((result) => {
-        switch (result.status) {
-          case "connected":
-          case "open":
-            return openOrganization(result.organizationOwnerLogin);
-          case "access_lost":
-            setOptions(null);
-            setError("You no longer have permission to connect an organization.");
-            return;
-          case "invite_required":
-          case "owner_required":
-            return loadOptions();
-          case "session_expired":
-            setOptions(null);
-            setError("GitHub authorization expired. Authorize GitHub again.");
-            return;
-          case "github_sign_in_required":
-            setError("Add this GitHub account as a Samebase sign-in method before you connect it.");
-            return;
-          case "github_sign_in_mismatch":
-            setError("This GitHub account does not match your Samebase GitHub sign-in method.");
-            return;
-          default:
-            result satisfies never;
-            return;
-        }
-      })
-      .catch(() => setError("Could not connect this GitHub App installation."))
-      .finally(() => setPendingInstallationId(null));
+    connectMutation.mutate({ session, installationId });
   };
 
   return (
     <ConnectOrganizationPageView
       authorizationNotice={authorizationNotice}
-      error={error}
+      error={displayedError}
       isAuthorizing={isAuthorizing}
       isInstalling={isInstalling}
-      loading={loading}
+      loading={optionsQuery.isFetching}
       onAuthorize={authorize}
       onConnect={connect}
       onInstall={install}
