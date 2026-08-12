@@ -160,15 +160,26 @@ check(
   ),
   "The Samebase skill must keep managed app creation on its closed tool sequence.",
 );
+const openSamebaseIndex = samebaseSkill.indexOf(
+  "Treat `open @samebase` as an exact command and an explicit choice of the in-app Browser.",
+);
+const selectInAppBrowserIndex = samebaseSkill.indexOf(
+  "Select the in-app Browser. Do not select Chrome or a different external browser.",
+);
+const createBrowserHandoffIndex = samebaseSkill.indexOf("Call `create_browser_handoff`.");
+const openHandoffUrlIndex = samebaseSkill.indexOf(
+  "Open the returned URL promptly in the selected in-app Browser.",
+);
 check(
-  samebaseSkill.includes(
-    "For `open @samebase` or another dashboard request, call only browser handoff.",
-  ) &&
-    samebaseSkill.includes("Open the returned URL in the agent host's in-app browser.") &&
+  openSamebaseIndex >= 0 &&
     samebaseSkill.includes(
-      "The handoff signs the browser in as the user behind the current MCP grant and opens the Samebase dashboard.",
-    ),
-  "The Samebase skill must route `open @samebase` through the authenticated in-app browser handoff.",
+      "The user does not have to say `dashboard` or mention the Browser plugin.",
+    ) &&
+    selectInAppBrowserIndex > openSamebaseIndex &&
+    createBrowserHandoffIndex > selectInAppBrowserIndex &&
+    openHandoffUrlIndex > createBrowserHandoffIndex,
+  "The Samebase skill must make `open @samebase` select the in-app Browser before it creates and " +
+    "opens an authenticated handoff.",
 );
 
 console.log("Agent plugin checks passed.");
