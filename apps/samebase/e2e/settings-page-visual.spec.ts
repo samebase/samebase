@@ -150,13 +150,13 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   const deleteDialog = page.getByRole("dialog", { name: "Delete account?" });
   await expect(
     deleteDialog.getByText(
-      "This permanently deletes your Samebase account, removes your organization access, and disconnects provider connections you added.",
+      "This permanently deletes your Samebase account and disconnects provider connections you added.",
       { exact: true },
     ),
   ).toBeVisible();
   await expect(
     deleteDialog.getByText(
-      "Organization subscriptions are not canceled. Organizations, vaults, staged changes, GitHub repositories, Convex projects, and Cloudflare Workers are not deleted.",
+      "Leave or delete every organization first. Account deletion does not delete organizations, vaults, GitHub repositories, Convex projects, or Cloudflare Workers.",
       { exact: true },
     ),
   ).toBeVisible();

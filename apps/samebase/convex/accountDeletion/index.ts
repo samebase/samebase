@@ -5,8 +5,6 @@ import { ConvexError, v } from "convex/values";
 import type { Doc } from "../_generated/dataModel";
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
 import { mutation, query } from "../functions";
-import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
-import { requireUserIsNotOrganizationBillingPayer } from "../organizationBillingLimits";
 import { isAdminUser } from "../userAccess";
 import { readUserProfile } from "../userLifecycle";
 import {
@@ -148,36 +146,18 @@ export const request = mutation({
       throw new Error("Account deletion completion capability is already in use.");
     }
 
-    for await (const membership of ctx.db
+    const membership = await ctx.db
       .query("organizationMemberships")
-      .withIndex("by_user", (query) => query.eq("userId", ctx.viewer.userId))) {
-      await requireUserIsNotOrganizationBillingPayer(ctx.db, {
-        organizationId: membership.organizationId,
-        userId: ctx.viewer.userId,
-      });
-      if (membership.role === "owner") {
-        const [organization, memberships] = await Promise.all([
-          ctx.db.get(membership.organizationId),
-          ctx.db
-            .query("organizationMemberships")
-            .withIndex("by_organization_and_role", (query) =>
-              query.eq("organizationId", membership.organizationId),
-            )
-            .take(2),
-        ]);
-        if (organization === null) {
-          throw new Error("Organization membership refers to a missing organization.");
-        }
-        if (memberships.length === 1 && memberships[0]?._id === membership._id) {
-          throw new ConvexError(
-            `Delete the ${organization.githubOwnerLogin} organization before you delete your account.`,
-          );
-        }
-        await requireAnotherActiveOrganizationOwner(ctx.db, {
-          organizationId: membership.organizationId,
-          excludedUserId: ctx.viewer.userId,
-        });
+      .withIndex("by_user", (query) => query.eq("userId", ctx.viewer.userId))
+      .first();
+    if (membership !== null) {
+      const organization = await ctx.db.get(membership.organizationId);
+      if (organization === null) {
+        throw new Error("Organization membership refers to a missing organization.");
       }
+      throw new ConvexError(
+        `Leave or delete the ${organization.githubOwnerLogin} organization before you delete your account.`,
+      );
     }
 
     const now = Date.now();

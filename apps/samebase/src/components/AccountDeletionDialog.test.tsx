@@ -125,7 +125,8 @@ describe("AccountDeletionDialog", () => {
   }
 
   it("shows the organization deletion requirement from Convex", async () => {
-    const errorMessage = "Delete the samebase organization before you delete your account.";
+    const errorMessage =
+      "Leave or delete the samebase organization before you delete your account.";
 
     const mounted = await submitDeletion(new ConvexError(errorMessage));
 

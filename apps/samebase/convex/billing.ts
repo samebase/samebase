@@ -4,12 +4,15 @@ import { PolarError } from "@polar-sh/sdk/models/errors/polarerror";
 import { ConvexError, Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import { internalAction, internalMutation, internalQuery } from "./_generated/server";
-import { action, query } from "./functions";
+import type { Id } from "./_generated/dataModel";
 import {
-  requireOrganizationOwnerAccessContext,
-  requireOrganizationSettingsOwnerAccessContext,
-} from "./organizationAccess";
+  internalAction,
+  internalMutation,
+  internalQuery,
+  type ActionCtx,
+} from "./_generated/server";
+import { action, query } from "./functions";
+import { requireOrganizationSettingsOwnerAccessContext } from "./organizationAccess";
 import {
   findBillingAccountForOrganization,
   patchBillingAccount,
@@ -38,15 +41,21 @@ import {
   resolvePolarServer,
   type PolarServer,
 } from "./polarClient";
-import { readActiveUser, vActiveUserDoc } from "./userLifecycle";
+import { vActiveUserDoc } from "./userLifecycle";
 import { normalizeAccountEmail, resolveAccountPresentation } from "../shared/accountPresentation";
 import schema from "./schema";
-import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
+import {
+  vGitHubOwnerType,
+  vOrganizationBillingActionOperation,
+  vOrganizationMembershipRole,
+} from "./organizationModel";
 
 const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
 
 const vBillingPlan = union(literal("free"), literal("pro"));
 type BillingPlan = Infer<typeof vBillingPlan>;
+
+export const ORGANIZATION_BILLING_ACTION_LEASE_MS = 35 * 60_000;
 
 const vBillingStatus = union(literal("inactive"), literal("active"), literal("past_due"));
 
@@ -344,6 +353,73 @@ export const confirmCurrentBillingPayer = internalQuery({
   },
 });
 
+export const acquireOrganizationBillingActionLease = internalMutation({
+  args: {
+    organizationId: id("organizations"),
+    operation: vOrganizationBillingActionOperation,
+  },
+  returns: union(id("organizationBillingActionLeases"), v.null()),
+  handler: async (ctx, args) => {
+    const organization = await ctx.db.get(args.organizationId);
+    if (organization === null || organization.deletion) {
+      return null;
+    }
+
+    const expiresAt = Date.now() + ORGANIZATION_BILLING_ACTION_LEASE_MS;
+    const leaseId = await ctx.db.insert("organizationBillingActionLeases", {
+      organizationId: organization._id,
+      operation: args.operation,
+      expiresAt,
+    });
+    await ctx.scheduler.runAt(
+      expiresAt,
+      internal.billing.cleanupExpiredOrganizationBillingActionLease,
+      { leaseId },
+    );
+    return leaseId;
+  },
+});
+
+export const releaseOrganizationBillingActionLease = internalMutation({
+  args: { leaseId: id("organizationBillingActionLeases") },
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    const lease = await ctx.db.get(args.leaseId);
+    if (lease !== null) {
+      await ctx.db.delete(lease._id);
+    }
+    return null;
+  },
+});
+
+export const cleanupExpiredOrganizationBillingActionLease = internalMutation({
+  args: { leaseId: id("organizationBillingActionLeases") },
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    const lease = await ctx.db.get(args.leaseId);
+    if (lease === null) {
+      return null;
+    }
+    if (lease.expiresAt > Date.now()) {
+      await ctx.scheduler.runAt(
+        lease.expiresAt,
+        internal.billing.cleanupExpiredOrganizationBillingActionLease,
+        args,
+      );
+      return null;
+    }
+    await ctx.db.delete(lease._id);
+    return null;
+  },
+});
+
+async function releaseBillingActionLeaseFromAction(
+  ctx: ActionCtx,
+  leaseId: Id<"organizationBillingActionLeases">,
+): Promise<void> {
+  await ctx.runMutation(internal.billing.releaseOrganizationBillingActionLease, { leaseId });
+}
+
 export const reservePolarTeamCustomerIdentity = internalMutation({
   args: { userId: id("users"), organizationId: id("organizations") },
   returns: vPolarCustomerSeed,
@@ -411,145 +487,234 @@ export const requestPolarBillingChange = action({
       internal.billing.reservePolarTeamCustomerIdentity,
       { userId, organizationId },
     );
-    const catalog = readPolarProductCatalog();
-    if (catalog === null) {
-      throw new ConvexError("Polar billing products are not configured yet.");
-    }
-    const { successUrl, returnUrl } = validateOrganizationBillingReturnUrls({
-      githubOwnerLogin: seed.githubOwnerLogin,
-      successUrl: args.successUrl,
-      returnUrl: args.returnUrl,
-      server: resolvePolarServer(),
-    });
-    const polar = createPolarClient();
-    try {
-      await ensurePolarTeamCustomer(polar, seed);
-    } catch (error) {
-      console.error("billing:polar:team_customer_failed", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
-      throw new ConvexError("Samebase could not verify the Polar team Customer.");
-    }
-
-    let observed: PolarBillingState;
-    try {
-      observed = await reconcilePolarBillingTwiceIfNeeded(ctx, {
-        polar,
-        externalCustomerId: seed.externalCustomerId,
-      });
-    } catch (error) {
-      console.warn("billing:polar:subscription_reconciliation_failed", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
-      throw new ConvexError("Samebase could not verify your current subscription.");
-    }
-    requireBillingChangeAllowed(observed);
-
-    seed = await ctx.runMutation(internal.billing.reservePolarTeamCustomerIdentity, {
-      userId,
+    const leaseId = await ctx.runMutation(internal.billing.acquireOrganizationBillingActionLease, {
       organizationId,
+      operation: "billing_change",
     });
-    const observedSubscription = observed.status === "inactive" ? null : observed;
-    const currentCapacity = observedSubscription?.polarSeatQuantity ?? seed.includedMembers;
-    if (args.change === "add_member_seat" && currentCapacity > seed.memberCount) {
-      throw new ConvexError("This organization already has an available member seat.");
-    }
-    if (args.change === "upgrade_to_pro" && observed.plan === "pro") {
-      throw new ConvexError("This organization already has Pro.");
-    }
-    if (
-      args.change === "downgrade_to_free" &&
-      (observedSubscription === null || observed.plan === "free")
-    ) {
-      throw new ConvexError("This organization already has Free.");
-    }
-    if (args.change === "downgrade_to_free" && observedSubscription?.pendingPlan === "free") {
-      throw new ConvexError("Free is already scheduled for the next billing period.");
+    if (leaseId === null) {
+      throw new ConvexError("Organization deletion is in progress.");
     }
 
-    const targetPlan: BillingPlan =
-      args.change === "upgrade_to_pro"
-        ? "pro"
-        : args.change === "downgrade_to_free"
-          ? "free"
-          : observed.plan;
-    const targetSeats =
-      args.change === "add_member_seat"
-        ? Math.max(
-            seed.memberCount > currentCapacity ? seed.memberCount : seed.memberCount + 1,
-            seed.includedMembers,
-          )
-        : (observedSubscription?.polarSeatQuantity ??
-          Math.max(seed.memberCount, seed.includedMembers));
-    const productId = readPolarCheckoutProductId(catalog, seed.githubOwnerType, targetPlan);
-
-    if (observedSubscription !== null) {
-      await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
-        userId,
-        organizationId,
+    try {
+      const catalog = readPolarProductCatalog();
+      if (catalog === null) {
+        throw new ConvexError("Polar billing products are not configured yet.");
+      }
+      const { successUrl, returnUrl } = validateOrganizationBillingReturnUrls({
+        githubOwnerLogin: seed.githubOwnerLogin,
+        successUrl: args.successUrl,
+        returnUrl: args.returnUrl,
+        server: resolvePolarServer(),
       });
+      const polar = createPolarClient();
       try {
-        const providerSubscription = await polar.subscriptions.update({
-          id: observedSubscription.subscriptionId,
-          subscriptionUpdate:
-            args.change === "upgrade_to_pro"
-              ? { productId, prorationBehavior: "invoice" }
-              : args.change === "downgrade_to_free"
-                ? { productId, prorationBehavior: "next_period" }
-                : { seats: targetSeats, prorationBehavior: "invoice" },
+        await ensurePolarTeamCustomer(polar, seed);
+      } catch (error) {
+        console.error("billing:polar:team_customer_failed", {
+          errorName: error instanceof Error ? error.name : "UnknownError",
         });
-        const updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
+        throw new ConvexError("Samebase could not verify the Polar team Customer.");
+      }
+
+      let observed: PolarBillingState;
+      try {
+        observed = await reconcilePolarBillingTwiceIfNeeded(ctx, {
           polar,
           externalCustomerId: seed.externalCustomerId,
         });
-        if (updated.status === "inactive" || updated.polarSeatQuantity !== targetSeats) {
-          throw new Error("Polar billing update did not reach the requested state.");
-        }
-        if (args.change === "downgrade_to_free") {
-          if (
-            providerSubscription.id !== observedSubscription.subscriptionId ||
-            providerSubscription.seats !== targetSeats ||
-            providerSubscription.pendingUpdate?.productId !== productId ||
-            updated.plan !== "pro" ||
-            updated.pendingPlan !== "free"
-          ) {
-            throw new Error("Polar did not schedule the requested plan change.");
-          }
-        } else if (updated.plan !== targetPlan) {
-          throw new Error("Polar billing update did not reach the requested plan.");
-        }
       } catch (error) {
-        console.error("billing:polar:subscription_update_failed", {
+        console.warn("billing:polar:subscription_reconciliation_failed", {
           errorName: error instanceof Error ? error.name : "UnknownError",
         });
-        throw new ConvexError("Polar could not update this subscription.");
+        throw new ConvexError("Samebase could not verify your current subscription.");
       }
-      await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
+      requireBillingChangeAllowed(observed);
+
+      seed = await ctx.runMutation(internal.billing.reservePolarTeamCustomerIdentity, {
         userId,
         organizationId,
       });
-      return { state: "updated" };
-    }
+      const observedSubscription = observed.status === "inactive" ? null : observed;
+      const currentCapacity = observedSubscription?.polarSeatQuantity ?? seed.includedMembers;
+      if (args.change === "add_member_seat" && currentCapacity > seed.memberCount) {
+        throw new ConvexError("This organization already has an available member seat.");
+      }
+      if (args.change === "upgrade_to_pro" && observed.plan === "pro") {
+        throw new ConvexError("This organization already has Pro.");
+      }
+      if (
+        args.change === "downgrade_to_free" &&
+        (observedSubscription === null || observed.plan === "free")
+      ) {
+        throw new ConvexError("This organization already has Free.");
+      }
+      if (args.change === "downgrade_to_free" && observedSubscription?.pendingPlan === "free") {
+        throw new ConvexError("Free is already scheduled for the next billing period.");
+      }
 
-    let reservation: PolarCheckoutReservation = await ctx.runMutation(
-      internal.polarCheckout.reserveAttempt,
-      { userId, organizationId },
-    );
-    if (reservation.state === "open") {
-      let storedCheckout: Checkout;
+      const targetPlan: BillingPlan =
+        args.change === "upgrade_to_pro"
+          ? "pro"
+          : args.change === "downgrade_to_free"
+            ? "free"
+            : observed.plan;
+      const targetSeats =
+        args.change === "add_member_seat"
+          ? Math.max(
+              seed.memberCount > currentCapacity ? seed.memberCount : seed.memberCount + 1,
+              seed.includedMembers,
+            )
+          : (observedSubscription?.polarSeatQuantity ??
+            Math.max(seed.memberCount, seed.includedMembers));
+      const productId = readPolarCheckoutProductId(catalog, seed.githubOwnerType, targetPlan);
+
+      if (observedSubscription !== null) {
+        await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
+          userId,
+          organizationId,
+        });
+        try {
+          const providerSubscription = await polar.subscriptions.update({
+            id: observedSubscription.subscriptionId,
+            subscriptionUpdate:
+              args.change === "upgrade_to_pro"
+                ? { productId, prorationBehavior: "invoice" }
+                : args.change === "downgrade_to_free"
+                  ? { productId, prorationBehavior: "next_period" }
+                  : { seats: targetSeats, prorationBehavior: "invoice" },
+          });
+          const updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
+            polar,
+            externalCustomerId: seed.externalCustomerId,
+          });
+          if (updated.status === "inactive" || updated.polarSeatQuantity !== targetSeats) {
+            throw new Error("Polar billing update did not reach the requested state.");
+          }
+          if (args.change === "downgrade_to_free") {
+            if (
+              providerSubscription.id !== observedSubscription.subscriptionId ||
+              providerSubscription.seats !== targetSeats ||
+              providerSubscription.pendingUpdate?.productId !== productId ||
+              updated.plan !== "pro" ||
+              updated.pendingPlan !== "free"
+            ) {
+              throw new Error("Polar did not schedule the requested plan change.");
+            }
+          } else if (updated.plan !== targetPlan) {
+            throw new Error("Polar billing update did not reach the requested plan.");
+          }
+        } catch (error) {
+          console.error("billing:polar:subscription_update_failed", {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
+          throw new ConvexError("Polar could not update this subscription.");
+        }
+        await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
+          userId,
+          organizationId,
+        });
+        return { state: "updated" };
+      }
+
+      let reservation: PolarCheckoutReservation = await ctx.runMutation(
+        internal.polarCheckout.reserveAttempt,
+        { userId, organizationId },
+      );
+      if (reservation.state === "open") {
+        let storedCheckout: Checkout;
+        try {
+          storedCheckout = await polar.checkouts.get({ id: reservation.checkoutId });
+        } catch (error) {
+          console.error("billing:polar:checkout_refresh_failed", {
+            errorName: error instanceof Error ? error.name : "UnknownError",
+          });
+          throw new ConvexError("Samebase could not verify your open checkout.");
+        }
+
+        if (
+          isOpenPolarCheckoutForAttempt({
+            attemptId: reservation.attemptId,
+            checkout: storedCheckout,
+            externalCustomerId: seed.externalCustomerId,
+            productId,
+            plan: targetPlan,
+            seatQuantity: targetSeats,
+            returnUrl,
+            successUrl,
+          })
+        ) {
+          await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
+            userId,
+            organizationId,
+          });
+          return { state: "checkout", url: storedCheckout.url };
+        }
+        if (
+          !matchesPolarCheckoutReservation({
+            attemptId: reservation.attemptId,
+            checkout: storedCheckout,
+            externalCustomerId: seed.externalCustomerId,
+          }) ||
+          (storedCheckout.status !== "expired" && storedCheckout.status !== "failed")
+        ) {
+          throw new ConvexError("A different Polar checkout is already open.");
+        }
+
+        const cleared: boolean = await ctx.runMutation(internal.polarCheckout.clearOpen, {
+          organizationId,
+          attemptId: reservation.attemptId,
+          checkoutId: reservation.checkoutId,
+        });
+        if (!cleared) {
+          throw new ConvexError("Samebase could not verify your open checkout.");
+        }
+        reservation = await ctx.runMutation(internal.polarCheckout.reserveAttempt, {
+          userId,
+          organizationId,
+        });
+      }
+
+      if (reservation.state !== "pending" || !reservation.canCreate) {
+        throw new ConvexError(
+          "The previous checkout result must be inspected before another can start.",
+        );
+      }
+
+      let checkout: Checkout;
       try {
-        storedCheckout = await polar.checkouts.get({ id: reservation.checkoutId });
+        checkout = await polar.checkouts.create({
+          products: [productId],
+          externalCustomerId: seed.externalCustomerId,
+          seats: targetSeats,
+          minSeats: targetSeats,
+          maxSeats: targetSeats,
+          successUrl,
+          returnUrl,
+          allowTrial: false,
+          metadata: {
+            source: "samebase_organization",
+            plan: targetPlan,
+            seat_quantity: targetSeats,
+            samebase_checkout_attempt_id: reservation.attemptId,
+          },
+        });
       } catch (error) {
-        console.error("billing:polar:checkout_refresh_failed", {
+        if (isDefinitivePolarCheckoutFailure(error)) {
+          await ctx.runMutation(internal.polarCheckout.clearPending, {
+            organizationId,
+            attemptId: reservation.attemptId,
+          });
+        }
+        console.error("billing:polar:checkout_failed", {
           errorName: error instanceof Error ? error.name : "UnknownError",
         });
-        throw new ConvexError("Samebase could not verify your open checkout.");
+        throw new ConvexError("Polar checkout could not be started.");
       }
 
       if (
-        isOpenPolarCheckoutForAttempt({
+        !isOpenPolarCheckoutForAttempt({
           attemptId: reservation.attemptId,
-          checkout: storedCheckout,
+          checkout,
           externalCustomerId: seed.externalCustomerId,
           productId,
           plan: targetPlan,
@@ -558,102 +723,25 @@ export const requestPolarBillingChange = action({
           successUrl,
         })
       ) {
-        await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
-          userId,
-          organizationId,
-        });
-        return { state: "checkout", url: storedCheckout.url };
-      }
-      if (
-        !matchesPolarCheckoutReservation({
-          attemptId: reservation.attemptId,
-          checkout: storedCheckout,
-          externalCustomerId: seed.externalCustomerId,
-        }) ||
-        (storedCheckout.status !== "expired" && storedCheckout.status !== "failed")
-      ) {
-        throw new ConvexError("A different Polar checkout is already open.");
-      }
-
-      const cleared: boolean = await ctx.runMutation(internal.polarCheckout.clearOpen, {
-        organizationId,
-        attemptId: reservation.attemptId,
-        checkoutId: reservation.checkoutId,
-      });
-      if (!cleared) {
         throw new ConvexError("Samebase could not verify your open checkout.");
       }
-      reservation = await ctx.runMutation(internal.polarCheckout.reserveAttempt, {
+
+      const recorded: boolean = await ctx.runMutation(internal.polarCheckout.recordOpen, {
+        organizationId,
+        attemptId: reservation.attemptId,
+        checkoutId: checkout.id,
+      });
+      if (!recorded) {
+        throw new ConvexError("Polar checkout could not be started.");
+      }
+      await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
         userId,
         organizationId,
       });
+      return { state: "checkout", url: checkout.url };
+    } finally {
+      await releaseBillingActionLeaseFromAction(ctx, leaseId);
     }
-
-    if (reservation.state !== "pending" || !reservation.canCreate) {
-      throw new ConvexError(
-        "The previous checkout result must be inspected before another can start.",
-      );
-    }
-
-    let checkout: Checkout;
-    try {
-      checkout = await polar.checkouts.create({
-        products: [productId],
-        externalCustomerId: seed.externalCustomerId,
-        seats: targetSeats,
-        minSeats: targetSeats,
-        maxSeats: targetSeats,
-        successUrl,
-        returnUrl,
-        allowTrial: false,
-        metadata: {
-          source: "samebase_organization",
-          plan: targetPlan,
-          seat_quantity: targetSeats,
-          samebase_checkout_attempt_id: reservation.attemptId,
-        },
-      });
-    } catch (error) {
-      if (isDefinitivePolarCheckoutFailure(error)) {
-        await ctx.runMutation(internal.polarCheckout.clearPending, {
-          organizationId,
-          attemptId: reservation.attemptId,
-        });
-      }
-      console.error("billing:polar:checkout_failed", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
-      throw new ConvexError("Polar checkout could not be started.");
-    }
-
-    if (
-      !isOpenPolarCheckoutForAttempt({
-        attemptId: reservation.attemptId,
-        checkout,
-        externalCustomerId: seed.externalCustomerId,
-        productId,
-        plan: targetPlan,
-        seatQuantity: targetSeats,
-        returnUrl,
-        successUrl,
-      })
-    ) {
-      throw new ConvexError("Samebase could not verify your open checkout.");
-    }
-
-    const recorded: boolean = await ctx.runMutation(internal.polarCheckout.recordOpen, {
-      organizationId,
-      attemptId: reservation.attemptId,
-      checkoutId: checkout.id,
-    });
-    if (!recorded) {
-      throw new ConvexError("Polar checkout could not be started.");
-    }
-    await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
-      userId,
-      organizationId,
-    });
-    return { state: "checkout", url: checkout.url };
   },
 });
 
@@ -678,35 +766,47 @@ export const createPolarCustomerPortalSession = action({
     if (!externalCustomerId) {
       throw new ConvexError("No billing account exists yet.");
     }
-    const organization = await ctx.runQuery(internal.organizations.getExternalReturnOwnerLogin, {
+    const leaseId = await ctx.runMutation(internal.billing.acquireOrganizationBillingActionLease, {
       organizationId: args.organizationId,
+      operation: "customer_portal",
     });
-    const { returnUrl } = validateOrganizationBillingReturnUrls({
-      githubOwnerLogin: organization,
-      successUrl: args.returnUrl,
-      returnUrl: args.returnUrl,
-      server: resolvePolarServer(),
-    });
-
-    let portalUrl: string;
-    try {
-      const session = await createPolarClient().customerSessions.create({
-        externalCustomerId,
-        externalMemberId: userId,
-        returnUrl,
-      });
-      portalUrl = session.customerPortalUrl;
-    } catch (error) {
-      console.error("billing:polar:portal_failed", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
-      throw new ConvexError("The billing portal could not be opened.");
+    if (leaseId === null) {
+      throw new ConvexError("Organization deletion is in progress.");
     }
-    await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
-      userId,
-      organizationId: args.organizationId,
-    });
-    return { url: portalUrl };
+
+    try {
+      const organization = await ctx.runQuery(internal.organizations.getExternalReturnOwnerLogin, {
+        organizationId: args.organizationId,
+      });
+      const { returnUrl } = validateOrganizationBillingReturnUrls({
+        githubOwnerLogin: organization,
+        successUrl: args.returnUrl,
+        returnUrl: args.returnUrl,
+        server: resolvePolarServer(),
+      });
+
+      let portalUrl: string;
+      try {
+        const session = await createPolarClient().customerSessions.create({
+          externalCustomerId,
+          externalMemberId: userId,
+          returnUrl,
+        });
+        portalUrl = session.customerPortalUrl;
+      } catch (error) {
+        console.error("billing:polar:portal_failed", {
+          errorName: error instanceof Error ? error.name : "UnknownError",
+        });
+        throw new ConvexError("The billing portal could not be opened.");
+      }
+      await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
+        userId,
+        organizationId: args.organizationId,
+      });
+      return { url: portalUrl };
+    } finally {
+      await releaseBillingActionLeaseFromAction(ctx, leaseId);
+    }
   },
 });
 
@@ -812,39 +912,51 @@ export const syncPolarSubscriptionSeats = internalAction({
   args: { organizationId: id("organizations") },
   returns: vNull(),
   handler: async (ctx, args) => {
-    const syncContext: OrganizationBillingSyncContext = await ctx.runQuery(
-      internal.billing.getOrganizationBillingSyncContext,
-      { organizationId: args.organizationId },
-    );
-    const externalCustomerId = syncContext.externalCustomerId?.trim();
-    if (!externalCustomerId) {
+    const leaseId = await ctx.runMutation(internal.billing.acquireOrganizationBillingActionLease, {
+      organizationId: args.organizationId,
+      operation: "seat_sync",
+    });
+    if (leaseId === null) {
       return null;
     }
 
-    const polar = createPolarClient();
-    const state = await reconcilePolarBillingTwiceIfNeeded(ctx, {
-      polar,
-      externalCustomerId,
-    });
-    if (state.status === "inactive") {
-      return null;
-    }
-    const targetSeats = Math.max(syncContext.memberCount, syncContext.includedMembers);
-    if (state.polarSeatQuantity <= targetSeats) {
-      return null;
-    }
+    try {
+      const syncContext: OrganizationBillingSyncContext = await ctx.runQuery(
+        internal.billing.getOrganizationBillingSyncContext,
+        args,
+      );
+      const externalCustomerId = syncContext.externalCustomerId?.trim();
+      if (!externalCustomerId) {
+        return null;
+      }
 
-    await polar.subscriptions.update({
-      id: state.subscriptionId,
-      subscriptionUpdate: { seats: targetSeats, prorationBehavior: "prorate" },
-    });
-    const updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
-      polar,
-      externalCustomerId,
-    });
-    if (updated.status === "inactive" || updated.polarSeatQuantity !== targetSeats) {
-      throw new Error("Polar seat synchronization did not reach the requested quantity.");
+      const polar = createPolarClient();
+      const state = await reconcilePolarBillingTwiceIfNeeded(ctx, {
+        polar,
+        externalCustomerId,
+      });
+      if (state.status === "inactive") {
+        return null;
+      }
+      const targetSeats = Math.max(syncContext.memberCount, syncContext.includedMembers);
+      if (state.polarSeatQuantity <= targetSeats) {
+        return null;
+      }
+
+      await polar.subscriptions.update({
+        id: state.subscriptionId,
+        subscriptionUpdate: { seats: targetSeats, prorationBehavior: "prorate" },
+      });
+      const updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
+        polar,
+        externalCustomerId,
+      });
+      if (updated.status === "inactive" || updated.polarSeatQuantity !== targetSeats) {
+        throw new Error("Polar seat synchronization did not reach the requested quantity.");
+      }
+      return null;
+    } finally {
+      await releaseBillingActionLeaseFromAction(ctx, leaseId);
     }
-    return null;
   },
 });

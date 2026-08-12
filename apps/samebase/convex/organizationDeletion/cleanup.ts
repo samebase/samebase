@@ -32,6 +32,7 @@ export const ORGANIZATION_DELETION_TABLE_REGISTRY = {
   organizationMemberships: "finalization",
   organizationInvitations: "organization_cleanup",
   organizationBillingAccounts: "organization_cleanup",
+  organizationBillingActionLeases: "organization_cleanup",
   githubAppSetupStates: "organization_cleanup",
   githubUserAuthorizations: "preserve",
   workflow_accountDeletion_runs: "preserve",
@@ -138,6 +139,19 @@ async function deleteOrganizationBillingAccount(
   }
   await ctx.db.delete(row._id);
   return 1;
+}
+
+async function deleteOrganizationBillingActionLeases(
+  ctx: OrganizationDeletionCleanupCtx,
+  args: OrganizationDeletionCleanupArgs,
+): Promise<number> {
+  const rows = await ctx.db
+    .query("organizationBillingActionLeases")
+    .withIndex("by_organization_and_expires_at", (query) =>
+      query.eq("organizationId", args.organizationId),
+    )
+    .take(ORGANIZATION_CLEANUP_BATCH_SIZE);
+  return await deleteRowsById(ctx, rows);
 }
 
 async function deleteGitHubSetupStates(
@@ -251,6 +265,7 @@ const ORGANIZATION_CLEANUP_HANDLERS = {
   organizationInvitations: deleteOrganizationInvitations,
   organizationProviderCredentials: deleteOrganizationProviderCredentials,
   vaultPendingUploads: deleteExpiredPendingUpload,
+  organizationBillingActionLeases: deleteOrganizationBillingActionLeases,
   organizationBillingAccounts: deleteOrganizationBillingAccount,
 } satisfies Record<OrganizationCleanupTableName, OrganizationCleanupHandler>;
 
@@ -710,6 +725,7 @@ const quiescenceResult = union(
   object({ state: literal("waiting"), blocker: literal("active_provider_write_scan") }),
   object({ state: literal("waiting"), blocker: literal("active_provider_refresh") }),
   object({ state: literal("waiting"), blocker: literal("active_polar_checkout") }),
+  object({ state: literal("waiting"), blocker: literal("active_polar_billing_action") }),
   object({ state: literal("waiting"), blocker: literal("active_github_setup") }),
   object({ state: literal("waiting"), blocker: literal("active_vault_action") }),
   object({ state: literal("waiting"), blocker: literal("active_media_upload") }),
@@ -800,6 +816,18 @@ export const inspectQuiescence = internalMutation({
         await ctx.db.delete(actionLease._id);
       }
       return { state: "waiting", blocker: "active_vault_action" };
+    }
+    const billingActionLease = await ctx.db
+      .query("organizationBillingActionLeases")
+      .withIndex("by_organization_and_expires_at", (query) =>
+        query.eq("organizationId", run.organization.organizationId),
+      )
+      .first();
+    if (billingActionLease !== null) {
+      if (billingActionLease.expiresAt <= now) {
+        await ctx.db.delete(billingActionLease._id);
+      }
+      return { state: "waiting", blocker: "active_polar_billing_action" };
     }
     const vaultPage = await ctx.db
       .query("vaults")

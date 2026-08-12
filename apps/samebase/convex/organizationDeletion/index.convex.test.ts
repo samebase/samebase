@@ -41,6 +41,7 @@ async function seedOrganization(t: ReturnType<typeof makeConvexTest>) {
       organizationId,
       plan: "free",
       status: "inactive",
+      polarBillingUserId: ownerUserId,
     });
     return { memberUserId, organizationId, ownerMembershipId, ownerUserId };
   });
@@ -139,7 +140,7 @@ describe("organization deletion request", () => {
     });
 
     await expect(
-      t.mutation(internal.billing.ensurePolarExternalCustomerId, {
+      t.mutation(internal.billing.reservePolarTeamCustomerIdentity, {
         userId: seed.ownerUserId,
         organizationId: seed.organizationId,
       }),
@@ -346,11 +347,13 @@ describe("organization deletion request", () => {
 
     await expect(
       t.mutation(internal.polarBillingState.applyObservation, {
-        observationRevision,
+        observationRevision: observationRevision.observationRevision,
         state: {
           plan: "pro",
           status: "active",
           externalCustomerId: "delayed_observation_customer",
+          subscriptionId: "delayed_observation_subscription",
+          polarSeatQuantity: 2,
           currentPeriodEndAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
           cancelAtPeriodEnd: false,
         },
@@ -743,6 +746,48 @@ describe("organization deletion request", () => {
         executionAttempt: 1,
       }),
     ).resolves.toEqual({ state: "done" });
+  });
+
+  it("waits for every Polar billing action and rejects a new action after the gate", async () => {
+    for (const operation of ["billing_change", "customer_portal", "seat_sync"] as const) {
+      const t = makeConvexTest();
+      const seed = await seedOrganization(t);
+      const leaseId = await t.mutation(internal.billing.acquireOrganizationBillingActionLease, {
+        organizationId: seed.organizationId,
+        operation,
+      });
+      if (leaseId === null) {
+        throw new Error("Polar billing action lease was not acquired.");
+      }
+      const accepted = await seed.owner.mutation(api.organizationDeletion.index.request, {
+        organizationId: seed.organizationId,
+        confirmationPhrase: buildOrganizationDeletionConfirmationPhrase("Samebase"),
+      });
+      if (accepted.state !== "accepted") {
+        throw new Error("Organization deletion request was not accepted.");
+      }
+
+      await expect(
+        t.mutation(internal.organizationDeletion.cleanup.inspectQuiescence, {
+          runId: accepted.status.runId,
+          executionAttempt: 1,
+        }),
+      ).resolves.toEqual({ state: "waiting", blocker: "active_polar_billing_action" });
+      await expect(
+        t.mutation(internal.billing.acquireOrganizationBillingActionLease, {
+          organizationId: seed.organizationId,
+          operation,
+        }),
+      ).resolves.toBeNull();
+
+      await t.mutation(internal.billing.releaseOrganizationBillingActionLease, { leaseId });
+      await expect(
+        t.mutation(internal.organizationDeletion.cleanup.inspectQuiescence, {
+          runId: accepted.status.runId,
+          executionAttempt: 1,
+        }),
+      ).resolves.toEqual({ state: "done" });
+    }
   });
 
   it("restarts a stale running execution with a new attempt fence", async () => {

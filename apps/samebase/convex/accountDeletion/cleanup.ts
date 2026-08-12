@@ -1,10 +1,7 @@
 import type { Doc, Id, TableNames } from "../_generated/dataModel";
-import { internal } from "../_generated/api";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { v, type Infer } from "convex/values";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../githubUserAuthorizations";
-import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
-import { requireUserIsNotOrganizationBillingPayer } from "../organizationBillingLimits";
 import { cleanupExpiredPendingUploadPage } from "../pendingUploads";
 import { readOwnedActiveRun } from "./stepContext";
 
@@ -19,8 +16,8 @@ type AccountDeletionTablePolicy =
   | "global";
 
 /**
- * Every application table has one account-deletion policy. Organization data
- * stays intact when one member deletes their Samebase identity.
+ * Every application table has one account-deletion policy. A new deletion run
+ * has no current organization membership, and organization data stays intact.
  */
 export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   authSessions: "auth_finalization",
@@ -34,6 +31,7 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   organizationMemberships: "account_data",
   organizationInvitations: "account_data",
   organizationBillingAccounts: "organization_preserved",
+  organizationBillingActionLeases: "organization_preserved",
   githubAppSetupStates: "account_data",
   githubUserAuthorizations: "credential_revocation",
   workflow_accountDeletion_runs: "receipt",
@@ -84,7 +82,7 @@ type AccountDataTableName = {
 }[TableNames];
 
 const ACCOUNT_DATA_BATCH_SIZE = 25;
-type AccountDataCleanupCtx = Pick<MutationCtx, "db" | "scheduler">;
+type AccountDataCleanupCtx = Pick<MutationCtx, "db">;
 
 const accountDeletionQuiescenceResult = v.union(
   v.object({ state: v.literal("done") }),
@@ -180,30 +178,14 @@ type AccountDataCleanupHandler = (
 /** Property order is the bounded account-data cleanup order. */
 const ACCOUNT_DATA_CLEANUP_HANDLERS = {
   organizationMemberships: async (ctx, userId) => {
-    const rows = await ctx.db
+    const membership = await ctx.db
       .query("organizationMemberships")
       .withIndex("by_user", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    for (const membership of rows) {
-      await requireUserIsNotOrganizationBillingPayer(ctx.db, {
-        organizationId: membership.organizationId,
-        userId,
-      });
-      if (membership.role === "owner") {
-        await requireAnotherActiveOrganizationOwner(ctx.db, {
-          organizationId: membership.organizationId,
-          excludedUserId: userId,
-        });
-      }
+      .first();
+    if (membership !== null) {
+      throw new Error("Account deletion requires the user to leave or delete every organization.");
     }
-    const deleted = await deleteRowsById(ctx, rows);
-    const organizationIds = new Set(rows.map((membership) => membership.organizationId));
-    for (const organizationId of organizationIds) {
-      await ctx.scheduler.runAfter(0, internal.billing.syncPolarSubscriptionSeats, {
-        organizationId,
-      });
-    }
-    return deleted;
+    return 0;
   },
   organizationInvitations: async (ctx, userId) => {
     const rows = await ctx.db
@@ -357,7 +339,7 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
   },
 } satisfies Record<AccountDataTableName, AccountDataCleanupHandler>;
 
-/** Deletes at most one bounded slice of user-owned application data. */
+/** Verifies membership absence and deletes at most one bounded slice of account data. */
 export async function cleanupAccountDataBatchForUser(
   ctx: AccountDataCleanupCtx,
   args: { userId: Id<"users"> },

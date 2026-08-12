@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase product/backend
-- Last updated: 2026-08-11
+- Last updated: 2026-08-12
 - Related:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -129,16 +129,16 @@ owner cannot use the remove action on their own membership. They must use `Leave
 Changing to the current role is an idempotent success.
 
 An active owner has an `owner` membership and an active `users` row. Approval and temporary release
-gates do not decide owner continuity. A role change, removal, leave, or account deletion must not
-leave an organization without an active owner. The check and write occur in one mutation. A deleting
-or deleted user does not satisfy the active-owner rule. A deleting member can be removed, but a
-deleting user cannot be promoted.
+gates do not decide owner continuity. A role change, removal, or leave must not leave an
+organization without an active owner. The check and write occur in one mutation. Account deletion
+requires the user to have no membership. A deleting or deleted user does not satisfy the
+active-owner rule and cannot be promoted.
 
 A sole-member owner cannot leave. They can use the explicit organization deletion lifecycle in
 Spec 124. An owner cannot delete a shared organization. They must use this membership flow to remove
 members or resolve ownership. After the organization-scoped Polar billing model is present, a
-designated payer cannot be demoted, removed, leave a shared organization, or delete their account
-until billing ownership is transferred.
+designated payer cannot be demoted, removed, or leave a shared organization until billing ownership
+is transferred. Account deletion requires the user to have no membership.
 
 Leave or removal is blocked only while the target user owns a queued or running vault provisioning
 run or vault deletion run in that organization. The membership mutation reads those indexed active

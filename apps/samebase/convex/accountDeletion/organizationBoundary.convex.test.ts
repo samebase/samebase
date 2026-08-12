@@ -63,11 +63,6 @@ async function seedRunningDeletion() {
     });
     await ctx.db.insert("organizationMemberships", {
       organizationId,
-      userId: deletingUserId,
-      role: "owner",
-    });
-    await ctx.db.insert("organizationMemberships", {
-      organizationId,
       userId: teammateUserId,
       role: "owner",
     });
@@ -302,6 +297,22 @@ describe("account deletion organization boundary", () => {
     });
   });
 
+  it("stops cleanup if an organization membership appears after the request", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const membershipId = await t.run(async (ctx) => {
+      return await ctx.db.insert("organizationMemberships", {
+        organizationId: ids.organizationId,
+        userId: ids.deletingUserId,
+        role: "member",
+      });
+    });
+
+    await expect(
+      t.run(async (ctx) => cleanupAccountDataBatchForUser(ctx, { userId: ids.deletingUserId })),
+    ).rejects.toThrow("Account deletion requires the user to leave or delete every organization.");
+    await expect(t.run(async (ctx) => await ctx.db.get(membershipId))).resolves.not.toBeNull();
+  });
+
   it("preserves creator attribution and scrubs an accepted recipient", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
@@ -331,11 +342,6 @@ describe("account deletion organization boundary", () => {
         organizationId,
         userId: ownerUserId,
         role: "owner",
-      });
-      await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId: deletingUserId,
-        role: "member",
       });
       const createdInvitationId = await ctx.db.insert("organizationInvitations", {
         organizationId,
@@ -379,20 +385,6 @@ describe("account deletion organization boundary", () => {
       };
     });
 
-    const membershipCleanupDone = await t.run(async (ctx) =>
-      cleanupAccountDataBatchForUser(ctx, { userId: ids.deletingUserId }),
-    );
-    expect(membershipCleanupDone).toBe(false);
-    await expect(
-      t.run(async (ctx) =>
-        ctx.db
-          .query("organizationMemberships")
-          .withIndex("by_organization_and_user", (query) =>
-            query.eq("organizationId", ids.organizationId).eq("userId", ids.deletingUserId),
-          )
-          .unique(),
-      ),
-    ).resolves.toBeNull();
     await expect(
       t.run(async (ctx) => await ctx.db.get(ids.acceptedInvitationId)),
     ).resolves.toMatchObject({ state: "accepted" });

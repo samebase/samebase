@@ -3,7 +3,7 @@
 ## Document Control
 
 - Date: 2026-08-12
-- Status: Official source review complete. Polar Sandbox execution is pending.
+- Status: Official source review and Polar Sandbox acceptance complete.
 - Scope: Polar cleanup for deletion of one Samebase organization
 - Product contract: `specs/124_ORGANIZATION_DELETION_SPEC.md`
 
@@ -70,19 +70,39 @@ Use one dedicated Customer external ID with a task-specific prefix. Record only 
 object IDs in private test evidence. Do not put access tokens, checkout URLs, email addresses, or
 payment details in this file.
 
-| Case                          | Setup and action                                                                                             | Pass condition                                                                                                                                       | Status  |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
-| No Polar Customer             | Create a Samebase billing row with no external Customer ID. Start organization deletion.                     | The process skips Polar cleanup and starts local cleanup.                                                                                            | Pending |
-| Customer without subscription | Create a team Customer with the reserved external ID. Delete with `anonymize=true`.                          | Reads by internal and external Customer identity do not return an active Customer.                                                                   | Pending |
-| Open checkout                 | Create but do not complete a checkout for the exact external ID. Start cleanup.                              | Cleanup stays in its bounded running wait and does not delete the Customer or local billing row.                                                     | Pending |
-| Confirmed checkout            | Submit Pay and observe `confirmed` before its terminal state. Start cleanup during that state.               | Cleanup waits and does not treat `confirmed` as success.                                                                                             | Pending |
-| Active team subscription      | Buy a seat product, create at least one Member and CustomerSeat, and confirm a benefit grant. Run cleanup.   | All nonterminal subscriptions are revoked before anonymized Customer deletion. No future renewal can occur.                                          | Pending |
-| Period-end cancellation       | Set the active subscription to cancel at period end, then run cleanup.                                       | Cleanup still revokes it immediately before Customer deletion.                                                                                       | Pending |
-| Paused subscription           | Pause a subscription that can resume, then run cleanup.                                                      | Cleanup revokes it and leaves no resumable billing relation.                                                                                         | Pending |
-| Team Member and CustomerSeat  | List Members and seats before and after Customer deletion.                                                   | The retained provider presentation is recorded. Any retained row has no active Customer, benefit, checkout, subscription, or future-charge relation. | Pending |
-| Benefit cleanup               | Record granted benefits before cleanup and read provider state after cleanup.                                | Customer deletion or subscription revocation removes active benefit grants.                                                                          | Pending |
-| Repeated revoke and delete    | Stop a request after each destructive provider response, then retry the same run.                            | The retry reads state, completes without a false failure, and does not create a second Customer.                                                     | Pending |
-| Delayed webhooks              | Redeliver pre-delete checkout, subscription, Customer, seat, and benefit events after local deletion starts. | No event restores local billing state or schedules seat work for the deleting or missing organization.                                               | Pending |
+| Case                          | Setup and action                                                                                            | Pass condition                                                                                                                                       | Status                                    |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| No Polar Customer             | Create a Samebase billing row with no external Customer ID. Start organization deletion.                    | The process skips Polar cleanup and starts local cleanup.                                                                                            | Passed, focused Convex test, 2026-08-12   |
+| Customer without subscription | Create a team Customer with the reserved external ID. Delete with `anonymize=true`.                         | Reads by internal and external Customer identity do not return an active Customer.                                                                   | Passed, Polar Sandbox, 2026-08-12         |
+| Open checkout                 | Create but do not complete a checkout for the exact external ID. Start cleanup.                             | Cleanup stays in its bounded running wait and does not delete the Customer or local billing row.                                                     | Passed, Polar Sandbox, 2026-08-12         |
+| Confirmed checkout            | Submit Pay and observe `confirmed` before its terminal state. Start cleanup during that state.              | Cleanup waits and does not treat `confirmed` as success.                                                                                             | Passed, Polar Sandbox, 2026-08-12         |
+| Active team subscription      | Buy a seat product and create at least one Member and CustomerSeat. Run cleanup.                            | All nonterminal subscriptions are revoked before anonymized Customer deletion. No future renewal can occur.                                          | Passed, Polar Sandbox, 2026-08-12         |
+| Period-end cancellation       | Set the active subscription to cancel at period end, then run cleanup.                                      | Cleanup still revokes it immediately before Customer deletion.                                                                                       | Passed, Polar Sandbox, 2026-08-12         |
+| Paused subscription           | Create a free subscription, schedule a pause at an early period end, wait for `paused`, then run cleanup.   | Cleanup revokes it and leaves no resumable billing relation.                                                                                         | Passed, Polar Sandbox, 2026-08-12         |
+| Team Member and CustomerSeat  | List Members and seats before and after Customer deletion.                                                  | The retained provider presentation is recorded. Any retained row has no active Customer, benefit, checkout, subscription, or future-charge relation. | Passed, Polar Sandbox, 2026-08-12         |
+| Benefit cleanup               | Attach a temporary custom benefit to a free product, confirm its grant, run cleanup, and read grants again. | Customer deletion or subscription revocation removes active benefit grants.                                                                          | Passed, Polar Sandbox, 2026-08-12         |
+| Repeated revoke and delete    | Stop after each destructive provider response, then call the same read-led cleanup again.                   | The retry reads state, completes without a false failure, and does not create a second Customer.                                                     | Passed, Polar Sandbox, 2026-08-12         |
+| Delayed webhooks              | Replay a pre-delete Polar observation after the local organization deletion gate starts.                    | No event restores local billing state or schedules seat work for the deleting or missing organization.                                               | Passed, focused Convex replay, 2026-08-12 |
 
-Until these Sandbox cases have evidence, the implementation can ship to review but cannot claim
-provider acceptance is complete.
+## Recorded Acceptance Results
+
+The live Polar Sandbox run used task-prefixed team Customers and the production provider adapter. It
+recorded these non-secret results:
+
+- An `open` checkout returned `waiting_for_checkout` and left its Customer intact.
+- A `confirmed` checkout also returned `waiting_for_checkout`. After it changed to `succeeded`, the
+  same cleanup identity revoked its new subscription and completed Customer deletion.
+- A paid team subscription was `active` before cleanup. Its period-end cancellation flag did not
+  prevent immediate revoke. The subscription became `canceled` before the Customer was deleted.
+- The paid team Customer had one owner Member and one claimed seat before cleanup. After Customer
+  deletion, the Member list was empty and the retained seat was `revoked`.
+- A free subscription had an active custom-benefit grant, reached `paused`, and then became
+  `canceled` through the same cleanup adapter. The active benefit-grant count was zero immediately
+  after revoke.
+- Repeating cleanup after Customer deletion returned complete through provider reads. It did not
+  create another Customer.
+
+The final residue check covered five task Customer identities. It found no active Customer, no
+`open` or `confirmed` checkout, and no nonterminal subscription. The temporary free product was
+archived, and its temporary benefit was deleted. No checkout URL, email address, payment data,
+access token, or provider object ID is retained in this document.

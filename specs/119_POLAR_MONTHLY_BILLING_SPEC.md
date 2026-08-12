@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase platform
-- Last updated: 2026-08-11
+- Last updated: 2026-08-12
 - Previous rollout plan: `rfcs/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md`
 - Supersedes: `specs/033_POLAR_BILLING_SPEC.md` and `specs/034_POLAR_BILLING_PHASED_ROLLOUT_SPEC.md`
 - Related: `specs/124_ORGANIZATION_DELETION_SPEC.md`
@@ -48,8 +48,9 @@ The first current Samebase owner who starts a checkout or paid billing change be
 organization's designated billing payer. Samebase stores that user on the organization billing row
 and creates that user as the Polar team Customer's owner Member. Only the designated payer can start
 later billing changes or open that Customer's portal. The designated payer cannot be demoted,
-removed, leave the organization, or delete their Samebase account until billing ownership is
-transferred. Self-serve billing-owner transfer is not part of this rollout.
+removed, or leave the organization until billing ownership is transferred. Any organization
+membership blocks Samebase account deletion. Self-serve billing-owner transfer is not part of this
+rollout.
 
 One organization has at most one current Polar subscription. The current catalog selection has four
 monthly products, one for each combination of GitHub owner type and Samebase plan:
@@ -184,10 +185,11 @@ nonterminal subscriptions are absent. Only then can it delete the local organiza
 Delayed webhooks and seat synchronization cannot restore billing state for a deleting or missing
 organization.
 
-Account deletion does not remove a designated payer from a shared organization. It requires billing
-ownership transfer first. A sole member can explicitly delete the organization, which closes its
-Polar billing relationship before account deletion starts. Samebase does not delete its Polar seller
-Organization, and it does not refund historical orders as part of this lifecycle.
+Account deletion does not remove any organization membership. A designated payer must transfer
+billing ownership and leave each shared organization first. A sole member can explicitly delete the
+organization, which closes its Polar billing relationship before account deletion starts. Samebase
+does not delete its Polar seller Organization, and it does not refund historical orders as part of
+this lifecycle.
 
 ### Operational Simplicity
 
@@ -229,7 +231,7 @@ The contract is complete only when tests and Sandbox checks prove:
 - Concurrent invitation acceptances cannot both consume the last available seat.
 - The first billing owner becomes the designated payer, and other owners cannot use that payer's
   checkout or portal access.
-- A designated payer cannot be demoted, removed, leave, or delete their account.
+- A designated payer cannot be demoted, removed, or leave. Account deletion requires no membership.
 - An organization above verified member capacity blocks normal work but keeps billing and member
   removal available.
 - The matching Polar product charges $4 for Pro plus $2 for each member above the included count.
@@ -252,5 +254,7 @@ The contract is complete only when tests and Sandbox checks prove:
   changes work without a manual database edit.
 - Organization deletion waits for `open` and `confirmed` checkout state, revokes every nonterminal
   subscription, anonymizes the team Customer, and cannot be undone by a delayed webhook.
-- A shared organization's designated payer cannot leave or delete their account before billing
-  ownership transfer. A sole member must delete the organization before account deletion.
+- Polar Customer, checkout, subscription, portal, and seat writes hold a durable organization lease
+  that organization deletion must drain before provider cleanup.
+- A shared organization's designated payer cannot leave before billing ownership transfer. Any
+  membership blocks account deletion. A sole member must delete the organization first.

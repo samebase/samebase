@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-11
+- Last updated: 2026-08-12
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -49,13 +49,13 @@ Spec 123 defines invitation, role, removal, leave, and live GitHub relationship 
 internal existing-user function remains an operator recovery tool and is not the product membership
 flow.
 
-Every surviving organization must always have at least one active owner. Account deletion,
-membership removal, and role changes must reject a transition that would leave an organization
-without an active owner. An active owner has an `owner` membership and an active user row. Approval
-and temporary release gates do not decide owner continuity. Spec 124 provides the only exception:
-its final transaction removes the sole membership and the organization together after required
-cleanup succeeds. The first beta has invitation records and owner/member administration. It has no
-permission arrays or custom roles.
+Every surviving organization must always have at least one active owner. Membership removal and role
+changes must reject a transition that would leave an organization without an active owner. Account
+deletion requires the user to have no organization membership. An active owner has an `owner`
+membership and an active user row. Approval and temporary release gates do not decide owner
+continuity. Spec 124 provides the only exception: its final transaction removes the sole membership
+and the organization together after required cleanup succeeds. The first beta has invitation records
+and owner/member administration. It has no permission arrays or custom roles.
 
 ## GitHub Owner And App Installation
 
@@ -280,13 +280,14 @@ organization has no organization billing row. A new organization starts on Free 
 provider billing state. Plan, quota, usage, checkout, and subscription belong to the organization.
 All members can read plan and usage. Only owners can start checkout or open subscription management.
 
-Deleting a user is not organization deletion. User deletion removes authentication data, personal
-state, memberships, MCP grants, user-owned GitHub authorizations, and provider credentials connected
-by that user. It leaves the PII-free terminal user row that Spec 113 defines. Organization
-invitations keep their creator and acceptor user references for attribution. An accepted invitation
-whose recipient deletes the account loses its GitHub recipient identity, login, avatar, code, and
-expiry. It does not delete an organization, deployment destination, vault, billing row, or another
-member's data. Deleted and deleting users do not count as members or active owners.
+Deleting a user is not organization deletion. Account deletion starts only after the user has no
+organization membership. It removes authentication data, personal state, MCP grants, user-owned
+GitHub authorizations, and provider credentials connected by that user. It leaves the PII-free
+terminal user row that Spec 113 defines. Organization invitations keep their creator and acceptor
+user references for attribution. An accepted invitation whose recipient deletes the account loses
+its GitHub recipient identity, login, avatar, code, and expiry. It does not delete an organization,
+deployment destination, vault, billing row, or another member's data. Deleted and deleting users do
+not count as members or active owners.
 
 Organization deletion is the separate, explicit lifecycle in Spec 124. An active owner can request
 it only while they are the sole membership. A shared organization is preserved until its members
@@ -378,9 +379,9 @@ The rollout is ready only when focused tests and real manual checks prove:
   ID.
 - Billing and quotas belong to the organization.
 - User deletion does not delete the organization or shared resources.
-- A sole member must explicitly delete the organization before account deletion. A shared
-  organization survives account deletion when the normal ownership and payer rules allow the user to
-  leave.
+- Any organization membership blocks account deletion. A sole member must explicitly delete the
+  organization first. A shared-organization member must leave through the normal ownership and payer
+  rules first.
 - Organization deletion removes the sole membership and organization in one final transaction. It
   preserves external GitHub, Convex, and Cloudflare infrastructure.
 - A deleted, deleting, or missing user cannot use a retained membership, session, MCP credential,

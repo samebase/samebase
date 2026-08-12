@@ -66,6 +66,7 @@ export function OrganizationRouteBoundary({
   ) {
     return (
       <Navigate
+        hash
         params={{ owner: organization.githubOwnerLogin }}
         replace
         search

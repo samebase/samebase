@@ -235,7 +235,7 @@ test("keeps one organization switchable across settings, providers, and billing"
   const billingSection = settingsWithBilling.getByTestId("organization-billing-section");
   await expect(billingSection.getByRole("heading", { name: "Billing" })).toBeVisible();
   await expect(
-    billingSection.getByText("Checkout canceled. Your plan did not change.", { exact: true }),
+    billingSection.getByText("Checkout canceled. Billing did not change.", { exact: true }),
   ).toBeVisible();
   await expect(page).toHaveURL(/\/org\/org-context-solo\/settings\?checkout=cancel#billing$/u);
 

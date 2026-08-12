@@ -96,7 +96,7 @@ describe("account deletion request and status", () => {
     });
   });
 
-  it("requires billing transfer before the designated payer deletes their account", async () => {
+  it("requires a shared organization membership to be resolved before account deletion", async () => {
     const t = makeConvexTest();
     const { userId, viewer } = await seedActiveViewer(t, "payer@example.invalid");
     await t.run(async (ctx) => {
@@ -136,7 +136,7 @@ describe("account deletion request and status", () => {
         confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
       }),
     ).rejects.toThrow(
-      "Transfer organization billing before changing or removing the billing payer.",
+      "Leave or delete the payer-organization organization before you delete your account.",
     );
   });
 
@@ -252,6 +252,7 @@ describe("account deletion request and status", () => {
           organizationId,
           plan: "free",
           status: "inactive",
+          polarBillingUserId: userId,
         });
         return organizationId;
       });
@@ -261,7 +262,7 @@ describe("account deletion request and status", () => {
           completionCapability: "f".repeat(64),
           confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
         }),
-      ).rejects.toThrow("Delete the SoloOrg organization before you delete your account.");
+      ).rejects.toThrow("Leave or delete the SoloOrg organization before you delete your account.");
 
       await viewer.mutation(api.organizationDeletion.index.request, {
         organizationId,

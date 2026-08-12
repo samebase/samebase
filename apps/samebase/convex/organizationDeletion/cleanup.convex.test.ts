@@ -47,6 +47,11 @@ describe("organization data cleanup", () => {
         plan: "free",
         status: "inactive",
       });
+      const billingActionLeaseId = await ctx.db.insert("organizationBillingActionLeases", {
+        organizationId,
+        operation: "seat_sync",
+        expiresAt: 100,
+      });
       const invitationId = await ctx.db.insert("organizationInvitations", {
         state: "pending",
         organizationId,
@@ -380,6 +385,7 @@ describe("organization data cleanup", () => {
         deletedIds: [
           membershipId,
           billingId,
+          billingActionLeaseId,
           invitationId,
           credentialId,
           oauthStateId,

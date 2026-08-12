@@ -26,12 +26,11 @@ The confirmation phrase is `delete <GitHub owner login>`. The server computes an
 again in the request transaction. A lost response can return the existing active run. It cannot
 create a second run.
 
-Account deletion never starts organization deletion. Account deletion can remove an ordinary
-membership when the current active-work, ownership, and billing-payer rules allow it. Before
-deleting an account, a sole member must explicitly delete that Samebase organization. A last active
-owner of a shared organization must add or promote another active owner. A designated Polar billing
-payer cannot leave a shared organization and cannot delete the payer account until billing ownership
-is transferred.
+Account deletion never starts organization deletion and never removes a current organization
+membership. Any membership blocks account deletion. The user must first leave each shared
+organization through the normal ownership, active-work, and billing-payer rules. A sole member must
+explicitly delete that Samebase organization. A designated Polar billing payer cannot leave a shared
+organization until billing ownership is transferred.
 
 ### Organization Lifecycle
 
@@ -48,6 +47,12 @@ or local cleanup write. New checkout, billing portal, member, invitation, provid
 vault, and provisioning actions reject a deleting or failed organization. An already authorized
 workflow can finish its exact current work. Organization deletion waits for that work before it
 removes local rows.
+
+An action that can write Polar must acquire a durable organization billing-action lease before its
+first provider call. The lease expires after the maximum action lifetime and is released after the
+provider and local recording steps finish. Organization deletion waits for active billing-change,
+Customer portal, and seat-synchronization leases. A lease request after the deletion gate is set
+does not authorize a provider call.
 
 The owner can read the running or failed status from Organization settings. Samebase staff can read
 all failed runs and retry the same run. Retry does not create a new cleanup identity and does not
@@ -209,7 +214,10 @@ Focused Convex tests must prove:
 - only an active sole-member owner can create a run
 - a second member, a non-owner, an invalid phrase, and a concurrent run do not start deletion
 - the gate blocks new billing, membership, provider, vault, and provisioning work
-- account deletion requires explicit sole-member organization deletion and keeps shared payer blocks
+- any organization membership blocks account deletion, and a sole member must use explicit
+  organization deletion first
+- active user billing and scheduled seat-synchronization actions block cleanup until their leases
+  end
 - provider cleanup waits for `open` and `confirmed` checkouts
 - every nonterminal subscription is revoked before anonymized Customer deletion
 - timeouts and already-removed provider objects are reconciled without a false success

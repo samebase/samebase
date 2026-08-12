@@ -11,25 +11,22 @@ A signed-in, non-staff user can start account deletion from `/settings`. The con
 the exact phrase `delete my account`.
 
 The confirmation must distinguish the user's Samebase identity from organization data. Account
-deletion removes the user's login, profile, personal preferences, organization memberships, MCP
-access, pending provider authorization states, GitHub App user authorization, and every provider
-credential slot whose current `connectedByUserId` identifies that user. It does not delete an
-organization, organization invitation, organization billing, deployment destination, vault, staged
+deletion removes the user's login, profile, personal preferences, MCP access, pending provider
+authorization states, GitHub App user authorization, and every provider credential slot whose
+current `connectedByUserId` identifies that user. It does not delete an organization, organization
+membership, organization invitation, organization billing, deployment destination, vault, staged
 file, attached resource, observation, or organization workflow record. It deletes the organization
 provider credential document only when it clears the last credential slot.
 
-Account deletion does not start organization deletion. A user who is the sole member of an
-organization must explicitly delete that Samebase organization first, as Spec 124 defines. If an
-organization has other members, account deletion preserves the organization. A last active owner
-must add or promote another active owner before account deletion can remove their membership. A
-designated Polar billing payer cannot leave a shared organization or delete their account until
-billing ownership is transferred. These checks happen before account deletion changes the user
-lifecycle.
+Account deletion does not start organization deletion and does not remove a current organization
+membership. Any membership blocks the request before account deletion changes the user lifecycle.
+The user must first leave each shared organization through the normal ownership, active-work, and
+billing-payer rules. A sole member must explicitly delete that Samebase organization first, as Spec
+124 defines. A designated Polar billing payer must transfer billing ownership before the payer can
+leave a shared organization.
 
-Account deletion can remove an ordinary membership when the current membership, active-work, and
-billing-payer rules allow the user to leave. Removing the user who connected a provider removes that
-provider credential and can make operations that depend on it unavailable until another owner
-reconnects the same destination.
+Deleting a user who previously connected a provider removes that provider credential and can make
+operations that depend on it unavailable until another owner reconnects the same destination.
 
 Acceptance creates one durable deletion run, marks the user as deleting, and routes every signed-in
 session to `/account-deletion`. Repeated requests return the same active run without rechecking the
@@ -60,9 +57,9 @@ The terminal row keeps its opaque ID so retained organization records can keep v
 keeps `_creationTime` because Convex stores this system field on every document. It keeps
 `deletedAt` to record the terminal lifecycle event. These values are retained only for referential
 integrity, corruption detection, and lifecycle timing. They are not used for authentication,
-contact, account matching, approval, organization access, or reactivation. The workflow removes the
-profile, auth, membership, preference, provider, and other personal rows that could associate the
-opaque values with the person.
+contact, account matching, approval, organization access, or reactivation. The workflow starts only
+after all memberships are gone. It removes the profile, auth, preference, provider, and other
+personal rows that could associate the opaque values with the person.
 
 ## Completion And Browser Recovery
 
@@ -98,8 +95,8 @@ The workflow must:
 4. Clear each current Convex credential slot whose `connectedByUserId` identifies the user. When a
    slot used Convex OAuth, retain the manual revocation notice because Samebase cannot revoke the
    upstream authorization.
-5. Delete personal preferences, organization memberships that passed the request checks, MCP grants
-   and tokens, provider callback states, and GitHub App setup states in bounded batches. Preserve
+5. Recheck that the user has no organization membership. Delete personal preferences, MCP grants and
+   tokens, provider callback states, and GitHub App setup states in bounded batches. Preserve
    organization invitations and their creator and acceptor user references. For each accepted
    invitation that names this user as acceptor, remove its code and GitHub recipient fields before
    finalization.
@@ -194,20 +191,20 @@ hard-deleted IDs cannot be restored.
 - Viewer, session, OAuth, browser handoff, provider callback, and MCP state-matrix tests enforce the
   deleting and deleted boundaries. Missing user references fail as corruption.
 - Staff, approval, membership, billing, and active-owner checks count only active users.
-- A sole member cannot start account deletion until explicit organization deletion succeeds.
-- A last active owner of a shared organization cannot start account deletion until another active
-  owner exists. An ordinary member can proceed when the normal leave checks pass.
-- A designated Polar billing payer in a shared organization cannot start account deletion until
-  billing ownership is transferred. Explicit deletion of a sole-member organization removes its
-  billing relationship before account deletion can start.
+- Any current organization membership blocks account deletion. A shared-organization member must
+  leave first. A sole member must complete explicit organization deletion first.
+- A last active owner must resolve ownership before leaving. A designated Polar billing payer must
+  transfer billing ownership before leaving. Explicit deletion of a sole-member organization removes
+  its billing relationship before account deletion can start.
 - Each matching local credential slot is cleared without a Convex or Cloudflare revocation request.
   The completion email gives the manual upstream revocation steps.
 - At most one Convex and one Cloudflare slot per organization are processed in bounded batches
   across the user's organizations.
-- Personal preferences, memberships, OAuth states, MCP grants and tokens, GitHub user authorization,
-  and auth data are removed. Organization invitations keep their creator and acceptor user IDs. The
-  original user ID resolves through the exact deleted variant. An accepted invitation does not keep
-  GitHub recipient PII for that deleted acceptor.
+- Personal preferences, OAuth states, MCP grants and tokens, GitHub user authorization, and auth
+  data are removed. The final readiness check proves that no membership was added after the request.
+  Organization invitations keep their creator and acceptor user IDs. The original user ID resolves
+  through the exact deleted variant. An accepted invitation does not keep GitHub recipient PII for
+  that deleted acceptor.
 - A pending browser or action upload blocks account deletion until it finishes or expires. An
   expired reservation deletes its unreferenced storage object in bounded pages before deletion
   continues.

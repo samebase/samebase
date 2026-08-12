@@ -108,8 +108,10 @@ export function VaultDashboard({
       return;
     }
     void navigate({
+      hash: true,
       params: { owner: deletingOrganizationOwner },
       replace: true,
+      search: true,
       to: ORGANIZATION_SETTINGS_ROUTE,
     });
   }, [deletingOrganizationOwner, navigate]);

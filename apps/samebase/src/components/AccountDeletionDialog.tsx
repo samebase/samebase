@@ -87,12 +87,12 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
           <DialogTitle>Delete account?</DialogTitle>
           <DialogDescription className="space-y-2 text-foreground">
             <span className="block font-medium">
-              This permanently deletes your Samebase account, removes your organization access, and
-              disconnects provider connections you added.
+              This permanently deletes your Samebase account and disconnects provider connections
+              you added.
             </span>
             <span className="block text-muted-foreground">
-              Organization subscriptions are not canceled. Organizations, vaults, staged changes,
-              GitHub repositories, Convex projects, and Cloudflare Workers are not deleted.
+              Leave or delete every organization first. Account deletion does not delete
+              organizations, vaults, GitHub repositories, Convex projects, or Cloudflare Workers.
             </span>
           </DialogDescription>
         </DialogHeader>

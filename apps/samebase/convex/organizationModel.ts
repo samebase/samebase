@@ -20,6 +20,11 @@ export const vOrganizationCloudflareAccount = object({
 
 export const vGitHubOwnerType = union(literal("organization"), literal("user"));
 export const vOrganizationMembershipRole = union(literal("owner"), literal("member"));
+export const vOrganizationBillingActionOperation = union(
+  literal("billing_change"),
+  literal("customer_portal"),
+  literal("seat_sync"),
+);
 
 export const vOrganizationBillingState = object({
   provider: optional(literal("polar")),
@@ -84,4 +89,11 @@ export const organizationTables = {
   })
     .index("by_organization", ["organizationId"])
     .index("by_polar_external_customer_id", ["polarExternalCustomerId"]),
+
+  /** One bounded continuation fence for a Polar provider action. */
+  organizationBillingActionLeases: defineTable({
+    organizationId: id("organizations"),
+    operation: vOrganizationBillingActionOperation,
+    expiresAt: number(),
+  }).index("by_organization_and_expires_at", ["organizationId", "expiresAt"]),
 };

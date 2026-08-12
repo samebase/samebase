@@ -199,9 +199,11 @@ describe("VaultDashboard dialog route cleanup", () => {
   it("routes a deleting organization vault to organization settings", async () => {
     setSettledWorkspace({ state: "organization_deleting", owner: "samebase" });
 
-    await renderDashboard("/vault/samebase/samebase", "samebase/samebase");
+    await renderDashboard("/vault/samebase/samebase?dev#selected-file", "samebase/samebase");
 
     expect(readLocationHref()).toContain("/org/samebase/settings");
+    expect(readLocationHref()).toContain("?dev");
+    expect(readLocationHref()).toContain("#selected-file");
   });
 
   it("keeps a permitted dialog for the selected vault", async () => {
