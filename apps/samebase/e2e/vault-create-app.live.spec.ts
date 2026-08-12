@@ -18,7 +18,6 @@ const APP_DASHBOARD_TIMEOUT_MS = 15_000;
 const TEST_CONVEX_TEAM_ID = "522530";
 const TEST_CONVEX_TEAM_SLUG = "samebase-live-tests";
 const TEST_CLOUDFLARE_ACCOUNT_ID = "a9dfbbd031cf9eda46831def8e468b4e";
-const TEST_CLOUDFLARE_ACCOUNT_NAME = "Samebase Live Tests";
 
 const setupSummarySchema = z.object({
   status: z.enum(["not_applicable", "ready", "running", "failed"]),
@@ -386,7 +385,7 @@ async function openNewAppWithProviderPreflight(page: Page, owner: string): Promi
 
   await expect(providerReadiness).toContainText(`Connected to team ${TEST_CONVEX_TEAM_SLUG}.`);
   await expect(providerReadiness).toContainText(
-    `Connected to account ${TEST_CLOUDFLARE_ACCOUNT_NAME}.`,
+    `Connected to account ${TEST_CLOUDFLARE_ACCOUNT_ID}.`,
   );
 
   return newAppPage;
