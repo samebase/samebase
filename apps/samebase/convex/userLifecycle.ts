@@ -16,9 +16,6 @@ const userProfileFields = {
   image: optional(string()),
   email: string(),
   emailVerificationTime: optional(number()),
-  phone: optional(string()),
-  phoneVerificationTime: optional(number()),
-  isAnonymous: optional(boolean()),
   isApproved: optional(boolean()),
 };
 
@@ -86,9 +83,6 @@ export function readUserProfile(user: NonDeletedUserLifecycleDoc): UserProfile {
     displayName: user.displayName,
     image: user.image,
     emailVerificationTime: user.emailVerificationTime,
-    phone: user.phone,
-    phoneVerificationTime: user.phoneVerificationTime,
-    isAnonymous: user.isAnonymous,
     isApproved: user.isApproved,
   });
 }
