@@ -51,7 +51,7 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
     try {
       const result = await requestAccountDeletion({
         completionCapability,
-        confirmationPhrase: confirmationInput,
+        deletionConfirmationText: confirmationInput,
       });
       if (result.state === "confirmation_mismatch") {
         setDeletionError(`Type ${ACCOUNT_DELETION_CONFIRMATION_PHRASE} to confirm.`);
@@ -99,7 +99,7 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
         <div className="space-y-3 text-sm">
           <div className="space-y-2">
             <Label htmlFor="settings-delete-account-confirmation">Type the phrase to confirm</Label>
-            <code className="block cursor-text select-all bg-muted px-3 py-2 font-mono text-sm leading-6 [overflow-wrap:anywhere]">
+            <code className="block cursor-text bg-muted px-3 py-2 font-mono text-sm leading-6 [overflow-wrap:anywhere]">
               {ACCOUNT_DELETION_CONFIRMATION_PHRASE}
             </code>
             <Input

@@ -219,7 +219,7 @@ export const deleteOrganization = mutation({
   access: "access_user_preferences",
   args: {
     organizationId: id("organizations"),
-    expectedGithubOwnerLogin: string(),
+    deletionConfirmationText: string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -231,7 +231,7 @@ export const deleteOrganization = mutation({
       userId: ctx.viewer.userId,
       organizationId: organization._id,
     });
-    if (organization.githubOwnerLogin !== args.expectedGithubOwnerLogin) {
+    if (organization.githubOwnerLogin !== args.deletionConfirmationText) {
       throw new ConvexError("Organization confirmation does not match.");
     }
 

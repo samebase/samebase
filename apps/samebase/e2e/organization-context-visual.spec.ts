@@ -208,6 +208,25 @@ test("keeps one organization switchable across settings, providers, and billing"
     ...screenshotOptions,
     fullPage: true,
   });
+  await organizationSettings.getByRole("button", { name: "Delete organization" }).click();
+  const deleteOrganizationDialog = page.getByRole("dialog", { name: "Delete organization?" });
+  const organizationDeletionConfirmationText = deleteOrganizationDialog.getByText(
+    "org-context-solo",
+    { exact: true },
+  );
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
+  await organizationDeletionConfirmationText.click();
+  await expect.poll(() => page.evaluate(() => window.getSelection()?.toString())).toBe("");
+  await organizationDeletionConfirmationText.selectText();
+  await expect
+    .poll(() => page.evaluate(() => window.getSelection()?.toString()))
+    .toBe("org-context-solo");
+  await page.evaluate(() => window.getSelection()?.removeAllRanges());
+  await expect(deleteOrganizationDialog).toHaveScreenshot(
+    "organization-context-delete-organization-dialog.png",
+    screenshotOptions,
+  );
+  await deleteOrganizationDialog.getByRole("button", { name: "Cancel" }).click();
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
 
   await openRoute(

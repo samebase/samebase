@@ -564,6 +564,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/not-found-visual.spec.ts-snapshots/not-found-protected-google-signup-closed.png",
   "apps/samebase/e2e/not-found-visual.spec.ts-snapshots/not-found-signed-out-protected.png",
   "apps/samebase/e2e/organization-context-visual.spec.ts",
+  "apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-context-delete-organization-dialog.png",
   "apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-context-global-inventory.png",
   "apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-context-lost-organization.png",
   "apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-context-lost-vault.png",

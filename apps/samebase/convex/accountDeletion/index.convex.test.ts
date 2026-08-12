@@ -42,7 +42,7 @@ describe("account deletion request and status", () => {
     await expect(
       viewer.mutation(api.accountDeletion.index.request, {
         completionCapability: "a".repeat(64),
-        confirmationPhrase: "keep my account",
+        deletionConfirmationText: "keep my account",
       }),
     ).resolves.toEqual({ state: "confirmation_mismatch" });
 
@@ -61,7 +61,7 @@ describe("account deletion request and status", () => {
     const initiatingSession = await t.run(async (ctx) => await ctx.db.get(sessionId));
     const args = {
       completionCapability: "b".repeat(64),
-      confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+      deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
     };
 
     const first = await viewer.mutation(api.accountDeletion.index.request, args);
@@ -116,7 +116,7 @@ describe("account deletion request and status", () => {
     await expect(
       viewer.mutation(api.accountDeletion.index.request, {
         completionCapability: "f".repeat(64),
-        confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+        deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
       }),
     ).resolves.toEqual({ state: "organization_membership_exists" });
     const snapshot = await t.run(async (ctx) => ({
@@ -168,7 +168,7 @@ describe("account deletion request and status", () => {
     await expect(
       viewer.mutation(api.accountDeletion.index.request, {
         completionCapability: "e".repeat(64),
-        confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+        deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
       }),
     ).rejects.toThrow("Account deletion state is inconsistent.");
 
@@ -211,7 +211,7 @@ describe("account deletion request and status", () => {
     await expect(
       viewer.mutation(api.accountDeletion.index.request, {
         completionCapability: "e".repeat(64),
-        confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+        deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
       }),
     ).rejects.toThrow("Account deletion state is inconsistent.");
   });

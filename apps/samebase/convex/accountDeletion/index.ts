@@ -105,7 +105,7 @@ export const request = mutation({
   access: "access_account_deletion",
   args: {
     completionCapability: string(),
-    confirmationPhrase: string(),
+    deletionConfirmationText: string(),
   },
   returns: vAccountDeletionRequestResult,
   handler: async (ctx, args) => {
@@ -125,7 +125,7 @@ export const request = mutation({
       return { state: "accepted" as const, status: projectStatus(existingRun) };
     }
 
-    if (args.confirmationPhrase !== ACCOUNT_DELETION_CONFIRMATION_PHRASE) {
+    if (args.deletionConfirmationText !== ACCOUNT_DELETION_CONFIRMATION_PHRASE) {
       return { state: "confirmation_mismatch" as const };
     }
 

@@ -127,7 +127,7 @@ describe("OrganizationDeletionDialog", () => {
 
     expect(testState.deleteOrganization).toHaveBeenCalledWith({
       organizationId: organization.organizationId,
-      expectedGithubOwnerLogin: organization.githubOwnerLogin,
+      deletionConfirmationText: organization.githubOwnerLogin,
     });
     expect(testState.navigate).toHaveBeenCalledWith({ href: "/vault", replace: true });
   });

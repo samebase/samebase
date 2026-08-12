@@ -48,7 +48,7 @@ export function OrganizationDeletionDialog({
     try {
       await deleteOrganization({
         organizationId: organization.organizationId,
-        expectedGithubOwnerLogin: confirmationInput,
+        deletionConfirmationText: confirmationInput,
       });
       await router.navigate({ href: "/vault", replace: true });
     } catch (error) {
@@ -83,8 +83,11 @@ export function OrganizationDeletionDialog({
         <div className="space-y-3 text-sm">
           <div className="space-y-2">
             <Label htmlFor="organization-delete-confirmation">
-              Type {organization.githubOwnerLogin} to confirm
+              Type the organization name to confirm
             </Label>
+            <code className="block cursor-text bg-muted px-3 py-2 font-mono text-sm leading-6 [overflow-wrap:anywhere]">
+              {organization.githubOwnerLogin}
+            </code>
             <Input
               id="organization-delete-confirmation"
               value={confirmationInput}

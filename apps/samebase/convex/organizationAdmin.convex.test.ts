@@ -215,7 +215,7 @@ describe("organization deletion", () => {
     await expect(
       seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
-        expectedGithubOwnerLogin: "organization-delete",
+        deletionConfirmationText: "organization-delete",
       }),
     ).resolves.toBeNull();
 
@@ -258,7 +258,7 @@ describe("organization deletion", () => {
     await expect(
       seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
-        expectedGithubOwnerLogin: "wrong-login",
+        deletionConfirmationText: "wrong-login",
       }),
     ).rejects.toThrow("Organization confirmation does not match.");
     await expect(
@@ -290,14 +290,14 @@ describe("organization deletion", () => {
     await expect(
       asMember.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
-        expectedGithubOwnerLogin: "organization-shared",
+        deletionConfirmationText: "organization-shared",
       }),
     ).rejects.toThrow("Organization owner access is required.");
 
     await expect(
       seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
-        expectedGithubOwnerLogin: "organization-shared",
+        deletionConfirmationText: "organization-shared",
       }),
     ).rejects.toThrow("Remove every other member before you delete this organization.");
   });
@@ -318,7 +318,7 @@ describe("organization deletion", () => {
     await expect(
       seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
-        expectedGithubOwnerLogin: "organization-vault",
+        deletionConfirmationText: "organization-vault",
       }),
     ).rejects.toThrow("Remove every Samebase vault before you delete this organization.");
   });
@@ -338,7 +338,7 @@ describe("organization deletion", () => {
     await expect(
       seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
-        expectedGithubOwnerLogin: "organization-billing",
+        deletionConfirmationText: "organization-billing",
       }),
     ).rejects.toThrow("Resolve organization billing before you delete this organization.");
   });
@@ -371,7 +371,7 @@ describe("organization deletion", () => {
     await expect(
       seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
-        expectedGithubOwnerLogin: "organization-provisioning",
+        deletionConfirmationText: "organization-provisioning",
       }),
     ).rejects.toThrow("Finish organization vault cleanup before deletion.");
   });
