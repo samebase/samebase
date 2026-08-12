@@ -162,6 +162,7 @@ describe("OrganizationBillingSection", () => {
     const upgradeButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Upgrade to Pro, $4/month",
     );
+    expect(container.textContent).not.toContain("Add member seat");
     await act(async () => {
       upgradeButton?.click();
       await Promise.resolve();
@@ -217,7 +218,7 @@ describe("OrganizationBillingSection", () => {
       memberCapacity: 2,
       memberCount: 3,
       payerState: "viewer",
-      plan: "free",
+      plan: "pro",
       status: "active",
     });
     const restoreCapacity = vi.fn(() => new Promise<never>(() => undefined));
@@ -235,6 +236,29 @@ describe("OrganizationBillingSection", () => {
     expect(restoreCapacity).toHaveBeenCalledWith(
       expect.objectContaining({ change: "add_member_seat" }),
     );
+  });
+
+  it("hides plan and seat changes after cancellation is scheduled", async () => {
+    testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
+      billingLimited: true,
+      canManageBilling: true,
+      cancelAtPeriodEnd: true,
+      currentPeriodEndAt: Date.UTC(2026, 8, 1),
+      hasSubscription: true,
+      includedMembers: 2,
+      memberCapacity: 2,
+      memberCount: 3,
+      payerState: "viewer",
+      plan: "pro",
+      status: "active",
+    });
+    const container = await mountBillingSection();
+
+    expect(container.textContent).toContain("Next planFree");
+    expect(container.textContent).toContain("Manage subscription");
+    expect(container.textContent).not.toContain("Switch to Free");
+    expect(container.textContent).not.toContain("Restore member access");
+    expect(container.textContent).not.toContain("Add member seat");
   });
 
   it("shows billing data but hides billing actions from a member", async () => {

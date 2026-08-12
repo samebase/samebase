@@ -108,8 +108,7 @@ async function seedMembers() {
     await ctx.db.insert("organizationBillingAccounts", {
       organizationId,
       plan: "free",
-      status: "active",
-      polarSeatQuantity: 10,
+      status: "inactive",
     });
     return {
       ownerUserId,
@@ -456,6 +455,21 @@ describe("organization member lifecycle", () => {
         email: "invitee@example.invalid",
         isApproved: false,
       });
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Billing account is required.");
+      }
+      await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: `members-customer-${ids.organizationId}`,
+        polarBillingUserId: ids.ownerUserId,
+        polarSeatQuantity: 3,
+      });
     });
 
     await expect(
@@ -556,8 +570,8 @@ describe("organization member lifecycle", () => {
         throw new Error("Billing account is required.");
       }
       await ctx.db.patch(billingAccount._id, {
+        plan: "free",
         status: "inactive",
-        polarSeatQuantity: undefined,
       });
       const invitationId = await ctx.db.insert("organizationInvitations", {
         organizationId: ids.organizationId,
@@ -586,7 +600,11 @@ describe("organization member lifecycle", () => {
 
     await t.run(async (ctx) => {
       await ctx.db.patch(billingAccountId, {
+        provider: "polar",
+        plan: "pro",
         status: "active",
+        polarExternalCustomerId: `members-customer-${ids.organizationId}`,
+        polarBillingUserId: ids.ownerUserId,
         polarSeatQuantity: 3,
       });
     });
@@ -610,7 +628,14 @@ describe("organization member lifecycle", () => {
       if (billingAccount === null) {
         throw new Error("Billing account is required.");
       }
-      await ctx.db.patch(billingAccount._id, { polarSeatQuantity: 3 });
+      await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: `members-customer-${ids.organizationId}`,
+        polarBillingUserId: ids.ownerUserId,
+        polarSeatQuantity: 3,
+      });
       const userId = await ctx.db.insert("users", {
         state: "active",
         email: "second-invitee@example.invalid",
@@ -826,7 +851,9 @@ describe("organization member lifecycle", () => {
       if (billingAccount === null) {
         throw new Error("Billing account is required.");
       }
-      await ctx.db.patch(billingAccount._id, { polarBillingUserId: ids.ownerUserId });
+      await ctx.db.patch(billingAccount._id, {
+        polarBillingUserId: ids.ownerUserId,
+      });
     });
 
     await expect(

@@ -91,7 +91,7 @@ describe("GitHub-backed organizations", () => {
         githubOwnerLogin: "Samebase-Renamed",
         githubInstallationId: "1002",
       }),
-    ).rejects.toThrow("Organization billing must be removed before GitHub owner type changes.");
+    ).resolves.toEqual({ organizationId: created.organizationId, created: false });
 
     const snapshot = await t.run(async (ctx) => {
       return {
@@ -110,6 +110,7 @@ describe("GitHub-backed organizations", () => {
       },
       convexTeam: { teamId: "convex-team", teamSlug: "convex-slug" },
       githubOwnerId: "101",
+      githubOwnerType: "user",
       githubOwnerLogin: "Samebase-Renamed",
       githubOwnerLoginNormalized: "samebase-renamed",
       githubInstallationId: "1002",
@@ -301,7 +302,11 @@ describe("GitHub-backed organizations", () => {
         throw new Error("Billing account is required.");
       }
       await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        plan: "pro",
         status: "active",
+        polarExternalCustomerId: `organization-customer-${created.organizationId}`,
+        polarBillingUserId: ownerUserId,
         polarSeatQuantity: 2,
       });
     });

@@ -8,17 +8,14 @@ import {
   patchBillingAccount,
   readBillingAccountState,
 } from "./organizationBilling";
-import { vGitHubOwnerType } from "./organizationModel";
 import {
   createPolarClient,
   readPolarProductCatalog,
   resolvePolarProduct,
   type PolarProductCatalog,
-  type PolarProductOwnerType,
-  type PolarProductPlan,
 } from "./polarClient";
 
-const { boolean, literal, null: nullValue, number, object, optional, string, union } = v;
+const { boolean, literal, null: nullValue, number, object, string, union } = v;
 
 const vPolarBillingState = union(
   object({
@@ -28,11 +25,10 @@ const vPolarBillingState = union(
   }),
   object({
     status: union(literal("active"), literal("past_due")),
-    plan: union(literal("free"), literal("pro")),
+    plan: literal("pro"),
     externalCustomerId: string(),
     subscriptionId: string(),
     polarSeatQuantity: number(),
-    pendingPlan: optional(union(literal("free"), literal("pro"))),
     currentPeriodEndAt: number(),
     cancelAtPeriodEnd: boolean(),
   }),
@@ -41,14 +37,12 @@ export type PolarBillingState = Infer<typeof vPolarBillingState>;
 
 const vPolarObservationTarget = object({
   observationRevision: number(),
-  githubOwnerType: vGitHubOwnerType,
 });
 type PolarObservationTarget = Infer<typeof vPolarObservationTarget>;
 
 export async function readCanonicalPolarBillingState(args: {
   polar: Polar;
   externalCustomerId: string;
-  githubOwnerType: PolarProductOwnerType;
   productCatalog: PolarProductCatalog;
 }): Promise<PolarBillingState> {
   const externalCustomerId = args.externalCustomerId.trim();
@@ -109,47 +103,36 @@ export async function readCanonicalPolarBillingState(args: {
     throw new Error("Polar billing subscription product is inconsistent.");
   }
 
-  const product = resolvePolarProduct(args.productCatalog, subscription.productId);
-  if (product === null || product.ownerType !== args.githubOwnerType) {
+  if (resolvePolarProduct(args.productCatalog, subscription.productId) === null) {
     throw new Error("Polar billing subscription does not use the expected product.");
   }
 
-  const minimumSeats = args.githubOwnerType === "organization" ? 2 : 1;
   const seats = subscription.seats;
-  if (
-    seats === null ||
-    seats === undefined ||
-    !Number.isSafeInteger(seats) ||
-    seats < minimumSeats
-  ) {
+  if (seats === null || seats === undefined || !Number.isSafeInteger(seats) || seats < 2) {
     throw new Error("Polar billing subscription has an invalid seat quantity.");
   }
 
   const pendingUpdate = subscription.pendingUpdate;
-  let pendingPlan: PolarProductPlan | undefined;
   if (pendingUpdate !== null) {
     if (
       pendingUpdate.seats !== null &&
-      (!Number.isSafeInteger(pendingUpdate.seats) || pendingUpdate.seats < minimumSeats)
+      (!Number.isSafeInteger(pendingUpdate.seats) || pendingUpdate.seats < 2)
     ) {
       throw new Error("Polar billing subscription has an invalid pending seat quantity.");
     }
     if (pendingUpdate.productId !== null) {
-      const pendingProduct = resolvePolarProduct(args.productCatalog, pendingUpdate.productId);
-      if (pendingProduct === null || pendingProduct.ownerType !== args.githubOwnerType) {
+      if (resolvePolarProduct(args.productCatalog, pendingUpdate.productId) === null) {
         throw new Error("Polar billing subscription has an invalid pending product.");
       }
-      pendingPlan = pendingProduct.plan;
     }
   }
 
   return {
     status: subscription.status === "past_due" ? "past_due" : "active",
-    plan: product.plan,
+    plan: "pro",
     externalCustomerId,
     subscriptionId: subscription.id,
     polarSeatQuantity: seats,
-    ...(pendingPlan === undefined ? {} : { pendingPlan }),
     currentPeriodEndAt: subscription.currentPeriodEnd.getTime(),
     cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
   };
@@ -168,8 +151,7 @@ export const beginObservation = internalMutation({
     if (target === null) {
       return null;
     }
-    const organization = await ctx.db.get(target.organizationId);
-    if (organization === null) {
+    if ((await ctx.db.get(target.organizationId)) === null) {
       throw new Error("Organization billing account reference is invalid.");
     }
     const account = readBillingAccountState(target);
@@ -182,7 +164,6 @@ export const beginObservation = internalMutation({
     await patchBillingAccount(ctx.db, target, { polarObservationRevision: revision });
     return {
       observationRevision: revision,
-      githubOwnerType: organization.githubOwnerType,
     };
   },
 });
@@ -216,13 +197,11 @@ export const applyObservation = internalMutation({
       ...(state.status === "inactive"
         ? {
             polarSeatQuantity: undefined,
-            polarPendingPlan: undefined,
             currentPeriodEndAt: undefined,
             cancelAtPeriodEnd: undefined,
           }
         : {
             polarSeatQuantity: state.polarSeatQuantity,
-            polarPendingPlan: state.pendingPlan,
             currentPeriodEndAt: state.currentPeriodEndAt,
             cancelAtPeriodEnd: state.cancelAtPeriodEnd,
           }),
@@ -262,7 +241,6 @@ export async function reconcilePolarCustomerBilling(
   const state = await readCanonicalPolarBillingState({
     polar: args.polar,
     externalCustomerId,
-    githubOwnerType: observationTarget.githubOwnerType,
     productCatalog,
   });
   const applied: boolean = await ctx.runMutation(internal.polarBillingState.applyObservation, {

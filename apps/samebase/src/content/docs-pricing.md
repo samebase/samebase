@@ -5,12 +5,11 @@ Start free. Upgrade when you need more connections.
 | GitHub owner        | Plan | Monthly base | Connections | Included members |
 | ------------------- | ---- | -----------: | ----------: | ---------------: |
 | Personal account    | Free |           $0 |          15 |                1 |
-| Personal account    | Pro  |           $4 |         120 |                1 |
 | GitHub organization | Free |           $0 |           6 |                2 |
-| GitHub organization | Pro  |           $4 |         120 |                2 |
+| Any owner           | Pro  |           $4 |         120 |                2 |
 
-Each member above the included number costs $2 per month. A pending invitation is free. Pro and
-additional members are billed monthly.
+Additional members require Pro. Each member above the two included Pro members costs $2 per month. A
+pending invitation is free. Pro and additional members are billed monthly.
 
 ## What counts
 

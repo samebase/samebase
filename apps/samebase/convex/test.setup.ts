@@ -37,7 +37,7 @@ export async function insertTestOrganizationBillingAccount(
 ): Promise<void> {
   await db.insert("organizationBillingAccounts", {
     organizationId,
-    plan: "free",
+    plan: options ? "pro" : "free",
     status: options ? "active" : "inactive",
     ...(options
       ? {

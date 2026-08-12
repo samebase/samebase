@@ -53,6 +53,11 @@ describe("Polar member-seat synchronization", () => {
         email: "seat-sync-invitee@example.invalid",
         isApproved: true,
       });
+      const memberUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "seat-sync-member@example.invalid",
+        isApproved: true,
+      });
       await ctx.db.insert("authAccounts", {
         userId: inviteeUserId,
         provider: "github",
@@ -71,14 +76,19 @@ describe("Polar member-seat synchronization", () => {
         userId: ownerUserId,
         role: "owner",
       });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: memberUserId,
+        role: "member",
+      });
       const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
         organizationId,
         provider: "polar",
-        plan: "free",
+        plan: "pro",
         status: "active",
         polarExternalCustomerId: "seat-sync-customer",
         polarBillingUserId: ownerUserId,
-        polarSeatQuantity: 2,
+        polarSeatQuantity: 3,
       });
       await ctx.db.insert("organizationInvitations", {
         state: "pending",
@@ -97,12 +107,12 @@ describe("Polar member-seat synchronization", () => {
       tokenIdentifier: `test:${setup.inviteeUserId}`,
     });
 
-    let providerSeats = 2;
+    let providerSeats = 3;
     const subscriptionUpdates: SeatUpdate[] = [];
     const updateSubscription = vi.fn(async (input: SeatUpdate) => {
       subscriptionUpdates.push(input);
       providerSeats = input.subscriptionUpdate.seats;
-      if (providerSeats === 1) {
+      if (providerSeats === 2) {
         await asInvitee.mutation(api.organizationMembers.acceptInvitation, {
           code: invitationCode,
         });
@@ -122,7 +132,7 @@ describe("Polar member-seat synchronization", () => {
         }
         const state = {
           status: "active",
-          plan: "free",
+          plan: "pro",
           externalCustomerId: args.externalCustomerId,
           subscriptionId: "seat-sync-subscription",
           polarSeatQuantity: providerSeats,
@@ -146,11 +156,11 @@ describe("Polar member-seat synchronization", () => {
     expect(subscriptionUpdates).toEqual([
       {
         id: "seat-sync-subscription",
-        subscriptionUpdate: { seats: 1, prorationBehavior: "prorate" },
+        subscriptionUpdate: { seats: 2, prorationBehavior: "prorate" },
       },
       {
         id: "seat-sync-subscription",
-        subscriptionUpdate: { seats: 2, prorationBehavior: "invoice" },
+        subscriptionUpdate: { seats: 3, prorationBehavior: "invoice" },
       },
     ]);
     const finalState = await t.run(async (ctx) => {
@@ -164,7 +174,61 @@ describe("Polar member-seat synchronization", () => {
           .take(3),
       };
     });
-    expect(finalState.memberships).toHaveLength(2);
-    expect(finalState.billingAccount?.polarSeatQuantity).toBe(2);
+    expect(finalState.memberships).toHaveLength(3);
+    expect(finalState.billingAccount?.polarSeatQuantity).toBe(3);
+  });
+
+  it("does not change seats after cancellation is scheduled", async () => {
+    const t = makeConvexTest();
+    const organizationId = await t.run(async (ctx) => {
+      const ownerUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "canceling-seat-owner@example.invalid",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {
+        githubOwnerId: "canceling-seat-owner",
+        githubOwnerType: "user",
+        githubOwnerLogin: "canceling-seat-owner",
+        githubOwnerLoginNormalized: "canceling-seat-owner",
+        githubInstallationId: "canceling-seat-installation",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: ownerUserId,
+        role: "owner",
+      });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: "canceling-seat-customer",
+        polarBillingUserId: ownerUserId,
+        polarSeatQuantity: 3,
+        cancelAtPeriodEnd: true,
+      });
+      return organizationId;
+    });
+    const updateSubscription = vi.fn();
+    polarMocks.createPolarClient.mockReturnValue({
+      subscriptions: { update: updateSubscription },
+    });
+    polarMocks.reconcilePolarCustomerBilling.mockResolvedValue({
+      status: "active",
+      plan: "pro",
+      externalCustomerId: "canceling-seat-customer",
+      subscriptionId: "canceling-seat-subscription",
+      polarSeatQuantity: 3,
+      currentPeriodEndAt: 10_000,
+      cancelAtPeriodEnd: true,
+    });
+
+    await expect(
+      t.action(internal.billing.syncPolarSubscriptionSeats, { organizationId }),
+    ).resolves.toBeNull();
+
+    expect(updateSubscription).not.toHaveBeenCalled();
+    expect(polarMocks.reconcilePolarCustomerBilling).toHaveBeenCalledTimes(1);
   });
 });

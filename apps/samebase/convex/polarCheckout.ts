@@ -27,7 +27,6 @@ const vPolarCheckoutReservation = union(
 export type PolarCheckoutReservation = Infer<typeof vPolarCheckoutReservation>;
 
 type PolarCheckoutTarget = {
-  plan: "free" | "pro";
   seatQuantity: number;
 };
 
@@ -56,7 +55,6 @@ export function matchesPolarCheckoutAttempt(
     args.checkout.products.length === 1 &&
     args.checkout.products[0]?.id === args.productId &&
     args.checkout.seats === args.seatQuantity &&
-    args.checkout.metadata["plan"] === args.plan &&
     args.checkout.metadata["seat_quantity"] === args.seatQuantity
   );
 }

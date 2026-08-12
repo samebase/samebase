@@ -10,38 +10,13 @@ import {
 
 const catalogEntries = [
   {
-    productId: "organization-free-v1",
-    ownerType: "organization",
-    plan: "free",
+    productId: "samebase-pro-v1",
     version: 1,
     availableForCheckout: false,
   },
   {
-    productId: "organization-free-v2",
-    ownerType: "organization",
-    plan: "free",
+    productId: "samebase-pro-v2",
     version: 2,
-    availableForCheckout: true,
-  },
-  {
-    productId: "organization-pro-v1",
-    ownerType: "organization",
-    plan: "pro",
-    version: 1,
-    availableForCheckout: true,
-  },
-  {
-    productId: "user-free-v1",
-    ownerType: "user",
-    plan: "free",
-    version: 1,
-    availableForCheckout: true,
-  },
-  {
-    productId: "user-pro-v1",
-    ownerType: "user",
-    plan: "pro",
-    version: 1,
     availableForCheckout: true,
   },
 ] satisfies PolarProductCatalog;
@@ -55,49 +30,34 @@ function requireCatalog(entries: PolarProductCatalog): PolarProductCatalog {
 }
 
 describe("Polar product catalog", () => {
-  it("configures all current Sandbox products and keeps production unavailable", () => {
+  it("configures one current Sandbox Pro product and keeps production unavailable", () => {
     const sandbox = requireCatalog(POLAR_PRODUCT_CATALOG.sandbox);
 
-    expect(readPolarCheckoutProductId(sandbox, "organization", "free")).toBe(
-      "7782b9a4-beb8-4ff5-8455-24976deacbc1",
-    );
-    expect(readPolarCheckoutProductId(sandbox, "organization", "pro")).toBe(
-      "0e721c02-c98b-425b-bc8d-fb323fa54925",
-    );
-    expect(readPolarCheckoutProductId(sandbox, "user", "free")).toBe(
-      "746b5cca-6043-477f-afc1-337443e71f2b",
-    );
-    expect(readPolarCheckoutProductId(sandbox, "user", "pro")).toBe(
-      "55811c0d-bc67-4bd4-b715-b9bd801a2911",
-    );
+    expect(readPolarCheckoutProductId(sandbox)).toBe("0e721c02-c98b-425b-bc8d-fb323fa54925");
     expect(readPolarProductCatalogFromEntries(POLAR_PRODUCT_CATALOG.production)).toBeNull();
   });
 
-  it("selects current products and recognizes historical products", () => {
+  it("selects the current Pro product and recognizes historical Pro products", () => {
     const catalog = requireCatalog(catalogEntries);
 
-    expect(readPolarCheckoutProductId(catalog, "organization", "free")).toBe(
-      "organization-free-v2",
-    );
-    expect(readPolarCheckoutProductId(catalog, "organization", "pro")).toBe("organization-pro-v1");
-    expect(readPolarCheckoutProductId(catalog, "user", "free")).toBe("user-free-v1");
-    expect(readPolarCheckoutProductId(catalog, "user", "pro")).toBe("user-pro-v1");
-    expect(resolvePolarProduct(catalog, "organization-free-v1")).toEqual({
-      productId: "organization-free-v1",
-      ownerType: "organization",
-      plan: "free",
+    expect(readPolarCheckoutProductId(catalog)).toBe("samebase-pro-v2");
+    expect(resolvePolarProduct(catalog, "samebase-pro-v1")).toEqual({
+      productId: "samebase-pro-v1",
       version: 1,
       availableForCheckout: false,
     });
     expect(resolvePolarProduct(catalog, "unknown-product")).toBeNull();
   });
 
-  it("fails closed when a current product is missing", () => {
-    const missingUserPro = catalogEntries.filter(
-      (entry) => entry.ownerType !== "user" || entry.plan !== "pro",
+  it("keeps historical products available for reconciliation without enabling checkout", () => {
+    const historicalCatalog = requireCatalog(
+      catalogEntries.map((entry) => ({ ...entry, availableForCheckout: false })),
     );
 
-    expect(readPolarProductCatalogFromEntries(missingUserPro)).toBeNull();
+    expect(() => readPolarCheckoutProductId(historicalCatalog)).toThrow(
+      "Polar billing requires exactly one checkout product per server.",
+    );
+    expect(resolvePolarProduct(historicalCatalog, "samebase-pro-v1")).not.toBeNull();
   });
 
   it("rejects duplicate and malformed catalog entries", () => {
@@ -105,10 +65,8 @@ describe("Polar product catalog", () => {
       readPolarProductCatalogFromEntries([
         ...catalogEntries,
         {
-          productId: "user-pro-v1",
-          ownerType: "user",
-          plan: "pro",
-          version: 2,
+          productId: "samebase-pro-v1",
+          version: 3,
           availableForCheckout: false,
         },
       ]),
@@ -118,35 +76,29 @@ describe("Polar product catalog", () => {
       readPolarProductCatalogFromEntries([
         ...catalogEntries,
         {
-          productId: "organization-free-other-v1",
-          ownerType: "organization",
-          plan: "free",
+          productId: "samebase-pro-other-v1",
           version: 1,
           availableForCheckout: false,
         },
       ]),
-    ).toThrow("Polar billing product versions must be unique within one product line.");
+    ).toThrow("Polar billing product versions must be unique within one server.");
 
     expect(() =>
       readPolarProductCatalogFromEntries([
         ...catalogEntries,
         {
-          productId: "organization-free-v3",
-          ownerType: "organization",
-          plan: "free",
+          productId: "samebase-pro-v3",
           version: 3,
           availableForCheckout: true,
         },
       ]),
-    ).toThrow("Polar billing requires exactly one checkout product for each owner type and plan.");
+    ).toThrow("Polar billing requires exactly one checkout product per server.");
 
     expect(() =>
       readPolarProductCatalogFromEntries([
         ...catalogEntries,
         {
-          productId: "organization-pro-v0",
-          ownerType: "organization",
-          plan: "pro",
+          productId: "samebase-pro-v0",
           version: 0,
           availableForCheckout: false,
         },

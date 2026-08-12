@@ -57,6 +57,14 @@ async function createQuotaFixture(args: {
       organizationId,
       plan: args.plan,
       status: args.plan === "pro" ? "active" : "inactive",
+      ...(args.plan === "pro"
+        ? {
+            provider: "polar" as const,
+            polarExternalCustomerId: `quota-customer-${organizationId}`,
+            polarBillingUserId: userId,
+            polarSeatQuantity: 2,
+          }
+        : {}),
     });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,

@@ -71,6 +71,52 @@ async function seedCheckoutContinuation() {
 }
 
 describe("organization billing access", () => {
+  it("includes two members in personal Pro", async () => {
+    const t = makeConvexTest();
+    const { organizationId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        state: "active",
+        email: "personal-pro-owner@example.invalid",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {
+        githubOwnerId: "personal-pro-owner",
+        githubOwnerType: "user",
+        githubOwnerLogin: "personal-pro-owner",
+        githubOwnerLoginNormalized: "personal-pro-owner",
+        githubInstallationId: "personal-pro-installation",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId,
+        role: "owner",
+      });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: "personal-pro-customer",
+        polarBillingUserId: userId,
+        polarSeatQuantity: 2,
+      });
+      return { organizationId, userId };
+    });
+    const asOwner = t.withIdentity({
+      subject: `${userId}|personal-pro-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(
+      asOwner.query(api.billing.getViewerBillingStatus, { organizationId }),
+    ).resolves.toMatchObject({
+      plan: "pro",
+      includedMembers: 2,
+      memberCapacity: 2,
+      memberCount: 1,
+    });
+  });
+
   it("rejects the final billing payer check after membership removal", async () => {
     const seed = await seedCheckoutContinuation();
     await expect(

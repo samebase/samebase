@@ -265,7 +265,7 @@ export function OrganizationBillingSection({
                 : "Not assigned"}
           </dd>
         </div>
-        {billingStatus.pendingPlan === "free" ? (
+        {billingStatus.cancelAtPeriodEnd ? (
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-sm font-medium">Next plan</dt>
             <dd className="text-sm text-muted-foreground">Free</dd>
@@ -341,7 +341,7 @@ export function OrganizationBillingSection({
               {billingRequestState === "upgrade" ? "Updating..." : "Upgrade to Pro, $4/month"}
             </Button>
           ) : null}
-          {billingStatus.plan === "pro" && billingStatus.pendingPlan !== "free" ? (
+          {billingStatus.plan === "pro" && !billingStatus.cancelAtPeriodEnd ? (
             <Button
               disabled={!billingActionsAvailable || requestPending}
               onClick={() => void handleBillingChange("downgrade_to_free")}
@@ -356,7 +356,9 @@ export function OrganizationBillingSection({
                 : "Switch to Free next billing period"}
             </Button>
           ) : null}
-          {needsAnotherMemberSeat ? (
+          {billingStatus.plan === "pro" &&
+          !billingStatus.cancelAtPeriodEnd &&
+          needsAnotherMemberSeat ? (
             <Button
               disabled={!billingActionsAvailable || requestPending}
               onClick={() => void handleBillingChange("add_member_seat")}

@@ -117,6 +117,7 @@ describe("organization-owned vaults", () => {
       }
       await ctx.db.patch(billingAccount._id, {
         provider: "polar",
+        plan: "pro",
         status: "active",
         polarBillingUserId: ownerUserId,
         polarExternalCustomerId: `test-polar-customer-${organization.organizationId}`,

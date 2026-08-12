@@ -10,7 +10,9 @@ export type OrganizationMemberCapacity = {
   hasVerifiedSubscription: boolean;
 };
 
-export function readIncludedOrganizationMembers(
+export const PRO_INCLUDED_ORGANIZATION_MEMBERS = 2;
+
+export function readFreeOrganizationMemberLimit(
   githubOwnerType: Doc<"organizations">["githubOwnerType"],
 ): number {
   switch (githubOwnerType) {
@@ -28,17 +30,23 @@ export function readOrganizationMemberCapacity(args: {
   account: Doc<"organizationBillingAccounts">;
   organization: Doc<"organizations">;
 }): OrganizationMemberCapacity {
-  const includedMembers = readIncludedOrganizationMembers(args.organization.githubOwnerType);
+  const freeMemberLimit = readFreeOrganizationMemberLimit(args.organization.githubOwnerType);
   const seats = args.account.polarSeatQuantity;
   const hasVerifiedSubscription =
+    args.account.provider === "polar" &&
+    args.account.plan === "pro" &&
     (args.account.status === "active" || args.account.status === "past_due") &&
+    args.account.polarExternalCustomerId !== undefined &&
+    args.account.polarExternalCustomerId.trim().length > 0 &&
+    args.account.polarBillingUserId !== undefined &&
     seats !== undefined &&
     Number.isSafeInteger(seats) &&
-    seats >= includedMembers;
+    seats >= PRO_INCLUDED_ORGANIZATION_MEMBERS;
+  const capacity = hasVerifiedSubscription ? seats : freeMemberLimit;
 
   return {
-    includedMembers,
-    capacity: hasVerifiedSubscription ? seats : includedMembers,
+    includedMembers: hasVerifiedSubscription ? PRO_INCLUDED_ORGANIZATION_MEMBERS : freeMemberLimit,
+    capacity,
     hasVerifiedSubscription,
   };
 }

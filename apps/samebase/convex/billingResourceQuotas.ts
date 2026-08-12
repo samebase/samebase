@@ -3,11 +3,11 @@ import { ConvexError, Infer, v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type QueryCtx } from "./_generated/server";
 import { query } from "./functions";
+import { requireBillingAccountForOrganization } from "./organizationBilling";
 import {
-  readBillingAccountState,
-  requireBillingAccountForOrganization,
-} from "./organizationBilling";
-import { requireOrganizationNotBillingLimited } from "./organizationBillingLimits";
+  readOrganizationMemberCapacity,
+  requireOrganizationNotBillingLimited,
+} from "./organizationBillingLimits";
 import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
 import { requireManualProviderWriteCheckpoint } from "./vault/infrastructureOperation";
 
@@ -76,8 +76,7 @@ function readOrganizationConnectionLimit(
   account: Doc<"organizationBillingAccounts">,
   organization: Doc<"organizations">,
 ): number {
-  const state = readBillingAccountState(account);
-  if (state.plan === "pro" && (state.status === "active" || state.status === "past_due")) {
+  if (readOrganizationMemberCapacity({ account, organization }).hasVerifiedSubscription) {
     return PRO_CONNECTION_LIMIT;
   }
   return organization.githubOwnerType === "user"
