@@ -4,6 +4,7 @@ import {
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+  WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_RATIO,
 } from "./WorkspaceLayoutV2Geometry";
 
 export type WorkspaceLayoutV2PrehydrationState = Pick<
@@ -29,6 +30,7 @@ type WorkspaceLayoutV2PrehydrationInlineArgs = WorkspaceLayoutV2PrehydrationArgs
   mobileMainReachableWidthPx: number;
   mobileMainMinWidthPx: number;
   mobileSidebarMinWidthPx: number;
+  mobileSidebarMinWidthRatio: number;
 };
 
 type ReadWorkspaceLayoutV2PrehydrationState = (
@@ -44,6 +46,7 @@ function getWorkspaceLayoutV2PrehydrationInlineArgs(
     mobileMainReachableWidthPx: MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
     mobileMainMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
     mobileSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+    mobileSidebarMinWidthRatio: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_RATIO,
   };
 }
 
@@ -193,10 +196,12 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     return Number.isFinite(width) && width > 0 ? width : Math.max(1, Math.round(window.innerWidth));
   }
 
-  function getSidebarWidth(storedWidthPx: number, maxWidthPx: number) {
+  function getSidebarWidth(storedWidthPx: number, maxWidthPx: number, viewportWidthPx: number) {
+    const pageRelativeMinWidthPx = Math.floor(viewportWidthPx * args.mobileSidebarMinWidthRatio);
+
     return clampNumber(
       Math.round(storedWidthPx),
-      Math.min(args.mobileSidebarMinWidthPx, maxWidthPx),
+      Math.max(1, Math.min(args.mobileSidebarMinWidthPx, pageRelativeMinWidthPx, maxWidthPx)),
       maxWidthPx,
     );
   }
@@ -363,10 +368,10 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
       Math.floor(viewportWidthPx - args.mobileMainReachableWidthPx),
     );
     const leftWidthPx = hasLeftPane
-      ? getSidebarWidth(state.leftMobileWidthPx, sidebarMaxWidthPx)
+      ? getSidebarWidth(state.leftMobileWidthPx, sidebarMaxWidthPx, viewportWidthPx)
       : 0;
     const rightWidthPx = hasRightPane
-      ? getSidebarWidth(state.rightMobileWidthPx, sidebarMaxWidthPx)
+      ? getSidebarWidth(state.rightMobileWidthPx, sidebarMaxWidthPx, viewportWidthPx)
       : 0;
     const mergedSurface = getMergedMobileSurface({
       hasLeftPane,

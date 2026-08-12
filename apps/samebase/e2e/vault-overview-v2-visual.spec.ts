@@ -1,10 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import type { VaultOverviewVisualMode } from "../src/components/vault-dashboard/VaultOverviewVisualFixture";
-import { WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX } from "../src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 import type { WorkspaceSidebarState } from "../convex/userPreferenceModel";
 
 const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
+const MOBILE_MINIMUM_SIDEBAR_WIDTH_PX = 130;
 const VAULT_OVERVIEW_V2_SIDEBAR_STATE = {
   leftDesktopOpen: true,
   leftDesktopWidthPx: 240,
@@ -651,7 +651,7 @@ test("preserves repository identity at the minimum sidebar width", async ({ page
   await page.setViewportSize({ width: 390, height: 844 });
   const fixture = await openVaultOverviewV2(page, "vault-overview-v2", {
     ...VAULT_OVERVIEW_V2_SIDEBAR_STATE,
-    leftMobileWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+    leftMobileWidthPx: MOBILE_MINIMUM_SIDEBAR_WIDTH_PX,
     mobilePane: "left",
   });
   const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });

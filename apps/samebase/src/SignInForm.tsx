@@ -10,6 +10,8 @@ import {
 import {
   WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+  getMobileSidebarMaxWidthPx,
+  getMobileSidebarMinWidthPx,
 } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { clampNumber } from "@/lib/clampNumber";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
@@ -44,9 +46,14 @@ function LandingPageLogo({
     (state) => state.mobile.paneScrollProgress,
   );
   const mobileGrip = useWorkspaceLayoutV2Selector((state) => state.mobile.grip);
+  const viewportWidthPx = useWorkspaceLayoutV2Selector((state) => state.viewportSize.widthPx);
+  const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx(viewportWidthPx);
   const mobileMergeCommitWidthPx =
-    WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX +
-    WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX;
+    getMobileSidebarMinWidthPx({
+      configuredMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+      maxWidthPx: mobileSidebarMaxWidthPx,
+      viewportWidthPx,
+    }) + WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX;
   let presentationTiltNeutralProgress: number | undefined;
   if (isMobile && mobileGrip.kind === "dragging" && mobileGrip.side === "right") {
     presentationTiltNeutralProgress =

@@ -478,7 +478,7 @@ test.describe("small screen organization context", () => {
       storageState,
     });
     const page = await context.newPage();
-    await seedVisualFixtureWorkspaceSidebarState(page, { rightMobileWidthPx: 96 });
+    await seedVisualFixtureWorkspaceSidebarState(page, { rightMobileWidthPx: 130 });
 
     try {
       await openRoute(page, "/vault/org-context-mobile-alpha/mobile-app");
@@ -498,7 +498,7 @@ test.describe("small screen organization context", () => {
         "right",
       );
       const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
-      await expect(rightPane).toHaveCSS("width", "96px");
+      await expect(rightPane).toHaveCSS("width", "130px");
       await expect
         .poll(() => rightPane.evaluate((element) => element.scrollWidth <= element.clientWidth))
         .toBe(true);

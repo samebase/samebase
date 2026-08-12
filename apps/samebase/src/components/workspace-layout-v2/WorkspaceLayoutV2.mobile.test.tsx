@@ -10,6 +10,9 @@ import {
 import type { WorkspaceSidebarState } from "../../../convex/userPreferenceModel";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
 import {
+  WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+  getMobileSidebarMaxWidthPx,
+  getMobileSidebarMinWidthPx,
   getMobilePaneScrollProgress,
   type WorkspaceLayoutV2MobileMinResizeBehavior,
 } from "./WorkspaceLayoutV2Geometry";
@@ -26,7 +29,10 @@ const { act } = React;
 
 const VIEWPORT_WIDTH_PX = 390;
 const VIEWPORT_HEIGHT_PX = 844;
-const MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
+const MOBILE_SIDEBAR_MIN_WIDTH_PX = 130;
+const NARROW_VIEWPORT_WIDTH_PX = 320;
+const NARROW_MOBILE_SIDEBAR_MIN_WIDTH_PX = 106;
+const NARROW_MOBILE_MAIN_WIDTH_PX = 214;
 const OMIT_HEADER = Symbol("omit-header");
 
 const originalGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
@@ -299,9 +305,9 @@ describe("getMobilePaneScrollProgress", () => {
         hasLeftPane: false,
         hasRightPane: true,
         leftWidthPx: 0,
-        mainWidthPx: 294,
+        mainWidthPx: 260,
         mergedSurfaceSide: "right",
-        rightWidthPx: 96,
+        rightWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
         scrollLeftPx: 0,
         viewportWidthPx: 390,
       }),
@@ -310,14 +316,45 @@ describe("getMobilePaneScrollProgress", () => {
       getMobilePaneScrollProgress({
         hasLeftPane: true,
         hasRightPane: false,
-        leftWidthPx: 96,
-        mainWidthPx: 294,
+        leftWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
+        mainWidthPx: 260,
         mergedSurfaceSide: "left",
         rightWidthPx: 0,
         scrollLeftPx: 0,
         viewportWidthPx: 390,
       }),
     ).toBe(0);
+  });
+});
+
+describe("getMobileSidebarMinWidthPx", () => {
+  it("uses the 175px standard when it is less than one third of the page", () => {
+    const viewportWidthPx = 600;
+
+    expect(
+      getMobileSidebarMinWidthPx({
+        configuredMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+        maxWidthPx: getMobileSidebarMaxWidthPx(viewportWidthPx),
+        viewportWidthPx,
+      }),
+    ).toBe(175);
+  });
+
+  it("uses one third of the page on narrow mobile viewports", () => {
+    expect(
+      getMobileSidebarMinWidthPx({
+        configuredMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+        maxWidthPx: getMobileSidebarMaxWidthPx(VIEWPORT_WIDTH_PX),
+        viewportWidthPx: VIEWPORT_WIDTH_PX,
+      }),
+    ).toBe(MOBILE_SIDEBAR_MIN_WIDTH_PX);
+    expect(
+      getMobileSidebarMinWidthPx({
+        configuredMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
+        maxWidthPx: getMobileSidebarMaxWidthPx(NARROW_VIEWPORT_WIDTH_PX),
+        viewportWidthPx: NARROW_VIEWPORT_WIDTH_PX,
+      }),
+    ).toBe(NARROW_MOBILE_SIDEBAR_MIN_WIDTH_PX);
   });
 });
 
@@ -794,7 +831,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     );
 
     expect(leftPane.style.width).toBe("220px");
-    expect(leftHandle.getAttribute("aria-valuemin")).toBe("96");
+    expect(leftHandle.getAttribute("aria-valuemin")).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}`);
     expect(leftHandle.getAttribute("aria-valuemax")).toBe("350");
     expect(leftHandle.getAttribute("aria-valuenow")).toBe("220");
     expect(leftHandle.parentElement?.style.left).toBe("220px");
@@ -865,14 +902,14 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     );
 
     expect(rightPane.style.width).toBe("300px");
-    expect(rightHandle.getAttribute("aria-valuemin")).toBe("96");
+    expect(rightHandle.getAttribute("aria-valuemin")).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}`);
     expect(rightHandle.getAttribute("aria-valuemax")).toBe("350");
     expect(rightHandle.getAttribute("aria-valuenow")).toBe("300");
     expect(rightHandle.parentElement?.style.left).toBe("90px");
     expect(rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]')).toBeNull();
   });
 
-  it("clamps mobile sidebar widths to the configured mobile minimum", () => {
+  it("clamps mobile sidebar widths to the responsive mobile minimum", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -924,7 +961,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(rightPane.style.width).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
     expect(rightHandle.getAttribute("aria-valuemin")).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}`);
     expect(rightHandle.getAttribute("aria-valuenow")).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}`);
-    expect(rightHandle.parentElement?.style.left).toBe("294px");
+    expect(rightHandle.parentElement?.style.left).toBe("260px");
   });
 
   it("lets default merge mode finish a below-min left resize into a fitted main pane", () => {
@@ -963,7 +1000,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         );
       });
 
-      expect(getMainPane().style.width).toBe("294px");
+      expect(getMainPane().style.width).toBe("260px");
       act(() => {
         leftHandle.dispatchEvent(
           new KeyboardEvent("keydown", {
@@ -973,7 +1010,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         );
       });
 
-      expect(getMainPane().style.width).toBe("294px");
+      expect(getMainPane().style.width).toBe("260px");
       expect(
         rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
       ).toBe("left");
@@ -982,7 +1019,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         vi.advanceTimersByTime(121);
       });
 
-      expect(getMainPane().style.width).toBe("294px");
+      expect(getMainPane().style.width).toBe("260px");
       expect(leftHandle.getAttribute("aria-valuenow")).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}`);
       expect(
         rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
@@ -1099,12 +1136,12 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         });
       }
 
-      expect(getMainPane().style.width).toBe("294px");
+      expect(getMainPane().style.width).toBe("260px");
       act(() => {
         vi.advanceTimersByTime(121);
       });
 
-      expect(getMainPane().style.width).toBe("294px");
+      expect(getMainPane().style.width).toBe("260px");
       expect(leftPane.style.width).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
       expectWorkspaceMobileMergedSide(rootElement, "left");
     } finally {
@@ -1115,7 +1152,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
   it("lets a 320px mobile viewport settle into a right merged pane", () => {
     vi.useFakeTimers();
     try {
-      testViewportWidthPx = 320;
+      testViewportWidthPx = NARROW_VIEWPORT_WIDTH_PX;
       const mountedRoot = root;
       if (mountedRoot === null || rootElement === null) {
         throw new Error("Expected mounted root");
@@ -1143,7 +1180,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       expect(getMainPane().style.width).toBe("320px");
 
-      for (let index = 0; index < 6; index += 1) {
+      for (let index = 0; index < 5; index += 1) {
         act(() => {
           rightHandle.dispatchEvent(
             new KeyboardEvent("keydown", {
@@ -1155,7 +1192,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       }
 
       expect(getMainPane().style.width).toBe("320px");
-      expect(rightPane.style.width).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 16}px`);
+      expect(rightPane.style.width).toBe("136px");
       act(() => {
         vi.advanceTimersByTime(121);
       });
@@ -1168,22 +1205,23 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
           new KeyboardEvent("keydown", {
             bubbles: true,
             key: "ArrowRight",
+            shiftKey: true,
           }),
         );
       });
 
-      expect(getMainPane().style.width).toBe("224px");
+      expect(getMainPane().style.width).toBe(`${NARROW_MOBILE_MAIN_WIDTH_PX}px`);
 
       act(() => {
         vi.advanceTimersByTime(121);
       });
 
       expectWorkspaceMobileMergedSide(rootElement, "right");
-      expect(getMainPane().style.width).toBe("224px");
+      expect(getMainPane().style.width).toBe(`${NARROW_MOBILE_MAIN_WIDTH_PX}px`);
       expect(
         getRequiredElement(rootElement, '[data-testid="workspace-layout-v2-pane-right"]').style
           .width,
-      ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+      ).toBe(`${NARROW_MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
       expect(
         rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
       ).toBe("right");
@@ -1236,7 +1274,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         vi.advanceTimersByTime(121);
       });
 
-      expect(getMainPane().style.width).toBe("294px");
+      expect(getMainPane().style.width).toBe("260px");
       expectWorkspaceMobileMergedSide(rootElement, "left");
       expect(carouselNode.classList.contains("overflow-x-auto")).toBe(true);
       expect(carouselNode.classList.contains("overflow-x-hidden")).toBe(false);
@@ -1257,7 +1295,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       expect(
         rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
       ).toBe("right");
-      expect(getMainPane().style.width).toBe("294px");
+      expect(getMainPane().style.width).toBe("260px");
       expectWorkspaceMobileMergedSide(rootElement, "left");
       expect(
         rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
@@ -1275,7 +1313,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       expect(
         rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
       ).toBe("right");
-      expect(getMainPane().style.width).toBe("294px");
+      expect(getMainPane().style.width).toBe("260px");
 
       act(() => {
         rightHandle.dispatchEvent(
@@ -1290,7 +1328,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       });
 
       expectWorkspaceMobileMergedSide(rootElement, "left");
-      expect(getMainPane().style.width).toBe("294px");
+      expect(getMainPane().style.width).toBe("260px");
 
       act(() => {
         latestSetRenderedMobilePane?.("main");

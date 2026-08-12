@@ -210,7 +210,7 @@ test("signed-in app right sidebar keeps the account row inside the minimum mobil
     await seedAppWorkspaceSidebarState(page, {
       ...APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE,
       mobilePane: "right",
-      rightMobileWidthPx: 96,
+      rightMobileWidthPx: 130,
     });
     await openSignedInApp(page);
 
@@ -220,7 +220,7 @@ test("signed-in app right sidebar keeps the account row inside the minimum mobil
     );
     const rightPane = getRightPane(page);
     const accountSection = page.getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
-    await expect(rightPane).toHaveCSS("width", "96px");
+    await expect(rightPane).toHaveCSS("width", "130px");
     await expect(accountSection).toBeVisible();
     await expectNoHorizontalOverflow(rightPane);
     await expectSidebarTextOwnsWrappedLine({
@@ -243,14 +243,14 @@ test("signed-out GitHub sign-in fits the minimum mobile right pane", async ({ pa
   await seedAppWorkspaceSidebarState(page, {
     ...APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE,
     mobilePane: "right",
-    rightMobileWidthPx: 96,
+    rightMobileWidthPx: 130,
   });
   await page.goto("/?prod-ui", { waitUntil: "networkidle" });
 
   const rightPane = getRightPane(page);
   const githubButton = page.getByRole("button", { name: "Continue with GitHub" });
 
-  await expect(rightPane).toHaveCSS("width", "96px");
+  await expect(rightPane).toHaveCSS("width", "130px");
   await expect(page.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
   await expect(githubButton).toBeVisible();
   await expect(githubButton).toHaveCSS("white-space", "normal");

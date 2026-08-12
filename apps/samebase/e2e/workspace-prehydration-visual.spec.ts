@@ -96,12 +96,12 @@ const MOBILE_PREHYDRATION_VISUAL_SCENARIOS = [
       mobilePane: "right",
       mobileSurface: {
         kind: "merged",
-        mainWidthPx: 294,
+        mainWidthPx: 260,
         side: "right",
       },
       rightDesktopOpen: true,
       rightDesktopWidthPx: 96,
-      rightMobileWidthPx: 96,
+      rightMobileWidthPx: 130,
     },
   },
 ] satisfies MobilePrehydrationVisualScenario[];
@@ -320,16 +320,16 @@ for (const scenario of CROSS_SIDE_MERGED_PREHYDRATION_SCENARIOS) {
     await seedWorkspaceSidebarState(page, {
       leftDesktopOpen: true,
       leftDesktopWidthPx: 240,
-      leftMobileWidthPx: 96,
+      leftMobileWidthPx: 130,
       mobilePane: scenario.mobilePane,
       mobileSurface: {
         kind: "merged",
-        mainWidthPx: 294,
+        mainWidthPx: 260,
         side: scenario.mergedSide,
       },
       rightDesktopOpen: true,
       rightDesktopWidthPx: 288,
-      rightMobileWidthPx: 96,
+      rightMobileWidthPx: 130,
     });
     await blockHydrationScripts(page);
 

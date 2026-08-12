@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase frontend/workspace shell
-- Last updated: 2026-05-06
+- Last updated: 2026-08-12
 - Related files:
   - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
   - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2ResizeHandle.tsx`
@@ -51,25 +51,23 @@ to work in the main pane.
 ## Current Behavior
 
 Mobile pane layout is a native horizontal carousel with snap positions for the left, main, and right
-panes. The current shell derives both the main pane width and side-pane maximum width from the
-mobile peek constant:
+panes. The main pane uses the page width. The side-pane maximum keeps a small part of the main pane
+reachable, but the side-pane minimum is independent from that visual allowance:
 
 ```ts
-viewportWidthPx - MOBILE_PANE_PEEK_PX * 2;
+Math.min(175, Math.floor(viewportWidthPx / 3));
 ```
 
-The side-pane minimum is then derived from the leftover width after that maximum and doubled. With
-the current constants, a 390px viewport has:
+With the current constants, a 390px page has:
 
-- `342px` main pane width
-- `342px` side-pane max width
-- `96px` side-pane min width
+- `390px` ordinary main pane width
+- `350px` side-pane max width
+- `130px` side-pane min width
+- `260px` main pane width after a merged fit
 
-That minimum is wider than the space left beside the complete main pane, so the two cannot fit
-together in one viewport.
-
-When the resize grip is dragged beyond that side-pane minimum, the committed side-pane width clamps,
-while the raw drag overflow updates carousel scroll. That transforms resize into slide.
+When the resize grip enters the minimum intent band, merge mode fits the side pane and main pane
+together. Explicit slide mode continues to convert drag distance below the minimum into carousel
+scroll.
 
 ## Accepted Contract
 
@@ -89,6 +87,7 @@ usable. That reachability reserve must not become the hidden source of truth for
 The shell should keep pane constraints explicit. The math should be shaped as:
 
 ```txt
+side min = min(175px, floor(page width / 3))
 resolved side width = clamp(raw side width, side min, side max)
 resolved main width = clamp(raw main width, main min, main max)
 ```
@@ -147,9 +146,9 @@ If both panes cannot satisfy their minimums at the same time, the shell should f
 existing slide behavior for that route or viewport. It should not invent placeholder widths or
 produce an unusable negative/zero-width pane.
 
-The default merged fit must support a 320px mobile viewport. With the current 96px side-pane
-minimum, the main pane minimum is 224px so small responsive viewports can commit the same merge they
-preview while dragging.
+The default merged fit must support a 320px mobile viewport. At that width, the responsive side-pane
+minimum is 106px and the main pane minimum is 214px. Small responsive viewports can therefore commit
+the same merge that they preview while dragging.
 
 When a route has both side panes, a fitted side/main merge must still allow carousel travel to the
 opposite side pane. For example, after the left side pane fits beside the main pane, the visible
@@ -165,10 +164,11 @@ surface.
 Partial paired geometry is drag state, not a committed post-release layout. The main pane keeps its
 ordinary mobile width while the side pane is above the merge threshold. Once the side pane enters
 the merge intent band, the main pane can shrink toward the fitted side/main pair. On release, the
-shell should settle to the fitted pair only from that same band. With the current 96px side-pane
-minimum and 10px merge intent distance, releasing at 106px or below commits the merge; releasing
-above 106px clears the transient main width and keeps the ordinary carousel layout. The merge
-threshold is tied to the side-pane minimum, not to the side pane's starting width.
+shell should settle to the fitted pair only from that same band. On a 390px page, the 130px
+side-pane minimum and 10px merge intent distance mean that releasing at 140px or below commits the
+merge. Releasing above 140px clears the transient main width and keeps the ordinary carousel layout.
+The merge threshold is tied to the resolved side-pane minimum, not to the side pane's starting
+width.
 
 Once the opposite side pane is selected, the carousel should keep the same virtual surface list. A
 left merge produces `left+main` and `right` surfaces; a right merge produces `left` and `main+right`
@@ -285,12 +285,11 @@ Default it to `"min_resize_to_merge"`.
 
 ### Step 2. Split Pane Constraints From Peek
 
-Replace `getMobileSidebarMinWidthPx` with a function that clamps an explicit minimum against an
+`getMobileSidebarMinWidthPx` clamps the 175px standard against one third of the page width and the
 explicit maximum.
 
-The first shell default can stay conservative. The important implementation boundary is that
-changing mobile peek no longer changes side-pane minimum width unless the caller explicitly asks for
-the same value.
+Changing the mobile peek does not change the side-pane minimum. The page-width ratio is part of the
+pane constraint, not a visual carousel allowance.
 
 ### Step 3. Preserve Slide Mode
 
@@ -309,17 +308,17 @@ out of view.
 When the drag ends, resolve the final two-pane widths from side-pane and main-pane constraints.
 Clear transient drag state after the layout settles.
 
-### Step 5. Route Opt-In
+### Step 5. Default Integration
 
-Merge mode should be opt-in per route or fixture until the pane UX is clearer. The first shipped
-opt-in should use a route or visual fixture where both panes have content that remains useful at the
-proposed minimum widths.
+Merge mode is the default for V2 workspace routes. Fixtures that need legacy slide behavior select
+it explicitly.
 
 ## Validation
 
 Add focused unit coverage for the sizing math:
 
-- side-pane minimum clamps independently from peek width
+- side-pane minimum clamps to the lower of 175px and one third of the page width, independently from
+  peek width
 - merged fit chooses side min and fills remaining viewport with main
 - merged fit fails closed when both pane minimums cannot fit
 
@@ -341,6 +340,8 @@ coverage for that shipped route or fixture.
 
 - The spec and research agree that pane min/max constraints are independent from visual peek width.
 - Merge behavior remains the default for V2 workspace layout surfaces.
+- The resolved mobile side-pane minimum is no more than 175px and no more than one third of the page
+  width.
 - Current slide behavior remains available through an explicit shell prop.
 - Merge behavior converts minimum-boundary resize into paired side/main-pane resize, not carousel
   scroll.

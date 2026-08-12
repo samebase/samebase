@@ -803,7 +803,7 @@ describe("AppWorkspaceShell", () => {
             mainWidthPx: 302,
             side: "right",
           },
-          rightMobileWidthPx: 96,
+          rightMobileWidthPx: 1,
         },
         version: 2,
       }),
@@ -818,10 +818,10 @@ describe("AppWorkspaceShell", () => {
       "260px",
     );
     expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-main-mobile-width")).toBe(
-      "294px",
+      "260px",
     );
     expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-right-mobile-width")).toBe(
-      "96px",
+      "130px",
     );
     expect(carousel.scrollLeft).toBe(260);
     expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
