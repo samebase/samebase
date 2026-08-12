@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
+import { createRequire } from "node:module";
 import path from "node:path";
 import process from "node:process";
 
@@ -10,7 +11,6 @@ import {
 import { fail, runMain } from "./lib/scriptRuntime.ts";
 import { samebaseAppFilePath } from "./lib/trackedFilePath.ts";
 
-const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const TEST_GITHUB_OWNER = "samebase-live-tests";
 const WORKTREE_ID_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/;
 const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "[::1]"]);
@@ -94,11 +94,12 @@ function main(): void {
     console.log("Browser: visible. Keep it open until the test finishes cleanup.");
   }
 
+  const requireFromApp = createRequire(path.join(appDir, samebaseAppFilePath("package.json")));
+  const playwrightCliPath = requireFromApp.resolve("@playwright/test/cli");
   const result = spawnSync(
-    PNPM_COMMAND,
+    process.execPath,
     [
-      "exec",
-      "playwright",
+      playwrightCliPath,
       "test",
       "-c",
       samebaseAppFilePath("playwright.live.config.ts"),

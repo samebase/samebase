@@ -11,10 +11,12 @@ const APP_PREFLIGHT_PHASE_TIMEOUT_MS = 90_000;
 // their budgets total two minutes, and a product timeout cannot cancel provider cleanup.
 const APP_SUBMIT_PHASE_TIMEOUT_MS = 15_000;
 const APP_PROVISIONING_PHASE_TIMEOUT_MS = 60_000;
-const APP_PROVISIONING_TIMEOUT_MS = 40_000;
 const APP_CLEANUP_FIXTURE_TIMEOUT_MS = 45_000;
 const APP_CLEANUP_WORKFLOW_TIMEOUT_MS = 25_000;
 const APP_DASHBOARD_TIMEOUT_MS = 15_000;
+const APP_PHASE_DIAGNOSTIC_RESERVE_MS = 5_000;
+const APP_DIAGNOSTIC_TIMEOUT_MS = 4_000;
+const APP_CLEANUP_TARGET_TIMEOUT_MS = 5_000;
 const TEST_CONVEX_TEAM_ID = "522530";
 const TEST_CONVEX_TEAM_SLUG = "samebase-live-tests";
 const TEST_CLOUDFLARE_ACCOUNT_ID = "a9dfbbd031cf9eda46831def8e468b4e";
@@ -71,6 +73,37 @@ const vaultContractSchema = z.object({
   ),
 });
 type VaultContract = z.infer<typeof vaultContractSchema>;
+
+type OperationDeadline = {
+  at: number;
+  label: string;
+};
+
+function startOperationDeadline(label: string, phaseTimeout: number): OperationDeadline {
+  return {
+    at: Date.now() + phaseTimeout - APP_PHASE_DIAGNOSTIC_RESERVE_MS,
+    label,
+  };
+}
+
+function startDiagnosticDeadline(label: string): OperationDeadline {
+  return { at: Date.now() + APP_DIAGNOSTIC_TIMEOUT_MS, label };
+}
+
+function operationTimeout(
+  deadline: OperationDeadline | undefined,
+  maximum: number = APP_DASHBOARD_TIMEOUT_MS,
+): number {
+  if (!deadline) {
+    return maximum;
+  }
+
+  const remaining = deadline.at - Date.now();
+  if (remaining <= 0) {
+    throw new Error(`${deadline.label} exceeded its operation deadline.`);
+  }
+  return Math.min(remaining, maximum);
+}
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -136,22 +169,29 @@ function vaultListLink(page: Page, repositoryFullName: string): Locator {
     .first();
 }
 
-async function openVaultContractInspector(page: Page): Promise<Locator> {
+async function openVaultContractInspector(
+  page: Page,
+  deadline?: OperationDeadline,
+): Promise<Locator> {
+  await openVaultSettings(page, deadline);
   const summary = page.getByText("Vault contract", { exact: true });
-  await expect(summary).toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
+  await expect(summary).toBeVisible({ timeout: operationTimeout(deadline) });
 
   const details = summary.locator("..");
-  if ((await details.getAttribute("open")) === null) {
-    await summary.click();
+  if ((await details.getAttribute("open", { timeout: operationTimeout(deadline) })) === null) {
+    await summary.click({ timeout: operationTimeout(deadline) });
   }
 
   const output = details.locator("pre");
-  await expect(output).toBeVisible();
+  await expect(output).toBeVisible({ timeout: operationTimeout(deadline) });
   return output;
 }
 
-async function readVaultContract(output: Locator): Promise<VaultContract> {
-  const text = await output.textContent();
+async function readVaultContract(
+  output: Locator,
+  deadline?: OperationDeadline,
+): Promise<VaultContract> {
+  const text = await output.textContent({ timeout: operationTimeout(deadline) });
   if (!text) {
     throw new Error("The Vault contract inspector did not contain JSON.");
   }
@@ -194,19 +234,28 @@ function readActiveProvisioningStep(contract: VaultContract): string {
   return `source ${contract.sourceSetup.status}, provider ${contract.providerSetup.status}`;
 }
 
-async function selectTemporaryVault(page: Page, repositoryFullName: string): Promise<void> {
+async function selectTemporaryVault(
+  page: Page,
+  repositoryFullName: string,
+  deadline?: OperationDeadline,
+): Promise<void> {
   const link = vaultListLink(page, repositoryFullName);
-  await expect(link).toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
-  await link.click();
-  await expect(page).toHaveURL(new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`));
+  await expect(link).toBeVisible({ timeout: operationTimeout(deadline) });
+  await link.click({ timeout: operationTimeout(deadline) });
+  await expect(page).toHaveURL(new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`), {
+    timeout: operationTimeout(deadline),
+  });
 }
 
-async function openVaultSettings(page: Page): Promise<void> {
-  await page
-    .getByRole("navigation", { name: "Repository" })
-    .getByRole("link", { exact: true, name: "Settings" })
-    .click();
-  await expect(page).toHaveURL(/\/vault\/[^/]+\/[^/]+\/settings(?:[?#]|$)/);
+async function openVaultSettings(page: Page, deadline?: OperationDeadline): Promise<void> {
+  const settingsUrl = /\/vault\/[^/]+\/[^/]+\/settings(?:[?#]|$)/;
+  if (!settingsUrl.test(page.url())) {
+    await page
+      .getByRole("navigation", { name: "Repository" })
+      .getByRole("link", { exact: true, name: "Settings" })
+      .click({ timeout: operationTimeout(deadline) });
+  }
+  await expect(page).toHaveURL(settingsUrl, { timeout: operationTimeout(deadline) });
 }
 
 async function openOrganizationOnboardingRoute(
@@ -397,24 +446,34 @@ type VaultCleanupTargets = {
   githubRepository: boolean;
 };
 
-async function prepareVaultListForOwner(page: Page, owner: string): Promise<void> {
+async function prepareVaultListForOwner(
+  page: Page,
+  owner: string,
+  deadline?: OperationDeadline,
+): Promise<void> {
   await expect(page.getByLabel("Loading vaults", { exact: true }).first()).not.toBeVisible({
-    timeout: APP_DASHBOARD_TIMEOUT_MS,
+    timeout: operationTimeout(deadline),
   });
 
   const navigation = page.getByRole("navigation", { name: "Vaults" }).first();
-  await expect(navigation).toBeVisible();
+  await expect(navigation).toBeVisible({ timeout: operationTimeout(deadline) });
   const ownerToggle = navigation.getByRole("button", { exact: true, name: owner });
-  await expect(ownerToggle).toBeVisible();
-  if ((await ownerToggle.getAttribute("aria-expanded")) !== "true") {
-    await ownerToggle.click();
+  await expect(ownerToggle).toBeVisible({ timeout: operationTimeout(deadline) });
+  if (
+    (await ownerToggle.getAttribute("aria-expanded", { timeout: operationTimeout(deadline) })) !==
+    "true"
+  ) {
+    await ownerToggle.click({ timeout: operationTimeout(deadline) });
   }
-  await expect(ownerToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(ownerToggle).toHaveAttribute("aria-expanded", "true", {
+    timeout: operationTimeout(deadline),
+  });
 }
 
 async function readVaultRemovalState(
   page: Page,
   repositoryFullName: string,
+  deadline?: OperationDeadline,
 ): Promise<"absent" | "deleting" | "failed" | "loading"> {
   if (await page.getByLabel("Loading vaults", { exact: true }).first().isVisible()) {
     return "loading";
@@ -426,8 +485,11 @@ async function readVaultRemovalState(
   if (!(await ownerToggle.isVisible().catch(() => false))) {
     return "loading";
   }
-  if ((await ownerToggle.getAttribute("aria-expanded")) !== "true") {
-    await ownerToggle.click();
+  if (
+    (await ownerToggle.getAttribute("aria-expanded", { timeout: operationTimeout(deadline) })) !==
+    "true"
+  ) {
+    await ownerToggle.click({ timeout: operationTimeout(deadline) });
     return "loading";
   }
 
@@ -435,31 +497,42 @@ async function readVaultRemovalState(
   if ((await link.count()) === 0) {
     return "absent";
   }
-  return (await link.getAttribute("data-vault-status")) === "Delete failed" ? "failed" : "deleting";
+  return (await link.getAttribute("data-vault-status", { timeout: operationTimeout(deadline) })) ===
+    "Delete failed"
+    ? "failed"
+    : "deleting";
 }
 
 async function readVaultDeletionDetail(
   page: Page,
   repositoryFullName: string,
+  deadline?: OperationDeadline,
 ): Promise<string | null> {
   const owner = parseRepositoryFullName(repositoryFullName).owner;
-  await prepareVaultListForOwner(page, owner);
+  await prepareVaultListForOwner(page, owner, deadline);
   const link = vaultListLink(page, repositoryFullName);
   if ((await link.count()) === 0) {
     return null;
   }
 
-  await selectTemporaryVault(page, repositoryFullName);
-  const contract = await readVaultContract(await openVaultContractInspector(page));
+  await selectTemporaryVault(page, repositoryFullName, deadline);
+  const contract = await readVaultContract(
+    await openVaultContractInspector(page, deadline),
+    deadline,
+  );
   if (contract.deletion.state === "not_deleting") {
     return "the vault has no recorded deletion run";
   }
   return `${contract.deletion.currentStep ?? "unknown step"}: ${contract.deletion.message ?? "no error message"}`;
 }
 
-async function waitForVaultRemoval(page: Page, repositoryFullName: string): Promise<void> {
+async function waitForVaultRemoval(
+  page: Page,
+  repositoryFullName: string,
+  deadline?: OperationDeadline,
+): Promise<void> {
   const { name: repositoryName, owner } = parseRepositoryFullName(repositoryFullName);
-  await prepareVaultListForOwner(page, owner);
+  await prepareVaultListForOwner(page, owner, deadline);
   let consecutiveLoadedAbsences = 0;
   let terminalState: "failed" | "removed" | null = null;
 
@@ -467,7 +540,7 @@ async function waitForVaultRemoval(page: Page, repositoryFullName: string): Prom
     await expect
       .poll(
         async () => {
-          const state = await readVaultRemovalState(page, repositoryFullName);
+          const state = await readVaultRemovalState(page, repositoryFullName, deadline);
           if (state === "failed") {
             terminalState = "failed";
             return "terminal";
@@ -482,12 +555,16 @@ async function waitForVaultRemoval(page: Page, repositoryFullName: string): Prom
         {
           intervals: [1_000, 2_000, 5_000],
           message: `Wait for durable dashboard cleanup of ${repositoryName}.`,
-          timeout: APP_CLEANUP_WORKFLOW_TIMEOUT_MS,
+          timeout: operationTimeout(deadline, APP_CLEANUP_WORKFLOW_TIMEOUT_MS),
         },
       )
       .toBe("terminal");
   } catch (error) {
-    const detail = await readVaultDeletionDetail(page, repositoryFullName);
+    const detail = await readVaultDeletionDetail(
+      page,
+      repositoryFullName,
+      deadline ? startDiagnosticDeadline("Vault cleanup diagnostics") : undefined,
+    ).catch(() => null);
     throw new Error(
       `Vault cleanup did not reach stable loaded absence${detail ? ` at ${detail}` : "."}`,
       { cause: error },
@@ -497,7 +574,11 @@ async function waitForVaultRemoval(page: Page, repositoryFullName: string): Prom
   if (terminalState === "removed") {
     return;
   }
-  const detail = await readVaultDeletionDetail(page, repositoryFullName);
+  const detail = await readVaultDeletionDetail(
+    page,
+    repositoryFullName,
+    deadline ? startDiagnosticDeadline("Vault cleanup diagnostics") : undefined,
+  ).catch(() => null);
   throw new Error(`Vault cleanup failed at ${detail ?? "an unknown deletion step"}`);
 }
 
@@ -505,17 +586,20 @@ async function removeTemporaryVault(
   page: Page,
   repositoryFullName: string,
   targets: VaultCleanupTargets,
+  deadline?: OperationDeadline,
 ): Promise<void> {
-  await openVaultSettings(page);
+  await openVaultSettings(page, deadline);
   const removeControl = removeVaultControl(page);
-  await expect(removeControl).toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
-  await expect(removeControl).toBeEnabled();
+  await expect(removeControl).toBeVisible({ timeout: operationTimeout(deadline) });
+  await expect(removeControl).toBeEnabled({ timeout: operationTimeout(deadline) });
 
-  await removeControl.click();
+  await removeControl.click({ timeout: operationTimeout(deadline) });
 
   const removeDialog = page.getByRole("dialog");
-  await expect(removeDialog).toBeVisible({ timeout: 15_000 });
-  await expect(page).toHaveURL(/(?:\?|&)delete(?:&|#|$)/);
+  await expect(removeDialog).toBeVisible({ timeout: operationTimeout(deadline) });
+  await expect(page).toHaveURL(/(?:\?|&)delete(?:&|#|$)/, {
+    timeout: operationTimeout(deadline),
+  });
 
   const cleanupCheckboxTargets = [
     {
@@ -539,26 +623,32 @@ async function removeTemporaryVault(
       await expect(
         cleanupCheckbox,
         `${label} must be available for fail-closed cleanup.`,
-      ).toHaveCount(1);
+      ).toHaveCount(1, { timeout: operationTimeout(deadline) });
       await expect(
         cleanupCheckbox,
         `${label} must be enabled for fail-closed cleanup.`,
-      ).toBeEnabled();
+      ).toBeEnabled({ timeout: operationTimeout(deadline) });
     }
     if (
       (await cleanupCheckbox.count()) > 0 &&
       !(await cleanupCheckbox.isDisabled()) &&
       (await cleanupCheckbox.isChecked()) !== enabled
     ) {
-      await cleanupCheckbox.click();
+      await cleanupCheckbox.click({ timeout: operationTimeout(deadline) });
     }
   }
 
-  await removeDialog.getByRole("button", { name: "Remove Vault" }).click();
-  await expect(removeDialog).not.toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
-  await expect(page).toHaveURL(/(?:\?|&)dev(?:[=&]|&|#|$)/);
-  await expect(page).not.toHaveURL(/(?:\?|&)delete(?:&|#|$)/);
-  await waitForVaultRemoval(page, repositoryFullName);
+  await removeDialog
+    .getByRole("button", { name: "Remove Vault" })
+    .click({ timeout: operationTimeout(deadline) });
+  await expect(removeDialog).not.toBeVisible({ timeout: operationTimeout(deadline) });
+  await expect(page).toHaveURL(/(?:\?|&)dev(?:[=&]|&|#|$)/, {
+    timeout: operationTimeout(deadline),
+  });
+  await expect(page).not.toHaveURL(/(?:\?|&)delete(?:&|#|$)/, {
+    timeout: operationTimeout(deadline),
+  });
+  await waitForVaultRemoval(page, repositoryFullName, deadline);
 }
 
 async function removeVaultIfPresent(
@@ -582,17 +672,20 @@ async function removeVaultIfPresent(
 async function waitForVaultProvisioning(
   page: Page,
   repositoryFullName: string,
+  deadline: OperationDeadline,
 ): Promise<VaultContract> {
   const link = vaultListLink(page, repositoryFullName);
-  await expect(link).toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
-  const contractOutput = await openVaultContractInspector(page);
+  await expect(link).toBeVisible({ timeout: operationTimeout(deadline) });
+  const contractOutput = await openVaultContractInspector(page, deadline);
 
   try {
     await expect
       .poll(
         async () => {
-          const contract = await readVaultContract(contractOutput);
-          const status = await link.getAttribute("data-vault-status");
+          const contract = await readVaultContract(contractOutput, deadline);
+          const status = await link.getAttribute("data-vault-status", {
+            timeout: operationTimeout(deadline),
+          });
           if (status === "Needs attention" || readProvisioningFailure(contract)) {
             return "failed";
           }
@@ -607,12 +700,20 @@ async function waitForVaultProvisioning(
         {
           intervals: [1_000, 2_000, 5_000],
           message: `Wait for the full app provisioning workflow for ${repositoryFullName}.`,
-          timeout: APP_PROVISIONING_TIMEOUT_MS,
+          timeout: operationTimeout(deadline, APP_PROVISIONING_PHASE_TIMEOUT_MS),
         },
       )
       .not.toBe("running");
   } catch (error) {
-    const contract = await readVaultContract(contractOutput);
+    const diagnosticDeadline = startDiagnosticDeadline("App provisioning diagnostics");
+    const contract = await readVaultContract(contractOutput, diagnosticDeadline).catch(
+      (diagnosticError: unknown) => {
+        throw new Error(
+          "App provisioning did not finish, and the Vault contract could not be read for diagnostics.",
+          { cause: diagnosticError },
+        );
+      },
+    );
     const failure = readProvisioningFailure(contract);
     if (failure) {
       throw new Error(
@@ -626,8 +727,10 @@ async function waitForVaultProvisioning(
     );
   }
 
-  const contract = await readVaultContract(contractOutput);
-  const status = await link.getAttribute("data-vault-status");
+  const contract = await readVaultContract(contractOutput, deadline);
+  const status = await link.getAttribute("data-vault-status", {
+    timeout: operationTimeout(deadline),
+  });
   const failure = readProvisioningFailure(contract);
   if (failure) {
     throw new Error(
@@ -658,23 +761,30 @@ function sourceSetupMayHaveCreatedRepository(contract: VaultContract): boolean {
 async function readCreatedAppForCleanup(
   page: Page,
   repositoryFullName: string,
+  deadline: OperationDeadline,
 ): Promise<VaultContract | null> {
-  await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
-  await signInIfNeeded(page, "/vault?dev");
+  await page.goto("/vault?dev", {
+    timeout: operationTimeout(deadline),
+    waitUntil: "domcontentloaded",
+  });
 
   const owner = parseRepositoryFullName(repositoryFullName).owner;
-  await prepareVaultListForOwner(page, owner);
+  await prepareVaultListForOwner(page, owner, deadline);
   const link = vaultListLink(page, repositoryFullName);
   const vaultExists = await link
-    .waitFor({ state: "visible", timeout: APP_DASHBOARD_TIMEOUT_MS })
+    .waitFor({
+      state: "visible",
+      timeout: operationTimeout(deadline, APP_CLEANUP_TARGET_TIMEOUT_MS),
+    })
     .then(() => true)
     .catch(() => false);
   if (!vaultExists) {
     return null;
   }
 
-  await selectTemporaryVault(page, repositoryFullName);
-  const contract = await readVaultContract(await openVaultContractInspector(page));
+  await selectTemporaryVault(page, repositoryFullName, deadline);
+  const contractOutput = await openVaultContractInspector(page, deadline);
+  const contract = await readVaultContract(contractOutput, deadline);
   if (contract.repositoryFullName !== repositoryFullName) {
     throw new Error(
       "Refusing cleanup because the selected vault owner and name do not match the test target.",
@@ -683,13 +793,49 @@ async function readCreatedAppForCleanup(
   if (!contract.isSamebaseManaged) {
     throw new Error("Refusing cleanup because the temporary vault is not Samebase-managed.");
   }
-  return contract;
+
+  const removeControl = removeVaultControl(page);
+  await expect(removeControl).toBeVisible({ timeout: operationTimeout(deadline) });
+  try {
+    await expect(removeControl).toBeEnabled({
+      timeout: operationTimeout(deadline, APP_CLEANUP_TARGET_TIMEOUT_MS),
+    });
+  } catch (error) {
+    const diagnosticDeadline = startDiagnosticDeadline("App cleanup diagnostics");
+    const latestContract = await readVaultContract(contractOutput, diagnosticDeadline).catch(
+      () => contract,
+    );
+    const disabledReason = await page
+      .getByRole("heading", { exact: true, name: "Remove vault" })
+      .locator("..")
+      .locator("p")
+      .textContent({ timeout: operationTimeout(diagnosticDeadline) })
+      .catch(() => null);
+    throw new Error(
+      `Dashboard cleanup stayed blocked${disabledReason ? `: ${disabledReason.trim()}` : "."} The last recorded provisioning state was ${readActiveProvisioningStep(latestContract)}.`,
+      { cause: error },
+    );
+  }
+
+  const readyContract = await readVaultContract(contractOutput, deadline);
+  if (readyContract.repositoryFullName !== repositoryFullName) {
+    throw new Error(
+      "Refusing cleanup because the selected vault owner and name changed before deletion.",
+    );
+  }
+  if (!readyContract.isSamebaseManaged) {
+    throw new Error(
+      "Refusing cleanup because the temporary vault stopped being Samebase-managed before deletion.",
+    );
+  }
+  return readyContract;
 }
 
 async function removeCreatedApp(
   page: Page,
   repositoryFullName: string,
   contract: VaultContract,
+  deadline: OperationDeadline,
 ): Promise<void> {
   const githubMayExist = sourceSetupMayHaveCreatedRepository(contract);
   if (githubMayExist && !contract.hasConnectedGitHubRepository) {
@@ -715,11 +861,16 @@ async function removeCreatedApp(
     );
   }
 
-  await removeTemporaryVault(page, repositoryFullName, {
-    cloudflareWorker: contract.canRemoveCloudflareProvision,
-    convexProject: contract.canRemoveConvexProvision,
-    githubRepository: githubMayExist,
-  });
+  await removeTemporaryVault(
+    page,
+    repositoryFullName,
+    {
+      cloudflareWorker: contract.canRemoveCloudflareProvision,
+      convexProject: contract.canRemoveConvexProvision,
+      githubRepository: githubMayExist,
+    },
+    deadline,
+  );
 }
 
 type AppCreationCleanupController = {
@@ -744,7 +895,12 @@ const test = base.extend<{ appCreationCleanup: AppCreationCleanupController }>({
         return;
       }
 
-      const cleanupContract = await readCreatedAppForCleanup(page, startedRepositoryFullName);
+      const cleanupDeadline = startOperationDeadline("App cleanup", APP_CLEANUP_FIXTURE_TIMEOUT_MS);
+      const cleanupContract = await readCreatedAppForCleanup(
+        page,
+        startedRepositoryFullName,
+        cleanupDeadline,
+      );
       if (!cleanupContract) {
         throw new Error(
           "The submit started, but the dashboard did not expose the test vault for supported cleanup.",
@@ -762,7 +918,7 @@ const test = base.extend<{ appCreationCleanup: AppCreationCleanupController }>({
         provisioningFailure = error instanceof Error ? error : new Error(String(error));
       }
       try {
-        await removeCreatedApp(page, startedRepositoryFullName, cleanupContract);
+        await removeCreatedApp(page, startedRepositoryFullName, cleanupContract, cleanupDeadline);
       } catch (error) {
         const cleanupMessage =
           error instanceof Error
@@ -865,13 +1021,14 @@ test.describe("vault create app live flow", () => {
     });
 
     testInfo.setTimeout(Date.now() - testBodyStartedAt + APP_SUBMIT_PHASE_TIMEOUT_MS);
+    const submitDeadline = startOperationDeadline("App submit", APP_SUBMIT_PHASE_TIMEOUT_MS);
     appCreationCleanup.markCreationStarted(repositoryFullName);
-    await createButton.click();
+    await createButton.click({ timeout: operationTimeout(submitDeadline) });
 
     try {
       await expect(page).toHaveURL(
         new RegExp(`/vault/${escapeRegExp(repositoryFullName)}(?:[?#]|$)`),
-        { timeout: APP_SUBMIT_PHASE_TIMEOUT_MS },
+        { timeout: operationTimeout(submitDeadline) },
       );
     } catch (error) {
       const createErrors = await page.locator(".text-red-600").allTextContents();
@@ -883,11 +1040,16 @@ test.describe("vault create app live flow", () => {
     }
 
     testInfo.setTimeout(Date.now() - testBodyStartedAt + APP_PROVISIONING_PHASE_TIMEOUT_MS);
-    await page.goto("/vault?dev", { waitUntil: "domcontentloaded" });
-    await signInIfNeeded(page, "/vault?dev");
-    await selectTemporaryVault(page, repositoryFullName);
+    const provisioningDeadline = startOperationDeadline(
+      "App provisioning",
+      APP_PROVISIONING_PHASE_TIMEOUT_MS,
+    );
+    await page.goto(`/vault/${repositoryFullName}?dev`, {
+      timeout: operationTimeout(provisioningDeadline),
+      waitUntil: "domcontentloaded",
+    });
 
-    const contract = await waitForVaultProvisioning(page, repositoryFullName);
+    const contract = await waitForVaultProvisioning(page, repositoryFullName, provisioningDeadline);
     expect(contract).toMatchObject({
       repositoryFullName,
       convexTeamId: TEST_CONVEX_TEAM_ID,
@@ -929,16 +1091,20 @@ test.describe("vault create app live flow", () => {
     await expect(vaultLink).not.toHaveAttribute(
       "data-vault-status",
       /^(?:Needs attention|Setting up)$/,
+      { timeout: operationTimeout(provisioningDeadline) },
     );
 
     const repositoryLink = page.getByRole("link", {
       name: `Open ${repositoryFullName} on GitHub`,
     });
 
-    await expect(repositoryLink).toBeVisible({ timeout: APP_DASHBOARD_TIMEOUT_MS });
+    await expect(repositoryLink).toBeVisible({ timeout: operationTimeout(provisioningDeadline) });
 
     await testInfo.attach("created-repository-link", {
-      body: (await repositoryLink.first().getAttribute("href")) ?? "",
+      body:
+        (await repositoryLink.first().getAttribute("href", {
+          timeout: operationTimeout(provisioningDeadline),
+        })) ?? "",
       contentType: "text/plain",
     });
   });
