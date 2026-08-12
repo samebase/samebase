@@ -9,7 +9,8 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { mutation, query } from "./functions";
 import { findVaultForUser } from "./organizationAccess";
-import type { GithubTree } from "./vault/model";
+import { normalizeGitHubOwnerLogin } from "./organizations";
+import { parseRepositoryFullName, type GithubTree } from "./vault/model";
 import {
   hasStagedFileChanges,
   hasStagedFileContentChange,
@@ -19,7 +20,9 @@ import {
 import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 import { readActiveUser } from "./userLifecycle";
 import {
+  ACTION_BLOB_RESERVATION_MS,
   discardPendingUploadBlob,
+  isStorageReservedOrReferenced,
   normalizePendingUploadContentType,
   PENDING_UPLOAD_RESERVATION_MS,
   requireClaimedPendingUpload,
@@ -108,6 +111,15 @@ const uploadUrlResultValidator = object({
   uploadId: id("vaultPendingUploads"),
   uploadUrl: string(),
 });
+const legacyUploadClaimResultValidator = union(
+  object({
+    state: literal("ready"),
+    uploadId: id("vaultPendingUploads"),
+    vaultId: vaultIdValidator,
+    contentType: string(),
+  }),
+  object({ state: literal("unavailable") }),
+);
 
 const getByNewPathArgsValidator = {
   vaultId: vaultIdValidator,
@@ -270,6 +282,97 @@ async function assertConnectedVaultForStagingWrite(
     throw new Error("Account deletion is in progress.");
   }
   return assertConnectedVault(vault);
+}
+
+/**
+ * The first deletion release keeps this access proof available after the organization gate closes
+ * so an old client can delete its unmarked disposable blob. It does not authorize a staging write.
+ */
+async function findLegacyMediaUploadVault(
+  ctx: MutationCtx,
+  args: {
+    vaultId: Infer<typeof vaultIdValidator>;
+    userId: Infer<typeof userIdValidator>;
+  },
+) {
+  const [user, vault] = await Promise.all([ctx.db.get(args.userId), ctx.db.get(args.vaultId)]);
+  if (
+    user === null ||
+    readActiveUser(user) === null ||
+    vault === null ||
+    !isLiveConnectedVault(vault)
+  ) {
+    return null;
+  }
+  const [organization, membership] = await Promise.all([
+    ctx.db.get(vault.organizationId),
+    ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_organization_and_user", (query) =>
+        query.eq("organizationId", vault.organizationId).eq("userId", args.userId),
+      )
+      .unique(),
+  ]);
+  if (organization === null || membership === null) {
+    return null;
+  }
+  return { organization, vault };
+}
+
+async function findLegacyMediaUploadVaultByRepository(
+  ctx: MutationCtx,
+  args: {
+    repositoryFullName: string;
+    userId: Infer<typeof userIdValidator>;
+  },
+) {
+  const repository = parseRepositoryFullName(args.repositoryFullName);
+  const organization = await ctx.db
+    .query("organizations")
+    .withIndex("by_github_owner_login_normalized", (query) =>
+      query.eq("githubOwnerLoginNormalized", normalizeGitHubOwnerLogin(repository.owner)),
+    )
+    .unique();
+  if (organization === null) {
+    return null;
+  }
+  const vaults = await ctx.db
+    .query("vaults")
+    .withIndex("by_organization_and_name", (query) =>
+      query.eq("organizationId", organization._id).eq("name", repository.name),
+    )
+    .take(2);
+  const liveVaults = vaults.filter(isLiveConnectedVault);
+  if (liveVaults.length > 1) {
+    throw new Error("Repository maps to multiple live vaults.");
+  }
+  const vault = liveVaults.at(0);
+  if (vault === undefined) {
+    return null;
+  }
+  return await findLegacyMediaUploadVault(ctx, { vaultId: vault._id, userId: args.userId });
+}
+
+async function discardLegacyMediaUploadBlob(
+  ctx: MutationCtx,
+  args: {
+    vaultId: Infer<typeof vaultIdValidator>;
+    storageId: Infer<typeof storageIdValidator>;
+    userId: Infer<typeof userIdValidator>;
+  },
+): Promise<boolean> {
+  if ((await findLegacyMediaUploadVault(ctx, args)) === null) {
+    return false;
+  }
+  const metadata = await ctx.db.system.get("_storage", args.storageId);
+  if (metadata === null) {
+    return true;
+  }
+  if (await isStorageReservedOrReferenced(ctx, args.storageId)) {
+    return false;
+  }
+  await ctx.storage.delete(args.storageId);
+  return true;
 }
 
 export function selectRepositoryTreeForBranch(args: {
@@ -451,18 +554,25 @@ export const generateUploadUrl = mutation({
 export const deletePendingUploadBlob = mutation({
   access: "access_files_write",
   args: {
-    uploadId: id("vaultPendingUploads"),
+    uploadId: optional(id("vaultPendingUploads")),
     vaultId: vaultIdValidator,
     storageId: storageIdValidator,
   },
   returns: nullResultValidator,
   handler: async (ctx, args) => {
-    const deleted = await discardPendingUploadBlob(ctx, {
-      uploadId: args.uploadId,
-      storageId: args.storageId,
-      userId: ctx.viewer.userId,
-      vaultId: args.vaultId,
-    });
+    const deleted =
+      args.uploadId === undefined
+        ? await discardLegacyMediaUploadBlob(ctx, {
+            vaultId: args.vaultId,
+            storageId: args.storageId,
+            userId: ctx.viewer.userId,
+          })
+        : await discardPendingUploadBlob(ctx, {
+            uploadId: args.uploadId,
+            storageId: args.storageId,
+            userId: ctx.viewer.userId,
+            vaultId: args.vaultId,
+          });
     if (!deleted) {
       throw new Error("Pending upload blob is not available for cleanup.");
     }
@@ -504,6 +614,56 @@ export const getByNewPathInternal = internalQuery({
         q.eq("vaultId", args.vaultId).eq("branch", args.branch).eq("filePath", args.newPath),
       )
       .first();
+  },
+});
+
+export const claimLegacyUploadedBlob = internalMutation({
+  args: {
+    repositoryFullName: string(),
+    storageId: storageIdValidator,
+    userId: userIdValidator,
+  },
+  returns: legacyUploadClaimResultValidator,
+  handler: async (ctx, args) => {
+    const access = await findLegacyMediaUploadVaultByRepository(ctx, args);
+    if (access === null) {
+      return { state: "unavailable" } as const;
+    }
+    const metadata = await ctx.db.system.get("_storage", args.storageId);
+    if (metadata === null) {
+      return { state: "unavailable" } as const;
+    }
+    const storageReferenced = await isStorageReservedOrReferenced(ctx, args.storageId);
+    if (access.organization.deletion !== undefined) {
+      if (!storageReferenced) {
+        await ctx.storage.delete(args.storageId);
+      }
+      return { state: "unavailable" } as const;
+    }
+    if (storageReferenced) {
+      return { state: "unavailable" } as const;
+    }
+
+    const expiresAt = Date.now() + ACTION_BLOB_RESERVATION_MS;
+    const originalContentType = normalizePendingUploadContentType(
+      metadata.contentType ?? "application/octet-stream",
+    );
+    const uploadId = await ctx.db.insert("vaultPendingUploads", {
+      organizationId: access.organization._id,
+      vaultId: access.vault._id,
+      userId: args.userId,
+      purpose: "browser_media",
+      originalContentType,
+      expiresAt,
+      storageId: args.storageId,
+    });
+    await ctx.scheduler.runAt(expiresAt, internal.pendingUploads.cleanupExpired, { uploadId });
+    return {
+      state: "ready",
+      uploadId,
+      vaultId: access.vault._id,
+      contentType: originalContentType,
+    } as const;
   },
 });
 

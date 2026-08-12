@@ -7,12 +7,10 @@ import {
   ACTION_BLOB_RESERVATION_MS,
   buildPendingUploadStorageContentType,
 } from "../pendingUploads";
-import {
-  ORGANIZATION_DELETION_AUTHORIZATION_SETTLE_MS,
-  ORGANIZATION_DELETION_STALE_EXECUTION_MS,
-} from "./executor";
+import { ORGANIZATION_DELETION_STALE_EXECUTION_MS } from "./executor";
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   vi.useRealTimers();
 });
 
@@ -97,7 +95,97 @@ async function seedPendingUpload(
   });
 }
 
+async function seedConnectedVault(
+  t: ReturnType<typeof makeConvexTest>,
+  seed: Awaited<ReturnType<typeof seedOrganization>>,
+) {
+  return await t.run(async (ctx) => {
+    const vaultId = await ctx.db.insert("vaults", {
+      state: "not_connected",
+      organizationId: seed.organizationId,
+      convexTeamId: "convex-team",
+      cloudflareAccountId: "cloudflare-account",
+      deletion: { state: "not_deleting" },
+    });
+    const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId: seed.organizationId,
+      userId: seed.ownerUserId,
+      vaultId,
+      repositoryFullName: "Samebase/legacy-upload",
+      trigger: "create",
+      state: "succeeded",
+      currentStep: "finish",
+      createdAt: 1,
+      updatedAt: 2,
+      completedAt: 2,
+    });
+    await ctx.db.replace(vaultId, {
+      state: "connected",
+      githubMode: "connect_existing_repository",
+      organizationId: seed.organizationId,
+      convexTeamId: "convex-team",
+      cloudflareAccountId: "cloudflare-account",
+      deletion: { state: "not_deleting" },
+      runId,
+      ghRepoId: "legacy-upload-repository",
+      defaultBranch: "main",
+      connectedAt: 2,
+      name: "legacy-upload",
+      visibility: "private",
+    });
+    return vaultId;
+  });
+}
+
 describe("organization deletion request", () => {
+  it("blocks production requests until the storage rollout is ready", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("CONVEX_AGENT_MODE", "");
+    vi.stubEnv("CONVEX_DEPLOYMENT", "prod:organization-deletion-request-test");
+    const t = makeConvexTest();
+    const seed = await seedOrganization(t);
+    const confirmationPhrase = buildOrganizationDeletionConfirmationPhrase("Samebase");
+
+    await expect(
+      seed.owner.query(api.organizationDeletion.index.settings, {
+        organizationId: seed.organizationId,
+      }),
+    ).resolves.toMatchObject({ deletion: { state: "rollout_pending" } });
+    await expect(
+      seed.owner.mutation(api.organizationDeletion.index.request, {
+        organizationId: seed.organizationId,
+        confirmationPhrase,
+      }),
+    ).resolves.toEqual({ state: "rollout_pending" });
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("workflow_organizationDeletion_runs").take(1)),
+    ).resolves.toEqual([]);
+
+    const started = await t.mutation(
+      internal.organizationDeletion.rollout.advanceStorageCleanup,
+      {},
+    );
+    if (started.state !== "waiting") {
+      throw new Error("Production storage rollout did not start.");
+    }
+    vi.setSystemTime(started.readyAt + 1);
+    await expect(
+      t.mutation(internal.organizationDeletion.rollout.advanceStorageCleanup, {}),
+    ).resolves.toEqual({ state: "ready" });
+
+    await expect(
+      seed.owner.query(api.organizationDeletion.index.settings, {
+        organizationId: seed.organizationId,
+      }),
+    ).resolves.toMatchObject({ deletion: { state: "eligible" } });
+    await expect(
+      seed.owner.mutation(api.organizationDeletion.index.request, {
+        organizationId: seed.organizationId,
+        confirmationPhrase,
+      }),
+    ).resolves.toMatchObject({ state: "accepted" });
+  });
+
   it("requires the exact phrase, starts one run, and gates new organization writes", async () => {
     vi.useFakeTimers();
     const t = makeConvexTest();
@@ -273,9 +361,8 @@ describe("organization deletion request", () => {
     ).rejects.toThrow("Organization deletion is in progress.");
   });
 
-  it("waits for authorization from the prior deployment to expire", async () => {
+  it("starts local cleanup without a per-organization rollout delay", async () => {
     vi.useFakeTimers();
-    const now = Date.now();
     const t = makeConvexTest();
     const seed = await seedOrganization(t);
     const accepted = await seed.owner.mutation(api.organizationDeletion.index.request, {
@@ -292,14 +379,6 @@ describe("organization deletion request", () => {
         executionAttempt: 1,
       }),
     ).resolves.toEqual({ state: "done" });
-    await expect(
-      t.mutation(internal.organizationDeletion.executor.beginSamebaseDataCleanup, {
-        runId: accepted.status.runId,
-        executionAttempt: 1,
-      }),
-    ).resolves.toBe(false);
-
-    vi.setSystemTime(now + ORGANIZATION_DELETION_AUTHORIZATION_SETTLE_MS + 1);
     await expect(
       t.mutation(internal.organizationDeletion.executor.beginSamebaseDataCleanup, {
         runId: accepted.status.runId,
@@ -635,6 +714,65 @@ describe("organization deletion request", () => {
     await expect(
       t.run(async (ctx) => await ctx.storage.get(pending.storageId)),
     ).resolves.toBeNull();
+  });
+
+  it("removes an unmarked legacy upload after the deletion gate closes", async () => {
+    vi.useFakeTimers();
+    const t = makeConvexTest();
+    const seed = await seedOrganization(t);
+    await seedConnectedVault(t, seed);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(seed.ownerUserId, { email: "nicu@samebase.com" });
+    });
+    await seed.owner.mutation(api.organizationDeletion.index.request, {
+      organizationId: seed.organizationId,
+      confirmationPhrase: buildOrganizationDeletionConfirmationPhrase("Samebase"),
+    });
+    const storageId = await t.run(
+      async (ctx) => await ctx.storage.store(new Blob(["legacy image"], { type: "image/png" })),
+    );
+
+    await expect(
+      seed.owner.action(api.fileStagingActions.stageUploadedMedia, {
+        repositoryFullName: "Samebase/legacy-upload",
+        filePath: "legacy.png",
+        storageId,
+        replaceExisting: false,
+      }),
+    ).rejects.toThrow("Organization is not available.");
+    await expect(t.run(async (ctx) => await ctx.storage.get(storageId))).resolves.toBeNull();
+  });
+
+  it("adopts an unmarked legacy upload before its action continues", async () => {
+    vi.useFakeTimers();
+    const now = Date.now();
+    const t = makeConvexTest();
+    const seed = await seedOrganization(t);
+    const vaultId = await seedConnectedVault(t, seed);
+    const storageId = await t.run(
+      async (ctx) => await ctx.storage.store(new Blob(["legacy image"], { type: "image/png" })),
+    );
+
+    const claim = await t.mutation(internal.fileStaging.claimLegacyUploadedBlob, {
+      repositoryFullName: "Samebase/legacy-upload",
+      storageId,
+      userId: seed.ownerUserId,
+    });
+    if (claim.state !== "ready") {
+      throw new Error("Legacy upload was not adopted.");
+    }
+    await expect(t.run(async (ctx) => await ctx.db.get(claim.uploadId))).resolves.toMatchObject({
+      organizationId: seed.organizationId,
+      vaultId,
+      userId: seed.ownerUserId,
+      purpose: "browser_media",
+      storageId,
+    });
+
+    vi.setSystemTime(now + ACTION_BLOB_RESERVATION_MS + 1);
+    await t.mutation(internal.pendingUploads.cleanupExpired, { uploadId: claim.uploadId });
+    await expect(t.run(async (ctx) => await ctx.storage.get(storageId))).resolves.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(claim.uploadId))).resolves.toBeNull();
   });
 
   it("waits for an upload URL to expire and removes an unclaimed blob", async () => {

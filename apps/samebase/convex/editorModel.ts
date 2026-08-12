@@ -39,7 +39,8 @@ export const vaultEditorTables = {
   })
     .index("by_organization_and_expires_at", ["organizationId", "expiresAt"])
     .index("by_user_and_expires_at", ["userId", "expiresAt"])
-    .index("by_vault", ["vaultId"]),
+    .index("by_vault", ["vaultId"])
+    .index("by_storageId", ["storageId"]),
 
   /**
    * The current uncommitted state of each changed file on a vault branch,

@@ -54,6 +54,11 @@ function OrganizationDeletionDialog({
         setIsRequesting(false);
         return;
       }
+      if (result.state === "rollout_pending") {
+        setError("Organization deletion is temporarily unavailable.");
+        setIsRequesting(false);
+        return;
+      }
       onClose();
     } catch {
       setError("Could not start organization deletion. Check the status and try again.");
@@ -157,6 +162,11 @@ export function OrganizationDeletionSection({
             Members
           </Link>
           .
+        </p>
+      ) : deletion.state === "rollout_pending" ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Organization deletion is temporarily unavailable while Samebase completes a storage safety
+          update.
         </p>
       ) : deletion.state === "running" ? (
         <p className="mt-4 text-sm text-muted-foreground" role="status">

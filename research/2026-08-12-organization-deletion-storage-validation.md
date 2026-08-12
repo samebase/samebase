@@ -13,6 +13,13 @@ Samebase creates an organization-owned reservation before each browser media upl
 write. Samebase, not the browser, writes the reservation marker into the Convex storage media type.
 Organization deletion waits for each live reservation. Expiry cleanup scans bounded storage pages,
 deletes unreferenced blobs with the exact marker, and preserves storage that a surviving row uses.
+For the first rollout, Samebase also accepts the prior media staging request without a reservation
+ID. It verifies the user, membership, and live vault, then records the exact unmarked storage ID in
+a durable reservation. A closed organization gate deletes that unreferenced blob immediately.
+Production deletion stays unavailable during one 65-minute compatibility window. A bounded global
+scan then deletes old storage with no live reservation, staged-file reference, or observed-blob
+reference. A stored cursor makes the scan retryable. Deletion becomes available only when the scan
+finishes.
 
 ## Local Acceptance
 
@@ -33,13 +40,15 @@ Focused Convex tests also cover these stop points:
 
 - the browser stores a blob, then organization deletion closes the gate before staging
 - the browser never attaches the returned blob
+- an old client uploads an unmarked blob after the organization gate closes
+- an old upload creates an unmarked blob and stops before it calls the staging action
 - a GitHub cache action stores a marked blob, then stops before it writes the cache row
 - another organization still refers to the same storage ID
 
 In each case, cleanup deletes only unreferenced Samebase-owned storage for the target organization.
 
-The initial rollout also waits 65 minutes after the deletion request before local data cleanup.
-Polar billing cleanup starts after the active provider-write fences drain and does not wait for this
-storage fence. Convex documents a one-hour upload URL lifetime and a two-minute upload timeout. The
-wait covers a URL or action that the deployment before these reservations authorized but could not
-mark.
+The production rollout starts after the new authorization boundaries deploy. Convex documents a
+one-hour upload URL lifetime and a two-minute upload timeout. The 65-minute window also exceeds the
+maximum action lifetime. After the window, the scan removes an unmarked object even when the old tab
+closed and never sent a staging or cleanup request. Each later organization deletion starts without
+this rollout delay.

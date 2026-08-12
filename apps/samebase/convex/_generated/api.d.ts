@@ -47,6 +47,7 @@ import type * as convexManagementApi_errors from "../convexManagementApi/errors.
 import type * as convexManagementApi_oauthToken from "../convexManagementApi/oauthToken.js";
 import type * as convexOAuth from "../convexOAuth.js";
 import type * as convexProviderAccess from "../convexProviderAccess.js";
+import type * as crons from "../crons.js";
 import type * as dashboardSettings from "../dashboardSettings.js";
 import type * as deploymentProfile from "../deploymentProfile.js";
 import type * as devAuth from "../devAuth.js";
@@ -95,6 +96,7 @@ import type * as organizationDeletion_executor from "../organizationDeletion/exe
 import type * as organizationDeletion_index from "../organizationDeletion/index.js";
 import type * as organizationDeletion_model from "../organizationDeletion/model.js";
 import type * as organizationDeletion_providerActions from "../organizationDeletion/providerActions.js";
+import type * as organizationDeletion_rollout from "../organizationDeletion/rollout.js";
 import type * as organizationDeletion_state from "../organizationDeletion/state.js";
 import type * as organizationDeletion_stepContext from "../organizationDeletion/stepContext.js";
 import type * as organizationInvitationModel from "../organizationInvitationModel.js";
@@ -222,6 +224,7 @@ declare const fullApi: ApiFromModules<{
   "convexManagementApi/oauthToken": typeof convexManagementApi_oauthToken;
   convexOAuth: typeof convexOAuth;
   convexProviderAccess: typeof convexProviderAccess;
+  crons: typeof crons;
   dashboardSettings: typeof dashboardSettings;
   deploymentProfile: typeof deploymentProfile;
   devAuth: typeof devAuth;
@@ -270,6 +273,7 @@ declare const fullApi: ApiFromModules<{
   "organizationDeletion/index": typeof organizationDeletion_index;
   "organizationDeletion/model": typeof organizationDeletion_model;
   "organizationDeletion/providerActions": typeof organizationDeletion_providerActions;
+  "organizationDeletion/rollout": typeof organizationDeletion_rollout;
   "organizationDeletion/state": typeof organizationDeletion_state;
   "organizationDeletion/stepContext": typeof organizationDeletion_stepContext;
   organizationInvitationModel: typeof organizationInvitationModel;

@@ -10,6 +10,7 @@ export const ACTION_BLOB_RESERVATION_MS = 35 * 60_000;
 export const VAULT_ACTION_LEASE_MS = 35 * 60_000;
 const HTTP_UPLOAD_ATTEMPT_FENCE_MS = 35 * 60_000;
 const STORAGE_SCAN_BATCH_SIZE = 100;
+const PENDING_UPLOAD_MARKER_PREFIX = "; samebase-upload=";
 
 const MEDIA_TYPE_PATTERN = /^[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+$/;
 
@@ -33,10 +34,32 @@ export function buildPendingUploadStorageContentType(args: {
   originalContentType: string;
   uploadId: string;
 }): string {
-  return `${args.originalContentType}; samebase-upload=${encodeURIComponent(args.uploadId)}`;
+  return `${args.originalContentType}${PENDING_UPLOAD_MARKER_PREFIX}${encodeURIComponent(args.uploadId)}`;
 }
 
-async function isStorageReferenced(ctx: MutationCtx, storageId: Id<"_storage">): Promise<boolean> {
+export function readPendingUploadMarker(contentType: string | undefined): string | null {
+  if (contentType === undefined) {
+    return null;
+  }
+  const markerIndex = contentType.indexOf(PENDING_UPLOAD_MARKER_PREFIX);
+  if (markerIndex === -1) {
+    return null;
+  }
+  const encodedUploadId = contentType.slice(markerIndex + PENDING_UPLOAD_MARKER_PREFIX.length);
+  if (encodedUploadId.length === 0 || encodedUploadId.includes(";")) {
+    return null;
+  }
+  try {
+    return decodeURIComponent(encodedUploadId);
+  } catch {
+    return null;
+  }
+}
+
+export async function isStorageReferenced(
+  ctx: MutationCtx,
+  storageId: Id<"_storage">,
+): Promise<boolean> {
   const [stagedFile, observedBlob] = await Promise.all([
     ctx.db
       .query("vaultStagedFiles")
@@ -50,12 +73,33 @@ async function isStorageReferenced(ctx: MutationCtx, storageId: Id<"_storage">):
   return stagedFile !== null || observedBlob !== null;
 }
 
+export async function isStorageReservedOrReferenced(
+  ctx: MutationCtx,
+  storageId: Id<"_storage">,
+): Promise<boolean> {
+  const [pendingUpload, referenced] = await Promise.all([
+    ctx.db
+      .query("vaultPendingUploads")
+      .withIndex("by_storageId", (query) => query.eq("storageId", storageId))
+      .first(),
+    isStorageReferenced(ctx, storageId),
+  ]);
+  return pendingUpload !== null || referenced;
+}
+
 export async function cleanupExpiredPendingUploadPage(
   ctx: MutationCtx,
   upload: Doc<"vaultPendingUploads">,
 ): Promise<"done" | "more"> {
   if (Date.now() < upload.expiresAt) {
     throw new Error("Pending upload capability has not expired.");
+  }
+
+  if (upload.storageId !== undefined) {
+    const storage = await ctx.db.system.get("_storage", upload.storageId);
+    if (storage !== null && !(await isStorageReferenced(ctx, upload.storageId))) {
+      await ctx.storage.delete(upload.storageId);
+    }
   }
 
   const marker = buildPendingUploadStorageContentType({
@@ -114,7 +158,7 @@ export async function discardPendingUploadBlob(
     originalContentType: upload.originalContentType,
     uploadId: upload._id,
   });
-  if (metadata.contentType !== marker) {
+  if (metadata.contentType !== marker && upload.storageId !== args.storageId) {
     throw new Error("Pending upload storage marker does not match its reservation.");
   }
   if (await isStorageReferenced(ctx, args.storageId)) {

@@ -58,6 +58,8 @@ function settings(
   switch (deletion.state) {
     case "eligible":
       return { ...commonSettings, deletion };
+    case "rollout_pending":
+      return { ...commonSettings, deletion };
     case "shared_organization":
       return { ...commonSettings, deletion };
     case "not_owner":
@@ -190,6 +192,15 @@ describe("OrganizationDeletionSection", () => {
       (link) => link.textContent.trim() === "Members",
     );
     expect(membersLink?.getAttribute("href")).toBe("/org/samebase/settings/members");
+    expect(mounted.querySelector("button")).toBeNull();
+  });
+
+  it("keeps deletion unavailable until the storage rollout is ready", async () => {
+    const mounted = await renderSection({ state: "rollout_pending" });
+
+    expect(mounted.textContent).toContain(
+      "Organization deletion is temporarily unavailable while Samebase completes a storage safety update.",
+    );
     expect(mounted.querySelector("button")).toBeNull();
   });
 

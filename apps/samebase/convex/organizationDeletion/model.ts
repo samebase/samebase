@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
-const { id, literal, number, object, string, union } = v;
+const { id, literal, number, object, optional, string, union } = v;
 
 export const vOrganizationDeletionGate = union(
   object({
@@ -21,6 +21,8 @@ export const vOrganizationDeletionState = union(
   vOrganizationDeletionGate,
 );
 export type OrganizationDeletionState = Infer<typeof vOrganizationDeletionState>;
+
+export const ORGANIZATION_DELETION_STORAGE_ROLLOUT_KEY = "legacy_storage_cleanup";
 
 export const vOrganizationDeletionStep = union(
   literal("request_accepted"),
@@ -80,6 +82,27 @@ const activeOrganizationDeletionRunFields = {
 };
 
 export const organizationDeletionTables = {
+  /** One bounded rollout scan that removes storage objects from the old upload path. */
+  workflow_organizationDeletion_storageRollout: defineTable(
+    union(
+      object({
+        key: literal(ORGANIZATION_DELETION_STORAGE_ROLLOUT_KEY),
+        state: literal("running"),
+        startedAt: number(),
+        cutoffAt: number(),
+        storageScanCursor: optional(string()),
+        updatedAt: number(),
+      }),
+      object({
+        key: literal(ORGANIZATION_DELETION_STORAGE_ROLLOUT_KEY),
+        state: literal("ready"),
+        startedAt: number(),
+        cutoffAt: number(),
+        completedAt: number(),
+      }),
+    ),
+  ).index("by_key", ["key"]),
+
   /** One recoverable organization-deletion attempt or scrubbed success receipt. */
   workflow_organizationDeletion_runs: defineTable(
     union(

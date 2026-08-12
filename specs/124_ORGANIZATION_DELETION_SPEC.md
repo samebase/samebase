@@ -48,12 +48,19 @@ vault, and provisioning actions reject a deleting or failed organization. An alr
 workflow can finish its exact current work. Organization deletion waits for that work before it
 removes local rows.
 
-The first safe version keeps the deletion gate closed for at least 65 minutes before local data
-cleanup starts. Polar cleanup starts as soon as active provider-write fences drain, so Samebase does
-not leave a chargeable subscription active during the settling period. A Convex upload URL issued by
-the deployment before these gates existed can stay valid for one hour, and an upload can use two
-more minutes. The same settling period exceeds the maximum action lifetime. It prevents old,
-untracked authorization from writing after local cleanup.
+In production, organization deletion stays unavailable during one storage safety rollout. The
+rollout starts after the upload reservations and action leases are deployed. It waits 65 minutes,
+which exceeds the documented one-hour upload URL lifetime, the two-minute upload timeout, and the
+maximum action lifetime. It then scans bounded storage pages through that cutoff. It deletes an old
+storage object only when no surviving Samebase row refers to it and no active upload reservation has
+its exact server marker. Organization deletion becomes available only after the full scan finishes.
+An accepted organization deletion does not have another rollout delay.
+
+During this first release, the media staging action also accepts the old request shape without an
+upload reservation ID. It verifies the active user, membership, and exact live vault, then adopts
+the unmarked blob into a durable organization reservation before it continues. If deletion has
+started, it deletes the unreferenced blob and rejects the staging request. This compatibility path
+stays only through the old upload URL lifetime.
 
 An action that can write Polar must acquire a durable organization billing-action lease before its
 first provider call. The lease expires after the maximum action lifetime and is released after the
@@ -152,6 +159,9 @@ or change its cleanup identity. An action cache write creates the same marker be
 successful database write removes its reservation only after the storage ID is referenced. A stopped
 action leaves the reservation and marker for bounded expiry cleanup. Organization deletion waits for
 active reservations and removes every unreferenced marked blob before it removes the reservation.
+The production rollout scan also removes an old, unmarked, unreferenced object when an upload from
+the prior deployment stopped before it called the staging action. A stored rollout cursor makes the
+scan bounded and retryable. Current marked uploads and every referenced object remain intact.
 
 Child rows are deleted before their parent. Before provisioning history is removed, the workflow
 removes the vault's direct run reference. The final transaction rechecks that all required provider
@@ -202,7 +212,9 @@ The confirmation must state both parts of the boundary:
 
 The action label is `Delete organization`. The pending label is `Deleting...`. The running status
 states that external infrastructure stays online. A member-count blocker states that Samebase will
-not delete a shared organization and links the owner to Members.
+not delete a shared organization and links the owner to Members. During the one-time production
+rollout, the section states:
+`Organization deletion is temporarily unavailable while Samebase completes a storage safety update.`
 
 ## Non-Goals
 
@@ -230,7 +242,10 @@ Focused Convex tests must prove:
 - timeouts and already-removed provider objects are reconciled without a false success
 - local cleanup is bounded, retryable, storage-safe, and complete for every policy table
 - active vault work blocks cleanup and a terminal retry can continue
-- cleanup waits through the pre-deployment upload and action authorization lifetime
+- production deletion stays unavailable until the pre-deployment upload and action lifetime drains
+  and the bounded old-storage scan finishes
+- an unmarked upload from the pre-deployment request shape is adopted or deleted after the gate
+- an old unmarked upload with no later staging request is removed before deletion becomes available
 - failure keeps the organization and staff-visible status
 - finalization removes the organization and membership atomically and scrubs the receipt
 - external resource APIs are not called
@@ -253,8 +268,13 @@ The deletion gate is an optional organization field for the first deployment. Ex
 gate are active. New deletion requests write the gate before cleanup. A later schema-tightening
 change can add an explicit active variant only after a bounded backfill has completed.
 
-The first release keeps local data cleanup for every accepted deletion behind the 65-minute
-authorization settling period. Polar cleanup does not wait for this rollout fence. This permits a
-single safe deployment of the new gates, leases, upload reservations, API, and UI. The settling
-period can be removed in a later accepted change after all supported deployments have used the new
-authorization fences for longer than the old maximum lifetime.
+The first production deployment starts one automatic storage rollout and keeps the delete action
+unavailable. After 65 minutes, a scheduled mutation scans old storage in bounded, retryable pages.
+The scan preserves storage referenced by pending uploads, staged files, or observed blobs. It also
+preserves an object with the exact marker of a live upload reservation. It deletes other objects at
+or before the rollout cutoff. The rollout records readiness only after the full scan succeeds.
+Normal organization deletion starts without a rollout delay after that point.
+
+The rollout state remains as an operation record. The optional legacy media upload argument and its
+unmarked-blob adoption path can be removed in a later accepted change after all supported
+deployments have used the new upload boundary for longer than the old maximum lifetime.

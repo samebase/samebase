@@ -2145,28 +2145,41 @@ export const stageUploadedMedia = action({
   args: {
     repositoryFullName: string(),
     filePath: string(),
-    uploadId: v.id("vaultPendingUploads"),
+    uploadId: optional(v.id("vaultPendingUploads")),
     storageId: v.id("_storage"),
     branch: optional(string()),
     replaceExisting: boolean(),
   },
   returns: stagedMediaUploadResult,
   handler: async (ctx, args): Promise<StagedMediaUploadResult> => {
-    if (getRepositoryMediaKind(args.filePath) !== "image") {
-      throw new Error("Only image uploads are supported right now.");
-    }
-
     const userId = ctx.viewer.userId;
-    const claim = await ctx.runMutation(internal.pendingUploads.claimUploadedBlob, {
-      uploadId: args.uploadId,
-      storageId: args.storageId,
-      userId,
-    });
-    if (claim.state === "unavailable") {
-      throw new Error("Organization is not available.");
+    let claim;
+    if (args.uploadId === undefined) {
+      const legacyClaim = await ctx.runMutation(internal.fileStaging.claimLegacyUploadedBlob, {
+        repositoryFullName: args.repositoryFullName,
+        storageId: args.storageId,
+        userId,
+      });
+      if (legacyClaim.state === "unavailable") {
+        throw new Error("Organization is not available.");
+      }
+      claim = legacyClaim;
+    } else {
+      const reservedClaim = await ctx.runMutation(internal.pendingUploads.claimUploadedBlob, {
+        uploadId: args.uploadId,
+        storageId: args.storageId,
+        userId,
+      });
+      if (reservedClaim.state === "unavailable") {
+        throw new Error("Organization is not available.");
+      }
+      claim = { ...reservedClaim, uploadId: args.uploadId };
     }
 
     try {
+      if (getRepositoryMediaKind(args.filePath) !== "image") {
+        throw new Error("Only image uploads are supported right now.");
+      }
       const vault = await ctx.runQuery(internal.vault.records.getByRepositoryFullName, {
         repositoryFullName: args.repositoryFullName,
         userId,
@@ -2192,7 +2205,7 @@ export const stageUploadedMedia = action({
       const uploadedBuffer = Buffer.from(await uploadedBlob.arrayBuffer());
       const stagedBlobSha = computeGitBlobShaFromBuffer(uploadedBuffer);
       const stagedFile = await ctx.runMutation(internal.fileStaging.saveBinaryUploadToStaging, {
-        uploadId: args.uploadId,
+        uploadId: claim.uploadId,
         vaultId: vault._id,
         filePath: args.filePath,
         branch: targetBranch,
@@ -2212,7 +2225,7 @@ export const stageUploadedMedia = action({
       };
     } catch (error) {
       await ctx.runMutation(internal.pendingUploads.discardUploadedBlob, {
-        uploadId: args.uploadId,
+        uploadId: claim.uploadId,
         storageId: args.storageId,
         userId,
       });

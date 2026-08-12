@@ -18,17 +18,13 @@ import { appendOrganizationDeletionEvent } from "./events";
 import { readOwnedActiveRun } from "./stepContext";
 
 const SAFE_WORKFLOW_ERROR = "Organization deletion needs staff attention.";
-const MAX_QUIESCENCE_CHECKS = 1_200;
+const MAX_QUIESCENCE_CHECKS = 480;
 const MAX_PROVIDER_STEPS = 128;
 const MAX_LOCAL_CLEANUP_BATCHES = 2_048;
 const POLAR_CHECKOUT_RECHECK_DELAY_MS = 30_000;
 const QUIESCENCE_RECHECK_DELAY_MS = 5_000;
 const EXECUTION_WATCHDOG_INTERVAL_MS = 60_000;
 const MAX_AUTOMATIC_STALE_RESTARTS = 1;
-// A Convex upload URL from the deployment before organization deletion can stay valid for one
-// hour, and its upload can run for two more minutes. This settling period also exceeds the
-// 30-minute action limit, so old untracked authorization cannot cross local cleanup.
-export const ORGANIZATION_DELETION_AUTHORIZATION_SETTLE_MS = 65 * 60_000;
 // A default Convex action can run for 30 minutes. The watchdog must not start
 // a second provider cleanup while the first action can still be running.
 export const ORGANIZATION_DELETION_STALE_EXECUTION_MS = 35 * 60_000;
@@ -240,9 +236,6 @@ export const beginSamebaseDataCleanup = internalMutation({
       throw new Error("Polar cleanup is not complete.");
     }
     const now = Date.now();
-    if (now < run.requestedAt + ORGANIZATION_DELETION_AUTHORIZATION_SETTLE_MS) {
-      return false;
-    }
     await ctx.db.patch(run._id, {
       currentStep: "delete_samebase_data",
       updatedAt: now,

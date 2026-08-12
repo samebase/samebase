@@ -37,6 +37,7 @@ export const ORGANIZATION_DELETION_TABLE_REGISTRY = {
   githubUserAuthorizations: "preserve",
   workflow_accountDeletion_runs: "preserve",
   workflow_accountDeletion_events: "preserve",
+  workflow_organizationDeletion_storageRollout: "preserve",
   workflow_organizationDeletion_runs: "receipt",
   workflow_organizationDeletion_events: "finalization",
   organizationProviderCredentials: "organization_cleanup",

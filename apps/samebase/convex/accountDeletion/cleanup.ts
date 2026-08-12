@@ -36,6 +36,7 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   githubUserAuthorizations: "credential_revocation",
   workflow_accountDeletion_runs: "receipt",
   workflow_accountDeletion_events: "receipt",
+  workflow_organizationDeletion_storageRollout: "global",
   workflow_organizationDeletion_runs: "organization_preserved",
   workflow_organizationDeletion_events: "organization_preserved",
   organizationProviderCredentials: "credential_revocation",

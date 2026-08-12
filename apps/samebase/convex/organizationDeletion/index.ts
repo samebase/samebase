@@ -9,6 +9,7 @@ import { readBillingAccountState } from "../organizationBilling";
 import { scheduleOrganizationDeletion } from "./executor";
 import { appendOrganizationDeletionEvent } from "./events";
 import { vOrganizationDeletionStep } from "./model";
+import { isOrganizationDeletionRolloutReady } from "./rollout";
 
 const { id, literal, number, object, optional, string, union } = v;
 
@@ -40,6 +41,7 @@ const vOrganizationDeletionSettings = object({
   confirmationPhrase: string(),
   deletion: union(
     object({ state: literal("eligible") }),
+    object({ state: literal("rollout_pending") }),
     object({ state: literal("shared_organization") }),
     object({ state: literal("not_owner") }),
     vActiveOrganizationDeletionStatus,
@@ -49,6 +51,7 @@ const vOrganizationDeletionSettings = object({
 const vOrganizationDeletionRequestResult = union(
   object({ state: literal("accepted"), status: vActiveOrganizationDeletionStatus }),
   object({ state: literal("confirmation_mismatch") }),
+  object({ state: literal("rollout_pending") }),
   object({ state: literal("shared_organization") }),
 );
 
@@ -123,6 +126,9 @@ export const settings = query({
     if (membership.role !== "owner") {
       return { ...common, deletion: { state: "not_owner" as const } };
     }
+    if (!(await isOrganizationDeletionRolloutReady(ctx))) {
+      return { ...common, deletion: { state: "rollout_pending" as const } };
+    }
     const memberships = await ctx.db
       .query("organizationMemberships")
       .withIndex("by_organization_and_role", (query) =>
@@ -161,6 +167,9 @@ export const request = mutation({
     const activeRun = await loadActiveRunForOrganization(ctx.db, organization);
     if (activeRun !== null) {
       return { state: "accepted" as const, status: projectActiveStatus(activeRun) };
+    }
+    if (!(await isOrganizationDeletionRolloutReady(ctx))) {
+      return { state: "rollout_pending" as const };
     }
 
     const memberships = await ctx.db
