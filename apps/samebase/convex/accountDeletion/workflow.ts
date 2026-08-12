@@ -324,17 +324,6 @@ export const deleteAccountWorkflow = workflow.define({
           retry: false,
         },
       );
-      await step.runAction(
-        internal.githubAppConnection.revokeForAccountDeletion,
-        {
-          runId: args.runId,
-          workflowId: step.workflowId,
-        },
-        {
-          name: "revoke_github_connection_credential",
-          retry: false,
-        },
-      );
 
       for (let batch = 0; batch < MAX_BATCH_STEPS; batch += 1) {
         const result = await step.runAction(

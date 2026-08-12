@@ -244,7 +244,6 @@ export const trackedFilePaths = [
   "apps/samebase/convex/githubAppAccess.ts",
   "apps/samebase/convex/githubAppConnection.convex.test.ts",
   "apps/samebase/convex/githubAppConnection.ts",
-  "apps/samebase/convex/githubAppConnectionModel.ts",
   "apps/samebase/convex/githubAppInstallation.convex.test.ts",
   "apps/samebase/convex/githubAppInstallation.ts",
   "apps/samebase/convex/githubAppSetupModel.ts",

@@ -3,7 +3,6 @@ import { defineSchema } from "convex/server";
 import { accountDeletionTables } from "./accountDeletion/model";
 import { vaultProvisioningTables } from "./appProvisioningModel";
 import { vaultEditorTables } from "./editorModel";
-import { githubAppConnectionTables } from "./githubAppConnectionModel";
 import { githubAppSetupTables } from "./githubAppSetupModel";
 import { githubUserAuthorizationTables } from "./githubUserAuthorizationModel";
 import { identityTables } from "./identityModel";
@@ -24,7 +23,6 @@ export default defineSchema({
   ...identityTables,
   ...organizationTables,
   ...organizationInvitationTables,
-  ...githubAppConnectionTables,
   ...githubAppSetupTables,
   ...githubUserAuthorizationTables,
   ...accountDeletionTables,

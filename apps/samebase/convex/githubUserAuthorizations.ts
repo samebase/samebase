@@ -77,16 +77,7 @@ const vGitHubUserAuthorizationUse = union(
 const vGitHubUserAuthorizationForAppConnectionUse = union(
   object({ kind: literal("authorization_required") }),
   object({ kind: literal("github_sign_in_required") }),
-  object({
-    kind: literal("ready"),
-    authorization: vGitHubUserAuthorizationForUse,
-  }),
-  object({
-    kind: literal("claimed"),
-    authorization: vGitHubUserAuthorizationForUse,
-    refreshStartedAt: number(),
-  }),
-  object({ kind: literal("busy") }),
+  vGitHubUserAuthorizationUse,
 );
 
 const vGitHubUserAuthorizationForRevocationValue = object({
@@ -178,7 +169,7 @@ export async function requireMatchingGitHubSignIn(
 export async function requireMatchingGitHubUserAuthorization(
   db: DatabaseReader,
   userId: Id<"users">,
-): Promise<string> {
+): Promise<void> {
   const githubUserId = await readGitHubSignInProviderAccountId(db, userId);
   if (githubUserId === null) {
     throw new ConvexError("github-sign-in-required");
@@ -193,7 +184,6 @@ export async function requireMatchingGitHubUserAuthorization(
   if (authorization.refreshTokenExpiresAt <= Date.now()) {
     throw new ConvexError("github-authorization-required");
   }
-  return githubUserId;
 }
 
 export async function hasMatchingGitHubUserAuthorization(

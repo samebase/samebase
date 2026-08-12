@@ -869,17 +869,6 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("removes a retired GitHub connection session from the organization connection URL", async () => {
-    const router = await renderRoute(
-      "/connect-organization?github-connection-session=retired-session&prod-ui",
-    );
-
-    expect(router.state.location.pathname).toBe("/connect-organization");
-    const searchParams = new window.URLSearchParams(router.state.location.searchStr);
-    expect(searchParams.has("github-connection-session")).toBe(false);
-    expect(searchParams.has("prod-ui")).toBe(true);
-  });
-
   it("keeps an unavailable organization URL and shows the unavailable state", async () => {
     const router = await renderRoute("/org/stale/providers?prod-ui");
 

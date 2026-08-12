@@ -3,10 +3,9 @@ import { v, type Infer } from "convex/values";
 
 import { canAccess } from "../shared/accessModel";
 import { internal } from "./_generated/api";
-import { internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import {
   listGitHubAppConnectionInstallations,
-  revokeGitHubAppUserToken,
   verifyGitHubAppConnectionInstallation,
 } from "./githubApp";
 import {
@@ -20,31 +19,21 @@ import { vGitHubOwnerType } from "./organizationModel";
 
 const { array, boolean, id, literal, object, string, union } = v;
 
+const connectionOptionFields = {
+  installationId: string(),
+  githubOwnerType: vGitHubOwnerType,
+  githubOwnerLogin: string(),
+} as const;
+
 const vConnectionOption = union(
   object({
-    status: literal("connect"),
-    installationId: string(),
-    githubOwnerType: vGitHubOwnerType,
-    githubOwnerLogin: string(),
+    status: union(literal("connect"), literal("invite_required"), literal("owner_required")),
+    ...connectionOptionFields,
   }),
   object({
     status: literal("open"),
-    installationId: string(),
-    githubOwnerType: vGitHubOwnerType,
-    githubOwnerLogin: string(),
+    ...connectionOptionFields,
     organizationOwnerLogin: string(),
-  }),
-  object({
-    status: literal("invite_required"),
-    installationId: string(),
-    githubOwnerType: vGitHubOwnerType,
-    githubOwnerLogin: string(),
-  }),
-  object({
-    status: literal("owner_required"),
-    installationId: string(),
-    githubOwnerType: vGitHubOwnerType,
-    githubOwnerLogin: string(),
   }),
 );
 
@@ -83,6 +72,11 @@ export const classifyOptions = internalQuery({
   handler: async (ctx, args) => {
     const options: Array<Infer<typeof vConnectionOption>> = [];
     for (const installation of args.installations) {
+      const option = {
+        installationId: installation.installationId,
+        githubOwnerType: installation.githubOwnerType,
+        githubOwnerLogin: installation.githubOwnerLogin,
+      };
       const organization = await ctx.db
         .query("organizations")
         .withIndex("by_github_owner_id", (query) =>
@@ -99,9 +93,7 @@ export const classifyOptions = internalQuery({
       if (membership !== null && organization !== null) {
         options.push({
           status: "open",
-          installationId: installation.installationId,
-          githubOwnerType: installation.githubOwnerType,
-          githubOwnerLogin: installation.githubOwnerLogin,
+          ...option,
           organizationOwnerLogin: organization.githubOwnerLogin,
         });
         continue;
@@ -109,26 +101,20 @@ export const classifyOptions = internalQuery({
       if (!installation.canManage) {
         options.push({
           status: "owner_required",
-          installationId: installation.installationId,
-          githubOwnerType: installation.githubOwnerType,
-          githubOwnerLogin: installation.githubOwnerLogin,
+          ...option,
         });
         continue;
       }
       if (organization !== null) {
         options.push({
           status: "invite_required",
-          installationId: installation.installationId,
-          githubOwnerType: installation.githubOwnerType,
-          githubOwnerLogin: installation.githubOwnerLogin,
+          ...option,
         });
         continue;
       }
       options.push({
         status: "connect",
-        installationId: installation.installationId,
-        githubOwnerType: installation.githubOwnerType,
-        githubOwnerLogin: installation.githubOwnerLogin,
+        ...option,
       });
     }
     return options;
@@ -183,127 +169,6 @@ export const connectVerifiedInstallation = internalMutation({
       githubInstallationId: args.installationId,
     });
     return { status: "connected", organizationOwnerLogin: args.githubOwnerLogin };
-  },
-});
-
-const vExpiredLegacyCredentialResult = union(
-  object({ status: literal("revoke"), accessToken: string() }),
-  object({ status: literal("deleted") }),
-  v.null(),
-);
-
-const vAccountDeletionLegacyCredentialResult = union(
-  object({
-    status: literal("revoke"),
-    credentialId: id("githubAppConnectionCredentials"),
-    accessToken: string(),
-  }),
-  object({ status: literal("deleted") }),
-  v.null(),
-);
-
-async function revokeLegacyConnectionToken(accessToken: string): Promise<void> {
-  try {
-    await revokeGitHubAppUserToken(accessToken);
-  } catch (error) {
-    console.error("github:connection:token_revoke_failed", {
-      errorName: error instanceof Error ? error.name : "UnknownError",
-    });
-  }
-}
-
-/** Compatibility cleanup for temporary credentials written before durable authorization. */
-export const takeExpiredCredential = internalMutation({
-  args: { credentialId: id("githubAppConnectionCredentials") },
-  returns: vExpiredLegacyCredentialResult,
-  handler: async (ctx, args): Promise<Infer<typeof vExpiredLegacyCredentialResult>> => {
-    const credential = await ctx.db.get(args.credentialId);
-    if (credential === null || credential.expiresAt > Date.now()) {
-      return null;
-    }
-    await ctx.db.delete(credential._id);
-    return credential.state === "authorized"
-      ? { status: "revoke", accessToken: credential.accessToken }
-      : { status: "deleted" };
-  },
-});
-
-export const prepareForAccountDeletion = internalMutation({
-  args: { userId: id("users") },
-  returns: vAccountDeletionLegacyCredentialResult,
-  handler: async (ctx, args): Promise<Infer<typeof vAccountDeletionLegacyCredentialResult>> => {
-    const credential = await ctx.db
-      .query("githubAppConnectionCredentials")
-      .withIndex("by_user", (query) => query.eq("userId", args.userId))
-      .unique();
-    if (credential === null) {
-      return null;
-    }
-    if (credential.state === "completed") {
-      await ctx.db.delete(credential._id);
-      return { status: "deleted" };
-    }
-    return {
-      status: "revoke",
-      credentialId: credential._id,
-      accessToken: credential.accessToken,
-    };
-  },
-});
-
-export const deleteRevokedCredential = internalMutation({
-  args: {
-    credentialId: id("githubAppConnectionCredentials"),
-    accessToken: string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const credential = await ctx.db.get(args.credentialId);
-    if (credential?.state === "authorized" && credential.accessToken === args.accessToken) {
-      await ctx.db.delete(credential._id);
-    }
-    return null;
-  },
-});
-
-export const revokeForAccountDeletion = internalAction({
-  args: {
-    runId: id("workflow_accountDeletion_runs"),
-    workflowId: string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    const identity = await ctx.runQuery(internal.accountDeletion.stepContext.getOwnedIdentity, {
-      runId: args.runId,
-      workflowId: args.workflowId,
-    });
-    const credential = await ctx.runMutation(
-      internal.githubAppConnection.prepareForAccountDeletion,
-      { userId: identity.userId },
-    );
-    if (credential === null || credential.status === "deleted") {
-      return null;
-    }
-    await revokeGitHubAppUserToken(credential.accessToken);
-    await ctx.runMutation(internal.githubAppConnection.deleteRevokedCredential, {
-      credentialId: credential.credentialId,
-      accessToken: credential.accessToken,
-    });
-    return null;
-  },
-});
-
-export const expireCredential = internalAction({
-  args: { credentialId: id("githubAppConnectionCredentials") },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    const credential = await ctx.runMutation(internal.githubAppConnection.takeExpiredCredential, {
-      credentialId: args.credentialId,
-    });
-    if (credential?.status === "revoke") {
-      await revokeLegacyConnectionToken(credential.accessToken);
-    }
-    return null;
   },
 });
 

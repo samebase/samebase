@@ -517,10 +517,6 @@ export const getGitHubUserAuthorizationUrl = mutation({
   },
   returns: vGitHubAuthorizationStart,
   handler: async (ctx, args) => {
-    const githubUserId = await readGitHubSignInProviderAccountId(ctx.db, ctx.viewer.userId);
-    if (githubUserId === null) {
-      throw new Error("A linked GitHub sign-in is required.");
-    }
     const configuration = getGitHubAppConfiguration();
     return {
       callbackOrigin: new URL(configuration.oauthCallbackUrl).origin,
@@ -539,7 +535,6 @@ function readGitHubAuthorizationProvider(
     case "installation":
     case "installation_reconnect":
       return "github-app";
-    case "organization_connection":
     case "user_authorization":
       return "github-user";
     default:
@@ -767,8 +762,6 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
         });
         break;
       }
-      case "organization_connection":
-        throw new Error("The temporary GitHub organization connection flow is no longer active.");
       default:
         setupState.purpose satisfies never;
     }

@@ -41,50 +41,6 @@ async function insertAuthorizedUser(
 }
 
 describe("GitHub App connection", () => {
-  it("keeps cleanup for legacy token-free connection sessions", async () => {
-    const t = makeConvexTest();
-    const { accountDeletionCredentialId, accountDeletionUserId, expiredCredentialId } = await t.run(
-      async (ctx) => {
-        const expiredUserId = await insertUser(ctx, "expired-session@example.test");
-        const accountDeletionUserId = await insertUser(ctx, "deleting-session@example.test");
-        const expiredCredentialId = await ctx.db.insert("githubAppConnectionCredentials", {
-          state: "completed",
-          userId: expiredUserId,
-          session: "expired-completed-session",
-          organizationOwnerLogin: "Expired-Owner",
-          createdAt: Date.now() - 120_000,
-          expiresAt: Date.now() - 60_000,
-        });
-        const accountDeletionCredentialId = await ctx.db.insert("githubAppConnectionCredentials", {
-          state: "completed",
-          userId: accountDeletionUserId,
-          session: "deleting-completed-session",
-          organizationOwnerLogin: "Deleting-Owner",
-          createdAt: Date.now(),
-          expiresAt: Date.now() + 60_000,
-        });
-        return { accountDeletionCredentialId, accountDeletionUserId, expiredCredentialId };
-      },
-    );
-
-    await expect(
-      t.mutation(internal.githubAppConnection.takeExpiredCredential, {
-        credentialId: expiredCredentialId,
-      }),
-    ).resolves.toEqual({ status: "deleted" });
-    await expect(
-      t.mutation(internal.githubAppConnection.prepareForAccountDeletion, {
-        userId: accountDeletionUserId,
-      }),
-    ).resolves.toEqual({ status: "deleted" });
-    await expect(
-      t.run(async (ctx) => ({
-        accountDeletionCredential: await ctx.db.get(accountDeletionCredentialId),
-        expiredCredential: await ctx.db.get(expiredCredentialId),
-      })),
-    ).resolves.toEqual({ accountDeletionCredential: null, expiredCredential: null });
-  });
-
   it("classifies visible installations without granting Samebase membership", async () => {
     const t = makeConvexTest();
     const { userId } = await t.run(async (ctx) => {

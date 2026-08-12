@@ -228,18 +228,17 @@ export function ConnectOrganizationPage({
   const connectInstallation = useAction(api.githubAppConnection.connectInstallation);
   const viewer = useConvexQuery(api.users.viewer);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthorizing, setIsAuthorizing] = useState(false);
-  const [isInstalling, setIsInstalling] = useState(false);
+  const [pendingSetup, setPendingSetup] = useState<"github-app" | "github-user" | null>(null);
   const optionsQuery = useQuery({
-    queryFn: async () => await listOptions({}),
+    queryFn: () => listOptions({}),
     queryKey: ["github-app-connection-options", viewer?._id],
     enabled: viewer !== undefined && viewer !== null,
     refetchOnMount: "always",
     retry: false,
   });
   const connectMutation = useMutation({
-    mutationFn: async (args: (typeof api.githubAppConnection.connectInstallation)["_args"]) =>
-      await connectInstallation(args),
+    mutationFn: (args: (typeof api.githubAppConnection.connectInstallation)["_args"]) =>
+      connectInstallation(args),
     onError: () => setError("Could not connect this GitHub App installation."),
     onSuccess: async (result) => {
       switch (result.status) {
@@ -283,38 +282,32 @@ export function ConnectOrganizationPage({
           : optionsResult?.status === "ready"
             ? { status: "ready", options: optionsResult.options }
             : { status: "loading" };
-  const displayedError = isAuthorizing || isInstalling ? null : error;
+  const isAuthorizing = pendingSetup === "github-user";
+  const isInstalling = pendingSetup === "github-app";
+  const displayedError = pendingSetup === null ? error : null;
   const pendingInstallationId = connectMutation.isPending
     ? connectMutation.variables.installationId
     : null;
 
-  const authorize = () => {
-    if (isAuthorizing) {
+  const openSetup = (provider: "github-app" | "github-user") => {
+    if (pendingSetup !== null) {
       return;
     }
-    setIsAuthorizing(true);
+    setPendingSetup(provider);
     setError(null);
-    void openGitHubAppSetupPopup(
-      "github-user",
-      async () =>
-        await getGitHubUserAuthorizationUrl({ returnToPath: getCurrentRootRelativeUrl() }),
+    void openGitHubAppSetupPopup(provider, () =>
+      provider === "github-user"
+        ? getGitHubUserAuthorizationUrl({ returnToPath: getCurrentRootRelativeUrl() })
+        : getInstallationUrl({ returnToPath: getCurrentRootRelativeUrl() }),
     )
-      .catch(() => setError("Could not open GitHub authorization."))
-      .finally(() => setIsAuthorizing(false));
-  };
-
-  const install = () => {
-    if (isInstalling) {
-      return;
-    }
-    setIsInstalling(true);
-    setError(null);
-    void openGitHubAppSetupPopup(
-      "github-app",
-      async () => await getInstallationUrl({ returnToPath: getCurrentRootRelativeUrl() }),
-    )
-      .catch(() => setError("Could not open GitHub App installation."))
-      .finally(() => setIsInstalling(false));
+      .catch(() =>
+        setError(
+          provider === "github-user"
+            ? "Could not open GitHub authorization."
+            : "Could not open GitHub App installation.",
+        ),
+      )
+      .finally(() => setPendingSetup(null));
   };
 
   const connect = (installationId: string) => {
@@ -331,9 +324,9 @@ export function ConnectOrganizationPage({
       error={displayedError}
       isAuthorizing={isAuthorizing}
       isInstalling={isInstalling}
-      onAuthorize={authorize}
+      onAuthorize={() => openSetup("github-user")}
       onConnect={connect}
-      onInstall={install}
+      onInstall={() => openSetup("github-app")}
       onRetry={() => void optionsQuery.refetch()}
       pendingInstallationId={pendingInstallationId}
       state={state}

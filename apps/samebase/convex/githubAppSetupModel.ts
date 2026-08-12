@@ -6,7 +6,6 @@ const { id, literal, number, object, optional, string, union } = v;
 export const vGitHubAppSetupPurpose = union(
   literal("installation"),
   literal("installation_reconnect"),
-  literal("organization_connection"),
   literal("user_authorization"),
 );
 
