@@ -6,12 +6,23 @@ import { resolveDeploymentProfile } from "./deploymentProfile";
 export type PolarServer = "sandbox" | "production";
 export type PolarProductOwnerType = "organization" | "user";
 export type PolarProductPlan = "free" | "pro";
-export type PolarProductCatalog = {
-  organization: Record<PolarProductPlan, string>;
-  user: Record<PolarProductPlan, string>;
+export type PolarProductCatalogEntry = {
+  readonly productId: string;
+  readonly ownerType: PolarProductOwnerType;
+  readonly plan: PolarProductPlan;
+  readonly version: number;
+  readonly availableForCheckout: boolean;
 };
+export type PolarProductCatalog = readonly PolarProductCatalogEntry[];
 
 const POLAR_API_TIMEOUT_MS = 10_000;
+const POLAR_PRODUCT_CATALOG = {
+  sandbox: [],
+  production: [],
+} satisfies Record<PolarServer, PolarProductCatalog>;
+
+const polarProductOwnerTypes = ["organization", "user"] satisfies readonly PolarProductOwnerType[];
+const polarProductPlans = ["free", "pro"] satisfies readonly PolarProductPlan[];
 
 function readConfiguredValue(value: string | undefined): string | null {
   const configured = value?.trim();
@@ -22,46 +33,76 @@ export function resolvePolarServer(): PolarServer {
   return resolveDeploymentProfile().kind === "production" ? "production" : "sandbox";
 }
 
+export function readPolarProductCatalogFromEntries(
+  entries: PolarProductCatalog,
+): PolarProductCatalog | null {
+  const productIds = new Set<string>();
+  const productVersions = new Set<string>();
+  for (const entry of entries) {
+    if (!entry.productId || entry.productId.trim() !== entry.productId) {
+      throw new Error("Polar billing product IDs must be non-empty and normalized.");
+    }
+    if (!Number.isSafeInteger(entry.version) || entry.version < 1) {
+      throw new Error("Polar billing product versions must be positive integers.");
+    }
+    if (productIds.has(entry.productId)) {
+      throw new Error("Polar billing product IDs must be unique within one server.");
+    }
+    productIds.add(entry.productId);
+
+    const productVersion = `${entry.ownerType}:${entry.plan}:${entry.version}`;
+    if (productVersions.has(productVersion)) {
+      throw new Error("Polar billing product versions must be unique within one product line.");
+    }
+    productVersions.add(productVersion);
+  }
+
+  let checkoutProductMissing = false;
+  for (const ownerType of polarProductOwnerTypes) {
+    for (const plan of polarProductPlans) {
+      const currentProducts = entries.filter(
+        (entry) =>
+          entry.ownerType === ownerType && entry.plan === plan && entry.availableForCheckout,
+      );
+      if (currentProducts.length === 0) {
+        checkoutProductMissing = true;
+      }
+      if (currentProducts.length > 1) {
+        throw new Error(
+          "Polar billing requires exactly one checkout product for each owner type and plan.",
+        );
+      }
+    }
+  }
+
+  return checkoutProductMissing ? null : entries;
+}
+
 export function readPolarProductCatalog(): PolarProductCatalog | null {
-  const organizationFree = readConfiguredValue(
-    env.POLAR_GITHUB_ORGANIZATION_FREE_MONTHLY_PRODUCT_ID,
+  return readPolarProductCatalogFromEntries(POLAR_PRODUCT_CATALOG[resolvePolarServer()]);
+}
+
+export function readPolarCheckoutProductId(
+  catalog: PolarProductCatalog,
+  ownerType: PolarProductOwnerType,
+  plan: PolarProductPlan,
+): string {
+  const products = catalog.filter(
+    (entry) => entry.ownerType === ownerType && entry.plan === plan && entry.availableForCheckout,
   );
-  const organizationPro = readConfiguredValue(env.POLAR_GITHUB_ORGANIZATION_PRO_MONTHLY_PRODUCT_ID);
-  const userFree = readConfiguredValue(env.POLAR_GITHUB_USER_FREE_MONTHLY_PRODUCT_ID);
-  const userPro = readConfiguredValue(env.POLAR_GITHUB_USER_PRO_MONTHLY_PRODUCT_ID);
-  if (!organizationFree || !organizationPro || !userFree || !userPro) {
-    return null;
+  if (products.length !== 1) {
+    throw new Error(
+      "Polar billing requires exactly one checkout product for each owner type and plan.",
+    );
   }
-
-  const productIds = new Set([organizationFree, organizationPro, userFree, userPro]);
-  if (productIds.size !== 4) {
-    throw new Error("Polar billing product IDs must be unique.");
-  }
-
-  return {
-    organization: { free: organizationFree, pro: organizationPro },
-    user: { free: userFree, pro: userPro },
-  };
+  return products[0].productId;
 }
 
 export function resolvePolarProduct(
   catalog: PolarProductCatalog,
   productId: string,
-): { ownerType: PolarProductOwnerType; plan: PolarProductPlan } | null {
-  if (productId === catalog.organization.free) {
-    return { ownerType: "organization", plan: "free" };
-  }
-  if (productId === catalog.organization.pro) {
-    return { ownerType: "organization", plan: "pro" };
-  }
-  if (productId === catalog.user.free) {
-    return { ownerType: "user", plan: "free" };
-  }
-  if (productId === catalog.user.pro) {
-    return { ownerType: "user", plan: "pro" };
-  }
-
-  return null;
+): PolarProductCatalogEntry | null {
+  return catalog.find((entry) => entry.productId === productId) ?? null;
 }
 
 export function createPolarClient(timeoutMs = POLAR_API_TIMEOUT_MS): Polar {
