@@ -336,7 +336,10 @@ async function resolveInvitationTargetFromGitHub(
     return { target, installationOctokit };
   } catch (error) {
     if (error instanceof RequestError && error.status === 404) {
-      throw new ConvexError("GitHub user not found.");
+      return {
+        target: await readPublicInvitationTarget(githubLogin),
+        installationOctokit: null,
+      };
     }
     if (
       error instanceof RequestError &&

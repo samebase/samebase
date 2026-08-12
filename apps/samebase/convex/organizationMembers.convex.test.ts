@@ -823,16 +823,37 @@ describe("organization member lifecycle", () => {
     ).rejects.toThrow("The GitHub account changed. Resolve the invitation target again.");
   });
 
-  it("does not retry anonymous GitHub lookup after a 404 or invalid profile", async () => {
+  it("uses the public GitHub user when the installation returns 404", async () => {
     const { asOwner, ids } = await seedMembers();
-    githubMocks.getInstallationUserByLogin.mockRejectedValueOnce(githubRequestError(404));
-    await expect(
-      asOwner.action(api.organizationMembers.resolveInvitationTarget, {
-        organizationId: ids.organizationId,
-        githubLogin: "missing-target",
-      }),
-    ).rejects.toThrow("GitHub user not found.");
+    githubMocks.getInstallationUserByLogin.mockRejectedValue(githubRequestError(404));
+    githubMocks.getPublicUserByLogin.mockResolvedValue({
+      data: githubUser(205, "fallback-target"),
+    });
 
+    const target = await asOwner.action(api.organizationMembers.resolveInvitationTarget, {
+      organizationId: ids.organizationId,
+      githubLogin: "fallback-target",
+    });
+    expect(target).toMatchObject({
+      expectedGithubAccountId: "205",
+      githubLogin: "fallback-target",
+      relationship: "unavailable",
+    });
+    await expect(
+      asOwner.action(api.organizationMembers.createInvitation, {
+        organizationId: ids.organizationId,
+        githubLogin: target.githubLogin,
+        expectedGithubAccountId: target.expectedGithubAccountId,
+      }),
+    ).resolves.toMatchObject({
+      githubLogin: "fallback-target",
+      state: "created",
+    });
+    expect(githubMocks.getPublicUserByLogin).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not retry public GitHub lookup after an invalid installation profile", async () => {
+    const { asOwner, ids } = await seedMembers();
     githubMocks.getInstallationUserByLogin.mockResolvedValueOnce({
       data: githubUser(200, "invalid-target", { id: "invalid" }),
     });
