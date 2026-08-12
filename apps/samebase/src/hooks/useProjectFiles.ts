@@ -1,14 +1,9 @@
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
+import { useMemo } from "react";
 import { api } from "../../convex/_generated/api";
-import { Id } from "../../convex/_generated/dataModel";
+import type { Id } from "../../convex/_generated/dataModel";
 import { type GithubTree } from "../../convex/vault/model";
-import { buildProjectFilesCacheKey } from "@/lib/editorCacheKeys";
-import {
-  getCachedProjectFiles,
-  loadProjectFilesWithSharedPromise,
-  type ProjectFile,
-} from "@/lib/projectFilesCache";
 
 // ---------------------------------------------------------------------------
 // File extensions to load into Monaco models for import resolution
@@ -99,7 +94,9 @@ function prioritizePaths(paths: string[], activeFilePath: string): string[] {
 // Hook
 // ---------------------------------------------------------------------------
 
-export type { ProjectFile };
+export type ProjectFile = (typeof api.fileStagingActions.batchReadFiles)["_returnType"][number];
+
+const EMPTY_PROJECT_FILES: ProjectFile[] = [];
 
 export function useProjectFiles(
   vaultId: Id<"vaults"> | undefined,
@@ -110,94 +107,41 @@ export function useProjectFiles(
 ) {
   const batchReadFiles = useAction(api.fileStagingActions.batchReadFiles);
   const scopePrefix = getScopePrefix(activeFilePath) ?? "repo";
-
-  const [files, setFiles] = useState<ProjectFile[]>(() => {
-    if (!vaultId) return [];
-    return (
-      getCachedProjectFiles(
-        buildProjectFilesCacheKey({
-          vaultId,
-          branch,
-          treeSHA,
-          scopePrefix,
-        }),
-      ) ?? []
-    );
-  });
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!vaultId) {
-      setFiles([]);
-      setLoading(false);
-      return;
-    }
-
-    const cacheKey = buildProjectFilesCacheKey({
-      vaultId,
-      branch,
-      treeSHA,
-      scopePrefix,
-    });
-
-    // Already cached
-    const cached = getCachedProjectFiles(cacheKey);
-    if (cached !== null) {
-      setFiles(cached);
-      setLoading(false);
-      return;
-    }
-
-    setFiles([]);
-
-    // Determine which files to fetch
+  const paths = useMemo(() => {
     const candidatePaths = tree
       .filter((entry) => shouldInclude(entry) || shouldIncludeTsConfig(entry))
       .map((entry) => entry.path);
     const uniquePaths = Array.from(new Set(candidatePaths));
-    const paths = prioritizePaths(uniquePaths, activeFilePath).slice(0, MAX_BATCH_FILE_PATHS);
-
-    if (paths.length === 0) {
-      setLoading(false);
-      return;
-    }
-
-    const abortController = new AbortController();
-    setLoading(true);
-
-    void (async () => {
-      try {
-        const result = await loadProjectFilesWithSharedPromise({
-          cacheKey,
-          scope: {
-            vaultId,
-            branch,
-            treeSHA,
-          },
-          load: () =>
-            batchReadFiles({
-              vaultId,
-              branch,
-              filePaths: paths,
-            }),
-        });
-        if (!abortController.signal.aborted) {
-          setFiles(result);
-          setLoading(false);
-        }
-      } catch (error) {
-        if (!abortController.signal.aborted) {
-          console.error("useProjectFiles: failed to load project files:", error);
-          setLoading(false);
-        }
+    return prioritizePaths(uniquePaths, activeFilePath).slice(0, MAX_BATCH_FILE_PATHS);
+  }, [activeFilePath, tree]);
+  const queryEnabled = vaultId !== undefined && paths.length > 0;
+  const filesQuery = useQuery({
+    queryKey: ["project-files", vaultId ?? null, branch, treeSHA, scopePrefix],
+    queryFn: async () => {
+      if (!vaultId) {
+        throw new Error("A vault is required to load project files.");
       }
-    })();
+      try {
+        return await batchReadFiles({
+          vaultId,
+          branch,
+          filePaths: paths,
+        });
+      } catch (error) {
+        console.error("useProjectFiles: failed to load project files:", error);
+        throw error;
+      }
+    },
+    enabled: queryEnabled,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+    retry: false,
+    staleTime: Infinity,
+  });
 
-    return () => {
-      abortController.abort();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vaultId, branch, treeSHA, scopePrefix, activeFilePath]);
-
-  return { files, loading, scopePrefix };
+  return {
+    files: queryEnabled ? (filesQuery.data ?? EMPTY_PROJECT_FILES) : EMPTY_PROJECT_FILES,
+    loading: queryEnabled && filesQuery.isPending,
+    scopePrefix,
+  };
 }

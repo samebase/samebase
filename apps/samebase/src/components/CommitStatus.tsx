@@ -1,5 +1,5 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAction } from "convex/react";
-import { useEffect, useRef, useState } from "react";
 import { api } from "../../convex/_generated/api";
 import { cn } from "../lib/utils";
 
@@ -10,12 +10,17 @@ const RUNNING_STATUS_POLL_INTERVAL_MS = 30_000;
 const RATE_LIMIT_FALLBACK_RETRY_MS = 60_000;
 const MIN_FETCH_GAP_MS = 5_000;
 
-function getDelayForAttempt(delaysMs: readonly number[], attempt: number): number {
-  if (delaysMs.length === 0) {
-    return 0;
-  }
+type CommitStatusResult = (typeof api.githubChecks.getCommitStatus)["_returnType"];
 
-  return delaysMs[Math.min(attempt, delaysMs.length - 1)];
+type CommitStatusQueryData = {
+  emptyResultAttempt: number;
+  fetchedAtMs: number;
+  nextRefetchAtMs: number | null;
+  result: CommitStatusResult;
+};
+
+function hasNoCommitStatuses(result: CommitStatusResult): boolean {
+  return result.kind === "ok" && result.check_runs.length === 0 && result.statuses.length === 0;
 }
 
 interface GitHubCheckRun {
@@ -190,6 +195,49 @@ function hasRunningStatuses(
   );
 }
 
+function buildCommitStatusQueryData(args: {
+  fetchStartedAtMs: number;
+  fetchedAtMs: number;
+  previous: CommitStatusQueryData | undefined;
+  result: CommitStatusResult;
+}): CommitStatusQueryData {
+  const { fetchStartedAtMs, fetchedAtMs, previous, result } = args;
+  const isEmpty = hasNoCommitStatuses(result);
+  const previousWasEmpty = previous !== undefined && hasNoCommitStatuses(previous.result);
+  const emptyResultAttempt = isEmpty ? (previousWasEmpty ? previous.emptyResultAttempt + 1 : 0) : 0;
+  let nextRefetchAtMs: number | null = null;
+
+  if (result.kind === "cooldown") {
+    nextRefetchAtMs = Math.max(result.cooldownUntilMs, fetchedAtMs + MIN_FETCH_GAP_MS);
+  } else if (result.kind === "rate_limited") {
+    const retryCandidates: number[] = [];
+    if (result.retryAfterMs !== null && result.retryAfterMs > 0) {
+      retryCandidates.push(fetchedAtMs + result.retryAfterMs);
+    }
+    if (result.resetAtMs !== null && result.resetAtMs > fetchedAtMs) {
+      retryCandidates.push(result.resetAtMs);
+    }
+    const retryAtMs =
+      retryCandidates.length > 0
+        ? Math.min(...retryCandidates)
+        : fetchedAtMs + RATE_LIMIT_FALLBACK_RETRY_MS;
+    nextRefetchAtMs = Math.max(retryAtMs, fetchedAtMs + MIN_FETCH_GAP_MS);
+  } else if (isEmpty) {
+    const emptyResultRetryDelayMs =
+      EMPTY_RESULT_RETRY_DELAYS_MS[
+        Math.min(emptyResultAttempt, EMPTY_RESULT_RETRY_DELAYS_MS.length - 1)
+      ];
+    nextRefetchAtMs = Math.max(
+      fetchedAtMs + emptyResultRetryDelayMs,
+      fetchStartedAtMs + MIN_FETCH_GAP_MS,
+    );
+  } else if (hasRunningStatuses(result.check_runs, result.statuses)) {
+    nextRefetchAtMs = fetchedAtMs + RUNNING_STATUS_POLL_INTERVAL_MS;
+  }
+
+  return { emptyResultAttempt, fetchedAtMs, nextRefetchAtMs, result };
+}
+
 function formatChecksPausedTitle(paused: ChecksPausedState): string {
   if (paused.untilMs === null) {
     return paused.message;
@@ -251,183 +299,71 @@ function InlineState({
 }
 
 export function CommitStatus({ owner, repo, commitSha, className = "" }: CommitStatusProps) {
-  const [checkRuns, setCheckRuns] = useState<GitHubCheckRun[] | null>(null);
-  const [commitStatuses, setCommitStatuses] = useState<GitHubCommitStatus[] | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [checksPaused, setChecksPaused] = useState<ChecksPausedState | null>(null);
-
   const getCommitStatus = useAction(api.githubChecks.getCommitStatus);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const requestTokenRef = useRef(0);
-  const emptyAttemptRef = useRef(0);
-  const inFlightRef = useRef(false);
-  const lastFetchAtRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    requestTokenRef.current += 1;
-    const requestToken = requestTokenRef.current;
-
-    const clearScheduledFetch = () => {
-      if (timerRef.current !== null) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
+  const queryClient = useQueryClient();
+  const queryEnabled = Boolean(commitSha && owner && repo);
+  const queryKey = ["github-commit-status", owner, repo, commitSha ?? null] as const;
+  const statusQuery = useQuery({
+    queryKey,
+    queryFn: async () => {
+      if (!commitSha || !owner || !repo) {
+        throw new Error("A repository and commit SHA are required to load checks.");
       }
-    };
-
-    clearScheduledFetch();
-    emptyAttemptRef.current = 0;
-    inFlightRef.current = false;
-    lastFetchAtRef.current = null;
-
-    if (!commitSha || !owner || !repo) {
-      setCheckRuns(null);
-      setCommitStatuses(null);
-      setLoading(false);
-      setError(null);
-      setChecksPaused(null);
-      return () => {
-        requestTokenRef.current += 1;
-        clearScheduledFetch();
-      };
-    }
-
-    const scheduleFetch = (delayMs: number) => {
-      clearScheduledFetch();
-      timerRef.current = setTimeout(() => {
-        timerRef.current = null;
-        void fetchCommitStatus(false);
-      }, delayMs);
-    };
-
-    const fetchCommitStatus = async (isInitialLoad: boolean) => {
-      if (requestTokenRef.current !== requestToken) {
-        return;
-      }
-      if (inFlightRef.current) {
-        return;
-      }
-
-      const now = Date.now();
-      const lastFetchAt = lastFetchAtRef.current;
-      if (!isInitialLoad && lastFetchAt !== null) {
-        const elapsedMs = now - lastFetchAt;
-        if (elapsedMs < MIN_FETCH_GAP_MS) {
-          scheduleFetch(MIN_FETCH_GAP_MS - elapsedMs);
-          return;
-        }
-      }
-
-      inFlightRef.current = true;
-      lastFetchAtRef.current = now;
-
-      if (isInitialLoad) {
-        setLoading(true);
-      }
-      setError(null);
-
+      const fetchStartedAtMs = Date.now();
       try {
         const result = await getCommitStatus({
           owner,
           repo,
           ref: commitSha,
         });
-
-        if (requestTokenRef.current !== requestToken) {
-          return;
-        }
-
-        if (result.kind === "cooldown") {
-          setChecksPaused({
-            message: result.message,
-            untilMs: result.cooldownUntilMs,
-          });
-          setError(null);
-
-          scheduleFetch(Math.max(result.cooldownUntilMs - Date.now(), MIN_FETCH_GAP_MS));
-          return;
-        }
-
-        if (result.kind === "rate_limited") {
-          const untilMs =
-            result.resetAtMs ??
-            (result.retryAfterMs === null ? null : Date.now() + result.retryAfterMs);
-          setChecksPaused({
-            message: result.message,
-            untilMs,
-          });
-          setError(null);
-
-          const cooldownCandidates: number[] = [];
-          if (result.retryAfterMs !== null && result.retryAfterMs > 0) {
-            cooldownCandidates.push(result.retryAfterMs);
-          }
-          if (result.resetAtMs !== null) {
-            const resetDelayMs = result.resetAtMs - Date.now();
-            if (resetDelayMs > 0) {
-              cooldownCandidates.push(resetDelayMs);
-            }
-          }
-
-          const retryDelayMs =
-            cooldownCandidates.length > 0
-              ? Math.min(...cooldownCandidates)
-              : RATE_LIMIT_FALLBACK_RETRY_MS;
-
-          scheduleFetch(Math.max(retryDelayMs, MIN_FETCH_GAP_MS));
-          return;
-        }
-
-        setChecksPaused(null);
-        setCheckRuns(result.check_runs);
-        setCommitStatuses(result.statuses);
-
-        if (result.check_runs.length === 0 && result.statuses.length === 0) {
-          const delayMs = getDelayForAttempt(EMPTY_RESULT_RETRY_DELAYS_MS, emptyAttemptRef.current);
-          emptyAttemptRef.current += 1;
-          scheduleFetch(delayMs);
-          return;
-        }
-
-        emptyAttemptRef.current = 0;
-
-        if (hasRunningStatuses(result.check_runs, result.statuses)) {
-          scheduleFetch(RUNNING_STATUS_POLL_INTERVAL_MS);
-        } else {
-          clearScheduledFetch();
-        }
+        return buildCommitStatusQueryData({
+          fetchStartedAtMs,
+          fetchedAtMs: Date.now(),
+          previous: queryClient.getQueryData<CommitStatusQueryData>(queryKey),
+          result,
+        });
       } catch (err) {
-        if (requestTokenRef.current !== requestToken) {
-          return;
-        }
-
         console.error("Failed to fetch CI status:", err);
-        setChecksPaused(null);
-        setError(err instanceof Error ? err.message || "Unknown error" : String(err));
-        setCheckRuns(null);
-        setCommitStatuses(null);
-      } finally {
-        if (requestTokenRef.current === requestToken) {
-          inFlightRef.current = false;
-          if (isInitialLoad) {
-            setLoading(false);
-          }
-        }
+        throw err;
       }
-    };
-
-    setChecksPaused(null);
-    setError(null);
-    void fetchCommitStatus(true);
-
-    return () => {
-      requestTokenRef.current += 1;
-      clearScheduledFetch();
-      inFlightRef.current = false;
-      emptyAttemptRef.current = 0;
-      lastFetchAtRef.current = null;
-    };
-  }, [commitSha, owner, repo, getCommitStatus]);
+    },
+    enabled: queryEnabled,
+    refetchInterval: (query) => {
+      if (query.state.error || query.state.data?.nextRefetchAtMs === null) {
+        return false;
+      }
+      const nextRefetchAtMs = query.state.data?.nextRefetchAtMs;
+      return nextRefetchAtMs === undefined ? false : Math.max(nextRefetchAtMs - Date.now(), 1);
+    },
+    refetchIntervalInBackground: true,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+    retry: false,
+    staleTime: MIN_FETCH_GAP_MS,
+  });
+  const result = statusQuery.data?.result;
+  const checkRuns = result?.kind === "ok" ? result.check_runs : null;
+  const commitStatuses = result?.kind === "ok" ? result.statuses : null;
+  const loading = queryEnabled && statusQuery.isPending;
+  const error = statusQuery.isError
+    ? statusQuery.error instanceof Error
+      ? statusQuery.error.message || "Unknown error"
+      : String(statusQuery.error)
+    : null;
+  const checksPaused: ChecksPausedState | null = statusQuery.isError
+    ? null
+    : result?.kind === "cooldown"
+      ? { message: result.message, untilMs: result.cooldownUntilMs }
+      : result?.kind === "rate_limited"
+        ? {
+            message: result.message,
+            untilMs:
+              result.resetAtMs ??
+              (result.retryAfterMs === null || statusQuery.data === undefined
+                ? null
+                : statusQuery.data.fetchedAtMs + result.retryAfterMs),
+          }
+        : null;
 
   if (!commitSha) {
     return <InlineState label="Missing commit SHA" className={cn("text-red-600", className)} />;
