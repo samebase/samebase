@@ -34,6 +34,10 @@ describe("formatAuthorizationErrorMessage", () => {
       expected: "GitHub App setup failed. Try again.",
     },
     {
+      authorizationError: { code: "failed", provider: "github-user" },
+      expected: "GitHub authorization failed. Try again.",
+    },
+    {
       authorizationError: { code: "organization-owner-required", provider: "github-app" },
       expected:
         "The GitHub account or organization you selected is already connected to a Samebase organization. Ask one of its owners to add you as an owner.",
@@ -107,9 +111,7 @@ describe("formatAuthorizationErrorMessage", () => {
   it("uses a safe personal GitHub sign-in fallback when the owner is unavailable", () => {
     expect(
       renderAuthorizationError({ code: "github-sign-in-required", provider: "github-app" }),
-    ).toBe(
-      "Personal GitHub access requires the same GitHub account as the GitHub sign-in method for this Samebase account. Connect GitHub in Account settings, then try again.",
-    );
+    ).toBe("Connect GitHub in Account settings before you authorize GitHub.");
   });
 
   it("explains a personal GitHub sign-in mismatch without exposing another account", () => {
@@ -124,8 +126,6 @@ describe("formatAuthorizationErrorMessage", () => {
   it("uses a safe personal GitHub mismatch fallback when the owner is unavailable", () => {
     expect(
       renderAuthorizationError({ code: "github-sign-in-mismatch", provider: "github-app" }),
-    ).toBe(
-      "Use a Samebase account whose GitHub sign-in method matches the personal GitHub account, then try again.",
-    );
+    ).toBe("Authorize GitHub with the account connected to this Samebase account.");
   });
 });

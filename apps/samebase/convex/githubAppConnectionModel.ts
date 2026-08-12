@@ -33,7 +33,7 @@ export const vGitHubAppConnectionCredential = union(
 );
 
 export const githubAppConnectionTables = {
-  /** Ten-minute GitHub App connection sessions. Completed sessions contain no GitHub token. */
+  /** Legacy ten-minute sessions kept for one deploy so scheduled revocation can finish. */
   githubAppConnectionCredentials: defineTable(vGitHubAppConnectionCredential)
     .index("by_session", ["session"])
     .index("by_user", ["userId"]),

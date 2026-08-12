@@ -37,13 +37,12 @@ export function ConnectOrganizationPageVisualFixture() {
       error={null}
       isAuthorizing={false}
       isInstalling={false}
-      loading={false}
       onAuthorize={() => {}}
       onConnect={() => {}}
       onInstall={() => {}}
-      options={options}
+      onRetry={() => {}}
       pendingInstallationId={null}
-      session="visual-session"
+      state={{ status: "ready", options }}
     />
   );
 }

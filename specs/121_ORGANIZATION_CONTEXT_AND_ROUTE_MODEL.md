@@ -35,15 +35,15 @@ User-owned pages use these routes:
 
 Organization-owned pages use these routes:
 
-| Route                          | Contract                                                                                                    |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `/org/:owner`                  | Check access, then redirect to `/org/:owner/vaults`.                                                        |
-| `/org/:owner/vaults`           | Show only vaults owned by this organization.                                                                |
-| `/org/:owner/providers`        | Show GitHub App health, personal repository authorization when needed, and deployment provider connections. |
-| `/org/:owner/new-app`          | Create a repository and provider resources in this organization.                                            |
-| `/org/:owner/connect-repo`     | Connect a repository owned by this GitHub owner.                                                            |
-| `/org/:owner/settings/members` | List and administer Samebase membership and show live GitHub relationship information.                      |
-| `/org/:owner/settings`         | Show identity, role, billing, usage, quota, and plan controls.                                              |
+| Route                          | Contract                                                                                                                     |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `/org/:owner`                  | Check access, then redirect to `/org/:owner/vaults`.                                                                         |
+| `/org/:owner/vaults`           | Show only vaults owned by this organization.                                                                                 |
+| `/org/:owner/providers`        | Show GitHub App health, the GitHub user authorization for a personal owner when needed, and deployment provider connections. |
+| `/org/:owner/new-app`          | Create a repository and provider resources in this organization.                                                             |
+| `/org/:owner/connect-repo`     | Connect a repository owned by this GitHub owner.                                                                             |
+| `/org/:owner/settings/members` | List and administer Samebase membership and show live GitHub relationship information.                                       |
+| `/org/:owner/settings`         | Show identity, role, billing, usage, quota, and plan controls.                                                               |
 
 The public invitation route is `/invite/:code`. Its opaque code identifies one invitation, but the
 exact linked GitHub identity and explicit recipient action authorize acceptance. Spec 123 owns this
@@ -83,8 +83,10 @@ provides Connect organization.
 ## Organization Connection
 
 `/connect-organization` is a user-global route with the standard right navigation pane and no
-organization context. The page first asks the Samebase user to authorize GitHub. Samebase then lists
-the environment's GitHub App installations that this GitHub user can access.
+organization context. The page first checks the Samebase user's linked GitHub identity and durable
+GitHub App user authorization. It links to Account settings when the identity is missing and asks
+the user to authorize GitHub only when the authorization is missing, expired, or revoked. Samebase
+otherwise lists the environment's GitHub App installations that this GitHub user can access.
 
 GitHub installation visibility does not authorize Samebase organization creation. Each list item
 uses this order:
@@ -98,10 +100,9 @@ uses this order:
 4. If GitHub verifies owner authority and the owner is unbound, show `Not connected to Samebase` and
    a `Connect` action.
 
-A personal owner also needs the exact GitHub sign-in identity that Spec 122 defines. The page gives
-the matching sign-in explanation when that identity is missing or different.
-`Install for another account or organization` starts the GitHub App installation flow. Installing or
-configuring the App is not required when the selected installation already appears in this list.
+Every connection uses the exact linked GitHub sign-in identity that Spec 122 defines.
+`Install GitHub App` starts the GitHub App installation flow. Installing or configuring the App is
+not required when the selected installation already appears in this list.
 
 ## Global Vault Inventory
 
@@ -134,14 +135,16 @@ billing, and member administration. Convex and Cloudflare connections use the or
 route.
 
 The providers route shows `Personal repository creation` only when the selected organization has
-`githubOwnerType: "user"`. This authorization lets Samebase call GitHub as the exact personal owner
-when it creates a repository. It is not shown for a GitHub organization because that owner creates
-repositories with the GitHub App installation token.
+`githubOwnerType: "user"`. Its management and revoke control owns the same user-owned GitHub
+authorization that installation discovery uses. `/connect-organization` shows the authorization
+recovery action when this credential is not usable. The authorization also lets Samebase call GitHub
+as the exact personal owner when it creates a repository. The Providers control is not shown for a
+GitHub organization because that owner creates repositories with the GitHub App installation token.
 
 The control is in organization context, but the credential remains owned by the current Samebase
 user. It is not organization identity, membership proof, or a shared credential. Revoking it removes
-the user's ability to create repositories for that personal owner. It does not remove GitHub sign-in
-or the GitHub App installation.
+installation discovery and the user's ability to create repositories for that personal owner until
+the user authorizes GitHub again. It does not remove GitHub sign-in or the GitHub App installation.
 
 MCP consent stays user-global. It carries no active organization. Each target operation resolves its
 resource and checks the user's current membership and role.
@@ -183,11 +186,11 @@ Provider OAuth returns to `/org/:owner/providers`. Checkout and billing-portal s
 `/org/:owner/settings#billing`. The return value carries the GitHub owner login and no internal
 organization ID.
 
-GitHub installation discovery returns to `/connect-organization` with an opaque, user-bound,
-short-lived session. The session is not a GitHub token, an internal organization ID, or membership
-proof. The route keeps unrelated accepted search and hash values across the external return. After a
-successful connection, Samebase replaces this route in browser history. A Back action does not
-return to the consumed chooser.
+GitHub authorization returns to `/connect-organization` without a credential or connection-session
+search parameter. The route keeps unrelated accepted search and hash values across the external
+return, then reads the current user's durable authorization from the server. After a successful
+connection, Samebase replaces this route in browser history. A Back action does not return to the
+chooser.
 
 The server validates the return route and owner. A full-page return checks current membership before
 it shows organization data. If access changed during the external flow, Samebase keeps the scoped
@@ -252,8 +255,10 @@ Focused route, backend, and UI tests must prove:
 - small-screen access to the shared organization context
 - scoped provider OAuth, checkout, and billing-portal returns
 - user-owned sign-in methods and MCP clients in user settings
-- personal repository authorization only on a personal owner's organization providers route
-- connection discovery, Open, Invite required, Owner required, Connect, and final race states
+- the GitHub user-authorization management and revoke control only on a personal owner's
+  organization providers route, with authorization recovery on `/connect-organization`
+- connection discovery with a saved authorization, missing sign-in, authorization required, load
+  failure, Open, Invite required, Owner required, Connect, and final race states
 - no internal organization ID in public links or messages
 
 Screenshot coverage must include the global inventory, one-organization and several-organization

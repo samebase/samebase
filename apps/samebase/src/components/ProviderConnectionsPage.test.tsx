@@ -492,7 +492,6 @@ describe("ProviderConnectionsPage", () => {
     });
 
     expect(getAuthorizationUrl).toHaveBeenCalledWith({
-      organizationId: personalOrganization.organizationId,
       returnToPath: "/org/nicubunu/providers",
     });
   });
@@ -535,23 +534,21 @@ describe("ProviderConnectionsPage", () => {
     );
     const revokeAuthorization = vi.fn(async () => null);
     testState.actions.set(
-      getFunctionName(api.githubUserAuthorizations.revokeViewerPersonalRepositoryAuthorization),
+      getFunctionName(api.githubUserAuthorizations.revokeViewerGitHubUserAuthorization),
       revokeAuthorization,
     );
     const container = mountProviderConnectionsPage(personalOrganization);
 
     expect(container.textContent).toContain("Authorized as @nicubunu");
     expect(container.textContent).toContain(
-      "Samebase uses this authorization only to create repositories in this personal GitHub account.",
+      "Samebase uses this authorization to create repositories in this personal GitHub account and find GitHub App installations. Revoking it stops both.",
     );
     await act(async () => {
       findButton(container, "Revoke")?.click();
       await Promise.resolve();
     });
 
-    expect(revokeAuthorization).toHaveBeenCalledWith({
-      organizationId: personalOrganization.organizationId,
-    });
+    expect(revokeAuthorization).toHaveBeenCalledWith({});
   });
 
   it("offers reauthorization after personal repository authorization expires", () => {

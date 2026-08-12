@@ -861,12 +861,23 @@ describe("appRouter", () => {
   });
 
   it("renders organization connection through a global route", async () => {
-    await renderRoute("/connect-organization?github-connection-session=test-session");
+    await renderRoute("/connect-organization");
 
     expect(
       rootElement?.querySelector('[data-testid="connect-organization-page"]')?.textContent,
     ).toBe("Connect organization page");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("removes a retired GitHub connection session from the organization connection URL", async () => {
+    const router = await renderRoute(
+      "/connect-organization?github-connection-session=retired-session&prod-ui",
+    );
+
+    expect(router.state.location.pathname).toBe("/connect-organization");
+    const searchParams = new window.URLSearchParams(router.state.location.searchStr);
+    expect(searchParams.has("github-connection-session")).toBe(false);
+    expect(searchParams.has("prod-ui")).toBe(true);
   });
 
   it("keeps an unavailable organization URL and shows the unavailable state", async () => {

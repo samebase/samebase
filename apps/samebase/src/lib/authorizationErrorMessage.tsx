@@ -20,8 +20,8 @@ function readProviderCopy(provider: AuthorizationProvider): {
       return { authorizationLabel: "GitHub App setup", connectionLabel: "GitHub App" };
     case "github-user":
       return {
-        authorizationLabel: "Personal repository authorization",
-        connectionLabel: "personal repository",
+        authorizationLabel: "GitHub authorization",
+        connectionLabel: "GitHub",
       };
     case "google-sign-in":
       return { authorizationLabel: "Google sign-in", connectionLabel: "Google sign-in" };
@@ -59,11 +59,11 @@ export function formatAuthorizationErrorMessage(
     case "github-sign-in-required":
       return targets.githubOwnerLogin
         ? `Personal GitHub access requires @${targets.githubOwnerLogin} as the GitHub sign-in method for this Samebase account. Connect it in Account settings, then try again.`
-        : "Personal GitHub access requires the same GitHub account as the GitHub sign-in method for this Samebase account. Connect GitHub in Account settings, then try again.";
+        : "Connect GitHub in Account settings before you authorize GitHub.";
     case "github-sign-in-mismatch":
       return targets.githubOwnerLogin
         ? `Use the Samebase account connected to GitHub as @${targets.githubOwnerLogin}, then try again.`
-        : "Use a Samebase account whose GitHub sign-in method matches the personal GitHub account, then try again.";
+        : "Authorize GitHub with the account connected to this Samebase account.";
     case "expired":
       return `${authorizationLabel} expired. Start again.`;
     case "access-changed":
@@ -103,7 +103,7 @@ export function formatAuthorizationErrorMessage(
         case "github-user":
           return targets.githubOwnerLogin
             ? `Sign in to GitHub as @${targets.githubOwnerLogin} to authorize personal repository creation.`
-            : "Sign in as the personal GitHub owner to authorize repository creation.";
+            : "Authorize GitHub with the account connected to this Samebase account.";
         case "google-sign-in":
         case "github-sign-in":
           return "Select the provider account that is connected to this Samebase account.";

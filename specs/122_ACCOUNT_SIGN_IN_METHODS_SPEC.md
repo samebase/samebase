@@ -102,38 +102,40 @@ The GitHub OAuth App creates or refreshes only the first record. It requests `re
 always asks the user to select an account, and discards the OAuth access token. The GitHub App flow
 supplies repository permissions through the other two relationship types.
 
-The target-neutral new-install and `/connect-organization` discovery flows can start without a
-GitHub sign-in row. They record the current GitHub `providerAccountId`, if one exists, in their
-one-use setup state. A selected personal target succeeds only when that recorded ID, the current
-sign-in row, the owner ID, and the GitHub App user ID all match. The connection action repeats the
-live GitHub installation and personal-owner checks. Connecting GitHub after either flow starts
-cannot make that flow valid.
+One Samebase user can have at most one GitHub sign-in identity and one GitHub App user
+authorization. Their stable GitHub user IDs must match. Direct GitHub authorization and GitHub App
+setup reject a missing sign-in identity before redirect. Their one-use state records the expected
+stable GitHub user ID, and the callback checks that ID against both the current sign-in row and the
+GitHub user. Authorization use repeats the identity check. Email and login values are never proof.
 
-The discovery callback stores its GitHub App user credential only in a server-side, user-bound,
-ten-minute connection session. The browser receives a random session handle. It never receives the
-GitHub token. A successful personal-owner connection moves the credential into the existing personal
-user-authorization record. Organization connection, expiry, replacement, and account deletion
-attempt upstream revocation when the temporary authorization is consumed or removed. A successful
-connection replaces the temporary credential with a token-free completed result for the remaining
-retry window.
+The direct GitHub authorization callback stores the access and refresh credentials in the
+server-only `githubUserAuthorizations` row. The browser receives no GitHub token or credential
+handle. `/connect-organization` uses this durable authorization to list visible GitHub App
+installations. Samebase refreshes it silently when possible and asks the user to authorize GitHub
+only when it is missing, expired, or revoked.
 
-A personal reconnect and an explicit personal authorization know their target. They reject a missing
-or different GitHub sign-in identity before redirect, record the matching stable ID, and check it
-again at callback. Authorization use checks the identity again. Email and login values are never
-proof. A successful personal installation or reconnect stores or refreshes both the installation and
-the matching user authorization. A rejected personal callback creates no local relationship,
-attempts to revoke its uncommitted user token, and does not uninstall the GitHub App.
+Only direct `user_authorization` OAuth exchanges an authorization code and issues or rotates these
+credentials. GitHub App installation and reconnect callbacks use the saved authorization. They do
+not issue or store another GitHub user token.
 
-The personal user authorization belongs to one Samebase user and is used only to create a repository
-under that personal GitHub account. Its control appears only on that personal owner's Providers
-page. Revoking it does not remove the GitHub sign-in method or uninstall the GitHub App. The beta
-does not replace it with another GitHub identity.
+GitHub App installation and reconnect setup use the same linked identity and durable authorization.
+They do not create a second GitHub actor or temporary connection credential. A personal owner also
+requires the installation owner ID to match the GitHub user ID. The connection action repeats the
+live GitHub installation, identity, personal-owner or organization-administrator, and Samebase
+access checks.
 
-GitHub organization setup does not require a connected GitHub sign-in identity on the Samebase
-account. If one exists, the GitHub App setup actor can differ. Spec 120 owns the administrator and
-installation checks. Samebase attempts to revoke the actor's short-lived setup token through GitHub
-and does not store it as personal authorization. Organization repository creation and normal
-operations use installation authentication.
+The user authorization belongs to one Samebase user. It supports installation discovery and user
+actions that require GitHub identity, including repository creation under that personal GitHub
+account. Its management and revoke control appears only on that personal owner's Providers page. The
+connection page shows the authorization recovery action when the credential is not usable. Revoking
+it removes both discovery and personal repository creation access until the user authorizes GitHub
+again. It does not remove the GitHub sign-in method, uninstall the GitHub App, or remove a Samebase
+membership. The beta does not replace it with another GitHub identity.
+
+GitHub organization setup requires the Samebase account's linked GitHub identity to be a live
+administrator for the selected organization. Spec 120 owns the administrator and installation
+checks. Organization repository creation and normal operations use installation authentication and
+do not require the user's GitHub authorization.
 
 An organization invitation uses one stable GitHub `providerAccountId` to identify its exact
 recipient. A current Samebase owner grants the membership, and the matching recipient explicitly
@@ -163,12 +165,12 @@ behaviors before the patch changes or is removed.
   deletion. It also covers terminal rejection and later signup with a new user ID.
 - `githubSignIn.test.ts` covers the verified primary email parser, exact OAuth parameters, and
   provider API failures.
-- `githubUserAuthorizations.convex.test.ts` covers target-scoped status, revocation, GitHub sign-in,
-  required personal identity matching, and GitHub App identity conflicts.
-- `githubAppInstallation.convex.test.ts` covers organization-bound setup and exact personal owner
-  verification. It rejects a personal setup that did not have the identity at its start, even if the
-  user connects it before the callback. It also proves that a GitHub organization setup actor can
-  differ from the Samebase sign-in identity.
+- `githubUserAuthorizations.convex.test.ts` covers durable authorization status, refresh,
+  revocation, GitHub sign-in matching, and GitHub App identity conflicts.
+- `githubAppInstallation.convex.test.ts` covers one-use setup state, callback identity checks,
+  organization-bound setup, and exact personal-owner verification.
+- `githubAppConnection.convex.test.ts` covers durable-authorization discovery, current GitHub
+  administrator checks, Samebase membership classification, and final connection races.
 - `authOAuthCallback.convex.test.ts` covers account-selection parameters, exact scopes, and safe
   callback error returns through the patched auth boundary.
 - `UserSettingsPage.test.tsx` covers the visible GitHub method and Connect action, the hidden Google
@@ -184,8 +186,7 @@ behaviors before the patch changes or is removed.
 The development and production OAuth Apps must use the Convex Auth callback path
 `/api/auth/callback/github`. Existing user grants from the older broad-scope flow must be revoked
 before final validation so the new authorization contains only the current scopes. Final validation
-must connect GitHub from Settings before a personal App installation, authorize personal repository
-creation from that owner's Providers page, and complete a signed-out GitHub sign-in with the same
-account. It must also install the Samebase GitHub App for a GitHub organization through an
-administrator whose stable GitHub user ID differs from the Samebase account's linked GitHub provider
-ID, without changing that sign-in identity.
+must connect GitHub from Settings, authorize the same GitHub account once, list its visible App
+installations without a connection-session URL parameter, install the Samebase GitHub App for a
+GitHub organization that account administers, and authorize personal repository creation for the
+matching personal owner. A signed-out GitHub sign-in must resolve the same account.

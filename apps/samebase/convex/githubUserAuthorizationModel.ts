@@ -17,7 +17,7 @@ export const vGitHubUserAuthorization = object({
 });
 
 export const githubUserAuthorizationTables = {
-  /** Refreshable GitHub user bearer credentials saved only for a matching personal owner. */
+  /** The one refreshable GitHub App user authorization for a matching Samebase GitHub identity. */
   githubUserAuthorizations: defineTable(vGitHubUserAuthorization)
     .index("by_user", ["userId"])
     .index("by_github_user", ["githubUserId"]),

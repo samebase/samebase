@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 const testState = vi.hoisted(() => ({
   actions: new Map<string, (args: unknown) => Promise<unknown>>(),
   navigate: vi.fn(),
+  viewerId: "viewer-a",
 }));
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -18,6 +19,7 @@ vi.mock("convex/react", async (importOriginal) => {
     useAction: (reference: Parameters<typeof actual.useAction>[0]) =>
       testState.actions.get(getFunctionName(reference)) ?? vi.fn(async () => undefined),
     useMutation: () => vi.fn(async () => undefined),
+    useQuery: () => ({ _id: testState.viewerId }),
   };
 });
 
@@ -25,10 +27,6 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
   return {
     ...actual,
-    Navigate: (props: Parameters<typeof actual.Navigate>[0]) => {
-      void testState.navigate(props);
-      return null;
-    },
     useNavigate: () => testState.navigate,
   };
 });
@@ -47,6 +45,7 @@ describe("ConnectOrganizationPage", () => {
     testState.actions.clear();
     testState.navigate.mockReset();
     testState.navigate.mockResolvedValue(undefined);
+    testState.viewerId = "viewer-a";
     queryClient = new QueryClient({
       defaultOptions: {
         mutations: { retry: false },
@@ -68,15 +67,15 @@ describe("ConnectOrganizationPage", () => {
     await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
-          <ConnectOrganizationPage session="connection-session" />
+          <ConnectOrganizationPage />
         </QueryClientProvider>,
       );
       await Promise.resolve();
     });
   }
 
-  it("replaces the connection route after Connect succeeds", async () => {
-    testState.actions.set(getFunctionName(api.githubAppConnection.listOptions), async () => ({
+  it("lists with the durable authorization and replaces the route after Connect succeeds", async () => {
+    const listOptions = vi.fn(async () => ({
       status: "ready",
       options: [
         {
@@ -87,17 +86,24 @@ describe("ConnectOrganizationPage", () => {
         },
       ],
     }));
+    const connectInstallation = vi.fn(async () => ({
+      status: "connected",
+      organizationOwnerLogin: "History-Owner",
+    }));
+    testState.actions.set(getFunctionName(api.githubAppConnection.listOptions), listOptions);
     testState.actions.set(
       getFunctionName(api.githubAppConnection.connectInstallation),
-      async () => ({
-        status: "connected",
-        organizationOwnerLogin: "History-Owner",
-      }),
+      connectInstallation,
     );
 
     await renderPage();
     await act(async () => {
-      await vi.waitFor(() => expect(rootElement.querySelector("button")).not.toBeNull());
+      await vi.waitFor(() => {
+        expect(listOptions).toHaveBeenCalledWith({});
+        expect(
+          rootElement.querySelector('button[aria-label="Connect history-owner"]'),
+        ).not.toBeNull();
+      });
     });
     const connectButton = rootElement.querySelector<HTMLButtonElement>(
       'button[aria-label="Connect history-owner"]',
@@ -108,6 +114,7 @@ describe("ConnectOrganizationPage", () => {
     await act(async () => {
       connectButton.click();
       await vi.waitFor(() => {
+        expect(connectInstallation).toHaveBeenCalledWith({ installationId: "101" });
         expect(testState.navigate).toHaveBeenCalledWith({
           href: "/org/History-Owner/vaults",
           replace: true,
@@ -116,22 +123,71 @@ describe("ConnectOrganizationPage", () => {
     });
   });
 
-  it("opens the prior result when the completed session is loaded again", async () => {
-    testState.actions.set(getFunctionName(api.githubAppConnection.listOptions), async () => ({
-      status: "completed",
-      organizationOwnerLogin: "History-Owner",
-    }));
+  it("retries a failed installation load without showing GitHub authorization", async () => {
+    const listOptions = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("GitHub unavailable"))
+      .mockResolvedValueOnce({ status: "ready", options: [] });
+    testState.actions.set(getFunctionName(api.githubAppConnection.listOptions), listOptions);
 
     await renderPage();
-
     await act(async () => {
       await vi.waitFor(() => {
-        expect(testState.navigate).toHaveBeenCalledWith({
-          params: { owner: "History-Owner" },
-          replace: true,
-          to: "/org/$owner/vaults",
-        });
+        expect(rootElement.textContent).toContain("Could not load GitHub App installations.");
       });
     });
+    expect(rootElement.textContent).not.toContain("Authorize GitHub");
+    const retryButton = [...rootElement.querySelectorAll("button")].find(
+      (button) => button.textContent === "Try again",
+    );
+    if (retryButton === undefined) {
+      throw new Error("Expected the installation load retry action.");
+    }
+
+    await act(async () => {
+      retryButton.click();
+      await vi.waitFor(() => {
+        expect(listOptions).toHaveBeenCalledTimes(2);
+        expect(rootElement.textContent).toContain("No GitHub App installations");
+      });
+    });
+  });
+
+  it("does not show a previous user's cached installation options", async () => {
+    const listOptions = vi
+      .fn()
+      .mockResolvedValueOnce({
+        status: "ready",
+        options: [
+          {
+            status: "connect",
+            installationId: "private-installation",
+            githubOwnerType: "organization",
+            githubOwnerLogin: "private-owner",
+          },
+        ],
+      })
+      .mockReturnValueOnce(new Promise(() => {}));
+    testState.actions.set(getFunctionName(api.githubAppConnection.listOptions), listOptions);
+
+    await renderPage();
+    await act(async () => {
+      await vi.waitFor(() => expect(rootElement.textContent).toContain("private-owner"));
+    });
+
+    testState.viewerId = "viewer-b";
+    await act(async () => {
+      root.render(
+        <QueryClientProvider client={queryClient}>
+          <ConnectOrganizationPage />
+        </QueryClientProvider>,
+      );
+      await Promise.resolve();
+    });
+
+    expect(rootElement.textContent).not.toContain("private-owner");
+    expect(rootElement.querySelector('[aria-label="Loading GitHub App installations"]')).not.toBe(
+      null,
+    );
   });
 });

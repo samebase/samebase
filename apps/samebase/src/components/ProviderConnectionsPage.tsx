@@ -22,6 +22,7 @@ import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
 import { claimRefreshDebounce, releaseRefreshDebounce } from "@/lib/refreshDebounce";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import {
   CircleCheck,
   CircleDashed,
@@ -47,7 +48,8 @@ import type { AuthorizationError } from "../../shared/authorizationError";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { useNow } from "@/hooks/useNow";
 import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
-import { Link } from "@tanstack/react-router";
+import { CONNECT_ORGANIZATION_ROUTE } from "@/lib/connectOrganizationRoute";
+import { Link, useNavigate } from "@tanstack/react-router";
 
 const PROVIDER_KEYS = ["convex", "cloudflare"] as const;
 const PROVIDER_ACCESS_STALE_TIME_MS = 60 * 1000;
@@ -500,8 +502,8 @@ function PersonalRepositoryCreationDetails({
       <div className="font-medium text-foreground">Personal repository creation</div>
       <div className="mt-1 text-muted-foreground">{status}</div>
       <p className="mt-2 text-muted-foreground">
-        Samebase uses this authorization only to create repositories in this personal GitHub
-        account.
+        Samebase uses this authorization to create repositories in this personal GitHub account and
+        find GitHub App installations. Revoking it stops both.
       </p>
       {canAuthorize || canRevoke ? (
         <div className="mt-3 flex flex-wrap gap-2">
@@ -1349,6 +1351,7 @@ export function ProviderConnectionsPage({
   authorizationError?: AuthorizationError | null;
   organization: ViewerOrganization;
 }) {
+  const navigate = useNavigate();
   const getConvexOAuthUrl = useMutation(api.convexOAuth.getConvexOAuthUrl);
   const getCloudflareOAuthUrl = useAction(api.cloudflareOAuth.getCloudflareOAuthUrl);
   const checkConvexConnectionAccess = useAction(
@@ -1368,7 +1371,7 @@ export function ProviderConnectionsPage({
   const disconnectConvex = useAction(api.users.disconnectConvex);
   const disconnectCloudflare = useAction(api.users.disconnectCloudflare);
   const revokeGitHubUserAuthorization = useAction(
-    api.githubUserAuthorizations.revokeViewerPersonalRepositoryAuthorization,
+    api.githubUserAuthorizations.revokeViewerGitHubUserAuthorization,
   );
   const queryClient = useQueryClient();
   const organizationId = organization.organizationId;
@@ -1588,6 +1591,14 @@ export function ProviderConnectionsPage({
       });
     })
       .catch((error: unknown) => {
+        if (
+          error instanceof ConvexError &&
+          (error.data === "github-authorization-required" ||
+            error.data === "github-sign-in-required")
+        ) {
+          void navigate({ to: CONNECT_ORGANIZATION_ROUTE });
+          return;
+        }
         console.error("Failed to start GitHub App reconnect.", {
           errorName: error instanceof Error ? error.name : "unknown",
         });
@@ -1609,7 +1620,6 @@ export function ProviderConnectionsPage({
     setGitHubUserAuthorizationRequestState("authorizing");
     void openGitHubAppSetupPopup("github-user", async () => {
       return await getGitHubUserAuthorizationUrl({
-        organizationId,
         returnToPath: getCurrentRootRelativeUrl(),
       });
     })
@@ -1634,7 +1644,7 @@ export function ProviderConnectionsPage({
     }
     setGitHubUserAuthorizationRequestState("revoking");
     try {
-      await revokeGitHubUserAuthorization({ organizationId });
+      await revokeGitHubUserAuthorization({});
     } catch (error) {
       console.error("Failed to revoke personal repository authorization.", {
         errorName: error instanceof Error ? error.name : "unknown",

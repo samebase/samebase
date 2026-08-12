@@ -5,6 +5,7 @@ import { TestRouterProvider } from "@/test/TestRouterProvider";
 import {
   ConnectOrganizationPageView,
   type ConnectOrganizationOption,
+  type ConnectOrganizationPageState,
 } from "./ConnectOrganizationPage";
 
 const options = [
@@ -33,34 +34,21 @@ const options = [
     githubOwnerType: "organization",
     githubOwnerLogin: "admin-org",
   },
-  {
-    status: "github_sign_in_required",
-    installationId: "105",
-    githubOwnerType: "user",
-    githubOwnerLogin: "personal-owner",
-  },
-  {
-    status: "github_sign_in_mismatch",
-    installationId: "106",
-    githubOwnerType: "user",
-    githubOwnerLogin: "different-owner",
-  },
 ] satisfies ConnectOrganizationOption[];
 
-function renderPage(pageOptions: readonly ConnectOrganizationOption[] | null, session?: string) {
+function renderPage(state: ConnectOrganizationPageState) {
   return renderToStaticMarkup(
     <TestRouterProvider initialEntries={["/connect-organization"]}>
       <ConnectOrganizationPageView
         error={null}
         isAuthorizing={false}
         isInstalling={false}
-        loading={false}
         onAuthorize={() => {}}
         onConnect={() => {}}
         onInstall={() => {}}
-        options={pageOptions}
+        onRetry={() => {}}
         pendingInstallationId={null}
-        session={session}
+        state={state}
       />
     </TestRouterProvider>,
   );
@@ -68,7 +56,7 @@ function renderPage(pageOptions: readonly ConnectOrganizationOption[] | null, se
 
 describe("ConnectOrganizationPageView", () => {
   it("shows the action and explanation for each installation state", () => {
-    const markup = renderPage(options, "session");
+    const markup = renderPage({ status: "ready", options });
 
     expect(markup).toContain('aria-label="Connect available-org"');
     expect(markup).toContain('aria-label="Open member-org in Samebase"');
@@ -77,20 +65,34 @@ describe("ConnectOrganizationPageView", () => {
       "Someone already connected this GitHub organization to Samebase. Ask a Samebase organization owner to invite you.",
     );
     expect(markup).toContain("A GitHub organization owner must connect this installation.");
-    expect(markup).toContain(
-      "Add this GitHub account as a Samebase sign-in method before you connect it.",
-    );
-    expect(markup).toContain(
-      "This GitHub account does not match your Samebase GitHub sign-in method.",
-    );
-    expect(markup).toContain("Install for another account or organization");
+    expect(markup).toContain("Install GitHub App");
   });
 
-  it("starts with GitHub authorization and gives an installation action for an empty list", () => {
-    expect(renderPage(null)).toContain("Authorize GitHub");
+  it("shows only the action that can recover each unavailable state", () => {
+    const loadingMarkup = renderPage({ status: "loading" });
+    expect(loadingMarkup).toContain('aria-label="Loading GitHub App installations"');
+    expect(loadingMarkup).not.toContain("Authorize GitHub");
 
-    const emptyMarkup = renderPage([], "session");
+    const signInMarkup = renderPage({ status: "github_sign_in_required" });
+    expect(signInMarkup).toContain('href="/settings#sign-in-methods"');
+    expect(signInMarkup).not.toContain("Authorize GitHub");
+
+    const authorizationMarkup = renderPage({ status: "authorization_required" });
+    expect(authorizationMarkup).toContain("Authorize GitHub");
+    expect(authorizationMarkup).not.toContain("Account settings");
+
+    const failedMarkup = renderPage({ status: "load_failed" });
+    expect(failedMarkup).toContain("Could not load GitHub App installations.");
+    expect(failedMarkup).toContain("Try again");
+    expect(failedMarkup).not.toContain("Authorize GitHub");
+  });
+
+  it("offers GitHub App installation when the authorized list is empty", () => {
+    const emptyMarkup = renderPage({ status: "ready", options: [] });
     expect(emptyMarkup).toContain("No GitHub App installations");
     expect(emptyMarkup).toContain("Install GitHub App");
+    expect(emptyMarkup).toContain(
+      "Install the Samebase GitHub App for your GitHub account or an organization you manage.",
+    );
   });
 });

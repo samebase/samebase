@@ -1361,8 +1361,6 @@ export const trackedFilePaths = [
   "apps/samebase/src/routeAccessMetadata.ts",
   "apps/samebase/src/routeSearch/authorizationError.test.ts",
   "apps/samebase/src/routeSearch/authorizationError.ts",
-  "apps/samebase/src/routeSearch/connectOrganization.test.ts",
-  "apps/samebase/src/routeSearch/connectOrganization.ts",
   "apps/samebase/src/routeSearch/fileView.test.ts",
   "apps/samebase/src/routeSearch/fileView.ts",
   "apps/samebase/src/routeSearch/landingPreview.test.ts",

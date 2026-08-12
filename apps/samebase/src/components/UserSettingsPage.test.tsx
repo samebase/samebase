@@ -240,6 +240,7 @@ describe("UserSettingsPage", () => {
     );
 
     expect(signInMethodsSection).not.toBeNull();
+    expect(signInMethodsSection?.id).toBe("sign-in-methods");
     expect(
       [...(signInMethodsSection?.querySelectorAll("dt") ?? [])].map((term) => term.textContent),
     ).toEqual(["GitHub"]);
