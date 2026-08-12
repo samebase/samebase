@@ -212,15 +212,17 @@ test("keeps one organization switchable across settings, providers, and billing"
 
   await openRoute(
     page,
-    "/org/org-context-solo/providers?authorization-provider=github-app&authorization-error=target-mismatch#github",
+    "/org/org-context-unavailable/providers?authorization-provider=github-app&authorization-error=organization-owner-required#github",
   );
+  await expect(page.getByRole("heading", { name: "Organization unavailable" })).toBeVisible();
   await expect(
-    page
-      .getByRole("alert")
-      .filter({ hasText: "You selected a different GitHub account or organization" }),
+    page.getByText("You do not have Samebase access to org-context-unavailable.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("alert").filter({ hasText: "already connected to a Samebase organization" }),
   ).toBeVisible();
   await expect(page.getByText("Personal repository creation", { exact: true })).toHaveCount(0);
-  await expect(page).toHaveURL(/\/org\/org-context-solo\/providers#github$/u);
+  await expect(page).toHaveURL(/\/org\/org-context-unavailable\/providers#github$/u);
   if (!(await rightPane.isVisible())) {
     await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   }

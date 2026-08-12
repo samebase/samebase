@@ -34,6 +34,11 @@ describe("formatAuthorizationErrorMessage", () => {
       expected: "GitHub App setup failed. Try again.",
     },
     {
+      authorizationError: { code: "organization-owner-required", provider: "github-app" },
+      expected:
+        "The GitHub account or organization you selected is already connected to a Samebase organization. Ask one of its owners to add you as an owner.",
+    },
+    {
       authorizationError: { code: "account-link-required", provider: "github-sign-in" },
       expected:
         "The primary email on this GitHub account is already used by another Samebase account. Sign in to that account with an existing method, then connect GitHub in Account settings.",

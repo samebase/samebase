@@ -136,7 +136,10 @@ keeps the requested URL and shows:
 - Body: `You do not have Samebase access to <owner>.`
 - Action: `All vaults`
 
-The state does not reveal if the organization exists. It does not select another organization.
+The state does not reveal if the organization exists. It does not select another organization. A
+one-time GitHub callback notice can explain an existing connection only after GitHub verifies that
+the current user controls the selected GitHub account or organization. The notice does not identify
+another Samebase member or expose an internal organization ID.
 
 A missing or inaccessible vault keeps its clean route and shows `Vault unavailable` with an
 `All vaults` action. It does not show protected vault or provider data.
