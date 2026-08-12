@@ -403,14 +403,14 @@ export const requestPolarBillingChange = action({
   handler: async (ctx, args): Promise<PolarBillingChangeResult> => {
     const userId = ctx.viewer.userId;
     const organizationId = args.organizationId;
-    let seed: PolarCustomerSeed = await ctx.runMutation(
-      internal.billing.reservePolarTeamCustomerIdentity,
-      { userId, organizationId },
-    );
     const catalog = readPolarProductCatalog();
     if (catalog === null) {
       throw new ConvexError("Polar billing products are not configured yet.");
     }
+    let seed: PolarCustomerSeed = await ctx.runMutation(
+      internal.billing.reservePolarTeamCustomerIdentity,
+      { userId, organizationId },
+    );
     const { successUrl, returnUrl } = validateOrganizationBillingReturnUrls({
       githubOwnerLogin: seed.githubOwnerLogin,
       successUrl: args.successUrl,
@@ -840,6 +840,29 @@ export const syncPolarSubscriptionSeats = internalAction({
     });
     if (updated.status === "inactive" || updated.polarSeatQuantity !== targetSeats) {
       throw new Error("Polar seat synchronization did not reach the requested quantity.");
+    }
+
+    const latestSyncContext: OrganizationBillingSyncContext = await ctx.runQuery(
+      internal.billing.getOrganizationBillingSyncContext,
+      { organizationId: args.organizationId },
+    );
+    const restoredTargetSeats = Math.max(
+      latestSyncContext.memberCount,
+      latestSyncContext.includedMembers,
+    );
+    if (restoredTargetSeats > updated.polarSeatQuantity) {
+      // An invitation can consume the verified seat while the Polar reduction is in flight.
+      await polar.subscriptions.update({
+        id: updated.subscriptionId,
+        subscriptionUpdate: { seats: restoredTargetSeats, prorationBehavior: "invoice" },
+      });
+      const restored = await reconcilePolarBillingTwiceIfNeeded(ctx, {
+        polar,
+        externalCustomerId,
+      });
+      if (restored.status === "inactive" || restored.polarSeatQuantity !== restoredTargetSeats) {
+        throw new Error("Polar seat synchronization did not restore the required quantity.");
+      }
     }
     return null;
   },

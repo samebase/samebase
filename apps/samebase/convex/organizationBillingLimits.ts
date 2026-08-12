@@ -2,6 +2,7 @@ import { ConvexError } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import type { DatabaseReader } from "./_generated/server";
+import { readActiveUser } from "./userLifecycle";
 
 export type OrganizationMemberCapacity = {
   includedMembers: number;
@@ -68,10 +69,16 @@ export async function readOrganizationMembershipCount(
   organizationId: Id<"organizations">,
 ): Promise<number> {
   let count = 0;
-  for await (const _membership of db
+  for await (const membership of db
     .query("organizationMemberships")
     .withIndex("by_organization_and_user", (query) => query.eq("organizationId", organizationId))) {
-    count += 1;
+    const user = await db.get(membership.userId);
+    if (user === null) {
+      throw new Error("Organization membership user reference is invalid.");
+    }
+    if (readActiveUser(user) !== null) {
+      count += 1;
+    }
   }
   return count;
 }
@@ -81,11 +88,7 @@ export async function requireAdditionalOrganizationMemberCapacity(
   organizationId: Id<"organizations">,
 ): Promise<void> {
   const { capacity } = await readOrganizationMemberCapacityFromDb(db, organizationId);
-  const currentMemberships = await db
-    .query("organizationMemberships")
-    .withIndex("by_organization_and_user", (query) => query.eq("organizationId", organizationId))
-    .take(capacity);
-  if (currentMemberships.length >= capacity) {
+  if ((await readOrganizationMembershipCount(db, organizationId)) >= capacity) {
     throw new ConvexError(
       "This organization needs another paid member seat before you can accept this invitation.",
     );
@@ -97,11 +100,7 @@ export async function isOrganizationBillingLimited(
   organizationId: Id<"organizations">,
 ): Promise<boolean> {
   const { capacity } = await readOrganizationMemberCapacityFromDb(db, organizationId);
-  const currentMemberships = await db
-    .query("organizationMemberships")
-    .withIndex("by_organization_and_user", (query) => query.eq("organizationId", organizationId))
-    .take(capacity + 1);
-  return currentMemberships.length > capacity;
+  return (await readOrganizationMembershipCount(db, organizationId)) > capacity;
 }
 
 export async function requireOrganizationNotBillingLimited(

@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase platform
-- Last updated: 2026-08-11
+- Last updated: 2026-08-12
 - Previous rollout plan: `rfcs/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md`
 - Supersedes: `specs/033_POLAR_BILLING_SPEC.md` and `specs/034_POLAR_BILLING_PHASED_ROLLOUT_SPEC.md`
 
@@ -23,8 +23,8 @@ GitHub owner type selects the Free connection limit and the number of included m
 | GitHub organization (`organization`) | Pro  |                 $4 |                120 |                2 |           $2 per month |
 
 The monthly price is the plan base price plus `$2 * max(0, current memberships - included members)`.
-Both `owner` and `member` roles count. A pending invitation does not create a membership and does
-not count.
+Both `owner` and `member` roles count when the referenced Samebase user is active. A deleting or
+deleted user and a pending invitation do not count.
 
 One confirmed connected GitHub repository, one attached Cloudflare Worker, or one attached Convex
 project uses one connection. The connection pool has no provider-specific sublimit. GitHub App
@@ -100,10 +100,12 @@ webhook or a trusted reconciliation operation.
 - Payment recovery keeps paid entitlement active while Polar still grants it.
 - Repeated or out-of-order webhook deliveries must converge on current Polar Customer state.
 - Invalid or malformed provider data must not remove an existing entitlement.
-- A pending invitation does not consume capacity. A current membership always consumes one seat.
+- A pending invitation does not consume capacity. A current membership for an active user always
+  consumes one seat.
 - Removing a member, leaving an organization, or deleting a non-payer member schedules a Polar seat
-  reduction after the local membership deletion commits. A provider failure can temporarily
-  overcharge the organization, but it cannot preserve removed access.
+  reduction after the local membership deletion commits. A provider failure can leave the
+  organization overcharged until an operator retries the seat synchronization, but it cannot
+  preserve removed access.
 
 `subscription.updated` is the required wake-up for plan and seat changes. `customer.state_changed`
 can remain as a broader reconciliation signal. Both events must lead to a full canonical
@@ -206,6 +208,8 @@ The contract is complete only when tests and Sandbox checks prove:
 - Invitation acceptance fails without verified capacity and succeeds after that capacity is
   reconciled from Polar.
 - Concurrent invitation acceptances cannot both consume the last available seat.
+- A membership accepted while a seat reduction is in flight does not leave verified capacity below
+  the current membership count.
 - The first billing owner becomes the designated payer, and other owners cannot use that payer's
   checkout or portal access.
 - A designated payer cannot be demoted, removed, leave, or delete their account.
@@ -217,8 +221,8 @@ The contract is complete only when tests and Sandbox checks prove:
 - Checkout selects the only current catalog version for the matching owner type and plan.
 - Reconciliation accepts every retained current or historical catalog version and rejects an unknown
   product ID.
-- Every current catalog entry matches the corresponding Polar product metadata, monthly interval,
-  archive state, and fixed and seat prices.
+- Every current catalog entry matches the corresponding Polar product name, monthly interval,
+  archive and visibility state, fixed price, included seats, and later-seat price.
 - One Samebase user can be the owner Member of several isolated Polar team Customers.
 - A Pro-to-Free change keeps the current seat quantity and records the matching Free product as the
   pending next-period plan.

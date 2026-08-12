@@ -200,6 +200,65 @@ describe("organization billing access", () => {
     });
   });
 
+  it("does not count a deleting user's membership as billing capacity usage", async () => {
+    const seed = await seedCheckoutContinuation();
+    await seed.t.run(async (ctx) => {
+      const deletingUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "deleting-billing-member@example.invalid",
+        isApproved: true,
+      });
+      const sessionId = await ctx.db.insert("authSessions", {
+        userId: deletingUserId,
+        expirationTime: 60_000,
+      });
+      const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
+        state: "queued",
+        identity: {
+          state: "active",
+          userId: deletingUserId,
+          email: "deleting-billing-member@example.invalid",
+        },
+        completionCapability: "d".repeat(64),
+        currentStep: "request_accepted",
+        requestedAt: 1,
+        updatedAt: 1,
+        initiatingSessionId: sessionId,
+        retryCount: 0,
+        outcomes: {
+          providerRevocation: { state: "not_started" },
+          completionEmail: { state: "not_started" },
+        },
+        workflow: { state: "not_started" },
+      });
+      await ctx.db.replace(deletingUserId, {
+        state: "deleting",
+        email: "deleting-billing-member@example.invalid",
+        isApproved: true,
+        runId,
+        requestedAt: 1,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: seed.organizationId,
+        userId: deletingUserId,
+        role: "member",
+      });
+    });
+
+    const asPayer = seed.t.withIdentity({
+      subject: `${seed.userId}|active-billing-payer-session`,
+      tokenIdentifier: `test:${seed.userId}`,
+    });
+    await expect(
+      asPayer.query(api.billing.getViewerBillingStatus, {
+        organizationId: seed.organizationId,
+      }),
+    ).resolves.toMatchObject({
+      billingLimited: false,
+      memberCount: 1,
+    });
+  });
+
   it("clears the matching pending checkout after the initiating owner starts deletion", async () => {
     const seed = await seedCheckoutContinuation();
     const reservation = await seed.t.mutation(internal.polarCheckout.reserveAttempt, {
