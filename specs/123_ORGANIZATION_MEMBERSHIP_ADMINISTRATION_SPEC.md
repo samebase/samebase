@@ -106,10 +106,10 @@ The member table uses these exact columns and values:
 - `Member` shows the account label, GitHub login, and avatar.
 - `Samebase role` shows `Owner` or `Member`. It also shows `Deleting` while account deletion is
   active.
-- `GitHub org` shows `Owner`, `Member`, `Not a member`, `Not connected`, `Checking...`, or
-  `Unavailable` for a GitHub organization.
-- `GitHub owner` shows `Owner account`, `Different account`, `Not connected`, `Checking...`, or
-  `Unavailable` for a personal GitHub owner.
+- `GitHub org` shows `Owner`, `Member`, `Not in GitHub organization`, `GitHub not connected`,
+  `Checking...`, or `Unavailable` for a GitHub organization.
+- `GitHub owner` shows `Owner account`, `Different account`, `GitHub not connected`, `Checking...`,
+  or `Unavailable` for a personal GitHub owner.
 
 The table does not explain last-owner rules. It disables or omits unavailable actions. The backend
 still enforces the last-active-owner rule.

@@ -91,6 +91,9 @@ describe("organization member GitHub responses", () => {
     expect(() => parseGitHubInvitationTarget(githubUser({ type: "Organization" }))).toThrow(
       "Only a GitHub user can be invited.",
     );
+    expect(() => parseGitHubInvitationTarget(githubUser({ type: "Bot" }))).toThrow(
+      "Only a GitHub user can be invited.",
+    );
     expect(() =>
       parseGitHubInvitationTarget(githubUser({ id: Number.MAX_SAFE_INTEGER + 1 })),
     ).toThrow("GitHub returned an invalid user ID.");

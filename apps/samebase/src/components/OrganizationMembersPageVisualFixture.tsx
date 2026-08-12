@@ -23,6 +23,7 @@ const page = {
   members: [
     {
       githubLogin: "nicu",
+      isBillingPayer: true,
       isDeleting: false,
       isOnlyActiveOwner: true,
       isPersonalGithubOwnerIdentity: false,
@@ -34,6 +35,7 @@ const page = {
     },
     {
       githubLogin: "noter-guest",
+      isBillingPayer: false,
       isDeleting: false,
       isOnlyActiveOwner: false,
       isPersonalGithubOwnerIdentity: false,
@@ -45,6 +47,7 @@ const page = {
     },
     {
       githubLogin: "ava-chen",
+      isBillingPayer: false,
       isDeleting: false,
       isOnlyActiveOwner: false,
       isPersonalGithubOwnerIdentity: false,
@@ -66,8 +69,8 @@ const page = {
       createdBy: { kind: "displayName", label: "Nicu" },
       createdAt: Date.UTC(2026, 7, 10),
       expiresAt: Date.UTC(2026, 7, 17),
-      githubLogin: "octocat",
-      invitationId: fakeInvitationId("invitation_octocat"),
+      githubLogin: "maya",
+      invitationId: fakeInvitationId("invitation_maya"),
     },
   ],
   viewerRole: "owner",
@@ -75,8 +78,8 @@ const page = {
 
 const resolveTarget = () =>
   Promise.resolve({
-    expectedGithubAccountId: "github-account-octocat",
-    githubLogin: "octocat",
+    expectedGithubAccountId: "github-account-maya",
+    githubLogin: "maya",
     relationship: "organization_member" as const,
   });
 
@@ -84,8 +87,8 @@ const createInvitation = () =>
   Promise.resolve({
     code: "fixture-invitation-code",
     expiresAt: Date.UTC(2026, 7, 17),
-    githubLogin: "octocat",
-    invitationId: fakeInvitationId("invitation_octocat"),
+    githubLogin: "maya",
+    invitationId: fakeInvitationId("invitation_maya"),
     state: "existing" as const,
   });
 

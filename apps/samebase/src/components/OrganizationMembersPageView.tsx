@@ -1,4 +1,5 @@
 import { AppDialogContent } from "@/components/AppDialogContent";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -87,7 +88,7 @@ function formatGitHubRelationship(status: MemberGitHubRelationshipStatus): strin
     case "not_in_organization":
       return "Not in GitHub organization";
     case "github_account_not_connected":
-      return "GitHub account not connected";
+      return "GitHub not connected";
     case "owner_account":
       return "GitHub owner account";
     case "different_account":
@@ -107,9 +108,9 @@ function formatGitHubTableStatus(status: MemberGitHubRelationshipStatus): string
     case "organization_member":
       return "Member";
     case "not_in_organization":
-      return "Not a member";
+      return "Not in GitHub organization";
     case "github_account_not_connected":
-      return "Not connected";
+      return "GitHub not connected";
     case "owner_account":
       return "Owner account";
     case "different_account":
@@ -736,7 +737,26 @@ export function OrganizationMembersPageView({
                     </div>
                   </td>
                   <td className="py-4 pr-2 align-middle">
-                    <div>{member.role === "owner" ? "Owner" : "Member"}</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge
+                        className={
+                          member.role === "owner"
+                            ? "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:border-sky-400/30 dark:bg-sky-400/10 dark:text-sky-300"
+                            : "border-slate-500/25 bg-slate-500/10 text-slate-700 dark:border-slate-400/25 dark:bg-slate-400/10 dark:text-slate-300"
+                        }
+                        variant="outline"
+                      >
+                        {member.role === "owner" ? "Owner" : "Member"}
+                      </Badge>
+                      {member.isBillingPayer ? (
+                        <Badge
+                          className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-300"
+                          variant="outline"
+                        >
+                          Billing payer
+                        </Badge>
+                      ) : null}
+                    </div>
                     {member.isDeleting ? <div className="text-destructive">Deleting</div> : null}
                   </td>
                   {page.viewerRole === "owner" ? (
