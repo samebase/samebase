@@ -89,6 +89,11 @@ function main(): void {
   console.log(`Test GitHub owner: ${TEST_GITHUB_OWNER}`);
   console.log(`Temporary resource prefix: tmp-${worktreeId}-app-create`);
 
+  const showBrowser = !process.env.CI;
+  if (showBrowser) {
+    console.log("Browser: visible. Keep it open until the test finishes cleanup.");
+  }
+
   const result = spawnSync(
     PNPM_COMMAND,
     [
@@ -99,6 +104,7 @@ function main(): void {
       samebaseAppFilePath("playwright.live.config.ts"),
       samebaseAppFilePath("e2e/vault-create-app.live.spec.ts"),
       "--project=chromium-desktop",
+      ...(showBrowser ? ["--headed"] : []),
       "--grep",
       "creates and fully provisions a temporary app, then removes its resources",
     ],
