@@ -13,6 +13,7 @@ import {
   AGENT_BROWSER_HANDOFF_ROUTE,
   isAgentBrowserHandoffRoute,
 } from "../../shared/agentBrowserHandoff";
+import { CONNECT_ORGANIZATION_ROUTE } from "./connectOrganizationRoute";
 
 export type PageMetadata = {
   title: string;
@@ -158,6 +159,10 @@ export const AGENT_BROWSER_HANDOFF_PAGE_METADATA: PageMetadata = {
 export function resolveAppPageTitle(pathname: string): string {
   if (pathname === DASHBOARD_ROUTE || pathname === `${DASHBOARD_ROUTE}/`) {
     return "Vaults | Samebase";
+  }
+
+  if (pathname === CONNECT_ORGANIZATION_ROUTE) {
+    return "Connect organization | Samebase";
   }
 
   if (pathname === "/pricing") {

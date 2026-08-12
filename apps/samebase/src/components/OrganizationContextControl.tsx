@@ -7,15 +7,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "@/components/ui/use-toast";
-import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
-import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
+import { CONNECT_ORGANIZATION_ROUTE } from "@/lib/connectOrganizationRoute";
 import { buildOrganizationSwitchHref } from "@/lib/organizationSwitchRoute";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { useMutation } from "convex/react";
-import { ChevronDown, Loader2 } from "lucide-react";
-import { useState } from "react";
-import { api } from "../../convex/_generated/api";
+import { ChevronDown } from "lucide-react";
 
 function readContextLabel(surface: AppOrganizationSurface): string | null {
   if (surface.kind === "allVaults") {
@@ -31,34 +26,14 @@ export function OrganizationContextControl() {
   const { organizations, surface } = useOrganizationContext();
   const navigate = useNavigate();
   const location = useLocation();
-  const getGitHubAppInstallationUrl = useMutation(
-    api.githubAppInstallation.getGitHubAppInstallationUrl,
-  );
-  const [isInstalling, setIsInstalling] = useState(false);
   const displayedLabel = readContextLabel(surface);
   if (displayedLabel === null) {
     return null;
   }
 
   const hasOrganizations = (organizations?.length ?? 0) > 0;
-  const installGitHubApp = () => {
-    if (isInstalling) {
-      return;
-    }
-    setIsInstalling(true);
-    void openGitHubAppSetupPopup("github-app", async () => {
-      return await getGitHubAppInstallationUrl({ returnToPath: getCurrentRootRelativeUrl() });
-    })
-      .catch((error: unknown) => {
-        toast({
-          description: error instanceof Error ? error.message : "Could not open GitHub App setup.",
-          title: "Could not install GitHub App",
-          variant: "destructive",
-        });
-      })
-      .finally(() => {
-        setIsInstalling(false);
-      });
+  const navigateToConnection = () => {
+    void navigate({ to: CONNECT_ORGANIZATION_ROUTE });
   };
   if (!hasOrganizations) {
     return (
@@ -72,14 +47,12 @@ export function OrganizationContextControl() {
         {surface.kind === "allVaults" && organizations !== undefined ? (
           <Button
             className="h-auto min-w-0 justify-start whitespace-normal p-0 text-left text-base font-normal underline underline-offset-4 hover:bg-transparent"
-            disabled={isInstalling}
-            onClick={installGitHubApp}
+            onClick={navigateToConnection}
             size="sm"
             type="button"
             variant="ghost"
           >
-            {isInstalling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {isInstalling ? "Opening..." : "Install GitHub App"}
+            Connect organization
           </Button>
         ) : null}
       </div>
@@ -138,10 +111,7 @@ export function OrganizationContextControl() {
             </DropdownMenuItem>
           ))}
           <DropdownMenuSeparator />
-          <DropdownMenuItem disabled={isInstalling} onSelect={installGitHubApp}>
-            {isInstalling ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {isInstalling ? "Opening..." : "Install GitHub App"}
-          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={navigateToConnection}>Connect organization</DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>

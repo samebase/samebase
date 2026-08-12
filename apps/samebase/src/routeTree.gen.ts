@@ -21,6 +21,7 @@ import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as landingRouteImport } from "./routes/landing";
 import { Route as indexDBRouteImport } from "./routes/indexDB";
+import { Route as connectOrganizationRouteImport } from "./routes/connect-organization";
 import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
 import { Route as indexRouteImport } from "./routes/index";
 import { Route as vaultFileRouteImport } from "./routes/vault-file";
@@ -114,6 +115,11 @@ const landingRoute = landingRouteImport.update({
 const indexDBRoute = indexDBRouteImport.update({
   id: "/indexDB",
   path: "/indexDB",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const connectOrganizationRoute = connectOrganizationRouteImport.update({
+  id: "/connect-organization",
+  path: "/connect-organization",
   getParentRoute: () => rootRouteImport,
 } as any);
 const accountDeletionRoute = accountDeletionRouteImport.update({
@@ -292,6 +298,7 @@ const vaultDatabaseProjectRoute = vaultDatabaseProjectRouteImport.update({
 export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
+  "/connect-organization": typeof connectOrganizationRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
@@ -340,6 +347,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
+  "/connect-organization": typeof connectOrganizationRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
@@ -389,6 +397,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport;
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
+  "/connect-organization": typeof connectOrganizationRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
@@ -439,6 +448,7 @@ export interface FileRouteTypes {
   fullPaths:
     | "/"
     | "/account-deletion"
+    | "/connect-organization"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
@@ -487,6 +497,7 @@ export interface FileRouteTypes {
   to:
     | "/"
     | "/account-deletion"
+    | "/connect-organization"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
@@ -535,6 +546,7 @@ export interface FileRouteTypes {
     | "__root__"
     | "/"
     | "/account-deletion"
+    | "/connect-organization"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
@@ -584,6 +596,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
   accountDeletionRoute: typeof accountDeletionRoute;
+  connectOrganizationRoute: typeof connectOrganizationRoute;
   indexDBRoute: typeof indexDBRoute;
   landingRoute: typeof landingRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
@@ -714,6 +727,13 @@ declare module "@tanstack/react-router" {
       path: "/indexDB";
       fullPath: "/indexDB";
       preLoaderRoute: typeof indexDBRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/connect-organization": {
+      id: "/connect-organization";
+      path: "/connect-organization";
+      fullPath: "/connect-organization";
+      preLoaderRoute: typeof connectOrganizationRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/account-deletion": {
@@ -960,6 +980,7 @@ declare module "@tanstack/react-router" {
 const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
   accountDeletionRoute: accountDeletionRoute,
+  connectOrganizationRoute: connectOrganizationRoute,
   indexDBRoute: indexDBRoute,
   landingRoute: landingRoute,
   landingPreviewRoute: landingPreviewRoute,
@@ -1008,12 +1029,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>();
-
-import type { getRouter } from "./router.tsx";
-import type { createStart } from "@tanstack/react-start";
-declare module "@tanstack/react-start" {
-  interface Register {
-    ssr: true;
-    router: Awaited<ReturnType<typeof getRouter>>;
-  }
-}
