@@ -11,19 +11,16 @@ A signed-in, non-staff user can start account deletion from `/settings`. The con
 the exact phrase `delete my account`.
 
 The confirmation must distinguish the user's Samebase identity from organization data. Account
-deletion removes the user's login, profile, personal preferences, organization memberships, MCP
-access, pending provider authorization states, GitHub App user authorization, and every provider
-credential slot whose current `connectedByUserId` identifies that user. It also revokes and removes
-any temporary GitHub App organization connection authorization. It does not delete an organization,
-organization invitation, organization billing, deployment destination, vault, staged file, attached
-resource, observation, or organization workflow record. It deletes the organization provider
-credential document only when it clears the last credential slot.
+deletion removes the user's login, profile, personal preferences, MCP access, pending provider
+authorization states, GitHub App user authorization, and every provider credential slot whose
+current `connectedByUserId` identifies that user. It also revokes and removes any temporary GitHub
+App organization connection authorization. It does not delete an organization, organization
+invitation, organization billing, deployment destination, vault, staged file, attached resource,
+observation, or organization workflow record. It deletes the organization provider credential
+document only when it clears the last credential slot.
 
-Account deletion is rejected while the user is the last active owner of any organization. The user
-must add or promote another owner first. Account deletion can then remove the user's memberships
-without leaving an organization with no owner. Removing the user who connected a provider removes
-that provider credential and can make operations that depend on it unavailable until another owner
-reconnects the same destination.
+Account deletion is rejected while any organization membership exists. A member must leave each
+shared organization first. A sole owner must ask staff to delete the empty organization first.
 
 Acceptance creates one durable deletion run, marks the user as deleting, and routes every signed-in
 session to `/account-deletion`. Repeated requests return the same active run without rechecking the
@@ -55,8 +52,8 @@ keeps `_creationTime` because Convex stores this system field on every document.
 `deletedAt` to record the terminal lifecycle event. These values are retained only for referential
 integrity, corruption detection, and lifecycle timing. They are not used for authentication,
 contact, account matching, approval, organization access, or reactivation. The workflow removes the
-profile, auth, membership, preference, provider, and other personal rows that could associate the
-opaque values with the person.
+profile, auth, preference, provider, and other personal rows that could associate the opaque values
+with the person. Organization memberships must be absent before the workflow starts.
 
 ## Completion And Browser Recovery
 
@@ -93,10 +90,10 @@ The workflow must:
 4. Clear each current Convex credential slot whose `connectedByUserId` identifies the user. When a
    slot used Convex OAuth, retain the manual revocation notice because Samebase cannot revoke the
    upstream authorization.
-5. Delete personal preferences, organization memberships, MCP grants and tokens, provider callback
-   states, and GitHub App setup states in bounded batches. Preserve organization invitations and
-   their creator and acceptor user references. For each accepted invitation that names this user as
-   acceptor, remove its code and GitHub recipient fields before finalization.
+5. Delete personal preferences, MCP grants and tokens, provider callback states, and GitHub App
+   setup states in bounded batches. Preserve organization invitations and their creator and acceptor
+   user references. For each accepted invitation that names this user as acceptor, remove its code
+   and GitHub recipient fields before finalization.
 6. Attempt the completion email with the opaque deletion operation ID as the support reference.
 7. Repeat every final readiness check, then delete the final auth session. In the same transaction,
    replace the matching `deleting` user row with the exact PII-free `deleted` variant and replace
@@ -159,9 +156,10 @@ until real deletion volume justifies automation.
 
 A terminal deleted union is appropriate only when a retained product record must keep a stable
 foreign key and the product must distinguish a valid deleted subject from damaged data. Permission
-rows, tokens, credentials, memberships, transient callback state, personal settings, and entities
-with no retained-reference contract are hard-deleted or cleared. This rule does not create a generic
-deletion framework and does not change another entity lifecycle by itself.
+rows, tokens, credentials, transient callback state, personal settings, and entities with no
+retained-reference contract are hard-deleted or cleared. Organization memberships are a request
+precondition and must already be absent. This rule does not create a generic deletion framework and
+does not change another entity lifecycle by itself.
 
 ## Rollout
 
@@ -175,6 +173,7 @@ hard-deleted IDs cannot be restored.
 ## Required Validation
 
 - A request is idempotent and capability retries keep observing the same run.
+- A request with any organization membership is rejected without creating a deletion run.
 - Normal routes and writes reject a deleting user.
 - Viewer, session, OAuth, browser handoff, provider callback, and MCP state-matrix tests enforce the
   deleting and deleted boundaries. Missing user references fail as corruption.
@@ -183,9 +182,9 @@ hard-deleted IDs cannot be restored.
   The completion email gives the manual upstream revocation steps.
 - At most one Convex and one Cloudflare slot per organization are processed in bounded batches
   across the user's organizations.
-- Personal preferences, memberships, OAuth states, MCP grants and tokens, GitHub user authorization,
-  temporary GitHub App connection authorization, and auth data are removed. Organization invitations
-  keep their creator and acceptor user IDs. The original user ID resolves through the exact deleted
+- Personal preferences, OAuth states, MCP grants and tokens, GitHub user authorization, temporary
+  GitHub App connection authorization, and auth data are removed. Organization invitations keep
+  their creator and acceptor user IDs. The original user ID resolves through the exact deleted
   variant. An accepted invitation does not keep GitHub recipient PII for that deleted acceptor.
 - Organizations, billing, vaults, staged files, attached resources, observations, and organization
   workflows survive unchanged.

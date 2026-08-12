@@ -2,7 +2,6 @@ import type { Doc, Id, TableNames } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { v, type Infer } from "convex/values";
 import { GITHUB_USER_TOKEN_REFRESH_STALE_LOCK_MS } from "../githubUserAuthorizations";
-import { requireAnotherActiveOrganizationOwner } from "../organizationAccess";
 import { readOwnedActiveRun } from "./stepContext";
 
 type AccountDeletionTablePolicy =
@@ -12,6 +11,7 @@ type AccountDeletionTablePolicy =
   | "user_finalization"
   | "receipt"
   | "organization_preserved"
+  | "precondition_absent"
   | "global";
 
 /**
@@ -27,7 +27,7 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   authRateLimits: "auth_finalization",
   users: "user_finalization",
   organizations: "organization_preserved",
-  organizationMemberships: "account_data",
+  organizationMemberships: "precondition_absent",
   organizationInvitations: "account_data",
   organizationBillingAccounts: "organization_preserved",
   githubAppConnectionCredentials: "credential_revocation",
@@ -162,21 +162,6 @@ type AccountDataCleanupHandler = (
 
 /** Property order is the bounded account-data cleanup order. */
 const ACCOUNT_DATA_CLEANUP_HANDLERS = {
-  organizationMemberships: async (ctx, userId) => {
-    const rows = await ctx.db
-      .query("organizationMemberships")
-      .withIndex("by_user", (query) => query.eq("userId", userId))
-      .take(ACCOUNT_DATA_BATCH_SIZE);
-    for (const membership of rows) {
-      if (membership.role === "owner") {
-        await requireAnotherActiveOrganizationOwner(ctx.db, {
-          organizationId: membership.organizationId,
-          excludedUserId: userId,
-        });
-      }
-    }
-    return await deleteRowsById(ctx, rows);
-  },
   organizationInvitations: async (ctx, userId) => {
     const rows = await ctx.db
       .query("organizationInvitations")

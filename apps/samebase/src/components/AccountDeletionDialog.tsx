@@ -58,6 +58,13 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
         setIsRequestingDeletion(false);
         return;
       }
+      if (result.state === "organization_membership_exists") {
+        setDeletionError(
+          "Leave each shared organization or ask Samebase support to delete an organization you own.",
+        );
+        setIsRequestingDeletion(false);
+        return;
+      }
 
       writeAccountDeletionBrowserMarker(result.status.completionCapability);
       void router.navigate({ href: ACCOUNT_DELETION_ROUTE, replace: true });
@@ -82,12 +89,13 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
           <DialogTitle>Delete account?</DialogTitle>
           <DialogDescription className="space-y-2 text-foreground">
             <span className="block font-medium">
-              This permanently deletes your Samebase account, removes your organization access, and
-              disconnects provider connections you added.
+              This permanently deletes your Samebase account and disconnects provider connections
+              you added.
             </span>
             <span className="block text-muted-foreground">
-              Organization subscriptions are not canceled. Organizations, vaults, staged changes,
-              GitHub repositories, Convex projects, and Cloudflare Workers are not deleted.
+              First, leave each shared organization or ask Samebase support to delete an
+              organization you own. GitHub repositories, Convex projects, Cloudflare Workers, and
+              domains are not deleted.
             </span>
           </DialogDescription>
         </DialogHeader>

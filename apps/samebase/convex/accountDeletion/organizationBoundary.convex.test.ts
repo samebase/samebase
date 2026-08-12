@@ -62,11 +62,6 @@ async function seedRunningDeletion() {
     });
     await ctx.db.insert("organizationMemberships", {
       organizationId,
-      userId: deletingUserId,
-      role: "owner",
-    });
-    await ctx.db.insert("organizationMemberships", {
-      organizationId,
       userId: teammateUserId,
       role: "owner",
     });
@@ -301,7 +296,7 @@ describe("account deletion organization boundary", () => {
     });
   });
 
-  it("preserves creator attribution and scrubs an accepted recipient", async () => {
+  it("preserves creator attribution and scrubs an accepted recipient after they leave", async () => {
     const t = makeConvexTest();
     const ids = await t.run(async (ctx) => {
       const deletingUserId = await ctx.db.insert("users", {
@@ -325,11 +320,6 @@ describe("account deletion organization boundary", () => {
         organizationId,
         userId: ownerUserId,
         role: "owner",
-      });
-      await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId: deletingUserId,
-        role: "member",
       });
       const createdInvitationId = await ctx.db.insert("organizationInvitations", {
         organizationId,
@@ -373,10 +363,10 @@ describe("account deletion organization boundary", () => {
       };
     });
 
-    const membershipCleanupDone = await t.run(async (ctx) =>
+    const firstCleanupDone = await t.run(async (ctx) =>
       cleanupAccountDataBatchForUser(ctx, { userId: ids.deletingUserId }),
     );
-    expect(membershipCleanupDone).toBe(false);
+    expect(firstCleanupDone).toBe(false);
     await expect(
       t.run(async (ctx) =>
         ctx.db
@@ -389,7 +379,7 @@ describe("account deletion organization boundary", () => {
     ).resolves.toBeNull();
     await expect(
       t.run(async (ctx) => await ctx.db.get(ids.acceptedInvitationId)),
-    ).resolves.toMatchObject({ state: "accepted" });
+    ).resolves.toMatchObject({ state: "accepted_recipient_deleted" });
 
     const reissued = await t.mutation(internal.organizationMembers.commitInvitation, {
       userId: ids.ownerUserId,
@@ -450,7 +440,7 @@ describe("account deletion organization boundary", () => {
     });
   });
 
-  it("waits for the deleting member's active work and a fresh GitHub refresh", async () => {
+  it("waits for the deleting user's active work and a fresh GitHub refresh", async () => {
     const { ids, t } = await seedRunningDeletion();
     const provisioningRunId = await t.run(async (ctx) => {
       return await ctx.db.insert("workflow_vaultProvisioning_runs", {
@@ -673,7 +663,7 @@ describe("account deletion organization boundary", () => {
     });
   });
 
-  it("removes the member's credentials and personal access but preserves shared data", async () => {
+  it("removes the former member's credentials and personal access but preserves shared data", async () => {
     const { ids, t } = await seedRunningDeletion();
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");

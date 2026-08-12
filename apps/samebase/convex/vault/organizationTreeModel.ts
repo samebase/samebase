@@ -9,7 +9,9 @@ export const vaultOrganizationTreeTables = {
     userId: id("users"),
     organizationId: id("organizations"),
     collapsed: boolean(),
-  }).index("by_userId_and_organizationId", ["userId", "organizationId"]),
+  })
+    .index("by_userId_and_organizationId", ["userId", "organizationId"])
+    .index("by_organization", ["organizationId"]),
 };
 
 const vaultOrganizationTreeSettingFields =

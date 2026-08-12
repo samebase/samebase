@@ -95,6 +95,40 @@ describe("account deletion request and status", () => {
     });
   });
 
+  it("rejects account deletion while any organization membership exists", async () => {
+    const t = makeConvexTest();
+    const { userId, viewer } = await seedActiveViewer(t, "member@example.invalid");
+    await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {
+        githubOwnerId: "account-deletion-membership",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "account-deletion-membership",
+        githubOwnerLoginNormalized: "account-deletion-membership",
+        githubInstallationId: "account-deletion-membership-installation",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId,
+        role: "member",
+      });
+    });
+
+    await expect(
+      viewer.mutation(api.accountDeletion.index.request, {
+        completionCapability: "f".repeat(64),
+        confirmationPhrase: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+      }),
+    ).resolves.toEqual({ state: "organization_membership_exists" });
+    const snapshot = await t.run(async (ctx) => ({
+      events: await ctx.db.query("workflow_accountDeletion_events").collect(),
+      runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
+      user: await ctx.db.get(userId),
+    }));
+    expect(snapshot.events).toEqual([]);
+    expect(snapshot.runs).toEqual([]);
+    expect(snapshot.user).toMatchObject({ _id: userId, state: "active" });
+  });
+
   it("rejects deleting markers whose run is missing or owned by another user", async () => {
     const t = makeConvexTest();
     const { sessionId, userId, viewer } = await seedActiveViewer(t, "inconsistent@example.invalid");
