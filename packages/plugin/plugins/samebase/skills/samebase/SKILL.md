@@ -27,8 +27,10 @@ actions. Each action reports missing authentication itself.
   status or browser handoff as a preflight.
 - For a Cloudflare account-list request, call only the Cloudflare account list. Do not call app
   inventory, authentication status, or browser handoff as a preflight.
-- For a dashboard request, call only browser handoff. Do not call app inventory or authentication
-  status as a preflight.
+- For `open @samebase` or another dashboard request, call only browser handoff. Open the returned
+  URL in the agent host's in-app browser. The handoff signs the browser in as the user behind the
+  current MCP grant and opens the Samebase dashboard. Do not call app inventory or authentication
+  status as a preflight. If the agent host cannot open a browser, give the returned URL to the user.
 - Use authentication status only when the user asks about authentication or after an action reports
   missing authentication.
 - For a new app, use only this closed flow:

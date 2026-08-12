@@ -160,5 +160,15 @@ check(
   ),
   "The Samebase skill must keep managed app creation on its closed tool sequence.",
 );
+check(
+  samebaseSkill.includes(
+    "For `open @samebase` or another dashboard request, call only browser handoff.",
+  ) &&
+    samebaseSkill.includes("Open the returned URL in the agent host's in-app browser.") &&
+    samebaseSkill.includes(
+      "The handoff signs the browser in as the user behind the current MCP grant and opens the Samebase dashboard.",
+    ),
+  "The Samebase skill must route `open @samebase` through the authenticated in-app browser handoff.",
+);
 
 console.log("Agent plugin checks passed.");
