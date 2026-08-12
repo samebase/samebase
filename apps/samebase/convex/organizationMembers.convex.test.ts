@@ -807,28 +807,24 @@ describe("organization member lifecycle", () => {
     ).rejects.toThrow("Samebase user reference is invalid.");
   });
 
-  it("keeps an existing role and checks GitHub identity before existing membership", async () => {
+  it("rejects an invitation for an existing organization member", async () => {
     const { asOwner, ids, t } = await seedMembers();
     githubMocks.getInstallationUserByLogin.mockResolvedValue({
-      data: githubUser(100, "owner-login"),
-    });
-    const created = await asOwner.action(api.organizationMembers.createInvitation, {
-      organizationId: ids.organizationId,
-      githubLogin: "owner-login",
-      expectedGithubAccountId: "100",
+      data: githubUser(300, "member-login"),
     });
     await expect(
-      asOwner.action(api.organizationMembers.getInvitation, { code: created.code }),
-    ).resolves.toMatchObject({ state: "available", viewerState: "already_member" });
+      asOwner.action(api.organizationMembers.createInvitation, {
+        organizationId: ids.organizationId,
+        githubLogin: "member-login",
+        expectedGithubAccountId: "300",
+      }),
+    ).rejects.toThrow("This GitHub user is already a member of this organization.");
     await expect(
-      asOwner.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
-    ).resolves.toEqual({
-      state: "already_member",
-      organizationOwnerLogin: "samebase-test-org",
-    });
+      t.run(async (ctx) => await ctx.db.query("organizationInvitations").collect()),
+    ).resolves.toEqual([]);
     await expect(
-      t.run(async (ctx) => (await ctx.db.get(ids.ownerMembershipId))?.role),
-    ).resolves.toBe("owner");
+      t.run(async (ctx) => (await ctx.db.get(ids.memberMembershipId))?.role),
+    ).resolves.toBe("member");
   });
 
   it("rejects self-demotion and self-removal by the last active owner", async () => {

@@ -453,6 +453,18 @@ export const commitInvitation = internalMutation({
     if (accountOwners.length > 1) {
       throw new Error("This GitHub account belongs to conflicting Samebase accounts.");
     }
+    const accountOwner = accountOwners.at(0);
+    if (accountOwner !== undefined) {
+      const existingMembership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (builder) =>
+          builder.eq("organizationId", args.organizationId).eq("userId", accountOwner.userId),
+        )
+        .unique();
+      if (existingMembership !== null) {
+        throw new ConvexError("This GitHub user is already a member of this organization.");
+      }
+    }
 
     const pendingCandidate = await ctx.db
       .query("organizationInvitations")
@@ -493,19 +505,7 @@ export const commitInvitation = internalMutation({
     if (codeOwner !== null) {
       throw new Error("Invitation code collision.");
     }
-    const accountOwner = accountOwners.at(0);
-    const existingMembership =
-      accountOwner === undefined
-        ? null
-        : await ctx.db
-            .query("organizationMemberships")
-            .withIndex("by_organization_and_user", (builder) =>
-              builder.eq("organizationId", args.organizationId).eq("userId", accountOwner.userId),
-            )
-            .unique();
-    if (existingMembership === null) {
-      await requireAdditionalOrganizationMemberCapacity(ctx.db, args.organizationId);
-    }
+    await requireAdditionalOrganizationMemberCapacity(ctx.db, args.organizationId);
     const code = proposedCode;
     const expiresAt = now + 7 * 24 * 60 * 60 * 1000;
     const pendingInvitation = {
