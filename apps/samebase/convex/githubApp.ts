@@ -29,15 +29,6 @@ export type ExpiringGitHubUserAuthentication = {
   refreshTokenExpiresAt: number;
 };
 
-export type VerifiedGitHubAppInstallation = ExpiringGitHubUserAuthentication & {
-  installationId: string;
-  githubOwnerId: string;
-  githubOwnerType: "organization" | "user";
-  githubOwnerLogin: string;
-  githubUserId: string;
-  githubUserLogin: string;
-};
-
 export type VerifiedGitHubUserAuthorization = ExpiringGitHubUserAuthentication & {
   githubUserId: string;
   githubUserLogin: string;
@@ -571,23 +562,12 @@ async function hasGitHubOrganizationAdministratorAccess(args: {
   );
 }
 
-async function assertGitHubOrganizationAdministrator(args: {
-  octokit: Octokit;
-  githubOwnerId: string;
-  githubOwnerLogin: string;
-}): Promise<void> {
-  if (!(await hasGitHubOrganizationAdministratorAccess(args))) {
-    throw new Error("GitHub organization administrator verification failed.");
-  }
-}
-
 export async function listGitHubAppConnectionInstallations(args: {
-  accessToken: string;
+  octokit: Octokit;
   githubUserId: string;
 }): Promise<GitHubAppConnectionInstallation[]> {
   const configuration = getGitHubAppConfiguration();
-  const userOctokit = createGitHubUserOctokit(args.accessToken);
-  const visibleInstallations = await listUserVisibleInstallations(userOctokit);
+  const visibleInstallations = await listUserVisibleInstallations(args.octokit);
   const installations = [];
 
   for (const visibleInstallation of visibleInstallations) {
@@ -598,7 +578,7 @@ export async function listGitHubAppConnectionInstallations(args: {
       visibleInstallation.githubOwnerType === "user"
         ? visibleInstallation.githubOwnerId === args.githubUserId
         : await hasGitHubOrganizationAdministratorAccess({
-            octokit: userOctokit,
+            octokit: args.octokit,
             githubOwnerId: visibleInstallation.githubOwnerId,
             githubOwnerLogin: visibleInstallation.githubOwnerLogin,
           });
@@ -619,7 +599,7 @@ export async function listGitHubAppConnectionInstallations(args: {
 }
 
 export async function verifyGitHubAppConnectionInstallation(args: {
-  accessToken: string;
+  octokit: Octokit;
   githubUserId: string;
   installationId: string;
 }): Promise<GitHubAppConnectionInstallation> {
@@ -628,12 +608,19 @@ export async function verifyGitHubAppConnectionInstallation(args: {
     args.installationId,
     "GitHub installation ID",
   );
-  const userOctokit = createGitHubUserOctokit(args.accessToken);
   const userInstallation = await findUserVisibleInstallation({
-    octokit: userOctokit,
+    octokit: args.octokit,
     installationId: expectedInstallationId,
   });
-  const appInstallation = await readGitHubAppInstallation(args.installationId);
+  let appInstallation;
+  try {
+    appInstallation = await readGitHubAppInstallation(args.installationId);
+  } catch (error) {
+    if (error instanceof RequestError && error.status === 401) {
+      throw new Error("GitHub App authentication failed.");
+    }
+    throw error;
+  }
   assertMatchingInstallations({
     appId: configuration.appId,
     expectedInstallationId,
@@ -644,7 +631,7 @@ export async function verifyGitHubAppConnectionInstallation(args: {
     appInstallation.githubOwnerType === "user"
       ? appInstallation.githubOwnerId === args.githubUserId
       : await hasGitHubOrganizationAdministratorAccess({
-          octokit: userOctokit,
+          octokit: args.octokit,
           githubOwnerId: appInstallation.githubOwnerId,
           githubOwnerLogin: appInstallation.githubOwnerLogin,
         });
@@ -654,46 +641,5 @@ export async function verifyGitHubAppConnectionInstallation(args: {
     githubOwnerType: appInstallation.githubOwnerType,
     githubOwnerLogin: appInstallation.githubOwnerLogin,
     canManage,
-  };
-}
-
-export async function verifyGitHubAppInstallation(args: {
-  code: string;
-  state: string;
-  installationId: number;
-}): Promise<VerifiedGitHubAppInstallation> {
-  const configuration = getGitHubAppConfiguration();
-  const userAuthorization = await verifyGitHubUserAuthorizationWithConfiguration({
-    code: args.code,
-    state: args.state,
-    configuration,
-  });
-  const userOctokit = createGitHubUserOctokit(userAuthorization.accessToken);
-  const userInstallation = await findUserVisibleInstallation({
-    octokit: userOctokit,
-    installationId: args.installationId,
-  });
-
-  const appInstallation = await readGitHubAppInstallation(String(args.installationId));
-  assertMatchingInstallations({
-    appId: configuration.appId,
-    expectedInstallationId: args.installationId,
-    userInstallation,
-    appInstallation,
-  });
-  if (appInstallation.githubOwnerType === "organization") {
-    await assertGitHubOrganizationAdministrator({
-      octokit: userOctokit,
-      githubOwnerId: appInstallation.githubOwnerId,
-      githubOwnerLogin: appInstallation.githubOwnerLogin,
-    });
-  }
-
-  return {
-    ...userAuthorization,
-    installationId: appInstallation.installationId,
-    githubOwnerId: appInstallation.githubOwnerId,
-    githubOwnerType: appInstallation.githubOwnerType,
-    githubOwnerLogin: appInstallation.githubOwnerLogin,
   };
 }

@@ -1,6 +1,10 @@
-import { skipToken, useMutation, useQuery } from "@tanstack/react-query";
-import { Link, Navigate, useNavigate } from "@tanstack/react-router";
-import { useAction, useMutation as useConvexMutation } from "convex/react";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { Link, useNavigate } from "@tanstack/react-router";
+import {
+  useAction,
+  useMutation as useConvexMutation,
+  useQuery as useConvexQuery,
+} from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
@@ -10,23 +14,30 @@ import { Button } from "@/components/ui/button";
 import { GitHubProviderLogo } from "@/components/vault-dashboard/VaultDashboardLogos";
 import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
 import { openGitHubAppSetupPopup } from "@/lib/githubAppSetupFlow";
-import { buildOrganizationRoutePath, ORGANIZATION_VAULTS_ROUTE } from "@/lib/organizationRoutes";
+import { buildOrganizationRoutePath } from "@/lib/organizationRoutes";
+import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
 
 type ListResult = (typeof api.githubAppConnection.listOptions)["_returnType"];
 export type ConnectOrganizationOption = Extract<ListResult, { status: "ready" }>["options"][number];
+
+export type ConnectOrganizationPageState =
+  | { status: "loading" }
+  | { status: "github_sign_in_required" }
+  | { status: "authorization_required" }
+  | { status: "load_failed" }
+  | { status: "ready"; options: readonly ConnectOrganizationOption[] };
 
 type ConnectOrganizationPageViewProps = {
   authorizationNotice?: ReactNode;
   error: string | null;
   isAuthorizing: boolean;
   isInstalling: boolean;
-  loading: boolean;
   onAuthorize: () => void;
   onConnect: (installationId: string) => void;
   onInstall: () => void;
-  options: readonly ConnectOrganizationOption[] | null;
+  onRetry: () => void;
   pendingInstallationId: string | null;
-  session: string | undefined;
+  state: ConnectOrganizationPageState;
 };
 
 function readOptionMessage(option: ConnectOrganizationOption): {
@@ -51,16 +62,6 @@ function readOptionMessage(option: ConnectOrganizationOption): {
             ? "A GitHub organization owner must connect this installation."
             : "The GitHub account owner must connect this installation.",
       };
-    case "github_sign_in_required":
-      return {
-        status: "GitHub sign-in required",
-        detail: "Add this GitHub account as a Samebase sign-in method before you connect it.",
-      };
-    case "github_sign_in_mismatch":
-      return {
-        status: "Different GitHub sign-in",
-        detail: "This GitHub account does not match your Samebase GitHub sign-in method.",
-      };
     default:
       option satisfies never;
       return { status: "Unavailable" };
@@ -72,48 +73,67 @@ export function ConnectOrganizationPageView({
   error,
   isAuthorizing,
   isInstalling,
-  loading,
   onAuthorize,
   onConnect,
   onInstall,
-  options,
+  onRetry,
   pendingInstallationId,
-  session,
+  state,
 }: ConnectOrganizationPageViewProps) {
-  const hasSession = session !== undefined;
-  const showAuthorize = !hasSession || (!loading && options === null);
-
   return (
     <main
       className="container flex min-h-0 flex-1 flex-col py-6"
       data-testid="connect-organization-page"
     >
       <h1 className="mb-2 text-xl font-semibold @2xl:text-2xl">Connect organization</h1>
-      <p className="mb-6 max-w-3xl text-sm text-muted-foreground">
-        {showAuthorize
-          ? "Authorize GitHub to find Samebase GitHub App installations you can connect."
-          : "Choose a GitHub App installation."}
-      </p>
+      {state.status === "authorization_required" ? (
+        <p className="mb-6 max-w-3xl text-sm text-muted-foreground">
+          Authorize GitHub to find Samebase GitHub App installations you can connect.
+        </p>
+      ) : state.status === "github_sign_in_required" ? (
+        <p className="mb-6 max-w-3xl text-sm text-muted-foreground">
+          Connect GitHub in Account settings before you connect an organization.
+        </p>
+      ) : state.status === "ready" && state.options.length > 0 ? (
+        <p className="mb-6 max-w-3xl text-sm text-muted-foreground">
+          Choose a GitHub App installation.
+        </p>
+      ) : null}
       {authorizationNotice ? <div className="mb-4 max-w-3xl">{authorizationNotice}</div> : null}
       {error ? (
         <div className="mb-4 max-w-3xl">
           <AuthorizationErrorNotice>{error}</AuthorizationErrorNotice>
         </div>
       ) : null}
-      {showAuthorize ? (
+      {state.status === "authorization_required" ? (
         <Button className="w-fit" disabled={isAuthorizing} onClick={onAuthorize} type="button">
           {isAuthorizing ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
           {isAuthorizing ? "Opening..." : "Authorize GitHub"}
         </Button>
-      ) : loading || options === null ? (
+      ) : state.status === "github_sign_in_required" ? (
+        <Button asChild className="w-fit" variant="outline">
+          <Link hash="sign-in-methods" to={SETTINGS_ROUTE}>
+            Account settings
+          </Link>
+        </Button>
+      ) : state.status === "load_failed" ? (
+        <div className="max-w-3xl">
+          <AuthorizationErrorNotice>
+            Could not load GitHub App installations.
+          </AuthorizationErrorNotice>
+          <Button className="mt-4" onClick={onRetry} type="button" variant="outline">
+            Try again
+          </Button>
+        </div>
+      ) : state.status === "loading" ? (
         <div aria-label="Loading GitHub App installations" className="max-w-3xl py-4">
           <Loader2 aria-hidden="true" className="animate-spin" />
         </div>
-      ) : options.length === 0 ? (
+      ) : state.options.length === 0 ? (
         <section className="max-w-3xl">
           <h2 className="text-base font-semibold">No GitHub App installations</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Install the Samebase GitHub App for a GitHub account or organization.
+            Install the Samebase GitHub App for your GitHub account or an organization you manage.
           </p>
           <Button className="mt-4" disabled={isInstalling} onClick={onInstall} type="button">
             {isInstalling ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
@@ -123,7 +143,7 @@ export function ConnectOrganizationPageView({
       ) : (
         <div className="max-w-3xl">
           <ul aria-label="GitHub App installations" className="space-y-5">
-            {options.map((option) => {
+            {state.options.map((option) => {
               const message = readOptionMessage(option);
               const pending = pendingInstallationId === option.installationId;
               return (
@@ -184,7 +204,7 @@ export function ConnectOrganizationPageView({
             variant="link"
           >
             {isInstalling ? <Loader2 aria-hidden="true" className="animate-spin" /> : null}
-            {isInstalling ? "Opening..." : "Install for another account or organization"}
+            {isInstalling ? "Opening..." : "Install GitHub App"}
           </Button>
         </div>
       )}
@@ -194,32 +214,31 @@ export function ConnectOrganizationPageView({
 
 export function ConnectOrganizationPage({
   authorizationNotice,
-  session,
 }: {
   authorizationNotice?: ReactNode;
-  session: string | undefined;
 }) {
   const navigate = useNavigate();
-  const getConnectionUrl = useConvexMutation(
-    api.githubAppInstallation.getGitHubOrganizationConnectionUrl,
+  const getGitHubUserAuthorizationUrl = useConvexMutation(
+    api.githubAppInstallation.getGitHubUserAuthorizationUrl,
   );
   const getInstallationUrl = useConvexMutation(
     api.githubAppInstallation.getGitHubAppInstallationUrl,
   );
   const listOptions = useAction(api.githubAppConnection.listOptions);
   const connectInstallation = useAction(api.githubAppConnection.connectInstallation);
+  const viewer = useConvexQuery(api.users.viewer);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthorizing, setIsAuthorizing] = useState(false);
-  const [isInstalling, setIsInstalling] = useState(false);
+  const [pendingSetup, setPendingSetup] = useState<"github-app" | "github-user" | null>(null);
   const optionsQuery = useQuery({
-    queryFn: session ? async () => await listOptions({ session }) : skipToken,
-    queryKey: ["github-app-connection-options", session],
+    queryFn: () => listOptions({}),
+    queryKey: ["github-app-connection-options", viewer?._id],
+    enabled: viewer !== undefined && viewer !== null,
     refetchOnMount: "always",
     retry: false,
   });
   const connectMutation = useMutation({
-    mutationFn: async (args: (typeof api.githubAppConnection.connectInstallation)["_args"]) =>
-      await connectInstallation(args),
+    mutationFn: (args: (typeof api.githubAppConnection.connectInstallation)["_args"]) =>
+      connectInstallation(args),
     onError: () => setError("Could not connect this GitHub App installation."),
     onSuccess: async (result) => {
       switch (result.status) {
@@ -240,14 +259,9 @@ export function ConnectOrganizationPage({
         case "owner_required":
           await optionsQuery.refetch();
           return;
-        case "session_expired":
-          setError("GitHub authorization expired. Authorize GitHub again.");
-          return;
+        case "authorization_required":
         case "github_sign_in_required":
-          setError("Add this GitHub account as a Samebase sign-in method before you connect it.");
-          return;
-        case "github_sign_in_mismatch":
-          setError("This GitHub account does not match your Samebase GitHub sign-in method.");
+          setError(null);
           return;
         default:
           result satisfies never;
@@ -256,66 +270,52 @@ export function ConnectOrganizationPage({
   });
 
   const optionsResult = optionsQuery.data;
-  if (optionsResult?.status === "completed") {
-    return (
-      <Navigate
-        params={{ owner: optionsResult.organizationOwnerLogin }}
-        replace
-        to={ORGANIZATION_VAULTS_ROUTE}
-      />
-    );
-  }
-  const connectionUnavailable =
-    connectMutation.data?.status === "access_lost" ||
-    connectMutation.data?.status === "session_expired";
-  const options =
-    !connectionUnavailable && !optionsQuery.isError && optionsResult?.status === "ready"
-      ? optionsResult.options
-      : null;
-  const queryError = optionsQuery.isError
-    ? "Could not load GitHub App installations. Authorize GitHub again."
-    : optionsResult?.status === "session_expired"
-      ? "GitHub authorization expired. Authorize GitHub again."
-      : null;
-  const displayedError = error ?? (isAuthorizing || isInstalling ? null : queryError);
+  const state: ConnectOrganizationPageState =
+    connectMutation.data?.status === "authorization_required" ||
+    optionsResult?.status === "authorization_required"
+      ? { status: "authorization_required" }
+      : connectMutation.data?.status === "github_sign_in_required" ||
+          optionsResult?.status === "github_sign_in_required"
+        ? { status: "github_sign_in_required" }
+        : optionsQuery.isError
+          ? { status: "load_failed" }
+          : optionsResult?.status === "ready"
+            ? { status: "ready", options: optionsResult.options }
+            : { status: "loading" };
+  const isAuthorizing = pendingSetup === "github-user";
+  const isInstalling = pendingSetup === "github-app";
+  const displayedError = pendingSetup === null ? error : null;
   const pendingInstallationId = connectMutation.isPending
     ? connectMutation.variables.installationId
     : null;
 
-  const authorize = () => {
-    if (isAuthorizing) {
+  const openSetup = (provider: "github-app" | "github-user") => {
+    if (pendingSetup !== null) {
       return;
     }
-    setIsAuthorizing(true);
+    setPendingSetup(provider);
     setError(null);
-    void openGitHubAppSetupPopup(
-      "github-user",
-      async () => await getConnectionUrl({ returnToPath: getCurrentRootRelativeUrl() }),
+    void openGitHubAppSetupPopup(provider, () =>
+      provider === "github-user"
+        ? getGitHubUserAuthorizationUrl({ returnToPath: getCurrentRootRelativeUrl() })
+        : getInstallationUrl({ returnToPath: getCurrentRootRelativeUrl() }),
     )
-      .catch(() => setError("Could not open GitHub authorization."))
-      .finally(() => setIsAuthorizing(false));
-  };
-
-  const install = () => {
-    if (isInstalling) {
-      return;
-    }
-    setIsInstalling(true);
-    setError(null);
-    void openGitHubAppSetupPopup(
-      "github-app",
-      async () => await getInstallationUrl({ returnToPath: getCurrentRootRelativeUrl() }),
-    )
-      .catch(() => setError("Could not open GitHub App installation."))
-      .finally(() => setIsInstalling(false));
+      .catch(() =>
+        setError(
+          provider === "github-user"
+            ? "Could not open GitHub authorization."
+            : "Could not open GitHub App installation.",
+        ),
+      )
+      .finally(() => setPendingSetup(null));
   };
 
   const connect = (installationId: string) => {
-    if (!session || connectMutation.isPending) {
+    if (connectMutation.isPending) {
       return;
     }
     setError(null);
-    connectMutation.mutate({ session, installationId });
+    connectMutation.mutate({ installationId });
   };
 
   return (
@@ -324,13 +324,12 @@ export function ConnectOrganizationPage({
       error={displayedError}
       isAuthorizing={isAuthorizing}
       isInstalling={isInstalling}
-      loading={optionsQuery.isFetching}
-      onAuthorize={authorize}
+      onAuthorize={() => openSetup("github-user")}
       onConnect={connect}
-      onInstall={install}
-      options={options}
+      onInstall={() => openSetup("github-app")}
+      onRetry={() => void optionsQuery.refetch()}
       pendingInstallationId={pendingInstallationId}
-      session={session}
+      state={state}
     />
   );
 }

@@ -30,7 +30,6 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   organizationMemberships: "precondition_absent",
   organizationInvitations: "account_data",
   organizationBillingAccounts: "organization_preserved",
-  githubAppConnectionCredentials: "credential_revocation",
   githubAppSetupStates: "account_data",
   githubUserAuthorizations: "credential_revocation",
   workflow_accountDeletion_runs: "receipt",

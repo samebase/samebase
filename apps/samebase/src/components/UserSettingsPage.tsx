@@ -307,7 +307,11 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
         </form>
       </section>
 
-      <section className="mt-8 border-t pt-6" aria-labelledby="settings-sign-in-methods-heading">
+      <section
+        id="sign-in-methods"
+        className="mt-8 border-t pt-6"
+        aria-labelledby="settings-sign-in-methods-heading"
+      >
         <h2 id="settings-sign-in-methods-heading" className="text-base font-semibold">
           Sign-in methods
         </h2>

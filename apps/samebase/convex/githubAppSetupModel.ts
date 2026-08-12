@@ -6,7 +6,6 @@ const { id, literal, number, object, optional, string, union } = v;
 export const vGitHubAppSetupPurpose = union(
   literal("installation"),
   literal("installation_reconnect"),
-  literal("organization_connection"),
   literal("user_authorization"),
 );
 
@@ -22,7 +21,7 @@ export const vGitHubAppSetupState = object({
 });
 
 export const githubAppSetupTables = {
-  /** One-use state for GitHub App installation, discovery, or personal authorization. */
+  /** One-use state for GitHub App installation or user authorization. */
   githubAppSetupStates: defineTable(vGitHubAppSetupState)
     .index("by_state", ["state"])
     .index("by_user", ["userId"])

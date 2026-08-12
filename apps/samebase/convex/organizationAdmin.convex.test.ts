@@ -152,7 +152,7 @@ describe("organization deletion", () => {
       await ctx.db.insert("githubAppSetupStates", {
         userId: seed.ownerId,
         state: "setup-state",
-        purpose: "organization_connection",
+        purpose: "installation_reconnect",
         organizationId: seed.organizationId,
         createdAt: 1,
         expiresAt: 2,

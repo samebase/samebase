@@ -861,7 +861,7 @@ describe("appRouter", () => {
   });
 
   it("renders organization connection through a global route", async () => {
-    await renderRoute("/connect-organization?github-connection-session=test-session");
+    await renderRoute("/connect-organization");
 
     expect(
       rootElement?.querySelector('[data-testid="connect-organization-page"]')?.textContent,

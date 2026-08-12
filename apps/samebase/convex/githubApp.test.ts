@@ -36,11 +36,11 @@ vi.mock("@octokit/rest", () => ({
 }));
 
 import {
+  createGitHubUserOctokit,
   discoverPreviewSeedGitHubAppInstallations,
   listGitHubAppConnectionInstallations,
   readGitHubAppInstallation,
   verifyGitHubAppConnectionInstallation,
-  verifyGitHubAppInstallation,
   verifyGitHubUserAuthorization,
 } from "./githubApp";
 
@@ -381,42 +381,6 @@ describe("GitHub App installation verification", () => {
     );
   });
 
-  it("requires active administrator membership in the installation organization", async () => {
-    await expect(
-      verifyGitHubAppInstallation({
-        code: "code",
-        state: "state",
-        installationId: 1001,
-      }),
-    ).resolves.toMatchObject({
-      githubOwnerId: "101",
-      githubOwnerType: "organization",
-      githubUserId: "202",
-    });
-    expect(githubMocks.request).toHaveBeenCalledWith("GET /user/memberships/orgs/{org}", {
-      org: "samebase",
-    });
-
-    githubMocks.membership.role = "member";
-    await expect(
-      verifyGitHubAppInstallation({
-        code: "code",
-        state: "state",
-        installationId: 1001,
-      }),
-    ).rejects.toThrow("GitHub organization administrator verification failed.");
-
-    githubMocks.membership.role = "admin";
-    githubMocks.membership.state = "pending";
-    await expect(
-      verifyGitHubAppInstallation({
-        code: "code",
-        state: "state",
-        installationId: 1001,
-      }),
-    ).rejects.toThrow("GitHub organization administrator verification failed.");
-  });
-
   it("classifies visible installations by live GitHub owner authority", async () => {
     const adminInstallation = installation();
     const memberInstallation = appInstallationFixture();
@@ -469,7 +433,7 @@ describe("GitHub App installation verification", () => {
 
     await expect(
       listGitHubAppConnectionInstallations({
-        accessToken: "access-token",
+        octokit: createGitHubUserOctokit("access-token"),
         githubUserId: "202",
       }),
     ).resolves.toEqual([
@@ -506,7 +470,7 @@ describe("GitHub App installation verification", () => {
 
     await expect(
       verifyGitHubAppConnectionInstallation({
-        accessToken: "access-token",
+        octokit: createGitHubUserOctokit("access-token"),
         githubUserId: "202",
         installationId: "1001",
       }),
@@ -521,12 +485,12 @@ describe("GitHub App installation verification", () => {
     githubMocks.membership.organizationId = 303;
 
     await expect(
-      verifyGitHubAppInstallation({
-        code: "code",
-        state: "state",
-        installationId: 1001,
+      verifyGitHubAppConnectionInstallation({
+        octokit: createGitHubUserOctokit("access-token"),
+        githubUserId: "202",
+        installationId: "1001",
       }),
-    ).rejects.toThrow("GitHub organization administrator verification failed.");
+    ).resolves.toMatchObject({ canManage: false });
   });
 
   it("keeps personal installation verification on the existing exact-user path", async () => {
@@ -535,15 +499,15 @@ describe("GitHub App installation verification", () => {
     githubMocks.owner.type = "User";
 
     await expect(
-      verifyGitHubAppInstallation({
-        code: "code",
-        state: "state",
-        installationId: 1001,
+      verifyGitHubAppConnectionInstallation({
+        octokit: createGitHubUserOctokit("access-token"),
+        githubUserId: "202",
+        installationId: "1001",
       }),
     ).resolves.toMatchObject({
       githubOwnerId: "202",
       githubOwnerType: "user",
-      githubUserId: "202",
+      canManage: true,
     });
     expect(githubMocks.request).not.toHaveBeenCalledWith(
       "GET /user/memberships/orgs/{org}",
