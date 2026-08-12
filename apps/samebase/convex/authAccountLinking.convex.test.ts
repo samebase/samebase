@@ -182,10 +182,10 @@ describe("Samebase OAuth account linking", () => {
     const user = await t.run(async (ctx) => await ctx.db.get(userId));
     expect(user).toMatchObject({
       email: "new-github@example.com",
-      name: "OAuth User",
-      image: "https://example.com/avatar.png",
       emailVerificationTime: expect.any(Number),
     });
+    expect(user).not.toHaveProperty("name");
+    expect(user).not.toHaveProperty("image");
   });
 
   it("links GitHub to the user whose current session has a valid intent", async () => {

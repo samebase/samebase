@@ -10,15 +10,16 @@ import {
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
-const userProfileFields = {
+// Existing deployments allow these fields until cleanupUnusedUserProfileFields finishes.
+const storedUnusedUserFields = {
   name: optional(string()),
-  displayName: optional(string()),
   image: optional(string()),
+};
+
+const userProfileFields = {
+  displayName: optional(string()),
   email: string(),
   emailVerificationTime: optional(number()),
-  phone: optional(string()),
-  phoneVerificationTime: optional(number()),
-  isAnonymous: optional(boolean()),
   isApproved: optional(boolean()),
 };
 
@@ -26,6 +27,7 @@ export const vUserProfile = object(userProfileFields);
 export type UserProfile = Infer<typeof vUserProfile>;
 
 const deletingUserFields = {
+  ...storedUnusedUserFields,
   ...userProfileFields,
   runId: id("workflow_accountDeletion_runs"),
   requestedAt: number(),
@@ -33,6 +35,7 @@ const deletingUserFields = {
 
 export const vActiveUser = object({
   state: literal("active"),
+  ...storedUnusedUserFields,
   ...userProfileFields,
 });
 
@@ -56,6 +59,7 @@ const userDocFields = {
 export const vActiveUserDoc = object({
   state: literal("active"),
   ...userDocFields,
+  ...storedUnusedUserFields,
   ...userProfileFields,
 });
 
@@ -82,13 +86,8 @@ export function readNonDeletedUser(user: Doc<"users">): NonDeletedUserLifecycleD
 export function readUserProfile(user: NonDeletedUserLifecycleDoc): UserProfile {
   return omitUndefined({
     email: user.email,
-    name: user.name,
     displayName: user.displayName,
-    image: user.image,
     emailVerificationTime: user.emailVerificationTime,
-    phone: user.phone,
-    phoneVerificationTime: user.phoneVerificationTime,
-    isAnonymous: user.isAnonymous,
     isApproved: user.isApproved,
   });
 }

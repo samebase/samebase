@@ -115,6 +115,7 @@ import type * as usageAttribution from "../usageAttribution.js";
 import type * as userAccess from "../userAccess.js";
 import type * as userLifecycle from "../userLifecycle.js";
 import type * as userPreferenceModel from "../userPreferenceModel.js";
+import type * as userProfileMigration from "../userProfileMigration.js";
 import type * as users from "../users.js";
 import type * as vault_actions from "../vault/actions.js";
 import type * as vault_branchModel from "../vault/branchModel.js";
@@ -279,6 +280,7 @@ declare const fullApi: ApiFromModules<{
   userAccess: typeof userAccess;
   userLifecycle: typeof userLifecycle;
   userPreferenceModel: typeof userPreferenceModel;
+  userProfileMigration: typeof userProfileMigration;
   users: typeof users;
   "vault/actions": typeof vault_actions;
   "vault/branchModel": typeof vault_branchModel;

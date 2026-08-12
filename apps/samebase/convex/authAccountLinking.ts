@@ -279,8 +279,6 @@ async function createOrResolveOAuthUser(
     state: "active",
     email: profile.email,
     emailVerificationTime: now,
-    ...(profile.name ? { name: profile.name } : {}),
-    ...(profile.image ? { image: profile.image } : {}),
   });
   await sendNewUserNotification(ctx, {
     profile: args.profile,
