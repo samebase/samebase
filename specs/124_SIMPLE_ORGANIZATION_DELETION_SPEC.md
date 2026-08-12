@@ -17,8 +17,8 @@ The mutation accepts deletion only when all these conditions are true:
   deletion.
 - The organization has no Samebase vaults. The owner must delete each vault first and keep all
   provider resource deletion options off.
-- Billing is `free` and `inactive`.
-- Billing has no Polar Customer ID and no pending or open checkout.
+- Billing is `free` and `inactive`, with no pending or open checkout. A Polar Customer ID retained
+  after a Pro subscription ends does not block deletion.
 - No provisioning data remains.
 - Every retained vault deletion run succeeded.
 
@@ -45,10 +45,10 @@ after a partial local deletion.
 ## External Resources
 
 The mutation does not call GitHub, Convex, Cloudflare, or Polar. It does not uninstall the GitHub
-App or delete repositories, projects, deployments, Workers, or domains.
+App or delete repositories, projects, deployments, Workers, domains, or an inactive Polar Customer.
 
-Paid organizations and organizations with unresolved provider work stay manual until real customer
-use requires a larger product flow.
+An organization with Pro, a cancellation that has not finished, or unresolved provider work cannot
+be deleted.
 
 ## Account Deletion
 

@@ -341,7 +341,7 @@ describe("organization deletion", () => {
     ).rejects.toThrow("Remove every Samebase vault before you delete this organization.");
   });
 
-  it("rejects paid or pending billing", async () => {
+  it("rejects Pro billing", async () => {
     const t = makeConvexTest();
     const seed = await seedDeletableOrganization(t, "billing");
     await t.run(async (ctx) => {
@@ -359,6 +359,61 @@ describe("organization deletion", () => {
         deletionConfirmationText: "organization-billing",
       }),
     ).rejects.toThrow("Resolve organization billing before you delete this organization.");
+  });
+
+  it("rejects a pending Polar checkout", async () => {
+    const t = makeConvexTest();
+    const seed = await seedDeletableOrganization(t, "pending-checkout");
+    await t.run(async (ctx) => {
+      await ctx.db.patch(seed.billingId, {
+        provider: "polar",
+        polarExternalCustomerId: "polar-pending-checkout-customer",
+        polarBillingUserId: seed.ownerId,
+        polarCheckoutAttempt: {
+          state: "pending",
+          attemptId: "pending-checkout-attempt",
+        },
+      });
+    });
+
+    await expect(
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
+        organizationId: seed.organizationId,
+        deletionConfirmationText: "organization-pending-checkout",
+      }),
+    ).rejects.toThrow("Resolve organization billing before you delete this organization.");
+  });
+
+  it("deletes a Free organization after its Pro subscription ends", async () => {
+    const t = makeConvexTest();
+    const seed = await seedDeletableOrganization(t, "ended-pro");
+    await t.run(async (ctx) => {
+      await ctx.db.patch(seed.billingId, {
+        provider: "polar",
+        polarExternalCustomerId: "polar-ended-pro-customer",
+        polarBillingUserId: seed.ownerId,
+        updatedAt: 2,
+      });
+    });
+
+    await expect(
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
+        organizationId: seed.organizationId,
+        deletionConfirmationText: "organization-ended-pro",
+      }),
+    ).resolves.toBeNull();
+
+    await expect(
+      t.run(async (ctx) => ({
+        billing: await ctx.db.get(seed.billingId),
+        membership: await ctx.db.get(seed.membershipId),
+        organization: await ctx.db.get(seed.organizationId),
+      })),
+    ).resolves.toEqual({
+      billing: null,
+      membership: null,
+      organization: null,
+    });
   });
 
   it("rejects unfinished provisioning data", async () => {

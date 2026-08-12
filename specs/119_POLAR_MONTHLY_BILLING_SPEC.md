@@ -75,6 +75,10 @@ the organization has too many members for Free at that time, normal organization
 until an owner removes members or starts Pro again. Polar keeps the canceled subscription as
 history, but Samebase treats it as no current subscription.
 
+Organization deletion stays blocked until Polar reports no current subscription and Samebase stores
+`free` and `inactive`. The retained Polar Customer ID does not block deletion. A pending or open
+checkout still blocks deletion because it can create a new subscription.
+
 ### Product Catalog
 
 Product IDs are non-secret tracked configuration. The Polar access token and webhook secret remain
@@ -226,6 +230,8 @@ The contract is complete only when tests and Sandbox checks prove:
 - Cancellation sets `cancelAtPeriodEnd` without changing the product.
 - Scheduled cancellation keeps Pro until the paid period ends.
 - Subscription end changes Samebase to Free without a local period-end job.
+- A Free, inactive organization can be deleted after Pro ends even when its Polar Customer ID is
+  retained.
 - Checkout redirects do not grant Pro or seat capacity.
 - Duplicate, out-of-order, invalid, and malformed webhook deliveries are safe.
 - One Samebase user can own several isolated Polar team Customers.
