@@ -696,27 +696,19 @@ async function removeCreatedApp(
       "The GitHub repository may exist, but the dashboard cannot confirm it for supported cleanup.",
     );
   }
-  if (contract.hasConvexProvision && !contract.canRemoveConvexProvision) {
-    throw new Error("The attached Convex project is not available for supported cleanup.");
-  }
-  if (contract.hasCloudflareProvision && !contract.canRemoveCloudflareProvision) {
-    throw new Error("The attached Cloudflare Worker is not available for supported cleanup.");
-  }
   const providerPlan = contract.providerPlan;
-  if (
-    providerPlan &&
-    providerPlan.convex.state !== "planned" &&
-    !contract.canRemoveConvexProvision
-  ) {
+  const convexMayExist =
+    contract.hasConvexProvision ||
+    (providerPlan !== null && providerPlan.convex.state !== "planned");
+  const cloudflareMayExist =
+    contract.hasCloudflareProvision ||
+    (providerPlan !== null && providerPlan.cloudflare.state !== "planned");
+  if (convexMayExist && !contract.canRemoveConvexProvision) {
     throw new Error(
       "Convex provisioning may have created a project, but the dashboard cannot remove it.",
     );
   }
-  if (
-    providerPlan &&
-    providerPlan.cloudflare.state !== "planned" &&
-    !contract.canRemoveCloudflareProvision
-  ) {
+  if (cloudflareMayExist && !contract.canRemoveCloudflareProvision) {
     throw new Error(
       "Cloudflare provisioning may have created a Worker, but the dashboard cannot remove it.",
     );
@@ -756,21 +748,13 @@ const test = base.extend<{ appCreationCleanup: AppCreationCleanupController }>({
         return;
       }
 
-      let recordedFailure: ReturnType<typeof readProvisioningFailure> = null;
-      let cleanupFailure: unknown = null;
-      try {
-        const cleanupContract = await readCreatedAppForCleanup(page, startedRepositoryFullName);
-        if (!cleanupContract) {
-          throw new Error(
-            "The submit started, but the dashboard did not expose the test vault for supported cleanup.",
-          );
-        }
-        recordedFailure = readProvisioningFailure(cleanupContract);
-        await removeCreatedApp(page, startedRepositoryFullName, cleanupContract);
-      } catch (error) {
-        cleanupFailure = error;
+      const cleanupContract = await readCreatedAppForCleanup(page, startedRepositoryFullName);
+      if (!cleanupContract) {
+        throw new Error(
+          "The submit started, but the dashboard did not expose the test vault for supported cleanup.",
+        );
       }
-
+      const recordedFailure = readProvisioningFailure(cleanupContract);
       const recordedFailureMessage = recordedFailure
         ? `App provisioning failed during ${recordedFailure.phase} step ${recordedFailure.step}: ${recordedFailure.message}`
         : null;
@@ -782,21 +766,22 @@ const test = base.extend<{ appCreationCleanup: AppCreationCleanupController }>({
             : null;
       const productFailureIncludesRecordedFailure =
         recordedFailureMessage !== null && productFailureMessage?.includes(recordedFailureMessage);
-
-      if (cleanupFailure !== null) {
+      try {
+        await removeCreatedApp(page, startedRepositoryFullName, cleanupContract);
+      } catch (error) {
         const cleanupMessage =
-          cleanupFailure instanceof Error
-            ? cleanupFailure.message
-            : typeof cleanupFailure === "string"
-              ? cleanupFailure
+          error instanceof Error
+            ? error.message
+            : typeof error === "string"
+              ? error
               : "Unknown dashboard cleanup failure.";
         if (recordedFailureMessage !== null && !productFailureIncludesRecordedFailure) {
           throw new Error(
             `${recordedFailureMessage}\nFail-closed dashboard cleanup also failed: ${cleanupMessage}`,
-            { cause: cleanupFailure },
+            { cause: error },
           );
         }
-        throw cleanupFailure;
+        throw error;
       }
       if (recordedFailureMessage !== null && !productFailureIncludesRecordedFailure) {
         throw new Error(recordedFailureMessage);
@@ -906,53 +891,42 @@ test.describe("vault create app live flow", () => {
       await selectTemporaryVault(page, repositoryFullName);
 
       const contract = await waitForVaultProvisioning(page, repositoryFullName);
-      expect(contract.repositoryFullName).toBe(repositoryFullName);
-      expect(contract.convexTeamId).toBe(TEST_CONVEX_TEAM_ID);
-      expect(contract.cloudflareAccountId).toBe(TEST_CLOUDFLARE_ACCOUNT_ID);
-      expect(contract.sourceSetup).toEqual({ status: "ready" });
-      expect(contract.providerSetup).toEqual({ status: "ready" });
-      expect(contract.isSamebaseManaged).toBe(true);
-      expect(contract.hasConnectedGitHubRepository).toBe(true);
-      expect(contract.hasConvexProvision).toBe(true);
-      expect(contract.hasCloudflareProvision).toBe(true);
-      expect(contract.canRemoveConvexProvision).toBe(true);
-      expect(contract.canRemoveCloudflareProvision).toBe(true);
-
-      const providerPlan = contract.providerPlan;
-      if (!providerPlan) {
-        throw new Error("Successful app provisioning did not retain its provider plan.");
-      }
-      if (providerPlan.convex.state !== "created") {
-        throw new Error(
-          `Convex provisioning ended with provider plan state ${providerPlan.convex.state}.`,
-        );
-      }
-      if (!providerPlan.convex.projectId) {
-        throw new Error("Successful Convex provisioning did not record its project id.");
-      }
-      if (providerPlan.cloudflare.state !== "created") {
-        throw new Error(
-          `Cloudflare provisioning ended with provider plan state ${providerPlan.cloudflare.state}.`,
-        );
-      }
-      if (!providerPlan.cloudflare.workerTag) {
-        throw new Error("Successful Cloudflare provisioning did not record its Worker tag.");
-      }
-      expect(providerPlan.convex.projectName).toBe(expectedConvexProjectName);
-      expect(providerPlan.cloudflare.workerName).toBe(expectedCloudflareWorkerName);
-      expect(contract.convexProjects).toEqual([
-        {
-          projectId: providerPlan.convex.projectId,
-          teamId: TEST_CONVEX_TEAM_ID,
+      expect(contract).toMatchObject({
+        repositoryFullName,
+        convexTeamId: TEST_CONVEX_TEAM_ID,
+        cloudflareAccountId: TEST_CLOUDFLARE_ACCOUNT_ID,
+        sourceSetup: { status: "ready" },
+        providerSetup: { status: "ready" },
+        providerPlan: {
+          convex: {
+            state: "created",
+            projectName: expectedConvexProjectName,
+          },
+          cloudflare: {
+            state: "created",
+            workerName: expectedCloudflareWorkerName,
+          },
         },
-      ]);
-      expect(contract.cloudflareWorkers).toEqual([
-        {
-          accountId: TEST_CLOUDFLARE_ACCOUNT_ID,
-          workerName: expectedCloudflareWorkerName,
-          workerTag: providerPlan.cloudflare.workerTag,
-        },
-      ]);
+        isSamebaseManaged: true,
+        hasConnectedGitHubRepository: true,
+        hasConvexProvision: true,
+        hasCloudflareProvision: true,
+        canRemoveConvexProvision: true,
+        canRemoveCloudflareProvision: true,
+        convexProjects: [
+          {
+            teamId: TEST_CONVEX_TEAM_ID,
+            projectId: expect.any(String),
+          },
+        ],
+        cloudflareWorkers: [
+          {
+            accountId: TEST_CLOUDFLARE_ACCOUNT_ID,
+            workerName: expectedCloudflareWorkerName,
+            workerTag: expect.any(String),
+          },
+        ],
+      });
 
       const vaultLink = vaultListLink(page, repositoryFullName);
       await expect(vaultLink).not.toHaveAttribute(

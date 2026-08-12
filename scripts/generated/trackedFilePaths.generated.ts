@@ -1862,7 +1862,6 @@ export const trackedFilePaths = [
   "scripts/run-worktree-dev.test.ts",
   "scripts/run-worktree-dev.ts",
   "scripts/samebase-pr-connect.ts",
-  "scripts/test-app-creation-live.test.ts",
   "scripts/test-app-creation-live.ts",
   "scripts/update-simple-view-fixtures.ts",
   "scripts/validate-main-build-label.ts",

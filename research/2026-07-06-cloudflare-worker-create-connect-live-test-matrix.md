@@ -5,24 +5,11 @@ Date: 2026-07-06 Branch: `codex-cloudflare-worker-phase-4`
 This matrix tracks live verification for the Cloudflare Worker create/connect feature after Phase 4
 split the flow into Worker attachment, Workers Builds wiring, and Convex deploy-key wiring.
 
-This is historical evidence from 2026-07-06. Its CF-01 and CF-09 runs did not wait for the durable
-provisioning and deletion workflows. They are not proof of the current full app-creation contract.
-The current owner is `vault-create-app.live.spec.ts`,
-`creates and fully provisions a temporary app, then removes its resources`.
-
-The historical resources used the `tmp-e19d-` prefix. The current owner creates each managed app as
-`tmp-<worktree-id>-app-create-<timestamp>-<random>`.
-
-## Gate Recommendation
-
-Run the current owner as one serialized scheduled or manual gate in a protected development/test
-deployment. Do not make it a required pull-request CI check. The full create, verify, and cleanup
-run has a two-minute hard limit. It writes a GitHub repository, a Convex project/deployment, and a
-Cloudflare Worker before the asynchronous dashboard cleanup removes them. The gate therefore needs a
-dedicated authenticated Samebase test user, a test-owned GitHub organization, Convex team, and
-Cloudflare account, plus their live provider credentials, GitHub App installations, and Workers
-Builds token. Normal pull-request CI does not have that secret or external-write authority. The gate
-must stay failed until the dashboard reports two loaded vault-absence checks after cleanup.
+This is historical evidence from 2026-07-06. CF-01 and CF-09 did not wait for the durable workflows,
+so they do not prove the current full app-creation contract. That contract now belongs to
+`vault-create-app.live.spec.ts`, in the test named
+`creates and fully provisions a temporary app, then removes its resources`. It uses names that start
+with `tmp-<worktree-id>-app-create`.
 
 ## User Stories
 
@@ -45,7 +32,7 @@ must stay failed until the dashboard reports two loaded vault-absence checks aft
 ## Live Commands
 
 ```sh
-PLAYWRIGHT_BASE_URL=http://127.0.0.1:5174 PLAYWRIGHT_WORKTREE_ID=e19d PLAYWRIGHT_TEST_GITHUB_OWNER=<test-owned-github-organization> pnpm exec playwright test -c apps/samebase/playwright.live.config.ts apps/samebase/e2e/vault-create-app.live.spec.ts --project=chromium-desktop -g "creates and fully provisions a temporary app, then removes its resources"
+pnpm test:app-creation-live
 ```
 
 ```sh
