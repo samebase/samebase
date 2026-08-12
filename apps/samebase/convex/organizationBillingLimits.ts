@@ -98,7 +98,7 @@ export async function requireAdditionalOrganizationMemberCapacity(
   const { capacity } = await readOrganizationMemberCapacityFromDb(db, organizationId);
   if ((await readOrganizationMembershipCount(db, organizationId)) >= capacity) {
     throw new ConvexError(
-      "This organization needs another paid member seat before you can accept this invitation.",
+      "This organization needs another paid member seat before another member can join.",
     );
   }
 }

@@ -357,6 +357,23 @@ describe("organization member lifecycle", () => {
     githubMocks.getOrganizationMembershipForUser.mockResolvedValue({
       data: githubMembership(200),
     });
+    await t.run(async (ctx) => {
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Billing account is required.");
+      }
+      await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: `members-customer-${ids.organizationId}`,
+        polarBillingUserId: ids.ownerUserId,
+        polarSeatQuantity: 3,
+      });
+    });
 
     const target = await asOwner.action(api.organizationMembers.resolveInvitationTarget, {
       organizationId: ids.organizationId,
@@ -455,21 +472,6 @@ describe("organization member lifecycle", () => {
         email: "invitee@example.invalid",
         isApproved: false,
       });
-      const billingAccount = await ctx.db
-        .query("organizationBillingAccounts")
-        .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
-        .unique();
-      if (billingAccount === null) {
-        throw new Error("Billing account is required.");
-      }
-      await ctx.db.patch(billingAccount._id, {
-        provider: "polar",
-        plan: "pro",
-        status: "active",
-        polarExternalCustomerId: `members-customer-${ids.organizationId}`,
-        polarBillingUserId: ids.ownerUserId,
-        polarSeatQuantity: 3,
-      });
     });
 
     await expect(
@@ -558,8 +560,24 @@ describe("organization member lifecycle", () => {
     });
   });
 
-  it("keeps an invitation pending until Polar capacity is verified", async () => {
-    const { asInvitee, ids, t } = await seedMembers();
+  it("blocks new invitations and keeps existing invitations pending without capacity", async () => {
+    const { asInvitee, asOwner, ids, t } = await seedMembers();
+    githubMocks.getInstallationUserByLogin.mockResolvedValue({
+      data: githubUser(200, "invitee-login"),
+    });
+    await expect(
+      asOwner.action(api.organizationMembers.createInvitation, {
+        organizationId: ids.organizationId,
+        githubLogin: "invitee-login",
+        expectedGithubAccountId: "200",
+      }),
+    ).rejects.toThrow(
+      "This organization needs another paid member seat before another member can join.",
+    );
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("organizationInvitations").collect()),
+    ).resolves.toEqual([]);
+
     const code = "e".repeat(64);
     const { billingAccountId, invitationId } = await t.run(async (ctx) => {
       const billingAccount = await ctx.db
@@ -589,7 +607,7 @@ describe("organization member lifecycle", () => {
     await expect(
       asInvitee.mutation(api.organizationMembers.acceptInvitation, { code }),
     ).rejects.toThrow(
-      "This organization needs another paid member seat before you can accept this invitation.",
+      "This organization needs another paid member seat before another member can join.",
     );
     await expect(t.run(async (ctx) => await ctx.db.get(invitationId))).resolves.toMatchObject({
       state: "pending",
@@ -908,6 +926,21 @@ describe("organization member lifecycle", () => {
         expiresAt: Date.now() + 60_000,
         state: "pending",
       });
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Billing account is required.");
+      }
+      await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: `members-customer-${ids.organizationId}`,
+        polarBillingUserId: ids.ownerUserId,
+        polarSeatQuantity: 3,
+      });
       return { expiredInvitationId, cancelInvitationId };
     });
 
@@ -1027,7 +1060,7 @@ describe("organization member lifecycle", () => {
   });
 
   it("uses the public GitHub user when the installation returns 404", async () => {
-    const { asOwner, ids } = await seedMembers();
+    const { asOwner, ids, t } = await seedMembers();
     githubMocks.getInstallationUserByLogin.mockRejectedValue(githubRequestError(404));
     githubMocks.getPublicUserByLogin.mockResolvedValue({
       data: githubUser(205, "fallback-target"),
@@ -1041,6 +1074,9 @@ describe("organization member lifecycle", () => {
       expectedGithubAccountId: "205",
       githubLogin: "fallback-target",
       relationship: "unavailable",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.delete(ids.memberMembershipId);
     });
     await expect(
       asOwner.action(api.organizationMembers.createInvitation, {

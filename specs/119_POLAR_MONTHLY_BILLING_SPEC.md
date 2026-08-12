@@ -107,6 +107,8 @@ a trusted reconciliation operation.
 - Repeated or out-of-order webhooks must converge on current Polar Customer state.
 - Invalid provider data must not remove an existing entitlement.
 - A pending invitation does not consume capacity.
+- Writing or reissuing an invitation that can add a member requires available member capacity, but
+  the invitation does not reserve that capacity.
 - A current membership for an active user consumes one seat.
 - Removing a member or leaving an organization schedules a Polar seat reduction after the local
   membership deletion commits.
@@ -115,9 +117,10 @@ a trusted reconciliation operation.
 - A seat reduction is skipped after cancellation is scheduled. The subscription is already ending,
   and the local membership removal still removes access immediately.
 
-An invitation can become a membership only after capacity exists. Invitation acceptance checks the
-stored capacity and inserts the membership in one Convex transaction. If capacity is not available,
-the invitation stays pending.
+Writing or reissuing an invitation that can add a member requires available capacity. Invitation
+acceptance checks the stored capacity and inserts the membership in one Convex transaction. Capacity
+can change after an invitation is created, so an invitation stays pending if capacity is no longer
+available.
 
 `subscription.updated` is the required wake-up for subscription and seat changes.
 `customer.state_changed` can remain as a broader reconciliation signal. Both events lead to a full
@@ -222,6 +225,7 @@ The contract is complete only when tests and Sandbox checks prove:
 - Checkout selects the only current Pro catalog version.
 - Reconciliation accepts current and retained historical Pro versions and rejects unknown products.
 - A pending invitation does not count as a current membership.
+- A new or reissued invitation fails when current memberships fill verified capacity.
 - Invitation acceptance fails without verified capacity and succeeds after capacity is reconciled.
 - Concurrent invitation acceptances cannot both consume the last available seat.
 - A member accepted during a seat reduction does not leave capacity below membership count.
