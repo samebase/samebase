@@ -350,6 +350,16 @@ describe("organization provider status", () => {
     expect(deletingConnectorStatuses.every((status) => !("connectedBy" in status))).toBe(true);
 
     await t.run(async (ctx) => {
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", organizationId).eq("userId", userId),
+        )
+        .unique();
+      if (membership === null) {
+        throw new Error("Organization membership is required.");
+      }
+      await ctx.db.delete(membership._id);
       await ctx.db.delete(userId);
     });
     await expect(
