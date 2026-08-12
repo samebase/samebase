@@ -16,8 +16,37 @@ export type PolarProductCatalogEntry = {
 export type PolarProductCatalog = readonly PolarProductCatalogEntry[];
 
 const POLAR_API_TIMEOUT_MS = 10_000;
-const POLAR_PRODUCT_CATALOG = {
-  sandbox: [],
+export const POLAR_PRODUCT_CATALOG = {
+  sandbox: [
+    {
+      productId: "7782b9a4-beb8-4ff5-8455-24976deacbc1",
+      ownerType: "organization",
+      plan: "free",
+      version: 1,
+      availableForCheckout: true,
+    },
+    {
+      productId: "0e721c02-c98b-425b-bc8d-fb323fa54925",
+      ownerType: "organization",
+      plan: "pro",
+      version: 1,
+      availableForCheckout: true,
+    },
+    {
+      productId: "746b5cca-6043-477f-afc1-337443e71f2b",
+      ownerType: "user",
+      plan: "free",
+      version: 1,
+      availableForCheckout: true,
+    },
+    {
+      productId: "55811c0d-bc67-4bd4-b715-b9bd801a2911",
+      ownerType: "user",
+      plan: "pro",
+      version: 1,
+      availableForCheckout: true,
+    },
+  ],
   production: [],
 } satisfies Record<PolarServer, PolarProductCatalog>;
 
