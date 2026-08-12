@@ -20,6 +20,7 @@ import { OAUTH_STATE_TTL_MS, randomToken } from "./oauthUtils";
 import { findOrganizationMembership } from "./organizationAccess";
 import { vGitHubOwnerType } from "./organizationModel";
 import { readActiveUser } from "./userLifecycle";
+import { canAccess } from "../shared/accessModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -66,6 +67,7 @@ const vConnectionOption = union(
 const vConnectionResult = union(
   object({ status: literal("connected"), organizationOwnerLogin: string() }),
   object({ status: literal("open"), organizationOwnerLogin: string() }),
+  object({ status: literal("access_lost") }),
   object({ status: literal("invite_required") }),
   object({ status: literal("owner_required") }),
   object({ status: literal("session_expired") }),
@@ -75,6 +77,7 @@ const vConnectionResult = union(
 type ConnectionResult = Infer<typeof vConnectionResult>;
 const vListOptionsResult = union(
   object({ status: literal("ready"), options: array(vConnectionOption) }),
+  object({ status: literal("completed"), organizationOwnerLogin: string() }),
   object({ status: literal("session_expired") }),
 );
 type ListOptionsResult = Infer<typeof vListOptionsResult>;
@@ -82,10 +85,38 @@ type ListOptionsResult = Infer<typeof vListOptionsResult>;
 const vCredentialResult = union(
   object({
     credentialId: id("githubAppConnectionCredentials"),
-    ...vGitHubAppConnectionCredential.fields,
+    credential: vGitHubAppConnectionCredential,
   }),
   v.null(),
 );
+
+const vStoreCredentialResult = union(
+  object({
+    status: literal("stored"),
+    session: string(),
+    replacedAccessToken: optional(string()),
+  }),
+  object({ status: literal("access_lost") }),
+);
+type StoreCredentialResult = Infer<typeof vStoreCredentialResult>;
+
+const vExpiredCredentialResult = union(
+  object({ status: literal("revoke"), accessToken: string() }),
+  object({ status: literal("deleted") }),
+  v.null(),
+);
+type ExpiredCredentialResult = Infer<typeof vExpiredCredentialResult>;
+
+const vAccountDeletionCredentialResult = union(
+  object({
+    status: literal("revoke"),
+    credentialId: id("githubAppConnectionCredentials"),
+    accessToken: string(),
+  }),
+  object({ status: literal("deleted") }),
+  v.null(),
+);
+type AccountDeletionCredentialResult = Infer<typeof vAccountDeletionCredentialResult>;
 
 async function revokeConnectionToken(accessToken: string): Promise<void> {
   try {
@@ -108,8 +139,8 @@ export const storeCredential = internalMutation({
     refreshToken: string(),
     refreshTokenExpiresAt: number(),
   },
-  returns: object({ session: string(), replacedAccessToken: optional(string()) }),
-  handler: async (ctx, args) => {
+  returns: vStoreCredentialResult,
+  handler: async (ctx, args): Promise<StoreCredentialResult> => {
     const setupState = await ctx.db.get(args.setupStateId);
     if (
       setupState === null ||
@@ -123,6 +154,13 @@ export const storeCredential = internalMutation({
     if (user === null || readActiveUser(user) === null) {
       throw new Error("An active Samebase user is required.");
     }
+    const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
+      userId: setupState.userId,
+    });
+    if (viewer.user === null || !canAccess("access_app_create", viewer.accessKeys)) {
+      await ctx.db.delete(setupState._id);
+      return { status: "access_lost" };
+    }
     const previousCredential = await ctx.db
       .query("githubAppConnectionCredentials")
       .withIndex("by_user", (query) => query.eq("userId", setupState.userId))
@@ -134,6 +172,7 @@ export const storeCredential = internalMutation({
     const expiresAt = Math.min(now + OAUTH_STATE_TTL_MS, args.accessTokenExpiresAt);
     const session = randomToken();
     const credentialId = await ctx.db.insert("githubAppConnectionCredentials", {
+      state: "authorized",
       userId: setupState.userId,
       session,
       githubUserId: args.githubUserId,
@@ -151,8 +190,10 @@ export const storeCredential = internalMutation({
       credentialId,
     });
     return {
+      status: "stored",
       session,
-      replacedAccessToken: previousCredential?.accessToken,
+      replacedAccessToken:
+        previousCredential?.state === "authorized" ? previousCredential.accessToken : undefined,
     };
   },
 });
@@ -160,7 +201,7 @@ export const storeCredential = internalMutation({
 export const getCredential = internalQuery({
   args: { session: string(), userId: id("users"), now: number() },
   returns: vCredentialResult,
-  handler: async (ctx, args) => {
+  handler: async (ctx, args): Promise<Infer<typeof vCredentialResult>> => {
     const credential = await ctx.db
       .query("githubAppConnectionCredentials")
       .withIndex("by_session", (query) => query.eq("session", args.session))
@@ -172,19 +213,35 @@ export const getCredential = internalQuery({
     ) {
       return null;
     }
+    if (credential.state === "completed") {
+      return {
+        credentialId: credential._id,
+        credential: {
+          state: "completed",
+          userId: credential.userId,
+          session: credential.session,
+          organizationOwnerLogin: credential.organizationOwnerLogin,
+          createdAt: credential.createdAt,
+          expiresAt: credential.expiresAt,
+        },
+      };
+    }
     return {
       credentialId: credential._id,
-      userId: credential.userId,
-      session: credential.session,
-      githubUserId: credential.githubUserId,
-      githubUserLogin: credential.githubUserLogin,
-      githubSignInProviderAccountId: credential.githubSignInProviderAccountId,
-      accessToken: credential.accessToken,
-      accessTokenExpiresAt: credential.accessTokenExpiresAt,
-      refreshToken: credential.refreshToken,
-      refreshTokenExpiresAt: credential.refreshTokenExpiresAt,
-      createdAt: credential.createdAt,
-      expiresAt: credential.expiresAt,
+      credential: {
+        state: "authorized",
+        userId: credential.userId,
+        session: credential.session,
+        githubUserId: credential.githubUserId,
+        githubUserLogin: credential.githubUserLogin,
+        githubSignInProviderAccountId: credential.githubSignInProviderAccountId,
+        accessToken: credential.accessToken,
+        accessTokenExpiresAt: credential.accessTokenExpiresAt,
+        refreshToken: credential.refreshToken,
+        refreshTokenExpiresAt: credential.refreshTokenExpiresAt,
+        createdAt: credential.createdAt,
+        expiresAt: credential.expiresAt,
+      },
     };
   },
 });
@@ -301,6 +358,16 @@ export const connectVerifiedInstallation = internalMutation({
     ) {
       return { status: "session_expired" };
     }
+    if (credential.state === "completed") {
+      return { status: "open", organizationOwnerLogin: credential.organizationOwnerLogin };
+    }
+    const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
+      userId: args.userId,
+    });
+    if (viewer.user === null || !canAccess("access_app_create", viewer.accessKeys)) {
+      await ctx.db.delete(credential._id);
+      return { status: "access_lost" };
+    }
     const organization = await ctx.db
       .query("organizations")
       .withIndex("by_github_owner_id", (query) => query.eq("githubOwnerId", args.githubOwnerId))
@@ -348,41 +415,53 @@ export const connectVerifiedInstallation = internalMutation({
         refreshTokenExpiresAt: credential.refreshTokenExpiresAt,
       });
     }
-    await ctx.db.delete(credential._id);
+    await ctx.db.replace(credential._id, {
+      state: "completed",
+      userId: credential.userId,
+      session: credential.session,
+      organizationOwnerLogin: args.githubOwnerLogin,
+      createdAt: credential.createdAt,
+      expiresAt: credential.expiresAt,
+    });
     return { status: "connected", organizationOwnerLogin: args.githubOwnerLogin };
   },
 });
 
 export const takeExpiredCredential = internalMutation({
   args: { credentialId: id("githubAppConnectionCredentials") },
-  returns: union(object({ accessToken: string() }), v.null()),
-  handler: async (ctx, args) => {
+  returns: vExpiredCredentialResult,
+  handler: async (ctx, args): Promise<ExpiredCredentialResult> => {
     const credential = await ctx.db.get(args.credentialId);
     if (credential === null || credential.expiresAt > Date.now()) {
       return null;
     }
     await ctx.db.delete(credential._id);
-    return { accessToken: credential.accessToken };
+    return credential.state === "authorized"
+      ? { status: "revoke", accessToken: credential.accessToken }
+      : { status: "deleted" };
   },
 });
 
-export const getForAccountDeletion = internalQuery({
+export const prepareForAccountDeletion = internalMutation({
   args: { userId: id("users") },
-  returns: union(
-    object({
-      credentialId: id("githubAppConnectionCredentials"),
-      accessToken: string(),
-    }),
-    v.null(),
-  ),
-  handler: async (ctx, args) => {
+  returns: vAccountDeletionCredentialResult,
+  handler: async (ctx, args): Promise<AccountDeletionCredentialResult> => {
     const credential = await ctx.db
       .query("githubAppConnectionCredentials")
       .withIndex("by_user", (query) => query.eq("userId", args.userId))
       .unique();
-    return credential === null
-      ? null
-      : { credentialId: credential._id, accessToken: credential.accessToken };
+    if (credential === null) {
+      return null;
+    }
+    if (credential.state === "completed") {
+      await ctx.db.delete(credential._id);
+      return { status: "deleted" };
+    }
+    return {
+      status: "revoke",
+      credentialId: credential._id,
+      accessToken: credential.accessToken,
+    };
   },
 });
 
@@ -394,7 +473,7 @@ export const deleteRevokedCredential = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const credential = await ctx.db.get(args.credentialId);
-    if (credential?.accessToken === args.accessToken) {
+    if (credential?.state === "authorized" && credential.accessToken === args.accessToken) {
       await ctx.db.delete(credential._id);
     }
     return null;
@@ -412,10 +491,13 @@ export const revokeForAccountDeletion = internalAction({
       runId: args.runId,
       workflowId: args.workflowId,
     });
-    const credential = await ctx.runQuery(internal.githubAppConnection.getForAccountDeletion, {
-      userId: identity.userId,
-    });
-    if (credential === null) {
+    const credential = await ctx.runMutation(
+      internal.githubAppConnection.prepareForAccountDeletion,
+      {
+        userId: identity.userId,
+      },
+    );
+    if (credential === null || credential.status === "deleted") {
       return null;
     }
     await revokeGitHubAppUserToken(credential.accessToken);
@@ -434,7 +516,7 @@ export const expireCredential = internalAction({
     const credential = await ctx.runMutation(internal.githubAppConnection.takeExpiredCredential, {
       credentialId: args.credentialId,
     });
-    if (credential !== null) {
+    if (credential?.status === "revoke") {
       await revokeConnectionToken(credential.accessToken);
     }
     return null;
@@ -465,15 +547,21 @@ export const listOptions = action({
     if (credential === null) {
       return { status: "session_expired" };
     }
+    if (credential.credential.state === "completed") {
+      return {
+        status: "completed",
+        organizationOwnerLogin: credential.credential.organizationOwnerLogin,
+      };
+    }
     const installations = await listGitHubAppConnectionInstallations({
-      accessToken: credential.accessToken,
-      githubUserId: credential.githubUserId,
+      accessToken: credential.credential.accessToken,
+      githubUserId: credential.credential.githubUserId,
     });
     const options: Array<Infer<typeof vConnectionOption>> = await ctx.runQuery(
       internal.githubAppConnection.classifyOptions,
       {
         userId: ctx.viewer.userId,
-        githubSignInProviderAccountId: credential.githubSignInProviderAccountId,
+        githubSignInProviderAccountId: credential.credential.githubSignInProviderAccountId,
         installations,
       },
     );
@@ -494,9 +582,15 @@ export const connectInstallation = action({
     if (credential === null) {
       return { status: "session_expired" };
     }
+    if (credential.credential.state === "completed") {
+      return {
+        status: "open",
+        organizationOwnerLogin: credential.credential.organizationOwnerLogin,
+      };
+    }
     const installation = await verifyGitHubAppConnectionInstallation({
-      accessToken: credential.accessToken,
-      githubUserId: credential.githubUserId,
+      accessToken: credential.credential.accessToken,
+      githubUserId: credential.credential.githubUserId,
       installationId: args.installationId,
     });
     if (!installation.canManage) {
@@ -511,8 +605,11 @@ export const connectInstallation = action({
       githubOwnerType: installation.githubOwnerType,
       githubOwnerLogin: installation.githubOwnerLogin,
     });
-    if (result.status === "connected" && installation.githubOwnerType === "organization") {
-      await revokeConnectionToken(credential.accessToken);
+    if (
+      result.status === "access_lost" ||
+      (result.status === "connected" && installation.githubOwnerType === "organization")
+    ) {
+      await revokeConnectionToken(credential.credential.accessToken);
     }
     return result;
   },

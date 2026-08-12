@@ -871,6 +871,7 @@ describe("account deletion organization boundary", () => {
     await prepareIdentityDeletionData(t, ids.runId);
     const credentialId = await t.run(async (ctx) => {
       return await ctx.db.insert("githubAppConnectionCredentials", {
+        state: "authorized",
         userId: ids.deletingUserId,
         session: "deleting-user-connection-session",
         githubUserId: "deleting-user-github-id",

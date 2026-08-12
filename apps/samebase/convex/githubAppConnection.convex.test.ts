@@ -18,6 +18,7 @@ async function insertCredential(
   args: { session: string; userId: Id<"users"> },
 ): Promise<Id<"githubAppConnectionCredentials">> {
   return await ctx.db.insert("githubAppConnectionCredentials", {
+    state: "authorized",
     userId: args.userId,
     session: args.session,
     githubUserId: "github-actor",
@@ -64,7 +65,10 @@ describe("GitHub App connection", () => {
         userId,
         now: 0,
       }),
-    ).resolves.toMatchObject({ credentialId, userId });
+    ).resolves.toMatchObject({
+      credentialId,
+      credential: { state: "authorized", userId },
+    });
   });
 
   it("does not store a callback credential after the Samebase user stops being active", async () => {
@@ -104,6 +108,89 @@ describe("GitHub App connection", () => {
         setupState: await ctx.db.get(setupStateId),
       })),
     ).resolves.toMatchObject({ credential: null, setupState: { userId } });
+  });
+
+  it("does not store a callback credential after the user loses app creation access", async () => {
+    const t = makeConvexTest();
+    const { setupStateId, userId } = await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "pending-user@example.test");
+      const setupStateId = await ctx.db.insert("githubAppSetupStates", {
+        userId,
+        state: "pending-user-state",
+        purpose: "organization_connection",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+      await ctx.db.patch(userId, { isApproved: false });
+      return { setupStateId, userId };
+    });
+
+    await expect(
+      t.mutation(internal.githubAppConnection.storeCredential, {
+        setupStateId,
+        state: "pending-user-state",
+        githubUserId: "pending-github-user",
+        githubUserLogin: "pending-github-user",
+        accessToken: "uncommitted-access-token",
+        accessTokenExpiresAt: Date.now() + 60_000,
+        refreshToken: "uncommitted-refresh-token",
+        refreshTokenExpiresAt: Date.now() + 120_000,
+      }),
+    ).resolves.toEqual({ status: "access_lost" });
+
+    await expect(
+      t.run(async (ctx) => ({
+        credential: await ctx.db
+          .query("githubAppConnectionCredentials")
+          .withIndex("by_user", (query) => query.eq("userId", userId))
+          .unique(),
+        setupState: await ctx.db.get(setupStateId),
+      })),
+    ).resolves.toEqual({ credential: null, setupState: null });
+  });
+
+  it("deletes token-free completed sessions during expiry and account deletion", async () => {
+    const t = makeConvexTest();
+    const { accountDeletionCredentialId, accountDeletionUserId, expiredCredentialId } = await t.run(
+      async (ctx) => {
+        const expiredUserId = await insertUser(ctx, "expired-session@example.test");
+        const accountDeletionUserId = await insertUser(ctx, "deleting-session@example.test");
+        const expiredCredentialId = await ctx.db.insert("githubAppConnectionCredentials", {
+          state: "completed",
+          userId: expiredUserId,
+          session: "expired-completed-session",
+          organizationOwnerLogin: "Expired-Owner",
+          createdAt: Date.now() - 120_000,
+          expiresAt: Date.now() - 60_000,
+        });
+        const accountDeletionCredentialId = await ctx.db.insert("githubAppConnectionCredentials", {
+          state: "completed",
+          userId: accountDeletionUserId,
+          session: "deleting-completed-session",
+          organizationOwnerLogin: "Deleting-Owner",
+          createdAt: Date.now(),
+          expiresAt: Date.now() + 60_000,
+        });
+        return { accountDeletionCredentialId, accountDeletionUserId, expiredCredentialId };
+      },
+    );
+
+    await expect(
+      t.mutation(internal.githubAppConnection.takeExpiredCredential, {
+        credentialId: expiredCredentialId,
+      }),
+    ).resolves.toEqual({ status: "deleted" });
+    await expect(
+      t.mutation(internal.githubAppConnection.prepareForAccountDeletion, {
+        userId: accountDeletionUserId,
+      }),
+    ).resolves.toEqual({ status: "deleted" });
+    await expect(
+      t.run(async (ctx) => ({
+        accountDeletionCredential: await ctx.db.get(accountDeletionCredentialId),
+        expiredCredential: await ctx.db.get(expiredCredentialId),
+      })),
+    ).resolves.toEqual({ accountDeletionCredential: null, expiredCredential: null });
   });
 
   it("classifies visible installations without granting Samebase membership", async () => {
@@ -201,7 +288,7 @@ describe("GitHub App connection", () => {
     ]);
   });
 
-  it("creates an unbound organization and consumes the connection credential", async () => {
+  it("creates an unbound organization and returns the completed result to a retry", async () => {
     const t = makeConvexTest();
     const { credentialId, userId } = await t.run(async (ctx) => {
       const userId = await insertUser(ctx, "new-owner@example.test");
@@ -221,6 +308,18 @@ describe("GitHub App connection", () => {
       }),
     ).resolves.toEqual({ status: "connected", organizationOwnerLogin: "New-Owner" });
 
+    await expect(
+      t.mutation(internal.githubAppConnection.connectVerifiedInstallation, {
+        credentialId,
+        session: "connect-session",
+        userId,
+        installationId: "new-installation",
+        githubOwnerId: "new-owner",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "New-Owner",
+      }),
+    ).resolves.toEqual({ status: "open", organizationOwnerLogin: "New-Owner" });
+
     const snapshot = await t.run(async (ctx) => ({
       credential: await ctx.db.get(credentialId),
       organization: await ctx.db
@@ -229,13 +328,56 @@ describe("GitHub App connection", () => {
         .unique(),
       memberships: await ctx.db.query("organizationMemberships").collect(),
     }));
-    expect(snapshot.credential).toBeNull();
+    expect(snapshot.credential).toMatchObject({
+      state: "completed",
+      userId,
+      session: "connect-session",
+      organizationOwnerLogin: "New-Owner",
+    });
+    expect(snapshot.credential).not.toHaveProperty("accessToken");
     expect(snapshot.organization).toMatchObject({
       githubOwnerLogin: "New-Owner",
       githubInstallationId: "new-installation",
     });
     expect(snapshot.memberships).toHaveLength(1);
     expect(snapshot.memberships[0]).toMatchObject({ userId, role: "owner" });
+  });
+
+  it("does not create an organization after the user loses app creation access", async () => {
+    const t = makeConvexTest();
+    const { credentialId, userId } = await t.run(async (ctx) => {
+      const userId = await insertUser(ctx, "lost-access@example.test");
+      const credentialId = await insertCredential(ctx, {
+        userId,
+        session: "lost-access-session",
+      });
+      await ctx.db.patch(userId, { isApproved: false });
+      return { credentialId, userId };
+    });
+
+    await expect(
+      t.mutation(internal.githubAppConnection.connectVerifiedInstallation, {
+        credentialId,
+        session: "lost-access-session",
+        userId,
+        installationId: "lost-access-installation",
+        githubOwnerId: "lost-access-owner",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "Lost-Access-Owner",
+      }),
+    ).resolves.toEqual({ status: "access_lost" });
+
+    await expect(
+      t.run(async (ctx) => ({
+        credential: await ctx.db.get(credentialId),
+        organization: await ctx.db
+          .query("organizations")
+          .withIndex("by_github_owner_id", (query) =>
+            query.eq("githubOwnerId", "lost-access-owner"),
+          )
+          .unique(),
+      })),
+    ).resolves.toEqual({ credential: null, organization: null });
   });
 
   it("does not admit the actor when another owner binds the installation first", async () => {

@@ -107,9 +107,15 @@ not creation authority.
 When the user selects an installation, Samebase reads that exact installation again through both the
 user and App APIs. It checks the App ID, stable owner ID, owner type, current installation state,
 and current personal-owner or organization-administrator authority. One final mutation checks the
-session user and expiry, then creates the organization only when the stable owner, owner login, and
-installation ID are still unbound. It does not trust a callback or client `installation_id` by
-itself.
+session user, expiry, and current Samebase app-creation access, then creates the organization only
+when the stable owner, owner login, and installation ID are still unbound. The OAuth callback also
+checks current Samebase app-creation access before it stores the temporary credential. It does not
+trust a callback or client `installation_id` by itself.
+
+After creation, the session keeps a token-free completed result until the original ten-minute
+session expires. A repeated request with the same session opens the created organization and does
+not create another organization. The successful page navigation replaces the connection page in
+browser history.
 
 If the owner is already connected, Samebase opens it for a current member. A verified GitHub owner
 or organization administrator without Samebase membership gets an invitation explanation and no
@@ -364,7 +370,12 @@ The rollout is ready only when focused tests and real manual checks prove:
 - A GitHub organization installation succeeds when its live administrator differs from the Samebase
   account's linked GitHub identity, or when no GitHub sign-in method is connected.
 - `/connect-organization` lists only current App installations visible to the authorized GitHub
-  user. It rechecks live owner authority when Connect is selected.
+  user. It rechecks live owner authority and current Samebase app-creation access when Connect is
+  selected.
+- Losing Samebase app-creation access before callback storage or final creation stores no temporary
+  credential and creates no organization.
+- Retrying the same connection session after a lost successful response opens the one created
+  organization without duplicate data.
 - A current Samebase member gets an Open action. A verified GitHub owner without Samebase membership
   gets an invitation explanation. A GitHub user without live owner authority gets no connection
   disclosure or Connect action.

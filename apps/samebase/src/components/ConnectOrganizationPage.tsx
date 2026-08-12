@@ -212,6 +212,19 @@ export function ConnectOrganizationPage({
   const [isInstalling, setIsInstalling] = useState(false);
   const [pendingInstallationId, setPendingInstallationId] = useState<string | null>(null);
 
+  const openOrganization = useCallback(
+    async (organizationOwnerLogin: string) => {
+      await navigate({
+        href: buildOrganizationRoutePath({
+          owner: organizationOwnerLogin,
+          section: "vaults",
+        }),
+        replace: true,
+      });
+    },
+    [navigate],
+  );
+
   const loadOptions = useCallback(async () => {
     if (session === undefined) {
       setOptions(null);
@@ -227,6 +240,10 @@ export function ConnectOrganizationPage({
         setError("GitHub authorization expired. Authorize GitHub again.");
         return;
       }
+      if (result.status === "completed") {
+        await openOrganization(result.organizationOwnerLogin);
+        return;
+      }
       setOptions(result.options);
     } catch {
       setOptions(null);
@@ -234,7 +251,7 @@ export function ConnectOrganizationPage({
     } finally {
       setLoading(false);
     }
-  }, [listOptions, session]);
+  }, [listOptions, openOrganization, session]);
 
   useEffect(() => {
     void loadOptions();
@@ -279,12 +296,11 @@ export function ConnectOrganizationPage({
         switch (result.status) {
           case "connected":
           case "open":
-            return navigate({
-              href: buildOrganizationRoutePath({
-                owner: result.organizationOwnerLogin,
-                section: "vaults",
-              }),
-            });
+            return openOrganization(result.organizationOwnerLogin);
+          case "access_lost":
+            setOptions(null);
+            setError("You no longer have permission to connect an organization.");
+            return;
           case "invite_required":
           case "owner_required":
             return loadOptions();

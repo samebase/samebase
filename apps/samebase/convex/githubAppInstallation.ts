@@ -838,9 +838,8 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
       }
       case "organization_connection": {
         const authorization = await verifyGitHubUserAuthorization({ code, state });
-        let stored: { session: string; replacedAccessToken?: string };
         try {
-          stored = await ctx.runMutation(internal.githubAppConnection.storeCredential, {
+          const stored = await ctx.runMutation(internal.githubAppConnection.storeCredential, {
             setupStateId: setupState.setupStateId,
             state,
             githubUserId: authorization.githubUserId,
@@ -850,21 +849,33 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
             refreshToken: authorization.refreshToken,
             refreshTokenExpiresAt: authorization.refreshTokenExpiresAt,
           });
+          if (stored.status === "access_lost") {
+            await revokeUncommittedGitHubUserToken(authorization.accessToken);
+            completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
+              provider,
+              code: "access-changed",
+            });
+            console.log("github:authorization:callback_completed", {
+              outcome: stored.status,
+              purpose: setupState.purpose,
+            });
+            break;
+          }
+          if (stored.replacedAccessToken !== undefined) {
+            await revokeUncommittedGitHubUserToken(stored.replacedAccessToken);
+          }
+          const connectionUrl = new URL(returnUrl);
+          connectionUrl.pathname = "/connect-organization";
+          connectionUrl.searchParams.set("github-connection-session", stored.session);
+          completionReturnUrl = connectionUrl.toString();
+          console.log("github:authorization:callback_completed", {
+            outcome: stored.status,
+            purpose: setupState.purpose,
+          });
         } catch (error) {
           await revokeUncommittedGitHubUserToken(authorization.accessToken);
           throw error;
         }
-        if (stored.replacedAccessToken !== undefined) {
-          await revokeUncommittedGitHubUserToken(stored.replacedAccessToken);
-        }
-        const connectionUrl = new URL(returnUrl);
-        connectionUrl.pathname = "/connect-organization";
-        connectionUrl.searchParams.set("github-connection-session", stored.session);
-        completionReturnUrl = connectionUrl.toString();
-        console.log("github:authorization:callback_completed", {
-          outcome: "stored",
-          purpose: setupState.purpose,
-        });
         break;
       }
       default:

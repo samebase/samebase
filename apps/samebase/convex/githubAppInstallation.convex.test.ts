@@ -1417,6 +1417,64 @@ describe("verified GitHub App installation completion", () => {
     expect(html).not.toContain("connection-refresh-token");
   });
 
+  it("rejects an installation discovery callback after app creation access is lost", async () => {
+    const t = makeConvexTest();
+    const { setupStateId, userId } = await t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        state: "active",
+        email: "connection-access-lost@example.com",
+        isApproved: true,
+      });
+      const setupStateId = await ctx.db.insert("githubAppSetupStates", {
+        userId,
+        state: "connection-access-lost-state",
+        purpose: "organization_connection",
+        returnToPath: "/connect-organization?prod-ui#installations",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+      await ctx.db.patch(userId, { isApproved: false });
+      return { setupStateId, userId };
+    });
+    const now = Date.now();
+    githubAppMocks.verifyGitHubUserAuthorization.mockResolvedValue({
+      githubUserId: "connection-access-lost-user",
+      githubUserLogin: "connection-access-lost-user",
+      accessToken: "connection-access-lost-token",
+      accessTokenExpiresAt: now + 8 * 60 * 60 * 1000,
+      refreshToken: "connection-access-lost-refresh-token",
+      refreshTokenExpiresAt: now + 180 * 24 * 60 * 60 * 1000,
+    });
+    vi.stubEnv("SITE_URL", "https://samebase.com");
+
+    const response = await t.fetch(
+      "/oauth/github/callback?code=connection-code&state=connection-access-lost-state",
+    );
+
+    await expectGitHubCompletion(
+      response,
+      buildAuthorizationErrorUrl(
+        "https://samebase.com/connect-organization?prod-ui=#installations",
+        {
+          provider: "github-user",
+          code: "access-changed",
+        },
+      ),
+    );
+    await expect(
+      t.run(async (ctx) => ({
+        credential: await ctx.db
+          .query("githubAppConnectionCredentials")
+          .withIndex("by_user", (query) => query.eq("userId", userId))
+          .unique(),
+        setupState: await ctx.db.get(setupStateId),
+      })),
+    ).resolves.toEqual({ credential: null, setupState: null });
+    expect(githubAppMocks.revokeGitHubAppUserToken).toHaveBeenCalledWith(
+      "connection-access-lost-token",
+    );
+  });
+
   it("keeps setup-state cleanup idempotent after a callback race", async () => {
     const t = makeConvexTest();
     const setupStateId = await t.run(async (ctx) => {

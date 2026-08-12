@@ -40,7 +40,9 @@ function ConnectOrganizationRouteComponent() {
         ? "GitHub authorization expired. Authorize GitHub again."
         : authorizationError.code === "canceled"
           ? "GitHub authorization was canceled."
-          : "GitHub authorization failed. Try again."}
+          : authorizationError.code === "access-changed"
+            ? "You no longer have permission to connect an organization."
+            : "GitHub authorization failed. Try again."}
     </AuthorizationErrorNotice>
   ) : null;
 

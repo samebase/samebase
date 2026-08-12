@@ -185,7 +185,9 @@ organization ID.
 
 GitHub installation discovery returns to `/connect-organization` with an opaque, user-bound,
 short-lived session. The session is not a GitHub token, an internal organization ID, or membership
-proof. The route keeps unrelated accepted search and hash values across the external return.
+proof. The route keeps unrelated accepted search and hash values across the external return. After a
+successful connection, Samebase replaces this route in browser history. A Back action does not
+return to the consumed chooser.
 
 The server validates the return route and owner. A full-page return checks current membership before
 it shows organization data. If access changed during the external flow, Samebase keeps the scoped

@@ -113,7 +113,9 @@ The discovery callback stores its GitHub App user credential only in a server-si
 ten-minute connection session. The browser receives a random session handle. It never receives the
 GitHub token. A successful personal-owner connection moves the credential into the existing personal
 user-authorization record. Organization connection, expiry, replacement, and account deletion
-attempt upstream revocation when the temporary authorization is consumed or removed.
+attempt upstream revocation when the temporary authorization is consumed or removed. A successful
+connection replaces the temporary credential with a token-free completed result for the remaining
+retry window.
 
 A personal reconnect and an explicit personal authorization know their target. They reject a missing
 or different GitHub sign-in identity before redirect, record the matching stable ID, and check it
