@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 async function seedDeletableOrganization(t: ReturnType<typeof makeConvexTest>, suffix: string) {
-  return await t.run(async (ctx) => {
+  const seed = await t.run(async (ctx) => {
     const ownerId = await ctx.db.insert("users", {
       state: "active",
       email: `owner-${suffix}@example.invalid`,
@@ -29,6 +29,13 @@ async function seedDeletableOrganization(t: ReturnType<typeof makeConvexTest>, s
     });
     return { billingId, membershipId, organizationId, ownerId };
   });
+  return {
+    ...seed,
+    asOwner: t.withIdentity({
+      subject: `${seed.ownerId}|organization-owner`,
+      tokenIdentifier: `test:${seed.ownerId}`,
+    }),
+  };
 }
 
 describe("organization membership administration", () => {
@@ -111,8 +118,8 @@ describe("organization membership administration", () => {
   });
 });
 
-describe("organization deletion administration", () => {
-  it("deletes an empty free organization and its local organization data", async () => {
+describe("organization deletion", () => {
+  it("deletes a vault-free organization and its local organization data", async () => {
     const t = makeConvexTest();
     const seed = await seedDeletableOrganization(t, "delete");
     await t.run(async (ctx) => {
@@ -206,7 +213,7 @@ describe("organization deletion administration", () => {
     });
 
     await expect(
-      t.mutation(internal.organizationAdmin.deleteOrganization, {
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
         expectedGithubOwnerLogin: "organization-delete",
       }),
@@ -249,7 +256,7 @@ describe("organization deletion administration", () => {
     const seed = await seedDeletableOrganization(t, "confirmation");
 
     await expect(
-      t.mutation(internal.organizationAdmin.deleteOrganization, {
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
         expectedGithubOwnerLogin: "wrong-login",
       }),
@@ -262,7 +269,7 @@ describe("organization deletion administration", () => {
   it("rejects an organization with another member", async () => {
     const t = makeConvexTest();
     const seed = await seedDeletableOrganization(t, "shared");
-    await t.run(async (ctx) => {
+    const memberId = await t.run(async (ctx) => {
       const memberId = await ctx.db.insert("users", {
         state: "active",
         email: "shared-member@example.invalid",
@@ -273,14 +280,26 @@ describe("organization deletion administration", () => {
         userId: memberId,
         role: "member",
       });
+      return memberId;
     });
 
+    const asMember = t.withIdentity({
+      subject: `${memberId}|organization-member`,
+      tokenIdentifier: `test:${memberId}`,
+    });
     await expect(
-      t.mutation(internal.organizationAdmin.deleteOrganization, {
+      asMember.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
         expectedGithubOwnerLogin: "organization-shared",
       }),
-    ).rejects.toThrow("Organization deletion requires exactly one owner membership.");
+    ).rejects.toThrow("Organization owner access is required.");
+
+    await expect(
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
+        organizationId: seed.organizationId,
+        expectedGithubOwnerLogin: "organization-shared",
+      }),
+    ).rejects.toThrow("Remove every other member before you delete this organization.");
   });
 
   it("rejects an organization that still has a vault", async () => {
@@ -297,11 +316,11 @@ describe("organization deletion administration", () => {
     });
 
     await expect(
-      t.mutation(internal.organizationAdmin.deleteOrganization, {
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
         expectedGithubOwnerLogin: "organization-vault",
       }),
-    ).rejects.toThrow("Delete every Samebase vault first.");
+    ).rejects.toThrow("Remove every Samebase vault before you delete this organization.");
   });
 
   it("rejects paid or pending billing", async () => {
@@ -317,11 +336,11 @@ describe("organization deletion administration", () => {
     });
 
     await expect(
-      t.mutation(internal.organizationAdmin.deleteOrganization, {
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
         expectedGithubOwnerLogin: "organization-billing",
       }),
-    ).rejects.toThrow("Paid or pending billing must be resolved before organization deletion.");
+    ).rejects.toThrow("Resolve organization billing before you delete this organization.");
   });
 
   it("rejects unfinished provisioning data", async () => {
@@ -350,10 +369,10 @@ describe("organization deletion administration", () => {
     });
 
     await expect(
-      t.mutation(internal.organizationAdmin.deleteOrganization, {
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
         organizationId: seed.organizationId,
         expectedGithubOwnerLogin: "organization-provisioning",
       }),
-    ).rejects.toThrow("Organization provisioning data must be resolved before deletion.");
+    ).rejects.toThrow("Finish organization vault cleanup before deletion.");
   });
 });

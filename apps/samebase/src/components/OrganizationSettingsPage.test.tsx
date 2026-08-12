@@ -66,5 +66,12 @@ describe("OrganizationSettingsPage", () => {
     expect(markup).toContain("Convex projects");
     expect(markup).not.toContain("Open billing");
     expect(markup).not.toContain("/settings/billing");
+    expect(markup).toContain("Delete organization");
+  });
+
+  it("does not offer organization deletion to a member", () => {
+    const markup = renderOrganizationSettings({ ...organization, role: "member" });
+
+    expect(markup).not.toContain("Delete organization");
   });
 });

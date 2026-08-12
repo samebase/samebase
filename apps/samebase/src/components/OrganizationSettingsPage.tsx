@@ -1,5 +1,9 @@
+import { useState } from "react";
+
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { OrganizationBillingSection } from "@/components/OrganizationBillingSection";
+import { OrganizationDeletionDialog } from "@/components/OrganizationDeletionDialog";
+import { Button } from "@/components/ui/button";
 import type { OrganizationBillingSearch } from "@/routeSearch/organizationBilling";
 
 export function OrganizationSettingsPage({
@@ -9,6 +13,8 @@ export function OrganizationSettingsPage({
   organization: ViewerOrganization;
   search: OrganizationBillingSearch;
 }) {
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+
   return (
     <main
       data-testid="organization-settings-page"
@@ -33,6 +39,24 @@ export function OrganizationSettingsPage({
         </dl>
       </section>
       <OrganizationBillingSection organization={organization} search={search} />
+      {organization.role === "owner" ? (
+        <section className="mt-8 border-t pt-6" aria-label="Delete organization">
+          <Button
+            type="button"
+            variant="destructive"
+            disabled={isDeleteDialogOpen}
+            onClick={() => setIsDeleteDialogOpen(true)}
+          >
+            Delete organization
+          </Button>
+        </section>
+      ) : null}
+      {isDeleteDialogOpen ? (
+        <OrganizationDeletionDialog
+          organization={organization}
+          onClose={() => setIsDeleteDialogOpen(false)}
+        />
+      ) : null}
     </main>
   );
 }

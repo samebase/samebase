@@ -59,9 +59,7 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
         return;
       }
       if (result.state === "organization_membership_exists") {
-        setDeletionError(
-          "Leave each shared organization or ask Samebase support to delete an organization you own.",
-        );
+        setDeletionError("Leave or delete every organization before you delete your account.");
         setIsRequestingDeletion(false);
         return;
       }
@@ -93,9 +91,8 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
               you added.
             </span>
             <span className="block text-muted-foreground">
-              First, leave each shared organization or ask Samebase support to delete an
-              organization you own. GitHub repositories, Convex projects, Cloudflare Workers, and
-              domains are not deleted.
+              First, leave or delete every organization. GitHub repositories, Convex projects,
+              Cloudflare Workers, and domains are not deleted.
             </span>
           </DialogDescription>
         </DialogHeader>

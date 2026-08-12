@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase product/backend
-- Last updated: 2026-08-11
+- Last updated: 2026-08-12
 - Related:
   - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -130,6 +130,10 @@ gates do not decide owner continuity. A role change, removal, leave, or account 
 leave an organization without an active owner. The check and write occur in one mutation. A deleting
 or deleted user does not satisfy the active-owner rule. A deleting member can be removed, but a
 deleting user cannot be promoted.
+
+The last owner cannot leave. After they remove every vault and every other member, they delete the
+organization from Organization settings. That mutation removes the final membership and the
+organization together.
 
 Leave or removal is blocked only while the target user owns a queued or running vault provisioning
 run or vault deletion run in that organization. The membership mutation reads those indexed active

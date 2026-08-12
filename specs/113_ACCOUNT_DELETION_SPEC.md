@@ -20,7 +20,7 @@ observation, or organization workflow record. It deletes the organization provid
 document only when it clears the last credential slot.
 
 Account deletion is rejected while any organization membership exists. A member must leave each
-shared organization first. A sole owner must ask staff to delete the empty organization first.
+shared organization first. A sole owner must remove every vault and delete the organization first.
 
 Acceptance creates one durable deletion run, marks the user as deleting, and routes every signed-in
 session to `/account-deletion`. Repeated requests return the same active run without rechecking the

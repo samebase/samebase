@@ -156,7 +156,7 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   ).toBeVisible();
   await expect(
     deleteDialog.getByText(
-      "First, leave each shared organization or ask Samebase support to delete an organization you own. GitHub repositories, Convex projects, Cloudflare Workers, and domains are not deleted.",
+      "First, leave or delete every organization. GitHub repositories, Convex projects, Cloudflare Workers, and domains are not deleted.",
       { exact: true },
     ),
   ).toBeVisible();

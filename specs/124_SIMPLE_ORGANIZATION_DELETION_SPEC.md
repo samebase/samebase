@@ -6,15 +6,15 @@ Accepted. This document is the source of truth for the first organization deleti
 
 ## Product Contract
 
-Organization deletion is a staff operation. Samebase does not show a self-service organization
-deletion control in this release.
+Organization deletion is an owner operation in Organization settings.
 
-Staff run one internal mutation with the organization ID and the exact GitHub owner login. The login
-is the deletion confirmation.
+The owner enters the exact GitHub owner login as the deletion confirmation. The client then calls
+one authenticated mutation.
 
 The mutation accepts deletion only when all these conditions are true:
 
-- The organization has exactly one membership, and that member is an active owner.
+- The organization has exactly one membership, and that member is the active owner who requests
+  deletion.
 - The organization has no Samebase vaults. The owner must delete each vault first and keep all
   provider resource deletion options off.
 - Billing is `free` and `inactive`.
@@ -22,8 +22,12 @@ The mutation accepts deletion only when all these conditions are true:
 - No provisioning data remains.
 - Every retained vault deletion run succeeded.
 
-Staff resolve a failed condition and run the same mutation again. There is no organization deletion
-state, queue, retry service, or status page.
+The owner resolves a failed condition and tries the mutation again. There is no organization
+deletion state, queue, retry service, or status page.
+
+An organization always has at least one active owner while it exists. The mutation deletes the last
+membership and the organization in the same transaction. The last owner cannot leave the
+organization without deleting it.
 
 ## Local Data
 
@@ -49,12 +53,14 @@ use requires a larger product flow.
 ## Account Deletion
 
 Account deletion requires zero organization memberships. A member leaves each shared organization
-first. Staff delete a sole-owner organization after its vaults are removed. Account deletion never
-removes a membership.
+first. A sole owner removes every vault and deletes the organization. Account deletion never removes
+a membership.
 
 ## Required Validation
 
 - A wrong organization login, a shared organization, a vault, unsafe billing, or unfinished work
   rejects deletion without changing data.
+- A member who is not the owner cannot delete the organization.
 - A valid deletion removes all listed Samebase records in one mutation.
+- No successful operation commits an organization without an active owner.
 - Account deletion with any membership creates no deletion run and gives the user a clear next step.
