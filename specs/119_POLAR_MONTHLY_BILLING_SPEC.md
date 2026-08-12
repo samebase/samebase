@@ -70,10 +70,9 @@ available for checkout. When a product is replaced or archived in Polar, its cat
 as a historical version so Samebase can still reconcile existing subscriptions and pending product
 changes.
 
-Each Polar product records a `samebase_sku` and `samebase_catalog_version` in product metadata. The
-SKU is `github-<owner type>-<plan>`. Before a catalog entry becomes available for checkout, the
-operator verifies its ID, metadata, monthly interval, archive state, and fixed and seat prices
-against the Polar product.
+Before a catalog entry becomes available for checkout, the operator opens its exact ID in the
+matching Polar environment. The operator verifies the product name, monthly interval, archive and
+visibility state, fixed price, included seats, and later-seat price against this specification.
 
 An organization buys capacity before a new invitation can become a membership. When current
 memberships fit within verified capacity, a seat purchase uses `current memberships + 1` as its

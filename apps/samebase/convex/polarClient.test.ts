@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  POLAR_PRODUCT_CATALOG,
   readPolarCheckoutProductId,
-  readPolarProductCatalog,
   readPolarProductCatalogFromEntries,
   resolvePolarProduct,
   type PolarProductCatalog,
@@ -55,8 +55,22 @@ function requireCatalog(entries: PolarProductCatalog): PolarProductCatalog {
 }
 
 describe("Polar product catalog", () => {
-  it("keeps billing unavailable until real product IDs are recorded", () => {
-    expect(readPolarProductCatalog()).toBeNull();
+  it("configures all current Sandbox products and keeps production unavailable", () => {
+    const sandbox = requireCatalog(POLAR_PRODUCT_CATALOG.sandbox);
+
+    expect(readPolarCheckoutProductId(sandbox, "organization", "free")).toBe(
+      "7782b9a4-beb8-4ff5-8455-24976deacbc1",
+    );
+    expect(readPolarCheckoutProductId(sandbox, "organization", "pro")).toBe(
+      "0e721c02-c98b-425b-bc8d-fb323fa54925",
+    );
+    expect(readPolarCheckoutProductId(sandbox, "user", "free")).toBe(
+      "746b5cca-6043-477f-afc1-337443e71f2b",
+    );
+    expect(readPolarCheckoutProductId(sandbox, "user", "pro")).toBe(
+      "55811c0d-bc67-4bd4-b715-b9bd801a2911",
+    );
+    expect(readPolarProductCatalogFromEntries(POLAR_PRODUCT_CATALOG.production)).toBeNull();
   });
 
   it("selects current products and recognizes historical products", () => {
