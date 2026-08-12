@@ -3,7 +3,11 @@ import { signInIfNeeded } from "./liveHelpers";
 
 const WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL =
   "/visual-fixture?mode=workspace-layout-v2-status-bar";
-const MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
+const MOBILE_SIDEBAR_MIN_WIDTH_PX = 175;
+
+function getExpectedMobileSidebarMinWidthPx(pageWidthPx: number) {
+  return Math.min(MOBILE_SIDEBAR_MIN_WIDTH_PX, Math.floor(pageWidthPx / 3));
+}
 
 async function openWorkspaceLayoutV2Fixture(
   page: Page,
@@ -280,8 +284,13 @@ test("signed-in logo keeps the merged left surface across mobile viewports and r
   await scrollWorkspaceCarouselToPane(page, "left");
 
   const layout = page.locator("[data-workspace-layout-v2]");
+  const narrowerLayout = narrowerPage.locator("[data-workspace-layout-v2]");
   const mainPane = page.getByTestId("workspace-layout-v2-pane-main");
   const viewportWidthPx = await mainPane.evaluate((element) => element.clientWidth);
+  const narrowerViewportWidthPx = await narrowerLayout.evaluate((element) => element.clientWidth);
+  const mobileSidebarMinWidthPx = getExpectedMobileSidebarMinWidthPx(viewportWidthPx);
+  const narrowerMobileSidebarMinWidthPx =
+    getExpectedMobileSidebarMinWidthPx(narrowerViewportWidthPx);
   const leftResizeHandle = page.getByTestId("workspace-layout-v2-left-resize");
   const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
   const initialLeftPaneWidthPx = (await getRoundedBoundingBox(leftPane)).width;
@@ -302,8 +311,8 @@ test("signed-in logo keeps the merged left surface across mobile viewports and r
           ?.width ?? 0,
       ),
     )
-    .toBe(viewportWidthPx - MOBILE_SIDEBAR_MIN_WIDTH_PX);
-  await expect(narrowerPage.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+    .toBe(viewportWidthPx - mobileSidebarMinWidthPx);
+  await expect(narrowerLayout).toHaveAttribute(
     "data-workspace-layout-v2-mobile-merged-side",
     "left",
   );
@@ -318,14 +327,11 @@ test("signed-in logo keeps the merged left surface across mobile viewports and r
         )?.width ?? 0,
       ),
     )
-    .toBe(viewport.width - 8 - MOBILE_SIDEBAR_MIN_WIDTH_PX);
+    .toBe(narrowerViewportWidthPx - narrowerMobileSidebarMinWidthPx);
 
   await narrowerPage.goto("/settings", { waitUntil: "domcontentloaded" });
   await narrowerPage.waitForLoadState("networkidle");
-  await expect(narrowerPage.locator("[data-workspace-layout-v2]")).toHaveAttribute(
-    "data-mobile-pane",
-    "main",
-  );
+  await expect(narrowerLayout).toHaveAttribute("data-mobile-pane", "main");
   await page.waitForTimeout(750);
 
   await expect(layout).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", "left");
@@ -336,5 +342,5 @@ test("signed-in logo keeps the merged left surface across mobile viewports and r
           ?.width ?? 0,
       ),
     )
-    .toBe(viewportWidthPx - MOBILE_SIDEBAR_MIN_WIDTH_PX);
+    .toBe(viewportWidthPx - mobileSidebarMinWidthPx);
 });

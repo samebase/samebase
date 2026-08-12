@@ -5,6 +5,7 @@
 - Status: Accepted hard-break implementation plan
 - Owner: Samebase frontend/workspace shell
 - Created: 2026-05-08
+- Last updated: 2026-08-12
 - Related specs:
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
   - `specs/094_WORKSPACE_LAYOUT_SIDEBAR_STATE_CONVERGENCE_SPEC.md`
@@ -148,8 +149,9 @@ exact action names can follow the current `WorkspacePaneRuntime` style, but they
 A persisted merge is valid only when the route has the merged side pane and the current viewport can
 render the side/main fit.
 
-The default fit must render at a 320px mobile viewport. With the current 96px side-pane minimum,
-that means the persisted main pane minimum is 224px.
+The default fit must render at a 320px mobile viewport. The side-pane minimum is the lower of 175px
+and one third of the page width. At 320px, the resolved side-pane minimum is 106px and the persisted
+main pane minimum is 214px.
 
 If durable state says `left+main` but the route has no left pane, render and persist `"unmerged"`.
 Same for `main+right` without a right pane.

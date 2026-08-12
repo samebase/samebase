@@ -142,6 +142,7 @@ export function WorkspaceLayoutV2({
   const mobileSidebarMinWidthPx = getMobileSidebarMinWidthPx({
     configuredMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
     maxWidthPx: mobileSidebarMaxWidthPx,
+    viewportWidthPx: viewportSize.widthPx,
   });
   const mobileLeftWidthPx = hasLeftPane
     ? getMobileSidebarWidthPx({

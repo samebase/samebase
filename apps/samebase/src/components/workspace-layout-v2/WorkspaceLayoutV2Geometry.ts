@@ -4,14 +4,17 @@ import type { WorkspaceMobileSurface } from "../../../convex/userPreferenceModel
 
 export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
 const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
-export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_DEFAULT_WIDTH_PX = 160;
-export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
+export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX = 175;
+export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_RATIO = 1 / 3;
 export const WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX = 10;
 export const WORKSPACE_LAYOUT_V2_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX = 320;
-// Keep default merged fit valid at 320px: side min + main min must fit exactly.
+// Keep the responsive one-third sidebar and main pane valid together at 320px.
 export const WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX =
   WORKSPACE_LAYOUT_V2_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX -
-  WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX;
+  Math.floor(
+    WORKSPACE_LAYOUT_V2_MOBILE_MERGED_FIT_MIN_VIEWPORT_WIDTH_PX *
+      WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_RATIO,
+  );
 export const MOBILE_PANE_SETTLED_TOLERANCE_PX = 1;
 
 const MOBILE_PANE_ORDER = ["left", "main", "right"] as const;
@@ -62,8 +65,17 @@ export function getMobileSidebarMaxWidthPx(viewportWidthPx: number) {
 export function getMobileSidebarMinWidthPx(args: {
   configuredMinWidthPx: number;
   maxWidthPx: number;
+  viewportWidthPx: number;
 }) {
-  return clampNumber(Math.round(args.configuredMinWidthPx), 1, args.maxWidthPx);
+  const pageRelativeMinWidthPx = Math.floor(
+    args.viewportWidthPx * WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_RATIO,
+  );
+
+  return clampNumber(
+    Math.min(Math.round(args.configuredMinWidthPx), pageRelativeMinWidthPx),
+    1,
+    args.maxWidthPx,
+  );
 }
 
 export function getMergedMobileMainWidthPx(args: {

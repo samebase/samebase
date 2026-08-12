@@ -2,7 +2,7 @@ import { devices, expect, test, type Locator, type Page } from "@playwright/test
 import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "../src/lib/appWorkspaceSidebarPreferences";
 
 const { defaultBrowserType: _pixel7BrowserType, ...pixel7Device } = devices["Pixel 7"];
-const MOBILE_SIDEBAR_MIN_WIDTH_PX = 96;
+const MOBILE_SIDEBAR_MIN_WIDTH_PX = 175;
 const MOBILE_MERGE_INTENT_WIDTH_PX = 10;
 
 test.use({
@@ -107,9 +107,15 @@ async function getMobileSidebarMaxWidthPx(page: Page) {
 }
 
 async function getMobileSidebarMinWidthPx(page: Page) {
+  const viewportWidthPx = await page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => element.clientWidth);
   const maxWidthPx = await getMobileSidebarMaxWidthPx(page);
 
-  return Math.max(1, Math.min(MOBILE_SIDEBAR_MIN_WIDTH_PX, maxWidthPx));
+  return Math.max(
+    1,
+    Math.min(MOBILE_SIDEBAR_MIN_WIDTH_PX, Math.floor(viewportWidthPx / 3), maxWidthPx),
+  );
 }
 
 function getFileViewLayoutShell(page: Page) {
@@ -345,11 +351,14 @@ test("fileview mobile resize grip waits for the carousel to settle", async ({ pa
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(1);
 });
 
-test("fileview mobile sidebar minimum uses the configured mobile pane width", async ({ page }) => {
+test("fileview mobile sidebar minimum uses one third of the narrow page", async ({ page }) => {
   await gotoFileViewFixture(page);
 
+  const viewportWidthPx = await page
+    .getByTestId("workspace-layout-v2-pane-main")
+    .evaluate((element) => element.clientWidth);
   const minWidthPx = await getMobileSidebarMinWidthPx(page);
-  expect(minWidthPx).toBe(MOBILE_SIDEBAR_MIN_WIDTH_PX);
+  expect(minWidthPx).toBe(Math.floor(viewportWidthPx / 3));
 
   await scrollFileViewCarouselToPane(page, "left");
   await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveAttribute(
