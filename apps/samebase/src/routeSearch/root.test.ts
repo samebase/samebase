@@ -131,6 +131,15 @@ describe("rootRouteSearch", () => {
         "authorization-error": "secret-detail",
       }),
     ).toEqual({});
+    expect(
+      validateRootRouteSearch({
+        "authorization-provider": "github-app",
+        "authorization-error": "organization-owner-required",
+      }),
+    ).toEqual({
+      "authorization-provider": "github-app",
+      "authorization-error": "organization-owner-required",
+    });
   });
 
   it("treats present root flags as enabled regardless of value", () => {

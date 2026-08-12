@@ -111,6 +111,10 @@ export function formatAuthorizationErrorMessage(
           authorizationError.provider satisfies never;
           return "Select the configured authorization target.";
       }
+    case "organization-owner-required":
+      return authorizationError.provider === "github-app"
+        ? "GitHub installed the app, but Samebase needs owner access to connect it. Ask a Samebase organization owner to give this account owner access."
+        : `${authorizationLabel} failed. Try again.`;
     case "failed":
       return `${authorizationLabel} failed. Try again.`;
     default:

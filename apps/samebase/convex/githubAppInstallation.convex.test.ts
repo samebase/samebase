@@ -427,6 +427,93 @@ describe("verified GitHub App installation completion", () => {
     );
     expect(html).not.toContain("organization-provider-code");
     expect(html).not.toContain("organization-admin-token");
+    expect(html).not.toContain("organization-admin-refresh-token");
+  });
+
+  it("keeps an existing organization unchanged when the setup actor lacks Samebase owner access", async () => {
+    const t = makeConvexTest();
+    const { installerUserId, organizationId, setupStateId } = await t.run(async (ctx) => {
+      const ownerUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "existing-organization-owner@example.com",
+        isApproved: true,
+      });
+      const installerUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "existing-organization-installer@example.com",
+        isApproved: true,
+      });
+      const organizationId = await ctx.db.insert("organizations", {
+        githubOwnerId: "existing-organization-owner",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "Existing-Organization-Owner",
+        githubOwnerLoginNormalized: "existing-organization-owner",
+        githubInstallationId: "existing-installation",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: ownerUserId,
+        role: "owner",
+      });
+      const setupStateId = await ctx.db.insert("githubAppSetupStates", {
+        userId: installerUserId,
+        state: "existing-organization-installation-state",
+        purpose: "installation",
+        returnToPath: "/vault?prod-ui",
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+      return { installerUserId, organizationId, setupStateId };
+    });
+    githubAppMocks.verifyGitHubAppInstallation.mockResolvedValue({
+      installationId: "replacement-installation",
+      githubOwnerId: "existing-organization-owner",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "Existing-Organization-Owner",
+      githubUserId: "organization-admin",
+      githubUserLogin: "organization-admin",
+      accessToken: "organization-admin-token",
+      accessTokenExpiresAt: Date.now() + 60_000,
+      refreshToken: "organization-admin-refresh-token",
+      refreshTokenExpiresAt: Date.now() + 120_000,
+    });
+    vi.stubEnv("SITE_URL", "https://samebase.com");
+
+    const response = await t.fetch(
+      "/oauth/github/callback?code=organization-provider-code&installation_id=5002&state=existing-organization-installation-state",
+    );
+
+    const html = await expectGitHubCompletion(
+      response,
+      buildAuthorizationErrorUrl(
+        "https://samebase.com/org/existing-organization-owner/providers?prod-ui",
+        {
+          provider: "github-app",
+          code: "organization-owner-required",
+        },
+      ),
+    );
+    const snapshot = await t.run(async (ctx) => ({
+      installerMembership: await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", organizationId).eq("userId", installerUserId),
+        )
+        .unique(),
+      organization: await ctx.db.get(organizationId),
+      setupState: await ctx.db.get(setupStateId),
+    }));
+    expect(snapshot.installerMembership).toBeNull();
+    expect(snapshot.organization).toMatchObject({
+      githubInstallationId: "existing-installation",
+      githubOwnerLogin: "Existing-Organization-Owner",
+    });
+    expect(snapshot.setupState).toBeNull();
+    expect(githubAppMocks.revokeGitHubAppUserToken).toHaveBeenCalledWith(
+      "organization-admin-token",
+    );
+    expect(html).not.toContain("organization-provider-code");
+    expect(html).not.toContain("organization-admin-token");
   });
 
   it("authorizes the exact GitHub user for an existing personal organization", async () => {

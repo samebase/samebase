@@ -31,7 +31,10 @@ import {
 import { mutation } from "./functions";
 import { OAUTH_STATE_TTL_MS, randomToken } from "./oauthUtils";
 import { vGitHubOwnerType } from "./organizationModel";
-import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
+import {
+  findOrganizationMembership,
+  requireOrganizationOwnerAccessContext,
+} from "./organizationAccess";
 import {
   buildAuthorizationCompletionResponse,
   classifyAuthorizationCallbackError,
@@ -66,6 +69,7 @@ const vGitHubAppSetupCompletion = union(
   object({ status: literal("github_sign_in_required") }),
   object({ status: literal("github_sign_in_mismatch") }),
   object({ status: literal("target_mismatch"), githubOwnerLogin: string() }),
+  object({ status: literal("organization_owner_required"), githubOwnerLogin: string() }),
 );
 const vGitHubUserAuthorizationCompletion = union(
   object({ status: literal("stored") }),
@@ -342,6 +346,26 @@ export const completeVerifiedSetup = internalMutation({
         return {
           status: signInMatch === "missing" ? "github_sign_in_required" : "github_sign_in_mismatch",
         };
+      }
+    }
+
+    if (purpose === "installation") {
+      const existingOrganization = await ctx.db
+        .query("organizations")
+        .withIndex("by_github_owner_id", (query) => query.eq("githubOwnerId", args.githubOwnerId))
+        .unique();
+      if (existingOrganization !== null) {
+        const membership = await findOrganizationMembership(ctx.db, {
+          organizationId: existingOrganization._id,
+          userId: setupState.userId,
+        });
+        if (membership?.role !== "owner") {
+          await ctx.db.delete(setupState._id);
+          return {
+            status: "organization_owner_required",
+            githubOwnerLogin: existingOrganization.githubOwnerLogin,
+          };
+        }
       }
     }
 
@@ -698,6 +722,18 @@ export const finishGitHubAppInstallation = httpAction(async (ctx, request) => {
               {
                 provider,
                 code: "target-mismatch",
+              },
+            );
+            break;
+          case "organization_owner_required":
+            completionReturnUrl = buildAuthorizationErrorUrl(
+              buildGitHubOrganizationProvidersReturnUrl({
+                githubOwnerLogin: completion.githubOwnerLogin,
+                previousReturnUrl: returnUrl,
+              }),
+              {
+                provider,
+                code: "organization-owner-required",
               },
             );
             break;

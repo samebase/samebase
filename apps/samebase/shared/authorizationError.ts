@@ -22,6 +22,7 @@ export const AUTHORIZATION_ERROR_CODES = [
   "access-changed",
   "configuration-changed",
   "target-mismatch",
+  "organization-owner-required",
   "failed",
 ] as const;
 export type AuthorizationErrorCode = (typeof AUTHORIZATION_ERROR_CODES)[number];
