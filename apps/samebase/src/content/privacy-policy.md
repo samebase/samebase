@@ -23,16 +23,10 @@ their own privacy terms for the information that they process.
   time, sign-in methods, approval state, and authentication or session records.
 - Signup notifications. When a new account is created, Samebase sends an internal notification to
   authorized Samebase staff. It can include the account name, email address, internal user ID, and
-  sign-in method. Samebase uses Cloudflare Email Sending to send this notification to its Google
-  Workspace mailbox.
-- Communications. If you contact Samebase, Samebase and its Google Workspace mailbox provider
-  process your contact details, message content, attachments, and message metadata so Samebase can
-  respond and handle your request.
-- Organization membership and invitation data. Samebase stores organization roles, current
-  memberships, and invitation history. When an owner creates an invitation, Samebase obtains the
-  recipient's public GitHub account ID, login, and profile image from GitHub. Samebase also stores
-  the organization ID, invitation code, creator user ID, state, creation time, expiry time, and any
-  acceptance time and accepting user ID.
+  sign-in method. Samebase uses Cloudflare Email Sending for this notification.
+- Communications. Samebase processes the information that you provide when you contact Samebase.
+- Organization data. Samebase stores organization memberships, roles, and invitations. It uses
+  public GitHub profile information for invitations.
 - Connected provider credentials and identifiers. If you connect GitHub, Convex, or Cloudflare,
   Samebase stores the credentials and metadata needed to operate the connection. This information
   can include OAuth access and refresh tokens, API keys, expiry times, usernames, team IDs, account
@@ -55,10 +49,10 @@ their own privacy terms for the information that they process.
   identifiers, file paths, and error details. Samebase does not intend to put raw credentials,
   complete prompts, or file content in these logs.
 - Browser analytics and diagnostics. When PostHog is enabled, it can receive page URLs, navigation,
-  clicks, form-submission events, other interface interactions, browser and device data, referrer
-  data, IP address, performance data, an internal user ID, client-side errors, and session
-  recordings. Input values and editor surfaces are masked by default, but visible page content and
-  fields that are explicitly marked for capture can appear in a recording.
+  interaction data, browser and device data, referrer data, IP address, performance data, an
+  internal user ID, client-side errors, and session recordings. Input values and editor surfaces are
+  masked by default, but visible page content and fields that are explicitly marked for capture can
+  appear in a recording.
 - Backend usage diagnostics. When the production Convex log integration is enabled, PostHog Logs can
   receive Convex function-execution data and compact Samebase usage markers. The markers can include
   an internal user ID, account role, access level, MCP method, and MCP tool name.
@@ -131,10 +125,6 @@ Where applicable law requires a legal basis, Samebase relies on:
 This Policy is a notice. Samebase does not treat your acceptance of this Policy as consent where the
 law requires a separate choice.
 
-Account and sign-in data is required to create and use a Samebase account. Provider credentials and
-related information are required only for provider features that you choose. If you do not provide
-required data, Samebase cannot provide the related account or feature.
-
 ## When Samebase Shares Information
 
 - Convex provides the core Samebase database, file storage, authentication, functions, and
@@ -142,9 +132,8 @@ required data, Samebase cannot provide the related account or feature.
 - Cloudflare hosts and delivers the web app, routes network requests, proxies browser telemetry,
   sends transactional email, and keeps operational request logs. Cloudflare processes information
   whenever you use Samebase.
-- Google provides Samebase's staff mailbox and can process signup notifications and messages that
-  you send to Samebase. Google or GitHub also processes account and sign-in information when you use
-  its sign-in method.
+- Google provides Samebase's staff mailbox. Google or GitHub processes account and sign-in
+  information when you use its sign-in method.
 - GitHub, Convex, and Cloudflare process provider-account data when you connect an account or ask
   Samebase to perform an action in that account.
 - Polar processes billing and checkout information when you use a paid-plan action.
@@ -153,9 +142,7 @@ required data, Samebase cannot provide the related account or feature.
 - jsDelivr receives imported npm package names in request URLs when the TypeScript editor downloads
   package type definitions. Samebase does not intentionally send the source file body to jsDelivr.
 - An MCP client receives the tool results that you authorize and request.
-- Current organization members can receive another member's display name, GitHub login and profile
-  image, and Samebase role. Organization owners can also receive live GitHub organization
-  relationship data. Samebase does not show one member's Samebase account email to another member.
+- Organization members can see profile and role information about other members.
 - Authorized Samebase staff can receive account, support, security, and operational information when
   needed to operate the service.
 - Samebase can disclose information when law requires it or when it is necessary to protect users,
@@ -182,10 +169,6 @@ The current MCP expiry periods are:
 Expiry stops a record from being used. It does not always delete the database row. Other expired MCP
 records can remain until account deletion or operational cleanup.
 
-Organization invitation links stop working seven days after creation. Expiry does not by itself
-delete the invitation record. Samebase can keep accepted invitation history as shared organization
-data.
-
 You can disconnect a provider. This deletes Samebase's saved connection record, but it does not
 always revoke the credential at the provider. Use the provider's account settings when upstream
 revocation is required.
@@ -193,18 +176,13 @@ revocation is required.
 You can delete a vault from the dashboard. Samebase can also remove related GitHub, Convex, and
 Cloudflare resources when the deletion options and resource ownership allow it.
 
-You can delete your account from Settings after you add or promote another owner for each
-organization where you are the only active owner. Account deletion locks your account and removes
-your profile, authentication data, personal settings, organization memberships, MCP authorization,
-GitHub user authorization, and provider connections that you added. Samebase keeps a terminal user
-record with only its opaque internal user ID, creation time, deletion state, and deletion time. It
-also keeps a scrubbed deletion receipt without your email address or an active account link.
+You can delete your account from Settings. Account deletion removes your profile and access, along
+with personal settings, memberships, authorizations, and provider connections that you added.
+Samebase keeps limited records needed to confirm the deletion and preserve shared organization
+history.
 
 Account deletion does not cancel an organization subscription or delete shared organization data.
-Organizations, billing records, vaults, staged changes, shared workflow history, and organization
-invitation history remain for other members. Invitation history can keep opaque creator and acceptor
-Samebase user IDs and timestamps. If an invitation's accepted recipient deletes their account,
-Samebase removes the invitation code and GitHub recipient details.
+Shared organization data remains available to other members.
 
 Account deletion does not delete external repositories, projects, deployments, Workers, domains, or
 other provider resources. Convex OAuth credentials stored by Samebase are deleted, but existing

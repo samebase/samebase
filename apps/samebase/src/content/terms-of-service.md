@@ -12,8 +12,8 @@ Samebase is operated by the Samebase team.
 
 ## 2. What Samebase is
 
-Samebase is a GitHub-connected workspace for creating and operating web apps with GitHub, Convex,
-and Cloudflare. An MCP-compatible agent client can connect to Samebase after you authorize it.
+Samebase is a workspace for code and agent-assisted workflows. It can connect to third-party
+services that you authorize.
 
 ## 3. Eligibility and accounts
 
@@ -25,14 +25,10 @@ and Cloudflare. An MCP-compatible agent client can connect to Samebase after you
 
 ## 4. Connected providers and permissions
 
-- Samebase may act on information and permissions you give it through GitHub, Convex, or Cloudflare
-  accounts that you authorize.
-- You authorize Samebase to send the minimum necessary requests and data to those providers to
+- Samebase may act on information and permissions you give it through connected services.
+- You authorize Samebase to send the minimum necessary requests and data to those services to
   operate the features you enable.
-- An MCP-compatible agent client that you authorize can send tool requests to Samebase and receive
-  the requested results.
-- Third-party provider and agent-client terms, policies, and availability also apply to your use of
-  those services.
+- Third-party terms, policies, and availability also apply to your use of those services.
 
 ## 5. Acceptable use
 
@@ -44,13 +40,12 @@ You may not use Samebase to:
 - submit malware, exploit code, or harmful automation
 - upload or expose secrets, passwords, API keys, MFA codes, payment card data, health data, or other
   regulated or highly sensitive data unless clearly required and lawfully authorized
-- use the service in a way that violates the terms of a connected provider or agent client that you
-  use with Samebase
+- use the service in a way that violates the terms of a connected third-party service
 
-## 6. Agents and automation
+## 6. Automation
 
-- Outputs from your agent client or connected services, including code suggestions, plans, diffs,
-  and operational recommendations, may be wrong, incomplete, or unsafe.
+- Automated outputs, including code suggestions, plans, diffs, and operational recommendations, may
+  be wrong, incomplete, or unsafe.
 - You are responsible for reviewing high-impact actions before you rely on them, especially for code
   changes, production operations, infrastructure actions, billing decisions, or security-sensitive
   work.
@@ -86,10 +81,6 @@ Samebase may suspend or terminate access to Samebase if:
 - your use creates security, legal, or operational risk
 - a connected provider requires restriction
 - the service is being changed, retired, or limited
-
-You may stop using Samebase at any time and can delete your account in Settings. Account deletion is
-not available while you are the only active owner of an organization. Account deletion does not
-cancel an organization subscription or delete external provider resources.
 
 ## 11. Warranties disclaimer
 
