@@ -27,6 +27,10 @@ import {
 import { FileViewMainHeader } from "@/components/FileView/FileViewMainHeader";
 import { useFileViewInlinePreview } from "@/components/FileView/useFileViewInlinePreview";
 import { useFileViewMediaUpload } from "@/components/FileView/useFileViewMediaUpload";
+import {
+  useBranchComparePreviewQuery,
+  useCommitPreviewQuery,
+} from "@/components/FileView/useFileViewPreviewQueries";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useWorkspacePaneActions } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import { linkStyle } from "@/components/styles";
@@ -45,7 +49,6 @@ import {
   isStagedSimpleViewConfigDeleted,
   parseSimpleViewConfig,
   SIMPLE_VIEW_CONFIG_PATH,
-  shouldLoadRepositorySimpleViewConfig,
 } from "@/lib/simpleView";
 import { type CommitReviewFileStatus as CommitPreviewFileStatus } from "@/lib/commitReviewStatus";
 import { claimRefreshDebounce } from "@/lib/refreshDebounce";
@@ -55,6 +58,7 @@ import { formatStopwatchDuration } from "@/lib/stopwatch";
 import { DraftPullRequestFeedbackBanner } from "@/components/DraftPullRequestFeedbackBanner";
 import { VaultSyncStatus } from "@/components/VaultSyncStatus";
 import { RepositoryMediaViewer } from "@/components/RepositoryMediaViewer";
+import { useRepositorySimpleViewConfig } from "@/components/FileView/useRepositorySimpleViewConfig";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { isRenderableRepositoryMediaPath } from "../../../shared/repositoryMedia";
@@ -62,11 +66,7 @@ import { TREE_REFRESH_STALE_LOCK_MS } from "../../../shared/treeRefresh";
 import { buildVaultFileRoute, parseVaultPathContext } from "@/lib/vaultRoutes";
 import { resolveLegacyBranchlessFilePath } from "@/lib/legacyBranchlessRoute";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
-import {
-  buildStagingPreviewRefreshKey,
-  getBranchComparePreviewReloadMode,
-  getPreviewBaseFilePath,
-} from "@/lib/fileViewCompare";
+import { buildStagingPreviewRefreshKey, getPreviewBaseFilePath } from "@/lib/fileViewCompare";
 import {
   shouldClearCompareOnReviewExit,
   shouldShowCompareBackToEditor,
@@ -80,9 +80,6 @@ import {
 } from "@/routeSearch/fileView";
 import { encodeGitHubPath } from "@/lib/githubUrls";
 import {
-  type BranchComparePreview,
-  BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS,
-  type CommitPreview,
   type CommitReviewMode,
   type EffectiveSidebarMode,
   findBestInitialFile,
@@ -822,12 +819,6 @@ function FileViewInner({
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [commitError, setCommitError] = useState<string | null>(null);
   const [draftPullRequestError, setDraftPullRequestError] = useState<string | null>(null);
-  const [commitPreview, setCommitPreview] = useState<CommitPreview | null>(null);
-  const [commitPreviewError, setCommitPreviewError] = useState<string | null>(null);
-  const [branchComparePreview, setBranchComparePreview] = useState<BranchComparePreview | null>(
-    null,
-  );
-  const [branchComparePreviewError, setBranchComparePreviewError] = useState<string | null>(null);
   const [branchCompareLoadingStartedAt, setBranchCompareLoadingStartedAt] = useState<number | null>(
     null,
   );
@@ -854,10 +845,6 @@ function FileViewInner({
   );
   const [createDraftPullRequestFromDefaultBranch, defaultBranchDraftPullRequestStatus] =
     useConvexAction(api.fileStagingActions.createDraftPullRequestFromDefaultBranch);
-  const [getCommitPreview, commitPreviewStatus] = useConvexAction(
-    api.fileStagingActions.getCommitPreview,
-  );
-  const [getBranchComparePreview] = useConvexAction(api.fileStagingActions.getBranchComparePreview);
   const [getRebaseConflictPreview, rebaseConflictPreviewStatus] = useConvexAction(
     api.fileStagingActions.getRebaseConflictPreview,
   );
@@ -882,7 +869,6 @@ function FileViewInner({
     api.fileStagingActions.restoreComparedDeletedFileToStaging,
   );
   const [renameFileInStaging] = useConvexAction(api.fileStagingActions.renameFileInStaging);
-  const loadRepositoryFileContent = useAction(api.github.getRepositoryFileContent);
   const stageFileForEditing = useAction(api.fileStagingActions.getFileForEditing);
   const [stageUploadedMedia] = useConvexAction(api.fileStagingActions.stageUploadedMedia);
   const isDiffRequested = routeSearch.diff ?? false;
@@ -909,13 +895,13 @@ function FileViewInner({
       dontCache: true,
     },
   );
-  const [repositorySimpleViewConfigContent, setRepositorySimpleViewConfigContent] = useState<
-    string | null
-  >(null);
-  const [didAttemptRepositorySimpleViewConfigLoad, setDidAttemptRepositorySimpleViewConfigLoad] =
-    useState(false);
-  const [didResolveRepositorySimpleViewConfigLoad, setDidResolveRepositorySimpleViewConfigLoad] =
-    useState(false);
+  const repositorySimpleViewConfig = useRepositorySimpleViewConfig({
+    branch,
+    repositoryFullName,
+    stagedConfigFile: stagedSimpleViewConfigFile,
+    treeSHA: vault.treeSHA,
+    vaultId: vault._id,
+  });
   const [sidebarMode, setSidebarMode] = useState<SidebarMode>("all");
   const [sidebarModeHydrated, setSidebarModeHydrated] = useState(false);
 
@@ -943,10 +929,7 @@ function FileViewInner({
   }, [isDiffRequested]);
   const [allowAutoExitReview, setAllowAutoExitReview] = useState(true);
   const reviewRouteKeyRef = useRef<string | null>(null);
-  const branchComparePreviewRequestKeyRef = useRef<string | null>(null);
-  const branchComparePreviewRequestedTargetKeyRef = useRef<string | null>(null);
-  const branchComparePreviewRequestedStagingKeyRef = useRef<string | null>(null);
-  const branchComparePreviewReloadTimeoutRef = useRef<number | null>(null);
+  const branchCompareLoadingTargetKeyRef = useRef<string | null>(null);
   const branchPullRequest = branchPullRequestQuery.data;
   const currentPullRequestNumber = branchPullRequest?.pullRequest?.number;
   const currentPullRequestUrl = branchPullRequest?.pullRequest?.url;
@@ -975,7 +958,7 @@ function FileViewInner({
 
   const hasSimpleViewConfig = hasSimpleViewConfigFile(
     stagedSimpleViewConfigFile,
-    repositorySimpleViewConfigContent,
+    repositorySimpleViewConfig.content,
   );
   const hasDeletedStagedSimpleViewConfigFile = isStagedSimpleViewConfigDeleted(
     stagedSimpleViewConfigFile,
@@ -984,73 +967,17 @@ function FileViewInner({
     stagedSimpleViewConfigFile !== undefined &&
     (hasStagedSimpleViewConfigFile(stagedSimpleViewConfigFile) ||
       hasDeletedStagedSimpleViewConfigFile ||
-      didResolveRepositorySimpleViewConfigLoad);
+      repositorySimpleViewConfig.resolved);
 
   const sidebarModeStorageKey = useMemo(
     () => getSimpleViewPreferenceStorageKey(vault._id),
     [vault._id],
   );
 
-  /**
-   * When the user switches vaults or branches, clear the cached `.samebase.md`
-   * data and hydration flags so the new branch loads its own config from
-   * scratch.
-   */
+  /** Reset browser-owned sidebar hydration when the query source changes. */
   useEffect(() => {
-    setRepositorySimpleViewConfigContent(null);
-    setDidAttemptRepositorySimpleViewConfigLoad(false);
-    setDidResolveRepositorySimpleViewConfigLoad(false);
     setSidebarModeHydrated(false);
   }, [vault._id, branch]);
-
-  /**
-   * Load `.samebase.md` from the repository only when staging has not already
-   * supplied a staged copy or a staged deletion for that same file.
-   */
-  useEffect(() => {
-    if (
-      !shouldLoadRepositorySimpleViewConfig(
-        stagedSimpleViewConfigFile,
-        didAttemptRepositorySimpleViewConfigLoad,
-      )
-    ) {
-      return;
-    }
-
-    let cancelled = false;
-
-    void loadRepositoryFileContent({
-      repositoryFullName,
-      filePath: SIMPLE_VIEW_CONFIG_PATH,
-      branch,
-    })
-      .then((result) => {
-        if (cancelled) {
-          return;
-        }
-        setDidAttemptRepositorySimpleViewConfigLoad(true);
-        setRepositorySimpleViewConfigContent(result.exists ? result.content : null);
-        setDidResolveRepositorySimpleViewConfigLoad(true);
-      })
-      .catch(() => {
-        if (cancelled) {
-          return;
-        }
-        setDidAttemptRepositorySimpleViewConfigLoad(true);
-        setRepositorySimpleViewConfigContent(null);
-        setDidResolveRepositorySimpleViewConfigLoad(true);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [
-    branch,
-    didAttemptRepositorySimpleViewConfigLoad,
-    loadRepositoryFileContent,
-    repositoryFullName,
-    stagedSimpleViewConfigFile,
-  ]);
 
   /**
    * Once we know whether a simple-view config exists, load the saved sidebar
@@ -1095,7 +1022,7 @@ function FileViewInner({
     : null;
   const simpleViewConfigContent = hasDeletedStagedSimpleViewConfigFile
     ? null
-    : (stagedSimpleViewConfigContent ?? repositorySimpleViewConfigContent);
+    : (stagedSimpleViewConfigContent ?? repositorySimpleViewConfig.content);
 
   const simpleViewConfig = useMemo(
     () => parseSimpleViewConfig(simpleViewConfigContent),
@@ -1223,9 +1150,6 @@ function FileViewInner({
         branch,
       })
         .then((preview) => {
-          setCommitPreview(null);
-          setCommitPreviewError(null);
-
           if (preview.files.length === 0) {
             setRebaseConflictPreview(null);
             setRebaseConflictPreviewError(
@@ -1269,8 +1193,6 @@ function FileViewInner({
     (message: string) => {
       setAllowAutoExitReview(false);
       setCommitError(message);
-      setCommitPreview(null);
-      setCommitPreviewError(null);
       if (commitReviewMode !== "review") {
         setReviewModeInQuery("review");
       }
@@ -1278,6 +1200,67 @@ function FileViewInner({
     },
     [commitReviewMode, loadRebaseConflictPreview, setReviewModeInQuery],
   );
+  const commitPreviewRefreshKey = useMemo(
+    () => buildStagingPreviewRefreshKey(stagedFiles),
+    [stagedFiles],
+  );
+  const branchCompareTargetRefreshKey = useMemo(
+    () =>
+      [
+        branch,
+        commitSha ?? "no-commit",
+        currentBranchPullRequestNumber ?? "no-pr",
+        vault.lastTreeRefreshAt ?? "no-refresh",
+      ].join(":"),
+    [branch, commitSha, currentBranchPullRequestNumber, vault.lastTreeRefreshAt],
+  );
+  const branchComparePreviewStagingRefreshKey = useMemo(
+    () => buildStagingPreviewRefreshKey(stagedFiles),
+    [stagedFiles],
+  );
+  const {
+    error: commitPreviewError,
+    isFetching: isCommitPreviewFetching,
+    preview: commitPreview,
+    refetch: refetchCommitPreview,
+  } = useCommitPreviewQuery({
+    branch,
+    enabled: commitReviewMode === "review" && hasStagedChangesToCommit,
+    onSuccess: resetRebaseConflictState,
+    onUpstreamConflict: handleUpstreamConflictDetected,
+    refreshKey: commitPreviewRefreshKey,
+    repositoryFullName,
+    vaultId: vault._id,
+  });
+  const {
+    error: branchComparePreviewError,
+    isLoading: isBranchCompareLoading,
+    preview: branchComparePreview,
+  } = useBranchComparePreviewQuery({
+    branch,
+    enabled: isCompareRequested,
+    repositoryFullName,
+    stagingRefreshKey: branchComparePreviewStagingRefreshKey,
+    targetRefreshKey: branchCompareTargetRefreshKey,
+    vaultId: vault._id,
+  });
+
+  /** Track elapsed time only for a fresh compare target request. */
+  useEffect(() => {
+    if (!isBranchCompareLoading) {
+      branchCompareLoadingTargetKeyRef.current = null;
+      setBranchCompareLoadingStartedAt(null);
+      return;
+    }
+
+    if (branchCompareLoadingTargetKeyRef.current === branchCompareTargetRefreshKey) {
+      return;
+    }
+
+    branchCompareLoadingTargetKeyRef.current = branchCompareTargetRefreshKey;
+    setBranchCompareLoadingStartedAt(Date.now());
+  }, [branchCompareTargetRefreshKey, isBranchCompareLoading]);
+
   const handleCopyRebaseConflictBundle = useCallback(() => {
     if (!rebaseConflictPreview || rebaseConflictPreview.files.length === 0) {
       return;
@@ -1544,7 +1527,6 @@ function FileViewInner({
   const handleManualCommit = useCallback(() => {
     setCommitError(null);
     setDraftPullRequestError(null);
-    setCommitPreviewError(null);
     setRebaseConflictPreviewError(null);
     setRebaseConflictBundleFeedback(null);
 
@@ -1566,7 +1548,6 @@ function FileViewInner({
   const handleDraftPullRequest = useCallback(() => {
     setCommitError(null);
     setDraftPullRequestError(null);
-    setCommitPreviewError(null);
     setRebaseConflictPreviewError(null);
     setRebaseConflictBundleFeedback(null);
 
@@ -1678,7 +1659,6 @@ function FileViewInner({
   const handleResetToGitHub = useCallback(() => {
     setCommitError(null);
     setDraftPullRequestError(null);
-    setCommitPreviewError(null);
     resetRebaseConflictState();
     void clearAllStaging({
       vaultId: vault._id,
@@ -1688,85 +1668,16 @@ function FileViewInner({
     });
   }, [branch, clearAllStaging, resetRebaseConflictState, vault._id]);
 
-  const loadCommitPreview = useCallback(() => {
-    setCommitPreviewError(null);
-    return getCommitPreview({
-      repositoryFullName,
-      branch,
-      includePatch: true,
-    })
-      .then((preview) => {
-        setCommitPreview(preview);
-        resetRebaseConflictState();
-      })
-      .catch((error) => {
-        const message =
-          error instanceof Error && error.message.length > 0
-            ? error.message
-            : "Failed to load commit preview";
-        if (parseUpstreamConflictPaths(message).length > 0) {
-          handleUpstreamConflictDetected(message);
-          return;
-        }
-        setCommitPreviewError(message);
-      });
-  }, [
-    branch,
-    getCommitPreview,
-    handleUpstreamConflictDetected,
-    repositoryFullName,
-    resetRebaseConflictState,
-  ]);
-  const loadBranchComparePreview = useCallback(
-    (requestKey: string) => {
-      setBranchComparePreviewError(null);
-      return getBranchComparePreview({
-        repositoryFullName,
-        branch,
-        includePatch: true,
-      })
-        .then((preview) => {
-          if (branchComparePreviewRequestKeyRef.current !== requestKey) {
-            return;
-          }
-          setBranchCompareLoadingStartedAt(null);
-          setBranchComparePreview(preview);
-        })
-        .catch((error) => {
-          if (branchComparePreviewRequestKeyRef.current !== requestKey) {
-            return;
-          }
-          setBranchCompareLoadingStartedAt(null);
-          const message =
-            error instanceof Error && error.message.length > 0
-              ? error.message
-              : "Failed to load branch comparison";
-          setBranchComparePreview(null);
-          setBranchComparePreviewError(message);
-        });
-    },
-    [branch, getBranchComparePreview, repositoryFullName],
-  );
-  const clearBranchComparePreviewReloadTimeout = useCallback(() => {
-    if (branchComparePreviewReloadTimeoutRef.current === null) {
-      return;
-    }
-
-    window.clearTimeout(branchComparePreviewReloadTimeoutRef.current);
-    branchComparePreviewReloadTimeoutRef.current = null;
-  }, []);
-
   const handleRebaseOntoLatestGitHub = useCallback(() => {
     setAllowAutoExitReview(false);
     setCommitError(null);
-    setCommitPreviewError(null);
     setRebaseConflictPreviewError(null);
     setRebaseConflictBundleFeedback(null);
 
     void pullFromGitHub({ vaultId: vault._id })
       .then(() => {
         resetRebaseConflictState();
-        return loadCommitPreview();
+        void refetchCommitPreview();
       })
       .catch((error) => {
         const message =
@@ -1775,10 +1686,9 @@ function FileViewInner({
             : "Failed to rebase staging onto latest GitHub.";
         setRebaseConflictPreviewError(message);
       });
-  }, [loadCommitPreview, pullFromGitHub, resetRebaseConflictState, vault._id]);
+  }, [pullFromGitHub, refetchCommitPreview, resetRebaseConflictState, vault._id]);
 
   const resetCommitPreviewState = useCallback(() => {
-    setCommitPreview(null);
     clearInlinePreviewSaveErrorRef.current();
     resetRebaseConflictState();
   }, [resetRebaseConflictState]);
@@ -2056,33 +1966,10 @@ function FileViewInner({
     manualComittingStatus === "loading" ||
     isCreatingDraftPullRequest ||
     !hasChangesToCommit;
-  const commitPreviewRefreshKey = useMemo(
-    () => buildStagingPreviewRefreshKey(stagedFiles),
-    [stagedFiles],
-  );
-  const branchCompareTargetRefreshKey = useMemo(
-    () =>
-      [
-        branch,
-        commitSha ?? "no-commit",
-        currentBranchPullRequestNumber ?? "no-pr",
-        vault.lastTreeRefreshAt ?? "no-refresh",
-      ].join(":"),
-    [branch, commitSha, currentBranchPullRequestNumber, vault.lastTreeRefreshAt],
-  );
-  const branchComparePreviewStagingRefreshKey = useMemo(
-    () => buildStagingPreviewRefreshKey(stagedFiles),
-    [stagedFiles],
-  );
   const branchCompareLoadingStopwatchLabel = useMemo(
     () => formatStopwatchDuration(branchCompareLoadingElapsedMs),
     [branchCompareLoadingElapsedMs],
   );
-  const isBranchCompareLoading =
-    isCompareRequested &&
-    branchComparePreview === null &&
-    branchComparePreviewError === null &&
-    branchCompareLoadingStartedAt !== null;
   const compareModeSummary = useMemo(() => {
     if (!isCompareRequested) {
       return null;
@@ -2170,91 +2057,6 @@ function FileViewInner({
     commitReviewMode,
     isCompareRequested,
     setReviewModeInQuery,
-  ]);
-
-  /** Load or refresh the commit preview whenever review mode is active and staged changes exist. */
-  useEffect(() => {
-    if (commitReviewMode !== "review" || !hasChangesToCommit) return;
-    void loadCommitPreview();
-  }, [commitReviewMode, hasChangesToCommit, commitPreviewRefreshKey, loadCommitPreview]);
-
-  /** Cancel any pending compare-preview reload timer when this component unmounts. */
-  useEffect(() => {
-    return () => {
-      clearBranchComparePreviewReloadTimeout();
-    };
-  }, [clearBranchComparePreviewReloadTimeout]);
-
-  /**
-   * Keep the branch compare preview up to date. Target-branch changes reload it
-   * immediately; staged-file churn reloads it after a debounce so we do not
-   * refetch on every tiny local edit.
-   */
-  useEffect(() => {
-    if (!isCompareRequested) {
-      clearBranchComparePreviewReloadTimeout();
-      branchComparePreviewRequestKeyRef.current = null;
-      branchComparePreviewRequestedTargetKeyRef.current = null;
-      branchComparePreviewRequestedStagingKeyRef.current = null;
-      setBranchCompareLoadingStartedAt(null);
-      setBranchComparePreview(null);
-      setBranchComparePreviewError(null);
-      return;
-    }
-
-    const reloadMode = getBranchComparePreviewReloadMode({
-      previousTargetKey: branchComparePreviewRequestedTargetKeyRef.current,
-      previousStagingKey: branchComparePreviewRequestedStagingKeyRef.current,
-      nextTargetKey: branchCompareTargetRefreshKey,
-      nextStagingKey: branchComparePreviewStagingRefreshKey,
-    });
-    if (reloadMode === "none") {
-      return;
-    }
-
-    const nextRequestKey = `${branchCompareTargetRefreshKey}:${branchComparePreviewStagingRefreshKey}`;
-    const startBranchCompareReload = (resetPreview: boolean) => {
-      clearBranchComparePreviewReloadTimeout();
-      branchComparePreviewRequestKeyRef.current = nextRequestKey;
-      branchComparePreviewRequestedTargetKeyRef.current = branchCompareTargetRefreshKey;
-      branchComparePreviewRequestedStagingKeyRef.current = branchComparePreviewStagingRefreshKey;
-      setBranchCompareLoadingStartedAt((current) => {
-        if (resetPreview) {
-          return Date.now();
-        }
-
-        if (branchComparePreview === null) {
-          return current ?? Date.now();
-        }
-
-        return null;
-      });
-      if (resetPreview) {
-        setBranchComparePreview(null);
-      }
-      setBranchComparePreviewError(null);
-      void loadBranchComparePreview(nextRequestKey);
-    };
-
-    if (reloadMode === "immediate") {
-      startBranchCompareReload(true);
-      return;
-    }
-
-    branchComparePreviewReloadTimeoutRef.current = window.setTimeout(() => {
-      startBranchCompareReload(false);
-    }, BRANCH_COMPARE_PREVIEW_STAGING_DEBOUNCE_MS);
-
-    return () => {
-      clearBranchComparePreviewReloadTimeout();
-    };
-  }, [
-    branchComparePreviewStagingRefreshKey,
-    branchComparePreview,
-    branchCompareTargetRefreshKey,
-    clearBranchComparePreviewReloadTimeout,
-    isCompareRequested,
-    loadBranchComparePreview,
   ]);
 
   /**
@@ -2470,13 +2272,13 @@ function FileViewInner({
               disabled={
                 !showCompareBackToEditor &&
                 commitReviewMode === "editor" &&
-                (!hasChangesToCommit || commitPreviewStatus === "loading")
+                (!hasChangesToCommit || isCommitPreviewFetching)
               }
               className="h-6 px-2 text-xs"
             >
               {commitReviewMode === "review" || showCompareBackToEditor
                 ? "Back to Editor"
-                : commitPreviewStatus === "loading"
+                : isCommitPreviewFetching
                   ? "Loading..."
                   : "Review Changes"}
             </Button>

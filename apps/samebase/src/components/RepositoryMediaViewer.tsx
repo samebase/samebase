@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RepositoryVoxPreview } from "@/components/RepositoryVoxPreview";
 import { api } from "../../convex/_generated/api";
 
@@ -93,8 +94,7 @@ export function RepositoryMediaViewer({
   skipStaging?: boolean;
 }) {
   const loadMediaAsset = useAction(api.github.getRepositoryMediaAsset);
-  const [asset, setAsset] = useState<RepositoryMediaAsset | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const queryClient = useQueryClient();
   const [showLoading, setShowLoading] = useState(false);
 
   const fallbackLabel = useMemo(() => {
@@ -102,52 +102,68 @@ export function RepositoryMediaViewer({
     return fileName && fileName.length > 0 ? fileName : filePath;
   }, [filePath]);
 
+  const queryEnabled = Boolean(repositoryFullName && branch && filePath);
+  const queryKey = useMemo(
+    () => ["repository-media-asset", repositoryFullName, branch, filePath, skipStaging] as const,
+    [branch, filePath, repositoryFullName, skipStaging],
+  );
+  const queryIdentity = JSON.stringify(queryKey);
+  const queryLifecycleRef = useRef<{
+    canUseCachedResult: boolean;
+    identity: string;
+  } | null>(null);
+  if (queryLifecycleRef.current?.identity !== queryIdentity) {
+    const activeObserverCount =
+      queryClient.getQueryCache().find({ exact: true, queryKey })?.getObserversCount() ?? 0;
+    queryLifecycleRef.current = {
+      canUseCachedResult: activeObserverCount > 0,
+      identity: queryIdentity,
+    };
+  }
+  const canUseCachedResult = queryLifecycleRef.current.canUseCachedResult;
+  const mediaAssetQuery = useQuery({
+    queryKey,
+    queryFn: async () =>
+      await loadMediaAsset({
+        repositoryFullName,
+        filePath,
+        branch,
+        skipStaging,
+      }),
+    enabled: queryEnabled,
+    gcTime: 0,
+    refetchOnMount: canUseCachedResult ? false : "always",
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+    retry: false,
+    staleTime: canUseCachedResult ? Infinity : 0,
+  });
+  const canRenderQueryResult = canUseCachedResult || mediaAssetQuery.isFetchedAfterMount;
+  const isWaitingForFreshResult =
+    queryEnabled && !canRenderQueryResult && mediaAssetQuery.isFetching;
+
   useEffect(() => {
-    let cancelled = false;
+    setShowLoading(false);
+    if (!isWaitingForFreshResult) {
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
-      if (!cancelled) {
-        setShowLoading(true);
-      }
+      setShowLoading(true);
     }, 500);
 
-    setAsset(null);
-    setError(null);
-    setShowLoading(false);
-
-    void loadMediaAsset({
-      repositoryFullName,
-      filePath,
-      branch,
-      skipStaging,
-    })
-      .then((result) => {
-        if (cancelled) {
-          return;
-        }
-        setAsset(result);
-      })
-      .catch((loadError: unknown) => {
-        if (cancelled) {
-          return;
-        }
-        const message =
-          loadError instanceof Error && loadError.message.length > 0
-            ? loadError.message
-            : "Preview unavailable.";
-        setError(message);
-      })
-      .finally(() => {
-        window.clearTimeout(timeoutId);
-        if (!cancelled) {
-          setShowLoading(false);
-        }
-      });
-
     return () => {
-      cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [branch, filePath, loadMediaAsset, repositoryFullName, skipStaging]);
+  }, [isWaitingForFreshResult, queryIdentity]);
+
+  const asset = canRenderQueryResult ? (mediaAssetQuery.data ?? null) : null;
+  const error =
+    canRenderQueryResult && mediaAssetQuery.isError
+      ? mediaAssetQuery.error instanceof Error && mediaAssetQuery.error.message.length > 0
+        ? mediaAssetQuery.error.message
+        : "Preview unavailable."
+      : null;
 
   if (showLoading) {
     return (

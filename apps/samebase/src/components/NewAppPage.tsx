@@ -1,14 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useAction, useQuery as useConvexQuery } from "convex/react";
 import { CheckIcon, Loader2 } from "lucide-react";
-import {
-  useCallback,
-  useEffect,
-  useState,
-  type FormEvent,
-  type KeyboardEvent,
-  type ReactNode,
-} from "react";
+import { useCallback, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,13 +27,11 @@ import type { Id } from "../../convex/_generated/dataModel";
 type CreateResourceNameMode = "auto" | "manual";
 type CreateResourceNameCheckResult =
   (typeof api.vault.actions.checkCreateRepositoryResourceNames)["_returnType"];
-type CreateResourceNameCheckState = {
-  key: string;
-  result: CreateResourceNameCheckResult;
-};
 type CreateResourceNameAvailability = CreateResourceNameCheckResult["convex"];
 type AppConvexConnection = (typeof api.users.getConvexConnectionStatus)["_returnType"];
 type AppCloudflareConnection = (typeof api.users.getCloudflareConnectionStatus)["_returnType"];
+
+const CREATE_RESOURCE_NAME_CHECK_DELAY_MS = 350;
 
 function resolveCreateResourceNameCheckValue(args: {
   mode: CreateResourceNameMode;
@@ -83,13 +75,23 @@ function isGitHubRepositoryNameAvailabilityBlocking(
   return Boolean(availability && availability.status !== "available");
 }
 
-function buildCreateResourceNameCheckKey(args: {
-  organizationId: Id<"organizations"> | null;
-  githubRepositoryName: string;
-  convexProjectName: string;
-  cloudflareWorkerName: string;
-}): string {
-  return `${args.organizationId ?? ""}\n${args.githubRepositoryName}\n${args.convexProjectName}\n${args.cloudflareWorkerName}`;
+function waitForCreateResourceNameCheck(signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(signal.reason);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      signal.removeEventListener("abort", handleAbort);
+      resolve();
+    }, CREATE_RESOURCE_NAME_CHECK_DELAY_MS);
+    const handleAbort = () => {
+      window.clearTimeout(timeoutId);
+      reject(signal.reason);
+    };
+    signal.addEventListener("abort", handleAbort, { once: true });
+  });
 }
 
 function useCreateResourceNameAvailability(args: {
@@ -105,7 +107,7 @@ function useCreateResourceNameAvailability(args: {
     cloudflareWorkerName: string;
   }) => Promise<CreateResourceNameCheckResult>;
 }): {
-  checkState: CreateResourceNameCheckState | null;
+  checkResult: CreateResourceNameCheckResult | null;
   checkError: string | null;
   isChecking: boolean;
 } {
@@ -117,67 +119,45 @@ function useCreateResourceNameAvailability(args: {
     cloudflareWorkerName,
     checkCreateRepositoryResourceNames,
   } = args;
-  const [checkState, setCheckState] = useState<CreateResourceNameCheckState | null>(null);
-  const [checkError, setCheckError] = useState<string | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
-  const checkKey = buildCreateResourceNameCheckKey({
-    organizationId,
-    githubRepositoryName,
-    convexProjectName,
-    cloudflareWorkerName,
-  });
-
-  useEffect(() => {
-    if (!enabled || organizationId === null) {
-      setCheckError(null);
-      setCheckState(null);
-      setIsChecking(false);
-      return;
-    }
-
-    let canceled = false;
-    setCheckError(null);
-    setIsChecking(true);
-
-    const timeoutId = window.setTimeout(() => {
-      void checkCreateRepositoryResourceNames({
+  const queryEnabled = enabled && organizationId !== null;
+  const checkQuery = useQuery({
+    queryKey: [
+      "create-repository-resource-names",
+      organizationId,
+      githubRepositoryName,
+      convexProjectName,
+      cloudflareWorkerName,
+    ],
+    queryFn: async ({ signal }) => {
+      if (organizationId === null) {
+        throw new Error("An organization is required to check provider names.");
+      }
+      await waitForCreateResourceNameCheck(signal);
+      return await checkCreateRepositoryResourceNames({
         organizationId,
         githubRepositoryName,
         convexProjectName,
         cloudflareWorkerName,
-      })
-        .then((result) => {
-          if (canceled) {
-            return;
-          }
-          setCheckState({ key: checkKey, result });
-          setIsChecking(false);
-        })
-        .catch((error: unknown) => {
-          if (canceled) {
-            return;
-          }
-          setCheckError(error instanceof Error ? error.message : "Could not check provider names.");
-          setCheckState(null);
-          setIsChecking(false);
-        });
-    }, 350);
+      });
+    },
+    enabled: queryEnabled,
+    gcTime: 0,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+    retry: false,
+    staleTime: 0,
+  });
+  const checkError = checkQuery.isError
+    ? checkQuery.error instanceof Error
+      ? checkQuery.error.message
+      : "Could not check provider names."
+    : null;
 
-    return () => {
-      canceled = true;
-      window.clearTimeout(timeoutId);
-    };
-  }, [
-    enabled,
-    organizationId,
-    githubRepositoryName,
-    convexProjectName,
-    cloudflareWorkerName,
-    checkCreateRepositoryResourceNames,
-    checkKey,
-  ]);
-
-  return { checkState, checkError, isChecking };
+  return {
+    checkResult: checkQuery.data ?? null,
+    checkError,
+    isChecking: queryEnabled && checkQuery.isFetching,
+  };
 }
 
 function CreateResourceNameFeedback({
@@ -561,14 +541,8 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     manualName: cloudflareWorkerName,
   });
   const shouldCheckResourceNames = Boolean(canCreateRepo && createRepositoryName);
-  const resourceNameCheckKey = buildCreateResourceNameCheckKey({
-    organizationId,
-    githubRepositoryName: createRepositoryName,
-    convexProjectName: checkedConvexProjectName,
-    cloudflareWorkerName: checkedCloudflareWorkerName,
-  });
   const {
-    checkState: createResourceNameCheck,
+    checkResult: currentResourceNameCheck,
     checkError: createResourceNameCheckError,
     isChecking: isCheckingCreateResourceNames,
   } = useCreateResourceNameAvailability({
@@ -579,8 +553,6 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     cloudflareWorkerName: checkedCloudflareWorkerName,
     checkCreateRepositoryResourceNames,
   });
-  const currentResourceNameCheck =
-    createResourceNameCheck?.key === resourceNameCheckKey ? createResourceNameCheck.result : null;
   const githubRepositoryNameAvailability = currentResourceNameCheck?.github ?? null;
   const convexProjectNameAvailability = currentResourceNameCheck?.convex ?? null;
   const cloudflareWorkerNameAvailability = currentResourceNameCheck?.cloudflare ?? null;
