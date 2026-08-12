@@ -36,7 +36,7 @@ describe("formatAuthorizationErrorMessage", () => {
     {
       authorizationError: { code: "organization-owner-required", provider: "github-app" },
       expected:
-        "GitHub installed the app, but Samebase needs owner access to connect it. Ask a Samebase organization owner to give this account owner access.",
+        "The GitHub account or organization you selected is already connected to a Samebase organization. Ask one of its owners to add you as an owner.",
     },
     {
       authorizationError: { code: "account-link-required", provider: "github-sign-in" },

@@ -219,9 +219,7 @@ test("keeps one organization switchable across settings, providers, and billing"
     page.getByText("You do not have Samebase access to org-context-unavailable.", { exact: true }),
   ).toBeVisible();
   await expect(
-    page
-      .getByRole("alert")
-      .filter({ hasText: "GitHub installed the app, but Samebase needs owner access" }),
+    page.getByRole("alert").filter({ hasText: "already connected to a Samebase organization" }),
   ).toBeVisible();
   await expect(page.getByText("Personal repository creation", { exact: true })).toHaveCount(0);
   await expect(page).toHaveURL(/\/org\/org-context-unavailable\/providers#github$/u);

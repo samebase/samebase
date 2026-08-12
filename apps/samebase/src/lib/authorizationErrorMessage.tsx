@@ -113,7 +113,7 @@ export function formatAuthorizationErrorMessage(
       }
     case "organization-owner-required":
       return authorizationError.provider === "github-app"
-        ? "GitHub installed the app, but Samebase needs owner access to connect it. Ask a Samebase organization owner to give this account owner access."
+        ? "The GitHub account or organization you selected is already connected to a Samebase organization. Ask one of its owners to add you as an owner."
         : `${authorizationLabel} failed. Try again.`;
     case "failed":
       return `${authorizationLabel} failed. Try again.`;
