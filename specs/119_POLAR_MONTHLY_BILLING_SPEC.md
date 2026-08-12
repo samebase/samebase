@@ -51,9 +51,10 @@ Samebase Pro. Samebase uses one shared monthly Pro product for both GitHub owner
 The first current Samebase owner who starts Pro checkout becomes the organization's designated
 billing payer. Samebase stores that user on the organization billing row and creates that user as
 the Polar team Customer's owner Member. Only the designated payer can start later billing changes or
-open that Customer's portal. The designated payer cannot be demoted, removed, leave the
-organization, or delete their Samebase account until billing ownership is transferred. Self-serve
-billing-owner transfer is not part of this rollout.
+open that Customer's portal. The designated payer cannot be demoted, removed, or leave the
+organization until billing ownership is transferred. Self-serve billing-owner transfer is not part
+of this rollout. Account deletion has no separate billing rule. It already requires the user to have
+no organization memberships.
 
 Samebase creates checkout with the reserved external Customer ID. This keeps the checkout tied to
 the external identity that Samebase uses to verify retries. It does not switch to Polar's internal
@@ -103,8 +104,8 @@ a trusted reconciliation operation.
 - Invalid provider data must not remove an existing entitlement.
 - A pending invitation does not consume capacity.
 - A current membership for an active user consumes one seat.
-- Removing a member, leaving an organization, or deleting a non-payer member schedules a Polar seat
-  reduction after the local membership deletion commits.
+- Removing a member or leaving an organization schedules a Polar seat reduction after the local
+  membership deletion commits.
 - Concurrent membership changes converge on the latest active-member count. A member addition cannot
   leave fewer paid seats than active members, and a stale removal cannot leave an extra paid seat.
 - A seat reduction is skipped after cancellation is scheduled. The subscription is already ending,
@@ -228,6 +229,6 @@ The contract is complete only when tests and Sandbox checks prove:
 - Checkout redirects do not grant Pro or seat capacity.
 - Duplicate, out-of-order, invalid, and malformed webhook deliveries are safe.
 - One Samebase user can own several isolated Polar team Customers.
-- A designated payer cannot be demoted, removed, leave, or delete their account.
+- A designated payer cannot be demoted, removed, or leave.
 - Local Polar Sandbox checkout, portal isolation, seat changes, cancellation, reactivation, and
   entitlement end work without a manual database edit.

@@ -32,42 +32,7 @@ async function seedCheckoutContinuation() {
     return { organizationId, userId };
   });
 
-  const makeInitiatorDeleting = async () => {
-    await t.run(async (ctx) => {
-      const initiatingSessionId = await ctx.db.insert("authSessions", {
-        userId: ids.userId,
-        expirationTime: 60_000,
-      });
-      const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
-        state: "queued",
-        identity: {
-          state: "active",
-          userId: ids.userId,
-          email: "checkout-owner@example.invalid",
-        },
-        completionCapability: "c".repeat(64),
-        currentStep: "request_accepted",
-        requestedAt: 1,
-        updatedAt: 1,
-        initiatingSessionId,
-        retryCount: 0,
-        outcomes: {
-          providerRevocation: { state: "not_started" },
-          completionEmail: { state: "not_started" },
-        },
-        workflow: { state: "not_started" },
-      });
-      await ctx.db.replace(ids.userId, {
-        state: "deleting",
-        email: "checkout-owner@example.invalid",
-        isApproved: true,
-        runId,
-        requestedAt: 1,
-      });
-    });
-  };
-
-  return { t, ...ids, makeInitiatorDeleting };
+  return { t, ...ids };
 }
 
 describe("organization billing access", () => {
@@ -145,18 +110,6 @@ describe("organization billing access", () => {
         organizationId: seed.organizationId,
       }),
     ).rejects.toThrow("Only the designated billing payer can manage this subscription.");
-  });
-
-  it("rejects a new checkout reservation after the owner starts account deletion", async () => {
-    const seed = await seedCheckoutContinuation();
-    await seed.makeInitiatorDeleting();
-
-    await expect(
-      seed.t.mutation(internal.polarCheckout.reserveAttempt, {
-        userId: seed.userId,
-        organizationId: seed.organizationId,
-      }),
-    ).rejects.toThrow();
   });
 
   it("denies direct billing reads and reconciliation to a pending user with a membership", async () => {
@@ -305,15 +258,13 @@ describe("organization billing access", () => {
     });
   });
 
-  it("clears the matching pending checkout after the initiating owner starts deletion", async () => {
+  it("clears only the matching pending checkout", async () => {
     const seed = await seedCheckoutContinuation();
     const reservation = await seed.t.mutation(internal.polarCheckout.reserveAttempt, {
       userId: seed.userId,
       organizationId: seed.organizationId,
     });
     expect(reservation).toMatchObject({ state: "pending", canCreate: true });
-
-    await seed.makeInitiatorDeleting();
 
     await expect(
       seed.t.mutation(internal.polarCheckout.clearPending, {
@@ -329,15 +280,13 @@ describe("organization billing access", () => {
     ).resolves.toBe(true);
   });
 
-  it("records and clears the matching open checkout after the initiating owner starts deletion", async () => {
+  it("records and clears only the matching open checkout", async () => {
     const seed = await seedCheckoutContinuation();
     const reservation = await seed.t.mutation(internal.polarCheckout.reserveAttempt, {
       userId: seed.userId,
       organizationId: seed.organizationId,
     });
     expect(reservation).toMatchObject({ state: "pending", canCreate: true });
-
-    await seed.makeInitiatorDeleting();
 
     await expect(
       seed.t.mutation(internal.polarCheckout.recordOpen, {
