@@ -1,9 +1,13 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
 import { readCanonicalPolarBillingState } from "./polarBillingState";
 import type { PolarProductCatalog } from "./polarClient";
 import { makeConvexTest } from "./test.setup";
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 const currentProductId = "current-product";
 const historicalProductId = "historical-product";
@@ -126,6 +130,42 @@ describe("canonical Polar billing state", () => {
     await expect(readMockCanonicalState([createMockSubscription({ seats: 1 })])).rejects.toThrow(
       "invalid seat quantity",
     );
+  });
+
+  it("does not write an observation revision when the product catalog is missing", async () => {
+    vi.stubEnv("CONVEX_AGENT_MODE", "");
+    vi.stubEnv("CONVEX_DEPLOYMENT", "prod:test");
+    vi.stubEnv("POLAR_ACCESS_TOKEN", "polar-access-token");
+    const t = makeConvexTest();
+    const billingAccountId = await t.run(async (ctx) => {
+      const organizationId = await ctx.db.insert("organizations", {
+        githubOwnerId: "polar-owner-without-catalog",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "polar-owner-without-catalog",
+        githubOwnerLoginNormalized: "polar-owner-without-catalog",
+        githubInstallationId: "polar-installation-without-catalog",
+      });
+      return await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+        polarExternalCustomerId: "polar-customer-without-catalog",
+      });
+    });
+    await expect(
+      t.action(internal.polarBillingState.reconcileCustomerFromPolar, {
+        externalCustomerId: "unknown-polar-customer-without-catalog",
+      }),
+    ).resolves.toBe(false);
+
+    await expect(
+      t.action(internal.polarBillingState.reconcileCustomerFromPolar, {
+        externalCustomerId: "polar-customer-without-catalog",
+      }),
+    ).rejects.toThrow("Polar billing products are not configured.");
+
+    const account = await t.run(async (ctx) => await ctx.db.get(billingAccountId));
+    expect(account?.polarObservationRevision).toBeUndefined();
   });
 
   it("applies only the latest observation and stores verified seat capacity", async () => {

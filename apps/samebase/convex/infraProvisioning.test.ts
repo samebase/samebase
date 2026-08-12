@@ -184,6 +184,11 @@ describe("markWorkflowProvisioningFailed", () => {
       "attach_convex",
       "Convex project managed-project exists after an interrupted create. Delete it in the Convex dashboard, then retry.",
     ],
+    [
+      "paid-member-seat-limit",
+      "validate_connections",
+      "This organization needs more paid member seats. Billing and member management are still available.",
+    ],
   ] as const)("keeps %s errors visible", async (repoName, currentStep, message) => {
     const t = makeConvexTest();
     const ids = await seedRun(t, {

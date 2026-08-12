@@ -146,7 +146,7 @@ describe("OrganizationBillingSection", () => {
     rootElement = null;
   });
 
-  it("reads and starts billing for the routed organization", async () => {
+  it("starts billing for the routed organization and restores actions after browser return", async () => {
     const createCheckout = vi.fn(() => new Promise<never>(() => undefined));
     testState.actions.set(getFunctionName(api.billing.requestPolarBillingChange), createCheckout);
     const container = await mountBillingSection();
@@ -174,6 +174,15 @@ describe("OrganizationBillingSection", () => {
       returnUrl: `${window.location.origin}/org/samebase/settings?checkout=cancel#billing`,
       successUrl: `${window.location.origin}/org/samebase/settings?checkout=success#billing`,
     });
+    expect(upgradeButton?.disabled).toBe(true);
+    expect(upgradeButton?.textContent).toBe("Updating...");
+
+    const restoredPageShow = new Event("pageshow");
+    Object.defineProperty(restoredPageShow, "persisted", { value: true });
+    await act(async () => window.dispatchEvent(restoredPageShow));
+
+    expect(upgradeButton?.disabled).toBe(false);
+    expect(upgradeButton?.textContent).toBe("Upgrade to Pro, $4/month");
   });
 
   it("shows the payer and schedules Pro to change to Free", async () => {

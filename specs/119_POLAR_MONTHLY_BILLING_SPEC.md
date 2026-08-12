@@ -105,6 +105,8 @@ a trusted reconciliation operation.
 - A current membership for an active user consumes one seat.
 - Removing a member, leaving an organization, or deleting a non-payer member schedules a Polar seat
   reduction after the local membership deletion commits.
+- Concurrent membership changes converge on the latest active-member count. A member addition cannot
+  leave fewer paid seats than active members, and a stale removal cannot leave an extra paid seat.
 - A seat reduction is skipped after cancellation is scheduled. The subscription is already ending,
   and the local membership removal still removes access immediately.
 
@@ -218,6 +220,7 @@ The contract is complete only when tests and Sandbox checks prove:
 - Invitation acceptance fails without verified capacity and succeeds after capacity is reconciled.
 - Concurrent invitation acceptances cannot both consume the last available seat.
 - A member accepted during a seat reduction does not leave capacity below membership count.
+- Concurrent member removals do not leave a stale extra paid seat.
 - A seat reduction never lowers Pro below two seats.
 - Cancellation sets `cancelAtPeriodEnd` without changing the product.
 - Scheduled cancellation keeps Pro until the paid period ends.

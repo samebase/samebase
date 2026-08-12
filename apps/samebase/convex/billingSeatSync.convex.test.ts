@@ -178,6 +178,134 @@ describe("Polar member-seat synchronization", () => {
     expect(finalState.billingAccount?.polarSeatQuantity).toBe(3);
   });
 
+  it("schedules a fresh reduction when the member count drops during a seat update", async () => {
+    vi.useFakeTimers();
+    try {
+      const t = makeConvexTest();
+      const setup = await t.run(async (ctx) => {
+        const ownerUserId = await ctx.db.insert("users", {
+          state: "active",
+          email: "seat-convergence-owner@example.invalid",
+          isApproved: true,
+        });
+        const firstMemberUserId = await ctx.db.insert("users", {
+          state: "active",
+          email: "seat-convergence-first@example.invalid",
+          isApproved: true,
+        });
+        const secondMemberUserId = await ctx.db.insert("users", {
+          state: "active",
+          email: "seat-convergence-second@example.invalid",
+          isApproved: true,
+        });
+        const organizationId = await ctx.db.insert("organizations", {
+          githubOwnerId: "seat-convergence-owner",
+          githubOwnerType: "organization",
+          githubOwnerLogin: "seat-convergence-owner",
+          githubOwnerLoginNormalized: "seat-convergence-owner",
+          githubInstallationId: "seat-convergence-installation",
+        });
+        await ctx.db.insert("organizationMemberships", {
+          organizationId,
+          userId: ownerUserId,
+          role: "owner",
+        });
+        await ctx.db.insert("organizationMemberships", {
+          organizationId,
+          userId: firstMemberUserId,
+          role: "member",
+        });
+        const removedMembershipId = await ctx.db.insert("organizationMemberships", {
+          organizationId,
+          userId: secondMemberUserId,
+          role: "member",
+        });
+        const billingAccountId = await ctx.db.insert("organizationBillingAccounts", {
+          organizationId,
+          provider: "polar",
+          plan: "pro",
+          status: "active",
+          polarExternalCustomerId: "seat-convergence-customer",
+          polarBillingUserId: ownerUserId,
+          polarSeatQuantity: 4,
+        });
+        return { billingAccountId, organizationId, removedMembershipId };
+      });
+
+      let providerSeats = 4;
+      const subscriptionUpdates: SeatUpdate[] = [];
+      const updateSubscription = vi.fn(async (input: SeatUpdate) => {
+        subscriptionUpdates.push(input);
+        providerSeats = input.subscriptionUpdate.seats;
+        if (providerSeats === 3) {
+          await t.run(async (ctx) => await ctx.db.delete(setup.removedMembershipId));
+        }
+        return null;
+      });
+      polarMocks.createPolarClient.mockReturnValue({
+        subscriptions: { update: updateSubscription },
+      });
+      polarMocks.reconcilePolarCustomerBilling.mockImplementation(
+        async (ctx: ReconciliationCtx, args: { externalCustomerId: string }) => {
+          const target = await ctx.runMutation(internal.polarBillingState.beginObservation, {
+            externalCustomerId: args.externalCustomerId,
+          });
+          if (target === null) {
+            return null;
+          }
+          const state = {
+            status: "active",
+            plan: "pro",
+            externalCustomerId: args.externalCustomerId,
+            subscriptionId: "seat-convergence-subscription",
+            polarSeatQuantity: providerSeats,
+            currentPeriodEndAt: 10_000,
+            cancelAtPeriodEnd: false,
+          } as const;
+          const applied = await ctx.runMutation(internal.polarBillingState.applyObservation, {
+            state,
+            observationRevision: target.observationRevision,
+          });
+          return applied ? state : null;
+        },
+      );
+
+      await expect(
+        t.action(internal.billing.syncPolarSubscriptionSeats, {
+          organizationId: setup.organizationId,
+        }),
+      ).resolves.toBeNull();
+      await t.finishAllScheduledFunctions(() => vi.runAllTimers());
+
+      expect(subscriptionUpdates).toEqual([
+        {
+          id: "seat-convergence-subscription",
+          subscriptionUpdate: { seats: 3, prorationBehavior: "prorate" },
+        },
+        {
+          id: "seat-convergence-subscription",
+          subscriptionUpdate: { seats: 2, prorationBehavior: "prorate" },
+        },
+      ]);
+      const finalState = await t.run(async (ctx) => {
+        return {
+          billingAccount: await ctx.db.get(setup.billingAccountId),
+          memberships: await ctx.db
+            .query("organizationMemberships")
+            .withIndex("by_organization_and_user", (query) =>
+              query.eq("organizationId", setup.organizationId),
+            )
+            .take(3),
+        };
+      });
+      expect(providerSeats).toBe(2);
+      expect(finalState.memberships).toHaveLength(2);
+      expect(finalState.billingAccount?.polarSeatQuantity).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not change seats after cancellation is scheduled", async () => {
     const t = makeConvexTest();
     const organizationId = await t.run(async (ctx) => {

@@ -62,6 +62,20 @@ export function OrganizationBillingSection({
   const billingActionsAvailable = canManageBilling && !isPreview;
   const hasTrustedSubscription = billingStatus?.hasSubscription ?? false;
 
+  // A Back/Forward cache restore keeps the pending state from before the browser left for Polar.
+  useEffect(() => {
+    const resetRestoredBillingRequest = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setBillingRequestState("idle");
+      }
+    };
+
+    window.addEventListener("pageshow", resetRestoredBillingRequest);
+    return () => {
+      window.removeEventListener("pageshow", resetRestoredBillingRequest);
+    };
+  }, []);
+
   useEffect(() => {
     if (checkoutReturnState !== "success") {
       setBillingReconciliationDelayed(false);

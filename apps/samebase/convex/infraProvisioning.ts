@@ -612,6 +612,7 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Convex deployment is required before rotating Convex deploy keys for Workers Builds.",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
   "GitHub repository response did not match the vault repo.",
+  "This organization needs more paid member seats.",
 ];
 
 function extractUserFacingProvisioningError(args: {

@@ -836,20 +836,25 @@ export const syncPolarSubscriptionSeats = internalAction({
       polar,
       externalCustomerId,
     });
-    if (state.status === "inactive") {
+    if (state.status === "inactive" || state.cancelAtPeriodEnd) {
       return null;
     }
-    if (state.cancelAtPeriodEnd) {
-      return null;
-    }
-    const targetSeats = Math.max(syncContext.memberCount, PRO_INCLUDED_ORGANIZATION_MEMBERS);
-    if (state.polarSeatQuantity <= targetSeats) {
+
+    const currentSyncContext: OrganizationBillingSyncContext = await ctx.runQuery(
+      internal.billing.getOrganizationBillingSyncContext,
+      { organizationId: args.organizationId },
+    );
+    const targetSeats = Math.max(currentSyncContext.memberCount, PRO_INCLUDED_ORGANIZATION_MEMBERS);
+    if (state.polarSeatQuantity === targetSeats) {
       return null;
     }
 
     await polar.subscriptions.update({
       id: state.subscriptionId,
-      subscriptionUpdate: { seats: targetSeats, prorationBehavior: "prorate" },
+      subscriptionUpdate: {
+        seats: targetSeats,
+        prorationBehavior: state.polarSeatQuantity < targetSeats ? "invoice" : "prorate",
+      },
     });
     const updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
       polar,
@@ -863,23 +868,40 @@ export const syncPolarSubscriptionSeats = internalAction({
       internal.billing.getOrganizationBillingSyncContext,
       { organizationId: args.organizationId },
     );
-    const restoredTargetSeats = Math.max(
+    const latestTargetSeats = Math.max(
       latestSyncContext.memberCount,
       PRO_INCLUDED_ORGANIZATION_MEMBERS,
     );
-    if (restoredTargetSeats > updated.polarSeatQuantity) {
+    if (latestTargetSeats > updated.polarSeatQuantity) {
       // An invitation can consume the verified seat while the Polar reduction is in flight.
       await polar.subscriptions.update({
         id: updated.subscriptionId,
-        subscriptionUpdate: { seats: restoredTargetSeats, prorationBehavior: "invoice" },
+        subscriptionUpdate: { seats: latestTargetSeats, prorationBehavior: "invoice" },
       });
       const restored = await reconcilePolarBillingTwiceIfNeeded(ctx, {
         polar,
         externalCustomerId,
       });
-      if (restored.status === "inactive" || restored.polarSeatQuantity !== restoredTargetSeats) {
+      if (restored.status === "inactive" || restored.polarSeatQuantity !== latestTargetSeats) {
         throw new Error("Polar seat synchronization did not restore the required quantity.");
       }
+      const restoredSyncContext: OrganizationBillingSyncContext = await ctx.runQuery(
+        internal.billing.getOrganizationBillingSyncContext,
+        { organizationId: args.organizationId },
+      );
+      if (
+        Math.max(restoredSyncContext.memberCount, PRO_INCLUDED_ORGANIZATION_MEMBERS) <
+        restored.polarSeatQuantity
+      ) {
+        await ctx.scheduler.runAfter(0, internal.billing.syncPolarSubscriptionSeats, {
+          organizationId: args.organizationId,
+        });
+      }
+    } else if (latestTargetSeats < updated.polarSeatQuantity) {
+      // A newer removal owns the next reduction so this action cannot finish with a stale quantity.
+      await ctx.scheduler.runAfter(0, internal.billing.syncPolarSubscriptionSeats, {
+        organizationId: args.organizationId,
+      });
     }
     return null;
   },

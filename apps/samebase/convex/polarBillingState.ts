@@ -154,6 +154,9 @@ export const beginObservation = internalMutation({
     if ((await ctx.db.get(target.organizationId)) === null) {
       throw new Error("Organization billing account reference is invalid.");
     }
+    if (readPolarProductCatalog() === null) {
+      throw new Error("Polar billing products are not configured.");
+    }
     const account = readBillingAccountState(target);
 
     const revision =
