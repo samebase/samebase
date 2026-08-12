@@ -4,7 +4,7 @@ import { PolarError } from "@polar-sh/sdk/models/errors/polarerror";
 import { ConvexError, Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
-import { internalAction, internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { action, query } from "./functions";
 import { findOrganizationMembership } from "./organizationAccess";
 import {
@@ -72,6 +72,7 @@ const vPolarBillingChange = union(
   literal("upgrade_to_pro"),
   literal("downgrade_to_free"),
   literal("add_member_seat"),
+  literal("remove_member_seat"),
 );
 
 const vPolarBillingChangeResult = union(
@@ -108,12 +109,6 @@ const vUserBillingAccount = object({
   role: vOrganizationMembershipRole,
   user: vActiveUserDoc,
 });
-
-const vOrganizationBillingSyncContext = object({
-  externalCustomerId: optional(string()),
-  memberCount: number(),
-});
-type OrganizationBillingSyncContext = Infer<typeof vOrganizationBillingSyncContext>;
 
 function isOrganizationSettingsPath(url: URL, githubOwnerLoginNormalized: string): boolean {
   const segments = url.pathname.split("/");
@@ -424,6 +419,12 @@ export const requestPolarBillingChange = action({
     ) {
       throw new ConvexError("Upgrade to Pro before adding member seats.");
     }
+    if (
+      args.change === "remove_member_seat" &&
+      (currentState.plan !== "pro" || currentState.status === "inactive")
+    ) {
+      throw new ConvexError("This organization has no paid member seats.");
+    }
     if (args.change === "downgrade_to_free" && currentState.status === "inactive") {
       throw new ConvexError("This organization already has Free.");
     }
@@ -491,6 +492,15 @@ export const requestPolarBillingChange = action({
           : seed.memberCount + 1,
         PRO_INCLUDED_ORGANIZATION_MEMBERS,
       );
+    } else if (args.change === "remove_member_seat") {
+      if (observedSubscription === null) {
+        throw new ConvexError("This organization has no paid member seats.");
+      }
+      const minimumSeats = Math.max(seed.memberCount, PRO_INCLUDED_ORGANIZATION_MEMBERS);
+      if (observedSubscription.polarSeatQuantity <= minimumSeats) {
+        throw new ConvexError("This organization has no unused member seat.");
+      }
+      targetSeats = observedSubscription.polarSeatQuantity - 1;
     } else {
       targetSeats =
         observedSubscription?.polarSeatQuantity ??
@@ -508,9 +518,12 @@ export const requestPolarBillingChange = action({
           subscriptionUpdate:
             args.change === "downgrade_to_free"
               ? { cancelAtPeriodEnd: true }
-              : { seats: targetSeats, prorationBehavior: "invoice" },
+              : {
+                  seats: targetSeats,
+                  prorationBehavior: args.change === "remove_member_seat" ? "prorate" : "invoice",
+                },
         });
-        const updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
+        let updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
           polar,
           externalCustomerId: seed.externalCustomerId,
         });
@@ -525,6 +538,26 @@ export const requestPolarBillingChange = action({
             !updated.cancelAtPeriodEnd
           ) {
             throw new Error("Polar did not schedule the requested cancellation.");
+          }
+        }
+        if (args.change === "remove_member_seat") {
+          seed = await ctx.runMutation(internal.billing.reservePolarTeamCustomerIdentity, {
+            userId,
+            organizationId,
+          });
+          const requiredSeats = Math.max(seed.memberCount, PRO_INCLUDED_ORGANIZATION_MEMBERS);
+          if (requiredSeats > updated.polarSeatQuantity) {
+            await polar.subscriptions.update({
+              id: updated.subscriptionId,
+              subscriptionUpdate: { seats: requiredSeats, prorationBehavior: "invoice" },
+            });
+            updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
+              polar,
+              externalCustomerId: seed.externalCustomerId,
+            });
+            if (updated.status === "inactive" || updated.polarSeatQuantity !== requiredSeats) {
+              throw new Error("Polar did not restore capacity used during the seat change.");
+            }
           }
         }
       } catch (error) {
@@ -792,117 +825,5 @@ export const reconcileViewerBillingFromPolar = action({
       });
       return { state: "unavailable" };
     }
-  },
-});
-
-export const getOrganizationBillingSyncContext = internalQuery({
-  args: { organizationId: id("organizations") },
-  returns: vOrganizationBillingSyncContext,
-  handler: async (ctx, args): Promise<OrganizationBillingSyncContext> => {
-    const [organization, account] = await Promise.all([
-      ctx.db.get(args.organizationId),
-      ctx.db
-        .query("organizationBillingAccounts")
-        .withIndex("by_organization", (builder) =>
-          builder.eq("organizationId", args.organizationId),
-        )
-        .unique(),
-    ]);
-    if (organization === null || account === null) {
-      throw new Error("Organization billing state is unavailable.");
-    }
-    return {
-      externalCustomerId: account.polarExternalCustomerId,
-      memberCount: await readOrganizationMembershipCount(ctx.db, args.organizationId),
-    };
-  },
-});
-
-export const syncPolarSubscriptionSeats = internalAction({
-  args: { organizationId: id("organizations") },
-  returns: vNull(),
-  handler: async (ctx, args) => {
-    const syncContext: OrganizationBillingSyncContext = await ctx.runQuery(
-      internal.billing.getOrganizationBillingSyncContext,
-      { organizationId: args.organizationId },
-    );
-    const externalCustomerId = syncContext.externalCustomerId?.trim();
-    if (!externalCustomerId) {
-      return null;
-    }
-
-    const polar = createPolarClient();
-    const state = await reconcilePolarBillingTwiceIfNeeded(ctx, {
-      polar,
-      externalCustomerId,
-    });
-    if (state.status === "inactive" || state.cancelAtPeriodEnd) {
-      return null;
-    }
-
-    const currentSyncContext: OrganizationBillingSyncContext = await ctx.runQuery(
-      internal.billing.getOrganizationBillingSyncContext,
-      { organizationId: args.organizationId },
-    );
-    const targetSeats = Math.max(currentSyncContext.memberCount, PRO_INCLUDED_ORGANIZATION_MEMBERS);
-    if (state.polarSeatQuantity === targetSeats) {
-      return null;
-    }
-
-    await polar.subscriptions.update({
-      id: state.subscriptionId,
-      subscriptionUpdate: {
-        seats: targetSeats,
-        prorationBehavior: state.polarSeatQuantity < targetSeats ? "invoice" : "prorate",
-      },
-    });
-    const updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
-      polar,
-      externalCustomerId,
-    });
-    if (updated.status === "inactive" || updated.polarSeatQuantity !== targetSeats) {
-      throw new Error("Polar seat synchronization did not reach the requested quantity.");
-    }
-
-    const latestSyncContext: OrganizationBillingSyncContext = await ctx.runQuery(
-      internal.billing.getOrganizationBillingSyncContext,
-      { organizationId: args.organizationId },
-    );
-    const latestTargetSeats = Math.max(
-      latestSyncContext.memberCount,
-      PRO_INCLUDED_ORGANIZATION_MEMBERS,
-    );
-    if (latestTargetSeats > updated.polarSeatQuantity) {
-      // An invitation can consume the verified seat while the Polar reduction is in flight.
-      await polar.subscriptions.update({
-        id: updated.subscriptionId,
-        subscriptionUpdate: { seats: latestTargetSeats, prorationBehavior: "invoice" },
-      });
-      const restored = await reconcilePolarBillingTwiceIfNeeded(ctx, {
-        polar,
-        externalCustomerId,
-      });
-      if (restored.status === "inactive" || restored.polarSeatQuantity !== latestTargetSeats) {
-        throw new Error("Polar seat synchronization did not restore the required quantity.");
-      }
-      const restoredSyncContext: OrganizationBillingSyncContext = await ctx.runQuery(
-        internal.billing.getOrganizationBillingSyncContext,
-        { organizationId: args.organizationId },
-      );
-      if (
-        Math.max(restoredSyncContext.memberCount, PRO_INCLUDED_ORGANIZATION_MEMBERS) <
-        restored.polarSeatQuantity
-      ) {
-        await ctx.scheduler.runAfter(0, internal.billing.syncPolarSubscriptionSeats, {
-          organizationId: args.organizationId,
-        });
-      }
-    } else if (latestTargetSeats < updated.polarSeatQuantity) {
-      // A newer removal owns the next reduction so this action cannot finish with a stale quantity.
-      await ctx.scheduler.runAfter(0, internal.billing.syncPolarSubscriptionSeats, {
-        organizationId: args.organizationId,
-      });
-    }
-    return null;
   },
 });

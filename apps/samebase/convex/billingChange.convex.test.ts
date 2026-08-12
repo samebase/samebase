@@ -30,6 +30,7 @@ const returnUrl = "http://localhost/org/billing-owner/settings?checkout=cancel";
 
 async function seedBillingOrganization(args: {
   githubOwnerType: "organization" | "user";
+  memberCount?: number;
   subscription?: { seats: number };
 }) {
   const t = makeConvexTest();
@@ -51,6 +52,18 @@ async function seedBillingOrganization(args: {
       userId,
       role: "owner",
     });
+    for (let memberIndex = 1; memberIndex < (args.memberCount ?? 1); memberIndex += 1) {
+      const memberUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: `billing-member-${memberIndex}@example.invalid`,
+        isApproved: true,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: memberUserId,
+        role: "member",
+      });
+    }
     await ctx.db.insert("organizationBillingAccounts", {
       organizationId,
       ...(args.subscription
@@ -212,6 +225,158 @@ describe("Polar billing changes", () => {
     });
     expect(billingAccount).not.toHaveProperty("polarBillingUserId");
     expect(billingAccount).not.toHaveProperty("polarExternalCustomerId");
+  });
+
+  it("removes one unused member seat only after the payer requests it", async () => {
+    const seed = await seedBillingOrganization({
+      githubOwnerType: "organization",
+      memberCount: 2,
+      subscription: { seats: 3 },
+    });
+    const { updateSubscription } = createPolarBoundary(seed.userId);
+    let providerSeats = 3;
+    updateSubscription.mockImplementation(async (input) => {
+      providerSeats = input.subscriptionUpdate.seats;
+      return null;
+    });
+    polarMocks.reconcilePolarCustomerBilling.mockImplementation(
+      async (_ctx, args: { externalCustomerId: string }) => ({
+        status: "active",
+        plan: "pro",
+        externalCustomerId: args.externalCustomerId,
+        subscriptionId: "subscription-1",
+        polarSeatQuantity: providerSeats,
+        currentPeriodEndAt: 10_000,
+        cancelAtPeriodEnd: false,
+      }),
+    );
+
+    await expect(
+      seed.asOwner.action(api.billing.requestPolarBillingChange, {
+        organizationId: seed.organizationId,
+        change: "remove_member_seat",
+        successUrl,
+        returnUrl,
+      }),
+    ).resolves.toEqual({ state: "updated" });
+
+    expect(updateSubscription).toHaveBeenCalledWith({
+      id: "subscription-1",
+      subscriptionUpdate: { seats: 2, prorationBehavior: "prorate" },
+    });
+  });
+
+  it("does not remove member capacity that is in use", async () => {
+    const seed = await seedBillingOrganization({
+      githubOwnerType: "organization",
+      memberCount: 2,
+      subscription: { seats: 2 },
+    });
+    const { updateSubscription } = createPolarBoundary(seed.userId);
+    polarMocks.reconcilePolarCustomerBilling.mockImplementation(
+      async (_ctx, args: { externalCustomerId: string }) => ({
+        status: "active",
+        plan: "pro",
+        externalCustomerId: args.externalCustomerId,
+        subscriptionId: "subscription-1",
+        polarSeatQuantity: 2,
+        currentPeriodEndAt: 10_000,
+        cancelAtPeriodEnd: false,
+      }),
+    );
+
+    await expect(
+      seed.asOwner.action(api.billing.requestPolarBillingChange, {
+        organizationId: seed.organizationId,
+        change: "remove_member_seat",
+        successUrl,
+        returnUrl,
+      }),
+    ).rejects.toThrow("This organization has no unused member seat.");
+
+    expect(updateSubscription).not.toHaveBeenCalled();
+  });
+
+  it("restores capacity when an invitation is accepted during an explicit seat removal", async () => {
+    const seed = await seedBillingOrganization({
+      githubOwnerType: "organization",
+      memberCount: 2,
+      subscription: { seats: 3 },
+    });
+    const invitationCode = "a".repeat(64);
+    const inviteeUserId = await seed.t.run(async (ctx) => {
+      const userId = await ctx.db.insert("users", {
+        state: "active",
+        email: "billing-invitee@example.invalid",
+        isApproved: true,
+      });
+      await ctx.db.insert("authAccounts", {
+        userId,
+        provider: "github",
+        providerAccountId: "billing-invitee",
+        githubLogin: "billing-invitee",
+      });
+      await ctx.db.insert("organizationInvitations", {
+        state: "pending",
+        organizationId: seed.organizationId,
+        githubAccountId: "billing-invitee",
+        githubLogin: "billing-invitee",
+        code: invitationCode,
+        createdByUserId: seed.userId,
+        createdAt: Date.now(),
+        expiresAt: Date.now() + 60_000,
+      });
+      return userId;
+    });
+    const asInvitee = seed.t.withIdentity({
+      subject: `${inviteeUserId}|billing-session`,
+      tokenIdentifier: `test:${inviteeUserId}`,
+    });
+    const { updateSubscription } = createPolarBoundary(seed.userId);
+    let providerSeats = 3;
+    updateSubscription.mockImplementation(async (input) => {
+      providerSeats = input.subscriptionUpdate.seats;
+      if (providerSeats === 2) {
+        await asInvitee.mutation(api.organizationMembers.acceptInvitation, {
+          code: invitationCode,
+        });
+      }
+      return null;
+    });
+    polarMocks.reconcilePolarCustomerBilling.mockImplementation(
+      async (_ctx, args: { externalCustomerId: string }) => ({
+        status: "active",
+        plan: "pro",
+        externalCustomerId: args.externalCustomerId,
+        subscriptionId: "subscription-1",
+        polarSeatQuantity: providerSeats,
+        currentPeriodEndAt: 10_000,
+        cancelAtPeriodEnd: false,
+      }),
+    );
+
+    await expect(
+      seed.asOwner.action(api.billing.requestPolarBillingChange, {
+        organizationId: seed.organizationId,
+        change: "remove_member_seat",
+        successUrl,
+        returnUrl,
+      }),
+    ).resolves.toEqual({ state: "updated" });
+
+    expect(updateSubscription.mock.calls.map(([input]) => input.subscriptionUpdate)).toEqual([
+      { seats: 2, prorationBehavior: "prorate" },
+      { seats: 3, prorationBehavior: "invoice" },
+    ]);
+    const memberships = await seed.t.run(async (ctx) =>
+      ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", seed.organizationId),
+        )
+        .take(4),
+    );
+    expect(memberships).toHaveLength(3);
   });
 
   it("schedules Pro cancellation without changing products", async () => {

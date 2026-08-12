@@ -247,6 +247,37 @@ describe("OrganizationBillingSection", () => {
     );
   });
 
+  it("offers an explicit action for unused paid capacity", async () => {
+    testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
+      billingLimited: false,
+      canManageBilling: true,
+      hasSubscription: true,
+      includedMembers: 2,
+      memberCapacity: 3,
+      memberCount: 2,
+      payerState: "viewer",
+      plan: "pro",
+      status: "active",
+    });
+    const removeSeat = vi.fn(() => new Promise<never>(() => undefined));
+    testState.actions.set(getFunctionName(api.billing.requestPolarBillingChange), removeSeat);
+    const container = await mountBillingSection();
+
+    expect(container.textContent).not.toContain("Add member seat");
+    const removeSeatButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Remove unused seat",
+    );
+    await act(async () => {
+      removeSeatButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(removeSeat).toHaveBeenCalledWith(
+      expect.objectContaining({ change: "remove_member_seat" }),
+    );
+    expect(removeSeatButton?.textContent).toBe("Updating...");
+  });
+
   it("hides plan and seat changes after cancellation is scheduled", async () => {
     testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
       billingLimited: true,
@@ -268,6 +299,7 @@ describe("OrganizationBillingSection", () => {
     expect(container.textContent).not.toContain("Switch to Free");
     expect(container.textContent).not.toContain("Restore member access");
     expect(container.textContent).not.toContain("Add member seat");
+    expect(container.textContent).not.toContain("Remove unused seat");
   });
 
   it("shows billing data but hides billing actions from a member", async () => {

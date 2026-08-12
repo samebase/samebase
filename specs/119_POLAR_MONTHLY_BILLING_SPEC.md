@@ -66,8 +66,9 @@ uses `active memberships + 1` when current memberships fit verified capacity. If
 already above capacity, the purchase targets the active membership count and buys only the capacity
 needed to restore access.
 
-Seat additions invoice immediately. Seat reductions after membership removal use Polar proration. A
-seat reduction never goes below two.
+Seat additions invoice immediately. Removing an unused seat is a separate billing action and uses
+Polar proration. Adding or removing an organization member does not change purchased seat quantity.
+A seat reduction never goes below two or below the current membership count.
 
 Changing Pro to Free schedules subscription cancellation at the end of the paid period. It does not
 switch to another product. Pro and its verified seat capacity stay active until that period ends. If
@@ -111,12 +112,12 @@ a trusted reconciliation operation.
 - Writing or reissuing an invitation requires available member capacity, but the invitation does not
   reserve that capacity.
 - A current membership for an active user consumes one seat.
-- Removing a member or leaving an organization schedules a Polar seat reduction after the local
-  membership deletion commits.
-- Concurrent membership changes converge on the latest active-member count. A member addition cannot
-  leave fewer paid seats than active members, and a stale removal cannot leave an extra paid seat.
-- A seat reduction is skipped after cancellation is scheduled. The subscription is already ending,
-  and the local membership removal still removes access immediately.
+- Removing a member or leaving an organization removes access but keeps purchased seat quantity.
+- The designated payer can remove one unused paid seat through an explicit billing action.
+- An explicit seat reduction is unavailable after cancellation is scheduled. The subscription is
+  already ending.
+- If an invitation consumes capacity while an explicit seat reduction is in flight, Samebase
+  restores the required capacity before the billing action completes.
 
 Writing or reissuing an invitation requires available capacity. Invitation acceptance checks the
 stored capacity and inserts the membership in one Convex transaction. Capacity can change after an
@@ -148,9 +149,15 @@ Organization settings shows the current plan, pooled connection count, active me
 included members, paid member capacity, designated payer state, and next billing or access-end date
 when known.
 
+The Members page shows muted labels for the Samebase role and marks the designated payer on that
+owner's row. The payer label is additional to the owner label because billing responsibility and
+organization access are separate facts.
+
 - Free shows one `Upgrade to Pro, $4/month` action.
 - Free does not show an additional-seat action.
 - Pro shows an additional-seat action only when all verified seats are in use.
+- Pro shows `Remove unused seat` when paid capacity is above both included capacity and current
+  membership count.
 - The designated payer can schedule Pro cancellation at the period end.
 - A scheduled cancellation shows Free as the next plan and shows the access-end date.
 - The designated payer can open the Polar Customer Portal.
@@ -229,8 +236,9 @@ The contract is complete only when tests and Sandbox checks prove:
 - A new or reissued invitation fails when current memberships fill verified capacity.
 - Invitation acceptance fails without verified capacity and succeeds after capacity is reconciled.
 - Concurrent invitation acceptances cannot both consume the last available seat.
-- A member accepted during a seat reduction does not leave capacity below membership count.
-- Concurrent member removals do not leave a stale extra paid seat.
+- A member accepted during an explicit seat reduction does not leave capacity below membership
+  count.
+- Removing a member or leaving does not change the Polar seat quantity.
 - A seat reduction never lowers Pro below two seats.
 - Cancellation sets `cancelAtPeriodEnd` without changing the product.
 - Scheduled cancellation keeps Pro until the paid period ends.
@@ -241,5 +249,6 @@ The contract is complete only when tests and Sandbox checks prove:
 - Duplicate, out-of-order, invalid, and malformed webhook deliveries are safe.
 - One Samebase user can own several isolated Polar team Customers.
 - A designated payer cannot be demoted, removed, or leave.
+- The Members page identifies the designated payer without replacing their owner role.
 - Local Polar Sandbox checkout, portal isolation, seat changes, cancellation, reactivation, and
   entitlement end work without a manual database edit.

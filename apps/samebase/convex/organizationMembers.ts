@@ -48,6 +48,7 @@ const vMember = object({
   avatarUrl: optional(string()),
   githubLogin: optional(string()),
   role: vOrganizationMembershipRole,
+  isBillingPayer: boolean(),
   isViewer: boolean(),
   isDeleting: boolean(),
   isOnlyActiveOwner: boolean(),
@@ -550,9 +551,20 @@ export const getPage = query({
       organizationId: args.organizationId,
       userId: ctx.viewer.userId,
     });
-    const organization = await ctx.db.get(args.organizationId);
+    const [organization, billingAccount] = await Promise.all([
+      ctx.db.get(args.organizationId),
+      ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (builder) =>
+          builder.eq("organizationId", args.organizationId),
+        )
+        .unique(),
+    ]);
     if (organization === null) {
       throw new Error("Organization not found.");
+    }
+    if (billingAccount === null) {
+      throw new Error("Organization billing account is required.");
     }
 
     const memberships: Doc<"organizationMemberships">[] = [];
@@ -593,6 +605,7 @@ export const getPage = query({
           ...(avatarUrl ? { avatarUrl } : {}),
           ...(githubLogin ? { githubLogin } : {}),
           role: membership.role,
+          isBillingPayer: billingAccount.polarBillingUserId === membership.userId,
           isViewer,
           isDeleting: user.state === "deleting",
           isOnlyActiveOwner:
@@ -942,9 +955,6 @@ export const removeMember = mutation({
       userId: membership.userId,
     });
     await ctx.db.delete(membership._id);
-    await ctx.scheduler.runAfter(0, internal.billing.syncPolarSubscriptionSeats, {
-      organizationId: args.organizationId,
-    });
     return { state: "removed" as const };
   },
 });
@@ -982,9 +992,6 @@ export const leaveOrganization = mutation({
       userId: ctx.viewer.userId,
     });
     await ctx.db.delete(membership._id);
-    await ctx.scheduler.runAfter(0, internal.billing.syncPolarSubscriptionSeats, {
-      organizationId: args.organizationId,
-    });
     return { state: "left" as const };
   },
 });

@@ -290,6 +290,47 @@ describe("organization member lifecycle", () => {
     ).toMatchObject({ isPersonalGithubOwnerIdentity: false });
   });
 
+  it("identifies the designated billing payer for every organization member", async () => {
+    const { asMember, asOwner, ids, t } = await seedMembers();
+    await t.run(async (ctx) => {
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Billing account is required.");
+      }
+      await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: "members-page-customer",
+        polarBillingUserId: ids.ownerUserId,
+        polarSeatQuantity: 2,
+      });
+    });
+
+    for (const page of await Promise.all([
+      asOwner.query(api.organizationMembers.getPage, {
+        organizationId: ids.organizationId,
+        now: roundedNow,
+      }),
+      asMember.query(api.organizationMembers.getPage, {
+        organizationId: ids.organizationId,
+        now: roundedNow,
+      }),
+    ])) {
+      expect(page.members.find((member) => member.userId === ids.ownerUserId)).toMatchObject({
+        isBillingPayer: true,
+        role: "owner",
+      });
+      expect(page.members.find((member) => member.userId === ids.memberUserId)).toMatchObject({
+        isBillingPayer: false,
+        role: "member",
+      });
+    }
+  });
+
   it("orders members and pending invitations with stable ties", async () => {
     const { asOwner, ids, t } = await seedMembers();
     const orderIds = await t.run(async (ctx) => {

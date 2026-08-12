@@ -19,7 +19,7 @@ import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 
 const organizationSettingsRouteApi = getRouteApi(ORGANIZATION_SETTINGS_ROUTE);
 
-type BillingRequestState = "idle" | "upgrade" | "downgrade" | "seat" | "portal";
+type BillingRequestState = "idle" | "upgrade" | "downgrade" | "seat_add" | "seat_remove" | "portal";
 
 const billingDateFormatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
 
@@ -158,18 +158,22 @@ export function OrganizationBillingSection({
   };
 
   const handleBillingChange = async (
-    change: "upgrade_to_pro" | "downgrade_to_free" | "add_member_seat",
+    change: "upgrade_to_pro" | "downgrade_to_free" | "add_member_seat" | "remove_member_seat",
   ) => {
     if (!billingActionsAvailable || billingRequestState !== "idle") {
       return;
     }
 
-    const requestState =
-      change === "upgrade_to_pro"
-        ? "upgrade"
-        : change === "downgrade_to_free"
-          ? "downgrade"
-          : "seat";
+    let requestState: BillingRequestState;
+    if (change === "upgrade_to_pro") {
+      requestState = "upgrade";
+    } else if (change === "downgrade_to_free") {
+      requestState = "downgrade";
+    } else if (change === "add_member_seat") {
+      requestState = "seat_add";
+    } else {
+      requestState = "seat_remove";
+    }
     setBillingRequestState(requestState);
     try {
       const result = await requestBillingChange({
@@ -188,9 +192,11 @@ export function OrganizationBillingSection({
             ? "Pro is active"
             : change === "downgrade_to_free"
               ? "Free is scheduled for the next billing period"
-              : billingStatus.billingLimited
-                ? "Member access restored"
-                : "Member seat added",
+              : change === "remove_member_seat"
+                ? "Unused member seat removed"
+                : billingStatus.billingLimited
+                  ? "Member access restored"
+                  : "Member seat added",
       });
       setBillingRequestState("idle");
     } catch (error) {
@@ -230,6 +236,9 @@ export function OrganizationBillingSection({
     billingStatus.memberCapacity - billingStatus.includedMembers,
   );
   const needsAnotherMemberSeat = billingStatus.memberCount >= billingStatus.memberCapacity;
+  const hasUnusedPaidMemberSeat =
+    billingStatus.memberCapacity >
+    Math.max(billingStatus.memberCount, billingStatus.includedMembers);
   const requestPending = billingRequestState !== "idle";
 
   return (
@@ -379,14 +388,29 @@ export function OrganizationBillingSection({
               type="button"
               variant="outline"
             >
-              {billingRequestState === "seat" ? (
+              {billingRequestState === "seat_add" ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : null}
-              {billingRequestState === "seat"
+              {billingRequestState === "seat_add"
                 ? "Updating..."
                 : billingStatus.billingLimited
                   ? "Restore member access"
                   : "Add member seat, $2/month"}
+            </Button>
+          ) : null}
+          {billingStatus.plan === "pro" &&
+          !billingStatus.cancelAtPeriodEnd &&
+          hasUnusedPaidMemberSeat ? (
+            <Button
+              disabled={!billingActionsAvailable || requestPending}
+              onClick={() => void handleBillingChange("remove_member_seat")}
+              type="button"
+              variant="outline"
+            >
+              {billingRequestState === "seat_remove" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {billingRequestState === "seat_remove" ? "Updating..." : "Remove unused seat"}
             </Button>
           ) : null}
           {billingStatus.hasSubscription ? (
