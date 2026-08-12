@@ -25,7 +25,8 @@ import { buildPrimaryDevArgs, buildPrimaryDevEnvironment } from "./run-primary-d
 
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
-const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v1";
+// Refresh existing worktrees once so they copy the dedicated live-test provider defaults.
+const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v2";
 
 const HELP_TEXT = `Usage: scripts/run-worktree-dev.ts [options]
 

@@ -7,8 +7,10 @@ import { afterEach, describe, expect, it } from "vite-plus/test";
 import {
   readConfiguredLocalDevPort,
   readEnvFile,
+  readLocalDevOriginState,
   resolveSiteUrlSyncOrigin,
   usesLocalConvexDeployment,
+  writeLocalDevOriginState,
 } from "./scripts/convex-local-utils.ts";
 
 const temporaryDirectories: string[] = [];
@@ -79,6 +81,17 @@ EMPTY_VALUE=""
     writeEnvFile(cwd, `CONVEX_URL="http://localhost:3210"\n`);
 
     expect(usesLocalConvexDeployment(cwd)).toBe(true);
+  });
+
+  it("records the dev wrapper process that owns a local frontend origin", () => {
+    const cwd = createTempWorkspace();
+    writeLocalDevOriginState("http://localhost:5174", cwd);
+
+    expect(readLocalDevOriginState(cwd)).toEqual({
+      origin: "http://localhost:5174",
+      processId: process.pid,
+      writtenAt: expect.any(Number),
+    });
   });
 
   it("requires an explicit origin before syncing SITE_URL to a shared deployment", () => {

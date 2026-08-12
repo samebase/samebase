@@ -109,6 +109,7 @@ export const writeLocalDevOriginState = (origin: string, cwd: string = process.c
     getLocalDevOriginStatePath(cwd),
     JSON.stringify({
       origin,
+      processId: process.pid,
       writtenAt: Date.now(),
     }),
     "utf8",
@@ -117,7 +118,7 @@ export const writeLocalDevOriginState = (origin: string, cwd: string = process.c
 
 export const readLocalDevOriginState = (
   cwd: string = process.cwd(),
-): { origin: string; writtenAt: number } | null => {
+): { origin: string; processId: number; writtenAt: number } | null => {
   const statePath = getLocalDevOriginStatePath(cwd);
   if (!fs.existsSync(statePath)) {
     return null;
@@ -129,10 +130,14 @@ export const readLocalDevOriginState = (
       parsed &&
       typeof parsed === "object" &&
       typeof parsed.origin === "string" &&
+      typeof parsed.processId === "number" &&
+      Number.isInteger(parsed.processId) &&
+      parsed.processId > 0 &&
       typeof parsed.writtenAt === "number"
     ) {
       return {
         origin: parsed.origin,
+        processId: parsed.processId,
         writtenAt: parsed.writtenAt,
       };
     }

@@ -13,6 +13,10 @@ const APP_PROVISIONING_TIMEOUT_MS = 60_000;
 const APP_CLEANUP_FIXTURE_TIMEOUT_MS = 45_000;
 const APP_CLEANUP_WORKFLOW_TIMEOUT_MS = 30_000;
 const APP_DASHBOARD_TIMEOUT_MS = 15_000;
+const TEST_CONVEX_TEAM_ID = "522530";
+const TEST_CONVEX_TEAM_SLUG = "samebase-live-tests";
+const TEST_CLOUDFLARE_ACCOUNT_ID = "a9dfbbd031cf9eda46831def8e468b4e";
+const TEST_CLOUDFLARE_ACCOUNT_NAME = "Samebase Live Tests";
 
 const setupSummarySchema = z.object({
   status: z.enum(["not_applicable", "ready", "running", "failed"]),
@@ -35,6 +39,8 @@ const providerPlanSchema = z
   .nullable();
 const vaultContractSchema = z.object({
   repositoryFullName: z.string(),
+  convexTeamId: z.string(),
+  cloudflareAccountId: z.string(),
   sourceSetup: setupSummarySchema,
   providerSetup: setupSummarySchema,
   providerPlan: providerPlanSchema,
@@ -51,12 +57,14 @@ const vaultContractSchema = z.object({
   canRemoveCloudflareProvision: z.boolean(),
   cloudflareWorkers: z.array(
     z.object({
+      accountId: z.string(),
       workerName: z.string(),
       workerTag: z.string(),
     }),
   ),
   convexProjects: z.array(
     z.object({
+      teamId: z.string(),
       projectId: z.string(),
     }),
   ),
@@ -69,8 +77,10 @@ function escapeRegExp(value: string): string {
 
 function buildTemporaryRepositoryName(): string {
   const worktreeId = process.env.PLAYWRIGHT_WORKTREE_ID?.trim();
-  if (!worktreeId || !/^[a-z0-9]+$/.test(worktreeId)) {
-    throw new Error("Set PLAYWRIGHT_WORKTREE_ID to the current lower-case worktree id.");
+  if (!worktreeId || !/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(worktreeId)) {
+    throw new Error(
+      "Set PLAYWRIGHT_WORKTREE_ID to the current lower-case worktree id. Internal hyphens are allowed.",
+    );
   }
   const randomSuffix = Math.random().toString(36).slice(2, 8);
   return `tmp-${worktreeId}-${APP_CREATION_INTENT}-${Date.now()}-${randomSuffix}`;
@@ -370,6 +380,11 @@ async function openNewAppWithProviderPreflight(page: Page, owner: string): Promi
     githubBlockerMessage
       ? `App creation provider setup is unavailable: ${githubBlockerMessage}`
       : "GitHub repository creation is unavailable.",
+  );
+
+  await expect(providerReadiness).toContainText(`Connected to team ${TEST_CONVEX_TEAM_SLUG}.`);
+  await expect(providerReadiness).toContainText(
+    `Connected to account ${TEST_CLOUDFLARE_ACCOUNT_NAME}.`,
   );
 
   return newAppPage;
@@ -892,6 +907,8 @@ test.describe("vault create app live flow", () => {
 
       const contract = await waitForVaultProvisioning(page, repositoryFullName);
       expect(contract.repositoryFullName).toBe(repositoryFullName);
+      expect(contract.convexTeamId).toBe(TEST_CONVEX_TEAM_ID);
+      expect(contract.cloudflareAccountId).toBe(TEST_CLOUDFLARE_ACCOUNT_ID);
       expect(contract.sourceSetup).toEqual({ status: "ready" });
       expect(contract.providerSetup).toEqual({ status: "ready" });
       expect(contract.isSamebaseManaged).toBe(true);
@@ -923,9 +940,15 @@ test.describe("vault create app live flow", () => {
       }
       expect(providerPlan.convex.projectName).toBe(expectedConvexProjectName);
       expect(providerPlan.cloudflare.workerName).toBe(expectedCloudflareWorkerName);
-      expect(contract.convexProjects).toEqual([{ projectId: providerPlan.convex.projectId }]);
+      expect(contract.convexProjects).toEqual([
+        {
+          projectId: providerPlan.convex.projectId,
+          teamId: TEST_CONVEX_TEAM_ID,
+        },
+      ]);
       expect(contract.cloudflareWorkers).toEqual([
         {
+          accountId: TEST_CLOUDFLARE_ACCOUNT_ID,
           workerName: expectedCloudflareWorkerName,
           workerTag: providerPlan.cloudflare.workerTag,
         },
