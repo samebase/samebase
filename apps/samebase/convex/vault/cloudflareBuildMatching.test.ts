@@ -5,16 +5,23 @@ import {
   observedCompletedWorkerBuild,
   observedRunningWorkerBuild,
 } from "../cloudflareApi/fixtures/observedWorkerBuilds";
-import { matchLatestCloudflareWorkerBuildForBranch } from "./cloudflareBuildMatching";
+import {
+  type CloudflareBuildDisagreementReason,
+  matchLatestCloudflareWorkerBuildForBranch,
+} from "./cloudflareBuildMatching";
 
 function observedCompletedCloudflareBuild(
   args: {
     buildUuid?: string | null;
+    createdOn?: string | null;
     externalScriptId?: string;
+    includeTrigger?: boolean;
     metadataDeployCommand?: string;
+    metadataRootDirectory?: string;
     repoId?: string;
     rootDirectory?: string;
-    triggerDeployCommand?: string;
+    triggerDeployCommand?: string | null;
+    triggerRootDirectory?: string;
     triggerUuid?: string;
   } = {},
 ): CloudflareWorkerBuild {
@@ -24,22 +31,32 @@ function observedCompletedCloudflareBuild(
       args.buildUuid === null
         ? undefined
         : (args.buildUuid ?? observedCompletedWorkerBuild.build_uuid),
+    created_on:
+      args.createdOn === null
+        ? undefined
+        : (args.createdOn ?? observedCompletedWorkerBuild.created_on),
     build_trigger_metadata: {
       ...observedCompletedWorkerBuild.build_trigger_metadata,
       deploy_command: args.metadataDeployCommand ?? "pnpm run deploy",
-      root_directory: args.rootDirectory ?? "apps/samebase",
+      root_directory: args.metadataRootDirectory ?? args.rootDirectory ?? "apps/samebase",
     },
-    trigger: {
-      ...observedCompletedWorkerBuild.trigger,
-      deploy_command: args.triggerDeployCommand ?? "pnpm run deploy",
-      external_script_id: args.externalScriptId ?? "470db9109dce4196af330cdd7be89518",
-      repo_connection: {
-        ...observedCompletedWorkerBuild.trigger.repo_connection,
-        repo_id: args.repoId ?? "1021726325",
-      },
-      root_directory: args.rootDirectory ?? "apps/samebase",
-      trigger_uuid: args.triggerUuid ?? "b595a215-7b9b-4a04-a55d-578f39ca4335",
-    },
+    trigger:
+      args.includeTrigger === false
+        ? undefined
+        : {
+            ...observedCompletedWorkerBuild.trigger,
+            deploy_command:
+              args.triggerDeployCommand === null
+                ? undefined
+                : (args.triggerDeployCommand ?? "pnpm run deploy"),
+            external_script_id: args.externalScriptId ?? "470db9109dce4196af330cdd7be89518",
+            repo_connection: {
+              ...observedCompletedWorkerBuild.trigger.repo_connection,
+              repo_id: args.repoId ?? "1021726325",
+            },
+            root_directory: args.triggerRootDirectory ?? args.rootDirectory ?? "apps/samebase",
+            trigger_uuid: args.triggerUuid ?? "b595a215-7b9b-4a04-a55d-578f39ca4335",
+          },
   };
 }
 
@@ -89,22 +106,115 @@ describe("matchLatestCloudflareWorkerBuildForBranch", () => {
   });
 
   it.each([
-    ["Worker tag", observedCompletedCloudflareBuild({ externalScriptId: "other-worker-tag" })],
-    ["repository", observedCompletedCloudflareBuild({ repoId: "other-repository" })],
-    ["root directory", observedCompletedCloudflareBuild({ rootDirectory: "apps/docs" })],
-    ["trigger", observedCompletedCloudflareBuild({ triggerUuid: "other-trigger" })],
-    ["missing build UUID", observedCompletedCloudflareBuild({ buildUuid: null })],
-    ["blank build UUID", observedCompletedCloudflareBuild({ buildUuid: " " })],
+    [
+      "missing trigger",
+      observedCompletedCloudflareBuild({ includeTrigger: false }),
+      "missing_trigger",
+    ],
+    [
+      "missing build UUID",
+      observedCompletedCloudflareBuild({ buildUuid: null }),
+      "missing_build_uuid",
+    ],
+    [
+      "blank build UUID",
+      observedCompletedCloudflareBuild({ buildUuid: " " }),
+      "missing_build_uuid",
+    ],
+    [
+      "invalid creation time",
+      observedCompletedCloudflareBuild({ createdOn: "not-a-time" }),
+      "invalid_created_on",
+    ],
+    [
+      "Worker tag",
+      observedCompletedCloudflareBuild({ externalScriptId: "other-worker-tag" }),
+      "worker_tag_mismatch",
+    ],
+    [
+      "trigger",
+      observedCompletedCloudflareBuild({ triggerUuid: "other-trigger" }),
+      "trigger_uuid_mismatch",
+    ],
+    [
+      "repository",
+      observedCompletedCloudflareBuild({ repoId: "other-repository" }),
+      "repository_id_mismatch",
+    ],
+    [
+      "trigger root directory",
+      observedCompletedCloudflareBuild({ triggerRootDirectory: "apps/docs" }),
+      "trigger_root_directory_mismatch",
+    ],
+    [
+      "metadata root directory",
+      observedCompletedCloudflareBuild({ metadataRootDirectory: "apps/docs" }),
+      "metadata_root_directory_mismatch",
+    ],
+    [
+      "missing trigger deploy command",
+      observedCompletedCloudflareBuild({ triggerDeployCommand: null }),
+      "missing_trigger_deploy_command",
+    ],
     [
       "deploy command",
       observedCompletedCloudflareBuild({ metadataDeployCommand: "pnpm run deploy:other" }),
+      "deploy_command_mismatch",
     ],
-  ] as const)("rejects an invalid default-branch build: %s", (_label, build) => {
+  ] satisfies readonly [string, CloudflareWorkerBuild, CloudflareBuildDisagreementReason][])(
+    "rejects an invalid default-branch build: %s",
+    (_label, build, reason) => {
+      expect(
+        matchLatestCloudflareWorkerBuildForBranch({
+          builds: [build],
+          ...defaultBranchMatcherArgs,
+        }),
+      ).toEqual({ state: "provider_disagreement", reasons: [reason] });
+    },
+  );
+
+  it("rejects an invalid expected root directory", () => {
     expect(
       matchLatestCloudflareWorkerBuildForBranch({
-        builds: [build],
+        builds: [observedCompletedCloudflareBuild()],
+        ...defaultBranchMatcherArgs,
+        worker: {
+          ...defaultBranchMatcherArgs.worker,
+          rootDirectory: "../apps/samebase",
+        },
+      }),
+    ).toEqual({ state: "provider_disagreement", reasons: ["invalid_root_directory"] });
+  });
+
+  it("reports all independent disagreements without dependent errors", () => {
+    expect(
+      matchLatestCloudflareWorkerBuildForBranch({
+        builds: [
+          observedCompletedCloudflareBuild({
+            buildUuid: " ",
+            createdOn: "not-a-time",
+            externalScriptId: "other-worker-tag",
+            metadataRootDirectory: "apps/docs",
+            repoId: "other-repository",
+            triggerDeployCommand: null,
+            triggerRootDirectory: "packages/api",
+            triggerUuid: "other-trigger",
+          }),
+        ],
         ...defaultBranchMatcherArgs,
       }),
-    ).toEqual({ state: "provider_disagreement" });
+    ).toEqual({
+      state: "provider_disagreement",
+      reasons: [
+        "missing_build_uuid",
+        "invalid_created_on",
+        "worker_tag_mismatch",
+        "trigger_uuid_mismatch",
+        "repository_id_mismatch",
+        "trigger_root_directory_mismatch",
+        "metadata_root_directory_mismatch",
+        "missing_trigger_deploy_command",
+      ],
+    });
   });
 });
