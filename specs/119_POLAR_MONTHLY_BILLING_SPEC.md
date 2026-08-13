@@ -48,6 +48,8 @@ Samebase Pro. Samebase uses one shared monthly Pro product for both GitHub owner
 - The product has a $4 monthly fixed price.
 - The product includes two seats.
 - Each seat above two costs $2 per month.
+- Both price components are tax-exclusive. Polar adds applicable customer tax above the stated
+  price.
 - The subscription seat quantity is always at least two.
 
 The first current Samebase owner who starts Pro checkout becomes the organization's designated
@@ -96,7 +98,8 @@ Pro.
 
 Before a product becomes available for checkout, the operator opens its exact ID in the matching
 Polar environment. The operator verifies its name, monthly interval, archive and visibility state,
-$4 fixed price, two included seats, and $2 later-seat price against this specification.
+$4 fixed price, two included seats, $2 later-seat price, and tax-exclusive price components against
+this specification.
 
 ### Subscription And Member State
 
