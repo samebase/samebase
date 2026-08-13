@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { PolarError } from "@polar-sh/sdk/models/errors/polarerror";
+import { SDKError } from "@polar-sh/sdk/models/errors/sdkerror";
 
 import {
   POLAR_PRODUCT_CATALOG,
@@ -33,14 +33,14 @@ function requireCatalog(entries: PolarProductCatalog): PolarProductCatalog {
 
 describe("Polar failure logs", () => {
   it("keeps Polar failure logs useful without exposing the response body", () => {
-    const error = new PolarError("API error occurred", {
+    const error = new SDKError("API error occurred", {
       request: new Request("https://api.polar.sh/v1/customers"),
       response: new Response(null, { status: 403 }),
       body: '{"error":"insufficient_scope","private":"customer data"}',
     });
 
     expect(readPolarErrorLogFields(error)).toEqual({
-      errorName: "PolarError",
+      errorName: "SDKError",
       errorStatusCode: 403,
     });
   });
