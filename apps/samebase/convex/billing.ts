@@ -483,15 +483,7 @@ export const requestPolarBillingChange = action({
       if (observedSubscription === null) {
         throw new ConvexError("Upgrade to Pro before adding member seats.");
       }
-      if (observedSubscription.polarSeatQuantity > seed.memberCount) {
-        throw new ConvexError("This organization already has an available member seat.");
-      }
-      targetSeats = Math.max(
-        seed.memberCount > observedSubscription.polarSeatQuantity
-          ? seed.memberCount
-          : seed.memberCount + 1,
-        PRO_INCLUDED_ORGANIZATION_MEMBERS,
-      );
+      targetSeats = Math.max(observedSubscription.polarSeatQuantity + 1, seed.memberCount);
     } else if (args.change === "remove_member_seat") {
       if (observedSubscription === null) {
         throw new ConvexError("This organization has no paid member seats.");

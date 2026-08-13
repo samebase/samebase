@@ -235,7 +235,6 @@ export function OrganizationBillingSection({
     0,
     billingStatus.memberCapacity - billingStatus.includedMembers,
   );
-  const needsAnotherMemberSeat = billingStatus.memberCount >= billingStatus.memberCapacity;
   const hasUnusedPaidMemberSeat =
     billingStatus.memberCapacity >
     Math.max(billingStatus.memberCount, billingStatus.includedMembers);
@@ -379,9 +378,7 @@ export function OrganizationBillingSection({
                 : "Switch to Free next billing period"}
             </Button>
           ) : null}
-          {billingStatus.plan === "pro" &&
-          !billingStatus.cancelAtPeriodEnd &&
-          needsAnotherMemberSeat ? (
+          {billingStatus.plan === "pro" && !billingStatus.cancelAtPeriodEnd ? (
             <Button
               disabled={!billingActionsAvailable || requestPending}
               onClick={() => void handleBillingChange("add_member_seat")}

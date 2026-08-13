@@ -263,6 +263,45 @@ describe("Polar billing changes", () => {
     expect(billingAccount).not.toHaveProperty("polarExternalCustomerId");
   });
 
+  it("adds a personal Pro seat before the included capacity is used", async () => {
+    const seed = await seedBillingOrganization({
+      githubOwnerType: "user",
+      memberCount: 1,
+      subscription: { seats: 2 },
+    });
+    const { updateSubscription } = createPolarBoundary(seed.userId);
+    let providerSeats = 2;
+    updateSubscription.mockImplementation(async (input) => {
+      providerSeats = input.subscriptionUpdate.seats;
+      return null;
+    });
+    polarMocks.reconcilePolarCustomerBilling.mockImplementation(
+      async (_ctx, args: { externalCustomerId: string }) => ({
+        status: "active",
+        plan: "pro",
+        externalCustomerId: args.externalCustomerId,
+        subscriptionId: "subscription-1",
+        polarSeatQuantity: providerSeats,
+        currentPeriodEndAt: 10_000,
+        cancelAtPeriodEnd: false,
+      }),
+    );
+
+    await expect(
+      seed.asOwner.action(api.billing.requestPolarBillingChange, {
+        organizationId: seed.organizationId,
+        change: "add_member_seat",
+        successUrl,
+        returnUrl,
+      }),
+    ).resolves.toEqual({ state: "updated" });
+
+    expect(updateSubscription).toHaveBeenCalledWith({
+      id: "subscription-1",
+      subscriptionUpdate: { seats: 3, prorationBehavior: "invoice" },
+    });
+  });
+
   it("rejects invalid return URLs before assigning the billing payer", async () => {
     const seed = await seedBillingOrganization({ githubOwnerType: "user" });
 
