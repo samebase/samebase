@@ -1,4 +1,5 @@
 import { Polar } from "@polar-sh/sdk";
+import { PolarError } from "@polar-sh/sdk/models/errors/polarerror";
 
 import { env } from "./_generated/server";
 import { resolveDeploymentProfile } from "./deploymentProfile";
@@ -32,6 +33,13 @@ export const POLAR_PRODUCT_CATALOG = {
 function readConfiguredValue(value: string | undefined): string | null {
   const configured = value?.trim();
   return configured ? configured : null;
+}
+
+export function readPolarErrorLogFields(error: unknown) {
+  return {
+    errorName: error instanceof Error ? error.name : "UnknownError",
+    errorStatusCode: error instanceof PolarError ? error.statusCode : null,
+  };
 }
 
 export function resolvePolarServer(): PolarServer {

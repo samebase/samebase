@@ -4,7 +4,7 @@ import { Webhook, WebhookVerificationError } from "standardwebhooks";
 
 import { env, httpAction } from "./_generated/server";
 import { reconcilePolarCustomerBilling } from "./polarBillingState";
-import { createPolarClient } from "./polarClient";
+import { createPolarClient, readPolarErrorLogFields } from "./polarClient";
 
 const POLAR_WEBHOOK_API_TIMEOUT_MS = 1_500;
 
@@ -96,9 +96,7 @@ export const handlePolarWebhook = httpAction(async (ctx, request) => {
     });
     return new Response(null, { status: 204 });
   } catch (error) {
-    console.error("billing:polar:webhook:reconciliation_failed", {
-      errorName: error instanceof Error ? error.name : "UnknownError",
-    });
+    console.error("billing:polar:webhook:reconciliation_failed", readPolarErrorLogFields(error));
     return new Response("Webhook processing failed", { status: 503 });
   }
 });

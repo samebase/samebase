@@ -89,6 +89,17 @@ checkout still blocks deletion because it can create a new subscription.
 Product IDs are non-secret tracked configuration. The Polar access token and webhook secret remain
 secret deployment environment variables.
 
+The Polar access token has only these scopes:
+
+- `checkouts:read`
+- `checkouts:write`
+- `customer_sessions:write`
+- `customers:read`
+- `customers:write`
+- `members:read`
+- `subscriptions:read`
+- `subscriptions:write`
+
 Samebase keeps a typed, versioned Pro product catalog in code. Sandbox and production have separate
 catalogs. Each entry records a product ID, a positive version, and whether checkout can select it.
 Exactly one entry per environment can be selected for checkout. Old product versions remain in the
