@@ -501,6 +501,13 @@ describe("AppRightSidebarContent", () => {
 
     expect(hydratedMarkup).toContain("pending-access@example.com");
     expect(hydratedMarkup).toContain("Beta access pending");
+    expect(hydratedMarkup).toContain(
+      "Samebase is currently in private beta, so access is approved manually.",
+    );
+    expect(hydratedMarkup).toContain("You’re signed in as");
+    expect(hydratedMarkup).toContain(
+      "This page will update automatically when your account is approved.",
+    );
     expect(hydratedMarkup).toContain('role="status"');
     expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).not.toContain("Pending Access User");

@@ -156,9 +156,9 @@ apps/samebase/e2e/repository-media-visual.spec.ts-snapshots/repository-media-svg
 apps/samebase/e2e/repository-media-visual.spec.ts-snapshots/repository-media-vox.png
 apps/samebase/e2e/settings-page-visual.spec.ts-snapshots/settings-delete-account-dialog-desktop.png
 apps/samebase/e2e/settings-page-visual.spec.ts-snapshots/settings-delete-account-dialog-mobile.png
-apps/samebase/e2e/settings-page-visual.spec.ts-snapshots/settings-display-name-account-section.png
 apps/samebase/e2e/settings-page-visual.spec.ts-snapshots/settings-page-desktop.png
 apps/samebase/e2e/settings-page-visual.spec.ts-snapshots/settings-page-mobile.png
+apps/samebase/e2e/settings-page-visual.spec.ts-snapshots/settings-pending-access-right-sidebar.png
 apps/samebase/e2e/settings-page-visual.spec.ts-snapshots/settings-sidebar-resize-grip-mobile.png
 apps/samebase/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-desktop.png
 apps/samebase/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-mobile.png

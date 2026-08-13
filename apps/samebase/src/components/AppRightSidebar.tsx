@@ -60,11 +60,9 @@ function PublicAppRightSidebarContent({ accountPending }: { accountPending: bool
 
 function AppRightSidebarSignedInAccountSection({
   profile,
-  statusLabel,
   user,
 }: {
   profile: AppAuthPresentationProfile | null;
-  statusLabel?: string;
   user?: AppRightSidebarViewer | null;
 }) {
   const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
@@ -77,7 +75,6 @@ function AppRightSidebarSignedInAccountSection({
     <VaultDashboardStaticAccountSection
       accountPresentation={accountPresentation}
       dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
-      statusLabel={statusLabel}
     />
   );
 }
@@ -118,12 +115,24 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
           statusLabel="Deleting account"
         />
       ) : (
-        <AppRightSidebarSignedInAccountSection
-          profile={profile}
-          statusLabel={pending ? "Beta access pending" : undefined}
-          user={user}
-        />
+        <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
       )}
+      {pending && accountPresentation !== undefined ? (
+        <section
+          aria-labelledby="pending-access-sidebar-heading"
+          className="vault-dashboard-sidebar-inset flex flex-1 flex-col justify-center py-8"
+          role="status"
+        >
+          <h2 id="pending-access-sidebar-heading" className="text-base font-semibold leading-6">
+            Beta access pending
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Samebase is currently in private beta, so access is approved manually. You’re signed in
+            as <span className="[overflow-wrap:anywhere]">{accountPresentation.label}</span>
+            {". This page will update automatically when your account is approved."}
+          </p>
+        </section>
+      ) : null}
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>
