@@ -55,9 +55,13 @@ The first current Samebase owner who starts Pro checkout becomes the organizatio
 billing payer. Samebase stores that user on the organization billing row and creates that user as
 the Polar team Customer's owner Member. Only the designated payer can start later billing changes or
 open that Customer's portal. The designated payer cannot be demoted, removed, or leave the
-organization until billing ownership is transferred. Self-serve billing-owner transfer is not part
-of this rollout. Account deletion has no separate billing rule. It already requires the user to have
-no organization memberships.
+organization until billing ownership is transferred. Only the designated payer can transfer billing
+to another active Samebase owner. Samebase stores the pending target, keeps both owners protected,
+and changes Polar first. It creates the target as a Polar Member when needed, makes the target the
+Polar owner, and removes billing access from the former Polar owner. Samebase changes its designated
+payer only after it verifies both Polar roles. A failed or interrupted transfer stays pending and
+the same target can be retried. Account deletion has no separate billing rule. It already requires
+the user to have no organization memberships.
 
 Samebase creates checkout with the reserved external Customer ID. This keeps the checkout tied to
 the external identity that Samebase uses to verify retries. It does not switch to Polar's internal
@@ -82,7 +86,8 @@ history, but Samebase treats it as no current subscription.
 
 Organization deletion stays blocked until Polar reports no current subscription and Samebase stores
 `free` and `inactive`. The retained Polar Customer ID does not block deletion. A pending or open
-checkout still blocks deletion because it can create a new subscription.
+checkout still blocks deletion because it can create a new subscription. A pending billing payer
+transfer also blocks deletion.
 
 ### Product Catalog
 
@@ -97,6 +102,7 @@ The Polar access token has only these scopes:
 - `customers:read`
 - `customers:write`
 - `members:read`
+- `members:write`
 - `subscriptions:read`
 - `subscriptions:write`
 
@@ -173,7 +179,8 @@ known.
 
 The Members page shows muted labels for the Samebase role and marks the designated payer on that
 owner's row. The payer label is additional to the owner label because billing responsibility and
-organization access are separate facts.
+organization access are separate facts. During a transfer, the target row shows a pending label. The
+current payer can start or retry the transfer from that target owner's row.
 
 - Free shows one `Upgrade to Pro, $4/month` action.
 - Free does not show an additional-seat action.
@@ -184,6 +191,8 @@ organization access are separate facts.
 - The designated payer can schedule Pro cancellation at the period end.
 - A scheduled cancellation shows Free as the next plan and shows the access-end date.
 - The designated payer can open the Polar Customer Portal.
+- Billing settings stop billing actions during a pending payer transfer and direct the payer to the
+  Members page.
 
 The public pricing page shows the same three-row contract. Polar owns checkout, payment methods,
 invoices, receipts, cancellation, and reactivation.
@@ -279,6 +288,10 @@ The contract is complete only when tests and Sandbox checks prove:
 - Duplicate, out-of-order, invalid, and malformed webhook deliveries are safe.
 - One Samebase user can own several isolated Polar team Customers.
 - A designated payer cannot be demoted, removed, or leave.
+- Only the designated payer can transfer billing to another active owner.
+- A pending transfer protects both owners, survives a Polar failure, and can finish after a retry.
+- Samebase changes the payer only after Polar makes the target owner and the former payer a normal
+  Member.
 - The Members page identifies the designated payer without replacing their owner role.
 - Local Polar Sandbox checkout, portal isolation, seat changes, cancellation, reactivation, and
   entitlement end work without a manual database edit.

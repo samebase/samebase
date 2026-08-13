@@ -25,6 +25,7 @@ export function OrganizationMembersPage({ organization }: { organization: Viewer
   const changeRole = useMutation(api.organizationMembers.changeRole);
   const removeMember = useMutation(api.organizationMembers.removeMember);
   const leaveOrganization = useMutation(api.organizationMembers.leaveOrganization);
+  const transferBillingPayer = useAction(api.billing.transferPolarBillingPayer);
   const githubRelationships = useQuery({
     enabled: page?.viewerRole === "owner",
     queryFn: async () => await getGitHubRelationships({ organizationId }),
@@ -67,6 +68,9 @@ export function OrganizationMembersPage({ organization }: { organization: Viewer
       onRemoveMember={async (membershipId) => await removeMember({ membershipId, organizationId })}
       onResolveInvitationTarget={async (githubLogin) =>
         await resolveInvitationTarget({ githubLogin, organizationId })
+      }
+      onTransferBillingPayer={async (targetMembershipId) =>
+        await transferBillingPayer({ organizationId, targetMembershipId })
       }
       page={page}
     />

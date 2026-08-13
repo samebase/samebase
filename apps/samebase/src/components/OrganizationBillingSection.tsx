@@ -351,6 +351,10 @@ export function OrganizationBillingSection({
         <p className="mt-4 text-sm text-destructive" role="alert">
           Payment needs attention. Open the billing portal to update the payment method.
         </p>
+      ) : billingStatus.payerState === "viewer" && !canManageBilling && isOrganizationOwner ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Finish the billing payer transfer on the Members page before changing billing.
+        </p>
       ) : billingStatus.payerState === "another_owner" && isOrganizationOwner ? (
         <p className="mt-4 text-sm text-muted-foreground">
           Another owner manages billing for this organization.

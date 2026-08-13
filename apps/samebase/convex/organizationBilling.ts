@@ -19,6 +19,7 @@ export type BillingAccountState = Pick<
   | "cancelAtPeriodEnd"
   | "polarExternalCustomerId"
   | "polarBillingUserId"
+  | "polarBillingPayerTransfer"
   | "polarSeatQuantity"
   | "polarStateChangedAt"
   | "polarObservationRevision"
@@ -104,6 +105,7 @@ export function readBillingAccountState(
     cancelAtPeriodEnd: account.cancelAtPeriodEnd,
     polarExternalCustomerId: account.polarExternalCustomerId,
     polarBillingUserId: account.polarBillingUserId,
+    polarBillingPayerTransfer: account.polarBillingPayerTransfer,
     polarSeatQuantity: account.polarSeatQuantity,
     polarStateChangedAt: account.polarStateChangedAt,
     polarObservationRevision: account.polarObservationRevision,

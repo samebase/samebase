@@ -300,11 +300,16 @@ describe("organization member lifecycle", () => {
       if (billingAccount === null) {
         throw new Error("Billing account is required.");
       }
+      await ctx.db.patch(ids.memberMembershipId, { role: "owner" });
       await ctx.db.patch(billingAccount._id, {
         provider: "polar",
         plan: "pro",
         status: "active",
         polarExternalCustomerId: "members-page-customer",
+        polarBillingPayerTransfer: {
+          attemptId: "members-page-transfer",
+          targetUserId: ids.memberUserId,
+        },
         polarBillingUserId: ids.ownerUserId,
         polarSeatQuantity: 2,
       });
@@ -322,11 +327,13 @@ describe("organization member lifecycle", () => {
     ])) {
       expect(page.members.find((member) => member.userId === ids.ownerUserId)).toMatchObject({
         isBillingPayer: true,
+        isBillingTransferPending: false,
         role: "owner",
       });
       expect(page.members.find((member) => member.userId === ids.memberUserId)).toMatchObject({
         isBillingPayer: false,
-        role: "member",
+        isBillingTransferPending: true,
+        role: "owner",
       });
     }
   });
@@ -921,6 +928,10 @@ describe("organization member lifecycle", () => {
         throw new Error("Billing account is required.");
       }
       await ctx.db.patch(billingAccount._id, {
+        polarBillingPayerTransfer: {
+          attemptId: "member-guard-transfer",
+          targetUserId: ids.memberUserId,
+        },
         polarBillingUserId: ids.ownerUserId,
       });
     });
@@ -948,6 +959,30 @@ describe("organization member lifecycle", () => {
       }),
     ).rejects.toThrow(
       "Transfer organization billing before changing or removing the billing payer.",
+    );
+    await expect(
+      asOwner.mutation(api.organizationMembers.changeRole, {
+        organizationId: ids.organizationId,
+        membershipId: ids.memberMembershipId,
+        role: "member",
+      }),
+    ).rejects.toThrow(
+      "Finish the billing payer transfer before changing or removing the next billing payer.",
+    );
+    await expect(
+      asOwner.mutation(api.organizationMembers.removeMember, {
+        organizationId: ids.organizationId,
+        membershipId: ids.memberMembershipId,
+      }),
+    ).rejects.toThrow(
+      "Finish the billing payer transfer before changing or removing the next billing payer.",
+    );
+    await expect(
+      asMember.mutation(api.organizationMembers.leaveOrganization, {
+        organizationId: ids.organizationId,
+      }),
+    ).rejects.toThrow(
+      "Finish the billing payer transfer before changing or removing the next billing payer.",
     );
   });
 

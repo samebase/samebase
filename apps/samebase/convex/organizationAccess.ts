@@ -146,6 +146,64 @@ export async function requireAnotherActiveOrganizationOwner(
   throw new ConvexError("An organization must have at least one active owner.");
 }
 
+/** Protect billing responsibility and active work before a membership changes. */
+export async function requireOrganizationMembershipChangeAllowed(
+  db: DatabaseReader,
+  args: {
+    change: "demote" | "remove";
+    organizationId: Id<"organizations">;
+    userId: Id<"users">;
+  },
+): Promise<void> {
+  const account = await db
+    .query("organizationBillingAccounts")
+    .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
+    .unique();
+  if (account === null) {
+    throw new Error("Organization billing account is required.");
+  }
+  if (account.polarBillingUserId === args.userId) {
+    throw new ConvexError(
+      "Transfer organization billing before changing or removing the billing payer.",
+    );
+  }
+  if (account.polarBillingPayerTransfer?.targetUserId === args.userId) {
+    throw new ConvexError(
+      "Finish the billing payer transfer before changing or removing the next billing payer.",
+    );
+  }
+
+  if (args.change === "demote") {
+    return;
+  }
+
+  for (const state of ["queued", "running"] as const) {
+    const [deletion, provisioning] = await Promise.all([
+      db
+        .query("workflow_vaultDeletion_runs")
+        .withIndex("by_organization_and_user_and_state_and_updated_at", (builder) =>
+          builder
+            .eq("organizationId", args.organizationId)
+            .eq("userId", args.userId)
+            .eq("state", state),
+        )
+        .first(),
+      db
+        .query("workflow_vaultProvisioning_runs")
+        .withIndex("by_organization_and_user_and_state_and_updated_at", (builder) =>
+          builder
+            .eq("organizationId", args.organizationId)
+            .eq("userId", args.userId)
+            .eq("state", state),
+        )
+        .first(),
+    ]);
+    if (deletion !== null || provisioning !== null) {
+      throw new ConvexError("Wait for this member's active vault work to finish.");
+    }
+  }
+}
+
 /** Load the organization that owns a vault and its current GitHub owner identity. */
 export async function requireVaultOrganization(
   db: DatabaseReader,

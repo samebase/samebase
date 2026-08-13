@@ -54,6 +54,7 @@ export type CreatedOrganizationInvitation = GetFunctionReferenceReturnType<
 
 type MemberConfirmation =
   | { kind: "change-role"; member: OrganizationMember; role: OrganizationMemberRole }
+  | { kind: "transfer-billing"; member: OrganizationMember }
   | { kind: "remove"; member: OrganizationMember }
   | { kind: "leave"; member: OrganizationMember }
   | { kind: "cancel-invitation"; invitation: PendingOrganizationInvitation };
@@ -72,6 +73,7 @@ type OrganizationMembersPageViewProps = {
   onLeaveOrganization: () => Promise<unknown>;
   onRemoveMember: (membershipId: Id<"organizationMemberships">) => Promise<unknown>;
   onResolveInvitationTarget: (githubLogin: string) => Promise<InvitationTarget>;
+  onTransferBillingPayer: (membershipId: Id<"organizationMemberships">) => Promise<unknown>;
   page: OrganizationMembersPageData;
 };
 
@@ -156,12 +158,16 @@ function MemberAvatar({ avatarUrl, label }: { avatarUrl?: string; label: string 
 }
 
 function MemberActionsMenu({
+  billingTransferPending,
   member,
   onConfirm,
+  viewerIsBillingPayer,
   viewerRole,
 }: {
+  billingTransferPending: boolean;
   member: OrganizationMember;
   onConfirm: (confirmation: MemberConfirmation) => void;
+  viewerIsBillingPayer: boolean;
   viewerRole: OrganizationMemberRole;
 }) {
   const actions: Array<{
@@ -173,9 +179,10 @@ function MemberActionsMenu({
   }> = [];
 
   if (viewerRole === "owner") {
+    const membershipChangeProtected = member.isBillingPayer || member.isBillingTransferPending;
     if (member.role === "owner") {
       actions.push({
-        disabled: member.isOnlyActiveOwner,
+        disabled: member.isOnlyActiveOwner || membershipChangeProtected,
         key: "make-member",
         label: "Make Samebase member",
         onSelect: () => onConfirm({ kind: "change-role", member, role: "member" }),
@@ -189,8 +196,24 @@ function MemberActionsMenu({
       });
     }
 
+    if (
+      viewerIsBillingPayer &&
+      member.role === "owner" &&
+      !member.isViewer &&
+      !member.isDeleting &&
+      (!billingTransferPending || member.isBillingTransferPending)
+    ) {
+      actions.push({
+        key: "transfer-billing",
+        label: member.isBillingTransferPending
+          ? "Continue billing transfer"
+          : "Transfer billing payer",
+        onSelect: () => onConfirm({ kind: "transfer-billing", member }),
+      });
+    }
+
     actions.push({
-      disabled: member.isOnlyActiveOwner,
+      disabled: member.isOnlyActiveOwner || membershipChangeProtected,
       key: member.isViewer ? "leave" : "remove",
       label: member.isViewer ? "Leave organization" : "Remove member",
       onSelect: () =>
@@ -502,6 +525,19 @@ function getConfirmationContent(confirmation: MemberConfirmation): {
     };
   }
 
+  if (confirmation.kind === "transfer-billing") {
+    const identity = getMemberIdentity(confirmation.member);
+    return {
+      actionLabel: "Transfer billing payer",
+      description:
+        "They will become the only owner who can change this subscription and open its Polar billing portal.",
+      pendingLabel: "Transferring...",
+      title: `Transfer billing to ${identity}?`,
+      variant: "default",
+      warning: null,
+    };
+  }
+
   if (confirmation.kind === "leave") {
     const identity = getMemberIdentity(confirmation.member);
     return {
@@ -533,6 +569,7 @@ function MemberConfirmationDialog({
   onClose,
   onLeaveOrganization,
   onRemoveMember,
+  onTransferBillingPayer,
 }: {
   confirmation: MemberConfirmation;
   onCancelInvitation: OrganizationMembersPageViewProps["onCancelInvitation"];
@@ -540,6 +577,7 @@ function MemberConfirmationDialog({
   onClose: () => void;
   onLeaveOrganization: OrganizationMembersPageViewProps["onLeaveOrganization"];
   onRemoveMember: OrganizationMembersPageViewProps["onRemoveMember"];
+  onTransferBillingPayer: OrganizationMembersPageViewProps["onTransferBillingPayer"];
 }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -558,6 +596,9 @@ function MemberConfirmationDialog({
         break;
       case "remove":
         promise = onRemoveMember(confirmation.member.membershipId);
+        break;
+      case "transfer-billing":
+        promise = onTransferBillingPayer(confirmation.member.membershipId);
         break;
       case "leave":
         promise = onLeaveOrganization();
@@ -627,6 +668,7 @@ export function OrganizationMembersPageView({
   onLeaveOrganization,
   onRemoveMember,
   onResolveInvitationTarget,
+  onTransferBillingPayer,
   page,
 }: OrganizationMembersPageViewProps) {
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -643,6 +685,10 @@ export function OrganizationMembersPageView({
     githubRelationships?.map((relationship) => [relationship.userId, relationship.status]),
   );
   const pendingInvitations = page.pendingInvitations ?? [];
+  const billingTransferPending = page.members.some((member) => member.isBillingTransferPending);
+  const viewerIsBillingPayer = page.members.some(
+    (member) => member.isViewer && member.isBillingPayer,
+  );
   const visibleCopyFallback =
     copyFallback !== null &&
     pendingInvitations.some((invitation) => invitation.invitationId === copyFallback.invitationId)
@@ -756,6 +802,14 @@ export function OrganizationMembersPageView({
                           Billing payer
                         </Badge>
                       ) : null}
+                      {member.isBillingTransferPending ? (
+                        <Badge
+                          className="border-amber-500/30 bg-amber-500/10 text-amber-700 dark:border-amber-400/30 dark:bg-amber-400/10 dark:text-amber-300"
+                          variant="outline"
+                        >
+                          Billing transfer pending
+                        </Badge>
+                      ) : null}
                     </div>
                     {member.isDeleting ? <div className="text-destructive">Deleting</div> : null}
                   </td>
@@ -768,8 +822,10 @@ export function OrganizationMembersPageView({
                   ) : null}
                   <td className="py-4 text-right align-middle">
                     <MemberActionsMenu
+                      billingTransferPending={billingTransferPending}
                       member={member}
                       onConfirm={setConfirmation}
+                      viewerIsBillingPayer={viewerIsBillingPayer}
                       viewerRole={page.viewerRole}
                     />
                   </td>
@@ -917,6 +973,7 @@ export function OrganizationMembersPageView({
           onClose={() => setConfirmation(null)}
           onLeaveOrganization={onLeaveOrganization}
           onRemoveMember={onRemoveMember}
+          onTransferBillingPayer={onTransferBillingPayer}
         />
       )}
     </main>

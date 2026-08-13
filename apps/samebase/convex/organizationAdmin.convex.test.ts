@@ -384,6 +384,26 @@ describe("organization deletion", () => {
     ).rejects.toThrow("Resolve organization billing before you delete this organization.");
   });
 
+  it("rejects a pending billing payer transfer", async () => {
+    const t = makeConvexTest();
+    const seed = await seedDeletableOrganization(t, "pending-payer-transfer");
+    await t.run(async (ctx) => {
+      await ctx.db.patch(seed.billingId, {
+        polarBillingPayerTransfer: {
+          attemptId: "pending-payer-transfer-attempt",
+          targetUserId: seed.ownerId,
+        },
+      });
+    });
+
+    await expect(
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
+        organizationId: seed.organizationId,
+        deletionConfirmationText: "organization-pending-payer-transfer",
+      }),
+    ).rejects.toThrow("Resolve organization billing before you delete this organization.");
+  });
+
   it("deletes a Free organization after its Pro subscription ends", async () => {
     const t = makeConvexTest();
     const seed = await seedDeletableOrganization(t, "ended-pro");

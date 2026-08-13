@@ -13,14 +13,12 @@ import { action, mutation, query } from "./functions";
 import { createGitHubInstallationOctokit } from "./githubApp";
 import {
   requireAnotherActiveOrganizationOwner,
+  requireOrganizationMembershipChangeAllowed,
   requireOrganizationMembershipUser,
   requireOrganizationSettingsMembership,
   requireOrganizationSettingsOwnerAccessContext,
 } from "./organizationAccess";
-import {
-  requireAdditionalOrganizationMemberCapacity,
-  requireUserIsNotOrganizationBillingPayer,
-} from "./organizationBillingLimits";
+import { requireAdditionalOrganizationMemberCapacity } from "./organizationBillingLimits";
 import { readGitHubSignInProviderAccountId } from "./githubUserAuthorizations";
 import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
 import {
@@ -49,6 +47,7 @@ const vMember = object({
   githubLogin: optional(string()),
   role: vOrganizationMembershipRole,
   isBillingPayer: boolean(),
+  isBillingTransferPending: boolean(),
   isViewer: boolean(),
   isDeleting: boolean(),
   isOnlyActiveOwner: boolean(),
@@ -220,49 +219,6 @@ function readMemberLabel(args: {
 
 function normalizeMemberLabelSortKey(label: string): string {
   return label.trim().normalize("NFKC").toLowerCase();
-}
-
-async function hasTargetOwnedActiveWork(
-  db: DatabaseReader,
-  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
-): Promise<boolean> {
-  for (const state of ["queued", "running"] as const) {
-    const deletion = await db
-      .query("workflow_vaultDeletion_runs")
-      .withIndex("by_organization_and_user_and_state_and_updated_at", (builder) =>
-        builder
-          .eq("organizationId", args.organizationId)
-          .eq("userId", args.userId)
-          .eq("state", state),
-      )
-      .first();
-    if (deletion !== null) {
-      return true;
-    }
-
-    const provisioning = await db
-      .query("workflow_vaultProvisioning_runs")
-      .withIndex("by_organization_and_user_and_state_and_updated_at", (builder) =>
-        builder
-          .eq("organizationId", args.organizationId)
-          .eq("userId", args.userId)
-          .eq("state", state),
-      )
-      .first();
-    if (provisioning !== null) {
-      return true;
-    }
-  }
-  return false;
-}
-
-async function requireNoTargetOwnedActiveWork(
-  db: DatabaseReader,
-  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
-): Promise<void> {
-  if (await hasTargetOwnedActiveWork(db, args)) {
-    throw new ConvexError("Wait for this member's active vault work to finish.");
-  }
 }
 
 async function deletePendingInvitationForUser(
@@ -607,6 +563,8 @@ export const getPage = query({
           ...(githubLogin ? { githubLogin } : {}),
           role: membership.role,
           isBillingPayer: billingAccount.polarBillingUserId === membership.userId,
+          isBillingTransferPending:
+            billingAccount.polarBillingPayerTransfer?.targetUserId === membership.userId,
           isViewer,
           isDeleting: user.state === "deleting",
           isOnlyActiveOwner:
@@ -899,7 +857,8 @@ export const changeRole = mutation({
       return { state: "unchanged" as const, role: membership.role };
     }
     if (membership.role === "owner") {
-      await requireUserIsNotOrganizationBillingPayer(ctx.db, {
+      await requireOrganizationMembershipChangeAllowed(ctx.db, {
+        change: "demote",
         organizationId: args.organizationId,
         userId: membership.userId,
       });
@@ -936,7 +895,8 @@ export const removeMember = mutation({
     if (membership.userId === ctx.viewer.userId) {
       throw new ConvexError("Use Leave organization to remove your own membership.");
     }
-    await requireUserIsNotOrganizationBillingPayer(ctx.db, {
+    await requireOrganizationMembershipChangeAllowed(ctx.db, {
+      change: "remove",
       organizationId: args.organizationId,
       userId: membership.userId,
     });
@@ -947,10 +907,6 @@ export const removeMember = mutation({
         excludedUserId: membership.userId,
       });
     }
-    await requireNoTargetOwnedActiveWork(ctx.db, {
-      organizationId: args.organizationId,
-      userId: membership.userId,
-    });
     await deletePendingInvitationForUser(ctx.db, {
       organizationId: args.organizationId,
       userId: membership.userId,
@@ -974,7 +930,8 @@ export const leaveOrganization = mutation({
     if (membership === null) {
       return { state: "already_left" as const };
     }
-    await requireUserIsNotOrganizationBillingPayer(ctx.db, {
+    await requireOrganizationMembershipChangeAllowed(ctx.db, {
+      change: "remove",
       organizationId: args.organizationId,
       userId: ctx.viewer.userId,
     });
@@ -984,10 +941,6 @@ export const leaveOrganization = mutation({
         excludedUserId: ctx.viewer.userId,
       });
     }
-    await requireNoTargetOwnedActiveWork(ctx.db, {
-      organizationId: args.organizationId,
-      userId: ctx.viewer.userId,
-    });
     await deletePendingInvitationForUser(ctx.db, {
       organizationId: args.organizationId,
       userId: ctx.viewer.userId,

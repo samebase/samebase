@@ -24,6 +24,7 @@ const page = {
     {
       githubLogin: "nicu",
       isBillingPayer: true,
+      isBillingTransferPending: false,
       isDeleting: false,
       isOnlyActiveOwner: true,
       isPersonalGithubOwnerIdentity: false,
@@ -36,6 +37,7 @@ const page = {
     {
       githubLogin: "noter-guest",
       isBillingPayer: false,
+      isBillingTransferPending: false,
       isDeleting: false,
       isOnlyActiveOwner: false,
       isPersonalGithubOwnerIdentity: false,
@@ -48,6 +50,7 @@ const page = {
     {
       githubLogin: "ava-chen",
       isBillingPayer: false,
+      isBillingTransferPending: false,
       isDeleting: false,
       isOnlyActiveOwner: false,
       isPersonalGithubOwnerIdentity: false,
@@ -108,6 +111,7 @@ export function OrganizationMembersPageVisualFixture() {
       onLeaveOrganization={completeAction}
       onRemoveMember={completeAction}
       onResolveInvitationTarget={resolveTarget}
+      onTransferBillingPayer={completeAction}
       page={page}
     />
   );
