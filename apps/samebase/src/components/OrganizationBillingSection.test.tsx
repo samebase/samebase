@@ -120,6 +120,7 @@ function setBillingQueries() {
     memberCount: 2,
     payerState: "unassigned",
     plan: "free",
+    purchasedSeatQuantity: 0,
     status: "inactive",
   });
   testState.queries.set(getFunctionName(api.billingResourceQuotas.getViewerBillingResourceUsage), {
@@ -169,7 +170,7 @@ describe("OrganizationBillingSection", () => {
     });
 
     expect(createCheckout).toHaveBeenCalledWith({
-      change: "upgrade_to_pro",
+      change: { kind: "upgrade_to_pro" },
       organizationId: organization.organizationId,
       returnUrl: `${window.location.origin}/org/samebase/settings?checkout=cancel#billing`,
       successUrl: `${window.location.origin}/org/samebase/settings?checkout=success#billing`,
@@ -195,6 +196,7 @@ describe("OrganizationBillingSection", () => {
       memberCount: 2,
       payerState: "viewer",
       plan: "pro",
+      purchasedSeatQuantity: 2,
       status: "active",
     });
     const changePlan = vi.fn(() => new Promise<never>(() => undefined));
@@ -211,7 +213,7 @@ describe("OrganizationBillingSection", () => {
     });
 
     expect(changePlan).toHaveBeenCalledWith({
-      change: "downgrade_to_free",
+      change: { kind: "downgrade_to_free" },
       organizationId: organization.organizationId,
       returnUrl: `${window.location.origin}/org/samebase/settings?checkout=cancel#billing`,
       successUrl: `${window.location.origin}/org/samebase/settings?checkout=success#billing`,
@@ -228,6 +230,7 @@ describe("OrganizationBillingSection", () => {
       memberCount: 1,
       payerState: "viewer",
       plan: "pro",
+      purchasedSeatQuantity: 2,
       status: "active",
     });
     const addSeat = vi.fn(() => new Promise<never>(() => undefined));
@@ -255,10 +258,35 @@ describe("OrganizationBillingSection", () => {
       await Promise.resolve();
     });
 
-    expect(addSeat).toHaveBeenCalledWith(expect.objectContaining({ change: "add_member_seat" }));
+    expect(addSeat).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Add one member seat?");
+    expect(document.body.textContent).toContain(
+      "Your subscription will have 3 member seats. Its monthly price increases by $2 to $6.",
+    );
+    const cancelButton = [...document.body.querySelectorAll("button")].find(
+      (button) => button.textContent === "Cancel",
+    );
+    await act(async () => cancelButton?.click());
+    expect(document.body.textContent).not.toContain("Add one member seat?");
+
+    await act(async () => addSeatButton?.click());
+    const confirmButton = [...document.body.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add member seat",
+    );
+    await act(async () => {
+      confirmButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(addSeat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        change: { kind: "add_member_seat", expectedSeatQuantity: 2 },
+      }),
+    );
+    expect(confirmButton?.disabled).toBe(true);
   });
 
-  it("offers a recovery action to a billing-limited organization", async () => {
+  it("confirms one added seat for a billing-limited organization", async () => {
     testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
       billingLimited: true,
       canManageBilling: true,
@@ -268,22 +296,32 @@ describe("OrganizationBillingSection", () => {
       memberCount: 3,
       payerState: "viewer",
       plan: "pro",
+      purchasedSeatQuantity: 2,
       status: "active",
     });
     const restoreCapacity = vi.fn(() => new Promise<never>(() => undefined));
     testState.actions.set(getFunctionName(api.billing.requestPolarBillingChange), restoreCapacity);
     const container = await mountBillingSection();
 
-    const restoreButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Restore member access",
+    const addSeatButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add member seat, $2/month",
     );
     await act(async () => {
-      restoreButton?.click();
+      addSeatButton?.click();
+      await Promise.resolve();
+    });
+    const confirmButton = [...document.body.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add member seat",
+    );
+    await act(async () => {
+      confirmButton?.click();
       await Promise.resolve();
     });
 
     expect(restoreCapacity).toHaveBeenCalledWith(
-      expect.objectContaining({ change: "add_member_seat" }),
+      expect.objectContaining({
+        change: { kind: "add_member_seat", expectedSeatQuantity: 2 },
+      }),
     );
   });
 
@@ -297,6 +335,7 @@ describe("OrganizationBillingSection", () => {
       memberCount: 2,
       payerState: "viewer",
       plan: "pro",
+      purchasedSeatQuantity: 3,
       status: "active",
     });
     const removeSeat = vi.fn(() => new Promise<never>(() => undefined));
@@ -315,10 +354,25 @@ describe("OrganizationBillingSection", () => {
       await Promise.resolve();
     });
 
-    expect(removeSeat).toHaveBeenCalledWith(
-      expect.objectContaining({ change: "remove_member_seat" }),
+    expect(removeSeat).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Remove one unused member seat?");
+    expect(document.body.textContent).toContain(
+      "Your subscription will have 2 member seats. Its monthly price decreases by $2 to $4.",
     );
-    expect(removeSeatButton?.textContent).toBe("Updating...");
+    const confirmButton = [...document.body.querySelectorAll("button")]
+      .filter((button) => button.textContent === "Remove unused seat")
+      .at(-1);
+    await act(async () => {
+      confirmButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(removeSeat).toHaveBeenCalledWith(
+      expect.objectContaining({
+        change: { kind: "remove_member_seat", expectedSeatQuantity: 3 },
+      }),
+    );
+    expect(confirmButton?.textContent).toBe("Removing...");
   });
 
   it("hides plan and seat changes after cancellation is scheduled", async () => {
@@ -333,6 +387,7 @@ describe("OrganizationBillingSection", () => {
       memberCount: 3,
       payerState: "viewer",
       plan: "pro",
+      purchasedSeatQuantity: 2,
       status: "active",
     });
     const container = await mountBillingSection();
@@ -355,6 +410,7 @@ describe("OrganizationBillingSection", () => {
       memberCount: 3,
       payerState: "another_owner",
       plan: "pro",
+      purchasedSeatQuantity: 3,
       status: "active",
     });
     const container = await mountBillingSection({ ...organization, role: "member" });

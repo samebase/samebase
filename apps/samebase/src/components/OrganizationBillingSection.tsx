@@ -1,5 +1,13 @@
+import { AppDialogContent } from "@/components/AppDialogContent";
 import { Button } from "@/components/ui/button";
 import { ButtonGroup } from "@/components/ui/button-group";
+import {
+  Dialog,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "@/components/ui/use-toast";
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { ORGANIZATION_SETTINGS_ROUTE } from "@/lib/organizationRoutes";
@@ -11,6 +19,7 @@ import {
 import { readBrowserRouteEnvironment } from "@/routing/availability";
 import { applySearchPatch } from "@/routing/searchFlags";
 import { getRouteApi, useRouter } from "@tanstack/react-router";
+import type { FunctionArgs } from "convex/server";
 import { useAction, useQuery } from "convex/react";
 import { ConvexError } from "convex/values";
 import { Loader2 } from "lucide-react";
@@ -21,6 +30,8 @@ import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 const organizationSettingsRouteApi = getRouteApi(ORGANIZATION_SETTINGS_ROUTE);
 
 type BillingRequestState = "idle" | "upgrade" | "downgrade" | "seat_add" | "seat_remove" | "portal";
+type BillingChange = FunctionArgs<typeof api.billing.requestPolarBillingChange>["change"];
+type SeatBillingChange = Extract<BillingChange, { kind: "add_member_seat" | "remove_member_seat" }>;
 
 const billingDateFormatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
 
@@ -56,6 +67,9 @@ export function OrganizationBillingSection({
   const reconcileBilling = useAction(api.billing.reconcileViewerBillingFromPolar);
   const [billingRequestState, setBillingRequestState] = useState<BillingRequestState>("idle");
   const [billingReconciliationDelayed, setBillingReconciliationDelayed] = useState(false);
+  const [seatChangeConfirmation, setSeatChangeConfirmation] = useState<SeatBillingChange | null>(
+    null,
+  );
   const checkoutReturnState = search[CHECKOUT_QUERY_PARAM];
   const isPreview = readBrowserRouteEnvironment() === "preview";
   const isOrganizationOwner = organization.role === "owner";
@@ -158,19 +172,17 @@ export function OrganizationBillingSection({
     return new URL(location.href, window.location.origin).toString();
   };
 
-  const handleBillingChange = async (
-    change: "upgrade_to_pro" | "downgrade_to_free" | "add_member_seat" | "remove_member_seat",
-  ) => {
+  const handleBillingChange = async (change: BillingChange) => {
     if (!billingActionsAvailable || billingRequestState !== "idle") {
       return;
     }
 
     let requestState: BillingRequestState;
-    if (change === "upgrade_to_pro") {
+    if (change.kind === "upgrade_to_pro") {
       requestState = "upgrade";
-    } else if (change === "downgrade_to_free") {
+    } else if (change.kind === "downgrade_to_free") {
       requestState = "downgrade";
-    } else if (change === "add_member_seat") {
+    } else if (change.kind === "add_member_seat") {
       requestState = "seat_add";
     } else {
       requestState = "seat_remove";
@@ -189,16 +201,17 @@ export function OrganizationBillingSection({
       }
       toast({
         title:
-          change === "upgrade_to_pro"
+          change.kind === "upgrade_to_pro"
             ? "Pro is active"
-            : change === "downgrade_to_free"
+            : change.kind === "downgrade_to_free"
               ? "Free is scheduled for the next billing period"
-              : change === "remove_member_seat"
+              : change.kind === "remove_member_seat"
                 ? "Unused member seat removed"
-                : billingStatus.billingLimited
-                  ? "Member access restored"
-                  : "Member seat added",
+                : "Member seat added",
       });
+      if (change.kind === "add_member_seat" || change.kind === "remove_member_seat") {
+        setSeatChangeConfirmation(null);
+      }
       setBillingRequestState("idle");
     } catch (error) {
       toast({
@@ -240,6 +253,24 @@ export function OrganizationBillingSection({
     billingStatus.memberCapacity >
     Math.max(billingStatus.memberCount, billingStatus.includedMembers);
   const requestPending = billingRequestState !== "idle";
+  const seatChangeTargetQuantity =
+    seatChangeConfirmation === null
+      ? null
+      : seatChangeConfirmation.kind === "add_member_seat"
+        ? seatChangeConfirmation.expectedSeatQuantity + 1
+        : seatChangeConfirmation.expectedSeatQuantity - 1;
+  const seatChangeMonthlyPrice =
+    seatChangeTargetQuantity === null ? null : 4 + Math.max(0, seatChangeTargetQuantity - 2) * 2;
+
+  const openSeatChangeConfirmation = (kind: SeatBillingChange["kind"]) => {
+    if (!billingActionsAvailable || requestPending) {
+      return;
+    }
+    setSeatChangeConfirmation({
+      kind,
+      expectedSeatQuantity: billingStatus.purchasedSeatQuantity,
+    });
+  };
 
   return (
     <section
@@ -355,7 +386,7 @@ export function OrganizationBillingSection({
           {billingStatus.plan === "free" ? (
             <Button
               disabled={!billingActionsAvailable || requestPending}
-              onClick={() => void handleBillingChange("upgrade_to_pro")}
+              onClick={() => void handleBillingChange({ kind: "upgrade_to_pro" })}
               type="button"
             >
               {billingRequestState === "upgrade" ? (
@@ -367,7 +398,7 @@ export function OrganizationBillingSection({
           {billingStatus.plan === "pro" && !billingStatus.cancelAtPeriodEnd ? (
             <Button
               disabled={!billingActionsAvailable || requestPending}
-              onClick={() => void handleBillingChange("downgrade_to_free")}
+              onClick={() => void handleBillingChange({ kind: "downgrade_to_free" })}
               type="button"
               variant="outline"
             >
@@ -383,22 +414,18 @@ export function OrganizationBillingSection({
             <ButtonGroup aria-label="Member seat actions">
               <Button
                 disabled={!billingActionsAvailable || requestPending}
-                onClick={() => void handleBillingChange("add_member_seat")}
+                onClick={() => openSeatChangeConfirmation("add_member_seat")}
                 type="button"
                 variant="outline"
               >
                 {billingRequestState === "seat_add" ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : null}
-                {billingRequestState === "seat_add"
-                  ? "Updating..."
-                  : billingStatus.billingLimited
-                    ? "Restore member access"
-                    : "Add member seat, $2/month"}
+                {billingRequestState === "seat_add" ? "Updating..." : "Add member seat, $2/month"}
               </Button>
               <Button
                 disabled={!billingActionsAvailable || requestPending || !hasUnusedPaidMemberSeat}
-                onClick={() => void handleBillingChange("remove_member_seat")}
+                onClick={() => openSeatChangeConfirmation("remove_member_seat")}
                 type="button"
                 variant="outline"
               >
@@ -424,6 +451,56 @@ export function OrganizationBillingSection({
           ) : null}
         </div>
       ) : null}
+      <Dialog
+        open={seatChangeConfirmation !== null}
+        onOpenChange={(open) => {
+          if (!open && !requestPending) {
+            setSeatChangeConfirmation(null);
+          }
+        }}
+      >
+        <AppDialogContent showCloseButton={!requestPending}>
+          <DialogHeader>
+            <DialogTitle>
+              {seatChangeConfirmation?.kind === "remove_member_seat"
+                ? "Remove one unused member seat?"
+                : "Add one member seat?"}
+            </DialogTitle>
+            <DialogDescription>
+              {seatChangeConfirmation?.kind === "remove_member_seat"
+                ? `The seat is removed now. Polar applies a credit for the remaining days in this billing period to your next invoice. Your subscription will have ${seatChangeTargetQuantity} member seats. Its monthly price decreases by $2 to $${seatChangeMonthlyPrice}. Tax is included or added based on your location.`
+                : `Polar charges your saved payment method now for the remaining days in this billing period. Your subscription will have ${seatChangeTargetQuantity} member seats. Its monthly price increases by $2 to $${seatChangeMonthlyPrice}. Tax is included or added based on your location.`}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={requestPending}
+              onClick={() => setSeatChangeConfirmation(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={requestPending || seatChangeConfirmation === null}
+              onClick={() => {
+                if (seatChangeConfirmation !== null) {
+                  void handleBillingChange(seatChangeConfirmation);
+                }
+              }}
+            >
+              {billingRequestState === "seat_add"
+                ? "Adding..."
+                : billingRequestState === "seat_remove"
+                  ? "Removing..."
+                  : seatChangeConfirmation?.kind === "remove_member_seat"
+                    ? "Remove unused seat"
+                    : "Add member seat"}
+            </Button>
+          </DialogFooter>
+        </AppDialogContent>
+      </Dialog>
     </section>
   );
 }

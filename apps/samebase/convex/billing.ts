@@ -5,6 +5,7 @@ import { ConvexError, Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import { internalMutation, internalQuery } from "./_generated/server";
+import { resolveDeploymentProfile } from "./deploymentProfile";
 import { action, query } from "./functions";
 import { findOrganizationMembership } from "./organizationAccess";
 import {
@@ -65,15 +66,22 @@ const vViewerBillingStatus = object({
   memberCount: number(),
   includedMembers: number(),
   memberCapacity: number(),
+  purchasedSeatQuantity: number(),
   billingLimited: boolean(),
 });
 type ViewerBillingStatus = Infer<typeof vViewerBillingStatus>;
 
 const vPolarBillingChange = union(
-  literal("upgrade_to_pro"),
-  literal("downgrade_to_free"),
-  literal("add_member_seat"),
-  literal("remove_member_seat"),
+  object({ kind: literal("upgrade_to_pro") }),
+  object({ kind: literal("downgrade_to_free") }),
+  object({
+    kind: literal("add_member_seat"),
+    expectedSeatQuantity: number(),
+  }),
+  object({
+    kind: literal("remove_member_seat"),
+    expectedSeatQuantity: number(),
+  }),
 );
 
 const vPolarBillingChangeResult = union(
@@ -297,6 +305,7 @@ export const getViewerBillingStatus = query({
       memberCount,
       includedMembers: capacity.includedMembers,
       memberCapacity: capacity.capacity,
+      purchasedSeatQuantity: capacity.hasVerifiedSubscription ? capacity.capacity : 0,
       billingLimited: memberCount > capacity.capacity,
     };
   },
@@ -389,14 +398,26 @@ export const requestPolarBillingChange = action({
   }),
   returns: vPolarBillingChangeResult,
   handler: async (ctx, args): Promise<PolarBillingChangeResult> => {
+    if (resolveDeploymentProfile().kind === "preview") {
+      throw new ConvexError("Polar billing is unavailable in pull request previews.");
+    }
+
     const userId = ctx.viewer.userId;
     const organizationId = args.organizationId;
+    const changeKind = args.change.kind;
+    if (
+      (changeKind === "add_member_seat" || changeKind === "remove_member_seat") &&
+      (!Number.isSafeInteger(args.change.expectedSeatQuantity) ||
+        args.change.expectedSeatQuantity < PRO_INCLUDED_ORGANIZATION_MEMBERS)
+    ) {
+      throw new ConvexError("Member seat quantities are invalid.");
+    }
     const catalog = readPolarProductCatalog();
     if (catalog === null) {
       throw new ConvexError("Polar billing products are not configured yet.");
     }
     let checkoutProductId: string | null = null;
-    if (args.change === "upgrade_to_pro") {
+    if (changeKind === "upgrade_to_pro") {
       try {
         checkoutProductId = readPolarCheckoutProductId(catalog);
       } catch {
@@ -415,18 +436,18 @@ export const requestPolarBillingChange = action({
     }
     const currentState = readBillingAccountState(currentBilling.account);
     if (
-      args.change === "add_member_seat" &&
+      changeKind === "add_member_seat" &&
       (currentState.plan !== "pro" || currentState.status === "inactive")
     ) {
       throw new ConvexError("Upgrade to Pro before adding member seats.");
     }
     if (
-      args.change === "remove_member_seat" &&
+      changeKind === "remove_member_seat" &&
       (currentState.plan !== "pro" || currentState.status === "inactive")
     ) {
       throw new ConvexError("This organization has no paid member seats.");
     }
-    if (args.change === "downgrade_to_free" && currentState.status === "inactive") {
+    if (changeKind === "downgrade_to_free" && currentState.status === "inactive") {
       throw new ConvexError("This organization already has Free.");
     }
     const githubOwnerLogin = await ctx.runQuery(
@@ -471,28 +492,41 @@ export const requestPolarBillingChange = action({
       organizationId,
     });
     const observedSubscription = observed.status === "inactive" ? null : observed;
-    if (args.change === "upgrade_to_pro" && observedSubscription !== null) {
+    if (changeKind === "upgrade_to_pro" && observedSubscription !== null) {
       throw new ConvexError("This organization already has Pro.");
     }
-    if (args.change === "downgrade_to_free" && observedSubscription === null) {
+    if (changeKind === "downgrade_to_free" && observedSubscription === null) {
       throw new ConvexError("This organization already has Free.");
     }
 
     let targetSeats: number;
-    if (args.change === "add_member_seat") {
+    let seatChangeAlreadyApplied = false;
+    if (args.change.kind === "add_member_seat") {
       if (observedSubscription === null) {
         throw new ConvexError("Upgrade to Pro before adding member seats.");
       }
-      targetSeats = Math.max(observedSubscription.polarSeatQuantity + 1, seed.memberCount);
-    } else if (args.change === "remove_member_seat") {
+      const expectedSeatQuantity = args.change.expectedSeatQuantity;
+      targetSeats = expectedSeatQuantity + 1;
+      if (observedSubscription.polarSeatQuantity === targetSeats) {
+        seatChangeAlreadyApplied = true;
+      } else if (observedSubscription.polarSeatQuantity !== expectedSeatQuantity) {
+        throw new ConvexError("Member seat quantity changed. Refresh this page and try again.");
+      }
+    } else if (args.change.kind === "remove_member_seat") {
       if (observedSubscription === null) {
         throw new ConvexError("This organization has no paid member seats.");
       }
+      const expectedSeatQuantity = args.change.expectedSeatQuantity;
+      targetSeats = expectedSeatQuantity - 1;
+      if (observedSubscription.polarSeatQuantity === targetSeats) {
+        seatChangeAlreadyApplied = true;
+      } else if (observedSubscription.polarSeatQuantity !== expectedSeatQuantity) {
+        throw new ConvexError("Member seat quantity changed. Refresh this page and try again.");
+      }
       const minimumSeats = Math.max(seed.memberCount, PRO_INCLUDED_ORGANIZATION_MEMBERS);
-      if (observedSubscription.polarSeatQuantity <= minimumSeats) {
+      if (!seatChangeAlreadyApplied && targetSeats < minimumSeats) {
         throw new ConvexError("This organization has no unused member seat.");
       }
-      targetSeats = observedSubscription.polarSeatQuantity - 1;
     } else {
       targetSeats =
         observedSubscription?.polarSeatQuantity ??
@@ -504,15 +538,18 @@ export const requestPolarBillingChange = action({
         userId,
         organizationId,
       });
+      if (seatChangeAlreadyApplied) {
+        return { state: "updated" };
+      }
       try {
         const providerSubscription = await polar.subscriptions.update({
           id: observedSubscription.subscriptionId,
           subscriptionUpdate:
-            args.change === "downgrade_to_free"
+            changeKind === "downgrade_to_free"
               ? { cancelAtPeriodEnd: true }
               : {
                   seats: targetSeats,
-                  prorationBehavior: args.change === "remove_member_seat" ? "prorate" : "invoice",
+                  prorationBehavior: changeKind === "remove_member_seat" ? "prorate" : "invoice",
                 },
         });
         const updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
@@ -522,7 +559,7 @@ export const requestPolarBillingChange = action({
         if (updated.status === "inactive" || updated.polarSeatQuantity !== targetSeats) {
           throw new Error("Polar billing update did not reach the requested state.");
         }
-        if (args.change === "downgrade_to_free") {
+        if (changeKind === "downgrade_to_free") {
           if (
             providerSubscription.id !== observedSubscription.subscriptionId ||
             providerSubscription.seats !== targetSeats ||
