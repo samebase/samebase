@@ -246,6 +246,11 @@ describe("OrganizationBillingSection", () => {
     );
     expect(removeSeatButton?.disabled).toBe(true);
     await act(async () => {
+      removeSeatButton?.click();
+      await Promise.resolve();
+    });
+    expect(addSeat).not.toHaveBeenCalled();
+    await act(async () => {
       addSeatButton?.click();
       await Promise.resolve();
     });
