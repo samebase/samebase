@@ -5,6 +5,7 @@ import { ConvexError, Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
+import { ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX } from "../billingErrors";
 import {
   listCloudflareAccountsForToken,
   type CloudflareAccount,
@@ -540,7 +541,6 @@ async function createWorkerForManagedWorkflow(
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        kind: "cloudflare_worker",
       },
     );
     if (checkpoint.state === "planned") {
@@ -573,12 +573,12 @@ async function createWorkerForManagedWorkflow(
   } catch (error) {
     if (
       !workerCreated ||
-      !toErrorMessage(error).includes("Organization connection limit reached")
+      !toErrorMessage(error).includes(ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX)
     ) {
       throw error;
     }
     throw new Error(
-      `Organization connection limit reached after Worker ${validation.value} was created. Delete it in the Cloudflare dashboard, then retry.`,
+      `${ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX} after Worker ${validation.value} was created. Delete it in the Cloudflare dashboard, then retry.`,
     );
   }
 }
@@ -1337,7 +1337,6 @@ export async function createWorkerForUser(
       {
         userId: args.userId,
         organizationId: resolved.context.organizationId,
-        kind: "cloudflare_worker",
       },
     );
     requireManualProviderActionDeadline(claim.deadlineAt);

@@ -480,6 +480,7 @@ export const commitInvitation = internalMutation({
     const pending: Extract<Doc<"organizationInvitations">, { state: "pending" }> | null =
       pendingCandidate;
     if (pending !== null && pending.expiresAt > now) {
+      await requireAdditionalOrganizationMemberCapacity(ctx.db, args.organizationId);
       if (
         pending.githubLogin !== args.githubLogin ||
         pending.githubAvatarUrl !== args.githubAvatarUrl

@@ -2,7 +2,7 @@ import { ConvexError } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import type { DatabaseReader } from "./_generated/server";
-import { readActiveUser } from "./userLifecycle";
+import { ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX } from "./billingErrors";
 
 export type OrganizationMemberCapacity = {
   includedMembers: number;
@@ -12,7 +12,7 @@ export type OrganizationMemberCapacity = {
 
 export const PRO_INCLUDED_ORGANIZATION_MEMBERS = 2;
 
-export function readFreeOrganizationMemberLimit(
+function readFreeOrganizationMemberLimit(
   githubOwnerType: Doc<"organizations">["githubOwnerType"],
 ): number {
   switch (githubOwnerType) {
@@ -51,7 +51,7 @@ export function readOrganizationMemberCapacity(args: {
   };
 }
 
-export async function readOrganizationMemberCapacityFromDb(
+async function readOrganizationMemberCapacityForId(
   db: DatabaseReader,
   organizationId: Id<"organizations">,
 ): Promise<OrganizationMemberCapacity> {
@@ -77,16 +77,10 @@ export async function readOrganizationMembershipCount(
   organizationId: Id<"organizations">,
 ): Promise<number> {
   let count = 0;
-  for await (const membership of db
+  for await (const _membership of db
     .query("organizationMemberships")
     .withIndex("by_organization_and_user", (query) => query.eq("organizationId", organizationId))) {
-    const user = await db.get(membership.userId);
-    if (user === null) {
-      throw new Error("Organization membership user reference is invalid.");
-    }
-    if (readActiveUser(user) !== null) {
-      count += 1;
-    }
+    count += 1;
   }
   return count;
 }
@@ -95,7 +89,7 @@ export async function requireAdditionalOrganizationMemberCapacity(
   db: DatabaseReader,
   organizationId: Id<"organizations">,
 ): Promise<void> {
-  const { capacity } = await readOrganizationMemberCapacityFromDb(db, organizationId);
+  const { capacity } = await readOrganizationMemberCapacityForId(db, organizationId);
   if ((await readOrganizationMembershipCount(db, organizationId)) >= capacity) {
     throw new ConvexError(
       "This organization needs another paid member seat before another member can join.",
@@ -103,21 +97,14 @@ export async function requireAdditionalOrganizationMemberCapacity(
   }
 }
 
-export async function isOrganizationBillingLimited(
-  db: DatabaseReader,
-  organizationId: Id<"organizations">,
-): Promise<boolean> {
-  const { capacity } = await readOrganizationMemberCapacityFromDb(db, organizationId);
-  return (await readOrganizationMembershipCount(db, organizationId)) > capacity;
-}
-
 export async function requireOrganizationNotBillingLimited(
   db: DatabaseReader,
   organizationId: Id<"organizations">,
 ): Promise<void> {
-  if (await isOrganizationBillingLimited(db, organizationId)) {
+  const { capacity } = await readOrganizationMemberCapacityForId(db, organizationId);
+  if ((await readOrganizationMembershipCount(db, organizationId)) > capacity) {
     throw new ConvexError(
-      "This organization needs more paid member seats. Billing and member management are still available.",
+      `${ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX}. Billing and member management are still available.`,
     );
   }
 }

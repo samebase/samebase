@@ -151,7 +151,6 @@ async function insertProject(
 
   await requireBillingResourceCapacityForAuthority(ctx, {
     authority: args.billingAuthority,
-    kind: "convex_project",
   });
 
   const commonFields = {

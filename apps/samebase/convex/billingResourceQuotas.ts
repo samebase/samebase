@@ -2,11 +2,15 @@ import { ConvexError, Infer, v } from "convex/values";
 
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalQuery, type QueryCtx } from "./_generated/server";
+import {
+  ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX,
+  ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX,
+} from "./billingErrors";
 import { query } from "./functions";
 import { requireBillingAccountForOrganization } from "./organizationBilling";
 import {
   readOrganizationMemberCapacity,
-  requireOrganizationNotBillingLimited,
+  readOrganizationMembershipCount,
 } from "./organizationBillingLimits";
 import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
 import { requireManualProviderWriteCheckpoint } from "./vault/infrastructureOperation";
@@ -18,12 +22,6 @@ const ORGANIZATION_FREE_CONNECTION_LIMIT = 6;
 const PRO_CONNECTION_LIMIT = 120;
 const CONNECTION_USAGE_READ_LIMIT = PRO_CONNECTION_LIMIT + 1;
 
-const vBillingResourceKind = union(
-  literal("github_repository"),
-  literal("cloudflare_worker"),
-  literal("convex_project"),
-);
-type BillingResourceKind = Infer<typeof vBillingResourceKind>;
 type BillingResourceReadCtx = Pick<QueryCtx, "db">;
 export type BillingResourceAuthority =
   | {
@@ -79,9 +77,15 @@ function readOrganizationConnectionLimit(
   if (readOrganizationMemberCapacity({ account, organization }).hasVerifiedSubscription) {
     return PRO_CONNECTION_LIMIT;
   }
-  return organization.githubOwnerType === "user"
-    ? PERSONAL_FREE_CONNECTION_LIMIT
-    : ORGANIZATION_FREE_CONNECTION_LIMIT;
+  switch (organization.githubOwnerType) {
+    case "user":
+      return PERSONAL_FREE_CONNECTION_LIMIT;
+    case "organization":
+      return ORGANIZATION_FREE_CONNECTION_LIMIT;
+    default:
+      organization.githubOwnerType satisfies never;
+      throw new Error("GitHub owner type is invalid.");
+  }
 }
 
 async function readOrganizationConnectionCounts(
@@ -115,46 +119,72 @@ async function readOrganizationConnectionCounts(
   };
 }
 
-function throwBillingResourceLimit(limit: number): never {
-  throw new ConvexError(`Organization connection limit reached (${limit}).`);
-}
-
 export async function requireBillingResourceCapacity(
   ctx: BillingResourceReadCtx,
   args: {
-    kind: BillingResourceKind;
     organizationId: Id<"organizations">;
     userId: Id<"users">;
   },
 ): Promise<void> {
   const billing = await requireBillingAccountForOrganization(ctx.db, args);
-  await requireBillingResourceCapacityForAccount(ctx, billing.account);
-}
-
-async function requireBillingResourceCapacityForAccount(
-  ctx: BillingResourceReadCtx,
-  account: Doc<"organizationBillingAccounts">,
-): Promise<void> {
-  const organization = await ctx.db.get(account.organizationId);
+  const organization = await ctx.db.get(billing.account.organizationId);
   if (organization === null) {
     throw new Error("Organization billing account refers to a missing organization.");
   }
-  await requireOrganizationNotBillingLimited(ctx.db, account.organizationId);
+  const memberCapacity = readOrganizationMemberCapacity({
+    account: billing.account,
+    organization,
+  });
+  if (
+    (await readOrganizationMembershipCount(ctx.db, billing.account.organizationId)) >
+    memberCapacity.capacity
+  ) {
+    throw new ConvexError(
+      `${ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX}. Billing and member management are still available.`,
+    );
+  }
+  await requireOrganizationConnectionCapacity(ctx, billing.account, organization);
+}
+
+async function requireOrganizationConnectionCapacity(
+  ctx: BillingResourceReadCtx,
+  account: Doc<"organizationBillingAccounts">,
+  organization: Doc<"organizations">,
+): Promise<void> {
   const limit = readOrganizationConnectionLimit(account, organization);
   const used = await readOrganizationConnectionCounts(ctx, {
     organizationId: account.organizationId,
     maximumRows: limit + 1,
   });
   if (used.total >= limit) {
-    throwBillingResourceLimit(limit);
+    throw new ConvexError(`${ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX} (${limit}).`);
   }
+}
+
+async function requireOrganizationConnectionCapacityForId(
+  ctx: BillingResourceReadCtx,
+  organizationId: Id<"organizations">,
+): Promise<void> {
+  const [account, organization] = await Promise.all([
+    ctx.db
+      .query("organizationBillingAccounts")
+      .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+      .unique(),
+    ctx.db.get(organizationId),
+  ]);
+  if (account === null) {
+    throw new Error("Organization billing account is required.");
+  }
+  if (organization === null) {
+    throw new Error("Organization not found.");
+  }
+  await requireOrganizationConnectionCapacity(ctx, account, organization);
 }
 
 export const requireBillingResourceCapacityForProviderCreate = internalQuery({
   args: {
     userId: id("users"),
     organizationId: id("organizations"),
-    kind: vBillingResourceKind,
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
@@ -163,65 +193,27 @@ export const requireBillingResourceCapacityForProviderCreate = internalQuery({
   },
 });
 
-export async function requireBillingResourceCapacityForVaultProvisioningRun(
-  ctx: BillingResourceReadCtx,
-  args: {
-    runId: Id<"workflow_vaultProvisioning_runs">;
-    userId: Id<"users">;
-    vaultId: Id<"vaults">;
-    kind: BillingResourceKind;
-  },
-): Promise<void> {
-  await requireBillingResourceCapacityForAuthority(ctx, {
-    authority: {
-      kind: "vault_provisioning",
-      runId: args.runId,
-      userId: args.userId,
-      vaultId: args.vaultId,
-    },
-    kind: args.kind,
-  });
-}
-
 export async function requireBillingResourceCapacityForAuthority(
   ctx: BillingResourceReadCtx,
   args: {
     authority: BillingResourceAuthority;
-    kind: BillingResourceKind;
   },
 ): Promise<void> {
   switch (args.authority.kind) {
     case "user":
       await requireBillingResourceCapacity(ctx, {
-        kind: args.kind,
         organizationId: args.authority.organizationId,
         userId: args.authority.userId,
       });
       return;
     case "vault_provisioning": {
       const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args.authority);
-      const account = await ctx.db
-        .query("organizationBillingAccounts")
-        .withIndex("by_organization", (query) =>
-          query.eq("organizationId", authority.organizationId),
-        )
-        .unique();
-      if (account === null) {
-        throw new Error("Organization billing account is required.");
-      }
-      await requireBillingResourceCapacityForAccount(ctx, account);
+      await requireOrganizationConnectionCapacityForId(ctx, authority.organizationId);
       return;
     }
     case "manual_provider_write": {
       const vault = await requireManualProviderWriteCheckpoint(ctx, args.authority);
-      const account = await ctx.db
-        .query("organizationBillingAccounts")
-        .withIndex("by_organization", (query) => query.eq("organizationId", vault.organizationId))
-        .unique();
-      if (account === null) {
-        throw new Error("Organization billing account is required.");
-      }
-      await requireBillingResourceCapacityForAccount(ctx, account);
+      await requireOrganizationConnectionCapacityForId(ctx, vault.organizationId);
       return;
     }
     default:
@@ -235,11 +227,17 @@ export const requireBillingResourceCapacityForVaultProvisioning = internalQuery(
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
     vaultId: id("vaults"),
-    kind: vBillingResourceKind,
   },
   returns: nullValue(),
   handler: async (ctx, args): Promise<null> => {
-    await requireBillingResourceCapacityForVaultProvisioningRun(ctx, args);
+    await requireBillingResourceCapacityForAuthority(ctx, {
+      authority: {
+        kind: "vault_provisioning",
+        runId: args.runId,
+        userId: args.userId,
+        vaultId: args.vaultId,
+      },
+    });
     return null;
   },
 });

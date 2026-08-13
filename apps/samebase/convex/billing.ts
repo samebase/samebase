@@ -523,7 +523,7 @@ export const requestPolarBillingChange = action({
                   prorationBehavior: args.change === "remove_member_seat" ? "prorate" : "invoice",
                 },
         });
-        let updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
+        const updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
           polar,
           externalCustomerId: seed.externalCustomerId,
         });
@@ -538,26 +538,6 @@ export const requestPolarBillingChange = action({
             !updated.cancelAtPeriodEnd
           ) {
             throw new Error("Polar did not schedule the requested cancellation.");
-          }
-        }
-        if (args.change === "remove_member_seat") {
-          seed = await ctx.runMutation(internal.billing.reservePolarTeamCustomerIdentity, {
-            userId,
-            organizationId,
-          });
-          const requiredSeats = Math.max(seed.memberCount, PRO_INCLUDED_ORGANIZATION_MEMBERS);
-          if (requiredSeats > updated.polarSeatQuantity) {
-            await polar.subscriptions.update({
-              id: updated.subscriptionId,
-              subscriptionUpdate: { seats: requiredSeats, prorationBehavior: "invoice" },
-            });
-            updated = await reconcilePolarBillingTwiceIfNeeded(ctx, {
-              polar,
-              externalCustomerId: seed.externalCustomerId,
-            });
-            if (updated.status === "inactive" || updated.polarSeatQuantity !== requiredSeats) {
-              throw new Error("Polar did not restore capacity used during the seat change.");
-            }
           }
         }
       } catch (error) {
@@ -593,13 +573,16 @@ export const requestPolarBillingChange = action({
         throw new ConvexError("Samebase could not verify your open checkout.");
       }
 
+      const checkoutSeats = storedCheckout.seats;
       if (
+        checkoutSeats != null &&
+        checkoutSeats >= targetSeats &&
         isOpenPolarCheckoutForAttempt({
           attemptId: reservation.attemptId,
           checkout: storedCheckout,
           externalCustomerId: seed.externalCustomerId,
           productId,
-          seatQuantity: targetSeats,
+          seatQuantity: checkoutSeats,
           returnUrl,
           successUrl,
         })

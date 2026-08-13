@@ -646,6 +646,20 @@ describe("organization member lifecycle", () => {
     });
 
     await expect(
+      asOwner.action(api.organizationMembers.createInvitation, {
+        organizationId: ids.organizationId,
+        githubLogin: "invitee-login",
+        expectedGithubAccountId: "200",
+      }),
+    ).rejects.toThrow(
+      "This organization needs another paid member seat before another member can join.",
+    );
+    await expect(t.run(async (ctx) => await ctx.db.get(invitationId))).resolves.toMatchObject({
+      code,
+      state: "pending",
+    });
+
+    await expect(
       asInvitee.mutation(api.organizationMembers.acceptInvitation, { code }),
     ).rejects.toThrow(
       "This organization needs another paid member seat before another member can join.",

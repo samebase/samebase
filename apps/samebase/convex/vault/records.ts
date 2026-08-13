@@ -264,7 +264,6 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       name,
     });
     await requireBillingResourceCapacity(ctx, {
-      kind: "github_repository",
       organizationId: organization._id,
       userId: args.userId,
     });
@@ -376,7 +375,6 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
         userId: args.userId,
         vaultId: args.vaultId,
       },
-      kind: "github_repository",
     });
 
     await ctx.db.replace(args.vaultId, {
@@ -453,7 +451,6 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       name,
     });
     await requireBillingResourceCapacity(ctx, {
-      kind: "github_repository",
       organizationId: organization._id,
       userId: args.userId,
     });
@@ -612,7 +609,6 @@ export const connectSamebaseManagedVaultGitHub = internalMutation({
         userId: args.userId,
         vaultId: args.vaultId,
       },
-      kind: "github_repository",
     });
 
     await ctx.db.replace(args.vaultId, {

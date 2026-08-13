@@ -5,6 +5,7 @@ import { ConvexError, type Infer, v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import { internalAction, type ActionCtx } from "../_generated/server";
+import { ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX } from "../billingErrors";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import { discoverCloudflareWorkersForRepository } from "../cloudflareResources";
 import {
@@ -503,7 +504,6 @@ async function createProjectForUser(
       {
         userId: args.userId,
         organizationId: connection.organizationId,
-        kind: "convex_project",
       },
     );
     requireManualProviderActionDeadline(claim.deadlineAt);
@@ -624,7 +624,6 @@ async function createProjectForManagedWorkflow(
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        kind: "convex_project",
       },
     );
     if (checkpoint.state === "planned") {
@@ -670,12 +669,12 @@ async function createProjectForManagedWorkflow(
   } catch (error) {
     if (
       !projectCreated ||
-      !toErrorMessage(error).includes("Organization connection limit reached")
+      !toErrorMessage(error).includes(ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX)
     ) {
       throw error;
     }
     throw new Error(
-      `Organization connection limit reached after project ${validation.value} was created. Delete it in the Convex dashboard, then retry.`,
+      `${ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX} after project ${validation.value} was created. Delete it in the Convex dashboard, then retry.`,
     );
   }
 }

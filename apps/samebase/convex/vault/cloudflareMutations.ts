@@ -237,7 +237,6 @@ async function insertWorker(
 
   await requireBillingResourceCapacityForAuthority(ctx, {
     authority: args.billingAuthority,
-    kind: "cloudflare_worker",
   });
 
   return await ctx.db.insert("vaultCloudflareWorkers", {
