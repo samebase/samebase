@@ -310,8 +310,8 @@ export function LandingHeroMenger({ placement }: { placement: "preview" | "root"
       ref={slotRef}
       className={
         placement === "root"
-          ? "relative mx-auto aspect-square min-h-0 w-full"
-          : "relative hidden min-h-0 @3xl:block @3xl:aspect-square"
+          ? "relative mx-auto aspect-square min-h-0 w-full cursor-grab active:cursor-grabbing"
+          : "relative hidden min-h-0 cursor-grab active:cursor-grabbing @3xl:block @3xl:aspect-square"
       }
       data-state={didSceneFail ? "fallback" : isSceneReady ? "ready" : "loading"}
       data-testid={
