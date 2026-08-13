@@ -241,6 +241,10 @@ describe("OrganizationBillingSection", () => {
     const addSeatButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Add member seat, $2/month",
     );
+    const removeSeatButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Remove unused seat",
+    );
+    expect(removeSeatButton?.disabled).toBe(true);
     await act(async () => {
       addSeatButton?.click();
       await Promise.resolve();
@@ -296,6 +300,10 @@ describe("OrganizationBillingSection", () => {
 
     const removeSeatButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Remove unused seat",
+    );
+    expect(removeSeatButton?.disabled).toBe(false);
+    expect(removeSeatButton?.closest('[role="group"]')?.getAttribute("aria-label")).toBe(
+      "Member seat actions",
     );
     await act(async () => {
       removeSeatButton?.click();
