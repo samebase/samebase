@@ -30,6 +30,7 @@ apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted-s
 apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.png
 apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.png
 apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
+apps/samebase/e2e/connect-organization-visual.spec.ts-snapshots/connect-organization-page.png
 apps/samebase/e2e/connect-repository-visual.spec.ts-snapshots/connect-repository-loading-more.png
 apps/samebase/e2e/connect-repository-visual.spec.ts-snapshots/connect-repository-provider-blocked.png
 apps/samebase/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-raw.png
@@ -123,6 +124,7 @@ apps/samebase/e2e/logo-three-visual.spec.ts-snapshots/logo-three-reference.png
 apps/samebase/e2e/new-app-page-visual.spec.ts-snapshots/new-app-provider-blocked.png
 apps/samebase/e2e/not-found-visual.spec.ts-snapshots/not-found-protected-google-signup-closed.png
 apps/samebase/e2e/not-found-visual.spec.ts-snapshots/not-found-signed-out-protected.png
+apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-context-delete-organization-dialog.png
 apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-context-global-inventory.png
 apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-context-lost-organization.png
 apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-context-lost-vault.png
@@ -130,6 +132,8 @@ apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-con
 apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-context-one-organization-settings.png
 apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-context-zero-membership.png
 apps/samebase/e2e/organization-context-visual.spec.ts-snapshots/organization-providers-authorization-error.png
+apps/samebase/e2e/organization-members-page-visual.spec.ts-snapshots/organization-members-page-owner-mobile.png
+apps/samebase/e2e/organization-members-page-visual.spec.ts-snapshots/organization-members-page-owner.png
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-interactive.png
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print-mobile.png
 apps/samebase/e2e/pitch-deck-visual.spec.ts-snapshots/pitch-deck-print.png
@@ -285,6 +289,8 @@ archive/026_PROVIDER_CONNECTIONS_SPEC.md
 archive/031_CLOUDFLARE_MCP_OAUTH_LOGIN_SPEC.md
 archive/031_GIT_BACKED_CHAT_HISTORY_SPEC.md
 archive/032_CLOUDFLARE_HOSTING_PILOT_SPEC.md
+archive/033_POLAR_BILLING_SPEC.md
+archive/034_POLAR_BILLING_PHASED_ROLLOUT_SPEC.md
 archive/036_MCP_CONNECTION_TOKEN_HEALTH_VISIBILITY_SPEC.md
 archive/038_RAILWAY_REMOVAL_AND_DATA_CLEANUP_SPEC.md
 archive/042_AGENT_INCREMENTAL_FILE_EDIT_SPEC.md
@@ -306,6 +312,7 @@ archive/081_SIDEBAR_RESIZE_RESEARCH.md
 archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md
 archive/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md
 archive/095_INFRASTRUCTURE_VERIFICATION_PLAN.md
+archive/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md
 archive/098_PROVIDER_SETUP_DISPLAY_AND_WRITE_SAFETY_PLAN.md
 archive/099_REPOSITORY_REFRESH_QUEUE_SPEC.md
 archive/118_VAULT_FOLDER_SPEC.md
@@ -547,7 +554,6 @@ rfcs/092_VAULT_BRANCH_PAGINATION_AND_VIRTUAL_LIST_PLAN.md
 rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md
 rfcs/096_AGENT_BROWSER_HANDOFF_PLAN.md
 rfcs/097_ACCOUNT_DELETION_RELEASE_PLAN.md
-rfcs/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md
 rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md
 rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md
 rfcs/assets/079-editor-sidebar-return-drag/monaco-return-drag.png
@@ -572,8 +578,6 @@ specs/005_STARTER_TEMPLATE_STRATEGY_SPEC.md
 specs/012_DEV_ENV_ORIGIN_SITE_URL_SYNC_SPEC.md
 specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md
 specs/029_PROVIDERS_PANEL_SETTINGS_SPEC.md
-specs/033_POLAR_BILLING_SPEC.md
-specs/034_POLAR_BILLING_PHASED_ROLLOUT_SPEC.md
 specs/035_LANDING_SLOGAN_SOURCE_AND_SELECTION_SPEC.md
 specs/039_CODEX_CLOUD_ENVIRONMENT_REPRODUCIBILITY_SPEC.md
 specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md
@@ -630,6 +634,8 @@ specs/119_POLAR_MONTHLY_BILLING_SPEC.md
 specs/120_ORGANIZATION_OWNERSHIP_SPEC.md
 specs/121_ORGANIZATION_CONTEXT_AND_ROUTE_MODEL.md
 specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md
+specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md
+specs/124_SIMPLE_ORGANIZATION_DELETION_SPEC.md
 specs/README.md
 TODO.md
 VISION.md

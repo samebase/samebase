@@ -8,8 +8,8 @@ Start free. Upgrade when you need more connections.
 | GitHub organization | Free |           $0 |           6 |                2 |
 | Any owner           | Pro  |           $4 |         120 |                2 |
 
-Additional members require Pro. Each member above the two included Pro members costs $2 per month. A
-pending invitation is free. Pro and additional members are billed monthly.
+Members above the included limit require Pro and an available seat. Each purchased seat above the
+two included seats costs $2 per month. A pending invitation does not use a seat.
 
 ## What counts
 

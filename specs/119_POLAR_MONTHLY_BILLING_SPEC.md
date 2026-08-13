@@ -4,9 +4,10 @@
 
 - Status: Accepted
 - Owner: Samebase platform
-- Last updated: 2026-08-12
-- Previous rollout plan: `rfcs/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md`
-- Supersedes: `specs/033_POLAR_BILLING_SPEC.md` and `specs/034_POLAR_BILLING_PHASED_ROLLOUT_SPEC.md`
+- Last updated: 2026-08-13
+- Previous rollout plan: `archive/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md`
+- Supersedes: `archive/033_POLAR_BILLING_SPEC.md` and
+  `archive/034_POLAR_BILLING_PHASED_ROLLOUT_SPEC.md`
 
 ## Current Contract
 
@@ -20,11 +21,12 @@ Every Samebase workspace is an organization backed by one GitHub repository owne
 | GitHub organization (`organization`) | Free |                 $0 |                  6 |                2 |
 | Either owner type                    | Pro  |                 $4 |                120 |                2 |
 
-Additional members require Pro. Pro includes two active members. Each additional active member costs
-$2 per month. The Pro monthly price is `$4 + $2 * max(0, active memberships - 2)`.
+Additional members require Pro. Pro includes two purchased member seats. Each additional purchased
+seat costs $2 per month. The Pro monthly price is `$4 + $2 * max(0, purchased seats - 2)`.
 
-Both `owner` and `member` roles count when the referenced Samebase user is active. A deleting or
-deleted user and a pending invitation do not count.
+Both `owner` and `member` roles consume one seat. Membership rows always refer to active Samebase
+users because account deletion requires the user to leave all organizations first. A pending
+invitation does not consume a seat.
 
 One confirmed connected GitHub repository, one attached Cloudflare Worker, or one attached Convex
 project uses one connection. The connection pool has no provider-specific sublimit. GitHub App
@@ -60,15 +62,16 @@ Samebase creates checkout with the reserved external Customer ID. This keeps the
 the external identity that Samebase uses to verify retries. It does not switch to Polar's internal
 Customer ID at checkout creation.
 
-The initial Pro checkout target is `max(active memberships, 2)`. A Free organization cannot buy a
+The initial Pro checkout target is `max(current memberships, 2)`. A Free organization cannot buy a
 separate member seat. It must activate Pro first. After Pro is active, an additional-seat purchase
-uses `active memberships + 1` when current memberships fit verified capacity. If the organization is
-already above capacity, the purchase targets the active membership count and buys only the capacity
-needed to restore access.
+uses `current memberships + 1` when current memberships fit verified capacity. If the organization
+is already above capacity, the purchase targets the current membership count and buys only the
+capacity needed to restore access.
 
 Seat additions invoice immediately. Removing an unused seat is a separate billing action and uses
 Polar proration. Adding or removing an organization member does not change purchased seat quantity.
-A seat reduction never goes below two or below the current membership count.
+A seat reduction checks that its target is not below two or the current membership count before it
+calls Polar.
 
 Changing Pro to Free schedules subscription cancellation at the end of the paid period. It does not
 switch to another product. Pro and its verified seat capacity stay active until that period ends. If
@@ -111,13 +114,14 @@ a trusted reconciliation operation.
 - A GitHub user who is already a member cannot be invited again.
 - Writing or reissuing an invitation requires available member capacity, but the invitation does not
   reserve that capacity.
-- A current membership for an active user consumes one seat.
+- A current membership consumes one seat.
 - Removing a member or leaving an organization removes access but keeps purchased seat quantity.
 - The designated payer can remove one unused paid seat through an explicit billing action.
 - An explicit seat reduction is unavailable after cancellation is scheduled. The subscription is
   already ending.
-- If an invitation consumes capacity while an explicit seat reduction is in flight, Samebase
-  restores the required capacity before the billing action completes.
+- If an invitation consumes capacity while an explicit seat reduction is in flight, Samebase uses
+  normal billing-limited behavior. It does not make a compensating Polar update. The payer can use
+  `Restore member access` to buy the required capacity.
 
 Writing or reissuing an invitation requires available capacity. Invitation acceptance checks the
 stored capacity and inserts the membership in one Convex transaction. Capacity can change after an
@@ -139,15 +143,15 @@ An organization can be above its Free connection limit after Pro ends. Samebase 
 resources usable and does not disconnect or delete them. It blocks new counted resources until usage
 is below the current limit or Pro becomes active again.
 
-An organization becomes billing-limited when its active membership count is above verified member
-capacity. Normal organization work is blocked. Billing and member management stay available so an
-owner can restore capacity or remove members.
+An organization becomes billing-limited when its membership count is above verified member capacity.
+Normal organization work is blocked. Billing and member management stay available so an owner can
+restore capacity or remove members.
 
 ### Customer Surfaces
 
-Organization settings shows the current plan, pooled connection count, active membership count,
-included members, paid member capacity, designated payer state, and next billing or access-end date
-when known.
+Organization settings shows the current plan, pooled connection count, membership count, included
+members, paid member capacity, designated payer state, and next billing or access-end date when
+known.
 
 The Members page shows muted labels for the Samebase role and marks the designated payer on that
 owner's row. The payer label is additional to the owner label because billing responsibility and
@@ -183,6 +187,10 @@ Samebase has no paying customers under those models.
 Before this rollout reaches production, the operator must verify that production has no organization
 billing row with a Polar Customer, open checkout, current subscription, or paid seat state. The
 operator must record the one current production Pro product ID before checkout becomes available.
+
+The operator must also verify that every Free personal workspace has at most one membership and
+every Free GitHub organization workspace has at most two. The rollout stops until any workspace
+above its Free member limit is corrected. This rollout does not grandfather old member counts.
 
 If the production check finds old billing state, the rollout stops. That data needs an explicit
 Customer, payer, product, and seat migration. The code must not treat an old individual Customer or
@@ -228,7 +236,7 @@ The contract is complete only when tests and Sandbox checks prove:
 - Pro includes two members for both owner types.
 - Free cannot buy a separate member seat.
 - Both owner types start checkout with the same Pro product and at least two seats.
-- The product charges $4 plus $2 for each member above two.
+- The product charges $4 plus $2 for each purchased seat above two.
 - Checkout selects the only current Pro catalog version.
 - Reconciliation accepts current and retained historical Pro versions and rejects unknown products.
 - A pending invitation does not count as a current membership.
@@ -236,8 +244,8 @@ The contract is complete only when tests and Sandbox checks prove:
 - A new or reissued invitation fails when current memberships fill verified capacity.
 - Invitation acceptance fails without verified capacity and succeeds after capacity is reconciled.
 - Concurrent invitation acceptances cannot both consume the last available seat.
-- A member accepted during an explicit seat reduction does not leave capacity below membership
-  count.
+- A seat reduction that starts with enough unused capacity makes one Polar seat update.
+- Membership above verified capacity uses the normal billing-limited recovery action.
 - Removing a member or leaving does not change the Polar seat quantity.
 - A seat reduction never lowers Pro below two seats.
 - Cancellation sets `cancelAtPeriodEnd` without changing the product.

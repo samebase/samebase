@@ -586,7 +586,9 @@ test("pricing route renders the public pricing page", async ({ page }) => {
   await expect(article.getByRole("row", { name: "Personal account Free $0 15 1" })).toBeVisible();
   await expect(article.getByRole("row", { name: "GitHub organization Free $0 6 2" })).toBeVisible();
   await expect(article.getByRole("row", { name: "Any owner Pro $4 120 2" })).toBeVisible();
-  await expect(article).toContainText("Additional members require Pro.");
+  await expect(article).toContainText(
+    "Members above the included limit require Pro and an available seat.",
+  );
   await expect(article).not.toContainText("FileView");
 
   await expect(page).toHaveScreenshot("docs-pricing-desktop.png", {

@@ -270,7 +270,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("Start free. Upgrade when you need more connections.");
     expect(markup).toContain("Personal account    | Free");
     expect(markup).toContain("Any owner           | Pro");
-    expect(markup).toContain("Additional members require Pro.");
+    expect(markup).toContain("Members above the included limit require Pro and an available seat.");
     expect(markup).toContain("one connected Cloudflare Worker");
     expect(markup).toContain("Samebase does not disconnect or delete existing resources.");
     expect(markup).not.toContain("FileView");

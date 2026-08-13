@@ -6,16 +6,15 @@
 - Owner: Samebase platform
 - Last updated: 2026-08-02
 - Accepted replacement: `specs/119_POLAR_MONTHLY_BILLING_SPEC.md`
-- Active rollout plan: `rfcs/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md`
+- Superseded rollout plan: `archive/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md`
 - Related specs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `archive/026_PROVIDER_CONNECTIONS_SPEC.md`
 - Historical input:
-  - `specs/033_POLAR_BILLING_SPEC.md`
+  - `archive/033_POLAR_BILLING_SPEC.md`
 
 Do not use this document for current product or implementation decisions. Use spec 119 for the
-accepted billing contract and RFC 098 for active rollout work. The remaining content is historical
-context.
+accepted billing contract. The remaining content is historical context.
 
 ## Summary
 
