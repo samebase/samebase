@@ -108,21 +108,3 @@ export async function requireOrganizationNotBillingLimited(
     );
   }
 }
-
-export async function requireUserIsNotOrganizationBillingPayer(
-  db: DatabaseReader,
-  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
-): Promise<void> {
-  const account = await db
-    .query("organizationBillingAccounts")
-    .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))
-    .unique();
-  if (account === null) {
-    throw new Error("Organization billing account is required.");
-  }
-  if (account.polarBillingUserId === args.userId) {
-    throw new ConvexError(
-      "Transfer organization billing before changing or removing the billing payer.",
-    );
-  }
-}

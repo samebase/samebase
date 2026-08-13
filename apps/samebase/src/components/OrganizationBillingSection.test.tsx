@@ -422,6 +422,28 @@ describe("OrganizationBillingSection", () => {
     expect(container.textContent).not.toContain("Upgrade to Pro");
   });
 
+  it("explains why billing actions stop during a payer transfer", async () => {
+    testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
+      billingLimited: false,
+      canManageBilling: false,
+      hasSubscription: true,
+      includedMembers: 2,
+      memberCapacity: 2,
+      memberCount: 2,
+      payerState: "viewer",
+      plan: "pro",
+      purchasedSeatQuantity: 2,
+      status: "active",
+    });
+    const container = await mountBillingSection();
+
+    expect(container.textContent).toContain(
+      "Finish the billing payer transfer on the Members page before changing billing.",
+    );
+    expect(container.textContent).not.toContain("Add member seat");
+    expect(container.textContent).not.toContain("Manage subscription");
+  });
+
   it("clears a checkout success return without showing preview copy to a member", async () => {
     const container = await mountBillingSection(
       { ...organization, role: "member" },

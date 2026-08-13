@@ -89,6 +89,7 @@ const ownerPage = {
     {
       githubLogin: "nicu",
       isBillingPayer: true,
+      isBillingTransferPending: false,
       isDeleting: false,
       isOnlyActiveOwner: true,
       isPersonalGithubOwnerIdentity: false,
@@ -101,6 +102,7 @@ const ownerPage = {
     {
       githubLogin: "noter-guest",
       isBillingPayer: false,
+      isBillingTransferPending: false,
       isDeleting: false,
       isOnlyActiveOwner: false,
       isPersonalGithubOwnerIdentity: false,
@@ -182,6 +184,7 @@ describe("OrganizationMembersPageView", () => {
     leaveOrganization: vi.fn(async () => null),
     removeMember: vi.fn(async () => null),
     resolveInvitationTarget: vi.fn(async (): Promise<InvitationTarget> => resolvedTarget),
+    transferBillingPayer: vi.fn(async () => null),
   };
 
   beforeEach(() => {
@@ -228,6 +231,7 @@ describe("OrganizationMembersPageView", () => {
           onLeaveOrganization={actions.leaveOrganization}
           onRemoveMember={actions.removeMember}
           onResolveInvitationTarget={actions.resolveInvitationTarget}
+          onTransferBillingPayer={actions.transferBillingPayer}
           page={page}
         />,
       );
@@ -560,6 +564,7 @@ describe("OrganizationMembersPageView", () => {
         ...ownerPage,
         members: ownerPage.members.map((member) => ({
           ...member,
+          isBillingPayer: member.githubLogin === "noter-guest",
           isOnlyActiveOwner: false,
           isPersonalGithubOwnerIdentity: member.githubLogin === "nicu",
           role: "owner",
@@ -592,6 +597,71 @@ describe("OrganizationMembersPageView", () => {
     expect(actions.changeRole).toHaveBeenCalledWith(fakeId("membership_nicu"), "member");
   });
 
+  it("confirms billing payer transfer and keeps a failed transfer recoverable", async () => {
+    let rejectTransfer: ((error: Error) => void) | undefined;
+    actions.transferBillingPayer.mockImplementationOnce(
+      () =>
+        new Promise((_, reject) => {
+          rejectTransfer = reject;
+        }),
+    );
+    const sharedOwnerPage = {
+      ...ownerPage,
+      members: ownerPage.members.map((member) => ({
+        ...member,
+        isOnlyActiveOwner: false,
+        role: "owner" as const,
+      })),
+    } satisfies OrganizationMembersPageData;
+    await renderPage(sharedOwnerPage);
+    const mountedRootElement = getMountedRootElement(rootElement);
+
+    await act(async () => getButton(mountedRootElement, "Transfer billing payer").click());
+    expect(rootElement?.textContent).toContain("Transfer billing to @noter-guest?");
+    expect(rootElement?.textContent).toContain(
+      "They will become the only owner who can change this subscription and open its Polar billing portal.",
+    );
+    await act(async () => getButton(mountedRootElement, "Transfer billing payer", 1).click());
+
+    expect(actions.transferBillingPayer).toHaveBeenCalledWith(fakeId("membership_guest"));
+    expect(getButton(mountedRootElement, "Transferring...").disabled).toBe(true);
+    expect(getButton(mountedRootElement, "Cancel").disabled).toBe(true);
+    await act(async () => getButton(mountedRootElement, "Request close").click());
+    expect(rootElement?.textContent).toContain("Transferring...");
+
+    const failTransfer = rejectTransfer;
+    if (!failTransfer) {
+      throw new Error("Billing payer transfer did not start.");
+    }
+    await act(async () =>
+      failTransfer(
+        new ConvexError("Polar could not finish the billing payer transfer. Try again."),
+      ),
+    );
+    expect(rootElement?.textContent).toContain(
+      "Polar could not finish the billing payer transfer. Try again.",
+    );
+
+    await renderPage({
+      ...sharedOwnerPage,
+      members: sharedOwnerPage.members.map((member) => ({
+        ...member,
+        isBillingTransferPending: member.githubLogin === "noter-guest",
+      })),
+    });
+    expect(rootElement?.textContent).toContain("Billing transfer pending");
+    await act(async () => getButton(mountedRootElement, "Cancel").click());
+    const targetRow = rootElement?.querySelectorAll<HTMLElement>(
+      "[data-testid=organization-member-row]",
+    )[1];
+    if (!targetRow) {
+      throw new Error("Billing payer transfer target row is missing.");
+    }
+    expect(getButton(targetRow, "Make Samebase member").disabled).toBe(true);
+    expect(getButton(targetRow, "Remove member").disabled).toBe(true);
+    expect(getButton(targetRow, "Continue billing transfer").disabled).toBe(false);
+  });
+
   it("routes destructive confirmations and keeps a failed mutation open", async () => {
     let rejectRemove: ((error: Error) => void) | undefined;
     actions.removeMember.mockImplementationOnce(
@@ -604,6 +674,7 @@ describe("OrganizationMembersPageView", () => {
       ...ownerPage,
       members: ownerPage.members.map((member) => ({
         ...member,
+        isBillingPayer: false,
         isOnlyActiveOwner: false,
         role: "owner",
       })),

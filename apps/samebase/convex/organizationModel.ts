@@ -28,6 +28,12 @@ export const vOrganizationBillingState = object({
   cancelAtPeriodEnd: optional(boolean()),
   polarExternalCustomerId: optional(string()),
   polarBillingUserId: optional(id("users")),
+  polarBillingPayerTransfer: optional(
+    object({
+      attemptId: string(),
+      targetUserId: id("users"),
+    }),
+  ),
   polarSeatQuantity: optional(number()),
   polarStateChangedAt: optional(number()),
   polarObservationRevision: optional(number()),
