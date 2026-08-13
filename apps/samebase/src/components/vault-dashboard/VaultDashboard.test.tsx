@@ -1219,7 +1219,7 @@ describe("VaultOverviewVaultPickerPane", () => {
     };
   }
 
-  it("groups the global inventory under its organization", () => {
+  it("groups the global inventory under its organization and shows resource counts", () => {
     const vault = makeRepositorySettingsBuilderVault({
       cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({})],
       convexProjects: [makeRepositorySettingsConvexProject({})],
@@ -1238,6 +1238,7 @@ describe("VaultOverviewVaultPickerPane", () => {
             summaries: [
               {
                 vaultId: vault._id,
+                openPullRequestCount: 3,
                 checks: {
                   state: "success",
                   totalCount: 1,
@@ -1260,9 +1261,9 @@ describe("VaultOverviewVaultPickerPane", () => {
     expect(markup).not.toContain('href="/org/ada/vaults"');
     expect(markup).toContain("demo");
     expect(markup).toContain("1/1 passed");
-    expect(markup).not.toContain("3 PRs");
-    expect(markup).not.toContain("Cloudflare Workers");
-    expect(markup).not.toContain("Convex projects");
+    expect(markup).toContain("3 PRs");
+    expect(markup).toContain("1 Cloudflare Worker");
+    expect(markup).toContain("1 Convex project");
     expect(markup).not.toContain("Install GitHub App");
     expect(markup).toContain('href="/vault/ada/demo"');
     expect(markup).toMatch(/<a[^>]+href="\/vault\/ada\/demo"[^>]*>[\s\S]*1\/1 passed[\s\S]*<\/a>/);
@@ -1428,7 +1429,9 @@ describe("VaultOverviewVaultPickerPane", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('aria-label="ada/demo, Setting up"');
+    expect(markup).toContain(
+      'aria-label="ada/demo, Setting up, 0 Cloudflare Workers, 0 Convex projects"',
+    );
   });
 
   it("renders loading, zero-membership, and empty-organization states", () => {

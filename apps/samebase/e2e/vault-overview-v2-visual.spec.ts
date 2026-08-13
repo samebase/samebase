@@ -59,13 +59,13 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
   const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
 
   const samebaseLink = vaultNavigation.getByRole("link", {
-    name: "samebase/samebase, 4/4 passed",
+    name: "samebase/samebase, 4/4 passed, 2 Cloudflare Workers, 1 Convex project, 3 open pull requests",
     exact: true,
   });
   await expect(samebaseLink).toHaveAttribute("href", "/vault/samebase/samebase");
   await expect(
     vaultNavigation.getByRole("link", {
-      name: "noter/guestbook, 4/4 passed",
+      name: "noter/guestbook, 4/4 passed, 2 Cloudflare Workers, 1 Convex project, 3 open pull requests",
       exact: true,
     }),
   ).toHaveAttribute("href", "/vault/noter/guestbook");
@@ -118,7 +118,9 @@ test("shows the shared overview model on desktop", async ({ page }) => {
     vaultNavigation.getByRole("button", { name: "samebase", exact: true }),
   ).toHaveAttribute("aria-expanded", "true");
   await expect(
-    vaultNavigation.getByRole("link", { name: "noter/guestbook, 4/4 passed" }),
+    vaultNavigation.getByRole("link", {
+      name: "noter/guestbook, 4/4 passed, 2 Cloudflare Workers, 1 Convex project, 3 open pull requests",
+    }),
   ).toHaveCount(0);
 
   await expect(fixture.getByRole("link", { name: "main", exact: true })).toHaveAttribute(
@@ -660,7 +662,7 @@ test("preserves repository identity at the minimum sidebar width", async ({ page
   const vaultNavigation = fixture.getByRole("navigation", { name: "Vaults" });
 
   const selectedVault = vaultNavigation.getByRole("link", {
-    name: "samebase/samebase, 4/4 passed",
+    name: "samebase/samebase, 4/4 passed, 2 Cloudflare Workers, 1 Convex project, 3 open pull requests",
     exact: true,
   });
   await expect(selectedVault).toBeVisible();

@@ -212,7 +212,9 @@ describe("VaultOverviewSidebar", () => {
     );
 
     expect(markup).toContain('aria-current="page"');
-    expect(markup).toContain("samebase/active, Loading checks");
+    expect(markup).toContain(
+      "samebase/active, Loading checks, 0 Cloudflare Workers, 0 Convex projects",
+    );
   });
 
   it("groups every organization and expands the selected vault organization", async () => {

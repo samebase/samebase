@@ -428,6 +428,7 @@ const FIXTURE_SIDEBAR_SUMMARIES = {
   state: "loaded",
   summaries: SIDEBAR_LIST_VAULTS.map((vault) => ({
     vaultId: vault._id,
+    openPullRequestCount: 3,
     checks: FIXTURE_DEFAULT_BRANCH_CHECKS.checks,
   })),
 } satisfies VaultSidebarSummariesState;
@@ -1047,6 +1048,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
     summaries: [
       {
         vaultId: vault._id,
+        openPullRequestCount: 0,
         checks: PROVISIONING_DEFAULT_BRANCH.checks,
       },
     ],
@@ -1193,7 +1195,13 @@ function VaultOverviewProviderSettingsFixture({
               selectedVaultId={vault._id}
               sidebarSummaries={{
                 state: "loaded",
-                summaries: [{ vaultId: vault._id, checks: PROVISIONING_DEFAULT_BRANCH.checks }],
+                summaries: [
+                  {
+                    vaultId: vault._id,
+                    openPullRequestCount: 0,
+                    checks: PROVISIONING_DEFAULT_BRANCH.checks,
+                  },
+                ],
               }}
               vaults={[vault]}
               workspace={workspace}

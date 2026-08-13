@@ -1,4 +1,8 @@
 import type { VaultOverviewPageKind } from "@/components/vault-dashboard/VaultOverviewPage";
+import {
+  CloudflareProviderLogo,
+  ConvexProviderLogo,
+} from "@/components/vault-dashboard/VaultDashboardLogos";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/use-toast";
@@ -168,6 +172,9 @@ function VaultRow({
   workspace: VaultWorkspaceSelected | null;
 }) {
   const status = vaultSidebarStatus({ selected, sidebarSummaries, summary, vault, workspace });
+  const workerCount = vault.cloudflareWorkers.length;
+  const convexProjectCount = vault.convexProjects.length;
+  const pullRequestCount = summary?.openPullRequestCount;
   const rowClassName = selected
     ? "flex min-w-0 bg-muted @max-[200px]:px-1"
     : "flex min-w-0 hover:bg-muted/60 @max-[200px]:px-1";
@@ -176,7 +183,7 @@ function VaultRow({
     <div className={rowClassName}>
       <Link
         aria-current={selected ? "page" : undefined}
-        aria-label={`${vault.repositoryFullName}, ${status.label}`}
+        aria-label={`${vault.repositoryFullName}, ${status.label}, ${workerCount} Cloudflare ${workerCount === 1 ? "Worker" : "Workers"}, ${convexProjectCount} Convex ${convexProjectCount === 1 ? "project" : "projects"}${pullRequestCount === undefined ? "" : `, ${pullRequestCount} open ${pullRequestCount === 1 ? "pull request" : "pull requests"}`}`}
         className={
           inFolder
             ? "block min-w-0 flex-1 py-2.5 pr-3 pl-6 text-left no-underline hover:no-underline @max-[200px]:pr-2 @max-[200px]:pl-5 @max-[120px]:pr-1 @max-[120px]:pl-4"
@@ -199,7 +206,36 @@ function VaultRow({
               <span className={status.dotClassName} />
             )}
           </span>
-          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">{status.label}</span>
+          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+            <span>{status.label}</span>
+            <span className="@max-[200px]:hidden">
+              <span
+                aria-label={`${workerCount} Cloudflare ${workerCount === 1 ? "Worker" : "Workers"}`}
+                className="inline-flex"
+                title={`${workerCount} Cloudflare ${workerCount === 1 ? "Worker" : "Workers"}`}
+              >
+                {" · "}
+                {workerCount}
+                <span className="ml-1 inline-flex h-3 w-4 items-center justify-center">
+                  <CloudflareProviderLogo />
+                </span>
+              </span>
+              <span
+                aria-label={`${convexProjectCount} Convex ${convexProjectCount === 1 ? "project" : "projects"}`}
+                className="inline-flex"
+                title={`${convexProjectCount} Convex ${convexProjectCount === 1 ? "project" : "projects"}`}
+              >
+                {" · "}
+                {convexProjectCount}
+                <span className="ml-1 inline-flex h-3 w-4 items-center justify-center">
+                  <ConvexProviderLogo />
+                </span>
+              </span>
+              {pullRequestCount === undefined
+                ? null
+                : ` · ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}`}
+            </span>
+          </span>
         </span>
       </Link>
       {folderState.folders.length > 0 ? (
