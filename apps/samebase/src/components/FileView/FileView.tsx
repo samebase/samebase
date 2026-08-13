@@ -32,7 +32,6 @@ import {
   useCommitPreviewQuery,
 } from "@/components/FileView/useFileViewPreviewQueries";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useWorkspacePaneActions } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import { linkStyle } from "@/components/styles";
 import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
@@ -715,9 +714,6 @@ function FileViewInner({
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
   branchHydrationState: FileViewBranchHydrationState | null;
 }) {
-  const { setMobilePane } = useWorkspacePaneActions();
-  const setMobilePaneRef = useRef(setMobilePane);
-  setMobilePaneRef.current = setMobilePane;
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
@@ -1299,9 +1295,6 @@ function FileViewInner({
             reviewMode: status === "deleted" ? "review" : undefined,
           }),
         );
-
-        // File picks should land back on the editor pane immediately on mobile.
-        setMobilePaneRef.current("main");
       }
     },
     [buildVaultFileUrl, navigateByHref, owner, repoName],
