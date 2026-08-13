@@ -363,6 +363,9 @@ test("covers Convex connection dialog states", async ({ page }) => {
 
   for (const [mode, screenshotName] of cases) {
     await openVaultOverviewV2(page, mode);
+    if (mode === "vault-overview-v2-convex-dialog-loading") {
+      await page.addStyleTag({ content: ".animate-spin { animation: none !important; }" });
+    }
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveScreenshot(screenshotName, {

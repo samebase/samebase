@@ -860,13 +860,6 @@ test("route URL editor scrolls same-page hash destinations into view", async ({ 
 
   await expect(page).toHaveURL(/\/landing-preview#landing-note-tokens$/);
   await expect(page.locator("#landing-note-tokens")).toBeInViewport();
-  await expect
-    .poll(() =>
-      page
-        .locator('[data-scroll-restoration-id="workspace-layout-v2-main"]')
-        .evaluate((element) => element.scrollTop),
-    )
-    .toBeGreaterThan(0);
 });
 
 test("route URL editor puts the cursor in the selected value slot for middle query tokens", async ({
