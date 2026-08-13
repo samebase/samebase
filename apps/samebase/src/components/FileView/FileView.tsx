@@ -32,7 +32,6 @@ import {
   useCommitPreviewQuery,
 } from "@/components/FileView/useFileViewPreviewQueries";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { useWorkspacePaneActions } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
 import { linkStyle } from "@/components/styles";
 import { useConvexAction, useConvexMutation } from "@/lib/convexUtils";
 import { DialogProvider } from "@/contexts/DialogContext";
@@ -715,7 +714,6 @@ function FileViewInner({
   stagedFile: (typeof api.fileStaging.getByNewPath)["_returnType"];
   branchHydrationState: FileViewBranchHydrationState | null;
 }) {
-  const { setMobilePane } = useWorkspacePaneActions();
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
@@ -1300,16 +1298,6 @@ function FileViewInner({
       }
     },
     [buildVaultFileUrl, navigateByHref, owner, repoName],
-  );
-
-  const handleCommandPaletteFileSelect = useCallback(
-    (path: string, status?: CommitPreviewFileStatus) => {
-      handleFileSelect(path, status);
-      if (owner && repoName) {
-        setMobilePane("main");
-      }
-    },
-    [handleFileSelect, owner, repoName, setMobilePane],
   );
 
   const handleFileRename = useCallback(
@@ -2723,7 +2711,7 @@ function FileViewInner({
         open={isCommandPaletteOpen}
         onOpenChange={setIsCommandPaletteOpen}
         files={visibleTreeData}
-        onFileSelect={handleCommandPaletteFileSelect}
+        onFileSelect={handleFileSelect}
         selectedFile={selectedFile}
       />
     </AppWorkspaceRouteChrome>
