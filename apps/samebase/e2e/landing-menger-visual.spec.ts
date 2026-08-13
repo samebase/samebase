@@ -418,6 +418,7 @@ test("landing preview keeps the prehydration and WebGL logo bounds equal", async
     timeout: 30_000,
   });
   await expect(hydratedHero).toHaveAttribute("data-state", "ready");
+  await expect(hydratedHero).toHaveCSS("cursor", "grab");
   await waitForPaint(page);
 
   const prehydrationContext = await browser.newContext({
@@ -439,6 +440,7 @@ test("landing preview keeps the prehydration and WebGL logo bounds equal", async
     const prehydratedHero = prehydratedPage.getByTestId("landing-preview-hero-menger");
     await expect(prehydratedHero).toBeVisible();
     await expect(prehydratedHero).toHaveAttribute("data-state", "loading");
+    await expect(prehydratedHero).toHaveCSS("cursor", "grab");
     await expect(prehydratedHero.getByTestId("landing-preview-hero-menger-fallback")).toHaveCSS(
       "opacity",
       "1",
