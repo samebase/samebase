@@ -95,11 +95,13 @@ function TemporaryAuthenticatedAppRightSidebarContent({
 }
 
 function AccountOnlyAuthenticatedAppRightSidebarContent({
-  profile,
   deleting,
+  pending,
+  profile,
 }: {
-  profile: AppAuthPresentationProfile | null;
   deleting: boolean;
+  pending: boolean;
+  profile: AppAuthPresentationProfile | null;
 }) {
   const user = useConvexQuery(api.users.viewer);
   const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
@@ -115,6 +117,22 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
       ) : (
         <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
       )}
+      {pending && accountPresentation !== undefined ? (
+        <section
+          aria-labelledby="pending-access-sidebar-heading"
+          className="vault-dashboard-sidebar-inset flex flex-1 flex-col justify-center py-8"
+          role="status"
+        >
+          <h2 id="pending-access-sidebar-heading" className="text-base font-semibold leading-6">
+            Beta access pending
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            Samebase is currently in private beta, so access is approved manually. You’re signed in
+            as <span className="[overflow-wrap:anywhere]">{accountPresentation.label}</span>
+            {". This page will update automatically when your account is approved."}
+          </p>
+        </section>
+      ) : null}
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
       </div>
@@ -238,6 +256,7 @@ export function AppRightSidebarContent() {
       return (
         <AccountOnlyAuthenticatedAppRightSidebarContent
           deleting={viewerAccess.role === "role_deleting"}
+          pending={viewerAccess.role === "role_pending_access"}
           profile={authPresentation.profile}
         />
       );

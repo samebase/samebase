@@ -15,6 +15,9 @@ const staffViewer = {
 const memberViewer = {
   accessKeys: ROLE_ACCESS_GRANTS.role_member,
 } as const satisfies RouteAccessViewer;
+const pendingAccessViewer = {
+  accessKeys: ROLE_ACCESS_GRANTS.role_pending_access,
+} as const satisfies RouteAccessViewer;
 const anonymousViewer = {
   accessKeys: ROLE_ACCESS_GRANTS.role_anonymous,
 } as const satisfies RouteAccessViewer;
@@ -130,6 +133,18 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(suggestions).not.toContain("/pitch");
     expect(suggestions).not.toContain("/vault/$");
+  });
+
+  it("keeps account deletion out of pending-access suggestions", () => {
+    const suggestions = readRouteUrlPathSuggestions(
+      routesByPath,
+      pendingAccessViewer,
+      localEnvironment,
+      false,
+    );
+
+    expect(suggestions).toContain("/settings");
+    expect(suggestions).not.toContain("/account-deletion");
   });
 
   it("exposes member route paths from access grants", () => {
@@ -423,6 +438,16 @@ describe("isRouteUrlPathReadyForNavigation", () => {
         origin: ORIGIN,
         routesByPath,
         viewer: anonymousViewer,
+      }),
+    ).toBe(true);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/settings",
+        draftHref: "/account-deletion",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: pendingAccessViewer,
       }),
     ).toBe(true);
   });

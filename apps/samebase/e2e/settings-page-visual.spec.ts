@@ -381,7 +381,7 @@ test("pending users save a private display name and refresh prehydration", async
   const displayNameInput = page.getByLabel("Display name");
   await displayNameInput.fill(displayName);
   await page.getByRole("button", { exact: true, name: "Save" }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
+  await expect(page.getByTestId("user-settings-page").getByRole("status")).toHaveText("Saved");
   await expect(readStoredAccountPresentation(page)).resolves.toEqual({
     kind: "displayName",
     label: displayName,
@@ -390,9 +390,12 @@ test("pending users save a private display name and refresh prehydration", async
   const accountSection = page.getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection.getByText(displayName, { exact: true })).toBeVisible();
   await expectNoAccountEmailLeak(page, email);
-  await expect(accountSection).toHaveScreenshot("settings-display-name-account-section.png", {
-    ...screenshotOptions,
-  });
+  const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
+  await expect(rightSidebar.getByRole("heading", { name: "Beta access pending" })).toBeVisible();
+  await expect(rightSidebar).toHaveScreenshot(
+    "settings-pending-access-right-sidebar.png",
+    screenshotOptions,
+  );
 
   await blockHydrationScripts(page);
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -405,7 +408,7 @@ test("pending users save a private display name and refresh prehydration", async
   await expect(page.getByTestId("user-settings-page")).toBeVisible();
   await page.getByLabel("Display name").fill("");
   await page.getByRole("button", { exact: true, name: "Save" }).click();
-  await expect(page.getByRole("status")).toHaveText("Saved");
+  await expect(page.getByTestId("user-settings-page").getByRole("status")).toHaveText("Saved");
   await expect(readStoredAccountPresentation(page)).resolves.toEqual({
     kind: "email",
     label: email,
