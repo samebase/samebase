@@ -15,6 +15,21 @@ export const vCloudflareBuildState = union(
 );
 export type CloudflareBuildState = Infer<typeof vCloudflareBuildState>;
 
+export const vCloudflareBuildDisagreementReason = union(
+  literal("missing_trigger"),
+  literal("missing_build_uuid"),
+  literal("invalid_created_on"),
+  literal("invalid_root_directory"),
+  literal("worker_tag_mismatch"),
+  literal("trigger_uuid_mismatch"),
+  literal("repository_id_mismatch"),
+  literal("trigger_root_directory_mismatch"),
+  literal("metadata_root_directory_mismatch"),
+  literal("missing_trigger_deploy_command"),
+  literal("deploy_command_mismatch"),
+);
+export type CloudflareBuildDisagreementReason = Infer<typeof vCloudflareBuildDisagreementReason>;
+
 export type CloudflareBuildMatch =
   | {
       state: "available";
@@ -24,7 +39,7 @@ export type CloudflareBuildMatch =
       finishedAt: number | null;
     }
   | { state: "absent" }
-  | { state: "provider_disagreement" };
+  | { state: "provider_disagreement"; reason: CloudflareBuildDisagreementReason };
 
 function providerTimestamp(value: string | null | undefined): number | null {
   if (!value) {
@@ -80,11 +95,12 @@ export function matchLatestCloudflareWorkerBuildForBranch(args: {
   triggerUuid: string;
 }): CloudflareBuildMatch {
   const candidates = args.builds
-    .filter((build) => build.build_trigger_metadata?.branch === args.branch)
-    .map((build) => ({
-      build,
-      createdAt: providerTimestamp(build.created_on),
-    }))
+    .flatMap((build) => {
+      const metadata = build.build_trigger_metadata;
+      return metadata?.branch === args.branch
+        ? [{ build, metadata, createdAt: providerTimestamp(build.created_on) }]
+        : [];
+    })
     .sort(
       (left, right) =>
         (right.createdAt ?? -1) - (left.createdAt ?? -1) ||
@@ -97,30 +113,56 @@ export function matchLatestCloudflareWorkerBuildForBranch(args: {
 
   const build = candidate.build;
   const trigger = build.trigger;
-  const metadata = build.build_trigger_metadata;
+  const metadata = candidate.metadata;
   const createdAt = candidate.createdAt;
   const finishedAt = providerTimestamp(build.stopped_on);
   const buildUuid = build.build_uuid?.trim();
   const rootDirectory = normalizeCloudflareBuildRoot(args.worker.rootDirectory);
   const triggerRootDirectory = normalizeCloudflareBuildRoot(trigger?.root_directory);
-  const metadataRootDirectory = normalizeCloudflareBuildRoot(metadata?.root_directory);
+  const metadataRootDirectory = normalizeCloudflareBuildRoot(metadata.root_directory);
   const triggerDeployCommand = trigger?.deploy_command?.trim();
-  const metadataDeployCommand = metadata?.deploy_command?.trim();
-  if (
-    !trigger ||
-    !metadata ||
-    !buildUuid ||
-    createdAt === null ||
-    rootDirectory === null ||
-    trigger.external_script_id !== args.worker.workerTag ||
-    trigger.trigger_uuid !== args.triggerUuid ||
-    trigger.repo_connection?.repo_id !== args.ghRepoId ||
-    triggerRootDirectory !== rootDirectory ||
-    metadataRootDirectory !== rootDirectory ||
-    !triggerDeployCommand ||
-    triggerDeployCommand !== metadataDeployCommand
-  ) {
-    return { state: "provider_disagreement" };
+  const metadataDeployCommand = metadata.deploy_command?.trim();
+  if (!trigger) {
+    return { state: "provider_disagreement", reason: "missing_trigger" };
+  }
+  if (!buildUuid) {
+    return { state: "provider_disagreement", reason: "missing_build_uuid" };
+  }
+  if (createdAt === null) {
+    return { state: "provider_disagreement", reason: "invalid_created_on" };
+  }
+  if (rootDirectory === null) {
+    return { state: "provider_disagreement", reason: "invalid_root_directory" };
+  }
+  if (trigger.external_script_id !== args.worker.workerTag) {
+    return { state: "provider_disagreement", reason: "worker_tag_mismatch" };
+  }
+  if (trigger.trigger_uuid !== args.triggerUuid) {
+    return { state: "provider_disagreement", reason: "trigger_uuid_mismatch" };
+  }
+  if (trigger.repo_connection?.repo_id !== args.ghRepoId) {
+    return { state: "provider_disagreement", reason: "repository_id_mismatch" };
+  }
+  if (triggerRootDirectory !== rootDirectory) {
+    return {
+      state: "provider_disagreement",
+      reason: "trigger_root_directory_mismatch",
+    };
+  }
+  if (metadataRootDirectory !== rootDirectory) {
+    return {
+      state: "provider_disagreement",
+      reason: "metadata_root_directory_mismatch",
+    };
+  }
+  if (!triggerDeployCommand) {
+    return {
+      state: "provider_disagreement",
+      reason: "missing_trigger_deploy_command",
+    };
+  }
+  if (triggerDeployCommand !== metadataDeployCommand) {
+    return { state: "provider_disagreement", reason: "deploy_command_mismatch" };
   }
 
   return {

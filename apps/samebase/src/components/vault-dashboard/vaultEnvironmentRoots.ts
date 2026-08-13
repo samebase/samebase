@@ -214,7 +214,9 @@ export function buildProductionEnvironmentRoots({
                   buildState: productionBuild.buildState,
                   logsUrl: productionBuild.logsUrl,
                 }
-              : productionBuild;
+              : productionBuild.state === "absent"
+                ? { state: "absent" }
+                : { state: "unavailable" };
 
           return [
             {

@@ -23,6 +23,7 @@ import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { readConvexProductionDeployment } from "./convexProjectResources";
 import {
   matchLatestCloudflareWorkerBuildForBranch,
+  vCloudflareBuildDisagreementReason,
   vCloudflareBuildState,
 } from "./cloudflareBuildMatching";
 import {
@@ -34,6 +35,11 @@ import type { VaultProviderObservationContext } from "./providerObservationQueri
 const { array, id, literal, object, string, union } = v;
 
 const vObservationFailureReason = union(literal("connection_required"), literal("request_failed"));
+const vCloudflareProductionBuildUnavailableReason = union(
+  vCloudflareBuildDisagreementReason,
+  literal("build_history_incomplete"),
+  literal("request_failed"),
+);
 const vCloudflareProductionBuildObservation = union(
   object({
     state: literal("available"),
@@ -41,7 +47,10 @@ const vCloudflareProductionBuildObservation = union(
     logsUrl: string(),
   }),
   object({ state: literal("absent") }),
-  object({ state: literal("unavailable") }),
+  object({
+    state: literal("unavailable"),
+    reason: vCloudflareProductionBuildUnavailableReason,
+  }),
 );
 const vObservedConvexProject = union(
   object({
@@ -406,9 +415,12 @@ export const observeCloudflareWorkerBuilds = action({
             defaultBranch,
             expectedRepoId: context.ghRepoId,
           });
-          let productionBuild: ReturnType<typeof matchLatestCloudflareWorkerBuildForBranch> = {
-            state: "provider_disagreement",
-          };
+          let productionBuild:
+            | ReturnType<typeof matchLatestCloudflareWorkerBuildForBranch>
+            | {
+                state: "unavailable";
+                reason: "build_history_incomplete" | "request_failed";
+              } = { state: "unavailable", reason: "request_failed" };
           if (discovery.repository.state === "ready" && discovery.builds.state === "connected") {
             try {
               const buildRead = await readRecentCloudflareWorkerBuilds({
@@ -429,10 +441,10 @@ export const observeCloudflareWorkerBuilds = action({
               });
               productionBuild =
                 buildMatch.state === "absent" && !buildRead.exhausted
-                  ? { state: "provider_disagreement" }
+                  ? { state: "unavailable", reason: "build_history_incomplete" }
                   : buildMatch;
             } catch {
-              productionBuild = { state: "provider_disagreement" };
+              productionBuild = { state: "unavailable", reason: "request_failed" };
             }
           }
           return {
@@ -456,7 +468,10 @@ export const observeCloudflareWorkerBuilds = action({
                           }
                         : productionBuild.state === "absent"
                           ? { state: "absent" as const }
-                          : { state: "unavailable" as const },
+                          : {
+                              state: "unavailable" as const,
+                              reason: productionBuild.reason,
+                            },
                   }
                 : discovery.builds,
           };
