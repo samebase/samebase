@@ -21,7 +21,7 @@ import { buildGitHubOrganizationProvidersReturnUrl } from "../shared/githubApp";
 import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
-import { makeConvexTest } from "./test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
 async function expectGitHubCompletion(response: Response, returnUrl: string) {
   const html = await response.text();
@@ -320,6 +320,7 @@ describe("GitHub App setup", () => {
         githubOwnerLoginNormalized: "reconnect-owner",
         githubInstallationId: "old-installation",
       });
+      await insertTestOrganizationBillingAccount(ctx.db, organizationId);
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId,
@@ -380,6 +381,7 @@ describe("GitHub App setup", () => {
         githubOwnerLoginNormalized: "existing-owner",
         githubInstallationId: "existing-installation",
       });
+      await insertTestOrganizationBillingAccount(ctx.db, organizationId);
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId: ownerUserId,

@@ -257,12 +257,7 @@ export const deleteOrganization = mutation({
     if (billing === null) {
       throw new Error("Organization billing state is missing.");
     }
-    if (
-      billing.plan !== "free" ||
-      billing.status !== "inactive" ||
-      billing.polarExternalCustomerId ||
-      billing.polarCheckoutAttempt
-    ) {
+    if (billing.plan !== "free" || billing.status !== "inactive" || billing.polarCheckoutAttempt) {
       throw new ConvexError("Resolve organization billing before you delete this organization.");
     }
 

@@ -1,4 +1,5 @@
 import { WebhookCustomerStateChangedPayload$inboundSchema } from "@polar-sh/sdk/models/components/webhookcustomerstatechangedpayload";
+import { WebhookSubscriptionUpdatedPayload$inboundSchema } from "@polar-sh/sdk/models/components/webhooksubscriptionupdatedpayload";
 import { Webhook, WebhookVerificationError } from "standardwebhooks";
 
 import { env, httpAction } from "./_generated/server";
@@ -60,13 +61,23 @@ export const handlePolarWebhook = httpAction(async (ctx, request) => {
     return new Response("Invalid webhook payload", { status: 500 });
   }
 
-  if (verifiedEvent.type !== "customer.state_changed") {
+  if (
+    verifiedEvent.type !== "customer.state_changed" &&
+    verifiedEvent.type !== "subscription.updated"
+  ) {
     return new Response(null, { status: 204 });
   }
 
-  let event: ReturnType<typeof WebhookCustomerStateChangedPayload$inboundSchema.parse>;
+  let externalCustomerId: string | undefined;
   try {
-    event = WebhookCustomerStateChangedPayload$inboundSchema.parse(verifiedEvent);
+    externalCustomerId =
+      verifiedEvent.type === "customer.state_changed"
+        ? WebhookCustomerStateChangedPayload$inboundSchema.parse(
+            verifiedEvent,
+          ).data.externalId?.trim()
+        : WebhookSubscriptionUpdatedPayload$inboundSchema.parse(
+            verifiedEvent,
+          ).data.customer.externalId?.trim();
   } catch (error) {
     console.error("billing:polar:webhook:invalid_payload", {
       errorName: error instanceof Error ? error.name : "UnknownError",
@@ -74,7 +85,6 @@ export const handlePolarWebhook = httpAction(async (ctx, request) => {
     return new Response("Invalid webhook payload", { status: 500 });
   }
 
-  const externalCustomerId = event.data.externalId?.trim();
   if (!externalCustomerId) {
     return new Response(null, { status: 204 });
   }

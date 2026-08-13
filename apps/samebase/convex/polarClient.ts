@@ -4,8 +4,24 @@ import { env } from "./_generated/server";
 import { resolveDeploymentProfile } from "./deploymentProfile";
 
 export type PolarServer = "sandbox" | "production";
+export type PolarProductCatalogEntry = {
+  readonly productId: string;
+  readonly version: number;
+  readonly availableForCheckout: boolean;
+};
+export type PolarProductCatalog = readonly PolarProductCatalogEntry[];
 
 const POLAR_API_TIMEOUT_MS = 10_000;
+export const POLAR_PRODUCT_CATALOG = {
+  sandbox: [
+    {
+      productId: "0e721c02-c98b-425b-bc8d-fb323fa54925",
+      version: 1,
+      availableForCheckout: true,
+    },
+  ],
+  production: [],
+} satisfies Record<PolarServer, PolarProductCatalog>;
 
 function readConfiguredValue(value: string | undefined): string | null {
   const configured = value?.trim();
@@ -16,8 +32,54 @@ export function resolvePolarServer(): PolarServer {
   return resolveDeploymentProfile().kind === "production" ? "production" : "sandbox";
 }
 
-export function readPolarProMonthlyProductId(): string | null {
-  return readConfiguredValue(env.POLAR_PRO_MONTHLY_PRODUCT_ID);
+export function readPolarProductCatalogFromEntries(
+  entries: PolarProductCatalog,
+): PolarProductCatalog | null {
+  const productIds = new Set<string>();
+  const productVersions = new Set<number>();
+  for (const entry of entries) {
+    if (!entry.productId || entry.productId.trim() !== entry.productId) {
+      throw new Error("Polar billing product IDs must be non-empty and normalized.");
+    }
+    if (!Number.isSafeInteger(entry.version) || entry.version < 1) {
+      throw new Error("Polar billing product versions must be positive integers.");
+    }
+    if (productIds.has(entry.productId)) {
+      throw new Error("Polar billing product IDs must be unique within one server.");
+    }
+    productIds.add(entry.productId);
+
+    if (productVersions.has(entry.version)) {
+      throw new Error("Polar billing product versions must be unique within one server.");
+    }
+    productVersions.add(entry.version);
+  }
+
+  const checkoutProducts = entries.filter((entry) => entry.availableForCheckout);
+  if (checkoutProducts.length > 1) {
+    throw new Error("Polar billing requires exactly one checkout product per server.");
+  }
+
+  return entries.length === 0 ? null : entries;
+}
+
+export function readPolarProductCatalog(): PolarProductCatalog | null {
+  return readPolarProductCatalogFromEntries(POLAR_PRODUCT_CATALOG[resolvePolarServer()]);
+}
+
+export function readPolarCheckoutProductId(catalog: PolarProductCatalog): string {
+  const products = catalog.filter((entry) => entry.availableForCheckout);
+  if (products.length !== 1) {
+    throw new Error("Polar billing requires exactly one checkout product per server.");
+  }
+  return products[0].productId;
+}
+
+export function resolvePolarProduct(
+  catalog: PolarProductCatalog,
+  productId: string,
+): PolarProductCatalogEntry | null {
+  return catalog.find((entry) => entry.productId === productId) ?? null;
 }
 
 export function createPolarClient(timeoutMs = POLAR_API_TIMEOUT_MS): Polar {

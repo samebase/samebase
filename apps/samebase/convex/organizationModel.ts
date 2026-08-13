@@ -27,6 +27,8 @@ export const vOrganizationBillingState = object({
   currentPeriodEndAt: optional(number()),
   cancelAtPeriodEnd: optional(boolean()),
   polarExternalCustomerId: optional(string()),
+  polarBillingUserId: optional(id("users")),
+  polarSeatQuantity: optional(number()),
   polarStateChangedAt: optional(number()),
   polarObservationRevision: optional(number()),
   polarAppliedObservationRevision: optional(number()),

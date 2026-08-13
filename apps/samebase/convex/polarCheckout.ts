@@ -1,6 +1,6 @@
 import type { Checkout } from "@polar-sh/sdk/models/components/checkout";
 import { PolarError } from "@polar-sh/sdk/models/errors/polarerror";
-import { Infer, v } from "convex/values";
+import { ConvexError, Infer, v } from "convex/values";
 
 import { internalMutation } from "./_generated/server";
 import {
@@ -26,30 +26,49 @@ const vPolarCheckoutReservation = union(
 );
 export type PolarCheckoutReservation = Infer<typeof vPolarCheckoutReservation>;
 
-export function matchesPolarCheckoutAttempt(args: {
+type PolarCheckoutTarget = {
+  seatQuantity: number;
+};
+
+export function matchesPolarCheckoutReservation(args: {
   attemptId: string;
   checkout: Checkout;
   externalCustomerId: string;
-  productId: string;
 }): boolean {
   return (
     args.checkout.externalCustomerId === args.externalCustomerId &&
-    args.checkout.products.length === 1 &&
-    args.checkout.products[0]?.id === args.productId &&
-    args.checkout.metadata["source"] === "samebase_account" &&
-    args.checkout.metadata["plan"] === "pro" &&
+    args.checkout.metadata["source"] === "samebase_organization" &&
     args.checkout.metadata["samebase_checkout_attempt_id"] === args.attemptId
   );
 }
 
-export function isOpenPolarCheckoutForAttempt(args: {
-  attemptId: string;
-  checkout: Checkout;
-  externalCustomerId: string;
-  productId: string;
-  returnUrl: string;
-  successUrl: string;
-}): boolean {
+export function matchesPolarCheckoutAttempt(
+  args: {
+    attemptId: string;
+    checkout: Checkout;
+    externalCustomerId: string;
+    productId: string;
+  } & PolarCheckoutTarget,
+): boolean {
+  return (
+    matchesPolarCheckoutReservation(args) &&
+    args.checkout.products.length === 1 &&
+    args.checkout.products[0]?.id === args.productId &&
+    args.checkout.seats === args.seatQuantity &&
+    args.checkout.metadata["seat_quantity"] === args.seatQuantity
+  );
+}
+
+export function isOpenPolarCheckoutForAttempt(
+  args: {
+    attemptId: string;
+    checkout: Checkout;
+    externalCustomerId: string;
+    productId: string;
+    returnUrl: string;
+    successUrl: string;
+  } & PolarCheckoutTarget,
+): boolean {
   return (
     matchesPolarCheckoutAttempt(args) &&
     args.checkout.successUrl === args.successUrl &&
@@ -61,12 +80,12 @@ export function isOpenPolarCheckoutForAttempt(args: {
 
 export function canClearPolarCheckoutAfterObservation(args: {
   checkout: Checkout;
-  observedPlan: "free" | "pro";
+  hasSubscription: boolean;
 }): boolean {
   return (
     args.checkout.status === "expired" ||
     args.checkout.status === "failed" ||
-    (args.observedPlan === "pro" &&
+    (args.hasSubscription &&
       (args.checkout.status === "confirmed" || args.checkout.status === "succeeded"))
   );
 }
@@ -84,7 +103,11 @@ export const reserveAttempt = internalMutation({
   handler: async (ctx, args): Promise<PolarCheckoutReservation> => {
     const billing = await requireOwnerBillingAccountForOrganization(ctx.db, args);
 
-    const existing = readBillingAccountState(billing.account).polarCheckoutAttempt;
+    const state = readBillingAccountState(billing.account);
+    if (state.polarBillingUserId !== args.userId) {
+      throw new ConvexError("Only the designated billing payer can manage this subscription.");
+    }
+    const existing = state.polarCheckoutAttempt;
     if (existing?.state === "open") {
       return existing;
     }

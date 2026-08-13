@@ -88,6 +88,7 @@ const ownerPage = {
   members: [
     {
       githubLogin: "nicu",
+      isBillingPayer: true,
       isDeleting: false,
       isOnlyActiveOwner: true,
       isPersonalGithubOwnerIdentity: false,
@@ -99,6 +100,7 @@ const ownerPage = {
     },
     {
       githubLogin: "noter-guest",
+      isBillingPayer: false,
       isDeleting: false,
       isOnlyActiveOwner: false,
       isPersonalGithubOwnerIdentity: false,
@@ -247,10 +249,18 @@ describe("OrganizationMembersPageView", () => {
     const guestCells = [...(memberRows.at(1)?.querySelectorAll("td") ?? [])].map((cell) =>
       cell.textContent.trim(),
     );
+    const ownerRoleLabels = [
+      ...(memberRows.at(0)?.querySelectorAll("td:nth-child(2) span") ?? []),
+    ].map((label) => label.textContent.trim());
+    const guestRoleLabels = [
+      ...(memberRows.at(1)?.querySelectorAll("td:nth-child(2) span") ?? []),
+    ].map((label) => label.textContent.trim());
 
     expect(memberHeaders).toEqual(["Member", "Samebase role", "GitHub org", "Actions"]);
-    expect(ownerCells.slice(1, 3)).toEqual(["Owner", "Owner"]);
+    expect(ownerCells.slice(1, 3)).toEqual(["OwnerBilling payer", "Owner"]);
     expect(guestCells.slice(1, 3)).toEqual(["Member", "Member"]);
+    expect(ownerRoleLabels).toEqual(["Owner", "Billing payer"]);
+    expect(guestRoleLabels).toEqual(["Member"]);
     expect(rootElement?.textContent).not.toContain("Only Samebase owner");
     expect(rootElement?.textContent).not.toContain("Add another Samebase owner");
     expect(rootElement?.textContent).toContain("Pending invitations");
@@ -258,6 +268,20 @@ describe("OrganizationMembersPageView", () => {
     expect(rootElement?.textContent).toContain("Nicu");
     expect(rootElement?.textContent).not.toContain("invitation-secret");
     expect(getButton(mountedRootElement, "Make Samebase owner").disabled).toBe(false);
+
+    await renderPage(ownerPage, [
+      { status: "not_in_organization", userId: fakeId("user_nicu") },
+      { status: "github_account_not_connected", userId: fakeId("user_guest") },
+    ]);
+    const explicitStatusRows = [
+      ...mountedRootElement.querySelectorAll("[data-testid=organization-member-row]"),
+    ];
+    expect(explicitStatusRows.at(0)?.querySelector("td:nth-child(3)")?.textContent).toBe(
+      "Not in GitHub organization",
+    );
+    expect(explicitStatusRows.at(1)?.querySelector("td:nth-child(3)")?.textContent).toBe(
+      "GitHub not connected",
+    );
   });
 
   it("shows a deleting member and prevents promotion", async () => {

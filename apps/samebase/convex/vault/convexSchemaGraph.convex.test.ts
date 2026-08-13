@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api, internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
-import { makeConvexTest } from "../test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
 type ConvexAuth =
   | {
@@ -108,6 +108,7 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
         accountName: "Cloudflare account",
       },
     });
+    await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId,

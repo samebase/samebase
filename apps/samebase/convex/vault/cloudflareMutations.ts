@@ -235,29 +235,9 @@ async function insertWorker(
     return existing._id;
   }
 
-  switch (args.billingAuthority.kind) {
-    case "user":
-      await requireBillingResourceCapacityForAuthority(ctx, {
-        authority: args.billingAuthority,
-        kind: "cloudflare_worker",
-      });
-      break;
-    case "vault_provisioning":
-      await requireBillingResourceCapacityForAuthority(ctx, {
-        authority: args.billingAuthority,
-        kind: "cloudflare_worker",
-      });
-      break;
-    case "manual_provider_write":
-      await requireBillingResourceCapacityForAuthority(ctx, {
-        authority: args.billingAuthority,
-        kind: "cloudflare_worker",
-      });
-      break;
-    default:
-      args.billingAuthority satisfies never;
-      throw new Error("Billing resource authority is invalid.");
-  }
+  await requireBillingResourceCapacityForAuthority(ctx, {
+    authority: args.billingAuthority,
+  });
 
   return await ctx.db.insert("vaultCloudflareWorkers", {
     vaultId: args.vaultId,

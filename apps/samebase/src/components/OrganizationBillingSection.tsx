@@ -1,6 +1,6 @@
-import type { ViewerOrganization } from "@/lib/organizationContext";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
+import type { ViewerOrganization } from "@/lib/organizationContext";
 import { ORGANIZATION_SETTINGS_ROUTE } from "@/lib/organizationRoutes";
 import {
   CHECKOUT_QUERY_PARAM,
@@ -19,11 +19,9 @@ import type { BillingResourceUsage } from "../../convex/billingResourceQuotas";
 
 const organizationSettingsRouteApi = getRouteApi(ORGANIZATION_SETTINGS_ROUTE);
 
-type BillingRequestState = "idle" | "checkout" | "portal";
+type BillingRequestState = "idle" | "upgrade" | "downgrade" | "seat_add" | "seat_remove" | "portal";
 
-const billingDateFormatter = new Intl.DateTimeFormat("en-US", {
-  dateStyle: "medium",
-});
+const billingDateFormatter = new Intl.DateTimeFormat("en-US", { dateStyle: "medium" });
 
 function readBillingErrorMessage(error: unknown, fallback: string) {
   if (error instanceof ConvexError && typeof error.data === "string") {
@@ -32,7 +30,7 @@ function readBillingErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-function formatBillingResourceUsage(usage: BillingResourceUsage["cloudflareWorkers"]) {
+function formatConnectionUsage(usage: BillingResourceUsage["connections"]) {
   const used = usage.used.state === "at_least" ? `${usage.used.count}+` : usage.used.count;
   return `${used} of ${usage.limit}`;
 }
@@ -52,16 +50,31 @@ export function OrganizationBillingSection({
   const billingUsage = useQuery(api.billingResourceQuotas.getViewerBillingResourceUsage, {
     organizationId: organization.organizationId,
   });
-  const createCheckoutSession = useAction(api.billing.createPolarCheckoutSession);
+  const requestBillingChange = useAction(api.billing.requestPolarBillingChange);
   const createCustomerPortalSession = useAction(api.billing.createPolarCustomerPortalSession);
   const reconcileBilling = useAction(api.billing.reconcileViewerBillingFromPolar);
   const [billingRequestState, setBillingRequestState] = useState<BillingRequestState>("idle");
   const [billingReconciliationDelayed, setBillingReconciliationDelayed] = useState(false);
   const checkoutReturnState = search[CHECKOUT_QUERY_PARAM];
-  const canManageBilling = organization.role === "owner";
   const isPreview = readBrowserRouteEnvironment() === "preview";
+  const isOrganizationOwner = organization.role === "owner";
+  const canManageBilling = billingStatus?.canManageBilling ?? false;
   const billingActionsAvailable = canManageBilling && !isPreview;
-  const hasTrustedProBilling = billingStatus?.plan === "pro";
+  const hasTrustedSubscription = billingStatus?.hasSubscription ?? false;
+
+  // A Back/Forward cache restore keeps the pending state from before the browser left for Polar.
+  useEffect(() => {
+    const resetRestoredBillingRequest = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setBillingRequestState("idle");
+      }
+    };
+
+    window.addEventListener("pageshow", resetRestoredBillingRequest);
+    return () => {
+      window.removeEventListener("pageshow", resetRestoredBillingRequest);
+    };
+  }, []);
 
   useEffect(() => {
     if (checkoutReturnState !== "success") {
@@ -83,48 +96,44 @@ export function OrganizationBillingSection({
     };
 
     setBillingReconciliationDelayed(false);
-    if (!canManageBilling) {
+    if (!isOrganizationOwner) {
       clearCheckoutReturn();
       return;
     }
     if (!billingActionsAvailable) {
       return;
     }
-
-    if (hasTrustedProBilling) {
+    if (hasTrustedSubscription) {
       clearCheckoutReturn();
       return;
     }
 
     let active = true;
-    const reconcileCheckoutReturn = async () => {
-      try {
-        const reconciled = await reconcileBilling({ organizationId: organization.organizationId });
+    void reconcileBilling({ organizationId: organization.organizationId })
+      .then((reconciled) => {
         if (!active) {
           return;
         }
-        if (reconciled.state === "observed" && reconciled.plan === "pro") {
+        if (reconciled.state === "observed" && reconciled.hasSubscription) {
           clearCheckoutReturn();
         } else {
           setBillingReconciliationDelayed(true);
         }
-      } catch {
+      })
+      .catch(() => {
         if (active) {
           setBillingReconciliationDelayed(true);
         }
-      }
-    };
-
-    void reconcileCheckoutReturn();
+      });
 
     return () => {
       active = false;
     };
   }, [
     billingActionsAvailable,
-    canManageBilling,
     checkoutReturnState,
-    hasTrustedProBilling,
+    hasTrustedSubscription,
+    isOrganizationOwner,
     navigate,
     organization.organizationId,
     reconcileBilling,
@@ -148,23 +157,52 @@ export function OrganizationBillingSection({
     return new URL(location.href, window.location.origin).toString();
   };
 
-  const handleUpgrade = async () => {
+  const handleBillingChange = async (
+    change: "upgrade_to_pro" | "downgrade_to_free" | "add_member_seat" | "remove_member_seat",
+  ) => {
     if (!billingActionsAvailable || billingRequestState !== "idle") {
       return;
     }
 
-    setBillingRequestState("checkout");
+    let requestState: BillingRequestState;
+    if (change === "upgrade_to_pro") {
+      requestState = "upgrade";
+    } else if (change === "downgrade_to_free") {
+      requestState = "downgrade";
+    } else if (change === "add_member_seat") {
+      requestState = "seat_add";
+    } else {
+      requestState = "seat_remove";
+    }
+    setBillingRequestState(requestState);
     try {
-      const session = await createCheckoutSession({
+      const result = await requestBillingChange({
         organizationId: organization.organizationId,
+        change,
         returnUrl: buildBillingUrl("cancel"),
         successUrl: buildBillingUrl("success"),
       });
-      window.location.assign(session.url);
+      if (result.state === "checkout") {
+        window.location.assign(result.url);
+        return;
+      }
+      toast({
+        title:
+          change === "upgrade_to_pro"
+            ? "Pro is active"
+            : change === "downgrade_to_free"
+              ? "Free is scheduled for the next billing period"
+              : change === "remove_member_seat"
+                ? "Unused member seat removed"
+                : billingStatus.billingLimited
+                  ? "Member access restored"
+                  : "Member seat added",
+      });
+      setBillingRequestState("idle");
     } catch (error) {
       toast({
         description: readBillingErrorMessage(error, "Please try again."),
-        title: "Could not open checkout",
+        title: "Could not update billing",
         variant: "destructive",
       });
       setBillingRequestState("idle");
@@ -193,6 +231,16 @@ export function OrganizationBillingSection({
     }
   };
 
+  const paidMemberCapacity = Math.max(
+    0,
+    billingStatus.memberCapacity - billingStatus.includedMembers,
+  );
+  const needsAnotherMemberSeat = billingStatus.memberCount >= billingStatus.memberCapacity;
+  const hasUnusedPaidMemberSeat =
+    billingStatus.memberCapacity >
+    Math.max(billingStatus.memberCount, billingStatus.includedMembers);
+  const requestPending = billingRequestState !== "idle";
+
   return (
     <section
       aria-labelledby="organization-billing-heading"
@@ -211,18 +259,42 @@ export function OrganizationBillingSection({
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-4">
-          <dt className="text-sm font-medium">Cloudflare Workers</dt>
+          <dt className="text-sm font-medium">Connections</dt>
           <dd className="text-sm text-muted-foreground">
-            {formatBillingResourceUsage(billingUsage.cloudflareWorkers)}
+            {formatConnectionUsage(billingUsage.connections)}
           </dd>
         </div>
         <div className="flex items-baseline justify-between gap-4">
-          <dt className="text-sm font-medium">Convex projects</dt>
+          <dt className="text-sm font-medium">Members</dt>
           <dd className="text-sm text-muted-foreground">
-            {formatBillingResourceUsage(billingUsage.convexProjects)}
+            {billingStatus.memberCount} of {billingStatus.memberCapacity}
           </dd>
         </div>
-        {billingStatus.plan === "pro" && billingStatus.currentPeriodEndAt !== undefined ? (
+        <div className="flex items-baseline justify-between gap-4">
+          <dt className="text-sm font-medium">Included members</dt>
+          <dd className="text-sm text-muted-foreground">{billingStatus.includedMembers}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-4">
+          <dt className="text-sm font-medium">Paid member seats</dt>
+          <dd className="text-sm text-muted-foreground">{paidMemberCapacity}</dd>
+        </div>
+        <div className="flex items-baseline justify-between gap-4">
+          <dt className="text-sm font-medium">Billing payer</dt>
+          <dd className="text-sm text-muted-foreground">
+            {billingStatus.payerState === "viewer"
+              ? "You"
+              : billingStatus.payerState === "another_owner"
+                ? "Another owner"
+                : "Not assigned"}
+          </dd>
+        </div>
+        {billingStatus.cancelAtPeriodEnd ? (
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="text-sm font-medium">Next plan</dt>
+            <dd className="text-sm text-muted-foreground">Free</dd>
+          </div>
+        ) : null}
+        {billingStatus.hasSubscription && billingStatus.currentPeriodEndAt !== undefined ? (
           <div className="flex items-baseline justify-between gap-4">
             <dt className="text-sm font-medium">
               {billingStatus.cancelAtPeriodEnd
@@ -240,61 +312,120 @@ export function OrganizationBillingSection({
         ) : null}
       </dl>
 
-      {billingStatus.status === "past_due" ? (
+      {billingStatus.billingLimited ? (
         <p className="mt-4 text-sm text-destructive" role="alert">
-          Payment needs attention. Manage your subscription to update the payment method.
+          Add paid member capacity or remove members to restore organization access.
+        </p>
+      ) : billingStatus.status === "past_due" ? (
+        <p className="mt-4 text-sm text-destructive" role="alert">
+          Payment needs attention. Open the billing portal to update the payment method.
+        </p>
+      ) : billingStatus.payerState === "another_owner" && isOrganizationOwner ? (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Another owner manages billing for this organization.
         </p>
       ) : checkoutReturnState === "cancel" ? (
         <p className="mt-4 text-sm text-muted-foreground" role="status">
-          Checkout canceled. Your plan did not change.
+          Checkout canceled. Billing did not change.
         </p>
       ) : checkoutReturnState === "success" ? (
         billingActionsAvailable ? (
-          billingStatus.plan === "pro" ? (
+          billingStatus.hasSubscription ? (
             <p className="mt-4 text-sm text-muted-foreground" role="status">
-              Your Pro plan is active.
+              Billing is active.
             </p>
           ) : billingReconciliationDelayed ? (
             <p className="mt-4 text-sm text-muted-foreground" role="status">
-              Plan confirmation is delayed. Refresh this page to check again.
+              Payment confirmation is delayed. Refresh this page to check again.
             </p>
           ) : (
             <p className="mt-4 text-sm text-muted-foreground" role="status">
-              Checking your payment and plan...
+              Checking your payment...
             </p>
           )
-        ) : canManageBilling && isPreview ? (
+        ) : isOrganizationOwner && isPreview ? (
           <p className="mt-4 text-sm text-muted-foreground" role="status">
             Checkout confirmation is disabled in this preview.
           </p>
         ) : null
       ) : null}
 
-      {canManageBilling && (billingStatus.plan === "pro" || billingStatus.canStartCheckout) ? (
-        <div className="mt-6">
-          {billingStatus.plan === "pro" ? (
+      {isOrganizationOwner && canManageBilling ? (
+        <div className="mt-6 flex flex-wrap gap-2">
+          {billingStatus.plan === "free" ? (
             <Button
-              disabled={!billingActionsAvailable || billingRequestState !== "idle"}
+              disabled={!billingActionsAvailable || requestPending}
+              onClick={() => void handleBillingChange("upgrade_to_pro")}
+              type="button"
+            >
+              {billingRequestState === "upgrade" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {billingRequestState === "upgrade" ? "Updating..." : "Upgrade to Pro, $4/month"}
+            </Button>
+          ) : null}
+          {billingStatus.plan === "pro" && !billingStatus.cancelAtPeriodEnd ? (
+            <Button
+              disabled={!billingActionsAvailable || requestPending}
+              onClick={() => void handleBillingChange("downgrade_to_free")}
+              type="button"
+              variant="outline"
+            >
+              {billingRequestState === "downgrade" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {billingRequestState === "downgrade"
+                ? "Updating..."
+                : "Switch to Free next billing period"}
+            </Button>
+          ) : null}
+          {billingStatus.plan === "pro" &&
+          !billingStatus.cancelAtPeriodEnd &&
+          needsAnotherMemberSeat ? (
+            <Button
+              disabled={!billingActionsAvailable || requestPending}
+              onClick={() => void handleBillingChange("add_member_seat")}
+              type="button"
+              variant="outline"
+            >
+              {billingRequestState === "seat_add" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {billingRequestState === "seat_add"
+                ? "Updating..."
+                : billingStatus.billingLimited
+                  ? "Restore member access"
+                  : "Add member seat, $2/month"}
+            </Button>
+          ) : null}
+          {billingStatus.plan === "pro" &&
+          !billingStatus.cancelAtPeriodEnd &&
+          hasUnusedPaidMemberSeat ? (
+            <Button
+              disabled={!billingActionsAvailable || requestPending}
+              onClick={() => void handleBillingChange("remove_member_seat")}
+              type="button"
+              variant="outline"
+            >
+              {billingRequestState === "seat_remove" ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
+              {billingRequestState === "seat_remove" ? "Updating..." : "Remove unused seat"}
+            </Button>
+          ) : null}
+          {billingStatus.hasSubscription ? (
+            <Button
+              disabled={!billingActionsAvailable || requestPending}
               onClick={() => void handleManageSubscription()}
               type="button"
+              variant="outline"
             >
               {billingRequestState === "portal" ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : null}
               {billingRequestState === "portal" ? "Opening..." : "Manage subscription"}
             </Button>
-          ) : (
-            <Button
-              disabled={!billingActionsAvailable || billingRequestState !== "idle"}
-              onClick={() => void handleUpgrade()}
-              type="button"
-            >
-              {billingRequestState === "checkout" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              {billingRequestState === "checkout" ? "Opening..." : "Upgrade to Pro, $4/month"}
-            </Button>
-          )}
+          ) : null}
         </div>
       ) : null}
     </section>

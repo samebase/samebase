@@ -7,7 +7,7 @@ import type {
   ConvexProviderCredential,
 } from "./organizationProviderCredentialModel";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
-import { makeConvexTest } from "./test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
 const teamId = "team-1";
 const accountId = "a".repeat(32);
@@ -53,6 +53,10 @@ async function seedOrganization() {
       githubOwnerLogin: "Primary",
       githubOwnerLoginNormalized: "primary",
       githubInstallationId: "installation-1",
+    });
+    await insertTestOrganizationBillingAccount(ctx.db, organizationId, {
+      polarBillingUserId: connectorId,
+      polarSeatQuantity: 3,
     });
     await ctx.db.insert("organizationMemberships", {
       organizationId,

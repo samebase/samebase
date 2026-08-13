@@ -4,6 +4,10 @@ import type { FunctionReference, FunctionReturnType, OptionalRestArgs } from "co
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
+  ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX,
+  ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX,
+} from "./billingErrors";
+import {
   isConvexCloudDeployment,
   requestConvexManagementApi,
   type ConvexCloudDeployment,
@@ -595,7 +599,7 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare Workers and Pages GitHub App is not authorized",
   "Cloudflare Workers needs a configured workers.dev subdomain",
   "Cloudflare Worker name",
-  "Cloudflare Worker attachment limit reached",
+  ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX,
   "exists after an interrupted create. Delete it in the Cloudflare dashboard, then retry.",
   "Cloudflare Workers Builds has no build API token",
   "Cloudflare has multiple Workers build tokens",
@@ -604,7 +608,6 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Convex connection is required to provision infrastructure.",
   "Connected Convex team does not match the provisioning plan.",
   "Convex project name",
-  "Convex project attachment limit reached",
   "exists after an interrupted create. Delete it in the Convex dashboard, then retry.",
   "Convex deployment connection did not attach a deployment.",
   "Cloudflare Worker is required before rotating Convex deploy keys for Workers Builds.",
@@ -612,6 +615,7 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Convex deployment is required before rotating Convex deploy keys for Workers Builds.",
   "GitHub owner id is required before Cloudflare Workers Builds can connect the repository.",
   "GitHub repository response did not match the vault repo.",
+  ORGANIZATION_BILLING_LIMITED_ERROR_PREFIX,
 ];
 
 function extractUserFacingProvisioningError(args: {

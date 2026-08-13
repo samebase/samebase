@@ -582,16 +582,13 @@ test("pricing route renders the public pricing page", async ({ page }) => {
   await expect(sidebar).toBeVisible();
   await expectSidebarFiles(sidebar);
   await expect(article.getByRole("heading", { exact: true, name: "Pricing" })).toBeVisible();
+  await expect(article).toContainText("Start free. Upgrade when you need more connections.");
+  await expect(article.getByRole("row", { name: "Personal account Free $0 15 1" })).toBeVisible();
+  await expect(article.getByRole("row", { name: "GitHub organization Free $0 6 2" })).toBeVisible();
+  await expect(article.getByRole("row", { name: "Any owner Pro $4 120 2" })).toBeVisible();
   await expect(article).toContainText(
-    "Start free. Upgrade only when you need to connect more infrastructure.",
+    "Members above the included limit require Pro and an available seat.",
   );
-  await expect(article.getByRole("row", { name: "Monthly price $0 $4" })).toBeVisible();
-  await expect(
-    article.getByRole("row", { name: "Connected Cloudflare Workers Up to 5 Up to 40" }),
-  ).toBeVisible();
-  await expect(
-    article.getByRole("row", { name: "Connected Convex projects Up to 5 Up to 40" }),
-  ).toBeVisible();
   await expect(article).not.toContainText("FileView");
 
   await expect(page).toHaveScreenshot("docs-pricing-desktop.png", {

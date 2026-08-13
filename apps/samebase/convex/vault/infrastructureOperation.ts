@@ -14,6 +14,7 @@ import {
 } from "../appProvisioningModel";
 import { toErrorMessage } from "../jsonUtils";
 import { requireVaultForUser } from "../organizationAccess";
+import { requireOrganizationNotBillingLimited } from "../organizationBillingLimits";
 import { assertConnectedVault, isLiveConnectedVault } from "./state";
 
 type InfrastructureOperationReadCtx = Pick<QueryCtx, "db">;
@@ -230,6 +231,7 @@ export async function requireManualProviderWriteCheckpoint(
   if (write.state !== "active" || Date.now() >= write.owner.expiresAt) {
     throw new Error("Manual provider action state changed before its checkpoint was recorded.");
   }
+  await requireOrganizationNotBillingLimited(ctx.db, vault.organizationId);
   return vault;
 }
 

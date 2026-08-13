@@ -1,26 +1,29 @@
 # Pricing
 
-Start free. Upgrade only when you need to connect more infrastructure.
+Start free. Upgrade when you need more connections.
 
-|                              | Free    | Pro      |
-| ---------------------------- | ------- | -------- |
-| Monthly price                | $0      | $4       |
-| Connected Cloudflare Workers | Up to 5 | Up to 40 |
-| Connected Convex projects    | Up to 5 | Up to 40 |
+| GitHub owner        | Plan | Monthly base | Connections | Included members |
+| ------------------- | ---- | -----------: | ----------: | ---------------: |
+| Personal account    | Free |           $0 |          15 |                1 |
+| GitHub organization | Free |           $0 |           6 |                2 |
+| Any owner           | Pro  |           $4 |         120 |                2 |
 
-The Worker and Convex project limits are separate. Pro is billed monthly.
+Members above the included limit require Pro and an available seat. Each purchased seat above the
+two included seats costs $2 per month. A pending invitation does not use a seat.
 
 ## What counts
 
-The limits apply to Cloudflare Workers and Convex projects connected to Samebase. Your code,
-Workers, and Convex projects stay in your provider accounts.
+One connected GitHub repository, one connected Cloudflare Worker, or one connected Convex project
+uses one connection. These resources share one pool. Your code and infrastructure stay in your
+provider accounts.
 
 Cloudflare and Convex bill their own usage directly. Samebase does not resell provider usage.
 
 ## If Pro ends
 
-Samebase does not disconnect or delete existing resources. If an account is above a Free limit, you
-cannot connect another resource of that type until the count is below 5 or Pro is active again.
+Samebase does not disconnect or delete existing resources. If an organization is above its Free
+connection limit, it cannot add another connection until its usage is below the limit or Pro is
+active again.
 
 Deleting your Samebase account still does not stop your app
 ([the leaving test](/docs/receipts#ownership-the-leaving-test)).

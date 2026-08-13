@@ -1,5 +1,4 @@
 import type { Polar } from "@polar-sh/sdk";
-import type { Subscription } from "@polar-sh/sdk/models/components/subscription";
 import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
@@ -9,91 +8,60 @@ import {
   patchBillingAccount,
   readBillingAccountState,
 } from "./organizationBilling";
-import { createPolarClient, readPolarProMonthlyProductId } from "./polarClient";
+import {
+  createPolarClient,
+  readPolarProductCatalog,
+  resolvePolarProduct,
+  type PolarProductCatalog,
+} from "./polarClient";
 
 const { boolean, literal, null: nullValue, number, object, string, union } = v;
 
 const vPolarBillingState = union(
   object({
-    plan: literal("free"),
     status: literal("inactive"),
+    plan: literal("free"),
     externalCustomerId: string(),
   }),
   object({
-    plan: literal("pro"),
     status: union(literal("active"), literal("past_due")),
+    plan: literal("pro"),
     externalCustomerId: string(),
+    subscriptionId: string(),
+    polarSeatQuantity: number(),
     currentPeriodEndAt: number(),
     cancelAtPeriodEnd: boolean(),
   }),
 );
 export type PolarBillingState = Infer<typeof vPolarBillingState>;
 
-function selectPolarEntitledSubscription(args: {
-  selectedSubscription: Subscription | null;
-  subscription: Subscription;
-  externalCustomerId: string;
-  productId: string;
-}): Subscription | null {
-  if (
-    args.subscription.customer.externalId !== args.externalCustomerId ||
-    args.subscription.productId !== args.productId ||
-    (args.subscription.status !== "active" &&
-      args.subscription.status !== "trialing" &&
-      args.subscription.status !== "past_due")
-  ) {
-    throw new Error("Polar entitled subscription does not match the requested filters.");
-  }
-
-  if (
-    args.selectedSubscription === null ||
-    args.subscription.currentPeriodEnd.getTime() >
-      args.selectedSubscription.currentPeriodEnd.getTime() ||
-    (args.subscription.currentPeriodEnd.getTime() ===
-      args.selectedSubscription.currentPeriodEnd.getTime() &&
-      args.subscription.id.localeCompare(args.selectedSubscription.id) < 0)
-  ) {
-    return args.subscription;
-  }
-
-  return args.selectedSubscription;
-}
-
-function buildPolarBillingState(args: {
-  externalCustomerId: string;
-  selectedSubscription: Subscription | null;
-}): PolarBillingState {
-  if (args.selectedSubscription === null) {
-    return {
-      plan: "free",
-      status: "inactive",
-      externalCustomerId: args.externalCustomerId,
-    };
-  }
-
-  return {
-    plan: "pro",
-    status: args.selectedSubscription.status === "past_due" ? "past_due" : "active",
-    externalCustomerId: args.externalCustomerId,
-    currentPeriodEndAt: args.selectedSubscription.currentPeriodEnd.getTime(),
-    cancelAtPeriodEnd: args.selectedSubscription.cancelAtPeriodEnd,
-  };
-}
+const vPolarObservationTarget = object({
+  observationRevision: number(),
+});
+type PolarObservationTarget = Infer<typeof vPolarObservationTarget>;
 
 export async function readCanonicalPolarBillingState(args: {
   polar: Polar;
   externalCustomerId: string;
-  productId: string;
+  productCatalog: PolarProductCatalog;
 }): Promise<PolarBillingState> {
   const externalCustomerId = args.externalCustomerId.trim();
   if (!externalCustomerId) {
     throw new Error("Polar external customer ID is missing.");
   }
 
+  const customer = await args.polar.customers.getExternal({ externalId: externalCustomerId });
+  if (
+    customer.type !== "team" ||
+    customer.externalId !== externalCustomerId ||
+    customer.deletedAt !== null
+  ) {
+    throw new Error("Polar billing customer is not the expected active team Customer.");
+  }
+
   const page = await args.polar.subscriptions.list({
     externalCustomerId,
-    productId: args.productId,
-    status: ["active", "trialing", "past_due"],
+    status: ["active", "trialing", "past_due", "paused"],
     page: 1,
     limit: 100,
   });
@@ -104,27 +72,77 @@ export async function readCanonicalPolarBillingState(args: {
     pagination.totalCount !== items.length ||
     pagination.maxPage !== Math.ceil(pagination.totalCount / 100)
   ) {
-    throw new Error("Polar entitled subscription page is inconsistent.");
+    throw new Error("Polar current subscription page is inconsistent.");
   }
 
-  let selectedSubscription: Subscription | null = null;
-  for (const subscription of items) {
-    selectedSubscription = selectPolarEntitledSubscription({
-      selectedSubscription,
-      subscription,
+  if (items.length === 0) {
+    return {
+      status: "inactive",
+      plan: "free",
       externalCustomerId,
-      productId: args.productId,
-    });
+    };
+  }
+  if (items.length > 1) {
+    throw new Error("Polar billing customer has more than one current subscription.");
+  }
+  const subscription = items[0];
+
+  if (subscription.status !== "active" && subscription.status !== "past_due") {
+    throw new Error("Polar billing subscription has an unsupported current status.");
+  }
+  if (
+    subscription.customerId !== customer.id ||
+    subscription.customer.id !== customer.id ||
+    subscription.customer.type !== "team" ||
+    subscription.customer.externalId !== externalCustomerId ||
+    subscription.customer.deletedAt !== null
+  ) {
+    throw new Error("Polar billing subscription does not belong to the expected team Customer.");
+  }
+  if (subscription.product.id !== subscription.productId) {
+    throw new Error("Polar billing subscription product is inconsistent.");
   }
 
-  return buildPolarBillingState({ externalCustomerId, selectedSubscription });
+  if (resolvePolarProduct(args.productCatalog, subscription.productId) === null) {
+    throw new Error("Polar billing subscription does not use the expected product.");
+  }
+
+  const seats = subscription.seats;
+  if (seats === null || seats === undefined || !Number.isSafeInteger(seats) || seats < 2) {
+    throw new Error("Polar billing subscription has an invalid seat quantity.");
+  }
+
+  const pendingUpdate = subscription.pendingUpdate;
+  if (pendingUpdate !== null) {
+    if (
+      pendingUpdate.seats !== null &&
+      (!Number.isSafeInteger(pendingUpdate.seats) || pendingUpdate.seats < 2)
+    ) {
+      throw new Error("Polar billing subscription has an invalid pending seat quantity.");
+    }
+    if (pendingUpdate.productId !== null) {
+      if (resolvePolarProduct(args.productCatalog, pendingUpdate.productId) === null) {
+        throw new Error("Polar billing subscription has an invalid pending product.");
+      }
+    }
+  }
+
+  return {
+    status: subscription.status === "past_due" ? "past_due" : "active",
+    plan: "pro",
+    externalCustomerId,
+    subscriptionId: subscription.id,
+    polarSeatQuantity: seats,
+    currentPeriodEndAt: subscription.currentPeriodEnd.getTime(),
+    cancelAtPeriodEnd: subscription.cancelAtPeriodEnd,
+  };
 }
 
 export const beginObservation = internalMutation({
   args: {
     externalCustomerId: string(),
   },
-  returns: union(number(), nullValue()),
+  returns: union(vPolarObservationTarget, nullValue()),
   handler: async (ctx, args) => {
     const target = await findBillingAccountByPolarExternalCustomerId(
       ctx.db,
@@ -132,6 +150,12 @@ export const beginObservation = internalMutation({
     );
     if (target === null) {
       return null;
+    }
+    if ((await ctx.db.get(target.organizationId)) === null) {
+      throw new Error("Organization billing account reference is invalid.");
+    }
+    if (readPolarProductCatalog() === null) {
+      throw new Error("Polar billing products are not configured.");
     }
     const account = readBillingAccountState(target);
 
@@ -141,7 +165,9 @@ export const beginObservation = internalMutation({
         account.polarAppliedObservationRevision ?? 0,
       ) + 1;
     await patchBillingAccount(ctx.db, target, { polarObservationRevision: revision });
-    return revision;
+    return {
+      observationRevision: revision,
+    };
   },
 });
 
@@ -171,9 +197,18 @@ export const applyObservation = internalMutation({
       status: state.status,
       updatedAt: Date.now(),
       polarAppliedObservationRevision: args.observationRevision,
-      currentPeriodEndAt: state.plan === "pro" ? state.currentPeriodEndAt : undefined,
-      cancelAtPeriodEnd: state.plan === "pro" ? state.cancelAtPeriodEnd : undefined,
-      ...(state.plan === "pro" && account.polarCheckoutAttempt?.state === "open"
+      ...(state.status === "inactive"
+        ? {
+            polarSeatQuantity: undefined,
+            currentPeriodEndAt: undefined,
+            cancelAtPeriodEnd: undefined,
+          }
+        : {
+            polarSeatQuantity: state.polarSeatQuantity,
+            currentPeriodEndAt: state.currentPeriodEndAt,
+            cancelAtPeriodEnd: state.cancelAtPeriodEnd,
+          }),
+      ...(state.status !== "inactive" && account.polarCheckoutAttempt?.state === "open"
         ? { polarCheckoutAttempt: undefined }
         : {}),
     });
@@ -193,27 +228,27 @@ export async function reconcilePolarCustomerBilling(
     throw new Error("Polar external customer ID is missing.");
   }
 
-  const productId = readPolarProMonthlyProductId();
-  if (!productId) {
-    throw new Error("Polar billing product is not configured.");
-  }
-
-  const observationRevision: number | null = await ctx.runMutation(
+  const observationTarget: PolarObservationTarget | null = await ctx.runMutation(
     internal.polarBillingState.beginObservation,
     { externalCustomerId },
   );
-  if (observationRevision === null) {
+  if (observationTarget === null) {
     return null;
+  }
+
+  const productCatalog = readPolarProductCatalog();
+  if (productCatalog === null) {
+    throw new Error("Polar billing products are not configured.");
   }
 
   const state = await readCanonicalPolarBillingState({
     polar: args.polar,
     externalCustomerId,
-    productId,
+    productCatalog,
   });
   const applied: boolean = await ctx.runMutation(internal.polarBillingState.applyObservation, {
     state,
-    observationRevision,
+    observationRevision: observationTarget.observationRevision,
   });
   return applied ? state : null;
 }

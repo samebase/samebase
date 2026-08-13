@@ -105,6 +105,11 @@ async function seedMembers() {
       userId: memberUserId,
       role: "member",
     });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
     return {
       ownerUserId,
       inviteeUserId,
@@ -285,6 +290,47 @@ describe("organization member lifecycle", () => {
     ).toMatchObject({ isPersonalGithubOwnerIdentity: false });
   });
 
+  it("identifies the designated billing payer for every organization member", async () => {
+    const { asMember, asOwner, ids, t } = await seedMembers();
+    await t.run(async (ctx) => {
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Billing account is required.");
+      }
+      await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: "members-page-customer",
+        polarBillingUserId: ids.ownerUserId,
+        polarSeatQuantity: 2,
+      });
+    });
+
+    for (const page of await Promise.all([
+      asOwner.query(api.organizationMembers.getPage, {
+        organizationId: ids.organizationId,
+        now: roundedNow,
+      }),
+      asMember.query(api.organizationMembers.getPage, {
+        organizationId: ids.organizationId,
+        now: roundedNow,
+      }),
+    ])) {
+      expect(page.members.find((member) => member.userId === ids.ownerUserId)).toMatchObject({
+        isBillingPayer: true,
+        role: "owner",
+      });
+      expect(page.members.find((member) => member.userId === ids.memberUserId)).toMatchObject({
+        isBillingPayer: false,
+        role: "member",
+      });
+    }
+  });
+
   it("orders members and pending invitations with stable ties", async () => {
     const { asOwner, ids, t } = await seedMembers();
     const orderIds = await t.run(async (ctx) => {
@@ -351,6 +397,23 @@ describe("organization member lifecycle", () => {
     });
     githubMocks.getOrganizationMembershipForUser.mockResolvedValue({
       data: githubMembership(200),
+    });
+    await t.run(async (ctx) => {
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Billing account is required.");
+      }
+      await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: `members-customer-${ids.organizationId}`,
+        polarBillingUserId: ids.ownerUserId,
+        polarSeatQuantity: 3,
+      });
     });
 
     const target = await asOwner.action(api.organizationMembers.resolveInvitationTarget, {
@@ -538,6 +601,171 @@ describe("organization member lifecycle", () => {
     });
   });
 
+  it("blocks new invitations and keeps existing invitations pending without capacity", async () => {
+    const { asInvitee, asOwner, ids, t } = await seedMembers();
+    githubMocks.getInstallationUserByLogin.mockResolvedValue({
+      data: githubUser(200, "invitee-login"),
+    });
+    await expect(
+      asOwner.action(api.organizationMembers.createInvitation, {
+        organizationId: ids.organizationId,
+        githubLogin: "invitee-login",
+        expectedGithubAccountId: "200",
+      }),
+    ).rejects.toThrow(
+      "This organization needs another paid member seat before another member can join.",
+    );
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("organizationInvitations").collect()),
+    ).resolves.toEqual([]);
+
+    const code = "e".repeat(64);
+    const { billingAccountId, invitationId } = await t.run(async (ctx) => {
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Billing account is required.");
+      }
+      await ctx.db.patch(billingAccount._id, {
+        plan: "free",
+        status: "inactive",
+      });
+      const invitationId = await ctx.db.insert("organizationInvitations", {
+        organizationId: ids.organizationId,
+        githubAccountId: "200",
+        githubLogin: "invitee-login",
+        code,
+        createdByUserId: ids.ownerUserId,
+        createdAt: roundedNow,
+        expiresAt: roundedNow + 60_000,
+        state: "pending",
+      });
+      return { billingAccountId: billingAccount._id, invitationId };
+    });
+
+    await expect(
+      asOwner.action(api.organizationMembers.createInvitation, {
+        organizationId: ids.organizationId,
+        githubLogin: "invitee-login",
+        expectedGithubAccountId: "200",
+      }),
+    ).rejects.toThrow(
+      "This organization needs another paid member seat before another member can join.",
+    );
+    await expect(t.run(async (ctx) => await ctx.db.get(invitationId))).resolves.toMatchObject({
+      code,
+      state: "pending",
+    });
+
+    await expect(
+      asInvitee.mutation(api.organizationMembers.acceptInvitation, { code }),
+    ).rejects.toThrow(
+      "This organization needs another paid member seat before another member can join.",
+    );
+    await expect(t.run(async (ctx) => await ctx.db.get(invitationId))).resolves.toMatchObject({
+      state: "pending",
+    });
+    await expect(t.run(async (ctx) => await ctx.db.get(ids.inviteeUserId))).resolves.toMatchObject({
+      isApproved: false,
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch(billingAccountId, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: `members-customer-${ids.organizationId}`,
+        polarBillingUserId: ids.ownerUserId,
+        polarSeatQuantity: 3,
+      });
+    });
+    await expect(
+      asInvitee.mutation(api.organizationMembers.acceptInvitation, { code }),
+    ).resolves.toEqual({
+      state: "joined",
+      organizationOwnerLogin: "samebase-test-org",
+    });
+  });
+
+  it("lets only one concurrent invitation consume the last verified seat", async () => {
+    const { asInvitee, ids, t } = await seedMembers();
+    const firstCode = "5".repeat(64);
+    const secondCode = "6".repeat(64);
+    const secondInviteeUserId = await t.run(async (ctx) => {
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Billing account is required.");
+      }
+      await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: `members-customer-${ids.organizationId}`,
+        polarBillingUserId: ids.ownerUserId,
+        polarSeatQuantity: 3,
+      });
+      const userId = await ctx.db.insert("users", {
+        state: "active",
+        email: "second-invitee@example.invalid",
+        isApproved: false,
+      });
+      await ctx.db.insert("authAccounts", {
+        userId,
+        provider: "github",
+        providerAccountId: "201",
+        githubLogin: "second-invitee-login",
+      });
+      await ctx.db.insert("organizationInvitations", {
+        organizationId: ids.organizationId,
+        githubAccountId: "200",
+        githubLogin: "invitee-login",
+        code: firstCode,
+        createdByUserId: ids.ownerUserId,
+        createdAt: roundedNow,
+        expiresAt: roundedNow + 60_000,
+        state: "pending",
+      });
+      await ctx.db.insert("organizationInvitations", {
+        organizationId: ids.organizationId,
+        githubAccountId: "201",
+        githubLogin: "second-invitee-login",
+        code: secondCode,
+        createdByUserId: ids.ownerUserId,
+        createdAt: roundedNow,
+        expiresAt: roundedNow + 60_000,
+        state: "pending",
+      });
+      return userId;
+    });
+    const asSecondInvitee = t.withIdentity({
+      subject: `${secondInviteeUserId}|second-invitee-session`,
+      tokenIdentifier: `test:${secondInviteeUserId}`,
+    });
+
+    const results = await Promise.allSettled([
+      asInvitee.mutation(api.organizationMembers.acceptInvitation, { code: firstCode }),
+      asSecondInvitee.mutation(api.organizationMembers.acceptInvitation, { code: secondCode }),
+    ]);
+
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db
+          .query("organizationMemberships")
+          .withIndex("by_organization_and_user", (query) =>
+            query.eq("organizationId", ids.organizationId),
+          )
+          .collect(),
+      ),
+    ).resolves.toHaveLength(3);
+  });
+
   it("retains invitation creator attribution through the deleted user tombstone", async () => {
     const { asOwner, ids, t } = await seedMembers();
     const code = "8".repeat(64);
@@ -634,28 +862,24 @@ describe("organization member lifecycle", () => {
     ).rejects.toThrow("Samebase user reference is invalid.");
   });
 
-  it("keeps an existing role and checks GitHub identity before existing membership", async () => {
+  it("rejects an invitation for an existing organization member", async () => {
     const { asOwner, ids, t } = await seedMembers();
     githubMocks.getInstallationUserByLogin.mockResolvedValue({
-      data: githubUser(100, "owner-login"),
-    });
-    const created = await asOwner.action(api.organizationMembers.createInvitation, {
-      organizationId: ids.organizationId,
-      githubLogin: "owner-login",
-      expectedGithubAccountId: "100",
+      data: githubUser(300, "member-login"),
     });
     await expect(
-      asOwner.action(api.organizationMembers.getInvitation, { code: created.code }),
-    ).resolves.toMatchObject({ state: "available", viewerState: "already_member" });
+      asOwner.action(api.organizationMembers.createInvitation, {
+        organizationId: ids.organizationId,
+        githubLogin: "member-login",
+        expectedGithubAccountId: "300",
+      }),
+    ).rejects.toThrow("This GitHub user is already a member of this organization.");
     await expect(
-      asOwner.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
-    ).resolves.toEqual({
-      state: "already_member",
-      organizationOwnerLogin: "samebase-test-org",
-    });
+      t.run(async (ctx) => await ctx.db.query("organizationInvitations").collect()),
+    ).resolves.toEqual([]);
     await expect(
-      t.run(async (ctx) => (await ctx.db.get(ids.ownerMembershipId))?.role),
-    ).resolves.toBe("owner");
+      t.run(async (ctx) => (await ctx.db.get(ids.memberMembershipId))?.role),
+    ).resolves.toBe("member");
   });
 
   it("rejects self-demotion and self-removal by the last active owner", async () => {
@@ -677,6 +901,54 @@ describe("organization member lifecycle", () => {
         membershipId: ids.ownerMembershipId,
       }),
     ).rejects.toThrow("Use Leave organization to remove your own membership.");
+  });
+
+  it("keeps the designated billing payer as an organization owner", async () => {
+    const { asMember, asOwner, ids, t } = await seedMembers();
+    await expect(
+      asOwner.mutation(api.organizationMembers.changeRole, {
+        organizationId: ids.organizationId,
+        membershipId: ids.memberMembershipId,
+        role: "owner",
+      }),
+    ).resolves.toEqual({ state: "changed", role: "owner" });
+    await t.run(async (ctx) => {
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Billing account is required.");
+      }
+      await ctx.db.patch(billingAccount._id, {
+        polarBillingUserId: ids.ownerUserId,
+      });
+    });
+
+    await expect(
+      asOwner.mutation(api.organizationMembers.changeRole, {
+        organizationId: ids.organizationId,
+        membershipId: ids.ownerMembershipId,
+        role: "member",
+      }),
+    ).rejects.toThrow(
+      "Transfer organization billing before changing or removing the billing payer.",
+    );
+    await expect(
+      asOwner.mutation(api.organizationMembers.leaveOrganization, {
+        organizationId: ids.organizationId,
+      }),
+    ).rejects.toThrow(
+      "Transfer organization billing before changing or removing the billing payer.",
+    );
+    await expect(
+      asMember.mutation(api.organizationMembers.removeMember, {
+        organizationId: ids.organizationId,
+        membershipId: ids.ownerMembershipId,
+      }),
+    ).rejects.toThrow(
+      "Transfer organization billing before changing or removing the billing payer.",
+    );
   });
 
   it("derives expiry, deletes canceled invitations, and denies member administration", async () => {
@@ -704,6 +976,21 @@ describe("organization member lifecycle", () => {
         createdAt: Date.now(),
         expiresAt: Date.now() + 60_000,
         state: "pending",
+      });
+      const billingAccount = await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", ids.organizationId))
+        .unique();
+      if (billingAccount === null) {
+        throw new Error("Billing account is required.");
+      }
+      await ctx.db.patch(billingAccount._id, {
+        provider: "polar",
+        plan: "pro",
+        status: "active",
+        polarExternalCustomerId: `members-customer-${ids.organizationId}`,
+        polarBillingUserId: ids.ownerUserId,
+        polarSeatQuantity: 3,
       });
       return { expiredInvitationId, cancelInvitationId };
     });
@@ -824,7 +1111,7 @@ describe("organization member lifecycle", () => {
   });
 
   it("uses the public GitHub user when the installation returns 404", async () => {
-    const { asOwner, ids } = await seedMembers();
+    const { asOwner, ids, t } = await seedMembers();
     githubMocks.getInstallationUserByLogin.mockRejectedValue(githubRequestError(404));
     githubMocks.getPublicUserByLogin.mockResolvedValue({
       data: githubUser(205, "fallback-target"),
@@ -838,6 +1125,9 @@ describe("organization member lifecycle", () => {
       expectedGithubAccountId: "205",
       githubLogin: "fallback-target",
       relationship: "unavailable",
+    });
+    await t.run(async (ctx) => {
+      await ctx.db.delete(ids.memberMembershipId);
     });
     await expect(
       asOwner.action(api.organizationMembers.createInvitation, {

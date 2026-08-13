@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { ConvexError } from "convex/values";
 
 import { api, internal } from "./_generated/api";
-import { makeConvexTest } from "./test.setup";
+import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
 const primaryCloudflareAccountId = "a".repeat(32);
 const secondaryCloudflareAccountId = "b".repeat(32);
@@ -161,6 +161,7 @@ async function seedProviderOrganization(options?: {
               },
             }),
       });
+      await insertTestOrganizationBillingAccount(ctx.db, organizationId);
       await ctx.db.insert("organizationMemberships", {
         organizationId,
         userId,
@@ -349,6 +350,16 @@ describe("organization provider status", () => {
     expect(deletingConnectorStatuses.every((status) => !("connectedBy" in status))).toBe(true);
 
     await t.run(async (ctx) => {
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", organizationId).eq("userId", userId),
+        )
+        .unique();
+      if (membership === null) {
+        throw new Error("Organization membership is required.");
+      }
+      await ctx.db.delete(membership._id);
       await ctx.db.delete(userId);
     });
     await expect(

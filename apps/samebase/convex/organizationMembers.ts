@@ -13,10 +13,14 @@ import { action, mutation, query } from "./functions";
 import { createGitHubInstallationOctokit } from "./githubApp";
 import {
   requireAnotherActiveOrganizationOwner,
-  requireOrganizationMembership,
   requireOrganizationMembershipUser,
-  requireOrganizationOwnerAccessContext,
+  requireOrganizationSettingsMembership,
+  requireOrganizationSettingsOwnerAccessContext,
 } from "./organizationAccess";
+import {
+  requireAdditionalOrganizationMemberCapacity,
+  requireUserIsNotOrganizationBillingPayer,
+} from "./organizationBillingLimits";
 import { readGitHubSignInProviderAccountId } from "./githubUserAuthorizations";
 import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
 import {
@@ -44,6 +48,7 @@ const vMember = object({
   avatarUrl: optional(string()),
   githubLogin: optional(string()),
   role: vOrganizationMembershipRole,
+  isBillingPayer: boolean(),
   isViewer: boolean(),
   isDeleting: boolean(),
   isOnlyActiveOwner: boolean(),
@@ -361,7 +366,7 @@ export const loadOwnerGitHubContext = internalQuery({
   },
   returns: vOwnerGitHubContext,
   handler: async (ctx, args): Promise<OwnerGitHubContext> => {
-    await requireOrganizationOwnerAccessContext(ctx.db, args);
+    await requireOrganizationSettingsOwnerAccessContext(ctx.db, args);
     const organization = await ctx.db.get(args.organizationId);
     if (organization === null) {
       throw new Error("Organization not found.");
@@ -383,7 +388,7 @@ export const loadGitHubRelationshipsContext = internalQuery({
   },
   returns: vGitHubRelationshipsContext,
   handler: async (ctx, args): Promise<GitHubRelationshipsContext> => {
-    await requireOrganizationOwnerAccessContext(ctx.db, args);
+    await requireOrganizationSettingsOwnerAccessContext(ctx.db, args);
     const organization = await ctx.db.get(args.organizationId);
     if (organization === null) {
       throw new Error("Organization not found.");
@@ -421,7 +426,7 @@ export const requireCurrentOwner = internalQuery({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await requireOrganizationOwnerAccessContext(ctx.db, args);
+    await requireOrganizationSettingsOwnerAccessContext(ctx.db, args);
     return null;
   },
 });
@@ -437,7 +442,7 @@ export const commitInvitation = internalMutation({
   },
   returns: vCreateInvitationResult,
   handler: async (ctx, args): Promise<CreateInvitationResult> => {
-    await requireOrganizationOwnerAccessContext(ctx.db, args);
+    await requireOrganizationSettingsOwnerAccessContext(ctx.db, args);
     const proposedCode = requireInvitationCode(args.proposedCode);
     const now = Date.now();
     const accountOwners = await ctx.db
@@ -448,6 +453,18 @@ export const commitInvitation = internalMutation({
       .take(2);
     if (accountOwners.length > 1) {
       throw new Error("This GitHub account belongs to conflicting Samebase accounts.");
+    }
+    const accountOwner = accountOwners.at(0);
+    if (accountOwner !== undefined) {
+      const existingMembership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (builder) =>
+          builder.eq("organizationId", args.organizationId).eq("userId", accountOwner.userId),
+        )
+        .unique();
+      if (existingMembership !== null) {
+        throw new ConvexError("This GitHub user is already a member of this organization.");
+      }
     }
 
     const pendingCandidate = await ctx.db
@@ -463,6 +480,7 @@ export const commitInvitation = internalMutation({
     const pending: Extract<Doc<"organizationInvitations">, { state: "pending" }> | null =
       pendingCandidate;
     if (pending !== null && pending.expiresAt > now) {
+      await requireAdditionalOrganizationMemberCapacity(ctx.db, args.organizationId);
       if (
         pending.githubLogin !== args.githubLogin ||
         pending.githubAvatarUrl !== args.githubAvatarUrl
@@ -489,6 +507,7 @@ export const commitInvitation = internalMutation({
     if (codeOwner !== null) {
       throw new Error("Invitation code collision.");
     }
+    await requireAdditionalOrganizationMemberCapacity(ctx.db, args.organizationId);
     const code = proposedCode;
     const expiresAt = now + 7 * 24 * 60 * 60 * 1000;
     const pendingInvitation = {
@@ -529,13 +548,24 @@ export const getPage = query({
   returns: vGetPageResult,
   handler: async (ctx, args): Promise<GetPageResult> => {
     const now = requireRoundedFiniteNow(args.now);
-    const viewerMembership = await requireOrganizationMembership(ctx.db, {
+    const viewerMembership = await requireOrganizationSettingsMembership(ctx.db, {
       organizationId: args.organizationId,
       userId: ctx.viewer.userId,
     });
-    const organization = await ctx.db.get(args.organizationId);
+    const [organization, billingAccount] = await Promise.all([
+      ctx.db.get(args.organizationId),
+      ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (builder) =>
+          builder.eq("organizationId", args.organizationId),
+        )
+        .unique(),
+    ]);
     if (organization === null) {
       throw new Error("Organization not found.");
+    }
+    if (billingAccount === null) {
+      throw new Error("Organization billing account is required.");
     }
 
     const memberships: Doc<"organizationMemberships">[] = [];
@@ -576,6 +606,7 @@ export const getPage = query({
           ...(avatarUrl ? { avatarUrl } : {}),
           ...(githubLogin ? { githubLogin } : {}),
           role: membership.role,
+          isBillingPayer: billingAccount.polarBillingUserId === membership.userId,
           isViewer,
           isDeleting: user.state === "deleting",
           isOnlyActiveOwner:
@@ -816,6 +847,9 @@ export const acceptInvitation = mutation({
         builder.eq("organizationId", invitation.organizationId).eq("userId", ctx.viewer.userId),
       )
       .unique();
+    if (membership === null) {
+      await requireAdditionalOrganizationMemberCapacity(ctx.db, invitation.organizationId);
+    }
     if (ctx.viewer.user.isApproved !== true) {
       await ctx.db.patch(ctx.viewer.userId, { isApproved: true });
     }
@@ -852,7 +886,7 @@ export const changeRole = mutation({
   },
   returns: vChangeRoleResult,
   handler: async (ctx, args) => {
-    await requireOrganizationOwnerAccessContext(ctx.db, {
+    await requireOrganizationSettingsOwnerAccessContext(ctx.db, {
       organizationId: args.organizationId,
       userId: ctx.viewer.userId,
     });
@@ -865,6 +899,10 @@ export const changeRole = mutation({
       return { state: "unchanged" as const, role: membership.role };
     }
     if (membership.role === "owner") {
+      await requireUserIsNotOrganizationBillingPayer(ctx.db, {
+        organizationId: args.organizationId,
+        userId: membership.userId,
+      });
       await requireAnotherActiveOrganizationOwner(ctx.db, {
         organizationId: args.organizationId,
         excludedUserId: membership.userId,
@@ -887,7 +925,7 @@ export const removeMember = mutation({
   },
   returns: vRemoveMemberResult,
   handler: async (ctx, args) => {
-    await requireOrganizationOwnerAccessContext(ctx.db, {
+    await requireOrganizationSettingsOwnerAccessContext(ctx.db, {
       organizationId: args.organizationId,
       userId: ctx.viewer.userId,
     });
@@ -898,6 +936,10 @@ export const removeMember = mutation({
     if (membership.userId === ctx.viewer.userId) {
       throw new ConvexError("Use Leave organization to remove your own membership.");
     }
+    await requireUserIsNotOrganizationBillingPayer(ctx.db, {
+      organizationId: args.organizationId,
+      userId: membership.userId,
+    });
     requireOrganizationMembershipUser(await ctx.db.get(membership.userId));
     if (membership.role === "owner") {
       await requireAnotherActiveOrganizationOwner(ctx.db, {
@@ -932,6 +974,10 @@ export const leaveOrganization = mutation({
     if (membership === null) {
       return { state: "already_left" as const };
     }
+    await requireUserIsNotOrganizationBillingPayer(ctx.db, {
+      organizationId: args.organizationId,
+      userId: ctx.viewer.userId,
+    });
     if (membership.role === "owner") {
       await requireAnotherActiveOrganizationOwner(ctx.db, {
         organizationId: args.organizationId,
@@ -1026,7 +1072,7 @@ export const cancelInvitation = mutation({
   },
   returns: vCancelInvitationResult,
   handler: async (ctx, args) => {
-    await requireOrganizationOwnerAccessContext(ctx.db, {
+    await requireOrganizationSettingsOwnerAccessContext(ctx.db, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });

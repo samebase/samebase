@@ -1,6 +1,6 @@
 import type { Doc, Id } from "./_generated/dataModel";
 import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
-import { requireOrganizationMembership } from "./organizationAccess";
+import { requireOrganizationSettingsMembership } from "./organizationAccess";
 import { readActiveUser, type ActiveUserDoc } from "./userLifecycle";
 
 export type OrganizationBillingAccess = {
@@ -18,6 +18,8 @@ export type BillingAccountState = Pick<
   | "currentPeriodEndAt"
   | "cancelAtPeriodEnd"
   | "polarExternalCustomerId"
+  | "polarBillingUserId"
+  | "polarSeatQuantity"
   | "polarStateChangedAt"
   | "polarObservationRevision"
   | "polarAppliedObservationRevision"
@@ -37,7 +39,7 @@ export async function findBillingAccountForOrganization(
     return null;
   }
 
-  const membership = await requireOrganizationMembership(db, args);
+  const membership = await requireOrganizationSettingsMembership(db, args);
 
   const account = await db
     .query("organizationBillingAccounts")
@@ -101,6 +103,8 @@ export function readBillingAccountState(
     currentPeriodEndAt: account.currentPeriodEndAt,
     cancelAtPeriodEnd: account.cancelAtPeriodEnd,
     polarExternalCustomerId: account.polarExternalCustomerId,
+    polarBillingUserId: account.polarBillingUserId,
+    polarSeatQuantity: account.polarSeatQuantity,
     polarStateChangedAt: account.polarStateChangedAt,
     polarObservationRevision: account.polarObservationRevision,
     polarAppliedObservationRevision: account.polarAppliedObservationRevision,
