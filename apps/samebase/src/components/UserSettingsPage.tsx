@@ -7,6 +7,10 @@ import { api } from "../../convex/_generated/api";
 import { type AccountPresentation } from "../../shared/accountPresentation";
 import { useAppAuthActions, useAppSignInActions } from "@/authClient";
 import { AccountDeletionDialog } from "@/components/AccountDeletionDialog";
+import {
+  BETA_ACCESS_PENDING_HEADING,
+  BetaAccessPendingDescription,
+} from "@/components/BetaAccessPendingDescription";
 import { McpClientsSettingsSection } from "@/components/McpClientsSettingsSection";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +53,7 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
     select: (location) => location.state.settingsDeleteAccountDialog,
   });
   const settings = useQuery(api.users.getUserSettings);
+  const viewerAccess = useQuery(api.users.currentViewerAccess);
   const setDisplayName = useMutation(api.users.setDisplayName);
   const beginAuthAccountLink = useMutation(api.users.beginAuthAccountLink);
   const { signOut } = useAppAuthActions();
@@ -76,7 +81,7 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
     };
   }, []);
 
-  if (settings === undefined) {
+  if (settings === undefined || viewerAccess === undefined) {
     return null;
   }
 
@@ -247,6 +252,18 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
         </Button>
       </div>
       {authorizationNotice ? <div className="mt-4">{authorizationNotice}</div> : null}
+      {viewerAccess.role === "role_pending_access" ? (
+        <section className="mt-6 max-w-lg" aria-labelledby="settings-beta-access-heading">
+          <h2 id="settings-beta-access-heading" className="text-base font-semibold">
+            {BETA_ACCESS_PENDING_HEADING}
+          </h2>
+          <div className="mt-2">
+            <BetaAccessPendingDescription
+              accountIdentity={settings.displayName ?? settings.accountEmail}
+            />
+          </div>
+        </section>
+      ) : null}
 
       <section className="mt-8 border-t pt-6" aria-labelledby="settings-profile-heading">
         <h2 id="settings-profile-heading" className="text-base font-semibold">

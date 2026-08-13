@@ -107,6 +107,10 @@ function setDefaultQueries() {
       password: null,
     },
   });
+  testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
+    role: "role_member",
+    accessKeys: ["access_public", "access_user_preferences"],
+  });
 }
 
 let root: Root | null = null;
@@ -222,6 +226,22 @@ describe("UserSettingsPage", () => {
 
     expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1);
     expect(container.textContent).toContain("Account link failed");
+  });
+
+  it("explains private beta approval to pending-access viewers", async () => {
+    testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
+      role: "role_pending_access",
+      accessKeys: ["access_public", "access_user_preferences"],
+    });
+    const container = await mountSettingsPage();
+    const notice = container.querySelector('[aria-labelledby="settings-beta-access-heading"]');
+
+    expect(notice?.querySelector("h2")?.textContent).toBe("Beta access pending");
+    expect(notice?.querySelector("p")?.textContent).toBe(
+      "Samebase is currently in private beta, so access is approved manually. You’re signed in as Current name. This page will update automatically when your account is approved.",
+    );
+    expect(findButton(container, "Sign out")).not.toBeUndefined();
+    expect(findButton(container, "Check again")).toBeUndefined();
   });
 
   it("shows the GitHub sign-in row and hides the connected Google account", async () => {

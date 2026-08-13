@@ -37,6 +37,7 @@ export type VaultDashboardAccountSectionProps = {
 export type VaultDashboardStaticAccountSectionProps = {
   accountPresentation: AccountPresentation;
   dataTestId?: string;
+  statusLabel?: string;
 };
 
 export type VaultDashboardStaticAccountStatusSectionProps = {
@@ -221,6 +222,7 @@ export function VaultDashboardAccountSection({
 export function VaultDashboardStaticAccountSection({
   accountPresentation,
   dataTestId,
+  statusLabel,
 }: VaultDashboardStaticAccountSectionProps) {
   return (
     <div
@@ -239,6 +241,11 @@ export function VaultDashboardStaticAccountSection({
             >
               {accountPresentation.label}
             </div>
+            {statusLabel ? (
+              <div className="text-xs leading-5 text-muted-foreground" role="status">
+                {statusLabel}
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="ml-auto flex min-w-0 flex-wrap justify-end gap-2 self-start">

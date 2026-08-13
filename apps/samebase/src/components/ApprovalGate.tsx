@@ -1,4 +1,8 @@
 import { useAppAuthActions } from "@/authClient";
+import {
+  BETA_ACCESS_PENDING_HEADING,
+  BetaAccessPendingDescription,
+} from "@/components/BetaAccessPendingDescription";
 import { Button } from "@/components/ui/button";
 import type { RouteAccessViewer } from "@/routing/permissions";
 import { useQuery } from "convex/react";
@@ -33,6 +37,11 @@ export function ApprovalGate({ children }: { children: ReactNode }) {
     viewerAccessContext === null ? {} : "skip",
   );
   const viewerAccess = viewerAccessContext ?? queriedViewerAccess;
+  const approvalPending =
+    viewerAccess !== undefined &&
+    (viewerAccess.role === "role_pending_access" ||
+      !viewerAccess.accessKeys.some((accessKey) => accessKey !== "access_public"));
+  const viewer = useQuery(api.users.viewer, approvalPending ? {} : "skip");
   const { signOut } = useAppAuthActions();
 
   // Avoid flashing gated content before approval state is known.
@@ -40,17 +49,16 @@ export function ApprovalGate({ children }: { children: ReactNode }) {
     return null;
   }
 
-  if (
-    viewerAccess.role === "role_pending_access" ||
-    !viewerAccess.accessKeys.some((accessKey) => accessKey !== "access_public")
-  ) {
+  if (approvalPending) {
+    if (!viewer) {
+      return null;
+    }
+
     return (
       <div className="container my-auto">
         <div className="mx-auto flex max-w-[384px] flex-col items-center gap-4 py-16 text-center">
-          <h2 className="text-xl font-semibold tracking-tight">Account access pending</h2>
-          <p className="text-sm text-muted-foreground">
-            This account does not have app access yet.
-          </p>
+          <h2 className="text-xl font-semibold tracking-tight">{BETA_ACCESS_PENDING_HEADING}</h2>
+          <BetaAccessPendingDescription accountIdentity={viewer.accountPresentation.label} />
           <Button
             variant="outline"
             onClick={() => {

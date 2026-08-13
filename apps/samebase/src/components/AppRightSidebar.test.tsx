@@ -500,7 +500,11 @@ describe("AppRightSidebarContent", () => {
     );
 
     expect(hydratedMarkup).toContain("pending-access@example.com");
+    expect(hydratedMarkup).toContain("Beta access pending");
+    expect(hydratedMarkup).toContain('role="status"');
+    expect(hydratedMarkup).toContain("Account settings");
     expect(hydratedMarkup).not.toContain("Pending Access User");
+    expect(hydratedMarkup).not.toContain("Check again");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
     expect(hydratedMarkup).not.toContain("/new-app");

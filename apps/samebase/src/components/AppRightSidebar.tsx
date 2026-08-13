@@ -1,5 +1,6 @@
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
+import { BETA_ACCESS_PENDING_HEADING } from "@/components/BetaAccessPendingDescription";
 import { OrganizationContextControl } from "@/components/OrganizationContextControl";
 import {
   findViewerOrganization,
@@ -60,9 +61,11 @@ function PublicAppRightSidebarContent({ accountPending }: { accountPending: bool
 
 function AppRightSidebarSignedInAccountSection({
   profile,
+  statusLabel,
   user,
 }: {
   profile: AppAuthPresentationProfile | null;
+  statusLabel?: string;
   user?: AppRightSidebarViewer | null;
 }) {
   const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
@@ -75,6 +78,7 @@ function AppRightSidebarSignedInAccountSection({
     <VaultDashboardStaticAccountSection
       accountPresentation={accountPresentation}
       dataTestId={APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}
+      statusLabel={statusLabel}
     />
   );
 }
@@ -95,11 +99,13 @@ function TemporaryAuthenticatedAppRightSidebarContent({
 }
 
 function AccountOnlyAuthenticatedAppRightSidebarContent({
-  profile,
   deleting,
+  pending,
+  profile,
 }: {
-  profile: AppAuthPresentationProfile | null;
   deleting: boolean;
+  pending: boolean;
+  profile: AppAuthPresentationProfile | null;
 }) {
   const user = useConvexQuery(api.users.viewer);
   const accountPresentation = user?.accountPresentation ?? profile?.accountPresentation;
@@ -113,7 +119,11 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
           statusLabel="Deleting account"
         />
       ) : (
-        <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
+        <AppRightSidebarSignedInAccountSection
+          profile={profile}
+          statusLabel={pending ? BETA_ACCESS_PENDING_HEADING : undefined}
+          user={user}
+        />
       )}
       <div className="mt-auto">
         <AppSidebarMetaSection linkAlignment="left" />
@@ -238,6 +248,7 @@ export function AppRightSidebarContent() {
       return (
         <AccountOnlyAuthenticatedAppRightSidebarContent
           deleting={viewerAccess.role === "role_deleting"}
+          pending={viewerAccess.role === "role_pending_access"}
           profile={authPresentation.profile}
         />
       );
