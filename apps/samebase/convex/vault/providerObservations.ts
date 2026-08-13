@@ -49,9 +49,16 @@ const vCloudflareProductionBuildObservation = union(
   object({ state: literal("absent") }),
   object({
     state: literal("unavailable"),
-    reason: vCloudflareProductionBuildUnavailableReason,
+    reasons: array(vCloudflareProductionBuildUnavailableReason),
   }),
 );
+type CloudflareProductionBuildUnavailableReason = Infer<
+  typeof vCloudflareProductionBuildUnavailableReason
+>;
+type CloudflareProductionBuildUnavailableReasons = [
+  CloudflareProductionBuildUnavailableReason,
+  ...CloudflareProductionBuildUnavailableReason[],
+];
 const vObservedConvexProject = union(
   object({
     state: literal("attached"),
@@ -419,8 +426,8 @@ export const observeCloudflareWorkerBuilds = action({
             | ReturnType<typeof matchLatestCloudflareWorkerBuildForBranch>
             | {
                 state: "unavailable";
-                reason: "build_history_incomplete" | "request_failed";
-              } = { state: "unavailable", reason: "request_failed" };
+                reasons: CloudflareProductionBuildUnavailableReasons;
+              } = { state: "unavailable", reasons: ["request_failed"] };
           if (discovery.repository.state === "ready" && discovery.builds.state === "connected") {
             try {
               const buildRead = await readRecentCloudflareWorkerBuilds({
@@ -441,10 +448,10 @@ export const observeCloudflareWorkerBuilds = action({
               });
               productionBuild =
                 buildMatch.state === "absent" && !buildRead.exhausted
-                  ? { state: "unavailable", reason: "build_history_incomplete" }
+                  ? { state: "unavailable", reasons: ["build_history_incomplete"] }
                   : buildMatch;
             } catch {
-              productionBuild = { state: "unavailable", reason: "request_failed" };
+              productionBuild = { state: "unavailable", reasons: ["request_failed"] };
             }
           }
           return {
@@ -470,7 +477,7 @@ export const observeCloudflareWorkerBuilds = action({
                           ? { state: "absent" as const }
                           : {
                               state: "unavailable" as const,
-                              reason: productionBuild.reason,
+                              reasons: productionBuild.reasons,
                             },
                   }
                 : discovery.builds,

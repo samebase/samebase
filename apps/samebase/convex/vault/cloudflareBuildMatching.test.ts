@@ -169,7 +169,7 @@ describe("matchLatestCloudflareWorkerBuildForBranch", () => {
           builds: [build],
           ...defaultBranchMatcherArgs,
         }),
-      ).toEqual({ state: "provider_disagreement", reason });
+      ).toEqual({ state: "provider_disagreement", reasons: [reason] });
     },
   );
 
@@ -183,6 +183,38 @@ describe("matchLatestCloudflareWorkerBuildForBranch", () => {
           rootDirectory: "../apps/samebase",
         },
       }),
-    ).toEqual({ state: "provider_disagreement", reason: "invalid_root_directory" });
+    ).toEqual({ state: "provider_disagreement", reasons: ["invalid_root_directory"] });
+  });
+
+  it("reports all independent disagreements without dependent errors", () => {
+    expect(
+      matchLatestCloudflareWorkerBuildForBranch({
+        builds: [
+          observedCompletedCloudflareBuild({
+            buildUuid: " ",
+            createdOn: "not-a-time",
+            externalScriptId: "other-worker-tag",
+            metadataRootDirectory: "apps/docs",
+            repoId: "other-repository",
+            triggerDeployCommand: null,
+            triggerRootDirectory: "packages/api",
+            triggerUuid: "other-trigger",
+          }),
+        ],
+        ...defaultBranchMatcherArgs,
+      }),
+    ).toEqual({
+      state: "provider_disagreement",
+      reasons: [
+        "missing_build_uuid",
+        "invalid_created_on",
+        "worker_tag_mismatch",
+        "trigger_uuid_mismatch",
+        "repository_id_mismatch",
+        "trigger_root_directory_mismatch",
+        "metadata_root_directory_mismatch",
+        "missing_trigger_deploy_command",
+      ],
+    });
   });
 });

@@ -1,3 +1,4 @@
+import { bad, good, pure } from "@samebase/sure";
 import { type Infer, v } from "convex/values";
 
 import { normalizeCloudflareBuildRoot, type CloudflareWorkerBuild } from "../cloudflareResources";
@@ -29,6 +30,10 @@ export const vCloudflareBuildDisagreementReason = union(
   literal("deploy_command_mismatch"),
 );
 export type CloudflareBuildDisagreementReason = Infer<typeof vCloudflareBuildDisagreementReason>;
+export type CloudflareBuildDisagreementReasons = [
+  CloudflareBuildDisagreementReason,
+  ...CloudflareBuildDisagreementReason[],
+];
 
 export type CloudflareBuildMatch =
   | {
@@ -39,7 +44,7 @@ export type CloudflareBuildMatch =
       finishedAt: number | null;
     }
   | { state: "absent" }
-  | { state: "provider_disagreement"; reason: CloudflareBuildDisagreementReason };
+  | { state: "provider_disagreement"; reasons: CloudflareBuildDisagreementReasons };
 
 function providerTimestamp(value: string | null | undefined): number | null {
   if (!value) {
@@ -84,6 +89,87 @@ function classifyCloudflareBuildState(build: CloudflareWorkerBuild): CloudflareB
   }
 }
 
+const validateCloudflareBuildAgreement = pure(
+  (args: {
+    build: CloudflareWorkerBuild;
+    metadata: NonNullable<CloudflareWorkerBuild["build_trigger_metadata"]>;
+    createdAt: number | null;
+    worker: {
+      workerTag: string;
+      rootDirectory: string;
+    };
+    ghRepoId: string;
+    triggerUuid: string;
+  }) => {
+    const build = args.build;
+    const trigger = build.trigger;
+    const buildUuid = build.build_uuid?.trim();
+    const rootDirectory = normalizeCloudflareBuildRoot(args.worker.rootDirectory);
+    const triggerRootDirectory = normalizeCloudflareBuildRoot(trigger?.root_directory);
+    const metadataRootDirectory = normalizeCloudflareBuildRoot(args.metadata.root_directory);
+    const triggerDeployCommand = trigger?.deploy_command?.trim();
+    const metadataDeployCommand = args.metadata.deploy_command?.trim();
+    const reasons: CloudflareBuildDisagreementReason[] = [];
+
+    if (!trigger) {
+      reasons.push("missing_trigger");
+    } else {
+      if (trigger.external_script_id !== args.worker.workerTag) {
+        reasons.push("worker_tag_mismatch");
+      }
+      if (trigger.trigger_uuid !== args.triggerUuid) {
+        reasons.push("trigger_uuid_mismatch");
+      }
+      if (trigger.repo_connection?.repo_id !== args.ghRepoId) {
+        reasons.push("repository_id_mismatch");
+      }
+    }
+
+    if (rootDirectory === null) {
+      reasons.push("invalid_root_directory");
+    } else {
+      if (trigger && triggerRootDirectory !== rootDirectory) {
+        reasons.push("trigger_root_directory_mismatch");
+      }
+      if (metadataRootDirectory !== rootDirectory) {
+        reasons.push("metadata_root_directory_mismatch");
+      }
+    }
+
+    if (trigger) {
+      if (!triggerDeployCommand) {
+        reasons.push("missing_trigger_deploy_command");
+      } else if (triggerDeployCommand !== metadataDeployCommand) {
+        reasons.push("deploy_command_mismatch");
+      }
+    }
+
+    if (!buildUuid && args.createdAt === null) {
+      return bad([
+        "missing_build_uuid",
+        "invalid_created_on",
+        ...reasons,
+      ] satisfies CloudflareBuildDisagreementReasons);
+    }
+    if (!buildUuid) {
+      return bad(["missing_build_uuid", ...reasons] satisfies CloudflareBuildDisagreementReasons);
+    }
+    if (args.createdAt === null) {
+      return bad(["invalid_created_on", ...reasons] satisfies CloudflareBuildDisagreementReasons);
+    }
+    const firstReason = reasons.at(0);
+    if (firstReason !== undefined) {
+      return bad([firstReason, ...reasons.slice(1)] satisfies CloudflareBuildDisagreementReasons);
+    }
+
+    return good({
+      buildUuid,
+      createdAt: args.createdAt,
+      finishedAt: providerTimestamp(build.stopped_on),
+    });
+  },
+);
+
 export function matchLatestCloudflareWorkerBuildForBranch(args: {
   builds: readonly CloudflareWorkerBuild[];
   branch: string;
@@ -112,64 +198,24 @@ export function matchLatestCloudflareWorkerBuildForBranch(args: {
   }
 
   const build = candidate.build;
-  const trigger = build.trigger;
   const metadata = candidate.metadata;
-  const createdAt = candidate.createdAt;
-  const finishedAt = providerTimestamp(build.stopped_on);
-  const buildUuid = build.build_uuid?.trim();
-  const rootDirectory = normalizeCloudflareBuildRoot(args.worker.rootDirectory);
-  const triggerRootDirectory = normalizeCloudflareBuildRoot(trigger?.root_directory);
-  const metadataRootDirectory = normalizeCloudflareBuildRoot(metadata.root_directory);
-  const triggerDeployCommand = trigger?.deploy_command?.trim();
-  const metadataDeployCommand = metadata.deploy_command?.trim();
-  if (!trigger) {
-    return { state: "provider_disagreement", reason: "missing_trigger" };
-  }
-  if (!buildUuid) {
-    return { state: "provider_disagreement", reason: "missing_build_uuid" };
-  }
-  if (createdAt === null) {
-    return { state: "provider_disagreement", reason: "invalid_created_on" };
-  }
-  if (rootDirectory === null) {
-    return { state: "provider_disagreement", reason: "invalid_root_directory" };
-  }
-  if (trigger.external_script_id !== args.worker.workerTag) {
-    return { state: "provider_disagreement", reason: "worker_tag_mismatch" };
-  }
-  if (trigger.trigger_uuid !== args.triggerUuid) {
-    return { state: "provider_disagreement", reason: "trigger_uuid_mismatch" };
-  }
-  if (trigger.repo_connection?.repo_id !== args.ghRepoId) {
-    return { state: "provider_disagreement", reason: "repository_id_mismatch" };
-  }
-  if (triggerRootDirectory !== rootDirectory) {
-    return {
-      state: "provider_disagreement",
-      reason: "trigger_root_directory_mismatch",
-    };
-  }
-  if (metadataRootDirectory !== rootDirectory) {
-    return {
-      state: "provider_disagreement",
-      reason: "metadata_root_directory_mismatch",
-    };
-  }
-  if (!triggerDeployCommand) {
-    return {
-      state: "provider_disagreement",
-      reason: "missing_trigger_deploy_command",
-    };
-  }
-  if (triggerDeployCommand !== metadataDeployCommand) {
-    return { state: "provider_disagreement", reason: "deploy_command_mismatch" };
+  const [agrees, agreement] = validateCloudflareBuildAgreement({
+    build,
+    metadata,
+    createdAt: candidate.createdAt,
+    worker: args.worker,
+    ghRepoId: args.ghRepoId,
+    triggerUuid: args.triggerUuid,
+  });
+  if (!agrees) {
+    return { state: "provider_disagreement", reasons: agreement };
   }
 
   return {
     state: "available",
-    buildUuid,
+    buildUuid: agreement.buildUuid,
     buildState: classifyCloudflareBuildState(build),
-    createdAt,
-    finishedAt,
+    createdAt: agreement.createdAt,
+    finishedAt: agreement.finishedAt,
   };
 }

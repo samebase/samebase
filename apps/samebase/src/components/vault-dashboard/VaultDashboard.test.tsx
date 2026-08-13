@@ -2846,7 +2846,7 @@ describe("buildVaultRepositorySettingsState", () => {
                 state: "connected",
                 productionTriggerUuid: "production-trigger",
                 previewTriggerUuid: "preview-trigger",
-                productionBuild: { state: "unavailable", reason: "request_failed" },
+                productionBuild: { state: "unavailable", reasons: ["request_failed"] },
               },
             }),
           ],
