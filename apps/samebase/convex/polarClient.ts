@@ -20,7 +20,13 @@ export const POLAR_PRODUCT_CATALOG = {
       availableForCheckout: true,
     },
   ],
-  production: [],
+  production: [
+    {
+      productId: "e2d0db25-2971-4a77-b2b1-00b041efe9e0",
+      version: 1,
+      availableForCheckout: true,
+    },
+  ],
 } satisfies Record<PolarServer, PolarProductCatalog>;
 
 function readConfiguredValue(value: string | undefined): string | null {
