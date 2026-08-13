@@ -218,6 +218,46 @@ describe("OrganizationBillingSection", () => {
     });
   });
 
+  it("lets personal Pro buy a seat before the included capacity is used", async () => {
+    testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
+      billingLimited: false,
+      canManageBilling: true,
+      hasSubscription: true,
+      includedMembers: 2,
+      memberCapacity: 2,
+      memberCount: 1,
+      payerState: "viewer",
+      plan: "pro",
+      status: "active",
+    });
+    const addSeat = vi.fn(() => new Promise<never>(() => undefined));
+    testState.actions.set(getFunctionName(api.billing.requestPolarBillingChange), addSeat);
+    const container = await mountBillingSection({
+      ...organization,
+      githubOwnerLogin: "billing-owner",
+      githubOwnerType: "user",
+    });
+
+    const addSeatButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Add member seat, $2/month",
+    );
+    const removeSeatButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Remove unused seat",
+    );
+    expect(removeSeatButton?.disabled).toBe(true);
+    await act(async () => {
+      removeSeatButton?.click();
+      await Promise.resolve();
+    });
+    expect(addSeat).not.toHaveBeenCalled();
+    await act(async () => {
+      addSeatButton?.click();
+      await Promise.resolve();
+    });
+
+    expect(addSeat).toHaveBeenCalledWith(expect.objectContaining({ change: "add_member_seat" }));
+  });
+
   it("offers a recovery action to a billing-limited organization", async () => {
     testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
       billingLimited: true,
@@ -247,7 +287,7 @@ describe("OrganizationBillingSection", () => {
     );
   });
 
-  it("offers an explicit action for unused paid capacity", async () => {
+  it("offers explicit seat actions when paid capacity is unused", async () => {
     testState.queries.set(getFunctionName(api.billing.getViewerBillingStatus), {
       billingLimited: false,
       canManageBilling: true,
@@ -263,9 +303,12 @@ describe("OrganizationBillingSection", () => {
     testState.actions.set(getFunctionName(api.billing.requestPolarBillingChange), removeSeat);
     const container = await mountBillingSection();
 
-    expect(container.textContent).not.toContain("Add member seat");
     const removeSeatButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Remove unused seat",
+    );
+    expect(removeSeatButton?.disabled).toBe(false);
+    expect(removeSeatButton?.closest('[role="group"]')?.getAttribute("aria-label")).toBe(
+      "Member seat actions",
     );
     await act(async () => {
       removeSeatButton?.click();

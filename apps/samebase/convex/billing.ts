@@ -30,6 +30,7 @@ import {
 } from "./polarCheckout";
 import {
   createPolarClient,
+  readPolarErrorLogFields,
   readPolarCheckoutProductId,
   readPolarProductCatalog,
   resolvePolarServer,
@@ -446,9 +447,7 @@ export const requestPolarBillingChange = action({
     try {
       await ensurePolarTeamCustomer(polar, seed);
     } catch (error) {
-      console.error("billing:polar:team_customer_failed", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
+      console.error("billing:polar:team_customer_failed", readPolarErrorLogFields(error));
       throw new ConvexError("Samebase could not verify the Polar team Customer.");
     }
 
@@ -459,9 +458,10 @@ export const requestPolarBillingChange = action({
         externalCustomerId: seed.externalCustomerId,
       });
     } catch (error) {
-      console.warn("billing:polar:subscription_reconciliation_failed", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
+      console.warn(
+        "billing:polar:subscription_reconciliation_failed",
+        readPolarErrorLogFields(error),
+      );
       throw new ConvexError("Samebase could not verify your current subscription.");
     }
     requireBillingChangeAllowed(observed);
@@ -483,15 +483,7 @@ export const requestPolarBillingChange = action({
       if (observedSubscription === null) {
         throw new ConvexError("Upgrade to Pro before adding member seats.");
       }
-      if (observedSubscription.polarSeatQuantity > seed.memberCount) {
-        throw new ConvexError("This organization already has an available member seat.");
-      }
-      targetSeats = Math.max(
-        seed.memberCount > observedSubscription.polarSeatQuantity
-          ? seed.memberCount
-          : seed.memberCount + 1,
-        PRO_INCLUDED_ORGANIZATION_MEMBERS,
-      );
+      targetSeats = Math.max(observedSubscription.polarSeatQuantity + 1, seed.memberCount);
     } else if (args.change === "remove_member_seat") {
       if (observedSubscription === null) {
         throw new ConvexError("This organization has no paid member seats.");
@@ -541,9 +533,7 @@ export const requestPolarBillingChange = action({
           }
         }
       } catch (error) {
-        console.error("billing:polar:subscription_update_failed", {
-          errorName: error instanceof Error ? error.name : "UnknownError",
-        });
+        console.error("billing:polar:subscription_update_failed", readPolarErrorLogFields(error));
         throw new ConvexError("Polar could not update this subscription.");
       }
       await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
@@ -567,9 +557,7 @@ export const requestPolarBillingChange = action({
       try {
         storedCheckout = await polar.checkouts.get({ id: reservation.checkoutId });
       } catch (error) {
-        console.error("billing:polar:checkout_refresh_failed", {
-          errorName: error instanceof Error ? error.name : "UnknownError",
-        });
+        console.error("billing:polar:checkout_refresh_failed", readPolarErrorLogFields(error));
         throw new ConvexError("Samebase could not verify your open checkout.");
       }
 
@@ -648,9 +636,7 @@ export const requestPolarBillingChange = action({
           attemptId: reservation.attemptId,
         });
       }
-      console.error("billing:polar:checkout_failed", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
+      console.error("billing:polar:checkout_failed", readPolarErrorLogFields(error));
       throw new ConvexError("Polar checkout could not be started.");
     }
 
@@ -724,9 +710,7 @@ export const createPolarCustomerPortalSession = action({
       });
       portalUrl = session.customerPortalUrl;
     } catch (error) {
-      console.error("billing:polar:portal_failed", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
+      console.error("billing:polar:portal_failed", readPolarErrorLogFields(error));
       throw new ConvexError("The billing portal could not be opened.");
     }
     await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
@@ -788,9 +772,10 @@ export const reconcileViewerBillingFromPolar = action({
             });
           }
         } catch (error) {
-          console.warn("billing:polar:checkout_reconciliation_failed", {
-            errorName: error instanceof Error ? error.name : "UnknownError",
-          });
+          console.warn(
+            "billing:polar:checkout_reconciliation_failed",
+            readPolarErrorLogFields(error),
+          );
         }
       }
       await ctx.runQuery(internal.billing.confirmCurrentBillingPayer, {
@@ -803,9 +788,7 @@ export const reconcileViewerBillingFromPolar = action({
         hasSubscription: hasPolarSubscription(state),
       };
     } catch (error) {
-      console.warn("billing:polar:reconciliation_failed", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
+      console.warn("billing:polar:reconciliation_failed", readPolarErrorLogFields(error));
       return { state: "unavailable" };
     }
   },

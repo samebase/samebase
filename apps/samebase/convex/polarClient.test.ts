@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
+import { SDKError } from "@polar-sh/sdk/models/errors/sdkerror";
 
 import {
   POLAR_PRODUCT_CATALOG,
+  readPolarErrorLogFields,
   readPolarCheckoutProductId,
   readPolarProductCatalogFromEntries,
   resolvePolarProduct,
@@ -28,6 +30,21 @@ function requireCatalog(entries: PolarProductCatalog): PolarProductCatalog {
   }
   return catalog;
 }
+
+describe("Polar failure logs", () => {
+  it("keeps Polar failure logs useful without exposing the response body", () => {
+    const error = new SDKError("API error occurred", {
+      request: new Request("https://api.polar.sh/v1/customers"),
+      response: new Response(null, { status: 403 }),
+      body: '{"error":"insufficient_scope","private":"customer data"}',
+    });
+
+    expect(readPolarErrorLogFields(error)).toEqual({
+      errorName: "SDKError",
+      errorStatusCode: 403,
+    });
+  });
+});
 
 describe("Polar product catalog", () => {
   it("configures one current Pro product in each Polar environment", () => {

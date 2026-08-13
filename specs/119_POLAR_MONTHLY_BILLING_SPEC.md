@@ -64,10 +64,10 @@ the external identity that Samebase uses to verify retries. It does not switch t
 Customer ID at checkout creation.
 
 The initial Pro checkout target is `max(current memberships, 2)`. A Free organization cannot buy a
-separate member seat. It must activate Pro first. After Pro is active, an additional-seat purchase
-uses `current memberships + 1` when current memberships fit verified capacity. If the organization
-is already above capacity, the purchase targets the current membership count and buys only the
-capacity needed to restore access.
+separate member seat. It must activate Pro first. After Pro is active, each additional-seat purchase
+increases the current Polar seat quantity by one. The purchase does not require the current seats to
+be in use. If the organization is already above capacity, the purchase targets the larger of the
+current seat quantity plus one and the current membership count so it restores access.
 
 Seat additions invoice immediately. Removing an unused seat is a separate billing action and uses
 Polar proration. Adding or removing an organization member does not change purchased seat quantity.
@@ -88,6 +88,17 @@ checkout still blocks deletion because it can create a new subscription.
 
 Product IDs are non-secret tracked configuration. The Polar access token and webhook secret remain
 secret deployment environment variables.
+
+The Polar access token has only these scopes:
+
+- `checkouts:read`
+- `checkouts:write`
+- `customer_sessions:write`
+- `customers:read`
+- `customers:write`
+- `members:read`
+- `subscriptions:read`
+- `subscriptions:write`
 
 Samebase keeps a typed, versioned Pro product catalog in code. Sandbox and production have separate
 catalogs. Each entry records a product ID, a positive version, and whether checkout can select it.
@@ -161,7 +172,7 @@ organization access are separate facts.
 
 - Free shows one `Upgrade to Pro, $4/month` action.
 - Free does not show an additional-seat action.
-- Pro shows an additional-seat action only when all verified seats are in use.
+- Pro shows an additional-seat action even when current seats are not in use.
 - Pro shows `Remove unused seat` when paid capacity is above both included capacity and current
   membership count.
 - The designated payer can schedule Pro cancellation at the period end.

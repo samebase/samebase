@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { ButtonGroup } from "@/components/ui/button-group";
 import { toast } from "@/components/ui/use-toast";
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { ORGANIZATION_SETTINGS_ROUTE } from "@/lib/organizationRoutes";
@@ -235,7 +236,6 @@ export function OrganizationBillingSection({
     0,
     billingStatus.memberCapacity - billingStatus.includedMembers,
   );
-  const needsAnotherMemberSeat = billingStatus.memberCount >= billingStatus.memberCapacity;
   const hasUnusedPaidMemberSeat =
     billingStatus.memberCapacity >
     Math.max(billingStatus.memberCount, billingStatus.includedMembers);
@@ -379,39 +379,35 @@ export function OrganizationBillingSection({
                 : "Switch to Free next billing period"}
             </Button>
           ) : null}
-          {billingStatus.plan === "pro" &&
-          !billingStatus.cancelAtPeriodEnd &&
-          needsAnotherMemberSeat ? (
-            <Button
-              disabled={!billingActionsAvailable || requestPending}
-              onClick={() => void handleBillingChange("add_member_seat")}
-              type="button"
-              variant="outline"
-            >
-              {billingRequestState === "seat_add" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              {billingRequestState === "seat_add"
-                ? "Updating..."
-                : billingStatus.billingLimited
-                  ? "Restore member access"
-                  : "Add member seat, $2/month"}
-            </Button>
-          ) : null}
-          {billingStatus.plan === "pro" &&
-          !billingStatus.cancelAtPeriodEnd &&
-          hasUnusedPaidMemberSeat ? (
-            <Button
-              disabled={!billingActionsAvailable || requestPending}
-              onClick={() => void handleBillingChange("remove_member_seat")}
-              type="button"
-              variant="outline"
-            >
-              {billingRequestState === "seat_remove" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : null}
-              {billingRequestState === "seat_remove" ? "Updating..." : "Remove unused seat"}
-            </Button>
+          {billingStatus.plan === "pro" && !billingStatus.cancelAtPeriodEnd ? (
+            <ButtonGroup aria-label="Member seat actions">
+              <Button
+                disabled={!billingActionsAvailable || requestPending}
+                onClick={() => void handleBillingChange("add_member_seat")}
+                type="button"
+                variant="outline"
+              >
+                {billingRequestState === "seat_add" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                {billingRequestState === "seat_add"
+                  ? "Updating..."
+                  : billingStatus.billingLimited
+                    ? "Restore member access"
+                    : "Add member seat, $2/month"}
+              </Button>
+              <Button
+                disabled={!billingActionsAvailable || requestPending || !hasUnusedPaidMemberSeat}
+                onClick={() => void handleBillingChange("remove_member_seat")}
+                type="button"
+                variant="outline"
+              >
+                {billingRequestState === "seat_remove" ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : null}
+                {billingRequestState === "seat_remove" ? "Updating..." : "Remove unused seat"}
+              </Button>
+            </ButtonGroup>
           ) : null}
           {billingStatus.hasSubscription ? (
             <Button
