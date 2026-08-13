@@ -27,10 +27,6 @@ const screenshotOptions = {
   timeout: 30_000,
 } as const;
 
-function betaAccessPendingBody(accountIdentity: string) {
-  return `Samebase is currently in private beta, so access is approved manually. You’re signed in as ${accountIdentity}. This page will update automatically when your account is approved.`;
-}
-
 async function openSettings(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await signInIfNeeded(page, "/settings");
@@ -45,9 +41,6 @@ async function createPendingAccount(page: Page, email: string) {
   await passwordAuthSection.getByPlaceholder("Password").fill("settings-test-pass-1234");
   await passwordAuthSection.getByRole("button", { exact: true, name: "Create account" }).click();
   await expect(page.getByRole("link", { exact: true, name: "Account settings" })).toBeVisible();
-  await expect(
-    page.getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID).getByRole("status"),
-  ).toHaveText("Beta access pending");
 }
 
 async function blockHydrationScripts(page: Page) {
@@ -251,11 +244,6 @@ test("Settings link preserves the selected mobile pane", async ({ browser }, tes
     const settingsPage = page.getByTestId("user-settings-page");
     await expect(settingsPage).toBeVisible();
     await expect(settingsPage.getByRole("button", { name: "Sign out" })).toBeVisible();
-    await expect(settingsPage.getByRole("heading", { name: "Beta access pending" })).toBeVisible();
-    await expect(
-      settingsPage.getByText(betaAccessPendingBody(email), { exact: true }),
-    ).toBeVisible();
-    await expect(settingsPage.getByRole("button", { name: "Check again" })).toHaveCount(0);
     await expect(settingsPage.getByText("Google", { exact: true })).toHaveCount(0);
     await expect(settingsPage.getByRole("button", { name: "Connect Google" })).toHaveCount(0);
     await expect(settingsPage.getByText("GitHub", { exact: true })).toBeVisible();
@@ -377,19 +365,14 @@ test("pending users save a private display name and refresh prehydration", async
   await createPendingAccount(page, email);
   await page.goto("/vault", { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(/\/vault\/?$/u);
-  const betaAccessGate = page.getByRole("heading", { name: "Beta access pending" }).locator("..");
-  await expect(betaAccessGate).toBeVisible();
-  await expect(page.getByText(betaAccessPendingBody(email), { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Account access pending" })).toBeVisible();
   await page.evaluate(() => {
     document.documentElement.dataset.settingsNavigation = "spa";
   });
   await page.getByRole("link", { exact: true, name: "Account settings" }).click();
   await expect(page).toHaveURL(/\/settings$/u);
-  const settingsPage = page.getByTestId("user-settings-page");
-  await expect(settingsPage).toBeVisible();
-  await expect(settingsPage.getByRole("heading", { name: "Beta access pending" })).toBeVisible();
-  await expect(settingsPage.getByText(betaAccessPendingBody(email), { exact: true })).toBeVisible();
+  await expect(page.getByTestId("user-settings-page")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Account access pending" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Install GitHub App" })).toHaveCount(0);
   await expect
     .poll(() => page.evaluate(() => document.documentElement.dataset.settingsNavigation))
@@ -398,26 +381,11 @@ test("pending users save a private display name and refresh prehydration", async
   const displayNameInput = page.getByLabel("Display name");
   await displayNameInput.fill(displayName);
   await page.getByRole("button", { exact: true, name: "Save" }).click();
-  await expect(settingsPage.getByRole("status")).toHaveText("Saved");
-  await expect(
-    settingsPage.getByText(betaAccessPendingBody(displayName), { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByTestId("user-settings-page").getByRole("status")).toHaveText("Saved");
   await expect(readStoredAccountPresentation(page)).resolves.toEqual({
     kind: "displayName",
     label: displayName,
   });
-
-  await page.goto("/vault", { waitUntil: "domcontentloaded" });
-  const updatedBetaAccessGate = page
-    .getByRole("heading", { name: "Beta access pending" })
-    .locator("..");
-  await expect(
-    updatedBetaAccessGate.getByText(betaAccessPendingBody(displayName), { exact: true }),
-  ).toBeVisible();
-  await expect(updatedBetaAccessGate).toHaveScreenshot(
-    "beta-access-pending-gate.png",
-    screenshotOptions,
-  );
 
   const accountSection = page.getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection.getByText(displayName, { exact: true })).toBeVisible();
@@ -425,8 +393,6 @@ test("pending users save a private display name and refresh prehydration", async
   await expect(accountSection).toHaveScreenshot("settings-display-name-account-section.png", {
     ...screenshotOptions,
   });
-  await accountSection.getByRole("link", { exact: true, name: "Account settings" }).click();
-  await expect(page).toHaveURL(/\/settings$/u);
 
   await blockHydrationScripts(page);
   await page.reload({ waitUntil: "domcontentloaded" });

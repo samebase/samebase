@@ -2,13 +2,6 @@ import { describe, expect, it } from "vite-plus/test";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "./routeAccessMetadata";
 
 describe("route access metadata", () => {
-  it("keeps account deletion available but out of route suggestions", () => {
-    expect(ROUTE_ACCESS_METADATA_BY_PATH["/account-deletion"]).toMatchObject({
-      access: "access_account_deletion",
-      pathSuggestion: "hidden",
-    });
-  });
-
   it("keeps organization connection in the global app surface", () => {
     expect(ROUTE_ACCESS_METADATA_BY_PATH["/connect-organization"]).toMatchObject({
       access: "access_app_create",

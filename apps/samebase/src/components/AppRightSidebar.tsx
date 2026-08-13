@@ -1,6 +1,5 @@
 import { AppSidebarMetaSection } from "@/components/AppSidebarMetaSection";
 import { APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME } from "@/components/appSidebarNavigation";
-import { BETA_ACCESS_PENDING_HEADING } from "@/components/BetaAccessPendingDescription";
 import { OrganizationContextControl } from "@/components/OrganizationContextControl";
 import {
   findViewerOrganization,
@@ -121,7 +120,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
       ) : (
         <AppRightSidebarSignedInAccountSection
           profile={profile}
-          statusLabel={pending ? BETA_ACCESS_PENDING_HEADING : undefined}
+          statusLabel={pending ? "Beta access pending" : undefined}
           user={user}
         />
       )}
