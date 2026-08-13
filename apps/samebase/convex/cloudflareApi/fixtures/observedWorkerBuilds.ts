@@ -53,3 +53,11 @@ export const observedRunningWorkerBuild = {
     trigger_uuid: "3ff74fd1-50c4-43d2-9fd3-72086962b3e3",
   },
 } as const;
+
+// Captured from the same Workers Builds endpoint on 2026-08-13 after a
+// dashboard retry. All fields except the observed trigger source are omitted.
+export const observedRetriedWorkerBuildMetadata = {
+  build_trigger_metadata: {
+    build_trigger_source: "retry",
+  },
+} as const;

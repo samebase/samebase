@@ -2301,7 +2301,7 @@ export interface components {
      * @example push
      * @enum {string}
      */
-    builds_BuildTriggerSource: "push" | "push_event" | "pull_request" | "manual" | "api";
+    builds_BuildTriggerSource: "push" | "push_event" | "pull_request" | "manual" | "api" | "retry";
     /**
      * @description Git commit hash
      * @example abc123def456

@@ -105,6 +105,7 @@ import type * as polarWebhooks from "../polarWebhooks.js";
 import type * as providerApiLog from "../providerApiLog.js";
 import type * as providerAuth from "../providerAuth.js";
 import type * as providerAuthFingerprint from "../providerAuthFingerprint.js";
+import type * as providerResponseValidation from "../providerResponseValidation.js";
 import type * as repositoryPullRequests from "../repositoryPullRequests.js";
 import type * as slugUtils from "../slugUtils.js";
 import type * as stagingChanges from "../stagingChanges.js";
@@ -272,6 +273,7 @@ declare const fullApi: ApiFromModules<{
   providerApiLog: typeof providerApiLog;
   providerAuth: typeof providerAuth;
   providerAuthFingerprint: typeof providerAuthFingerprint;
+  providerResponseValidation: typeof providerResponseValidation;
   repositoryPullRequests: typeof repositoryPullRequests;
   slugUtils: typeof slugUtils;
   stagingChanges: typeof stagingChanges;

@@ -1,5 +1,5 @@
 import type { components } from "../convexManagementApi/types.generated";
-import { requestConvexManagementApi } from "../convexManagementApi/client";
+import { requestConvexManagementApiOrThrow } from "../convexManagementApi/client";
 
 export type ConvexDeployKeyAllowedAction = NonNullable<
   components["schemas"]["PlatformCreateDeployKeyArgs"]["allowedActions"]
@@ -30,7 +30,7 @@ export async function createConvexDeploymentDeployKey(args: {
       : {
           name: args.name,
         };
-  const { deployKey } = await requestConvexManagementApi(
+  const { deployKey } = await requestConvexManagementApiOrThrow(
     args.token,
     "POST",
     "/deployments/{deployment_name}/create_deploy_key",
@@ -47,7 +47,7 @@ export async function deleteConvexDeploymentDeployKey(args: {
   name: string;
   token: string;
 }): Promise<void> {
-  await requestConvexManagementApi(
+  await requestConvexManagementApiOrThrow(
     args.token,
     "POST",
     "/deployments/{deployment_name}/delete_deploy_key",

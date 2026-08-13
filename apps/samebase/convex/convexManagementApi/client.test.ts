@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Client, ClientPathsWithMethod } from "openapi-fetch";
 
-import { listConvexManagementProjects, requestConvexManagementApi } from "./client";
+import {
+  listConvexManagementProjects,
+  requestConvexManagementApi,
+  requestConvexManagementApiOrThrow,
+} from "./client";
 import type {
   CustomRoleResponse,
   operations,
@@ -37,7 +41,7 @@ function assertConvexManagementRequestTypes(): void {
 
   expectType<{ team_id: string }>()(listProjectsPathParams, true);
   expectType<Promise<PlatformPaginatedProjectsResponse>>()(
-    requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/projects", {
+    requestConvexManagementApiOrThrow("team-token", "GET", "/teams/{team_id}/projects", {
       params: { path: { team_id: LARGE_CONVEX_ID } },
     }),
     true,
@@ -47,19 +51,24 @@ function assertConvexManagementRequestTypes(): void {
     true,
   );
   expectType<Promise<PlatformDeploymentResponse[]>>()(
-    requestConvexManagementApi("team-token", "GET", "/projects/{project_id}/list_deployments", {
-      params: { path: { project_id: LARGE_CONVEX_ID } },
-    }),
+    requestConvexManagementApiOrThrow(
+      "team-token",
+      "GET",
+      "/projects/{project_id}/list_deployments",
+      {
+        params: { path: { project_id: LARGE_CONVEX_ID } },
+      },
+    ),
     true,
   );
   expectType<Promise<void>>()(
-    requestConvexManagementApi("team-token", "POST", "/projects/{project_id}/delete", {
+    requestConvexManagementApiOrThrow("team-token", "POST", "/projects/{project_id}/delete", {
       params: { path: { project_id: LARGE_CONVEX_ID } },
     }),
     true,
   );
   expectType<Promise<CustomRoleResponse>>()(
-    requestConvexManagementApi("team-token", "POST", "/teams/{team_id}/create_custom_role", {
+    requestConvexManagementApiOrThrow("team-token", "POST", "/teams/{team_id}/create_custom_role", {
       params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
       body: {
         name: "operator",
@@ -104,7 +113,7 @@ function assertConvexManagementRequestTypes(): void {
   void missingListProjectsPathParams;
 
   // @ts-expect-error The list projects endpoint requires path parameters.
-  void requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/projects");
+  void requestConvexManagementApiOrThrow("team-token", "GET", "/teams/{team_id}/projects");
 }
 void assertConvexManagementRequestTypes;
 
@@ -112,6 +121,81 @@ describe("Convex Management API request helpers", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("returns and logs a non-JSON response without its contents", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("private malformed provider response", { status: 200 })),
+    );
+
+    const [valid, failure] = await requestConvexManagementApi(
+      "team-token",
+      "GET",
+      "/teams/{team_id}/projects",
+      {
+        params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
+      },
+    );
+
+    expect(valid).toBe(false);
+    if (valid) {
+      throw new Error("Expected Convex response parsing to fail.");
+    }
+    expect(failure).toBe("invalid_json");
+    const log = String(error.mock.calls[0]?.[0]);
+    expect(log).toContain("provider_response_parse_failed");
+    expect(log).toContain('"reason":"invalid_json"');
+    expect(log).not.toContain("private malformed provider response");
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns every validation issue and logs only schema details", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return Response.json({
+          items: [
+            {
+              createTime: "not-a-number",
+              id: "not-a-decimal-id",
+              name: "private-provider-value",
+              slug: 42,
+              teamId: "not-a-team-id",
+              teamSlug: 42,
+            },
+          ],
+          pagination: { hasMore: "not-a-boolean" },
+        });
+      }),
+    );
+
+    const [valid, issues] = await requestConvexManagementApi(
+      "team-token",
+      "GET",
+      "/teams/{team_id}/projects",
+      {
+        params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
+      },
+    );
+
+    expect(valid).toBe(false);
+    if (valid) {
+      throw new Error("Expected Convex response validation to fail.");
+    }
+    if (!Array.isArray(issues)) {
+      throw new Error("Expected AJV validation issues.");
+    }
+    expect(issues.length).toBeGreaterThan(1);
+    const log = String(error.mock.calls[0]?.[0]);
+    expect(log).toContain("provider_response_validation_failed");
+    expect(log).toContain('"provider":"convex"');
+    expect(log).toContain('"schema_path"');
+    expect(log).not.toContain("private-provider-value");
+    expect(log).not.toContain(LARGE_CONVEX_PARENT_ID);
+    expect(error).toHaveBeenCalledTimes(1);
   });
 
   it("materializes typed OpenAPI path parameters for GET requests", async () => {
@@ -127,7 +211,7 @@ describe("Convex Management API request helpers", () => {
       }),
     );
 
-    await requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/projects", {
+    await requestConvexManagementApiOrThrow("team-token", "GET", "/teams/{team_id}/projects", {
       params: { path: { team_id: LARGE_CONVEX_ID } },
     });
 
@@ -168,7 +252,7 @@ describe("Convex Management API request helpers", () => {
     );
 
     await expect(
-      requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/projects", {
+      requestConvexManagementApiOrThrow("team-token", "GET", "/teams/{team_id}/projects", {
         params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
       }),
     ).resolves.toEqual({
@@ -273,9 +357,14 @@ describe("Convex Management API request helpers", () => {
     );
 
     await expect(
-      requestConvexManagementApi("team-token", "GET", "/projects/{project_id}/list_deployments", {
-        params: { path: { project_id: LARGE_CONVEX_PARENT_ID } },
-      }),
+      requestConvexManagementApiOrThrow(
+        "team-token",
+        "GET",
+        "/projects/{project_id}/list_deployments",
+        {
+          params: { path: { project_id: LARGE_CONVEX_PARENT_ID } },
+        },
+      ),
     ).resolves.toEqual([
       {
         class: "s16",
@@ -315,13 +404,18 @@ describe("Convex Management API request helpers", () => {
     );
 
     await expect(
-      requestConvexManagementApi("team-token", "POST", "/teams/{team_id}/create_custom_role", {
-        params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
-        body: {
-          name: "operator",
-          statements: [],
+      requestConvexManagementApiOrThrow(
+        "team-token",
+        "POST",
+        "/teams/{team_id}/create_custom_role",
+        {
+          params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
+          body: {
+            name: "operator",
+            statements: [],
+          },
         },
-      }),
+      ),
     ).resolves.toEqual({
       createTime: 1710000000000,
       id: LARGE_CONVEX_ID,
@@ -352,7 +446,7 @@ describe("Convex Management API request helpers", () => {
     );
 
     await expect(
-      requestConvexManagementApi("oauth-team-token", "GET", "/token_details"),
+      requestConvexManagementApiOrThrow("oauth-team-token", "GET", "/token_details"),
     ).resolves.toEqual({
       createTime: 1710000000000,
       id: LARGE_CONVEX_ID,
@@ -402,12 +496,17 @@ describe("Convex Management API request helpers", () => {
     );
 
     await expect(
-      requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/list_audit_log_events", {
-        params: {
-          path: { team_id: LARGE_CONVEX_PARENT_ID },
-          query: { from: 1710000000000, to: 1710003600000 },
+      requestConvexManagementApiOrThrow(
+        "team-token",
+        "GET",
+        "/teams/{team_id}/list_audit_log_events",
+        {
+          params: {
+            path: { team_id: LARGE_CONVEX_PARENT_ID },
+            query: { from: 1710000000000, to: 1710003600000 },
+          },
         },
-      }),
+      ),
     ).resolves.toEqual({
       items: [
         {
@@ -466,7 +565,7 @@ describe("Convex Management API request helpers", () => {
     );
 
     await expect(
-      requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/list_members", {
+      requestConvexManagementApiOrThrow("team-token", "GET", "/teams/{team_id}/list_members", {
         params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
       }),
     ).resolves.toEqual({
@@ -523,7 +622,7 @@ describe("Convex Management API request helpers", () => {
     );
 
     await expect(
-      requestConvexManagementApi("team-token", "GET", "/list_personal_access_tokens"),
+      requestConvexManagementApiOrThrow("team-token", "GET", "/list_personal_access_tokens"),
     ).resolves.toEqual({
       items: [
         {
@@ -575,7 +674,7 @@ describe("Convex Management API request helpers", () => {
     );
 
     await expect(
-      requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/projects", {
+      requestConvexManagementApiOrThrow("team-token", "GET", "/teams/{team_id}/projects", {
         params: { path: { team_id: LARGE_CONVEX_PARENT_ID } },
       }),
     ).rejects.toThrow(
@@ -593,7 +692,7 @@ describe("Convex Management API request helpers", () => {
       }),
     );
 
-    await requestConvexManagementApi("team-token", "POST", "/projects/{project_id}/delete", {
+    await requestConvexManagementApiOrThrow("team-token", "POST", "/projects/{project_id}/delete", {
       params: { path: { project_id: "123" } },
     });
 
@@ -635,7 +734,7 @@ describe("Convex Management API request helpers", () => {
       }),
     );
 
-    await requestConvexManagementApi("team-token", "GET", "/deployments/{deployment_name}", {
+    await requestConvexManagementApiOrThrow("team-token", "GET", "/deployments/{deployment_name}", {
       params: { path: { deployment_name: " team-project " } },
     });
 
@@ -658,7 +757,7 @@ describe("Convex Management API request helpers", () => {
       }),
     );
 
-    await requestConvexManagementApi("team-token", "GET", "/teams/{team_id}/projects", {
+    await requestConvexManagementApiOrThrow("team-token", "GET", "/teams/{team_id}/projects", {
       params: { path: { team_id: ` ${LARGE_CONVEX_ID} ` } },
     });
 
@@ -678,7 +777,7 @@ describe("Convex Management API request helpers", () => {
     vi.stubGlobal("fetch", fetch);
 
     // @ts-expect-error Runtime callers can still pass non-string path params.
-    const request = requestConvexManagementApi(key, verb, route, params);
+    const request = requestConvexManagementApiOrThrow(key, verb, route, params);
 
     await expect(request).rejects.toThrow("Convex path parameter team_id must be a string.");
 

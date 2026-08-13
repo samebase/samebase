@@ -1,11 +1,14 @@
 import { notEmpty } from "@samebase/dependent/main";
+import { bad, good } from "@samebase/sure";
 import { z } from "zod";
 
 import { createUrlSearchParams, readUrlSearchParamsRecord } from "../shared/urlSearchParams";
 import {
   requestCloudflareApi,
+  requestCloudflareApiOrThrow,
   CloudflareApiError,
   resolveCloudflareApiTransport,
+  type CloudflareApiRequestResult,
   type CloudflareApiTransport,
 } from "./cloudflareApi/client";
 import type { components, Readable, Writable } from "./cloudflareApi/types.generated";
@@ -370,7 +373,7 @@ function formatCloudflareBuildRoot(rootDirectory: string): string {
 export async function readCloudflareWorkersDevSubdomain(
   args: { token: string; accountId: string } & CloudflareApiCallOptions,
 ): Promise<string> {
-  const raw = await requestCloudflareApi({
+  const raw = await requestCloudflareApiOrThrow({
     token: args.token,
     method: "GET",
     path: "/accounts/{account_id}/workers/subdomain",
@@ -399,7 +402,7 @@ async function readWorker(
   } & CloudflareApiCallOptions,
 ): Promise<CloudflareWorker | null> {
   try {
-    const raw = await requestCloudflareApi({
+    const raw = await requestCloudflareApiOrThrow({
       token: args.token,
       method: "GET",
       path: "/accounts/{account_id}/workers/workers/{worker_id}",
@@ -482,7 +485,7 @@ export function readCloudflareWorkerTag(
 async function listLegacyCloudflareWorkers(
   args: { token: string; accountId: string } & CloudflareApiCallOptions,
 ): Promise<CloudflareWorkerInventoryItem[]> {
-  const workers = await requestCloudflareApi({
+  const workers = await requestCloudflareApiOrThrow({
     token: args.token,
     transport: args.transport,
     method: "GET",
@@ -514,7 +517,7 @@ export async function listCloudflareWorkerInventory(
     const seenWorkerTags = new Set<string>();
     const pageSize = 100;
     for (let page = 1; ; page += 1) {
-      const result = await requestCloudflareApi({
+      const result = await requestCloudflareApiOrThrow({
         token: args.token,
         transport: args.transport,
         method: "GET",
@@ -774,7 +777,7 @@ export async function createCloudflareWorker(args: {
   }
 
   await args.beforeProviderWrite?.();
-  const createdRaw = await requestCloudflareApi({
+  const createdRaw = await requestCloudflareApiOrThrow({
     token: args.token,
     transport: args.transport,
     method: "POST",
@@ -810,7 +813,7 @@ async function ensureRepositoryConnection(
   const repositoryFullName = `${args.owner}/${args.repo}`;
   try {
     await args.beforeProviderWrite?.();
-    const raw = await requestCloudflareApi({
+    const raw = await requestCloudflareApiOrThrow({
       token: args.token,
       method: "PUT",
       path: "/accounts/{account_id}/builds/repos/connections",
@@ -920,7 +923,7 @@ async function findCurrentBuildTokenUuid(
 ): Promise<string | undefined> {
   const tokens: CloudflareBuildToken[] = [];
   for (let page = 1; ; page += 1) {
-    const rawTokens = await requestCloudflareApi({
+    const rawTokens = await requestCloudflareApiOrThrow({
       token: args.token,
       method: "GET",
       path: "/accounts/{account_id}/builds/tokens",
@@ -960,7 +963,7 @@ async function findReusableBuildTokenUuid(
 ): Promise<string | undefined> {
   const tokens: CloudflareBuildToken[] = [];
   for (let page = 1; ; page += 1) {
-    const rawTokens = await requestCloudflareApi({
+    const rawTokens = await requestCloudflareApiOrThrow({
       token: args.token,
       method: "GET",
       path: "/accounts/{account_id}/builds/tokens",
@@ -1104,7 +1107,7 @@ function readTriggerBuildTokenUuids(
 async function resolveCurrentCloudflareTokenId(
   args: { token: string } & CloudflareApiCallOptions,
 ): Promise<string> {
-  const raw = await requestCloudflareApi({
+  const raw = await requestCloudflareApiOrThrow({
     token: args.token,
     method: "GET",
     path: "/user/tokens/verify",
@@ -1125,7 +1128,7 @@ async function createBuildToken(
   } & CloudflareApiCallOptions,
 ): Promise<string> {
   await args.beforeProviderWrite?.();
-  const raw = await requestCloudflareApi({
+  const raw = await requestCloudflareApiOrThrow({
     token: args.token,
     method: "POST",
     path: "/accounts/{account_id}/builds/tokens",
@@ -1229,7 +1232,7 @@ async function listBuildTriggers(
     workerTag: string;
   } & CloudflareApiCallOptions,
 ): Promise<CloudflareBuildTrigger[]> {
-  const raw = await requestCloudflareApi({
+  const raw = await requestCloudflareApiOrThrow({
     token: args.token,
     method: "GET",
     path: "/accounts/{account_id}/builds/workers/{external_script_id}/triggers",
@@ -1411,7 +1414,7 @@ async function upsertBuildTrigger(
     });
     if (repositoryMatch === "target") {
       await args.beforeProviderWrite?.();
-      await requestCloudflareApi({
+      await requestCloudflareApiOrThrow({
         token: args.token,
         method: "PATCH",
         path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}",
@@ -1434,7 +1437,7 @@ async function upsertBuildTrigger(
 
   try {
     await args.beforeProviderWrite?.();
-    const raw = await requestCloudflareApi({
+    const raw = await requestCloudflareApiOrThrow({
       token: args.token,
       method: "POST",
       path: "/accounts/{account_id}/builds/triggers",
@@ -1499,7 +1502,7 @@ async function setTriggerEnvironmentVariables(
   } & CloudflareApiCallOptions,
 ): Promise<void> {
   await args.beforeProviderWrite?.();
-  await requestCloudflareApi({
+  await requestCloudflareApiOrThrow({
     token: args.token,
     method: "PATCH",
     path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables",
@@ -1522,7 +1525,7 @@ async function listTriggerEnvironmentVariables(
     triggerUuid: string;
   } & CloudflareApiCallOptions,
 ): Promise<CloudflareBuildEnvVarsResponse> {
-  const raw = await requestCloudflareApi({
+  const raw = await requestCloudflareApiOrThrow({
     token: args.token,
     method: "GET",
     path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables",
@@ -1586,7 +1589,7 @@ async function triggerInitialBuild(
   }
 
   await args.beforeProviderWrite?.();
-  await requestCloudflareApi({
+  await requestCloudflareApiOrThrow({
     token: args.token,
     method: "POST",
     path: "/accounts/{account_id}/builds/triggers/{trigger_uuid}/builds",
@@ -2268,8 +2271,8 @@ export async function readCloudflareWorkerBuildsPage(args: {
   workerTag: string;
   page: number;
   perPage: number;
-}): Promise<CloudflareWorkerBuild[]> {
-  const builds = await requestCloudflareApi({
+}): Promise<CloudflareApiRequestResult<CloudflareWorkerBuild[]>> {
+  const [valid, builds] = await requestCloudflareApi({
     token: args.token,
     transport: args.transport,
     method: "GET",
@@ -2285,10 +2288,15 @@ export async function readCloudflareWorkerBuildsPage(args: {
       },
     },
   });
+  if (!valid) {
+    return bad(builds);
+  }
 
-  return requireCloudflareResult(
-    builds,
-    `Cloudflare Workers Builds did not return builds for Worker ${args.workerTag}.`,
+  return good(
+    requireCloudflareResult(
+      builds,
+      `Cloudflare Workers Builds did not return builds for Worker ${args.workerTag}.`,
+    ),
   );
 }
 
@@ -2300,20 +2308,24 @@ export async function readRecentCloudflareWorkerBuilds(args: {
   transport: CloudflareApiTransport;
   accountId: string;
   workerTag: string;
-}): Promise<{ builds: CloudflareWorkerBuild[]; exhausted: boolean }> {
+}): Promise<CloudflareApiRequestResult<{ builds: CloudflareWorkerBuild[]; exhausted: boolean }>> {
   const builds: CloudflareWorkerBuild[] = [];
   for (let page = 1; page <= RECENT_CLOUDFLARE_WORKER_BUILD_MAX_PAGES; page += 1) {
-    const pageBuilds = await readCloudflareWorkerBuildsPage({
+    const [valid, pageBuilds] = await readCloudflareWorkerBuildsPage({
       ...args,
       page,
       perPage: RECENT_CLOUDFLARE_WORKER_BUILD_PAGE_SIZE,
     });
+    if (!valid) {
+      return bad(pageBuilds);
+    }
+
     builds.push(...pageBuilds);
     if (pageBuilds.length < RECENT_CLOUDFLARE_WORKER_BUILD_PAGE_SIZE) {
-      return { builds, exhausted: true };
+      return good({ builds, exhausted: true });
     }
   }
-  return { builds, exhausted: false };
+  return good({ builds, exhausted: false });
 }
 
 export async function readCloudflareWorkerVersionsPage(args: {
@@ -2324,7 +2336,7 @@ export async function readCloudflareWorkerVersionsPage(args: {
   page: number;
   perPage: number;
 }): Promise<CloudflareWorkerVersion[]> {
-  const versions = await requestCloudflareApi({
+  const versions = await requestCloudflareApiOrThrow({
     token: args.token,
     transport: args.transport,
     method: "GET",
@@ -2361,7 +2373,7 @@ async function deleteCloudflareBuildTrigger(args: {
   transport: CloudflareApiTransport;
 }): Promise<void> {
   try {
-    await requestCloudflareApi({
+    await requestCloudflareApiOrThrow({
       token: args.cloudflareToken,
       transport: args.transport,
       method: "DELETE",
@@ -2408,7 +2420,7 @@ export async function deleteCloudflareResources(
       });
     }),
   );
-  await requestCloudflareApi({
+  await requestCloudflareApiOrThrow({
     token: args.cloudflareToken,
     transport: args.transport,
     method: "DELETE",

@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import { action } from "./functions";
 import {
   listConvexManagementProjects,
-  requestConvexManagementApi,
+  requestConvexManagementApiOrThrow,
 } from "./convexManagementApi/client";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
@@ -104,7 +104,7 @@ export const checkConvexConnectionAccess = action({
       runConvexProbe({
         key: "deployments",
         run: async () => {
-          return await requestConvexManagementApi(
+          return await requestConvexManagementApiOrThrow(
             token,
             "GET",
             "/teams/{team_id}/list_deployments",
@@ -170,7 +170,7 @@ async function runConvexProbe<Value>({
 }
 
 async function readConvexTokenDetails(token: string): Promise<ConvexTokenIdentity> {
-  const details = await requestConvexManagementApi(token, "GET", "/token_details");
+  const details = await requestConvexManagementApiOrThrow(token, "GET", "/token_details");
   if (details.type === "teamToken") {
     return {
       type: "team_token",

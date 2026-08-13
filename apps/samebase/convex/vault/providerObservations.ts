@@ -5,7 +5,7 @@ import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import type { ActionCtx } from "../_generated/server";
 import { action } from "../functions";
-import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
+import { CloudflareApiError, resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
   readRecentCloudflareWorkerBuilds,
   readCloudflareWorkerBuildsDiscoveryForIdentity,
@@ -34,10 +34,17 @@ import type { VaultProviderObservationContext } from "./providerObservationQueri
 
 const { array, id, literal, object, string, union } = v;
 
-const vObservationFailureReason = union(literal("connection_required"), literal("request_failed"));
+const vObservationFailureReason = union(
+  literal("connection_required"),
+  literal("response_parse_failed"),
+  literal("response_validation_failed"),
+  literal("request_failed"),
+);
 const vCloudflareProductionBuildUnavailableReason = union(
   vCloudflareBuildDisagreementReason,
   literal("build_history_incomplete"),
+  literal("response_parse_failed"),
+  literal("response_validation_failed"),
   literal("request_failed"),
 );
 const vCloudflareProductionBuildObservation = union(
@@ -429,13 +436,20 @@ export const observeCloudflareWorkerBuilds = action({
                 reasons: CloudflareProductionBuildUnavailableReasons;
               } = { state: "unavailable", reasons: ["request_failed"] };
           if (discovery.repository.state === "ready" && discovery.builds.state === "connected") {
-            try {
-              const buildRead = await readRecentCloudflareWorkerBuilds({
-                token: input.token,
-                transport: input.transport,
-                accountId: worker.accountId,
-                workerTag: worker.workerTag,
-              });
+            const [valid, buildRead] = await readRecentCloudflareWorkerBuilds({
+              token: input.token,
+              transport: input.transport,
+              accountId: worker.accountId,
+              workerTag: worker.workerTag,
+            });
+            if (!valid) {
+              productionBuild = {
+                state: "unavailable",
+                reasons: [
+                  Array.isArray(buildRead) ? "response_validation_failed" : "response_parse_failed",
+                ],
+              };
+            } else {
               const buildMatch = matchLatestCloudflareWorkerBuildForBranch({
                 builds: buildRead.builds,
                 branch: defaultBranch,
@@ -450,8 +464,6 @@ export const observeCloudflareWorkerBuilds = action({
                 buildMatch.state === "absent" && !buildRead.exhausted
                   ? { state: "unavailable", reasons: ["build_history_incomplete"] }
                   : buildMatch;
-            } catch {
-              productionBuild = { state: "unavailable", reasons: ["request_failed"] };
             }
           }
           return {
@@ -482,7 +494,21 @@ export const observeCloudflareWorkerBuilds = action({
                   }
                 : discovery.builds,
           };
-        } catch {
+        } catch (error) {
+          if (!(error instanceof CloudflareApiError)) {
+            throw error;
+          }
+          console.error(
+            `provider_observation_request_failed ${JSON.stringify({
+              topic: "provider_observation_request_failed",
+              version: 1,
+              provider: "cloudflare",
+              method: error.method,
+              error_codes: error.details.flatMap((detail) =>
+                detail.code === undefined ? [] : [detail.code],
+              ),
+            })}`,
+          );
           return {
             state: "failed" as const,
             workerId: worker.workerId,
@@ -660,36 +686,51 @@ export const observeConvexProjects = action({
           };
         }
         try {
-          const details = await requestConvexManagementApi(token, "GET", "/projects/{project_id}", {
-            params: { path: { project_id: project.projectId } },
-          });
-          if (details.id !== project.projectId || details.teamId !== matchingConnection.teamId) {
-            throw new Error("Convex returned an inconsistent project identity or team.");
-          }
-          const deployment = await readConvexProductionDeployment({
+          const [valid, details] = await requestConvexManagementApi(
             token,
-            projectId: project.projectId,
-          });
-          provider = {
-            state: "current",
-            projectSlug: details.slug,
-            teamSlug: details.teamSlug,
-            productionDeployment: deployment
-              ? {
-                  state: "available",
-                  deploymentName: deployment.name,
-                  dashboardUrl: buildConvexDeploymentDashboardUrl({
-                    teamSlug: details.teamSlug,
-                    projectSlug: details.slug,
+            "GET",
+            "/projects/{project_id}",
+            {
+              params: { path: { project_id: project.projectId } },
+            },
+          );
+          if (!valid) {
+            provider = {
+              state: "unavailable",
+              reason: Array.isArray(details)
+                ? "response_validation_failed"
+                : "response_parse_failed",
+            };
+          } else {
+            if (details.id !== project.projectId || details.teamId !== matchingConnection.teamId) {
+              throw new Error("Convex returned an inconsistent project identity or team.");
+            }
+            const deployment = await readConvexProductionDeployment({
+              token,
+              projectId: project.projectId,
+            });
+            provider = {
+              state: "current",
+              projectSlug: details.slug,
+              teamSlug: details.teamSlug,
+              productionDeployment: deployment
+                ? {
+                    state: "available",
                     deploymentName: deployment.name,
-                  }),
-                }
-              : { state: "missing" },
-          };
+                    dashboardUrl: buildConvexDeploymentDashboardUrl({
+                      teamSlug: details.teamSlug,
+                      projectSlug: details.slug,
+                      deploymentName: deployment.name,
+                    }),
+                  }
+                : { state: "missing" },
+            };
+          }
         } catch (error) {
-          provider = isConvexManagementNotFoundError(error)
-            ? { state: "missing_ambiguous" }
-            : { state: "unavailable", reason: "request_failed" };
+          if (!isConvexManagementNotFoundError(error)) {
+            throw error;
+          }
+          provider = { state: "missing_ambiguous" };
         }
         return {
           convexProjectId: project.convexProjectId,

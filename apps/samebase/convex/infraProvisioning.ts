@@ -9,7 +9,7 @@ import {
 } from "./billingErrors";
 import {
   isConvexCloudDeployment,
-  requestConvexManagementApi,
+  requestConvexManagementApiOrThrow,
   type ConvexCloudDeployment,
 } from "./convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "./convexManagementApi/errors";
@@ -62,7 +62,7 @@ async function readDefaultConvexCloudDeployment(args: {
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexCloudDeployment | null> {
   try {
-    const deployment = await requestConvexManagementApi(
+    const deployment = await requestConvexManagementApiOrThrow(
       args.convexToken,
       "GET",
       "/projects/{project_id}/deployment",
@@ -97,7 +97,7 @@ async function createConvexCloudDeployment(args: {
   deploymentType: "prod" | "dev";
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<ConvexCloudDeployment> {
-  const deployment = await requestConvexManagementApi(
+  const deployment = await requestConvexManagementApiOrThrow(
     args.convexToken,
     "POST",
     "/projects/{project_id}/create_deployment",
@@ -123,7 +123,7 @@ async function readConvexProjectDetails(args: {
   teamId: string;
   recordApiCall?: ProviderApiCallRecorder;
 }) {
-  const project = await requestConvexManagementApi(
+  const project = await requestConvexManagementApiOrThrow(
     args.convexToken,
     "GET",
     "/projects/{project_id}",
@@ -206,7 +206,7 @@ export async function createConvexDeployKey(args: {
       : {
           name: args.name,
         };
-  const { deployKey } = await requestConvexManagementApi(
+  const { deployKey } = await requestConvexManagementApiOrThrow(
     args.convexToken,
     "POST",
     "/deployments/{deployment_name}/create_deploy_key",
@@ -226,7 +226,7 @@ export async function deleteConvexDeployKey(args: {
   deployKeySecretOrName: string;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
-  await requestConvexManagementApi(
+  await requestConvexManagementApiOrThrow(
     args.convexToken,
     "POST",
     "/deployments/{deployment_name}/delete_deploy_key",
@@ -266,7 +266,7 @@ export async function createConvexPreviewDeployKey(args: {
 }): Promise<ConvexDeployKeyResult> {
   // Cloudflare branch builds deploy Convex previews, which require a
   // project-level preview deploy key instead of a dev deployment key.
-  const { previewDeployKey } = await requestConvexManagementApi(
+  const { previewDeployKey } = await requestConvexManagementApiOrThrow(
     args.convexToken,
     "POST",
     "/projects/{project_id}/create_preview_deploy_key",
@@ -288,7 +288,7 @@ export async function deleteConvexPreviewDeployKey(args: {
   deployKeySecretOrName: string;
   recordApiCall?: ProviderApiCallRecorder;
 }): Promise<void> {
-  await requestConvexManagementApi(
+  await requestConvexManagementApiOrThrow(
     args.convexToken,
     "POST",
     "/projects/{project_id}/delete_preview_deploy_key",

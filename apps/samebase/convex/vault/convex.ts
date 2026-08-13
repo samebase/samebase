@@ -10,7 +10,7 @@ import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import { discoverCloudflareWorkersForRepository } from "../cloudflareResources";
 import {
   listConvexManagementProjects,
-  requestConvexManagementApi,
+  requestConvexManagementApiOrThrow,
 } from "../convexManagementApi/client";
 import type { ProjectResponse } from "../convexManagementApi/types.generated";
 import { action } from "../functions";
@@ -255,7 +255,7 @@ async function readConvexProject(args: {
   connection: ConvexActionConnection;
   projectId: string;
 }): Promise<ProjectResponse> {
-  const project = await requestConvexManagementApi(
+  const project = await requestConvexManagementApiOrThrow(
     args.connection.token,
     "GET",
     "/projects/{project_id}",
@@ -508,7 +508,7 @@ async function createProjectForUser(
     );
     requireManualProviderActionDeadline(claim.deadlineAt);
     providerCreateStarted = true;
-    const created = await requestConvexManagementApi(
+    const created = await requestConvexManagementApiOrThrow(
       connection.token,
       "POST",
       "/teams/{team_id}/create_project",
@@ -635,7 +635,7 @@ async function createProjectForManagedWorkflow(
         teamId: connection.teamId,
       });
     }
-    const created = await requestConvexManagementApi(
+    const created = await requestConvexManagementApiOrThrow(
       connection.token,
       "POST",
       "/teams/{team_id}/create_project",
