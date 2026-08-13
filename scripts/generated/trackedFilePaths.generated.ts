@@ -1017,7 +1017,6 @@ export const trackedFilePaths = [
   "apps/samebase/src/components/VaultDatabaseView.tsx",
   "apps/samebase/src/components/VaultRouteIdentityBoundary.test.tsx",
   "apps/samebase/src/components/VaultRouteIdentityBoundary.tsx",
-  "apps/samebase/src/components/VaultRouteIdentityBoundary.wiring.test.tsx",
   "apps/samebase/src/components/VaultSyncStatus.tsx",
   "apps/samebase/src/components/VaultSyncStatusVisualFixture.tsx",
   "apps/samebase/src/components/WorkspaceLayoutV2FixtureFrame.tsx",
