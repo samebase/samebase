@@ -1,4 +1,8 @@
 import type { VaultOverviewPageKind } from "@/components/vault-dashboard/VaultOverviewPage";
+import {
+  CloudflareProviderLogo,
+  ConvexProviderLogo,
+} from "@/components/vault-dashboard/VaultDashboardLogos";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/use-toast";
@@ -168,6 +172,11 @@ function VaultRow({
   workspace: VaultWorkspaceSelected | null;
 }) {
   const status = vaultSidebarStatus({ selected, sidebarSummaries, summary, vault, workspace });
+  const workerCount = vault.cloudflareWorkers.length;
+  const convexProjectCount = vault.convexProjects.length;
+  const pullRequestCount = summary?.openPullRequestCount;
+  const workerLabel = `${workerCount} Cloudflare ${workerCount === 1 ? "Worker" : "Workers"}`;
+  const convexProjectLabel = `${convexProjectCount} Convex ${convexProjectCount === 1 ? "project" : "projects"}`;
   const rowClassName = selected
     ? "flex min-w-0 bg-muted @max-[200px]:px-1"
     : "flex min-w-0 hover:bg-muted/60 @max-[200px]:px-1";
@@ -176,7 +185,7 @@ function VaultRow({
     <div className={rowClassName}>
       <Link
         aria-current={selected ? "page" : undefined}
-        aria-label={`${vault.repositoryFullName}, ${status.label}`}
+        aria-label={`${vault.repositoryFullName}, ${status.label}${workerCount > 0 ? `, ${workerLabel}` : ""}${convexProjectCount > 0 ? `, ${convexProjectLabel}` : ""}${pullRequestCount ? `, ${pullRequestCount} open ${pullRequestCount === 1 ? "pull request" : "pull requests"}` : ""}`}
         className={
           inFolder
             ? "block min-w-0 flex-1 py-2.5 pr-3 pl-6 text-left no-underline hover:no-underline @max-[200px]:pr-2 @max-[200px]:pl-5 @max-[120px]:pr-1 @max-[120px]:pl-4"
@@ -199,7 +208,47 @@ function VaultRow({
               <span className={status.dotClassName} />
             )}
           </span>
-          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">{status.label}</span>
+          <span className="min-w-0 line-clamp-2 [overflow-wrap:anywhere]">
+            <span>{status.label}</span>
+            {workerCount > 0 || convexProjectCount > 0 || pullRequestCount ? (
+              <span className="@max-[200px]:hidden">
+                {workerCount > 0 ? (
+                  <span aria-label={workerLabel} className="inline-flex" title={workerLabel}>
+                    <span aria-hidden="true" className="mx-1">
+                      ·
+                    </span>
+                    {workerCount}
+                    <span className="ml-1 inline-flex h-3 w-4 items-center justify-center">
+                      <CloudflareProviderLogo />
+                    </span>
+                  </span>
+                ) : null}
+                {convexProjectCount > 0 ? (
+                  <span
+                    aria-label={convexProjectLabel}
+                    className="inline-flex"
+                    title={convexProjectLabel}
+                  >
+                    <span aria-hidden="true" className="mx-1">
+                      ·
+                    </span>
+                    {convexProjectCount}
+                    <span className="ml-1 inline-flex h-3 w-4 items-center justify-center">
+                      <ConvexProviderLogo />
+                    </span>
+                  </span>
+                ) : null}
+                {pullRequestCount ? (
+                  <span className="inline-flex">
+                    <span aria-hidden="true" className="mx-1">
+                      ·
+                    </span>
+                    {pullRequestCount} {pullRequestCount === 1 ? "PR" : "PRs"}
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
+          </span>
         </span>
       </Link>
       {folderState.folders.length > 0 ? (

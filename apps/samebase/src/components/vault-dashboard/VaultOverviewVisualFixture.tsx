@@ -284,6 +284,16 @@ const SIDEBAR_LIST_VAULTS = [
   },
 ] satisfies UserVaultResult[];
 
+const ROOT_SIDEBAR_LIST_VAULTS = SIDEBAR_LIST_VAULTS.map((vault) => {
+  if (vault.repositoryFullName === "samebase/marketing-site") {
+    return { ...vault, convexProjects: [] };
+  }
+  if (vault.repositoryFullName === "noter/guestbook") {
+    return { ...vault, cloudflareWorkers: [] };
+  }
+  return vault;
+}) satisfies UserVaultResult[];
+
 const FIXTURE_FOLDER_CALLBACKS = {
   onDeleteVaultFolder: async () => {},
   onMoveVaultFolder: async () => {},
@@ -428,6 +438,16 @@ const FIXTURE_SIDEBAR_SUMMARIES = {
   state: "loaded",
   summaries: SIDEBAR_LIST_VAULTS.map((vault) => ({
     vaultId: vault._id,
+    openPullRequestCount: 3,
+    checks: FIXTURE_DEFAULT_BRANCH_CHECKS.checks,
+  })),
+} satisfies VaultSidebarSummariesState;
+
+const FIXTURE_ROOT_SIDEBAR_SUMMARIES = {
+  state: "loaded",
+  summaries: ROOT_SIDEBAR_LIST_VAULTS.map((vault) => ({
+    vaultId: vault._id,
+    openPullRequestCount: vault.repositoryFullName === "noter/guestbook" ? 0 : 3,
     checks: FIXTURE_DEFAULT_BRANCH_CHECKS.checks,
   })),
 } satisfies VaultSidebarSummariesState;
@@ -1047,6 +1067,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
     summaries: [
       {
         vaultId: vault._id,
+        openPullRequestCount: 0,
         checks: PROVISIONING_DEFAULT_BRANCH.checks,
       },
     ],
@@ -1193,7 +1214,13 @@ function VaultOverviewProviderSettingsFixture({
               selectedVaultId={vault._id}
               sidebarSummaries={{
                 state: "loaded",
-                summaries: [{ vaultId: vault._id, checks: PROVISIONING_DEFAULT_BRANCH.checks }],
+                summaries: [
+                  {
+                    vaultId: vault._id,
+                    openPullRequestCount: 0,
+                    checks: PROVISIONING_DEFAULT_BRANCH.checks,
+                  },
+                ],
               }}
               vaults={[vault]}
               workspace={workspace}
@@ -1278,8 +1305,8 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
                       .concat(setting),
                   );
                 }}
-                sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}
-                vaults={SIDEBAR_LIST_VAULTS}
+                sidebarSummaries={FIXTURE_ROOT_SIDEBAR_SUMMARIES}
+                vaults={ROOT_SIDEBAR_LIST_VAULTS}
               />
             ),
           }}

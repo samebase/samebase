@@ -163,6 +163,7 @@ const vVaultSidebarSummary = object({
   repository: union(
     vNull(),
     object({
+      openPullRequestCount: number(),
       statusCheckRollup: vStatusCheckCounts,
     }),
   ),
@@ -417,6 +418,9 @@ const providerSidebarRepositorySchema = z
         }),
       })
       .nullable(),
+    pullRequests: z.object({
+      totalCount: countSchema,
+    }),
   })
   .nullable();
 const providerSidebarResponseSchema = z.record(z.string(), providerSidebarRepositorySchema);
@@ -468,6 +472,9 @@ function buildVaultSidebarSummariesQuery(
                 }
               }
             }
+          }
+          pullRequests(states: [OPEN]) {
+            totalCount
           }
         }
       `,
@@ -672,6 +679,7 @@ export function normalizeGitHubVaultSidebarSummaries(
     return {
       vaultId: repository.vaultId,
       repository: {
+        openPullRequestCount: providerRepository.pullRequests.totalCount,
         statusCheckRollup:
           defaultBranch.target.statusCheckRollup === null
             ? null

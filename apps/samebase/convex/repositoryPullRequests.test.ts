@@ -270,7 +270,7 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
     defaultBranch: "main",
   };
 
-  it("keeps only main check counts", () => {
+  it("keeps main check counts and the open pull request total", () => {
     expect(
       normalizeGitHubVaultSidebarSummaries(
         {
@@ -291,6 +291,7 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
                 },
               },
             },
+            pullRequests: { totalCount: 7 },
           },
         },
         [repository],
@@ -299,6 +300,7 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
       {
         vaultId: repository.vaultId,
         repository: {
+          openPullRequestCount: 7,
           statusCheckRollup: {
             contexts: {
               totalCount: 2,
@@ -320,6 +322,7 @@ describe("normalizeGitHubVaultSidebarSummaries", () => {
           repository0: {
             databaseId: 456,
             defaultBranch: null,
+            pullRequests: { totalCount: 0 },
           },
         },
         [repository],

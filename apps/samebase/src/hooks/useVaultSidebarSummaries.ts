@@ -9,6 +9,7 @@ const SIDEBAR_SUMMARIES_GC_MS = 5 * 60_000;
 
 export type VaultSidebarSummary = {
   vaultId: Id<"vaults">;
+  openPullRequestCount: number;
   checks: RepositoryCheckSummary;
 };
 
@@ -31,6 +32,7 @@ export function useVaultSidebarSummaries(): VaultSidebarSummariesState {
           ? [
               {
                 vaultId: summary.vaultId,
+                openPullRequestCount: summary.repository.openPullRequestCount,
                 checks: summarizeRepositoryChecks(summary.repository.statusCheckRollup),
               },
             ]
