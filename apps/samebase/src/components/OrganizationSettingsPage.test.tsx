@@ -32,6 +32,7 @@ vi.mock("convex/react", async (importOriginal) => {
           memberCount: 2,
           payerState: "unassigned",
           plan: "free",
+          purchasedSeatQuantity: 0,
           status: "inactive",
         };
       }

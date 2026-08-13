@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const polarMocks = vi.hoisted(() => ({
   createPolarClient: vi.fn(),
@@ -139,7 +139,11 @@ function createPolarBoundary(userId: Id<"users">) {
 describe("Polar billing changes", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.stubEnv("CONVEX_AGENT_MODE", "");
+    vi.stubEnv("CONVEX_DEPLOYMENT", "local:test");
   });
+
+  afterEach(() => vi.unstubAllEnvs());
 
   for (const githubOwnerType of ["user", "organization"] as const) {
     it(`starts ${githubOwnerType} Pro with the shared product and two seats`, async () => {
@@ -156,7 +160,7 @@ describe("Polar billing changes", () => {
       await expect(
         seed.asOwner.action(api.billing.requestPolarBillingChange, {
           organizationId: seed.organizationId,
-          change: "upgrade_to_pro",
+          change: { kind: "upgrade_to_pro" },
           successUrl,
           returnUrl,
         }),
@@ -197,7 +201,7 @@ describe("Polar billing changes", () => {
 
     await seed.asOwner.action(api.billing.requestPolarBillingChange, {
       organizationId: seed.organizationId,
-      change: "upgrade_to_pro",
+      change: { kind: "upgrade_to_pro" },
       successUrl,
       returnUrl,
     });
@@ -218,7 +222,7 @@ describe("Polar billing changes", () => {
     await expect(
       seed.asOwner.action(api.billing.requestPolarBillingChange, {
         organizationId: seed.organizationId,
-        change: "upgrade_to_pro",
+        change: { kind: "upgrade_to_pro" },
         successUrl,
         returnUrl,
       }),
@@ -246,7 +250,7 @@ describe("Polar billing changes", () => {
     await expect(
       seed.asOwner.action(api.billing.requestPolarBillingChange, {
         organizationId: seed.organizationId,
-        change: "add_member_seat",
+        change: { kind: "add_member_seat", expectedSeatQuantity: 2 },
         successUrl,
         returnUrl,
       }),
@@ -263,10 +267,10 @@ describe("Polar billing changes", () => {
     expect(billingAccount).not.toHaveProperty("polarExternalCustomerId");
   });
 
-  it("adds a personal Pro seat before the included capacity is used", async () => {
+  it("adds exactly one Pro seat once when more member capacity is needed", async () => {
     const seed = await seedBillingOrganization({
-      githubOwnerType: "user",
-      memberCount: 1,
+      githubOwnerType: "organization",
+      memberCount: 4,
       subscription: { seats: 2 },
     });
     const { updateSubscription } = createPolarBoundary(seed.userId);
@@ -290,7 +294,15 @@ describe("Polar billing changes", () => {
     await expect(
       seed.asOwner.action(api.billing.requestPolarBillingChange, {
         organizationId: seed.organizationId,
-        change: "add_member_seat",
+        change: { kind: "add_member_seat", expectedSeatQuantity: 2 },
+        successUrl,
+        returnUrl,
+      }),
+    ).resolves.toEqual({ state: "updated" });
+    await expect(
+      seed.asOwner.action(api.billing.requestPolarBillingChange, {
+        organizationId: seed.organizationId,
+        change: { kind: "add_member_seat", expectedSeatQuantity: 2 },
         successUrl,
         returnUrl,
       }),
@@ -300,6 +312,7 @@ describe("Polar billing changes", () => {
       id: "subscription-1",
       subscriptionUpdate: { seats: 3, prorationBehavior: "invoice" },
     });
+    expect(updateSubscription).toHaveBeenCalledTimes(1);
   });
 
   it("rejects invalid return URLs before assigning the billing payer", async () => {
@@ -308,7 +321,7 @@ describe("Polar billing changes", () => {
     await expect(
       seed.asOwner.action(api.billing.requestPolarBillingChange, {
         organizationId: seed.organizationId,
-        change: "upgrade_to_pro",
+        change: { kind: "upgrade_to_pro" },
         successUrl: "https://example.invalid/success",
         returnUrl: "https://example.invalid/cancel",
       }),
@@ -324,7 +337,7 @@ describe("Polar billing changes", () => {
     expect(billingAccount).not.toHaveProperty("polarExternalCustomerId");
   });
 
-  it("removes one unused member seat only after the payer requests it", async () => {
+  it("removes one unused member seat once when the completed request is repeated", async () => {
     const seed = await seedBillingOrganization({
       githubOwnerType: "organization",
       memberCount: 2,
@@ -351,7 +364,15 @@ describe("Polar billing changes", () => {
     await expect(
       seed.asOwner.action(api.billing.requestPolarBillingChange, {
         organizationId: seed.organizationId,
-        change: "remove_member_seat",
+        change: { kind: "remove_member_seat", expectedSeatQuantity: 3 },
+        successUrl,
+        returnUrl,
+      }),
+    ).resolves.toEqual({ state: "updated" });
+    await expect(
+      seed.asOwner.action(api.billing.requestPolarBillingChange, {
+        organizationId: seed.organizationId,
+        change: { kind: "remove_member_seat", expectedSeatQuantity: 3 },
         successUrl,
         returnUrl,
       }),
@@ -361,6 +382,198 @@ describe("Polar billing changes", () => {
       id: "subscription-1",
       subscriptionUpdate: { seats: 2, prorationBehavior: "prorate" },
     });
+    expect(updateSubscription).toHaveBeenCalledTimes(1);
+  });
+
+  it("rejects a stale seat quantity without changing Polar", async () => {
+    const seed = await seedBillingOrganization({
+      githubOwnerType: "organization",
+      memberCount: 2,
+      subscription: { seats: 4 },
+    });
+    const { updateSubscription } = createPolarBoundary(seed.userId);
+    polarMocks.reconcilePolarCustomerBilling.mockImplementation(
+      async (_ctx, args: { externalCustomerId: string }) => ({
+        status: "active",
+        plan: "pro",
+        externalCustomerId: args.externalCustomerId,
+        subscriptionId: "subscription-1",
+        polarSeatQuantity: 4,
+        currentPeriodEndAt: 10_000,
+        cancelAtPeriodEnd: false,
+      }),
+    );
+
+    await expect(
+      seed.asOwner.action(api.billing.requestPolarBillingChange, {
+        organizationId: seed.organizationId,
+        change: { kind: "add_member_seat", expectedSeatQuantity: 2 },
+        successUrl,
+        returnUrl,
+      }),
+    ).rejects.toThrow("Member seat quantity changed. Refresh this page and try again.");
+
+    expect(updateSubscription).not.toHaveBeenCalled();
+  });
+
+  it("keeps concurrent duplicate seat requests on one billed seat transition", async () => {
+    const seed = await seedBillingOrganization({
+      githubOwnerType: "organization",
+      memberCount: 2,
+      subscription: { seats: 2 },
+    });
+    const { updateSubscription } = createPolarBoundary(seed.userId);
+    let providerSeats = 2;
+    let billedSeatTransitions = 0;
+    const initialReadWaiters = new Array<() => void>();
+    const waitForBothInitialReads = async () => {
+      await new Promise<void>((resolve) => {
+        initialReadWaiters.push(resolve);
+        if (initialReadWaiters.length === 2) {
+          for (const release of initialReadWaiters) {
+            release();
+          }
+        }
+      });
+    };
+    updateSubscription.mockImplementation(async (input) => {
+      if (providerSeats !== input.subscriptionUpdate.seats) {
+        providerSeats = input.subscriptionUpdate.seats;
+        billedSeatTransitions += 1;
+      }
+      return null;
+    });
+    polarMocks.reconcilePolarCustomerBilling.mockImplementation(
+      async (_ctx, args: { externalCustomerId: string }) => {
+        if (providerSeats === 2 && initialReadWaiters.length < 2) {
+          await waitForBothInitialReads();
+          return {
+            status: "active",
+            plan: "pro",
+            externalCustomerId: args.externalCustomerId,
+            subscriptionId: "subscription-1",
+            polarSeatQuantity: 2,
+            currentPeriodEndAt: 10_000,
+            cancelAtPeriodEnd: false,
+          };
+        }
+        return {
+          status: "active",
+          plan: "pro",
+          externalCustomerId: args.externalCustomerId,
+          subscriptionId: "subscription-1",
+          polarSeatQuantity: providerSeats,
+          currentPeriodEndAt: 10_000,
+          cancelAtPeriodEnd: false,
+        };
+      },
+    );
+
+    await expect(
+      Promise.all([
+        seed.asOwner.action(api.billing.requestPolarBillingChange, {
+          organizationId: seed.organizationId,
+          change: { kind: "add_member_seat", expectedSeatQuantity: 2 },
+          successUrl,
+          returnUrl,
+        }),
+        seed.asOwner.action(api.billing.requestPolarBillingChange, {
+          organizationId: seed.organizationId,
+          change: { kind: "add_member_seat", expectedSeatQuantity: 2 },
+          successUrl,
+          returnUrl,
+        }),
+      ]),
+    ).resolves.toEqual([{ state: "updated" }, { state: "updated" }]);
+
+    expect(updateSubscription).toHaveBeenCalledTimes(2);
+    for (const [input] of updateSubscription.mock.calls) {
+      expect(input).toMatchObject({ subscriptionUpdate: { seats: 3 } });
+    }
+    expect(providerSeats).toBe(3);
+    expect(billedSeatTransitions).toBe(1);
+  });
+
+  it("rejects seat changes from members and owners who are not the billing payer", async () => {
+    const seed = await seedBillingOrganization({
+      githubOwnerType: "organization",
+      memberCount: 1,
+      subscription: { seats: 2 },
+    });
+    const identities = await seed.t.run(async (ctx) => {
+      const memberUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "member@example.invalid",
+        isApproved: true,
+      });
+      const otherOwnerUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "other-owner@example.invalid",
+        isApproved: true,
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: seed.organizationId,
+        userId: memberUserId,
+        role: "member",
+      });
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: seed.organizationId,
+        userId: otherOwnerUserId,
+        role: "owner",
+      });
+      return { memberUserId, otherOwnerUserId };
+    });
+    const asMember = seed.t.withIdentity({
+      subject: `${identities.memberUserId}|member-session`,
+      tokenIdentifier: `test:${identities.memberUserId}`,
+    });
+    const asOtherOwner = seed.t.withIdentity({
+      subject: `${identities.otherOwnerUserId}|other-owner-session`,
+      tokenIdentifier: `test:${identities.otherOwnerUserId}`,
+    });
+
+    await expect(
+      asMember.action(api.billing.requestPolarBillingChange, {
+        organizationId: seed.organizationId,
+        change: { kind: "add_member_seat", expectedSeatQuantity: 2 },
+        successUrl,
+        returnUrl,
+      }),
+    ).rejects.toThrow("Organization owner access is required.");
+    await expect(
+      asOtherOwner.action(api.billing.requestPolarBillingChange, {
+        organizationId: seed.organizationId,
+        change: { kind: "add_member_seat", expectedSeatQuantity: 2 },
+        successUrl,
+        returnUrl,
+      }),
+    ).rejects.toThrow("Only the designated billing payer can manage this subscription.");
+
+    expect(polarMocks.createPolarClient).not.toHaveBeenCalled();
+  });
+
+  it("rejects preview billing changes before assigning a payer or accessing Polar", async () => {
+    vi.stubEnv("CONVEX_DEPLOYMENT", "preview:test");
+    const seed = await seedBillingOrganization({ githubOwnerType: "organization" });
+
+    await expect(
+      seed.asOwner.action(api.billing.requestPolarBillingChange, {
+        organizationId: seed.organizationId,
+        change: { kind: "upgrade_to_pro" },
+        successUrl,
+        returnUrl,
+      }),
+    ).rejects.toThrow("Polar billing is unavailable in pull request previews.");
+
+    expect(polarMocks.createPolarClient).not.toHaveBeenCalled();
+    const billingAccount = await seed.t.run(async (ctx) => {
+      return await ctx.db
+        .query("organizationBillingAccounts")
+        .withIndex("by_organization", (query) => query.eq("organizationId", seed.organizationId))
+        .unique();
+    });
+    expect(billingAccount).not.toHaveProperty("polarBillingUserId");
+    expect(billingAccount).not.toHaveProperty("polarExternalCustomerId");
   });
 
   it("does not remove member capacity that is in use", async () => {
@@ -385,7 +598,7 @@ describe("Polar billing changes", () => {
     await expect(
       seed.asOwner.action(api.billing.requestPolarBillingChange, {
         organizationId: seed.organizationId,
-        change: "remove_member_seat",
+        change: { kind: "remove_member_seat", expectedSeatQuantity: 2 },
         successUrl,
         returnUrl,
       }),
@@ -424,7 +637,7 @@ describe("Polar billing changes", () => {
     await expect(
       seed.asOwner.action(api.billing.requestPolarBillingChange, {
         organizationId: seed.organizationId,
-        change: "downgrade_to_free",
+        change: { kind: "downgrade_to_free" },
         successUrl,
         returnUrl,
       }),

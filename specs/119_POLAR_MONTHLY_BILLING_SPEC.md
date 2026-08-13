@@ -64,10 +64,10 @@ the external identity that Samebase uses to verify retries. It does not switch t
 Customer ID at checkout creation.
 
 The initial Pro checkout target is `max(current memberships, 2)`. A Free organization cannot buy a
-separate member seat. It must activate Pro first. After Pro is active, each additional-seat purchase
-increases the current Polar seat quantity by one. The purchase does not require the current seats to
-be in use. If the organization is already above capacity, the purchase targets the larger of the
-current seat quantity plus one and the current membership count so it restores access.
+separate member seat. It must activate Pro first. After Pro is active, each confirmed
+additional-seat purchase increases the current Polar seat quantity by exactly one. The purchase does
+not require the current seats to be in use. An organization that is more than one seat above
+capacity needs one confirmed purchase for each required seat.
 
 Seat additions invoice immediately. Removing an unused seat is a separate billing action and uses
 Polar proration. Adding or removing an organization member does not change purchased seat quantity.
@@ -130,11 +130,16 @@ a trusted reconciliation operation.
 - A current membership consumes one seat.
 - Removing a member or leaving an organization removes access but keeps purchased seat quantity.
 - The designated payer can remove one unused paid seat through an explicit billing action.
+- A seat-change request includes the current Polar quantity shown before confirmation and changes it
+  by exactly one. A retry that observes the requested target succeeds without another provider
+  update. Any other quantity rejects the stale request.
+- Polar serializes subscription updates. If concurrent duplicate requests both reach Polar, the
+  second request reasserts the same absolute seat quantity and has no billing effect.
 - An explicit seat reduction is unavailable after cancellation is scheduled. The subscription is
   already ending.
 - If an invitation consumes capacity while an explicit seat reduction is in flight, Samebase uses
   normal billing-limited behavior. It does not make a compensating Polar update. The payer can use
-  `Restore member access` to buy the required capacity.
+  `Add member seat, $2/month` to buy one required seat at a time.
 
 Writing or reissuing an invitation requires available capacity. Invitation acceptance checks the
 stored capacity and inserts the membership in one Convex transaction. Capacity can change after an
@@ -173,8 +178,9 @@ organization access are separate facts.
 - Free shows one `Upgrade to Pro, $4/month` action.
 - Free does not show an additional-seat action.
 - Pro shows an additional-seat action even when current seats are not in use.
-- Pro shows `Remove unused seat` when paid capacity is above both included capacity and current
-  membership count.
+- Pro keeps `Remove unused seat` visible and disables it when no unused paid seat can be removed.
+- Adding or removing a seat requires payer confirmation. The confirmation shows the target seat
+  quantity, the new monthly price, and Polar's proration timing.
 - The designated payer can schedule Pro cancellation at the period end.
 - A scheduled cancellation shows Free as the next plan and shows the access-end date.
 - The designated payer can open the Polar Customer Portal.
@@ -188,6 +194,7 @@ invoices, receipts, cancellation, and reactivation.
 - Polar Customer Portal seat management and product switching are disabled. Samebase changes seat
   quantity through server actions.
 - Pull request previews do not make real Polar checkout or webhook calls.
+- The server rejects billing-change requests from pull request previews before it accesses Polar.
 - Production uses the stable Samebase origin, one current production Pro product, retained
   historical Pro entries when needed, and one stable production webhook.
 - Production configuration needs operator approval.
@@ -258,6 +265,8 @@ The contract is complete only when tests and Sandbox checks prove:
 - Invitation acceptance fails without verified capacity and succeeds after capacity is reconciled.
 - Concurrent invitation acceptances cannot both consume the last available seat.
 - A seat reduction that starts with enough unused capacity makes one Polar seat update.
+- Repeating a completed seat-change request does not make a second Polar update.
+- A stale seat-change request fails without changing Polar.
 - Membership above verified capacity uses the normal billing-limited recovery action.
 - Removing a member or leaving does not change the Polar seat quantity.
 - A seat reduction never lowers Pro below two seats.

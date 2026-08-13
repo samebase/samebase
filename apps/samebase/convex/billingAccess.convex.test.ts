@@ -79,6 +79,7 @@ describe("organization billing access", () => {
       includedMembers: 2,
       memberCapacity: 2,
       memberCount: 1,
+      purchasedSeatQuantity: 2,
     });
   });
 
@@ -196,6 +197,7 @@ describe("organization billing access", () => {
       memberCapacity: 2,
       memberCount: 3,
       payerState: "viewer",
+      purchasedSeatQuantity: 0,
     });
   });
 
