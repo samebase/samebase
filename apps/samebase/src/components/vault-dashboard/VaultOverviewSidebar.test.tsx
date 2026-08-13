@@ -212,9 +212,9 @@ describe("VaultOverviewSidebar", () => {
     );
 
     expect(markup).toContain('aria-current="page"');
-    expect(markup).toContain(
-      "samebase/active, Loading checks, 0 Cloudflare Workers, 0 Convex projects",
-    );
+    expect(markup).toContain('aria-label="samebase/active, Loading checks"');
+    expect(markup).not.toContain("Cloudflare Worker");
+    expect(markup).not.toContain("Convex project");
   });
 
   it("groups every organization and expands the selected vault organization", async () => {

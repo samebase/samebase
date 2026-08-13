@@ -1219,7 +1219,7 @@ describe("VaultOverviewVaultPickerPane", () => {
     };
   }
 
-  it("groups the global inventory under its organization and shows resource counts", () => {
+  it("shows positive resource counts and omits zero resource counts", () => {
     const vault = makeRepositorySettingsBuilderVault({
       cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({})],
       convexProjects: [makeRepositorySettingsConvexProject({})],
@@ -1270,6 +1270,48 @@ describe("VaultOverviewVaultPickerPane", () => {
     expect(markup).not.toContain(
       "Select a vault from the left sidebar or add one from the right sidebar.",
     );
+
+    const emptyVault = makeRepositorySettingsBuilderVault({
+      cloudflareWorkers: [],
+      convexProjects: [],
+      ghRepoName: "empty",
+      ghRepoOwner: "ada",
+      repositoryFullName: "ada/empty",
+    });
+    const emptyMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/"]}>
+        <VaultOverviewVaultPickerPane
+          {...VAULT_PICKER_FOLDER_PROPS}
+          globalInventory
+          organizations={[organizationForVault(emptyVault)]}
+          sidebarSummaries={{
+            state: "loaded",
+            summaries: [
+              {
+                vaultId: emptyVault._id,
+                openPullRequestCount: 0,
+                checks: {
+                  state: "success",
+                  totalCount: 1,
+                  successCount: 1,
+                  failureCount: 0,
+                  runningCount: 0,
+                  neutralCount: 0,
+                  unknownCount: 0,
+                },
+              },
+            ],
+          }}
+          vaults={[emptyVault]}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(emptyMarkup).toContain('aria-label="ada/empty, 1/1 passed"');
+    expect(emptyMarkup).not.toContain("Cloudflare Worker");
+    expect(emptyMarkup).not.toContain("Convex project");
+    expect(emptyMarkup).not.toContain("open pull request");
+    expect(emptyMarkup).not.toContain(" PR");
   });
 
   it("preserves organization order and vault order while grouping in one pass", () => {
@@ -1429,9 +1471,7 @@ describe("VaultOverviewVaultPickerPane", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain(
-      'aria-label="ada/demo, Setting up, 0 Cloudflare Workers, 0 Convex projects"',
-    );
+    expect(markup).toContain('aria-label="ada/demo, Setting up"');
   });
 
   it("renders loading, zero-membership, and empty-organization states", () => {

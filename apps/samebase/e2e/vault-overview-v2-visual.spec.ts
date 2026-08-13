@@ -65,7 +65,13 @@ test("uses the overview vault rows on the canonical root route", async ({ page }
   await expect(samebaseLink).toHaveAttribute("href", "/vault/samebase/samebase");
   await expect(
     vaultNavigation.getByRole("link", {
-      name: "noter/guestbook, 4/4 passed, 2 Cloudflare Workers, 1 Convex project, 3 open pull requests",
+      name: "samebase/marketing-site, 4/4 passed, 2 Cloudflare Workers, 3 open pull requests",
+      exact: true,
+    }),
+  ).toHaveAttribute("href", "/vault/samebase/marketing-site");
+  await expect(
+    vaultNavigation.getByRole("link", {
+      name: "noter/guestbook, 4/4 passed, 1 Convex project",
       exact: true,
     }),
   ).toHaveAttribute("href", "/vault/noter/guestbook");
