@@ -5,7 +5,8 @@ import type { operations } from "./types.generated";
 
 export type AjvStandaloneValidationError = {
   instancePath: string;
-  keyword?: string;
+  schemaPath: string;
+  keyword: string;
   message?: string;
   params?: unknown;
 };

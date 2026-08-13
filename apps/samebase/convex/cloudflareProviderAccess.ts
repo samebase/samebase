@@ -9,7 +9,7 @@ import {
   listCloudflareAccountsForToken,
   type CloudflareAccount,
 } from "./cloudflareAccountDiscovery";
-import { requestCloudflareApi, resolveCloudflareApiTransport } from "./cloudflareApi/client";
+import { requestCloudflareApiOrThrow, resolveCloudflareApiTransport } from "./cloudflareApi/client";
 import { CLOUDFLARE_MCP_OAUTH_SCOPES } from "./cloudflareMcpOAuth";
 import { deriveMcpTokenStatusFromExpiry, type McpTokenHealth } from "./mcpTokenHealth";
 
@@ -247,7 +247,7 @@ async function checkCloudflareApiTokenAccess({
   token: string;
   transport: ReturnType<typeof resolveCloudflareApiTransport>;
 }): Promise<void> {
-  await requestCloudflareApi({
+  await requestCloudflareApiOrThrow({
     token,
     transport,
     method: "GET",
@@ -265,7 +265,7 @@ async function checkCloudflareWorkersAccess({
   token: string;
   transport: ReturnType<typeof resolveCloudflareApiTransport>;
 }): Promise<void> {
-  await requestCloudflareApi({
+  await requestCloudflareApiOrThrow({
     token,
     transport,
     method: "GET",
@@ -283,7 +283,7 @@ async function checkCloudflareWorkersBuildsAccess({
   token: string;
   transport: ReturnType<typeof resolveCloudflareApiTransport>;
 }): Promise<void> {
-  await requestCloudflareApi({
+  await requestCloudflareApiOrThrow({
     token,
     transport,
     method: "GET",

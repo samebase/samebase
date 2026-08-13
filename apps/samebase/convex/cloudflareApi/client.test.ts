@@ -1,9 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { buildCloudflareWorkerCreateBody } from "../cloudflareResources";
-import { requestCloudflareApi, resolveCloudflareApiTransport } from "./client";
+import {
+  requestCloudflareApi,
+  requestCloudflareApiOrThrow,
+  resolveCloudflareApiTransport,
+} from "./client";
 import {
   observedCompletedWorkerBuild,
+  observedRetriedWorkerBuildMetadata,
   observedRunningWorkerBuild,
 } from "./fixtures/observedWorkerBuilds";
 import {
@@ -52,7 +57,7 @@ describe("Cloudflare API transport", () => {
     );
 
     const assertion = expect(
-      requestCloudflareApi({
+      requestCloudflareApiOrThrow({
         token: "cloudflare-token",
         transport: "direct",
         method: "GET",
@@ -87,7 +92,7 @@ describe("Cloudflare API transport", () => {
     );
 
     await expect(
-      requestCloudflareApi({
+      requestCloudflareApiOrThrow({
         token: "cloudflare-token",
         transport: "direct",
         method: "POST",
@@ -110,7 +115,96 @@ describe("Cloudflare API transport", () => {
 
 describe("Cloudflare API response validators", () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
+  });
+
+  it("returns and logs a non-JSON response without its contents", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("private malformed provider response", { status: 200 })),
+    );
+
+    const [valid, failure] = await requestCloudflareApi({
+      token: "cloudflare-token",
+      transport: "direct",
+      method: "GET",
+      path: "/accounts",
+    });
+
+    expect(valid).toBe(false);
+    if (valid) {
+      throw new Error("Expected Cloudflare response parsing to fail.");
+    }
+    expect(failure).toBe("invalid_json");
+    const log = String(error.mock.calls[0]?.[0]);
+    expect(log).toContain("provider_response_parse_failed");
+    expect(log).toContain('"reason":"invalid_json"');
+    expect(log).not.toContain("private malformed provider response");
+    expect(error).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns every validation issue and logs only schema details", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        return Response.json({
+          success: true,
+          errors: [],
+          messages: [],
+          result: [
+            {
+              ...observedCompletedWorkerBuild,
+              build_trigger_metadata: {
+                ...observedCompletedWorkerBuild.build_trigger_metadata,
+                build_trigger_source: "unexpected-trigger-value",
+                environment_variables: {
+                  PRIVATE_ENVIRONMENT_VARIABLE_NAME: {
+                    created_on: 42,
+                    is_secret: "not-a-boolean",
+                    value: "private-provider-value",
+                  },
+                },
+              },
+            },
+          ],
+        });
+      }),
+    );
+
+    const [valid, issues] = await requestCloudflareApi({
+      token: "cloudflare-token",
+      transport: "direct",
+      method: "GET",
+      path: "/accounts/{account_id}/builds/workers/{external_script_id}/builds",
+      params: {
+        path: {
+          account_id: "private-account-id",
+          external_script_id: "private-worker-id",
+        },
+      },
+    });
+
+    expect(valid).toBe(false);
+    if (valid) {
+      throw new Error("Expected Cloudflare response validation to fail.");
+    }
+    if (!Array.isArray(issues)) {
+      throw new Error("Expected AJV validation issues.");
+    }
+    expect(issues.length).toBeGreaterThan(1);
+    expect(issues.some((issue) => issue.instancePath.includes("PRIVATE_ENVIRONMENT"))).toBe(true);
+    const log = String(error.mock.calls[0]?.[0]);
+    expect(log).toContain("provider_response_validation_failed");
+    expect(log).toContain('"provider":"cloudflare"');
+    expect(log).toContain('"schema_path"');
+    expect(log).not.toContain("PRIVATE_ENVIRONMENT_VARIABLE_NAME");
+    expect(log).not.toContain("private-provider-value");
+    expect(log).not.toContain("private-account-id");
+    expect(log).not.toContain("private-worker-id");
+    expect(error).toHaveBeenCalledTimes(1);
   });
 
   it("accepts Workers Builds trigger lists", () => {
@@ -194,6 +288,23 @@ describe("Cloudflare API response validators", () => {
     expect(validate(response), JSON.stringify(validate.errors)).toBe(true);
   });
 
+  it("accepts an observed retried Worker build", () => {
+    const validate =
+      cloudflareApiResponseValidators.GET[
+        "/accounts/{account_id}/builds/workers/{external_script_id}/builds"
+      ];
+
+    expect(
+      validate({
+        success: true,
+        errors: [],
+        messages: [],
+        result: [observedRetriedWorkerBuildMetadata],
+      }),
+      JSON.stringify(validate.errors),
+    ).toBe(true);
+  });
+
   it("accepts successful Worker version lists with null message fields", () => {
     const validate =
       cloudflareApiResponseValidators.GET[
@@ -265,7 +376,7 @@ describe("Cloudflare API response validators", () => {
       }),
     );
 
-    const worker = await requestCloudflareApi({
+    const worker = await requestCloudflareApiOrThrow({
       token: "cloudflare-token",
       transport: "direct",
       method: "GET",

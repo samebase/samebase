@@ -7,9 +7,11 @@ import {
   type FetchOptions,
   type MethodResponse,
 } from "openapi-fetch";
+import { bad, good, pure, type Unsure } from "@samebase/sure";
 import type { paths } from "./types.generated";
 import {
   cloudflareApiResponseValidators,
+  type AjvStandaloneValidationError,
   type AjvStandaloneValidateFunction,
 } from "./validators.generated";
 import { callCloudflareMcpTool } from "../cloudflareMcp";
@@ -21,6 +23,10 @@ import {
   toErrorMessage,
 } from "../jsonUtils";
 import type { ProviderApiCallRecorder } from "../providerApiLog";
+import {
+  logProviderResponseParseFailure,
+  logProviderResponseValidationFailure,
+} from "../providerResponseValidation";
 
 const WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE =
   "Cloudflare connection is missing Workers Builds write access. Reconnect Cloudflare and grant Workers Builds, Workers, and Workers Scripts access, then retry.";
@@ -118,6 +124,11 @@ type CloudflareApiPostResponse<Path extends CloudflareApiPostPath> = CloudflareA
 type CloudflareApiPutResponse<Path extends CloudflareApiPutPath> = CloudflareApiResponseResult<
   CloudflareApiPutJsonResponse<Path>
 >;
+export type CloudflareApiRequestResult<Response> = Unsure<
+  readonly AjvStandaloneValidationError[] | CloudflareApiResponseParseFailure,
+  Response
+>;
+type CloudflareApiResponseParseFailure = "invalid_json" | "non_object_response";
 type CloudflareApiDeleteRequestArgs<Path extends CloudflareApiDeletePath> =
   CloudflareApiRequestBase & {
     method: "DELETE";
@@ -158,6 +169,37 @@ type CloudflareApiRequestBase = {
   transport: CloudflareApiTransport;
   recordApiCall?: ProviderApiCallRecorder;
 };
+type CloudflareApiRequestArgs =
+  | (CloudflareApiRequestBase & {
+      method: "DELETE";
+      path: CloudflareApiDeletePath;
+      params?: unknown;
+      body?: unknown;
+    })
+  | (CloudflareApiRequestBase & {
+      method: "GET";
+      path: CloudflareApiGetPath;
+      params?: unknown;
+      body?: unknown;
+    })
+  | (CloudflareApiRequestBase & {
+      method: "PATCH";
+      path: CloudflareApiPatchPath;
+      params?: unknown;
+      body?: unknown;
+    })
+  | (CloudflareApiRequestBase & {
+      method: "POST";
+      path: CloudflareApiPostPath;
+      params?: unknown;
+      body?: unknown;
+    })
+  | (CloudflareApiRequestBase & {
+      method: "PUT";
+      path: CloudflareApiPutPath;
+      params?: unknown;
+      body?: unknown;
+    });
 
 export class CloudflareApiError extends Error {
   readonly method: CloudflareApiRequestMethod;
@@ -210,56 +252,59 @@ function formatCloudflareApiEndpoint(args: {
 
 /**
  * Sends one OpenAPI-typed Cloudflare request through the selected Cloudflare
- * transport, then validates the JSON envelope for that exact method and path.
+ * transport, then returns the validated result or every AJV issue for that
+ * exact method and path.
  */
 export function requestCloudflareApi<const Path extends CloudflareApiDeletePath>(
   args: CloudflareApiDeleteRequestArgs<Path>,
-): Promise<CloudflareApiDeleteResponse<Path>>;
+): Promise<CloudflareApiRequestResult<CloudflareApiDeleteResponse<Path>>>;
 export function requestCloudflareApi<const Path extends CloudflareApiGetPath>(
   args: CloudflareApiGetRequestArgs<Path>,
-): Promise<CloudflareApiGetResponse<Path>>;
+): Promise<CloudflareApiRequestResult<CloudflareApiGetResponse<Path>>>;
 export function requestCloudflareApi<const Path extends CloudflareApiPatchPath>(
   args: CloudflareApiPatchRequestArgs<Path>,
-): Promise<CloudflareApiPatchResponse<Path>>;
+): Promise<CloudflareApiRequestResult<CloudflareApiPatchResponse<Path>>>;
 export function requestCloudflareApi<const Path extends CloudflareApiPostPath>(
   args: CloudflareApiPostRequestArgs<Path>,
-): Promise<CloudflareApiPostResponse<Path>>;
+): Promise<CloudflareApiRequestResult<CloudflareApiPostResponse<Path>>>;
 export function requestCloudflareApi<const Path extends CloudflareApiPutPath>(
   args: CloudflareApiPutRequestArgs<Path>,
-): Promise<CloudflareApiPutResponse<Path>>;
+): Promise<CloudflareApiRequestResult<CloudflareApiPutResponse<Path>>>;
 export async function requestCloudflareApi(
-  args:
-    | (CloudflareApiRequestBase & {
-        method: "DELETE";
-        path: CloudflareApiDeletePath;
-        params?: unknown;
-        body?: unknown;
-      })
-    | (CloudflareApiRequestBase & {
-        method: "GET";
-        path: CloudflareApiGetPath;
-        params?: unknown;
-        body?: unknown;
-      })
-    | (CloudflareApiRequestBase & {
-        method: "PATCH";
-        path: CloudflareApiPatchPath;
-        params?: unknown;
-        body?: unknown;
-      })
-    | (CloudflareApiRequestBase & {
-        method: "POST";
-        path: CloudflareApiPostPath;
-        params?: unknown;
-        body?: unknown;
-      })
-    | (CloudflareApiRequestBase & {
-        method: "PUT";
-        path: CloudflareApiPutPath;
-        params?: unknown;
-        body?: unknown;
-      }),
+  args: CloudflareApiRequestArgs,
+): Promise<CloudflareApiRequestResult<unknown>> {
+  return await executeValidatedCloudflareApiRequest(args);
+}
+
+export function requestCloudflareApiOrThrow<const Path extends CloudflareApiDeletePath>(
+  args: CloudflareApiDeleteRequestArgs<Path>,
+): Promise<CloudflareApiDeleteResponse<Path>>;
+export function requestCloudflareApiOrThrow<const Path extends CloudflareApiGetPath>(
+  args: CloudflareApiGetRequestArgs<Path>,
+): Promise<CloudflareApiGetResponse<Path>>;
+export function requestCloudflareApiOrThrow<const Path extends CloudflareApiPatchPath>(
+  args: CloudflareApiPatchRequestArgs<Path>,
+): Promise<CloudflareApiPatchResponse<Path>>;
+export function requestCloudflareApiOrThrow<const Path extends CloudflareApiPostPath>(
+  args: CloudflareApiPostRequestArgs<Path>,
+): Promise<CloudflareApiPostResponse<Path>>;
+export function requestCloudflareApiOrThrow<const Path extends CloudflareApiPutPath>(
+  args: CloudflareApiPutRequestArgs<Path>,
+): Promise<CloudflareApiPutResponse<Path>>;
+export async function requestCloudflareApiOrThrow(
+  args: CloudflareApiRequestArgs,
 ): Promise<unknown> {
+  const [valid, result] = await executeValidatedCloudflareApiRequest(args);
+  if (valid) {
+    return result;
+  }
+
+  throw new Error(`Cloudflare API returned an invalid response for ${args.method} ${args.path}.`);
+}
+
+async function executeValidatedCloudflareApiRequest(
+  args: CloudflareApiRequestArgs,
+): Promise<CloudflareApiRequestResult<unknown>> {
   const params = readCloudflareApiRequestParams(args);
   if (args.recordApiCall) {
     const values: Record<string, unknown> = {};
@@ -281,20 +326,25 @@ export async function requestCloudflareApi(
     params,
   });
   const transport = args.transport;
-  const result =
+  const [parsed, result] =
     transport === "direct"
       ? await executeCloudflareApiDirectRequest({
           token: args.token,
           method: args.method,
           endpoint,
+          path: args.path,
           body: args.body,
         })
       : await executeCloudflareApiMcpRequest({
           token: args.token,
           method: args.method,
           endpoint,
+          path: args.path,
           body: args.body,
         });
+  if (!parsed) {
+    return bad(result);
+  }
 
   switch (args.method) {
     case "DELETE":
@@ -303,6 +353,7 @@ export async function requestCloudflareApi(
         endpoint,
         method: args.method,
         path: args.path,
+        transport,
         validator: cloudflareApiResponseValidators.DELETE[args.path],
       });
     case "GET":
@@ -311,6 +362,7 @@ export async function requestCloudflareApi(
         endpoint,
         method: args.method,
         path: args.path,
+        transport,
         validator: cloudflareApiResponseValidators.GET[args.path],
       });
     case "PATCH":
@@ -319,6 +371,7 @@ export async function requestCloudflareApi(
         endpoint,
         method: args.method,
         path: args.path,
+        transport,
         validator: cloudflareApiResponseValidators.PATCH[args.path],
       });
     case "POST":
@@ -327,6 +380,7 @@ export async function requestCloudflareApi(
         endpoint,
         method: args.method,
         path: args.path,
+        transport,
         validator: cloudflareApiResponseValidators.POST[args.path],
       });
     case "PUT":
@@ -335,6 +389,7 @@ export async function requestCloudflareApi(
         endpoint,
         method: args.method,
         path: args.path,
+        transport,
         validator: cloudflareApiResponseValidators.PUT[args.path],
       });
     default:
@@ -423,8 +478,9 @@ async function executeCloudflareApiMcpRequest(args: {
   token: string;
   method: CloudflareApiRequestMethod;
   endpoint: string;
+  path: string;
   body?: unknown;
-}): Promise<CloudflareApiResult> {
+}): Promise<Unsure<CloudflareApiResponseParseFailure, CloudflareApiResult>> {
   const token = args.token.trim();
   if (!token) {
     throw new Error("Cloudflare token is required.");
@@ -462,50 +518,70 @@ async function executeCloudflareApiMcpRequest(args: {
     throw error;
   });
 
-  const response = parseCloudflareApiEnvelope({
-    endpoint: args.endpoint,
-    source: "Cloudflare MCP",
+  const [parsed, response] = parseCloudflareApiEnvelope({
+    method: args.method,
+    path: args.path,
+    transport: "mcp",
     text,
   });
+  if (!parsed) {
+    return bad(response);
+  }
   if (readBoolean(response, "success") === true) {
-    return { state: "success", data: response };
+    return good<CloudflareApiResult>({ state: "success", data: response });
   }
 
   const details = readCloudflareApiErrorDetails(response["errors"]);
   if (isWorkersBuildsInvalidTokenDetails({ path: args.endpoint, details })) {
     throw new Error(WORKERS_BUILDS_OAUTH_SCOPE_MESSAGE);
   }
-  return {
+  return good<CloudflareApiResult>({
     state: "error",
     error: response,
-  };
+  });
 }
 
-function parseCloudflareApiEnvelope(args: {
-  endpoint: string;
-  source: string;
-  text: string;
-}): Record<string, unknown> {
-  let payload: unknown;
-  try {
-    payload = JSON.parse(args.text);
-  } catch (error) {
-    throw new Error(
-      `${args.source} returned non-JSON response for ${args.endpoint}: ${toErrorMessage(error, "parse failed")}`,
-    );
-  }
-  if (isRecord(payload)) {
-    return payload;
-  }
-  throw new Error(`${args.source} returned a non-object response for ${args.endpoint}.`);
-}
+const parseCloudflareApiEnvelope = pure(
+  (args: {
+    method: CloudflareApiRequestMethod;
+    path: string;
+    transport: CloudflareApiTransport;
+    text: string;
+  }) => {
+    let payload: unknown;
+    try {
+      payload = JSON.parse(args.text);
+    } catch {
+      logProviderResponseParseFailure({
+        provider: "cloudflare",
+        method: args.method,
+        path: args.path,
+        transport: args.transport,
+        reason: "invalid_json",
+      });
+      return bad("invalid_json" as const);
+    }
+    if (isRecord(payload)) {
+      return good(payload);
+    }
+    logProviderResponseParseFailure({
+      provider: "cloudflare",
+      method: args.method,
+      path: args.path,
+      transport: args.transport,
+      reason: "non_object_response",
+    });
+    return bad("non_object_response" as const);
+  },
+);
 
 async function executeCloudflareApiDirectRequest(args: {
   token: string;
   method: CloudflareApiRequestMethod;
   endpoint: string;
+  path: string;
   body?: unknown;
-}): Promise<CloudflareApiResult> {
+}): Promise<Unsure<CloudflareApiResponseParseFailure, CloudflareApiResult>> {
   const token = args.token.trim();
   if (!token) {
     throw new Error("Cloudflare token is required.");
@@ -534,13 +610,17 @@ async function executeCloudflareApiDirectRequest(args: {
   } finally {
     clearTimeout(timeout);
   }
-  const payload = parseCloudflareApiEnvelope({
-    endpoint: args.endpoint,
-    source: "Cloudflare API",
+  const [parsed, payload] = parseCloudflareApiEnvelope({
+    method: args.method,
+    path: args.path,
+    transport: "direct",
     text,
   });
+  if (!parsed) {
+    return bad(payload);
+  }
   if (readBoolean(payload, "success") === true) {
-    return { state: "success", data: payload };
+    return good<CloudflareApiResult>({ state: "success", data: payload });
   }
 
   const details = readCloudflareApiErrorDetails(payload["errors"]);
@@ -552,46 +632,45 @@ async function executeCloudflareApiDirectRequest(args: {
       `Cloudflare API request failed for ${args.method} ${args.endpoint} (${response.status}).`,
     );
   }
-  return {
+  return good<CloudflareApiResult>({
     state: "error",
     error: payload,
-  };
-}
-
-function validateCloudflareApiResult(args: {
-  result: CloudflareApiResult;
-  endpoint: string;
-  method: CloudflareApiRequestMethod;
-  path: string;
-  validator: AjvStandaloneValidateFunction<unknown> | null;
-}): unknown {
-  const schemaName = `${args.method} ${args.path} response`;
-  const payload = readCloudflareApiResultData({
-    result: args.result,
-    endpoint: args.endpoint,
-    method: args.method,
   });
-  if (args.validator === null) {
-    return undefined;
-  }
-
-  if (args.validator(payload)) {
-    return readCloudflareApiEnvelopeResult(payload);
-  }
-
-  const validationErrors = args.validator.errors;
-  const formattedErrors =
-    validationErrors && validationErrors.length > 0
-      ? validationErrors.map((error) => {
-          const path = error.instancePath.length > 0 ? error.instancePath : "/";
-          const message = error.message ?? "failed validation";
-          return `${path} ${message}`;
-        })
-      : ["unknown validation error"];
-  throw new Error(
-    `Cloudflare API response for ${args.endpoint} did not match ${schemaName}: ${formattedErrors.join("; ")}`,
-  );
 }
+
+const validateCloudflareApiResult = pure(
+  (args: {
+    result: CloudflareApiResult;
+    endpoint: string;
+    method: CloudflareApiRequestMethod;
+    path: string;
+    transport: CloudflareApiTransport;
+    validator: AjvStandaloneValidateFunction<unknown> | null;
+  }) => {
+    const payload = readCloudflareApiResultData({
+      result: args.result,
+      endpoint: args.endpoint,
+      method: args.method,
+    });
+    if (args.validator === null) {
+      return good(undefined);
+    }
+
+    if (args.validator(payload)) {
+      return good(readCloudflareApiEnvelopeResult(payload));
+    }
+
+    const issues = args.validator.errors ?? [];
+    logProviderResponseValidationFailure({
+      provider: "cloudflare",
+      method: args.method,
+      path: args.path,
+      transport: args.transport,
+      issues,
+    });
+    return bad(issues);
+  },
+);
 
 function readCloudflareApiEnvelopeResult(payload: unknown): unknown {
   if (isRecord(payload) && "result" in payload) {

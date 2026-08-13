@@ -495,13 +495,17 @@ describe("cloudflare resources", () => {
       }),
     );
 
-    const read = await readRecentCloudflareWorkerBuilds({
+    const [valid, read] = await readRecentCloudflareWorkerBuilds({
       token: "oauth-token",
       transport: "direct",
       accountId: "account-id",
       workerTag: "worker-tag",
     });
 
+    expect(valid).toBe(true);
+    if (!valid) {
+      throw new Error("Expected the Workers Builds history response to pass validation.");
+    }
     expect(requestedPages).toEqual(["1", "2"]);
     expect(read.builds).toHaveLength(101);
     expect(read.exhausted).toBe(true);

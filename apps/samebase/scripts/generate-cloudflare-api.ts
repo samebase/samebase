@@ -370,7 +370,7 @@ function normalizeObservedCloudflareBuildMetadataResponse(document: JsonRecord):
   ) {
     throw new Error("Expected the unpatched Cloudflare Builds trigger source schema.");
   }
-  triggerSource["enum"] = ["push", "push_event", "pull_request", "manual", "api"];
+  triggerSource["enum"] = ["push", "push_event", "pull_request", "manual", "api", "retry"];
 
   const metadata = readRecordPath(document, [
     "components",
@@ -837,7 +837,7 @@ writeFileSync(
 );
 writeFileSync(
   validatorTypesOutputPath,
-  `// Generated from ${sourceUrl}. Do not edit by hand.\n\nimport type { SuccessResponseJSON } from "openapi-typescript-helpers";\nimport type { operations } from "./types.generated";\n\nexport type AjvStandaloneValidationError = {\n  instancePath: string;\n  keyword?: string;\n  message?: string;\n  params?: unknown;\n};\n\nexport type AjvStandaloneValidateFunction<T> = {\n  (payload: unknown): payload is T;\n  errors: AjvStandaloneValidationError[] | null;\n};\n\n${formatCloudflareApiResponseValidatorsDts(responseValidatorEntries)}`,
+  `// Generated from ${sourceUrl}. Do not edit by hand.\n\nimport type { SuccessResponseJSON } from "openapi-typescript-helpers";\nimport type { operations } from "./types.generated";\n\nexport type AjvStandaloneValidationError = {\n  instancePath: string;\n  schemaPath: string;\n  keyword: string;\n  message?: string;\n  params?: unknown;\n};\n\nexport type AjvStandaloneValidateFunction<T> = {\n  (payload: unknown): payload is T;\n  errors: AjvStandaloneValidationError[] | null;\n};\n\n${formatCloudflareApiResponseValidatorsDts(responseValidatorEntries)}`,
 );
 
 execFileSync("pnpm", ["exec", "vp", "fmt", ...generatedFormatPaths], {

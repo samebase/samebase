@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 
 const providerMocks = vi.hoisted(() => ({
   fetchConvexTeamTokenDetails: vi.fn(),
-  requestCloudflareApi: vi.fn(),
+  requestCloudflareApiOrThrow: vi.fn(),
 }));
 
 vi.mock("./convexManagementApi/client", async (importOriginal) => {
@@ -17,7 +17,7 @@ vi.mock("./cloudflareApi/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./cloudflareApi/client")>();
   return {
     ...actual,
-    requestCloudflareApi: providerMocks.requestCloudflareApi,
+    requestCloudflareApiOrThrow: providerMocks.requestCloudflareApiOrThrow,
   };
 });
 
@@ -218,7 +218,7 @@ async function expectCompletionResponse(
 beforeEach(() => {
   vi.clearAllMocks();
   providerMocks.fetchConvexTeamTokenDetails.mockResolvedValue({ teamId: "convex-team" });
-  providerMocks.requestCloudflareApi.mockResolvedValue([
+  providerMocks.requestCloudflareApiOrThrow.mockResolvedValue([
     { id: "cloudflare-account", name: "Cloudflare Account" },
   ]);
 });
@@ -334,7 +334,7 @@ describe("provider OAuth callback organization returns", () => {
       await expect(response.text()).resolves.toBe("Invalid OAuth state");
       expect(providerFetch).not.toHaveBeenCalled();
       expect(providerMocks.fetchConvexTeamTokenDetails).not.toHaveBeenCalled();
-      expect(providerMocks.requestCloudflareApi).not.toHaveBeenCalled();
+      expect(providerMocks.requestCloudflareApiOrThrow).not.toHaveBeenCalled();
     },
   );
 
@@ -749,7 +749,7 @@ describe("provider OAuth callback organization returns", () => {
         );
       }
       vi.stubEnv("SITE_URL", "https://samebase.com");
-      providerMocks.requestCloudflareApi.mockResolvedValue(scenario.accounts);
+      providerMocks.requestCloudflareApiOrThrow.mockResolvedValue(scenario.accounts);
       vi.stubGlobal(
         "fetch",
         vi.fn(
@@ -773,7 +773,7 @@ describe("provider OAuth callback organization returns", () => {
           code: "target-mismatch",
         }),
       });
-      expect(providerMocks.requestCloudflareApi).toHaveBeenCalledWith({
+      expect(providerMocks.requestCloudflareApiOrThrow).toHaveBeenCalledWith({
         token: scenario.tokenResponse.access_token,
         transport: scenario.provider === "cloudflare" ? "direct" : "mcp",
         method: "GET",
@@ -1110,7 +1110,7 @@ describe("provider OAuth callback organization returns", () => {
         );
       }
       vi.stubEnv("SITE_URL", "https://samebase.com");
-      providerMocks.requestCloudflareApi.mockResolvedValue([
+      providerMocks.requestCloudflareApiOrThrow.mockResolvedValue([
         { id: "configured-account", name: "Configured Account" },
         { id: "other-account", name: "Other Account" },
       ]);

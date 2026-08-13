@@ -1,6 +1,6 @@
 import {
   isConvexCloudDeployment,
-  requestConvexManagementApi,
+  requestConvexManagementApiOrThrow,
   type ConvexCloudDeployment,
 } from "../convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "../convexManagementApi/errors";
@@ -32,9 +32,14 @@ export async function readConvexProjectResource(args: {
   projectId: string;
 }): Promise<ProjectResponse | null> {
   try {
-    const project = await requestConvexManagementApi(args.token, "GET", "/projects/{project_id}", {
-      params: { path: { project_id: args.projectId } },
-    });
+    const project = await requestConvexManagementApiOrThrow(
+      args.token,
+      "GET",
+      "/projects/{project_id}",
+      {
+        params: { path: { project_id: args.projectId } },
+      },
+    );
     if (project.teamId !== args.teamId) {
       throw new Error("Convex project belonged to a different team.");
     }
@@ -52,7 +57,7 @@ export async function readConvexProductionDeployment(args: {
   projectId: string;
 }): Promise<ConvexCloudDeployment | null> {
   try {
-    const deployment = await requestConvexManagementApi(
+    const deployment = await requestConvexManagementApiOrThrow(
       args.token,
       "GET",
       "/projects/{project_id}/deployment",
@@ -76,7 +81,7 @@ export async function readConvexPreviewDeployments(args: {
   token: string;
   projectId: string;
 }): Promise<ConvexCloudDeployment[]> {
-  const deployments = await requestConvexManagementApi(
+  const deployments = await requestConvexManagementApiOrThrow(
     args.token,
     "GET",
     "/projects/{project_id}/list_deployments",

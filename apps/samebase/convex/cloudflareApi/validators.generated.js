@@ -2008,7 +2008,7 @@ const schema28 = { description: "Build token UUID.", type: "string", format: "uu
 const schema29 = {
   type: "string",
   example: "push",
-  enum: ["push", "push_event", "pull_request", "manual", "api"],
+  enum: ["push", "push_event", "pull_request", "manual", "api", "retry"],
 };
 const schema30 = { description: "Git commit hash", type: "string", example: "abc123def456" };
 const schema35 = { type: "string", example: "Cloudflare" };
@@ -2298,7 +2298,8 @@ function validate27(
           data5 === "push_event" ||
           data5 === "pull_request" ||
           data5 === "manual" ||
-          data5 === "api"
+          data5 === "api" ||
+          data5 === "retry"
         )
       ) {
         const err6 = {

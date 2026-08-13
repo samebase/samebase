@@ -17330,7 +17330,7 @@
       "builds_BuildTriggerSource": {
         "type": "string",
         "example": "push",
-        "enum": ["push", "push_event", "pull_request", "manual", "api"]
+        "enum": ["push", "push_event", "pull_request", "manual", "api", "retry"]
       },
       "builds_commit_hash": {
         "description": "Git commit hash",

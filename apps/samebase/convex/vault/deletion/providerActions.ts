@@ -5,7 +5,7 @@ import { v } from "convex/values";
 import { internalAction, type ActionCtx } from "../../_generated/server";
 import { internal } from "../../_generated/api";
 import type { Doc, Id } from "../../_generated/dataModel";
-import { requestConvexManagementApi } from "../../convexManagementApi/client";
+import { requestConvexManagementApiOrThrow } from "../../convexManagementApi/client";
 import { isConvexManagementNotFoundError } from "../../convexManagementApi/errors";
 import {
   deleteCloudflareResources,
@@ -143,7 +143,7 @@ export const deleteConvex = internalAction({
         throw new Error("Convex connection is required to remove resources.");
       }
       try {
-        await requestConvexManagementApi(
+        await requestConvexManagementApiOrThrow(
           credential.auth.credential,
           "POST",
           "/projects/{project_id}/delete",

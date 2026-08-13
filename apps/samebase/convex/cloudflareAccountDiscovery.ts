@@ -3,7 +3,7 @@
 import { v } from "convex/values";
 
 import { internalAction } from "./_generated/server";
-import { requestCloudflareApi, type CloudflareApiTransport } from "./cloudflareApi/client";
+import { requestCloudflareApiOrThrow, type CloudflareApiTransport } from "./cloudflareApi/client";
 import type { IamAccount } from "./cloudflareApi/types.generated";
 
 type CloudflareAccountIdentity = Pick<IamAccount, "id" | "name">;
@@ -59,7 +59,7 @@ export async function listCloudflareAccountsForToken(args: {
   token: string;
   transport: CloudflareApiTransport;
 }): Promise<CloudflareAccount[]> {
-  const accounts = await requestCloudflareApi({
+  const accounts = await requestCloudflareApiOrThrow({
     token: args.token,
     transport: args.transport,
     method: "GET",
@@ -84,7 +84,7 @@ export const listAccountsForUserApiToken = internalAction({
   },
   returns: v.array(vCloudflareAccount),
   handler: async (_ctx, args) => {
-    const verification = await requestCloudflareApi({
+    const verification = await requestCloudflareApiOrThrow({
       token: args.token,
       transport: "direct",
       method: "GET",
