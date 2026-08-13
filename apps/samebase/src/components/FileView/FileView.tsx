@@ -716,8 +716,6 @@ function FileViewInner({
   branchHydrationState: FileViewBranchHydrationState | null;
 }) {
   const { setMobilePane } = useWorkspacePaneActions();
-  const setMobilePaneRef = useRef(setMobilePane);
-  setMobilePaneRef.current = setMobilePane;
   const router = useRouter();
   const location = useLocation();
   const routeSearch = useFileViewRouteSearch();
@@ -1299,12 +1297,19 @@ function FileViewInner({
             reviewMode: status === "deleted" ? "review" : undefined,
           }),
         );
-
-        // File picks should land back on the editor pane immediately on mobile.
-        setMobilePaneRef.current("main");
       }
     },
     [buildVaultFileUrl, navigateByHref, owner, repoName],
+  );
+
+  const handleCommandPaletteFileSelect = useCallback(
+    (path: string, status?: CommitPreviewFileStatus) => {
+      handleFileSelect(path, status);
+      if (owner && repoName) {
+        setMobilePane("main");
+      }
+    },
+    [handleFileSelect, owner, repoName, setMobilePane],
   );
 
   const handleFileRename = useCallback(
@@ -2718,7 +2723,7 @@ function FileViewInner({
         open={isCommandPaletteOpen}
         onOpenChange={setIsCommandPaletteOpen}
         files={visibleTreeData}
-        onFileSelect={handleFileSelect}
+        onFileSelect={handleCommandPaletteFileSelect}
         selectedFile={selectedFile}
       />
     </AppWorkspaceRouteChrome>
