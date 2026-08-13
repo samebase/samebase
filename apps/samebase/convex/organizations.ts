@@ -303,7 +303,30 @@ export const deleteOrganization = mutation({
     if (deletionRuns.length > ORGANIZATION_DELETION_ROW_LIMIT) {
       throw new ConvexError("This organization cannot be deleted automatically.");
     }
-    if (deletionRuns.some((run) => run.state !== "succeeded")) {
+    if (deletionRuns.some((run) => run.state === "queued" || run.state === "running")) {
+      throw new ConvexError("Finish organization vault cleanup before deletion.");
+    }
+    const deletionRunsById = new Map(deletionRuns.map((run) => [run._id, run]));
+    const recoveredFailedRunIds = new Set<Id<"workflow_vaultDeletion_runs">>();
+    for (const run of deletionRuns) {
+      if (run.state !== "succeeded" || run.attempt.kind !== "retry") {
+        continue;
+      }
+      let failedRunId: Id<"workflow_vaultDeletion_runs"> | null = run.attempt.retryOf;
+      while (failedRunId !== null) {
+        const failedRun = deletionRunsById.get(failedRunId);
+        if (
+          failedRun === undefined ||
+          failedRun.state !== "failed" ||
+          failedRun.vaultId !== run.vaultId
+        ) {
+          break;
+        }
+        recoveredFailedRunIds.add(failedRunId);
+        failedRunId = failedRun.attempt.kind === "retry" ? failedRun.attempt.retryOf : null;
+      }
+    }
+    if (deletionRuns.some((run) => run.state === "failed" && !recoveredFailedRunIds.has(run._id))) {
       throw new ConvexError("Finish organization vault cleanup before deletion.");
     }
 

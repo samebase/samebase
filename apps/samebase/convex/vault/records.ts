@@ -14,6 +14,7 @@ import {
   listOrganizationIdsForUser,
   requireActiveOrganizationActor,
   requireOrganizationAccessContext,
+  requireVaultForUser,
 } from "../organizationAccess";
 import {
   parseRepositoryFullName,
@@ -137,39 +138,70 @@ export const refreshGitHubRepositoryName = internalMutation({
   },
   returns: nullValidator,
   handler: async (ctx, args) => {
-    const repositoryName = args.repositoryName.trim();
-    if (repositoryName.length === 0) {
-      throw new Error("Current GitHub repository name is required.");
-    }
-
     const vault = await requireVaultForUser(ctx.db, {
       userId: args.userId,
       vaultId: args.vaultId,
     });
-    if (!isLiveConnectedVault(vault) || vault.ghRepoId !== args.expectedGhRepoId) {
-      throw new Error("Vault repository identity changed.");
-    }
-    const organization = await ctx.db.get(vault.organizationId);
-    if (organization === null || organization.githubOwnerId !== args.expectedGithubOwnerId) {
-      throw new Error("Vault organization identity changed.");
-    }
-    if (vault.name !== args.expectedRepositoryName && vault.name !== repositoryName) {
-      return null;
-    }
-
-    await assertOrganizationHasNoVaultForRepository(ctx, {
-      organizationId: organization._id,
-      name: repositoryName,
-      excludeVaultId: vault._id,
-    });
-
-    if (vault.name !== repositoryName) {
-      await ctx.db.patch(vault._id, { name: repositoryName });
-    }
+    await refreshGitHubRepositoryNameForVault(ctx, vault, args);
 
     return null;
   },
 });
+
+export const refreshGitHubRepositoryNameForProvisioningRun = internalMutation({
+  args: {
+    runId: id("workflow_vaultProvisioning_runs"),
+    userId: id("users"),
+    vaultId: id("vaults"),
+    expectedGhRepoId: string(),
+    expectedGithubOwnerId: string(),
+    expectedRepositoryName: string(),
+    repositoryName: string(),
+  },
+  returns: nullValidator,
+  handler: async (ctx, args) => {
+    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    await refreshGitHubRepositoryNameForVault(ctx, authority.vault, args);
+
+    return null;
+  },
+});
+
+async function refreshGitHubRepositoryNameForVault(
+  ctx: Pick<MutationCtx, "db">,
+  vault: Doc<"vaults">,
+  args: {
+    expectedGhRepoId: string;
+    expectedGithubOwnerId: string;
+    expectedRepositoryName: string;
+    repositoryName: string;
+  },
+): Promise<void> {
+  const repositoryName = args.repositoryName.trim();
+  if (repositoryName.length === 0) {
+    throw new Error("Current GitHub repository name is required.");
+  }
+  if (!isLiveConnectedVault(vault) || vault.ghRepoId !== args.expectedGhRepoId) {
+    throw new Error("Vault repository identity changed.");
+  }
+  const organization = await ctx.db.get(vault.organizationId);
+  if (organization === null || organization.githubOwnerId !== args.expectedGithubOwnerId) {
+    throw new Error("Vault organization identity changed.");
+  }
+  if (vault.name !== args.expectedRepositoryName && vault.name !== repositoryName) {
+    return;
+  }
+
+  await assertOrganizationHasNoVaultForRepository(ctx, {
+    organizationId: organization._id,
+    name: repositoryName,
+    excludeVaultId: vault._id,
+  });
+
+  if (vault.name !== repositoryName) {
+    await ctx.db.patch(vault._id, { name: repositoryName });
+  }
+}
 
 function normalizeGitHubRepositoryCoordinate(value: string): string {
   return value.trim().toLowerCase();

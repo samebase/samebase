@@ -27,9 +27,8 @@ import {
 } from "../cloudflareResources";
 import { fetchGitHubDefaultBranchHead } from "../githubRepoApi";
 import {
-  resolveGitHubAppAccessForProvisioningRun,
-  resolveGitHubRepositoryAccess,
   resolveGitHubVaultAccess,
+  resolveGitHubVaultAccessForProvisioningRun,
   type GitHubVaultAccess,
 } from "../githubAppAccess";
 import {
@@ -210,7 +209,7 @@ async function resolveCloudflareConnectionForAuthority(
 async function resolveGitHubVaultAccessForAuthority(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   authority: VaultActionAuthority,
-  ghRepoId: string,
+  repository: { ghRepoId: string; expectedRepositoryName: string },
 ): Promise<GitHubVaultAccess> {
   switch (authority.kind) {
     case "user":
@@ -219,8 +218,10 @@ async function resolveGitHubVaultAccessForAuthority(
         vaultId: authority.vaultId,
       });
     case "provisioning": {
-      const access = await resolveGitHubAppAccessForProvisioningRun(ctx, authority);
-      return await resolveGitHubRepositoryAccess({ access, ghRepoId });
+      return await resolveGitHubVaultAccessForProvisioningRun(ctx, {
+        ...authority,
+        ...repository,
+      });
     }
     default:
       authority satisfies never;
@@ -604,7 +605,10 @@ async function prepareWorkersBuildsForGitHub(
 }> {
   const [connection, githubAccess] = await Promise.all([
     resolveCloudflareConnectionForAuthority(ctx, args.authority, context.organizationId),
-    resolveGitHubVaultAccessForAuthority(ctx, args.authority, context.ghRepoId),
+    resolveGitHubVaultAccessForAuthority(ctx, args.authority, {
+      ghRepoId: context.ghRepoId,
+      expectedRepositoryName: context.name,
+    }),
   ]);
   requireCloudflareAccountTarget(connection, context.accountId);
   await resolveAccount({
@@ -744,7 +748,10 @@ async function prepareConvexDeployKeyRotation(
       teamId: project.teamId,
     }),
     resolveCloudflareConnectionForAuthority(ctx, args.authority, context.organizationId),
-    resolveGitHubVaultAccessForAuthority(ctx, args.authority, context.ghRepoId),
+    resolveGitHubVaultAccessForAuthority(ctx, args.authority, {
+      ghRepoId: context.ghRepoId,
+      expectedRepositoryName: context.name,
+    }),
   ]);
   if (convexConnection.convexTeamId !== project.teamId) {
     throw new Error("The attached Convex project does not match its saved connection.");

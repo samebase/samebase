@@ -13,6 +13,7 @@
   - `specs/121_ORGANIZATION_CONTEXT_AND_ROUTE_MODEL.md`
   - `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md`
   - `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md`
+  - `specs/124_SIMPLE_ORGANIZATION_DELETION_SPEC.md`
   - `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
   - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
@@ -236,9 +237,10 @@ a Samebase organization owner to use the verified reconnect flow. Samebase does 
 mutable route name as GitHub identity.
 
 Only after the stable repository identity and owner identity and login match does the live operation
-call one mutation to update the vault name. The mutation requires the acting user's current
-membership, reloads the vault and organization, and rechecks the stored stable IDs before it writes.
-A repeated repair is a no-op, and a delayed response cannot restore an older name.
+call one mutation to update the vault name. The mutation requires either the acting user's current
+membership or the matching active provisioning run. It reloads the vault and organization and
+rechecks the stored stable IDs before it writes. A repeated repair is a no-op, and a delayed
+response cannot restore an older name.
 
 A GitHub rename does not change stable Samebase identity, ownership, membership, billing, provider
 connections, or attached resources. A repository transfer changes its owner ID. Samebase therefore
@@ -262,7 +264,7 @@ vault.
 | Repository deletion                      | Later operations fail. A new repository at the same names has a different repository ID and is not the retained vault.                                                                          |
 
 Samebase does not store a parallel installation or repository-access status. It does not add GitHub
-lifecycle webhooks for this contract because each current GitHub operation already checks live
+lifecycle webhooks for this contract because each current repository operation already checks live
 access.
 
 The route `/vault/<owner>/<repository>` resolves the current GitHub owner login to an organization
@@ -359,8 +361,9 @@ whose recipient deletes the account loses its GitHub recipient identity, login, 
 expiry. It does not delete an organization, deployment destination, vault, billing row, or another
 member's data. Deleted and deleting users do not count as members or active owners.
 
-Organization deletion is a separate future product or operator action. GitHub App uninstall also
-does not delete Samebase data.
+Spec 124 defines organization deletion as a separate owner operation. It requires all vaults and
+active workflow work to be gone, and it never calls a provider. GitHub App uninstall does not delete
+Samebase data.
 
 Whole-vault deletion remains available to both `owner` and `member` during pre-beta testing. This
 rollout adds only a fail-closed Samebase-only recovery after provider deletion fails. It does not

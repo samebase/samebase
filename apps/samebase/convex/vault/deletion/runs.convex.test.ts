@@ -7,6 +7,7 @@ async function seedFailedDeletionRun() {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
+      state: "active",
       email: "vault-deletion-retry@example.invalid",
       isApproved: true,
     });
@@ -21,6 +22,11 @@ async function seedFailedDeletionRun() {
       organizationId,
       userId,
       role: "owner",
+    });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
     });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,

@@ -629,6 +629,56 @@ describe("organization-owned vaults", () => {
     });
   });
 
+  it("repairs a repository name through the active provisioning run", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "provisioning-rename-repair@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "stable-owner-id",
+      ownerLogin: "samebase",
+    });
+    const { runId, vaultId } = await createConnectedVault(t, {
+      organizationId,
+      userId,
+      owner: "samebase",
+      name: "before-repository",
+      ghRepoId: "stable-repository-id",
+    });
+    await t.run(async (ctx) => {
+      const membership = await ctx.db
+        .query("organizationMemberships")
+        .withIndex("by_organization_and_user", (query) =>
+          query.eq("organizationId", organizationId).eq("userId", userId),
+        )
+        .unique();
+      if (membership === null) {
+        throw new Error("Test membership not found.");
+      }
+      await ctx.db.delete(membership._id);
+    });
+    const repair = {
+      runId,
+      userId,
+      vaultId,
+      expectedGhRepoId: "stable-repository-id",
+      expectedGithubOwnerId: "stable-owner-id",
+      expectedRepositoryName: "before-repository",
+      repositoryName: "after-repository",
+    };
+
+    await t.mutation(internal.vault.records.refreshGitHubRepositoryNameForProvisioningRun, repair);
+    const firstSnapshot = await t.run(async (ctx) => await ctx.db.get(vaultId));
+    await t.mutation(internal.vault.records.refreshGitHubRepositoryNameForProvisioningRun, repair);
+    const secondSnapshot = await t.run(async (ctx) => await ctx.db.get(vaultId));
+
+    expect(secondSnapshot).toEqual(firstSnapshot);
+    expect(firstSnapshot).toMatchObject({
+      ghRepoId: "stable-repository-id",
+      name: "after-repository",
+      organizationId,
+    });
+  });
+
   it("does not let a delayed repair overwrite a newer repository name", async () => {
     const t = makeConvexTest();
     const userId = await createUser(t, "delayed-rename-repair@example.com");

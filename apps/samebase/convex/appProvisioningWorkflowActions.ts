@@ -8,6 +8,7 @@ import {
   requireGitHubRepositoryOwnerId,
   resolveGitHubAppAccessForProvisioningRun,
   resolveGitHubRepositoryAccess,
+  resolveGitHubVaultAccessForProvisioningRun,
   type GitHubVaultAccess,
 } from "./githubAppAccess";
 import { resolveGitHubUserOctokitForProvisioningRun } from "./githubUserAuthorizations";
@@ -196,31 +197,25 @@ async function assertSourceSetupRun(
 }
 
 async function resolveConnectedProvisioningGitHubAccess(
-  ctx: Pick<ActionCtx, "runQuery">,
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: {
     vaultId: Id<"vaults">;
     runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
   },
 ): Promise<GitHubVaultAccess> {
-  const [access, context] = await Promise.all([
-    resolveGitHubAppAccessForProvisioningRun(ctx, {
+  const context = await ctx.runQuery(
+    internal.vault.providerObservationQueries.readProviderAttachmentVaultContextForProvisioningRun,
+    {
+      vaultId: args.vaultId,
       runId: args.runId,
       userId: args.userId,
-      vaultId: args.vaultId,
-    }),
-    ctx.runQuery(
-      internal.vault.providerObservationQueries.readProviderAttachmentVaultContextForProvisioningRun,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        userId: args.userId,
-      },
-    ),
-  ]);
-  return await resolveGitHubRepositoryAccess({
-    access,
+    },
+  );
+  return await resolveGitHubVaultAccessForProvisioningRun(ctx, {
+    ...args,
     ghRepoId: context.ghRepoId,
+    expectedRepositoryName: context.name,
   });
 }
 

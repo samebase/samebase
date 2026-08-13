@@ -292,8 +292,10 @@ async function startConnectExistingRepositoryProvisioningOrFail(
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        repositoryName: args.repositoryName,
-        repositoryOwner: args.repositoryOwner,
+        ghRepoId: args.ghRepoId,
+        githubOwnerId: args.githubOwnerId,
+        expectedGithubOwnerLogin: args.expectedGithubOwnerLogin,
+        expectedRepositoryName: args.expectedRepositoryName,
       },
     );
   } catch (error) {

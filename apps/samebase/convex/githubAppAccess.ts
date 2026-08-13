@@ -280,6 +280,35 @@ export async function resolveGitHubRepositoryAccess(args: {
   };
 }
 
+export async function resolveGitHubVaultAccessForProvisioningRun(
+  ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
+  args: {
+    runId: Id<"workflow_vaultProvisioning_runs">;
+    userId: Id<"users">;
+    vaultId: Id<"vaults">;
+    ghRepoId: string;
+    expectedRepositoryName: string;
+  },
+): Promise<GitHubVaultAccess> {
+  const access = await resolveGitHubAppAccessForProvisioningRun(ctx, args);
+  const githubAccess = await resolveGitHubRepositoryAccess({
+    access,
+    ghRepoId: args.ghRepoId,
+  });
+  if (githubAccess.repositoryName !== args.expectedRepositoryName) {
+    await ctx.runMutation(internal.vault.records.refreshGitHubRepositoryNameForProvisioningRun, {
+      runId: args.runId,
+      userId: args.userId,
+      vaultId: args.vaultId,
+      expectedGhRepoId: args.ghRepoId,
+      expectedGithubOwnerId: access.githubOwnerId,
+      expectedRepositoryName: args.expectedRepositoryName,
+      repositoryName: githubAccess.repositoryName,
+    });
+  }
+  return githubAccess;
+}
+
 export async function resolveGitHubVaultAccess(
   ctx: Pick<ActionCtx, "runQuery" | "runMutation">,
   args: {

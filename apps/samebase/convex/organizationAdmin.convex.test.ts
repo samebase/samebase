@@ -469,6 +469,85 @@ describe("organization deletion", () => {
     ).rejects.toThrow("Finish organization vault cleanup before deletion.");
   });
 
+  it("requires successful recovery before deleting historical failed runs", async () => {
+    const t = makeConvexTest();
+    const seed = await seedDeletableOrganization(t, "failed-vault-removal");
+    const { failedRunId, vaultId } = await t.run(async (ctx) => {
+      const vaultId = await ctx.db.insert("vaults", {
+        state: "not_connected",
+        organizationId: seed.organizationId,
+        convexTeamId: "convex-team",
+        cloudflareAccountId: "cloudflare-account",
+        deletion: { state: "not_deleting" },
+      });
+      const failedRunId = await ctx.db.insert("workflow_vaultDeletion_runs", {
+        state: "failed",
+        organizationId: seed.organizationId,
+        userId: seed.ownerId,
+        vaultId,
+        repositoryFullName: "organization-failed-vault-removal/old-vault",
+        createdAt: 1,
+        updatedAt: 2,
+        attempt: { kind: "initial" },
+        workflow: { state: "started", workflowId: "failed-vault-deletion" },
+        currentStep: "delete_github_repo",
+        snapshot: {
+          state: "retained_for_retry",
+          plan: {
+            target: {
+              kind: "samebase_managed_repository",
+              ghRepoId: "failed-repository",
+              owner: "organization-failed-vault-removal",
+              name: "old-vault",
+              repositoryFullName: "organization-failed-vault-removal/old-vault",
+            },
+            convex: { action: "skip", reason: "not_requested" },
+            cloudflare: { action: "skip", reason: "not_requested" },
+            githubRepository: { action: "skip", reason: "not_requested" },
+          },
+        },
+        lastError: "GitHub App installation cannot access the vault repository.",
+        completedAt: 2,
+      });
+      await ctx.db.delete(vaultId);
+      return { failedRunId, vaultId };
+    });
+
+    await expect(
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
+        organizationId: seed.organizationId,
+        deletionConfirmationText: "organization-failed-vault-removal",
+      }),
+    ).rejects.toThrow("Finish organization vault cleanup before deletion.");
+
+    await t.run(async (ctx) => {
+      await ctx.db.insert("workflow_vaultDeletion_runs", {
+        state: "succeeded",
+        organizationId: seed.organizationId,
+        userId: seed.ownerId,
+        vaultId,
+        repositoryFullName: "organization-failed-vault-removal/old-vault",
+        createdAt: 3,
+        updatedAt: 4,
+        attempt: { kind: "retry", retryOf: failedRunId },
+        workflow: { state: "started", workflowId: "samebase-only-vault-removal" },
+        currentStep: "finish",
+        snapshot: { state: "scrubbed_after_success" },
+        completedAt: 4,
+      });
+    });
+
+    await expect(
+      seed.asOwner.mutation(api.organizations.deleteOrganization, {
+        organizationId: seed.organizationId,
+        deletionConfirmationText: "organization-failed-vault-removal",
+      }),
+    ).resolves.toBeNull();
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("workflow_vaultDeletion_runs").collect()),
+    ).resolves.toEqual([]);
+  });
+
   it("rejects excessive completed vault deletion history without asking for more cleanup", async () => {
     const t = makeConvexTest();
     const seed = await seedDeletableOrganization(t, "deletion-history");

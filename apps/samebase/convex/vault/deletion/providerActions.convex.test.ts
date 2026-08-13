@@ -3,7 +3,7 @@ import { RequestError } from "@octokit/request-error";
 
 const githubMocks = vi.hoisted(() => ({
   createInstallationOctokit: vi.fn(),
-  loadInstallationAccess: vi.fn(),
+  resolveDeletionAccess: vi.fn(),
   resolveRepositoryIdentity: vi.fn(),
   deleteRepository: vi.fn(),
 }));
@@ -20,7 +20,7 @@ vi.mock("../../githubAppAccess", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../githubAppAccess")>();
   return {
     ...actual,
-    loadGitHubAppInstallationAccess: githubMocks.loadInstallationAccess,
+    resolveGitHubAppAccessForVaultDeletionRun: githubMocks.resolveDeletionAccess,
   };
 });
 
@@ -39,6 +39,7 @@ async function seedGitHubRepositoryDeletionRun() {
   const t = makeConvexTest();
   const runId = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
+      state: "active",
       email: "github-repository-deletion@example.invalid",
       isApproved: true,
     });
@@ -49,6 +50,11 @@ async function seedGitHubRepositoryDeletionRun() {
       githubOwnerLogin: "before-rename",
       githubOwnerLoginNormalized: "before-rename",
     });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       convexTeamId: "convex-team",
@@ -56,7 +62,7 @@ async function seedGitHubRepositoryDeletionRun() {
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
-    return await ctx.db.insert("workflow_vaultDeletion_runs", {
+    const runId = await ctx.db.insert("workflow_vaultDeletion_runs", {
       state: "running",
       organizationId,
       userId,
@@ -88,13 +94,17 @@ async function seedGitHubRepositoryDeletionRun() {
         },
       },
     });
+    await ctx.db.patch(vaultId, {
+      deletion: { state: "deleting", runId, requestedAt: 1 },
+    });
+    return runId;
   });
   return { runId, t };
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  githubMocks.loadInstallationAccess.mockResolvedValue({
+  githubMocks.resolveDeletionAccess.mockResolvedValue({
     githubInstallationId: "1001",
     githubOwnerId: "101",
     githubOwnerLogin: "before-rename",
@@ -147,7 +157,7 @@ describe("retained GitHub repository deletion", () => {
 
   it("uses the current owner login after verified reconnect", async () => {
     const { runId, t } = await seedGitHubRepositoryDeletionRun();
-    githubMocks.loadInstallationAccess.mockResolvedValueOnce({
+    githubMocks.resolveDeletionAccess.mockResolvedValueOnce({
       githubInstallationId: "1001",
       githubOwnerId: "101",
       githubOwnerLogin: "after-rename",

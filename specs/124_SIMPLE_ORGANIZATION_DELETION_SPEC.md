@@ -20,7 +20,8 @@ The mutation accepts deletion only when all these conditions are true:
 - Billing is `free` and `inactive`, with no pending or open checkout. A Polar Customer ID retained
   after a Pro subscription ends does not block deletion.
 - No provisioning data remains.
-- Every retained vault deletion run succeeded.
+- No queued or running vault deletion run remains. Each historical failed attempt has a linked
+  successful retry that removed the vault, including an explicit Samebase-only recovery.
 
 The owner resolves a failed condition and tries the mutation again. There is no organization
 deletion state, queue, retry service, or status page.
@@ -37,7 +38,7 @@ The mutation deletes these Samebase records in one Convex transaction:
 - Invitations, provider credentials, and provider OAuth callback state.
 - GitHub App setup state linked to the organization.
 - Organization folder and tree preferences.
-- Successful vault deletion runs and their events.
+- Retained vault deletion runs and their events.
 
 If any read or write fails, Convex rolls back the transaction. The mutation does not report success
 after a partial local deletion.

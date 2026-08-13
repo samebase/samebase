@@ -2,35 +2,22 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const githubMocks = vi.hoisted(() => ({
   createForAuthenticatedUser: vi.fn(),
-  createScopedOctokit: vi.fn(),
   getBranch: vi.fn(),
   getRepository: vi.fn(),
-  resolveInitializingAccess: vi.fn(),
-  resolveRepositoryIdentity: vi.fn(),
-  resolveUserOctokit: vi.fn(),
+  getTree: vi.fn(),
+  resolveAppAccess: vi.fn(),
+  resolveRepositoryAccess: vi.fn(),
+  resolveVaultAccessForProvisioningRun: vi.fn(),
+  resolveUserOctokitForProvisioningRun: vi.fn(),
 }));
-
-vi.mock("./githubApp", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./githubApp")>();
-  return {
-    ...actual,
-    createGitHubRepositoriesInstallationOctokit: githubMocks.createScopedOctokit,
-  };
-});
 
 vi.mock("./githubAppAccess", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./githubAppAccess")>();
   return {
     ...actual,
-    resolveInitializingVaultGitHubAppAccess: githubMocks.resolveInitializingAccess,
-  };
-});
-
-vi.mock("./githubRepoApi", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("./githubRepoApi")>();
-  return {
-    ...actual,
-    resolveGitHubInstallationRepositoryIdentity: githubMocks.resolveRepositoryIdentity,
+    resolveGitHubAppAccessForProvisioningRun: githubMocks.resolveAppAccess,
+    resolveGitHubRepositoryAccess: githubMocks.resolveRepositoryAccess,
+    resolveGitHubVaultAccessForProvisioningRun: githubMocks.resolveVaultAccessForProvisioningRun,
   };
 });
 
@@ -38,7 +25,7 @@ vi.mock("./githubUserAuthorizations", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./githubUserAuthorizations")>();
   return {
     ...actual,
-    resolveGitHubUserOctokit: githubMocks.resolveUserOctokit,
+    resolveGitHubUserOctokitForProvisioningRun: githubMocks.resolveUserOctokitForProvisioningRun,
   };
 });
 
@@ -49,6 +36,7 @@ async function createExistingRepositoryRun() {
   const t = makeConvexTest();
   const { organizationId, userId } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
+      state: "active",
       email: "existing-repository@example.invalid",
       isApproved: true,
     });
@@ -69,6 +57,11 @@ async function createExistingRepositoryRun() {
       userId,
       role: "owner",
     });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
     return { organizationId, userId };
   });
   const { runId, vaultId } = await t.mutation(
@@ -87,6 +80,7 @@ async function createManagedRepositoryRun() {
   const t = makeConvexTest();
   const { organizationId, runId, userId, vaultId } = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
+      state: "active",
       email: "managed-repository@example.invalid",
       isApproved: true,
     });
@@ -107,6 +101,11 @@ async function createManagedRepositoryRun() {
       userId,
       role: "owner",
     });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       convexTeamId: "convex-team",
@@ -115,6 +114,7 @@ async function createManagedRepositoryRun() {
       state: "not_connected",
     });
     const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+      organizationId,
       userId,
       vaultId,
       repositoryFullName: "before-owner/managed-repository",
@@ -143,30 +143,47 @@ async function createManagedRepositoryRun() {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  githubMocks.createScopedOctokit.mockResolvedValue({
-    rest: {
-      repos: {
-        get: githubMocks.getRepository,
-        getBranch: githubMocks.getBranch,
-      },
-    },
-  });
-  githubMocks.resolveInitializingAccess.mockResolvedValue({
+  githubMocks.resolveAppAccess.mockResolvedValue({
     organizationId: "organization-id",
     githubInstallationId: "1001",
     githubOwnerId: "1",
     githubOwnerLogin: "before-owner",
     githubOwnerType: "user",
   });
-  githubMocks.resolveUserOctokit.mockResolvedValue({
-    rest: { repos: { createForAuthenticatedUser: githubMocks.createForAuthenticatedUser } },
-  });
-  githubMocks.resolveRepositoryIdentity.mockResolvedValue({
-    repositoryId: "1296269",
-    ownerId: "1",
-    ownerLogin: "listed-owner",
+  githubMocks.resolveRepositoryAccess.mockResolvedValue({
+    octokit: {
+      rest: {
+        repos: {
+          get: githubMocks.getRepository,
+          getBranch: githubMocks.getBranch,
+        },
+        git: { getTree: githubMocks.getTree },
+      },
+    },
+    ghRepoId: "1296269",
+    githubOwnerId: "1",
+    githubOwnerLogin: "listed-owner",
     repositoryName: "listed-repository",
-    defaultBranch: "listed-branch",
+    repositoryDefaultBranch: "listed-branch",
+  });
+  githubMocks.resolveVaultAccessForProvisioningRun.mockResolvedValue({
+    octokit: {
+      rest: {
+        repos: {
+          get: githubMocks.getRepository,
+          getBranch: githubMocks.getBranch,
+        },
+        git: { getTree: githubMocks.getTree },
+      },
+    },
+    ghRepoId: "1296269",
+    githubOwnerId: "1",
+    githubOwnerLogin: "listed-owner",
+    repositoryName: "listed-repository",
+    repositoryDefaultBranch: "listed-branch",
+  });
+  githubMocks.resolveUserOctokitForProvisioningRun.mockResolvedValue({
+    rest: { repos: { createForAuthenticatedUser: githubMocks.createForAuthenticatedUser } },
   });
   // Subset of GitHub's official GET /repos/{owner}/{repo} response example.
   // https://docs.github.com/en/rest/repos/repos#get-a-repository
@@ -180,6 +197,7 @@ beforeEach(() => {
     },
   });
   githubMocks.getBranch.mockResolvedValue({ data: { name: "master" } });
+  githubMocks.getTree.mockResolvedValue({ data: { sha: "tree-sha", tree: [], truncated: false } });
   // Subset of GitHub's official POST /user/repos response example.
   // https://docs.github.com/en/rest/repos/repos#create-a-repository-for-the-authenticated-user
   githubMocks.createForAuthenticatedUser.mockResolvedValue({
@@ -245,10 +263,15 @@ describe("Samebase-managed GitHub repository creation", () => {
       ghRepoId: "1296269",
       name: "managed-repository",
     });
-    expect(githubMocks.resolveUserOctokit).toHaveBeenCalledWith(expect.any(Object), {
-      userId,
-      githubUserId: "1",
-    });
+    expect(githubMocks.resolveUserOctokitForProvisioningRun).toHaveBeenCalledWith(
+      expect.any(Object),
+      {
+        runId,
+        userId,
+        vaultId,
+        githubUserId: "1",
+      },
+    );
   });
 
   it("requires reconnect if the organization owner login changes before finalization", async () => {
@@ -418,12 +441,17 @@ describe("existing GitHub repository discovery", () => {
       vault: { name: "newest-repository" },
     });
 
-    expect(githubMocks.createScopedOctokit).toHaveBeenCalledTimes(1);
-    expect(githubMocks.createScopedOctokit).toHaveBeenNthCalledWith(1, "1001", ["1296269"]);
-    expect(githubMocks.resolveRepositoryIdentity).toHaveBeenNthCalledWith(1, {
-      octokit: expect.any(Object),
-      expectedRepoId: "1296269",
-      expectedOwnerId: "1",
+    expect(githubMocks.resolveAppAccess).toHaveBeenCalledWith(expect.any(Object), {
+      runId,
+      userId,
+      vaultId,
+    });
+    expect(githubMocks.resolveRepositoryAccess).toHaveBeenCalledWith({
+      access: expect.objectContaining({
+        githubInstallationId: "1001",
+        githubOwnerId: "1",
+      }),
+      ghRepoId: "1296269",
     });
     expect(githubMocks.getRepository).toHaveBeenNthCalledWith(1, {
       owner: "listed-owner",
@@ -439,9 +467,62 @@ describe("existing GitHub repository discovery", () => {
     });
   });
 
+  it("uses workflow-authorized stable access for connected provisioning reads", async () => {
+    const { runId, t, userId, vaultId } = await createExistingRepositoryRun();
+    const repository = await t.action(
+      internal.appProvisioningWorkflowActions.fetchExistingGitHubRepository,
+      {
+        runId,
+        userId,
+        vaultId,
+        ghRepoId: "1296269",
+        githubOwnerId: "1",
+      },
+    );
+    await t.action(internal.appProvisioningWorkflowActions.connectExistingRepositoryVault, {
+      runId,
+      userId,
+      vaultId,
+      ghRepoId: repository.ghRepoId,
+      githubOwnerId: "1",
+      expectedGithubOwnerLogin: "before-owner",
+      expectedRepositoryName: "before-repository",
+      ownerName: repository.ownerName,
+      repoName: repository.repoName,
+      defaultBranch: repository.defaultBranch,
+      visibility: repository.visibility,
+    });
+    githubMocks.resolveVaultAccessForProvisioningRun.mockClear();
+
+    githubMocks.getBranch.mockResolvedValueOnce({
+      data: {
+        commit: {
+          sha: "commit-sha",
+          commit: { tree: { sha: "tree-sha" } },
+        },
+      },
+    });
+    await t.action(internal.appProvisioningWorkflowActions.syncVaultTreeForRepository, {
+      runId,
+      userId,
+      vaultId,
+    });
+
+    expect(githubMocks.resolveVaultAccessForProvisioningRun).toHaveBeenCalledWith(
+      expect.any(Object),
+      {
+        runId,
+        userId,
+        vaultId,
+        ghRepoId: "1296269",
+        expectedRepositoryName: "after-repository",
+      },
+    );
+  });
+
   it("stops before mutable-coordinate reads when stable owner verification fails", async () => {
     const { runId, t, userId, vaultId } = await createExistingRepositoryRun();
-    githubMocks.resolveRepositoryIdentity.mockRejectedValueOnce(
+    githubMocks.resolveRepositoryAccess.mockRejectedValueOnce(
       new Error(
         "GitHub repository owner changed. Remove this vault and connect the repository under its current owner.",
       ),

@@ -8,10 +8,12 @@ describe("refreshRepositoryTree authorization", () => {
     const t = makeConvexTest();
     const { outsiderId, vaultId } = await t.run(async (ctx) => {
       const ownerId = await ctx.db.insert("users", {
+        state: "active",
         email: "tree-owner@example.invalid",
         isApproved: true,
       });
       const outsiderId = await ctx.db.insert("users", {
+        state: "active",
         email: "tree-outsider@example.invalid",
         isApproved: true,
       });
@@ -27,6 +29,11 @@ describe("refreshRepositoryTree authorization", () => {
         userId: ownerId,
         role: "owner",
       });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
+      });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,
         convexTeamId: "convex-team",
@@ -35,6 +42,7 @@ describe("refreshRepositoryTree authorization", () => {
         state: "not_connected",
       });
       const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
+        organizationId,
         userId: ownerId,
         vaultId,
         repositoryFullName: "tree-owner/repository",
@@ -86,6 +94,7 @@ describe("refreshRepositoryTree authorization", () => {
     const t = makeConvexTest();
     const { userId, vaultId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
+        state: "active",
         email: "tree-member@example.invalid",
         isApproved: true,
       });
@@ -100,6 +109,11 @@ describe("refreshRepositoryTree authorization", () => {
         organizationId,
         userId,
         role: "owner",
+      });
+      await ctx.db.insert("organizationBillingAccounts", {
+        organizationId,
+        plan: "free",
+        status: "inactive",
       });
       const vaultId = await ctx.db.insert("vaults", {
         organizationId,

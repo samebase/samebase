@@ -120,6 +120,7 @@ async function createSidebarFixture() {
   const t = makeConvexTest();
   const userId = await t.run(async (ctx) => {
     return await ctx.db.insert("users", {
+      state: "active",
       email: "github-sidebar@example.com",
       isApproved: true,
     });
