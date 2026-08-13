@@ -214,7 +214,9 @@ function VaultRow({
               <span className="@max-[200px]:hidden">
                 {workerCount > 0 ? (
                   <span aria-label={workerLabel} className="inline-flex" title={workerLabel}>
-                    {" · "}
+                    <span aria-hidden="true" className="mx-1">
+                      ·
+                    </span>
                     {workerCount}
                     <span className="ml-1 inline-flex h-3 w-4 items-center justify-center">
                       <CloudflareProviderLogo />
@@ -227,16 +229,23 @@ function VaultRow({
                     className="inline-flex"
                     title={convexProjectLabel}
                   >
-                    {" · "}
+                    <span aria-hidden="true" className="mx-1">
+                      ·
+                    </span>
                     {convexProjectCount}
                     <span className="ml-1 inline-flex h-3 w-4 items-center justify-center">
                       <ConvexProviderLogo />
                     </span>
                   </span>
                 ) : null}
-                {pullRequestCount
-                  ? ` · ${pullRequestCount} ${pullRequestCount === 1 ? "PR" : "PRs"}`
-                  : null}
+                {pullRequestCount ? (
+                  <span className="inline-flex">
+                    <span aria-hidden="true" className="mx-1">
+                      ·
+                    </span>
+                    {pullRequestCount} {pullRequestCount === 1 ? "PR" : "PRs"}
+                  </span>
+                ) : null}
               </span>
             ) : null}
           </span>
