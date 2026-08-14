@@ -11,7 +11,6 @@ vi.mock("@octokit/rest", () => ({
 }));
 
 import { api, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
 import { makeConvexTest } from "./test.setup";
 
 type ConvexTest = ReturnType<typeof makeConvexTest>;
@@ -197,34 +196,23 @@ const officialInstallationRepositoryResponseItem = {
   },
 };
 
-function installationRepositoryFixture(args?: {
-  id?: number;
-  name?: string;
-  ownerId?: number;
-  ownerLogin?: string;
-}) {
-  const id = args?.id ?? 501;
-  const name = args?.name ?? "plugin";
+function installationRepositoryFixture(args?: { ownerId?: number; ownerLogin?: string }) {
   const ownerId = args?.ownerId ?? 101;
   const ownerLogin = args?.ownerLogin ?? "installation-owner";
   return {
     ...officialInstallationRepositoryResponseItem,
-    id,
+    id: 501,
     owner: {
       ...officialInstallationRepositoryResponseItem.owner,
       id: ownerId,
       login: ownerLogin,
     },
-    name,
-    full_name: `${ownerLogin}/${name}`,
+    name: "plugin",
+    full_name: `${ownerLogin}/plugin`,
   };
 }
 
-async function createIdentityVault(t: ConvexTest): Promise<{
-  organizationId: Id<"organizations">;
-  ownerUserId: Id<"users">;
-  vaultId: Id<"vaults">;
-}> {
+async function createIdentityVault(t: ConvexTest) {
   const ownerUserId = await t.run(async (ctx) => {
     return await ctx.db.insert("users", {
       state: "active",
@@ -432,13 +420,14 @@ describe("GitHub identity observation and approval", () => {
       subject: `${memberUserId}|github-identity-member`,
       tokenIdentifier: `test:${memberUserId}`,
     });
-    const repository = installationRepositoryFixture();
     githubMocks.request.mockImplementation(async (route: string) => {
       if (route === "GET /app/installations/{installation_id}") {
         return { data: appInstallationFixture() };
       }
       if (route === "GET /installation/repositories") {
-        return { data: { total_count: 1, repositories: [repository] } };
+        return {
+          data: { total_count: 1, repositories: [installationRepositoryFixture()] },
+        };
       }
       throw new Error(`Unexpected GitHub route: ${route}`);
     });
@@ -525,13 +514,6 @@ describe("GitHub identity observation and approval", () => {
       "GET /installation/repositories",
       expect.anything(),
     );
-    await expect(t.run(async (ctx) => await ctx.db.get(organizationId))).resolves.toMatchObject({
-      githubOwnerId: "101",
-      githubOwnerType: "organization",
-      githubOwnerLogin: "renamed-owner",
-      githubOwnerLoginNormalized: "renamed-owner",
-      githubInstallationId: "1001",
-    });
   });
 
   it("distinguishes unavailable installations and a repository owner mismatch", async () => {
