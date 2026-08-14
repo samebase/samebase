@@ -292,7 +292,10 @@ function parseGitHubInstallation(value: unknown) {
   } as const;
 }
 
-export async function readGitHubAppInstallation(installationId: string) {
+export async function readGitHubAppInstallation(
+  installationId: string,
+  options?: { allowSuspended: boolean },
+) {
   const configuration = getGitHubAppConfiguration();
   const expectedInstallationId = requirePositiveSafeInteger(
     installationId,
@@ -309,7 +312,7 @@ export async function readGitHubAppInstallation(installationId: string) {
   ) {
     throw new Error("GitHub App installation verification did not match this App.");
   }
-  if (installation.suspended) {
+  if (installation.suspended && !options?.allowSuspended) {
     throw new Error("The GitHub App installation is suspended.");
   }
   return installation;

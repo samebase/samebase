@@ -861,6 +861,7 @@ describe("MCP tools/call access enforcement", () => {
     await t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
       userId,
       organizationId,
+      ghRepoId: "mcp-existing-app-id",
       ghRepoOwner: "samebase",
       ghRepoName: "existing-app",
     });

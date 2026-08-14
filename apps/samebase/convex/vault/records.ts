@@ -14,7 +14,9 @@ import {
   listOrganizationIdsForUser,
   requireActiveOrganizationActor,
   requireOrganizationAccessContext,
+  requireOrganizationOwnerAccessContext,
 } from "../organizationAccess";
+import { vGitHubAppInstallationAccess } from "../githubAppAccess";
 import {
   parseRepositoryFullName,
   vGitHubRepositoryVisibility,
@@ -66,6 +68,163 @@ export const getByIdForUser = internalQuery({
 const vVaultProviderTargets = object({
   convexTeamId: string(),
   cloudflareAccountId: string(),
+});
+
+const vGitHubIdentityConnectedVault = object({
+  vaultId: id("vaults"),
+  ghRepoId: string(),
+  name: string(),
+});
+
+const vGitHubIdentityOccupiedVault = object({
+  vaultId: id("vaults"),
+  name: string(),
+});
+
+const vGitHubIdentityObservationTarget = object({
+  connectedVaults: array(vGitHubIdentityConnectedVault),
+  occupiedVaults: array(vGitHubIdentityOccupiedVault),
+});
+
+export const getGitHubIdentityObservationVaults = internalQuery({
+  args: {
+    userId: id("users"),
+    organizationId: id("organizations"),
+  },
+  returns: vGitHubIdentityObservationTarget,
+  handler: async (ctx, args) => {
+    await requireOrganizationAccessContext(ctx.db, args);
+    const connectedVaults = [];
+    const occupiedVaults = [];
+    for await (const vault of ctx.db
+      .query("vaults")
+      .withIndex("by_organization", (query) => query.eq("organizationId", args.organizationId))) {
+      if (vault.state !== "not_connected") {
+        occupiedVaults.push({ vaultId: vault._id, name: vault.name });
+      }
+      if (isConnectedVault(vault)) {
+        connectedVaults.push({
+          vaultId: vault._id,
+          ghRepoId: vault.ghRepoId,
+          name: vault.name,
+        });
+      }
+    }
+
+    connectedVaults.sort((left, right) => left.vaultId.localeCompare(right.vaultId));
+    occupiedVaults.sort((left, right) => left.vaultId.localeCompare(right.vaultId));
+    return {
+      connectedVaults,
+      occupiedVaults,
+    };
+  },
+});
+
+const vGitHubRepositoryNameUpdateTarget = object({
+  organization: vGitHubAppInstallationAccess,
+  vault: vGitHubIdentityConnectedVault,
+});
+
+export const getGitHubRepositoryNameUpdateTargetForUser = internalQuery({
+  args: {
+    userId: id("users"),
+    vaultId: id("vaults"),
+  },
+  returns: vGitHubRepositoryNameUpdateTarget,
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isConnectedVault(vault)) {
+      throw new Error("Connected vault not found.");
+    }
+    await requireOrganizationOwnerAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
+    const organization = await ctx.db.get(vault.organizationId);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+
+    return {
+      organization: {
+        organizationId: organization._id,
+        githubOwnerId: organization.githubOwnerId,
+        githubOwnerType: organization.githubOwnerType,
+        githubOwnerLogin: organization.githubOwnerLogin,
+        githubInstallationId: organization.githubInstallationId,
+      },
+      vault: {
+        vaultId: vault._id,
+        ghRepoId: vault.ghRepoId,
+        name: vault.name,
+      },
+    };
+  },
+});
+
+export const updateGitHubRepositoryNameForUser = internalMutation({
+  args: {
+    userId: id("users"),
+    vaultId: id("vaults"),
+    ghRepoId: string(),
+    githubOwnerId: string(),
+    expectedStoredName: string(),
+    repositoryName: string(),
+  },
+  returns: object({
+    githubOwnerLogin: string(),
+    repositoryName: string(),
+  }),
+  handler: async (ctx, args) => {
+    const vault = await ctx.db.get(args.vaultId);
+    if (!isConnectedVault(vault)) {
+      throw new Error("Connected vault not found.");
+    }
+    if (vault.ghRepoId !== args.ghRepoId) {
+      throw new Error("GitHub repository identity changed before the name update.");
+    }
+    await requireOrganizationOwnerAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: vault.organizationId,
+    });
+    const organization = await ctx.db.get(vault.organizationId);
+    if (organization === null || organization.githubOwnerId !== args.githubOwnerId) {
+      throw new Error("GitHub owner identity changed before the name update.");
+    }
+
+    const repositoryName = args.repositoryName.trim();
+    if (repositoryName.length === 0) {
+      throw new Error("GitHub repository name is required.");
+    }
+    if (vault.name === repositoryName) {
+      return {
+        githubOwnerLogin: organization.githubOwnerLogin,
+        repositoryName,
+      };
+    }
+    if (vault.name !== args.expectedStoredName) {
+      throw new Error("Vault name changed before the GitHub name update.");
+    }
+
+    const normalizedName = normalizeGitHubRepositoryCoordinate(repositoryName);
+    for await (const occupiedVault of ctx.db
+      .query("vaults")
+      .withIndex("by_organization", (query) => query.eq("organizationId", organization._id))) {
+      if (
+        occupiedVault._id !== vault._id &&
+        occupiedVault.state !== "not_connected" &&
+        normalizeGitHubRepositoryCoordinate(occupiedVault.name) === normalizedName
+      ) {
+        throw new Error("Vault already exists for this repository name.");
+      }
+    }
+
+    await ctx.db.patch(vault._id, { name: repositoryName });
+    return {
+      githubOwnerLogin: organization.githubOwnerLogin,
+      repositoryName,
+    };
+  },
 });
 
 export const getProviderTargetsForProvisioningRun = internalQuery({
@@ -226,6 +385,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
   args: {
     userId: id("users"),
     organizationId: id("organizations"),
+    ghRepoId: string(),
     ghRepoOwner: string(),
     ghRepoName: string(),
   },
@@ -248,8 +408,9 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       throw new Error("Account deletion is in progress.");
     }
     const requestedOwner = args.ghRepoOwner.trim();
+    const ghRepoId = args.ghRepoId.trim();
     const name = args.ghRepoName.trim();
-    if (!requestedOwner || !name) {
+    if (!requestedOwner || !ghRepoId || !name) {
       throw new Error("Invalid repository full name");
     }
     const organization = await requireOrganizationRepositoryOwner(ctx, {
@@ -263,6 +424,13 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       organizationId: organization._id,
       name,
     });
+    const existingVault = await ctx.db
+      .query("vaults")
+      .withIndex("by_ghRepoId", (query) => query.eq("ghRepoId", ghRepoId))
+      .unique();
+    if (existingVault !== null) {
+      throw new Error("Vault already exists for this GitHub repository.");
+    }
     await requireBillingResourceCapacity(ctx, {
       organizationId: organization._id,
       userId: args.userId,
@@ -299,6 +467,7 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       githubMode: "connect_existing_repository",
       runId,
       startedAt: now,
+      ghRepoId,
       name,
     });
     await ctx.db.insert("workflow_vaultProvisioning_events", {
@@ -667,6 +836,7 @@ export const markGithubProvisioningFailed = internalMutation({
       state: "failed",
       githubMode: "connect_existing_repository",
       runId: args.runId,
+      ghRepoId: vault.ghRepoId,
       name: vault.name,
       failedAt: Date.now(),
     });

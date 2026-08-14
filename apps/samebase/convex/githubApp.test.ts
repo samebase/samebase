@@ -207,6 +207,24 @@ describe("GitHub App installation verification", () => {
     );
   });
 
+  it("can report a suspended installation without treating it as active", async () => {
+    const suspendedInstallation = {
+      ...installation(),
+      suspended_at: "2026-08-14T10:00:00Z",
+    };
+    githubMocks.request.mockResolvedValue({ data: suspendedInstallation });
+
+    await expect(readGitHubAppInstallation("1001")).rejects.toThrow(
+      "The GitHub App installation is suspended.",
+    );
+    await expect(
+      readGitHubAppInstallation("1001", { allowSuspended: true }),
+    ).resolves.toMatchObject({
+      installationId: "1001",
+      suspended: true,
+    });
+  });
+
   it("discovers only the preview user's personal and active admin installations", async () => {
     process.env["GITHUB_APP_ID"] = "1";
     const adminMembership = organizationMembershipFixture();

@@ -134,11 +134,12 @@ describe("normalizeGitHubRepositoryListItem", () => {
       stargazers_count: 0,
       forks_count: 0,
       allow_forking: true,
-      owner: { login: "samebase" },
+      owner: { id: 285392744, login: "samebase" },
     });
 
     expect(normalized).toEqual({
       id: 1021726325,
+      owner: { id: 285392744, login: "samebase" },
       name: "samebase",
       full_name: "samebase/samebase",
       html_url: "https://github.com/samebase/samebase",
@@ -151,6 +152,32 @@ describe("normalizeGitHubRepositoryListItem", () => {
       stargazers_count: 0,
       forks_count: 0,
     });
+  });
+
+  it("rejects repository and owner IDs that are not positive safe integers", () => {
+    const repository = {
+      id: 1021726325,
+      owner: { id: 285392744, login: "samebase" },
+      name: "samebase",
+      full_name: "samebase/samebase",
+      html_url: "https://github.com/samebase/samebase",
+      description: null,
+      private: true,
+      fork: false,
+      created_at: "2025-07-17T21:10:37Z",
+      updated_at: "2026-03-08T12:43:20Z",
+      language: "TypeScript",
+      stargazers_count: 0,
+      forks_count: 0,
+    };
+
+    expect(normalizeGitHubRepositoryListItem({ ...repository, id: 0 })).toBeNull();
+    expect(
+      normalizeGitHubRepositoryListItem({
+        ...repository,
+        owner: { ...repository.owner, id: Number.MAX_SAFE_INTEGER + 1 },
+      }),
+    ).toBeNull();
   });
 });
 

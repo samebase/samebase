@@ -12,6 +12,7 @@ const repositories = [
   {
     id: 1,
     name: "app",
+    owner: { id: 10, login: "acme" },
     full_name: "acme/app",
     html_url: "https://github.com/acme/app",
     description: null,
@@ -26,6 +27,7 @@ const repositories = [
   {
     id: 2,
     name: "docs",
+    owner: { id: 10, login: "acme" },
     full_name: "acme/docs",
     html_url: "https://github.com/acme/docs",
     description: null,

@@ -648,12 +648,14 @@ export async function connectRepositoryForUser(
   });
   const owner = repository.data.owner.login;
   const name = repository.data.name;
+  const ghRepoId = String(repository.data.id);
 
   const { vaultId, runId } = await ctx.runMutation(
     internal.vault.records.createInitializingExistingRepositoryVaultForUser,
     {
       userId,
       organizationId: access.organizationId,
+      ghRepoId,
       ghRepoOwner: owner,
       ghRepoName: name,
     },
