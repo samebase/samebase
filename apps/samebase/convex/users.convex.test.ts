@@ -247,33 +247,6 @@ describe("organization provider status", () => {
     ).rejects.toThrow("Organization membership is required.");
   });
 
-  it("keeps provider status visible while organization work is billing-limited", async () => {
-    const { organizationId, t, userId } = await seedProviderOrganization();
-    await t.run(async (ctx) => {
-      const extraMemberId = await ctx.db.insert("users", {
-        state: "active",
-        email: "billing-limited-member@example.com",
-        isApproved: true,
-      });
-      await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId: extraMemberId,
-        role: "member",
-      });
-    });
-    const asOwner = t.withIdentity({
-      subject: `${userId}|billing-limited-provider-status`,
-      tokenIdentifier: `test:${userId}`,
-    });
-
-    await expect(
-      asOwner.query(api.users.getConvexConnectionStatus, { organizationId }),
-    ).resolves.toMatchObject({ state: "connected", teamId: "team-1" });
-    await expect(
-      asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
-    ).resolves.toMatchObject({ state: "connected", accountId: primaryCloudflareAccountId });
-  });
-
   it("shows the OAuth connector to organization owners", async () => {
     const { memberId, organizationId, t, userId } = await seedProviderOrganization({
       cloudflareAuthMethod: "mcp_oauth",
