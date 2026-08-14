@@ -21,9 +21,9 @@ describe("buildMcpProtectedResourceMetadata", () => {
     expect(metadata.bearer_methods_supported).toEqual(["header"]);
     expect(metadata.scopes_supported).toEqual([
       "access_dashboard",
+      "access_provider_connections",
       "access_app_create",
       "access_repo_connect",
-      "access_provider_connections",
       "access_browser_login_handoff",
     ]);
   });
