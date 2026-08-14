@@ -11,6 +11,7 @@ export const cloudflareConfigureWorkersBuildsForGitHubContract = {
     vaultId: id("vaults"),
     workerId: id("vaultCloudflareWorkers"),
     rootDirectory: string(),
+    buildTokenUuid: string(),
   },
   returns: v.null(),
   mcp: {
@@ -28,6 +29,7 @@ export const cloudflareConfigureWorkersBuildsForGitHubContract = {
       vaultId: "Samebase vault id containing the Worker.",
       workerId: "Stable Samebase Worker attachment id returned by get_user_vaults.",
       rootDirectory: "Repository root to write to this Worker's GitHub Builds triggers.",
+      buildTokenUuid: "Workers Builds token UUID returned by cloudflare_listWorkersBuildTokens.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Configures the production and preview Workers Builds triggers for an attached Worker,

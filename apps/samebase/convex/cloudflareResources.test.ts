@@ -17,6 +17,7 @@ import {
   isCloudflareMcpInvalidAccessTokenError,
   isCloudflareWorkerNotFoundError,
   isWorkersBuildsInvalidTokenMessage,
+  listCloudflareBuildTokens,
   listCloudflareWorkerInventory,
   readCloudflareWorkerBuildsDiscoveryForIdentity,
   readRecentCloudflareWorkerBuilds,
@@ -25,8 +26,6 @@ import {
   readCloudflareWorkerRepositoryDiscoveryForIdentity,
   readCloudflareWorkerTag,
   readCloudflareWorkerVersionsPage,
-  selectCurrentBuildTokenUuid,
-  selectReusableBuildTokenUuid,
   rotateConvexDeployKeysForCloudflareWorkerBuilds,
   configureCloudflareWorkerBuildsForGitHub,
 } from "./cloudflareResources";
@@ -130,6 +129,7 @@ function buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(): Parameters<
     cloudflareToken: "oauth-token",
     cloudflareAuthMethod: "oauth",
     accountId: "account-id",
+    buildTokenUuid: "reusable-build-token",
     buildConfig: {
       rootDir: ".",
       buildCommand: "pnpm build",
@@ -674,6 +674,8 @@ describe("cloudflare resources", () => {
         state: "connected",
         productionTriggerUuid: "production-trigger",
         previewTriggerUuid: "preview-trigger",
+        productionBuildTokenUuid: "build-token",
+        previewBuildTokenUuid: "build-token",
       },
     });
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
@@ -890,6 +892,24 @@ describe("cloudflare resources", () => {
       },
     });
     expect(
+      requests
+        .filter(
+          (request) =>
+            request.method === "POST" &&
+            request.path === "/client/v4/accounts/account-id/builds/triggers",
+        )
+        .map((request) => request.body),
+    ).toEqual([
+      expect.objectContaining({
+        trigger_name: "Production Deploy",
+        build_token_uuid: "reusable-build-token",
+      }),
+      expect.objectContaining({
+        trigger_name: "Preview Deploy",
+        build_token_uuid: "reusable-build-token",
+      }),
+    ]);
+    expect(
       requests.find(
         (request) =>
           request.method === "POST" &&
@@ -901,6 +921,33 @@ describe("cloudflare resources", () => {
       commit_hash: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     });
     expect(requests.some((request) => request.path.includes("environment_variables"))).toBe(false);
+  });
+
+  it("rejects a blank or unavailable selected token before a Builds write", async () => {
+    const requests: RecordedCloudflareRequest[] = [];
+    stubEnsureCloudflareResourcesFetch({
+      requests,
+      triggers: [],
+    });
+
+    for (const [buildTokenUuid, expectedMessage] of [
+      ["", "Select a Cloudflare Workers Builds token and retry."],
+      ["missing-build-token", "not in Cloudflare's current list for account account-id"],
+    ] as const) {
+      await expect(
+        configureCloudflareWorkerBuildsForGitHub({
+          ...buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(),
+          buildTokenUuid,
+        }),
+      ).rejects.toThrow(expectedMessage);
+    }
+    expect(
+      requests.some(
+        (request) =>
+          request.method !== "GET" &&
+          request.path !== "/client/v4/accounts/account-id/builds/tokens",
+      ),
+    ).toBe(false);
   });
 
   it("wires Workers Builds without starting a build when initial builds are deferred", async () => {
@@ -1390,6 +1437,14 @@ describe("cloudflare resources", () => {
               status: 200,
               headers: { "Content-Type": "application/json" },
             });
+          case "/client/v4/accounts/account-id/builds/tokens":
+            return cloudflareSuccessResponse([
+              {
+                build_token_uuid: "reusable-build-token",
+                build_token_name: "samebase build token",
+                cloudflare_token_id: "opaque-oauth-token-id",
+              },
+            ]);
           case "/client/v4/accounts/account-id/builds/repos/connections":
             return new Response(
               JSON.stringify({
@@ -1446,6 +1501,14 @@ describe("cloudflare resources", () => {
               status: 200,
               headers: { "Content-Type": "application/json" },
             });
+          case "/client/v4/accounts/account-id/builds/tokens":
+            return cloudflareSuccessResponse([
+              {
+                build_token_uuid: "reusable-build-token",
+                build_token_name: "samebase build token",
+                cloudflare_token_id: "opaque-oauth-token-id",
+              },
+            ]);
           case "/client/v4/accounts/account-id/builds/repos/connections":
             return new Response(
               JSON.stringify({
@@ -1494,9 +1557,22 @@ describe("cloudflare resources", () => {
   });
 
   it("surfaces exact Cloudflare MCP GitHub App disconnected failures from repository connection", async () => {
-    callCloudflareMcpToolMock.mockRejectedValueOnce(
-      new Error(cloudflareMcpGitHubAppDisconnectedErrorMessage),
-    );
+    callCloudflareMcpToolMock
+      .mockResolvedValueOnce(
+        JSON.stringify({
+          success: true,
+          errors: [],
+          messages: [],
+          result: [
+            {
+              build_token_uuid: "reusable-build-token",
+              build_token_name: "samebase build token",
+              cloudflare_token_id: "opaque-oauth-token-id",
+            },
+          ],
+        }),
+      )
+      .mockRejectedValueOnce(new Error(cloudflareMcpGitHubAppDisconnectedErrorMessage));
 
     await expect(
       configureCloudflareWorkerBuildsForGitHub({
@@ -1505,7 +1581,7 @@ describe("cloudflare resources", () => {
         cloudflareAuthMethod: "mcp_oauth",
       }),
     ).rejects.toThrow(cloudflareGitHubAppDisconnectedUserMessage);
-    expect(callCloudflareMcpToolMock).toHaveBeenCalledTimes(1);
+    expect(callCloudflareMcpToolMock).toHaveBeenCalledTimes(2);
   });
 
   it("patches existing Workers Builds triggers only when the GitHub repository id matches", async () => {
@@ -2224,144 +2300,42 @@ describe("cloudflare resources", () => {
     ).toBeNull();
   });
 
-  it("selects the build token backed by the current Cloudflare token", () => {
-    expect(
-      selectCurrentBuildTokenUuid({
-        cloudflareTokenId: "current-token-id",
-        tokens: [
+  it("lists Workers Builds token records in stable order when provider token ids are optional", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        cloudflareSuccessResponse([
           {
-            name: "app-workers build token",
-            uuid: "stale-build-token",
-            cloudflareTokenId: "old-token-id",
+            build_token_uuid: "token-z",
+            build_token_name: "Zulu",
+            cloudflare_token_id: "secret-provider-id",
           },
           {
-            name: "samebase build token",
-            uuid: "current-build-token",
-            cloudflareTokenId: "current-token-id",
+            build_token_uuid: "token-b",
+            build_token_name: "Alpha",
           },
-        ],
+          {
+            build_token_uuid: "token-a",
+            build_token_name: "Alpha",
+          },
+        ]),
+      ),
+    );
+
+    await expect(
+      listCloudflareBuildTokens({
+        token: "oauth-token",
+        accountId: "account-id",
+        transport: "direct",
       }),
-    ).toBe("current-build-token");
+    ).resolves.toEqual([
+      { name: "Alpha", uuid: "token-a" },
+      { name: "Alpha", uuid: "token-b" },
+      { name: "Zulu", uuid: "token-z" },
+    ]);
   });
 
-  it("prefers the current build token already attached to Workers Builds triggers", () => {
-    expect(
-      selectCurrentBuildTokenUuid({
-        cloudflareTokenId: "current-token-id",
-        preferredBuildTokenUuids: ["trigger-build-token"],
-        tokens: [
-          {
-            name: "samebase build token",
-            uuid: "current-build-token",
-            cloudflareTokenId: "current-token-id",
-          },
-          {
-            name: "older samebase build token",
-            uuid: "trigger-build-token",
-            cloudflareTokenId: "current-token-id",
-          },
-        ],
-      }),
-    ).toBe("trigger-build-token");
-  });
-
-  it("reuses an existing named build token for Cloudflare OAuth", () => {
-    expect(
-      selectReusableBuildTokenUuid({
-        tokens: [
-          {
-            name: "other token",
-            uuid: "other-build-token",
-            cloudflareTokenId: "other-token-id",
-          },
-          {
-            name: "samebase build token",
-            uuid: "noter-build-token",
-            cloudflareTokenId: "oauth-unverifiable-token-id",
-          },
-        ],
-      }),
-    ).toBe("noter-build-token");
-  });
-
-  it("chooses a stable Samebase-named build token when Cloudflare has duplicates", () => {
-    expect(
-      selectReusableBuildTokenUuid({
-        tokens: [
-          {
-            name: "samebase build token",
-            uuid: "z-noter-build-token",
-            cloudflareTokenId: "oauth-unverifiable-token-id",
-          },
-          {
-            name: "samebase build token",
-            uuid: "a-noter-build-token",
-            cloudflareTokenId: "older-oauth-unverifiable-token-id",
-          },
-        ],
-      }),
-    ).toBe("a-noter-build-token");
-  });
-
-  it("prefers the reusable build token already attached to Workers Builds triggers", () => {
-    expect(
-      selectReusableBuildTokenUuid({
-        preferredBuildTokenUuids: ["trigger-build-token"],
-        tokens: [
-          {
-            name: "samebase build token",
-            uuid: "current-build-token",
-            cloudflareTokenId: "oauth-unverifiable-token-id",
-          },
-          {
-            name: "older samebase build token",
-            uuid: "trigger-build-token",
-            cloudflareTokenId: "oauth-unverifiable-token-id",
-          },
-        ],
-      }),
-    ).toBe("trigger-build-token");
-  });
-
-  it("does not invent a reusable build token when Cloudflare has none", () => {
-    expect(selectReusableBuildTokenUuid({ tokens: [] })).toBe(undefined);
-  });
-
-  it("fails when multiple reusable build tokens cannot be distinguished", () => {
-    expect(() =>
-      selectReusableBuildTokenUuid({
-        tokens: [
-          {
-            name: "other build token",
-            uuid: "first-build-token",
-            cloudflareTokenId: "first-token-id",
-          },
-          {
-            name: "another build token",
-            uuid: "second-build-token",
-            cloudflareTokenId: "second-token-id",
-          },
-        ],
-      }),
-    ).toThrow("multiple Workers build tokens");
-  });
-
-  it("does not select stale build tokens with unrelated Cloudflare token ids", () => {
-    expect(
-      selectCurrentBuildTokenUuid({
-        cloudflareTokenId: "current-token-id",
-        tokens: [
-          {
-            name: "samebase build token",
-            uuid: "stale-build-token",
-            cloudflareTokenId: "old-token-id",
-          },
-        ],
-      }),
-    ).toBe(undefined);
-  });
-
-  it("uses direct transport when OAuth provisioning reuses a Workers build token", async () => {
+  it("uses direct transport to validate the selected OAuth Workers Builds token", async () => {
     const requestedUrls: string[] = [];
     vi.stubGlobal(
       "fetch",
@@ -2455,6 +2429,7 @@ describe("cloudflare resources", () => {
       cloudflareToken: "oauth-token",
       cloudflareAuthMethod: "oauth",
       accountId: "account-id",
+      buildTokenUuid: "reusable-build-token",
       buildConfig: {
         rootDir: ".",
         buildCommand: "pnpm build",
@@ -2470,25 +2445,5 @@ describe("cloudflare resources", () => {
         (url) => new URL(url).pathname === "/client/v4/accounts/account-id/builds/tokens",
       ),
     ).toBe(true);
-  });
-
-  it("chooses a stable current build token when Cloudflare has duplicates", () => {
-    expect(
-      selectCurrentBuildTokenUuid({
-        cloudflareTokenId: "current-token-id",
-        tokens: [
-          {
-            name: "other build token",
-            uuid: "first-current-build-token",
-            cloudflareTokenId: "current-token-id",
-          },
-          {
-            name: "another build token",
-            uuid: "second-current-build-token",
-            cloudflareTokenId: "current-token-id",
-          },
-        ],
-      }),
-    ).toBe("second-current-build-token");
   });
 });

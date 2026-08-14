@@ -14,6 +14,7 @@ const createRepositoryFields = {
   name: string(),
   convexProjectName: string(),
   cloudflareWorkerName: string(),
+  cloudflareBuildTokenUuid: string(),
   description: optional(string()),
   private: optional(boolean()),
 };
@@ -47,6 +48,8 @@ export const createRepositoryContract = {
       name: "Name for the new app and GitHub repository.",
       convexProjectName: "Convex project name to provision for the app.",
       cloudflareWorkerName: "Cloudflare Worker name to provision for the app.",
+      cloudflareBuildTokenUuid:
+        "Workers Builds token UUID returned by cloudflare_listWorkersBuildTokens.",
       description: "Optional GitHub repository description.",
       private: "Whether to create a private GitHub repository. Defaults to true.",
     },

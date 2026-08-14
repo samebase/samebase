@@ -114,8 +114,8 @@ export const vaultProvisioningTables = {
   /**
    * The exact Convex project and Cloudflare Worker choices for one vault.
    * Retries read this row so every attempt uses the same provider names,
-   * Convex config path, and Worker root directory. The vault stores the exact
-   * Convex team and Cloudflare account.
+   * Convex config path, Worker root directory, and Workers Builds token UUID.
+   * The vault stores the exact Convex team and Cloudflare account.
    * `created` variants preserve identities returned by earlier provider-creation
    * checkpoints. Recording a `created` checkpoint and its stable resource
    * attachment is one database transaction.
@@ -138,22 +138,27 @@ export const vaultProvisioningTables = {
         projectId: string(),
       }),
     ),
+    // Legacy plans do not have buildTokenUuid. Every new plan writes it, and retry rejects a
+    // legacy plan that has no explicit selection.
     cloudflare: union(
       object({
         state: literal("planned"),
         workerName: string(),
         rootDirectory: string(),
+        buildTokenUuid: optional(string()),
       }),
       object({
         state: literal("creating"),
         workerName: string(),
         rootDirectory: string(),
+        buildTokenUuid: optional(string()),
       }),
       object({
         state: literal("created"),
         workerName: string(),
         workerTag: string(),
         rootDirectory: string(),
+        buildTokenUuid: optional(string()),
       }),
     ),
     createdAt: number(),

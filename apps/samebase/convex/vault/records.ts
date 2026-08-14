@@ -580,6 +580,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     convexTeamId: string(),
     cloudflareAccountId: string(),
     cloudflareWorkerName: string(),
+    cloudflareBuildTokenUuid: string(),
   },
   returns: object({
     vaultId: id("vaults"),
@@ -692,6 +693,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
         state: "planned",
         workerName: args.cloudflareWorkerName,
         rootDirectory: VAULT_ROOT_DIRECTORY,
+        buildTokenUuid: args.cloudflareBuildTokenUuid,
       },
       createdAt: now,
       updatedAt: now,

@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-08-07
+- Last updated: 2026-08-14
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
@@ -35,9 +35,10 @@ vault's required `cloudflareAccountId`. Provider reads and writes load the organ
 Cloudflare credential and fail closed if it is absent or cannot access that exact account. This flow
 does not select or change the organization's Cloudflare account.
 
-Worker existence, workers.dev URLs, GitHub repository connection, build triggers, root directory,
-and Convex build variables are current Cloudflare observations. They are not mirrored into the
-attachment.
+Worker existence, workers.dev URLs, GitHub repository connection, build triggers, trigger
+build-token UUIDs, root directory, and Convex build variables are current Cloudflare observations.
+They are not mirrored into the attachment. Samebase fetches each build-token name from Cloudflare
+and does not store it.
 
 ### Existing Worker flow
 
@@ -65,6 +66,10 @@ active triggers. It records the `selected_existing` attachment before configurin
 then re-reads Cloudflare and requires the requested root. Each unconnected Worker is configured
 individually because roots are per Worker and Cloudflare writes are not batch-atomic.
 
+`Connect and add` also requires one Workers Builds token selected from the exact vault account.
+Samebase re-lists the account records before the write and applies the selected UUID to both
+triggers.
+
 If Cloudflare reports an error after attachment, Samebase re-observes the Worker before it explains
 what to do next. A Worker with no completed repository connection stays under `Needs attention`. A
 Worker with a partial or complete connection appears under Cloudflare's observed root. The message
@@ -80,6 +85,9 @@ Creating a Worker may ask for a repository root because the same operation confi
 Cloudflare Workers Builds. Samebase creates the Worker and records its exact provider checkpoint and
 `provisioned` attachment together before configuring Builds. It then writes the GitHub Builds
 configuration and re-reads the resulting repository and root evidence.
+
+The create flow requires the same explicit token selection. It never chooses a token by name, list
+position, or another Worker's current binding.
 
 If Builds configuration fails, the Worker stays attached under `Needs attention`, which preserves
 cleanup ownership and lets the user retry the explicit configuration. When no live root exists, the
@@ -116,6 +124,11 @@ explicitly authorizes initial GitHub Builds setup only after Samebase verifies t
 no active Builds triggers. GitHub Builds repair and Convex deploy-key rotation remain explicit
 operations.
 
+Vault settings shows the current token name when both triggers use the same listed UUID. It reports
+when the two trigger UUIDs differ or a bound UUID is no longer in Cloudflare's list. These are
+observations, not token-health claims. `Change build token` opens the same explicit configuration
+flow. Confirmation writes the chosen UUID to both triggers and starts a production build.
+
 When build access has no trustworthy attached target, `Use <project> for Workers Builds` names each
 available destination explicitly. When a Worker's marker already names an attached project but its
 keys are incomplete or its team coordinate is stale, `Repair keys for <project>` offers only that
@@ -141,13 +154,15 @@ uses the normal action for that state:
   connect that existing Worker. Samebase does not adopt it automatically.
 - An attached Worker with incomplete Builds configuration uses the normal Configure Workers Builds
   action.
+- A Worker whose build-token record is missing or whose triggers disagree uses the normal Change
+  build token action.
 - Incomplete Convex build access uses the normal key repair action for the observed attached
   project. Repeating this action replaces the deterministic deploy keys and writes one complete
   production and preview configuration.
 
 ## Non-Goals
 
-- Persisting Worker root, trigger, URL, marker, or deploy-key state.
+- Persisting Worker root, trigger, URL, build-token name, marker, or deploy-key state.
 - Inferring a Worker placement from repository folders.
 - Attaching Workers from a different GitHub repository.
 - Selecting or changing a Cloudflare account in a vault flow.
@@ -168,3 +183,5 @@ uses the normal action for that state:
 - UI tests cover vault-level routing, default multiple selection, grouping by read-only live root,
   the focused unconnected-Worker root flow, count copy, exact Convex action targets, root drift,
   rootless Builds repair, and `Needs attention`.
+- UI tests cover token loading, empty and failed lists, explicit selection, live token names,
+  missing records, trigger disagreement, and token change.

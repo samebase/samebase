@@ -32,7 +32,7 @@ import {
 } from "./providerDashboardUrls";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
-const { array, id, literal, object, string, union } = v;
+const { array, id, literal, null: nullValue, object, string, union } = v;
 
 const vObservationFailureReason = union(
   literal("connection_required"),
@@ -95,6 +95,8 @@ const vCloudflareBuildsObservation = union(
     state: literal("connected"),
     productionTriggerUuid: string(),
     previewTriggerUuid: string(),
+    productionBuildTokenUuid: union(string(), nullValue()),
+    previewBuildTokenUuid: union(string(), nullValue()),
     productionBuild: vCloudflareProductionBuildObservation,
   }),
 );

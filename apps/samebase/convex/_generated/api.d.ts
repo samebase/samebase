@@ -36,6 +36,7 @@ import type * as cloudflareAccountDiscovery from "../cloudflareAccountDiscovery.
 import type * as cloudflareApi_client from "../cloudflareApi/client.js";
 import type * as cloudflareApi_fixtures_observedWorkerBuilds from "../cloudflareApi/fixtures/observedWorkerBuilds.js";
 import type * as cloudflareApi_fixtures_observedWorkerErrors from "../cloudflareApi/fixtures/observedWorkerErrors.js";
+import type * as cloudflareBuildTokens from "../cloudflareBuildTokens.js";
 import type * as cloudflareMcp from "../cloudflareMcp.js";
 import type * as cloudflareMcpOAuth from "../cloudflareMcpOAuth.js";
 import type * as cloudflareOAuth from "../cloudflareOAuth.js";
@@ -127,6 +128,7 @@ import type * as vault_cloudflare from "../vault/cloudflare.js";
 import type * as vault_cloudflareBuildMatching from "../vault/cloudflareBuildMatching.js";
 import type * as vault_cloudflareMutations from "../vault/cloudflareMutations.js";
 import type * as vault_contracts_cloudflareAttachments from "../vault/contracts/cloudflareAttachments.js";
+import type * as vault_contracts_cloudflareBuildTokens from "../vault/contracts/cloudflareBuildTokens.js";
 import type * as vault_contracts_cloudflareConfigureWorkersBuildsForGitHub from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub.js";
 import type * as vault_contracts_cloudflareRotateConvexDeployKeysForWorkersBuilds from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds.js";
 import type * as vault_contracts_connectRepository from "../vault/contracts/connectRepository.js";
@@ -204,6 +206,7 @@ declare const fullApi: ApiFromModules<{
   "cloudflareApi/client": typeof cloudflareApi_client;
   "cloudflareApi/fixtures/observedWorkerBuilds": typeof cloudflareApi_fixtures_observedWorkerBuilds;
   "cloudflareApi/fixtures/observedWorkerErrors": typeof cloudflareApi_fixtures_observedWorkerErrors;
+  cloudflareBuildTokens: typeof cloudflareBuildTokens;
   cloudflareMcp: typeof cloudflareMcp;
   cloudflareMcpOAuth: typeof cloudflareMcpOAuth;
   cloudflareOAuth: typeof cloudflareOAuth;
@@ -295,6 +298,7 @@ declare const fullApi: ApiFromModules<{
   "vault/cloudflareBuildMatching": typeof vault_cloudflareBuildMatching;
   "vault/cloudflareMutations": typeof vault_cloudflareMutations;
   "vault/contracts/cloudflareAttachments": typeof vault_contracts_cloudflareAttachments;
+  "vault/contracts/cloudflareBuildTokens": typeof vault_contracts_cloudflareBuildTokens;
   "vault/contracts/cloudflareConfigureWorkersBuildsForGitHub": typeof vault_contracts_cloudflareConfigureWorkersBuildsForGitHub;
   "vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds": typeof vault_contracts_cloudflareRotateConvexDeployKeysForWorkersBuilds;
   "vault/contracts/connectRepository": typeof vault_contracts_connectRepository;

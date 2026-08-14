@@ -73,6 +73,7 @@ describe("Cloudflare Worker name validation", () => {
         accountId: "00000000000000000000000000000001",
         workerName: "samebase app",
         rootDirectory: "/",
+        buildTokenUuid: "build-token",
       }),
     ).rejects.toMatchObject({
       name: "ConvexError",

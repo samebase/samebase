@@ -147,6 +147,7 @@ describe("organization-owned vaults", () => {
         name: "member-app",
         convexProjectName: "member-app",
         cloudflareWorkerName: "member-app",
+        cloudflareBuildTokenUuid: "build-token",
         private: true,
       }),
     ).rejects.toThrow("GitHub user authorization is not available for this owner.");
@@ -628,6 +629,7 @@ describe("organization-owned vaults", () => {
         convexTeamId: expectedDestinations.convexTeamId,
         cloudflareAccountId: expectedDestinations.cloudflareAccountId,
         cloudflareWorkerName: "managed-app",
+        cloudflareBuildTokenUuid: "build-token",
       },
     );
     const initialManagedState = await t.run(async (ctx) => {
@@ -644,6 +646,7 @@ describe("organization-owned vaults", () => {
     expect(initialManagedState.managedRun).toMatchObject({ organizationId });
     expect(initialManagedState.vault).toMatchObject(expectedDestinations);
     expect(initialManagedState.plan?.convex).not.toHaveProperty("teamId");
+    expect(initialManagedState.plan?.cloudflare).toMatchObject({ buildTokenUuid: "build-token" });
     expect(initialManagedState.plan?.cloudflare).not.toHaveProperty("accountId");
 
     await t.mutation(internal.vault.records.connectSamebaseManagedVaultGitHub, {
@@ -700,6 +703,7 @@ describe("organization-owned vaults", () => {
         convexTeamId: expectedDestinations.convexTeamId,
         cloudflareAccountId: expectedDestinations.cloudflareAccountId,
         cloudflareWorkerName: "managed-failure",
+        cloudflareBuildTokenUuid: "build-token",
       },
     );
 

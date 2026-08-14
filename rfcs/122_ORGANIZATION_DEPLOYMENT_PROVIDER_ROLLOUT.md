@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase backend
-- Last updated: 2026-08-08
+- Last updated: 2026-08-14
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Evidence: `research/2026-08-06-provider-connection-authorization-audit.md`
 - Replaces: the temporary multi-row provider model in `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
@@ -190,8 +190,9 @@ account. It cannot change the destination.
   ID as resource identity.
 - A provider write checkpoint validates the vault and stable external destination. It does not need
   the old credential to remain after the external request finishes.
-- A retry resolves the current credential again. Same-destination reconnect restores work without a
-  vault or resource rewrite.
+- A retry resolves the current management credential again. Same-destination reconnect restores
+  management access without a vault or resource rewrite. A Cloudflare Worker whose separate Workers
+  Builds token stopped working still requires an explicit token choice and trigger update.
 - Observation and deletion use the same vault destination checks.
 - Manual provider write locks do not need connector or credential identity. The destination cannot
   change while a vault exists.

@@ -20,6 +20,7 @@ import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/cont
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
+import { cloudflareListWorkersBuildTokensContract } from "../vault/contracts/cloudflareBuildTokens";
 import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
 import type { AccessKey } from "../../shared/accessModel";
 import {
@@ -42,6 +43,8 @@ import {
 } from "../vault/cloudflare";
 import { internal } from "../_generated/api";
 import { mcpScopeAllowsAccess } from "./mcpScopes";
+import { resolveGitHubAppAccess } from "../githubAppAccess";
+import { listWorkersBuildTokensForUser } from "../cloudflareBuildTokens";
 
 const { array, id, literal, object, string, union } = v;
 const vToolInvocationArgs = {
@@ -139,6 +142,28 @@ export const createRepositoryTool = defineMcpTool({
     });
     return {
       text: JSON.stringify(structuredContent, null, 2),
+      structuredContent,
+    };
+  },
+});
+
+export const cloudflareListWorkersBuildTokensTool = defineMcpTool({
+  contract: cloudflareListWorkersBuildTokensContract,
+  args: cloudflareListWorkersBuildTokensContract.mcpArgs,
+  successFields: {
+    structuredContent: cloudflareListWorkersBuildTokensContract.structuredContent,
+  },
+  run: async (ctx, args) => {
+    const githubAccess = await resolveGitHubAppAccess(ctx, {
+      userId: args.userId,
+      target: { kind: "owner", githubOwnerLogin: args.githubOwnerLogin },
+    });
+    const structuredContent = await listWorkersBuildTokensForUser(ctx, {
+      userId: args.userId,
+      organizationId: githubAccess.organizationId,
+    });
+    return {
+      text: `Found ${structuredContent.tokens.length} Workers Builds ${structuredContent.tokens.length === 1 ? "token" : "tokens"}.`,
       structuredContent,
     };
   },

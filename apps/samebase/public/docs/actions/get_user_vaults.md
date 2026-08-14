@@ -381,6 +381,9 @@ JSON Schema for the tool's `structuredContent`:
                           },
                           "rootDirectory": {
                             "type": "string"
+                          },
+                          "buildTokenUuid": {
+                            "type": "string"
                           }
                         },
                         "required": ["state", "accountId", "workerName", "rootDirectory"],
@@ -399,6 +402,9 @@ JSON Schema for the tool's `structuredContent`:
                             "type": "string"
                           },
                           "rootDirectory": {
+                            "type": "string"
+                          },
+                          "buildTokenUuid": {
                             "type": "string"
                           }
                         },
@@ -421,6 +427,9 @@ JSON Schema for the tool's `structuredContent`:
                             "type": "string"
                           },
                           "rootDirectory": {
+                            "type": "string"
+                          },
+                          "buildTokenUuid": {
                             "type": "string"
                           }
                         },

@@ -4,7 +4,7 @@
 
 - Status: Implemented for MVP
 - Owner: Samebase backend/frontend
-- Last updated: 2026-08-07
+- Last updated: 2026-08-14
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Related deletion contract: `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
@@ -79,9 +79,9 @@ work uses these fixed destinations, and each attached provider resource must mat
 - `convexConfigPath`
 - `convex`: `{ state: "planned", projectName }`, `{ state: "creating", projectName }`, or
   `{ state: "created", projectName, projectId }`
-- `cloudflare`: `{ state: "planned", workerName, rootDirectory }`,
-  `{ state: "creating", workerName, rootDirectory }`, or
-  `{ state: "created", workerName, workerTag, rootDirectory }`
+- `cloudflare`: `{ state: "planned", workerName, rootDirectory, buildTokenUuid }`,
+  `{ state: "creating", workerName, rootDirectory, buildTokenUuid }`, or
+  `{ state: "created", workerName, workerTag, rootDirectory, buildTokenUuid }`
 - `createdAt`, `updatedAt`
 
 The plan row records provider resource names, provider configuration input, and stable resource
@@ -97,6 +97,13 @@ checkpoint used by retry. Samebase writes that checkpoint and its stable `provis
 attachment in one database transaction. Checkbox-controlled cleanup derives ownership only from the
 stable attachment, never from an unattached checkpoint. Current connected resource identities live
 in the durable resource tables used by the dashboard.
+
+`buildTokenUuid` is the explicit non-secret Workers Builds token record selected for this run. The
+plan keeps it because a retry must use the same user choice. Before each trigger write, Samebase
+requires Cloudflare to list that UUID for the vault account. Samebase does not store the token name,
+the underlying user API token ID, or its secret. If Cloudflare no longer lists the selected UUID,
+managed setup tells the user to remove the failed app and create it again with another token. Retry
+does not choose a replacement token.
 
 Indexes:
 
@@ -220,7 +227,8 @@ write-safety check.
 Cloudflare uses three independently loading observation axes:
 
 1. Worker identity, existence, and workers.dev availability.
-2. Workers Builds repository configuration and production/preview trigger identifiers.
+2. Workers Builds repository configuration, production/preview trigger identifiers, and each
+   trigger's build-token UUID.
 3. Convex marker and deploy-key classification for the connected trigger identifiers.
 
 The dashboard starts the first two reads concurrently. A confirmed Worker and its links become
@@ -229,6 +237,12 @@ second read proves that both Builds triggers exist. Trigger identifiers are shor
 that browser request, not durable Samebase data; the server revalidates that every requested Worker
 belongs to the vault and derives its Cloudflare account from the attachment before reading trigger
 variables. Provider secret values never leave the action.
+
+Workers Builds token names come from the current account token list. A listed record is not proof
+that its underlying user token can run a new build. The dashboard reports only the observed binding:
+the same listed UUID on both triggers, a bound UUID that is not listed, different production and
+preview UUIDs, or an unavailable read. It does not persist the name or label a listed record
+healthy.
 
 Provisioning and repair actions re-read the provider state they require before acting. Durable run
 events record that an explicit operation succeeded or failed; they are operation evidence, not a

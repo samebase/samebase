@@ -16,6 +16,8 @@ provider configuration, and stores no trigger or status mirror in Convex.
 - `workerId` (string, required): Stable Samebase Worker attachment id returned by get_user_vaults.
 - `rootDirectory` (string, required): Repository root to write to this Worker's GitHub Builds
   triggers.
+- `buildTokenUuid` (string, required): Workers Builds token UUID returned by
+  cloudflare_listWorkersBuildTokens.
 
 ## Returns
 
