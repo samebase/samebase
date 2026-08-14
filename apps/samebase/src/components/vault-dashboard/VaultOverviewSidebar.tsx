@@ -670,7 +670,7 @@ export function VaultOverviewOrganizationSidebar({
                   {organizationLabel}
                   <ChevronDown
                     aria-hidden="true"
-                    className="h-3.5 w-3.5 shrink-0 transition-transform"
+                    className="h-3.5 w-3.5 shrink-0 transition-transform @max-[175px]:hidden"
                   />
                 </CollapsibleTrigger>
               ) : (
