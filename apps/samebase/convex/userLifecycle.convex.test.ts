@@ -318,6 +318,7 @@ describe("user lifecycle authorization", () => {
           state: "creating",
           workerName: "repository",
           rootDirectory: "/",
+          buildTokenUuid: "build-token",
         },
         createdAt: 1,
         updatedAt: 1,

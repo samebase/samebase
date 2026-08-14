@@ -350,11 +350,6 @@ export const readManagedWorkerCreateCheckpoint = internalQuery({
     ) {
       throw new Error("Managed Cloudflare Worker does not match the provisioning plan.");
     }
-    if (!plan.cloudflare.buildTokenUuid) {
-      throw new Error(
-        "The app provisioning plan has no Cloudflare Workers Builds token selection. Create the app again with a selected token.",
-      );
-    }
     switch (plan.cloudflare.state) {
       case "planned":
         return { state: "planned" as const, buildTokenUuid: plan.cloudflare.buildTokenUuid };
@@ -395,9 +390,7 @@ export const beginManagedWorkerCreate = internalMutation({
         state: "creating",
         workerName: args.workerName,
         rootDirectory: plan.cloudflare.rootDirectory,
-        ...(plan.cloudflare.buildTokenUuid
-          ? { buildTokenUuid: plan.cloudflare.buildTokenUuid }
-          : {}),
+        buildTokenUuid: plan.cloudflare.buildTokenUuid,
       },
       updatedAt: Date.now(),
     });
@@ -451,9 +444,7 @@ export const recordManagedWorkerCreated = internalMutation({
           workerName: args.workerName,
           workerTag: args.workerTag,
           rootDirectory: plan.cloudflare.rootDirectory,
-          ...(plan.cloudflare.buildTokenUuid
-            ? { buildTokenUuid: plan.cloudflare.buildTokenUuid }
-            : {}),
+          buildTokenUuid: plan.cloudflare.buildTokenUuid,
         },
         updatedAt: Date.now(),
       });
@@ -591,11 +582,6 @@ export const readManagedWorkerConfigurationContext = internalQuery({
       plan.cloudflare.workerTag !== worker.workerTag
     ) {
       throw new Error("Managed Cloudflare Worker does not match the active provisioning run.");
-    }
-    if (!plan.cloudflare.buildTokenUuid) {
-      throw new Error(
-        "The app provisioning plan has no Cloudflare Workers Builds token selection. Create the app again with a selected token.",
-      );
     }
     return {
       organizationId: vault.organizationId,

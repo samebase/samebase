@@ -138,27 +138,25 @@ export const vaultProvisioningTables = {
         projectId: string(),
       }),
     ),
-    // Legacy plans do not have buildTokenUuid. Every new plan writes it, and retry rejects a
-    // legacy plan that has no explicit selection.
     cloudflare: union(
       object({
         state: literal("planned"),
         workerName: string(),
         rootDirectory: string(),
-        buildTokenUuid: optional(string()),
+        buildTokenUuid: string(),
       }),
       object({
         state: literal("creating"),
         workerName: string(),
         rootDirectory: string(),
-        buildTokenUuid: optional(string()),
+        buildTokenUuid: string(),
       }),
       object({
         state: literal("created"),
         workerName: string(),
         workerTag: string(),
         rootDirectory: string(),
-        buildTokenUuid: optional(string()),
+        buildTokenUuid: string(),
       }),
     ),
     createdAt: number(),

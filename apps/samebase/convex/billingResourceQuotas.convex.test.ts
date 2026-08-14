@@ -418,6 +418,7 @@ describe("pooled organization connection quotas", () => {
             workerName: "quota-worker",
             workerTag: "quota-worker-tag",
             rootDirectory: "",
+            buildTokenUuid: "build-token",
           },
           createdAt: 2,
           updatedAt: 2,
