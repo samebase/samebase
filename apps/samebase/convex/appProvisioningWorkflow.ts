@@ -732,9 +732,7 @@ export const provisionApp = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        ownerName: repository.ownerName,
-        repoName: repository.repoName,
-        defaultBranch: repository.defaultBranch,
+        ghRepoId: repository.ghRepoId,
       },
       { name: "seed_starter", retry: idempotentProviderStepRetry },
     );
@@ -744,9 +742,7 @@ export const provisionApp = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        ownerName: repository.ownerName,
-        repoName: repository.repoName,
-        defaultBranch: repository.defaultBranch,
+        ghRepoId: repository.ghRepoId,
       },
       { name: "sync_tree", retry: idempotentProviderStepRetry },
     );
@@ -765,30 +761,17 @@ export const connectExistingRepository = workflow.define({
     vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
-    repositoryOwner: string(),
-    repositoryName: string(),
+    ghRepoId: string(),
   },
   returns: v.null(),
   handler: async (step, args): Promise<null> => {
-    await step.runAction(
-      internal.appProvisioningWorkflowActions.validateExistingRepositoryConnection,
-      {
-        vaultId: args.vaultId,
-        runId: args.runId,
-        userId: args.userId,
-        ownerName: args.repositoryOwner,
-        repoName: args.repositoryName,
-      },
-      { name: "validate_connections", retry: false },
-    );
     const repository = await step.runAction(
       internal.appProvisioningWorkflowActions.fetchExistingGitHubRepository,
       {
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        ownerName: args.repositoryOwner,
-        repoName: args.repositoryName,
+        ghRepoId: args.ghRepoId,
       },
       { name: "fetch_github_repo", retry: false },
     );
@@ -798,7 +781,7 @@ export const connectExistingRepository = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        ghRepoId: repository.ghRepoId,
+        ghRepoId: args.ghRepoId,
         ownerName: repository.ownerName,
         repoName: repository.repoName,
         defaultBranch: repository.defaultBranch,
@@ -812,9 +795,7 @@ export const connectExistingRepository = workflow.define({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        ownerName: repository.ownerName,
-        repoName: repository.repoName,
-        defaultBranch: repository.defaultBranch,
+        ghRepoId: args.ghRepoId,
       },
       { name: "sync_tree", retry: idempotentProviderStepRetry },
     );
@@ -841,8 +822,7 @@ export const startConnectExistingRepositoryProvisioning = internalMutation({
     vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
-    repositoryName: string(),
-    repositoryOwner: string(),
+    ghRepoId: string(),
   },
   returns: string(),
   handler: async (ctx, args): Promise<string> => {
@@ -853,8 +833,7 @@ export const startConnectExistingRepositoryProvisioning = internalMutation({
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        repositoryName: args.repositoryName,
-        repositoryOwner: args.repositoryOwner,
+        ghRepoId: args.ghRepoId,
       },
       {
         startAsync: true,

@@ -37,6 +37,59 @@ export type GitHubConvexCodeLocationDiscovery = {
   locations: GitHubConvexCodeLocationCandidate[];
 };
 
+/** `octokit` must use an installation token restricted to `ghRepoId`. */
+export async function resolveGitHubRepositoryById(args: {
+  octokit: Octokit;
+  ghRepoId: string;
+  recordApiCall?: ProviderApiCallRecorder;
+}) {
+  await args.recordApiCall?.({
+    provider: "GitHub",
+    method: "GET",
+    endpoint: "/installation/repositories",
+    values: {},
+  });
+  const accessibleRepositories = await args.octokit.request("GET /installation/repositories");
+  const selectedRepository = accessibleRepositories.data.repositories.find(
+    (repository) => String(repository.id) === args.ghRepoId,
+  );
+  if (selectedRepository === undefined) {
+    throw new Error("The GitHub App installation cannot access the selected repository.");
+  }
+
+  const ownerName = selectedRepository.owner.login.trim();
+  const repoName = selectedRepository.name.trim();
+  if (!ownerName || !repoName) {
+    throw new Error("GitHub returned invalid repository coordinates.");
+  }
+  await args.recordApiCall?.({
+    provider: "GitHub",
+    method: "GET",
+    endpoint: "/repos/{owner}/{repo}",
+    values: {
+      params: {
+        path: { owner: ownerName, repo: repoName },
+      },
+    },
+  });
+  const repository = await args.octokit.rest.repos.get({
+    owner: ownerName,
+    repo: repoName,
+  });
+  if (String(repository.data.id) !== args.ghRepoId) {
+    throw new Error("GitHub repository response did not match the selected repository.");
+  }
+  if (
+    repository.data.owner.id !== selectedRepository.owner.id ||
+    repository.data.owner.login !== ownerName ||
+    repository.data.name !== repoName
+  ) {
+    throw new Error("GitHub returned inconsistent repository coordinates.");
+  }
+
+  return repository;
+}
+
 export async function fetchGitHubRepoIdentity(args: {
   octokit: Octokit;
   owner: string;

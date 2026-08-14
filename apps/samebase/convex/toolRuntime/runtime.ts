@@ -21,7 +21,6 @@ import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vau
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
-import { parseRepositoryFullName } from "../vault/model";
 import type { AccessKey } from "../../shared/accessModel";
 import {
   createAppForUser,
@@ -170,10 +169,10 @@ export const connectRepositoryTool = defineMcpTool({
     structuredContent: connectRepositoryContract.structuredContent,
   },
   run: async (ctx, args) => {
-    const repository = parseRepositoryFullName(args.repositoryFullName);
     const structuredContent = await connectRepositoryForUser(ctx, {
-      ...args,
-      target: { kind: "owner", githubOwnerLogin: repository.owner },
+      userId: args.userId,
+      target: { kind: "owner", githubOwnerLogin: args.githubOwnerLogin },
+      ghRepoId: args.ghRepoId,
     });
     return {
       text: JSON.stringify(structuredContent, null, 2),

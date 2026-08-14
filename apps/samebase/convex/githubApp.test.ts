@@ -36,6 +36,7 @@ vi.mock("@octokit/rest", () => ({
 }));
 
 import {
+  createGitHubRepositoryInstallationOctokit,
   createGitHubUserOctokit,
   discoverPreviewSeedGitHubAppInstallations,
   listGitHubAppConnectionInstallations,
@@ -205,6 +206,24 @@ describe("GitHub App installation verification", () => {
     await expect(readGitHubAppInstallation("1001")).rejects.toThrow(
       "GitHub returned an invalid installation repository selection.",
     );
+  });
+
+  it("can report a suspended installation without treating it as active", async () => {
+    const suspendedInstallation = {
+      ...installation(),
+      suspended_at: "2026-08-14T10:00:00Z",
+    };
+    githubMocks.request.mockResolvedValue({ data: suspendedInstallation });
+
+    await expect(readGitHubAppInstallation("1001")).rejects.toThrow(
+      "The GitHub App installation is suspended.",
+    );
+    await expect(
+      readGitHubAppInstallation("1001", { allowSuspended: true }),
+    ).resolves.toMatchObject({
+      installationId: "1001",
+      suspended: true,
+    });
   });
 
   it("discovers only the preview user's personal and active admin installations", async () => {
@@ -531,5 +550,17 @@ describe("GitHub App installation verification", () => {
     });
     expect(githubMocks.request).toHaveBeenCalledOnce();
     expect(githubMocks.request).toHaveBeenCalledWith("GET /user");
+  });
+
+  it("requests an installation token scoped to one stable repository ID", async () => {
+    githubMocks.exchangeUserCode.mockResolvedValue({ token: "repository-token" });
+
+    await createGitHubRepositoryInstallationOctokit("1001", "1296269");
+
+    expect(githubMocks.exchangeUserCode).toHaveBeenCalledWith({
+      type: "installation",
+      installationId: 1001,
+      repositoryIds: [1_296_269],
+    });
   });
 });

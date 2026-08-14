@@ -27,3 +27,14 @@ export function resolveDisplayedRepositories<T>(args: {
 
   return args.repositoryPreview?.repositories ?? [];
 }
+
+export function isGitHubRepositoryConnected(args: {
+  repository: { id: number; full_name: string };
+  vaults: readonly { ghRepoId?: string; repositoryFullName: string }[];
+}): boolean {
+  const repositoryId = String(args.repository.id);
+  return args.vaults.some(
+    (vault) =>
+      vault.ghRepoId === repositoryId || vault.repositoryFullName === args.repository.full_name,
+  );
+}

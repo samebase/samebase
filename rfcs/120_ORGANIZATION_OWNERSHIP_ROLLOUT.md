@@ -262,8 +262,18 @@ Status: Complete on the replacement branch
   role, removal, and leave flows. Every organization must retain an active owner.
 - Vaults use `organizations.githubOwnerLogin` as current route and display data. Historical workflow
   snapshots can retain the owner login observed when the workflow started.
-- Do not add a repository-only rename patch. A future GitHub identity synchronization task must
-  define organization-owner and repository rename behavior together.
+- GitHub identity refresh uses one read-only provider observation for organization-owner and
+  repository names. React Query owns the short-lived client cache. Samebase does not persist an
+  observation, process rename webhooks, or change a name during an unrelated GitHub operation.
+- A changed owner login shows a warning on the organization and an explicit update in organization
+  settings. A changed repository name shows a warning on the vault and an explicit update in vault
+  settings. An update reads GitHub again, verifies the stable owner or repository ID, patches only
+  mutable route and display data, invalidates the observation, and replaces the current route.
+- A repository that is no longer under the stored GitHub owner has no update action. Samebase does
+  not move a vault or any organization-owned data. The user must remove and reconnect it manually.
+- Installation or repository access failures show an unavailable state. They do not delete data or
+  add a recovery workflow. Existing verified reconnect and normal vault removal remain the manual
+  controls.
 - Account deletion waits for queued or running vault provisioning and deletion work started by the
   deleting user before it revokes credentials or removes memberships. Manual provider-write locks do
   not record an actor, so exact manual-write dependency tracking stays in a future provider

@@ -5,6 +5,7 @@ import { internalMutation, internalQuery, type MutationCtx } from "./_generated/
 import { mutation, query } from "./functions";
 import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
 import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
+import { vGitHubAppInstallationAccess } from "./githubAppAccess";
 import { readActiveUser } from "./userLifecycle";
 
 const { boolean, id, object, string } = v;
@@ -210,6 +211,78 @@ export const createOrReconnectVerifiedOrganization = internalMutation({
     return {
       organizationId,
       created: true,
+    };
+  },
+});
+
+export const updateVerifiedGitHubOwnerLogin = internalMutation({
+  args: {
+    userId: id("users"),
+    organizationId: id("organizations"),
+    githubOwnerId: string(),
+    expectedStoredGithubOwnerLogin: string(),
+    githubOwnerLogin: string(),
+  },
+  returns: string(),
+  handler: async (ctx, args) => {
+    await requireOrganizationOwnerAccessContext(ctx.db, {
+      userId: args.userId,
+      organizationId: args.organizationId,
+    });
+    const organization = await ctx.db.get(args.organizationId);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+    if (organization.githubOwnerId !== args.githubOwnerId) {
+      throw new Error("GitHub owner identity changed before the login update.");
+    }
+
+    const githubOwnerLogin = requireProviderIdentity(args.githubOwnerLogin, "GitHub owner login");
+    if (organization.githubOwnerLogin === githubOwnerLogin) {
+      return githubOwnerLogin;
+    }
+    if (organization.githubOwnerLogin !== args.expectedStoredGithubOwnerLogin) {
+      throw new Error("Organization login changed before the GitHub login update.");
+    }
+
+    const githubOwnerLoginNormalized = normalizeGitHubOwnerLogin(githubOwnerLogin);
+    const organizationForLogin = await ctx.db
+      .query("organizations")
+      .withIndex("by_github_owner_login_normalized", (query) =>
+        query.eq("githubOwnerLoginNormalized", githubOwnerLoginNormalized),
+      )
+      .unique();
+    if (organizationForLogin !== null && organizationForLogin._id !== organization._id) {
+      throw new Error("GitHub owner login is already connected to another organization.");
+    }
+
+    await ctx.db.patch(organization._id, {
+      githubOwnerLogin,
+      githubOwnerLoginNormalized,
+    });
+    return githubOwnerLogin;
+  },
+});
+
+export const getGitHubOwnerLoginUpdateTargetForUser = internalQuery({
+  args: {
+    userId: id("users"),
+    organizationId: id("organizations"),
+  },
+  returns: vGitHubAppInstallationAccess,
+  handler: async (ctx, args) => {
+    await requireOrganizationOwnerAccessContext(ctx.db, args);
+    const organization = await ctx.db.get(args.organizationId);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+
+    return {
+      organizationId: organization._id,
+      githubInstallationId: organization.githubInstallationId,
+      githubOwnerId: organization.githubOwnerId,
+      githubOwnerType: organization.githubOwnerType,
+      githubOwnerLogin: organization.githubOwnerLogin,
     };
   },
 });

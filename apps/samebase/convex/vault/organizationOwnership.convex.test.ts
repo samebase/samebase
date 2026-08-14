@@ -62,6 +62,7 @@ async function createConnectedVault(
     {
       organizationId: args.organizationId,
       userId: args.userId,
+      ghRepoId: args.ghRepoId,
       ghRepoOwner: args.owner,
       ghRepoName: args.name,
     },
@@ -173,6 +174,7 @@ describe("organization-owned vaults", () => {
       t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
         organizationId,
         userId: outsiderUserId,
+        ghRepoId: "outsider-app-id",
         ghRepoOwner: "Samebase",
         ghRepoName: "app",
       }),
@@ -181,6 +183,7 @@ describe("organization-owned vaults", () => {
       t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
         organizationId,
         userId: ownerUserId,
+        ghRepoId: "wrong-owner-app-id",
         ghRepoOwner: "another-owner",
         ghRepoName: "app",
       }),
@@ -191,6 +194,7 @@ describe("organization-owned vaults", () => {
       {
         organizationId,
         userId: ownerUserId,
+        ghRepoId: "root-app-id",
         ghRepoOwner: " samebase ",
         ghRepoName: "app",
       },
@@ -217,6 +221,7 @@ describe("organization-owned vaults", () => {
       t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
         organizationId,
         userId: ownerUserId,
+        ghRepoId: "root-app-uppercase-id",
         ghRepoOwner: "samebase",
         ghRepoName: "APP",
       }),
@@ -323,27 +328,206 @@ describe("organization-owned vaults", () => {
       name: "first-repository",
       ghRepoId: "stable-repository-id",
     });
-    const secondVault = await t.mutation(
-      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
-      {
+    await expect(
+      t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
         organizationId: secondOrganizationId,
         userId,
+        ghRepoId: "stable-repository-id",
         ghRepoOwner: "second-owner",
         ghRepoName: "second-repository",
+      }),
+    ).rejects.toThrow("Vault already exists for this GitHub repository.");
+  });
+
+  it("does not replace the selected repository ID during finalization", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "provisioning-repository-identity@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "provisioning-repository-owner",
+      ownerLogin: "samebase",
+    });
+    const selected = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        organizationId,
+        userId,
+        ghRepoId: "selected-repository-id",
+        ghRepoOwner: "samebase",
+        ghRepoName: "selected-repository",
       },
     );
 
     await expect(
       t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
-        ...secondVault,
+        runId: selected.runId,
+        vaultId: selected.vaultId,
         userId,
-        ghRepoId: "stable-repository-id",
-        ghRepoOwner: "second-owner",
-        ghRepoName: "second-repository",
+        ghRepoId: "different-repository-id",
+        ghRepoOwner: "samebase",
+        ghRepoName: "different-repository",
         defaultBranch: "main",
         visibility: "private",
       }),
+    ).rejects.toThrow("Provisioning vault repository identity cannot be changed.");
+    await expect(t.run(async (ctx) => await ctx.db.get(selected.vaultId))).resolves.toMatchObject({
+      state: "provisioning",
+      ghRepoId: "selected-repository-id",
+      name: "selected-repository",
+    });
+  });
+
+  it("retains a failed connection repository ID and blocks a renamed retry", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "failed-repository-identity@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "failed-repository-owner",
+      ownerLogin: "samebase",
+    });
+    const failed = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        organizationId,
+        userId,
+        ghRepoId: "failed-stable-repository-id",
+        ghRepoOwner: "samebase",
+        ghRepoName: "agent-plugins",
+      },
+    );
+    await t.mutation(internal.vault.records.markGithubProvisioningFailed, {
+      runId: failed.runId,
+    });
+
+    await expect(t.run(async (ctx) => await ctx.db.get(failed.vaultId))).resolves.toMatchObject({
+      state: "failed",
+      githubMode: "connect_existing_repository",
+      ghRepoId: "failed-stable-repository-id",
+    });
+    const asUser = t.withIdentity({
+      subject: `${userId}|failed-repository-identity`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    await expect(asUser.query(api.vault.dashboard.getUserVaults, {})).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          _id: failed.vaultId,
+          ghRepoId: "failed-stable-repository-id",
+        }),
+      ]),
+    );
+
+    await expect(
+      t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
+        organizationId,
+        userId,
+        ghRepoId: "failed-stable-repository-id",
+        ghRepoOwner: "samebase",
+        ghRepoName: "plugin",
+      }),
     ).rejects.toThrow("Vault already exists for this GitHub repository.");
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db
+          .query("vaults")
+          .withIndex("by_organization", (query) => query.eq("organizationId", organizationId))
+          .collect(),
+      ),
+    ).resolves.toHaveLength(1);
+  });
+
+  it("updates only a verified repository name and rejects a local name collision", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "repository-rename@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "repository-rename-owner",
+      ownerLogin: "samebase",
+    });
+    const renamedVault = await createConnectedVault(t, {
+      organizationId,
+      userId,
+      owner: "samebase",
+      name: "agent-plugins",
+      ghRepoId: "renamed-repository-id",
+    });
+
+    await expect(
+      t.mutation(internal.vault.records.updateGitHubRepositoryNameForUser, {
+        userId,
+        vaultId: renamedVault.vaultId,
+        ghRepoId: "renamed-repository-id",
+        githubOwnerId: "repository-rename-owner",
+        expectedStoredName: "agent-plugins",
+        repositoryName: "plugin",
+      }),
+    ).resolves.toEqual({ githubOwnerLogin: "samebase", repositoryName: "plugin" });
+    await expect(
+      t.mutation(internal.vault.records.updateGitHubRepositoryNameForUser, {
+        userId,
+        vaultId: renamedVault.vaultId,
+        ghRepoId: "renamed-repository-id",
+        githubOwnerId: "repository-rename-owner",
+        expectedStoredName: "agent-plugins",
+        repositoryName: "plugin",
+      }),
+    ).resolves.toEqual({ githubOwnerLogin: "samebase", repositoryName: "plugin" });
+    const memberUserId = await createUser(t, "repository-rename-member@example.com");
+    await t.run(async (ctx) => {
+      await ctx.db.insert("organizationMemberships", {
+        organizationId,
+        userId: memberUserId,
+        role: "member",
+      });
+    });
+    await expect(
+      t.mutation(internal.vault.records.updateGitHubRepositoryNameForUser, {
+        userId: memberUserId,
+        vaultId: renamedVault.vaultId,
+        ghRepoId: "renamed-repository-id",
+        githubOwnerId: "repository-rename-owner",
+        expectedStoredName: "plugin",
+        repositoryName: "member-update",
+      }),
+    ).rejects.toThrow("Organization owner access is required.");
+
+    const collisionTarget = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        organizationId,
+        userId,
+        ghRepoId: "occupied-repository-id",
+        ghRepoOwner: "samebase",
+        ghRepoName: "occupied-name",
+      },
+    );
+    await t.mutation(internal.vault.records.markGithubProvisioningFailed, {
+      runId: collisionTarget.runId,
+    });
+    await expect(
+      t.mutation(internal.vault.records.updateGitHubRepositoryNameForUser, {
+        userId,
+        vaultId: renamedVault.vaultId,
+        ghRepoId: "renamed-repository-id",
+        githubOwnerId: "repository-rename-owner",
+        expectedStoredName: "plugin",
+        repositoryName: "occupied-name",
+      }),
+    ).rejects.toThrow("Vault already exists for this repository name.");
+
+    const asUser = t.withIdentity({
+      subject: `${userId}|repository-rename`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    await expect(asUser.query(api.vault.dashboard.getUserVaults, {})).resolves.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          _id: renamedVault.vaultId,
+          ghRepoId: "renamed-repository-id",
+          repositoryFullName: "samebase/plugin",
+        }),
+      ]),
+    );
   });
 
   it("uses the organization login after a GitHub owner rename", async () => {
@@ -413,6 +597,7 @@ describe("organization-owned vaults", () => {
       {
         organizationId,
         userId,
+        ghRepoId: "existing-repository-401",
         ghRepoOwner: "destination-owner",
         ghRepoName: "existing-app",
       },
@@ -497,6 +682,7 @@ describe("organization-owned vaults", () => {
       {
         organizationId,
         userId,
+        ghRepoId: "existing-failure-repository-402",
         ghRepoOwner: "failure-owner",
         ghRepoName: "existing-failure",
       },

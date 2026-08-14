@@ -3,11 +3,23 @@
 import { getFunctionName } from "convex/server";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+import type { OrganizationGitHubIdentityObservation } from "@/hooks/useOrganizationGitHubIdentity";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
+
+const useOrganizationGitHubIdentitiesMock = vi.hoisted(() => vi.fn());
+
+vi.mock("@/hooks/useOrganizationGitHubIdentity", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/useOrganizationGitHubIdentity")>();
+  return {
+    ...actual,
+    useOrganizationGitHubIdentities: useOrganizationGitHubIdentitiesMock,
+  };
+});
 
 function fakeOrganizationId(value: string): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this test only needs
@@ -57,11 +69,30 @@ const organization = {
   role: "owner" as const,
 } satisfies ViewerOrganization;
 
-function renderOrganizationSettings(selectedOrganization: ViewerOrganization) {
+function renderOrganizationSettings(
+  selectedOrganization: ViewerOrganization,
+  githubIdentity: OrganizationGitHubIdentityObservation["owner"] = {
+    status: "current",
+  },
+) {
+  useOrganizationGitHubIdentitiesMock.mockReturnValue(
+    new Map([
+      [
+        selectedOrganization.organizationId,
+        {
+          owner: githubIdentity,
+          vaults: [],
+        },
+      ],
+    ]),
+  );
+  const queryClient = new QueryClient();
   return renderToStaticMarkup(
-    <TestRouterProvider initialEntries={["/org/samebase/settings"]}>
-      <OrganizationSettingsPage organization={selectedOrganization} search={{}} />
-    </TestRouterProvider>,
+    <QueryClientProvider client={queryClient}>
+      <TestRouterProvider initialEntries={["/org/samebase/settings"]}>
+        <OrganizationSettingsPage organization={selectedOrganization} search={{}} />
+      </TestRouterProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -83,5 +114,29 @@ describe("OrganizationSettingsPage", () => {
     const markup = renderOrganizationSettings({ ...organization, role: "member" });
 
     expect(markup).not.toContain("Delete organization");
+  });
+
+  it("offers an owner the verified GitHub owner name update", () => {
+    const markup = renderOrganizationSettings(organization, {
+      status: "renamed",
+      githubOwnerLogin: "samebase-labs",
+    });
+
+    expect(markup).toContain("GitHub now uses");
+    expect(markup).toContain("samebase-labs</span>.");
+    expect(markup).toContain("Update name");
+  });
+
+  it("shows a member the owner requirement without an update action", () => {
+    const markup = renderOrganizationSettings(
+      { ...organization, role: "member" },
+      {
+        status: "renamed",
+        githubOwnerLogin: "samebase-labs",
+      },
+    );
+
+    expect(markup).toContain("An organization owner must update this name.");
+    expect(markup).not.toContain("Update name");
   });
 });

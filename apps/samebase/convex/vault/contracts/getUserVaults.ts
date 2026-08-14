@@ -186,6 +186,7 @@ const vUserVaultsResult = array(
     cloudflareAccountId: string(),
     ghRepoOwner: string(),
     ghRepoName: string(),
+    ghRepoId: optional(string()),
     repositoryFullName: string(),
     defaultBranch: optional(string()),
     fileCount: number(),

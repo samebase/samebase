@@ -151,6 +151,7 @@ export const vaultTables = {
         deletion: vVaultDeletionState,
         runId: id("workflow_vaultProvisioning_runs"),
         startedAt: number(),
+        ghRepoId: optional(string()),
         name: string(),
       }),
       object({
@@ -212,6 +213,7 @@ export const vaultTables = {
         deletion: vVaultDeletionState,
         runId: id("workflow_vaultProvisioning_runs"),
         failedAt: number(),
+        ghRepoId: optional(string()),
         name: string(),
       }),
     ),

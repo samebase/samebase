@@ -1,10 +1,63 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
+import { useAction } from "convex/react";
 
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { OrganizationBillingSection } from "@/components/OrganizationBillingSection";
 import { OrganizationDeletionDialog } from "@/components/OrganizationDeletionDialog";
 import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/use-toast";
+import {
+  organizationGitHubIdentityQueryKey,
+  type OrganizationGitHubIdentityObservation,
+  useOrganizationGitHubIdentities,
+} from "@/hooks/useOrganizationGitHubIdentity";
+import { buildOrganizationRoutePath } from "@/lib/organizationRoutes";
 import type { OrganizationBillingSearch } from "@/routeSearch/organizationBilling";
+import { api } from "../../convex/_generated/api";
+
+type OrganizationIdentity = OrganizationGitHubIdentityObservation["owner"];
+
+function OrganizationIdentityNotice({
+  identity,
+  organizationRole,
+  updatePending,
+  onUpdateName,
+}: {
+  identity: OrganizationIdentity | undefined;
+  organizationRole: "member" | "owner";
+  updatePending: boolean;
+  onUpdateName: () => void;
+}) {
+  if (!identity || identity.status === "current") {
+    return null;
+  }
+  if (identity.status === "renamed") {
+    return (
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm" role="status">
+        <div className="text-amber-800">
+          <div>
+            GitHub now uses <span className="font-medium">{identity.githubOwnerLogin}</span>.
+          </div>
+          {organizationRole !== "owner" ? (
+            <div className="mt-1 text-xs">An organization owner must update this name.</div>
+          ) : null}
+        </div>
+        {organizationRole === "owner" ? (
+          <Button disabled={updatePending} size="sm" type="button" onClick={onUpdateName}>
+            {updatePending ? "Updating..." : "Update name"}
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+  return (
+    <div className="mt-4 text-sm text-red-700" role="status">
+      The GitHub App cannot access this organization.
+    </div>
+  );
+}
 
 export function OrganizationSettingsPage({
   organization,
@@ -13,7 +66,52 @@ export function OrganizationSettingsPage({
   organization: ViewerOrganization;
   search: OrganizationBillingSearch;
 }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const updateOrganizationGitHubOwnerLogin = useAction(
+    api.github.updateOrganizationGitHubOwnerLogin,
+  );
+  const githubIdentities = useOrganizationGitHubIdentities([organization.organizationId]);
+  const githubIdentity = githubIdentities.get(organization.organizationId)?.owner;
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [updatingGitHubOwnerLogin, setUpdatingGitHubOwnerLogin] = useState(false);
+
+  const updateGitHubOwnerLogin = async () => {
+    if (
+      updatingGitHubOwnerLogin ||
+      organization.role !== "owner" ||
+      githubIdentity?.status !== "renamed"
+    ) {
+      return;
+    }
+    setUpdatingGitHubOwnerLogin(true);
+    try {
+      const result = await updateOrganizationGitHubOwnerLogin({
+        organizationId: organization.organizationId,
+        expectedGithubOwnerLogin: githubIdentity.githubOwnerLogin,
+      });
+      await navigate({
+        hash: true,
+        replace: true,
+        search: true,
+        to: buildOrganizationRoutePath({
+          owner: result.githubOwnerLogin,
+          section: "settings",
+        }),
+      });
+      void queryClient.invalidateQueries({
+        queryKey: organizationGitHubIdentityQueryKey(organization.organizationId),
+      });
+    } catch (error) {
+      toast({
+        title: "Could not update organization name",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingGitHubOwnerLogin(false);
+    }
+  };
 
   return (
     <main
@@ -37,6 +135,14 @@ export function OrganizationSettingsPage({
             </dd>
           </div>
         </dl>
+        <OrganizationIdentityNotice
+          identity={githubIdentity}
+          organizationRole={organization.role}
+          updatePending={updatingGitHubOwnerLogin}
+          onUpdateName={() => {
+            void updateGitHubOwnerLogin();
+          }}
+        />
       </section>
       <OrganizationBillingSection organization={organization} search={search} />
       {organization.role === "owner" ? (

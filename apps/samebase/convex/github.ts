@@ -6,7 +6,8 @@ import { Infer, v } from "convex/values";
 import { internal } from "./_generated/api";
 import { Octokit } from "@octokit/rest";
 import { action } from "./functions";
-import { resolveGitHubAppAccess } from "./githubAppAccess";
+import { resolveGitHubAppAccess, type GitHubAppInstallationAccess } from "./githubAppAccess";
+import { createGitHubInstallationOctokit, readGitHubAppInstallation } from "./githubApp";
 import { guessMime, withRetry } from "./gitOperationsActions";
 import { isRecord } from "./jsonUtils";
 import {
@@ -33,6 +34,10 @@ const {
 
 const githubRepositoryListItem = object({
   id: number(),
+  owner: object({
+    id: number(),
+    login: string(),
+  }),
   name: string(),
   full_name: string(),
   html_url: string(),
@@ -54,6 +59,39 @@ const githubRepositoryPreviewResult = object({
 });
 
 type GitHubRepositoryPreviewResult = Infer<typeof githubRepositoryPreviewResult>;
+
+const githubOwnerIdentityObservation = union(
+  object({
+    status: literal("current"),
+  }),
+  object({
+    status: literal("renamed"),
+    githubOwnerLogin: string(),
+  }),
+  object({
+    status: literal("unavailable"),
+  }),
+);
+
+const githubVaultIdentityObservation = union(
+  object({
+    status: literal("renamed"),
+    vaultId: id("vaults"),
+    repositoryName: string(),
+    update: union(literal("available"), literal("blocked")),
+  }),
+  object({
+    status: literal("unavailable"),
+    vaultId: id("vaults"),
+  }),
+);
+
+const githubIdentityObservation = object({
+  owner: githubOwnerIdentityObservation,
+  vaults: array(githubVaultIdentityObservation),
+});
+
+type GitHubIdentityObservation = Infer<typeof githubIdentityObservation>;
 
 type CachedRepositoryBlob = {
   size?: number | null;
@@ -343,6 +381,7 @@ export function normalizeGitHubRepositoryListItem(value: unknown): GitHubReposit
 
   const {
     id,
+    owner,
     name,
     full_name,
     html_url,
@@ -358,6 +397,14 @@ export function normalizeGitHubRepositoryListItem(value: unknown): GitHubReposit
 
   if (
     typeof id !== "number" ||
+    !Number.isSafeInteger(id) ||
+    id <= 0 ||
+    !isRecord(owner) ||
+    typeof owner["id"] !== "number" ||
+    !Number.isSafeInteger(owner["id"]) ||
+    owner["id"] <= 0 ||
+    typeof owner["login"] !== "string" ||
+    owner["login"].trim().length === 0 ||
     typeof name !== "string" ||
     typeof full_name !== "string" ||
     typeof html_url !== "string" ||
@@ -375,6 +422,10 @@ export function normalizeGitHubRepositoryListItem(value: unknown): GitHubReposit
 
   return {
     id,
+    owner: {
+      id: owner["id"],
+      login: owner["login"].trim(),
+    },
     name,
     full_name,
     html_url,
@@ -479,6 +530,246 @@ export async function listGitHubRepositories(args: {
 
   throw new Error(`GitHub repository pagination exceeded ${MAX_GITHUB_REPOSITORY_PAGES} pages`);
 }
+
+type GitHubInstallationIdentityState =
+  | {
+      status: "available";
+      githubOwnerLogin: string;
+      installationId: string;
+    }
+  | { status: "unavailable" };
+
+async function readGitHubInstallationIdentityState(
+  organization: GitHubAppInstallationAccess,
+): Promise<GitHubInstallationIdentityState> {
+  let installation;
+  try {
+    installation = await readGitHubAppInstallation(organization.githubInstallationId, {
+      allowSuspended: true,
+    });
+  } catch (error) {
+    if (getErrorStatus(error) === 404) {
+      return { status: "unavailable" };
+    }
+    throw error;
+  }
+
+  if (installation.suspended) {
+    return { status: "unavailable" };
+  }
+  if (
+    installation.githubOwnerId !== organization.githubOwnerId ||
+    installation.githubOwnerType !== organization.githubOwnerType
+  ) {
+    return { status: "unavailable" };
+  }
+
+  return {
+    status: "available",
+    githubOwnerLogin: installation.githubOwnerLogin,
+    installationId: installation.installationId,
+  };
+}
+
+async function readGitHubInstallationRepositories(
+  installationId: string,
+): Promise<GitHubRepositoryList | null> {
+  try {
+    return await listGitHubRepositories({
+      octokit: createGitHubInstallationOctokit(installationId),
+    });
+  } catch (error) {
+    const status = getErrorStatus(error);
+    if (status === 401 || status === 403 || status === 404) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+export const observeOrganizationGitHubIdentity = action({
+  access: "access_dashboard",
+  args: {
+    organizationId: id("organizations"),
+  },
+  returns: githubIdentityObservation,
+  handler: async (ctx, args): Promise<GitHubIdentityObservation> => {
+    const access = await ctx.runQuery(internal.githubAppAccess.loadInstallationAccess, {
+      userId: ctx.viewer.userId,
+      target: { kind: "organization", organizationId: args.organizationId },
+    });
+    const installation = await readGitHubInstallationIdentityState(access);
+    if (installation.status === "unavailable") {
+      return {
+        owner: { status: "unavailable" },
+        vaults: [],
+      };
+    }
+
+    const owner: GitHubIdentityObservation["owner"] =
+      installation.githubOwnerLogin === access.githubOwnerLogin
+        ? {
+            status: "current",
+          }
+        : {
+            status: "renamed",
+            githubOwnerLogin: installation.githubOwnerLogin,
+          };
+    const repositories = await readGitHubInstallationRepositories(installation.installationId);
+    const target = await ctx.runQuery(internal.vault.records.getGitHubIdentityObservationVaults, {
+      userId: ctx.viewer.userId,
+      organizationId: access.organizationId,
+    });
+    if (repositories === null) {
+      return {
+        owner,
+        vaults: target.connectedVaults.map((vault) => ({
+          status: "unavailable",
+          vaultId: vault.vaultId,
+        })),
+      };
+    }
+
+    const repositoriesById = new Map(
+      repositories.map((repository) => [String(repository.id), repository] as const),
+    );
+    const vaults = target.connectedVaults.flatMap((vault): GitHubIdentityObservation["vaults"] => {
+      const repository = repositoriesById.get(vault.ghRepoId);
+      if (repository === undefined || String(repository.owner.id) !== access.githubOwnerId) {
+        return [
+          {
+            status: "unavailable",
+            vaultId: vault.vaultId,
+          },
+        ];
+      }
+      if (repository.name === vault.name) {
+        return [];
+      }
+
+      const normalizedRepositoryName = repository.name.trim().toLowerCase();
+      const nameCollision = target.occupiedVaults.some(
+        (occupiedVault) =>
+          occupiedVault.vaultId !== vault.vaultId &&
+          occupiedVault.name.trim().toLowerCase() === normalizedRepositoryName,
+      );
+      return [
+        {
+          status: "renamed",
+          vaultId: vault.vaultId,
+          repositoryName: repository.name,
+          update: nameCollision ? "blocked" : "available",
+        },
+      ];
+    });
+
+    return {
+      owner,
+      vaults,
+    };
+  },
+});
+
+const updateGitHubOwnerLoginResult = object({
+  githubOwnerLogin: string(),
+});
+
+type UpdateGitHubOwnerLoginResult = Infer<typeof updateGitHubOwnerLoginResult>;
+
+export const updateOrganizationGitHubOwnerLogin = action({
+  access: "access_dashboard",
+  args: {
+    organizationId: id("organizations"),
+    expectedGithubOwnerLogin: string(),
+  },
+  returns: updateGitHubOwnerLoginResult,
+  handler: async (ctx, args): Promise<UpdateGitHubOwnerLoginResult> => {
+    const organization = await ctx.runQuery(
+      internal.organizations.getGitHubOwnerLoginUpdateTargetForUser,
+      {
+        userId: ctx.viewer.userId,
+        organizationId: args.organizationId,
+      },
+    );
+    const provider = await readGitHubInstallationIdentityState(organization);
+    if (provider.status === "unavailable") {
+      throw new Error("The GitHub App installation is unavailable for this organization.");
+    }
+    if (provider.githubOwnerLogin !== args.expectedGithubOwnerLogin) {
+      throw new Error("The GitHub owner login changed before the update was approved.");
+    }
+
+    const githubOwnerLogin = await ctx.runMutation(
+      internal.organizations.updateVerifiedGitHubOwnerLogin,
+      {
+        userId: ctx.viewer.userId,
+        organizationId: organization.organizationId,
+        githubOwnerId: organization.githubOwnerId,
+        expectedStoredGithubOwnerLogin: organization.githubOwnerLogin,
+        githubOwnerLogin: provider.githubOwnerLogin,
+      },
+    );
+    return { githubOwnerLogin };
+  },
+});
+
+const updateGitHubRepositoryNameResult = object({
+  githubOwnerLogin: string(),
+  repositoryName: string(),
+});
+
+type UpdateGitHubRepositoryNameResult = Infer<typeof updateGitHubRepositoryNameResult>;
+
+export const updateVaultGitHubRepositoryName = action({
+  access: "access_dashboard",
+  args: {
+    vaultId: id("vaults"),
+    expectedRepositoryName: string(),
+  },
+  returns: updateGitHubRepositoryNameResult,
+  handler: async (ctx, args): Promise<UpdateGitHubRepositoryNameResult> => {
+    const target = await ctx.runQuery(
+      internal.vault.records.getGitHubRepositoryNameUpdateTargetForUser,
+      {
+        userId: ctx.viewer.userId,
+        vaultId: args.vaultId,
+      },
+    );
+    const installation = await readGitHubInstallationIdentityState(target.organization);
+    if (installation.status === "unavailable") {
+      throw new Error("The GitHub App installation is unavailable for this organization.");
+    }
+    const repositories = await readGitHubInstallationRepositories(installation.installationId);
+    if (repositories === null) {
+      throw new Error("The GitHub App installation is unavailable for this organization.");
+    }
+    const repository = repositories.find(
+      (candidate) => String(candidate.id) === target.vault.ghRepoId,
+    );
+    if (repository === undefined) {
+      throw new Error("The GitHub repository is not available to this App installation.");
+    }
+    if (String(repository.owner.id) !== target.organization.githubOwnerId) {
+      throw new Error("The GitHub repository moved to another owner.");
+    }
+    if (repository.name !== args.expectedRepositoryName) {
+      throw new Error("The GitHub repository name changed before the update was approved.");
+    }
+
+    const updated = await ctx.runMutation(
+      internal.vault.records.updateGitHubRepositoryNameForUser,
+      {
+        userId: ctx.viewer.userId,
+        vaultId: target.vault.vaultId,
+        ghRepoId: target.vault.ghRepoId,
+        githubOwnerId: target.organization.githubOwnerId,
+        expectedStoredName: target.vault.name,
+        repositoryName: repository.name,
+      },
+    );
+    return updated;
+  },
+});
 
 export const listRepositoriesPreview = action({
   access: "access_repo_connect",

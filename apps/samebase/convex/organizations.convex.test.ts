@@ -136,6 +136,94 @@ describe("GitHub-backed organizations", () => {
     });
   });
 
+  it("updates only an explicitly verified GitHub owner login", async () => {
+    const t = makeConvexTest();
+    const { memberUserId, ownerUserId } = await t.run(async (ctx) => {
+      const ownerUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "rename-owner@example.com",
+        isApproved: true,
+      });
+      const memberUserId = await ctx.db.insert("users", {
+        state: "active",
+        email: "rename-member@example.com",
+        isApproved: true,
+      });
+      return { memberUserId, ownerUserId };
+    });
+    const organization = await t.mutation(
+      internal.organizations.createOrReconnectVerifiedOrganization,
+      {
+        userId: ownerUserId,
+        githubOwnerId: "rename-owner-id",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "before-rename",
+        githubInstallationId: "rename-installation",
+      },
+    );
+    await t.run(async (ctx) => {
+      await ctx.db.insert("organizationMemberships", {
+        organizationId: organization.organizationId,
+        userId: memberUserId,
+        role: "member",
+      });
+    });
+
+    await expect(
+      t.mutation(internal.organizations.updateVerifiedGitHubOwnerLogin, {
+        userId: ownerUserId,
+        organizationId: organization.organizationId,
+        githubOwnerId: "rename-owner-id",
+        expectedStoredGithubOwnerLogin: "before-rename",
+        githubOwnerLogin: "after-rename",
+      }),
+    ).resolves.toBe("after-rename");
+    await expect(
+      t.mutation(internal.organizations.updateVerifiedGitHubOwnerLogin, {
+        userId: ownerUserId,
+        organizationId: organization.organizationId,
+        githubOwnerId: "rename-owner-id",
+        expectedStoredGithubOwnerLogin: "before-rename",
+        githubOwnerLogin: "after-rename",
+      }),
+    ).resolves.toBe("after-rename");
+    await expect(
+      t.mutation(internal.organizations.updateVerifiedGitHubOwnerLogin, {
+        userId: memberUserId,
+        organizationId: organization.organizationId,
+        githubOwnerId: "rename-owner-id",
+        expectedStoredGithubOwnerLogin: "after-rename",
+        githubOwnerLogin: "member-update",
+      }),
+    ).rejects.toThrow("Organization owner access is required.");
+    await t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
+      userId: ownerUserId,
+      githubOwnerId: "taken-owner-id",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "taken-owner",
+      githubInstallationId: "taken-installation",
+    });
+    await expect(
+      t.mutation(internal.organizations.updateVerifiedGitHubOwnerLogin, {
+        userId: ownerUserId,
+        organizationId: organization.organizationId,
+        githubOwnerId: "rename-owner-id",
+        expectedStoredGithubOwnerLogin: "after-rename",
+        githubOwnerLogin: "taken-owner",
+      }),
+    ).rejects.toThrow("GitHub owner login is already connected to another organization.");
+
+    await expect(
+      t.run(async (ctx) => await ctx.db.get(organization.organizationId)),
+    ).resolves.toMatchObject({
+      githubOwnerId: "rename-owner-id",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "after-rename",
+      githubOwnerLoginNormalized: "after-rename",
+      githubInstallationId: "rename-installation",
+    });
+  });
+
   it("resolves a normalized external return coordinate from an organization ID", async () => {
     const t = makeConvexTest();
     const ownerUserId = await t.run(async (ctx) => {

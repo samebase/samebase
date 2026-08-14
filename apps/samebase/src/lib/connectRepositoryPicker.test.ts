@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import { parseRepositoryFullName } from "../../shared/repoName";
-import { resolveDisplayedRepositories } from "./connectRepositoryPicker";
+import {
+  isGitHubRepositoryConnected,
+  resolveDisplayedRepositories,
+} from "./connectRepositoryPicker";
 
 function buildRepository(id: number, fullName: string) {
   const { owner, name } = parseRepositoryFullName(fullName);
@@ -102,5 +105,30 @@ describe("resolveDisplayedRepositories", () => {
         hasFreshFullRepositories: true,
       }),
     ).toEqual([]);
+  });
+});
+
+describe("isGitHubRepositoryConnected", () => {
+  it("matches a renamed repository by its stable GitHub ID", () => {
+    expect(
+      isGitHubRepositoryConnected({
+        repository: buildRepository(42, "samebase/plugin"),
+        vaults: [
+          {
+            ghRepoId: "42",
+            repositoryFullName: "samebase/agent-plugins",
+          },
+        ],
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps the stored full-name match for vaults without a repository ID", () => {
+    expect(
+      isGitHubRepositoryConnected({
+        repository: buildRepository(42, "samebase/plugin"),
+        vaults: [{ repositoryFullName: "samebase/plugin" }],
+      }),
+    ).toBe(true);
   });
 });

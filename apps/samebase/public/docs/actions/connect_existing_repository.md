@@ -16,7 +16,9 @@ failure are readable through `get_user_vaults` (`sourceSetup` running/failed wit
 
 ## Arguments
 
-- `repositoryFullName` (string, required): Full repository name to import, as "owner/name".
+- `githubOwnerLogin` (string, required): GitHub owner login for the Samebase organization that will
+  hold the vault.
+- `ghRepoId` (string, required): Stable GitHub repository ID to connect.
 
 ## Returns
 
@@ -31,9 +33,12 @@ JSON Schema for the tool's `structuredContent`:
     },
     "runId": {
       "type": "string"
+    },
+    "repositoryFullName": {
+      "type": "string"
     }
   },
-  "required": ["vaultId", "runId"],
+  "required": ["vaultId", "runId", "repositoryFullName"],
   "additionalProperties": false
 }
 ```

@@ -7,10 +7,11 @@ const { id, object, string } = v;
 const vConnectRepositoryResult = object({
   vaultId: id("vaults"),
   runId: id("workflow_vaultProvisioning_runs"),
+  repositoryFullName: string(),
 });
 
 const connectRepositoryFields = {
-  repositoryFullName: string(),
+  ghRepoId: string(),
 };
 
 export const connectRepositoryContract = {
@@ -20,7 +21,10 @@ export const connectRepositoryContract = {
     organizationId: id("organizations"),
     ...connectRepositoryFields,
   },
-  mcpArgs: connectRepositoryFields,
+  mcpArgs: {
+    githubOwnerLogin: string(),
+    ...connectRepositoryFields,
+  },
   returns: vConnectRepositoryResult,
   structuredContent: vConnectRepositoryResult,
   mcp: {
@@ -35,7 +39,9 @@ export const connectRepositoryContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      repositoryFullName: 'Full repository name to import, as "owner/name".',
+      githubOwnerLogin:
+        "GitHub owner login for the Samebase organization that will hold the vault.",
+      ghRepoId: "Stable GitHub repository ID to connect.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Brings a repository that the selected organization's GitHub App installation can read into

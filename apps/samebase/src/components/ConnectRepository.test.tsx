@@ -13,11 +13,12 @@ type ConnectRepositoryPageContentProps = Parameters<typeof ConnectRepositoryPage
 const noop = () => {};
 
 function buildRepository(id: number, fullName: string): ConnectRepositoryRepository {
-  const { name } = parseRepositoryFullName(fullName);
+  const { name, owner } = parseRepositoryFullName(fullName);
 
   return {
     id,
     name,
+    owner: { id: 100, login: owner },
     full_name: fullName,
     html_url: `https://github.com/${fullName}`,
     description: null,

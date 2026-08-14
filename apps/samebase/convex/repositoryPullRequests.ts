@@ -728,7 +728,7 @@ export const listVaultSidebarSummaries = action({
       }
       const { octokit } = await resolveGitHubAppAccess(ctx, {
         userId: ctx.viewer.userId,
-        target: { kind: "vault", vaultId: firstRepository.vaultId },
+        target: { kind: "owner", githubOwnerLogin: firstRepository.owner },
       });
       const signal = createGitHubRequestDeadlineSignal();
       let providerResponse: unknown;

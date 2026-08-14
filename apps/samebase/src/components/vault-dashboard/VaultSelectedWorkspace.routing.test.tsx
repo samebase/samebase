@@ -33,6 +33,9 @@ vi.mock("./VaultConvexDialog", () => ({
 vi.mock("./VaultDeleteDialog", () => ({
   VaultDeleteDialog: () => null,
 }));
+vi.mock("./VaultRepositorySettings", () => ({
+  RepositorySettings: () => null,
+}));
 vi.mock("./VaultCloudflareDialog", () => ({
   VaultCloudflareDialog: ({
     blockedReason,

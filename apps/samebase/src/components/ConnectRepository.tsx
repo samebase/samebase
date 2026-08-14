@@ -15,7 +15,10 @@ import {
   splitRepositoryFullNameMatch,
   type RepositorySearchMatch,
 } from "@/lib/repositorySearch";
-import { resolveDisplayedRepositories } from "@/lib/connectRepositoryPicker";
+import {
+  isGitHubRepositoryConnected,
+  resolveDisplayedRepositories,
+} from "@/lib/connectRepositoryPicker";
 import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
 import { Loader2 } from "lucide-react";
 
@@ -42,7 +45,7 @@ type ConnectRepositoryPageContentProps = {
   retryingFullRepositories: boolean;
   searchQuery: string;
   showBackgroundError: boolean;
-  onConnectRepository: (repositoryFullName: string) => void;
+  onConnectRepository: (repository: Repository) => void;
   onRetryFullRepositories: () => void;
   onSearchQueryChange: (value: string) => void;
 };
@@ -188,10 +191,7 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
   const connectedVaults = vaults || [];
 
   const filteredRepositories = repositories.flatMap((repo: Repository) => {
-    const isConnected = connectedVaults.some(
-      (vault: (typeof connectedVaults)[number]) => vault.repositoryFullName === repo.full_name,
-    );
-    if (isConnected) {
+    if (isGitHubRepositoryConnected({ repository: repo, vaults: connectedVaults })) {
       return [];
     }
 
@@ -210,23 +210,23 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
     });
   };
 
-  const connectSelectedRepository = (repositoryFullName: string) => {
+  const connectSelectedRepository = (repository: Repository) => {
     if (connectingRepositoryFullName !== null || !canConnectRepositories) {
       return;
     }
 
     void (async () => {
       setConnectError(null);
-      setConnectingRepositoryFullName(repositoryFullName);
+      setConnectingRepositoryFullName(repository.full_name);
       try {
         await queueExistingRepositoryAndNavigateToDashboard({
           connectRepository: async (args) => {
             return await connectRepository({
               organizationId,
-              repositoryFullName: args.repositoryFullName,
+              ghRepoId: args.ghRepoId,
             });
           },
-          repositoryFullName,
+          ghRepoId: String(repository.id),
           search: location.search,
           navigateByHref: async (href) => {
             await navigate({ href });
@@ -397,7 +397,7 @@ export function ConnectRepositoryPageContent({
                         variant="outline"
                         size="sm"
                         className="mt-2"
-                        onClick={() => onConnectRepository(repo.full_name)}
+                        onClick={() => onConnectRepository(repo)}
                         disabled={connectingRepositoryFullName !== null || !canConnectRepositories}
                       >
                         {connectingRepositoryFullName === repo.full_name

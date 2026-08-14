@@ -3,11 +3,13 @@
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
 import type { VaultPullRequest, VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { OrganizationContext } from "@/lib/organizationContext";
 import type { Id } from "../../../convex/_generated/dataModel";
 import {
   type VaultOrganization,
@@ -33,6 +35,16 @@ import type {
   VaultCloudflareWorkerObservation,
 } from "./useVaultProviderObservations";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
+
+const useOrganizationGitHubIdentitiesMock = vi.hoisted(() => vi.fn(() => new Map()));
+
+vi.mock("@/hooks/useOrganizationGitHubIdentity", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/useOrganizationGitHubIdentity")>();
+  return {
+    ...actual,
+    useOrganizationGitHubIdentities: useOrganizationGitHubIdentitiesMock,
+  };
+});
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
@@ -1616,44 +1628,142 @@ describe("VaultOverviewPage", () => {
       pullRequests: { state: "not_requested" as const },
       vault,
     };
+    const queryClient = new QueryClient();
     const markup = renderToStaticMarkup(
-      <RepositorySettings
-        developerToolsVisible={false}
-        onOpenDeleteDialog={() => {}}
-        settingsState={{
-          addCloudflareWorker: { disabled: true },
-          addConvexProject: { disabled: true },
-          attentionResources: [],
-          pendingResources: [],
-          providerActionBlockReason: "A provider operation is in progress.",
-          roots: [
-            {
-              rootDirectory: "/",
-              resources: [
+      <QueryClientProvider client={queryClient}>
+        <TestRouterProvider initialEntries={["/vault/ada/demo/settings"]}>
+          <RepositorySettings
+            developerToolsVisible={false}
+            onOpenDeleteDialog={() => {}}
+            settingsState={{
+              addCloudflareWorker: { disabled: true },
+              addConvexProject: { disabled: true },
+              attentionResources: [],
+              pendingResources: [],
+              providerActionBlockReason: "A provider operation is in progress.",
+              roots: [
                 {
-                  href: "https://dash.cloudflare.com/example",
-                  name: "demo-worker",
-                  provider: "cloudflare",
-                  resourceId: "worker",
-                  state: "setting_up",
-                },
-                {
-                  href: "https://dashboard.convex.dev/example",
-                  name: "demo-convex",
-                  provider: "convex",
-                  resourceId: "project",
-                  state: "checking",
+                  rootDirectory: "/",
+                  resources: [
+                    {
+                      href: "https://dash.cloudflare.com/example",
+                      name: "demo-worker",
+                      provider: "cloudflare",
+                      resourceId: "worker",
+                      state: "setting_up",
+                    },
+                    {
+                      href: "https://dashboard.convex.dev/example",
+                      name: "demo-convex",
+                      provider: "convex",
+                      resourceId: "project",
+                      state: "checking",
+                    },
+                  ],
                 },
               ],
-            },
-          ],
-        }}
-        workspace={workspace}
-      />,
+            }}
+            workspace={workspace}
+          />
+        </TestRouterProvider>
+      </QueryClientProvider>,
     );
 
     expect(markup).toContain('href="https://dash.cloudflare.com/example"');
     expect(markup).toContain('href="https://dashboard.convex.dev/example"');
+  });
+
+  it("offers a repository name update only to an organization owner", () => {
+    const vault = makeRepositorySettingsBuilderVault({
+      ghRepoName: "agent-plugins",
+      repositoryFullName: "ada/agent-plugins",
+    });
+    const workspace = {
+      access: { state: "ready" as const, accessKeys: [] },
+      cloudflareConnection: { state: "loading" as const },
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [],
+        builds: [],
+        convexBuildAccess: [],
+      }),
+      convexObservations: {
+        state: "loaded" as const,
+        refreshFailed: false,
+        reload: () => {},
+        observations: [],
+      },
+      environmentRoots: [],
+      githubRepositoryUrl: "https://github.com/ada/plugin",
+      pullRequests: { state: "not_requested" as const },
+      vault,
+    };
+    useOrganizationGitHubIdentitiesMock.mockReturnValue(
+      new Map([
+        [
+          vault.organizationId,
+          {
+            owner: { status: "current" },
+            vaults: [
+              {
+                status: "renamed",
+                vaultId: vault._id,
+                repositoryName: "plugin",
+                update: "available",
+              },
+            ],
+          },
+        ],
+      ]),
+    );
+
+    function renderForRole(role: "member" | "owner") {
+      const queryClient = new QueryClient();
+      return renderToStaticMarkup(
+        <QueryClientProvider client={queryClient}>
+          <OrganizationContext.Provider
+            value={{
+              organizations: [
+                {
+                  canCreateRepository: true,
+                  githubOwnerId: "github-owner-ada",
+                  githubOwnerLogin: "ada",
+                  githubOwnerType: "user",
+                  organizationId: vault.organizationId,
+                  role,
+                },
+              ],
+              surface: { kind: "allVaults" },
+            }}
+          >
+            <TestRouterProvider initialEntries={["/vault/ada/agent-plugins/settings"]}>
+              <RepositorySettings
+                developerToolsVisible={false}
+                onOpenDeleteDialog={() => {}}
+                settingsState={{
+                  addCloudflareWorker: { disabled: true },
+                  addConvexProject: { disabled: true },
+                  attentionResources: [],
+                  pendingResources: [],
+                  providerActionBlockReason: null,
+                  roots: [],
+                }}
+                workspace={workspace}
+              />
+            </TestRouterProvider>
+          </OrganizationContext.Provider>
+        </QueryClientProvider>,
+      );
+    }
+
+    const ownerMarkup = renderForRole("owner");
+    const memberMarkup = renderForRole("member");
+
+    expect(ownerMarkup).toContain("GitHub now uses");
+    expect(ownerMarkup).toContain("ada</span>/<span");
+    expect(ownerMarkup).toContain("plugin</span>.");
+    expect(ownerMarkup).toContain("Update name");
+    expect(memberMarkup).toContain("An organization owner must update this name.");
+    expect(memberMarkup).not.toContain("Update name");
   });
 });
 

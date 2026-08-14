@@ -8,6 +8,8 @@ import {
   requireGitHubRepositoryOwnerId,
   resolveGitHubAppAccessForProvisioningRun,
 } from "./githubAppAccess";
+import { createGitHubRepositoryInstallationOctokit } from "./githubApp";
+import { resolveGitHubRepositoryById } from "./githubRepoApi";
 import { resolveGitHubUserOctokitForProvisioningRun } from "./githubUserAuthorizations";
 import { toErrorMessage } from "./jsonUtils";
 import { toSafeRepoName } from "../shared/repoName";
@@ -64,18 +66,6 @@ function readRequiredDefaultBranch(repoData: unknown): string {
     return defaultBranch;
   }
   throw new Error("GitHub repository does not have a default branch.");
-}
-
-function readRepositoryCoordinates(args: { ownerName: string; repoName: string }): {
-  ownerName: string;
-  repoName: string;
-} {
-  const ownerName = args.ownerName.trim();
-  const repoName = args.repoName.trim();
-  if (!ownerName || !repoName || ownerName.includes("/") || repoName.includes("/")) {
-    throw new Error("Invalid repository full name.");
-  }
-  return { ownerName, repoName };
 }
 
 async function getProvisioningRun(
@@ -187,15 +177,28 @@ async function assertConnectExistingRepositoryRun(
     vaultId: Id<"vaults">;
     runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
+    ghRepoId: string;
   },
 ): Promise<Doc<"workflow_vaultProvisioning_runs">> {
-  const run = await getProvisioningRun(ctx, args.runId);
+  const [run, vault] = await Promise.all([
+    getProvisioningRun(ctx, args.runId),
+    ctx.runQuery(internal.vault.records.getById, { id: args.vaultId }),
+  ]);
   if (
     run.userId !== args.userId ||
     run.trigger !== "connect_existing_repository" ||
     run.vaultId !== args.vaultId
   ) {
     throw new Error("Provisioning run does not match existing repository workflow.");
+  }
+  if (
+    !vault ||
+    (vault.state !== "provisioning" && vault.state !== "connected") ||
+    vault.githubMode !== "connect_existing_repository" ||
+    vault.runId !== args.runId ||
+    vault.ghRepoId !== args.ghRepoId
+  ) {
+    throw new Error("Provisioning vault repository identity cannot be changed.");
   }
   return run;
 }
@@ -217,6 +220,25 @@ async function assertSourceSetupRun(
     throw new Error("Provisioning run does not match source setup workflow.");
   }
   return run;
+}
+
+async function requireConnectedVaultRepositoryIdentity(
+  ctx: Pick<ActionCtx, "runQuery">,
+  args: {
+    vaultId: Id<"vaults">;
+    runId: Id<"workflow_vaultProvisioning_runs">;
+    ghRepoId: string;
+  },
+): Promise<void> {
+  const vault = await ctx.runQuery(internal.vault.records.getById, { id: args.vaultId });
+  if (
+    !vault ||
+    vault.state !== "connected" ||
+    vault.runId !== args.runId ||
+    vault.ghRepoId !== args.ghRepoId
+  ) {
+    throw new Error("Connected vault repository identity cannot be changed.");
+  }
 }
 
 export const validateCreateAppConnections = internalAction({
@@ -398,53 +420,16 @@ export const createGitHubRepository = internalAction({
   },
 });
 
-export const validateExistingRepositoryConnection = internalAction({
-  args: {
-    vaultId: id("vaults"),
-    runId: id("workflow_vaultProvisioning_runs"),
-    userId: id("users"),
-    ownerName: string(),
-    repoName: string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    await assertConnectExistingRepositoryRun(ctx, args);
-
-    await appendRunEvent(ctx, {
-      runId: args.runId,
-      step: "validate_connections",
-      level: "info",
-      message: "Checking provider connections.",
-      state: "running",
-    });
-
-    const repository = readRepositoryCoordinates(args);
-    const access = await resolveGitHubAppAccessForProvisioningRun(ctx, {
-      runId: args.runId,
-      userId: args.userId,
-      vaultId: args.vaultId,
-    });
-    requireMatchingGitHubOwnerLogin({
-      expectedOwnerLogin: access.githubOwnerLogin,
-      repositoryOwner: repository.ownerName,
-    });
-
-    return null;
-  },
-});
-
 export const fetchExistingGitHubRepository = internalAction({
   args: {
     vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
-    ownerName: string(),
-    repoName: string(),
+    ghRepoId: string(),
   },
   returns: githubRepositoryResult,
   handler: async (ctx, args): Promise<GitHubRepositoryResult> => {
     await assertConnectExistingRepositoryRun(ctx, args);
-    const requestedRepository = readRepositoryCoordinates(args);
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -459,27 +444,18 @@ export const fetchExistingGitHubRepository = internalAction({
       userId: args.userId,
       vaultId: args.vaultId,
     });
-    requireMatchingGitHubOwnerLogin({
-      expectedOwnerLogin: access.githubOwnerLogin,
-      repositoryOwner: requestedRepository.ownerName,
-    });
     const recordApiCall = createProviderApiCallRecorder(ctx, {
       runId: args.runId,
       step: "fetch_github_repo",
     });
-    await recordApiCall({
-      provider: "GitHub",
-      method: "GET",
-      endpoint: "/repos/{owner}/{repo}",
-      values: {
-        params: {
-          path: requestedRepository,
-        },
-      },
-    });
-    const repo = await access.octokit.rest.repos.get({
-      owner: requestedRepository.ownerName,
-      repo: requestedRepository.repoName,
+    const octokit = await createGitHubRepositoryInstallationOctokit(
+      access.githubInstallationId,
+      args.ghRepoId,
+    );
+    const repo = await resolveGitHubRepositoryById({
+      octokit,
+      ghRepoId: args.ghRepoId,
+      recordApiCall,
     });
     requireGitHubRepositoryOwnerId({
       expectedOwnerId: access.githubOwnerId,
@@ -500,7 +476,7 @@ export const fetchExistingGitHubRepository = internalAction({
         },
       },
     });
-    await access.octokit.rest.repos.getBranch({
+    await octokit.rest.repos.getBranch({
       owner: repo.data.owner.login,
       repo: repo.data.name,
       branch: defaultBranch,
@@ -524,7 +500,7 @@ export const fetchExistingGitHubRepository = internalAction({
     });
 
     return {
-      ghRepoId: repo.data.id.toString(),
+      ghRepoId: args.ghRepoId,
       ownerName,
       repoName: repoFinalName,
       defaultBranch,
@@ -538,13 +514,12 @@ export const seedStarterRepository = internalAction({
     vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
-    ownerName: string(),
-    repoName: string(),
-    defaultBranch: string(),
+    ghRepoId: string(),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     await assertCreateRun(ctx, args);
+    await requireConnectedVaultRepositoryIdentity(ctx, args);
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -559,26 +534,39 @@ export const seedStarterRepository = internalAction({
       userId: args.userId,
       vaultId: args.vaultId,
     });
-    requireMatchingGitHubOwnerLogin({
-      expectedOwnerLogin: access.githubOwnerLogin,
-      repositoryOwner: args.ownerName,
-    });
     const recordApiCall = createProviderApiCallRecorder(ctx, {
       runId: args.runId,
       step: "seed_starter",
     });
+    const octokit = await createGitHubRepositoryInstallationOctokit(
+      access.githubInstallationId,
+      args.ghRepoId,
+    );
+    const repositoryResponse = await resolveGitHubRepositoryById({
+      octokit,
+      ghRepoId: args.ghRepoId,
+      recordApiCall,
+    });
+    const repository = repositoryResponse.data;
+    requireGitHubRepositoryOwnerId({
+      expectedOwnerId: access.githubOwnerId,
+      repositoryOwnerId: repository.owner.id,
+    });
+    const ownerName = repository.owner.login;
+    const repoName = repository.name;
+    const defaultBranch = readDefaultBranch(repository);
     try {
       await seedRepositoryWithStarter({
-        client: createStarterSeedGitClient(access.octokit, { recordApiCall }),
-        owner: args.ownerName,
-        repo: args.repoName,
-        defaultBranch: args.defaultBranch,
+        client: createStarterSeedGitClient(octokit, { recordApiCall }),
+        owner: ownerName,
+        repo: repoName,
+        defaultBranch,
       });
     } catch (error) {
       const seedErrorMessage = toErrorMessage(error);
 
       console.error("seed:failed", {
-        repo: `${args.ownerName}/${args.repoName}`,
+        repo: `${ownerName}/${repoName}`,
         message: seedErrorMessage,
       });
 
@@ -692,13 +680,12 @@ export const syncVaultTreeForRepository = internalAction({
     vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
-    ownerName: string(),
-    repoName: string(),
-    defaultBranch: string(),
+    ghRepoId: string(),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     await assertSourceSetupRun(ctx, args);
+    await requireConnectedVaultRepositoryIdentity(ctx, args);
 
     await appendRunEvent(ctx, {
       runId: args.runId,
@@ -713,14 +700,27 @@ export const syncVaultTreeForRepository = internalAction({
       userId: args.userId,
       vaultId: args.vaultId,
     });
-    requireMatchingGitHubOwnerLogin({
-      expectedOwnerLogin: access.githubOwnerLogin,
-      repositoryOwner: args.ownerName,
-    });
     const recordApiCall = createProviderApiCallRecorder(ctx, {
       runId: args.runId,
       step: "sync_tree",
     });
+    const octokit = await createGitHubRepositoryInstallationOctokit(
+      access.githubInstallationId,
+      args.ghRepoId,
+    );
+    const repositoryResponse = await resolveGitHubRepositoryById({
+      octokit,
+      ghRepoId: args.ghRepoId,
+      recordApiCall,
+    });
+    const repository = repositoryResponse.data;
+    requireGitHubRepositoryOwnerId({
+      expectedOwnerId: access.githubOwnerId,
+      repositoryOwnerId: repository.owner.id,
+    });
+    const ownerName = repository.owner.login;
+    const repoName = repository.name;
+    const defaultBranch = readRequiredDefaultBranch(repository);
     await recordApiCall({
       provider: "GitHub",
       method: "GET",
@@ -728,17 +728,17 @@ export const syncVaultTreeForRepository = internalAction({
       values: {
         params: {
           path: {
-            ownerName: args.ownerName,
-            repoName: args.repoName,
-            branch: args.defaultBranch,
+            ownerName,
+            repoName,
+            branch: defaultBranch,
           },
         },
       },
     });
-    const branchData = await access.octokit.rest.repos.getBranch({
-      owner: args.ownerName,
-      repo: args.repoName,
-      branch: args.defaultBranch,
+    const branchData = await octokit.rest.repos.getBranch({
+      owner: ownerName,
+      repo: repoName,
+      branch: defaultBranch,
     });
     const treeSha = branchData.data.commit.commit.tree.sha;
     await recordApiCall({
@@ -748,8 +748,8 @@ export const syncVaultTreeForRepository = internalAction({
       values: {
         params: {
           path: {
-            ownerName: args.ownerName,
-            repoName: args.repoName,
+            ownerName,
+            repoName,
             tree_sha: treeSha,
           },
           query: {
@@ -758,16 +758,16 @@ export const syncVaultTreeForRepository = internalAction({
         },
       },
     });
-    const tree = await access.octokit.rest.git.getTree({
-      owner: args.ownerName,
-      repo: args.repoName,
+    const tree = await octokit.rest.git.getTree({
+      owner: ownerName,
+      repo: repoName,
       tree_sha: treeSha,
       recursive: "1",
     });
 
     await ctx.runMutation(internal.vault.branches.upsertVaultBranchTree, {
       vaultId: args.vaultId,
-      branch: args.defaultBranch,
+      branch: defaultBranch,
       treeData: tree.data,
       commitSHA: branchData.data.commit.sha,
     });

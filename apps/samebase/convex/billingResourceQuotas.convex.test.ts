@@ -247,6 +247,7 @@ describe("pooled organization connection quotas", () => {
       t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
         organizationId: ids.organizationId,
         userId: ids.userId,
+        ghRepoId: "existing-blocked-id",
         ghRepoOwner: "quota-owner",
         ghRepoName: "existing-blocked",
       }),
@@ -288,6 +289,7 @@ describe("pooled organization connection quotas", () => {
       {
         organizationId: ids.organizationId,
         userId: ids.userId,
+        ghRepoId: "existing-race-id",
         ghRepoOwner: "quota-owner",
         ghRepoName: "existing-race",
       },
@@ -317,7 +319,7 @@ describe("pooled organization connection quotas", () => {
       t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
         ...existing,
         userId: ids.userId,
-        ghRepoId: "existing-race-repository",
+        ghRepoId: "existing-race-id",
         ghRepoOwner: "quota-owner",
         ghRepoName: "existing-race",
         defaultBranch: "main",

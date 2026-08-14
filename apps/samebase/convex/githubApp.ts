@@ -130,6 +130,26 @@ export function createGitHubInstallationOctokit(installationId: string): Octokit
   });
 }
 
+export async function createGitHubRepositoryInstallationOctokit(
+  installationId: string,
+  repositoryId: string,
+): Promise<Octokit> {
+  const configuration = getGitHubAppConfiguration();
+  const auth = createAppAuth({
+    appId: configuration.appId,
+    privateKey: configuration.privateKey,
+  });
+  const authentication = await auth({
+    type: "installation",
+    installationId: requirePositiveSafeInteger(installationId, "GitHub installation ID"),
+    repositoryIds: [requirePositiveSafeInteger(repositoryId, "GitHub repository ID")],
+  });
+  return new Octokit({
+    auth: authentication.token,
+    userAgent: "samebase-app",
+  });
+}
+
 export function createGitHubUserOctokit(accessToken: string): Octokit {
   return new Octokit({
     auth: requireTrimmed(accessToken, "GitHub user access token"),
@@ -292,7 +312,10 @@ function parseGitHubInstallation(value: unknown) {
   } as const;
 }
 
-export async function readGitHubAppInstallation(installationId: string) {
+export async function readGitHubAppInstallation(
+  installationId: string,
+  options?: { allowSuspended: boolean },
+) {
   const configuration = getGitHubAppConfiguration();
   const expectedInstallationId = requirePositiveSafeInteger(
     installationId,
@@ -309,7 +332,7 @@ export async function readGitHubAppInstallation(installationId: string) {
   ) {
     throw new Error("GitHub App installation verification did not match this App.");
   }
-  if (installation.suspended) {
+  if (installation.suspended && !options?.allowSuspended) {
     throw new Error("The GitHub App installation is suspended.");
   }
   return installation;

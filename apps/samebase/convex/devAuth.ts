@@ -406,6 +406,7 @@ async function ensureOrganizationContextAcceptanceOrganization(
       throw new Error(`Duplicate acceptance repository ${repositoryName}.`);
     }
     repositoryNames.add(repositoryName);
+    const ghRepoId = `acceptance-repository:${ownerLogin}/${repositoryName}`;
 
     const existingVault = await ctx.db
       .query("vaults")
@@ -429,6 +430,7 @@ async function ensureOrganizationContextAcceptanceOrganization(
         {
           organizationId,
           userId: args.userId,
+          ghRepoId,
           ghRepoOwner: ownerLogin,
           ghRepoName: repositoryName,
         },
@@ -452,7 +454,7 @@ async function ensureOrganizationContextAcceptanceOrganization(
         vaultId,
         runId,
         userId: args.userId,
-        ghRepoId: `acceptance-repository:${ownerLogin}/${repositoryName}`,
+        ghRepoId,
         ghRepoOwner: ownerLogin,
         ghRepoName: repositoryName,
         defaultBranch: "main",
