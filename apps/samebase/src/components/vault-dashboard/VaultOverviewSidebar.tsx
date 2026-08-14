@@ -25,7 +25,6 @@ import type {
   VaultSidebarSummariesState,
   VaultSidebarSummary,
 } from "@/hooks/useVaultSidebarSummaries";
-import type { WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
 import { formatRepositoryCheckSummary, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
 import { personalOrganizationsFirst } from "@/lib/organizationOrder";
 import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRoutes";
@@ -669,12 +668,10 @@ export function VaultOverviewOrganizationSidebar({
                   type="button"
                 >
                   {organizationLabel}
+                  {/* Compact sidebars use this space for the organization name. */}
                   <ChevronDown
                     aria-hidden="true"
-                    className={
-                      // Tailwind needs a literal class; satisfies keeps it tied to the layout constant.
-                      "h-3.5 w-3.5 shrink-0 transition-transform @max-[175px]:hidden" satisfies `${string}@max-[${typeof WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX}px]:hidden`
-                    }
+                    className="h-3.5 w-3.5 shrink-0 transition-transform @max-[175px]:hidden"
                   />
                 </CollapsibleTrigger>
               ) : (
