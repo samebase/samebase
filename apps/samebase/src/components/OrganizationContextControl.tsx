@@ -8,6 +8,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CONNECT_ORGANIZATION_ROUTE } from "@/lib/connectOrganizationRoute";
+import { personalOrganizationsFirst } from "@/lib/organizationOrder";
 import { buildOrganizationSwitchHref } from "@/lib/organizationSwitchRoute";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { ChevronDown } from "lucide-react";
@@ -31,7 +32,8 @@ export function OrganizationContextControl() {
     return null;
   }
 
-  const hasOrganizations = (organizations?.length ?? 0) > 0;
+  const orderedOrganizations = personalOrganizationsFirst(organizations ?? []);
+  const hasOrganizations = orderedOrganizations.length > 0;
   const navigateToConnection = () => {
     void navigate({ to: CONNECT_ORGANIZATION_ROUTE });
   };
@@ -102,7 +104,7 @@ export function OrganizationContextControl() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-48">
           <DropdownMenuItem onSelect={navigateToAllVaults}>All vaults</DropdownMenuItem>
-          {organizations?.map((organization) => (
+          {orderedOrganizations.map((organization) => (
             <DropdownMenuItem
               key={organization.organizationId}
               onSelect={() => navigateToOrganization(organization.githubOwnerLogin)}

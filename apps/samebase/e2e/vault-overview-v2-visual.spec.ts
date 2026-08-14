@@ -675,6 +675,13 @@ test("preserves repository identity at the minimum sidebar width", async ({ page
   await expect(selectedVault.getByText("samebase/", { exact: true })).toBeHidden();
   await expect(selectedVault.getByText("samebase", { exact: true })).toBeVisible();
   await expect(selectedVault.getByText("4/4 passed", { exact: true })).toBeVisible();
+  for (const organizationName of ["noter", "empty-owner", "samebase"]) {
+    await expect(
+      vaultNavigation
+        .getByRole("button", { name: organizationName, exact: true })
+        .locator(".lucide-chevron-down"),
+    ).toBeHidden();
+  }
   await expect(vaultNavigation).toHaveScreenshot("vault-overview-v2-minimum-sidebar.png", {
     animations: "disabled",
     caret: "hide",

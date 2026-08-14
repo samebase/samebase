@@ -82,6 +82,7 @@ export function VaultOverviewVaultPickerPane({
         <VaultOverviewOrganizationSidebar
           folderState={folderState}
           organizations={organizations}
+          organizationsCollapsible={globalInventory}
           organizationTreeSettings={organizationTreeSettings}
           page="overview"
           selectedVaultId={null}

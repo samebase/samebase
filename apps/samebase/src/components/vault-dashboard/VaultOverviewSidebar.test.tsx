@@ -81,12 +81,13 @@ function vault(
 function organization(
   githubOwnerLogin: string,
   organizationId: Id<"organizations">,
+  githubOwnerType: VaultOrganization["githubOwnerType"] = "organization",
 ): VaultOrganization {
   return {
     canCreateRepository: true,
     githubOwnerId: `github-owner-${githubOwnerLogin}`,
     githubOwnerLogin,
-    githubOwnerType: "organization",
+    githubOwnerType,
     organizationId,
     role: "owner",
   };
@@ -217,7 +218,7 @@ describe("VaultOverviewSidebar", () => {
     expect(markup).not.toContain("Convex project");
   });
 
-  it("groups every organization and expands the selected vault organization", async () => {
+  it("puts personal organizations first and expands the selected vault organization", async () => {
     const emptyOrganizationId = fakeOrganizationId("organization-empty");
     const noterOrganizationId = fakeOrganizationId("organization-noter");
     const samebaseOrganizationId = fakeOrganizationId("organization-samebase");
@@ -230,7 +231,7 @@ describe("VaultOverviewSidebar", () => {
     );
     const organizations = [
       organization("empty-owner", emptyOrganizationId),
-      organization("noter", noterOrganizationId),
+      organization("noter", noterOrganizationId, "user"),
       organization("samebase", samebaseOrganizationId),
     ];
     const rootElement = document.createElement("div");
@@ -247,6 +248,7 @@ describe("VaultOverviewSidebar", () => {
             {...FOLDER_CALLBACKS}
             folderState={EMPTY_FOLDER_STATE}
             organizations={organizations}
+            organizationsCollapsible
             organizationTreeSettings={organizationTreeSettings}
             onCreateVaultFolder={async () => {}}
             onSetVaultOrganizationCollapsed={async (setting) => {
@@ -275,8 +277,8 @@ describe("VaultOverviewSidebar", () => {
         rootElement.querySelectorAll<HTMLButtonElement>("button[aria-expanded]"),
       );
       expect(initialOrganizationButtons.map((button) => button.textContent)).toEqual([
-        "empty-owner",
         "noter",
+        "empty-owner",
         "samebase",
       ]);
       expect(
@@ -295,7 +297,7 @@ describe("VaultOverviewSidebar", () => {
       );
       expect(
         changedOrganizationButtons.map((button) => button.getAttribute("aria-expanded")),
-      ).toEqual(["false", "true", "false"]);
+      ).toEqual(["true", "false", "false"]);
       expect(rootElement.querySelector('a[title="noter/guestbook"]')).not.toBeNull();
       expect(rootElement.querySelector('a[title="samebase/active"]')).toBeNull();
 
@@ -303,7 +305,7 @@ describe("VaultOverviewSidebar", () => {
       await act(async () => samebaseButton.click());
       expect(rootElement.querySelector('a[title="samebase/active"]')).not.toBeNull();
 
-      const emptyOwnerButton = changedOrganizationButtons[0];
+      const emptyOwnerButton = changedOrganizationButtons[1];
       await act(async () => emptyOwnerButton.click());
 
       expect(rootElement.textContent).toContain("No vaults");
