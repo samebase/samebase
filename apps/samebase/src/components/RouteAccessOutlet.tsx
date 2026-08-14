@@ -1,5 +1,6 @@
 import { ApprovalGateViewerAccessProvider } from "@/components/ApprovalGate";
 import { NotFoundRoutePage } from "@/components/NotFoundRoutePage";
+import { OrganizationBillingGate } from "@/components/OrganizationBillingGate";
 import { canAccessRouteMatchesAccess, type RouteAccessViewer } from "@/routing/permissions";
 import {
   readRouteSearchAccessCanonicalRouteAddress,
@@ -65,7 +66,13 @@ function AuthenticatedRouteAccessOutlet({
     return null;
   }
 
-  const routeContent = routeAccessAllowed ? <Outlet /> : <NotFoundRoutePage />;
+  const routeContent = routeAccessAllowed ? (
+    <OrganizationBillingGate>
+      <Outlet />
+    </OrganizationBillingGate>
+  ) : (
+    <NotFoundRoutePage />
+  );
 
   return (
     <ApprovalGateViewerAccessProvider viewerAccess={viewerAccess}>

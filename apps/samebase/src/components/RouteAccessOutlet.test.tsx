@@ -92,6 +92,12 @@ vi.mock("@/components/NotFoundRoutePage", () => ({
   NotFoundRoutePage: () => <div data-testid="not-found-route">Not found route</div>,
 }));
 
+vi.mock("@/components/OrganizationBillingGate", () => ({
+  OrganizationBillingGate: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="organization-billing-gate">{children}</div>
+  ),
+}));
+
 async function renderRouteAccessOutletAfterEffects() {
   const rootElement = document.createElement("div");
   document.body.append(rootElement);
@@ -188,6 +194,7 @@ describe("RouteAccessOutlet", () => {
 
     expect(markup).toContain("Route outlet");
     expect(markup).not.toContain("not-found-route");
+    expect(markup).toContain("organization-billing-gate");
     expect(viewerAccessState.queryCalls).toBe(1);
   });
 
