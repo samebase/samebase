@@ -19,7 +19,7 @@ import {
   getGitHubAppConfiguration,
   requireExpiringGitHubUserAuthentication,
 } from "./githubApp";
-import { requireOrganizationAccessContext } from "./organizationAccess";
+import { requireOrganizationSettingsMembership } from "./organizationAccess";
 import { readActiveUser } from "./userLifecycle";
 import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
 
@@ -201,7 +201,7 @@ async function requirePersonalGitHubOwner(
     userId: Id<"users">;
   },
 ): Promise<Doc<"organizations">> {
-  await requireOrganizationAccessContext(db, args);
+  await requireOrganizationSettingsMembership(db, args);
   const organization = await db.get(args.organizationId);
   if (organization === null) {
     throw new Error("Organization not found.");
