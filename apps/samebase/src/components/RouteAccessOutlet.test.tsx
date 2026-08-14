@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { act, type ReactNode } from "react";
+import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -66,7 +66,6 @@ const routerState = vi.hoisted(
 );
 
 vi.mock("@tanstack/react-router", () => ({
-  CatchBoundary: ({ children }: { children: ReactNode }) => children,
   Outlet: () => <div data-testid="route-outlet">Route outlet</div>,
   useLocation: () => locationState,
   useMatches: ({

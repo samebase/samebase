@@ -13,6 +13,9 @@ const { appWorkspaceMountMock, appWorkspaceUnmountMock, useConvexAuthMock } = vi
   appWorkspaceUnmountMock: vi.fn(),
   useConvexAuthMock: vi.fn(),
 }));
+const routeErrorState = vi.hoisted((): { termsError: Error | null } => ({
+  termsError: null,
+}));
 
 vi.mock("@/components/RootIndexRoutePage", () => ({
   RootIndexRoutePage: () => <div data-testid="root-index-route">Root index route</div>,
@@ -96,7 +99,13 @@ vi.mock("@/lib/usePageMetadata", () => ({
 }));
 
 vi.mock("@/components/TermsOfServicePage", () => ({
-  TermsOfServicePage: () => <div data-testid="terms-page">Terms page</div>,
+  TermsOfServicePage: () => {
+    if (routeErrorState.termsError) {
+      throw routeErrorState.termsError;
+    }
+
+    return <div data-testid="terms-page">Terms page</div>;
+  },
 }));
 
 vi.mock("@/components/PrivacyPolicyPage", () => ({
@@ -369,6 +378,7 @@ describe("appRouter", () => {
       isAuthenticated: false,
       isLoading: false,
     });
+    routeErrorState.termsError = null;
     document.documentElement.className = "";
     window.localStorage.removeItem("theme");
   });
@@ -416,6 +426,54 @@ describe("appRouter", () => {
       "Terms page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("keeps a route render error inside the app workspace", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    routeErrorState.termsError = new Error("Route query failed");
+
+    const router = await renderRoute("/terms");
+
+    expect(rootElement?.querySelector('[data-testid="app-workspace"]')).not.toBeNull();
+    expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
+    expect(rootElement?.textContent).toContain("Page could not load");
+    expect(rootElement?.textContent).not.toContain("App Recovery");
+    expect(consoleError).toHaveBeenCalledWith(
+      "Route failure",
+      routeErrorState.termsError,
+      expect.any(Object),
+    );
+
+    routeErrorState.termsError = null;
+    await act(async () => {
+      await router.navigate({
+        search: { "prod-ui": true },
+        to: "/terms",
+      });
+      await settleRouterRender();
+    });
+
+    expect(rootElement?.querySelector('[data-testid="terms-page"]')?.textContent).toBe(
+      "Terms page",
+    );
+    expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
+    expect(appWorkspaceUnmountMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+    consoleWarn.mockRestore();
+  });
+
+  it("keeps stale app-file failures on the app recovery path", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    routeErrorState.termsError = new Error("Failed to fetch dynamically imported module");
+
+    await renderRoute("/terms");
+
+    expect(rootElement?.textContent).toContain("App Recovery");
+    expect(rootElement?.textContent).not.toContain("Page could not load");
+    consoleError.mockRestore();
+    consoleWarn.mockRestore();
   });
 
   it("keeps the app workspace shell mounted while route content changes", async () => {
