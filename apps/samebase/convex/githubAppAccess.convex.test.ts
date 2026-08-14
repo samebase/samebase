@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const githubMocks = vi.hoisted(() => ({
+  createRepositoryOctokit: vi.fn(),
   request: vi.fn(),
 }));
 
@@ -10,6 +11,14 @@ vi.mock("@octokit/rest", () => ({
   },
 }));
 
+vi.mock("./githubApp", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./githubApp")>();
+  return {
+    ...actual,
+    createGitHubRepositoryInstallationOctokit: githubMocks.createRepositoryOctokit,
+  };
+});
+
 import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
@@ -17,6 +26,7 @@ type ConvexTest = ReturnType<typeof makeConvexTest>;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  githubMocks.createRepositoryOctokit.mockResolvedValue({ request: githubMocks.request });
   vi.stubEnv("GITHUB_APP_ID", "42");
   vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");
   vi.stubEnv("GITHUB_APP_CLIENT_ID", "client-id");
@@ -262,6 +272,52 @@ async function createIdentityVault(t: ConvexTest) {
   return { organizationId, ownerUserId, vaultId: vault.vaultId };
 }
 
+describe("vault GitHub token scope", () => {
+  it("scopes an old repository route to the vault stable repository ID", async () => {
+    const t = makeConvexTest();
+    const { ownerUserId, vaultId } = await createIdentityVault(t);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ownerUserId, { email: "nicu@samebase.com" });
+    });
+    const asOwner = t.withIdentity({
+      subject: `${ownerUserId}|github-repository-scope`,
+      tokenIdentifier: `test:${ownerUserId}`,
+    });
+    const listForRef = vi.fn().mockResolvedValue({ data: { check_runs: [] } });
+    const getCombinedStatusForRef = vi.fn().mockResolvedValue({ data: { statuses: [] } });
+    githubMocks.createRepositoryOctokit.mockResolvedValue({
+      checks: { listForRef },
+      repos: { getCombinedStatusForRef },
+    });
+
+    await expect(
+      t.query(internal.githubAppAccess.loadInstallationAccess, {
+        userId: ownerUserId,
+        target: { kind: "vault", vaultId },
+      }),
+    ).resolves.toMatchObject({
+      kind: "repository",
+      githubInstallationId: "1001",
+      ghRepoId: "501",
+    });
+    await expect(
+      asOwner.action(api.githubChecks.getCommitStatus, {
+        owner: "installation-owner",
+        repo: "agent-plugins",
+        ref: "main",
+      }),
+    ).resolves.toEqual({ kind: "ok", check_runs: [], statuses: [] });
+
+    expect(githubMocks.createRepositoryOctokit).toHaveBeenCalledWith("1001", "501");
+    expect(githubMocks.request).not.toHaveBeenCalled();
+    expect(listForRef).toHaveBeenCalledWith({
+      owner: "installation-owner",
+      repo: "agent-plugins",
+      ref: "main",
+    });
+  });
+});
+
 describe("viewer GitHub installation health", () => {
   it("returns live permissions and preserves each probe result", async () => {
     const t = makeConvexTest();
@@ -434,7 +490,7 @@ describe("GitHub identity observation and approval", () => {
 
     await expect(
       asMember.action(api.github.observeOrganizationGitHubIdentity, { organizationId }),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
       owner: { status: "current" },
       vaults: [
         {
@@ -485,12 +541,12 @@ describe("GitHub identity observation and approval", () => {
     });
     await expect(
       asMember.action(api.github.observeOrganizationGitHubIdentity, { organizationId }),
-    ).resolves.toMatchObject({
+    ).resolves.toEqual({
       owner: {
         status: "renamed",
         githubOwnerLogin: "renamed-owner",
       },
-      vaults: [{ status: "current", vaultId }],
+      vaults: [],
     });
     githubMocks.request.mockClear();
     await expect(
@@ -516,7 +572,7 @@ describe("GitHub identity observation and approval", () => {
     );
   });
 
-  it("distinguishes unavailable installations and a repository owner mismatch", async () => {
+  it("keeps owner identity separate from repository access and rejects another owner", async () => {
     const t = makeConvexTest();
     const { organizationId, ownerUserId, vaultId } = await createIdentityVault(t);
     const asOwner = t.withIdentity({
@@ -527,38 +583,21 @@ describe("GitHub identity observation and approval", () => {
       await asOwner.action(api.github.observeOrganizationGitHubIdentity, { organizationId });
 
     githubMocks.request.mockRejectedValue(Object.assign(new Error("Not Found"), { status: 404 }));
-    await expect(observe()).resolves.toMatchObject({
+    await expect(observe()).resolves.toEqual({
       owner: { status: "unavailable" },
-      vaults: [{ status: "unavailable", vaultId }],
+      vaults: [],
     });
 
-    githubMocks.request.mockResolvedValue({
-      data: appInstallationFixture("2026-08-14T10:00:00Z"),
-    });
-    await expect(observe()).resolves.toMatchObject({
-      owner: { status: "unavailable" },
-      vaults: [{ status: "unavailable", vaultId }],
-    });
-
-    const mismatchedInstallation = appInstallationFixture();
-    mismatchedInstallation.account.id = 202;
-    githubMocks.request.mockResolvedValue({ data: mismatchedInstallation });
-    await expect(observe()).resolves.toMatchObject({
-      owner: { status: "unavailable" },
-      vaults: [{ status: "unavailable", vaultId }],
-    });
-
-    githubMocks.request.mockRejectedValue(Object.assign(new Error("Forbidden"), { status: 403 }));
-    await expect(observe()).rejects.toThrow("Forbidden");
-
+    const renamedInstallation = appInstallationFixture();
+    renamedInstallation.account.login = "renamed-owner";
     githubMocks.request.mockImplementation(async (route: string) => {
       if (route === "GET /app/installations/{installation_id}") {
-        return { data: appInstallationFixture() };
+        return { data: renamedInstallation };
       }
       throw Object.assign(new Error("Forbidden"), { status: 403 });
     });
-    await expect(observe()).resolves.toMatchObject({
-      owner: { status: "unavailable" },
+    await expect(observe()).resolves.toEqual({
+      owner: { status: "renamed", githubOwnerLogin: "renamed-owner" },
       vaults: [{ status: "unavailable", vaultId }],
     });
 
@@ -578,16 +617,15 @@ describe("GitHub identity observation and approval", () => {
       }
       throw new Error(`Unexpected GitHub route: ${route}`);
     });
-    await expect(observe()).resolves.toMatchObject({
+    await expect(observe()).resolves.toEqual({
       owner: { status: "current" },
-      vaults: [
-        {
-          status: "owner_mismatch",
-          vaultId,
-          githubOwnerLogin: "transferred-owner",
-          repositoryName: "plugin",
-        },
-      ],
+      vaults: [{ status: "unavailable", vaultId }],
     });
+    await expect(
+      asOwner.action(api.github.updateVaultGitHubRepositoryName, {
+        vaultId,
+        expectedRepositoryName: "plugin",
+      }),
+    ).rejects.toThrow("The GitHub repository moved to another owner.");
   });
 });

@@ -537,6 +537,9 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
     ) {
       throw new Error("Vault is not waiting for existing repository setup.");
     }
+    if (vault.ghRepoId !== args.ghRepoId) {
+      throw new Error("Provisioning vault repository identity cannot be changed.");
+    }
     await requireBillingResourceCapacityForAuthority(ctx, {
       authority: {
         kind: "vault_provisioning",

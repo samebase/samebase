@@ -208,11 +208,9 @@ function VaultRow({
   const settingsWarning =
     githubIdentity?.status === "renamed"
       ? { label: "Repository name changed", tone: "warning" as const }
-      : githubIdentity?.status === "owner_mismatch"
-        ? { label: "Repository owner changed", tone: "failure" as const }
-        : githubIdentity?.status === "unavailable"
-          ? { label: "Repository unavailable", tone: "failure" as const }
-          : null;
+      : githubIdentity?.status === "unavailable"
+        ? { label: "Repository unavailable", tone: "failure" as const }
+        : null;
 
   return (
     <div className={rowClassName}>

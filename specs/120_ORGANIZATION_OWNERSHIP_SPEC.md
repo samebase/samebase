@@ -228,7 +228,11 @@ organization's `githubOwnerId`. One GitHub repository identity maps to at most o
 
 `vaults.ghRepoId` is the stable GitHub repository identity. `vaults.name` is mutable route and
 display data. Repository discovery and vault creation use the stable repository ID to prevent a
-rename from creating a second vault.
+rename from creating a second vault. Connect-existing provisioning carries the selected repository
+ID through each GitHub read. GitHub supplies the current owner and repository names for that ID, and
+a later route lookup cannot substitute another repository. After connection, repository operations
+use a GitHub installation token restricted to `vaults.ghRepoId`, so reuse of stored mutable route
+data cannot target another repository.
 
 The route `/vault/<owner>/<repository>` resolves the current GitHub owner login to an organization
 through the viewer's membership, then resolves the vault by `organizationId` and repository name. A
@@ -249,9 +253,12 @@ collision, and patches only the mutable route and display fields. The client the
 settings route and refreshes the observation. Other members can see the warning but cannot approve
 the update. A name update does not change membership, billing, provider connections, or ownership.
 
-A repository that is unavailable to the stored installation, or that has a different stable owner,
-has no identity update action. Samebase does not move the vault or other organization-owned data.
-The user must remove and reconnect the vault manually. Old mutable-name routes have no redirect or
+A repository that is temporarily unavailable to the stored installation keeps its vault and shows an
+access warning. Repository operations fail closed. Restoring installation access clears the warning
+on the next observation. There is no recovery workflow. A repository with a different stable owner
+has no identity update action, and Samebase does not move the vault or other organization-owned
+data. After an owner transfer, or when the user does not restore access, the manual option is to
+remove the vault and connect the repository again. Old mutable-name routes have no redirect or
 alias.
 
 Provider OAuth returns to `/org/<owner>/providers`. Checkout and subscription returns use

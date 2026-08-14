@@ -175,6 +175,15 @@ describe("MCP tool listing access", () => {
         required: expect.arrayContaining(["githubOwnerLogin"]),
       },
     });
+    expect(tools.find((tool) => tool.name === "vault_actions_connectRepository")).toMatchObject({
+      inputSchema: {
+        properties: {
+          githubOwnerLogin: { type: "string" },
+          ghRepoId: { type: "string" },
+        },
+        required: expect.arrayContaining(["githubOwnerLogin", "ghRepoId"]),
+      },
+    });
   });
 
   it("publishes human titles and structured output schemas", () => {
@@ -192,6 +201,18 @@ describe("MCP tool listing access", () => {
           runId: { type: "string" },
         },
         required: ["vaultId", "runId"],
+        additionalProperties: false,
+      },
+    });
+    expect(tools.find((tool) => tool.name === "vault_actions_connectRepository")).toMatchObject({
+      outputSchema: {
+        type: "object",
+        properties: {
+          vaultId: { type: "string" },
+          runId: { type: "string" },
+          repositoryFullName: { type: "string" },
+        },
+        required: ["vaultId", "runId", "repositoryFullName"],
         additionalProperties: false,
       },
     });

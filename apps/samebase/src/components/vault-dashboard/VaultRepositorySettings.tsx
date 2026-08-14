@@ -252,7 +252,7 @@ function RepositoryIdentityNotice({
   updatePending: boolean;
   onUpdateName: () => void;
 }) {
-  if (!githubIdentity || githubIdentity.status === "current") {
+  if (!githubIdentity) {
     return null;
   }
   if (githubIdentity.status === "renamed") {
@@ -281,14 +281,9 @@ function RepositoryIdentityNotice({
       </div>
     );
   }
-  const message =
-    githubIdentity.status === "owner_mismatch"
-      ? `This repository now belongs to ${githubIdentity.githubOwnerLogin}/${githubIdentity.repositoryName}. Samebase cannot update this vault.`
-      : "The GitHub App cannot access this repository.";
-
   return (
     <div className="mt-3 text-sm text-red-700" role="status">
-      {message}
+      The GitHub App cannot access this repository.
     </div>
   );
 }

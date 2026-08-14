@@ -23,6 +23,7 @@ export function useOrganizationGitHubIdentities(
     queries: uniqueOrganizationIds.map((organizationId) => ({
       queryKey: organizationGitHubIdentityQueryKey(organizationId),
       queryFn: async () => await observeOrganizationGitHubIdentity({ organizationId }),
+      refetchOnWindowFocus: "always" as const,
       staleTime: GITHUB_IDENTITY_STALE_MS,
       retry: false,
     })),

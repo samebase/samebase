@@ -339,6 +339,44 @@ describe("organization-owned vaults", () => {
     ).rejects.toThrow("Vault already exists for this GitHub repository.");
   });
 
+  it("does not replace the selected repository ID during finalization", async () => {
+    const t = makeConvexTest();
+    const userId = await createUser(t, "provisioning-repository-identity@example.com");
+    const organizationId = await createOrganization(t, {
+      userId,
+      ownerId: "provisioning-repository-owner",
+      ownerLogin: "samebase",
+    });
+    const selected = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        organizationId,
+        userId,
+        ghRepoId: "selected-repository-id",
+        ghRepoOwner: "samebase",
+        ghRepoName: "selected-repository",
+      },
+    );
+
+    await expect(
+      t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+        runId: selected.runId,
+        vaultId: selected.vaultId,
+        userId,
+        ghRepoId: "different-repository-id",
+        ghRepoOwner: "samebase",
+        ghRepoName: "different-repository",
+        defaultBranch: "main",
+        visibility: "private",
+      }),
+    ).rejects.toThrow("Provisioning vault repository identity cannot be changed.");
+    await expect(t.run(async (ctx) => await ctx.db.get(selected.vaultId))).resolves.toMatchObject({
+      state: "provisioning",
+      ghRepoId: "selected-repository-id",
+      name: "selected-repository",
+    });
+  });
+
   it("retains a failed connection repository ID and blocks a renamed retry", async () => {
     const t = makeConvexTest();
     const userId = await createUser(t, "failed-repository-identity@example.com");

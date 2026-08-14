@@ -5,7 +5,11 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalQuery, type ActionCtx, type QueryCtx } from "./_generated/server";
 import { action } from "./functions";
-import { createGitHubInstallationOctokit, readGitHubAppInstallation } from "./githubApp";
+import {
+  createGitHubInstallationOctokit,
+  createGitHubRepositoryInstallationOctokit,
+  readGitHubAppInstallation,
+} from "./githubApp";
 import {
   requireActiveOrganizationActor,
   requireOrganizationAccessContext,
@@ -35,15 +39,30 @@ export const vGitHubAppAccessTarget = union(
 );
 export type GitHubAppAccessTarget = Infer<typeof vGitHubAppAccessTarget>;
 
-export const vGitHubAppInstallationAccess = object({
+const githubAppInstallationAccessFields = {
   organizationId: id("organizations"),
   githubInstallationId: string(),
   githubOwnerId: string(),
   githubOwnerType: vGitHubOwnerType,
   githubOwnerLogin: string(),
-});
+};
+
+export const vGitHubAppInstallationAccess = object(githubAppInstallationAccessFields);
 export type GitHubAppInstallationAccess = Infer<typeof vGitHubAppInstallationAccess>;
 export type GitHubAppAccess = GitHubAppInstallationAccess & { octokit: Octokit };
+
+const vGitHubAppTokenAccess = union(
+  object({
+    kind: literal("installation"),
+    ...githubAppInstallationAccessFields,
+  }),
+  object({
+    kind: literal("repository"),
+    ...githubAppInstallationAccessFields,
+    ghRepoId: string(),
+  }),
+);
+type GitHubAppTokenAccess = Infer<typeof vGitHubAppTokenAccess>;
 
 const vGitHubInstallationPermission = object({
   access: union(literal("read"), literal("write")),
@@ -89,10 +108,11 @@ export const loadInstallationAccess = internalQuery({
     userId: id("users"),
     target: vGitHubAppAccessTarget,
   },
-  returns: vGitHubAppInstallationAccess,
+  returns: vGitHubAppTokenAccess,
   handler: async (ctx, args) => {
     await requireActiveOrganizationActor(ctx.db, args.userId);
     let organizationId: Id<"organizations">;
+    let repositoryId: string | null = null;
     switch (args.target.kind) {
       case "organization":
         await requireOrganizationAccessContext(ctx.db, {
@@ -128,11 +148,17 @@ export const loadInstallationAccess = internalQuery({
           vaultId: args.target.vaultId,
         });
         organizationId = vault.organizationId;
+        if (vault.state === "connected") {
+          repositoryId = vault.ghRepoId;
+        }
         break;
       }
     }
 
-    return await loadInstallationAccessForOrganization(ctx, organizationId);
+    const access = await loadInstallationAccessForOrganization(ctx, organizationId);
+    return repositoryId === null
+      ? { kind: "installation" as const, ...access }
+      : { kind: "repository" as const, ...access, ghRepoId: repositoryId };
   },
 });
 
@@ -167,16 +193,27 @@ export async function resolveGitHubAppAccess(
     target: GitHubAppAccessTarget;
   },
 ): Promise<GitHubAppAccess> {
-  const access: GitHubAppInstallationAccess = await ctx.runQuery(
+  const access: GitHubAppTokenAccess = await ctx.runQuery(
     internal.githubAppAccess.loadInstallationAccess,
     {
       userId: args.userId,
       target: args.target,
     },
   );
+  const octokit =
+    access.kind === "repository"
+      ? await createGitHubRepositoryInstallationOctokit(
+          access.githubInstallationId,
+          access.ghRepoId,
+        )
+      : createGitHubInstallationOctokit(access.githubInstallationId);
   return {
-    ...access,
-    octokit: createGitHubInstallationOctokit(access.githubInstallationId),
+    organizationId: access.organizationId,
+    githubInstallationId: access.githubInstallationId,
+    githubOwnerId: access.githubOwnerId,
+    githubOwnerType: access.githubOwnerType,
+    githubOwnerLogin: access.githubOwnerLogin,
+    octokit,
   };
 }
 

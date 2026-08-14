@@ -36,6 +36,7 @@ vi.mock("@octokit/rest", () => ({
 }));
 
 import {
+  createGitHubRepositoryInstallationOctokit,
   createGitHubUserOctokit,
   discoverPreviewSeedGitHubAppInstallations,
   listGitHubAppConnectionInstallations,
@@ -549,5 +550,17 @@ describe("GitHub App installation verification", () => {
     });
     expect(githubMocks.request).toHaveBeenCalledOnce();
     expect(githubMocks.request).toHaveBeenCalledWith("GET /user");
+  });
+
+  it("requests an installation token scoped to one stable repository ID", async () => {
+    githubMocks.exchangeUserCode.mockResolvedValue({ token: "repository-token" });
+
+    await createGitHubRepositoryInstallationOctokit("1001", "1296269");
+
+    expect(githubMocks.exchangeUserCode).toHaveBeenCalledWith({
+      type: "installation",
+      installationId: 1001,
+      repositoryIds: [1_296_269],
+    });
   });
 });

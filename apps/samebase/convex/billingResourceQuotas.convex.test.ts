@@ -319,7 +319,7 @@ describe("pooled organization connection quotas", () => {
       t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
         ...existing,
         userId: ids.userId,
-        ghRepoId: "existing-race-repository",
+        ghRepoId: "existing-race-id",
         ghRepoOwner: "quota-owner",
         ghRepoName: "existing-race",
         defaultBranch: "main",

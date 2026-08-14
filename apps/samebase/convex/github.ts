@@ -75,10 +75,6 @@ const githubOwnerIdentityObservation = union(
 
 const githubVaultIdentityObservation = union(
   object({
-    status: literal("current"),
-    vaultId: id("vaults"),
-  }),
-  object({
     status: literal("renamed"),
     vaultId: id("vaults"),
     repositoryName: string(),
@@ -87,12 +83,6 @@ const githubVaultIdentityObservation = union(
   object({
     status: literal("unavailable"),
     vaultId: id("vaults"),
-  }),
-  object({
-    status: literal("owner_mismatch"),
-    vaultId: id("vaults"),
-    githubOwnerLogin: string(),
-    repositoryName: string(),
   }),
 );
 
@@ -549,14 +539,6 @@ type GitHubInstallationIdentityState =
     }
   | { status: "unavailable" };
 
-type GitHubIdentityProviderState =
-  | {
-      status: "available";
-      githubOwnerLogin: string;
-      repositories: GitHubRepositoryList;
-    }
-  | { status: "unavailable" };
-
 async function readGitHubInstallationIdentityState(
   organization: GitHubAppInstallationAccess,
 ): Promise<GitHubInstallationIdentityState> {
@@ -589,26 +571,17 @@ async function readGitHubInstallationIdentityState(
   };
 }
 
-async function readGitHubIdentityProviderState(
-  organization: GitHubAppInstallationAccess,
-): Promise<GitHubIdentityProviderState> {
-  const installation = await readGitHubInstallationIdentityState(organization);
-  if (installation.status === "unavailable") {
-    return installation;
-  }
-
+async function readGitHubInstallationRepositories(
+  installationId: string,
+): Promise<GitHubRepositoryList | null> {
   try {
-    return {
-      status: "available",
-      githubOwnerLogin: installation.githubOwnerLogin,
-      repositories: await listGitHubRepositories({
-        octokit: createGitHubInstallationOctokit(installation.installationId),
-      }),
-    };
+    return await listGitHubRepositories({
+      octokit: createGitHubInstallationOctokit(installationId),
+    });
   } catch (error) {
     const status = getErrorStatus(error);
     if (status === 401 || status === 403 || status === 404) {
-      return { status: "unavailable" };
+      return null;
     }
     throw error;
   }
@@ -625,14 +598,31 @@ export const observeOrganizationGitHubIdentity = action({
       userId: ctx.viewer.userId,
       target: { kind: "organization", organizationId: args.organizationId },
     });
+    const installation = await readGitHubInstallationIdentityState(access);
+    if (installation.status === "unavailable") {
+      return {
+        owner: { status: "unavailable" },
+        vaults: [],
+      };
+    }
+
+    const owner: GitHubIdentityObservation["owner"] =
+      installation.githubOwnerLogin === access.githubOwnerLogin
+        ? {
+            status: "current",
+          }
+        : {
+            status: "renamed",
+            githubOwnerLogin: installation.githubOwnerLogin,
+          };
+    const repositories = await readGitHubInstallationRepositories(installation.installationId);
     const target = await ctx.runQuery(internal.vault.records.getGitHubIdentityObservationVaults, {
       userId: ctx.viewer.userId,
       organizationId: access.organizationId,
     });
-    const provider = await readGitHubIdentityProviderState(access);
-    if (provider.status === "unavailable") {
+    if (repositories === null) {
       return {
-        owner: { status: "unavailable" },
+        owner,
         vaults: target.connectedVaults.map((vault) => ({
           status: "unavailable",
           vaultId: vault.vaultId,
@@ -640,37 +630,21 @@ export const observeOrganizationGitHubIdentity = action({
       };
     }
 
-    const owner: GitHubIdentityObservation["owner"] =
-      provider.githubOwnerLogin === access.githubOwnerLogin
-        ? {
-            status: "current",
-          }
-        : {
-            status: "renamed",
-            githubOwnerLogin: provider.githubOwnerLogin,
-          };
     const repositoriesById = new Map(
-      provider.repositories.map((repository) => [String(repository.id), repository] as const),
+      repositories.map((repository) => [String(repository.id), repository] as const),
     );
-    const vaults: GitHubIdentityObservation["vaults"] = target.connectedVaults.map((vault) => {
+    const vaults = target.connectedVaults.flatMap((vault): GitHubIdentityObservation["vaults"] => {
       const repository = repositoriesById.get(vault.ghRepoId);
-      if (repository === undefined) {
-        return {
-          status: "unavailable",
-          vaultId: vault.vaultId,
-        };
-      }
-
-      if (String(repository.owner.id) !== access.githubOwnerId) {
-        return {
-          status: "owner_mismatch",
-          vaultId: vault.vaultId,
-          githubOwnerLogin: repository.owner.login,
-          repositoryName: repository.name,
-        };
+      if (repository === undefined || String(repository.owner.id) !== access.githubOwnerId) {
+        return [
+          {
+            status: "unavailable",
+            vaultId: vault.vaultId,
+          },
+        ];
       }
       if (repository.name === vault.name) {
-        return { status: "current", vaultId: vault.vaultId };
+        return [];
       }
 
       const normalizedRepositoryName = repository.name.trim().toLowerCase();
@@ -679,12 +653,14 @@ export const observeOrganizationGitHubIdentity = action({
           occupiedVault.vaultId !== vault.vaultId &&
           occupiedVault.name.trim().toLowerCase() === normalizedRepositoryName,
       );
-      return {
-        status: "renamed",
-        vaultId: vault.vaultId,
-        repositoryName: repository.name,
-        update: nameCollision ? "blocked" : "available",
-      };
+      return [
+        {
+          status: "renamed",
+          vaultId: vault.vaultId,
+          repositoryName: repository.name,
+          update: nameCollision ? "blocked" : "available",
+        },
+      ];
     });
 
     return {
@@ -759,11 +735,15 @@ export const updateVaultGitHubRepositoryName = action({
         vaultId: args.vaultId,
       },
     );
-    const provider = await readGitHubIdentityProviderState(target.organization);
-    if (provider.status === "unavailable") {
+    const installation = await readGitHubInstallationIdentityState(target.organization);
+    if (installation.status === "unavailable") {
       throw new Error("The GitHub App installation is unavailable for this organization.");
     }
-    const repository = provider.repositories.find(
+    const repositories = await readGitHubInstallationRepositories(installation.installationId);
+    if (repositories === null) {
+      throw new Error("The GitHub App installation is unavailable for this organization.");
+    }
+    const repository = repositories.find(
       (candidate) => String(candidate.id) === target.vault.ghRepoId,
     );
     if (repository === undefined) {

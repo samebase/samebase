@@ -13,8 +13,9 @@ import {
   resolveGitHubAppAccess,
   type GitHubAppAccessTarget,
 } from "../githubAppAccess";
+import { createGitHubRepositoryInstallationOctokit } from "../githubApp";
+import { resolveGitHubRepositoryById } from "../githubRepoApi";
 import { resolveGitHubUserOctokit } from "../githubUserAuthorizations";
-import { parseRepositoryFullName } from "./model";
 import { isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { toSafeRepoName } from "../../shared/repoName";
 import { canAccess } from "../../shared/accessModel";
@@ -248,8 +249,7 @@ async function startConnectExistingRepositoryProvisioningOrFail(
     vaultId: Id<"vaults">;
     runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;
-    repositoryName: string;
-    repositoryOwner: string;
+    ghRepoId: string;
   },
 ): Promise<void> {
   try {
@@ -259,8 +259,7 @@ async function startConnectExistingRepositoryProvisioningOrFail(
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
-        repositoryName: args.repositoryName,
-        repositoryOwner: args.repositoryOwner,
+        ghRepoId: args.ghRepoId,
       },
     );
   } catch (error) {
@@ -629,18 +628,21 @@ export async function connectRepositoryForUser(
   args: {
     userId: Id<"users">;
     target: GitHubAppAccessTarget;
-    repositoryFullName: string;
+    ghRepoId: string;
   },
 ): Promise<ConnectRepositoryResult> {
   const userId = args.userId;
-  const requestedRepository = parseRepositoryFullName(args.repositoryFullName);
   const access = await resolveGitHubAppAccess(ctx, {
     userId,
     target: args.target,
   });
-  const repository = await access.octokit.rest.repos.get({
-    owner: requestedRepository.owner,
-    repo: requestedRepository.name,
+  const octokit = await createGitHubRepositoryInstallationOctokit(
+    access.githubInstallationId,
+    args.ghRepoId,
+  );
+  const repository = await resolveGitHubRepositoryById({
+    octokit,
+    ghRepoId: args.ghRepoId,
   });
   requireGitHubRepositoryOwnerId({
     expectedOwnerId: access.githubOwnerId,
@@ -648,14 +650,13 @@ export async function connectRepositoryForUser(
   });
   const owner = repository.data.owner.login;
   const name = repository.data.name;
-  const ghRepoId = String(repository.data.id);
 
   const { vaultId, runId } = await ctx.runMutation(
     internal.vault.records.createInitializingExistingRepositoryVaultForUser,
     {
       userId,
       organizationId: access.organizationId,
-      ghRepoId,
+      ghRepoId: args.ghRepoId,
       ghRepoOwner: owner,
       ghRepoName: name,
     },
@@ -664,11 +665,14 @@ export async function connectRepositoryForUser(
     vaultId,
     runId,
     userId,
-    repositoryOwner: owner,
-    repositoryName: name,
+    ghRepoId: args.ghRepoId,
   });
 
-  return { vaultId, runId };
+  return {
+    vaultId,
+    runId,
+    repositoryFullName: `${owner}/${name}`,
+  };
 }
 
 export const connectRepository = action({
@@ -680,7 +684,7 @@ export const connectRepository = action({
     return await connectRepositoryForUser(ctx, {
       userId: ctx.viewer.userId,
       target: { kind: "organization", organizationId: args.organizationId },
-      repositoryFullName: args.repositoryFullName,
+      ghRepoId: args.ghRepoId,
     });
   },
 });
