@@ -1082,6 +1082,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
             <VaultOverviewOrganizationSidebar
               {...FIXTURE_VAULT_FOLDER_PROPS}
               organizations={[PROVISIONING_ORGANIZATION]}
+              organizationsCollapsible
               page="overview"
               selectedVaultId={vault._id}
               sidebarSummaries={sidebarSummaries}
@@ -1210,6 +1211,7 @@ function VaultOverviewProviderSettingsFixture({
             <VaultOverviewOrganizationSidebar
               {...FIXTURE_VAULT_FOLDER_PROPS}
               organizations={[PROVISIONING_ORGANIZATION]}
+              organizationsCollapsible
               page="settings"
               selectedVaultId={vault._id}
               sidebarSummaries={{
@@ -1384,6 +1386,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
           <VaultOverviewOrganizationSidebar
             {...FIXTURE_VAULT_FOLDER_PROPS}
             organizations={VISUAL_ORGANIZATIONS}
+            organizationsCollapsible
             page={page}
             selectedVaultId={LIST_SPACING_VAULT_ID}
             sidebarSummaries={FIXTURE_SIDEBAR_SUMMARIES}

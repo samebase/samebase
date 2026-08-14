@@ -36,12 +36,15 @@ function fakeOrganizationId(value: string): Id<"organizations"> {
   return value;
 }
 
-function organization(githubOwnerLogin: string): ViewerOrganization {
+function organization(
+  githubOwnerLogin: string,
+  githubOwnerType: ViewerOrganization["githubOwnerType"] = "organization",
+): ViewerOrganization {
   return {
     canCreateRepository: true,
     githubOwnerId: `github-${githubOwnerLogin}`,
     githubOwnerLogin,
-    githubOwnerType: "organization",
+    githubOwnerType,
     organizationId: fakeOrganizationId(`organization-${githubOwnerLogin}`),
     role: "owner",
   };
@@ -164,8 +167,12 @@ describe("OrganizationContextControl", () => {
     ).not.toBeNull();
   });
 
-  it("keeps backend organization order and cleans billing state for All vaults", async () => {
-    testState.context.organizations = [organization("zeta"), organization("alpha")];
+  it("matches the vault list order and cleans billing state for All vaults", async () => {
+    testState.context.organizations = [
+      organization("zeta"),
+      organization("personal", "user"),
+      organization("alpha"),
+    ];
     testState.context.surface = {
       kind: "organization",
       owner: "zeta",
@@ -185,6 +192,7 @@ describe("OrganizationContextControl", () => {
 
     expect(menuItems.map((item) => item.textContent)).toEqual([
       "All vaults",
+      "personal",
       "zeta",
       "alpha",
       "Connect organization",

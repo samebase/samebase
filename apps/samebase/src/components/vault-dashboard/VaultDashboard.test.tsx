@@ -1314,6 +1314,30 @@ describe("VaultOverviewVaultPickerPane", () => {
     expect(emptyMarkup).not.toContain(" PR");
   });
 
+  it("keeps a direct organization inventory open without a fold control", () => {
+    const vault = makeRepositorySettingsBuilderVault({
+      ghRepoName: "demo",
+      ghRepoOwner: "ada",
+      repositoryFullName: "ada/demo",
+    });
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/org/ada/vaults"]}>
+        <VaultOverviewVaultPickerPane
+          {...VAULT_PICKER_FOLDER_PROPS}
+          globalInventory={false}
+          organizations={[organizationForVault(vault)]}
+          organizationTreeSettings={[{ collapsed: true, organizationId: vault.organizationId }]}
+          sidebarSummaries={{ state: "loading" }}
+          vaults={[vault]}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).not.toContain('data-slot="collapsible-trigger"');
+    expect(markup).toContain(">ada</span>");
+    expect(markup).toContain('href="/vault/ada/demo"');
+  });
+
   it("preserves organization order and vault order while grouping in one pass", () => {
     const zedFirst = makeRepositorySettingsBuilderVault({
       _id: fakeVaultId("vault-zed-first"),

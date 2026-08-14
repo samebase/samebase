@@ -147,6 +147,7 @@ export function VaultDashboard({
       <VaultOverviewOrganizationSidebar
         folderState={workspaceModel.folderState}
         organizations={workspaceModel.organizations}
+        organizationsCollapsible
         organizationTreeSettings={workspaceModel.organizationTreeSettings}
         onCreateVaultFolder={createVaultFolder}
         onDeleteVaultFolder={deleteVaultFolder}

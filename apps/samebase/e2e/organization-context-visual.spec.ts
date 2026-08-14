@@ -284,10 +284,24 @@ test("keeps organization scope across direct links and browser history", async (
   ]);
 
   await openRoute(page, "/org/org-context-history-alpha/vaults");
+  const scopedVaultNavigation = page.getByRole("navigation", { name: "Vaults" });
+  await expect(
+    scopedVaultNavigation.getByRole("button", {
+      name: "org-context-history-alpha",
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  await expect(
+    scopedVaultNavigation.getByText("org-context-history-alpha", { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: /org-context-history-alpha\/alpha-app,/u }),
   ).toBeVisible();
   await expect(page.getByText("beta-app", { exact: true })).toHaveCount(0);
+  await expect(page).toHaveScreenshot("organization-context-direct-vaults.png", {
+    ...screenshotOptions,
+    fullPage: true,
+  });
 
   await openRoute(page, "/org/org-context-history-alpha");
   await expect(page).toHaveURL(/\/org\/org-context-history-alpha\/vaults$/u);

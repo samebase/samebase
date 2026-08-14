@@ -26,11 +26,19 @@ import type {
   VaultSidebarSummary,
 } from "@/hooks/useVaultSidebarSummaries";
 import { formatRepositoryCheckSummary, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
+import { personalOrganizationsFirst } from "@/lib/organizationOrder";
 import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRoutes";
 import { Link } from "@tanstack/react-router";
 import type { ReactMutation } from "convex/react";
 import type { FunctionReference } from "convex/server";
-import { ChevronDown, ChevronRight, EllipsisVertical, Loader2 } from "lucide-react";
+import {
+  Building2,
+  ChevronDown,
+  ChevronRight,
+  EllipsisVertical,
+  Loader2,
+  SquareUserRound,
+} from "lucide-react";
 import { useRef, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
@@ -568,6 +576,7 @@ export function VaultOverviewSidebar({
 export function VaultOverviewOrganizationSidebar({
   folderState,
   organizations,
+  organizationsCollapsible,
   onCreateVaultFolder,
   onDeleteVaultFolder,
   onMoveVaultFolder,
@@ -584,6 +593,7 @@ export function VaultOverviewOrganizationSidebar({
 }: {
   folderState: VaultFolderState;
   organizations: readonly VaultOrganization[];
+  organizationsCollapsible: boolean;
   organizationTreeSettings: VaultOrganizationTreeSettings;
   onCreateVaultFolder: VaultFolderCreate;
   page: VaultOverviewPageKind;
@@ -599,10 +609,11 @@ export function VaultOverviewOrganizationSidebar({
   const organizationTreeSettingById = new Map(
     organizationTreeSettings.map((setting) => [setting.organizationId, setting]),
   );
+  const orderedOrganizations = personalOrganizationsFirst(organizations);
 
   return (
     <nav aria-label="Vaults" className="@container min-h-full py-2">
-      {organizations.map((organization) => {
+      {orderedOrganizations.map((organization) => {
         const organizationVaults = vaults.filter(
           (vault) => vault.organizationId === organization.organizationId,
         );
@@ -611,37 +622,62 @@ export function VaultOverviewOrganizationSidebar({
         );
         const selected = organization.organizationId === selectedOrganizationId;
         const savedSetting = organizationTreeSettingById.get(organization.organizationId);
-        const open = savedSetting ? !savedSetting.collapsed : selectedVaultId === null || selected;
+        const open =
+          !organizationsCollapsible ||
+          (savedSetting ? !savedSetting.collapsed : selectedVaultId === null || selected);
+        const organizationLabel = (
+          <span className="flex min-w-0 items-center gap-2">
+            {organization.githubOwnerType === "organization" ? (
+              <Building2 aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+            ) : (
+              <SquareUserRound
+                aria-hidden="true"
+                className="size-4 shrink-0 text-muted-foreground"
+              />
+            )}
+            <span className="min-w-0 truncate">{organization.githubOwnerLogin}</span>
+          </span>
+        );
 
         return (
           <Collapsible
             key={organization.organizationId}
             open={open}
-            onOpenChange={(nextOpen) => {
-              void onSetVaultOrganizationCollapsed({
-                collapsed: !nextOpen,
-                organizationId: organization.organizationId,
-              }).catch((error: unknown) => {
-                toast({
-                  description: error instanceof Error ? error.message : "Try again.",
-                  title: "Could not update vault organizations",
-                  variant: "destructive",
-                });
-              });
-            }}
+            onOpenChange={
+              organizationsCollapsible
+                ? (nextOpen) => {
+                    void onSetVaultOrganizationCollapsed({
+                      collapsed: !nextOpen,
+                      organizationId: organization.organizationId,
+                    }).catch((error: unknown) => {
+                      toast({
+                        description: error instanceof Error ? error.message : "Try again.",
+                        title: "Could not update vault organizations",
+                        variant: "destructive",
+                      });
+                    });
+                  }
+                : undefined
+            }
           >
             <div className="flex min-w-0 items-center">
-              <CollapsibleTrigger
-                className="flex min-w-0 flex-1 items-center justify-between gap-2 py-2 pr-1 pl-3 text-left text-sm font-medium text-foreground hover:bg-muted/60 @max-[200px]:pl-2 @max-[120px]:pl-1 [&[data-state=open]>svg]:rotate-180"
-                nativeButton
-                type="button"
-              >
-                <span className="min-w-0 truncate">{organization.githubOwnerLogin}</span>
-                <ChevronDown
-                  aria-hidden="true"
-                  className="h-3.5 w-3.5 shrink-0 transition-transform"
-                />
-              </CollapsibleTrigger>
+              {organizationsCollapsible ? (
+                <CollapsibleTrigger
+                  className="flex min-w-0 flex-1 items-center justify-between gap-2 py-2 pr-1 pl-3 text-left text-sm font-medium text-foreground hover:bg-muted/60 @max-[200px]:pl-2 @max-[120px]:pl-1 [&[data-state=open]>svg]:rotate-180"
+                  nativeButton
+                  type="button"
+                >
+                  {organizationLabel}
+                  <ChevronDown
+                    aria-hidden="true"
+                    className="h-3.5 w-3.5 shrink-0 transition-transform"
+                  />
+                </CollapsibleTrigger>
+              ) : (
+                <div className="flex min-w-0 flex-1 items-center py-2 pr-1 pl-3 text-sm font-medium text-foreground @max-[200px]:pl-2 @max-[120px]:pl-1">
+                  {organizationLabel}
+                </div>
+              )}
               <VaultFolderCreateButton
                 organizationId={organization.organizationId}
                 organizationName={organization.githubOwnerLogin}
