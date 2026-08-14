@@ -361,7 +361,7 @@ describe("fillUnavailableGitHubVaultSidebarSummaries", () => {
     ];
     const accessibleSummary = {
       vaultId: accessibleVaultId,
-      repository: { statusCheckRollup: null },
+      repository: { openPullRequestCount: 0, statusCheckRollup: null },
     };
 
     expect(fillUnavailableGitHubVaultSidebarSummaries(repositories, [accessibleSummary])).toEqual([

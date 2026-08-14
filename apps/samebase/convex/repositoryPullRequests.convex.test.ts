@@ -229,6 +229,7 @@ function sidebarGraphqlResponse(args: {
           statusCheckRollup: null,
         },
       },
+      pullRequests: { totalCount: 0 },
     },
   };
 }
@@ -242,6 +243,7 @@ function expectedSidebarSummaries(args: {
     {
       vaultId: args.secondVaultId,
       repository: {
+        openPullRequestCount: 0,
         statusCheckRollup: null,
       },
     },
