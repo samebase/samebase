@@ -25,6 +25,9 @@ import type {
   VaultSidebarSummariesState,
   VaultSidebarSummary,
 } from "@/hooks/useVaultSidebarSummaries";
+import type { OrganizationGitHubIdentityObservation } from "@/hooks/useOrganizationGitHubIdentity";
+import { useOrganizationGitHubIdentities } from "@/hooks/useOrganizationGitHubIdentity";
+import { ORGANIZATION_SETTINGS_ROUTE } from "@/lib/organizationRoutes";
 import { formatRepositoryCheckSummary, type RepositoryCheckSummary } from "@/lib/repositoryChecks";
 import { personalOrganizationsFirst } from "@/lib/organizationOrder";
 import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRoutes";
@@ -32,6 +35,7 @@ import { Link } from "@tanstack/react-router";
 import type { ReactMutation } from "convex/react";
 import type { FunctionReference } from "convex/server";
 import {
+  AlertTriangle,
   Building2,
   ChevronDown,
   ChevronRight,
@@ -47,6 +51,7 @@ import { VaultFolderCreateButton, type VaultFolderCreate } from "./VaultFolderCr
 import { VaultFolderDialog } from "./VaultFolderDialog";
 
 type VaultFolder = VaultFolderState["folders"][number];
+type VaultGitHubIdentityObservation = OrganizationGitHubIdentityObservation["vaults"][number];
 
 type VaultMutation<Mutation extends FunctionReference<"mutation">> = (
   ...args: Parameters<ReactMutation<Mutation>>
@@ -91,7 +96,11 @@ function checkStateDotClassName(state: RepositoryCheckSummary["state"]): string 
 }
 
 type VaultSidebarStatus =
-  | { kind: "dot" | "failure"; dotClassName: string; label: string }
+  | {
+      kind: "dot" | "failure";
+      dotClassName: string;
+      label: string;
+    }
   | { kind: "workflow"; label: string };
 
 function vaultSidebarStatus(args: {
@@ -156,6 +165,7 @@ function vaultSidebarStatus(args: {
 
 function VaultRow({
   folderState,
+  githubIdentity,
   inFolder,
   pending,
   onDirectAction,
@@ -168,6 +178,7 @@ function VaultRow({
   onMoveVaultToFolder,
 }: {
   folderState: VaultFolderState;
+  githubIdentity: VaultGitHubIdentityObservation | undefined;
   inFolder: boolean;
   pending: boolean;
   onDirectAction: (action: () => Promise<unknown>) => void;
@@ -179,7 +190,13 @@ function VaultRow({
   vault: UserVaultResult;
   workspace: VaultWorkspaceSelected | null;
 }) {
-  const status = vaultSidebarStatus({ selected, sidebarSummaries, summary, vault, workspace });
+  const status = vaultSidebarStatus({
+    selected,
+    sidebarSummaries,
+    summary,
+    vault,
+    workspace,
+  });
   const workerCount = vault.cloudflareWorkers.length;
   const convexProjectCount = vault.convexProjects.length;
   const pullRequestCount = summary?.openPullRequestCount;
@@ -188,6 +205,14 @@ function VaultRow({
   const rowClassName = selected
     ? "flex min-w-0 bg-muted @max-[200px]:px-1"
     : "flex min-w-0 hover:bg-muted/60 @max-[200px]:px-1";
+  const settingsWarning =
+    githubIdentity?.status === "renamed"
+      ? { label: "Repository name changed", tone: "warning" as const }
+      : githubIdentity?.status === "owner_mismatch"
+        ? { label: "Repository owner changed", tone: "failure" as const }
+        : githubIdentity?.status === "unavailable"
+          ? { label: "Repository unavailable", tone: "failure" as const }
+          : null;
 
   return (
     <div className={rowClassName}>
@@ -259,6 +284,24 @@ function VaultRow({
           </span>
         </span>
       </Link>
+      {settingsWarning ? (
+        <Button asChild className="mt-2 h-10 w-8 shrink-0" size="icon" variant="ghost">
+          <Link
+            aria-label={`${settingsWarning.label} for ${vault.repositoryFullName}. Open settings`}
+            title={settingsWarning.label}
+            to={buildVaultSettingsRoute({ owner: vault.ghRepoOwner, repoName: vault.ghRepoName })}
+          >
+            <AlertTriangle
+              aria-hidden="true"
+              className={
+                settingsWarning.tone === "warning"
+                  ? "h-4 w-4 text-amber-600"
+                  : "h-4 w-4 text-red-700"
+              }
+            />
+          </Link>
+        </Button>
+      ) : null}
       {folderState.folders.length > 0 ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild nativeButton>
@@ -311,6 +354,7 @@ function VaultRow({
 
 export function VaultOverviewSidebar({
   folderState,
+  githubIdentity,
   organizationId,
   onDeleteVaultFolder,
   onMoveVaultFolder,
@@ -324,6 +368,7 @@ export function VaultOverviewSidebar({
   workspace,
 }: {
   folderState: VaultFolderState;
+  githubIdentity?: OrganizationGitHubIdentityObservation;
   organizationId: Id<"organizations">;
   page: VaultOverviewPageKind;
   selectedVaultId: UserVaultResult["_id"] | null;
@@ -338,6 +383,9 @@ export function VaultOverviewSidebar({
     sidebarSummaries.state === "loaded"
       ? sidebarSummaries.summaries.map((summary) => [summary.vaultId, summary])
       : [],
+  );
+  const githubIdentityByVaultId = new Map(
+    githubIdentity?.vaults.map((observation) => [observation.vaultId, observation]) ?? [],
   );
   const organizationFolders = folderState.folders.filter(
     (folder) => folder.organizationId === organizationId,
@@ -393,6 +441,7 @@ export function VaultOverviewSidebar({
     return (
       <VaultRow
         folderState={organizationFolderState}
+        githubIdentity={githubIdentityByVaultId.get(vault._id)}
         inFolder={inFolder}
         key={vault._id}
         pending={pendingAction !== null}
@@ -603,6 +652,9 @@ export function VaultOverviewOrganizationSidebar({
   workspace: VaultWorkspaceSelected | null;
 } & VaultFolderCallbacks &
   VaultOrganizationTreeCallbacks) {
+  const githubIdentities = useOrganizationGitHubIdentities(
+    organizations.map((organization) => organization.organizationId),
+  );
   const selectedOrganizationId = vaults.find(
     (vault) => vault._id === selectedVaultId,
   )?.organizationId;
@@ -638,6 +690,13 @@ export function VaultOverviewOrganizationSidebar({
             <span className="min-w-0 truncate">{organization.githubOwnerLogin}</span>
           </span>
         );
+        const githubIdentity = githubIdentities.get(organization.organizationId);
+        const identityWarning =
+          githubIdentity?.owner.status === "renamed"
+            ? { label: "GitHub owner name changed", tone: "warning" as const }
+            : githubIdentity?.owner.status === "unavailable"
+              ? { label: "GitHub connection unavailable", tone: "failure" as const }
+              : null;
 
         return (
           <Collapsible
@@ -679,6 +738,25 @@ export function VaultOverviewOrganizationSidebar({
                   {organizationLabel}
                 </div>
               )}
+              {identityWarning ? (
+                <Button asChild size="icon-sm" variant="ghost">
+                  <Link
+                    aria-label={`${identityWarning.label} for ${organization.githubOwnerLogin}. Open organization settings`}
+                    params={{ owner: organization.githubOwnerLogin }}
+                    title={identityWarning.label}
+                    to={ORGANIZATION_SETTINGS_ROUTE}
+                  >
+                    <AlertTriangle
+                      aria-hidden="true"
+                      className={
+                        identityWarning.tone === "warning"
+                          ? "h-4 w-4 text-amber-600"
+                          : "h-4 w-4 text-red-700"
+                      }
+                    />
+                  </Link>
+                </Button>
+              ) : null}
               <VaultFolderCreateButton
                 organizationId={organization.organizationId}
                 organizationName={organization.githubOwnerLogin}
@@ -693,6 +771,7 @@ export function VaultOverviewOrganizationSidebar({
               ) : (
                 <VaultOverviewSidebar
                   folderState={folderState}
+                  githubIdentity={githubIdentity}
                   organizationId={organization.organizationId}
                   page={page}
                   selectedVaultId={selectedVaultId}

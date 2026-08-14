@@ -15,7 +15,10 @@ import {
   splitRepositoryFullNameMatch,
   type RepositorySearchMatch,
 } from "@/lib/repositorySearch";
-import { resolveDisplayedRepositories } from "@/lib/connectRepositoryPicker";
+import {
+  isGitHubRepositoryConnected,
+  resolveDisplayedRepositories,
+} from "@/lib/connectRepositoryPicker";
 import { queueExistingRepositoryAndNavigateToDashboard } from "@/lib/existingRepositoryConnectHandoff";
 import { Loader2 } from "lucide-react";
 
@@ -188,10 +191,7 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
   const connectedVaults = vaults || [];
 
   const filteredRepositories = repositories.flatMap((repo: Repository) => {
-    const isConnected = connectedVaults.some(
-      (vault: (typeof connectedVaults)[number]) => vault.repositoryFullName === repo.full_name,
-    );
-    if (isConnected) {
+    if (isGitHubRepositoryConnected({ repository: repo, vaults: connectedVaults })) {
       return [];
     }
 

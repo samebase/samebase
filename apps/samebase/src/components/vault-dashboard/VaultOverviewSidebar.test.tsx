@@ -3,7 +3,7 @@
 import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
@@ -17,6 +17,14 @@ import {
   VaultOverviewOrganizationSidebar,
   VaultOverviewSidebar,
 } from "./VaultOverviewSidebar";
+
+vi.mock("@/hooks/useOrganizationGitHubIdentity", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/hooks/useOrganizationGitHubIdentity")>();
+  return {
+    ...actual,
+    useOrganizationGitHubIdentities: () => new Map(),
+  };
+});
 
 const FOLDER_CALLBACKS = {
   onDeleteVaultFolder: async () => {},
@@ -94,6 +102,45 @@ function organization(
 }
 
 describe("VaultOverviewSidebar", () => {
+  it("links a repository rename warning to Vault Settings", () => {
+    const organizationId = fakeOrganizationId();
+    const renamedVault = vault("agent-plugins", fakeVaultId("vault-plugin"), organizationId);
+    const markup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/samebase/agent-plugins"]}>
+        <VaultOverviewSidebar
+          {...FOLDER_CALLBACKS}
+          folderState={EMPTY_FOLDER_STATE}
+          githubIdentity={{
+            owner: { status: "current" },
+            vaults: [
+              {
+                status: "renamed",
+                vaultId: renamedVault._id,
+                repositoryName: "plugin",
+                update: "available",
+              },
+            ],
+          }}
+          organizationId={organizationId}
+          page="overview"
+          selectedVaultId={renamedVault._id}
+          sidebarSummaries={{ state: "loading" }}
+          vaults={[renamedVault]}
+          workspace={null}
+        />
+      </TestRouterProvider>,
+    );
+
+    expect(markup).toContain('href="/vault/samebase/agent-plugins"');
+    expect(markup).toContain('aria-label="samebase/agent-plugins, Loading checks"');
+    expect(markup).toContain('data-vault-status="Loading checks"');
+    expect(markup).not.toContain('data-vault-status="Repository name changed"');
+    expect(markup).toContain(
+      'aria-label="Repository name changed for samebase/agent-plugins. Open settings"',
+    );
+    expect(markup).toContain('href="/vault/samebase/agent-plugins/settings"');
+  });
+
   it("keeps the supplied vault order when the organization has no folders", () => {
     const markup = renderToStaticMarkup(
       <TestRouterProvider initialEntries={["/vault/samebase/active"]}>
