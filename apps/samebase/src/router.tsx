@@ -7,6 +7,7 @@ import {
 } from "@tanstack/router-core";
 import { routeTree } from "./routeTree.gen";
 import { createAppQueryClients } from "@/lib/appQueryClient";
+import { AppRouteErrorPage } from "@/components/AppRouteErrorPage";
 import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import type { Id } from "../convex/_generated/dataModel";
 
@@ -20,6 +21,10 @@ export function createAppRouter(history?: RouterHistory) {
   const queryClients = createAppQueryClients();
   const router = createTanStackRouter({
     context: queryClients,
+    defaultErrorComponent: AppRouteErrorPage,
+    defaultOnCatch: (error, errorInfo) => {
+      console.error("Route failure", error, errorInfo);
+    },
     defaultPreload: false,
     history,
     notFoundMode: "root",

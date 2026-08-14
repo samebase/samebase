@@ -4,6 +4,7 @@ import * as React from "react";
 import { type ViewerOrganization } from "@/lib/organizationContext";
 import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
+import { ConvexError } from "convex/values";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -13,6 +14,12 @@ const { appWorkspaceMountMock, appWorkspaceUnmountMock, useConvexAuthMock } = vi
   appWorkspaceUnmountMock: vi.fn(),
   useConvexAuthMock: vi.fn(),
 }));
+const routeErrorState = vi.hoisted(
+  (): { providerError: Error | null; termsError: Error | null } => ({
+    providerError: null,
+    termsError: null,
+  }),
+);
 
 vi.mock("@/components/RootIndexRoutePage", () => ({
   RootIndexRoutePage: () => <div data-testid="root-index-route">Root index route</div>,
@@ -96,7 +103,13 @@ vi.mock("@/lib/usePageMetadata", () => ({
 }));
 
 vi.mock("@/components/TermsOfServicePage", () => ({
-  TermsOfServicePage: () => <div data-testid="terms-page">Terms page</div>,
+  TermsOfServicePage: () => {
+    if (routeErrorState.termsError) {
+      throw routeErrorState.termsError;
+    }
+
+    return <div data-testid="terms-page">Terms page</div>;
+  },
 }));
 
 vi.mock("@/components/PrivacyPolicyPage", () => ({
@@ -153,11 +166,17 @@ vi.mock("@/components/NewAppPage", () => ({
 }));
 
 vi.mock("@/components/ProviderConnectionsPage", () => ({
-  ProviderConnectionsPage: ({ organization }: { organization: ViewerOrganization }) => (
-    <div data-testid="providers-page" data-owner={organization.githubOwnerLogin}>
-      Providers page
-    </div>
-  ),
+  ProviderConnectionsPage: ({ organization }: { organization: ViewerOrganization }) => {
+    if (routeErrorState.providerError) {
+      throw routeErrorState.providerError;
+    }
+
+    return (
+      <div data-testid="providers-page" data-owner={organization.githubOwnerLogin}>
+        Providers page
+      </div>
+    );
+  },
 }));
 
 vi.mock("@/components/OrganizationRouteBoundary", () => ({
@@ -369,6 +388,8 @@ describe("appRouter", () => {
       isAuthenticated: false,
       isLoading: false,
     });
+    routeErrorState.providerError = null;
+    routeErrorState.termsError = null;
     document.documentElement.className = "";
     window.localStorage.removeItem("theme");
   });
@@ -416,6 +437,55 @@ describe("appRouter", () => {
       "Terms page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("keeps the original billing query error inside the app workspace", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const billingError = new ConvexError(
+      "This organization needs more paid member seats. Billing and member management are still available.",
+    );
+    routeErrorState.providerError = billingError;
+
+    const router = await renderRoute("/org/samebase/providers");
+
+    expect(rootElement?.querySelector('[data-testid="app-workspace"]')).not.toBeNull();
+    expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
+    expect(rootElement?.textContent).toContain("Page could not load");
+    expect(rootElement?.textContent).not.toContain("App Recovery");
+    expect(rootElement?.textContent).not.toContain("Billing and member management");
+    expect(consoleError).toHaveBeenCalledWith("Route failure", billingError, expect.any(Object));
+
+    routeErrorState.providerError = null;
+    await act(async () => {
+      await router.navigate({
+        search: { "prod-ui": true },
+        to: "/org/$owner/providers",
+        params: { owner: "samebase" },
+      });
+      await settleRouterRender();
+    });
+
+    expect(rootElement?.querySelector('[data-testid="providers-page"]')?.textContent).toBe(
+      "Providers page",
+    );
+    expect(appWorkspaceMountMock).toHaveBeenCalledTimes(1);
+    expect(appWorkspaceUnmountMock).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+    consoleWarn.mockRestore();
+  });
+
+  it("keeps stale app-file failures on the app recovery path", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const consoleWarn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    routeErrorState.termsError = new Error("Failed to fetch dynamically imported module");
+
+    await renderRoute("/terms");
+
+    expect(rootElement?.textContent).toContain("App Recovery");
+    expect(rootElement?.textContent).not.toContain("Page could not load");
+    consoleError.mockRestore();
+    consoleWarn.mockRestore();
   });
 
   it("keeps the app workspace shell mounted while route content changes", async () => {

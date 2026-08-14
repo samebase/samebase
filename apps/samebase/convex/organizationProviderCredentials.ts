@@ -7,7 +7,10 @@ import {
   type DatabaseReader,
   type MutationCtx,
 } from "./_generated/server";
-import { requireOrganizationMembership } from "./organizationAccess";
+import {
+  requireOrganizationMembership,
+  requireOrganizationMembershipRecord,
+} from "./organizationAccess";
 import { vOrganizationCloudflareAccount, vOrganizationConvexTeam } from "./organizationModel";
 import {
   vCloudflareProviderCredential,
@@ -194,6 +197,25 @@ export const loadForOrganization = internalQuery({
   returns: vOrganizationProviderConfiguration,
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderMember(ctx.db, args);
+    return await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
+  },
+});
+
+export const loadForProviderStatus = internalQuery({
+  args: {
+    organizationId: id("organizations"),
+    userId: id("users"),
+  },
+  returns: vOrganizationProviderConfiguration,
+  handler: async (ctx, args) => {
+    const [, organization] = await Promise.all([
+      requireActiveOrganizationProviderUser(ctx.db, args.userId),
+      ctx.db.get(args.organizationId),
+    ]);
+    if (organization === null) {
+      throw new Error("Organization not found.");
+    }
+    await requireOrganizationMembershipRecord(ctx.db, args);
     return await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
   },
 });

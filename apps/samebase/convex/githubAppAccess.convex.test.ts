@@ -319,7 +319,7 @@ describe("vault GitHub token scope", () => {
 });
 
 describe("viewer GitHub installation health", () => {
-  it("returns live permissions and preserves each probe result", async () => {
+  it("returns live permissions while billing-limited and preserves each probe result", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -338,6 +338,20 @@ describe("viewer GitHub installation health", () => {
         githubInstallationId: "1001",
       },
     );
+    await t.run(async (ctx) => {
+      for (const index of [1, 2]) {
+        const extraMemberId = await ctx.db.insert("users", {
+          state: "active",
+          email: `github-installation-extra-${index}@example.com`,
+          isApproved: true,
+        });
+        await ctx.db.insert("organizationMemberships", {
+          organizationId,
+          userId: extraMemberId,
+          role: "member",
+        });
+      }
+    });
     const asUser = t.withIdentity({
       subject: `${userId}|github-installation`,
       tokenIdentifier: `test:${userId}`,

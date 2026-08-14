@@ -76,7 +76,7 @@ export const checkCloudflareConnectionAccess = action({
   handler: async (ctx, args): Promise<CloudflareConnectionAccess> => {
     const checkedAt = Date.now();
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.requireOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationIdForMember,
       {
         userId: ctx.viewer.userId,
         organizationId: args.organizationId,
@@ -85,7 +85,7 @@ export const checkCloudflareConnectionAccess = action({
     let connection: ResolvedCloudflareConnection | null;
     try {
       const configuration = await ctx.runQuery(
-        internal.organizationProviderCredentials.loadForOrganization,
+        internal.organizationProviderCredentials.loadForProviderStatus,
         {
           organizationId,
           userId: ctx.viewer.userId,
