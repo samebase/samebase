@@ -61,8 +61,8 @@ export async function findOrganizationAccessContext(
   return access;
 }
 
-/** Resolve membership for billing and member-management recovery surfaces. */
-export async function requireOrganizationSettingsMembership(
+/** Resolve active membership without applying organization work limits. */
+export async function requireOrganizationMembershipRecord(
   db: DatabaseReader,
   access: OrganizationAccessContext,
 ): Promise<Doc<"organizationMemberships">> {
@@ -80,7 +80,7 @@ export async function requireOrganizationMembership(
   db: DatabaseReader,
   access: OrganizationAccessContext,
 ): Promise<Doc<"organizationMemberships">> {
-  const membership = await requireOrganizationSettingsMembership(db, access);
+  const membership = await requireOrganizationMembershipRecord(db, access);
   await requireOrganizationNotBillingLimited(db, access.organizationId);
   return membership;
 }
@@ -113,7 +113,7 @@ export async function requireOrganizationSettingsOwnerAccessContext(
   db: DatabaseReader,
   access: OrganizationAccessContext,
 ): Promise<OrganizationAccessContext> {
-  const membership = await requireOrganizationSettingsMembership(db, access);
+  const membership = await requireOrganizationMembershipRecord(db, access);
   if (membership.role !== "owner") {
     throw new Error("Organization owner access is required.");
   }
@@ -276,6 +276,18 @@ export const requireOrganizationIdForUser = internalQuery({
   handler: async (ctx, args) => {
     const access = await requireOrganizationAccessContext(ctx.db, args);
     return access.organizationId;
+  },
+});
+
+export const requireOrganizationIdForMember = internalQuery({
+  args: {
+    userId: v.id("users"),
+    organizationId: v.id("organizations"),
+  },
+  returns: v.id("organizations"),
+  handler: async (ctx, args) => {
+    const membership = await requireOrganizationMembershipRecord(ctx.db, args);
+    return membership.organizationId;
   },
 });
 

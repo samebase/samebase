@@ -168,8 +168,9 @@ resources usable and does not disconnect or delete them. It blocks new counted r
 is below the current limit or Pro becomes active again.
 
 An organization becomes billing-limited when its membership count is above verified member capacity.
-Normal organization work is blocked. Billing and member management stay available so an owner can
-restore capacity or remove members.
+Normal organization work is blocked. Billing, member management, and read-only provider status stay
+available. Provider status does not create or attach a counted resource. An owner can inspect
+current connections while restoring capacity or removing members.
 
 ### Customer Surfaces
 

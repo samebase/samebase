@@ -52,14 +52,14 @@ export const checkConvexConnectionAccess = action({
   returns: vConvexConnectionAccess,
   handler: async (ctx, args): Promise<ConvexConnectionAccess> => {
     const organizationId = await ctx.runQuery(
-      internal.organizationAccess.requireOrganizationIdForUser,
+      internal.organizationAccess.requireOrganizationIdForMember,
       {
         userId: ctx.viewer.userId,
         organizationId: args.organizationId,
       },
     );
     const configuration = await ctx.runQuery(
-      internal.organizationProviderCredentials.loadForOrganization,
+      internal.organizationProviderCredentials.loadForProviderStatus,
       { organizationId, userId: ctx.viewer.userId },
     );
 

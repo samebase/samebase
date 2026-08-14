@@ -4,7 +4,7 @@ import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { ConvexError, Infer, v } from "convex/values";
 import { vViewerAccess, vViewerRoleResult } from "./accessModelValidators";
-import { requireOrganizationMembership } from "./organizationAccess";
+import { requireOrganizationMembershipRecord } from "./organizationAccess";
 import { action, mutation, query } from "./functions";
 import { fetchConvexTeamTokenDetails } from "./convexManagementApi/client";
 import { ConvexManagementApiError } from "./convexManagementApi/errors";
@@ -412,7 +412,7 @@ export const getConvexConnectionStatus = query({
   },
   returns: vConvexConnectionStatus,
   handler: async (ctx, args): Promise<Infer<typeof vConvexConnectionStatus>> => {
-    const membership = await requireOrganizationMembership(ctx.db, {
+    const membership = await requireOrganizationMembershipRecord(ctx.db, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
@@ -480,7 +480,7 @@ export const getCloudflareConnectionStatus = query({
   },
   returns: vCloudflareConnectionStatus,
   handler: async (ctx, args) => {
-    const membership = await requireOrganizationMembership(ctx.db, {
+    const membership = await requireOrganizationMembershipRecord(ctx.db, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });

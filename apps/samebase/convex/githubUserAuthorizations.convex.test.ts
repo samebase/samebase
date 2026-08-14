@@ -117,12 +117,17 @@ async function startAccountDeletion(
 }
 
 describe("viewer GitHub user authorization", () => {
-  it("returns only the user-facing authorization state, login, and refresh expiry", async () => {
+  it("returns user-facing authorization status while organization work is billing-limited", async () => {
     const t = makeConvexTest();
     const { organizationId, otherOrganizationId, userId } = await t.run(async (ctx) => {
       const userId = await ctx.db.insert("users", {
         state: "active",
         email: "github-status@example.com",
+        isApproved: true,
+      });
+      const extraMemberId = await ctx.db.insert("users", {
+        state: "active",
+        email: "github-status-extra-member@example.com",
         isApproved: true,
       });
       const organizationId = await ctx.db.insert("organizations", {
@@ -147,6 +152,11 @@ describe("viewer GitHub user authorization", () => {
         ctx.db.insert("organizationMemberships", {
           organizationId,
           userId,
+          role: "member",
+        }),
+        ctx.db.insert("organizationMemberships", {
+          organizationId,
+          userId: extraMemberId,
           role: "member",
         }),
         ctx.db.insert("organizationMemberships", {

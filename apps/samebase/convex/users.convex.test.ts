@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { ConvexError } from "convex/values";
 
 import { api, internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
 const primaryCloudflareAccountId = "a".repeat(32);
@@ -214,6 +215,24 @@ async function seedProviderOrganization(options?: {
   return { memberId, organizationId, outsiderId, providerCredentialsId, t, userId };
 }
 
+async function makeSeedProviderOrganizationBillingLimited(
+  t: ReturnType<typeof makeConvexTest>,
+  organizationId: Id<"organizations">,
+): Promise<void> {
+  await t.run(async (ctx) => {
+    const extraMemberId = await ctx.db.insert("users", {
+      state: "active",
+      email: "billing-limited-provider-member@example.com",
+      isApproved: true,
+    });
+    await ctx.db.insert("organizationMemberships", {
+      organizationId,
+      userId: extraMemberId,
+      role: "member",
+    });
+  });
+}
+
 describe("organization provider status", () => {
   it("shows the configured destinations and hides credentials", async () => {
     const { organizationId, outsiderId, t, userId } = await seedProviderOrganization();
@@ -245,6 +264,30 @@ describe("organization provider status", () => {
     await expect(
       asOutsider.query(api.users.getConvexConnectionStatus, { organizationId }),
     ).rejects.toThrow("Organization membership is required.");
+  });
+
+  it("keeps provider status and health visible while organization work is billing-limited", async () => {
+    const { organizationId, t, userId } = await seedProviderOrganization();
+    await makeSeedProviderOrganizationBillingLimited(t, organizationId);
+    const asOwner = t.withIdentity({
+      subject: `${userId}|billing-limited-provider-status`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(
+      asOwner.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).resolves.toMatchObject({ state: "connected", teamId: "team-1" });
+    await expect(
+      asOwner.query(api.users.getCloudflareConnectionStatus, { organizationId }),
+    ).resolves.toMatchObject({
+      state: "connected",
+      accountId: primaryCloudflareAccountId,
+    });
+
+    stubConvexProviderAccess([convexProjectResponse()]);
+    await expect(
+      asOwner.action(api.convexProviderAccess.checkConvexConnectionAccess, { organizationId }),
+    ).resolves.toMatchObject({ connected: true });
   });
 
   it("shows the OAuth connector to organization owners", async () => {
@@ -773,8 +816,9 @@ describe("organization provider status", () => {
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 
-  it("reports an inaccessible configured Cloudflare account in the visible Accounts check", async () => {
+  it("reports an inaccessible Cloudflare account while provider status is billing-limited", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
+    await makeSeedProviderOrganizationBillingLimited(t, organizationId);
     const asOwner = t.withIdentity({
       subject: `${userId}|session`,
       tokenIdentifier: `test:${userId}`,

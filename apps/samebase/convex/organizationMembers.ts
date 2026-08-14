@@ -15,7 +15,7 @@ import {
   requireAnotherActiveOrganizationOwner,
   requireOrganizationMembershipChangeAllowed,
   requireOrganizationMembershipUser,
-  requireOrganizationSettingsMembership,
+  requireOrganizationMembershipRecord,
   requireOrganizationSettingsOwnerAccessContext,
 } from "./organizationAccess";
 import { requireAdditionalOrganizationMemberCapacity } from "./organizationBillingLimits";
@@ -504,7 +504,7 @@ export const getPage = query({
   returns: vGetPageResult,
   handler: async (ctx, args): Promise<GetPageResult> => {
     const now = requireRoundedFiniteNow(args.now);
-    const viewerMembership = await requireOrganizationSettingsMembership(ctx.db, {
+    const viewerMembership = await requireOrganizationMembershipRecord(ctx.db, {
       organizationId: args.organizationId,
       userId: ctx.viewer.userId,
     });

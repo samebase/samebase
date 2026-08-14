@@ -13,6 +13,7 @@ import {
 import {
   requireActiveOrganizationActor,
   requireOrganizationAccessContext,
+  requireOrganizationMembershipRecord,
   requireVaultForUser,
 } from "./organizationAccess";
 import { vGitHubOwnerType } from "./organizationModel";
@@ -162,6 +163,18 @@ export const loadInstallationAccess = internalQuery({
   },
 });
 
+export const loadInstallationAccessForProviderStatus = internalQuery({
+  args: {
+    userId: id("users"),
+    organizationId: id("organizations"),
+  },
+  returns: vGitHubAppInstallationAccess,
+  handler: async (ctx, args) => {
+    await requireOrganizationMembershipRecord(ctx.db, args);
+    return await loadInstallationAccessForOrganization(ctx, args.organizationId);
+  },
+});
+
 export const loadInstallationAccessForProvisioningRun = internalQuery({
   args: {
     runId: id("workflow_vaultProvisioning_runs"),
@@ -266,13 +279,17 @@ export const checkViewerInstallation = action({
   handler: async (ctx, args): Promise<ViewerInstallationStatus> => {
     let access: GitHubAppAccess;
     try {
-      access = await resolveGitHubAppAccess(ctx, {
-        userId: ctx.viewer.userId,
-        target: {
-          kind: "organization",
+      const installationAccess = await ctx.runQuery(
+        internal.githubAppAccess.loadInstallationAccessForProviderStatus,
+        {
+          userId: ctx.viewer.userId,
           organizationId: args.organizationId,
         },
-      });
+      );
+      access = {
+        ...installationAccess,
+        octokit: createGitHubInstallationOctokit(installationAccess.githubInstallationId),
+      };
     } catch {
       return {
         status: "unavailable",

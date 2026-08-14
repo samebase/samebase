@@ -1,6 +1,6 @@
 import type { Doc, Id } from "./_generated/dataModel";
 import type { DatabaseReader, DatabaseWriter } from "./_generated/server";
-import { requireOrganizationSettingsMembership } from "./organizationAccess";
+import { requireOrganizationMembershipRecord } from "./organizationAccess";
 import { readActiveUser, type ActiveUserDoc } from "./userLifecycle";
 
 export type OrganizationBillingAccess = {
@@ -40,7 +40,7 @@ export async function findBillingAccountForOrganization(
     return null;
   }
 
-  const membership = await requireOrganizationSettingsMembership(db, args);
+  const membership = await requireOrganizationMembershipRecord(db, args);
 
   const account = await db
     .query("organizationBillingAccounts")
