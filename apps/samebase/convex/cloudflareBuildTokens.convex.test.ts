@@ -42,6 +42,11 @@ async function seedCloudflareOrganization() {
       userId: memberId,
       role: "member",
     });
+    await ctx.db.insert("organizationBillingAccounts", {
+      organizationId,
+      plan: "free",
+      status: "inactive",
+    });
     await ctx.db.insert("organizationProviderCredentials", {
       organizationId,
       cloudflare: {
