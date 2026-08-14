@@ -46,6 +46,9 @@ JSON Schema for the tool's `structuredContent`:
           "ghRepoName": {
             "type": "string"
           },
+          "ghRepoId": {
+            "type": "string"
+          },
           "repositoryFullName": {
             "type": "string"
           },
