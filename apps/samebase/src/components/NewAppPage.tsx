@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useAction, useQuery as useConvexQuery } from "convex/react";
+import { ConvexError } from "convex/values";
 import { CheckIcon, Loader2 } from "lucide-react";
 import { useCallback, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
@@ -8,6 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { clsx } from "clsx";
 import { linkStyle } from "@/components/styles";
+import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenField";
+import {
+  useCloudflareBuildTokenSelection,
+  useCloudflareBuildTokens,
+} from "@/components/useCloudflareBuildTokens";
 import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildVaultDashboardRoute } from "@/lib/vaultRoutes";
 import { ORGANIZATION_PROVIDERS_ROUTE } from "@/lib/organizationRoutes";
@@ -322,6 +328,7 @@ function CreateProviderNameInput({
 }
 
 export function NewAppCreateFormFields({
+  cloudflareBuildTokenField,
   cloudflareWorkerName,
   cloudflareWorkerNameSupport,
   convexProjectName,
@@ -336,6 +343,7 @@ export function NewAppCreateFormFields({
   onConvexProjectNameChange,
   onNewRepositoryNameChange,
 }: {
+  cloudflareBuildTokenField: ReactNode;
   cloudflareWorkerName: string;
   cloudflareWorkerNameSupport: ReactNode;
   convexProjectName: string;
@@ -389,6 +397,7 @@ export function NewAppCreateFormFields({
           disabled={providerResourceNameInputDisabled}
         />
         <CreateControlMessageSlot>{cloudflareWorkerNameSupport}</CreateControlMessageSlot>
+        {cloudflareBuildTokenField}
       </div>
     </>
   );
@@ -513,6 +522,19 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const connectedCloudflareConnection =
     cloudflareConnection?.state === "connected" ? cloudflareConnection : null;
   const cloudflareConnected = connectedCloudflareConnection !== null;
+  const cloudflareBuildTokensQuery = useCloudflareBuildTokens({
+    enabled: cloudflareConnected,
+    organizationId,
+  });
+  const cloudflareBuildTokens = cloudflareBuildTokensQuery.data?.tokens ?? [];
+  const cloudflareBuildTokenSelection = useCloudflareBuildTokenSelection({
+    error: Boolean(cloudflareBuildTokensQuery.error),
+    initialUuid: null,
+    isFetching: cloudflareBuildTokensQuery.isFetching,
+    tokens: cloudflareBuildTokensQuery.data?.tokens ?? null,
+  });
+  const requestedCloudflareBuildTokenUuid = cloudflareBuildTokenSelection.requestedUuid;
+  const cloudflareBuildTokenUuid = cloudflareBuildTokenSelection.selectedUuid;
   const hasRequiredCreateConnections = Boolean(convexConnected && cloudflareConnected);
   const providerBlocker = readNewAppProviderBlocker({
     canManageOrganization,
@@ -605,6 +627,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     isCreating ||
     createRepositoryName.length === 0 ||
     !canCreateRepo ||
+    !cloudflareBuildTokenSelection.canWrite ||
     hasBlockingCreateResourceName;
 
   const setNewRepositoryName = useCallback((value: string) => {
@@ -796,9 +819,40 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         )}
       </div>
     ) : null;
+  const cloudflareBuildTokenAccountId = cloudflareBuildTokensQuery.data
+    ? cloudflareBuildTokensQuery.data.accountId
+    : connectedCloudflareConnection
+      ? connectedCloudflareConnection.accountId
+      : null;
 
   const createFormFields = (
     <NewAppCreateFormFields
+      cloudflareBuildTokenField={
+        cloudflareConnected ? (
+          <CloudflareBuildTokenField
+            accountId={cloudflareBuildTokenAccountId}
+            disabled={isCreating}
+            error={Boolean(cloudflareBuildTokensQuery.error)}
+            id="new-app-cloudflare-build-token"
+            isLoading={cloudflareBuildTokensQuery.isFetching}
+            onReload={() => {
+              void cloudflareBuildTokensQuery.refetch();
+            }}
+            onValueChange={(uuid) => {
+              setCreateError(null);
+              cloudflareBuildTokenSelection.setRequestedUuid(uuid);
+            }}
+            selectionUnavailable={Boolean(
+              requestedCloudflareBuildTokenUuid &&
+              !cloudflareBuildTokens.some(
+                (token) => token.uuid === requestedCloudflareBuildTokenUuid,
+              ),
+            )}
+            tokens={cloudflareBuildTokens}
+            value={cloudflareBuildTokenUuid}
+          />
+        ) : null
+      }
       cloudflareWorkerName={resolvedCloudflareWorkerName}
       cloudflareWorkerNameSupport={renderCreateResourceNameSupport({
         availability: cloudflareWorkerNameAvailability,
@@ -877,6 +931,10 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       setCreateError(cloudflareWorkerNameValidation.message);
       return;
     }
+    if (!cloudflareBuildTokenUuid) {
+      setCreateError("Choose a Workers Builds token.");
+      return;
+    }
     if (createResourceNameCheckError) {
       setCreateError(createResourceNameCheckError);
       return;
@@ -913,6 +971,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         name: repoName,
         convexProjectName: convexProjectNameValidation.value,
         cloudflareWorkerName: cloudflareWorkerNameValidation.value,
+        cloudflareBuildTokenUuid,
         private: true,
       });
       setNewRepositoryNameState("");
@@ -920,6 +979,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       setConvexProjectNameMode("auto");
       setCloudflareWorkerNameState("");
       setCloudflareWorkerNameMode("auto");
+      cloudflareBuildTokenSelection.setRequestedUuid(null);
       await navigate({
         href: buildPathWithTanStackSearch({
           pathname: buildVaultDashboardRoute({
@@ -930,7 +990,20 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         }),
       });
     } catch (error) {
-      setCreateError(error instanceof Error ? error.message : "Failed to create app");
+      const message =
+        error instanceof ConvexError && typeof error.data === "string"
+          ? error.data
+          : error instanceof Error
+            ? error.message
+            : "Failed to create app";
+      if (
+        message.startsWith(
+          "The selected Cloudflare Workers Builds token is not in Cloudflare's current list",
+        )
+      ) {
+        await cloudflareBuildTokensQuery.refetch();
+      }
+      setCreateError(message);
     } finally {
       setIsCreating(false);
     }

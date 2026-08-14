@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useAction, useQuery as useConvexQuery } from "convex/react";
 import { ConvexError } from "convex/values";
@@ -12,7 +12,12 @@ import {
   validateAppResourceName,
 } from "../../../shared/appResourceNames";
 import { AppDialogContent } from "@/components/AppDialogContent";
+import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenField";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
+import {
+  useCloudflareBuildTokenSelection,
+  useCloudflareBuildTokens,
+} from "@/components/useCloudflareBuildTokens";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -41,11 +46,13 @@ type CloudflareInventoryState =
   (typeof api.vault.cloudflare.discoverWorkers)["_returnType"]["inventoryState"];
 export function VaultCloudflareDialogContent({
   blockedReason,
+  cloudflareBuildTokenField,
   createRootDirectory,
   createWorkerName,
   didAddWorker,
   error,
   folderSuggestions,
+  hasSelectedBuildToken,
   isLoading,
   isSubmitting,
   inventoryState,
@@ -65,11 +72,13 @@ export function VaultCloudflareDialogContent({
   workers,
 }: {
   blockedReason?: string | null;
+  cloudflareBuildTokenField: ReactNode;
   createRootDirectory: string;
   createWorkerName: string;
   didAddWorker: boolean;
   error: string | null;
   folderSuggestions: readonly string[];
+  hasSelectedBuildToken: boolean;
   isLoading: boolean;
   isSubmitting: boolean;
   inventoryState: CloudflareInventoryState | null;
@@ -133,13 +142,15 @@ export function VaultCloudflareDialogContent({
     Boolean(blockedReason) ||
     isSubmitting ||
     (repairWorker
-      ? !createRootDirectory.trim()
+      ? !createRootDirectory.trim() || !hasSelectedBuildToken
       : isLoading ||
         (mode === "existing"
           ? selectedWorkerTags.length === 0
           : mode === "connect"
-            ? !workerToConnect || !createRootDirectory.trim()
-            : !createWorkerNameValidation.valid || !createRootDirectory.trim()));
+            ? !workerToConnect || !createRootDirectory.trim() || !hasSelectedBuildToken
+            : !createWorkerNameValidation.valid ||
+              !createRootDirectory.trim() ||
+              !hasSelectedBuildToken));
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -164,12 +175,15 @@ export function VaultCloudflareDialogContent({
         </DialogHeader>
         <div className="space-y-3">
           {repairWorker ? (
-            <VaultRepositoryRootInput
-              disabled={isSubmitting}
-              folderSuggestions={folderSuggestions}
-              onValueChange={onCreateRootDirectoryChange}
-              value={createRootDirectory}
-            />
+            <div className="grid gap-3">
+              <VaultRepositoryRootInput
+                disabled={isSubmitting}
+                folderSuggestions={folderSuggestions}
+                onValueChange={onCreateRootDirectoryChange}
+                value={createRootDirectory}
+              />
+              {cloudflareBuildTokenField}
+            </div>
           ) : isLoading ? (
             <VaultProviderDiscoveryLoadingState label="Searching for Cloudflare Workers" />
           ) : mode === "connect" ? (
@@ -211,6 +225,7 @@ export function VaultCloudflareDialogContent({
                 onValueChange={onCreateRootDirectoryChange}
                 value={createRootDirectory}
               />
+              {cloudflareBuildTokenField}
             </div>
           ) : (
             <>
@@ -309,6 +324,7 @@ export function VaultCloudflareDialogContent({
                     onValueChange={onCreateRootDirectoryChange}
                     value={createRootDirectory}
                   />
+                  {cloudflareBuildTokenField}
                 </div>
               )}
             </>
@@ -374,11 +390,15 @@ export function VaultCloudflareDialogContent({
 export function VaultCloudflareDialog({
   blockedReason,
   onClose,
+  repairBuildTokenUuid,
+  repairRootDirectory,
   repairWorkerId,
   vault,
 }: {
   blockedReason: string | null;
   onClose: () => void;
+  repairBuildTokenUuid: string | null;
+  repairRootDirectory: string | null;
   repairWorkerId: Id<"vaultCloudflareWorkers"> | null;
   vault: UserVaultResult;
 }) {
@@ -397,7 +417,7 @@ export function VaultCloudflareDialog({
   );
   const [workerSelection, setWorkerSelection] = useState<readonly string[] | null>(null);
   const [mode, setMode] = useState<CloudflareWorkerConnectMode>("existing");
-  const [createRootDirectory, setCreateRootDirectory] = useState("/");
+  const [createRootDirectory, setCreateRootDirectory] = useState(repairRootDirectory ?? "/");
   const [createWorkerName, setCreateWorkerName] = useState(() =>
     buildDefaultAppResourceName({
       repositoryName: vault.ghRepoName,
@@ -413,6 +433,21 @@ export function VaultCloudflareDialog({
   const repairWorker = repairWorkerId
     ? (vault.cloudflareWorkers.find((worker) => worker.workerId === repairWorkerId) ?? null)
     : null;
+  const buildTokensQuery = useCloudflareBuildTokens({
+    enabled: Boolean(repairWorker || mode === "connect" || mode === "create"),
+    organizationId: vault.organizationId,
+  });
+  const buildTokens = buildTokensQuery.data?.tokens ?? [];
+  const buildTokenSelection = useCloudflareBuildTokenSelection({
+    error: Boolean(buildTokensQuery.error),
+    initialUuid: repairBuildTokenUuid,
+    isFetching: buildTokensQuery.isFetching,
+    tokens: buildTokensQuery.data?.tokens ?? null,
+  });
+  const requestedBuildTokenUuid = buildTokenSelection.requestedUuid;
+  const buildTokenUuid = buildTokenSelection.selectedUuid;
+  const writesWorkersBuilds = Boolean(repairWorker || workerToConnect || mode === "create");
+  const hasSelectedBuildToken = buildTokenSelection.canWrite;
   const attachedWorkerTags = vault.cloudflareWorkers
     .filter((worker) => worker.accountId === vault.cloudflareAccountId)
     .map((worker) => worker.workerTag)
@@ -452,18 +487,26 @@ export function VaultCloudflareDialog({
     setIsSubmitting(true);
     try {
       if (repairWorker) {
+        if (!buildTokenUuid) {
+          throw new Error("Choose a Workers Builds token.");
+        }
         await configureWorkersBuildsForGitHub({
+          buildTokenUuid,
           vaultId: vault._id,
           workerId: repairWorker.workerId,
           rootDirectory: createRootDirectory,
         });
       } else if (workerToConnect) {
+        if (!buildTokenUuid) {
+          throw new Error("Choose a Workers Builds token.");
+        }
         const result = await connectWorker({
           vaultId: vault._id,
           accountId: vault.cloudflareAccountId,
           workerName: workerToConnect.workerName,
           workerTag: workerToConnect.workerTag,
           rootDirectory: createRootDirectory,
+          buildTokenUuid,
         });
         setConnectedWorkerTags((current) => [...current, workerToConnect.workerTag]);
         setMode("existing");
@@ -496,20 +539,31 @@ export function VaultCloudflareDialog({
           workers: selectedWorkers,
         });
       } else {
+        if (!buildTokenUuid) {
+          throw new Error("Choose a Workers Builds token.");
+        }
         await createWorker({
           vaultId: vault._id,
           accountId: vault.cloudflareAccountId,
           workerName: createWorkerName,
           rootDirectory: createRootDirectory,
+          buildTokenUuid,
         });
       }
       onClose();
     } catch (error) {
-      setSubmitError(
+      const message =
         error instanceof ConvexError && typeof error.data === "string"
           ? error.data
-          : "Could not add Cloudflare Workers.",
-      );
+          : "Could not add Cloudflare Workers.";
+      if (
+        message.startsWith(
+          "The selected Cloudflare Workers Builds token is not in Cloudflare's current list",
+        )
+      ) {
+        await buildTokensQuery.refetch();
+      }
+      setSubmitError(message);
       setIsSubmitting(false);
     }
   };
@@ -517,11 +571,36 @@ export function VaultCloudflareDialog({
   return (
     <VaultCloudflareDialogContent
       blockedReason={blockedReason}
+      cloudflareBuildTokenField={
+        writesWorkersBuilds ? (
+          <CloudflareBuildTokenField
+            accountId={buildTokensQuery.data?.accountId ?? vault.cloudflareAccountId}
+            disabled={isSubmitting || Boolean(blockedReason)}
+            error={Boolean(buildTokensQuery.error)}
+            id="vault-cloudflare-build-token"
+            isLoading={buildTokensQuery.isFetching}
+            onReload={() => {
+              void buildTokensQuery.refetch();
+            }}
+            onValueChange={(uuid) => {
+              setSubmitError(null);
+              buildTokenSelection.setRequestedUuid(uuid);
+            }}
+            selectionUnavailable={Boolean(
+              requestedBuildTokenUuid &&
+              !buildTokens.some((token) => token.uuid === requestedBuildTokenUuid),
+            )}
+            tokens={buildTokens}
+            value={buildTokenUuid}
+          />
+        ) : null
+      }
       createRootDirectory={createRootDirectory}
       createWorkerName={createWorkerName}
       didAddWorker={connectedWorkerTags.length > 0}
       error={submitError ?? resourceError}
       folderSuggestions={folderSuggestions ?? EMPTY_REPOSITORY_FOLDER_SUGGESTIONS}
+      hasSelectedBuildToken={hasSelectedBuildToken}
       isLoading={isLoading}
       isSubmitting={isSubmitting}
       inventoryState={inventoryState}

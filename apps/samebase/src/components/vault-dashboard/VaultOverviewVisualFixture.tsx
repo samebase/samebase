@@ -616,6 +616,8 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
           state: "connected",
           productionTriggerUuid: "fixture-production-trigger",
           previewTriggerUuid: "fixture-preview-trigger",
+          productionBuildTokenUuid: "fixture-build-token",
+          previewBuildTokenUuid: "fixture-build-token",
           productionBuild: {
             state: "available",
             buildState: "success",
@@ -733,6 +735,7 @@ const PROVISIONING_PLANNED_PROVIDER_PLAN = {
   cloudflare: {
     state: "planned",
     accountId: "fixture-cloudflare-account",
+    buildTokenUuid: "fixture-build-token",
     workerName: "tmp-f149-vault-loading-states",
     rootDirectory: "/",
   },
@@ -749,6 +752,7 @@ const PROVISIONING_CREATED_PROVIDER_PLAN = {
   cloudflare: {
     state: "created",
     accountId: "fixture-cloudflare-account",
+    buildTokenUuid: "fixture-build-token",
     workerName: "tmp-f149-vault-loading-states",
     workerTag: "tmp-f149-vault-loading-states-tag",
     rootDirectory: "/",
@@ -946,6 +950,10 @@ function buildFixtureWorkspace({
       cloudflareAccount: {
         accountId: cloudflareAccountId,
         accountName: cloudflareAccountName,
+      },
+      cloudflareBuildTokens: {
+        state: "loaded",
+        tokens: [{ name: "Workers Builds - 2026-08-14 01:54", uuid: "fixture-build-token" }],
       },
       convexObservations,
       configureWorkersBuildsForGitHubOnClick: () => {},

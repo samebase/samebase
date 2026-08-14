@@ -413,6 +413,12 @@ test("covers Cloudflare connection and Builds repair states", async ({ page }) =
       );
       await expect(dialog.getByRole("button", { name: "Create Worker" })).toBeDisabled();
     }
+    if (
+      mode === "vault-overview-v2-cloudflare-dialog-invalid-name" ||
+      mode === "vault-overview-v2-cloudflare-builds-repair"
+    ) {
+      await expect(dialog.getByRole("combobox", { name: "Workers Builds token" })).toBeVisible();
+    }
     await expect(dialog).toHaveScreenshot(screenshotName, {
       animations: "disabled",
       caret: "hide",
