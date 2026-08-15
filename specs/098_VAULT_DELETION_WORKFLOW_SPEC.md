@@ -5,11 +5,12 @@
 - Status: Accepted next-phase implementation plan
 - Owner: Samebase vault deletion, durable workflows, and vault-scoped cleanup
 - Created: 2026-05-09
-- Last updated: 2026-08-07
+- Last updated: 2026-08-15
 - Related docs:
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
   - `specs/097_EXISTING_REPOSITORY_WORKFLOW_ONBOARDING_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
   - `specs/045_VAULT_MULTI_BRANCH_DASHBOARD_AND_EDITOR_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
   - `research/2026-05-09-vault-deletion-workflow-research.md`
@@ -358,7 +359,9 @@ destination before the first provider call. A destination mismatch fails closed 
 provider resource.
 
 Cloudflare Worker deletion uses `workerTag` as the provider delete identifier. `workerName` remains
-display context only and never authorizes deletion of a replacement Worker that reused the name.
+display context only and never authorizes deletion of a replacement Worker that reused the name. The
+stored `rootDirectory` is placement context and is not part of the deletion snapshot or delete
+authority. Spec 115 defines this identity and placement split.
 
 Conceptual shape:
 

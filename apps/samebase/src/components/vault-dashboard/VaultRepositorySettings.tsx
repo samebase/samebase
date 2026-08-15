@@ -164,6 +164,11 @@ function SettingsResourceRow({ resource }: { resource: VaultRepositorySettingsRe
           ) : (
             <div className="line-clamp-2 text-sm font-medium text-foreground">{resource.name}</div>
           )}
+          {resource.warning ? (
+            <div className="mt-1 text-xs leading-5 text-red-700" role="status">
+              {resource.warning}
+            </div>
+          ) : null}
           {resource.description ? (
             <div
               className={

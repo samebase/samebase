@@ -421,8 +421,10 @@ test("covers Cloudflare connection and Builds repair states", async ({ page }) =
     }
     if (mode === "vault-overview-v2-cloudflare-builds-repair") {
       const repositoryRoot = dialog.getByRole("combobox", { name: "Repository root" });
+      await expect(dialog.getByText("Samebase will use the saved repository root.")).toBeVisible();
       await expect(dialog).toBeFocused();
       await expect(repositoryRoot).not.toBeFocused();
+      await expect(repositoryRoot).toBeDisabled();
       await expect(repositoryRoot).toHaveAttribute("aria-expanded", "false");
       await expect(
         dialog.getByRole("listbox", { name: "Repository folder suggestions" }),
@@ -666,6 +668,20 @@ test("shows stable provider setup states in Settings", async ({ page }) => {
   ).toHaveCount(2);
   await expect(completedFixture.getByText("Attention required")).toHaveCount(0);
   await expect(completedFixture).toHaveScreenshot("vault-overview-v2-settings-completed.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+
+  const driftFixture = await openVaultOverviewV2(page, "vault-overview-v2-settings-drift");
+  await expect(
+    driftFixture.getByText(/Cloudflare now uses the name tmp-f149-vault-loading-states-renamed\./),
+  ).toBeVisible();
+  await expect(driftFixture.getByText(/Cloudflare now builds from apps\/web\./)).toBeVisible();
+  await expect(driftFixture.getByRole("button", { name: /^Update name for/ })).toBeEnabled();
+  await expect(driftFixture.getByRole("button", { name: /^Update root for/ })).toBeEnabled();
+  await expect(driftFixture).toHaveScreenshot("vault-overview-v2-settings-drift.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,

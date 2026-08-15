@@ -92,7 +92,7 @@ export function VaultCloudflareDialogContent({
   onSubmit: () => void;
   onWorkerToggle: (workerTag: string) => void;
   selectedWorkerTags: readonly string[];
-  repairWorker: { workerName: string } | null;
+  repairWorker: { workerName: string; rootDirectory?: string } | null;
   vault: Pick<UserVaultResult, "repositoryFullName">;
   workerToConnect: CloudflareWorkerConnectTarget | null;
   workers: readonly CloudflareWorkerOption[];
@@ -169,7 +169,9 @@ export function VaultCloudflareDialogContent({
           </DialogTitle>
           <DialogDescription>
             {repairWorker
-              ? "Choose the repository root Cloudflare should build."
+              ? repairWorker.rootDirectory
+                ? "Samebase will use the saved repository root."
+                : "Choose the repository root."
               : mode === "connect"
                 ? "Choose the Worker and its repository root."
                 : mode === "existing"
@@ -181,7 +183,7 @@ export function VaultCloudflareDialogContent({
           {repairWorker ? (
             <div className="grid gap-3">
               <VaultRepositoryRootInput
-                disabled={isSubmitting}
+                disabled={isSubmitting || Boolean(repairWorker.rootDirectory)}
                 folderSuggestions={folderSuggestions}
                 onValueChange={onCreateRootDirectoryChange}
                 value={createRootDirectory}
@@ -413,15 +415,21 @@ export function VaultCloudflareDialog({
   const configureWorkersBuildsForGitHub = useAction(
     api.vault.cloudflare.configureWorkersBuildsForGitHub,
   );
+  const updateWorkerRootDirectory = useAction(api.vault.cloudflare.updateWorkerRootDirectory);
   const folderSuggestions = useConvexQuery(
     api.vault.dashboard.listVaultRepositoryFolderSuggestions,
     {
       vaultId: vault._id,
     },
   );
+  const repairWorker = repairWorkerId
+    ? (vault.cloudflareWorkers.find((worker) => worker.workerId === repairWorkerId) ?? null)
+    : null;
   const [workerSelection, setWorkerSelection] = useState<readonly string[] | null>(null);
   const [mode, setMode] = useState<CloudflareWorkerConnectMode>("existing");
-  const [createRootDirectory, setCreateRootDirectory] = useState(repairRootDirectory ?? "/");
+  const [createRootDirectory, setCreateRootDirectory] = useState(
+    repairWorker?.rootDirectory ?? repairRootDirectory ?? "/",
+  );
   const [createWorkerName, setCreateWorkerName] = useState(() =>
     buildDefaultAppResourceName({
       repositoryName: vault.ghRepoName,
@@ -434,9 +442,6 @@ export function VaultCloudflareDialog({
   const [connectedWorkerTags, setConnectedWorkerTags] = useState<readonly string[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const repairWorker = repairWorkerId
-    ? (vault.cloudflareWorkers.find((worker) => worker.workerId === repairWorkerId) ?? null)
-    : null;
   const buildTokensQuery = useCloudflareBuildTokens({
     enabled: Boolean(repairWorker || mode === "connect" || mode === "create"),
     organizationId: vault.organizationId,
@@ -493,11 +498,19 @@ export function VaultCloudflareDialog({
         if (!buildTokenUuid) {
           throw new Error("Choose an API token.");
         }
+        const approvedRootDirectory = repairWorker.rootDirectory ?? createRootDirectory;
+        if (!repairWorker.rootDirectory) {
+          await updateWorkerRootDirectory({
+            expectedRootDirectory: approvedRootDirectory,
+            vaultId: vault._id,
+            workerId: repairWorker.workerId,
+          });
+        }
         await configureWorkersBuildsForGitHub({
           buildTokenUuid,
+          rootDirectory: approvedRootDirectory,
           vaultId: vault._id,
           workerId: repairWorker.workerId,
-          rootDirectory: createRootDirectory,
         });
       } else if (workerToConnect) {
         if (!buildTokenUuid) {
@@ -640,7 +653,14 @@ export function VaultCloudflareDialog({
         );
       }}
       selectedWorkerTags={selectedWorkerTags}
-      repairWorker={repairWorker ? { workerName: repairWorker.workerName } : null}
+      repairWorker={
+        repairWorker
+          ? {
+              workerName: repairWorker.workerName,
+              rootDirectory: repairWorker.rootDirectory,
+            }
+          : null
+      }
       vault={vault}
       workerToConnect={workerToConnect}
       workers={workers}

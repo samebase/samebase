@@ -762,6 +762,7 @@ describe("organization-owned vaults", () => {
             accountId: "another-account",
             workerName: "stale-worker",
             workerTag: "stale-worker-tag",
+            rootDirectory: "apps/stale-worker",
             origin: "selected_existing",
           },
         ],

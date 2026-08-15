@@ -5,9 +5,10 @@
 - Status: Accepted and implemented
 - Owner: Samebase app creation, existing repository onboarding, and vault model
 - Created: 2026-05-07
-- Last updated: 2026-08-05
+- Last updated: 2026-08-15
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
+  - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
   - `research/2026-05-06-vault-first-provisioning-model.md`
 
@@ -284,10 +285,10 @@ not fall back to the basic failed variant. Either write the connected GitHub sta
 to later work, or add a richer explicit state that preserves the learned repository identity.
 
 Convex and Cloudflare do not live on the vault row. `vaultConvexProjects` and
-`vaultCloudflareWorkers` store independent stable attachments only after GitHub connects. Current
-provider configuration, builds, deployments, and URLs are read live; provisioning progress and
-failure live in workflow runs, events, and locks. Connected-to-failed remains forbidden because
-later provider or tree failures do not erase established GitHub identity.
+`vaultCloudflareWorkers` store independent attachments only after GitHub connects. A Worker stores
+the identity and approved name and root that spec 115 defines. Other provider state stays live.
+Provisioning progress and failure live in workflow runs, events, and locks. Connected-to-failed
+remains forbidden because later provider or tree failures do not erase established GitHub identity.
 
 Provider payloads that are large, frequently refreshed, or branch-specific should live in
 provider-owned child tables. The connected GitHub state should identify the repository and default
@@ -555,8 +556,7 @@ The current state model is:
 2. source setup summarizes the establishing run independently of disposable exact-tree rows
 3. `vaultConvexProjects` stores attached Convex project identity plus its confirmed
    `convexConfigPath`
-4. `vaultCloudflareWorkers` stores attached Cloudflare Worker identity; live Workers Builds supplies
-   its current root and trigger configuration
+4. `vaultCloudflareWorkers` stores the Worker identity and approved coordinates from spec 115
 5. dashboard labels such as creating, active, degraded, failed, or partial are derived from those
    resource rows, the active provisioning write lock, and run/event state
 6. managed Retry targets the failed managed run, while manual repair targets an exact attachment and
@@ -565,10 +565,9 @@ The current state model is:
 Top-level aggregate infrastructure fields have been removed. Dashboard and provisioning code read
 direct resource attachments, provider observations, and run/write-lock state.
 
-`vaultConvexProjects` and `vaultCloudflareWorkers` keep only stable provider identity, confirmed
-Convex source placement, origin, and creation time. `workflow_vaultProvisioning_writeLocks` keeps
-operation state. Current provider URLs, builds, deployments, routes, roots, triggers, and markers
-are read from providers when needed.
+`vaultConvexProjects` and `vaultCloudflareWorkers` keep the identity, approved placement, origin,
+and creation facts that spec 115 defines. `workflow_vaultProvisioning_writeLocks` keeps operation
+state. Current provider state cannot rewrite approved attachment coordinates.
 
 ## Migration
 

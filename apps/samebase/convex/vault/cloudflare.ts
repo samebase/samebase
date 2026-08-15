@@ -18,6 +18,7 @@ import {
   createCloudflareWorker,
   discoverCloudflareWorkersForRepository,
   readCloudflareWorkerIdentity,
+  readCloudflareWorkerIdentityByTag,
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerRepositoryDiscoveryForIdentity,
   configureCloudflareWorkerBuildsForGitHub,
@@ -410,13 +411,13 @@ export async function attachExistingCloudflareWorkersForUser(
     throw new Error("Each selected Cloudflare Worker must have one unique identity.");
   }
   const resolved = await resolveCloudflareRepositoryContext(ctx, args);
-  await Promise.all(
+  const verifiedWorkers = await Promise.all(
     workers.map(async (worker) => {
-      const identity = await readCloudflareWorkerIdentity({
+      const identity = await readCloudflareWorkerIdentityByTag({
         token: resolved.connection.token,
         transport: resolved.connection.transport,
         accountId: resolved.account.accountId,
-        workerName: worker.workerName,
+        workerTag: worker.workerTag,
       });
       if (!identity || identity.workerTag !== worker.workerTag) {
         throw new Error(`Cloudflare Worker ${worker.workerName} changed after discovery.`);
@@ -425,7 +426,6 @@ export async function attachExistingCloudflareWorkersForUser(
         token: resolved.connection.token,
         transport: resolved.connection.transport,
         accountId: resolved.account.accountId,
-        workerName: identity.workerName,
         workerTag: identity.workerTag,
         expectedRepoId: resolved.context.ghRepoId,
         defaultBranch: resolved.githubDefaultBranch,
@@ -444,14 +444,21 @@ export async function attachExistingCloudflareWorkersForUser(
           previewTriggerUuid: discovery.builds.previewTriggerUuid,
         });
       }
+      return {
+        workerName: identity.workerName,
+        workerTag: identity.workerTag,
+        rootDirectory: discovery.rootDirectory,
+      };
     }),
   );
   return await ctx.runMutation(internal.vault.cloudflareMutations.attachWorkers, {
     vaultId: args.vaultId,
     userId: args.userId,
-    workers: workers.map((worker) => ({
+    workers: verifiedWorkers.map((worker) => ({
       accountId: resolved.account.accountId,
-      ...worker,
+      workerName: worker.workerName,
+      workerTag: worker.workerTag,
+      rootDirectory: worker.rootDirectory,
       origin: "selected_existing" as const,
     })),
   });
@@ -600,6 +607,21 @@ function toCloudflareBuildConfig(rootDirectory: string): CloudflareBuildConfig {
     pathIncludes: config.pathIncludes,
     pathExcludes: config.pathExcludes,
   };
+}
+
+function requireStoredWorkerBuildConfig(
+  context: WorkerConfigurationContext,
+  requestedRootDirectory: string,
+): CloudflareBuildConfig {
+  const requested = toCloudflareBuildConfig(requestedRootDirectory);
+  if (!context.rootDirectory) {
+    throw new Error("Approve this Cloudflare Worker root before configuring Workers Builds.");
+  }
+  const stored = toCloudflareBuildConfig(context.rootDirectory);
+  if (requested.rootDir !== stored.rootDir) {
+    throw new Error("Cloudflare Worker root changed before Workers Builds configuration.");
+  }
+  return stored;
 }
 
 async function prepareWorkersBuildsForGitHub(
@@ -825,7 +847,6 @@ async function prepareConvexDeployKeyRotation(
       token: connection.token,
       transport: connection.transport,
       accountId: context.accountId,
-      workerName: context.workerName,
       workerTag: context.workerTag,
       expectedRepoId: context.ghRepoId,
       defaultBranch: repository.defaultBranch,
@@ -1053,11 +1074,12 @@ export async function configureWorkersBuildsForGitHubForUser(
   );
   try {
     const context = await readWorkerConfigurationContext(ctx, args);
+    const buildConfig = requireStoredWorkerBuildConfig(context, args.rootDirectory);
     const prepared = await prepareWorkersBuildsForGitHub(
       ctx,
       {
         authority: { kind: "user", userId: args.userId, vaultId: args.vaultId },
-        rootDirectory: args.rootDirectory,
+        rootDirectory: buildConfig.rootDir,
       },
       context,
     );
@@ -1139,7 +1161,7 @@ async function connectWorkerForUser(
     },
   );
   let resolved: Awaited<ReturnType<typeof resolveCloudflareRepositoryContext>>;
-  let identity: NonNullable<Awaited<ReturnType<typeof readCloudflareWorkerIdentity>>>;
+  let identity: NonNullable<Awaited<ReturnType<typeof readCloudflareWorkerIdentityByTag>>>;
   let workerId: Id<"vaultCloudflareWorkers">;
   try {
     resolved = await resolveCloudflareRepositoryContext(ctx, { ...args, accountId });
@@ -1149,11 +1171,11 @@ async function connectWorkerForUser(
       accountId: resolved.account.accountId,
       buildTokenUuid: args.buildTokenUuid,
     });
-    const providerIdentity = await readCloudflareWorkerIdentity({
+    const providerIdentity = await readCloudflareWorkerIdentityByTag({
       token: resolved.connection.token,
       transport: resolved.connection.transport,
       accountId: resolved.account.accountId,
-      workerName,
+      workerTag,
     });
     if (!providerIdentity || providerIdentity.workerTag !== workerTag) {
       throw new Error(`Cloudflare Worker ${workerName} changed after discovery.`);
@@ -1163,7 +1185,6 @@ async function connectWorkerForUser(
       token: resolved.connection.token,
       transport: resolved.connection.transport,
       accountId: resolved.account.accountId,
-      workerName: identity.workerName,
       workerTag: identity.workerTag,
       expectedRepoId: resolved.context.ghRepoId,
       defaultBranch: resolved.githubDefaultBranch,
@@ -1180,8 +1201,9 @@ async function connectWorkerForUser(
         userId: args.userId,
         actionId,
         accountId,
-        workerName,
-        workerTag,
+        workerName: identity.workerName,
+        workerTag: identity.workerTag,
+        rootDirectory: buildConfig.rootDir,
       },
     );
   } catch (error) {
@@ -1216,7 +1238,6 @@ async function connectWorkerForUser(
       token: resolved.connection.token,
       transport: resolved.connection.transport,
       accountId: resolved.account.accountId,
-      workerName: identity.workerName,
       workerTag: identity.workerTag,
       expectedRepoId: resolved.context.ghRepoId,
       defaultBranch: resolved.githubDefaultBranch,
@@ -1238,7 +1259,6 @@ async function connectWorkerForUser(
         token: resolved.connection.token,
         transport: resolved.connection.transport,
         accountId: resolved.account.accountId,
-        workerName: identity.workerName,
         workerTag: identity.workerTag,
         expectedRepoId: resolved.context.ghRepoId,
         defaultBranch: resolved.githubDefaultBranch,
@@ -1387,6 +1407,7 @@ export async function createWorkerForUser(
         accountId: resolved.account.accountId,
         workerName: validation.value,
         workerTag: worker.workerTag,
+        rootDirectory: buildConfig.rootDir,
       },
     );
     workerRecorded = true;
@@ -1478,6 +1499,97 @@ export const detachWorker = action({
       accountId: context.accountId,
       workerName: context.workerName,
       workerTag: context.workerTag,
+    });
+    return null;
+  },
+});
+
+export const updateWorkerName = action({
+  access: "access_dashboard",
+  args: {
+    vaultId: id("vaults"),
+    workerId: id("vaultCloudflareWorkers"),
+    expectedWorkerName: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args): Promise<null> => {
+    const context = await readWorkerConfigurationContext(ctx, {
+      vaultId: args.vaultId,
+      userId: ctx.viewer.userId,
+      workerId: args.workerId,
+    });
+    const connection = await resolveCloudflareConnection(ctx, {
+      userId: ctx.viewer.userId,
+      organizationId: context.organizationId,
+    });
+    requireCloudflareAccountTarget(connection, context.accountId);
+    const identity = await readCloudflareWorkerIdentityByTag({
+      token: connection.token,
+      transport: connection.transport,
+      accountId: context.accountId,
+      workerTag: context.workerTag,
+    });
+    if (!identity || identity.workerTag !== context.workerTag) {
+      throw new Error("Cloudflare Worker is no longer available.");
+    }
+    if (identity.workerName !== args.expectedWorkerName) {
+      throw new Error("Cloudflare Worker name changed before the update was approved.");
+    }
+    await ctx.runMutation(internal.vault.cloudflareMutations.updateWorkerName, {
+      vaultId: args.vaultId,
+      userId: ctx.viewer.userId,
+      workerId: args.workerId,
+      accountId: context.accountId,
+      workerTag: context.workerTag,
+      expectedStoredWorkerName: context.workerName,
+      workerName: identity.workerName,
+    });
+    return null;
+  },
+});
+
+export const updateWorkerRootDirectory = action({
+  access: "access_dashboard",
+  args: {
+    vaultId: id("vaults"),
+    workerId: id("vaultCloudflareWorkers"),
+    expectedRootDirectory: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args): Promise<null> => {
+    const context = await readWorkerConfigurationContext(ctx, {
+      vaultId: args.vaultId,
+      userId: ctx.viewer.userId,
+      workerId: args.workerId,
+    });
+    const resolved = await resolveCloudflareRepositoryContext(ctx, {
+      vaultId: args.vaultId,
+      userId: ctx.viewer.userId,
+      accountId: context.accountId,
+    });
+    const repository = await readCloudflareWorkerRepositoryDiscoveryForIdentity({
+      token: resolved.connection.token,
+      transport: resolved.connection.transport,
+      accountId: context.accountId,
+      workerTag: context.workerTag,
+      expectedRepoId: resolved.context.ghRepoId,
+      defaultBranch: resolved.githubDefaultBranch,
+    });
+    if (repository.state !== "ready") {
+      throw new Error("Cloudflare Worker does not have one verified root for this repository.");
+    }
+    const expectedRootDirectory = toCloudflareBuildConfig(args.expectedRootDirectory).rootDir;
+    if (repository.rootDirectory !== expectedRootDirectory) {
+      throw new Error("Cloudflare Worker root changed before the update was approved.");
+    }
+    await ctx.runMutation(internal.vault.cloudflareMutations.updateWorkerRootDirectory, {
+      vaultId: args.vaultId,
+      userId: ctx.viewer.userId,
+      workerId: args.workerId,
+      accountId: context.accountId,
+      workerTag: context.workerTag,
+      expectedStoredRootDirectory: context.rootDirectory ?? null,
+      rootDirectory: repository.rootDirectory,
     });
     return null;
   },

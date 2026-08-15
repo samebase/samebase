@@ -20,8 +20,9 @@ import {
 } from "./infrastructureOperation";
 import { isLiveConnectedVault } from "./state";
 import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
+import { normalizeVaultRootDirectory } from "../../shared/vaultRootDirectory";
 
-const { array, id, literal, null: nullValue, object, string, union } = v;
+const { array, id, literal, null: nullValue, object, optional, string, union } = v;
 
 const workerConfigurationContextFields = {
   organizationId: id("organizations"),
@@ -32,6 +33,7 @@ const workerConfigurationContextFields = {
   accountId: string(),
   workerName: string(),
   workerTag: string(),
+  rootDirectory: optional(string()),
 };
 export const vWorkerConfigurationContext = object(workerConfigurationContextFields);
 export type WorkerConfigurationContext = Infer<typeof vWorkerConfigurationContext>;
@@ -216,12 +218,14 @@ async function insertWorker(
     accountId: string;
     workerName: string;
     workerTag: string;
+    rootDirectory: string;
     origin: "provisioned" | "selected_existing";
   },
 ): Promise<Id<"vaultCloudflareWorkers">> {
   if (args.accountId !== vault.cloudflareAccountId) {
     throw new Error("Cloudflare Worker account does not match the vault destination.");
   }
+  const rootDirectory = normalizeVaultRootDirectory(args.rootDirectory);
   const existing = await readMatchingWorker(ctx, {
     vaultId: args.vaultId,
     organizationId: vault.organizationId,
@@ -230,7 +234,14 @@ async function insertWorker(
     workerTag: args.workerTag,
   });
   if (existing) {
-    if (args.origin === "provisioned" && existing.origin !== "provisioned") {
+    if (existing.rootDirectory && existing.rootDirectory !== rootDirectory) {
+      throw new Error("Cloudflare Worker root directory changed before attachment.");
+    }
+    if (!existing.rootDirectory && args.origin === "provisioned") {
+      await ctx.db.patch(existing._id, { rootDirectory, origin: "provisioned" });
+    } else if (!existing.rootDirectory) {
+      await ctx.db.patch(existing._id, { rootDirectory });
+    } else if (args.origin === "provisioned" && existing.origin !== "provisioned") {
       await ctx.db.patch(existing._id, { origin: "provisioned" });
     }
     return existing._id;
@@ -246,6 +257,7 @@ async function insertWorker(
     accountId: args.accountId,
     workerName: args.workerName,
     workerTag: args.workerTag,
+    rootDirectory,
     origin: args.origin,
   });
 }
@@ -259,6 +271,7 @@ export const attachWorkers = internalMutation({
         accountId: string(),
         workerName: string(),
         workerTag: string(),
+        rootDirectory: string(),
         origin: vVaultProviderResourceOrigin,
       }),
     ),
@@ -321,6 +334,123 @@ export const detachWorker = internalMutation({
       throw new Error("Cloudflare Worker attachment changed before removal.");
     }
     await ctx.db.delete(worker._id);
+    return null;
+  },
+});
+
+export const updateWorkerName = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    workerId: id("vaultCloudflareWorkers"),
+    accountId: string(),
+    workerTag: string(),
+    expectedStoredWorkerName: string(),
+    workerName: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args): Promise<null> => {
+    const vault = await requireUserVaultInfrastructureIdle(ctx, args);
+    const worker = await requireWorker(ctx, vault, args);
+    if (
+      worker.accountId !== args.accountId ||
+      worker.workerTag !== args.workerTag ||
+      worker.workerName !== args.expectedStoredWorkerName
+    ) {
+      throw new Error("Cloudflare Worker attachment changed before the name update.");
+    }
+
+    const workerName = args.workerName.trim();
+    if (!workerName) {
+      throw new Error("Cloudflare Worker name is required.");
+    }
+    const occupied = await ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_account_and_worker", (q) =>
+        q.eq("accountId", worker.accountId).eq("workerName", workerName),
+      )
+      .unique();
+    if (occupied && occupied._id !== worker._id) {
+      throw new Error("Cloudflare Worker name is already attached.");
+    }
+
+    const plan = await ctx.db
+      .query("workflow_vaultProvisioning_plans")
+      .withIndex("by_vault", (q) => q.eq("vaultId", worker.vaultId))
+      .unique();
+    if (plan?.cloudflare.state === "created" && plan.cloudflare.workerTag === worker.workerTag) {
+      if (plan.cloudflare.workerName !== args.expectedStoredWorkerName) {
+        throw new Error("Managed Cloudflare Worker checkpoint changed before the name update.");
+      }
+      await ctx.db.patch(plan._id, {
+        cloudflare: {
+          state: "created",
+          workerName,
+          workerTag: plan.cloudflare.workerTag,
+          rootDirectory: plan.cloudflare.rootDirectory,
+          buildTokenUuid: plan.cloudflare.buildTokenUuid,
+        },
+        updatedAt: Date.now(),
+      });
+    }
+    if (worker.workerName !== workerName) {
+      await ctx.db.patch(worker._id, { workerName });
+    }
+    return null;
+  },
+});
+
+export const updateWorkerRootDirectory = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    workerId: id("vaultCloudflareWorkers"),
+    accountId: string(),
+    workerTag: string(),
+    expectedStoredRootDirectory: union(string(), nullValue()),
+    rootDirectory: string(),
+  },
+  returns: nullValue(),
+  handler: async (ctx, args): Promise<null> => {
+    const vault = await requireUserVaultInfrastructureIdle(ctx, args);
+    const worker = await requireWorker(ctx, vault, args);
+    if (
+      worker.accountId !== args.accountId ||
+      worker.workerTag !== args.workerTag ||
+      (worker.rootDirectory ?? null) !== args.expectedStoredRootDirectory
+    ) {
+      throw new Error("Cloudflare Worker attachment changed before the root update.");
+    }
+
+    const rootDirectory = normalizeVaultRootDirectory(args.rootDirectory);
+    const plan = await ctx.db
+      .query("workflow_vaultProvisioning_plans")
+      .withIndex("by_vault", (q) => q.eq("vaultId", worker.vaultId))
+      .unique();
+    if (plan?.cloudflare.state === "created" && plan.cloudflare.workerTag === worker.workerTag) {
+      if (
+        worker.rootDirectory &&
+        plan.cloudflare.rootDirectory !== args.expectedStoredRootDirectory &&
+        plan.cloudflare.rootDirectory !== rootDirectory
+      ) {
+        throw new Error("Managed Cloudflare Worker checkpoint changed before the root update.");
+      }
+      if (plan.cloudflare.rootDirectory !== rootDirectory) {
+        await ctx.db.patch(plan._id, {
+          cloudflare: {
+            state: "created",
+            workerName: plan.cloudflare.workerName,
+            workerTag: plan.cloudflare.workerTag,
+            rootDirectory,
+            buildTokenUuid: plan.cloudflare.buildTokenUuid,
+          },
+          updatedAt: Date.now(),
+        });
+      }
+    }
+    if (worker.rootDirectory !== rootDirectory) {
+      await ctx.db.patch(worker._id, { rootDirectory });
+    }
     return null;
   },
 });
@@ -432,6 +562,7 @@ export const recordManagedWorkerCreated = internalMutation({
         accountId: args.accountId,
         workerName: args.workerName,
         workerTag: args.workerTag,
+        rootDirectory: plan.cloudflare.rootDirectory,
         origin: "provisioned",
       });
     } else {
@@ -459,6 +590,7 @@ export const recordManagedWorkerCreated = internalMutation({
         accountId: args.accountId,
         workerName: args.workerName,
         workerTag: args.workerTag,
+        rootDirectory: plan.cloudflare.rootDirectory,
         origin: "provisioned",
       });
     }
@@ -479,6 +611,7 @@ export const recordManualConnectedWorker = internalMutation({
     accountId: string(),
     workerName: string(),
     workerTag: string(),
+    rootDirectory: string(),
   },
   returns: id("vaultCloudflareWorkers"),
   handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
@@ -498,6 +631,7 @@ export const recordManualConnectedWorker = internalMutation({
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
+      rootDirectory: normalizeVaultRootDirectory(args.rootDirectory),
       origin: "selected_existing",
     });
   },
@@ -511,6 +645,7 @@ export const recordManualWorkerCreated = internalMutation({
     accountId: string(),
     workerName: string(),
     workerTag: string(),
+    rootDirectory: string(),
   },
   returns: id("vaultCloudflareWorkers"),
   handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
@@ -530,6 +665,7 @@ export const recordManualWorkerCreated = internalMutation({
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
+      rootDirectory: normalizeVaultRootDirectory(args.rootDirectory),
       origin: "provisioned",
     });
   },
@@ -557,6 +693,7 @@ export const readWorkerConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
+      ...(worker.rootDirectory ? { rootDirectory: worker.rootDirectory } : {}),
     };
   },
 });
@@ -622,6 +759,7 @@ export const readWorkerConvexProjectConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
+      ...(worker.rootDirectory ? { rootDirectory: worker.rootDirectory } : {}),
       convexProject: {
         convexProjectId: project._id,
         teamId: project.teamId,

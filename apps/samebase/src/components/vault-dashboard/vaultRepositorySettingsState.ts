@@ -28,7 +28,7 @@ export type VaultCloudflareBuildTokenListState =
   | { state: "failed"; reload: () => void }
   | { state: "loaded"; tokens: readonly VaultCloudflareBuildToken[] };
 
-type VaultRepositorySettingsActionKind = "configure" | "connect" | "remove" | "retry";
+type VaultRepositorySettingsActionKind = "configure" | "connect" | "remove" | "retry" | "update";
 
 export type VaultRepositorySettingsPendingAction =
   | {
@@ -47,6 +47,14 @@ export type VaultRepositorySettingsPendingAction =
   | {
       kind: "detach_convex_project";
       convexProjectId: Id<"vaultConvexProjects">;
+    }
+  | {
+      kind: "update_cloudflare_worker_name";
+      workerId: Id<"vaultCloudflareWorkers">;
+    }
+  | {
+      kind: "update_cloudflare_worker_root_directory";
+      workerId: Id<"vaultCloudflareWorkers">;
     };
 
 export type VaultRepositorySettingsAction = {
@@ -70,6 +78,7 @@ export type VaultRepositorySettingsResource = {
   provider: "cloudflare" | "convex";
   resourceId: string;
   state: "available" | "checking" | "failed" | "loading" | "missing" | "setting_up";
+  warning?: string;
 };
 
 export type VaultRepositorySettingsState = {
@@ -120,8 +129,14 @@ function compareRootDirectories(left: string, right: string): number {
   return left.localeCompare(right);
 }
 
-function buildCloudflareDashboardUrl(worker: VaultDashboardCloudflareWorker): string {
-  return `https://dash.cloudflare.com/?to=/${encodeURIComponent(worker.accountId)}/workers/services/view/${encodeURIComponent(worker.workerName)}/production/settings`;
+function buildCloudflareDashboardUrl({
+  accountId,
+  workerName,
+}: {
+  accountId: string;
+  workerName: string;
+}): string {
+  return `https://dash.cloudflare.com/?to=/${encodeURIComponent(accountId)}/workers/services/view/${encodeURIComponent(workerName)}/production/settings`;
 }
 
 function buildConvexProjectSettingsUrl(project: { projectSlug: string; teamSlug: string }): string {
@@ -437,10 +452,7 @@ function buildCloudflareRow({
   cloudflareBuildTokens: VaultCloudflareBuildTokenListState;
   convexProjectActionLabels: ReadonlyMap<Id<"vaultConvexProjects">, string>;
   convexProjects: readonly VaultDashboardConvexProject[];
-  configureWorkersBuildsForGitHubOnClick?: (
-    workerId: Id<"vaultCloudflareWorkers">,
-    rootDirectory: string | undefined,
-  ) => void;
+  configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   observationState: VaultCloudflareProviderObservationState;
   detachCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   pendingAction: VaultRepositorySettingsPendingAction | null;
@@ -473,7 +485,6 @@ function buildCloudflareRow({
       ...base,
       state: "checking",
       description: "Checking",
-      href: buildCloudflareDashboardUrl(worker),
     };
   }
   if (observationState.workers.state === "loading") {
@@ -534,7 +545,10 @@ function buildCloudflareRow({
       const availableBase = {
         ...base,
         state: "available" as const,
-        href: buildCloudflareDashboardUrl(worker),
+        href: buildCloudflareDashboardUrl({
+          accountId: worker.accountId,
+          workerName: observation.workerName,
+        }),
       };
       const previewDescription = formatCloudflarePreviewState(observation);
       if (observationState.builds.state === "checking") {
@@ -584,13 +598,7 @@ function buildCloudflareRow({
                 : "Configure Workers Builds for GitHub",
               disabled: isConfiguring || !configureWorkersBuildsForGitHubOnClick,
               onClick: configureWorkersBuildsForGitHubOnClick
-                ? () =>
-                    configureWorkersBuildsForGitHubOnClick(
-                      worker.workerId,
-                      buildsObservation.repository.state === "ready"
-                        ? buildsObservation.repository.rootDirectory
-                        : undefined,
-                    )
+                ? () => configureWorkersBuildsForGitHubOnClick(worker.workerId)
                 : undefined,
             },
           ],
@@ -611,13 +619,7 @@ function buildCloudflareRow({
         ? {
             kind: "configure" as const,
             label: "Change API token",
-            onClick: () =>
-              configureWorkersBuildsForGitHubOnClick(
-                worker.workerId,
-                buildsObservation.repository.state === "ready"
-                  ? buildsObservation.repository.rootDirectory
-                  : undefined,
-              ),
+            onClick: () => configureWorkersBuildsForGitHubOnClick(worker.workerId),
           }
         : undefined;
       const buildTokenReloadAction =
@@ -705,6 +707,94 @@ function buildCloudflareRow({
       };
     }
   }
+}
+
+function applyCloudflareDriftToRow({
+  observationState,
+  pendingAction,
+  resource,
+  updateCloudflareWorkerNameOnClick,
+  updateCloudflareWorkerRootDirectoryOnClick,
+  worker,
+}: {
+  observationState: VaultCloudflareProviderObservationState;
+  pendingAction: VaultRepositorySettingsPendingAction | null;
+  resource: VaultRepositorySettingsResource;
+  updateCloudflareWorkerNameOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    expectedWorkerName: string,
+  ) => void;
+  updateCloudflareWorkerRootDirectoryOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    expectedRootDirectory: string,
+  ) => void;
+  worker: VaultDashboardCloudflareWorker;
+}): VaultRepositorySettingsResource {
+  const workerObservation =
+    observationState.workers.state === "loaded"
+      ? observationState.workers.observations.find(
+          (candidate) => candidate.workerId === worker.workerId,
+        )
+      : undefined;
+  const currentWorkerName =
+    workerObservation?.state === "available" ? workerObservation.workerName : undefined;
+  const workerNameChanged = currentWorkerName && currentWorkerName !== worker.workerName;
+  const buildsObservation =
+    observationState.builds.state === "loaded"
+      ? observationState.builds.observations.find(
+          (candidate) => candidate.workerId === worker.workerId,
+        )
+      : undefined;
+  const currentRootDirectory =
+    buildsObservation?.state === "available" && buildsObservation.repository.state === "ready"
+      ? buildsObservation.repository.rootDirectory
+      : undefined;
+  const rootDirectoryChanged =
+    currentRootDirectory && currentRootDirectory !== worker.rootDirectory;
+
+  if (!workerNameChanged && !rootDirectoryChanged) {
+    return resource;
+  }
+
+  const updateNamePending =
+    pendingAction?.kind === "update_cloudflare_worker_name" &&
+    pendingAction.workerId === worker.workerId;
+  const updateRootPending =
+    pendingAction?.kind === "update_cloudflare_worker_root_directory" &&
+    pendingAction.workerId === worker.workerId;
+  const updateNameAction = workerNameChanged
+    ? {
+        kind: "update" as const,
+        label: updateNamePending ? "Updating name..." : "Update name",
+        disabled: updateNamePending || !updateCloudflareWorkerNameOnClick,
+        onClick: updateCloudflareWorkerNameOnClick
+          ? () => updateCloudflareWorkerNameOnClick(worker.workerId, currentWorkerName)
+          : undefined,
+      }
+    : undefined;
+  const updateRootAction = rootDirectoryChanged
+    ? {
+        kind: "update" as const,
+        label: updateRootPending ? "Updating root..." : "Update root",
+        disabled: updateRootPending || !updateCloudflareWorkerRootDirectoryOnClick,
+        onClick: updateCloudflareWorkerRootDirectoryOnClick
+          ? () => updateCloudflareWorkerRootDirectoryOnClick(worker.workerId, currentRootDirectory)
+          : undefined,
+      }
+    : undefined;
+
+  return {
+    ...resource,
+    actions: buildActionList([updateNameAction, updateRootAction, ...(resource.actions ?? [])]),
+    warning: joinDescriptions(
+      workerNameChanged ? `Cloudflare now uses the name ${currentWorkerName}.` : undefined,
+      rootDirectoryChanged
+        ? worker.rootDirectory
+          ? `Cloudflare now builds from ${currentRootDirectory}.`
+          : `Cloudflare Builds uses ${currentRootDirectory}, but Samebase has no saved root.`
+        : undefined,
+    ),
+  };
 }
 
 function buildActionList(
@@ -973,6 +1063,8 @@ export function buildVaultRepositorySettingsState({
   pendingAction,
   vault,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
+  updateCloudflareWorkerNameOnClick,
+  updateCloudflareWorkerRootDirectoryOnClick,
 }: {
   addCloudflareWorkerOnClick?: () => void;
   addConvexOnClick?: () => void;
@@ -983,10 +1075,7 @@ export function buildVaultRepositorySettingsState({
       }
     | undefined;
   cloudflareBuildTokens: VaultCloudflareBuildTokenListState;
-  configureWorkersBuildsForGitHubOnClick?: (
-    workerId: Id<"vaultCloudflareWorkers">,
-    rootDirectory: string | undefined,
-  ) => void;
+  configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   changeConvexProjectConfigPathOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   cloudflareObservations: VaultCloudflareProviderObservationState;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
@@ -997,6 +1086,14 @@ export function buildVaultRepositorySettingsState({
   rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
+  ) => void;
+  updateCloudflareWorkerNameOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    expectedWorkerName: string,
+  ) => void;
+  updateCloudflareWorkerRootDirectoryOnClick?: (
+    workerId: Id<"vaultCloudflareWorkers">,
+    expectedRootDirectory: string,
   ) => void;
 }): VaultRepositorySettingsState {
   const resourcesByRoot = new Map<string, VaultRepositorySettingsResource[]>();
@@ -1083,17 +1180,24 @@ export function buildVaultRepositorySettingsState({
   )) {
     const plannedAttachment =
       applicablePlan && isPlannedCloudflareAttachment(applicablePlan.cloudflare, worker);
-    const resource = buildCloudflareRow({
-      cloudflareAccount,
-      cloudflareBuildTokens,
-      convexProjectActionLabels,
-      convexProjects: vault.convexProjects,
-      configureWorkersBuildsForGitHubOnClick,
+    const resource = applyCloudflareDriftToRow({
       observationState: cloudflareObservations,
-      detachCloudflareWorkerOnClick,
       pendingAction,
-      rotateConvexDeployKeysForWorkersBuildsOnClick,
-      settingUp: Boolean(managedSetupActive && plannedAttachment),
+      resource: buildCloudflareRow({
+        cloudflareAccount,
+        cloudflareBuildTokens,
+        convexProjectActionLabels,
+        convexProjects: vault.convexProjects,
+        configureWorkersBuildsForGitHubOnClick,
+        observationState: cloudflareObservations,
+        detachCloudflareWorkerOnClick,
+        pendingAction,
+        rotateConvexDeployKeysForWorkersBuildsOnClick,
+        settingUp: Boolean(managedSetupActive && plannedAttachment),
+        worker,
+      }),
+      updateCloudflareWorkerNameOnClick,
+      updateCloudflareWorkerRootDirectoryOnClick,
       worker,
     });
     const buildsObservation =
@@ -1104,6 +1208,8 @@ export function buildVaultRepositorySettingsState({
         : undefined;
     if (managedSetupActive && plannedAttachment) {
       addResourceToRoot(applicablePlan.cloudflare.rootDirectory, resource);
+    } else if (worker.rootDirectory) {
+      addResourceToRoot(worker.rootDirectory, resource);
     } else if (
       cloudflareObservations.builds.state === "loading" ||
       cloudflareObservations.builds.state === "checking"

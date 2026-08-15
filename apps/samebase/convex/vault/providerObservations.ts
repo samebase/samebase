@@ -10,7 +10,7 @@ import {
   readRecentCloudflareWorkerBuilds,
   readCloudflareWorkerBuildsDiscoveryForIdentity,
   readCloudflareWorkerConvexBuildAccess,
-  readCloudflareWorkerIdentity,
+  readCloudflareWorkerIdentityByTag,
   type CloudflareConvexBuildAccessObservation,
 } from "../cloudflareResources";
 import { requestConvexManagementApi } from "../convexManagementApi/client";
@@ -108,6 +108,7 @@ const vCloudflareWorkerObservation = union(
   object({
     state: literal("available"),
     workerId: id("vaultCloudflareWorkers"),
+    workerName: string(),
     customDomains: array(string()),
     workersDev: vWorkersDevObservation,
   }),
@@ -314,11 +315,11 @@ export const observeCloudflareWorkers = action({
     return await Promise.all(
       context.cloudflareWorkers.map(async (worker) => {
         try {
-          const identity = await readCloudflareWorkerIdentity({
+          const identity = await readCloudflareWorkerIdentityByTag({
             token: input.token,
             transport: input.transport,
             accountId: worker.accountId,
-            workerName: worker.workerName,
+            workerTag: worker.workerTag,
           });
           if (!identity || identity.workerTag !== worker.workerTag) {
             return {
@@ -330,6 +331,7 @@ export const observeCloudflareWorkers = action({
           return {
             state: "available" as const,
             workerId: worker.workerId,
+            workerName: identity.workerName,
             customDomains: identity.customDomains,
             workersDev: identity.workersDev,
           };
@@ -393,14 +395,29 @@ export const observeCloudflareWorkerBuilds = action({
     return await Promise.all(
       context.cloudflareWorkers.map(async (worker) => {
         try {
-          const discovery = await readCloudflareWorkerBuildsDiscoveryForIdentity({
-            token: input.token,
-            transport: input.transport,
-            accountId: worker.accountId,
-            workerTag: worker.workerTag,
-            defaultBranch,
-            expectedRepoId: context.ghRepoId,
-          });
+          const [identity, discovery] = await Promise.all([
+            readCloudflareWorkerIdentityByTag({
+              token: input.token,
+              transport: input.transport,
+              accountId: worker.accountId,
+              workerTag: worker.workerTag,
+            }),
+            readCloudflareWorkerBuildsDiscoveryForIdentity({
+              token: input.token,
+              transport: input.transport,
+              accountId: worker.accountId,
+              workerTag: worker.workerTag,
+              defaultBranch,
+              expectedRepoId: context.ghRepoId,
+            }),
+          ]);
+          if (!identity || identity.workerTag !== worker.workerTag) {
+            return {
+              state: "failed" as const,
+              workerId: worker.workerId,
+              reason: "request_failed" as const,
+            };
+          }
           let productionBuild:
             | ReturnType<typeof matchLatestCloudflareWorkerBuildForBranch>
             | {
@@ -453,7 +470,7 @@ export const observeCloudflareWorkerBuilds = action({
                             buildState: productionBuild.buildState,
                             logsUrl: buildCloudflareBuildLogsUrl({
                               accountId: worker.accountId,
-                              workerName: worker.workerName,
+                              workerName: identity.workerName,
                               buildUuid: productionBuild.buildUuid,
                             }),
                           }

@@ -1,14 +1,29 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const cloudflareMocks = vi.hoisted(() => ({
+  requestCloudflareApi: vi.fn(),
   requestCloudflareApiOrThrow: vi.fn(),
+}));
+
+const githubMocks = vi.hoisted(() => ({
+  createRepositoryOctokit: vi.fn(),
+  getRepository: vi.fn(),
 }));
 
 vi.mock("../cloudflareApi/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../cloudflareApi/client")>();
   return {
     ...actual,
+    requestCloudflareApi: cloudflareMocks.requestCloudflareApi,
     requestCloudflareApiOrThrow: cloudflareMocks.requestCloudflareApiOrThrow,
+  };
+});
+
+vi.mock("../githubApp", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../githubApp")>();
+  return {
+    ...actual,
+    createGitHubRepositoryInstallationOctokit: githubMocks.createRepositoryOctokit,
   };
 });
 
@@ -21,11 +36,24 @@ afterEach(() => {
 });
 
 beforeEach(() => {
+  cloudflareMocks.requestCloudflareApi.mockReset();
   cloudflareMocks.requestCloudflareApiOrThrow.mockReset();
+  githubMocks.getRepository.mockReset();
+  githubMocks.createRepositoryOctokit.mockReset();
+  githubMocks.getRepository.mockResolvedValue({
+    data: {
+      id: "github-repository",
+      default_branch: "main",
+      owner: { id: "github-owner" },
+    },
+  });
+  githubMocks.createRepositoryOctokit.mockResolvedValue({
+    rest: { repos: { get: githubMocks.getRepository } },
+  });
 });
 
 describe("vault provider observations", () => {
-  it("shares one expired Cloudflare credential refresh across all attached Workers", async () => {
+  it("shares one refresh and uses current Worker names for observations", async () => {
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
 
@@ -105,8 +133,9 @@ describe("vault provider observations", () => {
         vaultId,
         organizationId,
         accountId: "cloudflare-account",
-        workerName: "domain-router",
+        workerName: "a-stored-domain-router",
         workerTag: "domain-router-tag",
+        rootDirectory: "apps/live",
         origin: "selected_existing",
       });
       const secondWorkerId = await ctx.db.insert("vaultCloudflareWorkers", {
@@ -115,6 +144,7 @@ describe("vault provider observations", () => {
         accountId: "cloudflare-account",
         workerName: "samebase-worker",
         workerTag: "samebase-worker-tag",
+        rootDirectory: "apps/live",
         origin: "selected_existing",
       });
       return { firstWorkerId, secondWorkerId, userId, vaultId };
@@ -136,12 +166,13 @@ describe("vault provider observations", () => {
           return { subdomain: "samebase" };
         }
         if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
-          const workerName = request.params?.path?.["worker_id"];
-          if (!workerName) {
-            throw new Error("Worker request is missing its name.");
+          const workerTag = request.params?.path?.["worker_id"];
+          if (!workerTag) {
+            throw new Error("Worker request is missing its tag.");
           }
+          const workerName = workerTag.replace(/-tag$/, "");
           return {
-            id: `${workerName}-tag`,
+            id: workerTag,
             name: workerName,
             references: { domains: [] },
             subdomain: {
@@ -151,7 +182,71 @@ describe("vault provider observations", () => {
             },
           };
         }
+        if (
+          request.path === "/accounts/{account_id}/builds/workers/{external_script_id}/triggers"
+        ) {
+          const workerTag = request.params?.path?.["external_script_id"];
+          if (!workerTag) {
+            throw new Error("Build trigger request is missing its Worker tag.");
+          }
+          const repository = {
+            repo_id: "github-repository",
+            provider_type: "github",
+          };
+          return [
+            {
+              trigger_uuid: `${workerTag}-production`,
+              external_script_id: workerTag,
+              build_token_uuid: "build-token",
+              branch_includes: ["main"],
+              branch_excludes: [],
+              repo_connection: repository,
+              root_directory: "apps/live",
+            },
+            {
+              trigger_uuid: `${workerTag}-preview`,
+              external_script_id: workerTag,
+              build_token_uuid: "build-token",
+              branch_includes: ["*"],
+              branch_excludes: ["main"],
+              repo_connection: repository,
+              root_directory: "apps/live",
+            },
+          ];
+        }
         throw new Error(`Unexpected Cloudflare request: ${request.path}`);
+      },
+    );
+    cloudflareMocks.requestCloudflareApi.mockImplementation(
+      async (request: { params?: { path?: Record<string, string> } }) => {
+        const workerTag = request.params?.path?.["external_script_id"];
+        if (!workerTag) {
+          throw new Error("Build request is missing its Worker tag.");
+        }
+        return [
+          true,
+          [
+            {
+              build_uuid: `${workerTag}-build`,
+              status: "stopped",
+              build_outcome: "success",
+              created_on: "2026-08-15T08:00:00Z",
+              stopped_on: "2026-08-15T08:01:00Z",
+              build_trigger_metadata: {
+                branch: "main",
+                root_directory: "apps/live",
+                deploy_command: "pnpm run deploy",
+              },
+              trigger: {
+                trigger_uuid: `${workerTag}-production`,
+                external_script_id: workerTag,
+                root_directory: "apps/live",
+                deploy_command: "pnpm run deploy",
+                repo_connection: { repo_id: "github-repository" },
+              },
+            },
+          ],
+        ];
       },
     );
     const viewer = t.withIdentity({
@@ -167,6 +262,7 @@ describe("vault provider observations", () => {
       {
         state: "available",
         workerId: ids.firstWorkerId,
+        workerName: "domain-router",
         customDomains: [],
         workersDev: {
           state: "enabled",
@@ -176,6 +272,7 @@ describe("vault provider observations", () => {
       {
         state: "available",
         workerId: ids.secondWorkerId,
+        workerName: "samebase-worker",
         customDomains: [],
         workersDev: {
           state: "enabled",
@@ -184,5 +281,20 @@ describe("vault provider observations", () => {
       },
     ]);
     expect(refresh).toHaveBeenCalledOnce();
+    const [observation] = await viewer.action(
+      api.vault.providerObservations.observeCloudflareWorkerBuilds,
+      { vaultId: ids.vaultId },
+    );
+    expect(observation).toMatchObject({
+      state: "available",
+      workerId: ids.firstWorkerId,
+      builds: {
+        productionBuild: {
+          state: "available",
+          logsUrl:
+            "https://dash.cloudflare.com/cloudflare-account/workers/services/view/domain-router/production/builds/domain-router-tag-build",
+        },
+      },
+    });
   });
 });

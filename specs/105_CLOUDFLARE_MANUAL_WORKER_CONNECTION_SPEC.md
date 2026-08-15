@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-08-14
+- Last updated: 2026-08-15
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
@@ -15,7 +15,8 @@
 Cloudflare Worker connection is a vault-level resource attachment. It is separate from provider
 credential connection and separate from deployment configuration.
 
-`vaultCloudflareWorkers` stores only durable attachment identity and provenance:
+`vaultCloudflareWorkers` stores durable attachment identity, user-approved repository placement, and
+provenance:
 
 ```ts
 {
@@ -24,21 +25,24 @@ credential connection and separate from deployment configuration.
   accountId;
   workerName;
   workerTag;
+  rootDirectory;
   origin;
 }
 ```
 
 Convex `_creationTime` records when the attachment was created.
 
+`workerTag`, `workerName`, and `rootDirectory` use the identity and approved-coordinate rules in
+spec 115. This spec defines how the manual connection flow first establishes those values.
+
 `organizationId` must equal the parent vault's organization. `accountId` must equal the parent
 vault's required `cloudflareAccountId`. Provider reads and writes load the organization's current
 Cloudflare credential and fail closed if it is absent or cannot access that exact account. This flow
 does not select or change the organization's Cloudflare account.
 
-Worker existence, workers.dev URLs, GitHub repository connection, build triggers, trigger
-build-token UUIDs, root directory, and Convex build variables are current Cloudflare observations.
-They are not mirrored into the attachment. Samebase fetches each build-token name from Cloudflare
-and does not store it.
+Worker existence, workers.dev URLs, GitHub repository connection, build triggers, build-token UUIDs,
+build status, domains, and Convex build variables remain current Cloudflare observations. Samebase
+fetches each build-token name from Cloudflare and does not store it.
 
 ### Existing Worker flow
 
@@ -51,40 +55,44 @@ and does not store it.
    exact match to the vault's immutable GitHub repository ID for direct selection. A Worker with no
    active trigger is observed separately from a Worker connected to another repository.
 4. A selectable Worker has one unambiguous normalized root across its active production and preview
-   triggers. The root is displayed read-only.
+   triggers. The root is displayed read-only and becomes the approved attachment root.
 5. Every selectable Worker starts selected because its exact repository connection has already been
    verified. The user may deselect any Worker before confirming. Samebase may also show their
    readable `SAMEBASE_CONVEX_PROJECT` evidence without persisting a relation.
 6. Confirmation re-reads every selected identity, repository connection, root, and marker, then
-   writes all attachments in one transaction. Any conflict rejects the whole confirmation.
+   writes every attachment with its verified name and root in one transaction. Any conflict rejects
+   the whole confirmation.
 
 When at least one Worker has no active Workers Builds triggers, the existing view offers
 `Connect another Worker` instead of mixing account-wide unconnected Workers into the verified
 checkbox list. The focused view asks for one Worker and its repository root, then confirms
 `Connect and add`. Samebase re-reads the exact Worker identity and requires that it still has no
-active triggers. It records the `selected_existing` attachment before configuring GitHub Builds,
-then re-reads Cloudflare and requires the requested root. Each unconnected Worker is configured
-individually because roots are per Worker and Cloudflare writes are not batch-atomic.
+active triggers. It records the `selected_existing` attachment with the user-approved root before
+configuring GitHub Builds, then re-reads Cloudflare and requires the requested root. Each
+unconnected Worker is configured individually because roots are per Worker and Cloudflare writes are
+not batch-atomic.
 
 `Connect and add` also requires one Workers Builds token selected from the exact vault account.
 Samebase re-lists the account records before the write and applies the selected UUID to both
 triggers.
 
 If Cloudflare reports an error after attachment, Samebase re-observes the Worker before it explains
-what to do next. A Worker with no completed repository connection stays under `Needs attention`. A
-Worker with a partial or complete connection appears under Cloudflare's observed root. The message
+what to do next. The Worker stays under its stored root and can show `Needs attention`. The message
 names the normal action for the observed state. The attachment always remains. A Worker with active
 triggers for another repository is not available in this flow. Samebase never silently replaces that
 connection.
 
-The client never supplies a root as attachment authority.
+For an already configured Worker, a client value never supplies attachment authority. Samebase
+stores only the root from its fresh verified provider read. For a new or unconnected Worker, the
+explicit root selected for the Builds write is the approved attachment coordinate. A provider
+re-read then checks that Cloudflare accepted the same root.
 
 ### Create Worker flow
 
-Creating a Worker may ask for a repository root because the same operation configures that root in
-Cloudflare Workers Builds. Samebase creates the Worker and records its exact provider checkpoint and
-`provisioned` attachment together before configuring Builds. It then writes the GitHub Builds
-configuration and re-reads the resulting repository and root evidence.
+Creating a Worker asks for a repository root because the same operation configures that root in
+Cloudflare Workers Builds. Samebase creates the Worker and records its exact provider checkpoint,
+approved root, and `provisioned` attachment together before configuring Builds. It then writes the
+GitHub Builds configuration and re-reads the resulting repository and root evidence.
 
 The create flow requires the same visible token selection. Samebase orders the account token list by
 name from Z to A without case sensitivity, with UUID as the stable tie-breaker. When the list first
@@ -93,12 +101,11 @@ names in newest-name-first order without parsing the timestamp. A later refresh 
 existing or user-selected UUID. Provider writes never infer a token from a name, list position, or
 another Worker's current binding. They validate the exact selected UUID again.
 
-If Builds configuration fails, the Worker stays attached under `Needs attention`, which preserves
-cleanup ownership and lets the user retry the explicit configuration. When no live root exists, the
-same Cloudflare dialog asks for the root as input to the provider write. When one unambiguous live
-root exists, retry reuses that observation without asking the user. The root is never copied into
-the attachment. If provider creation succeeds but its identity cannot be checkpointed, Samebase
-reports the ambiguous external state and does not delete the Worker automatically.
+If Builds configuration fails, the Worker stays attached under its stored root with
+`Needs attention`. This preserves cleanup ownership and lets the user retry the explicit
+configuration with the approved root. If provider creation succeeds but its identity cannot be
+checkpointed, Samebase reports the ambiguous external state and does not delete the Worker
+automatically.
 
 ### Identity and ownership
 
@@ -114,8 +121,11 @@ never deletes the Cloudflare Worker.
 
 ### Drift and removal
 
-A Worker root change automatically moves the row to the newly derived root group. An unavailable,
-missing, or ambiguously placed Worker remains attached under `Needs attention`.
+Spec 115 defines Worker name and root drift, explicit updates, and the temporary manual adoption of
+a root for a legacy attachment.
+
+An unavailable or missing Worker remains attached under its stored root with `Needs attention`.
+Neither a warning nor a provider read authorizes a stored coordinate change.
 
 `Remove from vault` is an explicit user-intent mutation. It deletes only the unchanged local
 attachment and never deletes the provider resource. Provider absence may explain the attention
@@ -127,6 +137,11 @@ Attaching a Worker does not imply that Samebase may rewrite an existing Worker. 
 explicitly authorizes initial GitHub Builds setup only after Samebase verifies that the Worker has
 no active Builds triggers. GitHub Builds repair and Convex deploy-key rotation remain explicit
 operations.
+
+`Configure Workers Builds` uses the attachment's saved approved root. It does not replace that input
+with a different live root. The member must use `Update root` first when the current provider root
+is the intended coordinate. Spec 115 defines the temporary checkpoint 1 behavior for a legacy
+attachment that has no saved root.
 
 Vault settings shows the current token name when both triggers use the same listed UUID. It reports
 when the two trigger UUIDs differ or a bound UUID is no longer in Cloudflare's list. These are
@@ -166,7 +181,8 @@ uses the normal action for that state:
 
 ## Non-Goals
 
-- Persisting Worker root, trigger, URL, build-token name, marker, or deploy-key state.
+- Automatically accepting a provider name or root change.
+- Persisting trigger, URL, domain, build status, build-token name, marker, or deploy-key state.
 - Inferring a Worker placement from repository folders.
 - Attaching Workers from a different GitHub repository.
 - Selecting or changing a Cloudflare account in a vault flow.
@@ -179,13 +195,14 @@ uses the normal action for that state:
   mismatched organization credentials, ambiguous roots, production/preview disagreement, and marker
   disagreement.
 - Mutation tests cover organization and account destination checks, atomic batches, global identity
-  conflicts, idempotency, and origin upgrade.
+  conflicts, idempotency, origin upgrade, stored roots, and stable `workerTag` resolution after a
+  provider rename.
 - Operation tests cover the Cloudflare action mapping and the normal next action after a failed or
   silent provider action.
 - Write-time tests prove that Cloudflare-only actions update only Cloudflare and deploy-key rotation
   updates both providers.
-- UI tests cover vault-level routing, default multiple selection, grouping by read-only live root,
-  the focused unconnected-Worker root flow, count copy, exact Convex action targets, root drift,
-  rootless Builds repair, and `Needs attention`.
+- UI tests cover vault-level routing, default multiple selection, grouping by stored root, the
+  focused unconnected-Worker root flow, count copy, exact Convex action targets, legacy root
+  adoption, rootless Builds repair, and `Needs attention`.
 - UI tests cover token loading, empty and failed lists, visible default and changed selections, live
   token names, missing records, trigger disagreement, and token change.

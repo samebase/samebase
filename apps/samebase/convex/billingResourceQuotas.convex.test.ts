@@ -21,6 +21,7 @@ function workerInput(index: number, prefix = "worker") {
     accountId: "cloudflare-account",
     workerName: `${prefix}-${index}`,
     workerTag: `${prefix}-tag-${index}`,
+    rootDirectory: `apps/${prefix}-${index}`,
     origin: "selected_existing",
   } as const;
 }
@@ -499,6 +500,7 @@ describe("pooled organization connection quotas", () => {
           accountId: "cloudflare-account",
           workerName: "blocked-worker",
           workerTag: "blocked-worker-tag",
+          rootDirectory: "apps/blocked-worker",
         }),
       ).rejects.toThrow("This organization needs more paid member seats.");
       await expect(readConnectionCounts(t, ids.organizationId)).resolves.toMatchObject({

@@ -233,7 +233,14 @@ function CloudflareDialogFixture({
         onOpenChange={() => {}}
         onSubmit={() => {}}
         onWorkerToggle={() => {}}
-        repairWorker={repair ? { workerName: "shared-convex-monorepo-fixture-portal" } : null}
+        repairWorker={
+          repair
+            ? {
+                workerName: "shared-convex-monorepo-fixture-portal",
+                rootDirectory: "apps/portal",
+              }
+            : null
+        }
         selectedWorkerTags={
           isLoading || repair ? [] : ["admin-worker-tag", "portal-worker-tag", "web-worker-tag"]
         }

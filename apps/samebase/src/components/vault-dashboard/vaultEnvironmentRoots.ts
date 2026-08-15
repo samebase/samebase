@@ -158,119 +158,103 @@ export function buildProductionEnvironmentRoots({
 }): VaultEnvironmentRoot[] {
   const workerObservations = cloudflareObservations.workers;
   const buildsObservations = cloudflareObservations.builds;
-  const cloudflareWorkers: VaultEnvironmentResourceInput[] =
-    workerObservations.state === "loaded" && buildsObservations.state === "loaded"
-      ? vault.cloudflareWorkers.flatMap((worker) => {
-          const workerObservation = workerObservations.observations.find(
-            (candidate) => candidate.workerId === worker.workerId,
-          );
-          const buildsObservation = buildsObservations.observations.find(
-            (candidate) => candidate.workerId === worker.workerId,
-          );
-          if (
-            workerObservation?.state !== "available" ||
-            buildsObservation?.state !== "available" ||
-            buildsObservation.repository.state !== "ready"
-          ) {
-            return [];
-          }
+  const cloudflareWorkers: VaultEnvironmentResourceInput[] = vault.cloudflareWorkers.map(
+    (worker) => {
+      const workerObservation =
+        workerObservations.state === "loaded"
+          ? workerObservations.observations.find(
+              (candidate) => candidate.workerId === worker.workerId,
+            )
+          : undefined;
+      const buildsObservation =
+        buildsObservations.state === "loaded"
+          ? buildsObservations.observations.find(
+              (candidate) => candidate.workerId === worker.workerId,
+            )
+          : undefined;
+      const observedRootDirectory =
+        buildsObservation?.state === "available" && buildsObservation.repository.state === "ready"
+          ? buildsObservation.repository.rootDirectory
+          : undefined;
+      const rootDirectory = worker.rootDirectory ?? observedRootDirectory ?? "Cloudflare Workers";
+      const title =
+        rootDirectory === "/" ? "Open production app" : `Open production app for ${rootDirectory}`;
+      const destinations =
+        workerObservation?.state === "available"
+          ? [
+              ...workerObservation.customDomains.map((hostname) => ({
+                href: `https://${hostname}`,
+                label: hostname,
+                sortKey: `0:${hostname}`,
+              })),
+              ...(workerObservation.workersDev.state === "enabled"
+                ? [
+                    {
+                      href: workerObservation.workersDev.url,
+                      label: buildProductionUrlLabel(workerObservation.workersDev.url),
+                      sortKey: `1:${worker.workerName}`,
+                    },
+                  ]
+                : []),
+            ].sort(
+              (left, right) =>
+                left.sortKey.localeCompare(right.sortKey) || left.href.localeCompare(right.href),
+            )
+          : [];
+      const primary = destinations.at(0);
 
-          const rootDirectory = buildsObservation.repository.rootDirectory;
-          const title =
-            rootDirectory === "/"
-              ? "Open production app"
-              : `Open production app for ${rootDirectory}`;
-          const destinations = [
-            ...workerObservation.customDomains.map((hostname) => ({
-              href: `https://${hostname}`,
-              label: hostname,
-              sortKey: `0:${hostname}`,
-            })),
-            ...(workerObservation.workersDev.state === "enabled"
-              ? [
-                  {
-                    href: workerObservation.workersDev.url,
-                    label: buildProductionUrlLabel(workerObservation.workersDev.url),
-                    sortKey: `1:${worker.workerName}`,
-                  },
-                ]
-              : []),
-          ].sort(
-            (left, right) =>
-              left.sortKey.localeCompare(right.sortKey) || left.href.localeCompare(right.href),
-          );
-          const primary = destinations.at(0);
+      const productionBuild =
+        buildsObservation?.state === "available" && buildsObservation.builds.state === "connected"
+          ? buildsObservation.builds.productionBuild
+          : buildsObservation?.state === "available"
+            ? ({ state: "absent" } as const)
+            : buildsObservations.state === "loading" || buildsObservations.state === "checking"
+              ? ({ state: "loading" } as const)
+              : ({ state: "unavailable" } as const);
+      const build:
+        | { state: "available"; buildState: VaultProductionBuildState; logsUrl: string }
+        | { state: "absent" }
+        | { state: "loading" }
+        | { state: "unavailable" } =
+        productionBuild.state === "available"
+          ? {
+              state: "available",
+              buildState: productionBuild.buildState,
+              logsUrl: productionBuild.logsUrl,
+            }
+          : productionBuild.state === "absent"
+            ? { state: "absent" }
+            : productionBuild.state === "loading"
+              ? { state: "loading" }
+              : { state: "unavailable" };
 
-          const productionBuild =
-            buildsObservation.builds.state === "connected"
-              ? buildsObservation.builds.productionBuild
-              : ({ state: "absent" } as const);
-          const build:
-            | { state: "available"; buildState: VaultProductionBuildState; logsUrl: string }
-            | { state: "absent" }
-            | { state: "unavailable" } =
-            productionBuild.state === "available"
+      return {
+        rootDirectory,
+        sortKey: `0:${worker.workerName}:${worker.workerId}`,
+        resource: {
+          kind: "cloudflare_worker",
+          id: worker.workerId,
+          worker: {
+            workerName: worker.workerName,
+            build,
+            destination: primary
               ? {
                   state: "available",
-                  buildState: productionBuild.buildState,
-                  logsUrl: productionBuild.logsUrl,
+                  href: primary.href,
+                  label: primary.label,
+                  title,
                 }
-              : productionBuild.state === "absent"
-                ? { state: "absent" }
-                : { state: "unavailable" };
-
-          return [
-            {
-              rootDirectory,
-              sortKey: `0:${worker.workerName}:${worker.workerId}`,
-              resource: {
-                kind: "cloudflare_worker",
-                id: worker.workerId,
-                worker: {
-                  workerName: worker.workerName,
-                  build,
-                  destination: primary
-                    ? {
-                        state: "available",
-                        href: primary.href,
-                        label: primary.label,
-                        title,
-                      }
-                    : { state: "absent" },
-                  actions: destinations.slice(1).map((destination) => ({
-                    destination: "external",
-                    href: destination.href,
-                    label: destination.label,
-                  })),
-                },
-              },
-            },
-          ];
-        })
-      : [];
-  const cloudflareLoading =
-    workerObservations.state === "loading" ||
-    workerObservations.state === "checking" ||
-    buildsObservations.state === "loading" ||
-    buildsObservations.state === "checking";
-  const cloudflareFallbacks: VaultEnvironmentResourceInput[] = vault.cloudflareWorkers
-    .filter(
-      (worker) => !cloudflareWorkers.some((candidate) => candidate.resource.id === worker.workerId),
-    )
-    .map((worker) => ({
-      rootDirectory: "Cloudflare Workers",
-      sortKey: `0:${worker.workerName}:${worker.workerId}`,
-      resource: {
-        kind: "cloudflare_worker",
-        id: worker.workerId,
-        worker: {
-          workerName: worker.workerName,
-          build: { state: cloudflareLoading ? "loading" : "unavailable" },
-          destination: { state: "absent" },
-          actions: [],
+              : { state: "absent" },
+            actions: destinations.slice(1).map((destination) => ({
+              destination: "external",
+              href: destination.href,
+              label: destination.label,
+            })),
+          },
         },
-      },
-    }));
+      };
+    },
+  );
   const convexDeployments: VaultEnvironmentResourceInput[] =
     convexObservations.state === "loaded"
       ? vault.convexProjects.flatMap((project) => {
@@ -345,7 +329,6 @@ export function buildProductionEnvironmentRoots({
 
   return groupVaultEnvironmentResources([
     ...cloudflareWorkers,
-    ...cloudflareFallbacks,
     ...convexDeployments,
     ...convexLoading,
   ]);
@@ -365,10 +348,11 @@ export function buildPullRequestEnvironmentRoots({
             (candidate) => candidate.workerId === worker.workerId,
           )
         : undefined;
-    const rootDirectory =
+    const observedRootDirectory =
       buildsObservation?.state === "available" && buildsObservation.repository.state === "ready"
         ? buildsObservation.repository.rootDirectory
-        : "Cloudflare Workers";
+        : undefined;
+    const rootDirectory = worker.rootDirectory ?? observedRootDirectory ?? "Cloudflare Workers";
     const destination =
       worker.cloudflareBranchPreview.state === "available"
         ? {

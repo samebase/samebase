@@ -134,6 +134,7 @@ let currentCloudflareWorkers: Array<{
   accountId: string;
   workerName: string;
   workerTag: string;
+  rootDirectory?: string;
 }> = [];
 let currentConvexProjects: Array<{
   convexProjectId: Id<"vaultConvexProjects">;
@@ -384,6 +385,7 @@ describe("useVaultPullRequests", () => {
         accountId: "account:test",
         workerName: "samebase-worker",
         workerTag: "worker-tag:test",
+        rootDirectory: "apps/samebase",
       },
     ];
     currentConvexProjects = [
@@ -403,6 +405,24 @@ describe("useVaultPullRequests", () => {
     );
 
     expect(resourceHandler.mock.calls.slice(2).map((call) => call[0])).toEqual([
+      { vaultId: fakeVaultId(), pullRequestIds: ["pull-request:1260"] },
+      { vaultId: fakeVaultId(), pullRequestIds: ["pull-request:1259"] },
+    ]);
+    expect(listHandler).toHaveBeenCalledTimes(2);
+
+    currentCloudflareWorkers = currentCloudflareWorkers.map((worker) => ({
+      ...worker,
+      rootDirectory: "apps/web",
+    }));
+    await renderHarness();
+    await waitFor(
+      (state) =>
+        (state.state === "current" || state.state === "stale") &&
+        resourceHandler.mock.calls.length === 6 &&
+        !state.resourcesStale,
+    );
+
+    expect(resourceHandler.mock.calls.slice(4).map((call) => call[0])).toEqual([
       { vaultId: fakeVaultId(), pullRequestIds: ["pull-request:1260"] },
       { vaultId: fakeVaultId(), pullRequestIds: ["pull-request:1259"] },
     ]);
