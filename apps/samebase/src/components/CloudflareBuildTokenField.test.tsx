@@ -63,9 +63,6 @@ describe("CloudflareBuildTokenField", () => {
     );
 
     expect(markup).toContain("Workers Builds (bbbbbbbb)");
-    expect(markup).toContain(
-      "Samebase will assign the selected token to production and preview builds, then request a production build.",
-    );
   });
 
   it("gives the Cloudflare setup and reload actions when no records are available", () => {
@@ -109,9 +106,6 @@ describe("CloudflareBuildTokenField", () => {
     expect(markup).toContain("Choose a token");
     expect(markup).toContain(
       "This token is not in Cloudflare&#x27;s current list. Choose another token.",
-    );
-    expect(markup).not.toContain(
-      "Samebase will assign the selected token to production and preview builds, then request a production build.",
     );
   });
 });

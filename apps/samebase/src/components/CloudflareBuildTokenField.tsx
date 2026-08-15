@@ -124,14 +124,9 @@ export function CloudflareBuildTokenField({
           ))}
         </AppSelectContent>
       </Select>
-      {selectionUnavailable ? (
+      {selectionUnavailable && (
         <div className="text-xs text-red-600" role="alert">
           This token is not in Cloudflare&apos;s current list. Choose another token.
-        </div>
-      ) : (
-        <div className="text-xs text-muted-foreground">
-          Samebase will assign the selected token to production and preview builds, then request a
-          production build.
         </div>
       )}
     </div>

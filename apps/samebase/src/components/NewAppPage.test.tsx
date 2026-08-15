@@ -168,9 +168,6 @@ describe("NewAppPage", () => {
     expect(markup).toContain('href="/org/nicubunu/providers"');
     expect(markup).toContain("Providers");
     expect(markup).toContain("Workers Builds token");
-    expect(markup).toContain(
-      "Samebase will assign the selected token to production and preview builds, then request a production build.",
-    );
     expect(markup).not.toContain("Install GitHub App");
   });
 
