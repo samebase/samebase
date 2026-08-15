@@ -884,11 +884,9 @@ describe("cloudflare resources", () => {
     expect(build).toMatchObject({
       production: {
         triggerUuid: "created-trigger-1",
-        buildTokenUuid: "reusable-build-token",
       },
       preview: {
         triggerUuid: "created-trigger-2",
-        buildTokenUuid: "reusable-build-token",
       },
     });
     expect(
@@ -2300,7 +2298,7 @@ describe("cloudflare resources", () => {
     ).toBeNull();
   });
 
-  it("lists Workers Builds token records by descending case-insensitive name", async () => {
+  it("lists Workers Builds token records in deterministic descending name order", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
@@ -2311,12 +2309,19 @@ describe("cloudflare resources", () => {
             cloudflare_token_id: "secret-provider-id",
           },
           {
-            build_token_uuid: "token-new",
+            build_token_uuid: "token-new-b",
+            build_token_name: "Workers Builds - 2026-08-14 01:54",
+          },
+          {
+            build_token_uuid: "token-new-a",
             build_token_name: "Workers Builds - 2026-08-14 01:54",
           },
           {
             build_token_uuid: "token-samebase",
             build_token_name: "samebase build token",
+          },
+          {
+            build_token_uuid: "token-unnamed",
           },
         ]),
       ),
@@ -2329,8 +2334,10 @@ describe("cloudflare resources", () => {
         transport: "direct",
       }),
     ).resolves.toEqual([
-      { name: "Workers Builds - 2026-08-14 01:54", uuid: "token-new" },
+      { name: "Workers Builds - 2026-08-14 01:54", uuid: "token-new-a" },
+      { name: "Workers Builds - 2026-08-14 01:54", uuid: "token-new-b" },
       { name: "Workers Builds - 2026-08-13 10:00", uuid: "token-old" },
+      { name: "Unnamed token", uuid: "token-unnamed" },
       { name: "samebase build token", uuid: "token-samebase" },
     ]);
   });

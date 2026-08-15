@@ -36,10 +36,11 @@ export function useCloudflareBuildTokenSelection({
   const [requestedUuid, setRequestedUuid] = useState<string | null>(initialUuid);
 
   useEffect(() => {
-    if (requestedUuid !== null || tokens === null || isFetching || error) {
+    const firstToken = tokens?.[0];
+    if (requestedUuid !== null || !firstToken || isFetching || error) {
       return;
     }
-    setRequestedUuid(tokens[0]?.uuid ?? "");
+    setRequestedUuid(firstToken.uuid);
   }, [error, isFetching, requestedUuid, tokens]);
 
   const selectedUuid =
@@ -47,8 +48,8 @@ export function useCloudflareBuildTokenSelection({
 
   return {
     canWrite: Boolean(selectedUuid && !isFetching && !error),
-    requestedUuid: requestedUuid ?? "",
     selectedUuid,
+    selectionUnavailable: Boolean(requestedUuid && tokens !== null && !selectedUuid),
     setRequestedUuid,
   };
 }

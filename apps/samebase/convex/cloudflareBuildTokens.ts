@@ -1,7 +1,7 @@
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
-import { resolveCloudflareApiTransport } from "./cloudflareApi/client";
+import { CloudflareApiError, resolveCloudflareApiTransport } from "./cloudflareApi/client";
 import { listCloudflareBuildTokens } from "./cloudflareResources";
 import { action } from "./functions";
 import {
@@ -10,21 +10,14 @@ import {
 } from "./vault/contracts/cloudflareBuildTokens";
 
 export async function listWorkersBuildTokensForUser(
-  ctx: Pick<ActionCtx, "runAction" | "runQuery">,
+  ctx: Pick<ActionCtx, "runAction">,
   args: { userId: Id<"users">; organizationId: Id<"organizations"> },
 ): Promise<CloudflareWorkersBuildTokens> {
-  const organizationId = await ctx.runQuery(
-    internal.organizationAccess.requireOrganizationIdForUser,
-    {
-      userId: args.userId,
-      organizationId: args.organizationId,
-    },
-  );
   const connection = await ctx.runAction(
     internal.cloudflareOAuth.resolveConnectionForOrganization,
     {
       userId: args.userId,
-      organizationId,
+      organizationId: args.organizationId,
     },
   );
   const token = connection?.auth.credential.trim();
@@ -32,18 +25,25 @@ export async function listWorkersBuildTokensForUser(
   if (!connection || !token || !accountId) {
     throw new Error("Cloudflare connection is required.");
   }
-  const tokens = await listCloudflareBuildTokens({
-    token,
-    transport: resolveCloudflareApiTransport(connection.auth.method),
-    accountId,
-  });
-  return {
-    accountId,
-    tokens: tokens.map((buildToken) => ({
-      uuid: buildToken.uuid,
-      name: buildToken.name,
-    })),
-  };
+  try {
+    const tokens = await listCloudflareBuildTokens({
+      token,
+      transport: resolveCloudflareApiTransport(connection.auth.method),
+      accountId,
+    });
+    return {
+      accountId,
+      tokens: tokens.map((buildToken) => ({
+        uuid: buildToken.uuid,
+        name: buildToken.name,
+      })),
+    };
+  } catch (error) {
+    if (error instanceof CloudflareApiError) {
+      throw new Error("Could not load Cloudflare Workers Builds tokens.");
+    }
+    throw error;
+  }
 }
 
 export const list = action({

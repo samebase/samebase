@@ -40,6 +40,7 @@ function readSelection(): Selection {
 }
 
 function renderSelection(props: {
+  error?: boolean;
   initialUuid: string | null;
   isFetching: boolean;
   tokens: readonly Token[] | null;
@@ -66,8 +67,11 @@ afterEach(() => {
 });
 
 describe("useCloudflareBuildTokenSelection", () => {
-  it("selects the first settled token once", () => {
+  it("selects the first token after an empty list gains a token", () => {
     renderSelection({ initialUuid: null, isFetching: true, tokens: null });
+    expect(readSelection().selectedUuid).toBe("");
+
+    renderSelection({ initialUuid: null, isFetching: false, tokens: [] });
     expect(readSelection().selectedUuid).toBe("");
 
     renderSelection({
@@ -76,8 +80,8 @@ describe("useCloudflareBuildTokenSelection", () => {
       tokens: [{ uuid: "token-a" }, { uuid: "token-b" }],
     });
     expect(readSelection()).toMatchObject({
-      requestedUuid: "token-a",
       selectedUuid: "token-a",
+      selectionUnavailable: false,
     });
   });
 
@@ -85,8 +89,8 @@ describe("useCloudflareBuildTokenSelection", () => {
     const tokens = [{ uuid: "token-a" }, { uuid: "token-b" }];
     renderSelection({ initialUuid: null, isFetching: false, tokens });
     expect(readSelection()).toMatchObject({
-      requestedUuid: "token-a",
       selectedUuid: "token-a",
+      selectionUnavailable: false,
     });
 
     act(() => {
@@ -98,8 +102,8 @@ describe("useCloudflareBuildTokenSelection", () => {
       tokens: [{ uuid: "token-new" }, ...tokens],
     });
     expect(readSelection()).toMatchObject({
-      requestedUuid: "token-b",
       selectedUuid: "token-b",
+      selectionUnavailable: false,
     });
   });
 
@@ -116,71 +120,50 @@ describe("useCloudflareBuildTokenSelection", () => {
       isFetching: false,
       tokens: [{ uuid: "token-b" }],
     });
-    expect(readSelection()).toMatchObject({ requestedUuid: "token-a", selectedUuid: "" });
+    expect(readSelection()).toMatchObject({ selectedUuid: "", selectionUnavailable: true });
   });
 
   it("blocks writes while the current list refreshes or has failed", () => {
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    root = createRoot(rootElement);
-
-    act(() => {
-      root?.render(
-        <SelectionProbe initialUuid="token-a" isFetching={false} tokens={[{ uuid: "token-a" }]} />,
-      );
+    renderSelection({
+      initialUuid: "token-a",
+      isFetching: false,
+      tokens: [{ uuid: "token-a" }],
     });
     expect(readSelection().canWrite).toBe(true);
 
-    function WriteStateProbe({ error, isFetching }: { error: boolean; isFetching: boolean }) {
-      latestSelection = useCloudflareBuildTokenSelection({
-        error,
-        initialUuid: "token-a",
-        isFetching,
-        tokens: [{ uuid: "token-a" }],
-      });
-      return null;
-    }
-
-    act(() => {
-      root?.render(<WriteStateProbe error={false} isFetching />);
+    renderSelection({
+      initialUuid: "token-a",
+      isFetching: true,
+      tokens: [{ uuid: "token-a" }],
     });
     expect(readSelection().canWrite).toBe(false);
 
-    act(() => {
-      root?.render(<WriteStateProbe error isFetching={false} />);
+    renderSelection({
+      error: true,
+      initialUuid: "token-a",
+      isFetching: false,
+      tokens: [{ uuid: "token-a" }],
     });
     expect(readSelection().canWrite).toBe(false);
   });
 
   it("does not select cached data from a failed refresh", () => {
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    root = createRoot(rootElement);
-
-    act(() => {
-      root?.render(
-        <SelectionProbe
-          error
-          initialUuid={null}
-          isFetching={false}
-          tokens={[{ uuid: "token-a" }]}
-        />,
-      );
+    renderSelection({
+      error: true,
+      initialUuid: null,
+      isFetching: false,
+      tokens: [{ uuid: "token-a" }],
     });
-    expect(readSelection()).toMatchObject({ requestedUuid: "", selectedUuid: "" });
+    expect(readSelection()).toMatchObject({ selectedUuid: "", selectionUnavailable: false });
 
-    act(() => {
-      root?.render(
-        <SelectionProbe
-          initialUuid={null}
-          isFetching={false}
-          tokens={[{ uuid: "token-a" }, { uuid: "token-b" }]}
-        />,
-      );
+    renderSelection({
+      initialUuid: null,
+      isFetching: false,
+      tokens: [{ uuid: "token-a" }, { uuid: "token-b" }],
     });
     expect(readSelection()).toMatchObject({
-      requestedUuid: "token-a",
       selectedUuid: "token-a",
+      selectionUnavailable: false,
     });
   });
 });

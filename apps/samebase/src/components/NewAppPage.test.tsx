@@ -14,8 +14,8 @@ import { NewAppPage } from "./NewAppPage";
 vi.mock("@/components/useCloudflareBuildTokens", () => ({
   useCloudflareBuildTokenSelection: () => ({
     canWrite: true,
-    requestedUuid: "build-token-1",
     selectedUuid: "build-token-1",
+    selectionUnavailable: false,
     setRequestedUuid: vi.fn(),
   }),
   useCloudflareBuildTokens: () => ({

@@ -533,7 +533,6 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     isFetching: cloudflareBuildTokensQuery.isFetching,
     tokens: cloudflareBuildTokensQuery.data?.tokens ?? null,
   });
-  const requestedCloudflareBuildTokenUuid = cloudflareBuildTokenSelection.requestedUuid;
   const cloudflareBuildTokenUuid = cloudflareBuildTokenSelection.selectedUuid;
   const hasRequiredCreateConnections = Boolean(convexConnected && cloudflareConnected);
   const providerBlocker = readNewAppProviderBlocker({
@@ -842,12 +841,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
               setCreateError(null);
               cloudflareBuildTokenSelection.setRequestedUuid(uuid);
             }}
-            selectionUnavailable={Boolean(
-              requestedCloudflareBuildTokenUuid &&
-              !cloudflareBuildTokens.some(
-                (token) => token.uuid === requestedCloudflareBuildTokenUuid,
-              ),
-            )}
+            selectionUnavailable={cloudflareBuildTokenSelection.selectionUnavailable}
             tokens={cloudflareBuildTokens}
             value={cloudflareBuildTokenUuid}
           />

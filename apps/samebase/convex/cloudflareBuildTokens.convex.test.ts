@@ -70,7 +70,7 @@ afterEach(() => {
 });
 
 describe("Cloudflare Workers Builds token list", () => {
-  it("returns the exact account token records in descending case-insensitive name order", async () => {
+  it("returns only non-secret token fields from the exact organization account", async () => {
     const { memberId, organizationId, t } = await seedCloudflareOrganization();
     const fetch = vi.fn(async (input: string | URL | Request) => {
       const url = input instanceof Request ? input.url : String(input);
@@ -83,28 +83,9 @@ describe("Cloudflare Workers Builds token list", () => {
         messages: [],
         result: [
           {
-            build_token_uuid: "token-old",
-            build_token_name: "Workers Builds - 2026-08-13 10:00",
+            build_token_uuid: "build-token",
+            build_token_name: "Workers Builds - 2026-08-14 01:54",
             cloudflare_token_id: "provider-token-id",
-          },
-          {
-            build_token_uuid: "token-new-b",
-            build_token_name: "Workers Builds - 2026-08-14 01:54",
-          },
-          {
-            build_token_uuid: "token-new-a",
-            build_token_name: "Workers Builds - 2026-08-14 01:54",
-          },
-          {
-            build_token_uuid: "token-samebase",
-            build_token_name: "samebase build token",
-          },
-          {
-            build_token_uuid: "token-noter",
-            build_token_name: "noter-worker build token",
-          },
-          {
-            build_token_uuid: "token-u",
           },
         ],
       });
@@ -119,14 +100,7 @@ describe("Cloudflare Workers Builds token list", () => {
       asMember.action(api.cloudflareBuildTokens.list, { organizationId }),
     ).resolves.toEqual({
       accountId: "exact-cloudflare-account",
-      tokens: [
-        { name: "Workers Builds - 2026-08-14 01:54", uuid: "token-new-a" },
-        { name: "Workers Builds - 2026-08-14 01:54", uuid: "token-new-b" },
-        { name: "Workers Builds - 2026-08-13 10:00", uuid: "token-old" },
-        { name: "Unnamed token", uuid: "token-u" },
-        { name: "samebase build token", uuid: "token-samebase" },
-        { name: "noter-worker build token", uuid: "token-noter" },
-      ],
+      tokens: [{ name: "Workers Builds - 2026-08-14 01:54", uuid: "build-token" }],
     });
     expect(fetch).toHaveBeenCalledOnce();
   });
@@ -144,5 +118,34 @@ describe("Cloudflare Workers Builds token list", () => {
       asOutsider.action(api.cloudflareBuildTokens.list, { organizationId }),
     ).rejects.toThrow("Organization membership is required.");
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not expose Cloudflare provider error details", async () => {
+    const { memberId, organizationId, t } = await seedCloudflareOrganization();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          success: false,
+          errors: [{ code: 9999, message: "provider-internal-detail" }],
+          messages: [],
+          result: null,
+        }),
+      ),
+    );
+    const asMember = t.withIdentity({
+      subject: `${memberId}|session`,
+      tokenIdentifier: `test:${memberId}`,
+    });
+
+    let errorMessage = "";
+    try {
+      await asMember.action(api.cloudflareBuildTokens.list, { organizationId });
+    } catch (error) {
+      errorMessage = error instanceof Error ? error.message : String(error);
+    }
+
+    expect(errorMessage).toContain("Could not load Cloudflare Workers Builds tokens.");
+    expect(errorMessage).not.toContain("provider-internal-detail");
   });
 });

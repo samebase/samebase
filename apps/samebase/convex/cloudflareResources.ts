@@ -871,7 +871,7 @@ export async function listCloudflareBuildTokens(
       rawTokens,
       `Cloudflare Workers Builds token list for account ${args.accountId} response did not include tokens.`,
     );
-    tokens.push(...parseBuildTokens(tokensPage));
+    tokens.push(...tokensPage.map(readCloudflareBuildToken).filter(notEmpty));
     if (tokensPage.length < BUILD_TOKEN_PAGE_SIZE) {
       return tokens.sort(compareBuildTokens);
     }
@@ -884,7 +884,7 @@ export async function requireCloudflareBuildTokenUuid(
     accountId: string;
     buildTokenUuid: string;
   } & CloudflareApiCallOptions,
-): Promise<CloudflareBuildToken> {
+): Promise<string> {
   const buildTokenUuid = args.buildTokenUuid.trim();
   if (!buildTokenUuid) {
     throw new ConvexError("Select a Cloudflare Workers Builds token and retry.");
@@ -897,13 +897,7 @@ export async function requireCloudflareBuildTokenUuid(
       `The selected Cloudflare Workers Builds token is not in Cloudflare's current list for account ${args.accountId}. Select another token and retry.`,
     );
   }
-  return token;
-}
-
-function parseBuildTokens(
-  tokenRecords: readonly CloudflareBuildTokenRecord[],
-): CloudflareBuildToken[] {
-  return tokenRecords.map(readCloudflareBuildToken).filter(notEmpty);
+  return buildTokenUuid;
 }
 
 function readCloudflareBuildToken(
@@ -1401,11 +1395,9 @@ export type CloudflareWorkersBuilds = {
   pathExcludes: string[];
   production: {
     triggerUuid: string;
-    buildTokenUuid: string;
   };
   preview: {
     triggerUuid: string;
-    buildTokenUuid: string;
   };
 };
 export type CloudflareConnectedWorkersBuilds = CloudflareWorkersBuilds & {
@@ -1731,15 +1723,13 @@ function assertCloudflareWorkerHasNoBuildsConnection(args: {
 async function configureCloudflareWorkerBuilds(
   args: ConfigureCloudflareWorkerBuildsArgs,
 ): Promise<CloudflareConnectedWorkersBuilds> {
-  const buildTokenUuid = (
-    await requireCloudflareBuildTokenUuid({
-      token: args.cloudflareToken,
-      accountId: args.accountId,
-      buildTokenUuid: args.buildTokenUuid,
-      transport: args.transport,
-      recordApiCall: args.recordApiCall,
-    })
-  ).uuid;
+  const buildTokenUuid = await requireCloudflareBuildTokenUuid({
+    token: args.cloudflareToken,
+    accountId: args.accountId,
+    buildTokenUuid: args.buildTokenUuid,
+    transport: args.transport,
+    recordApiCall: args.recordApiCall,
+  });
 
   if (args.existingBuilds === "require_unconnected") {
     const priorTriggers = await listBuildTriggers({
@@ -1839,11 +1829,9 @@ async function configureCloudflareWorkerBuilds(
     pathExcludes: args.buildConfig.pathExcludes,
     production: {
       triggerUuid: productionTriggerUuid,
-      buildTokenUuid,
     },
     preview: {
       triggerUuid: previewTriggerUuid,
-      buildTokenUuid,
     },
   };
 }

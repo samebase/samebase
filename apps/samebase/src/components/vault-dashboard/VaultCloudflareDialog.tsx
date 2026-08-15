@@ -448,7 +448,6 @@ export function VaultCloudflareDialog({
     isFetching: buildTokensQuery.isFetching,
     tokens: buildTokensQuery.data?.tokens ?? null,
   });
-  const requestedBuildTokenUuid = buildTokenSelection.requestedUuid;
   const buildTokenUuid = buildTokenSelection.selectedUuid;
   const writesWorkersBuilds = Boolean(repairWorker || workerToConnect || mode === "create");
   const hasSelectedBuildToken = buildTokenSelection.canWrite;
@@ -590,10 +589,7 @@ export function VaultCloudflareDialog({
               setSubmitError(null);
               buildTokenSelection.setRequestedUuid(uuid);
             }}
-            selectionUnavailable={Boolean(
-              requestedBuildTokenUuid &&
-              !buildTokens.some((token) => token.uuid === requestedBuildTokenUuid),
-            )}
+            selectionUnavailable={buildTokenSelection.selectionUnavailable}
             tokens={buildTokens}
             value={buildTokenUuid}
           />
