@@ -71,8 +71,7 @@ the template directory. A public export failure therefore cannot stop Samebase f
 app from the last accepted snapshot.
 
 Root CI installs and audits the template through its nested lockfile, then builds it in a separate
-fresh job. A daily workflow audits both the monorepo and template lockfiles so a new advisory can
-fail even when no source commit changed.
+fresh job.
 
 ## Agent plugin versions
 
