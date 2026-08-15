@@ -94,8 +94,9 @@ const cloudflareWorkerReadEnvelope = JSON.stringify({
       workers: [],
     },
     subdomain: {
-      enabled: false,
+      enabled: true,
       previews_enabled: true,
+      url: "https://samebase-app.provider-owned.workers.dev",
     },
     tags: [],
     tail_consumers: [],
@@ -108,6 +109,18 @@ const cloudflareWorkerSubdomainDisabledEnvelope = JSON.stringify({
   messages: [],
   result: { enabled: false },
 });
+
+function stubCloudflareWorkerRead(envelope = cloudflareWorkerReadEnvelope) {
+  const fetchMock = vi.fn(
+    async () =>
+      new Response(envelope, {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+  );
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
+}
 
 function buildTestConfigureCloudflareWorkerBuildsForGitHubArgs(): Parameters<
   typeof configureCloudflareWorkerBuildsForGitHub
@@ -445,15 +458,8 @@ describe("cloudflare resources", () => {
     expect(buildCloudflareWorkerCreateBody("samebase-app").observability.traces).toBe(undefined);
   });
 
-  it("reads workers.dev availability and normalized custom domains from the Worker identity response", async () => {
-    const fetchMock = vi.fn(
-      async () =>
-        new Response(cloudflareWorkerReadEnvelope, {
-          status: 200,
-          headers: { "Content-Type": "application/json" },
-        }),
-    );
-    vi.stubGlobal("fetch", fetchMock);
+  it("reads the production URL and normalized custom domains from the Worker identity response", async () => {
+    const fetchMock = stubCloudflareWorkerRead();
 
     await expect(
       readCloudflareWorkerIdentity({
@@ -464,12 +470,50 @@ describe("cloudflare resources", () => {
       }),
     ).resolves.toEqual({
       customDomains: ["app.example.com", "www.example.com"],
-      previewUrlsEnabled: true,
-      workersDevEnabled: false,
+      workersDev: {
+        state: "enabled",
+        url: "https://samebase-app.provider-owned.workers.dev",
+      },
       workerName: "samebase-app",
       workerTag: "worker-tag",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not expose the production URL when workers.dev is disabled", async () => {
+    const disabledEnvelope = cloudflareWorkerReadEnvelope.replace(
+      '"subdomain":{"enabled":true',
+      '"subdomain":{"enabled":false',
+    );
+    stubCloudflareWorkerRead(disabledEnvelope);
+
+    await expect(
+      readCloudflareWorkerIdentity({
+        token: "oauth-token",
+        transport: "direct",
+        accountId: "account-id",
+        workerName: "samebase-app",
+      }),
+    ).resolves.toMatchObject({ workersDev: { state: "disabled" } });
+  });
+
+  it("marks an enabled Worker without a production URL as invalid", async () => {
+    const missingUrlEnvelope = cloudflareWorkerReadEnvelope.replace(
+      ',"url":"https://samebase-app.provider-owned.workers.dev"',
+      "",
+    );
+    stubCloudflareWorkerRead(missingUrlEnvelope);
+
+    await expect(
+      readCloudflareWorkerIdentity({
+        token: "oauth-token",
+        transport: "direct",
+        accountId: "account-id",
+        workerName: "samebase-app",
+      }),
+    ).resolves.toMatchObject({
+      workersDev: { state: "failed", reason: "response_validation_failed" },
+    });
   });
 
   it("reads a second Workers Builds page before declaring the history exhausted", async () => {

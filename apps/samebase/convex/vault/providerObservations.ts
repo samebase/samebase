@@ -11,7 +11,6 @@ import {
   readCloudflareWorkerBuildsDiscoveryForIdentity,
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerIdentity,
-  readCloudflareWorkersDevSubdomain,
   type CloudflareConvexBuildAccessObservation,
 } from "../cloudflareResources";
 import { requestConvexManagementApi } from "../convexManagementApi/client";
@@ -297,34 +296,6 @@ export const observeCloudflareWorkers = action({
       userId: ctx.viewer.userId,
     });
 
-    const accountSubdomainRequests = new Map<
-      string,
-      Promise<
-        { state: "available"; subdomain: string } | { state: "failed"; reason: "request_failed" }
-      >
-    >();
-    const readAccountSubdomain = (input: {
-      accountId: string;
-      token: string;
-      transport: ReturnType<typeof resolveCloudflareApiTransport>;
-    }) => {
-      const key = input.accountId;
-      const existing = accountSubdomainRequests.get(key);
-      if (existing) {
-        return existing;
-      }
-      const request = readCloudflareWorkersDevSubdomain({
-        token: input.token,
-        transport: input.transport,
-        accountId: input.accountId,
-      }).then(
-        (subdomain) => ({ state: "available" as const, subdomain }),
-        () => ({ state: "failed" as const, reason: "request_failed" as const }),
-      );
-      accountSubdomainRequests.set(key, request);
-      return request;
-    };
-
     return await Promise.all(
       context.cloudflareWorkers.map(async (worker) => {
         try {
@@ -336,19 +307,12 @@ export const observeCloudflareWorkers = action({
           if (input.state === "failed") {
             return { state: "failed" as const, workerId: worker.workerId, reason: input.reason };
           }
-          const [identity, accountSubdomain] = await Promise.all([
-            readCloudflareWorkerIdentity({
-              token: input.token,
-              transport: input.transport,
-              accountId: worker.accountId,
-              workerName: worker.workerName,
-            }),
-            readAccountSubdomain({
-              accountId: worker.accountId,
-              token: input.token,
-              transport: input.transport,
-            }),
-          ]);
+          const identity = await readCloudflareWorkerIdentity({
+            token: input.token,
+            transport: input.transport,
+            accountId: worker.accountId,
+            workerName: worker.workerName,
+          });
           if (!identity || identity.workerTag !== worker.workerTag) {
             return {
               state: "missing" as const,
@@ -356,19 +320,11 @@ export const observeCloudflareWorkers = action({
             };
           }
 
-          const workersDev = !identity.workersDevEnabled
-            ? { state: "disabled" as const }
-            : accountSubdomain.state === "available"
-              ? {
-                  state: "enabled" as const,
-                  url: `https://${worker.workerName}.${accountSubdomain.subdomain}.workers.dev`,
-                }
-              : accountSubdomain;
           return {
             state: "available" as const,
             workerId: worker.workerId,
             customDomains: identity.customDomains,
-            workersDev,
+            workersDev: identity.workersDev,
           };
         } catch {
           return {

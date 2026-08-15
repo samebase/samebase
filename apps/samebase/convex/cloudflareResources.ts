@@ -213,8 +213,10 @@ type CloudflareWorkerIdentity = {
 
 type CloudflareWorkerDetails = {
   customDomains: string[];
-  previewUrlsEnabled: boolean | undefined;
-  workersDevEnabled: boolean;
+  workersDev:
+    | { state: "enabled"; url: string }
+    | { state: "disabled" }
+    | { state: "failed"; reason: "response_validation_failed" };
   workerName: string;
   workerTag: string;
 };
@@ -368,30 +370,6 @@ function formatCloudflareBuildRoot(rootDirectory: string): string {
   return rootDirectory === "/" ? "/" : rootDirectory;
 }
 
-export async function readCloudflareWorkersDevSubdomain(
-  args: { token: string; accountId: string } & CloudflareApiCallOptions,
-): Promise<string> {
-  const raw = await requestCloudflareApiOrThrow({
-    token: args.token,
-    method: "GET",
-    path: "/accounts/{account_id}/workers/subdomain",
-    transport: args.transport,
-    params: {
-      path: {
-        account_id: args.accountId,
-      },
-    },
-    recordApiCall: args.recordApiCall,
-  });
-  const subdomain = raw?.subdomain.trim();
-  if (!subdomain) {
-    throw new Error(
-      "Cloudflare Workers needs a configured workers.dev subdomain before Samebase can create a production URL.",
-    );
-  }
-  return subdomain;
-}
-
 async function readWorker(
   args: {
     token: string;
@@ -446,10 +424,41 @@ export async function readCloudflareWorkerIdentity(
     ),
   ].sort((left, right) => left.localeCompare(right));
 
+  let workersDev: CloudflareWorkerDetails["workersDev"] = { state: "disabled" };
+  if (worker.subdomain.enabled) {
+    const rawUrl = worker.subdomain.url?.trim();
+    let parsedUrl: URL | null = null;
+    if (rawUrl) {
+      try {
+        parsedUrl = new URL(rawUrl);
+      } catch {
+        // The error below identifies the provider response field.
+      }
+    }
+    const workerHostnamePrefix = `${args.workerName.toLowerCase()}.`;
+    const workersDevHostnameSuffix = ".workers.dev";
+    if (
+      !parsedUrl ||
+      parsedUrl.protocol !== "https:" ||
+      parsedUrl.username !== "" ||
+      parsedUrl.password !== "" ||
+      parsedUrl.port !== "" ||
+      parsedUrl.pathname !== "/" ||
+      parsedUrl.search !== "" ||
+      parsedUrl.hash !== "" ||
+      !parsedUrl.hostname.startsWith(workerHostnamePrefix) ||
+      !parsedUrl.hostname.endsWith(workersDevHostnameSuffix) ||
+      parsedUrl.hostname.length <= workerHostnamePrefix.length + workersDevHostnameSuffix.length
+    ) {
+      workersDev = { state: "failed", reason: "response_validation_failed" };
+    } else {
+      workersDev = { state: "enabled", url: parsedUrl.origin };
+    }
+  }
+
   return {
     customDomains,
-    previewUrlsEnabled: worker.subdomain.previews_enabled,
-    workersDevEnabled: worker.subdomain.enabled,
+    workersDev,
     workerName: args.workerName,
     workerTag: readCloudflareWorkerTag(worker, args.workerName),
   };
