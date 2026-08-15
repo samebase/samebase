@@ -474,7 +474,11 @@ function CloudflareWorkerResource({ worker }: { worker: VaultEnvironmentWorker }
           </a>
         ) : (
           <span className="shrink-0 text-sm text-muted-foreground">
-            {worker.build.state === "absent" ? "No build" : "Unavailable"}
+            {worker.build.state === "absent"
+              ? "No build"
+              : worker.build.state === "loading"
+                ? "Checking"
+                : "Unavailable"}
           </span>
         )}
       </div>

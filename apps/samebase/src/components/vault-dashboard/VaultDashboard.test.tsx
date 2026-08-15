@@ -534,42 +534,94 @@ describe("buildProductionEnvironmentRoots", () => {
     ]);
   });
 
-  it("does not manufacture links from attachments when live resources are missing", () => {
-    const workerId = fakeCloudflareWorkerId();
+  it("keeps every attached Worker visible when live checks return partial failures", () => {
+    const readyWorkerId = fakeCloudflareWorkerId("worker-ready");
+    const failedWorkerId = fakeCloudflareWorkerId("worker-failed");
     const convexProjectId = fakeConvexProjectId();
     const vault = makeRepositorySettingsBuilderVault({
-      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
+      cloudflareWorkers: [
+        makeRepositorySettingsCloudflareWorker({ workerId: readyWorkerId }),
+        makeRepositorySettingsCloudflareWorker({
+          workerId: failedWorkerId,
+          workerName: "samebase-worker",
+          workerTag: "samebase-worker-tag",
+        }),
+      ],
       convexProjects: [makeRepositorySettingsConvexProject({ convexProjectId })],
     });
 
-    expect(
-      buildProductionEnvironmentRoots({
-        branch: "main",
-        vault,
-        cloudflareObservations: makeLoadedCloudflareObservations({
-          workers: [{ state: "missing", workerId }],
-          builds: [],
-          convexBuildAccess: [],
-        }),
-        convexObservations: {
-          state: "loaded",
-          refreshFailed: false,
-          reload: () => {},
-          observations: [
-            {
-              convexProjectId,
-              projectId: "demo-project-id",
-              codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-              source: { kind: "config", state: "valid" },
-              provider: { state: "missing_ambiguous" },
-            },
-          ],
-        },
-        owner: "ada",
-        repoName: "demo",
-        schemaGraphEnabled: true,
+    const roots = buildProductionEnvironmentRoots({
+      branch: "main",
+      vault,
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [
+          makeAvailableRepositorySettingsCloudflareObservation({ workerId: readyWorkerId }),
+          { state: "failed", workerId: failedWorkerId, reason: "request_failed" },
+        ],
+        builds: [
+          makeAvailableRepositorySettingsCloudflareBuildsObservation({
+            workerId: readyWorkerId,
+          }),
+          { state: "failed", workerId: failedWorkerId, reason: "request_failed" },
+        ],
+        convexBuildAccess: [],
       }),
-    ).toEqual([]);
+      convexObservations: {
+        state: "loaded",
+        refreshFailed: false,
+        reload: () => {},
+        observations: [
+          {
+            convexProjectId,
+            projectId: "demo-project-id",
+            codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+            source: { kind: "config", state: "valid" },
+            provider: { state: "missing_ambiguous" },
+          },
+        ],
+      },
+      owner: "ada",
+      repoName: "demo",
+      schemaGraphEnabled: true,
+    });
+
+    expect(roots).toEqual([
+      {
+        rootDirectory: "/",
+        resources: [
+          {
+            kind: "cloudflare_worker",
+            id: readyWorkerId,
+            worker: {
+              workerName: "demo-worker",
+              build: { state: "absent" },
+              destination: {
+                state: "available",
+                href: "https://demo-worker.ada.workers.dev",
+                label: "demo-worker.ada.workers.dev",
+                title: "Open production app",
+              },
+              actions: [],
+            },
+          },
+        ],
+      },
+      {
+        rootDirectory: "Cloudflare Workers",
+        resources: [
+          {
+            kind: "cloudflare_worker",
+            id: failedWorkerId,
+            worker: {
+              workerName: "samebase-worker",
+              build: { state: "unavailable" },
+              destination: { state: "absent" },
+              actions: [],
+            },
+          },
+        ],
+      },
+    ]);
   });
 });
 
