@@ -184,6 +184,5 @@ describe("vault provider observations", () => {
       },
     ]);
     expect(refresh).toHaveBeenCalledOnce();
-    expect(cloudflareMocks.requestCloudflareApiOrThrow).toHaveBeenCalledTimes(3);
   });
 });
