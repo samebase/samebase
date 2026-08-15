@@ -14,7 +14,7 @@ function git(cwd: string, args: readonly string[]): void {
 }
 
 describe("samebase app manifest export", () => {
-  it("reads Git blob bytes and untracked source without ignored local files", async () => {
+  it("reads staged Git blob bytes without ignored local files", async () => {
     const temporaryRoot = mkdtempSync(path.join(tmpdir(), "samebase-app-manifest-test-"));
     const templateRoot = path.join(temporaryRoot, "templates", "app");
 
