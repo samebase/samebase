@@ -260,7 +260,8 @@ Out of scope for Iteration 1:
 
 - Reliability is prioritized over runtime freshness for Iteration 1.
 - Manifest freshness is automatic in required CI.
-- A daily audit detects new advisories that appear without a source change.
+- A daily audit checks both monorepo and template lockfiles for new advisories that appear without a
+  source change.
 - `samebase/app` is public generated output and its `main` branch is append-only.
 
 ## Deferred / Future Iterations

@@ -49,7 +49,7 @@ export const trackedFilePaths = [
   ".github/workflows/blacksmith-testbox.yml",
   ".github/workflows/ci.yml",
   ".github/workflows/public-media.yml",
-  ".github/workflows/starter-template-supply-chain.yml",
+  ".github/workflows/supply-chain-audit.yml",
   ".github/workflows/sync-ssr.yml",
   ".gitignore",
   ".nvmrc",
