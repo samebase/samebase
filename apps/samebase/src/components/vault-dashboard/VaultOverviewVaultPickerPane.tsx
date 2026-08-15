@@ -25,7 +25,7 @@ export function VaultOverviewVaultListHeader() {
 
 function ConnectOrganizationButton() {
   return (
-    <Button asChild size="sm">
+    <Button asChild className="justify-self-start" size="sm">
       <Link to={CONNECT_ORGANIZATION_ROUTE}>Connect organization</Link>
     </Button>
   );
