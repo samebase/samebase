@@ -1,11 +1,18 @@
-import { array, literal, number, object, string, type InferGood } from "@samebase/sure";
+import { array, literal, number, object, string, union, type InferGood } from "@samebase/sure";
 import { normalizeAccountEmail } from "./accountPresentation.ts";
 
 export const PREVIEW_SEED_GITHUB_USER_AUTHORIZATION_ENV_NAME =
   "PREVIEW_SEED_GITHUB_USER_AUTHORIZATION";
 
+const previewSeedConnectedGitHubOrganizationSchema = object({
+  githubInstallationId: string,
+  githubOwnerId: string,
+  githubOwnerType: union(literal("organization"), literal("user")),
+  githubOwnerLogin: string,
+});
+
 const previewSeedGitHubUserAuthorizationSchema = object({
-  version: literal(1),
+  version: literal(2),
   githubUserId: string,
   githubUserLogin: string,
   githubUserEmail: string,
@@ -13,7 +20,7 @@ const previewSeedGitHubUserAuthorizationSchema = object({
   accessTokenExpiresAt: number,
   refreshToken: string,
   refreshTokenExpiresAt: number,
-  connectedGithubOwnerIds: array(string),
+  connectedOrganizations: array(previewSeedConnectedGitHubOrganizationSchema),
 });
 
 export type PreviewSeedGitHubUserAuthorization = InferGood<
@@ -68,17 +75,24 @@ export function parsePreviewSeedGitHubUserAuthorization(
   if (authorization.refreshTokenExpiresAt <= authorization.accessTokenExpiresAt) {
     throw new Error("Preview seed GitHub refresh token expiry is invalid.");
   }
-  if (authorization.connectedGithubOwnerIds.length === 0) {
-    throw new Error("Preview seed must connect at least one GitHub owner.");
+  if (authorization.connectedOrganizations.length === 0) {
+    throw new Error("Preview seed must connect at least one GitHub organization.");
   }
 
   const ownerIds = new Set<string>();
-  for (const ownerId of authorization.connectedGithubOwnerIds) {
-    requireGitHubId(ownerId, "GitHub owner ID");
-    if (ownerIds.has(ownerId)) {
+  const installationIds = new Set<string>();
+  for (const organization of authorization.connectedOrganizations) {
+    requireGitHubId(organization.githubOwnerId, "GitHub owner ID");
+    requireGitHubId(organization.githubInstallationId, "GitHub installation ID");
+    requireUnpaddedValue(organization.githubOwnerLogin, "GitHub owner login");
+    if (ownerIds.has(organization.githubOwnerId)) {
       throw new Error("Preview seed GitHub owner IDs must be unique.");
     }
-    ownerIds.add(ownerId);
+    if (installationIds.has(organization.githubInstallationId)) {
+      throw new Error("Preview seed GitHub installation IDs must be unique.");
+    }
+    ownerIds.add(organization.githubOwnerId);
+    installationIds.add(organization.githubInstallationId);
   }
 
   return authorization;

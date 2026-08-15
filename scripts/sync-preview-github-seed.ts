@@ -115,7 +115,7 @@ if (githubAccounts.length !== 1 || githubAccounts[0].providerAccountId !== autho
   throw new Error("Expected one matching development GitHub sign-in identity.");
 }
 const ownerLogins = ${JSON.stringify(ownerLogins)};
-const connectedGithubOwnerIds = [];
+const connectedOrganizations = [];
 for (const ownerLogin of ownerLogins) {
   const organization = await ctx.db
     .query("organizations")
@@ -135,10 +135,15 @@ for (const ownerLogin of ownerLogins) {
   if (membership === null) {
     throw new Error(\`The development GitHub user cannot access \${ownerLogin}.\`);
   }
-  connectedGithubOwnerIds.push(organization.githubOwnerId);
+  connectedOrganizations.push({
+    githubInstallationId: organization.githubInstallationId,
+    githubOwnerId: organization.githubOwnerId,
+    githubOwnerType: organization.githubOwnerType,
+    githubOwnerLogin: organization.githubOwnerLogin,
+  });
 }
 return {
-  version: 1,
+  version: 2,
   githubUserId: authorization.githubUserId,
   githubUserLogin: authorization.githubUserLogin,
   githubUserEmail: githubAccounts[0].emailVerified,
@@ -146,7 +151,7 @@ return {
   accessTokenExpiresAt: authorization.accessTokenExpiresAt,
   refreshToken: authorization.refreshToken,
   refreshTokenExpiresAt: authorization.refreshTokenExpiresAt,
-  connectedGithubOwnerIds,
+  connectedOrganizations,
 };`;
 }
 

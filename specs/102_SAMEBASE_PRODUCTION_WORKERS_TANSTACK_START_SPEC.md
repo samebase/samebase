@@ -252,12 +252,11 @@ Samebase production itself.
      `WORKERS_CI_BRANCH` is a non-production branch
    - runs the idempotent `devAuth:seedPasswordAccount` action after every successful preview deploy,
      including preview reuse, without relying on preview creation
-   - uses `DEV_SEED_GITHUB_API_KEY` during preview seeding only to discover active installations of
-     the configured GitHub App
    - links the seeded password user to the development GitHub identity and copies its current
-     refreshable GitHub App user authorization from `PREVIEW_SEED_GITHUB_USER_AUTHORIZATION`;
-     `pnpm sync:preview-github-seed` updates that secret through standard input without printing it
-   - creates memberships only for the GitHub owner IDs selected by that authorization snapshot;
+     refreshable GitHub App user authorization and selected verified installation records from
+     `PREVIEW_SEED_GITHUB_USER_AUTHORIZATION`; `pnpm sync:preview-github-seed` updates that secret
+     through standard input without printing it
+   - creates memberships only for the GitHub installations selected by that authorization snapshot;
      later seed runs preserve organizations that the user connects through the preview UI
    - attaches the same seeded Convex team and Cloudflare account to every initially selected preview
      organization, without creating vaults; preview defaults must provide

@@ -13,7 +13,6 @@ import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { vGitHubOwnerType } from "./organizationModel";
 import { normalizeGitHubOwnerLogin } from "./organizations";
 import { toSafeRepoName } from "../shared/repoName";
-import { discoverPreviewSeedGitHubAppInstallations } from "./githubApp";
 import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import { readActiveUser } from "./userLifecycle";
@@ -735,27 +734,10 @@ export const seedPasswordAccount = internalAction({
       accountConfig.kind === "local_worktree_seed" ? readSeedWorktreeOrganizationConfig() : null;
     const previewSeed =
       accountConfig.kind === "preview_seed"
-        ? await (async () => {
-            const providerCredentials = readRequiredPreviewSeedProviderCredentials();
-            const githubUserAuthorization = readRequiredPreviewSeedGitHubUserAuthorization();
-            const installations = await discoverPreviewSeedGitHubAppInstallations(
-              requireSeedValue(readSeedValue("DEV_SEED_GITHUB_API_KEY"), "DEV_SEED_GITHUB_API_KEY"),
-            );
-            const connectedGithubOwnerIds = new Set(
-              githubUserAuthorization.authorization.connectedGithubOwnerIds,
-            );
-            const connectedInstallations = installations.filter((installation) =>
-              connectedGithubOwnerIds.has(installation.githubOwnerId),
-            );
-            if (connectedInstallations.length !== connectedGithubOwnerIds.size) {
-              throw new Error("A connected preview seed GitHub owner has no active installation.");
-            }
-            return {
-              githubUserAuthorization,
-              installations: connectedInstallations,
-              providerCredentials,
-            };
-          })()
+        ? {
+            providerCredentials: readRequiredPreviewSeedProviderCredentials(),
+            githubUserAuthorization: readRequiredPreviewSeedGitHubUserAuthorization(),
+          }
         : null;
 
     let created = false;
@@ -811,7 +793,8 @@ export const seedPasswordAccount = internalAction({
         userId,
         serializedAuthorization: previewSeed.githubUserAuthorization.serializedAuthorization,
       });
-      for (const installation of previewSeed.installations) {
+      for (const installation of previewSeed.githubUserAuthorization.authorization
+        .connectedOrganizations) {
         await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
           userId,
           githubOwnerId: installation.githubOwnerId,
