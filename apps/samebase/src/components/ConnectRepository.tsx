@@ -316,16 +316,16 @@ export function ConnectRepositoryPageContent({
         />
         {loadingMore && (
           <p className="mt-2 max-w-2xl text-xs text-muted-foreground">
-            Showing the {repositoryPreviewCount} most recently updated repositories while we load
-            the rest. Search results stay partial until loading finishes.
+            Showing {repositoryPreviewCount} repositories while we load the rest. Search results
+            stay partial until loading finishes.
           </p>
         )}
 
         {showBackgroundError && (
           <div className="mt-3 flex max-w-2xl items-center justify-between gap-3 border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 corner-notch-1">
             <div>
-              Couldn&apos;t load the rest of your repositories. You&apos;re still seeing the most
-              recently updated ones.
+              Couldn&apos;t load the rest of your repositories. You&apos;re still seeing the loaded
+              preview.
             </div>
             <Button
               variant="outline"
