@@ -68,6 +68,7 @@ export type VaultOverviewVisualMode =
   | "vault-overview-v2-settings-active"
   | "vault-overview-v2-settings-checking"
   | "vault-overview-v2-settings-completed"
+  | "vault-overview-v2-settings-drift"
   | "vault-overview-v2-settings-loading";
 
 const FIXTURE_NOW = Date.parse("2026-04-03T00:00:12Z");
@@ -149,12 +150,14 @@ const LIST_SPACING_VAULT = {
       accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
       workerName: "domain-router",
       workerTag: "domain-router-tag",
+      rootDirectory: "apps/domain-router",
     },
     {
       workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
       accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
       workerName: "samebase-worker",
       workerTag: "samebase-worker-tag",
+      rootDirectory: "apps/samebase",
     },
   ],
   convexProjects: [
@@ -176,6 +179,7 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
       {
         state: "available",
         workerId: LIST_SPACING_DOMAIN_WORKER_ID,
+        workerName: "domain-router",
         customDomains: [],
         workersDev: {
           state: "enabled",
@@ -185,6 +189,7 @@ const LIST_SPACING_CLOUDFLARE_OBSERVATIONS = {
       {
         state: "available",
         workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
+        workerName: "samebase-worker",
         customDomains: ["samebase.com"],
         workersDev: {
           state: "enabled",
@@ -566,6 +571,7 @@ const PROVISIONING_VAULT = {
       accountId: "fixture-cloudflare-account",
       workerName: "tmp-f149-vault-loading-states",
       workerTag: "tmp-f149-vault-loading-states-tag",
+      rootDirectory: "/",
     },
   ],
   convexProjects: [
@@ -587,6 +593,7 @@ const PROVISIONING_CLOUDFLARE_OBSERVATIONS = {
       {
         state: "available",
         workerId: PROVISIONING_WORKER_ID,
+        workerName: "tmp-f149-vault-loading-states",
         customDomains: [],
         workersDev: {
           state: "enabled",
@@ -788,6 +795,7 @@ function fixturePullRequests(
                     {
                       workerId: LIST_SPACING_SAMEBASE_WORKER_ID,
                       workerName: "samebase-worker",
+                      rootDirectory: "apps/samebase",
                       cloudflareBuild: {
                         state: "available" as const,
                         uuid: "comment-build-1260",
@@ -803,6 +811,7 @@ function fixturePullRequests(
                     {
                       workerId: LIST_SPACING_DOMAIN_WORKER_ID,
                       workerName: "domain-router",
+                      rootDirectory: "apps/domain-router",
                       cloudflareBuild: {
                         state: "available" as const,
                         uuid: "successful-build-1260",
@@ -818,6 +827,7 @@ function fixturePullRequests(
                       {
                         workerId: LIST_SPACING_DOMAIN_WORKER_ID,
                         workerName: "domain-router",
+                        rootDirectory: "apps/domain-router",
                         cloudflareBuild: {
                           state: "available" as const,
                           uuid: "running-build-1259",
@@ -961,6 +971,8 @@ function buildFixtureWorkspace({
       detachConvexProjectOnClick: () => {},
       pendingAction: null,
       rotateConvexDeployKeysForWorkersBuildsOnClick: () => {},
+      updateCloudflareWorkerNameOnClick: () => {},
+      updateCloudflareWorkerRootDirectoryOnClick: () => {},
       vault,
     }),
     workspace,
@@ -1124,6 +1136,7 @@ type VaultOverviewProviderSettingsVisualMode = Extract<
   | "vault-overview-v2-settings-active"
   | "vault-overview-v2-settings-checking"
   | "vault-overview-v2-settings-completed"
+  | "vault-overview-v2-settings-drift"
 >;
 
 function VaultOverviewProviderSettingsFixture({
@@ -1193,6 +1206,37 @@ function VaultOverviewProviderSettingsFixture({
         },
       };
       cloudflareObservations = PROVISIONING_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
+      break;
+    case "vault-overview-v2-settings-drift":
+      vault = {
+        ...PROVISIONING_VAULT,
+        providerPlan: PROVISIONING_CREATED_PROVIDER_PLAN,
+      };
+      cloudflareObservations = {
+        ...PROVISIONING_CLOUDFLARE_OBSERVATIONS,
+        workers: {
+          ...PROVISIONING_CLOUDFLARE_OBSERVATIONS.workers,
+          observations: PROVISIONING_CLOUDFLARE_OBSERVATIONS.workers.observations.map(
+            (observation) => ({
+              ...observation,
+              workerName: "tmp-f149-vault-loading-states-renamed",
+            }),
+          ),
+        },
+        builds: {
+          ...PROVISIONING_CLOUDFLARE_OBSERVATIONS.builds,
+          observations: PROVISIONING_CLOUDFLARE_OBSERVATIONS.builds.observations.map(
+            (observation) => ({
+              ...observation,
+              repository: {
+                ...observation.repository,
+                rootDirectory: "apps/web",
+              },
+            }),
+          ),
+        },
+      };
       convexObservations = PROVISIONING_CONVEX_OBSERVATIONS;
       break;
   }
@@ -1290,6 +1334,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
     case "vault-overview-v2-settings-active":
     case "vault-overview-v2-settings-checking":
     case "vault-overview-v2-settings-completed":
+    case "vault-overview-v2-settings-drift":
       return <VaultOverviewProviderSettingsFixture mode={mode} />;
   }
 

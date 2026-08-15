@@ -4,7 +4,7 @@
 
 - Status: Implemented for MVP
 - Owner: Samebase backend/frontend
-- Last updated: 2026-08-14
+- Last updated: 2026-08-15
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Related deletion contract: `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
@@ -13,8 +13,8 @@
 - Resource attachment model: `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
 - Organization deployment providers: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
-> Note: this spec describes the Workers-only provisioning workflow. Durable resource attachment
-> identity and read-time root projection are defined in spec 115.
+> Note: this spec describes the Workers-only provisioning workflow. Durable resource identity,
+> approved coordinates, and root projection are defined in spec 115.
 
 ## Summary
 
@@ -172,13 +172,15 @@ Indexes:
 ### `vaultCloudflareWorkers`
 
 - `vaultId`, `organizationId`
-- `accountId`, `workerName`, `workerTag`
+- `accountId`, `workerName`, `workerTag`, `rootDirectory`
 - `origin: "provisioned" | "selected_existing"`
 
-This table is the durable attachment between a vault and a Cloudflare Worker. Current workers.dev
-URLs, Worker existence, Workers Builds triggers, repository configuration, root directory, and
-Convex deploy keys are provider state and must not be mirrored into this row. Convex `_creationTime`
-records when the attachment was created.
+This table is the durable attachment between a vault and a Cloudflare Worker. `workerTag` is the
+stable provider identity. `workerName` and `rootDirectory` are mutable, user-approved coordinates.
+The stored root controls dashboard placement. Current workers.dev URLs, domains, Worker existence,
+Workers Builds triggers, repository configuration, build status, token data, and Convex deploy keys
+are provider state and must not be mirrored into this row. Live name and root observations detect
+drift but do not update the row. Convex `_creationTime` records when the attachment was created.
 
 ### Worker-to-Convex build relationship
 
@@ -226,9 +228,9 @@ write-safety check.
 
 Cloudflare uses three independently loading observation axes:
 
-1. Worker identity, existence, and workers.dev availability.
+1. Worker identity, current name, existence, domains, and workers.dev availability.
 2. Workers Builds repository configuration, production/preview trigger identifiers, and each
-   trigger's build-token UUID.
+   trigger's build-token UUID, including the current normalized root used for drift detection.
 3. Convex marker and deploy-key classification for the connected trigger identifiers.
 
 The dashboard starts the first two reads concurrently. A confirmed Worker and its links become
@@ -347,21 +349,32 @@ Repository default branch:
 8. `api.vault.cloudflare.discoverWorkers` and `api.vault.cloudflare.attachWorkers`
 
 - Discover returns Workers connected to the vault repository with their current verified roots.
-- Attach accepts several selected Worker identities and commits the whole selection atomically.
+- Attach accepts several selected Worker identities and commits each verified name and root in the
+  whole atomic selection.
 
 9. `api.vault.cloudflare.createWorker` and `api.vault.cloudflare.detachWorker`
 
-- Create records a provisioned attachment before later provider configuration can fail.
+- Create records a provisioned attachment with its approved root before later provider configuration
+  can fail.
 - Detach changes only the organization's attachment intent and never deletes a selected existing
   Worker.
 
-10. `api.vault.convex.discoverProjects` and `api.vault.convex.attachProjects`
+10. `api.vault.cloudflare.updateWorkerName` and `api.vault.cloudflare.updateWorkerRootDirectory`
+
+- Name update args: `{ vaultId, workerId, expectedWorkerName }`.
+- Root update args: `{ vaultId, workerId, expectedRootDirectory }`.
+- Each action requires an active organization member, resolves the Worker by stable `workerTag`,
+  re-reads the current provider coordinate, and compare-and-swaps only the requested attachment
+  field. The root update also verifies one unambiguous normalized root for the vault's exact GitHub
+  repository.
+
+11. `api.vault.convex.discoverProjects` and `api.vault.convex.attachProjects`
 
 - Discover returns provider projects plus exact discovered `convex.json` or default-layout
   `package.json` and sibling `convex/` candidates.
 - Attach requires one verified code location per selected project and commits the batch atomically.
 
-11. `api.vault.convex.createProject` and `api.vault.convex.detachProject`
+12. `api.vault.convex.createProject` and `api.vault.convex.detachProject`
 
 - Create records the provider checkpoint and provisioned attachment before metadata refresh.
 - Detach changes only the organization's attachment intent.
@@ -487,7 +500,7 @@ Dashboard external links:
   repository title.
 - The row includes the GitHub repository link and only renders when at least one managed-infra link
   is available.
-- The Cloudflare link targets the specific Worker:
+- The Cloudflare link targets the specific Worker by its current observed name:
   `https://dash.cloudflare.com/?to=/<accountId>/workers/services/view/<workerName>/production/settings`.
 - A live Convex observation provides the `Project settings` link for the project-scoped settings
   page: `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/settings`.
@@ -496,9 +509,9 @@ Dashboard external links:
   represented as a pull request.
 - The default-branch surface links the exact branch to its GitHub tree and to the branch editor at
   `/vault/:owner/:repo/fs/:branch` without compare mode.
-- Live workers.dev URLs render in the surface's production resource group only after the direct
-  Worker attachment joins matching Worker identity and Builds-root observations. No provider URL or
-  repository root is copied into another Samebase model.
+- Live workers.dev URLs render in the surface's production resource group after the direct Worker
+  attachment joins a matching Worker identity observation. The stored root selects the resource
+  group. No provider URL is copied into another Samebase model.
 - The production Convex link renders on the default-branch surface, not in the repository-title
   service row, because the production deployment follows that branch.
 - The production Convex link uses the observed team slug, project slug, and deployment name:

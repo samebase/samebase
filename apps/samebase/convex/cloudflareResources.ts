@@ -374,7 +374,7 @@ async function readWorker(
   args: {
     token: string;
     accountId: string;
-    workerName: string;
+    workerIdentifier: string;
   } & CloudflareApiCallOptions,
 ): Promise<CloudflareWorker | null> {
   try {
@@ -386,14 +386,14 @@ async function readWorker(
       params: {
         path: {
           account_id: args.accountId,
-          worker_id: args.workerName,
+          worker_id: args.workerIdentifier,
         },
       },
       recordApiCall: args.recordApiCall,
     });
     return requireCloudflareResult(
       raw,
-      `Cloudflare Worker ${args.workerName} response did not include a Worker.`,
+      `Cloudflare Worker ${args.workerIdentifier} response did not include a Worker.`,
     );
   } catch (error) {
     if (isCloudflareWorkerNotFoundError(error)) {
@@ -403,16 +403,13 @@ async function readWorker(
   }
 }
 
-export async function readCloudflareWorkerIdentity(
-  args: {
-    token: string;
-    accountId: string;
-    workerName: string;
-  } & CloudflareApiCallOptions,
-): Promise<CloudflareWorkerDetails | null> {
-  const worker = await readWorker(args);
-  if (!worker) {
-    return null;
+function readCloudflareWorkerDetails(
+  worker: CloudflareWorker,
+  workerIdentifier: string,
+): CloudflareWorkerDetails {
+  const workerName = worker.name.trim();
+  if (!workerName) {
+    throw new Error(`Cloudflare Worker ${workerIdentifier} did not include a name.`);
   }
 
   const customDomains = [
@@ -435,7 +432,7 @@ export async function readCloudflareWorkerIdentity(
         // The error below identifies the provider response field.
       }
     }
-    const workerHostnamePrefix = `${args.workerName.toLowerCase()}.`;
+    const workerHostnamePrefix = `${workerName.toLowerCase()}.`;
     const workersDevHostnameSuffix = ".workers.dev";
     if (
       !parsedUrl ||
@@ -459,9 +456,43 @@ export async function readCloudflareWorkerIdentity(
   return {
     customDomains,
     workersDev,
-    workerName: args.workerName,
-    workerTag: readCloudflareWorkerTag(worker, args.workerName),
+    workerName,
+    workerTag: readCloudflareWorkerTag(worker, workerName),
   };
+}
+
+export async function readCloudflareWorkerIdentity(
+  args: {
+    token: string;
+    accountId: string;
+    workerName: string;
+  } & CloudflareApiCallOptions,
+): Promise<CloudflareWorkerDetails | null> {
+  const worker = await readWorker({
+    token: args.token,
+    transport: args.transport,
+    accountId: args.accountId,
+    workerIdentifier: args.workerName,
+    ...(args.recordApiCall ? { recordApiCall: args.recordApiCall } : {}),
+  });
+  return worker ? readCloudflareWorkerDetails(worker, args.workerName) : null;
+}
+
+export async function readCloudflareWorkerIdentityByTag(
+  args: {
+    token: string;
+    accountId: string;
+    workerTag: string;
+  } & CloudflareApiCallOptions,
+): Promise<CloudflareWorkerDetails | null> {
+  const worker = await readWorker({
+    token: args.token,
+    transport: args.transport,
+    accountId: args.accountId,
+    workerIdentifier: args.workerTag,
+    ...(args.recordApiCall ? { recordApiCall: args.recordApiCall } : {}),
+  });
+  return worker ? readCloudflareWorkerDetails(worker, args.workerTag) : null;
 }
 
 export async function isCloudflareWorkerNameAvailable(args: {
@@ -774,7 +805,7 @@ export async function createCloudflareWorker(args: {
   const existing = await readWorker({
     token: args.token,
     accountId: args.accountId,
-    workerName: args.workerName,
+    workerIdentifier: args.workerName,
     transport: args.transport,
   });
   if (existing) {

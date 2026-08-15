@@ -23,6 +23,7 @@ import {
   readRecentCloudflareWorkerBuilds,
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerIdentity,
+  readCloudflareWorkerIdentityByTag,
   readCloudflareWorkerRepositoryDiscoveryForIdentity,
   readCloudflareWorkerTag,
   readCloudflareWorkerVersionsPage,
@@ -478,6 +479,33 @@ describe("cloudflare resources", () => {
       workerTag: "worker-tag",
     });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads a renamed Worker by its immutable tag and returns its current name", async () => {
+    const requestedPaths: string[] = [];
+    const renamedEnvelope = cloudflareWorkerReadEnvelope
+      .replace('"name":"samebase-app"', '"name":"renamed-app"')
+      .replace("samebase-app.provider-owned.workers.dev", "renamed-app.provider-owned.workers.dev");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        requestedPaths.push(new URL(input instanceof Request ? input.url : String(input)).pathname);
+        return new Response(renamedEnvelope, {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }),
+    );
+
+    await expect(
+      readCloudflareWorkerIdentityByTag({
+        token: "oauth-token",
+        transport: "direct",
+        accountId: "account-id",
+        workerTag: "worker-tag",
+      }),
+    ).resolves.toMatchObject({ workerName: "renamed-app", workerTag: "worker-tag" });
+    expect(requestedPaths).toEqual(["/client/v4/accounts/account-id/workers/workers/worker-tag"]);
   });
 
   it("does not expose the production URL when workers.dev is disabled", async () => {

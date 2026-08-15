@@ -28,6 +28,7 @@ type VaultPullRequestTarget = Pick<UserVaultResult, "_id" | "sourceSetup"> & {
     accountId: string;
     workerName: string;
     workerTag: string;
+    rootDirectory?: string;
   }[];
   convexProjects: readonly {
     convexProjectId: Id<"vaultConvexProjects">;
@@ -172,6 +173,7 @@ export function useVaultPullRequests(args: {
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
+      rootDirectory: worker.rootDirectory,
     }))
     .sort((left, right) => left.workerId.localeCompare(right.workerId));
   const projectAttachments = [...(args.vault?.convexProjects ?? [])]

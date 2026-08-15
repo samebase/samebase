@@ -45,6 +45,10 @@ export function VaultSelectedWorkspace({
   );
   const detachCloudflareWorker = useAction(api.vault.cloudflare.detachWorker);
   const detachConvexProject = useAction(api.vault.convex.detachProject);
+  const updateCloudflareWorkerName = useAction(api.vault.cloudflare.updateWorkerName);
+  const updateCloudflareWorkerRootDirectory = useAction(
+    api.vault.cloudflare.updateWorkerRootDirectory,
+  );
   const rotateConvexDeployKeysForWorkersBuilds = useAction(
     api.vault.cloudflare.rotateConvexDeployKeysForWorkersBuilds,
   );
@@ -76,6 +80,10 @@ export function VaultSelectedWorkspace({
     vaultDashboardDialogHistoryEntry?.dialog === "add-cloudflare"
       ? (vaultDashboardDialogHistoryEntry.repairWorkerId ?? null)
       : null;
+  const cloudflareRepairWorker = cloudflareRepairWorkerId
+    ? (vault.cloudflareWorkers.find((worker) => worker.workerId === cloudflareRepairWorkerId) ??
+      null)
+    : null;
   const cloudflareRepairBuildsObservation =
     cloudflareRepairWorkerId && workspace.cloudflareObservations.builds.state === "loaded"
       ? (workspace.cloudflareObservations.builds.observations.find(
@@ -83,10 +91,11 @@ export function VaultSelectedWorkspace({
         ) ?? null)
       : null;
   const cloudflareRepairRootDirectory =
-    cloudflareRepairBuildsObservation?.state === "available" &&
+    cloudflareRepairWorker?.rootDirectory ??
+    (cloudflareRepairBuildsObservation?.state === "available" &&
     cloudflareRepairBuildsObservation.repository.state === "ready"
       ? cloudflareRepairBuildsObservation.repository.rootDirectory
-      : null;
+      : null);
   const cloudflareRepairBuildTokenUuid =
     cloudflareRepairBuildsObservation?.state === "available" &&
     cloudflareRepairBuildsObservation.builds.state === "connected" &&
@@ -237,6 +246,38 @@ export function VaultSelectedWorkspace({
     openProviderDialog({ provider: "cloudflare", repairWorkerId: workerId });
   };
 
+  const handleUpdateCloudflareWorkerName = (
+    workerId: Id<"vaultCloudflareWorkers">,
+    expectedWorkerName: string,
+  ) => {
+    void runProviderAction({
+      action: { kind: "update_cloudflare_worker_name", workerId },
+      errorTitle: "Could not update Cloudflare Worker name",
+      run: () =>
+        updateCloudflareWorkerName({
+          expectedWorkerName,
+          vaultId: vault._id,
+          workerId,
+        }),
+    });
+  };
+
+  const handleUpdateCloudflareWorkerRootDirectory = (
+    workerId: Id<"vaultCloudflareWorkers">,
+    expectedRootDirectory: string,
+  ) => {
+    void runProviderAction({
+      action: { kind: "update_cloudflare_worker_root_directory", workerId },
+      errorTitle: "Could not update Cloudflare Worker root",
+      run: () =>
+        updateCloudflareWorkerRootDirectory({
+          expectedRootDirectory,
+          vaultId: vault._id,
+          workerId,
+        }),
+    });
+  };
+
   const handleRotateConvexDeployKeysForWorkersBuilds = (
     workerId: Id<"vaultCloudflareWorkers">,
     convexProjectId: Id<"vaultConvexProjects">,
@@ -296,6 +337,8 @@ export function VaultSelectedWorkspace({
     detachCloudflareWorkerOnClick: handleDetachCloudflareWorker,
     detachConvexProjectOnClick: handleDetachConvexProject,
     rotateConvexDeployKeysForWorkersBuildsOnClick: handleRotateConvexDeployKeysForWorkersBuilds,
+    updateCloudflareWorkerNameOnClick: handleUpdateCloudflareWorkerName,
+    updateCloudflareWorkerRootDirectoryOnClick: handleUpdateCloudflareWorkerRootDirectory,
   });
 
   return (
@@ -368,7 +411,7 @@ export function VaultSelectedWorkspace({
       {addCloudflareWorkerModeActive ? (
         <VaultCloudflareDialog
           blockedReason={providerActionBlockReason}
-          key={`${vault._id}:${cloudflareRepairWorkerId ?? "add"}`}
+          key={`${vault._id}:${cloudflareRepairWorkerId ?? "add"}:${cloudflareRepairRootDirectory ?? "unresolved"}`}
           onClose={() => {
             closeVaultDashboardDialog("add-cloudflare");
           }}

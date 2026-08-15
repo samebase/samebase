@@ -323,9 +323,10 @@ Before deploying the Workers-only provisioning path, choose one rollout data str
 
 Do not design the runtime model around indefinite Pages compatibility. Do not keep duplicate
 infrastructure status fields that can disagree with the vault provider states. `vaultInfrastructure`
-must be removed rather than repurposed. Stable Cloudflare Worker identity belongs in
-`vaultCloudflareWorkers`; current Worker, URL, Builds, root, and marker state is observed live from
-Cloudflare.
+must be removed rather than repurposed. Stable Cloudflare Worker identity and the user-approved
+Worker name and root belong in `vaultCloudflareWorkers`. Current Worker name and root are observed
+live only to detect drift. Worker existence, URLs, domains, Builds triggers, build status, token
+data, and marker state remain live Cloudflare observations.
 
 The selected build-token UUID stays in the provisioning plan so an unfinished retry preserves the
 user's exact choice. If Cloudflare removes that record before managed setup finishes, Samebase does

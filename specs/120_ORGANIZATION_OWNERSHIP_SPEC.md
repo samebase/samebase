@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-14
+- Last updated: 2026-08-15
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -218,10 +218,12 @@ them from the organization in the same transaction. These fields bind all later 
 that vault. They do not store a credential ID.
 
 Long-lived `vaultConvexProjects` rows identify external resources with `teamId` and `projectId`.
-Long-lived `vaultCloudflareWorkers` rows identify external resources with `accountId`, `workerName`,
-and `workerTag`. Each resource destination must match its vault. Provisioning and deletion retries
-keep stable external resource IDs and names, then resolve the organization's current credential for
-the vault's team or account. Credential replacement does not rewrite a vault or provider resource.
+Long-lived `vaultCloudflareWorkers` rows identify external resources with `accountId` and stable
+`workerTag`. They also store the mutable, user-approved `workerName` and `rootDirectory`
+coordinates. Each resource destination must match its vault. Provisioning and deletion retries keep
+stable external resource IDs and the approved coordinates they need, then resolve the organization's
+current credential for the vault's team or account. Credential replacement does not rewrite a vault
+or provider resource.
 
 Removing a user from an organization does not clear a credential that the user established. If the
 user deletes the Samebase account, Samebase clears each current credential slot whose

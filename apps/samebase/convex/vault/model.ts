@@ -234,6 +234,7 @@ export const vaultTables = {
     accountId: string(),
     workerName: string(),
     workerTag: string(),
+    rootDirectory: optional(string()),
     origin: vVaultProviderResourceOrigin,
   })
     .index("by_vault", ["vaultId"])

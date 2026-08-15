@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase
-- Last updated: 2026-08-07
+- Last updated: 2026-08-15
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
@@ -36,6 +36,7 @@ The durable Cloudflare attachment is:
   accountId;
   workerName;
   workerTag;
+  rootDirectory;
   origin;
 }
 ```
@@ -57,9 +58,11 @@ The durable Convex attachment is:
 Convex `_creationTime` records when each attachment was created. The rows do not duplicate it as a
 domain field.
 
-`accountId` plus Worker identity and `teamId` plus `projectId` are provider coordinates. `projectId`
-is the stable Convex project continuity key. An attachment's `teamId` must equal its vault's
-`convexTeamId`, and its `accountId` must equal its vault's `cloudflareAccountId`.
+`accountId` plus `workerTag` and `teamId` plus `projectId` are provider identities. `workerTag` is
+the stable Cloudflare Worker continuity key. `workerName` and `rootDirectory` are mutable,
+user-approved coordinates for that identity. `projectId` is the stable Convex project continuity
+key. An attachment's `teamId` must equal its vault's `convexTeamId`, and its `accountId` must equal
+its vault's `cloudflareAccountId`.
 
 Attachments do not store a credential document ID. Convex and Cloudflare operations load the
 organization's singleton provider credential slot and require it to match the vault destination and
@@ -76,8 +79,9 @@ Provider observations are current evidence, not attachment identity:
 
 - GitHub supplies whether the stored code location still has its required config blob or
   default-layout tree metadata.
-- Cloudflare Workers Builds supplies the Worker's current GitHub repository and normalized root
-  directory.
+- Cloudflare supplies the current Worker name. Cloudflare Workers Builds supplies the current GitHub
+  repository and normalized root directory. Samebase compares both values with the approved
+  attachment coordinates.
 - `SAMEBASE_CONVEX_PROJECT` supplies the Worker's current declared Convex project coordinates.
 - Convex supplies the project's current team and accessibility under the connected credential.
 
@@ -109,10 +113,10 @@ observed state. Provider observations do not carry a manual replay state.
 The dashboard derives a resource tree at read time:
 
 - a Convex project's root is the parent directory of `convexConfigPath` or `convexDirectoryPath`;
-- a Worker's root is its current verified Cloudflare Workers Builds root;
+- a Worker's root is its stored `rootDirectory`;
 - resources group only when those normalized paths are exactly equal;
 - a resource group has no ID, lifecycle, persisted row, or empty state;
-- an attached Worker without one unambiguous verified root appears under `Needs attention`;
+- provider root drift adds a Settings warning and never moves the Worker automatically;
 - a Worker marker may annotate a relation to a Convex project, but never changes either resource's
   placement or creates a persisted edge.
 
@@ -132,8 +136,9 @@ The Cloudflare dialog scans the vault's Cloudflare account for Workers connected
 GitHub repository identity. It groups selectable Workers by their read-only live root and supports
 attaching several Workers in one confirmation. Every verified selectable Worker starts selected, and
 the user may deselect any of them. Confirmation re-reads the selected Worker identities, repository
-triggers, roots, and markers before one atomic attachment mutation. A request-provided root is never
-attachment authority.
+triggers, roots, and markers before one atomic attachment mutation. The verified name and root
+become the approved coordinates in that mutation. A request-provided root alone is never attachment
+authority for an already configured Worker.
 
 The Convex dialog discovers regular `convex.json` files from exact default-branch Git tree and blob
 evidence. It also discovers the default layout when a regular `package.json` blob and sibling
@@ -143,16 +148,17 @@ discovered Worker markers sort first and show that evidence, but remain unselect
 expresses attachment intent. Confirmation re-verifies every selected Git evidence set and project
 before one atomic attachment mutation.
 
-Creating a Worker may ask for a repository root because the same operation writes that value to
-Cloudflare Workers Builds. Samebase records the created provider identity and `provisioned`
-attachment together before later configuration can fail, so cleanup ownership is never lost. The
-Worker remains attached under `Needs attention` until Builds verifies a root. Creating a Convex
-project requires a discovered Convex code location; Samebase verifies the source before provider
-creation and records the returned project checkpoint and attachment together.
+Creating a Worker asks for a repository root because the same operation writes that value to
+Cloudflare Workers Builds. Samebase records the created provider identity, approved root, and
+`provisioned` attachment together before later configuration can fail, so cleanup ownership is never
+lost. The Worker stays under that stored root and shows `Needs attention` until Builds verifies the
+configuration. Creating a Convex project requires a discovered Convex code location; Samebase
+verifies the source before provider creation and records the returned project checkpoint and
+attachment together.
 
-Configuring Builds for an attached Worker reuses its current unambiguous live root. If no live root
-exists, the same Cloudflare dialog asks for a root as input to that provider write. This repair
-input does not become attachment state.
+Configuring Builds for an attached Worker uses its stored approved root. A later verified provider
+root change does not replace that value. The user must first accept the provider coordinate through
+`Update root` when the changed provider root is the intended placement.
 
 ### Drift and deletion
 
@@ -161,8 +167,17 @@ detach a project. Samebase keeps the stored expected location and reports the Gi
 `Change code location` verifies a newly selected location and compare-and-swaps only that placement
 variant.
 
-Changing a Worker's Cloudflare Builds root automatically changes its derived dashboard group after
-the next observation. Samebase does not mirror the previous root.
+Changing a Worker's Cloudflare name or Builds root does not change its Samebase label or dashboard
+group. Settings compares the live values with `workerName` and `rootDirectory` and warns for each
+changed coordinate. Overview and pull request surfaces continue to use the stored coordinates.
+
+`Update name` calls `updateWorkerName({ vaultId, workerId, expectedWorkerName })`. `Update root`
+calls `updateWorkerRootDirectory({ vaultId, workerId, expectedRootDirectory })`. Each action
+requires an active organization member, resolves the exact provider resource through `workerTag`,
+re-reads the current provider coordinate, and compare-and-swaps only the requested stored field. The
+root action also requires one unambiguous normalized root for the vault's exact GitHub repository. A
+failed or conflicting re-read leaves the attachment unchanged. Samebase never updates either
+coordinate from an observation alone.
 
 A missing Worker remains attached under `Needs attention` until the user explicitly removes it from
 the vault. A Convex 404 under the stored team is ambiguous because the project may have been deleted
@@ -174,7 +189,9 @@ because the resource no longer matches the vault's fixed Convex destination. The
 project-team reconciliation action.
 
 Removing either provider attachment is an explicit change to organization attachment intent.
-Provider absence may explain why removal is useful, but is not the mutation authority.
+Provider absence may explain why removal is useful, but is not the mutation authority. Cloudflare
+deletion continues to use `workerTag` as provider authority. Neither the mutable Worker name nor its
+root can authorize deletion.
 
 ### Resource-specific routes
 
@@ -184,10 +201,10 @@ several projects share one code location.
 
 ### Managed provisioning
 
-The create-app workflow stores the exact `convexConfigPath` in its immutable provisioning plan and
-stores the Cloudflare root only inside the Worker build configuration. These are independent
-provider intents, not a reusable domain entity. Checkpoints resolve exact provider identities and
-never use the derived root tree as authority.
+The create-app workflow stores the exact `convexConfigPath` and Cloudflare root in its immutable
+provisioning plan. Successful attachment writes copy each approved source coordinate to its matching
+resource attachment. These are independent resource coordinates, not a reusable domain entity.
+Checkpoints resolve exact provider identities and never use the root tree as identity authority.
 
 The plan is retry input and a temporary dashboard projection source. It is not an attachment,
 provider observation, or active operation.
@@ -198,24 +215,27 @@ provider observation, or active operation.
   folders.
 - Persisting a Worker-to-Convex edge derived from `SAMEBASE_CONVEX_PROJECT`.
 - Treating current provider observations as organization attachment intent.
+- Automatically accepting a changed Worker name or root.
+- Persisting Worker domains, URLs, triggers, build status, token data, or Convex build markers.
 - Reconstructing or preserving rows from the removed app-root model.
 - Rejecting unusual repository layouts because they do not contain an expected sibling file.
 
 ## Validation
 
 - Schema and mutation tests prove there is no `vaultApps` table or `appId` field, provider
-  identities are globally exclusive, batch attachment is atomic, and several projects may share a
-  code location.
+  identities are globally exclusive, Worker roots are stored, batch attachment is atomic, and
+  several projects may share a code location.
 - GitHub tests cover root and nested configs, default-layout metadata, malformed or non-regular
   files, truncated trees, changed evidence at confirmation, and explicit location reconciliation.
 - Cloudflare tests cover complete pagination, partial fallback, exact GitHub repository matching,
-  ambiguous roots, root drift, missing Workers, and marker disagreement.
+  ambiguous roots, name and root drift, explicit coordinate updates, missing Workers, and marker
+  disagreement.
 - Convex tests cover project continuity by `projectId`, destination mismatches, concurrent changes,
   and inaccessible projects that fail closed.
 - Route and UI tests cover bare provider flags, multi-selection, closed code-location selectors,
   read-only observed Worker roots, default Worker selection, Worker-referenced Convex ordering,
-  exact build access targets, exact root grouping, `Needs attention`, and project-attachment Data
-  and Schema routes.
+  exact build access targets, stored root grouping, Settings drift warnings and update actions,
+  `Needs attention`, and project-attachment Data and Schema routes.
 - Projection tests cover plan-only rows, manual supersession of a managed failure, attachment
   replacement, observation decoration, canceled plans, readable labels, empty states, and the rule
   that observations never create rows.
@@ -224,8 +244,45 @@ provider observation, or active operation.
 
 ## Rollout
 
-Before the schema push, delete all vaults through the product and verify that `vaults`, provider
-attachments, provisioning plans, and provider write locks are empty. Existing vault rows do not have
-the required provider destinations. The rollout intentionally requires the user to reconnect both
-providers, recreate the vaults, and attach resources again. No migration field, dual write, fallback
-read, or compatibility adapter is permitted.
+This change uses two deployment checkpoints because existing Worker attachments do not have
+`rootDirectory`.
+
+Checkpoint 1 makes `rootDirectory` optional in the storage validator. All new attach and create
+writes must supply it. Reads use the stored root when present. A legacy row can temporarily use one
+unambiguous verified live Builds root for placement. For a `provisioned` Worker, the temporary
+backfill can use the normalized root from an unchanged `created` managed plan only when its Worker
+name and stable `workerTag` match the attachment exactly. Otherwise, it reads the legacy Worker
+through its account and stable `workerTag`, requires an exact match to the vault GitHub repository,
+and writes only that verified normalized live root. The organization verifier reports the state of
+each attachment in the selected page. It must not infer a root from a repository tree, an unmatched
+plan, a Worker name by itself, another Worker, or a common monorepo layout.
+
+All product reads prefer a stored root during checkpoint 1. Overview and pull request trees use a
+verified live Builds root only for a legacy attachment that has no stored root. They use the
+`Cloudflare Workers` group when neither root is available. Settings shows a rootless legacy row
+without a group while Builds is loading or checking, under the verified live root when one becomes
+ready, and under `Needs attention` when no verified root is available. A ready live root also offers
+`Update root` so a member can approve it.
+
+`Configure Workers Builds` always uses the saved approved root when it exists, including when the
+live root is missing or different. For a legacy attachment only, repair uses a verified live root
+when available and otherwise starts its root input with `/`. Before any Builds write, the legacy
+repair calls `Update root`. The backend re-reads Cloudflare and must verify that the exact candidate
+is the Worker's current unambiguous repository root. A successful update stores that root, then
+repair configures Builds with the same saved value. A failed verification stores nothing and stops
+before the Builds write. The `/` input is never attachment authority by itself.
+
+After checkpoint 1 is live, the operator follows
+`docs/cloudflare-worker-root-directory-backfill.md`. The organization-scoped verifier and backfill
+use pages of at most 20 attachments. Provider access failure, missing identity, repository mismatch,
+and ambiguous or missing roots are unresolved outcomes. The operator repairs or explicitly removes
+each affected attachment through normal product authority.
+
+A separate global audit scans at most 100 Worker attachments per page and reports every attachment
+that still has no stored root. It does not accept an organization filter. Production verification is
+clean only when every global audit page reports no missing Worker IDs and the final page reports
+that the scan is complete. This global zero-missing-root result is the checkpoint 2 gate.
+
+Checkpoint 2 makes `rootDirectory` required and removes the temporary legacy fallback, backfill,
+organization verifier, global audit, and optional-field branches. It must not deploy until the
+global audit is clean.

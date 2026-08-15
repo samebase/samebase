@@ -743,6 +743,7 @@ async function readOrganizationVaults(
         accountId: worker.accountId,
         workerName: worker.workerName,
         workerTag: worker.workerTag,
+        ...(worker.rootDirectory ? { rootDirectory: worker.rootDirectory } : {}),
       }));
       const convexProjectSummaries = convexProjects.map((project) => ({
         convexProjectId: project._id,

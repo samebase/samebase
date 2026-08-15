@@ -88,6 +88,20 @@ async function requireActiveOrganizationProviderMember(
   return await requireOrganizationMembership(db, args);
 }
 
+async function requireActiveWorkerRootDirectoryBackfillMember(
+  db: DatabaseReader,
+  args: { organizationId: Id<"organizations">; userId: Id<"users"> },
+): Promise<Doc<"organizationMemberships">> {
+  const [, organization] = await Promise.all([
+    requireActiveOrganizationProviderUser(db, args.userId),
+    db.get(args.organizationId),
+  ]);
+  if (organization === null) {
+    throw new Error("Organization not found.");
+  }
+  return await requireOrganizationMembershipRecord(db, args);
+}
+
 async function requireActiveOrganizationProviderOwner(
   db: DatabaseReader,
   args: { organizationId: Id<"organizations">; userId: Id<"users"> },
@@ -216,6 +230,19 @@ export const loadForProviderStatus = internalQuery({
       throw new Error("Organization not found.");
     }
     await requireOrganizationMembershipRecord(ctx.db, args);
+    return await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
+  },
+});
+
+/** Temporary root migration access. It permits active members but does not permit normal work. */
+export const loadForWorkerRootDirectoryBackfill = internalQuery({
+  args: {
+    organizationId: id("organizations"),
+    userId: id("users"),
+  },
+  returns: vOrganizationProviderConfiguration,
+  handler: async (ctx, args) => {
+    await requireActiveWorkerRootDirectoryBackfillMember(ctx.db, args);
     return await getOrganizationProviderConfiguration(ctx.db, args.organizationId);
   },
 });
@@ -825,6 +852,25 @@ export const replaceCloudflareCredentialForVaultWorkflow = internalMutation({
   },
 });
 
+export const replaceCloudflareCredentialForWorkerRootDirectoryBackfill = internalMutation({
+  args: {
+    organizationId: id("organizations"),
+    userId: id("users"),
+    expectedAuth: vCloudflareProviderAuth,
+    auth: vCloudflareProviderAuth,
+    tokenHealth: vMcpTokenHealth,
+    expectedTokenRefreshLease: optional(vCloudflareTokenRefreshLease),
+  },
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    if (args.expectedTokenRefreshLease === undefined) {
+      await requireActiveWorkerRootDirectoryBackfillMember(ctx.db, args);
+    }
+    await replaceCloudflareCredentialAfterAuthority(ctx, args.organizationId, args);
+    return null;
+  },
+});
+
 export const disconnectConvex = internalMutation({
   args: {
     organizationId: id("organizations"),
@@ -936,6 +982,30 @@ export const claimCloudflareTokenRefreshForVaultWorkflow = internalMutation({
   },
 });
 
+export const claimCloudflareTokenRefreshForWorkerRootDirectoryBackfill = internalMutation({
+  args: {
+    organizationId: id("organizations"),
+    userId: id("users"),
+    expectedAuth: vCloudflareProviderAuth,
+    force: optional(boolean()),
+    debounceMs: optional(number()),
+  },
+  returns: union(
+    object({
+      claimed: literal(true),
+      tokenRefreshLease: vCloudflareTokenRefreshLease,
+    }),
+    object({
+      claimed: literal(false),
+      nextAllowedRefreshAt: optional(number()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    await requireActiveWorkerRootDirectoryBackfillMember(ctx.db, args);
+    return await claimCloudflareTokenRefreshAfterAuthority(ctx, args.organizationId, args);
+  },
+});
+
 export const releaseCloudflareTokenRefresh = internalMutation({
   args: {
     organizationId: id("organizations"),
@@ -962,5 +1032,19 @@ export const releaseCloudflareTokenRefreshForVaultWorkflow = internalMutation({
   handler: async (ctx, args) => {
     const authority = await requireVaultProviderWorkflowAuthority(ctx.db, args.authority);
     return await releaseCloudflareTokenRefreshAfterAuthority(ctx, authority.organizationId, args);
+  },
+});
+
+export const releaseCloudflareTokenRefreshForWorkerRootDirectoryBackfill = internalMutation({
+  args: {
+    organizationId: id("organizations"),
+    expectedTokenRefreshLease: vCloudflareTokenRefreshLease,
+    recordLastTokenRefreshAt: optional(boolean()),
+  },
+  returns: object({
+    lastTokenRefreshAt: optional(number()),
+  }),
+  handler: async (ctx, args) => {
+    return await releaseCloudflareTokenRefreshAfterAuthority(ctx, args.organizationId, args);
   },
 });

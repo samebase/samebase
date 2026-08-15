@@ -1192,6 +1192,7 @@ describe("MCP tools/call access enforcement", () => {
                   accountId: cloudflareAccountId,
                   workerName: "mcp-worker",
                   workerTag: "mcp-worker-tag",
+                  rootDirectory: "apps/web",
                 },
               ],
             }),
