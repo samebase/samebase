@@ -683,6 +683,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-sidebar-open.png",
   "apps/samebase/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-swipe-debug-left-to-main.png",
   "apps/samebase/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-mobile-swipe-debug-main-to-left.png",
+  "apps/samebase/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-narrow-fine-pointer-sidebar-open.png",
   "apps/samebase/e2e/workspace-sidebar-visual.spec.ts-snapshots/fileview-layout-shell-left-tree.png",
   "apps/samebase/fixtures/browser-convex-proxy.env",
   "apps/samebase/lintConfig.test.ts",
