@@ -50,7 +50,7 @@ repos and pages (operator policy: link now, flip later; this file records the fl
 
 ## Anytime (not launch-gated)
 
-- [x] Monorepo seed flip: export the public `samebase/app` `main` snapshot without requiring a
-      private GitHub token (2026-08-04)
+- [x] Monorepo-owned app template: generate the stored seed from `templates/app` and publish the
+      accepted tree to `samebase/app` (2026-08-15)
 - [ ] README "Do it faster with Samebase" section in samebase/app, mirroring the old notermd §8
       funnel

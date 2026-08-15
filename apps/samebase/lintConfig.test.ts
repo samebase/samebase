@@ -325,4 +325,14 @@ describe("lint config", () => {
       expect.arrayContaining(["apps/samebase/AGENTS.md", "apps/samebase/CLAUDE.md"]),
     );
   });
+
+  it("leaves the starter app checks to its standalone workspace", () => {
+    const lintConfig = readRootLintConfig();
+    const fmtConfig = readRootFmtConfig();
+
+    expect(lintConfig.ignorePatterns).toContain("templates/app/**");
+    expect(
+      readStringArray(fmtConfig.ignorePatterns, "vite.config.ts.fmt.ignorePatterns"),
+    ).toContain("templates/app/**");
+  });
 });

@@ -85,6 +85,14 @@ function createRepositoryExportFixture(): {
 }
 
 describe("repository exports", () => {
+  it("publishes the standalone app template to samebase/app", () => {
+    expect(repositoryExports).toContainEqual({
+      sourceRoot: "templates/app",
+      targetBranch: "main",
+      targetRepository: "app",
+    });
+  });
+
   it("publishes the exact source tree as a direct external child and then becomes a no-op", () => {
     const fixture = createRepositoryExportFixture();
     const gitEnvironment = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
@@ -205,7 +213,7 @@ describe("repository exports", () => {
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
-      expect(readFileSync(outputPath, "utf8")).toBe("repositories=plugin\n");
+      expect(readFileSync(outputPath, "utf8")).toBe("repositories=plugin,app\n");
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
     }

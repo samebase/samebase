@@ -11,17 +11,20 @@ committed directory.
 The exported repository root is the exact Git tree at that source directory. Put only public files
 that belong in the external repository in the source directory.
 
-The monorepo owns formatting, lint, type, and other development checks. An exported repository does
-not need a second package manager workspace or a second tool configuration. It can include a small
-dependency-free check when that check is useful to external users. For example, `plugin` checks its
-plugin contract with Node.js in both the monorepo and the external repository.
+An export can use the root workspace or remain a standalone package manager boundary. The plugin
+uses root tooling and includes a small dependency-free public check. The app template must work as
+an independent repository, so `templates/app` owns its own `package.json`, `pnpm-workspace.yaml`,
+`pnpm-lock.yaml`, and public workflow. It is intentionally outside the root workspace globs.
+
+The monorepo must run the checks that protect each export before publication. Run standalone export
+checks in a fresh job so root dependencies cannot hide an undeclared dependency.
 
 ## Automatic workflow
 
 The publisher runs only for a push to `main`, after the standard checks and unit tests succeed.
-Supply-chain validation runs before those checks. Playwright and Windows smoke tests continue in
-parallel, but they do not block repository exports because exported packages do not depend on app
-browser behavior.
+Supply-chain validation runs before those checks. The app export also requires its isolated
+supply-chain and build checks. Playwright and Windows smoke tests continue in parallel, but they do
+not block repository exports because exported packages do not depend on Samebase browser behavior.
 
 For each configured export, it:
 
@@ -47,6 +50,28 @@ Its body records the source repository, source commit, and source directory.
 The subject identifies the current `main` snapshot that publishes the files. If a newer `main`
 commit replaces an older successful run, the older run stops. The newer snapshot then publishes with
 its own subject, even when that commit did not change the source directory.
+
+## Starter app export
+
+`templates/app` is the maintained starter source. A template change has three outputs in one pull
+request:
+
+1. the standalone app tree and its lockfile under `templates/app`
+2. the committed `starterSeedManifest.generated.ts` used by runtime app creation
+3. the public `samebase/app` tree published after merge
+
+Stage template changes before running `pnpm run template:export`, then stage the generated manifest.
+The generator reads the staged Git blobs so the seed bytes match the future public export exactly.
+It rejects unstaged source changes and new non-ignored files. Untracked ignored files, including
+local environment files, dependencies, and build output, cannot enter the seed. The generated
+version uses the content hash. Required root checks regenerate the manifest and reject a diff.
+
+Runtime app creation imports the committed manifest. It does not fetch the public repository or read
+the template directory. A public export failure therefore cannot stop Samebase from creating a new
+app from the last accepted snapshot.
+
+Root CI installs and audits the template through its nested lockfile, then builds it in a separate
+fresh job.
 
 ## Agent plugin versions
 

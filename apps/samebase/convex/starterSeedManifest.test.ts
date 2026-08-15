@@ -3,11 +3,12 @@ import { starterTemplateManifest } from "./starterSeedManifest.generated";
 
 describe("starterSeedManifest", () => {
   it("contains a single template snapshot contract", () => {
-    expect(starterTemplateManifest.version).toMatch(/^samebase-app-[0-9a-f]{12}$/);
-    expect(starterTemplateManifest.sourceRepo).toBe("https://github.com/samebase/app.git");
-    expect(starterTemplateManifest.sourceBranch).toBe("main");
-    expect(starterTemplateManifest.sourceCommit).toMatch(/^[0-9a-f]{40}$/);
     expect(starterTemplateManifest.contentHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(starterTemplateManifest.version).toBe(
+      `samebase-app-${starterTemplateManifest.contentHash.slice(0, 12)}`,
+    );
+    expect(starterTemplateManifest.sourcePath).toBe("templates/app");
+    expect(starterTemplateManifest.publishedRepo).toBe("https://github.com/samebase/app.git");
     expect(starterTemplateManifest.commitMessage).toBe("chore: seed starter template");
   });
 
@@ -17,7 +18,9 @@ describe("starterSeedManifest", () => {
     const allFilePaths = [...filePaths, ...binaryFilePaths];
 
     expect(filePaths).toContain("package.json");
+    expect(filePaths).toContain("pnpm-lock.yaml");
     expect(filePaths).toContain("pnpm-workspace.yaml");
+    expect(filePaths).toContain(".github/workflows/ci.yml");
     expect(filePaths).toContain(".node-version");
     expect(filePaths).toContain("wrangler.jsonc");
     expect(filePaths).toContain("scripts/build-cloudflare.ts");
@@ -161,10 +164,10 @@ describe("starterSeedManifest", () => {
       '"--preview-create"',
     );
     expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).toContain(
-      "store `CONVEX_DEPLOY_KEY` on\nthe production trigger and `PREVIEW_CONVEX_DEPLOY_KEY` on the preview trigger",
+      "write the same two secrets to both\ntriggers",
     );
     expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).not.toContain(
-      "store both secrets on every\ntrigger",
+      "store `CONVEX_DEPLOY_KEY` on\nthe production trigger and `PREVIEW_CONVEX_DEPLOY_KEY` on the preview trigger",
     );
   });
 
