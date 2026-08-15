@@ -17,7 +17,6 @@
     "bootstrap": "node ./scripts/bootstrap-worktree.ts",
     "connect": "node ./scripts/samebase-pr-connect.ts",
     "connect:once": "node ./scripts/samebase-pr-connect.ts --once",
-    "sync:preview-github-seed": "node ./scripts/sync-preview-github-seed.ts --owner nicu-chiciuc --owner samebase",
     "dev": "node ./scripts/run-context-dev.ts",
     "dev:primary": "node ./scripts/run-primary-dev.ts",
     "dev:worktree": "node ./scripts/run-worktree-dev.ts",

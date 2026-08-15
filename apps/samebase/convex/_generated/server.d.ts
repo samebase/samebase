@@ -48,7 +48,6 @@ type Env = {
   readonly PASSWORD_AUTH_ENABLED: string | undefined;
   readonly POLAR_ACCESS_TOKEN: string | undefined;
   readonly POLAR_WEBHOOK_SECRET: string | undefined;
-  readonly PREVIEW_SEED_GITHUB_USER_AUTHORIZATION: string | undefined;
 };
 
 /**

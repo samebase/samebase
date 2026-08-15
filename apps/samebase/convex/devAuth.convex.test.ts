@@ -1,8 +1,25 @@
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { ACCOUNT_EMAIL_MAX_LENGTH } from "../shared/accountPresentation";
+
+const devAuthMocks = vi.hoisted(() => ({
+  discoverPreviewSeedGitHubAppInstallations: vi.fn(),
+}));
+
+vi.mock("./githubApp", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./githubApp")>();
+  return {
+    ...actual,
+    discoverPreviewSeedGitHubAppInstallations:
+      devAuthMocks.discoverPreviewSeedGitHubAppInstallations,
+  };
+});
 
 import { internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -173,42 +190,37 @@ describe("devAuth password account seed", () => {
     });
   });
 
-  it("seeds selected organizations and preserves a later GitHub connection", async () => {
+  it("seeds only the selected preview owners and preserves a later connection", async () => {
     const t = makeConvexTest();
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:organization-context");
     vi.stubEnv("PREVIEW_SEED_AUTH_EMAIL", "preview@example.com");
     vi.stubEnv("PREVIEW_SEED_AUTH_PASSWORD", "preview-password-123");
-    vi.stubEnv(
-      "PREVIEW_SEED_GITHUB_USER_AUTHORIZATION",
-      JSON.stringify({
-        version: 2,
-        githubUserId: "202",
-        githubUserLogin: "nicu-chiciuc",
-        githubUserEmail: "preview@example.com",
-        accessToken: "preview-github-access-token",
-        accessTokenExpiresAt: 4_000_000_000_000,
-        refreshToken: "preview-github-refresh-token",
-        refreshTokenExpiresAt: 4_102_444_800_000,
-        connectedOrganizations: [
-          {
-            githubInstallationId: "1001",
-            githubOwnerId: "101",
-            githubOwnerType: "organization",
-            githubOwnerLogin: "samebase",
-          },
-          {
-            githubInstallationId: "1002",
-            githubOwnerId: "202",
-            githubOwnerType: "user",
-            githubOwnerLogin: "nicu-chiciuc",
-          },
-        ],
-      }),
-    );
+    vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
     vi.stubEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY", "preview-convex-credential");
     vi.stubEnv("DEV_SEED_CONVEX_TEAM_ID", "preview-convex-team-id");
     vi.stubEnv("DEV_SEED_CLOUDFLARE_API_KEY", "preview-cloudflare-credential");
     vi.stubEnv("DEV_SEED_CLOUDFLARE_ACCOUNT_ID", "preview-cloudflare-account-id");
+    devAuthMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
+      {
+        githubInstallationId: "1001",
+        githubOwnerId: "101",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "samebase",
+      },
+      {
+        githubInstallationId: "1002",
+        githubOwnerId: "202",
+        githubOwnerType: "user",
+        githubOwnerLogin: "nicu-chiciuc",
+      },
+      {
+        githubInstallationId: "1003",
+        githubOwnerId: "303",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "samebase-live-tests",
+      },
+    ]);
+
     await expect(t.action(internal.devAuth.seedPasswordAccount, {})).resolves.toEqual({
       email: "preview@example.com",
       created: true,
@@ -254,29 +266,19 @@ describe("devAuth password account seed", () => {
       providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
       vaults: await ctx.db.query("vaults").collect(),
     }));
+    expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledTimes(2);
+    expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledWith(
+      "preview-github-api-key",
+    );
     expect(snapshot.organizations).toHaveLength(3);
     expect(snapshot.memberships).toHaveLength(3);
     expect(snapshot.billingAccounts).toHaveLength(3);
-    expect(snapshot.authAccounts).toHaveLength(2);
-    expect(snapshot.authAccounts).toContainEqual(
-      expect.objectContaining({
-        userId: snapshot.memberships[0].userId,
-        provider: "github",
-        providerAccountId: "202",
-        emailVerified: "preview@example.com",
-        githubLogin: "nicu-chiciuc",
-      }),
-    );
-    expect(snapshot.githubUserAuthorizations).toHaveLength(1);
-    expect(snapshot.githubUserAuthorizations[0]).toMatchObject({
-      userId: snapshot.memberships[0].userId,
-      githubUserId: "202",
-      githubUserLogin: "nicu-chiciuc",
-      accessToken: "preview-github-access-token",
-      accessTokenExpiresAt: 4_000_000_000_000,
-      refreshToken: "preview-github-refresh-token",
-      refreshTokenExpiresAt: 4_102_444_800_000,
+    expect(snapshot.authAccounts).toHaveLength(1);
+    expect(snapshot.authAccounts[0]).toMatchObject({
+      provider: "password",
+      providerAccountId: "preview@example.com",
     });
+    expect(snapshot.githubUserAuthorizations).toEqual([]);
     expect(snapshot.providerCredentials).toHaveLength(2);
     expect(snapshot.vaults).toEqual([]);
     const connectedGithubOwnerIds = snapshot.memberships
@@ -288,29 +290,15 @@ describe("devAuth password account seed", () => {
       .map((organization) => organization?.githubOwnerId)
       .sort((left, right) => (left ?? "").localeCompare(right ?? ""));
     expect(connectedGithubOwnerIds).toEqual(["101", "202", "303"]);
-    for (const organization of snapshot.organizations.filter(({ githubOwnerId }) =>
-      ["101", "202"].includes(githubOwnerId),
-    )) {
-      const organizationCredentials = snapshot.providerCredentials.filter(
-        (credentials) => credentials.organizationId === organization._id,
-      );
-      expect(organizationCredentials).toHaveLength(1);
-      expect(organizationCredentials[0]).toMatchObject({
-        convex: {
-          connectedByUserId: snapshot.memberships[0].userId,
-          auth: { method: "api_key", credential: "preview-convex-credential" },
-        },
-        cloudflare: {
-          connectedByUserId: snapshot.memberships[0].userId,
-          auth: { method: "api_key", credential: "preview-cloudflare-credential" },
-        },
-        organizationId: organization._id,
-      });
-      expect(organization.convexTeam).toMatchObject({ teamId: "preview-convex-team-id" });
-      expect(organization.cloudflareAccount).toMatchObject({
-        accountId: "preview-cloudflare-account-id",
-      });
-    }
+    const seededOrganizationIds = snapshot.organizations
+      .filter(({ githubOwnerId }) => githubOwnerId === "101" || githubOwnerId === "202")
+      .map(({ _id }) => _id)
+      .sort((left, right) => left.localeCompare(right));
+    expect(
+      snapshot.providerCredentials
+        .map(({ organizationId }) => organizationId)
+        .sort((left, right) => left.localeCompare(right)),
+    ).toEqual(seededOrganizationIds);
   });
 
   it("fails preview seeding when the shared provider setup is missing", async () => {
@@ -318,6 +306,7 @@ describe("devAuth password account seed", () => {
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:organization-context");
     vi.stubEnv("PREVIEW_SEED_AUTH_EMAIL", "preview@example.com");
     vi.stubEnv("PREVIEW_SEED_AUTH_PASSWORD", "preview-password-123");
+    vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
     vi.stubEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY", "");
     vi.stubEnv("DEV_SEED_CONVEX_TEAM_ID", "");
     vi.stubEnv("DEV_SEED_CLOUDFLARE_API_KEY", "");
@@ -326,6 +315,7 @@ describe("devAuth password account seed", () => {
     await expect(t.action(internal.devAuth.seedPasswordAccount, {})).rejects.toThrowError(
       "Preview organization provider seeding requires DEV_SEED_CONVEX_MANAGEMENT_API_KEY, DEV_SEED_CONVEX_TEAM_ID, DEV_SEED_CLOUDFLARE_API_KEY, and DEV_SEED_CLOUDFLARE_ACCOUNT_ID",
     );
+    expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).not.toHaveBeenCalled();
   });
 
   it("fails closed when the seed user is missing", async () => {

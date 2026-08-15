@@ -252,14 +252,17 @@ Samebase production itself.
      `WORKERS_CI_BRANCH` is a non-production branch
    - runs the idempotent `devAuth:seedPasswordAccount` action after every successful preview deploy,
      including preview reuse, without relying on preview creation
-   - links the seeded password user to the development GitHub identity and copies its current
-     refreshable GitHub App user authorization and selected verified installation records from
-     `PREVIEW_SEED_GITHUB_USER_AUTHORIZATION`; `pnpm sync:preview-github-seed` updates that secret
-     through standard input without printing it
-   - creates memberships only for the GitHub installations selected by that authorization snapshot;
-     later seed runs preserve organizations that the user connects through the preview UI
-   - attaches the same seeded Convex team and Cloudflare account to every initially selected preview
-     organization, without creating vaults; preview defaults must provide
+   - uses `DEV_SEED_GITHUB_API_KEY` only in preview deployments to discover the matching GitHub user
+     and the configured GitHub App installations that user can manage, without storing the key or a
+     GitHub sign-in or user authorization record
+   - creates initial memberships only for the personal `nicu-chiciuc` owner and the `samebase`
+     organization; later seed runs preserve organizations that the user connects through the preview
+     UI
+   - lets only the exact seeded password account list and connect other manageable installations;
+     every list or connect request repeats the live GitHub discovery, and repository access
+     continues to use GitHub App installation authentication
+   - attaches the same seeded Convex team and Cloudflare account to the two initial preview
+     organizations, without creating vaults; preview defaults must provide
      `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`, `DEV_SEED_CONVEX_TEAM_ID`, `DEV_SEED_CLOUDFLARE_API_KEY`,
      and `DEV_SEED_CLOUDFLARE_ACCOUNT_ID`
    - rejects non-production builds that are missing `PREVIEW_CONVEX_DEPLOY_KEY`, even when
