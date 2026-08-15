@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Vault add flow + GitHub integration
-- Last updated: 2026-08-07
+- Last updated: 2026-08-15
 - Related specs:
   - `specs/065_GITHUB_REPOSITORY_PICKER_DISCOVERY_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
@@ -16,7 +16,7 @@ repositories without regressing the full-discovery guarantee from Spec 065.
 
 The add-vault repository picker therefore adopts a two-phase load:
 
-1. fetch a small preview page ordered by GitHub `updated`
+1. fetch a small preview page and order it by GitHub `updated_at`
 2. render that preview immediately
 3. continue loading the full accessible repository set in the background
 4. make partial-search state explicit until the background load completes
@@ -38,7 +38,8 @@ worse because the backend would still block on every page before returning.
 
 ## Product Decisions (Locked)
 
-1. The preview preserves GitHub's installation-repository endpoint order.
+1. Every returned candidate set is ordered by GitHub `updated_at` descending, then by full name and
+   repository id for stable ties.
 2. The initial preview fetch requests `per_page=10`.
 3. The authoritative full discovery pass remains `per_page=100`.
 4. `github.listRepositories` remains the source of truth for the complete candidate set required by
@@ -54,7 +55,8 @@ Today:
    through the selected organization's installation token.
 2. `ConnectRepository` renders the first ten repositories immediately.
 3. The complete `per_page=100` scan continues in the background when more repositories exist.
-4. Search is client-side and reports when its current results are still partial.
+4. Each returned candidate set is ordered by `updated_at` descending.
+5. Search is client-side and reports when its current results are still partial.
 
 ## Source of Truth Files
 
@@ -74,11 +76,13 @@ Behavior:
 2. Call GitHub `GET /installation/repositories` with:
    - `per_page=10`
 3. Normalize repositories to the existing `githubRepositoryListItem` contract.
-4. Return:
+4. Order the loaded preview page by `updated_at` descending, then by full name and repository id.
+5. Return:
    - the preview repositories
    - whether more repositories remain to be loaded
 
-The preview order must match the GitHub installation endpoint order exactly.
+The installation endpoint does not support `sort`. The preview contains its first page, ordered by
+update time within that loaded page. The complete scan establishes the global order.
 
 ### Phase 2: Background full discovery
 
@@ -92,7 +96,8 @@ Behavior:
 3. Follow pagination until a short page arrives or the number of unique repositories reaches
    GitHub's `total_count`.
 4. Deduplicate by GitHub repository id.
-5. Replace or merge the preview list with the completed full list once ready.
+5. Order the complete candidate set by `updated_at` descending, then by full name and repository id.
+6. Replace the preview list with the completed full list once ready.
 
 Important rule:
 
@@ -139,10 +144,11 @@ Rules:
 
 ## Acceptance
 
-- [ ] A GitHub-connected user with more than 10 accessible repositories sees the first 10 updated
-      repositories before the full scan completes.
+- [ ] A GitHub-connected user with more than 10 accessible repositories sees an update-ordered
+      preview before the full scan completes.
 - [ ] A GitHub-connected user with 10 or fewer accessible repositories sees the complete list
       without requiring a second discovery pass.
-- [ ] The final completed list still satisfies Spec 065 full-discovery behavior.
+- [ ] The final completed list is globally ordered by `updated_at` descending and still satisfies
+      Spec 065 full-discovery behavior.
 - [ ] Search UI clearly indicates when background loading means results are still partial.
 - [ ] Existing connected vaults remain filtered out in both preview and final states.

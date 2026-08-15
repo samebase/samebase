@@ -457,6 +457,19 @@ function normalizeGitHubRepositoryList(value: unknown): GitHubRepositoryList {
   return Array.from(repositoriesById.values());
 }
 
+function compareGitHubRepositoriesByUpdatedAt(
+  left: GitHubRepositoryListItem,
+  right: GitHubRepositoryListItem,
+): number {
+  if (left.updated_at !== right.updated_at) {
+    return left.updated_at < right.updated_at ? 1 : -1;
+  }
+  if (left.full_name !== right.full_name) {
+    return left.full_name < right.full_name ? -1 : 1;
+  }
+  return left.id - right.id;
+}
+
 async function fetchGitHubInstallationRepositoryPage(args: {
   octokit: Octokit;
   page: number;
@@ -500,7 +513,7 @@ export async function listGitHubRepositoryPreview(args: {
   });
 
   return {
-    repositories: page.repositories,
+    repositories: page.repositories.sort(compareGitHubRepositoriesByUpdatedAt),
     hasMore: page.totalCount > page.repositories.length,
   };
 }
@@ -524,7 +537,7 @@ export async function listGitHubRepositories(args: {
       page.repositories.length < GITHUB_REPOSITORY_DISCOVERY_PAGE_SIZE ||
       repositoriesById.size >= page.totalCount
     ) {
-      return Array.from(repositoriesById.values());
+      return Array.from(repositoriesById.values()).sort(compareGitHubRepositoriesByUpdatedAt);
     }
   }
 

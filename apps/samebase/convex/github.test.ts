@@ -1,12 +1,53 @@
+import { Octokit } from "@octokit/rest";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
   describeRepositoryTreeRefreshFailure,
   isRepositoryMediaPreviewTooLarge,
+  listGitHubRepositories,
+  listGitHubRepositoryPreview,
   normalizeGitHubRepositoryListItem,
   readExactRepositoryBranch,
   resolveStagedRepositoryMediaAsset,
 } from "./github";
+
+// Subset of GitHub's documented GET /installation/repositories response.
+// https://docs.github.com/en/rest/apps/installations#list-repositories-accessible-to-the-app-installation
+function installationRepositoryFixture(args: { id: number; name: string; updatedAt: string }) {
+  return {
+    id: args.id,
+    owner: { id: 285392744, login: "samebase" },
+    name: args.name,
+    full_name: `samebase/${args.name}`,
+    html_url: `https://github.com/samebase/${args.name}`,
+    description: null,
+    private: true,
+    fork: false,
+    created_at: "2025-07-17T21:10:37Z",
+    updated_at: args.updatedAt,
+    language: "TypeScript",
+    stargazers_count: 0,
+    forks_count: 0,
+  };
+}
+
+function createRepositoryListOctokit(repositories: unknown[]) {
+  return new Octokit({
+    request: {
+      fetch: async () =>
+        new Response(
+          JSON.stringify({
+            total_count: repositories.length,
+            repositories,
+          }),
+          {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          },
+        ),
+    },
+  });
+}
 
 describe("readExactRepositoryBranch", () => {
   it("reads the immutable tree named by the observed branch generation", async () => {
@@ -178,6 +219,50 @@ describe("normalizeGitHubRepositoryListItem", () => {
         owner: { ...repository.owner, id: Number.MAX_SAFE_INTEGER + 1 },
       }),
     ).toBeNull();
+  });
+});
+
+describe("GitHub repository discovery order", () => {
+  const repositories = [
+    installationRepositoryFixture({
+      id: 1,
+      name: "older",
+      updatedAt: "2026-03-10T00:00:00Z",
+    }),
+    installationRepositoryFixture({
+      id: 2,
+      name: "zeta",
+      updatedAt: "2026-03-12T00:00:00Z",
+    }),
+    installationRepositoryFixture({
+      id: 3,
+      name: "alpha",
+      updatedAt: "2026-03-12T00:00:00Z",
+    }),
+  ];
+
+  it("orders the loaded preview by latest update with stable name ties", async () => {
+    const result = await listGitHubRepositoryPreview({
+      octokit: createRepositoryListOctokit(repositories),
+    });
+
+    expect(result.repositories.map((repository) => repository.full_name)).toEqual([
+      "samebase/alpha",
+      "samebase/zeta",
+      "samebase/older",
+    ]);
+  });
+
+  it("orders the complete repository set by latest update with stable name ties", async () => {
+    const result = await listGitHubRepositories({
+      octokit: createRepositoryListOctokit(repositories),
+    });
+
+    expect(result.map((repository) => repository.full_name)).toEqual([
+      "samebase/alpha",
+      "samebase/zeta",
+      "samebase/older",
+    ]);
   });
 });
 
