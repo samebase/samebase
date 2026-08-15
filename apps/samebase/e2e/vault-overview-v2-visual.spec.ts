@@ -419,6 +419,15 @@ test("covers Cloudflare connection and Builds repair states", async ({ page }) =
     ) {
       await expect(dialog.getByRole("combobox", { name: "Workers Builds token" })).toBeVisible();
     }
+    if (mode === "vault-overview-v2-cloudflare-builds-repair") {
+      const repositoryRoot = dialog.getByRole("combobox", { name: "Repository root" });
+      await expect(dialog).toBeFocused();
+      await expect(repositoryRoot).not.toBeFocused();
+      await expect(repositoryRoot).toHaveAttribute("aria-expanded", "false");
+      await expect(
+        dialog.getByRole("listbox", { name: "Repository folder suggestions" }),
+      ).toHaveCount(0);
+    }
     await expect(dialog).toHaveScreenshot(screenshotName, {
       animations: "disabled",
       caret: "hide",

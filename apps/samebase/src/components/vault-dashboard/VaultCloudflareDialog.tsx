@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useAction, useQuery as useConvexQuery } from "convex/react";
 import { ConvexError } from "convex/values";
@@ -97,6 +97,7 @@ export function VaultCloudflareDialogContent({
   workerToConnect: CloudflareWorkerConnectTarget | null;
   workers: readonly CloudflareWorkerOption[];
 }) {
+  const dialogContentRef = useRef<HTMLDivElement>(null);
   const workersByRoot = new Map<string, CloudflareWorkerOption[]>();
   for (const worker of workers) {
     if (worker.repository.state !== "ready") {
@@ -154,7 +155,10 @@ export function VaultCloudflareDialogContent({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <AppDialogContent>
+      <AppDialogContent
+        ref={dialogContentRef}
+        initialFocus={repairWorker ? dialogContentRef : undefined}
+      >
         <DialogHeader>
           <DialogTitle>
             {repairWorker
