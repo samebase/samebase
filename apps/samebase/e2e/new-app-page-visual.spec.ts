@@ -8,12 +8,9 @@ test("new app Workers Builds token", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const surface = page.getByTestId("new-app-build-token");
-  await expect(surface.getByText("Workers Builds token")).toBeVisible();
-  await expect(surface.getByRole("combobox", { name: "Workers Builds token" })).toContainText(
+  await expect(surface.getByText("API token")).toBeVisible();
+  await expect(surface.getByRole("combobox", { name: "API token" })).toContainText(
     "Workers Builds - 2026-08-14 01:54",
-  );
-  await expect(surface).toContainText(
-    "Samebase will assign the selected token to production and preview builds, then request a production build.",
   );
   await expect(surface).toHaveScreenshot("new-app-build-token.png", {
     animations: "disabled",

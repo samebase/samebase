@@ -36,9 +36,9 @@ describe("CloudflareBuildTokenField", () => {
       />,
     );
 
-    expect(loadingMarkup).toContain("Loading Workers Builds tokens...");
+    expect(loadingMarkup).toContain("Loading API tokens...");
     expect(loadingMarkup).not.toContain("Choose a token");
-    expect(failedMarkup).toContain("Could not load Workers Builds tokens.");
+    expect(failedMarkup).toContain("Could not load API tokens.");
     expect(failedMarkup).toContain("Retry");
     expect(failedMarkup).not.toContain("Choose a token");
   });
@@ -63,9 +63,6 @@ describe("CloudflareBuildTokenField", () => {
     );
 
     expect(markup).toContain("Workers Builds (bbbbbbbb)");
-    expect(markup).toContain(
-      "Samebase will assign the selected token to production and preview builds, then request a production build.",
-    );
   });
 
   it("gives the Cloudflare setup and reload actions when no records are available", () => {
@@ -84,7 +81,7 @@ describe("CloudflareBuildTokenField", () => {
       />,
     );
 
-    expect(markup).toContain("No Workers Builds tokens are listed.");
+    expect(markup).toContain("No API tokens are listed.");
     expect(markup).toContain('href="https://dash.cloudflare.com/account-1/workers-and-pages"');
     expect(markup).toContain("Open Cloudflare");
     expect(markup).toContain("Reload tokens");
@@ -109,9 +106,6 @@ describe("CloudflareBuildTokenField", () => {
     expect(markup).toContain("Choose a token");
     expect(markup).toContain(
       "This token is not in Cloudflare&#x27;s current list. Choose another token.",
-    );
-    expect(markup).not.toContain(
-      "Samebase will assign the selected token to production and preview builds, then request a production build.",
     );
   });
 });

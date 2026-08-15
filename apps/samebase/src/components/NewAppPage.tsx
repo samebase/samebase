@@ -926,7 +926,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       return;
     }
     if (!cloudflareBuildTokenUuid) {
-      setCreateError("Choose a Workers Builds token.");
+      setCreateError("Choose an API token.");
       return;
     }
     if (createResourceNameCheckError) {

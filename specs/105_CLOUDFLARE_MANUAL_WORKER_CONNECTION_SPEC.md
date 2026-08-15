@@ -130,7 +130,7 @@ operations.
 
 Vault settings shows the current token name when both triggers use the same listed UUID. It reports
 when the two trigger UUIDs differ or a bound UUID is no longer in Cloudflare's list. These are
-observations, not token-health claims. `Change build token` opens the same explicit configuration
+observations, not token-health claims. `Change API token` opens the same explicit configuration
 flow. Confirmation writes the chosen UUID to both triggers and starts a production build.
 
 When build access has no trustworthy attached target, `Use <project> for Workers Builds` names each
@@ -158,8 +158,8 @@ uses the normal action for that state:
   connect that existing Worker. Samebase does not adopt it automatically.
 - An attached Worker with incomplete Builds configuration uses the normal Configure Workers Builds
   action.
-- A Worker whose build-token record is missing or whose triggers disagree uses the normal Change
-  build token action.
+- A Worker whose build-token record is missing or whose triggers disagree uses the normal Change API
+  token action.
 - Incomplete Convex build access uses the normal key repair action for the observed attached
   project. Repeating this action replaces the deterministic deploy keys and writes one complete
   production and preview configuration.

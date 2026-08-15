@@ -167,10 +167,7 @@ describe("NewAppPage", () => {
     expect(markup).toContain("Authorize repository creation for nicubunu");
     expect(markup).toContain('href="/org/nicubunu/providers"');
     expect(markup).toContain("Providers");
-    expect(markup).toContain("Workers Builds token");
-    expect(markup).toContain(
-      "Samebase will assign the selected token to production and preview builds, then request a production build.",
-    );
+    expect(markup).toContain("API token");
     expect(markup).not.toContain("Install GitHub App");
   });
 
