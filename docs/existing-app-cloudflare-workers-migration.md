@@ -21,33 +21,45 @@ graph. It does not decide which toolchain the owner wants after the migration.
 
 ## Adopt an Assets-Only Repository
 
-An assets-only repository needs a safe deployment contract. It does not need an invented compile
-step. Before provider setup:
+An assets-only repository needs a small deployment contract. It does not need an invented compile
+step or a new source layout.
 
-1. Make the configured build, production deploy, and preview deploy commands work from the selected
-   application root. The current Samebase defaults are `pnpm run build`, `pnpm run deploy`, and
-   `pnpm run deploy:preview`.
-2. Keep the build command non-deploying. It can transform files, validate existing files, or do no
-   work when the repository already contains the deployable result.
-3. Define one deployable asset boundary that excludes repository-only files and tool state. Do not
-   serve the repository root only because the app has no build output.
-4. Keep local preview output and state outside any watched asset boundary so preview does not reload
-   because of its own writes.
-5. Keep validation or version upload separate from production promotion.
+Start with the unchanged default branch. For a small experimental app, an operator can approve an
+early Worker setup and use its first build log as diagnostic evidence. Read the exact failed command
+before you change source. Do not infer a directory problem from a missing package manifest or a
+failed preview URL.
 
-Use the repository's existing package manager, framework adapter, output directory, and provider
-configuration when they satisfy these outcomes. If they do not match the commands that Samebase will
-configure, resolve that mismatch before provider setup. Add only the runtime and deployment
-dependencies needed to make the contract reproducible.
+The current Samebase-managed Workers Builds contract calls `pnpm run build`, `pnpm run deploy`, and
+`pnpm run deploy:preview`. A repository with no package manager can meet that interface with a
+minimal package manifest, a lock file, and only the deployment dependency. This is a Samebase
+interface requirement, not a Cloudflare requirement.
+
+Use this delete-first order:
+
+1. Keep every existing runtime file and route in place.
+2. Make `build` non-deploying. Use a no-op when the checked-in files are already deployable.
+3. Use direct provider commands and native provider configuration before you add a custom script.
+4. Test whether native asset filtering can safely publish the existing directory. Serving the
+   repository root is valid when the deployed file set excludes repository-only files and tool
+   state.
+5. Move or copy source files only when the existing layout cannot express a safe deployed file set
+   or must preserve a proven host boundary.
+6. Keep validation or version upload separate from production promotion.
+
+Preserve an existing package manager, framework adapter, output directory, and provider
+configuration when they satisfy the current Samebase command interface. If an existing package
+manager does not match that interface, record the product mismatch instead of silently replacing the
+repository toolchain.
 
 A hosting-only migration does not justify an application framework, formatter, linter, test runner,
 or source-language migration. Keep legacy browser artifacts unchanged unless the deployment contract
 requires a source change or the operator asks for modernization.
 
 Do not add a copy helper when it creates no deployment or compatibility boundary. Preserve the
-existing missing-route and fallback behavior. Use a repository-owned dry-run or equivalent safe
-validation command. Verify its exact invocation before use. Do not assume that flags forwarded
-through a package script keep their meaning at the deployment tool boundary.
+existing missing-route and fallback behavior. Use the provider's dry-run or equivalent safe
+validation command directly when possible. Verify its exact invocation before use. Treat a package
+script named `deploy` as a provider write unless its final provider arguments prove otherwise. Do
+not assume that forwarded flags keep their meaning at the deployment tool boundary.
 
 ## Record the Baseline
 

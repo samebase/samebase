@@ -103,10 +103,9 @@ TSX adoption will test this revised rule without another bundle comparison.
 - Candidate artifact commit: `49975336d4221257ad42ae5e691d56adf6fef24d`
 - Installed plugin: `0.2.20`
 - Target: `nicu-chiciuc/spiro` at `fdfebbea5c28072af783c657cb6679d5e936e1cc`
-- Result: two fresh projectless read-only tasks used the same frozen source, core prompt, installed
-  plugin, and Codex Desktop configuration. The treatment received only the candidate assets-only
-  section. An independent blind scorer gave the treatment 15/16 and the control 6/16. The treatment
-  added the missing lockfile and preview command, limited public assets to the three runtime files,
-  and protected the old host. It still missed a known arbitrary 404 check and assumed Git symlink
-  portability. This was a focused Desktop comparison, not the isolated CLI method used for Weight
-  TSX. See `research/project-adoption/experiments/spiro-assets-only-guidance.md`.
+- Result: invalid for instruction selection. Two fresh projectless tasks and an independent blind
+  scorer produced 15/16 for the treatment and 6/16 for the control, but the shared rubric omitted an
+  unchanged-layout baseline and rewarded a dedicated asset tree before native root filtering was
+  tested. A real Samebase Worker later showed that the unchanged root was valid and failed only
+  because it had no package manifest. Keep this run as a negative test for overfit evaluation. See
+  `research/project-adoption/experiments/spiro-assets-only-guidance.md`.

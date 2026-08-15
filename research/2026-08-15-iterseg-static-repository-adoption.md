@@ -79,6 +79,10 @@ Moving the browser files to `public/` fixed the reload loop. It also made the de
 review. The successful Cloudflare build reported 30 files from `public/`. Repository files such as
 `package.json`, the lock file, and `wrangler.jsonc` stayed outside the served directory.
 
+This was an Iterseg result, not a default static-repository layout. The later Spiro adoption kept
+its runtime files at the repository root and used native asset filtering to publish only those
+files. Future migrations must test the unchanged layout before they move or copy source files.
+
 ### Build and route proof
 
 A successful provider check did not prove that the application URL worked. After the files moved,

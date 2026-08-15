@@ -35,21 +35,31 @@ verified.
 
 ## Assets-Only Legacy Repositories
 
-The goal is a safe repository-owned deployment contract, not a pretend build. Before provider setup:
+The goal is the smallest repository-owned deployment contract. Do not invent a build or source
+layout before the provider shows that one is needed.
 
-1. Make the configured build, production deploy, and preview deploy commands work from the selected
-   root. The current Samebase defaults are `pnpm run build`, `pnpm run deploy`, and
-   `pnpm run deploy:preview`.
-2. Keep the build command non-deploying. It can transform files, validate existing files, or do no
-   work when the source is already deployable.
-3. Define a deployable asset boundary that excludes repository-only files and tool state.
-4. Keep local preview output and state outside any watched asset boundary.
-5. Keep safe validation or version upload separate from production promotion.
+For an approved early provider setup, read the first build log and change only the failed contract.
+Do not infer a directory problem from a missing package manifest or an unreachable preview URL.
+
+The current Samebase-managed Workers Builds contract calls `pnpm run build`, `pnpm run deploy`, and
+`pnpm run deploy:preview`. A repository with no package manager can meet that interface with a
+minimal package manifest, a lock file, and only the deployment dependency. This is a Samebase
+interface requirement, not a Cloudflare requirement.
+
+Use this delete-first order:
+
+1. Keep existing runtime files and routes in place.
+2. Use a non-deploying no-op build when checked-in files are already deployable.
+3. Use direct provider commands and native provider configuration before a custom script.
+4. Test native asset filtering against the existing directory. Serving the repository root is valid
+   when the deployed file set excludes repository-only files and tool state.
+5. Move or copy files only when the current layout cannot express a safe deployed file set or must
+   preserve a proven host boundary.
+6. Keep safe validation or version upload separate from production promotion.
 
 Preserve an existing package manager, framework adapter, output directory, and provider config when
-they satisfy these outcomes. Resolve any mismatch with the commands that Samebase will configure
-before provider setup. Add only the runtime and deployment dependencies needed for reproducible
-builds.
+they satisfy the Samebase command interface. If an existing package manager does not match that
+interface, report the product mismatch instead of silently replacing the repository toolchain.
 
 A hosting-only adoption does not justify an application framework, formatter, linter, test runner,
 or source-language migration. Keep legacy browser artifacts unchanged unless the deployment contract
@@ -57,12 +67,13 @@ requires a source change or the operator asks for modernization.
 
 Common pitfalls are:
 
-1. serving the repository root because there is no generated output
-2. adding a copy program when it creates no deployment or compatibility boundary
-3. placing preview state inside the watched asset boundary
-4. changing the existing missing-route or fallback behavior
-5. trusting a green provider check without testing the public route
-6. forwarding an unverified flag through a deploy script and starting production by mistake
+1. moving or copying runtime files before testing the unchanged layout
+2. adding a custom build or deploy program when direct commands meet the contract
+3. publishing repository-only files from a broad asset directory
+4. placing preview state inside the watched asset boundary
+5. changing the existing missing-route or fallback behavior
+6. trusting a green provider check without testing the public route
+7. using a package deploy script as a dry run without proving the final provider arguments
 
 Verify all of these results separately:
 

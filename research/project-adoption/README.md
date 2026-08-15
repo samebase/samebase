@@ -8,11 +8,10 @@
 - Second case: [Teardown Noita 3D](cases/teardown-noita-3d.md)
 - Skill-bundle experiment: [Weight TSX](experiments/weight-tsx-skill-bundles.md), where the short
   public skill won the preflight 28/32 to 22/32 and the implementation 28/32 to 25/32
-- Static-adoption guidance experiment: [Spiro](experiments/spiro-assets-only-guidance.md), where the
-  candidate assets-only section won a focused read-only comparison 15/16 to 6/16
+- Static-adoption guidance experiment: [Spiro](experiments/spiro-assets-only-guidance.md), where a
+  15/16 to 6/16 result was invalidated because its rubric omitted the unchanged-layout baseline
 - Worker input: [portable rules](portable-rules.md)
-- Next gate: finish Spiro's reviewed provider path before treating its source result as a second
-  successful live adoption
+- Next gate: finish Spiro's reviewed provider path with the corrected minimal source contract
 
 ## Purpose
 

@@ -1,81 +1,34 @@
-# Spiro assets-only guidance comparison
+# Spiro Assets-Only Guidance Experiment
 
 Date: 2026-08-15
 
 ## Outcome
 
-The candidate assets-only adoption section improved a focused read-only Spiro migration plan from
-6/16 to 15/16 in an independent blind score.
+The reported 15/16 to 6/16 comparison is not valid evidence that the candidate instructions were
+better. Its shared ground truth and score rubric omitted the safest baseline: keep the source files
+in place and use native provider configuration to select the public files.
 
-Keep the section goal-based. It helped the agent select the Samebase command interface, a locked
-package contract, a runtime-only asset boundary, separate preview upload, and an old-host gate. Do
-not promote its symlink implementation as a general rule.
+The experiment is useful as a negative result. It shows how an instruction test can reward added
+code and file movement when the real provider needs neither.
 
-The supervised live migration also showed that a hosting-only adoption must not trigger a general
-application-toolchain migration. Its first patch added Vite+, Vitest, TypeScript checks, generated
-hooks, and duplicate deployment verification to a six-file static repository. A repair pass removed
-those layers because real Wrangler checks proved the same boundaries.
+## Target
 
-## Inputs
-
-- Target: `nicu-chiciuc/spiro` at `fdfebbea5c28072af783c657cb6679d5e936e1cc`
+- Repository: `nicu-chiciuc/spiro`
+- Frozen source: `fdfebbea5c28072af783c657cb6679d5e936e1cc`
 - Installed Samebase plugin: `0.2.20`
 - Candidate Samebase artifact: `49975336d4221257ad42ae5e691d56adf6fef24d`
-- Live migration result: [Spiro pull request 1](https://github.com/nicu-chiciuc/spiro/pull/1)
+- Source pull request: [Spiro pull request 1](https://github.com/nicu-chiciuc/spiro/pull/1)
 
-The frozen repository contained six files. Its browser runtime used only `index.html`,
-`dat.gui.min.new.js`, and `stats.min.js`. It had no package manifest, lock file, build, CI, backend,
-or provider configuration. GitHub Pages served the repository root. An arbitrary route returned 404,
-while `README.md` was publicly reachable.
+The frozen repository has six files. Its browser runtime uses only `index.html`,
+`dat.gui.min.new.js`, and `stats.min.js`. It has no package manifest, lock file, build, CI, backend,
+or provider configuration. GitHub Pages serves the repository root. An unknown route returns 404,
+and `README.md` is public on that old host.
 
-## Live migration observation
+## Original Comparison
 
-A fresh projectless Codex task received only this request:
-
-> Migrate https://github.com/nicu-chiciuc/spiro to Samebase. Preserve its current behavior, connect
-> the existing repository to my Samebase account, and create a ready GitHub pull request for any
-> required source changes. Do not merge the pull request.
-
-The task needed no saved Codex project. It cloned the repository, connected it to Samebase without a
-provider attachment, and opened a ready pull request.
-
-Before manager correction, the task:
-
-- preserved the application behavior and legacy source files
-- added all three Samebase command names
-- created a separate Cloudflare asset artifact
-- verified Cloudflare dry runs and browser behavior
-- caught that moving the browser files would break the current GitHub Pages host
-- added Vite+, Vitest, TypeScript checks, generated hooks, a deploy wrapper, an artifact verifier,
-  and CI
-- configured `single-page-application` fallback, which changed unknown routes from 404 to 200 and
-  made repository-only route probes return the application HTML
-
-The manager recorded these results before correction. The repair kept the safe asset boundary and
-old-host compatibility, restored 404 behavior, and removed the application-toolchain layers that did
-not prove a distinct migration contract. The final source result keeps a small exact-copy build
-because that build lets GitHub Pages use the legacy root paths while Cloudflare receives only the
-three runtime files.
-
-This supports an outcome rule, not a copy-script rule. A copy build can be justified when it creates
-a real provider boundary or preserves a live compatibility path.
-
-## Focused comparison
-
-Two fresh projectless read-only tasks received:
-
-- the same frozen source commit
-- the same core migration-planning prompt
-- the same installed public plugin
-- the same Codex Desktop default model and reasoning configuration
-- no live Samebase, provider, pull request, or non-frozen branch state
-
-The treatment received only the 36-line candidate `Assets-Only Legacy Repositories` section. Both
-tasks could read current public documentation and write isolated temporary validation files. The
-manager sent the same stop instruction to both after they had enough evidence for a final plan.
-
-An independent scorer received anonymized plan summaries, the frozen repository facts, and an
-eight-part rubric. The scorer did not receive the treatment identity.
+Two fresh projectless read-only tasks received the same frozen source and migration prompt. Both
+used the installed public plugin. The treatment also received the candidate assets-only section. An
+independent scorer received anonymized results and this rubric:
 
 | Criterion                                 | Control | Candidate |
 | ----------------------------------------- | ------: | --------: |
@@ -89,47 +42,114 @@ eight-part rubric. The scorer did not receive the treatment identity.
 | Old-host rollback handling                |       0 |         2 |
 | **Total**                                 |   **6** |    **15** |
 
-The control omitted a lock file and the preview deploy command. It copied all five content files,
-including `README.md` and the demo GIF, into the Worker artifact. It did not keep the old host as an
-explicit gate.
+The candidate plan looked better under this rubric because it proposed a locked package contract,
+separate preview upload, a three-file public set, and an old-host gate. The control omitted these
+items.
 
-The candidate used a locked pnpm and Wrangler contract, all three Samebase command names, a
-three-file runtime boundary, separate preview upload, repository-only 404 checks, and an explicit
-old-host gate.
+## Why the Score Is Invalid
 
-Neither plan was ready without repair. The candidate:
+The comparison did not test the most important question: can Cloudflare publish the three existing
+root files and exclude all other files with native configuration?
 
-- did not test an arbitrary missing route
-- assumed Git symlinks were portable across checkouts and provider packaging
-- committed an unverified Worker name before provider selection
+The method had five faults:
 
-The public guidance should therefore state outcomes and verification boundaries. It should not
-require symlinks, copying, one asset directory name, or one provider-name strategy.
+1. The shared ground truth treated a dedicated static directory as the ideal result.
+2. The rubric awarded an asset boundary but did not award unchanged source layout or smaller diffs.
+3. Neither task had to test a zero-change or configuration-only baseline first.
+4. The scorer saw plans, not the real Samebase Worker build and route behavior.
+5. The candidate instructions warned against root assets before this repository proved that warning.
 
-## Decision
+The treatment then influenced the live task toward extra work. Its first source patch added a build
+program, a deploy program, generated output, CI, and other toolchain files. These changes passed the
+written rubric but were not required by the provider contract.
 
-Keep these candidate rules in the public adoption reference:
+## Live Provider Evidence
 
-1. A hosting-only adoption does not justify an application framework or toolchain migration.
-2. The deployable asset boundary contains runtime files, not repository files or tool state.
-3. The build is non-deploying and can be a real compatibility or asset-boundary step.
-4. Production and preview commands remain separate.
-5. Route proof includes the root, a known asset, a known missing route, and repository-only paths.
-6. The old host remains unproven after any source-layout or publishing change until its route
-   passes.
+The operator approved early provider setup for this experimental repository. Samebase created and
+attached the `spiro` Worker at repository root `/` with the selected Workers Builds token. It also
+created production and preview triggers and requested the first production build.
 
-Keep these as research candidates:
+Cloudflare cloned the unchanged default branch and ran `pnpm run build`. The build failed only with
+`ERR_PNPM_NO_IMPORTER_MANIFEST_FOUND` because the repository had no `package.json`. The log did not
+show an asset-directory or source-layout failure.
 
-- whether source configuration should omit the Worker name until Samebase selects the resource
-- whether symlink-based asset boundaries are portable enough for supported local environments
+The account had more than one Workers Builds token record. The assistant first recommended an old
+token from its name alone. The operator corrected that choice and selected
+`Workers Builds - 2026-08-14 01:54`. The existing MCP contract already says to ask the user to
+select by displayed name and UUID when the list has more than one item. This was an execution
+failure, not a missing product rule. Do not infer that a token is recommended from its name.
 
-## Limits
+A local provider check then proved a smaller contract:
 
-This comparison used separate Codex Desktop tasks, not the isolated CLI harness used for Weight TSX.
-Both tasks shared the installed public plugin, but only the treatment received the candidate
-section. The task API did not report the configured model identity. The comparison shows a strong
-result on one target. It does not prove that every sentence helps every assets-only repository.
+1. Keep all three runtime files in the repository root without changes.
+2. Add the minimal pnpm manifest and lock file required by the current Samebase command interface.
+3. Make `build` a non-deploying no-op.
+4. Run Wrangler directly for production deploy and preview version upload.
+5. Use native Wrangler configuration and `.assetsignore` to publish only the three runtime files.
+6. Keep missing routes and repository-only paths at 404.
 
-Spiro is connected to Samebase and its source pull request is green. No Cloudflare provider is
-attached, the pull request is not merged, and no production migration is complete. The live provider
-path remains the next gate.
+No copy program, generated build directory, source move, framework, CI, or runtime modernization is
+needed for this repository.
+
+The corrected commit `8cdd5574a9309ccc83b2538c926853b38358930c` then passed its automatic
+non-production Workers Build. The build used the repository root, the no-op build, and
+`pnpm run deploy:preview`. Both the branch preview and the version preview were reachable. They
+served the three runtime assets and returned 404 for repository-only and unknown paths.
+
+## Validation Safety Failure
+
+The delegated repair task tried to validate the production command with:
+
+```sh
+pnpm run deploy -- --dry-run --outdir <temporary-directory>
+```
+
+Pnpm passed the extra separator to Wrangler. Wrangler did not parse the later flags as options. It
+uploaded the three allowlisted assets and created an active production deployment without the
+required approval. The manager stopped all provider writes and did not roll back or change that
+deployment.
+
+The active route served the three runtime assets. `README.md`, `package.json`, `wrangler.jsonc`, the
+demo GIF, and an unknown path returned 404. This limits the effect, but it does not make the
+unapproved production write acceptable.
+
+This repeats an earlier Iterseg failure with the same command shape. Safe validation must use the
+provider CLI's dry-run mode directly or another command whose final argument parsing is proven. A
+package script named `deploy` must be treated as a provider write when that proof is absent.
+
+## Instruction Decision
+
+Keep these general rules:
+
+1. Start with the unchanged source layout and the exact provider failure.
+2. Use a no-op build when checked-in files are already deployable.
+3. Prefer direct provider commands and native provider configuration over custom scripts.
+4. A repository root can be the asset directory when native filtering proves the deployed file set.
+5. Move or copy files only after the unchanged layout fails a named requirement.
+6. Test the root, known assets, missing routes, and repository-only paths separately.
+7. Keep hosting migration separate from framework or application modernization.
+
+Do not promote `.assetsignore`, one directory name, one config file, or one package manager as a
+universal solution. They are implementation choices for a specific repository or the current
+Samebase command interface.
+
+## Evaluation Decision
+
+Do not cite 15/16 as a successful instruction result. Keep the number only as evidence of the test
+failure. Future instruction comparisons need these gates before a score can select a winner:
+
+1. Include a zero-change or configuration-only baseline.
+2. Penalize source moves, generated output, helper programs, and new toolchain files unless a tested
+   requirement needs them.
+3. Give the scorer provider logs and route results when the task concerns provider behavior.
+4. Score the smallest valid final diff, not only the presence of named safeguards.
+5. Reject a result when the rubric assumes the treatment's implementation.
+
+## Task Process Result
+
+The fresh projectless task could clone the repository, connect it to Samebase, and create a source
+pull request without a saved Codex project. This part of the process worked. Manager review was
+still required because the candidate instructions and rubric encouraged unnecessary source work.
+
+The useful test is therefore not whether an agent can produce a high rubric score. It is whether a
+fresh agent reaches the smallest provider-proven diff without operator correction.
