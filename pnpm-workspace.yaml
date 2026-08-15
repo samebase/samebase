@@ -1,3 +1,4 @@
+# templates/app is a separate workspace with its own lockfile.
 packages:
   - "apps/*"
   - "packages/*"

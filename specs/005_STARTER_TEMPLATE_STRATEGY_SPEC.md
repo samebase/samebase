@@ -2,14 +2,16 @@
 
 ## Document Control
 
-- Status: Accepted, amended 2026-04-29.
+- Status: Accepted, amended 2026-08-15.
 - Owner: Samebase backend/frontend
 - Date: 2026-02-13
 - Related specs:
 - Related files:
   - `apps/samebase/convex/vault/actions.ts`
   - `apps/samebase/convex/starterSeed.ts` (or replacement)
+  - `templates/app`
   - `scripts/export-samebase-app-manifest.ts`
+  - `scripts/publish-repository-exports.ts`
   - `apps/samebase/convex/starterSeedManifest.generated.ts`
 
 ## Summary
@@ -24,10 +26,10 @@ For Iteration 1, the original decision was:
 - Seed newly created vault/agent repositories as a single commit
 - Preserve a future path to evaluate a separate dedicated template repository
 
-The 2026-04-29 amendment adopts `samebase/app` as the starter source instead of the monorepo-local
-starter app. Samebase still seeds generated user repositories as one commit from a generated
-manifest, but the manifest is refreshed at maintenance/build time by exporting a selected
-`samebase/app` branch.
+The 2026-04-29 amendment adopted `samebase/app` as the starter source. The 2026-08-15 amendment
+moves the maintained source to `templates/app` in this monorepo and makes the public `samebase/app`
+repository an automatic repository export. Samebase still seeds generated user repositories as one
+commit from a stored generated manifest.
 
 ## Problem Statement
 
@@ -90,7 +92,7 @@ Operational cost:
 
 - Low
 
-### Option C: Separate template repo (adopted 2026-04-29)
+### Option C: Separate template repo (adopted 2026-04-29, superseded 2026-08-15)
 
 Pros:
 
@@ -109,7 +111,8 @@ Operational cost:
 
 Current resolution:
 
-- `samebase/app` is the source of truth.
+- This was the active resolution from 2026-04-29 through 2026-08-14.
+- `samebase/app` was the source of truth.
 - Runtime app creation does not fetch from GitHub or require a git-capable Convex job.
 - `scripts/export-samebase-app-manifest.ts` downloads the selected branch archive and writes
   `apps/samebase/convex/starterSeedManifest.generated.ts`.
@@ -129,6 +132,24 @@ Operational cost:
 
 - High
 
+### Option E: Monorepo source with public repository export (adopted 2026-08-15)
+
+Pros:
+
+- One pull request updates the template, its independent lockfile, the runtime seed, and the public
+  repository.
+- Required checks validate the exact standalone app before publication.
+- Runtime app creation remains independent of GitHub and publication availability.
+
+Cons:
+
+- The template needs a separate package manager boundary inside the monorepo.
+- Public export commits follow monorepo commit subjects instead of numbered teaching-step subjects.
+
+Operational cost:
+
+- Low
+
 ## Iteration 1 Decision (Final, Superseded)
 
 - Keep starter template in a monorepo-local app package.
@@ -141,25 +162,31 @@ Operational cost:
   - exact commands run (Vite, Convex, Tailwind, shadcn setup),
   - regeneration guidance for future updates.
 
-## Current Decision (Amended 2026-04-29)
+## Current Decision (Amended 2026-08-15)
 
-- Use `samebase/app` as the starter source of truth.
-- Remove the monorepo-local starter app package.
+- Use `templates/app` as the starter source of truth.
+- Keep `templates/app` outside the root pnpm workspace. It owns its own `package.json`,
+  `pnpm-workspace.yaml`, and `pnpm-lock.yaml`.
+- Publish the committed `templates/app` tree to `samebase/app` after required checks pass.
 - Keep the single-commit seeding behavior.
-- Refresh the generated manifest with:
+- Store the generated manifest in the Samebase deployment bundle. Runtime app creation reads this
+  stored manifest and does not read `templates/app` or fetch `samebase/app`.
+- Stage template changes, refresh the generated manifest, and stage the manifest with:
 
 ```bash
+git add templates/app
 pnpm run template:export
-pnpm run template:export -- --branch dev
+git add apps/samebase/convex/starterSeedManifest.generated.ts
 ```
 
 - Store source provenance in the manifest:
-  - `sourceRepo`
-  - `sourceBranch`
-  - `sourceCommit`
+  - `sourcePath`
+  - `publishedRepo`
   - `contentHash`
-- Do not overlay Samebase-owned files onto `samebase/app`. Generated starter content is exactly the
-  selected `samebase/app` snapshot, and any required starter asset belongs there.
+- Derive the template version from `contentHash`. Do not store a source commit because the monorepo
+  commit and public export commit do not exist until after the manifest is generated.
+- Require manifest freshness, standalone supply-chain checks, and a standalone build before the
+  public export can run.
 
 ## Public API / Behavior Changes
 
@@ -177,11 +204,15 @@ Behavioral contract for Iteration 1:
 
 ## Technical Contract for Iteration 1
 
-- Source of seeded content: generated manifest exported from `samebase/app`.
+- Authoring source: `templates/app`.
+- Source of seeded content: committed generated manifest exported from `templates/app`.
 - Seeding outcome in target repository:
   - one commit containing full runnable starter app content.
 - Reliability-first requirement:
   - no dependency on live external template fetch during repo creation.
+- Publication requirement:
+  - `samebase/app` receives the exact committed `templates/app` Git tree only after required checks
+    pass.
 
 ## Important Changes / Additions to Interfaces and Types
 
@@ -190,9 +221,8 @@ Iteration 1 simplifies the manifest contract to a single snapshot representation
 ```ts
 type StarterTemplateManifest = {
   version: string;
-  sourceRepo: string;
-  sourceBranch: string;
-  sourceCommit: string;
+  sourcePath: string;
+  publishedRepo: string;
   contentHash: string;
   commitMessage: string;
   files: Record<string, string>;
@@ -210,31 +240,33 @@ Out of scope for Iteration 1:
 - Spec clearly records the discussion questions/problems and rationale.
 - Spec explicitly defines Iteration 1 scope and deferred topics.
 - Spec states exact single-commit seeding rule.
-- Spec requires `samebase/app` provenance in the generated manifest.
-- Starter template export includes exactly the selected `samebase/app` snapshot.
+- Spec requires local source and public repository provenance in the generated manifest.
+- Starter manifest includes exactly the Git-visible `templates/app` files.
+- Required CI rejects a stale manifest, an unsafe standalone lockfile, or a failed standalone build.
+- Repository publication exports the exact committed `templates/app` tree to `samebase/app`.
 
 ## Test Cases and Scenarios
 
 1. Creating a new samebase-managed vault yields exactly one starter-seeding commit.
-2. Seeded repository builds and runs with the current `samebase/app` stack.
+2. Seeded repository builds and runs with the current `templates/app` stack.
 3. Infra provisioning still triggers and reaches ready state.
-4. `pnpm run template:export -- --branch <branch>` refreshes the manifest from the requested
-   `samebase/app` branch.
+4. `pnpm run template:export` refreshes the manifest from staged Git blobs under `templates/app`.
+5. Ignored local files do not enter the manifest.
+6. A clean standalone install, supply-chain audit, and build pass with the nested lockfile.
+7. A successful main push publishes the template tree to `samebase/app` without rewriting its
+   existing history.
 
 ## Assumptions and Defaults
 
-- Default branch is `main`.
 - Reliability is prioritized over runtime freshness for Iteration 1.
-- Manual template refresh process is acceptable in this iteration.
-- `samebase/app` is the separate template repo.
+- Manifest freshness is automatic in required CI.
+- A daily audit detects new advisories that appear without a source change.
+- `samebase/app` is public generated output and its `main` branch is append-only.
 
 ## Deferred / Future Iterations
 
 - Consider preserving more of `samebase/app` history if generated repos need it after the v1
   single-commit flow.
 - Evaluate preserving staged pedagogical commit history in generated repos.
-- Investigate automating the `samebase/app` manifest refresh.
-- Experiment with reading starter template code directly as runtime text (instead of generated
-  manifest) if Convex deployment/bundling guarantees deterministic access to template files.
-- If the direct text-read experiment is pursued, compare failure modes and operational complexity
-  against the current generated-manifest approach before changing the default seeding path.
+- Use manual edition branches only when the public teaching artifact needs major stack re-curation.
+  Routine updates use the monorepo export.

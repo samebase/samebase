@@ -1,8 +1,8 @@
 # samebase/app Artifact Regeneration
 
-`samebase/app` is a public teaching artifact, not the place where the messy design process should
-live. Keep regeneration instructions, prompts, and decision notes in the Samebase repo, then
-regenerate the artifact repository from those instructions when the target shape is clear.
+`templates/app` is the maintained source for the public `samebase/app` teaching artifact. Routine
+changes belong in the template and publish through the repository exporter. Keep major edition
+instructions, prompts, and decision notes here.
 
 ## Core Idea
 
@@ -12,18 +12,19 @@ Each generated commit should teach one stack layer in an order a new user could 
 work, false starts, and platform research belong in Samebase docs or disposable repos. The public
 artifact should look deliberately built.
 
-## Regeneration Rules
+## Major Edition Rules
 
-- Preserve any existing generated attempt first, usually as `v0`, `v1`, or the next obvious archive
-  branch.
-- Start the new public history from an orphan branch and create `0: empty commit`.
+- Use a separate edition branch when a major stack change needs a newly curated teaching sequence.
+- Do not rewrite public `main`. It is append-only.
 - Use numbered commit subjects after that, matching the `samebase/app` style: `1. initialize ...`,
   `2. add ...`, and so on.
 - Create or update `REPO_HISTORY.md` inside each numbered commit. It is part of the teaching
   artifact, not a report reconstructed at the end.
-- Treat the current `samebase/app` final state as the feature-parity source before changing the
-  stack. Inventory small visible details, including the QR share block, shadcn primitives, Convex
-  todo backend, local workflow, Convex AI files, docs, and logos.
+- Treat the current `templates/app` state as the feature-parity source before changing the stack.
+  Inventory small visible details, including the QR share block, shadcn primitives, Convex todo
+  backend, local workflow, Convex AI files, docs, and logos.
+- After the edition is accepted, copy its final tree into `templates/app`. Let the normal publisher
+  append that accepted state to public `main`.
 - Do not put regeneration prompt files inside generated artifact repos. Put them here, or in another
   durable Samebase repo document.
 

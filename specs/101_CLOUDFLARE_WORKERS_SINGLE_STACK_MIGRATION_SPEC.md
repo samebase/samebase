@@ -5,7 +5,7 @@
 - Status: Accepted implementation plan
 - Owner: Samebase hosting, generated app provisioning, and public template stack
 - Created: 2026-05-15
-- Last updated: 2026-08-14
+- Last updated: 2026-08-15
 - Related:
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
   - `research/2026-05-15-samebase-workers-provisioning-migration.md`
@@ -104,10 +104,11 @@ should update or remove these facts as the code catches up.
 
 ### Template
 
-`samebase/app@main` is still Pages-oriented. Samebase currently exports that branch into
-`apps/samebase/convex/starterSeedManifest.generated.ts`.
+`templates/app` is the maintained Workers template. Required Samebase checks generate its stored
+seed manifest, audit its independent lockfile, and build it before the repository exporter publishes
+the accepted tree to `samebase/app@main`.
 
-The Workers branch is `samebase/app@v5-tanstack-start-workers`. That branch proves the rough shape:
+The template has this shape:
 
 1. TanStack Start in client-first mode
 2. Convex backend
@@ -116,9 +117,7 @@ The Workers branch is `samebase/app@v5-tanstack-start-workers`. That branch prov
 5. `pnpm run build`, `pnpm run deploy`, and `pnpm run deploy:preview`
 6. Node 24 pin so small TypeScript helper scripts can run directly in Cloudflare Workers Builds
 
-The branch is acceptable as the implementation input. Commit numbering, copy cleanup, and final
-artifact polish can happen later. The immediate Samebase work is to consume this Workers-shaped
-template and replace Pages auto-provisioning.
+Runtime app creation uses the committed seed manifest and does not depend on the public export.
 
 ### Generated App Seeding
 
@@ -128,7 +127,7 @@ Runtime app creation does not clone `samebase/app`. It seeds one generated commi
 This preserves runtime reliability but means the public template history and the generated user
 repository history intentionally have different jobs:
 
-1. `samebase/app` teaches the stack through small commits.
+1. `samebase/app` preserves its original teaching sequence in its append-only public history.
 2. generated user repositories start from one clean snapshot commit.
 
 ### Pre-Migration Provisioning
@@ -154,9 +153,8 @@ single-stack guarantee, not follow-up cleanup.
 
 ### Template Target
 
-`samebase/app` main should be a Workers teaching artifact. For the first Samebase implementation
-pass, the current `v5-tanstack-start-workers` branch is good enough to consume directly or promote
-to main. Clean commit numbering and copy are polish, not blockers.
+`templates/app` is the maintained Workers teaching source. The repository exporter publishes each
+accepted tree to `samebase/app` main without rewriting its earlier teaching history.
 
 Requirements:
 
@@ -171,7 +169,7 @@ Requirements:
 7. does not hard-code the Worker name
 8. supports production deploys and preview-version uploads through repo-owned scripts
 9. documents manual self-deploy without Samebase
-10. has clean, numbered commits and `REPO_HISTORY.md`
+10. preserves its existing teaching history and uses append-only updates
 11. avoids generator leftovers such as `.cta.json` and `.cursorrules`
 
 ### Samebase Production Target
@@ -207,10 +205,9 @@ New Samebase-managed app creation should:
 
 ## Implementation Plan
 
-### Phase 1: Select Workers Template Source
+### Phase 1: Maintain Workers Template Source
 
-1. Use `samebase/app@v5-tanstack-start-workers` as the implementation source, or promote that branch
-   to `samebase/app@main`.
+1. Use `templates/app` as the implementation source.
 2. Verify local commands:
    - `pnpm install --frozen-lockfile`
    - `vp run check`
@@ -221,16 +218,19 @@ New Samebase-managed app creation should:
 
 Template history polish remains valuable, but it should not block Samebase auto-provisioning work.
 
-### Phase 2: Export Workers Template Snapshot
+### Phase 2: Generate and Publish Workers Template Snapshot
 
-After selecting the Workers template source, refresh the generated starter manifest:
+After changing the Workers template source, refresh the generated starter manifest:
 
 ```bash
-pnpm run template:export -- --branch v5-tanstack-start-workers
+git add templates/app
+pnpm run template:export
+git add apps/samebase/convex/starterSeedManifest.generated.ts
 ```
 
-Update tests that assert starter files. Expected starter files should include the Workers config and
-scripts.
+Update tests that assert starter files. Required checks reject a stale manifest, unsafe nested
+lockfile, or failed standalone build. A successful main build publishes the exact committed
+`templates/app` tree to `samebase/app`.
 
 ### Phase 3: Replace Pages Provisioning With Workers Provisioning
 
