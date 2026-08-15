@@ -18,7 +18,7 @@ import {
 } from "@/lib/radixIcons";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useCoarsePointer } from "@/hooks/useCoarsePointer";
+import { useTouchFirstCoarsePointer } from "@/hooks/pointerCapabilities";
 import { DialogContext } from "@/contexts/dialog-context-state";
 import {
   getCommitStatusTextClassName,
@@ -181,7 +181,7 @@ function TreeNodeComponent({
   const isOpen = expansionState
     ? expansionState.isExpanded === true
     : autoExpandedPaths.has(node.path);
-  const isCoarsePointer = useCoarsePointer();
+  const isCoarsePointer = useTouchFirstCoarsePointer();
 
   const [isRenaming, setIsRenaming] = useState(false);
   const [renamingValue, setRenamingValue] = useState(node.name);

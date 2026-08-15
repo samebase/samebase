@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Editor from "@monaco-editor/react";
 import type { OnMount } from "@monaco-editor/react";
 import { useTheme } from "next-themes";
-import { useCoarsePointer } from "@/hooks/useCoarsePointer";
+import { useTouchFirstCoarsePointer } from "@/hooks/pointerCapabilities";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
 import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
 import {
@@ -58,7 +58,7 @@ export function MonacoEditorSurface({
   // capability. Width-consuming gutter chrome (line numbers, folding) also
   // sheds when the pane is narrow, whatever the pointer; showMobileLineNumbers
   // is an explicit consumer override past both hide reasons.
-  const isCoarsePointer = useCoarsePointer();
+  const isCoarsePointer = useTouchFirstCoarsePointer();
   const containerRef = useRef<HTMLDivElement>(null);
   const mobilePaneDrag = useWorkspaceLayoutV2DragSurface(true);
   const [editorHeightPx, setEditorHeightPx] = useState(MIN_EDITOR_HEIGHT_PX);

@@ -11,7 +11,7 @@ import { LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS } from "@/components/logo/l
 import { createStaticLogoSvgDataUrl } from "@/components/logo/logoStaticSvgAsset";
 import { type LogoViewState } from "@/components/logo/logoViewDrag";
 import { useResolvedAppThemeColorState } from "@/lib/appThemeColorSearch";
-import { useCoarsePointer } from "@/hooks/useCoarsePointer";
+import { useTouchFirstCoarsePointer } from "@/hooks/pointerCapabilities";
 import {
   PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID,
   PUBLIC_LANDING_MENGER_TEST_ID,
@@ -83,7 +83,7 @@ a WebGL renderer or page-wide pointer listeners.
 */
 export function LandingHeroMenger({ placement }: { placement: "preview" | "root" }) {
   const navigate = useNavigate();
-  const isCoarsePointer = useCoarsePointer();
+  const isCoarsePointer = useTouchFirstCoarsePointer();
   const rootRouteSearch = useRootRouteSearch();
   const routeState = useMemo(
     () =>

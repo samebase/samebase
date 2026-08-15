@@ -11,7 +11,6 @@ export const NEUTRAL_LOGO_PRESENTATION_TILT_TARGET: LogoPresentationTiltTarget =
   vertical: 0,
 };
 
-export const LOGO_POINTER_TILT_MEDIA_QUERY = "(hover: hover) and (pointer: fine)";
 /** Keep page-wide logo tilt at its current rendered pose inside marked interaction surfaces. */
 export const LOGO_PRESENTATION_TILT_SUSPEND_ATTRIBUTE = "data-logo-presentation-tilt-suspend";
 export const LOGO_PRESENTATION_TILT_DEFAULT_RADIUS_SCALE = 1;

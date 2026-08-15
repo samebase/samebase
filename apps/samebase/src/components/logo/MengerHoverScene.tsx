@@ -2,12 +2,12 @@ import { getTailwindColorHex, type FaceColors } from "@/components/logo/logoTail
 import {
   getRadialPointerLogoPresentationTiltTarget,
   getLogoPresentationTiltTransitionAlpha,
-  LOGO_POINTER_TILT_MEDIA_QUERY,
   LOGO_PRESENTATION_TILT_SUSPEND_ATTRIBUTE,
   LOGO_PRESENTATION_TILT_SETTLED_DEGREES,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   normalizeLogoPresentationTiltRadiusScale,
 } from "@/components/logo/logoPresentationTilt";
+import { usePrimaryFineHoverPointer } from "@/hooks/pointerCapabilities";
 import {
   LOGO_SCENE_CAMERA_EDGE_CLEARANCE_CSS_PIXELS,
   resolveLogoSceneCameraDepthBounds,
@@ -143,6 +143,7 @@ export function MengerHoverScene({
   rotationDegrees: number;
   viewSnapEnabled: boolean;
 }) {
+  const hasPrimaryFineHoverPointer = usePrimaryFineHoverPointer();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const automaticProbeRef = useRef(automaticProbe);
   const automaticProbeCycleStartedAtMsRef = useRef(0);
@@ -150,6 +151,7 @@ export function MengerHoverScene({
   const automaticProbeResumeTimeoutRef = useRef(0);
   const clientPointerRef = useRef<ClientPoint | null>(null);
   const pointerTiltEnabledRef = useRef(pointerTiltEnabled);
+  const primaryFineHoverPointerRef = useRef(hasPrimaryFineHoverPointer);
   const pointerTiltRadiusScaleRef = useRef(pointerTiltRadiusScale);
   const pointerTiltStrengthScaleRef = useRef(pointerTiltStrengthScale);
   const renderSceneRef = useRef<() => void>(() => {});
@@ -199,6 +201,11 @@ export function MengerHoverScene({
     resolvedFaceColorsRef.current = nextFaceColors;
     applyFaceColorsRef.current(nextFaceColors);
   }, [leftFaceColor, rightFaceColor, topFaceColor]);
+
+  useEffect(() => {
+    primaryFineHoverPointerRef.current = hasPrimaryFineHoverPointer;
+    renderSceneRef.current();
+  }, [hasPrimaryFineHoverPointer]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -404,7 +411,6 @@ export function MengerHoverScene({
     const fitRadius = (MENGER_SCENE_WORLD_SIZE / 2) * Math.sqrt(3);
     const cameraDepthBounds = resolveLogoSceneCameraDepthBounds(fitRadius);
     camera.far = cameraDepthBounds.far;
-    const pointerMediaQuery = window.matchMedia(LOGO_POINTER_TILT_MEDIA_QUERY);
     const presentationTiltAxisVector = new THREE.Vector3();
     const presentationTiltProjectionPoint = new THREE.Vector3();
     const presentationTiltScreenRightVector = new THREE.Vector3();
@@ -701,7 +707,7 @@ export function MengerHoverScene({
       const tiltClientPoint = automaticProbeClientPoint ?? presentationTiltClientPoint;
       const tiltClientPointEnabled =
         automaticProbeClientPoint !== null ||
-        (presentationTiltClientPoint !== null && pointerMediaQuery.matches);
+        (presentationTiltClientPoint !== null && primaryFineHoverPointerRef.current);
       const nextPresentationTiltTarget =
         tiltClientPoint !== null && tiltClientPointEnabled
           ? getRadialPointerLogoPresentationTiltTarget({
@@ -1016,9 +1022,6 @@ export function MengerHoverScene({
       presentationTiltClientPoint = null;
       renderScene();
     };
-    const onPointerCapabilityChange = () => {
-      renderScene();
-    };
     const onReducedMotionChange = () => {
       renderScene();
     };
@@ -1066,7 +1069,6 @@ export function MengerHoverScene({
     window.addEventListener("blur", onWindowBlur);
     window.addEventListener("pointermove", onWindowPointerMove);
     window.addEventListener("pointerup", onWindowPointerUp);
-    pointerMediaQuery.addEventListener("change", onPointerCapabilityChange);
     reducedMotionQuery.addEventListener("change", onReducedMotionChange);
     document.addEventListener("visibilitychange", onDocumentVisibilityChange);
     document.documentElement.addEventListener("pointerleave", onPagePointerLeave);
@@ -1082,7 +1084,6 @@ export function MengerHoverScene({
       window.removeEventListener("blur", onWindowBlur);
       window.removeEventListener("pointermove", onWindowPointerMove);
       window.removeEventListener("pointerup", onWindowPointerUp);
-      pointerMediaQuery.removeEventListener("change", onPointerCapabilityChange);
       reducedMotionQuery.removeEventListener("change", onReducedMotionChange);
       document.removeEventListener("visibilitychange", onDocumentVisibilityChange);
       document.documentElement.removeEventListener("pointerleave", onPagePointerLeave);

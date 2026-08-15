@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { useRouteEditorTouchScrollPointer } from "@/hooks/pointerCapabilities";
 import type { Suggestion } from "./RouteUrlEditorSuggestions";
 
-const routeUrlEditorTouchScrollPickerMediaQuery = "(hover: none), (pointer: coarse)";
 const routeUrlEditorTouchScrollSlateOptionOffset = 2;
 
 export const routeUrlEditorTouchSuggestionRowHeightPx = 28;
@@ -132,7 +132,7 @@ export function useRouteUrlEditorTouchScrollPicker({
   const previewedTouchSuggestionIndexRef = useRef(previewedTouchSuggestionIndex);
   const touchScrollPickingArmedRef = useRef(false);
   const skipNextTouchScrollEventRef = useRef(false);
-  const [touchScrollPickerEnabled, setTouchScrollPickerEnabled] = useState(false);
+  const touchScrollPickerEnabled = useRouteEditorTouchScrollPointer();
   const [touchScrollPickerMetrics, setTouchScrollPickerMetrics] =
     useState<RouteUrlEditorTouchScrollPickerMetrics | null>(null);
 
@@ -189,24 +189,6 @@ export function useRouteUrlEditorTouchScrollPicker({
 
   const handleSuggestionsWheel = useCallback(() => {
     touchScrollPickingArmedRef.current = true;
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") {
-      return;
-    }
-
-    const mediaQuery = window.matchMedia(routeUrlEditorTouchScrollPickerMediaQuery);
-    const syncTouchScrollPickerEnabled = () => {
-      setTouchScrollPickerEnabled(mediaQuery.matches);
-    };
-
-    syncTouchScrollPickerEnabled();
-    mediaQuery.addEventListener("change", syncTouchScrollPickerEnabled);
-
-    return () => {
-      mediaQuery.removeEventListener("change", syncTouchScrollPickerEnabled);
-    };
   }, []);
 
   useEffect(() => () => cancelTouchScrollPreviewFrame(), [cancelTouchScrollPreviewFrame]);
