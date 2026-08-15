@@ -18,6 +18,11 @@ import { getOrganizationProviderConfiguration } from "./organizationProviderCred
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import { readActiveUser } from "./userLifecycle";
 import { CURRENT_TERMS_VERSION } from "./users";
+import { upsertGitHubUserAuthorization } from "./githubUserAuthorizations";
+import {
+  PREVIEW_SEED_GITHUB_USER_AUTHORIZATION_ENV_NAME,
+  parsePreviewSeedGitHubUserAuthorization,
+} from "../shared/previewSeedGitHubAuthorization";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
 
@@ -141,6 +146,17 @@ function readRequiredPreviewSeedProviderCredentials(): SeedProviderCredentials {
   return credentials;
 }
 
+function readRequiredPreviewSeedGitHubUserAuthorization() {
+  const serializedAuthorization = requireSeedValue(
+    readSeedValue(PREVIEW_SEED_GITHUB_USER_AUTHORIZATION_ENV_NAME),
+    PREVIEW_SEED_GITHUB_USER_AUTHORIZATION_ENV_NAME,
+  );
+  return {
+    authorization: parsePreviewSeedGitHubUserAuthorization(serializedAuthorization),
+    serializedAuthorization,
+  };
+}
+
 function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
   const githubOwnerId = readSeedValue("DEV_SEED_GITHUB_OWNER_ID");
   const githubOwnerType = readSeedValue("DEV_SEED_GITHUB_OWNER_TYPE");
@@ -241,6 +257,76 @@ export const approveSeedPasswordAccount = internalMutation({
         termsVersion: CURRENT_TERMS_VERSION,
       });
     }
+    return null;
+  },
+});
+
+export const seedPreviewGitHubUserAuthorization = internalMutation({
+  args: {
+    userId: id("users"),
+    serializedAuthorization: string(),
+  },
+  returns: vNull(),
+  handler: async (ctx, args) => {
+    if (resolveDeploymentProfile().kind !== "preview") {
+      throw new Error("GitHub user authorization seeding requires a preview deployment.");
+    }
+    const authorization = parsePreviewSeedGitHubUserAuthorization(args.serializedAuthorization);
+    const [userGitHubAccounts, githubIdentityAccounts] = await Promise.all([
+      ctx.db
+        .query("authAccounts")
+        .withIndex("userIdAndProvider", (query) =>
+          query.eq("userId", args.userId).eq("provider", "github"),
+        )
+        .take(2),
+      ctx.db
+        .query("authAccounts")
+        .withIndex("providerAndAccountId", (query) =>
+          query.eq("provider", "github").eq("providerAccountId", authorization.githubUserId),
+        )
+        .take(2),
+    ]);
+    if (userGitHubAccounts.length > 1 || githubIdentityAccounts.length > 1) {
+      throw new Error("The preview seed GitHub identity has conflicting account records.");
+    }
+    const existingUserGitHubAccount = userGitHubAccounts.at(0);
+    if (
+      existingUserGitHubAccount !== undefined &&
+      existingUserGitHubAccount.providerAccountId !== authorization.githubUserId
+    ) {
+      throw new Error("The preview seed user is linked to a different GitHub identity.");
+    }
+    if (githubIdentityAccounts.some((account) => account.userId !== args.userId)) {
+      throw new Error("The preview seed GitHub identity belongs to another account.");
+    }
+
+    if (existingUserGitHubAccount === undefined) {
+      await ctx.db.insert("authAccounts", {
+        userId: args.userId,
+        provider: "github",
+        providerAccountId: authorization.githubUserId,
+        emailVerified: authorization.githubUserEmail,
+        githubLogin: authorization.githubUserLogin,
+      });
+    } else if (
+      existingUserGitHubAccount.emailVerified !== authorization.githubUserEmail ||
+      existingUserGitHubAccount.githubLogin !== authorization.githubUserLogin
+    ) {
+      await ctx.db.patch(existingUserGitHubAccount._id, {
+        emailVerified: authorization.githubUserEmail,
+        githubLogin: authorization.githubUserLogin,
+      });
+    }
+
+    await upsertGitHubUserAuthorization(ctx.db, {
+      userId: args.userId,
+      githubUserId: authorization.githubUserId,
+      githubUserLogin: authorization.githubUserLogin,
+      accessToken: authorization.accessToken,
+      accessTokenExpiresAt: authorization.accessTokenExpiresAt,
+      refreshToken: authorization.refreshToken,
+      refreshTokenExpiresAt: authorization.refreshTokenExpiresAt,
+    });
     return null;
   },
 });
@@ -649,12 +735,27 @@ export const seedPasswordAccount = internalAction({
       accountConfig.kind === "local_worktree_seed" ? readSeedWorktreeOrganizationConfig() : null;
     const previewSeed =
       accountConfig.kind === "preview_seed"
-        ? {
-            providerCredentials: readRequiredPreviewSeedProviderCredentials(),
-            installations: await discoverPreviewSeedGitHubAppInstallations(
+        ? await (async () => {
+            const providerCredentials = readRequiredPreviewSeedProviderCredentials();
+            const githubUserAuthorization = readRequiredPreviewSeedGitHubUserAuthorization();
+            const installations = await discoverPreviewSeedGitHubAppInstallations(
               requireSeedValue(readSeedValue("DEV_SEED_GITHUB_API_KEY"), "DEV_SEED_GITHUB_API_KEY"),
-            ),
-          }
+            );
+            const connectedGithubOwnerIds = new Set(
+              githubUserAuthorization.authorization.connectedGithubOwnerIds,
+            );
+            const connectedInstallations = installations.filter((installation) =>
+              connectedGithubOwnerIds.has(installation.githubOwnerId),
+            );
+            if (connectedInstallations.length !== connectedGithubOwnerIds.size) {
+              throw new Error("A connected preview seed GitHub owner has no active installation.");
+            }
+            return {
+              githubUserAuthorization,
+              installations: connectedInstallations,
+              providerCredentials,
+            };
+          })()
         : null;
 
     let created = false;
@@ -706,6 +807,10 @@ export const seedPasswordAccount = internalAction({
       });
     }
     if (previewSeed !== null) {
+      await ctx.runMutation(internal.devAuth.seedPreviewGitHubUserAuthorization, {
+        userId,
+        serializedAuthorization: previewSeed.githubUserAuthorization.serializedAuthorization,
+      });
       for (const installation of previewSeed.installations) {
         await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
           userId,

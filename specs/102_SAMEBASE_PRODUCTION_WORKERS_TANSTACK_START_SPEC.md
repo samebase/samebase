@@ -252,12 +252,17 @@ Samebase production itself.
      `WORKERS_CI_BRANCH` is a non-production branch
    - runs the idempotent `devAuth:seedPasswordAccount` action after every successful preview deploy,
      including preview reuse, without relying on preview creation
-   - uses `DEV_SEED_GITHUB_API_KEY` during preview seeding only to match the seed user and active
-     administrator memberships to installations of the configured GitHub App, then stores only the
-     matched owner and installation identities
-   - attaches the same seeded Convex team and Cloudflare account to every matched preview
-     organization; preview defaults must provide `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`,
-     `DEV_SEED_CONVEX_TEAM_ID`, `DEV_SEED_CLOUDFLARE_API_KEY`, and `DEV_SEED_CLOUDFLARE_ACCOUNT_ID`
+   - uses `DEV_SEED_GITHUB_API_KEY` during preview seeding only to discover active installations of
+     the configured GitHub App
+   - links the seeded password user to the development GitHub identity and copies its current
+     refreshable GitHub App user authorization from `PREVIEW_SEED_GITHUB_USER_AUTHORIZATION`;
+     `pnpm sync:preview-github-seed` updates that secret through standard input without printing it
+   - creates memberships only for the GitHub owner IDs selected by that authorization snapshot;
+     later seed runs preserve organizations that the user connects through the preview UI
+   - attaches the same seeded Convex team and Cloudflare account to every initially selected preview
+     organization, without creating vaults; preview defaults must provide
+     `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`, `DEV_SEED_CONVEX_TEAM_ID`, `DEV_SEED_CLOUDFLARE_API_KEY`,
+     and `DEV_SEED_CLOUDFLARE_ACCOUNT_ID`
    - rejects non-production builds that are missing `PREVIEW_CONVEX_DEPLOY_KEY`, even when
      `CONVEX_DEPLOY_KEY` is present
    - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head

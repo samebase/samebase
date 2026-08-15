@@ -190,11 +190,25 @@ describe("devAuth password account seed", () => {
     });
   });
 
-  it("uses the preview API key without storing it and repeats organization seeding safely", async () => {
+  it("seeds selected organizations and preserves a later GitHub connection", async () => {
     const t = makeConvexTest();
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:organization-context");
     vi.stubEnv("PREVIEW_SEED_AUTH_EMAIL", "preview@example.com");
     vi.stubEnv("PREVIEW_SEED_AUTH_PASSWORD", "preview-password-123");
+    vi.stubEnv(
+      "PREVIEW_SEED_GITHUB_USER_AUTHORIZATION",
+      JSON.stringify({
+        version: 1,
+        githubUserId: "202",
+        githubUserLogin: "nicu-chiciuc",
+        githubUserEmail: "preview@example.com",
+        accessToken: "preview-github-access-token",
+        accessTokenExpiresAt: 4_000_000_000_000,
+        refreshToken: "preview-github-refresh-token",
+        refreshTokenExpiresAt: 4_102_444_800_000,
+        connectedGithubOwnerIds: ["101", "202"],
+      }),
+    );
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
     vi.stubEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY", "preview-convex-credential");
     vi.stubEnv("DEV_SEED_CONVEX_TEAM_ID", "preview-convex-team-id");
@@ -211,7 +225,13 @@ describe("devAuth password account seed", () => {
         githubInstallationId: "1002",
         githubOwnerId: "202",
         githubOwnerType: "user",
-        githubOwnerLogin: "octocat",
+        githubOwnerLogin: "nicu-chiciuc",
+      },
+      {
+        githubInstallationId: "1003",
+        githubOwnerId: "303",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "samebase-live-tests",
       },
     ]);
 
@@ -219,6 +239,33 @@ describe("devAuth password account seed", () => {
       email: "preview@example.com",
       created: true,
     });
+
+    const initialSnapshot = await t.run(async (ctx) => ({
+      organizations: await ctx.db.query("organizations").collect(),
+      memberships: await ctx.db.query("organizationMemberships").collect(),
+    }));
+    expect(initialSnapshot.organizations).toHaveLength(2);
+    expect(initialSnapshot.memberships).toHaveLength(2);
+    expect(
+      initialSnapshot.organizations
+        .map(({ githubOwnerId }) => githubOwnerId)
+        .sort((left, right) => left.localeCompare(right)),
+    ).toEqual(["101", "202"]);
+
+    const seedUser = await t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
+      email: "preview@example.com",
+    });
+    if (seedUser.kind === "missing") {
+      throw new Error("The preview seed user was not created.");
+    }
+    await t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
+      userId: seedUser.userId,
+      githubInstallationId: "1003",
+      githubOwnerId: "303",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "samebase-live-tests",
+    });
+
     await expect(t.action(internal.devAuth.seedPasswordAccount, {})).resolves.toEqual({
       email: "preview@example.com",
       created: false,
@@ -228,18 +275,49 @@ describe("devAuth password account seed", () => {
       organizations: await ctx.db.query("organizations").collect(),
       memberships: await ctx.db.query("organizationMemberships").collect(),
       billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
+      authAccounts: await ctx.db.query("authAccounts").collect(),
       githubUserAuthorizations: await ctx.db.query("githubUserAuthorizations").collect(),
       providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
+      vaults: await ctx.db.query("vaults").collect(),
     }));
     expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledTimes(2);
     expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledWith(
       "preview-github-api-key",
     );
-    expect(snapshot.organizations).toHaveLength(2);
-    expect(snapshot.memberships).toHaveLength(2);
-    expect(snapshot.billingAccounts).toHaveLength(2);
-    expect(snapshot.githubUserAuthorizations).toEqual([]);
+    expect(snapshot.organizations).toHaveLength(3);
+    expect(snapshot.memberships).toHaveLength(3);
+    expect(snapshot.billingAccounts).toHaveLength(3);
+    expect(snapshot.authAccounts).toHaveLength(2);
+    expect(snapshot.authAccounts).toContainEqual(
+      expect.objectContaining({
+        userId: snapshot.memberships[0].userId,
+        provider: "github",
+        providerAccountId: "202",
+        emailVerified: "preview@example.com",
+        githubLogin: "nicu-chiciuc",
+      }),
+    );
+    expect(snapshot.githubUserAuthorizations).toHaveLength(1);
+    expect(snapshot.githubUserAuthorizations[0]).toMatchObject({
+      userId: snapshot.memberships[0].userId,
+      githubUserId: "202",
+      githubUserLogin: "nicu-chiciuc",
+      accessToken: "preview-github-access-token",
+      accessTokenExpiresAt: 4_000_000_000_000,
+      refreshToken: "preview-github-refresh-token",
+      refreshTokenExpiresAt: 4_102_444_800_000,
+    });
     expect(snapshot.providerCredentials).toHaveLength(2);
+    expect(snapshot.vaults).toEqual([]);
+    const connectedGithubOwnerIds = snapshot.memberships
+      .map((membership) =>
+        snapshot.organizations.find(
+          (organization) => organization._id === membership.organizationId,
+        ),
+      )
+      .map((organization) => organization?.githubOwnerId)
+      .sort((left, right) => (left ?? "").localeCompare(right ?? ""));
+    expect(connectedGithubOwnerIds).toEqual(["101", "202", "303"]);
     expect(snapshot.providerCredentials).not.toContainEqual(
       expect.objectContaining({
         convex: expect.objectContaining({
@@ -247,7 +325,9 @@ describe("devAuth password account seed", () => {
         }),
       }),
     );
-    for (const organization of snapshot.organizations) {
+    for (const organization of snapshot.organizations.filter(({ githubOwnerId }) =>
+      ["101", "202"].includes(githubOwnerId),
+    )) {
       const organizationCredentials = snapshot.providerCredentials.filter(
         (credentials) => credentials.organizationId === organization._id,
       );

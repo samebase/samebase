@@ -22,6 +22,7 @@ const app = defineApp({
     PASSWORD_AUTH_ENABLED: v.optional(v.string()),
     POLAR_ACCESS_TOKEN: v.optional(v.string()),
     POLAR_WEBHOOK_SECRET: v.optional(v.string()),
+    PREVIEW_SEED_GITHUB_USER_AUTHORIZATION: v.optional(v.string()),
   },
 });
 
