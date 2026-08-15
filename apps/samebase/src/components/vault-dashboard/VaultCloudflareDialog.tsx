@@ -491,7 +491,7 @@ export function VaultCloudflareDialog({
     try {
       if (repairWorker) {
         if (!buildTokenUuid) {
-          throw new Error("Choose a Workers Builds token.");
+          throw new Error("Choose an API token.");
         }
         await configureWorkersBuildsForGitHub({
           buildTokenUuid,
@@ -501,7 +501,7 @@ export function VaultCloudflareDialog({
         });
       } else if (workerToConnect) {
         if (!buildTokenUuid) {
-          throw new Error("Choose a Workers Builds token.");
+          throw new Error("Choose an API token.");
         }
         const result = await connectWorker({
           vaultId: vault._id,
@@ -543,7 +543,7 @@ export function VaultCloudflareDialog({
         });
       } else {
         if (!buildTokenUuid) {
-          throw new Error("Choose a Workers Builds token.");
+          throw new Error("Choose an API token.");
         }
         await createWorker({
           vaultId: vault._id,

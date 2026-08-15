@@ -49,9 +49,9 @@ export function CloudflareBuildTokenField({
   if (isLoading) {
     return (
       <div className="grid gap-1.5">
-        <Label>Workers Builds token</Label>
+        <Label>API token</Label>
         <div className="text-xs text-muted-foreground" role="status">
-          Loading Workers Builds tokens...
+          Loading API tokens...
         </div>
       </div>
     );
@@ -60,9 +60,9 @@ export function CloudflareBuildTokenField({
   if (error) {
     return (
       <div className="grid gap-1.5">
-        <Label>Workers Builds token</Label>
+        <Label>API token</Label>
         <div className="flex flex-wrap items-center gap-2 text-xs text-red-600" role="alert">
-          <span>Could not load Workers Builds tokens.</span>
+          <span>Could not load API tokens.</span>
           <Button disabled={disabled} onClick={onReload} size="xs" type="button" variant="outline">
             Retry
           </Button>
@@ -74,10 +74,10 @@ export function CloudflareBuildTokenField({
   if (tokens.length === 0) {
     return (
       <div className="grid gap-1.5">
-        <Label>Workers Builds token</Label>
+        <Label>API token</Label>
         <div className="text-xs leading-5 text-muted-foreground">
-          No Workers Builds tokens are listed. Create one in Cloudflare&apos;s Workers Builds setup,
-          then reload.{" "}
+          No API tokens are listed. Create one in Cloudflare&apos;s Workers Builds setup, then
+          reload.{" "}
           {accountId ? (
             <a
               className={linkStyle}
@@ -107,7 +107,7 @@ export function CloudflareBuildTokenField({
 
   return (
     <div className="grid gap-1.5">
-      <Label htmlFor={id}>Workers Builds token</Label>
+      <Label htmlFor={id}>API token</Label>
       <Select disabled={disabled} onValueChange={onValueChange} value={value}>
         <SelectTrigger className="w-full" id={id}>
           <SelectValue placeholder="Choose a token">

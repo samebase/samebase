@@ -2393,7 +2393,7 @@ describe("VaultCloudflareDialogContent", () => {
   it("asks for one repository root before connecting and adding an unconnected Worker", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
-        cloudflareBuildTokenField={<div>Workers Builds token</div>}
+        cloudflareBuildTokenField={<div>API token</div>}
         hasSelectedBuildToken
         createRootDirectory="apps/portal"
         createWorkerName=""
@@ -2429,7 +2429,7 @@ describe("VaultCloudflareDialogContent", () => {
     expect(markup).toContain("Connect a Worker");
     expect(markup).toContain("portal-worker");
     expect(markup).toContain("Repository root");
-    expect(markup).toContain("Workers Builds token");
+    expect(markup).toContain("API token");
     expect(markup).toContain('value="apps/portal"');
     expect(markup).toContain("Connect and add");
     expect(markup).toContain("Back");
@@ -2440,7 +2440,7 @@ describe("VaultCloudflareDialogContent", () => {
   it("shows the repository root only when creating a Worker", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
-        cloudflareBuildTokenField={<div>Workers Builds token</div>}
+        cloudflareBuildTokenField={<div>API token</div>}
         hasSelectedBuildToken={false}
         createRootDirectory="apps/web"
         createWorkerName="samebase_app"
@@ -2471,7 +2471,7 @@ describe("VaultCloudflareDialogContent", () => {
     expect(markup).toContain('role="combobox"');
     expect(markup).toContain("Repository root");
     expect(markup).toContain('value="apps/web"');
-    expect(markup).toContain("Workers Builds token");
+    expect(markup).toContain("API token");
     expect(markup).toContain("Create Worker");
     expect(createButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
     expect(markup).not.toContain("cloudflare-worker-name-error");
@@ -2732,10 +2732,10 @@ describe("buildVaultRepositorySettingsState", () => {
       tokens: [{ name: "Workers Builds - 2026-08-14 01:54", uuid: "12345678-token" }],
     });
     expect(listedRow.description).toContain(
-      "Build token: Workers Builds - 2026-08-14 01:54 (12345678).",
+      "API token: Workers Builds - 2026-08-14 01:54 (12345678).",
     );
     expect(listedRow.description).not.toContain("healthy");
-    expect(listedRow.actions?.map((action) => action.label)).toEqual(["Change build token"]);
+    expect(listedRow.actions?.map((action) => action.label)).toEqual(["Change API token"]);
     listedRow.actions?.[0].onClick?.();
     expect(changeBuildToken).toHaveBeenCalledWith(workerId, "/");
 
@@ -2746,7 +2746,7 @@ describe("buildVaultRepositorySettingsState", () => {
     });
     expect(missingRow).toMatchObject({
       state: "failed",
-      description: expect.stringContaining("Build token (12345678) is not in Cloudflare's list."),
+      description: expect.stringContaining("API token (12345678) is not in Cloudflare's list."),
     });
 
     const listFailedRow = readRow({
@@ -2755,7 +2755,7 @@ describe("buildVaultRepositorySettingsState", () => {
       previewBuildTokenUuid: "12345678-token",
       tokens: [],
     });
-    expect(listFailedRow.description).toContain("Could not load build token (12345678).");
+    expect(listFailedRow.description).toContain("Could not load API token (12345678).");
 
     const mismatchedRow = readRow({
       productionBuildTokenUuid: "production-token",
@@ -2765,7 +2765,7 @@ describe("buildVaultRepositorySettingsState", () => {
     expect(mismatchedRow).toMatchObject({
       state: "failed",
       description: expect.stringContaining(
-        "Production and preview use different build tokens: production (producti), preview (preview-).",
+        "Production and preview use different API tokens: production (producti), preview (preview-).",
       ),
     });
   });

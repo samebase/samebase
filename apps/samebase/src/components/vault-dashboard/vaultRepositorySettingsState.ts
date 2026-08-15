@@ -378,12 +378,12 @@ function formatCloudflareBuildTokenState({
     const previewUuid = builds.previewBuildTokenUuid?.slice(0, 8) ?? "none";
     return {
       attention: true,
-      description: `Production and preview use different build tokens: production (${productionUuid}), preview (${previewUuid}).`,
+      description: `Production and preview use different API tokens: production (${productionUuid}), preview (${previewUuid}).`,
     };
   }
   const buildTokenUuid = builds.productionBuildTokenUuid;
   if (!buildTokenUuid) {
-    return { attention: true, description: "No Workers Builds token is assigned." };
+    return { attention: true, description: "No API token is assigned." };
   }
   const shortBuildTokenUuid = buildTokenUuid.slice(0, 8);
 
@@ -393,23 +393,23 @@ function formatCloudflareBuildTokenState({
     case "loading":
       return {
         attention: false,
-        description: `Loading build token (${shortBuildTokenUuid})...`,
+        description: `Loading API token (${shortBuildTokenUuid})...`,
       };
     case "failed":
       return {
         attention: false,
-        description: `Could not load build token (${shortBuildTokenUuid}).`,
+        description: `Could not load API token (${shortBuildTokenUuid}).`,
       };
     case "loaded": {
       const token = buildTokens.tokens.find((candidate) => candidate.uuid === buildTokenUuid);
       return token
         ? {
             attention: false,
-            description: `Build token: ${token.name} (${token.uuid.slice(0, 8)}).`,
+            description: `API token: ${token.name} (${token.uuid.slice(0, 8)}).`,
           }
         : {
             attention: true,
-            description: `Build token (${shortBuildTokenUuid}) is not in Cloudflare's list.`,
+            description: `API token (${shortBuildTokenUuid}) is not in Cloudflare's list.`,
           };
     }
   }
@@ -610,7 +610,7 @@ function buildCloudflareRow({
       const changeBuildTokenAction = configureWorkersBuildsForGitHubOnClick
         ? {
             kind: "configure" as const,
-            label: "Change build token",
+            label: "Change API token",
             onClick: () =>
               configureWorkersBuildsForGitHubOnClick(
                 worker.workerId,
