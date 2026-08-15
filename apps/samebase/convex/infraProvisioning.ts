@@ -597,7 +597,6 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "The current Cloudflare credential cannot access Cloudflare account",
   "Cloudflare connection is missing Workers Builds write access.",
   "Cloudflare Workers and Pages GitHub App is not authorized",
-  "Cloudflare Workers needs a configured workers.dev subdomain",
   "Cloudflare Worker name",
   ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX,
   "exists after an interrupted create. Delete it in the Cloudflare dashboard, then retry.",
