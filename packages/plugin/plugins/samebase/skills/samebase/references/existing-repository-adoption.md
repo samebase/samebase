@@ -35,37 +35,35 @@ verified.
 
 ## Assets-Only Legacy Repositories
 
-Use the current Samebase-managed command interface for a static browser repository with no package
-manifest or build step:
+The goal is a safe repository-owned deployment contract, not a pretend build. Before provider setup:
 
-1. `pnpm run build`
-2. `pnpm run deploy`
-3. `pnpm run deploy:preview`
+1. Make the configured build, production deploy, and preview deploy commands work from the selected
+   root. The current Samebase defaults are `pnpm run build`, `pnpm run deploy`, and
+   `pnpm run deploy:preview`.
+2. Keep the build command non-deploying. It can transform files, validate existing files, or do no
+   work when the source is already deployable.
+3. Define a deployable asset boundary that excludes repository-only files and tool state.
+4. Keep local preview output and state outside any watched asset boundary.
+5. Keep safe validation or version upload separate from production promotion.
 
-This is a Samebase contract, not a Cloudflare package-manager requirement. When the repository has
-no package manager, add a pnpm package manifest and lock file. Complete this source work before
-Samebase configures Workers Builds. Pin the Node, pnpm, and Wrangler versions so local validation
-and Workers Builds use the same toolchain.
+Preserve an existing package manager, framework adapter, output directory, and provider config when
+they satisfy these outcomes. Resolve any mismatch with the commands that Samebase will configure
+before provider setup. Add only the runtime and deployment dependencies needed for reproducible
+builds.
 
-Put only browser-reachable files in a dedicated directory such as `public/`. Commit `wrangler.jsonc`
-and point `assets.directory` at that directory. Keep package files, documentation, Wrangler
-configuration, and local tool state outside the served directory. Do not use the repository root as
-the static asset directory.
+Common pitfalls are:
 
-When the browser files need no transform, make `build` run useful validation and produce no copied
-site. Do not add a build helper only to copy files for Wrangler. Use plain `wrangler dev` for local
-preview unless the application has binding state that needs an explicit persistence decision.
-
-Add dedicated `deploy:dry-run` and `deploy:preview:dry-run` scripts with `--dry-run` in their
-package definitions. Do not use `pnpm run deploy -- --dry-run`. A real adoption sent the separator
-to Wrangler and started a production deployment.
+1. serving the repository root because there is no generated output
+2. adding a copy program only to make `build` produce files
+3. placing preview state inside the watched asset boundary
+4. trusting a green provider check without testing the public route
+5. forwarding an unverified flag through a deploy script and starting production by mistake
 
 Verify all of these results separately:
 
 1. the terminal provider build and its source commit
 2. the application root and one known asset
-3. repository-only paths such as `/package.json`, `/pnpm-lock.yaml`, and `/wrangler.jsonc`, which
-   must return 404
+3. representative repository-only files, which must not be reachable
 4. the production URL and the pull request preview URL
 
 A green provider check is not route proof. If files moved into a new static directory, confirm that

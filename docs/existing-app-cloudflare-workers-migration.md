@@ -21,37 +21,28 @@ graph. It does not decide which toolchain the owner wants after the migration.
 
 ## Adopt an Assets-Only Repository
 
-Use the current Samebase-managed Workers Builds interface when a legacy static repository has no
-package manifest or build step:
+An assets-only repository needs a safe deployment contract. It does not need an invented compile
+step. Before provider setup:
 
-1. `pnpm run build`
-2. `pnpm run deploy`
-3. `pnpm run deploy:preview`
+1. Make the configured build, production deploy, and preview deploy commands work from the selected
+   application root. The current Samebase defaults are `pnpm run build`, `pnpm run deploy`, and
+   `pnpm run deploy:preview`.
+2. Keep the build command non-deploying. It can transform files, validate existing files, or do no
+   work when the repository already contains the deployable result.
+3. Define one deployable asset boundary that excludes repository-only files and tool state. Do not
+   serve the repository root only because the app has no build output.
+4. Keep local preview output and state outside any watched asset boundary so preview does not reload
+   because of its own writes.
+5. Keep validation or version upload separate from production promotion.
 
-This is the Samebase command contract. Cloudflare itself can use other package managers. Before
-Samebase configures Workers Builds, make sure that all three commands work in the repository. If the
-repository has no package manager, add a pnpm package manifest and lock file. If it intentionally
-keeps another package manager, record the mismatch and resolve it before provider setup.
+Use the repository's existing package manager, framework adapter, output directory, and provider
+configuration when they satisfy these outcomes. If they do not match the commands that Samebase will
+configure, resolve that mismatch before provider setup. Add only the runtime and deployment
+dependencies needed to make the contract reproducible.
 
-Pin the Node, pnpm, and Wrangler versions used by the repository. This makes the local commands and
-Workers Builds use the same toolchain.
-
-An assets-only app does not need a generated build directory. Put only browser-reachable files in a
-dedicated directory such as `public/`. Commit `wrangler.jsonc` and point `assets.directory` at that
-directory. Keep the package manifest, lock file, Wrangler config, documentation, and local tool
-state outside it.
-
-Make `build` non-deploying. It can run syntax or content checks when no transform is necessary. Do
-not add a build helper only to copy already-deployable files. Use plain `wrangler dev` for local
-preview. Do not set a custom persistence directory when the app has no binding state to preserve.
-
-Add dedicated dry-run scripts whose definitions contain the Wrangler flag:
-
-1. `deploy:dry-run`: `wrangler deploy --dry-run`
-2. `deploy:preview:dry-run`: `wrangler versions upload --dry-run`
-
-Do not append the flag after a standalone package-script separator. Run the dedicated script so a
-validation command cannot become a production deployment.
+Do not add a copy helper only to make the build command look substantial. Use a repository-owned
+dry-run or equivalent safe validation command. Verify its exact invocation before use. Do not assume
+that flags forwarded through a package script keep their meaning at the deployment tool boundary.
 
 ## Record the Baseline
 
@@ -128,8 +119,8 @@ Before merge:
 3. Confirm the uploaded Worker version receives no production traffic.
 4. Test the public branch URL when the application supports one.
 5. Test the named browser profile and account that the operator uses.
-6. For static deployments, confirm that repository-only paths such as `/package.json`, the lock
-   file, and `/wrangler.jsonc` return 404.
+6. For static deployments, confirm that representative files outside the deployable asset boundary
+   are not reachable.
 
 For cutover:
 

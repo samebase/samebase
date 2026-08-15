@@ -44,9 +44,10 @@ repository that intentionally uses another package manager needs an explicit mig
 future Samebase support for a different command contract. A repository with no package manager can
 adopt pnpm without changing its browser runtime.
 
-## Reusable Assets-Only Recipe
+## Iterseg Implementation
 
-Use this recipe for old browser experiments that have no server runtime and no transform step:
+These exact choices describe iterseg. They are evidence for the general outcomes, not a required
+template for every assets-only repository:
 
 1. Confirm that every production route and dependency can run from static files.
 2. Move only browser-reachable files into `public/`.
@@ -128,9 +129,11 @@ adoption ladder instead of treating every migration as the same task:
 Hosting migration and framework migration are separate decisions. Samebase should not require a
 framework rewrite only to connect a repository or move its hosting.
 
-A future repository-readiness feature can detect the first class and prepare a pull request with the
-small contract above. It should show the exact source changes before provider setup, keep the build
-non-deploying, and use live URL checks as terminal evidence.
+A future repository-readiness feature can detect the first class and prepare a pull request that
+makes the required outcomes true. It should show the exact source changes before provider setup,
+keep the build non-deploying, isolate the deployable files, and use live URL checks as terminal
+evidence. It should not require one directory name, configuration file, or helper script when the
+repository's existing toolchain proves the same contract.
 
 ## Sources
 
