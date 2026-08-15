@@ -295,18 +295,25 @@ export const observeCloudflareWorkers = action({
       vaultId: args.vaultId,
       userId: ctx.viewer.userId,
     });
+    if (context.cloudflareWorkers.length === 0) {
+      return [];
+    }
+    const input = await readCloudflareObservationInput(ctx, {
+      organizationId: context.organizationId,
+      userId: ctx.viewer.userId,
+      accountId: context.cloudflareAccountId,
+    });
+    if (input.state === "failed") {
+      return context.cloudflareWorkers.map((worker) => ({
+        state: "failed" as const,
+        workerId: worker.workerId,
+        reason: input.reason,
+      }));
+    }
 
     return await Promise.all(
       context.cloudflareWorkers.map(async (worker) => {
         try {
-          const input = await readCloudflareObservationInput(ctx, {
-            organizationId: context.organizationId,
-            userId: ctx.viewer.userId,
-            accountId: worker.accountId,
-          });
-          if (input.state === "failed") {
-            return { state: "failed" as const, workerId: worker.workerId, reason: input.reason };
-          }
           const identity = await readCloudflareWorkerIdentity({
             token: input.token,
             transport: input.transport,
@@ -347,6 +354,9 @@ export const observeCloudflareWorkerBuilds = action({
       vaultId: args.vaultId,
       userId: ctx.viewer.userId,
     });
+    if (context.cloudflareWorkers.length === 0) {
+      return [];
+    }
     let defaultBranch: string;
     try {
       const githubAccess = await resolveGitHubAppAccess(ctx, {
@@ -367,18 +377,22 @@ export const observeCloudflareWorkerBuilds = action({
         reason: "request_failed" as const,
       }));
     }
+    const input = await readCloudflareObservationInput(ctx, {
+      organizationId: context.organizationId,
+      userId: ctx.viewer.userId,
+      accountId: context.cloudflareAccountId,
+    });
+    if (input.state === "failed") {
+      return context.cloudflareWorkers.map((worker) => ({
+        state: "failed" as const,
+        workerId: worker.workerId,
+        reason: input.reason,
+      }));
+    }
 
     return await Promise.all(
       context.cloudflareWorkers.map(async (worker) => {
         try {
-          const input = await readCloudflareObservationInput(ctx, {
-            organizationId: context.organizationId,
-            userId: ctx.viewer.userId,
-            accountId: worker.accountId,
-          });
-          if (input.state === "failed") {
-            return { state: "failed" as const, workerId: worker.workerId, reason: input.reason };
-          }
           const discovery = await readCloudflareWorkerBuildsDiscoveryForIdentity({
             token: input.token,
             transport: input.transport,
@@ -500,6 +514,21 @@ export const observeCloudflareWorkerConvexBuildAccess = action({
     ) {
       throw new Error("Cloudflare Builds targets must belong to this vault.");
     }
+    if (targets.length === 0) {
+      return [];
+    }
+    const input = await readCloudflareObservationInput(ctx, {
+      organizationId: context.organizationId,
+      userId: ctx.viewer.userId,
+      accountId: context.cloudflareAccountId,
+    });
+    if (input.state === "failed") {
+      return targets.map((target) => ({
+        state: "failed" as const,
+        workerId: target.workerId,
+        reason: input.reason,
+      }));
+    }
     return await Promise.all(
       targets.map(async (target) => {
         const worker = workersById.get(target.workerId);
@@ -507,14 +536,6 @@ export const observeCloudflareWorkerConvexBuildAccess = action({
           throw new Error("Cloudflare Worker must belong to this vault.");
         }
         try {
-          const input = await readCloudflareObservationInput(ctx, {
-            organizationId: context.organizationId,
-            userId: ctx.viewer.userId,
-            accountId: worker.accountId,
-          });
-          if (input.state === "failed") {
-            return { state: "failed" as const, workerId: target.workerId, reason: input.reason };
-          }
           const observation = await readCloudflareWorkerConvexBuildAccess({
             token: input.token,
             transport: input.transport,

@@ -26,6 +26,7 @@ export type VaultEnvironmentWorker = {
   build:
     | { state: "available"; buildState: VaultEnvironmentBuildState; logsUrl: string }
     | { state: "absent" }
+    | { state: "loading" }
     | { state: "unavailable" };
   destination:
     | { state: "available"; href: string; label: string; title: string }
@@ -247,6 +248,29 @@ export function buildProductionEnvironmentRoots({
           ];
         })
       : [];
+  const cloudflareLoading =
+    workerObservations.state === "loading" ||
+    workerObservations.state === "checking" ||
+    buildsObservations.state === "loading" ||
+    buildsObservations.state === "checking";
+  const cloudflareFallbacks: VaultEnvironmentResourceInput[] = vault.cloudflareWorkers
+    .filter(
+      (worker) => !cloudflareWorkers.some((candidate) => candidate.resource.id === worker.workerId),
+    )
+    .map((worker) => ({
+      rootDirectory: "Cloudflare Workers",
+      sortKey: `0:${worker.workerName}:${worker.workerId}`,
+      resource: {
+        kind: "cloudflare_worker",
+        id: worker.workerId,
+        worker: {
+          workerName: worker.workerName,
+          build: { state: cloudflareLoading ? "loading" : "unavailable" },
+          destination: { state: "absent" },
+          actions: [],
+        },
+      },
+    }));
   const convexDeployments: VaultEnvironmentResourceInput[] =
     convexObservations.state === "loaded"
       ? vault.convexProjects.flatMap((project) => {
@@ -321,6 +345,7 @@ export function buildProductionEnvironmentRoots({
 
   return groupVaultEnvironmentResources([
     ...cloudflareWorkers,
+    ...cloudflareFallbacks,
     ...convexDeployments,
     ...convexLoading,
   ]);
