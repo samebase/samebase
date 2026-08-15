@@ -19,6 +19,40 @@ Inspect the repository before provider changes:
 Do not remove server rendering only to simplify hosting. A lock file proves the current dependency
 graph. It does not decide which toolchain the owner wants after the migration.
 
+## Adopt an Assets-Only Repository
+
+Use the current Samebase-managed Workers Builds interface when a legacy static repository has no
+package manifest or build step:
+
+1. `pnpm run build`
+2. `pnpm run deploy`
+3. `pnpm run deploy:preview`
+
+This is the Samebase command contract. Cloudflare itself can use other package managers. Before
+Samebase configures Workers Builds, make sure that all three commands work in the repository. If the
+repository has no package manager, add a pnpm package manifest and lock file. If it intentionally
+keeps another package manager, record the mismatch and resolve it before provider setup.
+
+Pin the Node, pnpm, and Wrangler versions used by the repository. This makes the local commands and
+Workers Builds use the same toolchain.
+
+An assets-only app does not need a generated build directory. Put only browser-reachable files in a
+dedicated directory such as `public/`. Commit `wrangler.jsonc` and point `assets.directory` at that
+directory. Keep the package manifest, lock file, Wrangler config, documentation, and local tool
+state outside it.
+
+Make `build` non-deploying. It can run syntax or content checks when no transform is necessary. Do
+not add a build helper only to copy already-deployable files. Use plain `wrangler dev` for local
+preview. Do not set a custom persistence directory when the app has no binding state to preserve.
+
+Add dedicated dry-run scripts whose definitions contain the Wrangler flag:
+
+1. `deploy:dry-run`: `wrangler deploy --dry-run`
+2. `deploy:preview:dry-run`: `wrangler versions upload --dry-run`
+
+Do not append the flag after a standalone package-script separator. Run the dedicated script so a
+validation command cannot become a production deployment.
+
 ## Record the Baseline
 
 Record only the facts needed to validate or reverse the migration:
@@ -94,6 +128,8 @@ Before merge:
 3. Confirm the uploaded Worker version receives no production traffic.
 4. Test the public branch URL when the application supports one.
 5. Test the named browser profile and account that the operator uses.
+6. For static deployments, confirm that repository-only paths such as `/package.json`, the lock
+   file, and `/wrangler.jsonc` return 404.
 
 For cutover:
 
@@ -116,8 +152,9 @@ If the cutover fails:
 2. Restore compatible Convex functions when the backend changed.
 3. Repeat the safe route and named-session checks.
 
-Keep the old host until the new host passes its observation window. Remove the old host only in a
-later task with its own approval.
+Keep the old host until the new host passes its observation window. If source files moved into a new
+static directory, confirm that the old host still serves that directory before you call it a
+rollback target. Remove the old host only in a later task with its own approval.
 
 ## Sources
 

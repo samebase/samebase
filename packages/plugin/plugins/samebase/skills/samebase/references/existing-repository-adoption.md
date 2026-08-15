@@ -33,14 +33,54 @@ diagnostic evidence while preparing the source pull request. Do not report it as
 Keep an existing live route or known-good Worker version available until the new production path is
 verified.
 
+## Assets-Only Legacy Repositories
+
+Use the current Samebase-managed command interface for a static browser repository with no package
+manifest or build step:
+
+1. `pnpm run build`
+2. `pnpm run deploy`
+3. `pnpm run deploy:preview`
+
+This is a Samebase contract, not a Cloudflare package-manager requirement. When the repository has
+no package manager, add a pnpm package manifest and lock file. Complete this source work before
+Samebase configures Workers Builds. Pin the Node, pnpm, and Wrangler versions so local validation
+and Workers Builds use the same toolchain.
+
+Put only browser-reachable files in a dedicated directory such as `public/`. Commit `wrangler.jsonc`
+and point `assets.directory` at that directory. Keep package files, documentation, Wrangler
+configuration, and local tool state outside the served directory. Do not use the repository root as
+the static asset directory.
+
+When the browser files need no transform, make `build` run useful validation and produce no copied
+site. Do not add a build helper only to copy files for Wrangler. Use plain `wrangler dev` for local
+preview unless the application has binding state that needs an explicit persistence decision.
+
+Add dedicated `deploy:dry-run` and `deploy:preview:dry-run` scripts with `--dry-run` in their
+package definitions. Do not use `pnpm run deploy -- --dry-run`. A real adoption sent the separator
+to Wrangler and started a production deployment.
+
+Verify all of these results separately:
+
+1. the terminal provider build and its source commit
+2. the application root and one known asset
+3. repository-only paths such as `/package.json`, `/pnpm-lock.yaml`, and `/wrangler.jsonc`, which
+   must return 404
+4. the production URL and the pull request preview URL
+
+A green provider check is not route proof. If files moved into a new static directory, confirm that
+an old host uses the new publish directory before it remains the rollback target. Remove the old
+host only after the new route works and the operator approves the removal.
+
 ## First-Deployment Preview Observation
 
-During one adoption of an assets-only 3D browser game, a new Worker uploaded a preview version
-before it had an active deployment. Its version URL and branch alias returned Cloudflare error 1042.
-After an approved default-branch build created the first active deployment, the old preview URLs and
-a new pull request preview became reachable. The new preview did not replace the production version.
+During two assets-only adoptions, a new Worker uploaded a preview version before it had an active
+deployment, but its public preview URL was not reachable. One project returned Cloudflare
+error 1042. Iterseg returned 404. In the first project, the old preview URLs and a new pull request
+preview became reachable after an approved default-branch build created the first active deployment.
+The new preview did not replace the production version.
 
-This is one project observation, not a general Cloudflare requirement. When the same state appears:
+These are project observations, not a general Cloudflare requirement. When the same state appears:
 
 1. Keep preview verification blocked while its URL is not reachable.
 2. Do not start a production deployment only to repair the preview without explicit approval.
