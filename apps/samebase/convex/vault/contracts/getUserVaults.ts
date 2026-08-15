@@ -211,7 +211,7 @@ const vUserVaultsResult = array(
         accountId: string(),
         workerName: string(),
         workerTag: string(),
-        rootDirectory: optional(string()),
+        rootDirectory: string(),
       }),
     ),
     convexProjects: array(

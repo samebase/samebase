@@ -437,6 +437,7 @@ describe("pooled organization connection quotas", () => {
           accountId: "cloudflare-account",
           workerName: "quota-worker",
           workerTag: "quota-worker-tag",
+          rootDirectory: "/",
           origin: "provisioned",
         });
       });

@@ -28,7 +28,7 @@ type VaultPullRequestTarget = Pick<UserVaultResult, "_id" | "sourceSetup"> & {
     accountId: string;
     workerName: string;
     workerTag: string;
-    rootDirectory?: string;
+    rootDirectory: string;
   }[];
   convexProjects: readonly {
     convexProjectId: Id<"vaultConvexProjects">;

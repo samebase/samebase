@@ -424,23 +424,6 @@ export function RepositorySettings({
         </div>
       </section>
 
-      {settingsState.attentionResources.length > 0 ? (
-        <section aria-labelledby="vault-settings-attention-heading">
-          <h2
-            id="vault-settings-attention-heading"
-            className="mb-3 text-xs font-medium uppercase tracking-[0.14em] text-red-700"
-          >
-            Attention required
-          </h2>
-          <div className="border-t border-border">
-            <SettingsRoot
-              resources={settingsState.attentionResources}
-              rootDirectory="Needs attention"
-            />
-          </div>
-        </section>
-      ) : null}
-
       <section aria-labelledby="vault-settings-connections-heading">
         <div className="mb-3 grid gap-3 @4xl:grid-cols-[minmax(0,1fr)_auto] @4xl:items-end">
           <h2
@@ -470,12 +453,6 @@ export function RepositorySettings({
           </div>
         ) : null}
         <div className="border-t border-border">
-          {settingsState.pendingResources.map((resource) => (
-            <SettingsResourceRow
-              key={`${resource.provider}:${resource.resourceId}`}
-              resource={resource}
-            />
-          ))}
           {settingsState.roots.length > 0 ? (
             settingsState.roots.map((root) => (
               <SettingsRoot
@@ -484,12 +461,11 @@ export function RepositorySettings({
                 rootDirectory={root.rootDirectory}
               />
             ))
-          ) : settingsState.pendingResources.length === 0 &&
-            settingsState.attentionResources.length === 0 ? (
+          ) : (
             <div className="py-4 text-sm text-muted-foreground">
               No Cloudflare Workers or Convex projects are connected.
             </div>
-          ) : null}
+          )}
         </div>
       </section>
 

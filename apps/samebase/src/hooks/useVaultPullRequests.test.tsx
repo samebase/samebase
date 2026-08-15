@@ -134,7 +134,7 @@ let currentCloudflareWorkers: Array<{
   accountId: string;
   workerName: string;
   workerTag: string;
-  rootDirectory?: string;
+  rootDirectory: string;
 }> = [];
 let currentConvexProjects: Array<{
   convexProjectId: Id<"vaultConvexProjects">;

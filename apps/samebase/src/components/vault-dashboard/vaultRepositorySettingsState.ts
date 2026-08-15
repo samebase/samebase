@@ -90,8 +90,6 @@ export type VaultRepositorySettingsState = {
     disabled: boolean;
     onClick?: () => void;
   };
-  attentionResources: readonly VaultRepositorySettingsResource[];
-  pendingResources: readonly VaultRepositorySettingsResource[];
   providerActionBlockReason: string | null;
   roots: readonly {
     resources: readonly VaultRepositorySettingsResource[];
@@ -788,11 +786,7 @@ function applyCloudflareDriftToRow({
     actions: buildActionList([updateNameAction, updateRootAction, ...(resource.actions ?? [])]),
     warning: joinDescriptions(
       workerNameChanged ? `Cloudflare now uses the name ${currentWorkerName}.` : undefined,
-      rootDirectoryChanged
-        ? worker.rootDirectory
-          ? `Cloudflare now builds from ${currentRootDirectory}.`
-          : `Cloudflare Builds uses ${currentRootDirectory}, but Samebase has no saved root.`
-        : undefined,
+      rootDirectoryChanged ? `Cloudflare now builds from ${currentRootDirectory}.` : undefined,
     ),
   };
 }
@@ -1171,8 +1165,6 @@ export function buildVaultRepositorySettingsState({
     );
   }
 
-  const attentionResources: VaultRepositorySettingsResource[] = [];
-  const pendingResources: VaultRepositorySettingsResource[] = [];
   for (const worker of [...vault.cloudflareWorkers].sort(
     (left, right) =>
       left.workerName.localeCompare(right.workerName) ||
@@ -1200,28 +1192,10 @@ export function buildVaultRepositorySettingsState({
       updateCloudflareWorkerRootDirectoryOnClick,
       worker,
     });
-    const buildsObservation =
-      cloudflareObservations.builds.state === "loaded"
-        ? cloudflareObservations.builds.observations.find(
-            (candidate) => candidate.workerId === worker.workerId,
-          )
-        : undefined;
     if (managedSetupActive && plannedAttachment) {
       addResourceToRoot(applicablePlan.cloudflare.rootDirectory, resource);
-    } else if (worker.rootDirectory) {
-      addResourceToRoot(worker.rootDirectory, resource);
-    } else if (
-      cloudflareObservations.builds.state === "loading" ||
-      cloudflareObservations.builds.state === "checking"
-    ) {
-      pendingResources.push(resource);
-    } else if (
-      buildsObservation?.state === "available" &&
-      buildsObservation.repository.state === "ready"
-    ) {
-      addResourceToRoot(buildsObservation.repository.rootDirectory, resource);
     } else {
-      attentionResources.push(resource);
+      addResourceToRoot(worker.rootDirectory, resource);
     }
   }
   if (
@@ -1256,8 +1230,6 @@ export function buildVaultRepositorySettingsState({
       disabled: Boolean(providerActionBlockReason) || providerWritePending || !addConvexOnClick,
       onClick: addConvexOnClick,
     },
-    attentionResources: attentionResources.map(applyWriteBlock),
-    pendingResources: pendingResources.map(applyWriteBlock),
     providerActionBlockReason,
     roots: [...resourcesByRoot.entries()]
       .sort(([leftRoot], [rightRoot]) => compareRootDirectories(leftRoot, rightRoot))

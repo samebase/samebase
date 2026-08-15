@@ -614,9 +614,6 @@ function requireStoredWorkerBuildConfig(
   requestedRootDirectory: string,
 ): CloudflareBuildConfig {
   const requested = toCloudflareBuildConfig(requestedRootDirectory);
-  if (!context.rootDirectory) {
-    throw new Error("Approve this Cloudflare Worker root before configuring Workers Builds.");
-  }
   const stored = toCloudflareBuildConfig(context.rootDirectory);
   if (requested.rootDir !== stored.rootDir) {
     throw new Error("Cloudflare Worker root changed before Workers Builds configuration.");
@@ -756,6 +753,7 @@ async function configureResolvedWorkersBuildsForGitHub(
         accountId: resolved.account.accountId,
         workerName: worker.workerName,
         workerTag: worker.workerTag,
+        rootDirectory: args.rootDirectory,
       },
       githubAccess: resolved.githubAccess,
       githubOwnerId: resolved.githubOwnerId,
@@ -1588,7 +1586,7 @@ export const updateWorkerRootDirectory = action({
       workerId: args.workerId,
       accountId: context.accountId,
       workerTag: context.workerTag,
-      expectedStoredRootDirectory: context.rootDirectory ?? null,
+      expectedStoredRootDirectory: context.rootDirectory,
       rootDirectory: repository.rootDirectory,
     });
     return null;

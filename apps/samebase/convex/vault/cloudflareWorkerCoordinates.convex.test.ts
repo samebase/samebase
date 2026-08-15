@@ -295,11 +295,8 @@ describe("Cloudflare Worker stored coordinates", () => {
     await expect(readStoredCoordinates(fixture)).resolves.toEqual(before);
   });
 
-  it("approves a legacy Worker's root after exact repository verification", async () => {
+  it("updates a Worker root after exact repository verification", async () => {
     const fixture = await createFixture();
-    await fixture.t.run(async (ctx) => {
-      await ctx.db.patch(fixture.ids.workerId, { rootDirectory: undefined });
-    });
     useCloudflareReadFixture({
       workerName: "provider-current-worker",
       triggers: [buildTrigger({ rootDirectory: "apps/new" })],
@@ -325,7 +322,7 @@ describe("Cloudflare Worker stored coordinates", () => {
         workerId: fixture.ids.workerId,
         accountId: "cloudflare-account",
         workerTag: "worker-tag",
-        expectedStoredRootDirectory: null,
+        expectedStoredRootDirectory: "apps/old",
         rootDirectory: "apps/stale-overwrite",
       }),
     ).rejects.toThrow("attachment changed before the root update");
@@ -368,40 +365,21 @@ describe("Cloudflare Worker stored coordinates", () => {
     await expect(readStoredCoordinates(fixture)).resolves.toEqual(before);
   });
 
-  it("uses only the stored root for Builds repair and fails closed for a legacy missing root", async () => {
-    const storedFixture = await createFixture();
+  it("rejects a Builds repair root that differs from the stored root", async () => {
+    const fixture = await createFixture();
     await expect(
-      storedFixture.member.action(api.vault.cloudflare.configureWorkersBuildsForGitHub, {
-        vaultId: storedFixture.ids.vaultId,
-        workerId: storedFixture.ids.workerId,
+      fixture.member.action(api.vault.cloudflare.configureWorkersBuildsForGitHub, {
+        vaultId: fixture.ids.vaultId,
+        workerId: fixture.ids.workerId,
         rootDirectory: "apps/different",
         buildTokenUuid: "build-token",
       }),
     ).rejects.toThrow("root changed before Workers Builds configuration");
     expect(providerMocks.requestCloudflareApiOrThrow).not.toHaveBeenCalled();
-    await expect(readStoredCoordinates(storedFixture)).resolves.toMatchObject({
+    await expect(readStoredCoordinates(fixture)).resolves.toMatchObject({
       worker: { rootDirectory: "apps/old" },
       plan: { cloudflare: { rootDirectory: "apps/old" } },
     });
-
-    const legacyFixture = await createFixture();
-    await legacyFixture.t.run(async (ctx) => {
-      await ctx.db.patch(legacyFixture.ids.workerId, { rootDirectory: undefined });
-    });
-    await expect(
-      legacyFixture.member.action(api.vault.cloudflare.configureWorkersBuildsForGitHub, {
-        vaultId: legacyFixture.ids.vaultId,
-        workerId: legacyFixture.ids.workerId,
-        rootDirectory: "apps/live",
-        buildTokenUuid: "build-token",
-      }),
-    ).rejects.toThrow("Approve this Cloudflare Worker root");
-    expect(providerMocks.requestCloudflareApiOrThrow).not.toHaveBeenCalled();
-    await expect(
-      legacyFixture.t.run(
-        async (ctx) => (await ctx.db.get(legacyFixture.ids.workerId))?.rootDirectory,
-      ),
-    ).resolves.toBeNull();
   });
 
   it("stores the current provider name when it attaches an existing Worker", async () => {

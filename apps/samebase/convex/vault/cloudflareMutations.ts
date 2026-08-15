@@ -22,7 +22,7 @@ import { isLiveConnectedVault } from "./state";
 import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
 import { normalizeVaultRootDirectory } from "../../shared/vaultRootDirectory";
 
-const { array, id, literal, null: nullValue, object, optional, string, union } = v;
+const { array, id, literal, null: nullValue, object, string, union } = v;
 
 const workerConfigurationContextFields = {
   organizationId: id("organizations"),
@@ -33,14 +33,13 @@ const workerConfigurationContextFields = {
   accountId: string(),
   workerName: string(),
   workerTag: string(),
-  rootDirectory: optional(string()),
+  rootDirectory: string(),
 };
 export const vWorkerConfigurationContext = object(workerConfigurationContextFields);
 export type WorkerConfigurationContext = Infer<typeof vWorkerConfigurationContext>;
 
 export const vManagedWorkerConfigurationContext = object({
   ...workerConfigurationContextFields,
-  rootDirectory: string(),
   buildTokenUuid: string(),
 });
 export type ManagedWorkerConfigurationContext = Infer<typeof vManagedWorkerConfigurationContext>;
@@ -59,7 +58,6 @@ export type WorkerConvexProjectConfigurationContext = Infer<
 
 export const vManagedWorkerConvexProjectConfigurationContext = object({
   ...workerConfigurationContextFields,
-  rootDirectory: string(),
   convexProject: object({
     convexProjectId: id("vaultConvexProjects"),
     teamId: string(),
@@ -234,14 +232,10 @@ async function insertWorker(
     workerTag: args.workerTag,
   });
   if (existing) {
-    if (existing.rootDirectory && existing.rootDirectory !== rootDirectory) {
+    if (existing.rootDirectory !== rootDirectory) {
       throw new Error("Cloudflare Worker root directory changed before attachment.");
     }
-    if (!existing.rootDirectory && args.origin === "provisioned") {
-      await ctx.db.patch(existing._id, { rootDirectory, origin: "provisioned" });
-    } else if (!existing.rootDirectory) {
-      await ctx.db.patch(existing._id, { rootDirectory });
-    } else if (args.origin === "provisioned" && existing.origin !== "provisioned") {
+    if (args.origin === "provisioned" && existing.origin !== "provisioned") {
       await ctx.db.patch(existing._id, { origin: "provisioned" });
     }
     return existing._id;
@@ -407,7 +401,7 @@ export const updateWorkerRootDirectory = internalMutation({
     workerId: id("vaultCloudflareWorkers"),
     accountId: string(),
     workerTag: string(),
-    expectedStoredRootDirectory: union(string(), nullValue()),
+    expectedStoredRootDirectory: string(),
     rootDirectory: string(),
   },
   returns: nullValue(),
@@ -417,7 +411,7 @@ export const updateWorkerRootDirectory = internalMutation({
     if (
       worker.accountId !== args.accountId ||
       worker.workerTag !== args.workerTag ||
-      (worker.rootDirectory ?? null) !== args.expectedStoredRootDirectory
+      worker.rootDirectory !== args.expectedStoredRootDirectory
     ) {
       throw new Error("Cloudflare Worker attachment changed before the root update.");
     }
@@ -429,7 +423,6 @@ export const updateWorkerRootDirectory = internalMutation({
       .unique();
     if (plan?.cloudflare.state === "created" && plan.cloudflare.workerTag === worker.workerTag) {
       if (
-        worker.rootDirectory &&
         plan.cloudflare.rootDirectory !== args.expectedStoredRootDirectory &&
         plan.cloudflare.rootDirectory !== rootDirectory
       ) {
@@ -693,7 +686,7 @@ export const readWorkerConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      ...(worker.rootDirectory ? { rootDirectory: worker.rootDirectory } : {}),
+      rootDirectory: worker.rootDirectory,
     };
   },
 });
@@ -759,7 +752,7 @@ export const readWorkerConvexProjectConfigurationContext = internalQuery({
       accountId: worker.accountId,
       workerName: worker.workerName,
       workerTag: worker.workerTag,
-      ...(worker.rootDirectory ? { rootDirectory: worker.rootDirectory } : {}),
+      rootDirectory: worker.rootDirectory,
       convexProject: {
         convexProjectId: project._id,
         teamId: project.teamId,
