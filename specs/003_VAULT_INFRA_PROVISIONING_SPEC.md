@@ -13,8 +13,8 @@
 - Resource attachment model: `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
 - Organization deployment providers: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 
-> Note: this spec describes the Workers-only provisioning workflow. Durable resource identity,
-> approved coordinates, and root projection are defined in spec 115.
+> Note: this spec describes the Workers-only provisioning workflow. Spec 115 defines durable Worker
+> identity, approved name and root coordinates, drift, and explicit coordinate updates.
 
 ## Summary
 
@@ -175,12 +175,11 @@ Indexes:
 - `accountId`, `workerName`, `workerTag`, `rootDirectory`
 - `origin: "provisioned" | "selected_existing"`
 
-This table is the durable attachment between a vault and a Cloudflare Worker. `workerTag` is the
-stable provider identity. `workerName` and `rootDirectory` are mutable, user-approved coordinates.
-The stored root controls dashboard placement. Current workers.dev URLs, domains, Worker existence,
-Workers Builds triggers, repository configuration, build status, token data, and Convex deploy keys
-are provider state and must not be mirrored into this row. Live name and root observations detect
-drift but do not update the row. Convex `_creationTime` records when the attachment was created.
+This table is the durable attachment between a vault and a Cloudflare Worker. It stores the stable
+`workerTag` identity and the approved `workerName` and `rootDirectory` coordinates that spec 115
+defines. Current workers.dev URLs, domains, Worker existence, Workers Builds triggers, repository
+configuration, build status, token data, and Convex deploy keys remain provider state. Convex
+`_creationTime` records when the attachment was created.
 
 ### Worker-to-Convex build relationship
 
@@ -359,22 +358,13 @@ Repository default branch:
 - Detach changes only the organization's attachment intent and never deletes a selected existing
   Worker.
 
-10. `api.vault.cloudflare.updateWorkerName` and `api.vault.cloudflare.updateWorkerRootDirectory`
-
-- Name update args: `{ vaultId, workerId, expectedWorkerName }`.
-- Root update args: `{ vaultId, workerId, expectedRootDirectory }`.
-- Each action requires an active organization member, resolves the Worker by stable `workerTag`,
-  re-reads the current provider coordinate, and compare-and-swaps only the requested attachment
-  field. The root update also verifies one unambiguous normalized root for the vault's exact GitHub
-  repository.
-
-11. `api.vault.convex.discoverProjects` and `api.vault.convex.attachProjects`
+10. `api.vault.convex.discoverProjects` and `api.vault.convex.attachProjects`
 
 - Discover returns provider projects plus exact discovered `convex.json` or default-layout
   `package.json` and sibling `convex/` candidates.
 - Attach requires one verified code location per selected project and commits the batch atomically.
 
-12. `api.vault.convex.createProject` and `api.vault.convex.detachProject`
+11. `api.vault.convex.createProject` and `api.vault.convex.detachProject`
 
 - Create records the provider checkpoint and provisioned attachment before metadata refresh.
 - Detach changes only the organization's attachment intent.

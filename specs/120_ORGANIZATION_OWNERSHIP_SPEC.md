@@ -219,11 +219,10 @@ that vault. They do not store a credential ID.
 
 Long-lived `vaultConvexProjects` rows identify external resources with `teamId` and `projectId`.
 Long-lived `vaultCloudflareWorkers` rows identify external resources with `accountId` and stable
-`workerTag`. They also store the mutable, user-approved `workerName` and `rootDirectory`
-coordinates. Each resource destination must match its vault. Provisioning and deletion retries keep
-stable external resource IDs and the approved coordinates they need, then resolve the organization's
-current credential for the vault's team or account. Credential replacement does not rewrite a vault
-or provider resource.
+`workerTag`. They also store the approved `workerName` and `rootDirectory` that spec 115 defines.
+Each resource destination must match its vault. Provider work resolves the organization's current
+credential for the vault's team or account. Credential replacement does not rewrite a vault or
+provider resource.
 
 Removing a user from an organization does not clear a credential that the user established. If the
 user deletes the Samebase account, Samebase clears each current credential slot whose

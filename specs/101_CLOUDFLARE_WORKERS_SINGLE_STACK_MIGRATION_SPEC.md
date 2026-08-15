@@ -15,6 +15,7 @@
   - `specs/005_STARTER_TEMPLATE_STRATEGY_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
+  - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
 
 ## Summary
 
@@ -325,8 +326,8 @@ Do not design the runtime model around indefinite Pages compatibility. Do not ke
 infrastructure status fields that can disagree with the vault provider states. `vaultInfrastructure`
 must be removed rather than repurposed. Stable Cloudflare Worker identity and the user-approved
 Worker name and root belong in `vaultCloudflareWorkers`. Current Worker name and root are observed
-live only to detect drift. Worker existence, URLs, domains, Builds triggers, build status, token
-data, and marker state remain live Cloudflare observations.
+live only to detect drift. Other Cloudflare state remains live. Spec 115 defines the attachment and
+coordinate update rules.
 
 The selected build-token UUID stays in the provisioning plan so an unfinished retry preserves the
 user's exact choice. If Cloudflare removes that record before managed setup finishes, Samebase does

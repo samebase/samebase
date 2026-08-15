@@ -2795,44 +2795,6 @@ describe("VaultCloudflareDialogContent", () => {
     expect(markup).not.toContain("Cloudflare account");
   });
 
-  it("keeps an approved Worker root fixed during Builds repair", () => {
-    const markup = renderToStaticMarkup(
-      <VaultCloudflareDialogContent
-        cloudflareBuildTokenField={null}
-        hasSelectedBuildToken
-        createRootDirectory="apps/web"
-        createWorkerName=""
-        didAddWorker={false}
-        error={null}
-        folderSuggestions={["apps/web", "apps/api"]}
-        isLoading={false}
-        isSubmitting={false}
-        inventoryState={null}
-        mode="existing"
-        onCreateRootDirectoryChange={() => {}}
-        onCreateWorkerNameChange={() => {}}
-        onConnectWorker={() => {}}
-        onConnectWorkerBack={() => {}}
-        onModeChange={() => {}}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-        onWorkerToggle={() => {}}
-        repairWorker={{ workerName: "web-worker", rootDirectory: "apps/web" }}
-        selectedWorkerTags={[]}
-        vault={vault}
-        workerToConnect={null}
-        workers={[]}
-      />,
-    );
-
-    expect(markup).toContain('value="apps/web"');
-    expect(markup).toContain("Samebase will use the saved repository root.");
-    expect(markup).not.toContain("Choose the repository root.");
-    expect(markup.match(/<input[^>]*value="apps\/web"[^>]*>/)?.[0]).toMatch(
-      /\sdisabled(?:=""|(?=[\s>]))/,
-    );
-  });
-
   it("does not claim that no Workers exist after a partial inventory", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
@@ -2938,7 +2900,7 @@ describe("buildVaultRepositorySettingsState", () => {
     expect(listedRow.description).not.toContain("healthy");
     expect(listedRow.actions?.map((action) => action.label)).toEqual(["Change API token"]);
     listedRow.actions?.[0].onClick?.();
-    expect(changeBuildToken).toHaveBeenCalledWith(workerId, "/");
+    expect(changeBuildToken).toHaveBeenCalledWith(workerId);
 
     const missingRow = readRow({
       productionBuildTokenUuid: "12345678-token",

@@ -726,7 +726,6 @@ export async function readCloudflareWorkerRepositoryDiscoveryForIdentity(
   args: {
     token: string;
     accountId: string;
-    workerName: string;
     workerTag: string;
     expectedRepoId: string;
     defaultBranch: string;

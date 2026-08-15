@@ -245,24 +245,22 @@ provider observation, or active operation.
 ## Rollout
 
 This change uses two deployment checkpoints because existing Worker attachments do not have
-`rootDirectory`.
+`rootDirectory`. The rollout uses manual adoption because current production has one user and about
+20 attached Workers. It has no automatic root migration job.
 
 Checkpoint 1 makes `rootDirectory` optional in the storage validator. All new attach and create
-writes must supply it. Reads use the stored root when present. A legacy row can temporarily use one
-unambiguous verified live Builds root for placement. For a `provisioned` Worker, the temporary
-backfill can use the normalized root from an unchanged `created` managed plan only when its Worker
-name and stable `workerTag` match the attachment exactly. Otherwise, it reads the legacy Worker
-through its account and stable `workerTag`, requires an exact match to the vault GitHub repository,
-and writes only that verified normalized live root. The organization verifier reports the state of
-each attachment in the selected page. It must not infer a root from a repository tree, an unmatched
-plan, a Worker name by itself, another Worker, or a common monorepo layout.
+writes supply it. Reads use the stored root when present.
 
 All product reads prefer a stored root during checkpoint 1. Overview and pull request trees use a
 verified live Builds root only for a legacy attachment that has no stored root. They use the
 `Cloudflare Workers` group when neither root is available. Settings shows a rootless legacy row
 without a group while Builds is loading or checking, under the verified live root when one becomes
 ready, and under `Needs attention` when no verified root is available. A ready live root also offers
-`Update root` so a member can approve it.
+`Update root` so the user can approve it. For each legacy Worker, the user opens Settings, checks
+the live root, and selects `Update root`. The action re-reads the Worker through its stable
+`workerTag`, requires one normalized root for the exact vault GitHub repository, and stores that
+root. If the provider read cannot prove one root, the action changes nothing. The user must correct
+the normal provider connection or Worker configuration and try again. Samebase never guesses a root.
 
 `Configure Workers Builds` always uses the saved approved root when it exists, including when the
 live root is missing or different. For a legacy attachment only, repair uses a verified live root
@@ -272,17 +270,22 @@ is the Worker's current unambiguous repository root. A successful update stores 
 repair configures Builds with the same saved value. A failed verification stores nothing and stops
 before the Builds write. The `/` input is never attachment authority by itself.
 
-After checkpoint 1 is live, the operator follows
-`docs/cloudflare-worker-root-directory-backfill.md`. The organization-scoped verifier and backfill
-use pages of at most 20 attachments. Provider access failure, missing identity, repository mismatch,
-and ambiguous or missing roots are unresolved outcomes. The operator repairs or explicitly removes
-each affected attachment through normal product authority.
+After the manual updates, follow `docs/convex-production-reads.md` exactly. In that recipe, keep the
+complete derived `CONVEX_DEPLOYMENT=... CONVEX_DEPLOY_KEY=` prefix and replace its final
+`npx convex logs ...` command with this table read:
 
-A separate global audit scans at most 100 Worker attachments per page and reports every attachment
-that still has no stored root. It does not accept an organization filter. Production verification is
-clean only when every global audit page reports no missing Worker IDs and the final page reports
-that the scan is complete. This global zero-missing-root result is the checkpoint 2 gate.
+```bash
+npx convex data vaultCloudflareWorkers --prod --limit 100 --format jsonArray
+```
 
-Checkpoint 2 makes `rootDirectory` required and removes the temporary legacy fallback, backfill,
-organization verifier, global audit, and optional-field branches. It must not deploy until the
-global audit is clean.
+Do not run this table command without the recipe's prefix. Stop if the CLI says that it ignored
+`--prod` or selected the deployment from `CONVEX_DEPLOY_KEY`.
+
+The result must contain fewer than 100 rows, and every row must have one non-empty normalized
+`rootDirectory`. If the command returns 100 rows, stop because this bounded read does not prove that
+it read the complete table. If a row has no root, use that vault's `Update root` action and repeat
+the read. The checkpoint 2 gate is fewer than 100 total rows and zero missing roots.
+
+Checkpoint 2 makes `rootDirectory` required. It also removes the temporary legacy placement,
+root-adoption, repair, and optional-field branches. It must not deploy until the production read
+passes the gate above.

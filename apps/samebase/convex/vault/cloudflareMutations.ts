@@ -429,6 +429,7 @@ export const updateWorkerRootDirectory = internalMutation({
       .unique();
     if (plan?.cloudflare.state === "created" && plan.cloudflare.workerTag === worker.workerTag) {
       if (
+        worker.rootDirectory &&
         plan.cloudflare.rootDirectory !== args.expectedStoredRootDirectory &&
         plan.cloudflare.rootDirectory !== rootDirectory
       ) {

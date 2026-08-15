@@ -32,21 +32,17 @@ provenance:
 
 Convex `_creationTime` records when the attachment was created.
 
-`workerTag` is the stable Cloudflare identity. `workerName` and `rootDirectory` are mutable,
-user-approved coordinates for that identity. The stored name controls Samebase labels. The stored
-normalized root controls the Worker's repository tree placement. Provider observations can show that
-either coordinate has changed, but they never update an attachment automatically.
+`workerTag`, `workerName`, and `rootDirectory` use the identity and approved-coordinate rules in
+spec 115. This spec defines how the manual connection flow first establishes those values.
 
 `organizationId` must equal the parent vault's organization. `accountId` must equal the parent
 vault's required `cloudflareAccountId`. Provider reads and writes load the organization's current
 Cloudflare credential and fail closed if it is absent or cannot access that exact account. This flow
 does not select or change the organization's Cloudflare account.
 
-Worker existence, workers.dev URLs, GitHub repository connection, build triggers, trigger
-build-token UUIDs, build status, domains, and Convex build variables are current Cloudflare
-observations. They are not mirrored into the attachment. Samebase fetches each build-token name from
-Cloudflare and does not store it. The current provider name and root are also live observations, but
-Samebase reads them only to detect drift from the approved attachment coordinates.
+Worker existence, workers.dev URLs, GitHub repository connection, build triggers, build-token UUIDs,
+build status, domains, and Convex build variables remain current Cloudflare observations. Samebase
+fetches each build-token name from Cloudflare and does not store it.
 
 ### Existing Worker flow
 
@@ -125,18 +121,8 @@ never deletes the Cloudflare Worker.
 
 ### Drift and removal
 
-Samebase resolves the current Worker through `workerTag`, not through the stored name. Settings
-warns when the current provider name differs from `workerName` or the current verified provider root
-differs from `rootDirectory`. Overview and pull request surfaces keep the stored label and
-placement. They do not apply provider drift automatically.
-
-`Update name` calls `updateWorkerName({ vaultId, workerId, expectedWorkerName })`. It requires an
-active organization member, verifies the account and `workerTag`, reads the current provider name,
-and compare-and-swaps only `workerName` from the expected stored value. `Update root` calls
-`updateWorkerRootDirectory({ vaultId, workerId, expectedRootDirectory })`. It applies the same
-authorization, stable identity, freshness, and compare-and-swap checks. It also requires one
-unambiguous normalized root for the vault's exact GitHub repository before it patches only
-`rootDirectory`. A failed, missing, conflicting, or ambiguous provider read changes nothing.
+Spec 115 defines Worker name and root drift, explicit updates, and the temporary manual adoption of
+a root for a legacy attachment.
 
 An unavailable or missing Worker remains attached under its stored root with `Needs attention`.
 Neither a warning nor a provider read authorizes a stored coordinate change.
@@ -211,15 +197,12 @@ uses the normal action for that state:
 - Mutation tests cover organization and account destination checks, atomic batches, global identity
   conflicts, idempotency, origin upgrade, stored roots, and stable `workerTag` resolution after a
   provider rename.
-- Coordinate-update tests cover member authorization, stale expected values, exact account and tag
-  verification, unambiguous repository roots, independent field patches, and failed reads that do
-  not change the attachment.
 - Operation tests cover the Cloudflare action mapping and the normal next action after a failed or
   silent provider action.
 - Write-time tests prove that Cloudflare-only actions update only Cloudflare and deploy-key rotation
   updates both providers.
 - UI tests cover vault-level routing, default multiple selection, grouping by stored root, the
-  focused unconnected-Worker root flow, count copy, exact Convex action targets, name and root
-  drift, explicit updates, rootless Builds repair, and `Needs attention`.
+  focused unconnected-Worker root flow, count copy, exact Convex action targets, legacy root
+  adoption, rootless Builds repair, and `Needs attention`.
 - UI tests cover token loading, empty and failed lists, visible default and changed selections, live
   token names, missing records, trigger disagreement, and token change.

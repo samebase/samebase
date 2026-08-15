@@ -127,7 +127,6 @@ import type * as vault_branches from "../vault/branches.js";
 import type * as vault_cloudflare from "../vault/cloudflare.js";
 import type * as vault_cloudflareBuildMatching from "../vault/cloudflareBuildMatching.js";
 import type * as vault_cloudflareMutations from "../vault/cloudflareMutations.js";
-import type * as vault_cloudflareWorkerRootDirectoryBackfill from "../vault/cloudflareWorkerRootDirectoryBackfill.js";
 import type * as vault_contracts_cloudflareAttachments from "../vault/contracts/cloudflareAttachments.js";
 import type * as vault_contracts_cloudflareBuildTokens from "../vault/contracts/cloudflareBuildTokens.js";
 import type * as vault_contracts_cloudflareConfigureWorkersBuildsForGitHub from "../vault/contracts/cloudflareConfigureWorkersBuildsForGitHub.js";
@@ -298,7 +297,6 @@ declare const fullApi: ApiFromModules<{
   "vault/cloudflare": typeof vault_cloudflare;
   "vault/cloudflareBuildMatching": typeof vault_cloudflareBuildMatching;
   "vault/cloudflareMutations": typeof vault_cloudflareMutations;
-  "vault/cloudflareWorkerRootDirectoryBackfill": typeof vault_cloudflareWorkerRootDirectoryBackfill;
   "vault/contracts/cloudflareAttachments": typeof vault_contracts_cloudflareAttachments;
   "vault/contracts/cloudflareBuildTokens": typeof vault_contracts_cloudflareBuildTokens;
   "vault/contracts/cloudflareConfigureWorkersBuildsForGitHub": typeof vault_contracts_cloudflareConfigureWorkersBuildsForGitHub;

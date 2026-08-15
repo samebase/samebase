@@ -9,6 +9,7 @@
   - [PR #1243: Simplify vault provider resource truth](https://github.com/samebase/samebase/pull/1243)
   - [PR #1234: Replace dashboard branch mirrors with live pull requests](https://github.com/samebase/samebase/pull/1234)
   - [Vault route surface spec](./110_VAULT_ROUTE_SURFACE_SPEC.md)
+  - [Vault resource attachment model](./115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md)
 
 ## Current Contract
 
@@ -132,14 +133,13 @@ these failed parse observations without persisting provider state in the Samebas
 action read emits at most one marker for each provider-format and failure-kind pair.
 
 An attached Cloudflare Worker consumes its matching comment row for build status and links. The UI
-groups that Worker by its stored `rootDirectory` and labels it with its stored `workerName`.
-Settings owns live name and root drift warnings and explicit updates. A pull request row never
-accepts those changes automatically. Other parsed Cloudflare Workers, Cloudflare Pages projects, and
-Netlify sites have no approved repository root. The UI lists them in an `Other previews` group and
-never invents a root. An unattached Worker row links to the repository Settings page with a
-`Connect` action. Cloudflare Pages and Netlify rows have no setup action because Samebase does not
-support attaching those resources. Each row exposes the provider resource name and its branch or
-deploy preview link. The comment text and provider result are not saved in the Samebase database.
+uses the stored `rootDirectory` and `workerName` from spec 115. Other parsed Cloudflare Workers,
+Cloudflare Pages projects, and Netlify sites have no approved repository root. The UI lists them in
+an `Other previews` group and never invents a root. An unattached Worker row links to the repository
+Settings page with a `Connect` action. Cloudflare Pages and Netlify rows have no setup action
+because Samebase does not support attaching those resources. Each row exposes the provider resource
+name and its branch or deploy preview link. The comment text and provider result are not saved in
+the Samebase database.
 
 For up to 100 pull requests, the normal GitHub cost is one batched GraphQL head and comment-metadata
 query. Comment discovery adds no request when there are no recognized bot comments. If recognized

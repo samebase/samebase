@@ -413,11 +413,11 @@ export async function attachExistingCloudflareWorkersForUser(
   const resolved = await resolveCloudflareRepositoryContext(ctx, args);
   const verifiedWorkers = await Promise.all(
     workers.map(async (worker) => {
-      const identity = await readCloudflareWorkerIdentity({
+      const identity = await readCloudflareWorkerIdentityByTag({
         token: resolved.connection.token,
         transport: resolved.connection.transport,
         accountId: resolved.account.accountId,
-        workerName: worker.workerName,
+        workerTag: worker.workerTag,
       });
       if (!identity || identity.workerTag !== worker.workerTag) {
         throw new Error(`Cloudflare Worker ${worker.workerName} changed after discovery.`);
@@ -426,7 +426,6 @@ export async function attachExistingCloudflareWorkersForUser(
         token: resolved.connection.token,
         transport: resolved.connection.transport,
         accountId: resolved.account.accountId,
-        workerName: identity.workerName,
         workerTag: identity.workerTag,
         expectedRepoId: resolved.context.ghRepoId,
         defaultBranch: resolved.githubDefaultBranch,
@@ -848,7 +847,6 @@ async function prepareConvexDeployKeyRotation(
       token: connection.token,
       transport: connection.transport,
       accountId: context.accountId,
-      workerName: context.workerName,
       workerTag: context.workerTag,
       expectedRepoId: context.ghRepoId,
       defaultBranch: repository.defaultBranch,
@@ -1163,7 +1161,7 @@ async function connectWorkerForUser(
     },
   );
   let resolved: Awaited<ReturnType<typeof resolveCloudflareRepositoryContext>>;
-  let identity: NonNullable<Awaited<ReturnType<typeof readCloudflareWorkerIdentity>>>;
+  let identity: NonNullable<Awaited<ReturnType<typeof readCloudflareWorkerIdentityByTag>>>;
   let workerId: Id<"vaultCloudflareWorkers">;
   try {
     resolved = await resolveCloudflareRepositoryContext(ctx, { ...args, accountId });
@@ -1173,11 +1171,11 @@ async function connectWorkerForUser(
       accountId: resolved.account.accountId,
       buildTokenUuid: args.buildTokenUuid,
     });
-    const providerIdentity = await readCloudflareWorkerIdentity({
+    const providerIdentity = await readCloudflareWorkerIdentityByTag({
       token: resolved.connection.token,
       transport: resolved.connection.transport,
       accountId: resolved.account.accountId,
-      workerName,
+      workerTag,
     });
     if (!providerIdentity || providerIdentity.workerTag !== workerTag) {
       throw new Error(`Cloudflare Worker ${workerName} changed after discovery.`);
@@ -1187,7 +1185,6 @@ async function connectWorkerForUser(
       token: resolved.connection.token,
       transport: resolved.connection.transport,
       accountId: resolved.account.accountId,
-      workerName: identity.workerName,
       workerTag: identity.workerTag,
       expectedRepoId: resolved.context.ghRepoId,
       defaultBranch: resolved.githubDefaultBranch,
@@ -1241,7 +1238,6 @@ async function connectWorkerForUser(
       token: resolved.connection.token,
       transport: resolved.connection.transport,
       accountId: resolved.account.accountId,
-      workerName: identity.workerName,
       workerTag: identity.workerTag,
       expectedRepoId: resolved.context.ghRepoId,
       defaultBranch: resolved.githubDefaultBranch,
@@ -1263,7 +1259,6 @@ async function connectWorkerForUser(
         token: resolved.connection.token,
         transport: resolved.connection.transport,
         accountId: resolved.account.accountId,
-        workerName: identity.workerName,
         workerTag: identity.workerTag,
         expectedRepoId: resolved.context.ghRepoId,
         defaultBranch: resolved.githubDefaultBranch,
@@ -1572,21 +1567,11 @@ export const updateWorkerRootDirectory = action({
       userId: ctx.viewer.userId,
       accountId: context.accountId,
     });
-    const identity = await readCloudflareWorkerIdentityByTag({
-      token: resolved.connection.token,
-      transport: resolved.connection.transport,
-      accountId: context.accountId,
-      workerTag: context.workerTag,
-    });
-    if (!identity || identity.workerTag !== context.workerTag) {
-      throw new Error("Cloudflare Worker is no longer available.");
-    }
     const repository = await readCloudflareWorkerRepositoryDiscoveryForIdentity({
       token: resolved.connection.token,
       transport: resolved.connection.transport,
       accountId: context.accountId,
-      workerName: identity.workerName,
-      workerTag: identity.workerTag,
+      workerTag: context.workerTag,
       expectedRepoId: resolved.context.ghRepoId,
       defaultBranch: resolved.githubDefaultBranch,
     });

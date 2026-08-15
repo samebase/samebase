@@ -2238,7 +2238,6 @@ describe("cloudflare resources", () => {
         token: "oauth-token",
         transport: "direct",
         accountId: "account-id",
-        workerName: "samebase-app",
         workerTag: "worker-tag",
         expectedRepoId: "123",
         defaultBranch: "main",

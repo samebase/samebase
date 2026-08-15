@@ -126,12 +126,6 @@ type CloudflareConnectionAuthority =
   | {
       kind: "vault_workflow";
       authority: VaultProviderWorkflowAuthority;
-    }
-  | {
-      kind: "worker_root_directory_backfill";
-      organizationId: Id<"organizations">;
-      userId: Id<"users">;
-      accountId: string;
     };
 
 async function fetchWithTimeout(
@@ -494,27 +488,6 @@ async function loadCloudflareProviderConfiguration(
         internal.organizationProviderCredentials.loadForVaultProviderWorkflow,
         { authority: authority.authority },
       );
-    case "worker_root_directory_backfill":
-      return {
-        organizationId: authority.organizationId,
-        configuration:
-          refreshLease === undefined
-            ? await ctx.runQuery(
-                internal.organizationProviderCredentials.loadForWorkerRootDirectoryBackfill,
-                {
-                  organizationId: authority.organizationId,
-                  userId: authority.userId,
-                },
-              )
-            : await ctx.runQuery(
-                internal.organizationProviderCredentials.loadCloudflareTokenRefreshContinuation,
-                {
-                  organizationId: authority.organizationId,
-                  expectedAuth: refreshLease.auth,
-                  expectedTokenRefreshLease: refreshLease.tokenRefreshLease,
-                },
-              ),
-      };
     default:
       authority satisfies never;
       throw new Error("Cloudflare connection authority is invalid.");
@@ -556,19 +529,6 @@ async function replaceCloudflareCredentialForAuthority(
           expectedTokenRefreshLease: args.expectedTokenRefreshLease,
         },
       );
-    case "worker_root_directory_backfill":
-      return await ctx.runMutation(
-        internal.organizationProviderCredentials
-          .replaceCloudflareCredentialForWorkerRootDirectoryBackfill,
-        {
-          organizationId,
-          userId: authority.userId,
-          expectedAuth: args.expectedAuth,
-          auth: args.auth,
-          tokenHealth: args.tokenHealth,
-          expectedTokenRefreshLease: args.expectedTokenRefreshLease,
-        },
-      );
     default:
       authority satisfies never;
       throw new Error("Cloudflare connection authority is invalid.");
@@ -604,17 +564,6 @@ async function claimCloudflareTokenRefreshForAuthority(
           force: args.force,
         },
       );
-    case "worker_root_directory_backfill":
-      return await ctx.runMutation(
-        internal.organizationProviderCredentials
-          .claimCloudflareTokenRefreshForWorkerRootDirectoryBackfill,
-        {
-          organizationId,
-          userId: authority.userId,
-          expectedAuth: args.expectedAuth,
-          force: args.force,
-        },
-      );
     default:
       authority satisfies never;
       throw new Error("Cloudflare connection authority is invalid.");
@@ -645,16 +594,6 @@ async function releaseCloudflareTokenRefreshForAuthority(
         internal.organizationProviderCredentials.releaseCloudflareTokenRefreshForVaultWorkflow,
         {
           authority: authority.authority,
-          expectedTokenRefreshLease: args.expectedTokenRefreshLease,
-          recordLastTokenRefreshAt: args.recordLastTokenRefreshAt,
-        },
-      );
-    case "worker_root_directory_backfill":
-      return await ctx.runMutation(
-        internal.organizationProviderCredentials
-          .releaseCloudflareTokenRefreshForWorkerRootDirectoryBackfill,
-        {
-          organizationId,
           expectedTokenRefreshLease: args.expectedTokenRefreshLease,
           recordLastTokenRefreshAt: args.recordLastTokenRefreshAt,
         },
@@ -694,12 +633,6 @@ async function resolveConnectionForAuthority(
   const account = configuration.cloudflareAccount;
   if (account === undefined) {
     throw new Error("Cloudflare credential has no configured account.");
-  }
-  if (
-    authority.kind === "worker_root_directory_backfill" &&
-    account.accountId !== authority.accountId
-  ) {
-    return null;
   }
 
   if (credential.auth.method !== "mcp_oauth") {
@@ -809,12 +742,6 @@ async function resolveConnectionForAuthority(
       if (current.cloudflareAccount === undefined) {
         throw new Error("Cloudflare credential has no configured account.");
       }
-      if (
-        authority.kind === "worker_root_directory_backfill" &&
-        current.cloudflareAccount.accountId !== authority.accountId
-      ) {
-        return null;
-      }
       requireCloudflareAuthUsableDuringRefresh(current.cloudflareCredential.auth, Date.now());
       return {
         auth: current.cloudflareCredential.auth,
@@ -898,19 +825,13 @@ async function resolveConnectionForAuthority(
       nextExpiresAt,
       clientIdLength: clientId.length,
     });
-    if (authority.kind === "user" || authority.kind === "worker_root_directory_backfill") {
+    if (authority.kind === "user") {
       const current = (await loadCloudflareProviderConfiguration(ctx, authority)).configuration;
       if (current.cloudflareCredential === undefined) {
         return null;
       }
       if (current.cloudflareAccount === undefined) {
         throw new Error("Cloudflare credential has no configured account.");
-      }
-      if (
-        authority.kind === "worker_root_directory_backfill" &&
-        current.cloudflareAccount.accountId !== authority.accountId
-      ) {
-        return null;
       }
       return {
         auth: current.cloudflareCredential.auth,
@@ -965,27 +886,6 @@ export const resolveConnectionForVaultWorkflow = internalAction({
     await resolveConnectionForAuthority(
       ctx,
       { kind: "vault_workflow", authority: args.authority },
-      { forceRefresh: args.forceRefresh },
-    ),
-});
-
-export const resolveConnectionForWorkerRootDirectoryBackfill = internalAction({
-  args: {
-    organizationId: id("organizations"),
-    userId: id("users"),
-    accountId: string(),
-    forceRefresh: optional(boolean()),
-  },
-  returns: resolveConnectionForOrganizationResultValidator,
-  handler: async (ctx, args): Promise<ResolvedCloudflareConnection | null> =>
-    await resolveConnectionForAuthority(
-      ctx,
-      {
-        kind: "worker_root_directory_backfill",
-        organizationId: args.organizationId,
-        userId: args.userId,
-        accountId: args.accountId,
-      },
       { forceRefresh: args.forceRefresh },
     ),
 });

@@ -452,10 +452,7 @@ function buildCloudflareRow({
   cloudflareBuildTokens: VaultCloudflareBuildTokenListState;
   convexProjectActionLabels: ReadonlyMap<Id<"vaultConvexProjects">, string>;
   convexProjects: readonly VaultDashboardConvexProject[];
-  configureWorkersBuildsForGitHubOnClick?: (
-    workerId: Id<"vaultCloudflareWorkers">,
-    rootDirectory: string | undefined,
-  ) => void;
+  configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   observationState: VaultCloudflareProviderObservationState;
   detachCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   pendingAction: VaultRepositorySettingsPendingAction | null;
@@ -601,13 +598,7 @@ function buildCloudflareRow({
                 : "Configure Workers Builds for GitHub",
               disabled: isConfiguring || !configureWorkersBuildsForGitHubOnClick,
               onClick: configureWorkersBuildsForGitHubOnClick
-                ? () =>
-                    configureWorkersBuildsForGitHubOnClick(
-                      worker.workerId,
-                      buildsObservation.repository.state === "ready"
-                        ? buildsObservation.repository.rootDirectory
-                        : undefined,
-                    )
+                ? () => configureWorkersBuildsForGitHubOnClick(worker.workerId)
                 : undefined,
             },
           ],
@@ -628,13 +619,7 @@ function buildCloudflareRow({
         ? {
             kind: "configure" as const,
             label: "Change API token",
-            onClick: () =>
-              configureWorkersBuildsForGitHubOnClick(
-                worker.workerId,
-                buildsObservation.repository.state === "ready"
-                  ? buildsObservation.repository.rootDirectory
-                  : undefined,
-              ),
+            onClick: () => configureWorkersBuildsForGitHubOnClick(worker.workerId),
           }
         : undefined;
       const buildTokenReloadAction =
@@ -1090,10 +1075,7 @@ export function buildVaultRepositorySettingsState({
       }
     | undefined;
   cloudflareBuildTokens: VaultCloudflareBuildTokenListState;
-  configureWorkersBuildsForGitHubOnClick?: (
-    workerId: Id<"vaultCloudflareWorkers">,
-    rootDirectory: string | undefined,
-  ) => void;
+  configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   changeConvexProjectConfigPathOnClick?: (convexProjectId: Id<"vaultConvexProjects">) => void;
   cloudflareObservations: VaultCloudflareProviderObservationState;
   convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
