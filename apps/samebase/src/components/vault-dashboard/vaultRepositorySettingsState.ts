@@ -19,6 +19,14 @@ type VaultDashboardVault = NonNullable<
 type VaultDashboardCloudflareWorker = VaultDashboardVault["cloudflareWorkers"][number];
 type VaultDashboardConvexProject = VaultDashboardVault["convexProjects"][number];
 type VaultManagedProviderPlan = NonNullable<VaultDashboardVault["providerPlan"]>;
+type VaultCloudflareBuildToken =
+  (typeof api.cloudflareBuildTokens.list)["_returnType"]["tokens"][number];
+
+export type VaultCloudflareBuildTokenListState =
+  | { state: "not_available" }
+  | { state: "loading" }
+  | { state: "failed"; reload: () => void }
+  | { state: "loaded"; tokens: readonly VaultCloudflareBuildToken[] };
 
 type VaultRepositorySettingsActionKind = "configure" | "connect" | "remove" | "retry";
 
@@ -355,8 +363,61 @@ function formatCloudflareConvexBuildAccessState({
   }
 }
 
+function formatCloudflareBuildTokenState({
+  buildTokens,
+  builds,
+}: {
+  buildTokens: VaultCloudflareBuildTokenListState;
+  builds: Extract<
+    Extract<VaultCloudflareWorkerBuildsObservation, { state: "available" }>["builds"],
+    { state: "connected" }
+  >;
+}): { attention: boolean; description?: string } {
+  if (builds.productionBuildTokenUuid !== builds.previewBuildTokenUuid) {
+    const productionUuid = builds.productionBuildTokenUuid?.slice(0, 8) ?? "none";
+    const previewUuid = builds.previewBuildTokenUuid?.slice(0, 8) ?? "none";
+    return {
+      attention: true,
+      description: `Production and preview use different build tokens: production (${productionUuid}), preview (${previewUuid}).`,
+    };
+  }
+  const buildTokenUuid = builds.productionBuildTokenUuid;
+  if (!buildTokenUuid) {
+    return { attention: true, description: "No Workers Builds token is assigned." };
+  }
+  const shortBuildTokenUuid = buildTokenUuid.slice(0, 8);
+
+  switch (buildTokens.state) {
+    case "not_available":
+      return { attention: false };
+    case "loading":
+      return {
+        attention: false,
+        description: `Loading build token (${shortBuildTokenUuid})...`,
+      };
+    case "failed":
+      return {
+        attention: false,
+        description: `Could not load build token (${shortBuildTokenUuid}).`,
+      };
+    case "loaded": {
+      const token = buildTokens.tokens.find((candidate) => candidate.uuid === buildTokenUuid);
+      return token
+        ? {
+            attention: false,
+            description: `Build token: ${token.name} (${token.uuid.slice(0, 8)}).`,
+          }
+        : {
+            attention: true,
+            description: `Build token (${shortBuildTokenUuid}) is not in Cloudflare's list.`,
+          };
+    }
+  }
+}
+
 function buildCloudflareRow({
   cloudflareAccount,
+  cloudflareBuildTokens,
   convexProjectActionLabels,
   convexProjects,
   configureWorkersBuildsForGitHubOnClick,
@@ -373,6 +434,7 @@ function buildCloudflareRow({
         accountName: string | undefined;
       }
     | undefined;
+  cloudflareBuildTokens: VaultCloudflareBuildTokenListState;
   convexProjectActionLabels: ReadonlyMap<Id<"vaultConvexProjects">, string>;
   convexProjects: readonly VaultDashboardConvexProject[];
   configureWorkersBuildsForGitHubOnClick?: (
@@ -541,14 +603,43 @@ function buildCloudflareRow({
           description: joinDescriptions(previewDescription, repositoryState.description),
         };
       }
+      const buildTokenState = formatCloudflareBuildTokenState({
+        builds: buildsObservation.builds,
+        buildTokens: cloudflareBuildTokens,
+      });
+      const changeBuildTokenAction = configureWorkersBuildsForGitHubOnClick
+        ? {
+            kind: "configure" as const,
+            label: "Change build token",
+            onClick: () =>
+              configureWorkersBuildsForGitHubOnClick(
+                worker.workerId,
+                buildsObservation.repository.state === "ready"
+                  ? buildsObservation.repository.rootDirectory
+                  : undefined,
+              ),
+          }
+        : undefined;
+      const buildTokenReloadAction =
+        cloudflareBuildTokens.state === "failed"
+          ? buildReloadAction(cloudflareBuildTokens.reload)
+          : undefined;
+      const buildTokenActions = (
+        actions: VaultRepositorySettingsActionList | undefined,
+      ): VaultRepositorySettingsActionList | undefined =>
+        buildActionList([changeBuildTokenAction, buildTokenReloadAction, ...(actions ?? [])]);
+      const buildTokenResourceState = buildTokenState.attention ? "failed" : availableBase.state;
       if (observationState.convexBuildAccess.state === "loading") {
         return {
           ...availableBase,
+          actions: buildTokenActions(undefined),
           description: joinDescriptions(
             previewDescription,
             repositoryState.description,
+            buildTokenState.description,
             "Loading Convex deploy keys...",
           ),
+          state: buildTokenResourceState,
         };
       }
       if (observationState.convexBuildAccess.state === "checking") {
@@ -561,12 +652,16 @@ function buildCloudflareRow({
       if (observationState.convexBuildAccess.state === "failed") {
         return {
           ...availableBase,
-          actions: [buildReloadAction(observationState.convexBuildAccess.reload)],
+          actions: buildTokenActions([
+            buildReloadAction(observationState.convexBuildAccess.reload),
+          ]),
           description: joinDescriptions(
             previewDescription,
             repositoryState.description,
+            buildTokenState.description,
             "Could not load Convex deploy keys.",
           ),
+          state: buildTokenResourceState,
         };
       }
 
@@ -576,12 +671,16 @@ function buildCloudflareRow({
       if (!buildAccessObservation || buildAccessObservation.state === "failed") {
         return {
           ...availableBase,
-          actions: [buildReloadAction(observationState.convexBuildAccess.reload)],
+          actions: buildTokenActions([
+            buildReloadAction(observationState.convexBuildAccess.reload),
+          ]),
           description: joinDescriptions(
             previewDescription,
             repositoryState.description,
+            buildTokenState.description,
             "Could not load Convex deploy keys.",
           ),
+          state: buildTokenResourceState,
         };
       }
 
@@ -595,12 +694,14 @@ function buildCloudflareRow({
       });
       return {
         ...availableBase,
-        actions: convexBuildAccessState.actions,
+        actions: buildTokenActions(convexBuildAccessState.actions),
         description: joinDescriptions(
           previewDescription,
           repositoryState.description,
+          buildTokenState.description,
           convexBuildAccessState.description,
         ),
+        state: buildTokenResourceState,
       };
     }
   }
@@ -862,6 +963,7 @@ export function buildVaultRepositorySettingsState({
   addCloudflareWorkerOnClick,
   addConvexOnClick,
   cloudflareAccount,
+  cloudflareBuildTokens,
   configureWorkersBuildsForGitHubOnClick,
   changeConvexProjectConfigPathOnClick,
   cloudflareObservations,
@@ -880,6 +982,7 @@ export function buildVaultRepositorySettingsState({
         accountName: string | undefined;
       }
     | undefined;
+  cloudflareBuildTokens: VaultCloudflareBuildTokenListState;
   configureWorkersBuildsForGitHubOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
     rootDirectory: string | undefined,
@@ -982,6 +1085,7 @@ export function buildVaultRepositorySettingsState({
       applicablePlan && isPlannedCloudflareAttachment(applicablePlan.cloudflare, worker);
     const resource = buildCloudflareRow({
       cloudflareAccount,
+      cloudflareBuildTokens,
       convexProjectActionLabels,
       convexProjects: vault.convexProjects,
       configureWorkersBuildsForGitHubOnClick,

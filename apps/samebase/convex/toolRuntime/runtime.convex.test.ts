@@ -69,11 +69,30 @@ describe("MCP tool runtime boundaries", () => {
       accountId: "account_1",
       workerName: "worker-new",
       rootDirectory: "/",
+      buildTokenUuid: "build-token",
     });
 
     expect(result).toEqual({
       status: "blocked",
       text: "Insufficient scope for vault_cloudflare_createWorker.",
+    });
+  });
+
+  it("blocks the Workers Builds token list before organization resolution", async () => {
+    const { t, userId } = await seedToolRuntimeOwner();
+
+    const result = await t.action(
+      internal.toolRuntime.runtime.cloudflareListWorkersBuildTokensTool,
+      {
+        userId,
+        grantedScopes: [],
+        githubOwnerLogin: "tool-runtime-owner",
+      },
+    );
+
+    expect(result).toEqual({
+      status: "blocked",
+      text: "Insufficient scope for cloudflare_listWorkersBuildTokens.",
     });
   });
 
@@ -188,6 +207,7 @@ describe("MCP tool runtime boundaries", () => {
       accountId: "account_1",
       workerName: "invalid worker name",
       rootDirectory: "/",
+      buildTokenUuid: "build-token",
     });
 
     expect(result).toMatchObject({

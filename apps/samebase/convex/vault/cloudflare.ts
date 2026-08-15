@@ -21,6 +21,7 @@ import {
   readCloudflareWorkerConvexBuildAccess,
   readCloudflareWorkerRepositoryDiscoveryForIdentity,
   configureCloudflareWorkerBuildsForGitHub,
+  requireCloudflareBuildTokenUuid,
   rotateConvexDeployKeysForCloudflareWorkerBuilds,
   type CloudflareBuildConfig,
   type CloudflareConnectedWorkersBuilds,
@@ -504,6 +505,12 @@ async function createWorkerForManagedWorkflow(
     transport: connection.transport,
     accountId,
   });
+  await requireCloudflareBuildTokenUuid({
+    token: connection.token,
+    transport: connection.transport,
+    accountId: account.accountId,
+    buildTokenUuid: checkpoint.buildTokenUuid,
+  });
 
   let worker: { workerName: string; workerTag: string };
   let workerCreated = false;
@@ -658,6 +665,7 @@ async function readInitialBuildCommitHash(args: {
 async function configurePreparedWorkersBuildsForGitHub(
   args: {
     vaultId: Id<"vaults">;
+    buildTokenUuid: string;
     initialBuild: "deferred" | "requested";
     existingBuilds: "preserve_repository" | "require_unconnected";
     beforeProviderWrite?: () => void | Promise<void>;
@@ -692,6 +700,7 @@ async function configurePreparedWorkersBuildsForGitHub(
     cloudflareToken: connection.token,
     cloudflareAuthMethod: connection.auth.method,
     accountId: context.accountId,
+    buildTokenUuid: args.buildTokenUuid,
     buildConfig: prepared.buildConfig,
     beforeProviderWrite: args.beforeProviderWrite,
   });
@@ -702,6 +711,7 @@ async function configureResolvedWorkersBuildsForGitHub(
   args: {
     vaultId: Id<"vaults">;
     rootDirectory: string;
+    buildTokenUuid: string;
     initialBuild: "deferred" | "requested";
     existingBuilds: "preserve_repository" | "require_unconnected";
     beforeProviderWrite?: () => void | Promise<void>;
@@ -712,6 +722,7 @@ async function configureResolvedWorkersBuildsForGitHub(
   return await configurePreparedWorkersBuildsForGitHub(
     {
       vaultId: args.vaultId,
+      buildTokenUuid: args.buildTokenUuid,
       initialBuild: args.initialBuild,
       existingBuilds: args.existingBuilds,
       beforeProviderWrite: args.beforeProviderWrite,
@@ -1027,6 +1038,7 @@ export async function configureWorkersBuildsForGitHubForUser(
     vaultId: Id<"vaults">;
     workerId: Id<"vaultCloudflareWorkers">;
     rootDirectory: string;
+    buildTokenUuid: string;
   },
 ): Promise<void> {
   const actionId = crypto.randomUUID();
@@ -1053,6 +1065,7 @@ export async function configureWorkersBuildsForGitHubForUser(
     await configurePreparedWorkersBuildsForGitHub(
       {
         vaultId: args.vaultId,
+        buildTokenUuid: args.buildTokenUuid,
         initialBuild: "requested",
         existingBuilds: "preserve_repository",
         beforeProviderWrite: () => {
@@ -1102,6 +1115,7 @@ async function connectWorkerForUser(
     workerName: string;
     workerTag: string;
     rootDirectory: string;
+    buildTokenUuid: string;
   },
 ): Promise<CloudflareConnectWorkerResult> {
   const workerName = args.workerName.trim();
@@ -1129,6 +1143,12 @@ async function connectWorkerForUser(
   let workerId: Id<"vaultCloudflareWorkers">;
   try {
     resolved = await resolveCloudflareRepositoryContext(ctx, { ...args, accountId });
+    await requireCloudflareBuildTokenUuid({
+      token: resolved.connection.token,
+      transport: resolved.connection.transport,
+      accountId: resolved.account.accountId,
+      buildTokenUuid: args.buildTokenUuid,
+    });
     const providerIdentity = await readCloudflareWorkerIdentity({
       token: resolved.connection.token,
       transport: resolved.connection.transport,
@@ -1180,6 +1200,7 @@ async function connectWorkerForUser(
       {
         vaultId: args.vaultId,
         rootDirectory: buildConfig.rootDir,
+        buildTokenUuid: args.buildTokenUuid,
         initialBuild: "requested",
         existingBuilds: "require_unconnected",
         beforeProviderWrite: () => {
@@ -1296,6 +1317,7 @@ export async function createWorkerForUser(
     accountId: string;
     workerName: string;
     rootDirectory: string;
+    buildTokenUuid: string;
   },
 ): Promise<Id<"vaultCloudflareWorkers">> {
   const validation = validateAppResourceName(args.workerName, "cloudflare");
@@ -1321,6 +1343,12 @@ export async function createWorkerForUser(
   let workerRecorded = false;
   try {
     const resolved = await resolveCloudflareRepositoryContext(ctx, { ...args, accountId });
+    await requireCloudflareBuildTokenUuid({
+      token: resolved.connection.token,
+      transport: resolved.connection.transport,
+      accountId: resolved.account.accountId,
+      buildTokenUuid: args.buildTokenUuid,
+    });
     const existing = await readCloudflareWorkerIdentity({
       token: resolved.connection.token,
       transport: resolved.connection.transport,
@@ -1367,6 +1395,7 @@ export async function createWorkerForUser(
       {
         vaultId: args.vaultId,
         rootDirectory: buildConfig.rootDir,
+        buildTokenUuid: args.buildTokenUuid,
         initialBuild: "requested",
         existingBuilds: "require_unconnected",
         beforeProviderWrite: () => requireManualProviderActionDeadline(claim.deadlineAt),
@@ -1530,6 +1559,7 @@ export const configureWorkersBuildsForGitHubForWorkflow = internalAction({
     const build = await configurePreparedWorkersBuildsForGitHub(
       {
         vaultId,
+        buildTokenUuid: context.buildTokenUuid,
         initialBuild: "deferred",
         existingBuilds: "preserve_repository",
       },

@@ -601,8 +601,6 @@ const USER_FACING_PROVISIONING_ERROR_MARKERS = [
   "Cloudflare Worker name",
   ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX,
   "exists after an interrupted create. Delete it in the Cloudflare dashboard, then retry.",
-  "Cloudflare Workers Builds has no build API token",
-  "Cloudflare has multiple Workers build tokens",
   "Cannot connect Cloudflare Worker",
   "Cloudflare Worker connection did not attach a Worker.",
   "Convex connection is required to provision infrastructure.",
@@ -646,6 +644,14 @@ function extractUserFacingProvisioningError(args: {
 
   if (isCloudflareGitHubAppRepositoryAuthorizationError(new Error(cleaned))) {
     return formatCloudflareGitHubAppRepositoryAuthorizationMessage(args.repositoryFullName);
+  }
+
+  if (
+    cleaned.includes(
+      "The selected Cloudflare Workers Builds token is not in Cloudflare's current list",
+    )
+  ) {
+    return "The selected Cloudflare Workers Builds token is no longer in Cloudflare's current list. Remove this failed app, then create it again with another token.";
   }
 
   for (const marker of USER_FACING_PROVISIONING_ERROR_MARKERS) {

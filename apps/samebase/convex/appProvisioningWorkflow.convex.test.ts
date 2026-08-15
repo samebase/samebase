@@ -76,6 +76,7 @@ async function createComposedVault() {
         state: "planned",
         workerName: "composed-app",
         rootDirectory: "/",
+        buildTokenUuid: "build-token",
       },
       createdAt: 30,
       updatedAt: 30,
@@ -111,6 +112,7 @@ async function attachComposedResources({
         workerName: "composed-app",
         workerTag: "composed-worker-tag",
         rootDirectory: plan.cloudflare.rootDirectory,
+        buildTokenUuid: plan.cloudflare.buildTokenUuid,
       },
     });
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {

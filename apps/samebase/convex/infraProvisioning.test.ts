@@ -171,6 +171,40 @@ describe("markWorkflowProvisioningFailed", () => {
     });
   });
 
+  it("shows the required recovery when a planned Workers Builds token leaves the list", async () => {
+    const t = makeConvexTest();
+    const ids = await seedRun(t, {
+      repoName: "cloudflare-build-token-missing",
+      trigger: "retry",
+      currentStep: "configure_workers_builds_for_github",
+      workflowId: "workflow-cloudflare-build-token",
+      vaultState: "connected",
+      activeOwnership: true,
+    });
+    const providerMessage =
+      "The selected Cloudflare Workers Builds token is not in Cloudflare's current list for account account-1. Select another token and retry.";
+    const expectedMessage =
+      "The selected Cloudflare Workers Builds token is no longer in Cloudflare's current list. Remove this failed app, then create it again with another token.";
+
+    await t.mutation(internal.infraProvisioning.markWorkflowProvisioningFailed, {
+      runId: ids.runId,
+      workflowId: "workflow-cloudflare-build-token",
+      message: `Error: Uncaught ConvexError: ${providerMessage}`,
+    });
+
+    const result = await t.run(async (ctx) => ({
+      run: await ctx.db.get(ids.runId),
+      event: await ctx.db
+        .query("workflow_vaultProvisioning_events")
+        .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+        .first(),
+    }));
+    expect(result).toMatchObject({
+      run: { state: "failed", lastError: expectedMessage },
+      event: { level: "error", message: expectedMessage },
+    });
+  });
+
   it.each([
     ["cloudflare-quota", "attach_worker", "Organization connection limit reached (6)."],
     [

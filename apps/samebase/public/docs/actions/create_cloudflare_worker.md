@@ -18,6 +18,8 @@ creation, the Worker can remain attached. Reread inventory after every result be
 - `accountId` (string, required): The vault's cloudflareAccountId returned by get_user_vaults.
 - `workerName` (string, required): Name for the new Cloudflare Worker. An existing name is rejected.
 - `rootDirectory` (string, required): Repository root for this Worker's GitHub Builds triggers.
+- `buildTokenUuid` (string, required): Workers Builds token UUID returned by
+  cloudflare_listWorkersBuildTokens.
 
 ## Returns
 

@@ -327,6 +327,8 @@ describe("buildProductionEnvironmentRoots", () => {
               state: "connected",
               productionTriggerUuid: "production-trigger",
               previewTriggerUuid: "preview-trigger",
+              productionBuildTokenUuid: "build-token",
+              previewBuildTokenUuid: "build-token",
               productionBuild: {
                 state: "available",
                 buildState: "success",
@@ -1586,6 +1588,7 @@ describe("VaultOverviewPage", () => {
           settingsState={buildVaultRepositorySettingsState({
             cloudflareObservations,
             cloudflareAccount: undefined,
+            cloudflareBuildTokens: { state: "not_available" },
             convexObservations,
             pendingAction: null,
             vault,
@@ -2229,6 +2232,8 @@ describe("VaultCloudflareDialogContent", () => {
   it("replaces disabled controls with a timed loading state while searching", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
+        cloudflareBuildTokenField={null}
+        hasSelectedBuildToken
         createRootDirectory="/"
         createWorkerName=""
         didAddWorker={false}
@@ -2264,6 +2269,8 @@ describe("VaultCloudflareDialogContent", () => {
   it("separates connected selections and keeps them pending after another Worker is added", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
+        cloudflareBuildTokenField={null}
+        hasSelectedBuildToken
         createRootDirectory="/"
         createWorkerName=""
         didAddWorker
@@ -2334,6 +2341,8 @@ describe("VaultCloudflareDialogContent", () => {
   it("asks for one repository root before connecting and adding an unconnected Worker", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
+        cloudflareBuildTokenField={<div>Workers Builds token</div>}
+        hasSelectedBuildToken
         createRootDirectory="apps/portal"
         createWorkerName=""
         didAddWorker={false}
@@ -2368,6 +2377,7 @@ describe("VaultCloudflareDialogContent", () => {
     expect(markup).toContain("Connect a Worker");
     expect(markup).toContain("portal-worker");
     expect(markup).toContain("Repository root");
+    expect(markup).toContain("Workers Builds token");
     expect(markup).toContain('value="apps/portal"');
     expect(markup).toContain("Connect and add");
     expect(markup).toContain("Back");
@@ -2378,6 +2388,8 @@ describe("VaultCloudflareDialogContent", () => {
   it("shows the repository root only when creating a Worker", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
+        cloudflareBuildTokenField={<div>Workers Builds token</div>}
+        hasSelectedBuildToken={false}
         createRootDirectory="apps/web"
         createWorkerName="samebase_app"
         didAddWorker={false}
@@ -2402,17 +2414,22 @@ describe("VaultCloudflareDialogContent", () => {
         workers={[]}
       />,
     );
+    const createButton = markup.match(/<button[^>]*>Create Worker<\/button>/)?.[0];
 
     expect(markup).toContain('role="combobox"');
     expect(markup).toContain("Repository root");
     expect(markup).toContain('value="apps/web"');
+    expect(markup).toContain("Workers Builds token");
     expect(markup).toContain("Create Worker");
+    expect(createButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
     expect(markup).not.toContain("cloudflare-worker-name-error");
   });
 
   it("rejects an invalid Worker name inline before submission", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
+        cloudflareBuildTokenField={null}
+        hasSelectedBuildToken
         createRootDirectory="apps/web"
         createWorkerName="samebase app"
         didAddWorker={false}
@@ -2452,6 +2469,8 @@ describe("VaultCloudflareDialogContent", () => {
   it("shows the operation block reason and disables confirmation", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
+        cloudflareBuildTokenField={null}
+        hasSelectedBuildToken
         blockedReason="A provider operation is in progress."
         createRootDirectory="apps/web"
         createWorkerName="web-worker"
@@ -2487,6 +2506,8 @@ describe("VaultCloudflareDialogContent", () => {
   it("shows an enabled Close action when a pending connection needs recovery", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
+        cloudflareBuildTokenField={null}
+        hasSelectedBuildToken
         blockedReason="Samebase could not confirm the Cloudflare Worker connection."
         createRootDirectory="apps/web"
         createWorkerName=""
@@ -2522,6 +2543,8 @@ describe("VaultCloudflareDialogContent", () => {
   it("uses the same dialog to repair Builds when no live root exists", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
+        cloudflareBuildTokenField={null}
+        hasSelectedBuildToken
         createRootDirectory="apps/web"
         createWorkerName=""
         didAddWorker={false}
@@ -2560,6 +2583,8 @@ describe("VaultCloudflareDialogContent", () => {
   it("does not claim that no Workers exist after a partial inventory", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
+        cloudflareBuildTokenField={null}
+        hasSelectedBuildToken
         createRootDirectory="/"
         createWorkerName=""
         didAddWorker={false}
@@ -2591,6 +2616,108 @@ describe("VaultCloudflareDialogContent", () => {
 });
 
 describe("buildVaultRepositorySettingsState", () => {
+  it("reports the live Workers Builds token binding without claiming token health", () => {
+    const workerId = fakeCloudflareWorkerId("worker-build-token");
+    const changeBuildToken = vi.fn();
+    const readRow = ({
+      buildTokenListState,
+      previewBuildTokenUuid,
+      productionBuildTokenUuid,
+      tokens,
+    }: {
+      buildTokenListState?: "failed";
+      previewBuildTokenUuid: string | null;
+      productionBuildTokenUuid: string | null;
+      tokens: readonly { name: string; uuid: string }[];
+    }) => {
+      const state = buildVaultRepositorySettingsState({
+        cloudflareAccount: undefined,
+        cloudflareBuildTokens:
+          buildTokenListState === "failed"
+            ? { state: "failed", reload: () => {} }
+            : { state: "loaded", tokens },
+        cloudflareObservations: makeLoadedCloudflareObservations({
+          workers: [makeAvailableRepositorySettingsCloudflareObservation({ workerId })],
+          builds: [
+            makeAvailableRepositorySettingsCloudflareBuildsObservation({
+              workerId,
+              builds: {
+                state: "connected",
+                productionTriggerUuid: "production-trigger",
+                previewTriggerUuid: "preview-trigger",
+                productionBuildTokenUuid,
+                previewBuildTokenUuid,
+                productionBuild: { state: "unavailable", reasons: ["request_failed"] },
+              },
+            }),
+          ],
+          convexBuildAccess: [
+            {
+              state: "available",
+              workerId,
+              convexBuildAccess: { state: "not_configured" },
+            },
+          ],
+        }),
+        configureWorkersBuildsForGitHubOnClick: changeBuildToken,
+        convexObservations: {
+          state: "loaded",
+          refreshFailed: false,
+          reload: () => {},
+          observations: [],
+        },
+        pendingAction: null,
+        vault: makeRepositorySettingsBuilderVault({
+          cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
+        }),
+      });
+      return getRepositorySettingsResource(state, "/", "cloudflare");
+    };
+
+    const listedRow = readRow({
+      productionBuildTokenUuid: "12345678-token",
+      previewBuildTokenUuid: "12345678-token",
+      tokens: [{ name: "Workers Builds - 2026-08-14 01:54", uuid: "12345678-token" }],
+    });
+    expect(listedRow.description).toContain(
+      "Build token: Workers Builds - 2026-08-14 01:54 (12345678).",
+    );
+    expect(listedRow.description).not.toContain("healthy");
+    expect(listedRow.actions?.map((action) => action.label)).toEqual(["Change build token"]);
+    listedRow.actions?.[0].onClick?.();
+    expect(changeBuildToken).toHaveBeenCalledWith(workerId, "/");
+
+    const missingRow = readRow({
+      productionBuildTokenUuid: "12345678-token",
+      previewBuildTokenUuid: "12345678-token",
+      tokens: [],
+    });
+    expect(missingRow).toMatchObject({
+      state: "failed",
+      description: expect.stringContaining("Build token (12345678) is not in Cloudflare's list."),
+    });
+
+    const listFailedRow = readRow({
+      buildTokenListState: "failed",
+      productionBuildTokenUuid: "12345678-token",
+      previewBuildTokenUuid: "12345678-token",
+      tokens: [],
+    });
+    expect(listFailedRow.description).toContain("Could not load build token (12345678).");
+
+    const mismatchedRow = readRow({
+      productionBuildTokenUuid: "production-token",
+      previewBuildTokenUuid: "preview-token",
+      tokens: [],
+    });
+    expect(mismatchedRow).toMatchObject({
+      state: "failed",
+      description: expect.stringContaining(
+        "Production and preview use different build tokens: production (producti), preview (preview-).",
+      ),
+    });
+  });
+
   it("shows readable planned targets while managed setup is active", () => {
     const state = buildVaultRepositorySettingsState({
       cloudflareObservations: makeLoadedCloudflareObservations({
@@ -2602,6 +2729,7 @@ describe("buildVaultRepositorySettingsState", () => {
         accountId: "account-1",
         accountName: "Ada Cloud",
       },
+      cloudflareBuildTokens: { state: "not_available" },
       convexObservations: {
         state: "loaded",
         refreshFailed: false,
@@ -2620,6 +2748,7 @@ describe("buildVaultRepositorySettingsState", () => {
           cloudflare: {
             state: "planned",
             accountId: "account-1",
+            buildTokenUuid: "build-token",
             workerName: "demo-worker",
             rootDirectory: "/",
           },
@@ -2673,6 +2802,7 @@ describe("buildVaultRepositorySettingsState", () => {
         convexBuildAccess: [],
       }),
       cloudflareAccount: undefined,
+      cloudflareBuildTokens: { state: "not_available" },
       convexObservations: {
         state: "loaded",
         refreshFailed: false,
@@ -2691,6 +2821,7 @@ describe("buildVaultRepositorySettingsState", () => {
           cloudflare: {
             state: "planned",
             accountId: "account-1",
+            buildTokenUuid: "build-token",
             workerName: "demo-worker",
             rootDirectory: "apps/web",
           },
@@ -2737,6 +2868,7 @@ describe("buildVaultRepositorySettingsState", () => {
         convexBuildAccess: { state: "loading" },
       },
       cloudflareAccount: undefined,
+      cloudflareBuildTokens: { state: "not_available" },
       pendingAction: null,
       convexObservations: { state: "loading" },
       vault: makeRepositorySettingsBuilderVault({
@@ -2770,6 +2902,7 @@ describe("buildVaultRepositorySettingsState", () => {
         convexBuildAccess: [],
       }),
       cloudflareAccount: undefined,
+      cloudflareBuildTokens: { state: "not_available" },
       pendingAction: null,
       convexObservations: { state: "checking" },
       vault: makeRepositorySettingsBuilderVault({
@@ -2784,6 +2917,7 @@ describe("buildVaultRepositorySettingsState", () => {
           cloudflare: {
             state: "created",
             accountId: "cloudflare-account",
+            buildTokenUuid: "build-token",
             workerName: "readable-worker-name",
             workerTag: "readable-worker-tag",
             rootDirectory: "/",
@@ -2831,6 +2965,7 @@ describe("buildVaultRepositorySettingsState", () => {
         convexBuildAccess: [],
       }),
       cloudflareAccount: undefined,
+      cloudflareBuildTokens: { state: "not_available" },
       convexObservations: {
         state: "loaded",
         refreshFailed: false,
@@ -2886,6 +3021,7 @@ describe("buildVaultRepositorySettingsState", () => {
         convexBuildAccess: [],
       }),
       cloudflareAccount: undefined,
+      cloudflareBuildTokens: { state: "not_available" },
       pendingAction: null,
       convexObservations: {
         state: "loaded",
@@ -3023,6 +3159,8 @@ describe("buildVaultRepositorySettingsState", () => {
                 state: "connected",
                 productionTriggerUuid: "production-trigger",
                 previewTriggerUuid: "preview-trigger",
+                productionBuildTokenUuid: "build-token",
+                previewBuildTokenUuid: "build-token",
                 productionBuild: { state: "unavailable", reasons: ["request_failed"] },
               },
             }),
@@ -3037,6 +3175,10 @@ describe("buildVaultRepositorySettingsState", () => {
         }),
         pendingAction: null,
         cloudflareAccount: undefined,
+        cloudflareBuildTokens: {
+          state: "loaded",
+          tokens: [{ name: "Workers Builds token", uuid: "build-token" }],
+        },
         convexObservations,
         rotateConvexDeployKeysForWorkersBuildsOnClick: rotate,
         vault: vaultWithBuildAccess,

@@ -31,6 +31,8 @@ an idle app costs $0/month.
 - `name` (string, required): Name for the new app and GitHub repository.
 - `convexProjectName` (string, required): Convex project name to provision for the app.
 - `cloudflareWorkerName` (string, required): Cloudflare Worker name to provision for the app.
+- `cloudflareBuildTokenUuid` (string, required): Workers Builds token UUID returned by
+  cloudflare_listWorkersBuildTokens.
 - `description` (string, optional): Optional GitHub repository description.
 - `private` (boolean, optional): Whether to create a private GitHub repository. Defaults to true.
 

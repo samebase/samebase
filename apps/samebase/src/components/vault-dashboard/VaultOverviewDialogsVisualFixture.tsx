@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import type { Id } from "../../../convex/_generated/dataModel";
+import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenField";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
 import { VaultConvexDialogContent } from "./VaultConvexDialog";
@@ -189,9 +190,32 @@ function CloudflareDialogFixture({
   repair: boolean;
 }) {
   const invalidName = mode === "vault-overview-v2-cloudflare-dialog-invalid-name";
+  const showsBuildToken = repair || invalidName;
   return (
     <DialogFixture mode={mode}>
       <VaultCloudflareDialogContent
+        cloudflareBuildTokenField={
+          showsBuildToken ? (
+            <CloudflareBuildTokenField
+              accountId="samebase-account"
+              disabled={false}
+              error={false}
+              id="visual-cloudflare-build-token"
+              isLoading={false}
+              onReload={() => {}}
+              onValueChange={() => {}}
+              selectionUnavailable={false}
+              tokens={[
+                {
+                  name: "Workers Builds - 2026-08-14 01:54",
+                  uuid: "fixture-build-token",
+                },
+              ]}
+              value="fixture-build-token"
+            />
+          ) : null
+        }
+        hasSelectedBuildToken
         createRootDirectory={repair ? "apps/portal" : "/"}
         createWorkerName={invalidName ? "samebase app" : ""}
         didAddWorker={false}

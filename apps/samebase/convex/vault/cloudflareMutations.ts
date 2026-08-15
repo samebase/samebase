@@ -39,6 +39,7 @@ export type WorkerConfigurationContext = Infer<typeof vWorkerConfigurationContex
 export const vManagedWorkerConfigurationContext = object({
   ...workerConfigurationContextFields,
   rootDirectory: string(),
+  buildTokenUuid: string(),
 });
 export type ManagedWorkerConfigurationContext = Infer<typeof vManagedWorkerConfigurationContext>;
 
@@ -333,11 +334,12 @@ export const readManagedWorkerCreateCheckpoint = internalQuery({
     workerName: string(),
   },
   returns: union(
-    object({ state: literal("planned") }),
-    object({ state: literal("creating") }),
+    object({ state: literal("planned"), buildTokenUuid: string() }),
+    object({ state: literal("creating"), buildTokenUuid: string() }),
     object({
       state: literal("created"),
       workerTag: string(),
+      buildTokenUuid: string(),
     }),
   ),
   handler: async (ctx, args) => {
@@ -350,13 +352,14 @@ export const readManagedWorkerCreateCheckpoint = internalQuery({
     }
     switch (plan.cloudflare.state) {
       case "planned":
-        return { state: "planned" as const };
+        return { state: "planned" as const, buildTokenUuid: plan.cloudflare.buildTokenUuid };
       case "creating":
-        return { state: "creating" as const };
+        return { state: "creating" as const, buildTokenUuid: plan.cloudflare.buildTokenUuid };
       case "created":
         return {
           state: "created" as const,
           workerTag: plan.cloudflare.workerTag,
+          buildTokenUuid: plan.cloudflare.buildTokenUuid,
         };
     }
   },
@@ -387,6 +390,7 @@ export const beginManagedWorkerCreate = internalMutation({
         state: "creating",
         workerName: args.workerName,
         rootDirectory: plan.cloudflare.rootDirectory,
+        buildTokenUuid: plan.cloudflare.buildTokenUuid,
       },
       updatedAt: Date.now(),
     });
@@ -440,6 +444,7 @@ export const recordManagedWorkerCreated = internalMutation({
           workerName: args.workerName,
           workerTag: args.workerTag,
           rootDirectory: plan.cloudflare.rootDirectory,
+          buildTokenUuid: plan.cloudflare.buildTokenUuid,
         },
         updatedAt: Date.now(),
       });
@@ -588,6 +593,7 @@ export const readManagedWorkerConfigurationContext = internalQuery({
       workerName: worker.workerName,
       workerTag: worker.workerTag,
       rootDirectory: plan.cloudflare.rootDirectory,
+      buildTokenUuid: plan.cloudflare.buildTokenUuid,
     };
   },
 });

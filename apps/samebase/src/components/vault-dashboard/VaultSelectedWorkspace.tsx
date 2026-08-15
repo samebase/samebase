@@ -5,6 +5,7 @@ import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import { toast } from "@/components/ui/use-toast";
+import { useCloudflareBuildTokens } from "@/components/useCloudflareBuildTokens";
 import {
   applyVaultDashboardProviderAddSearch,
   clearVaultDashboardQueryDialogSearch,
@@ -44,9 +45,6 @@ export function VaultSelectedWorkspace({
   );
   const detachCloudflareWorker = useAction(api.vault.cloudflare.detachWorker);
   const detachConvexProject = useAction(api.vault.convex.detachProject);
-  const configureWorkersBuildsForGitHub = useAction(
-    api.vault.cloudflare.configureWorkersBuildsForGitHub,
-  );
   const rotateConvexDeployKeysForWorkersBuilds = useAction(
     api.vault.cloudflare.rotateConvexDeployKeysForWorkersBuilds,
   );
@@ -57,6 +55,19 @@ export function VaultSelectedWorkspace({
   const deleteModeActive = rootRouteSearch.delete === true;
   const addConvexModeActive = rootRouteSearch["add-convex"] === true;
   const addCloudflareWorkerModeActive = rootRouteSearch["add-cloudflare"] === true;
+  const cloudflareConnection =
+    workspace.cloudflareConnection.state === "ready" &&
+    workspace.cloudflareConnection.connection.state === "connected"
+      ? workspace.cloudflareConnection.connection
+      : null;
+  const shouldLoadCloudflareBuildTokens = Boolean(
+    cloudflareConnection &&
+    (addCloudflareWorkerModeActive || (page === "settings" && vault.cloudflareWorkers.length > 0)),
+  );
+  const cloudflareBuildTokensQuery = useCloudflareBuildTokens({
+    enabled: shouldLoadCloudflareBuildTokens,
+    organizationId: vault.organizationId,
+  });
   const convexRepairProjectId =
     vaultDashboardDialogHistoryEntry?.dialog === "add-convex"
       ? (vaultDashboardDialogHistoryEntry.repairProjectId ?? null)
@@ -64,6 +75,24 @@ export function VaultSelectedWorkspace({
   const cloudflareRepairWorkerId =
     vaultDashboardDialogHistoryEntry?.dialog === "add-cloudflare"
       ? (vaultDashboardDialogHistoryEntry.repairWorkerId ?? null)
+      : null;
+  const cloudflareRepairBuildsObservation =
+    cloudflareRepairWorkerId && workspace.cloudflareObservations.builds.state === "loaded"
+      ? (workspace.cloudflareObservations.builds.observations.find(
+          (observation) => observation.workerId === cloudflareRepairWorkerId,
+        ) ?? null)
+      : null;
+  const cloudflareRepairRootDirectory =
+    cloudflareRepairBuildsObservation?.state === "available" &&
+    cloudflareRepairBuildsObservation.repository.state === "ready"
+      ? cloudflareRepairBuildsObservation.repository.rootDirectory
+      : null;
+  const cloudflareRepairBuildTokenUuid =
+    cloudflareRepairBuildsObservation?.state === "available" &&
+    cloudflareRepairBuildsObservation.builds.state === "connected" &&
+    cloudflareRepairBuildsObservation.builds.productionBuildTokenUuid ===
+      cloudflareRepairBuildsObservation.builds.previewBuildTokenUuid
+      ? cloudflareRepairBuildsObservation.builds.productionBuildTokenUuid
       : null;
   const providerActionBlockReason = readVaultProviderActionBlockReason(vault);
 
@@ -204,24 +233,8 @@ export function VaultSelectedWorkspace({
     });
   };
 
-  const handleConfigureWorkersBuildsForGitHub = (
-    workerId: Id<"vaultCloudflareWorkers">,
-    rootDirectory: string | undefined,
-  ) => {
-    if (!rootDirectory) {
-      openProviderDialog({ provider: "cloudflare", repairWorkerId: workerId });
-      return;
-    }
-    void runProviderAction({
-      action: { kind: "configure_workers_builds_for_github", workerId },
-      errorTitle: "Could not configure Workers Builds for GitHub",
-      run: () =>
-        configureWorkersBuildsForGitHub({
-          workerId,
-          vaultId: vault._id,
-          rootDirectory,
-        }),
-    });
+  const handleConfigureWorkersBuildsForGitHub = (workerId: Id<"vaultCloudflareWorkers">) => {
+    openProviderDialog({ provider: "cloudflare", repairWorkerId: workerId });
   };
 
   const handleRotateConvexDeployKeysForWorkersBuilds = (
@@ -256,6 +269,20 @@ export function VaultSelectedWorkspace({
             accountName: workspace.cloudflareConnection.connection.accountName,
           }
         : undefined,
+    cloudflareBuildTokens: !shouldLoadCloudflareBuildTokens
+      ? { state: "not_available" }
+      : cloudflareBuildTokensQuery.isFetching
+        ? { state: "loading" }
+        : cloudflareBuildTokensQuery.error
+          ? {
+              state: "failed",
+              reload: () => {
+                void cloudflareBuildTokensQuery.refetch();
+              },
+            }
+          : cloudflareBuildTokensQuery.data
+            ? { state: "loaded", tokens: cloudflareBuildTokensQuery.data.tokens }
+            : { state: "loading" },
     configureWorkersBuildsForGitHubOnClick: handleConfigureWorkersBuildsForGitHub,
     changeConvexProjectConfigPathOnClick: (convexProjectId) =>
       openProviderDialog({
@@ -345,6 +372,8 @@ export function VaultSelectedWorkspace({
           onClose={() => {
             closeVaultDashboardDialog("add-cloudflare");
           }}
+          repairBuildTokenUuid={cloudflareRepairBuildTokenUuid}
+          repairRootDirectory={cloudflareRepairRootDirectory}
           repairWorkerId={cloudflareRepairWorkerId}
           vault={vault}
         />

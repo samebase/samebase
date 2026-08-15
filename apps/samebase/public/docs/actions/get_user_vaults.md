@@ -381,9 +381,18 @@ JSON Schema for the tool's `structuredContent`:
                           },
                           "rootDirectory": {
                             "type": "string"
+                          },
+                          "buildTokenUuid": {
+                            "type": "string"
                           }
                         },
-                        "required": ["state", "accountId", "workerName", "rootDirectory"],
+                        "required": [
+                          "state",
+                          "accountId",
+                          "workerName",
+                          "rootDirectory",
+                          "buildTokenUuid"
+                        ],
                         "additionalProperties": false
                       },
                       {
@@ -400,9 +409,18 @@ JSON Schema for the tool's `structuredContent`:
                           },
                           "rootDirectory": {
                             "type": "string"
+                          },
+                          "buildTokenUuid": {
+                            "type": "string"
                           }
                         },
-                        "required": ["state", "accountId", "workerName", "rootDirectory"],
+                        "required": [
+                          "state",
+                          "accountId",
+                          "workerName",
+                          "rootDirectory",
+                          "buildTokenUuid"
+                        ],
                         "additionalProperties": false
                       },
                       {
@@ -422,6 +440,9 @@ JSON Schema for the tool's `structuredContent`:
                           },
                           "rootDirectory": {
                             "type": "string"
+                          },
+                          "buildTokenUuid": {
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -429,7 +450,8 @@ JSON Schema for the tool's `structuredContent`:
                           "accountId",
                           "workerName",
                           "workerTag",
-                          "rootDirectory"
+                          "rootDirectory",
+                          "buildTokenUuid"
                         ],
                         "additionalProperties": false
                       }

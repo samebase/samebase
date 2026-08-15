@@ -142,6 +142,7 @@ export const cloudflareConnectWorkerContract = {
     workerName: string(),
     workerTag: string(),
     rootDirectory: string(),
+    buildTokenUuid: string(),
   },
   returns: union(
     object({ state: literal("ready"), workerId: id("vaultCloudflareWorkers") }),
@@ -161,6 +162,7 @@ export const cloudflareCreateWorkerContract = {
     accountId: string(),
     workerName: string(),
     rootDirectory: string(),
+    buildTokenUuid: string(),
   },
   returns: id("vaultCloudflareWorkers"),
   structuredContent: object({ workerId: id("vaultCloudflareWorkers") }),
@@ -180,6 +182,7 @@ export const cloudflareCreateWorkerContract = {
       accountId: "The vault's cloudflareAccountId returned by get_user_vaults.",
       workerName: "Name for the new Cloudflare Worker. An existing name is rejected.",
       rootDirectory: "Repository root for this Worker's GitHub Builds triggers.",
+      buildTokenUuid: "Workers Builds token UUID returned by cloudflare_listWorkersBuildTokens.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Creates one new Worker in the vault's stored Cloudflare account for an existing connected

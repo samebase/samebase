@@ -5,7 +5,7 @@
 - Status: Accepted implementation plan
 - Owner: Samebase hosting, generated app provisioning, and public template stack
 - Created: 2026-05-15
-- Last updated: 2026-07-29
+- Last updated: 2026-08-14
 - Related:
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
   - `research/2026-05-15-samebase-workers-provisioning-migration.md`
@@ -197,7 +197,7 @@ New Samebase-managed app creation should:
 5. create production and preview Convex deploy keys
 6. create or reuse a Cloudflare Worker
 7. connect the GitHub repository to Workers Builds
-8. create or reuse a Workers Builds build token tied to the current Cloudflare credential
+8. require one account Workers Builds token selected by its exact UUID
 9. configure production build/deploy commands
 10. configure non-production branch build/deploy commands
 11. set production and preview build variables/secrets
@@ -240,10 +240,10 @@ Required Workers operations:
 
 1. resolve or create the Worker
 2. connect the GitHub repository to Workers Builds
-3. resolve the current Cloudflare credential ID
-4. create or reuse a Workers Builds build token for that credential
-5. create or patch the production build trigger
-6. create or patch the preview/non-production build trigger
+3. list the account's non-secret Workers Builds token records
+4. require the selected token UUID and verify that Cloudflare still lists it for the exact account
+5. create or patch the production build trigger with that UUID
+6. create or patch the preview/non-production build trigger with the same UUID
 7. set Convex deploy-key secrets in Workers Builds: both `CONVEX_DEPLOY_KEY` and
    `PREVIEW_CONVEX_DEPLOY_KEY` on the production and preview triggers
 8. set the same non-secret `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>`
@@ -262,8 +262,10 @@ For generated single-repository apps, use these Workers Builds commands:
 For older monorepo-shaped Samebase-generated apps, a temporary fallback can use `apps/samebase` as
 the root with direct Wrangler commands while the template surface converges.
 
-User-facing Cloudflare connection must stay web-authenticated. Do not replace the product flow with
-a manual API-token setup. Local and preview environments may continue to use operator-provided
+User-facing Cloudflare management access must stay web-authenticated. A Workers Builds token is a
+separate Cloudflare-owned build setting. If the account has no token record, Samebase sends the user
+to Cloudflare to create one and then reloads the non-secret list. Samebase never asks for or stores
+that user API token secret. Local and preview environments may continue to use operator-provided
 seeded Cloudflare credentials, but those credentials must include the equivalent of Workers Scripts
 edit, Workers Builds Configuration edit, and Account Settings read.
 
@@ -324,6 +326,13 @@ infrastructure status fields that can disagree with the vault provider states. `
 must be removed rather than repurposed. Stable Cloudflare Worker identity belongs in
 `vaultCloudflareWorkers`; current Worker, URL, Builds, root, and marker state is observed live from
 Cloudflare.
+
+The selected build-token UUID stays in the provisioning plan so an unfinished retry preserves the
+user's exact choice. If Cloudflare removes that record before managed setup finishes, Samebase does
+not select a replacement during retry. It tells the user to remove the failed app and create it
+again with another token. After setup, the production and preview triggers are the source of truth.
+Samebase fetches the current name from Cloudflare and never infers token health from list
+membership.
 
 Rollout checklist:
 

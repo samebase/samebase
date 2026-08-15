@@ -37,6 +37,13 @@ export const toolJustifications = {
       "Does not create, publish, or modify public internet state or third-party systems.",
     destructive_justification: noDestructiveActions,
   },
+  cloudflare_listWorkersBuildTokens: {
+    read_only_justification:
+      "Lists non-secret Workers Builds token names and UUIDs from the Cloudflare account connected to the selected Samebase organization. Request authentication and connection refresh bookkeeping can update private Samebase records.",
+    open_world_justification:
+      "Reads the Cloudflare API; it does not create, publish, or modify Cloudflare resources or public internet state.",
+    destructive_justification: noDestructiveActions,
+  },
   vault_actions_createRepository: {
     read_only_justification:
       "Starts a managed app provisioning workflow that creates provider resources and records Samebase state.",
@@ -89,7 +96,7 @@ export const toolJustifications = {
   },
   vault_cloudflare_configureWorkersBuildsForGitHub: {
     read_only_justification:
-      "Creates or updates the app's own Workers Builds production and preview triggers, may create a Workers Builds API token under API-key auth, and starts a production build.",
+      "Creates or updates the app's own Workers Builds production and preview triggers with the selected token UUID, then starts a production build.",
     open_world_justification:
       "Creates or patches build triggers on the caller's own Cloudflare account for the caller's own repository, then starts a production build.",
     destructive_justification:
@@ -187,9 +194,13 @@ export const testCases = [
     user_prompt:
       "Create a private Samebase app under noter-guest with a unique name that starts with tmp-plugin-review-. Wait until it is ready.",
     file_attachment_urls: null,
-    tools_triggered: ["vault_dashboard_getUserVaults", "vault_actions_createRepository"],
+    tools_triggered: [
+      "vault_dashboard_getUserVaults",
+      "cloudflare_listWorkersBuildTokens",
+      "vault_actions_createRepository",
+    ],
     expected_output:
-      "Reads inventory, then creates one private repository-backed app without a provider-account preflight. It uses the selected name for the app and its new provider resources. It polls only inventory until source setup is ready or failed. After source setup is ready, it also polls only inventory until provider setup is ready or failed. It reports the repository and final states without treating the initial run IDs as completion.",
+      "Reads inventory and the connected Cloudflare account's Workers Builds token records, then passes one listed token UUID when it creates the private repository-backed app. It uses the selected name for the app and its new provider resources. It polls only inventory until source setup is ready or failed. After source setup is ready, it also polls only inventory until provider setup is ready or failed. It reports the repository and final states without treating the initial run IDs as completion.",
     expected_output_url: null,
   },
   {

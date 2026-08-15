@@ -40,6 +40,7 @@ import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/cont
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
+import { cloudflareListWorkersBuildTokensContract } from "../vault/contracts/cloudflareBuildTokens";
 import {
   buildMcpAuthorizationSuccessRedirectUrl,
   MCP_CONSENT_APP_PATH,
@@ -84,9 +85,9 @@ const MCP_SERVER_INFO = {
 } as const;
 const MCP_SERVER_INSTRUCTIONS = `Samebase is only for repository-backed apps and explicit attachments to user-owned Convex and Cloudflare resources. The MCP acts as the authenticated Samebase account across every organization that the account can currently access. Never request or send an opaque Samebase organization ID. Never use Samebase for unrelated Git work or standalone provider resources.
 
-For managed app creation, use only this closed sequence: read ${getUserVaultsContract.mcp.name}, call ${createRepositoryContract.mcp.name} directly with the human GitHub owner login, then poll ${getUserVaultsContract.mcp.name}. Ask the user for the GitHub owner login when it is unclear. ${createRepositoryContract.mcp.name} does not accept an accountId and uses the organization's configured Cloudflare account.
+For managed app creation, use only this closed sequence: read ${getUserVaultsContract.mcp.name}, call ${cloudflareListWorkersBuildTokensContract.mcp.name} with the human GitHub owner login, select a token as specified below, pass that UUID to ${createRepositoryContract.mcp.name}, then poll ${getUserVaultsContract.mcp.name}. Ask the user for the GitHub owner login when it is unclear. ${createRepositoryContract.mcp.name} does not accept an accountId and uses the organization's configured Cloudflare account.
 
-For other writes, read ${getUserVaultsContract.mcp.name} whenever a repository may already be connected, and reuse the returned vault and attachment identifiers. For Cloudflare actions on an existing vault, pass that vault's cloudflareAccountId from ${getUserVaultsContract.mcp.name}. Do not discover or select another Cloudflare account through Samebase MCP. After ${createRepositoryContract.mcp.name}, poll ${getUserVaultsContract.mcp.name} until source setup is ready or failed. Once source setup is ready, treat provider setup as an independent ready, failed, or not-applicable axis. A connected repository remains usable while provider setup continues or fails. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
+For other writes, read ${getUserVaultsContract.mcp.name} whenever a repository may already be connected, and reuse the returned vault and attachment identifiers. Before a Cloudflare Worker create or Builds configuration action, call ${cloudflareListWorkersBuildTokensContract.mcp.name}. If the token list is empty, tell the user to complete Workers Builds token setup in Cloudflare, then list again. A single result can be used. For multiple results, ask the user to choose by the displayed name and UUID. Pass only that selected UUID to the write. For Cloudflare actions on an existing vault, pass that vault's cloudflareAccountId from ${getUserVaultsContract.mcp.name}. Do not discover or select another Cloudflare account through Samebase MCP. After ${createRepositoryContract.mcp.name}, poll ${getUserVaultsContract.mcp.name} until source setup is ready or failed. Once source setup is ready, treat provider setup as an independent ready, failed, or not-applicable axis. A connected repository remains usable while provider setup continues or fails. A started provisioning run, requested build, or successful Git push is not proof of a successful deployment.
 
 Inventory reports Samebase-owned workflow state and stable resource IDs. Read current provider existence, configuration, deployment state, and logs from provider-native tools unless an explicit Samebase action exposes that live read. Match the required IDs to an explicit action contract, call that action, then reread inventory.
 
@@ -203,6 +204,9 @@ async function callCreateBrowserHandoffMcpTool(
 const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   [getUserVaultsContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.getUserVaultsTool,
+  ),
+  [cloudflareListWorkersBuildTokensContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.cloudflareListWorkersBuildTokensTool,
   ),
   [createRepositoryContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.createRepositoryTool,

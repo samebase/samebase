@@ -24,6 +24,7 @@ import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
   isCloudflareMcpInvalidAccessTokenError,
   isCloudflareWorkerNameAvailable,
+  requireCloudflareBuildTokenUuid,
 } from "../cloudflareResources";
 import {
   buildNumberedAppResourceNameSuggestion,
@@ -763,6 +764,12 @@ export async function createAppForUser(
   assertResourceNameAvailable("GitHub repository name", githubNameAvailability);
   assertResourceNameAvailable("Convex project name", convexNameAvailability);
   assertResourceNameAvailable("Cloudflare Worker name", cloudflareNameAvailability);
+  await requireCloudflareBuildTokenUuid({
+    token: cloudflareConnection.cloudflareToken,
+    transport: resolveCloudflareApiTransport(cloudflareConnection.cloudflareAuthMethod),
+    accountId: cloudflareConnection.cloudflareAccountId,
+    buildTokenUuid: args.cloudflareBuildTokenUuid,
+  });
 
   const visibility = args.private === false ? "public" : "private";
   const { vaultId, runId } = await ctx.runMutation(
@@ -778,6 +785,7 @@ export async function createAppForUser(
       convexTeamId: convexConnection.convexTeamId,
       cloudflareAccountId: cloudflareConnection.cloudflareAccountId,
       cloudflareWorkerName: cloudflareNameValidation.value,
+      cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
     },
   );
 
@@ -797,6 +805,7 @@ export const createRepository = action({
       name: args.name,
       convexProjectName: args.convexProjectName,
       cloudflareWorkerName: args.cloudflareWorkerName,
+      cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
       ...(args.description !== undefined ? { description: args.description } : {}),
       ...(args.private !== undefined ? { private: args.private } : {}),
     });

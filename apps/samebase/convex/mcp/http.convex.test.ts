@@ -171,8 +171,11 @@ describe("MCP tool listing access", () => {
     }
     expect(tools.find((tool) => tool.name === "vault_actions_createRepository")).toMatchObject({
       inputSchema: {
-        properties: { githubOwnerLogin: { type: "string" } },
-        required: expect.arrayContaining(["githubOwnerLogin"]),
+        properties: {
+          githubOwnerLogin: { type: "string" },
+          cloudflareBuildTokenUuid: { type: "string" },
+        },
+        required: expect.arrayContaining(["githubOwnerLogin", "cloudflareBuildTokenUuid"]),
       },
     });
     expect(tools.find((tool) => tool.name === "vault_actions_connectRepository")).toMatchObject({
@@ -217,6 +220,23 @@ describe("MCP tool listing access", () => {
       },
     });
     expect(tools.map((tool) => tool.name)).not.toContain("vault_cloudflare_listAccounts");
+    expect(tools.find((tool) => tool.name === "cloudflare_listWorkersBuildTokens")).toMatchObject({
+      title: "List Cloudflare Workers Builds tokens",
+      annotations: {
+        readOnlyHint: true,
+        openWorldHint: true,
+        destructiveHint: false,
+      },
+      outputSchema: {
+        type: "object",
+        properties: {
+          accountId: { type: "string" },
+          tokens: { type: "array" },
+        },
+        required: ["accountId", "tokens"],
+        additionalProperties: false,
+      },
+    });
     expect(tools.find((tool) => tool.name === "vault_cloudflare_discoverWorkers")).toMatchObject({
       description: expect.stringContaining("the vault's stored Cloudflare account"),
       inputSchema: {
@@ -318,7 +338,7 @@ describe("MCP tools/call access enforcement", () => {
     expect(header).toContain('resource_metadata="');
     expect(header).toContain('/.well-known/oauth-protected-resource/mcp"');
     expect(header).toContain(
-      'scope="access_dashboard access_app_create access_repo_connect access_provider_connections access_browser_login_handoff"',
+      'scope="access_dashboard access_provider_connections access_app_create access_repo_connect access_browser_login_handoff"',
     );
     expect(header).toContain('error="invalid_token"');
     expect(header).toContain(`error_description="${errorDescription}"`);
@@ -457,7 +477,7 @@ describe("MCP tools/call access enforcement", () => {
         ttlMs: 0,
         cacheScope: "private",
         instructions: expect.stringMatching(
-          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call vault_actions_createRepository directly with the human GitHub owner login[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
+          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*For multiple results, ask the user to choose by the displayed name and UUID\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
         ),
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
@@ -1102,11 +1122,24 @@ describe("MCP tools/call access enforcement", () => {
       },
     });
 
+    const buildTokensPayload = await callTool("cloudflare_listWorkersBuildTokens", {
+      githubOwnerLogin: "samebase",
+    });
+    expect(buildTokensPayload).toMatchObject({
+      result: {
+        structuredContent: {
+          accountId: cloudflareAccountId,
+          tokens: [{ name: "samebase build token", uuid: "reusable-build-token" }],
+        },
+      },
+    });
+
     const createPayload = await callTool("vault_cloudflare_createWorker", {
       vaultId,
       accountId: cloudflareAccountId,
       workerName: "mcp-worker",
       rootDirectory: "apps/web",
+      buildTokenUuid: "reusable-build-token",
     });
     const attachment = await t.run(
       async (ctx) =>

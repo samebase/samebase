@@ -11,6 +11,25 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { NewAppPage } from "./NewAppPage";
 
+vi.mock("@/components/useCloudflareBuildTokens", () => ({
+  useCloudflareBuildTokenSelection: () => ({
+    canWrite: true,
+    selectedUuid: "build-token-1",
+    selectionUnavailable: false,
+    setRequestedUuid: vi.fn(),
+  }),
+  useCloudflareBuildTokens: () => ({
+    data: {
+      accountId: "account-acme-production",
+      tokens: [{ name: "Workers Builds - 2026-08-14 01:54", uuid: "build-token-1" }],
+    },
+    error: null,
+    isFetching: false,
+    isPending: false,
+    refetch: vi.fn(async () => undefined),
+  }),
+}));
+
 function fakeOrganizationId(value: string): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this test only needs
   // a stable value for component arguments.
@@ -148,6 +167,10 @@ describe("NewAppPage", () => {
     expect(markup).toContain("Authorize repository creation for nicubunu");
     expect(markup).toContain('href="/org/nicubunu/providers"');
     expect(markup).toContain("Providers");
+    expect(markup).toContain("Workers Builds token");
+    expect(markup).toContain(
+      "Samebase will assign the selected token to production and preview builds, then request a production build.",
+    );
     expect(markup).not.toContain("Install GitHub App");
   });
 
