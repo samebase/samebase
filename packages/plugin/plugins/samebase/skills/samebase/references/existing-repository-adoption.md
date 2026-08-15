@@ -51,18 +51,23 @@ they satisfy these outcomes. Resolve any mismatch with the commands that Samebas
 before provider setup. Add only the runtime and deployment dependencies needed for reproducible
 builds.
 
+A hosting-only adoption does not justify an application framework, formatter, linter, test runner,
+or source-language migration. Keep legacy browser artifacts unchanged unless the deployment contract
+requires a source change or the operator asks for modernization.
+
 Common pitfalls are:
 
 1. serving the repository root because there is no generated output
-2. adding a copy program only to make `build` produce files
+2. adding a copy program when it creates no deployment or compatibility boundary
 3. placing preview state inside the watched asset boundary
-4. trusting a green provider check without testing the public route
-5. forwarding an unverified flag through a deploy script and starting production by mistake
+4. changing the existing missing-route or fallback behavior
+5. trusting a green provider check without testing the public route
+6. forwarding an unverified flag through a deploy script and starting production by mistake
 
 Verify all of these results separately:
 
 1. the terminal provider build and its source commit
-2. the application root and one known asset
+2. the application root, one known asset, and one known missing route
 3. representative repository-only files, which must not be reachable
 4. the production URL and the pull request preview URL
 

@@ -96,3 +96,17 @@ Operator review after this regression generalized the timing rule. One informed 
 named production-build sequence when its repository, provider account, possible production effect,
 and rule for attaching an existing resource or creating a new one are clear. The supervised Weight
 TSX adoption will test this revised rule without another bundle comparison.
+
+## Last focused static-adoption guidance comparison
+
+- Date: 2026-08-15
+- Candidate artifact commit: `49975336d4221257ad42ae5e691d56adf6fef24d`
+- Installed plugin: `0.2.20`
+- Target: `nicu-chiciuc/spiro` at `fdfebbea5c28072af783c657cb6679d5e936e1cc`
+- Result: two fresh projectless read-only tasks used the same frozen source, core prompt, installed
+  plugin, and Codex Desktop configuration. The treatment received only the candidate assets-only
+  section. An independent blind scorer gave the treatment 15/16 and the control 6/16. The treatment
+  added the missing lockfile and preview command, limited public assets to the three runtime files,
+  and protected the old host. It still missed a known arbitrary 404 check and assumed Git symlink
+  portability. This was a focused Desktop comparison, not the isolated CLI method used for Weight
+  TSX. See `research/project-adoption/experiments/spiro-assets-only-guidance.md`.

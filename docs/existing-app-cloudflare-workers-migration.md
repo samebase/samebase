@@ -40,9 +40,14 @@ configuration when they satisfy these outcomes. If they do not match the command
 configure, resolve that mismatch before provider setup. Add only the runtime and deployment
 dependencies needed to make the contract reproducible.
 
-Do not add a copy helper only to make the build command look substantial. Use a repository-owned
-dry-run or equivalent safe validation command. Verify its exact invocation before use. Do not assume
-that flags forwarded through a package script keep their meaning at the deployment tool boundary.
+A hosting-only migration does not justify an application framework, formatter, linter, test runner,
+or source-language migration. Keep legacy browser artifacts unchanged unless the deployment contract
+requires a source change or the operator asks for modernization.
+
+Do not add a copy helper when it creates no deployment or compatibility boundary. Preserve the
+existing missing-route and fallback behavior. Use a repository-owned dry-run or equivalent safe
+validation command. Verify its exact invocation before use. Do not assume that flags forwarded
+through a package script keep their meaning at the deployment tool boundary.
 
 ## Record the Baseline
 
@@ -121,6 +126,7 @@ Before merge:
 5. Test the named browser profile and account that the operator uses.
 6. For static deployments, confirm that representative files outside the deployable asset boundary
    are not reachable.
+7. For static deployments, confirm that one known missing route keeps its intended response.
 
 For cutover:
 
