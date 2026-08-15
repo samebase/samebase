@@ -766,6 +766,9 @@ JSON Schema for the tool's `structuredContent`:
                 },
                 "workerTag": {
                   "type": "string"
+                },
+                "rootDirectory": {
+                  "type": "string"
                 }
               },
               "required": ["workerId", "accountId", "workerName", "workerTag"],
