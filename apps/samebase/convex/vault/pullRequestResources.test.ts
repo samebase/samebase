@@ -555,6 +555,7 @@ describe("buildPullRequestCloudflareWorkerResources", () => {
     accountId: "account-1",
     workerName: "samebase-worker",
     workerTag: "samebase-worker",
+    rootDirectory: "apps/samebase",
   };
 
   it("uses the matching comment row without a pull request head check", () => {
@@ -589,6 +590,7 @@ describe("buildPullRequestCloudflareWorkerResources", () => {
         {
           workerId: worker.workerId,
           workerName: "samebase-worker",
+          rootDirectory: "apps/samebase",
           cloudflareBuild: {
             state: "available",
             uuid: "build-1",
@@ -617,6 +619,7 @@ describe("buildPullRequestCloudflareWorkerResources", () => {
         {
           workerId: worker.workerId,
           workerName: "samebase-worker",
+          rootDirectory: "apps/samebase",
           cloudflareBuild: { state: "unavailable" },
           cloudflareBranchPreview: { state: "absent" },
         },

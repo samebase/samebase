@@ -244,48 +244,7 @@ provider observation, or active operation.
 
 ## Rollout
 
-This change uses two deployment checkpoints because existing Worker attachments do not have
-`rootDirectory`. The rollout uses manual adoption because current production has one user and about
-20 attached Workers. It has no automatic root migration job.
-
-Checkpoint 1 makes `rootDirectory` optional in the storage validator. All new attach and create
-writes supply it. Reads use the stored root when present.
-
-All product reads prefer a stored root during checkpoint 1. Overview and pull request trees use a
-verified live Builds root only for a legacy attachment that has no stored root. They use the
-`Cloudflare Workers` group when neither root is available. Settings shows a rootless legacy row
-without a group while Builds is loading or checking, under the verified live root when one becomes
-ready, and under `Needs attention` when no verified root is available. A ready live root also offers
-`Update root` so the user can approve it. For each legacy Worker, the user opens Settings, checks
-the live root, and selects `Update root`. The action re-reads the Worker through its stable
-`workerTag`, requires one normalized root for the exact vault GitHub repository, and stores that
-root. If the provider read cannot prove one root, the action changes nothing. The user must correct
-the normal provider connection or Worker configuration and try again. Samebase never guesses a root.
-
-`Configure Workers Builds` always uses the saved approved root when it exists, including when the
-live root is missing or different. For a legacy attachment only, repair uses a verified live root
-when available and otherwise starts its root input with `/`. Before any Builds write, the legacy
-repair calls `Update root`. The backend re-reads Cloudflare and must verify that the exact candidate
-is the Worker's current unambiguous repository root. A successful update stores that root, then
-repair configures Builds with the same saved value. A failed verification stores nothing and stops
-before the Builds write. The `/` input is never attachment authority by itself.
-
-After the manual updates, follow `docs/convex-production-reads.md` exactly. In that recipe, keep the
-complete derived `CONVEX_DEPLOYMENT=... CONVEX_DEPLOY_KEY=` prefix and replace its final
-`npx convex logs ...` command with this table read:
-
-```bash
-npx convex data vaultCloudflareWorkers --prod --limit 100 --format jsonArray
-```
-
-Do not run this table command without the recipe's prefix. Stop if the CLI says that it ignored
-`--prod` or selected the deployment from `CONVEX_DEPLOY_KEY`.
-
-The result must contain fewer than 100 rows, and every row must have one non-empty normalized
-`rootDirectory`. If the command returns 100 rows, stop because this bounded read does not prove that
-it read the complete table. If a row has no root, use that vault's `Update root` action and repeat
-the read. The checkpoint 2 gate is fewer than 100 total rows and zero missing roots.
-
-Checkpoint 2 makes `rootDirectory` required. It also removes the temporary legacy placement,
-root-adoption, repair, and optional-field branches. It must not deploy until the production read
-passes the gate above.
+Production data passed the adoption gate before this requirement was deployed. Every existing
+`vaultCloudflareWorkers` row had one non-empty normalized root. `rootDirectory` is now required.
+Product reads, Settings, and Builds repair use only the saved root. The system has no rootless
+placement, adoption, or repair path.

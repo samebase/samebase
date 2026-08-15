@@ -771,7 +771,7 @@ JSON Schema for the tool's `structuredContent`:
                   "type": "string"
                 }
               },
-              "required": ["workerId", "accountId", "workerName", "workerTag"],
+              "required": ["workerId", "accountId", "workerName", "workerTag", "rootDirectory"],
               "additionalProperties": false
             }
           },

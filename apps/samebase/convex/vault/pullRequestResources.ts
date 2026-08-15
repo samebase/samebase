@@ -29,7 +29,7 @@ import {
 import { buildConvexDeploymentDashboardUrl } from "./providerDashboardUrls";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
 
-const { array, id, literal, object, optional, string, union } = v;
+const { array, id, literal, object, string, union } = v;
 
 const CLOUDFLARE_GITHUB_BOT_NODE_ID = "MDM6Qm90NzMxMzk0MDI=";
 const NETLIFY_GITHUB_BOT_NODE_ID = "MDM6Qm90NDAyMDkzMjY=";
@@ -71,7 +71,7 @@ const vCloudflareBuild = union(
 const stableWorkerIdentityFields = {
   workerId: id("vaultCloudflareWorkers"),
   workerName: string(),
-  rootDirectory: optional(string()),
+  rootDirectory: string(),
 };
 const vPullRequestWorkerResource = object({
   ...stableWorkerIdentityFields,
@@ -598,7 +598,7 @@ function workerResourceIdentity(worker: StableWorker) {
   return {
     workerId: worker.workerId,
     workerName: worker.workerName,
-    ...(worker.rootDirectory ? { rootDirectory: worker.rootDirectory } : {}),
+    rootDirectory: worker.rootDirectory,
   };
 }
 

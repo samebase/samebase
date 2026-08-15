@@ -8,7 +8,7 @@ import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { isLiveConnectedVault } from "./state";
 import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
 
-const { array, id, object, optional, string } = v;
+const { array, id, object, string } = v;
 
 const vVaultProviderObservationContext = object({
   organizationId: id("organizations"),
@@ -24,7 +24,7 @@ const vVaultProviderObservationContext = object({
       accountId: string(),
       workerName: string(),
       workerTag: string(),
-      rootDirectory: optional(string()),
+      rootDirectory: string(),
     }),
   ),
   convexProjects: array(
@@ -134,7 +134,7 @@ export const readVaultProviderObservationContext = internalQuery({
           accountId: worker.accountId,
           workerName: worker.workerName,
           workerTag: worker.workerTag,
-          ...(worker.rootDirectory ? { rootDirectory: worker.rootDirectory } : {}),
+          rootDirectory: worker.rootDirectory,
         }))
         .sort(
           (left, right) =>

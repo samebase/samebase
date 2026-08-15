@@ -172,11 +172,7 @@ export function buildProductionEnvironmentRoots({
               (candidate) => candidate.workerId === worker.workerId,
             )
           : undefined;
-      const observedRootDirectory =
-        buildsObservation?.state === "available" && buildsObservation.repository.state === "ready"
-          ? buildsObservation.repository.rootDirectory
-          : undefined;
-      const rootDirectory = worker.rootDirectory ?? observedRootDirectory ?? "Cloudflare Workers";
+      const rootDirectory = worker.rootDirectory;
       const title =
         rootDirectory === "/" ? "Open production app" : `Open production app for ${rootDirectory}`;
       const destinations =
@@ -335,24 +331,12 @@ export function buildProductionEnvironmentRoots({
 }
 
 export function buildPullRequestEnvironmentRoots({
-  cloudflareBuildsObservations,
   resources,
 }: {
-  cloudflareBuildsObservations: VaultCloudflareProviderObservationState["builds"];
   resources: PullRequestResources;
 }): VaultEnvironmentRoot[] {
   const workers = resources.workers.map((worker) => {
-    const buildsObservation =
-      cloudflareBuildsObservations.state === "loaded"
-        ? cloudflareBuildsObservations.observations.find(
-            (candidate) => candidate.workerId === worker.workerId,
-          )
-        : undefined;
-    const observedRootDirectory =
-      buildsObservation?.state === "available" && buildsObservation.repository.state === "ready"
-        ? buildsObservation.repository.rootDirectory
-        : undefined;
-    const rootDirectory = worker.rootDirectory ?? observedRootDirectory ?? "Cloudflare Workers";
+    const rootDirectory = worker.rootDirectory;
     const destination =
       worker.cloudflareBranchPreview.state === "available"
         ? {

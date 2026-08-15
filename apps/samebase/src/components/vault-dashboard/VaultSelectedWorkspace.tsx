@@ -80,22 +80,12 @@ export function VaultSelectedWorkspace({
     vaultDashboardDialogHistoryEntry?.dialog === "add-cloudflare"
       ? (vaultDashboardDialogHistoryEntry.repairWorkerId ?? null)
       : null;
-  const cloudflareRepairWorker = cloudflareRepairWorkerId
-    ? (vault.cloudflareWorkers.find((worker) => worker.workerId === cloudflareRepairWorkerId) ??
-      null)
-    : null;
   const cloudflareRepairBuildsObservation =
     cloudflareRepairWorkerId && workspace.cloudflareObservations.builds.state === "loaded"
       ? (workspace.cloudflareObservations.builds.observations.find(
           (observation) => observation.workerId === cloudflareRepairWorkerId,
         ) ?? null)
       : null;
-  const cloudflareRepairRootDirectory =
-    cloudflareRepairWorker?.rootDirectory ??
-    (cloudflareRepairBuildsObservation?.state === "available" &&
-    cloudflareRepairBuildsObservation.repository.state === "ready"
-      ? cloudflareRepairBuildsObservation.repository.rootDirectory
-      : null);
   const cloudflareRepairBuildTokenUuid =
     cloudflareRepairBuildsObservation?.state === "available" &&
     cloudflareRepairBuildsObservation.builds.state === "connected" &&
@@ -411,12 +401,11 @@ export function VaultSelectedWorkspace({
       {addCloudflareWorkerModeActive ? (
         <VaultCloudflareDialog
           blockedReason={providerActionBlockReason}
-          key={`${vault._id}:${cloudflareRepairWorkerId ?? "add"}:${cloudflareRepairRootDirectory ?? "unresolved"}`}
+          key={`${vault._id}:${cloudflareRepairWorkerId ?? "add"}`}
           onClose={() => {
             closeVaultDashboardDialog("add-cloudflare");
           }}
           repairBuildTokenUuid={cloudflareRepairBuildTokenUuid}
-          repairRootDirectory={cloudflareRepairRootDirectory}
           repairWorkerId={cloudflareRepairWorkerId}
           vault={vault}
         />

@@ -84,11 +84,6 @@ const VAULT_PICKER_FOLDER_PROPS = {
   organizationTreeSettings: [],
 };
 
-const FAILED_CLOUDFLARE_BUILDS_OBSERVATIONS = {
-  state: "failed",
-  reload: () => {},
-} satisfies VaultCloudflareProviderObservationState["builds"];
-
 function fakeVaultId(value = "jt7f8f6d9v7x5w4m3n2p1q0r1s7c9b8a"): Id<"vaults"> {
   // @ts-expect-error Convex ids are strings at runtime; this static render
   // test only needs a stable vault id for the query args.
@@ -768,32 +763,10 @@ describe("vault environment roots", () => {
     ]);
   });
 
-  it("keeps pull request Worker folders independent from comment build status", () => {
+  it("groups pull request Workers by their saved roots", () => {
     const domainWorkerId = fakeCloudflareWorkerId("worker-domain");
     const samebaseWorkerId = fakeCloudflareWorkerId("worker-samebase");
     const roots = buildPullRequestEnvironmentRoots({
-      cloudflareBuildsObservations: makeLoadedCloudflareObservations({
-        workers: [],
-        builds: [
-          makeAvailableRepositorySettingsCloudflareBuildsObservation({
-            workerId: domainWorkerId,
-            repository: {
-              state: "ready",
-              rootDirectory: "apps/domain-router",
-              builds: { state: "not_available" },
-            },
-          }),
-          makeAvailableRepositorySettingsCloudflareBuildsObservation({
-            workerId: samebaseWorkerId,
-            repository: {
-              state: "ready",
-              rootDirectory: "apps/samebase",
-              builds: { state: "not_available" },
-            },
-          }),
-        ],
-        convexBuildAccess: [],
-      }).builds,
       resources: {
         pullRequestId: "pull-request-1",
         cloudflareBuilds: { state: "available" },
@@ -801,6 +774,7 @@ describe("vault environment roots", () => {
           {
             workerId: domainWorkerId,
             workerName: "domain-router",
+            rootDirectory: "apps/domain-router",
             cloudflareBuild: {
               state: "available",
               uuid: "domain-build",
@@ -812,6 +786,7 @@ describe("vault environment roots", () => {
           {
             workerId: samebaseWorkerId,
             workerName: "samebase",
+            rootDirectory: "apps/samebase",
             cloudflareBuild: {
               state: "available",
               uuid: "samebase-build",
@@ -874,6 +849,7 @@ describe("vault environment roots", () => {
     const worker = {
       workerId,
       workerName: "demo-web",
+      rootDirectory: "apps/web",
       cloudflareBuild: {
         state: "available" as const,
         uuid: "build-1",
@@ -885,20 +861,6 @@ describe("vault environment roots", () => {
 
     expect(
       buildPullRequestEnvironmentRoots({
-        cloudflareBuildsObservations: makeLoadedCloudflareObservations({
-          workers: [],
-          builds: [
-            makeAvailableRepositorySettingsCloudflareBuildsObservation({
-              workerId,
-              repository: {
-                state: "ready",
-                rootDirectory: "apps/web",
-                builds: { state: "not_available" },
-              },
-            }),
-          ],
-          convexBuildAccess: [],
-        }).builds,
         resources: {
           pullRequestId: "pull-request-1",
           cloudflareBuilds: { state: "available" },
@@ -963,163 +925,6 @@ describe("vault environment roots", () => {
 
     expect(
       buildPullRequestEnvironmentRoots({
-        cloudflareBuildsObservations: makeLoadedCloudflareObservations({
-          workers: [],
-          builds: [
-            makeAvailableRepositorySettingsCloudflareBuildsObservation({
-              workerId,
-              repository: {
-                state: "ready",
-                rootDirectory: "apps/web",
-                builds: { state: "not_available" },
-              },
-            }),
-          ],
-          convexBuildAccess: [],
-        }).builds,
-        resources: {
-          pullRequestId: "pull-request-1",
-          cloudflareBuilds: { state: "available" },
-          workers: [
-            {
-              workerId,
-              workerName: "demo-web",
-              cloudflareBuild: { state: "unavailable" },
-              cloudflareBranchPreview: {
-                state: "available",
-                url: previewUrl,
-              },
-            },
-          ],
-          convexProjects: [],
-          hostingPreviews: {
-            cloudflare: { state: "available", previews: [] },
-            netlify: { state: "available", previews: [] },
-          },
-        },
-      }),
-    ).toEqual([
-      {
-        rootDirectory: "apps/web",
-        resources: [
-          {
-            kind: "cloudflare_worker",
-            id: workerId,
-            worker: {
-              workerName: "demo-web",
-              build: { state: "unavailable" },
-              destination: {
-                state: "available",
-                href: previewUrl,
-                label: "Branch preview",
-                title: "older-demo-web.example.workers.dev",
-              },
-              actions: [],
-            },
-          },
-        ],
-      },
-    ]);
-  });
-
-  it("shows one pull request message when Cloudflare comments are unavailable", () => {
-    const markup = renderToStaticMarkup(
-      <PullRequestResources
-        cloudflareBuildsObservations={FAILED_CLOUDFLARE_BUILDS_OBSERVATIONS}
-        resource={{
-          state: "current",
-          resources: {
-            pullRequestId: "pull-request-1",
-            cloudflareBuilds: { state: "unavailable" },
-            workers: [],
-            convexProjects: [],
-            hostingPreviews: {
-              cloudflare: { state: "unavailable" },
-              netlify: { state: "available", previews: [] },
-            },
-          },
-        }}
-        settingsHref="/vault/ada/demo/settings"
-      />,
-    );
-
-    expect(markup).toContain("Could not load Cloudflare build status");
-    expect(markup).not.toContain("Unavailable");
-  });
-
-  it("keeps an unavailable pull request head out of Cloudflare comment errors", () => {
-    const markup = renderToStaticMarkup(
-      <PullRequestResources
-        cloudflareBuildsObservations={FAILED_CLOUDFLARE_BUILDS_OBSERVATIONS}
-        resource={{ state: "failed" }}
-        settingsHref="/vault/ada/demo/settings"
-      />,
-    );
-
-    expect(markup).toContain("Deploy status unavailable");
-    expect(markup).not.toContain("Could not load Cloudflare build status");
-    expect(markup).not.toContain("Cloudflare Workers");
-    expect(markup).not.toContain(">Unavailable<");
-  });
-
-  it("links a comment build with its direct status", () => {
-    const workerId = fakeCloudflareWorkerId();
-    const logsUrl = "https://dash.cloudflare.com/account-1/workers/builds/building-1";
-    const roots = buildPullRequestEnvironmentRoots({
-      cloudflareBuildsObservations: FAILED_CLOUDFLARE_BUILDS_OBSERVATIONS,
-      resources: {
-        pullRequestId: "pull-request-1",
-        cloudflareBuilds: { state: "available" },
-        workers: [
-          {
-            workerId,
-            workerName: "demo-web",
-            cloudflareBuild: {
-              state: "available",
-              uuid: "building-1",
-              buildState: "running",
-              logsUrl,
-            },
-            cloudflareBranchPreview: { state: "absent" },
-          },
-        ],
-        convexProjects: [],
-        hostingPreviews: {
-          cloudflare: { state: "available", previews: [] },
-          netlify: { state: "available", previews: [] },
-        },
-      },
-    });
-
-    expect(roots).toMatchObject([
-      {
-        rootDirectory: "Cloudflare Workers",
-        resources: [
-          {
-            kind: "cloudflare_worker",
-            worker: {
-              build: { state: "available", buildState: "running", logsUrl },
-            },
-          },
-        ],
-      },
-    ]);
-
-    const rootElement = document.createElement("div");
-    rootElement.innerHTML = renderToStaticMarkup(<VaultEnvironmentTree roots={roots} />);
-    const buildLink = rootElement.querySelector(`a[href="${logsUrl}"]`);
-    expect(buildLink?.textContent).toContain("Building");
-    expect(buildLink?.getAttribute("target")).toBe("_blank");
-    expect(buildLink?.getAttribute("rel")).toBe("noreferrer noopener");
-  });
-
-  it("keeps comment facts under the saved root when the root observation fails", () => {
-    const workerId = fakeCloudflareWorkerId();
-    const previewUrl = "https://older-demo-web.example.workers.dev";
-
-    expect(
-      buildPullRequestEnvironmentRoots({
-        cloudflareBuildsObservations: FAILED_CLOUDFLARE_BUILDS_OBSERVATIONS,
         resources: {
           pullRequestId: "pull-request-1",
           cloudflareBuilds: { state: "available" },
@@ -1164,6 +969,95 @@ describe("vault environment roots", () => {
         ],
       },
     ]);
+  });
+
+  it("shows one pull request message when Cloudflare comments are unavailable", () => {
+    const markup = renderToStaticMarkup(
+      <PullRequestResources
+        resource={{
+          state: "current",
+          resources: {
+            pullRequestId: "pull-request-1",
+            cloudflareBuilds: { state: "unavailable" },
+            workers: [],
+            convexProjects: [],
+            hostingPreviews: {
+              cloudflare: { state: "unavailable" },
+              netlify: { state: "available", previews: [] },
+            },
+          },
+        }}
+        settingsHref="/vault/ada/demo/settings"
+      />,
+    );
+
+    expect(markup).toContain("Could not load Cloudflare build status");
+    expect(markup).not.toContain("Unavailable");
+  });
+
+  it("keeps an unavailable pull request head out of Cloudflare comment errors", () => {
+    const markup = renderToStaticMarkup(
+      <PullRequestResources
+        resource={{ state: "failed" }}
+        settingsHref="/vault/ada/demo/settings"
+      />,
+    );
+
+    expect(markup).toContain("Deploy status unavailable");
+    expect(markup).not.toContain("Could not load Cloudflare build status");
+    expect(markup).not.toContain("Cloudflare Workers");
+    expect(markup).not.toContain(">Unavailable<");
+  });
+
+  it("links a comment build with its direct status", () => {
+    const workerId = fakeCloudflareWorkerId();
+    const logsUrl = "https://dash.cloudflare.com/account-1/workers/builds/building-1";
+    const roots = buildPullRequestEnvironmentRoots({
+      resources: {
+        pullRequestId: "pull-request-1",
+        cloudflareBuilds: { state: "available" },
+        workers: [
+          {
+            workerId,
+            workerName: "demo-web",
+            rootDirectory: "apps/web",
+            cloudflareBuild: {
+              state: "available",
+              uuid: "building-1",
+              buildState: "running",
+              logsUrl,
+            },
+            cloudflareBranchPreview: { state: "absent" },
+          },
+        ],
+        convexProjects: [],
+        hostingPreviews: {
+          cloudflare: { state: "available", previews: [] },
+          netlify: { state: "available", previews: [] },
+        },
+      },
+    });
+
+    expect(roots).toMatchObject([
+      {
+        rootDirectory: "apps/web",
+        resources: [
+          {
+            kind: "cloudflare_worker",
+            worker: {
+              build: { state: "available", buildState: "running", logsUrl },
+            },
+          },
+        ],
+      },
+    ]);
+
+    const rootElement = document.createElement("div");
+    rootElement.innerHTML = renderToStaticMarkup(<VaultEnvironmentTree roots={roots} />);
+    const buildLink = rootElement.querySelector(`a[href="${logsUrl}"]`);
+    expect(buildLink?.textContent).toContain("Building");
+    expect(buildLink?.getAttribute("target")).toBe("_blank");
+    expect(buildLink?.getAttribute("rel")).toBe("noreferrer noopener");
   });
 });
 
@@ -1248,7 +1142,6 @@ describe("PullRequestsSection", () => {
         root.render(
           <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
             <PullRequestsSection
-              cloudflareBuildsObservations={FAILED_CLOUDFLARE_BUILDS_OBSERVATIONS}
               filesReadEnabled={false}
               pullRequests={pullRequests}
               vault={makeRepositorySettingsBuilderVault({})}
@@ -1725,8 +1618,6 @@ describe("VaultOverviewPage", () => {
             settingsState={{
               addCloudflareWorker: { disabled: true },
               addConvexProject: { disabled: true },
-              attentionResources: [],
-              pendingResources: [],
               providerActionBlockReason: "A provider operation is in progress.",
               roots: [
                 {
@@ -1831,8 +1722,6 @@ describe("VaultOverviewPage", () => {
                 settingsState={{
                   addCloudflareWorker: { disabled: true },
                   addConvexProject: { disabled: true },
-                  attentionResources: [],
-                  pendingResources: [],
                   providerActionBlockReason: null,
                   roots: [],
                 }}
@@ -2315,16 +2204,9 @@ describe("VaultCloudflareDialogContent", () => {
     repositoryName: "demo",
   };
 
-  async function submitBuildsRepair({
-    liveRootDirectory,
-    storedRootDirectory,
-  }: {
-    liveRootDirectory: string;
-    storedRootDirectory?: string;
-  }) {
+  it("configures Builds with the stored root", async () => {
     const workerId = fakeCloudflareWorkerId("worker-builds-repair");
     const configureWorkersBuilds = vi.fn(async () => null);
-    const updateWorkerRootDirectory = vi.fn(async () => null);
     const listBuildTokens = vi.fn(async () => ({
       accountId: "account-1",
       tokens: [{ name: "Build token", uuid: "build-token" }],
@@ -2333,9 +2215,6 @@ describe("VaultCloudflareDialogContent", () => {
       const actionName = getFunctionName(action);
       if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {
         return listBuildTokens;
-      }
-      if (actionName === getFunctionName(api.vault.cloudflare.updateWorkerRootDirectory)) {
-        return updateWorkerRootDirectory;
       }
       if (actionName === getFunctionName(api.vault.cloudflare.configureWorkersBuildsForGitHub)) {
         return configureWorkersBuilds;
@@ -2355,13 +2234,12 @@ describe("VaultCloudflareDialogContent", () => {
               blockedReason={null}
               onClose={() => {}}
               repairBuildTokenUuid="build-token"
-              repairRootDirectory={liveRootDirectory}
               repairWorkerId={workerId}
               vault={makeRepositorySettingsBuilderVault({
                 cloudflareWorkers: [
                   makeRepositorySettingsCloudflareWorker({
                     workerId,
-                    rootDirectory: storedRootDirectory,
+                    rootDirectory: "apps/saved",
                   }),
                 ],
               })}
@@ -2398,49 +2276,18 @@ describe("VaultCloudflareDialogContent", () => {
         });
       }
 
-      return { configureWorkersBuilds, updateWorkerRootDirectory, workerId };
+      expect(configureWorkersBuilds).toHaveBeenCalledWith({
+        buildTokenUuid: "build-token",
+        rootDirectory: "apps/saved",
+        vaultId: fakeVaultId(),
+        workerId,
+      });
     } finally {
       await act(async () => root.unmount());
       queryClient.clear();
       rootElement.remove();
       useActionMock.mockReset();
     }
-  }
-
-  it("configures Builds with the stored approved root", async () => {
-    const { configureWorkersBuilds, updateWorkerRootDirectory, workerId } =
-      await submitBuildsRepair({
-        liveRootDirectory: "apps/live",
-        storedRootDirectory: "apps/saved",
-      });
-
-    expect(updateWorkerRootDirectory).not.toHaveBeenCalled();
-    expect(configureWorkersBuilds).toHaveBeenCalledWith({
-      buildTokenUuid: "build-token",
-      rootDirectory: "apps/saved",
-      vaultId: fakeVaultId(),
-      workerId,
-    });
-  });
-
-  it("approves a verified legacy root before it configures Builds", async () => {
-    const { configureWorkersBuilds, updateWorkerRootDirectory, workerId } =
-      await submitBuildsRepair({ liveRootDirectory: "apps/live" });
-
-    expect(updateWorkerRootDirectory).toHaveBeenCalledWith({
-      expectedRootDirectory: "apps/live",
-      vaultId: fakeVaultId(),
-      workerId,
-    });
-    expect(configureWorkersBuilds).toHaveBeenCalledWith({
-      buildTokenUuid: "build-token",
-      rootDirectory: "apps/live",
-      vaultId: fakeVaultId(),
-      workerId,
-    });
-    expect(updateWorkerRootDirectory.mock.invocationCallOrder[0]).toBeLessThan(
-      configureWorkersBuilds.mock.invocationCallOrder[0] ?? 0,
-    );
   });
 
   it("replaces disabled controls with a timed loading state while searching", () => {
@@ -2754,47 +2601,6 @@ describe("VaultCloudflareDialogContent", () => {
     expect(markup).not.toContain(">Back</button>");
   });
 
-  it("uses the same dialog to repair Builds when no live root exists", () => {
-    const markup = renderToStaticMarkup(
-      <VaultCloudflareDialogContent
-        cloudflareBuildTokenField={null}
-        hasSelectedBuildToken
-        createRootDirectory="apps/web"
-        createWorkerName=""
-        didAddWorker={false}
-        error={null}
-        folderSuggestions={[]}
-        isLoading={false}
-        isSubmitting={false}
-        inventoryState={null}
-        mode="existing"
-        onCreateRootDirectoryChange={() => {}}
-        onCreateWorkerNameChange={() => {}}
-        onConnectWorker={() => {}}
-        onConnectWorkerBack={() => {}}
-        onModeChange={() => {}}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-        onWorkerToggle={() => {}}
-        repairWorker={{ workerName: "web-worker" }}
-        selectedWorkerTags={[]}
-        vault={vault}
-        workerToConnect={null}
-        workers={[]}
-      />,
-    );
-
-    expect(markup).toContain("Configure web-worker Builds");
-    expect(markup).toContain("Choose the repository root.");
-    expect(markup).not.toContain("Samebase will use the saved repository root.");
-    expect(markup).toContain("Repository root");
-    expect(markup).toContain('value="apps/web"');
-    expect(markup).toContain("Configure Workers Builds");
-    expect(markup).not.toContain(">Existing<");
-    expect(markup).not.toContain(">Create<");
-    expect(markup).not.toContain("Cloudflare account");
-  });
-
   it("does not claim that no Workers exist after a partial inventory", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
@@ -2983,8 +2789,6 @@ describe("buildVaultRepositorySettingsState", () => {
       }),
     });
 
-    expect(state.attentionResources).toEqual([]);
-    expect(state.pendingResources).toEqual([]);
     expect(state.roots).toHaveLength(1);
     expect(state.roots[0]?.resources).toMatchObject([
       {
@@ -3074,9 +2878,8 @@ describe("buildVaultRepositorySettingsState", () => {
     });
   });
 
-  it("keeps saved roots while legacy Worker roots load", () => {
+  it("keeps saved Worker roots while provider data loads", () => {
     const workerId = fakeCloudflareWorkerId("worker-loading");
-    const legacyWorkerId = fakeCloudflareWorkerId("worker-loading-legacy");
     const state = buildVaultRepositorySettingsState({
       cloudflareObservations: {
         workers: { state: "loading" },
@@ -3094,28 +2897,15 @@ describe("buildVaultRepositorySettingsState", () => {
             workerName: "loading-worker",
             rootDirectory: "apps/web",
           }),
-          makeRepositorySettingsCloudflareWorker({
-            workerId: legacyWorkerId,
-            workerName: "legacy-loading-worker",
-            rootDirectory: undefined,
-          }),
         ],
       }),
     });
 
-    expect(state.attentionResources).toEqual([]);
     expect(getRepositorySettingsResource(state, "apps/web", "cloudflare")).toMatchObject({
       name: "loading-worker",
       provider: "cloudflare",
       state: "loading",
     });
-    expect(state.pendingResources).toMatchObject([
-      {
-        name: "legacy-loading-worker",
-        provider: "cloudflare",
-        state: "loading",
-      },
-    ]);
   });
 
   it("does not show raw Convex identifiers while fresh provider data is loading", () => {
@@ -3406,7 +3196,6 @@ describe("buildVaultRepositorySettingsState", () => {
       "packages/api",
       "packages/worker",
     ]);
-    expect(state.attentionResources).toEqual([]);
     expect(getRepositorySettingsResource(state, "packages/worker", "cloudflare")).toMatchObject({
       provider: "cloudflare",
       name: "unresolved-worker",

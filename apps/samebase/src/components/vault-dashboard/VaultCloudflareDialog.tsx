@@ -92,7 +92,7 @@ export function VaultCloudflareDialogContent({
   onSubmit: () => void;
   onWorkerToggle: (workerTag: string) => void;
   selectedWorkerTags: readonly string[];
-  repairWorker: { workerName: string; rootDirectory?: string } | null;
+  repairWorker: { workerName: string; rootDirectory: string } | null;
   vault: Pick<UserVaultResult, "repositoryFullName">;
   workerToConnect: CloudflareWorkerConnectTarget | null;
   workers: readonly CloudflareWorkerOption[];
@@ -169,9 +169,7 @@ export function VaultCloudflareDialogContent({
           </DialogTitle>
           <DialogDescription>
             {repairWorker
-              ? repairWorker.rootDirectory
-                ? "Samebase will use the saved repository root."
-                : "Choose the repository root."
+              ? "Samebase will use the saved repository root."
               : mode === "connect"
                 ? "Choose the Worker and its repository root."
                 : mode === "existing"
@@ -183,7 +181,7 @@ export function VaultCloudflareDialogContent({
           {repairWorker ? (
             <div className="grid gap-3">
               <VaultRepositoryRootInput
-                disabled={isSubmitting || Boolean(repairWorker.rootDirectory)}
+                disabled
                 folderSuggestions={folderSuggestions}
                 onValueChange={onCreateRootDirectoryChange}
                 value={createRootDirectory}
@@ -397,14 +395,12 @@ export function VaultCloudflareDialog({
   blockedReason,
   onClose,
   repairBuildTokenUuid,
-  repairRootDirectory,
   repairWorkerId,
   vault,
 }: {
   blockedReason: string | null;
   onClose: () => void;
   repairBuildTokenUuid: string | null;
-  repairRootDirectory: string | null;
   repairWorkerId: Id<"vaultCloudflareWorkers"> | null;
   vault: UserVaultResult;
 }) {
@@ -415,7 +411,6 @@ export function VaultCloudflareDialog({
   const configureWorkersBuildsForGitHub = useAction(
     api.vault.cloudflare.configureWorkersBuildsForGitHub,
   );
-  const updateWorkerRootDirectory = useAction(api.vault.cloudflare.updateWorkerRootDirectory);
   const folderSuggestions = useConvexQuery(
     api.vault.dashboard.listVaultRepositoryFolderSuggestions,
     {
@@ -428,7 +423,7 @@ export function VaultCloudflareDialog({
   const [workerSelection, setWorkerSelection] = useState<readonly string[] | null>(null);
   const [mode, setMode] = useState<CloudflareWorkerConnectMode>("existing");
   const [createRootDirectory, setCreateRootDirectory] = useState(
-    repairWorker?.rootDirectory ?? repairRootDirectory ?? "/",
+    repairWorker?.rootDirectory ?? "/",
   );
   const [createWorkerName, setCreateWorkerName] = useState(() =>
     buildDefaultAppResourceName({
@@ -498,17 +493,9 @@ export function VaultCloudflareDialog({
         if (!buildTokenUuid) {
           throw new Error("Choose an API token.");
         }
-        const approvedRootDirectory = repairWorker.rootDirectory ?? createRootDirectory;
-        if (!repairWorker.rootDirectory) {
-          await updateWorkerRootDirectory({
-            expectedRootDirectory: approvedRootDirectory,
-            vaultId: vault._id,
-            workerId: repairWorker.workerId,
-          });
-        }
         await configureWorkersBuildsForGitHub({
           buildTokenUuid,
-          rootDirectory: approvedRootDirectory,
+          rootDirectory: repairWorker.rootDirectory,
           vaultId: vault._id,
           workerId: repairWorker.workerId,
         });

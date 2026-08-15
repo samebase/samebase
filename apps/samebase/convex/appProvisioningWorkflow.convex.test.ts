@@ -129,6 +129,7 @@ async function attachComposedResources({
       accountId: "cloudflare-account",
       workerName: "composed-app",
       workerTag: "composed-worker-tag",
+      rootDirectory: plan.cloudflare.rootDirectory,
       origin: "provisioned",
     });
     return { convexProjectId, workerId };

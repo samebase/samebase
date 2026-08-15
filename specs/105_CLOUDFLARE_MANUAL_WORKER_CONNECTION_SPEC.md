@@ -121,8 +121,7 @@ never deletes the Cloudflare Worker.
 
 ### Drift and removal
 
-Spec 115 defines Worker name and root drift, explicit updates, and the temporary manual adoption of
-a root for a legacy attachment.
+Spec 115 defines Worker name and root drift and explicit updates.
 
 An unavailable or missing Worker remains attached under its stored root with `Needs attention`.
 Neither a warning nor a provider read authorizes a stored coordinate change.
@@ -140,8 +139,7 @@ operations.
 
 `Configure Workers Builds` uses the attachment's saved approved root. It does not replace that input
 with a different live root. The member must use `Update root` first when the current provider root
-is the intended coordinate. Spec 115 defines the temporary checkpoint 1 behavior for a legacy
-attachment that has no saved root.
+is the intended coordinate.
 
 Vault settings shows the current token name when both triggers use the same listed UUID. It reports
 when the two trigger UUIDs differ or a bound UUID is no longer in Cloudflare's list. These are
@@ -202,7 +200,7 @@ uses the normal action for that state:
 - Write-time tests prove that Cloudflare-only actions update only Cloudflare and deploy-key rotation
   updates both providers.
 - UI tests cover vault-level routing, default multiple selection, grouping by stored root, the
-  focused unconnected-Worker root flow, count copy, exact Convex action targets, legacy root
-  adoption, rootless Builds repair, and `Needs attention`.
+  focused unconnected-Worker root flow, count copy, exact Convex action targets, stored-root Builds
+  repair, and `Needs attention`.
 - UI tests cover token loading, empty and failed lists, visible default and changed selections, live
   token names, missing records, trigger disagreement, and token change.
