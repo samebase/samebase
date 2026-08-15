@@ -903,7 +903,7 @@ export async function requireCloudflareBuildTokenUuid(
 function parseBuildTokens(
   tokenRecords: readonly CloudflareBuildTokenRecord[],
 ): CloudflareBuildToken[] {
-  return tokenRecords.map(readCloudflareBuildToken).filter(notEmpty).sort(compareBuildTokens);
+  return tokenRecords.map(readCloudflareBuildToken).filter(notEmpty);
 }
 
 function readCloudflareBuildToken(
@@ -920,8 +920,10 @@ function readCloudflareBuildToken(
 }
 
 function compareBuildTokens(left: CloudflareBuildToken, right: CloudflareBuildToken): number {
-  if (left.name !== right.name) {
-    return left.name < right.name ? -1 : 1;
+  const leftName = left.name.toLowerCase();
+  const rightName = right.name.toLowerCase();
+  if (leftName !== rightName) {
+    return leftName < rightName ? 1 : -1;
   }
   if (left.uuid === right.uuid) {
     return 0;

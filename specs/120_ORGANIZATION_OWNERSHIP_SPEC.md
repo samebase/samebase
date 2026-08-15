@@ -193,9 +193,11 @@ Cloudflare Workers Builds tokens are separate account-level build records. They 
 organization management credential. Samebase may list their non-secret UUIDs and names for the exact
 organization account, but it must not expose the underlying user API token ID or secret. A Builds
 write requires one explicit listed UUID and applies it only to the target Worker's production and
-preview triggers. Samebase never selects a record by name or from another Worker's existing binding.
-The name and trigger binding remain live Cloudflare observations. OAuth reauthorization restores
-management access only. It does not prove or replace a Worker's build-token binding.
+preview triggers. Samebase lists records by name from Z to A without case sensitivity and may
+visibly default a selection form to the first record. Provider writes never infer a record from a
+name, list position, or another Worker's existing binding. The name and trigger binding remain live
+Cloudflare observations. OAuth reauthorization restores management access only. It does not prove or
+replace a Worker's build-token binding.
 
 Disconnect clears only the local credential. Samebase does not revoke Convex or Cloudflare access
 upstream. The owner receives a manual revocation notice. Disconnect keeps `organizations.convexTeam`

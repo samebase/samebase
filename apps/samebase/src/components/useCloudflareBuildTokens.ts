@@ -39,7 +39,7 @@ export function useCloudflareBuildTokenSelection({
     if (requestedUuid !== null || tokens === null || isFetching || error) {
       return;
     }
-    setRequestedUuid(tokens.length === 1 ? tokens[0].uuid : "");
+    setRequestedUuid(tokens[0]?.uuid ?? "");
   }, [error, isFetching, requestedUuid, tokens]);
 
   const selectedUuid =

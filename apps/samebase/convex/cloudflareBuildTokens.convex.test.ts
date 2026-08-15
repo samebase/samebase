@@ -70,7 +70,7 @@ afterEach(() => {
 });
 
 describe("Cloudflare Workers Builds token list", () => {
-  it("returns only the exact organization account token UUIDs and names in stable order", async () => {
+  it("returns the exact account token records in descending case-insensitive name order", async () => {
     const { memberId, organizationId, t } = await seedCloudflareOrganization();
     const fetch = vi.fn(async (input: string | URL | Request) => {
       const url = input instanceof Request ? input.url : String(input);
@@ -83,17 +83,25 @@ describe("Cloudflare Workers Builds token list", () => {
         messages: [],
         result: [
           {
-            build_token_uuid: "token-z",
-            build_token_name: "Zulu",
+            build_token_uuid: "token-old",
+            build_token_name: "Workers Builds - 2026-08-13 10:00",
             cloudflare_token_id: "provider-token-id",
           },
           {
-            build_token_uuid: "token-b",
-            build_token_name: "Alpha",
+            build_token_uuid: "token-new-b",
+            build_token_name: "Workers Builds - 2026-08-14 01:54",
           },
           {
-            build_token_uuid: "token-a",
-            build_token_name: "Alpha",
+            build_token_uuid: "token-new-a",
+            build_token_name: "Workers Builds - 2026-08-14 01:54",
+          },
+          {
+            build_token_uuid: "token-samebase",
+            build_token_name: "samebase build token",
+          },
+          {
+            build_token_uuid: "token-noter",
+            build_token_name: "noter-worker build token",
           },
           {
             build_token_uuid: "token-u",
@@ -112,10 +120,12 @@ describe("Cloudflare Workers Builds token list", () => {
     ).resolves.toEqual({
       accountId: "exact-cloudflare-account",
       tokens: [
-        { name: "Alpha", uuid: "token-a" },
-        { name: "Alpha", uuid: "token-b" },
+        { name: "Workers Builds - 2026-08-14 01:54", uuid: "token-new-a" },
+        { name: "Workers Builds - 2026-08-14 01:54", uuid: "token-new-b" },
+        { name: "Workers Builds - 2026-08-13 10:00", uuid: "token-old" },
         { name: "Unnamed token", uuid: "token-u" },
-        { name: "Zulu", uuid: "token-z" },
+        { name: "samebase build token", uuid: "token-samebase" },
+        { name: "noter-worker build token", uuid: "token-noter" },
       ],
     });
     expect(fetch).toHaveBeenCalledOnce();

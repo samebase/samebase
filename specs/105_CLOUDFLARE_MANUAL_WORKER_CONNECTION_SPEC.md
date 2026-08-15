@@ -86,8 +86,12 @@ Cloudflare Workers Builds. Samebase creates the Worker and records its exact pro
 `provisioned` attachment together before configuring Builds. It then writes the GitHub Builds
 configuration and re-reads the resulting repository and root evidence.
 
-The create flow requires the same explicit token selection. It never chooses a token by name, list
-position, or another Worker's current binding.
+The create flow requires the same visible token selection. Samebase orders the account token list by
+name from Z to A without case sensitivity, with UUID as the stable tie-breaker. When the list first
+settles, the client visibly selects the first record. This puts Cloudflare's default timestamped
+names in newest-name-first order without parsing the timestamp. A later refresh does not replace an
+existing or user-selected UUID. Provider writes never infer a token from a name, list position, or
+another Worker's current binding. They validate the exact selected UUID again.
 
 If Builds configuration fails, the Worker stays attached under `Needs attention`, which preserves
 cleanup ownership and lets the user retry the explicit configuration. When no live root exists, the
@@ -183,5 +187,5 @@ uses the normal action for that state:
 - UI tests cover vault-level routing, default multiple selection, grouping by read-only live root,
   the focused unconnected-Worker root flow, count copy, exact Convex action targets, root drift,
   rootless Builds repair, and `Needs attention`.
-- UI tests cover token loading, empty and failed lists, explicit selection, live token names,
-  missing records, trigger disagreement, and token change.
+- UI tests cover token loading, empty and failed lists, visible default and changed selections, live
+  token names, missing records, trigger disagreement, and token change.

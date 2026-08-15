@@ -66,14 +66,14 @@ afterEach(() => {
 });
 
 describe("useCloudflareBuildTokenSelection", () => {
-  it("selects the first settled singleton list once", () => {
+  it("selects the first settled token once", () => {
     renderSelection({ initialUuid: null, isFetching: true, tokens: null });
     expect(readSelection().selectedUuid).toBe("");
 
     renderSelection({
       initialUuid: null,
       isFetching: false,
-      tokens: [{ uuid: "token-a" }],
+      tokens: [{ uuid: "token-a" }, { uuid: "token-b" }],
     });
     expect(readSelection()).toMatchObject({
       requestedUuid: "token-a",
@@ -81,13 +81,21 @@ describe("useCloudflareBuildTokenSelection", () => {
     });
   });
 
-  it("requires an explicit choice when multiple tokens are listed", () => {
+  it("keeps an explicit choice when the list order changes", () => {
     const tokens = [{ uuid: "token-a" }, { uuid: "token-b" }];
     renderSelection({ initialUuid: null, isFetching: false, tokens });
-    expect(readSelection()).toMatchObject({ requestedUuid: "", selectedUuid: "" });
+    expect(readSelection()).toMatchObject({
+      requestedUuid: "token-a",
+      selectedUuid: "token-a",
+    });
 
     act(() => {
       readSelection().setRequestedUuid("token-b");
+    });
+    renderSelection({
+      initialUuid: null,
+      isFetching: false,
+      tokens: [{ uuid: "token-new" }, ...tokens],
     });
     expect(readSelection()).toMatchObject({
       requestedUuid: "token-b",
@@ -170,6 +178,9 @@ describe("useCloudflareBuildTokenSelection", () => {
         />,
       );
     });
-    expect(readSelection()).toMatchObject({ requestedUuid: "", selectedUuid: "" });
+    expect(readSelection()).toMatchObject({
+      requestedUuid: "token-a",
+      selectedUuid: "token-a",
+    });
   });
 });

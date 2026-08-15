@@ -2300,23 +2300,23 @@ describe("cloudflare resources", () => {
     ).toBeNull();
   });
 
-  it("lists Workers Builds token records in stable order when provider token ids are optional", async () => {
+  it("lists Workers Builds token records by descending case-insensitive name", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
         cloudflareSuccessResponse([
           {
-            build_token_uuid: "token-z",
-            build_token_name: "Zulu",
+            build_token_uuid: "token-old",
+            build_token_name: "Workers Builds - 2026-08-13 10:00",
             cloudflare_token_id: "secret-provider-id",
           },
           {
-            build_token_uuid: "token-b",
-            build_token_name: "Alpha",
+            build_token_uuid: "token-new",
+            build_token_name: "Workers Builds - 2026-08-14 01:54",
           },
           {
-            build_token_uuid: "token-a",
-            build_token_name: "Alpha",
+            build_token_uuid: "token-samebase",
+            build_token_name: "samebase build token",
           },
         ]),
       ),
@@ -2329,9 +2329,9 @@ describe("cloudflare resources", () => {
         transport: "direct",
       }),
     ).resolves.toEqual([
-      { name: "Alpha", uuid: "token-a" },
-      { name: "Alpha", uuid: "token-b" },
-      { name: "Zulu", uuid: "token-z" },
+      { name: "Workers Builds - 2026-08-14 01:54", uuid: "token-new" },
+      { name: "Workers Builds - 2026-08-13 10:00", uuid: "token-old" },
+      { name: "samebase build token", uuid: "token-samebase" },
     ]);
   });
 
