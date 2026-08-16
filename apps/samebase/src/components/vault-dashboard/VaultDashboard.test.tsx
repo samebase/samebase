@@ -2290,6 +2290,114 @@ describe("VaultCloudflareDialogContent", () => {
     }
   });
 
+  it("uses the repository root default when connecting an unconnected Worker", async () => {
+    const discoverWorkers = vi.fn(async () => ({
+      inventoryState: "complete" as const,
+      workers: [
+        makeCloudflareDialogWorker({
+          workerName: "portal-worker",
+          workerTag: "portal-tag",
+          repository: { state: "not_connected" },
+        }),
+      ],
+    }));
+    const listBuildTokens = vi.fn(async () => ({
+      accountId: "account-1",
+      tokens: [{ name: "Build token", uuid: "build-token" }],
+    }));
+    useActionMock.mockImplementation((action: FunctionReference<"action">) => {
+      const actionName = getFunctionName(action);
+      if (actionName === getFunctionName(api.vault.cloudflare.discoverWorkers)) {
+        return discoverWorkers;
+      }
+      if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {
+        return listBuildTokens;
+      }
+      return vi.fn();
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <VaultCloudflareDialog
+              blockedReason={null}
+              onClose={() => {}}
+              repairBuildTokenUuid={null}
+              repairWorkerId={null}
+              vault={makeRepositorySettingsBuilderVault({ cloudflareWorkers: [] })}
+            />
+          </QueryClientProvider>,
+        );
+      });
+
+      let connectAnotherButton: HTMLButtonElement | undefined;
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        connectAnotherButton = [...rootElement.querySelectorAll("button")].find(
+          (button) => button.textContent === "Connect another Worker",
+        );
+        if (connectAnotherButton) {
+          break;
+        }
+        await act(async () => {
+          await new Promise<void>((resolve) => setTimeout(resolve, 5));
+        });
+      }
+      if (!connectAnotherButton) {
+        throw new Error("Expected the Connect another Worker button.");
+      }
+      await act(async () => {
+        connectAnotherButton.click();
+      });
+
+      const repositoryRootLabel = [...rootElement.querySelectorAll("label")].find(
+        (label) => label.textContent === "Repository root",
+      );
+      const repositoryRootInput = repositoryRootLabel
+        ? document.getElementById(repositoryRootLabel.htmlFor)
+        : null;
+      if (!(repositoryRootInput instanceof HTMLInputElement)) {
+        throw new Error("Expected the repository root input.");
+      }
+      expect(repositoryRootInput.value).toBe("/");
+      expect(repositoryRootInput.getAttribute("placeholder")).toBeNull();
+
+      const workerSelect = [
+        ...rootElement.querySelectorAll<HTMLButtonElement>('[role="combobox"]'),
+      ].find((button) => button.textContent.includes("Choose a Worker"));
+      if (!workerSelect) {
+        throw new Error("Expected the Worker select.");
+      }
+      await act(async () => {
+        workerSelect.click();
+      });
+      const workerOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+        (option) => option.textContent === "portal-worker",
+      );
+      if (!workerOption) {
+        throw new Error("Expected the portal-worker option.");
+      }
+      await act(async () => {
+        workerOption.click();
+      });
+
+      expect(repositoryRootInput.value).toBe("/");
+      const connectAndAddButton = [
+        ...rootElement.querySelectorAll<HTMLButtonElement>("button"),
+      ].find((button) => button.textContent === "Connect and add");
+      expect(connectAndAddButton?.disabled).toBe(false);
+    } finally {
+      await act(async () => root.unmount());
+      queryClient.clear();
+      rootElement.remove();
+      useActionMock.mockReset();
+    }
+  });
+
   it("replaces disabled controls with a timed loading state while searching", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent

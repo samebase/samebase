@@ -130,7 +130,6 @@ export function VaultRepositoryRootInput({
         }}
         onKeyDown={handleKeyDown}
         disabled={disabled}
-        placeholder="/"
       />
       {showSuggestions ? (
         <div
