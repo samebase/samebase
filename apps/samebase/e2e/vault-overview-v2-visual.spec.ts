@@ -327,6 +327,19 @@ test("keeps provider ownership and actions together in mobile settings", async (
   ).toBeVisible();
   await fixture
     .getByRole("button", {
+      name: "Actions for Cloudflare Worker Samebase/domain-router",
+      exact: true,
+    })
+    .click();
+  await expect(
+    page.getByRole("menuitem", {
+      name: "Remove from vault for Cloudflare Worker Samebase/domain-router",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await page.keyboard.press("Escape");
+  await fixture
+    .getByRole("button", {
       name: "Actions for Convex project samebase/samebase",
       exact: true,
     })
