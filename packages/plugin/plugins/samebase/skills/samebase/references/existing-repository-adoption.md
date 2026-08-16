@@ -74,6 +74,24 @@ A hosting-only adoption does not justify a framework, formatter, linter, test ru
 source-language migration, or local development command. Add local preview later when the operator
 requests it.
 
+## Convex Workers Builds
+
+Use the portable [`build-cloudflare.ts`](../assets/build-cloudflare.ts) only when the Cloudflare
+build must deploy a Convex production deployment or branch preview before it builds the frontend.
+Copy the file without repository-specific changes when `main` is the production branch. Make the
+package `build` script run this file and keep the repository's real frontend command in `build:app`.
+
+The file exists because the Cloudflare dashboard shows one shared build-variable table. Samebase
+writes both `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` to both Workers Builds triggers so
+dashboard-managed and Samebase-managed setups have the same shape. The file reads
+`WORKERS_CI_BRANCH`, selects the matching key, gives only that key to Convex as `CONVEX_DEPLOY_KEY`,
+and adds the branch as the Convex preview name when needed.
+
+Keep the adapter limited to that job. Put application behavior in `build:app` or another explicit
+package step. Do not add a local fallback to the adapter. Run `node --run build:app` for a local
+application build. A repository whose production branch is not `main` needs an explicit adaptation
+and validation.
+
 Verify the provider build and source commit, the application root, one known asset, one missing
 route, representative repository-only files, production, and a reachable pull request preview as
 separate results. If files moved, confirm that the old host still serves them before it remains the

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -8,6 +9,7 @@ import packageMetadata from "../package.json" with { type: "json" };
 import claudeManifest from "../plugins/samebase/.claude-plugin/plugin.json" with { type: "json" };
 import codexManifest from "../plugins/samebase/.codex-plugin/plugin.json" with { type: "json" };
 import mcp from "../plugins/samebase/.mcp.json" with { type: "json" };
+import { selectConvexDeploy } from "../plugins/samebase/skills/samebase/assets/build-cloudflare.ts";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pluginRoot = resolve(root, "plugins/samebase");
@@ -83,6 +85,50 @@ checkRelativePath(
   skillsRoot,
   "samebase/references/existing-repository-adoption.md",
   "Existing repository adoption reference",
+);
+checkRelativePath(
+  skillsRoot,
+  "samebase/assets/build-cloudflare.ts",
+  "Portable Cloudflare build adapter",
+);
+assert.deepEqual(
+  selectConvexDeploy({
+    CONVEX_DEPLOY_KEY: "production-key",
+    PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
+    WORKERS_CI_BRANCH: "main",
+  }),
+  {
+    args: ["--no-install", "convex", "deploy", "--cmd", "node --run build:app"],
+    deployKey: "production-key",
+  },
+);
+assert.deepEqual(
+  selectConvexDeploy({
+    CONVEX_DEPLOY_KEY: "production-key",
+    PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
+    WORKERS_CI_BRANCH: "feature",
+  }),
+  {
+    args: [
+      "--no-install",
+      "convex",
+      "deploy",
+      "--preview-name",
+      "feature",
+      "--cmd",
+      "node --run build:app",
+    ],
+    deployKey: "preview-key",
+  },
+);
+assert.throws(() => selectConvexDeploy({}), /WORKERS_CI_BRANCH/);
+assert.throws(
+  () =>
+    selectConvexDeploy({
+      CONVEX_DEPLOY_KEY: "production-key",
+      WORKERS_CI_BRANCH: "feature",
+    }),
+  /PREVIEW_CONVEX_DEPLOY_KEY/,
 );
 
 const samebaseSkill = readFileSync(resolve(skillsRoot, "samebase/SKILL.md"), "utf8").replace(

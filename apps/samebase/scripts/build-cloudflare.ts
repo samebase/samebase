@@ -2,6 +2,13 @@ import { spawn } from "node:child_process";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 
+/**
+This is the Samebase production app build, not the portable Workers Builds adapter. The deploy-key
+selection exists because the Cloudflare dashboard shows one shared build-variable table. The route,
+PostHog, prerender, preview-auth, and stale-build behavior below belongs only to the Samebase app.
+Keep unrelated migration and application behavior out of this file.
+*/
+
 const CONVEX_DEPLOY_KEY = "CONVEX_DEPLOY_KEY";
 const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
 const PROD_POSTHOG_PROJECT_TOKEN = "PROD_POSTHOG_PROJECT_TOKEN";
