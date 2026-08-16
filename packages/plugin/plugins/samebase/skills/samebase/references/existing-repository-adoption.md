@@ -61,6 +61,13 @@ Preserve an existing package manager, framework adapter, output directory, and p
 they satisfy the Samebase command interface. If an existing package manager does not match that
 interface, report the product mismatch instead of silently replacing the repository toolchain.
 
+Prove the dependency graph from a clean checkout with the same runtime, package-manager version, and
+lifecycle-script policy that the provider uses. An install that disables scripts is not provider
+proof when the provider runs them. After the native install, run the exact Samebase commands too. If
+an unlocked legacy range now resolves a different dependency graph, use the smallest evidence-backed
+version pin that preserves the application instead of treating the drift as permission to modernize
+it.
+
 A hosting-only adoption does not justify an application framework, formatter, linter, test runner,
 or source-language migration. Keep legacy browser artifacts unchanged unless the deployment contract
 requires a source change or the operator asks for modernization.
