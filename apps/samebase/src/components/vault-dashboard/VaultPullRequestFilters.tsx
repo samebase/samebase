@@ -11,7 +11,7 @@ import {
   type VaultPullRequestFilterOption,
   type VaultPullRequestFilters,
 } from "@/components/vault-dashboard/vaultDashboardPullRequestFilters";
-import { useCoarsePointer } from "@/hooks/useCoarsePointer";
+import { useTouchFirstCoarsePointer } from "@/hooks/pointerCapabilities";
 
 function matchesOptionSearch(option: VaultPullRequestFilterOption, search: string) {
   if (search.length === 0) {
@@ -164,7 +164,7 @@ export function VaultPullRequestFiltersControl({
   options: VaultPullRequestFilterOption[];
   onChange: (nextValue: VaultPullRequestFilters) => void;
 }) {
-  const usesTouchSheet = useCoarsePointer();
+  const usesTouchSheet = useTouchFirstCoarsePointer();
   const controlStore = useVaultPullRequestFiltersControlStore();
   const isOpen = useSelector(controlStore, (state) => state.isOpen);
   const { setOpen } = controlStore.actions;

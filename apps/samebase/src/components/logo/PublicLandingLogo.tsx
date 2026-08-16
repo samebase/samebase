@@ -11,10 +11,10 @@ import {
 } from "@samebase/logo-model/identity";
 import {
   getPointerLogoPresentationTiltTarget,
-  LOGO_POINTER_TILT_MEDIA_QUERY,
   NEUTRAL_LOGO_PRESENTATION_TILT_TARGET,
   type LogoPresentationTiltTarget,
 } from "@/components/logo/logoPresentationTilt";
+import { usePrimaryFineHoverPointer } from "@/hooks/pointerCapabilities";
 import { DEFAULT_LOGO_FRACTAL_DEPTH } from "@samebase/logo-model/voxel";
 import {
   PUBLIC_LANDING_LOGO_ALT,
@@ -145,6 +145,7 @@ export function PublicLandingLogo({
   viewStatePersistence?: RotatedLogoViewStatePersistence;
   viewStateKey?: RotatedLogoViewStateKey;
 }) {
+  const hasPrimaryFineHoverPointer = usePrimaryFineHoverPointer();
   const [LogoScene, setLogoScene] = useState<LandingLogoSceneComponent | null>(() =>
     loadInteractiveScene ? cachedLandingLogoScene : null,
   );
@@ -344,35 +345,27 @@ export function PublicLandingLogo({
       !enablePointerTilt ||
       !isSceneInteractive ||
       prefersReducedMotion ||
-      typeof window.matchMedia !== "function"
+      !hasPrimaryFineHoverPointer
     ) {
       resetPointerTilt();
       return;
     }
 
-    const pointerMediaQuery = window.matchMedia(LOGO_POINTER_TILT_MEDIA_QUERY);
     const handleMousePointerMove = (event: PointerEvent) => {
-      if (!event.isPrimary || event.pointerType !== "mouse" || !pointerMediaQuery.matches) {
+      if (!event.isPrimary || event.pointerType !== "mouse") {
         return;
       }
 
       setPointerTiltFromPoint(event.clientX, event.clientY);
     };
-    const handlePointerCapabilityChange = () => {
-      if (!pointerMediaQuery.matches) {
-        resetPointerTilt();
-      }
-    };
 
     window.addEventListener("blur", resetPointerTilt);
     window.addEventListener("pointermove", handleMousePointerMove, { passive: true });
-    pointerMediaQuery.addEventListener("change", handlePointerCapabilityChange);
     return () => {
       window.removeEventListener("blur", resetPointerTilt);
       window.removeEventListener("pointermove", handleMousePointerMove);
-      pointerMediaQuery.removeEventListener("change", handlePointerCapabilityChange);
     };
-  }, [enablePointerTilt, isSceneInteractive, prefersReducedMotion]);
+  }, [enablePointerTilt, hasPrimaryFineHoverPointer, isSceneInteractive, prefersReducedMotion]);
 
   useEffect(() => {
     if (!loadInteractiveScene) {

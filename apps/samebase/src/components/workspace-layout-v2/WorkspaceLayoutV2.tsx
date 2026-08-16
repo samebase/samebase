@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from "react";
 import { useElementSize } from "@/hooks/useElementSize";
+import { useAnyFineHoverPointer } from "@/hooks/pointerCapabilities";
 import {
   useWorkspaceLayoutV2Actions,
   useWorkspaceLayoutV2Selector,
@@ -81,6 +82,7 @@ export function WorkspaceLayoutV2({
   right,
   dataTestId,
 }: WorkspaceLayoutV2Props) {
+  const hasAnyFineHoverPointer = useAnyFineHoverPointer();
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const mobileCarouselRef = useRef<HTMLDivElement | null>(null);
   const activeResizeSide = useWorkspaceLayoutV2Selector((state) => state.activeResizeSide);
@@ -233,10 +235,9 @@ export function WorkspaceLayoutV2({
     resizeHandle: WorkspaceLayoutV2ResizeHandleConfig,
     pointerTarget: "edge" | "grip",
   ) {
-    const gripSlidePositionPx =
-      pointerTarget === "grip"
-        ? mobileGripResize.getGripPositionPx(resizeHandle)
-        : resizeHandle.positionPx;
+    const handlePositionPx = isMobile
+      ? mobileGripResize.getGripPositionPx(resizeHandle)
+      : resizeHandle.positionPx;
 
     return (
       <WorkspaceLayoutV2ResizeHandle
@@ -246,16 +247,16 @@ export function WorkspaceLayoutV2({
         minSizePx={resizeHandle.minWidthPx}
         maxSizePx={resizeHandle.maxWidthPx}
         pointerTarget={pointerTarget}
-        positionPx={gripSlidePositionPx}
+        positionPx={handlePositionPx}
         resizeFrom={resizeHandle.side}
         onResizeStart={() => {
-          if (pointerTarget === "grip") {
+          if (isMobile) {
             mobileGripResize.startResize(resizeHandle);
           }
           setActiveResizeSide(resizeHandle.side);
         }}
         onResizeEnd={() => {
-          if (pointerTarget === "grip") {
+          if (isMobile) {
             const { shouldSyncPaneFromScroll } = mobileGripResize.endResize(resizeHandle);
             if (shouldSyncPaneFromScroll) {
               mobileCarouselRef.current?.dispatchEvent(new Event("scroll", { bubbles: true }));
@@ -266,7 +267,7 @@ export function WorkspaceLayoutV2({
           setActiveResizeSide(null);
         }}
         onRawSizeChange={
-          pointerTarget === "grip"
+          isMobile
             ? (rawWidthPx: number) => mobileGripResize.changeRawSize(resizeHandle, rawWidthPx)
             : undefined
         }
@@ -317,7 +318,9 @@ export function WorkspaceLayoutV2({
           showRightPane={hasRightPane}
         />
         {isMobile
-          ? mobileResizeHandles.map((resizeHandle) => renderResizeHandle(resizeHandle, "grip"))
+          ? mobileResizeHandles.map((resizeHandle) =>
+              renderResizeHandle(resizeHandle, hasAnyFineHoverPointer ? "edge" : "grip"),
+            )
           : desktopResizeHandles.map((resizeHandle) => renderResizeHandle(resizeHandle, "edge"))}
       </div>
     </div>

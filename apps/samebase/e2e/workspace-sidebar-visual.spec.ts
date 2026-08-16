@@ -61,6 +61,50 @@ test("fileview desktop shell with left tree", async ({ page }) => {
   await expect(pathTitle).toBeHidden();
 });
 
+test("fileview narrow fine-pointer shell uses an edge resize handle", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await gotoFileViewFixture(page);
+
+  expect(
+    await page.evaluate(
+      () => window.matchMedia("(any-hover: hover) and (any-pointer: fine)").matches,
+    ),
+  ).toBe(true);
+
+  await scrollFileViewCarouselToPane(page, "left");
+
+  const layout = page.locator("[data-workspace-layout-v2]");
+  const carousel = page.getByTestId("workspace-layout-v2-pane-main");
+  const leftHandle = page.getByTestId("workspace-layout-v2-left-resize");
+
+  await expect(carousel).toHaveCSS("scroll-snap-type", "x mandatory");
+  await expect(leftHandle).toHaveCSS("cursor", "col-resize");
+  await expect(leftHandle.locator("[data-workspace-layout-v2-resize-grip-dots]")).toHaveCount(0);
+
+  await expect(page).toHaveScreenshot("fileview-layout-narrow-fine-pointer-sidebar-open.png", {
+    animations: "disabled",
+    caret: "hide",
+    clip: await getFixtureViewportClip(page),
+    fullPage: false,
+    scale: "css",
+    maxDiffPixelRatio: 0.03,
+  });
+
+  const handleBounds = await leftHandle.boundingBox();
+  expect(handleBounds).not.toBeNull();
+  if (handleBounds === null) {
+    throw new Error("Expected a narrow fine-pointer resize handle.");
+  }
+
+  const handleCenterY = handleBounds.y + handleBounds.height / 2;
+  await page.mouse.move(handleBounds.x + handleBounds.width / 2, handleCenterY);
+  await page.mouse.down();
+  await page.mouse.move(8, handleCenterY, { steps: 8 });
+  await page.mouse.up();
+
+  await expect(layout).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", "left");
+});
+
 test.describe("fileview mobile", () => {
   test.use({
     ...pixel7Device,

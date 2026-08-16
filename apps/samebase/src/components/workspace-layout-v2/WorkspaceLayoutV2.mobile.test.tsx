@@ -45,6 +45,7 @@ let latestOpenRightPane: (() => void) | null = null;
 let latestRenderedPaneState: WorkspacePaneState | null = null;
 let testViewportWidthPx = VIEWPORT_WIDTH_PX;
 let testViewportHeightPx = VIEWPORT_HEIGHT_PX;
+let testHasAnyFineHoverPointer = false;
 let testPrefersReducedMotion = false;
 
 Object.defineProperty(window, "matchMedia", {
@@ -53,7 +54,10 @@ Object.defineProperty(window, "matchMedia", {
     addEventListener: vi.fn(),
     addListener: vi.fn(),
     dispatchEvent: vi.fn(),
-    matches: query === "(prefers-reduced-motion: reduce)" && testPrefersReducedMotion,
+    matches:
+      query === "(prefers-reduced-motion: reduce)"
+        ? testPrefersReducedMotion
+        : query === "(any-hover: hover) and (any-pointer: fine)" && testHasAnyFineHoverPointer,
     media: query,
     onchange: null,
     removeEventListener: vi.fn(),
@@ -371,6 +375,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
   afterEach(() => {
     testViewportWidthPx = VIEWPORT_WIDTH_PX;
     testViewportHeightPx = VIEWPORT_HEIGHT_PX;
+    testHasAnyFineHoverPointer = false;
     testPrefersReducedMotion = false;
     latestOpenRightPane = null;
     latestRenderedPaneState = null;
@@ -805,7 +810,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     ).toBeNull();
   });
 
-  it("renders a mobile resize grip on the active left sidebar by default", () => {
+  it("renders a three-dot resize grip when no fine hover pointer is available", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
@@ -835,6 +840,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(leftHandle.getAttribute("aria-valuemax")).toBe("350");
     expect(leftHandle.getAttribute("aria-valuenow")).toBe("220");
     expect(leftHandle.parentElement?.style.left).toBe("220px");
+    expect(leftHandle.querySelector("[data-workspace-layout-v2-resize-grip-dots]")).not.toBeNull();
     expect(
       rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
     ).toBeNull();
@@ -1149,10 +1155,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     }
   });
 
-  it("lets a 320px mobile viewport settle into a right merged pane", () => {
+  it("keeps mobile carousel and merge behavior with a fine-hover edge handle", () => {
     vi.useFakeTimers();
     try {
       testViewportWidthPx = NARROW_VIEWPORT_WIDTH_PX;
+      testHasAnyFineHoverPointer = true;
       const mountedRoot = root;
       if (mountedRoot === null || rootElement === null) {
         throw new Error("Expected mounted root");
@@ -1175,10 +1182,19 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
         rootElement,
         '[data-testid="workspace-layout-v2-pane-right"]',
       );
+      const carouselNode = getRequiredElement(
+        rootElement,
+        '[data-testid="workspace-layout-v2-pane-main"]',
+      );
       const getMainPane = () =>
         getRequiredElement(rootElementNode, "[data-workspace-layout-v2-mobile-main-pane]");
 
       expect(getMainPane().style.width).toBe("320px");
+      expect(carouselNode.classList.contains("snap-x")).toBe(true);
+      expect(carouselNode.classList.contains("overflow-x-auto")).toBe(true);
+      expect(rightHandle.classList.contains("cursor-col-resize")).toBe(true);
+      expect(rightHandle.classList.contains("w-4")).toBe(true);
+      expect(rightHandle.querySelector("[data-workspace-layout-v2-resize-grip-dots]")).toBeNull();
 
       for (let index = 0; index < 5; index += 1) {
         act(() => {
