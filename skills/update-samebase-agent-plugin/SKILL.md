@@ -109,3 +109,21 @@ TSX adoption will test this revised rule without another bundle comparison.
   tested. A real Samebase Worker later showed that the unchanged root was valid and failed only
   because it had no package manifest. Keep this run as a negative test for overfit evaluation. See
   `research/project-adoption/experiments/spiro-assets-only-guidance.md`.
+
+## Last supervised legacy-static follow-up
+
+- Date: 2026-08-16
+- Targets: `nicu-chiciuc/impossible-object`, `nicu-chiciuc/fractal-circles`, and
+  `nicu-chiciuc/triangle-image`
+- Result: the migrations confirmed both sides of the build boundary. Checked-in browser files can
+  use a no-op build, while Triangle Image must keep its existing Webpack build and `dist` output.
+  Triangle Image also showed that a stale competing lock file can make Workers Builds select the
+  wrong package manager. Fractal Circles showed that a clean package-manager install can generate an
+  untracked build-policy file. The public guidance now requires provider-log proof for package
+  manager selection and a clean working tree after installation.
+- Command result: Samebase already stores build and deploy as separate trigger phases. Do not repeat
+  the build inside the deploy scripts. Local `wrangler dev` is not part of repository adoption.
+- Product gap: the dashboard can assign a vault to a personal folder, but the public Samebase MCP
+  has no folder-state or folder-assignment action. The Triangle Image migration required browser
+  control for that UI-only step.
+- Evidence status: these are supervised migration findings, not a clean instruction-bundle score.

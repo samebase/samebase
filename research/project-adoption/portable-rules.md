@@ -54,6 +54,11 @@ provider contract make that a deliberate constraint. Bristol kept npm for this r
 clean-root commands use npm to start a small Node TypeScript bootstrap because Vite+ cannot load an
 installed configuration before dependencies exist.
 
+Treat every lock file, workspace file, and package-manager marker as provider input. When these
+markers conflict, use repository history and the provider build log to find the active manager.
+Remove only a marker that this evidence proves is stale. After a provider-equivalent clean install,
+require a clean working tree so rewritten lock files and generated policy files cannot hide.
+
 Treat authored `.js`, `.mjs`, and `.cjs` files as a review smell. Keep one only when a named tool or
 runtime cannot use TypeScript. Document that boundary. Do not add an extension scanner or a
 tool-name scanner. Code review, explicit TypeScript projects, and real workflow checks provide the
@@ -128,6 +133,9 @@ from Teardown Noita 3D. Treat them as one-case candidates until another project 
 Before provider configuration, run the exact install, build, production deploy dry-run, and preview
 deploy dry-run commands from the commit that the provider will build. Do not configure a provider
 against commands that exist only in another branch or local worktree.
+
+When the provider has separate build and deploy phases, keep those phases separate in the repository
+contract. Do not make the deploy phase repeat a build that the provider already completed.
 
 For Samebase, use a repository-backed Worker connected to the matching vault. Require a production
 GitHub Builds trigger for the default branch and a preview trigger for other branches. A Worker that

@@ -46,10 +46,18 @@ The current Samebase-managed Workers Builds contract calls `pnpm run build`, `pn
 minimal package manifest, a lock file, and only the deployment dependency. This is a Samebase
 interface requirement, not a Cloudflare requirement.
 
+These are separate Workers Builds phases. Samebase runs the build command before the production or
+preview deploy command. Keep each deploy script limited to its provider operation. Do not make it
+run the build again only to support direct manual use. The `pnpm run` command layer does not select
+the repository's dependency installer.
+
 Use this delete-first order:
 
 1. Keep existing runtime files and routes in place.
-2. Use a non-deploying no-op build when checked-in files are already deployable.
+2. Find the real build boundary. Use a non-deploying no-op when checked-in files are already
+   deployable. Keep an existing compiler or bundler when browser source needs it, and publish its
+   existing output directory. When the old host exposes comparable build artifacts, compare their
+   file set and hashes before you claim unchanged output.
 3. Use direct provider commands and native provider configuration before a custom script.
 4. Test native asset filtering against the existing directory. Serving the repository root is valid
    when the deployed file set excludes repository-only files and tool state.
@@ -61,6 +69,12 @@ Preserve an existing package manager, framework adapter, output directory, and p
 they satisfy the Samebase command interface. If an existing package manager does not match that
 interface, report the product mismatch instead of silently replacing the repository toolchain.
 
+Inspect every lock file, workspace file, and package-manager marker. A provider can select a package
+manager from these files even when the README or newest lock file names another one. When markers
+conflict, use repository history and the provider build log to identify the active manager. Remove
+only a marker that this evidence proves is stale. Do not add a `packageManager` field only to make
+the Samebase `pnpm run` command layer look like repository ownership.
+
 Prove the dependency graph from a clean checkout with the same runtime, package-manager version, and
 lifecycle-script policy that the provider uses. An install that disables scripts is not provider
 proof when the provider runs them. After the native install, run the exact Samebase commands too. If
@@ -68,9 +82,17 @@ an unlocked legacy range now resolves a different dependency graph, use the smal
 version pin that preserves the application instead of treating the drift as permission to modernize
 it.
 
+Check the clean checkout again after installation. A provider-equivalent install must not rewrite a
+lock file or create an untracked package-manager policy file. Commit a required install policy, or
+select a supported manager version whose clean install stays reproducible.
+
 A hosting-only adoption does not justify an application framework, formatter, linter, test runner,
 or source-language migration. Keep legacy browser artifacts unchanged unless the deployment contract
 requires a source change or the operator asks for modernization.
+
+Local development is a separate change. Do not add `wrangler dev`, a custom state directory, or a
+new source layout only for local preview. Add a development command later when the operator asks for
+that workflow and the repository has a stable watched asset boundary.
 
 Common pitfalls are:
 
@@ -81,6 +103,8 @@ Common pitfalls are:
 5. changing the existing missing-route or fallback behavior
 6. trusting a green provider check without testing the public route
 7. using a package deploy script as a dry run without proving the final provider arguments
+8. keeping competing package-manager markers without checking which one the provider selects
+9. running the build again inside a deploy phase that already follows the managed build phase
 
 Verify all of these results separately:
 
