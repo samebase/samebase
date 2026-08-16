@@ -2399,51 +2399,107 @@ describe("VaultCloudflareDialogContent", () => {
     expect(markup).not.toContain("App root");
   });
 
-  it("asks for one repository root before connecting and adding an unconnected Worker", () => {
-    const markup = renderToStaticMarkup(
-      <VaultCloudflareDialogContent
-        cloudflareBuildTokenField={<div>API token</div>}
-        hasSelectedBuildToken
-        createRootDirectory="apps/portal"
-        createWorkerName=""
-        didAddWorker={false}
-        error={null}
-        folderSuggestions={["apps", "apps/portal", "packages/shared"]}
-        isLoading={false}
-        isSubmitting={false}
-        inventoryState="complete"
-        mode="connect"
-        onCreateRootDirectoryChange={() => {}}
-        onCreateWorkerNameChange={() => {}}
-        onConnectWorker={() => {}}
-        onConnectWorkerBack={() => {}}
-        onModeChange={() => {}}
-        onOpenChange={() => {}}
-        onSubmit={() => {}}
-        onWorkerToggle={() => {}}
-        repairWorker={null}
-        selectedWorkerTags={[]}
-        vault={vault}
-        workerToConnect={{ workerName: "portal-worker", workerTag: "portal-tag" }}
-        workers={[
-          makeCloudflareDialogWorker({
-            workerName: "portal-worker",
-            workerTag: "portal-tag",
-            repository: { state: "not_connected" },
-          }),
-        ]}
-      />,
-    );
+  it("asks for one repository root before connecting and adding an unconnected Worker", async () => {
+    const discoverWorkers = vi.fn(async () => ({
+      inventoryState: "complete" as const,
+      workers: [
+        makeCloudflareDialogWorker({
+          workerName: "portal-worker",
+          workerTag: "portal-tag",
+          repository: { state: "not_connected" },
+        }),
+      ],
+    }));
+    const listBuildTokens = vi.fn(async () => ({
+      accountId: "account-1",
+      tokens: [{ name: "Build token", uuid: "build-token" }],
+    }));
+    useActionMock.mockImplementation((action: FunctionReference<"action">) => {
+      const actionName = getFunctionName(action);
+      if (actionName === getFunctionName(api.vault.cloudflare.discoverWorkers)) {
+        return discoverWorkers;
+      }
+      if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {
+        return listBuildTokens;
+      }
+      return vi.fn();
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
 
-    expect(markup).toContain("Connect a Worker");
-    expect(markup).toContain("portal-worker");
-    expect(markup).toContain("Repository root");
-    expect(markup).toContain("API token");
-    expect(markup).toContain('value="apps/portal"');
-    expect(markup).toContain("Connect and add");
-    expect(markup).toContain("Back");
-    expect(markup).not.toContain("Cloudflare account");
-    expect(markup).not.toContain(">Existing<");
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <VaultCloudflareDialog
+              blockedReason={null}
+              onClose={() => {}}
+              repairBuildTokenUuid={null}
+              repairWorkerId={null}
+              vault={makeRepositorySettingsBuilderVault({ cloudflareWorkers: [] })}
+            />
+          </QueryClientProvider>,
+        );
+      });
+
+      const connectAnotherButton = await act(() =>
+        vi.waitFor(() => {
+          const button = [...rootElement.querySelectorAll("button")].find(
+            (candidate) => candidate.textContent === "Connect another Worker",
+          );
+          if (!button) {
+            throw new Error("Expected the Connect another Worker button.");
+          }
+          return button;
+        }),
+      );
+      await act(async () => {
+        connectAnotherButton.click();
+      });
+
+      const repositoryRootLabel = [...rootElement.querySelectorAll("label")].find(
+        (label) => label.textContent === "Repository root",
+      );
+      const repositoryRootInput = repositoryRootLabel
+        ? document.getElementById(repositoryRootLabel.htmlFor)
+        : null;
+      if (!(repositoryRootInput instanceof HTMLInputElement)) {
+        throw new Error("Expected the repository root input.");
+      }
+      expect(repositoryRootInput.value).toBe("/");
+
+      const workerSelect = [
+        ...rootElement.querySelectorAll<HTMLButtonElement>('[role="combobox"]'),
+      ].find((button) => button.textContent.includes("Choose a Worker"));
+      if (!workerSelect) {
+        throw new Error("Expected the Worker select.");
+      }
+      await act(async () => {
+        workerSelect.click();
+      });
+      const workerOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+        (option) => option.textContent === "portal-worker",
+      );
+      if (!workerOption) {
+        throw new Error("Expected the portal-worker option.");
+      }
+      await act(async () => {
+        workerOption.click();
+      });
+
+      expect(repositoryRootInput.value).toBe("/");
+      const connectAndAddButton = [
+        ...rootElement.querySelectorAll<HTMLButtonElement>("button"),
+      ].find((button) => button.textContent === "Connect and add");
+      expect(connectAndAddButton?.disabled).toBe(false);
+    } finally {
+      await act(async () => root.unmount());
+      queryClient.clear();
+      rootElement.remove();
+      useActionMock.mockReset();
+    }
   });
 
   it("shows the repository root only when creating a Worker", () => {

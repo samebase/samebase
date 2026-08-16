@@ -40,6 +40,7 @@ describe("VaultRepositoryRootInput", () => {
       });
 
       expect(input.value).toBe("");
+      expect(input.getAttribute("placeholder")).toBeNull();
       expect(input.getAttribute("aria-expanded")).toBe("true");
       expect(
         [...rootElement.querySelectorAll('[role="option"]')].map((option) => option.textContent),

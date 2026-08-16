@@ -609,7 +609,7 @@ export function VaultCloudflareDialog({
       onCreateWorkerNameChange={setCreateWorkerName}
       onConnectWorker={(worker) => {
         setWorkerToConnect(worker);
-        setCreateRootDirectory("");
+        setCreateRootDirectory("/");
         setSubmitError(null);
       }}
       onConnectWorkerBack={() => {
@@ -621,7 +621,7 @@ export function VaultCloudflareDialog({
         setWorkerToConnect(null);
         setSubmitError(null);
         if (nextMode === "connect") {
-          setCreateRootDirectory("");
+          setCreateRootDirectory("/");
         }
       }}
       onOpenChange={(isOpen) => {
