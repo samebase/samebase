@@ -33,89 +33,51 @@ diagnostic evidence while preparing the source pull request. Do not report it as
 Keep an existing live route or known-good Worker version available until the new production path is
 verified.
 
-## Assets-Only Legacy Repositories
+## Small and Legacy Repositories
 
-The goal is the smallest repository-owned deployment contract. Do not invent a build or source
-layout before the provider shows that one is needed.
-
-For an approved early provider setup, read the first build log and change only the failed contract.
-Do not infer a directory problem from a missing package manifest or an unreachable preview URL.
+Use the smallest repository-owned deployment contract. Start with the existing source layout and
+change only a requirement that repository or provider evidence proves.
 
 The current Samebase-managed Workers Builds contract calls `pnpm run build`, `pnpm run deploy`, and
-`pnpm run deploy:preview`. A repository with no package manager can meet that interface with a
-minimal package manifest, a lock file, and only the deployment dependency. This is a Samebase
-interface requirement, not a Cloudflare requirement.
+`pnpm run deploy:preview`. These are separate phases. Keep each deploy script limited to its
+provider operation. Do not repeat the build in a deploy script. The `pnpm run` command layer does
+not select the dependency installer.
 
-These are separate Workers Builds phases. Samebase runs the build command before the production or
-preview deploy command. Keep each deploy script limited to its provider operation. Do not make it
-run the build again only to support direct manual use. The `pnpm run` command layer does not select
-the repository's dependency installer.
+Find the real build boundary before you add files:
 
-Use this delete-first order:
+- Use a non-deploying no-op only when the checked-in files are already complete browser assets.
+- Keep the existing compiler or bundler when generated browser output is not checked in. A broken
+  old installer does not prove that the source cannot build. First test the smallest version pin or
+  installer repair that preserves the output.
+- Commit generated output only when a clean provider-equivalent build cannot reproduce it and the
+  operator accepts that generated-file contract.
 
-1. Keep existing runtime files and routes in place.
-2. Find the real build boundary. Use a non-deploying no-op when checked-in files are already
-   deployable. Keep an existing compiler or bundler when browser source needs it, and publish its
-   existing output directory. When the old host exposes comparable build artifacts, compare their
-   file set and hashes before you claim unchanged output.
-3. Use direct provider commands and native provider configuration before a custom script.
-4. Test native asset filtering against the existing directory. Serving the repository root is valid
-   when the deployed file set excludes repository-only files and tool state.
-5. Move or copy files only when the current layout cannot express a safe deployed file set or must
-   preserve a proven host boundary.
-6. Keep safe validation or version upload separate from production promotion.
+Preserve a working package manager, framework adapter, output directory, and provider configuration.
+Inspect every lock file, workspace file, and package-manager marker because the provider can use
+them to select its installer. When markers conflict, use repository history and the provider build
+log to identify the active manager. Remove only a marker that this evidence proves is stale.
 
-Preserve an existing package manager, framework adapter, output directory, and provider config when
-they satisfy the Samebase command interface. If an existing package manager does not match that
-interface, report the product mismatch instead of silently replacing the repository toolchain.
+Prove the dependency graph from a clean checkout with the provider runtime, package-manager version,
+and lifecycle-script policy. After installation, the checkout must not contain a rewritten lock file
+or an unexpected policy file. Run the exact Samebase build command after the native install.
 
-Inspect every lock file, workspace file, and package-manager marker. A provider can select a package
-manager from these files even when the README or newest lock file names another one. When markers
-conflict, use repository history and the provider build log to identify the active manager. Remove
-only a marker that this evidence proves is stale. Do not add a `packageManager` field only to make
-the Samebase `pnpm run` command layer look like repository ownership.
+Prefer direct provider commands and native asset configuration. Test filtering against the existing
+directory before you move or copy files. The repository root is a valid asset directory when native
+filtering excludes source, documentation, dependency files, and tool state. Add a custom program or
+new source layout only when the provider contract needs it.
 
-Prove the dependency graph from a clean checkout with the same runtime, package-manager version, and
-lifecycle-script policy that the provider uses. An install that disables scripts is not provider
-proof when the provider runs them. After the native install, run the exact Samebase commands too. If
-an unlocked legacy range now resolves a different dependency graph, use the smallest evidence-backed
-version pin that preserves the application instead of treating the drift as permission to modernize
-it.
+For a safe validation, call the provider CLI directly with its safe mode. Never run a deploy package
+script and forward flags through the package runner to try to make it a dry run. Treat an unproven
+deploy script as a provider write.
 
-Check the clean checkout again after installation. A provider-equivalent install must not rewrite a
-lock file or create an untracked package-manager policy file. Commit a required install policy, or
-select a supported manager version whose clean install stays reproducible.
+A hosting-only adoption does not justify a framework, formatter, linter, test runner,
+source-language migration, or local development command. Add local preview later when the operator
+requests it.
 
-A hosting-only adoption does not justify an application framework, formatter, linter, test runner,
-or source-language migration. Keep legacy browser artifacts unchanged unless the deployment contract
-requires a source change or the operator asks for modernization.
-
-Local development is a separate change. Do not add `wrangler dev`, a custom state directory, or a
-new source layout only for local preview. Add a development command later when the operator asks for
-that workflow and the repository has a stable watched asset boundary.
-
-Common pitfalls are:
-
-1. moving or copying runtime files before testing the unchanged layout
-2. adding a custom build or deploy program when direct commands meet the contract
-3. publishing repository-only files from a broad asset directory
-4. placing preview state inside the watched asset boundary
-5. changing the existing missing-route or fallback behavior
-6. trusting a green provider check without testing the public route
-7. using a package deploy script as a dry run without proving the final provider arguments
-8. keeping competing package-manager markers without checking which one the provider selects
-9. running the build again inside a deploy phase that already follows the managed build phase
-
-Verify all of these results separately:
-
-1. the terminal provider build and its source commit
-2. the application root, one known asset, and one known missing route
-3. representative repository-only files, which must not be reachable
-4. the production URL and the pull request preview URL
-
-A green provider check is not route proof. If files moved into a new static directory, confirm that
-an old host uses the new publish directory before it remains the rollback target. Remove the old
-host only after the new route works and the operator approves the removal.
+Verify the provider build and source commit, the application root, one known asset, one missing
+route, representative repository-only files, production, and a reachable pull request preview as
+separate results. If files moved, confirm that the old host still serves them before it remains the
+rollback target.
 
 ## First-Deployment Preview Observation
 

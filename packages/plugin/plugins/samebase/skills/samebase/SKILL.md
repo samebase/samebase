@@ -76,6 +76,9 @@ or copy tool schemas into this skill.
   explicit approval. One approval can cover the named sequence when the repository, provider
   account, possible production effect, and rule for attaching an existing resource or creating a new
   one are clear. Ask again if one of those facts or the approved scope changes.
+- Treat a package script named `deploy` as a provider write. For a safe validation, call the
+  provider CLI directly with its safe mode. Do not forward flags through a package runner to try to
+  change a deploy script into a dry run.
 
 ## Work in the repository
 

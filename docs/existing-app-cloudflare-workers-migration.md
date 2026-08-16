@@ -45,7 +45,9 @@ Use this delete-first order:
 2. Find the real build boundary. Make `build` non-deploying. Use a no-op when checked-in files are
    already deployable. Keep an existing compiler or bundler when browser source needs it, and
    publish its existing output directory. When the old host exposes comparable build artifacts,
-   compare their file set and hashes before you claim unchanged output.
+   compare their file set and hashes before you claim unchanged output. If an old installer fails,
+   test the smallest version pin or installer repair before you replace the build with a no-op or a
+   committed artifact.
 3. Use direct provider commands and native provider configuration before you add a custom script.
 4. Test whether native asset filtering can safely publish the existing directory. Serving the
    repository root is valid when the deployed file set excludes repository-only files and tool
@@ -83,10 +85,9 @@ Local development is a separate change. Do not add `wrangler dev`, a custom stat
 new source layout only for local preview. Add that workflow later when the operator asks for it.
 
 Do not add a copy helper when it creates no deployment or compatibility boundary. Preserve the
-existing missing-route and fallback behavior. Use the provider's dry-run or equivalent safe
-validation command directly when possible. Verify its exact invocation before use. Treat a package
-script named `deploy` as a provider write unless its final provider arguments prove otherwise. Do
-not assume that forwarded flags keep their meaning at the deployment tool boundary.
+existing missing-route and fallback behavior. Call the provider CLI directly for a dry run or other
+safe validation. Do not run a deploy package script and forward flags through the package runner to
+try to make it safe. Treat a package script named `deploy` as a provider write.
 
 ## Record the Baseline
 

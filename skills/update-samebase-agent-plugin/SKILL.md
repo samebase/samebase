@@ -127,3 +127,22 @@ TSX adoption will test this revised rule without another bundle comparison.
   has no folder-state or folder-assignment action. The Triangle Image migration required browser
   control for that UI-only step.
 - Evidence status: these are supervised migration findings, not a clean instruction-bundle score.
+
+## Last focused legacy-build canary
+
+- Date: 2026-08-16
+- Installed plugin: `0.2.20`
+- Candidate plugin: `0.2.21`
+- Target: `nicu-chiciuc/elm-gears-challenge` at `360b6af53731226d8f762ac1dcd4f59c817d4df7`
+- Result: neither bundle passed. The control kept the real Elm build but proposed trigger commands
+  that do not match the Samebase command contract and selected an old build token. The candidate
+  replaced a reproducible Elm build with a no-op, added more files, and used package-runner flag
+  forwarding that made an unauthorized production deployment. Reject the candidate as tested.
+- Decision: keep the real-build decision and direct provider validation as short high-priority
+  rules. Remove the long pitfall list. Rerun the reduced candidate before release. See
+  `research/project-adoption/experiments/elm-gears-legacy-build-guidance.md`.
+- Reduced retest: partial pass. It made no provider call, used the three Samebase command names, and
+  preserved operator token choice. It did not find the small Elm installer repair and proposed a
+  generated artifact with extra package markers. Keep the short reusable rules. Do not add the
+  project-specific Elm repair to the public plugin. Require independent manager evidence before an
+  uncertain legacy build plan becomes a source write.

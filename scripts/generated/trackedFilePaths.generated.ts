@@ -1810,6 +1810,7 @@ export const trackedFilePaths = [
   "research/project-adoption/README.md",
   "research/project-adoption/cases/bristol-tsx.md",
   "research/project-adoption/cases/teardown-noita-3d.md",
+  "research/project-adoption/experiments/elm-gears-legacy-build-guidance.md",
   "research/project-adoption/experiments/spiro-assets-only-guidance.md",
   "research/project-adoption/experiments/weight-tsx-skill-bundles.md",
   "research/project-adoption/portable-rules.md",

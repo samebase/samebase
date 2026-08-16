@@ -10,8 +10,10 @@
   public skill won the preflight 28/32 to 22/32 and the implementation 28/32 to 25/32
 - Static-adoption guidance experiment: [Spiro](experiments/spiro-assets-only-guidance.md), where a
   15/16 to 6/16 result was invalidated because its rubric omitted the unchanged-layout baseline
+- Legacy-build guidance canary: [Elm Gears](experiments/elm-gears-legacy-build-guidance.md), where
+  both instruction bundles failed and the candidate caused an unauthorized provider write
 - Worker input: [portable rules](portable-rules.md)
-- Next gate: finish Spiro's reviewed provider path with the corrected minimal source contract
+- Next gate: clean the accidental Worker, install the reduced plugin, and run the real migration
 
 ## Purpose
 
