@@ -56,8 +56,8 @@ apps/remotion-studio/public/media/founder-demo-screen-24x.mp4
 apps/remotion-studio/public/media/founder-demo.srt
 ```
 
-Git keeps these MP4 files as pointers during normal clone and pull operations, so CI does not
-download the recordings. Fetch them when Remotion needs the source files:
+Git keeps all LFS objects as pointers during normal clone and pull operations, so CI does not
+download large source files. Fetch the Remotion recordings when the studio needs them:
 
 ```console
 git lfs pull --include="apps/remotion-studio/public/media" --exclude=""

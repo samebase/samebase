@@ -1,2 +1,2 @@
 [lfs]
-	fetchexclude = apps/remotion-studio/public/media
+	fetchexclude = *
