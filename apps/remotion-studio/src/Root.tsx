@@ -5,6 +5,8 @@ import {
   FounderDemoAudio,
   founderDemoHeight,
   founderDemoWidth,
+  founderDemoYouTubeHeight,
+  founderDemoYouTubeWidth,
 } from "./compositions/founder-demo/FounderDemo";
 import {
   founderDemoEditDurationInFrames,
@@ -28,6 +30,14 @@ export function RemotionRoot() {
         fps={founderDemoFps}
         height={founderDemoHeight}
         width={founderDemoWidth}
+      />
+      <Composition
+        id="FounderDemoYouTube"
+        component={FounderDemo}
+        durationInFrames={founderDemoEditDurationInFrames}
+        fps={founderDemoFps}
+        height={founderDemoYouTubeHeight}
+        width={founderDemoYouTubeWidth}
       />
       <Composition
         id="FounderDemoAudio"

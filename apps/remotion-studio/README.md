@@ -22,7 +22,8 @@ appear in Studio immediately.
 
 - `LogoHype` explains the flat-to-isometric identity sequence, production shuffle, recursive depth,
   and Menger exploration using the shared Samebase logo model.
-- `FounderDemo` contains the founder introduction and product walkthrough.
+- `FounderDemo` contains the 1920×1240 founder introduction and product walkthrough preview.
+- `FounderDemoYouTube` renders the same edit at the original 3840×2480 screen resolution.
 - `TicTacToeRecording` contains the production edit used by the landing page.
 
 Each production composition owns its component, timing model, and supporting edit data under
@@ -62,6 +63,12 @@ Render the local master with:
 
 ```console
 pnpm --filter @samebase/remotion-studio render:founder-demo
+```
+
+Render the original-resolution YouTube master with:
+
+```console
+pnpm --filter @samebase/remotion-studio render:founder-demo-youtube
 ```
 
 ## Tic-Tac-Toe landing video
@@ -106,6 +113,8 @@ Do not commit:
 - `pnpm --filter @samebase/remotion-studio dev`: open Remotion Studio.
 - `pnpm check:remotion-studio`: typecheck and lint from the repository root.
 - `pnpm --filter @samebase/remotion-studio render:founder-demo`: render the founder demo.
+- `pnpm --filter @samebase/remotion-studio render:founder-demo-youtube`: render the founder demo at
+  the original 3840×2480 resolution.
 - `pnpm --filter @samebase/remotion-studio render:logo-hype`: render the logo identity exploration.
 - `pnpm --filter @samebase/remotion-studio render:tic-tac-toe`: render the production landing edit.
 

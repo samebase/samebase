@@ -9,6 +9,7 @@
     "build": "remotion bundle",
     "dev": "remotion studio",
     "render:founder-demo": "remotion render FounderDemo out/founder-demo-master.mp4",
+    "render:founder-demo-youtube": "remotion render FounderDemoYouTube out/founder-demo-youtube.mp4",
     "render:logo-hype": "remotion render LogoHype out/logo-hype.mp4",
     "render:tic-tac-toe": "remotion render TicTacToeRecording out/tic-tac-toe-master.mp4"
   },

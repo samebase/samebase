@@ -10,6 +10,7 @@ import {
   staticFile,
   useCurrentFrame,
   useDelayRender,
+  useVideoConfig,
 } from "remotion";
 import {
   founderDemoEditSegments,
@@ -34,22 +35,24 @@ const acceleratedTimelapseRecording = `${timelapseRecording}#disable`;
 
 export const founderDemoHeight = 1_240;
 export const founderDemoWidth = 1_920;
+export const founderDemoYouTubeHeight = 2_480;
+export const founderDemoYouTubeWidth = 3_840;
 const faceFadeDurationInFrames = Math.round(founderDemoFps * 0.4);
 const audioFadeDurationInFrames = founderDemoFps;
 
-const CaptionText: React.FC<{ text: string }> = ({ text }) => (
+const CaptionText: React.FC<{ layoutScale: number; text: string }> = ({ layoutScale, text }) => (
   <div
     style={{
       backgroundColor: "rgba(16, 23, 25, 0.86)",
-      bottom: 140,
+      bottom: 140 * layoutScale,
       color: "white",
       fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif",
-      fontSize: 44,
+      fontSize: 44 * layoutScale,
       fontWeight: 650,
       left: "50%",
       lineHeight: 1.2,
-      maxWidth: 1_280,
-      padding: "12px 18px",
+      maxWidth: 1_280 * layoutScale,
+      padding: `${12 * layoutScale}px ${18 * layoutScale}px`,
       position: "absolute",
       textAlign: "center",
       transform: "translateX(-50%)",
@@ -62,8 +65,9 @@ const CaptionText: React.FC<{ text: string }> = ({ text }) => (
 
 const SegmentCaptions: React.FC<{
   captions: Caption[];
+  layoutScale: number;
   segment: FounderDemoFaceSegment;
-}> = ({ captions, segment }) =>
+}> = ({ captions, layoutScale, segment }) =>
   captions.map((caption, index) => {
     const captionStartInSourceFrames = (caption.startMs / 1_000) * founderDemoFps;
     const captionEndInSourceFrames = (caption.endMs / 1_000) * founderDemoFps;
@@ -90,12 +94,15 @@ const SegmentCaptions: React.FC<{
         key={`${caption.startMs}-${caption.endMs}-${index}`}
         name={`Caption ${index + 1}`}
       >
-        <CaptionText text={caption.text} />
+        <CaptionText layoutScale={layoutScale} text={caption.text} />
       </Sequence>
     );
   });
 
-const FaceBubble: React.FC<{ segment: FounderDemoFaceSegment }> = ({ segment }) => {
+const FaceBubble: React.FC<{ layoutScale: number; segment: FounderDemoFaceSegment }> = ({
+  layoutScale,
+  segment,
+}) => {
   const frame = useCurrentFrame();
   const opacity = Math.min(
     1,
@@ -108,14 +115,14 @@ const FaceBubble: React.FC<{ segment: FounderDemoFaceSegment }> = ({ segment }) 
       name="Face camera"
       style={{
         borderRadius: "50%",
-        boxShadow: "0 18px 44px rgba(0, 0, 0, 0.28)",
-        height: 330,
+        boxShadow: `0 ${18 * layoutScale}px ${44 * layoutScale}px rgba(0, 0, 0, 0.28)`,
+        height: 330 * layoutScale,
         opacity,
         overflow: "hidden",
         position: "absolute",
-        right: 40,
-        top: 44,
-        width: 330,
+        right: 40 * layoutScale,
+        top: 44 * layoutScale,
+        width: 330 * layoutScale,
       }}
     >
       <OffthreadVideo
@@ -221,6 +228,8 @@ export const FounderDemo: React.FC = () => {
   const { cancelRender, continueRender, delayRender } = useDelayRender();
   const [captionLoadHandle] = useState(() => delayRender("Load founder demo captions"));
   const frame = useCurrentFrame();
+  const { width } = useVideoConfig();
+  const layoutScale = width / founderDemoWidth;
   const playbackRate = getFounderDemoPlaybackRate(frame);
   const sourceFrame = getFounderDemoSourceFrame(frame);
   const playbackRateLabel = playbackRate.toFixed(1);
@@ -271,9 +280,11 @@ export const FounderDemo: React.FC = () => {
             ) : (
               <AcceleratedScreen segment={segment} />
             )}
-            {segment.kind === "face" ? <FaceBubble segment={segment} /> : null}
+            {segment.kind === "face" ? (
+              <FaceBubble layoutScale={layoutScale} segment={segment} />
+            ) : null}
             {captions && segment.kind === "face" ? (
-              <SegmentCaptions captions={captions} segment={segment} />
+              <SegmentCaptions captions={captions} layoutScale={layoutScale} segment={segment} />
             ) : null}
           </Series.Sequence>
         ))}
@@ -284,22 +295,22 @@ export const FounderDemo: React.FC = () => {
         style={{
           alignItems: "baseline",
           backgroundColor: "rgba(16, 23, 25, 0.94)",
-          bottom: 32,
+          bottom: 32 * layoutScale,
           color: "white",
           display: "flex",
           fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
           fontVariantNumeric: "tabular-nums",
-          gap: 18,
-          padding: "16px 20px",
+          gap: 18 * layoutScale,
+          padding: `${16 * layoutScale}px ${20 * layoutScale}px`,
           position: "absolute",
-          right: 32,
+          right: 32 * layoutScale,
           zIndex: 1,
         }}
       >
-        <span style={{ color: "#29b8d3", fontSize: 38, fontWeight: 750 }}>
+        <span style={{ color: "#29b8d3", fontSize: 38 * layoutScale, fontWeight: 750 }}>
           {playbackRateLabel}×
         </span>
-        <span style={{ fontSize: 28, fontWeight: 650 }}>{sourceTime}</span>
+        <span style={{ fontSize: 28 * layoutScale, fontWeight: 650 }}>{sourceTime}</span>
       </Interactive.Div>
     </AbsoluteFill>
   );
