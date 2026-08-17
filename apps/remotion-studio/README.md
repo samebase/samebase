@@ -56,8 +56,12 @@ apps/remotion-studio/public/media/founder-demo-screen-24x.mp4
 apps/remotion-studio/public/media/founder-demo.srt
 ```
 
-Git downloads the MP4 files through Git LFS. Run `git lfs pull` if a checkout contains pointer files
-instead of the recordings.
+Git keeps these MP4 files as pointers during normal clone and pull operations, so CI does not
+download the recordings. Fetch them when Remotion needs the source files:
+
+```console
+git lfs pull --include="apps/remotion-studio/public/media" --exclude=""
+```
 
 Render the local master with:
 
