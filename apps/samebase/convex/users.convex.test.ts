@@ -159,6 +159,7 @@ async function seedProviderOrganization(options?: {
               cloudflareAccount: {
                 accountId: primaryCloudflareAccountId,
                 accountName: "Primary account",
+                lastUsedBuildTokenUuid: "last-used-build-token",
               },
             }),
       });

@@ -166,7 +166,11 @@ function buildCloudflareConnectionStatus(
   if (credential === undefined) {
     return account === undefined
       ? { state: "not_configured" }
-      : { state: "disconnected", ...account };
+      : {
+          state: "disconnected",
+          accountId: account.accountId,
+          accountName: account.accountName,
+        };
   }
   if (account === undefined) {
     throw new Error("Cloudflare credential has no configured account.");
@@ -184,7 +188,12 @@ function buildCloudflareConnectionStatus(
   };
 
   if (credential.auth.method !== "mcp_oauth") {
-    return { state: "connected", ...account, ...credentialStatus };
+    return {
+      state: "connected",
+      accountId: account.accountId,
+      accountName: account.accountName,
+      ...credentialStatus,
+    };
   }
 
   const effectiveExpiresAt =
@@ -220,7 +229,12 @@ function buildCloudflareConnectionStatus(
       : {}),
     ...(typeof nextAutoCheckAt === "number" ? { mcpTokenNextAutoCheckAt: nextAutoCheckAt } : {}),
   };
-  return { state: "connected", ...account, ...mcpStatus };
+  return {
+    state: "connected",
+    accountId: account.accountId,
+    accountName: account.accountName,
+    ...mcpStatus,
+  };
 }
 
 async function fetchConvexApiKeyTeamDetails(token: string): Promise<{
