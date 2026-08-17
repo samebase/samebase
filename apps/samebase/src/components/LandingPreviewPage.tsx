@@ -469,10 +469,20 @@ function LandingPreviewOverview() {
                 width={1440}
               />
             </div>
+            <p className="mt-4 text-right text-sm text-muted-foreground">
+              <a
+                className="border-b border-border pb-px no-underline hover:border-foreground hover:text-foreground"
+                href="https://www.youtube.com/watch?v=dlIacfCxDPk"
+                rel="noreferrer"
+                target="_blank"
+              >
+                Watch on YouTube
+              </a>
+            </p>
           </div>
         </section>
 
-        <LandingSection>
+        <section className="mt-10 pt-8 @3xl:mt-16 @3xl:pt-12">
           <LandingSectionIntro
             heading="GitHub + Convex + Cloudflare is the best way we've found to build an app."
             kicker="the opinion we're selling"
@@ -524,7 +534,7 @@ function LandingPreviewOverview() {
               role="deploys + domains + edge"
             />
           </div>
-        </LandingSection>
+        </section>
 
         <LandingSection>
           <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_460px] @5xl:items-start @5xl:gap-x-14">

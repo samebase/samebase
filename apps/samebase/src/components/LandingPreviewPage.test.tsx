@@ -99,6 +99,10 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain('preload="none"');
     expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
     expect(markup).toContain("border-radius:1.104% / 1.664%");
+    expect(markup).toContain(
+      'href="https://www.youtube.com/watch?v=dlIacfCxDPk" rel="noreferrer" target="_blank"',
+    );
+    expect(markup).toContain(">Watch on YouTube</a>");
 
     // The opinion, named, with the trio row under it.
     expect(markup).toContain("the opinion we&#x27;re selling");
