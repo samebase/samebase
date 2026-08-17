@@ -54,6 +54,7 @@ export const trackedFilePaths = [
   ".gitignore",
   ".nvmrc",
   ".vite-hooks/pre-commit",
+  ".vite-hooks/pre-push",
   ".vscode/extensions.json",
   ".vscode/settings.json",
   "AGENTS.md",
