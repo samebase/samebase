@@ -17,7 +17,7 @@ const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewM
 
 test.setTimeout(120_000);
 
-const LANDING_HERO_VIDEO_URL = publicMediaManifest.landingTicTacToeCodex.publicUrl;
+const LANDING_HERO_VIDEO_URL = publicMediaManifest.landingFounderDemo.publicUrl;
 const LANDING_PREVIEW_PROD_UI_ROUTE = `${LANDING_PREVIEW_ROUTE}?prod-ui`;
 
 const expectedLandingPreviewSidebarFiles = [
@@ -84,7 +84,7 @@ test("landing overview preserves its unloaded video frame and wide desktop layou
     width: element.clientWidth,
   }));
   expect(initialVideoLayout.readyState).toBe(0);
-  expect(initialVideoLayout.width / initialVideoLayout.height).toBeCloseTo(1280 / 850, 3);
+  expect(initialVideoLayout.width / initialVideoLayout.height).toBeCloseTo(1440 / 930, 2);
 
   await page.waitForLoadState("networkidle");
 

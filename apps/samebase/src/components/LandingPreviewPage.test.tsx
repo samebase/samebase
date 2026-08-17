@@ -89,16 +89,14 @@ describe("LandingPreviewPage", () => {
     expect(markup.split(">Open Samebase</button>").length - 1).toBe(2);
     expect(markup).toContain("Idle apps cost $0/month.");
 
-    // The real ChatGPT capture replaces the scripted placeholder loop.
-    expect(markup).toContain(`src="${publicMediaManifest.landingTicTacToeCodex.publicUrl}"`);
-    expect(markup).toContain('poster="/landing-preview/tic-tac-toe-codex-poster.webp"');
-    expect(markup).toContain("ChatGPT builds and plays a 4x4x4 tic-tac-toe game with Samebase");
+    // The real founder demo stays unloaded until the visitor presses Play.
+    expect(markup).toContain(`src="${publicMediaManifest.landingFounderDemo.publicUrl}"`);
+    expect(markup).toContain(`poster="${publicMediaManifest.landingFounderDemoPoster.publicUrl}"`);
+    expect(markup).toContain("Founder demo: Building an app with Samebase and Codex");
     expect(markup).toContain('controls=""');
-    expect(markup).toContain('width="1280"');
-    expect(markup).toContain('height="850"');
-    expect(markup).toContain('preload="metadata"');
-    expect(markup).toContain('data-testid="landing-preview-chatgpt-video-label"');
-    expect(markup).toContain('alt="ChatGPT"');
+    expect(markup).toContain('width="1440"');
+    expect(markup).toContain('height="930"');
+    expect(markup).toContain('preload="none"');
     expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
     expect(markup).toContain("border-radius:1.104% / 1.664%");
 

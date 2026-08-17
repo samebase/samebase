@@ -1,4 +1,3 @@
-import chatgptAppIconUrl from "@/assets/chatgpt-app-128.webp";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
@@ -449,47 +448,6 @@ function LandingPreviewOverview() {
           </div>
           <div className="relative mt-12" style={{ containerType: "inline-size" }}>
             <div
-              className="pointer-events-none absolute -top-12 right-[7%] z-10 flex items-center @3xl:-top-14"
-              data-testid="landing-preview-chatgpt-video-label"
-            >
-              <svg
-                aria-hidden
-                className="-mr-1 mt-7 h-9 w-14 text-foreground @3xl:mt-9 @3xl:h-11 @3xl:w-16"
-                fill="none"
-                viewBox="0 0 64 44"
-              >
-                <path
-                  d="M61 5c-20-1-38 8-49 28"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeWidth="2.5"
-                />
-                <path
-                  d="m24 29-13 4-1-13"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.5"
-                />
-              </svg>
-              <div className="flex rotate-6 items-center gap-1.5">
-                <span
-                  aria-hidden
-                  className="font-mono text-xs font-semibold tracking-[0.08em] @3xl:text-sm"
-                >
-                  ChatGPT
-                </span>
-                <img
-                  alt="ChatGPT"
-                  className="h-12 w-12 @3xl:h-16 @3xl:w-16"
-                  draggable={false}
-                  height="64"
-                  src={chatgptAppIconUrl}
-                  width="64"
-                />
-              </div>
-            </div>
-            <div
               className="overflow-hidden"
               data-testid="landing-preview-hero-video-frame"
               style={{
@@ -499,19 +457,16 @@ function LandingPreviewOverview() {
               }}
             >
               <video
-                aria-label="ChatGPT builds and plays a 4x4x4 tic-tac-toe game with Samebase"
-                autoPlay
+                aria-label="Founder demo: Building an app with Samebase and Codex"
                 className="block w-full"
                 controls
                 data-testid="landing-preview-hero-video"
-                height={850}
-                loop
-                muted
+                height={930}
                 playsInline
-                poster="/landing-preview/tic-tac-toe-codex-poster.webp"
-                preload="metadata"
-                src={publicMediaManifest.landingTicTacToeCodex.publicUrl}
-                width={1280}
+                poster={publicMediaManifest.landingFounderDemoPoster.publicUrl}
+                preload="none"
+                src={publicMediaManifest.landingFounderDemo.publicUrl}
+                width={1440}
               />
             </div>
           </div>
