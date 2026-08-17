@@ -1,11 +1,11 @@
 # Samebase Remotion Studio
 
 The motion design and video composition workbench for Samebase. It keeps compositions, source-time
-edit manifests, and editorial notes beside the product and brand sources they represent. Raw
-recordings and rendered output stay local.
+edit manifests, editorial notes, and Git LFS source recordings beside the product and brand sources
+they represent. Rendered output stays local.
 
 Remotion Studio is an internal authoring surface, not a publishing service. Browser capture,
-composition, final encoding, R2 upload, and product publication remain explicit stages.
+composition, final encoding, delivery upload, and product publication remain explicit stages.
 
 ## Open the studio
 
@@ -22,6 +22,7 @@ appear in Studio immediately.
 
 - `LogoHype` explains the flat-to-isometric identity sequence, production shuffle, recursive depth,
   and Menger exploration using the shared Samebase logo model.
+- `FounderDemo` contains the founder introduction and product walkthrough.
 - `TicTacToeRecording` contains the production edit used by the landing page.
 
 Each production composition owns its component, timing model, and supporting edit data under
@@ -31,19 +32,41 @@ Each production composition owns its component, timing model, and supporting edi
 
 1. Capture real browser footage with `packages/onboarding-video-tools/` when the video needs native
    Chrome, cursor, or macOS presentation.
-2. Put local source recordings in `apps/remotion-studio/public/media/`.
+2. Put source recordings in `apps/remotion-studio/public/media/`. MP4 files in this directory use
+   Git LFS.
 3. Record timestamps, pacing decisions, and review notes in `apps/remotion-studio/notes/`.
 4. Build and inspect the composition in Remotion Studio.
 5. Run `pnpm check:remotion-studio` and render a local master into `apps/remotion-studio/out/`.
 6. Create the delivery encode and poster for the target surface.
-7. Upload accepted delivery files to the `samebase-public-media` R2 bucket.
-8. Record the immutable URL and observed metadata in `apps/samebase/shared/publicMediaManifest.ts`.
+7. Publish the accepted delivery file to its target platform.
+8. When the Samebase app serves the video directly, record its immutable URL and observed metadata
+   in `apps/samebase/shared/publicMediaManifest.ts`.
 
-Do not put R2 credentials, provider tokens, or other secrets in this app.
+Do not put provider tokens or other secrets in this app.
+
+## Founder demo
+
+The founder demo uses these tracked inputs:
+
+```text
+apps/remotion-studio/public/media/founder-demo-screen.mp4
+apps/remotion-studio/public/media/founder-demo-face.mp4
+apps/remotion-studio/public/media/founder-demo-screen-24x.mp4
+apps/remotion-studio/public/media/founder-demo.srt
+```
+
+Git downloads the MP4 files through Git LFS. Run `git lfs pull` if a checkout contains pointer files
+instead of the recordings.
+
+Render the local master with:
+
+```console
+pnpm --filter @samebase/remotion-studio render:founder-demo
+```
 
 ## Tic-Tac-Toe landing video
 
-The ignored source recording belongs at:
+The source recording belongs at:
 
 ```text
 apps/remotion-studio/public/media/tic-tac-toe-4x4x4.mp4
@@ -69,11 +92,12 @@ Commit:
 - Remotion and React source files
 - source-time edit manifests
 - editorial notes and production decisions
+- source recordings and render proxies under `public/media/` through Git LFS
+- subtitle files under `public/media/`
 - package and tool configuration
 
 Do not commit:
 
-- raw recordings in `public/media/`
 - rendered masters, delivery encodes, posters, or contact sheets in `out/`
 - `.env` files or credentials
 
@@ -81,6 +105,7 @@ Do not commit:
 
 - `pnpm --filter @samebase/remotion-studio dev`: open Remotion Studio.
 - `pnpm check:remotion-studio`: typecheck and lint from the repository root.
+- `pnpm --filter @samebase/remotion-studio render:founder-demo`: render the founder demo.
 - `pnpm --filter @samebase/remotion-studio render:logo-hype`: render the logo identity exploration.
 - `pnpm --filter @samebase/remotion-studio render:tic-tac-toe`: render the production landing edit.
 
