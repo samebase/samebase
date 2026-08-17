@@ -435,7 +435,6 @@ function buildCloudflareRow({
   convexProjects,
   configureWorkersBuildsForGitHubOnClick,
   observationState,
-  detachCloudflareWorkerOnClick,
   pendingAction,
   rotateConvexDeployKeysForWorkersBuildsOnClick,
   settingUp,
@@ -452,7 +451,6 @@ function buildCloudflareRow({
   convexProjects: readonly VaultDashboardConvexProject[];
   configureWorkersBuildsForGitHubOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   observationState: VaultCloudflareProviderObservationState;
-  detachCloudflareWorkerOnClick?: (workerId: Id<"vaultCloudflareWorkers">) => void;
   pendingAction: VaultRepositorySettingsPendingAction | null;
   rotateConvexDeployKeysForWorkersBuildsOnClick?: (
     workerId: Id<"vaultCloudflareWorkers">,
@@ -518,16 +516,6 @@ function buildCloudflareRow({
         ...base,
         state: "missing",
         description: "Missing from Cloudflare.",
-        actions: detachCloudflareWorkerOnClick
-          ? [
-              buildDetachAttachmentAction({
-                isDetaching:
-                  pendingAction?.kind === "detach_cloudflare_worker" &&
-                  pendingAction.workerId === worker.workerId,
-                onClick: () => detachCloudflareWorkerOnClick(worker.workerId),
-              }),
-            ]
-          : undefined,
       };
     case "failed":
       return {
@@ -1172,22 +1160,37 @@ export function buildVaultRepositorySettingsState({
   )) {
     const plannedAttachment =
       applicablePlan && isPlannedCloudflareAttachment(applicablePlan.cloudflare, worker);
+    const workerResource = buildCloudflareRow({
+      cloudflareAccount,
+      cloudflareBuildTokens,
+      convexProjectActionLabels,
+      convexProjects: vault.convexProjects,
+      configureWorkersBuildsForGitHubOnClick,
+      observationState: cloudflareObservations,
+      pendingAction,
+      rotateConvexDeployKeysForWorkersBuildsOnClick,
+      settingUp: Boolean(managedSetupActive && plannedAttachment),
+      worker,
+    });
+    const detachableWorkerResource =
+      detachCloudflareWorkerOnClick && workerResource.state !== "setting_up"
+        ? {
+            ...workerResource,
+            actions: buildActionList([
+              ...(workerResource.actions ?? []),
+              buildDetachAttachmentAction({
+                isDetaching:
+                  pendingAction?.kind === "detach_cloudflare_worker" &&
+                  pendingAction.workerId === worker.workerId,
+                onClick: () => detachCloudflareWorkerOnClick(worker.workerId),
+              }),
+            ]),
+          }
+        : workerResource;
     const resource = applyCloudflareDriftToRow({
       observationState: cloudflareObservations,
       pendingAction,
-      resource: buildCloudflareRow({
-        cloudflareAccount,
-        cloudflareBuildTokens,
-        convexProjectActionLabels,
-        convexProjects: vault.convexProjects,
-        configureWorkersBuildsForGitHubOnClick,
-        observationState: cloudflareObservations,
-        detachCloudflareWorkerOnClick,
-        pendingAction,
-        rotateConvexDeployKeysForWorkersBuildsOnClick,
-        settingUp: Boolean(managedSetupActive && plannedAttachment),
-        worker,
-      }),
+      resource: detachableWorkerResource,
       updateCloudflareWorkerNameOnClick,
       updateCloudflareWorkerRootDirectoryOnClick,
       worker,

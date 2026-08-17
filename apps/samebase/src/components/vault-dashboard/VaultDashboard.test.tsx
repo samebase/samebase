@@ -3067,6 +3067,7 @@ describe("buildVaultRepositorySettingsState", () => {
     expect(state.addCloudflareWorker.disabled).toBe(true);
     expect(state.addConvexProject.disabled).toBe(true);
     expect(resource.actions?.every((action) => action.disabled)).toBe(true);
+    expect(resource.actions?.map((action) => action.label)).toContain("Removing...");
   });
 
   it("keeps saved Worker coordinates until each provider change is approved", () => {
@@ -3169,6 +3170,7 @@ describe("buildVaultRepositorySettingsState", () => {
     const readyWorkerId = fakeCloudflareWorkerId("worker-ready");
     const unresolvedWorkerId = fakeCloudflareWorkerId("worker-unresolved");
     const convexProjectId = fakeConvexProjectId();
+    const detachCloudflareWorker = vi.fn();
     const state = buildVaultRepositorySettingsState({
       cloudflareObservations: makeLoadedCloudflareObservations({
         workers: [
@@ -3222,7 +3224,7 @@ describe("buildVaultRepositorySettingsState", () => {
         ],
       },
       changeConvexProjectConfigPathOnClick: () => {},
-      detachCloudflareWorkerOnClick: () => {},
+      detachCloudflareWorkerOnClick: detachCloudflareWorker,
       detachConvexProjectOnClick: () => {},
       vault: makeRepositorySettingsBuilderVault({
         cloudflareWorkers: [
@@ -3252,10 +3254,24 @@ describe("buildVaultRepositorySettingsState", () => {
       "packages/api",
       "packages/worker",
     ]);
-    expect(getRepositorySettingsResource(state, "packages/worker", "cloudflare")).toMatchObject({
+    const readyCloudflareResource = getRepositorySettingsResource(state, "apps/web", "cloudflare");
+    const unresolvedCloudflareResource = getRepositorySettingsResource(
+      state,
+      "packages/worker",
+      "cloudflare",
+    );
+    expect(unresolvedCloudflareResource).toMatchObject({
       provider: "cloudflare",
       name: "unresolved-worker",
     });
+    expect(readyCloudflareResource.actions?.map((action) => action.label)).toContain(
+      "Remove from vault",
+    );
+    expect(unresolvedCloudflareResource.actions?.map((action) => action.label)).toContain(
+      "Remove from vault",
+    );
+    readyCloudflareResource.actions?.find((action) => action.kind === "remove")?.onClick?.();
+    expect(detachCloudflareWorker).toHaveBeenCalledWith(readyWorkerId);
     const convexResource = getRepositorySettingsResource(state, "packages/api", "convex");
     expect(convexResource).toMatchObject({
       owner: "ada",
