@@ -200,7 +200,7 @@ export const testCases = [
       "vault_actions_createRepository",
     ],
     expected_output:
-      "Reads inventory and the connected Cloudflare account's Workers Builds token records, then passes one listed token UUID when it creates the private repository-backed app. It uses the selected name for the app and its new provider resources. It polls only inventory until source setup is ready or failed. After source setup is ready, it also polls only inventory until provider setup is ready or failed. It reports the repository and final states without treating the initial run IDs as completion.",
+      "Reads inventory and the connected Cloudflare account's Workers Builds token records. It uses a returned available lastUsedBuildTokenUuid without asking. If no available lastUsedBuildTokenUuid is returned, it uses the only listed token, asks the user to choose when several tokens are listed, or reports that Workers Builds token setup is required when none are listed. After it has a token choice, it passes that UUID when it creates the private repository-backed app. It uses the selected name for the app and its new provider resources. It polls only inventory until source setup is ready or failed. After source setup is ready, it also polls only inventory until provider setup is ready or failed. It reports the repository and final states without treating the initial run IDs as completion.",
     expected_output_url: null,
   },
   {

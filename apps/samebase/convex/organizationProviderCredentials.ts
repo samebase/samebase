@@ -577,7 +577,7 @@ export async function connectCloudflareCredential(
   } else if (organization.cloudflareAccount.accountName !== args.account.accountName) {
     await ctx.db.patch(organization._id, {
       cloudflareAccount: {
-        accountId: organization.cloudflareAccount.accountId,
+        ...organization.cloudflareAccount,
         accountName: args.account.accountName,
       },
     });

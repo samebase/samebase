@@ -16,11 +16,13 @@ function buildCloudflareWorkersUrl(accountId: string): string {
 function formatCloudflareBuildTokenOption(
   token: CloudflareBuildTokenOption,
   tokens: readonly CloudflareBuildTokenOption[],
+  lastUsedUuid: string | null,
 ): string {
   const duplicateName = tokens.some(
     (candidate) => candidate.uuid !== token.uuid && candidate.name === token.name,
   );
-  return duplicateName ? `${token.name} (${token.uuid.slice(0, 8)})` : token.name;
+  const label = duplicateName ? `${token.name} (${token.uuid.slice(0, 8)})` : token.name;
+  return token.uuid === lastUsedUuid ? `${label} · Last used` : label;
 }
 
 export function CloudflareBuildTokenField({
@@ -29,6 +31,7 @@ export function CloudflareBuildTokenField({
   error,
   id,
   isLoading,
+  lastUsedUuid,
   onReload,
   onValueChange,
   selectionUnavailable,
@@ -40,6 +43,7 @@ export function CloudflareBuildTokenField({
   error: boolean;
   id: string;
   isLoading: boolean;
+  lastUsedUuid: string | null;
   onReload: () => void;
   onValueChange: (value: string) => void;
   selectionUnavailable: boolean;
@@ -112,14 +116,14 @@ export function CloudflareBuildTokenField({
         <SelectTrigger className="w-full" id={id}>
           <SelectValue placeholder="Choose a token">
             {selectedToken
-              ? formatCloudflareBuildTokenOption(selectedToken, tokens)
+              ? formatCloudflareBuildTokenOption(selectedToken, tokens, lastUsedUuid)
               : "Choose a token"}
           </SelectValue>
         </SelectTrigger>
         <AppSelectContent>
           {tokens.map((token) => (
             <AppSelectItem key={token.uuid} value={token.uuid}>
-              {formatCloudflareBuildTokenOption(token, tokens)}
+              {formatCloudflareBuildTokenOption(token, tokens, lastUsedUuid)}
             </AppSelectItem>
           ))}
         </AppSelectContent>

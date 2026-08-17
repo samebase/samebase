@@ -1,6 +1,6 @@
 import { useQuery as useTanStackQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -26,25 +26,26 @@ export function useCloudflareBuildTokenSelection({
   error,
   initialUuid,
   isFetching,
+  lastUsedUuid,
   tokens,
 }: {
   error: boolean;
   initialUuid: string | null;
   isFetching: boolean;
+  lastUsedUuid: string | null;
   tokens: readonly { uuid: string }[] | null;
 }) {
   const [requestedUuid, setRequestedUuid] = useState<string | null>(initialUuid);
 
-  useEffect(() => {
-    const firstToken = tokens?.[0];
-    if (requestedUuid !== null || !firstToken || isFetching || error) {
-      return;
+  let selectedUuid = "";
+  if (requestedUuid) {
+    if (tokens?.some((token) => token.uuid === requestedUuid)) {
+      selectedUuid = requestedUuid;
     }
-    setRequestedUuid(firstToken.uuid);
-  }, [error, isFetching, requestedUuid, tokens]);
-
-  const selectedUuid =
-    requestedUuid && tokens?.some((token) => token.uuid === requestedUuid) ? requestedUuid : "";
+  } else if (!isFetching && !error) {
+    selectedUuid =
+      tokens?.find((token) => token.uuid === lastUsedUuid)?.uuid ?? tokens?.[0]?.uuid ?? "";
+  }
 
   return {
     canWrite: Boolean(selectedUuid && !isFetching && !error),

@@ -531,6 +531,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     error: Boolean(cloudflareBuildTokensQuery.error),
     initialUuid: null,
     isFetching: cloudflareBuildTokensQuery.isFetching,
+    lastUsedUuid: cloudflareBuildTokensQuery.data?.lastUsedBuildTokenUuid ?? null,
     tokens: cloudflareBuildTokensQuery.data?.tokens ?? null,
   });
   const cloudflareBuildTokenUuid = cloudflareBuildTokenSelection.selectedUuid;
@@ -834,6 +835,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
             error={Boolean(cloudflareBuildTokensQuery.error)}
             id="new-app-cloudflare-build-token"
             isLoading={cloudflareBuildTokensQuery.isFetching}
+            lastUsedUuid={cloudflareBuildTokensQuery.data?.lastUsedBuildTokenUuid ?? null}
             onReload={() => {
               void cloudflareBuildTokensQuery.refetch();
             }}

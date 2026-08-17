@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-15
+- Last updated: 2026-08-17
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -161,13 +161,16 @@ convexTeam?: {
 cloudflareAccount?: {
   accountId: string
   accountName: string
+  lastUsedBuildTokenUuid?: string
 }
 ```
 
 `teamSlug` is optional because Convex token details does not return it and an empty team has no
 project response. Samebase stores it when a project response becomes available. Make it required
 when Convex provides the slug through token details or a team lookup. Cloudflare account discovery
-requires a non-empty provider-supplied `accountName`.
+requires a non-empty provider-supplied `accountName`. `lastUsedBuildTokenUuid` is an
+organization-shared, non-secret default for the current Cloudflare account. A real account change
+clears it. An account-name refresh preserves it.
 
 Every `organizationProviderCredentials` document has a required `organizationId`, one Convex
 credential slot, and one Cloudflare credential slot. At least one credential slot is present. One
@@ -193,11 +196,19 @@ Cloudflare Workers Builds tokens are separate account-level build records. They 
 organization management credential. Samebase may list their non-secret UUIDs and names for the exact
 organization account, but it must not expose the underlying user API token ID or secret. A Builds
 write requires one explicit listed UUID and applies it only to the target Worker's production and
-preview triggers. Samebase lists records by name from Z to A without case sensitivity and may
-visibly default a selection form to the first record. Provider writes never infer a record from a
-name, list position, or another Worker's existing binding. The name and trigger binding remain live
-Cloudflare observations. OAuth reauthorization restores management access only. It does not prove or
-replace a Worker's build-token binding.
+preview triggers. After a successful write of both triggers, Samebase records that UUID as the
+organization account's last-used Builds token. A failed or abandoned selection does not change the
+default. The token-list result returns the last-used UUID only while Cloudflare still lists it for
+the exact account.
+
+The web client visibly selects a current Worker's observed token for repair, then the available
+organization last-used token, then the first record. The MCP and agent plugin use the available
+last-used UUID without asking. With no available last-used UUID, they use one result, ask the user
+to choose from several results, or direct the user to Cloudflare when the list is empty. Samebase
+lists records by name from Z to A without case sensitivity. Provider writes never infer a record
+from a name, list position, or another Worker's existing binding. The name and trigger binding
+remain live Cloudflare observations. OAuth reauthorization restores management access only. It does
+not prove or replace a Worker's build-token binding.
 
 Disconnect clears only the local credential. Samebase does not revoke Convex or Cloudflare access
 upstream. The owner receives a manual revocation notice. Disconnect keeps `organizations.convexTeam`

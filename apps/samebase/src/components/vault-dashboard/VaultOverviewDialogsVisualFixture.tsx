@@ -202,6 +202,7 @@ function CloudflareDialogFixture({
               error={false}
               id="visual-cloudflare-build-token"
               isLoading={false}
+              lastUsedUuid="fixture-build-token"
               onReload={() => {}}
               onValueChange={() => {}}
               selectionUnavailable={false}

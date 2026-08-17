@@ -430,7 +430,9 @@ test("covers Cloudflare connection and Builds repair states", async ({ page }) =
       mode === "vault-overview-v2-cloudflare-dialog-invalid-name" ||
       mode === "vault-overview-v2-cloudflare-builds-repair"
     ) {
-      await expect(dialog.getByRole("combobox", { name: "API token" })).toBeVisible();
+      const apiToken = dialog.getByRole("combobox", { name: "API token" });
+      await expect(apiToken).toBeVisible();
+      await expect(apiToken).toContainText("Last used");
     }
     if (mode === "vault-overview-v2-cloudflare-builds-repair") {
       const repositoryRoot = dialog.getByRole("combobox", { name: "Repository root" });

@@ -28,6 +28,11 @@ async function createConnectedVault() {
       githubOwnerLogin: "ada",
       githubOwnerLoginNormalized: "ada",
       githubOwnerType: "user",
+      cloudflareAccount: {
+        accountId: "cloudflare-account",
+        accountName: "Cloudflare account",
+        lastUsedBuildTokenUuid: "previous-build-token",
+      },
     });
     await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
@@ -64,7 +69,7 @@ async function createConnectedVault() {
       defaultBranch: "main",
       connectedAt: 20,
     });
-    return { runId, userId, vaultId };
+    return { organizationId, runId, userId, vaultId };
   });
 
   return { ids, t };
@@ -138,6 +143,48 @@ describe("vault infrastructure operation reads", () => {
 });
 
 describe("manual provider write ownership", () => {
+  it("records only after Builds configuration and before a later initial-build failure", async () => {
+    const { ids, t } = await createConnectedVault();
+    await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      actionId: "failed-builds",
+      action: "configure_workers_builds_for_github",
+    });
+    await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
+      vaultId: ids.vaultId,
+      actionId: "failed-builds",
+      result: "failed",
+    });
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(ids.organizationId))?.cloudflareAccount),
+    ).resolves.toMatchObject({ lastUsedBuildTokenUuid: "previous-build-token" });
+
+    await t.mutation(internal.vault.infrastructureOperation.claimManualProviderWrite, {
+      vaultId: ids.vaultId,
+      userId: ids.userId,
+      actionId: "configured-builds",
+      action: "configure_workers_builds_for_github",
+    });
+    await t.mutation(internal.vault.infrastructureOperation.recordManualWorkersBuildsTokenUse, {
+      vaultId: ids.vaultId,
+      actionId: "configured-builds",
+      buildTokenUuid: "  configured-build-token  ",
+    });
+    await t.mutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
+      vaultId: ids.vaultId,
+      actionId: "configured-builds",
+      result: "failed",
+    });
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(ids.organizationId))?.cloudflareAccount),
+    ).resolves.toEqual({
+      accountId: "cloudflare-account",
+      accountName: "Cloudflare account",
+      lastUsedBuildTokenUuid: "configured-build-token",
+    });
+  });
+
   it("rejects a second claim while the first action owns the vault", async () => {
     const { ids, t } = await createConnectedVault();
     vi.useFakeTimers();

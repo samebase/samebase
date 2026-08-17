@@ -1486,6 +1486,7 @@ type ConfigureCloudflareWorkerBuildsForGitHubArgs = {
   buildConfig: CloudflareBuildConfig;
   recordApiCall?: ProviderApiCallRecorder;
   beforeProviderWrite?: () => void | Promise<void>;
+  afterBuildsConfigured?: () => void | Promise<void>;
 };
 
 type RotateConvexDeployKeysForCloudflareWorkerBuildsArgs = {
@@ -1906,6 +1907,9 @@ export async function configureCloudflareWorkerBuildsForGitHub(
       recordApiCall: args.recordApiCall,
       beforeProviderWrite: args.beforeProviderWrite,
     });
+
+    step = "record_builds_configuration";
+    await args.afterBuildsConfigured?.();
 
     if (args.initialBuild.state === "requested") {
       step = "trigger_initial_build";

@@ -5,11 +5,13 @@
 MCP tool `cloudflare_listWorkersBuildTokens` · scope `access_provider_connections` · read_only
 
 Lists the Workers Builds token records in the Cloudflare account connected to the selected Samebase
-organization. The result contains each token's non-secret name and Workers Builds UUID. It never
-returns the token secret or the underlying Cloudflare user API token id. Pass one returned UUID to
-app or Worker creation and Workers Builds configuration actions. If the list is empty, complete
-Workers Builds token setup in Cloudflare and list again. A single result can be used. For multiple
-results, ask the user to choose by the displayed name and UUID.
+organization. The result contains each token's non-secret name and Workers Builds UUID. It also
+returns lastUsedBuildTokenUuid when that organization default remains in the current list, or null
+when it is unavailable. It never returns the token secret or the underlying Cloudflare user API
+token id. Pass one returned UUID to app or Worker creation and Workers Builds configuration actions.
+Use an available lastUsedBuildTokenUuid without asking. If there is no available last-used UUID, use
+one result, ask the user to choose by displayed name and UUID when several results exist, or tell
+the user to complete Workers Builds token setup in Cloudflare when the list is empty.
 
 ## Arguments
 
@@ -26,6 +28,16 @@ JSON Schema for the tool's `structuredContent`:
   "properties": {
     "accountId": {
       "type": "string"
+    },
+    "lastUsedBuildTokenUuid": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ]
     },
     "tokens": {
       "type": "array",
@@ -44,7 +56,7 @@ JSON Schema for the tool's `structuredContent`:
       }
     }
   },
-  "required": ["accountId", "tokens"],
+  "required": ["accountId", "lastUsedBuildTokenUuid", "tokens"],
   "additionalProperties": false
 }
 ```

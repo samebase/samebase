@@ -446,6 +446,7 @@ export function VaultCloudflareDialog({
     error: Boolean(buildTokensQuery.error),
     initialUuid: repairBuildTokenUuid,
     isFetching: buildTokensQuery.isFetching,
+    lastUsedUuid: buildTokensQuery.data?.lastUsedBuildTokenUuid ?? null,
     tokens: buildTokensQuery.data?.tokens ?? null,
   });
   const buildTokenUuid = buildTokenSelection.selectedUuid;
@@ -582,6 +583,7 @@ export function VaultCloudflareDialog({
             error={Boolean(buildTokensQuery.error)}
             id="vault-cloudflare-build-token"
             isLoading={buildTokensQuery.isFetching}
+            lastUsedUuid={buildTokensQuery.data?.lastUsedBuildTokenUuid ?? null}
             onReload={() => {
               void buildTokensQuery.refetch();
             }}
