@@ -1045,6 +1045,7 @@ describe("cloudflare resources", () => {
 
   it("does not request a manual build when the default-branch SHA is invalid", async () => {
     const requests: RecordedCloudflareRequest[] = [];
+    const afterBuildsConfigured = vi.fn();
     stubEnsureCloudflareResourcesFetch({
       requests,
       triggers: [],
@@ -1057,8 +1058,17 @@ describe("cloudflare resources", () => {
           state: "requested",
           readCommitHash: async () => "not-a-commit",
         },
+        afterBuildsConfigured,
       }),
     ).rejects.toThrow("Initial Workers build did not receive a full commit SHA.");
+    expect(afterBuildsConfigured).toHaveBeenCalledOnce();
+    expect(
+      requests.filter(
+        (request) =>
+          request.method === "POST" &&
+          request.path === "/client/v4/accounts/account-id/builds/triggers",
+      ),
+    ).toHaveLength(2);
     expect(requests.some((request) => request.path.endsWith("/builds"))).toBe(false);
   });
 

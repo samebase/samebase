@@ -29,6 +29,33 @@ export function normalizeGitHubOwnerLogin(login: string): string {
   return login.trim().toLowerCase();
 }
 
+export async function recordOrganizationLastUsedBuildToken(
+  ctx: Pick<MutationCtx, "db">,
+  args: {
+    organizationId: Id<"organizations">;
+    cloudflareAccountId: string;
+    buildTokenUuid: string;
+  },
+): Promise<void> {
+  const buildTokenUuid = args.buildTokenUuid.trim();
+  if (!buildTokenUuid) {
+    throw new Error("Cloudflare Workers Builds token UUID is required.");
+  }
+  const organization = await ctx.db.get(args.organizationId);
+  if (
+    organization?.cloudflareAccount === undefined ||
+    organization.cloudflareAccount.accountId !== args.cloudflareAccountId
+  ) {
+    throw new Error("Cloudflare account changed before the Builds token use was recorded.");
+  }
+  await ctx.db.patch(organization._id, {
+    cloudflareAccount: {
+      ...organization.cloudflareAccount,
+      lastUsedBuildTokenUuid: buildTokenUuid,
+    },
+  });
+}
+
 function requireProviderIdentity(value: string, label: string): string {
   const normalized = value.trim();
   if (normalized.length === 0) {

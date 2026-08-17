@@ -127,6 +127,7 @@ async function connectCloudflare(
   userId: Id<"users">,
   auth: CloudflareProviderCredential["auth"],
   selectedAccountId = accountId,
+  accountName = "Primary account",
 ) {
   return await seed.t.mutation(internal.organizationProviderCredentials.connectCloudflare, {
     organizationId: seed.organizationId,
@@ -135,7 +136,7 @@ async function connectCloudflare(
     auth,
     account: {
       accountId: selectedAccountId,
-      accountName: "Primary account",
+      accountName,
     },
   });
 }
@@ -269,8 +270,23 @@ describe("organization provider credential lifecycle", () => {
 
   it("reuses one credential document for both slots and same-target reauthorization", async () => {
     const seed = await seedConfiguredProviders();
+    await seed.t.run(async (ctx) => {
+      await ctx.db.patch(seed.organizationId, {
+        cloudflareAccount: {
+          accountId,
+          accountName: "Primary account",
+          lastUsedBuildTokenUuid: "last-used-build-token",
+        },
+      });
+    });
     await connectConvex(seed, seed.otherOwnerId, apiKey("convex-new"));
-    await connectCloudflare(seed, seed.otherOwnerId, apiKey("cloudflare-new"));
+    await connectCloudflare(
+      seed,
+      seed.otherOwnerId,
+      apiKey("cloudflare-new"),
+      accountId,
+      "Renamed account",
+    );
 
     const { credentials, organization } = await loadProviderState(seed.t, seed.organizationId);
     const rows = await seed.t.run(async (ctx) =>
@@ -281,14 +297,18 @@ describe("organization provider credential lifecycle", () => {
       id: credentials?._id,
       credentialOrganizationId: credentials?.organizationId,
       convexTeamId: organization.convexTeam?.teamId,
-      cloudflareAccountId: organization.cloudflareAccount?.accountId,
+      cloudflareAccount: organization.cloudflareAccount,
       convexConnector: credentials?.convex?.connectedByUserId,
       cloudflareConnector: credentials?.cloudflare?.connectedByUserId,
     }).toEqual({
       id: seed.providerCredentialsId,
       credentialOrganizationId: seed.organizationId,
       convexTeamId: teamId,
-      cloudflareAccountId: accountId,
+      cloudflareAccount: {
+        accountId,
+        accountName: "Renamed account",
+        lastUsedBuildTokenUuid: "last-used-build-token",
+      },
       convexConnector: seed.otherOwnerId,
       cloudflareConnector: seed.otherOwnerId,
     });

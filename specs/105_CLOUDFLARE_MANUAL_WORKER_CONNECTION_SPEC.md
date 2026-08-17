@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-08-15
+- Last updated: 2026-08-17
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
@@ -74,7 +74,8 @@ not batch-atomic.
 
 `Connect and add` also requires one Workers Builds token selected from the exact vault account.
 Samebase re-lists the account records before the write and applies the selected UUID to both
-triggers.
+triggers. After both trigger writes succeed, that UUID becomes the organization account's last-used
+Builds token.
 
 If Cloudflare reports an error after attachment, Samebase re-observes the Worker before it explains
 what to do next. The Worker stays under its stored root and can show `Needs attention`. The message
@@ -94,12 +95,15 @@ Cloudflare Workers Builds. Samebase creates the Worker and records its exact pro
 approved root, and `provisioned` attachment together before configuring Builds. It then writes the
 GitHub Builds configuration and re-reads the resulting repository and root evidence.
 
-The create flow requires the same visible token selection. Samebase orders the account token list by
-name from Z to A without case sensitivity, with UUID as the stable tie-breaker. When the list first
-settles, the client visibly selects the first record. This puts Cloudflare's default timestamped
-names in newest-name-first order without parsing the timestamp. A later refresh does not replace an
-existing or user-selected UUID. Provider writes never infer a token from a name, list position, or
-another Worker's current binding. They validate the exact selected UUID again.
+The create flow requires the same visible token selection. A current Worker's observed token has
+priority during repair. Otherwise, the client selects the organization account's last-used token
+when it remains in the current list, then the first record. Samebase orders the account token list
+by name from Z to A without case sensitivity, with UUID as the stable tie-breaker. This keeps
+Cloudflare's default timestamped names in newest-name-first order without parsing the timestamp. A
+later refresh does not replace an existing or user-selected UUID. Provider writes never infer a
+token from a name, list position, or another Worker's current binding. They validate the exact
+selected UUID again. A successful write of both triggers updates the organization default. A failed
+write does not update it.
 
 If Builds configuration fails, the Worker stays attached under its stored root with
 `Needs attention`. This preserves cleanup ownership and lets the user retry the explicit

@@ -14,6 +14,7 @@ describe("CloudflareBuildTokenField", () => {
         error={false}
         id="build-token"
         isLoading
+        lastUsedUuid={null}
         onReload={() => {}}
         onValueChange={() => {}}
         selectionUnavailable={false}
@@ -28,6 +29,7 @@ describe("CloudflareBuildTokenField", () => {
         error
         id="build-token"
         isLoading={false}
+        lastUsedUuid={null}
         onReload={() => {}}
         onValueChange={() => {}}
         selectionUnavailable={false}
@@ -51,6 +53,7 @@ describe("CloudflareBuildTokenField", () => {
         error={false}
         id="build-token"
         isLoading={false}
+        lastUsedUuid="bbbbbbbb-second"
         onReload={() => {}}
         onValueChange={() => {}}
         selectionUnavailable={false}
@@ -62,7 +65,7 @@ describe("CloudflareBuildTokenField", () => {
       />,
     );
 
-    expect(markup).toContain("Workers Builds (bbbbbbbb)");
+    expect(markup).toContain("Workers Builds (bbbbbbbb) · Last used");
   });
 
   it("gives the Cloudflare setup and reload actions when no records are available", () => {
@@ -73,6 +76,7 @@ describe("CloudflareBuildTokenField", () => {
         error={false}
         id="build-token"
         isLoading={false}
+        lastUsedUuid={null}
         onReload={() => {}}
         onValueChange={() => {}}
         selectionUnavailable={false}
@@ -95,6 +99,7 @@ describe("CloudflareBuildTokenField", () => {
         error={false}
         id="build-token"
         isLoading={false}
+        lastUsedUuid={null}
         onReload={() => {}}
         onValueChange={() => {}}
         selectionUnavailable

@@ -189,6 +189,7 @@ describe("app provisioning workflow composition", () => {
         vaultId: ids.vaultId,
         runId: ids.runId,
         providers: ["cloudflare"],
+        lastUsedBuildTokenUuid: "  build-token  ",
       });
       vi.setSystemTime(3_000);
       await t.mutation(internal.vault.infrastructureOperation.recordManagedProviderWrites, {
@@ -222,6 +223,13 @@ describe("app provisioning workflow composition", () => {
         cloudflare: 3_000,
       },
       updatedAt: 4_000,
+    });
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(ids.organizationId))?.cloudflareAccount),
+    ).resolves.toEqual({
+      accountId: "cloudflare-account",
+      accountName: "Cloudflare account",
+      lastUsedBuildTokenUuid: "build-token",
     });
   });
 

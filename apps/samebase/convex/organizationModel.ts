@@ -14,6 +14,7 @@ export const vOrganizationConvexTeam = object({
 export const vOrganizationCloudflareAccount = object({
   accountId: string(),
   accountName: string(),
+  lastUsedBuildTokenUuid: optional(string()),
 });
 
 export const vGitHubOwnerType = union(literal("organization"), literal("user"));

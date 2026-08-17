@@ -10,7 +10,7 @@ test("new app Workers Builds token", async ({ page }) => {
   const surface = page.getByTestId("new-app-build-token");
   await expect(surface.getByText("API token")).toBeVisible();
   await expect(surface.getByRole("combobox", { name: "API token" })).toContainText(
-    "Workers Builds - 2026-08-14 01:54",
+    "Workers Builds - 2026-08-14 01:54 · Last used",
   );
   await expect(surface).toHaveScreenshot("new-app-build-token.png", {
     animations: "disabled",

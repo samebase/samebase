@@ -31,8 +31,14 @@ export async function listWorkersBuildTokensForUser(
       transport: resolveCloudflareApiTransport(connection.auth.method),
       accountId,
     });
+    const lastUsedBuildTokenUuid = connection.account.lastUsedBuildTokenUuid;
     return {
       accountId,
+      lastUsedBuildTokenUuid:
+        lastUsedBuildTokenUuid &&
+        tokens.some((buildToken) => buildToken.uuid === lastUsedBuildTokenUuid)
+          ? lastUsedBuildTokenUuid
+          : null,
       tokens: tokens.map((buildToken) => ({
         uuid: buildToken.uuid,
         name: buildToken.name,

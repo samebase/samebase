@@ -231,9 +231,12 @@ describe("MCP tool listing access", () => {
         type: "object",
         properties: {
           accountId: { type: "string" },
+          lastUsedBuildTokenUuid: {
+            anyOf: [{ type: "string" }, { type: "null" }],
+          },
           tokens: { type: "array" },
         },
-        required: ["accountId", "tokens"],
+        required: ["accountId", "lastUsedBuildTokenUuid", "tokens"],
         additionalProperties: false,
       },
     });
@@ -477,7 +480,7 @@ describe("MCP tools/call access enforcement", () => {
         ttlMs: 0,
         cacheScope: "private",
         instructions: expect.stringMatching(
-          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*For multiple results, ask the user to choose by the displayed name and UUID\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
+          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*If lastUsedBuildTokenUuid is available, use that UUID without asking\.[\s\S]*If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
         ),
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
@@ -1075,6 +1078,7 @@ describe("MCP tools/call access enforcement", () => {
         cloudflareAccount: {
           accountId: cloudflareAccountId,
           accountName: "Test account",
+          lastUsedBuildTokenUuid: "reusable-build-token",
         },
       });
       const vaultId = await ctx.db.insert("vaults", {
@@ -1129,6 +1133,7 @@ describe("MCP tools/call access enforcement", () => {
       result: {
         structuredContent: {
           accountId: cloudflareAccountId,
+          lastUsedBuildTokenUuid: "reusable-build-token",
           tokens: [{ name: "samebase build token", uuid: "reusable-build-token" }],
         },
       },

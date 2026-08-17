@@ -688,6 +688,7 @@ async function configurePreparedWorkersBuildsForGitHub(
     initialBuild: "deferred" | "requested";
     existingBuilds: "preserve_repository" | "require_unconnected";
     beforeProviderWrite?: () => void | Promise<void>;
+    afterBuildsConfigured?: () => void | Promise<void>;
   },
   prepared: Awaited<ReturnType<typeof prepareWorkersBuildsForGitHub>>,
 ): Promise<CloudflareConnectedWorkersBuilds> {
@@ -722,6 +723,7 @@ async function configurePreparedWorkersBuildsForGitHub(
     buildTokenUuid: args.buildTokenUuid,
     buildConfig: prepared.buildConfig,
     beforeProviderWrite: args.beforeProviderWrite,
+    afterBuildsConfigured: args.afterBuildsConfigured,
   });
   return build;
 }
@@ -734,6 +736,7 @@ async function configureResolvedWorkersBuildsForGitHub(
     initialBuild: "deferred" | "requested";
     existingBuilds: "preserve_repository" | "require_unconnected";
     beforeProviderWrite?: () => void | Promise<void>;
+    afterBuildsConfigured?: () => void | Promise<void>;
   },
   resolved: Awaited<ReturnType<typeof resolveCloudflareRepositoryContext>>,
   worker: { workerName: string; workerTag: string },
@@ -745,6 +748,7 @@ async function configureResolvedWorkersBuildsForGitHub(
       initialBuild: args.initialBuild,
       existingBuilds: args.existingBuilds,
       beforeProviderWrite: args.beforeProviderWrite,
+      afterBuildsConfigured: args.afterBuildsConfigured,
     },
     {
       connection: resolved.connection,
@@ -1050,6 +1054,21 @@ export async function rotateConvexDeployKeysForWorkersBuildsForUser(
   });
 }
 
+async function recordManualWorkersBuildsTokenUse(
+  ctx: Pick<ActionCtx, "runMutation">,
+  args: {
+    vaultId: Id<"vaults">;
+    actionId: string;
+    buildTokenUuid: string;
+  },
+): Promise<void> {
+  await ctx.runMutation(internal.vault.infrastructureOperation.recordManualWorkersBuildsTokenUse, {
+    vaultId: args.vaultId,
+    actionId: args.actionId,
+    buildTokenUuid: args.buildTokenUuid,
+  });
+}
+
 export async function configureWorkersBuildsForGitHubForUser(
   ctx: ActionCtx,
   args: {
@@ -1090,6 +1109,13 @@ export async function configureWorkersBuildsForGitHubForUser(
         existingBuilds: "preserve_repository",
         beforeProviderWrite: () => {
           requireManualProviderActionDeadline(claim.deadlineAt);
+        },
+        afterBuildsConfigured: async () => {
+          await recordManualWorkersBuildsTokenUse(ctx, {
+            vaultId: args.vaultId,
+            actionId,
+            buildTokenUuid: args.buildTokenUuid,
+          });
         },
       },
       prepared,
@@ -1227,6 +1253,13 @@ async function connectWorkerForUser(
           requireManualProviderActionDeadline(claim.deadlineAt);
           providerWrite.started = true;
         },
+        afterBuildsConfigured: async () => {
+          await recordManualWorkersBuildsTokenUse(ctx, {
+            vaultId: args.vaultId,
+            actionId,
+            buildTokenUuid: args.buildTokenUuid,
+          });
+        },
       },
       resolved,
       identity,
@@ -1277,17 +1310,25 @@ async function connectWorkerForUser(
       observed.rootDirectory === buildConfig.rootDir &&
       observed.builds.state === "available"
     ) {
+      if (didConfigureBuilds) {
+        await ctx.runMutation(
+          internal.vault.infrastructureOperation.finishManualProviderWriteResult,
+          {
+            vaultId: args.vaultId,
+            actionId,
+            result: "succeeded",
+          },
+        );
+        return { state: "ready", workerId };
+      }
       await ctx.runMutation(
         internal.vault.infrastructureOperation.finishManualProviderWriteResult,
         {
           vaultId: args.vaultId,
           actionId,
-          result: didConfigureBuilds ? "succeeded" : "failed",
+          result: "failed",
         },
       );
-      if (didConfigureBuilds) {
-        return { state: "ready", workerId };
-      }
       return {
         state: "added_with_notice",
         workerId,
@@ -1418,6 +1459,13 @@ export async function createWorkerForUser(
         initialBuild: "requested",
         existingBuilds: "require_unconnected",
         beforeProviderWrite: () => requireManualProviderActionDeadline(claim.deadlineAt),
+        afterBuildsConfigured: async () => {
+          await recordManualWorkersBuildsTokenUse(ctx, {
+            vaultId: args.vaultId,
+            actionId,
+            buildTokenUuid: args.buildTokenUuid,
+          });
+        },
       },
       resolved,
       worker,
@@ -1679,6 +1727,7 @@ export const configureWorkersBuildsForGitHubForWorkflow = internalAction({
       vaultId,
       runId,
       providers: ["cloudflare"],
+      lastUsedBuildTokenUuid: context.buildTokenUuid,
     });
     return {
       rootDirectory: build.rootDirectory,

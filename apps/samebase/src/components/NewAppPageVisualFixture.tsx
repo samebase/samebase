@@ -19,6 +19,7 @@ export function NewAppPageVisualFixture({ mode }: { mode: NewAppPageVisualMode }
                   error={false}
                   id="visual-cloudflare-build-token"
                   isLoading={false}
+                  lastUsedUuid="build-token-2026-08-14"
                   onReload={() => {}}
                   onValueChange={() => {}}
                   selectionUnavailable={false}

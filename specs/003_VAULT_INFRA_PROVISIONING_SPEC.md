@@ -4,7 +4,7 @@
 
 - Status: Implemented for MVP
 - Owner: Samebase backend/frontend
-- Last updated: 2026-08-15
+- Last updated: 2026-08-17
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Related deletion contract: `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
@@ -103,7 +103,9 @@ plan keeps it because a retry must use the same user choice. Before each trigger
 requires Cloudflare to list that UUID for the vault account. Samebase does not store the token name,
 the underlying user API token ID, or its secret. If Cloudflare no longer lists the selected UUID,
 managed setup tells the user to remove the failed app and create it again with another token. Retry
-does not choose a replacement token.
+does not choose a replacement token. After both trigger writes succeed, Samebase also records this
+UUID as the organization account's last-used Builds token. That organization default affects only
+future selections. It never replaces the plan UUID during a retry.
 
 Indexes:
 

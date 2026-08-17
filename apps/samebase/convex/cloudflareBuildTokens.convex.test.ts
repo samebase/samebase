@@ -30,6 +30,7 @@ async function seedCloudflareOrganization() {
       cloudflareAccount: {
         accountId: "exact-cloudflare-account",
         accountName: "Exact Cloudflare account",
+        lastUsedBuildTokenUuid: "build-token",
       },
     });
     await ctx.db.insert("organizationMemberships", {
@@ -100,9 +101,43 @@ describe("Cloudflare Workers Builds token list", () => {
       asMember.action(api.cloudflareBuildTokens.list, { organizationId }),
     ).resolves.toEqual({
       accountId: "exact-cloudflare-account",
+      lastUsedBuildTokenUuid: "build-token",
       tokens: [{ name: "Workers Builds - 2026-08-14 01:54", uuid: "build-token" }],
     });
     expect(fetch).toHaveBeenCalledOnce();
+  });
+
+  it("returns null when the stored last-used token is not in the live account list", async () => {
+    const { memberId, organizationId, t } = await seedCloudflareOrganization();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          success: true,
+          errors: [],
+          messages: [],
+          result: [
+            {
+              build_token_uuid: "current-build-token",
+              build_token_name: "Current token",
+              cloudflare_token_id: "provider-token-id",
+            },
+          ],
+        }),
+      ),
+    );
+    const asMember = t.withIdentity({
+      subject: `${memberId}|session`,
+      tokenIdentifier: `test:${memberId}`,
+    });
+
+    await expect(
+      asMember.action(api.cloudflareBuildTokens.list, { organizationId }),
+    ).resolves.toEqual({
+      accountId: "exact-cloudflare-account",
+      lastUsedBuildTokenUuid: null,
+      tokens: [{ name: "Current token", uuid: "current-build-token" }],
+    });
   });
 
   it("rejects a user outside the organization before a Cloudflare request", async () => {

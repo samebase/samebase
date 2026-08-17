@@ -2209,7 +2209,11 @@ describe("VaultCloudflareDialogContent", () => {
     const configureWorkersBuilds = vi.fn(async () => null);
     const listBuildTokens = vi.fn(async () => ({
       accountId: "account-1",
-      tokens: [{ name: "Build token", uuid: "build-token" }],
+      lastUsedBuildTokenUuid: "last-used-build-token",
+      tokens: [
+        { name: "Build token", uuid: "build-token" },
+        { name: "Last used build token", uuid: "last-used-build-token" },
+      ],
     }));
     useActionMock.mockImplementation((action: FunctionReference<"action">) => {
       const actionName = getFunctionName(action);
@@ -2412,6 +2416,7 @@ describe("VaultCloudflareDialogContent", () => {
     }));
     const listBuildTokens = vi.fn(async () => ({
       accountId: "account-1",
+      lastUsedBuildTokenUuid: "build-token",
       tokens: [{ name: "Build token", uuid: "build-token" }],
     }));
     useActionMock.mockImplementation((action: FunctionReference<"action">) => {

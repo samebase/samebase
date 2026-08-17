@@ -15,6 +15,7 @@ import {
 import { toErrorMessage } from "../jsonUtils";
 import { requireVaultForUser } from "../organizationAccess";
 import { requireOrganizationNotBillingLimited } from "../organizationBillingLimits";
+import { recordOrganizationLastUsedBuildToken } from "../organizations";
 import { assertConnectedVault, isLiveConnectedVault } from "./state";
 
 type InfrastructureOperationReadCtx = Pick<QueryCtx, "db">;
@@ -25,7 +26,7 @@ export type ManualProviderWrite = Extract<
   { owner: { kind: "manual_provider_write" } }
 >;
 
-const { array, id, literal, number, object, string, union } = v;
+const { array, id, literal, number, object, optional, string, union } = v;
 const vManualProviderWriteClaim = object({
   deadlineAt: number(),
 });
@@ -165,6 +166,7 @@ export const recordManagedProviderWrites = internalMutation({
     vaultId: id("vaults"),
     runId: id("workflow_vaultProvisioning_runs"),
     providers: array(vProvider),
+    lastUsedBuildTokenUuid: optional(string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -173,6 +175,20 @@ export const recordManagedProviderWrites = internalMutation({
         vaultId: args.vaultId,
         runId: args.runId,
         provider,
+      });
+    }
+    if (args.lastUsedBuildTokenUuid !== undefined) {
+      if (!args.providers.includes("cloudflare")) {
+        throw new Error("A managed Builds token use requires a Cloudflare provider write.");
+      }
+      const vault = await ctx.db.get(args.vaultId);
+      if (vault === null) {
+        throw new Error("Vault not found.");
+      }
+      await recordOrganizationLastUsedBuildToken(ctx, {
+        organizationId: vault.organizationId,
+        cloudflareAccountId: vault.cloudflareAccountId,
+        buildTokenUuid: args.lastUsedBuildTokenUuid,
       });
     }
     return null;
@@ -292,6 +308,34 @@ export const claimManualProviderWrite = internalMutation({
       },
     );
     return { deadlineAt };
+  },
+});
+
+export const recordManualWorkersBuildsTokenUse = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    actionId: string(),
+    buildTokenUuid: string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const { vault, write } = await requireManualProviderWriteOwner(ctx, args);
+    if (write.state !== "active" || Date.now() >= write.owner.expiresAt) {
+      throw new Error("Manual provider action state changed before the Builds token was recorded.");
+    }
+    if (
+      write.owner.action !== "connect_cloudflare_worker" &&
+      write.owner.action !== "create_cloudflare_worker" &&
+      write.owner.action !== "configure_workers_builds_for_github"
+    ) {
+      throw new Error("This manual provider action does not configure Workers Builds.");
+    }
+    await recordOrganizationLastUsedBuildToken(ctx, {
+      organizationId: vault.organizationId,
+      cloudflareAccountId: vault.cloudflareAccountId,
+      buildTokenUuid: args.buildTokenUuid,
+    });
+    return null;
   },
 });
 

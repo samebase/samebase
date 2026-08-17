@@ -21,6 +21,7 @@ vi.mock("@/components/useCloudflareBuildTokens", () => ({
   useCloudflareBuildTokens: () => ({
     data: {
       accountId: "account-acme-production",
+      lastUsedBuildTokenUuid: "build-token-1",
       tokens: [{ name: "Workers Builds - 2026-08-14 01:54", uuid: "build-token-1" }],
     },
     error: null,
