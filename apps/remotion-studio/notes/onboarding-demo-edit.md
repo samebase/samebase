@@ -36,6 +36,8 @@ These are operator-selected source-time boundaries. Keep all other sections at 1
 The 16x maximum is provisional. Review the longer waits in Remotion Studio and increase their
 configured maximum only if the current curve does not compress them enough.
 
+Play `11:15.54` to the end at `0.5x` with the screen, face, audio, and captions kept together.
+
 Each wait uses the shared four-second smooth curve from 1x to its configured maximum and back to 1x.
 A wait that is too short to reach its configured maximum uses the same curve with a lower peak. The
 24x proxy is only a rendering source for playback above 16x.

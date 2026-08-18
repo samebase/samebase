@@ -181,8 +181,15 @@ const sourceSections = [
   {
     kind: "face",
     name: "Face 10:45",
-    sourceEndInSeconds: sourceDurationInFrames / onboardingDemoFps,
+    sourceEndInSeconds: 675.54,
     sourceStartInSeconds: 645.52,
+  },
+  {
+    kind: "face",
+    name: "Slow motion 11:15",
+    playbackRate: 0.5,
+    sourceEndInSeconds: sourceDurationInFrames / onboardingDemoFps,
+    sourceStartInSeconds: 675.54,
   },
 ] satisfies readonly RecordedDemoSourceSection[];
 

@@ -10,6 +10,7 @@ type RecordedDemoSourceSectionBase = {
 export type RecordedDemoSourceSection =
   | (RecordedDemoSourceSectionBase & {
       kind: "face";
+      playbackRate?: number;
     })
   | (RecordedDemoSourceSectionBase & {
       kind: "wait";
@@ -27,6 +28,7 @@ type RecordedDemoSegmentBase = {
 
 export type RecordedDemoFaceSegment = RecordedDemoSegmentBase & {
   kind: "face";
+  playbackRate: number;
 };
 
 export type RecordedDemoWaitSegment = RecordedDemoSegmentBase & {
@@ -181,14 +183,25 @@ export const createRecordedDemoEdit = ({
     }
 
     if (section.kind === "face") {
-      const durationInFrames = sourceDuration;
+      const playbackRate = section.playbackRate ?? 1;
+
+      if (!Number.isFinite(playbackRate) || playbackRate <= 0) {
+        throw new Error(`${section.name} playback rate must be greater than 0`);
+      }
+
+      const durationInFrames = Math.round(sourceDuration / playbackRate);
+
+      if (Math.abs(durationInFrames * playbackRate - sourceDuration) > 0.000_001) {
+        throw new Error(`${section.name} playback rate must cover its full source range`);
+      }
 
       segments.push({
         kind: "face",
         durationInFrames,
         editEndInFrames: editStartInFrames + durationInFrames,
         editStartInFrames,
-        name: `${section.name} · 1×`,
+        name: `${section.name} · ${playbackRate}×`,
+        playbackRate,
         sourceEndInFrames,
         sourceStartInFrames,
       });
@@ -263,7 +276,7 @@ export const getRecordedDemoSegmentPlaybackRate = (
   localFrame: number,
 ) => {
   if (segment.kind === "face") {
-    return 1;
+    return segment.playbackRate;
   }
 
   const clampedFrame = Math.min(Math.max(Math.floor(localFrame), 0), segment.durationInFrames - 1);
@@ -283,7 +296,7 @@ export const getRecordedDemoSegmentSourceFrame = (
   const clampedFrame = Math.min(Math.max(Math.floor(localFrame), 0), segment.durationInFrames - 1);
 
   if (segment.kind === "face") {
-    return segment.sourceStartInFrames + clampedFrame;
+    return segment.sourceStartInFrames + clampedFrame * segment.playbackRate;
   }
 
   const sourceFrame = segment.sourceFrames[clampedFrame];

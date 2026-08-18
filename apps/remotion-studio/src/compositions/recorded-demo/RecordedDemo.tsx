@@ -81,10 +81,12 @@ const SegmentCaptions: React.FC<{
       return null;
     }
 
-    const from = Math.floor(visibleStartInSourceFrames - segment.sourceStartInFrames);
+    const from = Math.floor(
+      (visibleStartInSourceFrames - segment.sourceStartInFrames) / segment.playbackRate,
+    );
     const end = Math.min(
       segment.durationInFrames,
-      Math.ceil(visibleEndInSourceFrames - segment.sourceStartInFrames),
+      Math.ceil((visibleEndInSourceFrames - segment.sourceStartInFrames) / segment.playbackRate),
     );
 
     return (
@@ -104,15 +106,17 @@ const FaceBubble: React.FC<{
   faceCrop: RecordedDemoProps["faceCrop"];
   facePlacement: RecordedDemoProps["facePlacement"];
   faceRecording: string;
+  fadeIn: boolean;
+  fadeOut: boolean;
   layoutScale: number;
   segment: RecordedDemoFaceSegment;
-}> = ({ edit, faceCrop, facePlacement, faceRecording, layoutScale, segment }) => {
+}> = ({ edit, faceCrop, facePlacement, faceRecording, fadeIn, fadeOut, layoutScale, segment }) => {
   const frame = useCurrentFrame();
   const faceFadeDurationInFrames = Math.round(edit.fps * 0.4);
   const opacity = Math.min(
     1,
-    frame / faceFadeDurationInFrames,
-    (segment.durationInFrames - 1 - frame) / faceFadeDurationInFrames,
+    fadeIn ? frame / faceFadeDurationInFrames : 1,
+    fadeOut ? (segment.durationInFrames - 1 - frame) / faceFadeDurationInFrames : 1,
   );
 
   return (
@@ -134,7 +138,7 @@ const FaceBubble: React.FC<{
     >
       <OffthreadVideo
         muted
-        playbackRate={1}
+        playbackRate={segment.playbackRate}
         src={faceRecording}
         style={{
           height: faceCrop === "lower" ? "112%" : "100%",
@@ -190,6 +194,7 @@ const SegmentAudio: React.FC<{
   if (segment.kind === "face") {
     return (
       <Html5Audio
+        playbackRate={segment.playbackRate}
         src={screenRecording}
         trimAfter={segment.sourceEndInFrames}
         trimBefore={segment.sourceStartInFrames}
@@ -298,7 +303,7 @@ export const RecordedDemo: React.FC<RecordedDemoProps> = ({
   return (
     <AbsoluteFill style={{ backgroundColor: "black", overflow: "hidden" }}>
       <Series name="Recorded demo edit">
-        {edit.segments.map((segment) => (
+        {edit.segments.map((segment, index) => (
           <Series.Sequence
             durationInFrames={segment.durationInFrames}
             key={`${segment.sourceStartInFrames}-${segment.sourceEndInFrames}`}
@@ -307,7 +312,7 @@ export const RecordedDemo: React.FC<RecordedDemoProps> = ({
             {segment.kind === "face" ? (
               <OffthreadVideo
                 muted
-                playbackRate={1}
+                playbackRate={segment.playbackRate}
                 src={screenRecording}
                 style={{ height: "100%", objectFit: "contain", width: "100%" }}
                 trimAfter={segment.sourceEndInFrames}
@@ -326,6 +331,10 @@ export const RecordedDemo: React.FC<RecordedDemoProps> = ({
                 faceCrop={faceCrop}
                 facePlacement={facePlacement}
                 faceRecording={faceRecording}
+                fadeIn={index === 0 || edit.segments[index - 1]?.kind === "wait"}
+                fadeOut={
+                  index === edit.segments.length - 1 || edit.segments[index + 1]?.kind === "wait"
+                }
                 layoutScale={layoutScale}
                 segment={segment}
               />
