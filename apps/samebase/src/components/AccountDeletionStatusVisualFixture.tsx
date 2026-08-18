@@ -12,6 +12,8 @@ export function AccountDeletionStatusVisualFixture({
 }) {
   return (
     <AccountDeletionStatusView
+      isSigningOut={false}
+      onSignOut={() => {}}
       status={{
         currentStep: "delete_samebase_data",
         latestProgressAt: Date.UTC(2026, 6, 12, 12),

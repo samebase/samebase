@@ -15,6 +15,9 @@ const completionCapability = "a".repeat(64);
 
 const authState = vi.hoisted(() => ({ isAuthenticated: true, isLoading: false }));
 const locationState = vi.hoisted(() => ({ pathname: "/" }));
+const routeState = vi.hoisted<{
+  access: "access_account_deletion" | "access_public" | "access_user_preferences";
+}>(() => ({ access: "access_public" }));
 const queryState = vi.hoisted<{
   completion: undefined | null | { completedAt: number; state: "succeeded" };
   completionByCapability: Map<
@@ -60,6 +63,22 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
     ...actual,
     useLocation: ({ select }: { select: (location: { pathname: string }) => string }) =>
       select(locationState),
+    useMatches: ({
+      select,
+    }: {
+      select: (matches: Array<{ staticData: { access: typeof routeState.access } }>) => boolean;
+    }) =>
+      select([
+        { staticData: { access: "access_public" } },
+        {
+          staticData: {
+            access:
+              locationState.pathname === "/account-deletion"
+                ? "access_account_deletion"
+                : routeState.access,
+          },
+        },
+      ]),
     useRouter: () => routerState,
   };
 });
@@ -191,6 +210,7 @@ describe("AccountDeletionBrowserBoundary", () => {
     authState.isAuthenticated = true;
     authState.isLoading = false;
     locationState.pathname = "/";
+    routeState.access = "access_public";
     queryState.completion = null;
     queryState.completionByCapability = new Map();
     queryState.status = null;
@@ -217,7 +237,9 @@ describe("AccountDeletionBrowserBoundary", () => {
     }
   });
 
-  it("redirects a deleting user from public routes and suppresses their content", async () => {
+  it("redirects a deleting user from private routes and suppresses their content", async () => {
+    locationState.pathname = "/settings";
+    routeState.access = "access_user_preferences";
     queryState.viewer = { role: "role_deleting" };
     const mounted = await renderBoundary();
     try {
@@ -226,6 +248,32 @@ describe("AccountDeletionBrowserBoundary", () => {
         href: "/account-deletion",
         replace: true,
       });
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("lets a deleting user reach public routes", async () => {
+    queryState.viewer = { role: "role_deleting" };
+    const mounted = await renderBoundary();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Normal route");
+      expect(routerState.navigate).not.toHaveBeenCalled();
+    } finally {
+      await act(async () => mounted.root.unmount());
+      mounted.rootElement.remove();
+    }
+  });
+
+  it("shows the public landing page after sign-out while deletion is pending", async () => {
+    authState.isAuthenticated = false;
+    writeAccountDeletionBrowserMarker(completionCapability);
+
+    const mounted = await renderBoundary();
+    try {
+      expect(mounted.rootElement.textContent).toContain("Normal route");
+      expect(mounted.rootElement.textContent).not.toContain("Checking account deletion");
     } finally {
       await act(async () => mounted.root.unmount());
       mounted.rootElement.remove();

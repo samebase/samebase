@@ -22,6 +22,29 @@ test("account deletion queued", async ({ page }) => {
   await expect(status).toHaveScreenshot("account-deletion-queued-desktop.png", screenshotOptions);
 });
 
+test("account deletion queued on mobile", async ({ browser }, testInfo) => {
+  const baseURL = testInfo.project.use.baseURL;
+  if (typeof baseURL !== "string") {
+    throw new Error("Playwright baseURL is required for the mobile account deletion visual.");
+  }
+  const context = await browser.newContext({
+    ...devices["iPhone 13"],
+    baseURL,
+    reducedMotion: "reduce",
+  });
+  const page = await context.newPage();
+  try {
+    await page.goto("/visual-fixture?mode=account-deletion-queued", {
+      waitUntil: "networkidle",
+    });
+    const status = page.getByTestId("account-deletion-page");
+    await expect(status.getByRole("button", { name: "Sign out" })).toBeVisible();
+    await expect(status).toHaveScreenshot("account-deletion-queued-mobile.png", screenshotOptions);
+  } finally {
+    await context.close();
+  }
+});
+
 test("account deletion running timeline", async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 900 });
   await page.goto("/visual-fixture?mode=account-deletion-running", {

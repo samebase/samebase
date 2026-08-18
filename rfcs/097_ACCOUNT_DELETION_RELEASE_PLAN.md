@@ -96,13 +96,14 @@ After permanent deletion starts, the user can see:
 - that staff attention is required when the run cannot continue
 
 The user cannot navigate to vaults, settings, providers, billing, MCP, or other authenticated
-product surfaces. All other Samebase browser sessions and MCP grants stop working. The initiating
-browser session remains valid only for deletion status until the terminal step. Retry is staff-only
-in version one so the user cannot trigger destructive workflow steps.
+product surfaces. Public routes remain available. All other Samebase browser sessions and MCP grants
+stop working. The initiating browser session retains only deletion-status and public-route access
+until the terminal step, and the user can sign out from the deletion-status page. Retry is
+staff-only in version one so the user cannot trigger destructive workflow steps.
 
-If the user closes the browser or signs out before completion, signing in again reaches only the
-deletion status route. Authentication and the `users` row are deleted last so a failed deletion does
-not leave the user without visibility.
+If the user closes the browser or signs out before completion, protected app routes redirect another
+existing session to the deletion status route. Public routes remain available. Authentication and
+the `users` row are deleted last so a failed deletion does not leave the user without visibility.
 
 Before requesting deletion, the initiating browser creates and stores a random 256-bit completion
 capability. The authenticated request binds that capability to the new run. While the identity
@@ -283,8 +284,9 @@ test succeeds in the production-like environment with a dedicated non-staff acco
    identity, deletion start time, Restore account action, and Delete now action.
 7. Restore the account and verify normal account access returns. Request deletion again, then use
    Delete now for the remaining acceptance steps.
-8. Verify the other browser or isolated profile and the provider connection stop granting Samebase
-   access while the initiating session can only read deletion status.
+8. Verify the other browser or isolated profile and the provider connection stop granting private
+   Samebase access. Verify the initiating session can read deletion status and public routes, then
+   verify Sign out opens the public landing page.
 9. Let the run succeed. Verify the browser is signed out, local Samebase browser data is cleared,
    and the completion email arrives or its delivery failure is visible to staff.
 10. Verify the auth account, sessions, user row, credentials, Samebase storage objects, and all
