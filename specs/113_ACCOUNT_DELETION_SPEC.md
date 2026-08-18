@@ -24,8 +24,10 @@ shared organization first. A sole owner must remove every vault and delete the o
 Acceptance creates one durable queued deletion run, marks the user as deleting, and routes every
 signed-in session to `/account-deletion`. The account is disabled immediately. The permanent
 deletion workflow starts exactly seven days after the request. The status page shows that time and
-directs the user to email `contact@samebase.com` before then to restore the account or request
-earlier deletion. Repeated requests return the same active run without rechecking the phrase.
+directs the user to email `contact@samebase.com` to restore the account or for other inquiries. The
+dialog and status page use the exact confirmation text
+`Samebase will send you a confirmation email as account deletion finishes.` Repeated requests return
+the same active run without rechecking the phrase.
 
 A deleting user cannot use ordinary authenticated product routes or create new user-owned data. A
 deleting user cannot create a new auth session. The initiating session remains available only for
@@ -106,7 +108,8 @@ The workflow must:
    setup states in bounded batches. Preserve organization invitations and their creator and acceptor
    user references. For each accepted invitation that names this user as acceptor, remove its code
    and GitHub recipient fields before finalization.
-6. Attempt the completion email with the opaque deletion operation ID as the support reference.
+6. Attempt the confirmation email as account deletion finishes and include the opaque deletion
+   operation ID as the support reference.
 7. Repeat every final readiness check, then delete the final auth session. In the same transaction,
    replace the matching `deleting` user row with the exact PII-free `deleted` variant and replace
    the live deletion run with its scrubbed successful receipt. Use one completion time for

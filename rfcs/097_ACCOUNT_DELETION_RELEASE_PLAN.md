@@ -56,7 +56,8 @@ Your account will be disabled now. Permanent deletion will start seven days
 after you continue.
 
 During those seven days, email contact@samebase.com to restore your account
-or start deletion sooner.
+or for other inquiries. Samebase will send you a confirmation email as
+account deletion finishes.
 
 Nothing outside Samebase is deleted: your apps, GitHub repositories, Convex
 projects, and Cloudflare Workers keep running.
@@ -110,10 +111,11 @@ same active run instead of creating another deletion and does not recheck the ph
 
 After acceptance, the app navigates to `/account-deletion`.
 
-While the run is queued, the user sees the exact permanent deletion start time and the
-`contact@samebase.com` address. Support can restore the same account or start the existing deletion
-run early. Restoration removes the queued run and request event. It does not retain a cancellation
-receipt or create a new cancellation state.
+While the run is queued, the user sees the exact permanent deletion start time, the
+`contact@samebase.com` address for restoration and other inquiries, and the completion-email notice.
+Support can restore the same account or start the existing deletion run early. Restoration removes
+the queued run and request event. It does not retain a cancellation receipt or create a new
+cancellation state.
 
 After permanent deletion starts, the user can see:
 
@@ -146,9 +148,9 @@ On success:
 2. Samebase sessions, MCP grants, and stored provider credentials are revoked or removed.
 3. Samebase-owned profile, vault, file, storage, collaboration, preference, and workflow data
    belonging to the user is deleted according to the data-handling matrix below.
-4. A completion email is attempted after required cleanup succeeds and before the final identity is
-   removed. Email delivery failure is visible to staff but does not retain the user's account
-   indefinitely.
+4. Samebase will send you a confirmation email as account deletion finishes. It is attempted after
+   required cleanup succeeds and before the final identity is removed. Email delivery failure is
+   visible to staff but does not retain the user's account indefinitely.
 5. The final authentication session, authentication account, and `users` row are deleted.
 6. The browser signs out, clears Samebase local storage, session storage, IndexedDB, caches, and
    service-worker state, then shows terminal confirmation under the signed-out application shell.

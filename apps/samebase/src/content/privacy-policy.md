@@ -178,10 +178,10 @@ Cloudflare resources when the deletion options and resource ownership allow it.
 
 You can delete your account from Settings. Samebase disables the account immediately and schedules
 permanent deletion to start seven days later. During those seven days, email contact@samebase.com to
-restore the account or request an earlier start. Permanent deletion removes your profile and access,
+restore the account or for other inquiries. Permanent deletion removes your profile and access,
 along with personal settings, memberships, authorizations, and provider connections that you added.
-Samebase keeps limited records needed to confirm the deletion and preserve shared organization
-history.
+Samebase will send you a confirmation email as account deletion finishes. Samebase keeps limited
+records needed to confirm the deletion and preserve shared organization history.
 
 Account deletion does not cancel an organization subscription or delete shared organization data.
 Shared organization data remains available to other members.

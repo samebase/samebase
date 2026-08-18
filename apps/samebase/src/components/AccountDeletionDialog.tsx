@@ -91,8 +91,9 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
               continue.
             </span>
             <span className="block text-muted-foreground">
-              During those seven days, email contact@samebase.com to restore your account or start
-              deletion sooner.
+              During those seven days, email contact@samebase.com to restore your account or for
+              other inquiries. Samebase will send you a confirmation email as account deletion
+              finishes.
             </span>
             <span className="block text-muted-foreground">
               First, leave or delete every organization. GitHub repositories, Convex projects,

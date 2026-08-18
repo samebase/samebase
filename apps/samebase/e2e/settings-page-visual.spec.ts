@@ -156,7 +156,7 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   ).toBeVisible();
   await expect(
     deleteDialog.getByText(
-      "During those seven days, email contact@samebase.com to restore your account or start deletion sooner.",
+      "During those seven days, email contact@samebase.com to restore your account or for other inquiries. Samebase will send you a confirmation email as account deletion finishes.",
       { exact: true },
     ),
   ).toBeVisible();

@@ -57,7 +57,8 @@ export function AccountDeletionStatusView({ status }: { status: AccountDeletionS
           <a className="underline underline-offset-4" href="mailto:contact@samebase.com">
             contact@samebase.com
           </a>{" "}
-          before then to restore your account or start deletion sooner.
+          to restore your account or for other inquiries. Samebase will send you a confirmation
+          email as account deletion finishes.
         </p>
       </main>
     );
