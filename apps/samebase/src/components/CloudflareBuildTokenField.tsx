@@ -100,7 +100,7 @@ export function CloudflareBuildTokenField({
               reload.{" "}
             </>
           )}
-          {accountId ? (
+          {accountId && emptyState === "required" ? (
             <a
               className={linkStyle}
               href={buildCloudflareWorkersUrl(accountId)}

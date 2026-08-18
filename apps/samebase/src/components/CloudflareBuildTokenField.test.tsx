@@ -107,15 +107,15 @@ describe("CloudflareBuildTokenField", () => {
 
     expect(requiredMarkup).toContain("No API tokens are listed.");
     expect(requiredMarkup).not.toContain("You can create the app now");
+    expect(requiredMarkup).toContain(
+      'href="https://dash.cloudflare.com/account-1/workers-and-pages"',
+    );
     expect(deferredMarkup).toContain(
       "No API token is available. You can create the app now and add one before deployment.",
     );
     expect(deferredMarkup).toContain('role="status"');
     expect(deferredMarkup).not.toContain("Create one in Cloudflare");
-    expect(deferredMarkup).toContain(
-      'href="https://dash.cloudflare.com/account-1/workers-and-pages"',
-    );
-    expect(deferredMarkup).toContain("Open Cloudflare");
+    expect(deferredMarkup).not.toContain("Open Cloudflare");
     expect(deferredMarkup).toContain("Reload tokens");
   });
 
