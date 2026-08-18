@@ -42,13 +42,14 @@ installs keys for one selected attached Convex project and starts the production
 
 - `api.vault.actions.createRepository` (new samebase-managed repo) requires a selected GitHub
   user/org owner. A Workers Builds token is either one selected UUID or `null` when the current
-  account has no listed token. Before admission, Samebase verifies the selected UUID or confirms
-  that the current token list is empty. One admission transaction inserts the initializing vault,
-  the create run, the active managed provider lock, and the provisioning plan, then starts the
-  Workflow and stores its ID. A Workflow start failure rolls back all admission writes. The Workflow
-  validates the organization's provider credentials against the vault destinations and starts
-  provider provisioning after source setup succeeds. The Workers Builds block verifies a selected
-  UUID again before it writes provider state.
+  account has no listed token. The New App page or MCP caller lists the tokens before admission and
+  sends `null` only for an empty list. Samebase verifies a selected UUID. It does not repeat the
+  provider read for `null`, which causes no Cloudflare write. One admission transaction inserts the
+  initializing vault, the create run, the active managed provider lock, and the provisioning plan,
+  then starts the Workflow and stores its ID. A Workflow start failure rolls back all admission
+  writes. The Workflow validates the organization's provider credentials against the vault
+  destinations and starts provider provisioning after source setup succeeds. The Workers Builds
+  block verifies a selected UUID again before it writes provider state.
 - `api.vault.actions.connectRepository` (existing GitHub repo connection) does **not**
   auto-provision infra. Its `connect_existing_repository` run is source-only and never owns the
   provider lock.
@@ -117,13 +118,13 @@ selected UUID, managed setup tells the user to remove the failed app and create 
 another token. Retry does not choose a replacement token.
 
 `null` records that the account had no listed token when New App started. It is not a general option
-to skip managed Builds setup. The public action confirms that the provider token list is empty
-before it accepts `null`. The managed run succeeds after it attaches the Convex project. It does not
-start the Worker, Workers Builds, or deploy-key blocks, and it creates no Worker attachment. A later
-Create Worker action selects a current token, creates and attaches the Worker, and configures
-Builds. The separate deploy-key action selects an attached Convex project, installs its keys, and
-starts the production build. The managed plan stays unchanged and does not persist the later token
-choice.
+to skip managed Builds setup. The New App page or MCP caller confirms that the provider token list
+is empty. The public action accepts `null` without a second provider read. The managed run succeeds
+after it attaches the Convex project. It does not start the Worker, Workers Builds, or deploy-key
+blocks, and it creates no Worker attachment. A later Create Worker action selects a current token,
+creates and attaches the Worker, and configures Builds. The separate deploy-key action selects an
+attached Convex project, installs its keys, and starts the production build. The managed plan stays
+unchanged and does not persist the later token choice.
 
 After both trigger writes succeed for a selected UUID, Samebase records the UUID as the organization
 account's last-used Builds token. That organization default affects only future selections. It never

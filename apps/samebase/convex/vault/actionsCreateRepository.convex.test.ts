@@ -113,9 +113,8 @@ beforeEach(() => {
 });
 
 describe("create repository Workers Builds token admission", () => {
-  it("accepts null and stores it when Cloudflare confirms that the token list is empty", async () => {
+  it("accepts null without another Cloudflare token-list request", async () => {
     const { organizationId, t, viewer } = await createRepositoryFixture();
-    providerMocks.listCloudflareBuildTokens.mockResolvedValue([]);
 
     const result = await viewer.action(api.vault.actions.createRepository, {
       organizationId,
@@ -139,11 +138,7 @@ describe("create repository Workers Builds token admission", () => {
         buildTokenUuid: null,
       },
     });
-    expect(providerMocks.listCloudflareBuildTokens).toHaveBeenCalledWith({
-      token: "cloudflare-token",
-      transport: "direct",
-      accountId: "cloudflare-account",
-    });
+    expect(providerMocks.listCloudflareBuildTokens).not.toHaveBeenCalled();
     expect(providerMocks.isCloudflareWorkerNameAvailable).not.toHaveBeenCalled();
     expect(providerMocks.requireCloudflareBuildTokenUuid).not.toHaveBeenCalled();
   });
@@ -165,29 +160,5 @@ describe("create repository Workers Builds token admission", () => {
       cloudflare: { status: "not_required", message: null, suggestion: null },
     });
     expect(providerMocks.isCloudflareWorkerNameAvailable).not.toHaveBeenCalled();
-  });
-
-  it("rejects null before creating a vault when Cloudflare has an available token", async () => {
-    const { organizationId, t, viewer } = await createRepositoryFixture();
-    providerMocks.listCloudflareBuildTokens.mockResolvedValue([
-      { name: "Existing token", uuid: "existing-token" },
-    ]);
-
-    await expect(
-      viewer.action(api.vault.actions.createRepository, {
-        organizationId,
-        name: "new-app",
-        convexProjectName: "new-app",
-        cloudflareWorkerName: "new-app",
-        cloudflareBuildTokenUuid: null,
-      }),
-    ).rejects.toThrow("A Cloudflare Workers Builds token is available. Select it and retry.");
-    await expect(
-      t.run(async (ctx) => ({
-        plans: await ctx.db.query("workflow_vaultProvisioning_plans").take(1),
-        vaults: await ctx.db.query("vaults").take(1),
-      })),
-    ).resolves.toEqual({ plans: [], vaults: [] });
-    expect(providerMocks.requireCloudflareBuildTokenUuid).not.toHaveBeenCalled();
   });
 });

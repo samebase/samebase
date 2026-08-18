@@ -1,6 +1,6 @@
 "use node";
 
-import { ConvexError, v, type Infer } from "convex/values";
+import { v, type Infer } from "convex/values";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -24,7 +24,6 @@ import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
   isCloudflareMcpInvalidAccessTokenError,
   isCloudflareWorkerNameAvailable,
-  listCloudflareBuildTokens,
   requireCloudflareBuildTokenUuid,
 } from "../cloudflareResources";
 import {
@@ -786,19 +785,11 @@ export async function createAppForUser(
   if (cloudflareNameAvailability.status !== "not_required") {
     assertResourceNameAvailable("Cloudflare Worker name", cloudflareNameAvailability);
   }
-  const cloudflareTokenArgs = {
-    token: cloudflareConnection.cloudflareToken,
-    transport: resolveCloudflareApiTransport(cloudflareConnection.cloudflareAuthMethod),
-    accountId: cloudflareConnection.cloudflareAccountId,
-  };
-  if (args.cloudflareBuildTokenUuid === null) {
-    const buildTokens = await listCloudflareBuildTokens(cloudflareTokenArgs);
-    if (buildTokens.length > 0) {
-      throw new ConvexError("A Cloudflare Workers Builds token is available. Select it and retry.");
-    }
-  } else {
+  if (args.cloudflareBuildTokenUuid !== null) {
     await requireCloudflareBuildTokenUuid({
-      ...cloudflareTokenArgs,
+      token: cloudflareConnection.cloudflareToken,
+      transport: resolveCloudflareApiTransport(cloudflareConnection.cloudflareAuthMethod),
+      accountId: cloudflareConnection.cloudflareAccountId,
       buildTokenUuid: args.cloudflareBuildTokenUuid,
     });
   }
