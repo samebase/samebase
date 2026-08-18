@@ -37,6 +37,7 @@ import { Route as inviteRouteImport } from "./routes/invite";
 import { Route as docsTheStackRouteImport } from "./routes/docs-the-stack";
 import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
+import { Route as docsCloudflareSetupRouteImport } from "./routes/docs-cloudflare-setup";
 import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
@@ -197,6 +198,11 @@ const docsDoItYourselfRoute = docsDoItYourselfRouteImport.update({
   path: "/docs/do-it-yourself",
   getParentRoute: () => rootRouteImport,
 } as any);
+const docsCloudflareSetupRoute = docsCloudflareSetupRouteImport.update({
+  id: "/docs/cloudflare-setup",
+  path: "/docs/cloudflare-setup",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const agentsConnectRoute = agentsConnectRouteImport.update({
   id: "/agents/connect",
   path: "/agents/connect",
@@ -314,6 +320,7 @@ export interface FileRoutesByFullPath {
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/agents/connect": typeof agentsConnectRoute;
+  "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -363,6 +370,7 @@ export interface FileRoutesByTo {
   "/vault": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/agents/connect": typeof agentsConnectRoute;
+  "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -413,6 +421,7 @@ export interface FileRoutesById {
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/agents/connect": typeof agentsConnectRoute;
+  "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
   "/docs/receipts": typeof docsReceiptsRoute;
   "/docs/the-stack": typeof docsTheStackRoute;
@@ -464,6 +473,7 @@ export interface FileRouteTypes {
     | "/vault/"
     | "/admin/account-deletions"
     | "/agents/connect"
+    | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -513,6 +523,7 @@ export interface FileRouteTypes {
     | "/vault"
     | "/admin/account-deletions"
     | "/agents/connect"
+    | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -562,6 +573,7 @@ export interface FileRouteTypes {
     | "/vault/"
     | "/admin/account-deletions"
     | "/agents/connect"
+    | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
     | "/docs/receipts"
     | "/docs/the-stack"
@@ -612,6 +624,7 @@ export interface RootRouteChildren {
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
   agentsConnectRoute: typeof agentsConnectRoute;
+  docsCloudflareSetupRoute: typeof docsCloudflareSetupRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
   docsReceiptsRoute: typeof docsReceiptsRoute;
   docsTheStackRoute: typeof docsTheStackRoute;
@@ -841,6 +854,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof docsDoItYourselfRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/docs/cloudflare-setup": {
+      id: "/docs/cloudflare-setup";
+      path: "/docs/cloudflare-setup";
+      fullPath: "/docs/cloudflare-setup";
+      preLoaderRoute: typeof docsCloudflareSetupRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/agents/connect": {
       id: "/agents/connect";
       path: "/agents/connect";
@@ -996,6 +1016,7 @@ const rootRouteChildren: RootRouteChildren = {
   vaultDashboardRootRoute: vaultDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
   agentsConnectRoute: agentsConnectRoute,
+  docsCloudflareSetupRoute: docsCloudflareSetupRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,
   docsReceiptsRoute: docsReceiptsRoute,
   docsTheStackRoute: docsTheStackRoute,

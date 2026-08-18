@@ -2,7 +2,7 @@ import { v } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { array, id, literal, null: nullValue, object, string, union } = v;
+const { array, id, literal, object, string, union } = v;
 const providerConnectionAccess = "access_provider_connections" as const;
 
 export const vCloudflareConvexProjectReference = object({
@@ -187,12 +187,13 @@ export const cloudflareCreateWorkerContract = {
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Creates one new Worker in the vault's stored Cloudflare account for an existing connected
 repository vault. Samebase checks vault ownership, live repository identity, Cloudflare account
-access, the provider-write lock, and the Worker quota before the create request. It records the
-Worker as an attachment, creates production and preview Workers Builds triggers for the requested
-repository root, and requests the first production build only with a reread default branch and full
-commit SHA. An existing Worker or Builds connection is not overwritten. If Builds setup fails after
-Worker creation, the Worker can remain attached. Reread inventory after every result before another
-write.`,
+access, the provider-write lock, the current non-empty token list, and the Worker quota before the
+create request. It records the Worker as an attachment, creates production and preview Workers
+Builds triggers for the requested repository root, and requests the first production build only
+with a reread default branch and full commit SHA. This action does not change Convex deploy keys.
+Use the separate deploy-key action after the Worker exists. An existing Worker or Builds connection
+is not overwritten. If Builds setup fails after Worker creation, the Worker can remain attached.
+Reread inventory after every result before another write.`,
 } as const;
 
 export const cloudflareDetachWorkerContract = {
@@ -201,5 +202,5 @@ export const cloudflareDetachWorkerContract = {
     vaultId: id("vaults"),
     workerId: id("vaultCloudflareWorkers"),
   },
-  returns: nullValue(),
+  returns: v.null(),
 } as const;

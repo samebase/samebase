@@ -19,18 +19,7 @@ import { TREE_REFRESH_DEBOUNCE_MS, TREE_REFRESH_FAILURE_COOLDOWN_MS } from "../s
 import { readStagedFileKind } from "./stagingChanges";
 import type { GithubTreeData } from "./vault/model";
 
-const {
-  array,
-  boolean,
-  id,
-  literal,
-  null: nullValidator,
-  number,
-  object,
-  optional,
-  string,
-  union,
-} = v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
 const githubRepositoryListItem = object({
   id: number(),
@@ -41,12 +30,12 @@ const githubRepositoryListItem = object({
   name: string(),
   full_name: string(),
   html_url: string(),
-  description: union(string(), nullValidator()),
+  description: union(string(), v.null()),
   private: boolean(),
   fork: boolean(),
   created_at: string(),
   updated_at: string(),
-  language: union(string(), nullValidator()),
+  language: union(string(), v.null()),
   stargazers_count: number(),
   forks_count: number(),
 });
@@ -1542,7 +1531,7 @@ export const updateRepositoryTree = internalAction({
     vaultId: id("vaults"),
     branch: string(),
   },
-  returns: nullValidator(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     const branch = normalizeRequiredRepositoryBranch(args.branch);
     const vault = await ctx.runQuery(internal.vault.records.getByIdForUser, {

@@ -218,6 +218,9 @@ vi.mock("@/components/OrganizationSettingsPage", () => ({
 }));
 
 vi.mock("@/components/LandingPreviewPage", () => ({
+  DocsCloudflareSetupPage: () => (
+    <div data-testid="docs-cloudflare-setup-page">Docs Cloudflare setup page</div>
+  ),
   DocsDoItYourselfPage: () => (
     <div data-testid="docs-do-it-yourself-page">Docs do it yourself page</div>
   ),
@@ -1028,6 +1031,15 @@ describe("appRouter", () => {
     expect(
       rootElement?.querySelector('[data-testid="docs-do-it-yourself-page"]')?.textContent,
     ).toContain("Docs do it yourself page");
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it("renders the first-app Cloudflare setup guide through an explicit route", async () => {
+    await renderRoute("/docs/cloudflare-setup");
+
+    expect(
+      rootElement?.querySelector('[data-testid="docs-cloudflare-setup-page"]')?.textContent,
+    ).toContain("Docs Cloudflare setup page");
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 

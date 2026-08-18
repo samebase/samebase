@@ -143,7 +143,7 @@ export const vaultProvisioningTables = {
         state: literal("planned"),
         workerName: string(),
         rootDirectory: string(),
-        buildTokenUuid: string(),
+        buildTokenUuid: union(string(), v.null()),
       }),
       object({
         state: literal("creating"),

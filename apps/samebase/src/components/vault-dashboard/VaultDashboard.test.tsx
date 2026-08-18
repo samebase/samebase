@@ -1587,6 +1587,81 @@ describe("VaultOverviewPage", () => {
     expect(markup).not.toContain('href="https://github.com/ada/demo"');
   });
 
+  it("shows first-time Cloudflare setup until a Worker is attached", () => {
+    const vault = makeRepositorySettingsBuilderVault({
+      providerPlan: {
+        convexConfigPath: "convex.json",
+        convex: {
+          state: "created",
+          projectName: "demo-convex",
+          projectId: "demo-project-id",
+          teamId: "team-1",
+        },
+        cloudflare: {
+          state: "planned",
+          accountId: "account-1",
+          buildTokenUuid: null,
+          workerName: "demo-worker",
+          rootDirectory: "/",
+        },
+      },
+      providerSetup: { status: "not_applicable" },
+      hasConvexProvision: true,
+      convexProjects: [makeRepositorySettingsConvexProject({})],
+    });
+    const cloudflareObservations = makeLoadedCloudflareObservations({
+      workers: [],
+      builds: [],
+      convexBuildAccess: [],
+    });
+    const convexObservations = {
+      state: "loaded" as const,
+      refreshFailed: false,
+      reload: () => {},
+      observations: [],
+    };
+    const renderOverview = (currentVault: typeof vault) =>
+      renderToStaticMarkup(
+        <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
+          <VaultOverviewPage
+            developerToolsVisible={false}
+            isRetryingVaultAction={false}
+            onOpenDeleteDialog={() => {}}
+            onRetryInfrastructureProvisioning={() => {}}
+            onRetryVaultDeletion={() => {}}
+            page="overview"
+            settingsState={{
+              addCloudflareWorker: { disabled: false },
+              addConvexProject: { disabled: false },
+              providerActionBlockReason: null,
+              roots: [],
+            }}
+            workspace={{
+              access: { state: "ready", accessKeys: [] },
+              cloudflareConnection: { state: "loading" },
+              cloudflareObservations,
+              convexObservations,
+              environmentRoots: [],
+              githubRepositoryUrl: "https://github.com/ada/demo",
+              pullRequests: { state: "not_requested" },
+              vault: currentVault,
+            }}
+          />
+        </TestRouterProvider>,
+      );
+
+    const incompleteMarkup = renderOverview(vault);
+    const attachedMarkup = renderOverview({
+      ...vault,
+      hasCloudflareProvision: true,
+      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({})],
+    });
+
+    expect(incompleteMarkup).toContain("Finish Cloudflare setup");
+    expect(incompleteMarkup).toContain('href="/docs/cloudflare-setup"');
+    expect(attachedMarkup).not.toContain("Finish Cloudflare setup");
+  });
+
   it("keeps safe provider links during setup and provider checks", () => {
     const vault = makeRepositorySettingsBuilderVault({});
     const workspace = {

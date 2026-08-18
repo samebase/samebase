@@ -276,6 +276,7 @@ function syncStaticCompactIdentitySvgAssetsPlugin() {
  * static `.md` assets alongside the prerendered pages (rfcs/093, Phase 1).
  */
 const contentDocsMarkdownAssets = [
+  { assetPath: "docs/cloudflare-setup.md", sourcePath: "src/content/docs-cloudflare-setup.md" },
   { assetPath: "docs/do-it-yourself.md", sourcePath: "src/content/docs-do-it-yourself.md" },
   {
     assetPath: "docs/operate/agent-plugin.md",

@@ -31,14 +31,14 @@ import {
   vAccountPresentation,
 } from "../shared/accountPresentation";
 
-const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
+const { boolean, id, literal, number, object, optional, string, union } = v;
 
 const vSignInMethod = object({ email: string() });
 const vGitHubSignInMethod = object({ email: string(), login: string() });
 const vSignInMethods = object({
-  google: union(vSignInMethod, vNull()),
-  github: union(vGitHubSignInMethod, vNull()),
-  password: union(vSignInMethod, vNull()),
+  google: union(vSignInMethod, v.null()),
+  github: union(vGitHubSignInMethod, v.null()),
+  password: union(vSignInMethod, v.null()),
 });
 
 const vConvexProviderAuthMethod = union(literal("oauth"), literal("api_key"));
@@ -344,7 +344,7 @@ export const beginAuthAccountLink = mutation({
   args: {
     provider: vAuthAccountProvider,
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     const sessionId = await getAuthSessionId(ctx);
     if (sessionId === null) {
@@ -465,7 +465,7 @@ export const disconnectConvex = action({
   args: {
     organizationId: id("organizations"),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const organizationId = await ctx.runQuery(
       internal.organizationAccess.requireOrganizationOwnerIdForUser,
@@ -758,7 +758,7 @@ export const disconnectCloudflare = action({
   args: {
     organizationId: id("organizations"),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const organizationId = await ctx.runQuery(
       internal.organizationAccess.requireOrganizationOwnerIdForUser,
@@ -786,7 +786,7 @@ export const connectCloudflareWithApiToken = action({
     organizationId: id("organizations"),
     token: string(),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const organizationId = await ctx.runQuery(
       internal.organizationAccess.requireOrganizationOwnerIdForUser,

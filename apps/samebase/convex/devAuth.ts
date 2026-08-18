@@ -18,7 +18,7 @@ import { getOrganizationProviderConfiguration } from "./organizationProviderCred
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import { readActiveUser } from "./userLifecycle";
 
-const { array, boolean, id, literal, null: vNull, object, optional, string, union } = v;
+const { array, boolean, id, literal, object, optional, string, union } = v;
 
 function readSeedValue(envName: string): string | undefined {
   const value = readOptionalEnv(envName);
@@ -73,7 +73,7 @@ function readSeedGitHubOwnerType(value: string): "organization" | "user" {
 
 const vSeedProviderCredentials = object({
   convexConnection: union(
-    vNull(),
+    v.null(),
     object({
       credential: string(),
       teamId: string(),
@@ -81,7 +81,7 @@ const vSeedProviderCredentials = object({
     }),
   ),
   cloudflareConnection: union(
-    vNull(),
+    v.null(),
     object({
       credential: string(),
       accountId: string(),
@@ -215,7 +215,7 @@ export const approveSeedPasswordAccount = internalMutation({
   args: {
     userId: id("users"),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     if (user === null) {
@@ -239,7 +239,7 @@ export const seedOrganizationWithProviderCredentials = internalMutation({
     userId: id("users"),
     ...vSeedOrganizationConfig.fields,
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     const organization = await ctx.runMutation(
       internal.organizations.createOrReconnectVerifiedOrganization,

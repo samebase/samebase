@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-08-17
+- Last updated: 2026-08-18
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
@@ -95,6 +95,11 @@ Cloudflare Workers Builds. Samebase creates the Worker and records its exact pro
 approved root, and `provisioned` attachment together before configuring Builds. It then writes the
 GitHub Builds configuration and re-reads the resulting repository and root evidence.
 
+Create Worker configures Builds without requiring or changing a Convex attachment. It changes only
+Cloudflare freshness. A tokenless managed app uses this same action after the user completes
+first-time token setup. The separate `Use <project> for Workers Builds` action then installs the
+Convex deploy keys for the selected attached project and starts the production build.
+
 The create flow requires the same visible token selection. A current Worker's observed token has
 priority during repair. Otherwise, the client selects the organization account's last-used token
 when it remains in the current list, then the first record. Samebase orders the account token list
@@ -138,8 +143,8 @@ state, but is not removal authority.
 
 Attaching a Worker does not imply that Samebase may rewrite an existing Worker. `Connect and add`
 explicitly authorizes initial GitHub Builds setup only after Samebase verifies that the Worker has
-no active Builds triggers. GitHub Builds repair and Convex deploy-key rotation remain explicit
-operations.
+no active Builds triggers. GitHub Builds repair and standalone Convex deploy-key rotation remain
+explicit operations.
 
 `Configure Workers Builds` uses the attachment's saved approved root. It does not replace that input
 with a different live root. The member must use `Update root` first when the current provider root
@@ -165,7 +170,7 @@ Samebase does not persist a Worker-to-project edge.
 Cloudflare attachment mutations use the shared exclusion check in spec 003. Cloudflare provider
 actions use the claim, expiry, no-replay, and freshness rules in spec 003.
 
-Creating a Worker, connecting an unconnected Worker, and configuring Workers Builds affect
+Creating a Worker, connecting an unconnected Worker, and configuring Workers Builds affect only
 Cloudflare observations. Deploy-key rotation affects Convex and Cloudflare observations.
 
 After a failed or silent provider action, Samebase gets fresh observations. The user or agent then

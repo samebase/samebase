@@ -416,8 +416,10 @@ export function isCloudflareMcpInvalidAccessTokenError(error: unknown): boolean 
       const message = detail.message?.toLowerCase() ?? "";
       return (
         detail.code === "10000" ||
+        detail.code === "9109" ||
         message.includes("authentication error") ||
-        message.includes("invalid api token")
+        message.includes("invalid api token") ||
+        message.includes("invalid access token")
       );
     });
   }

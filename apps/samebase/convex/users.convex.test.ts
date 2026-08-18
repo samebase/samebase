@@ -860,51 +860,98 @@ describe("organization provider status", () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it("does not refresh OAuth credentials while checking an inaccessible configured account", async () => {
-    for (const cloudflareAuthMethod of ["oauth", "mcp_oauth"] as const) {
-      const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
-        cloudflareAuthMethod,
-      });
-      const asOwner = t.withIdentity({
-        subject: `${userId}|session`,
-        tokenIdentifier: `test:${userId}`,
-      });
-      const credentialBefore = await t.run(
-        async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare,
-      );
-      const targetBefore = await t.run(
-        async (ctx) => (await ctx.db.get(organizationId))?.cloudflareAccount,
-      );
-      const fetch = vi.fn(async (input: string | URL | Request) => {
+  it("logs the original Cloudflare provider error", async () => {
+    const { organizationId, t, userId } = await seedProviderOrganization();
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    const providerError = {
+      success: false,
+      errors: [{ code: 971, message: "Please wait and consider throttling your request speed" }],
+      messages: [],
+      result: null,
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
         const url = new URL(input instanceof Request ? input.url : input.toString());
-        if (url.pathname !== "/client/v4/accounts") {
+        return url.pathname === "/client/v4/user/tokens/verify"
+          ? cloudflareSuccessResponse({ id: "c".repeat(32), status: "active" })
+          : cloudflareFailureResponse(providerError, 429);
+      }),
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    const access = await asOwner.action(
+      api.cloudflareProviderAccess.checkCloudflareConnectionAccess,
+      { organizationId },
+    );
+
+    expect(access.checks).toContainEqual({ key: "accounts", status: "error" });
+    expect(warn).toHaveBeenCalledWith(
+      "cloudflare:provider_access_probe_failed",
+      { check: "accounts" },
+      expect.objectContaining({
+        details: [{ code: "971", message: providerError.errors[0]?.message }],
+        name: "CloudflareApiError",
+      }),
+    );
+  });
+
+  it("refreshes an expired Cloudflare OAuth token before provider checks", async () => {
+    const { organizationId, providerCredentialsId, t, userId } = await seedProviderOrganization({
+      cloudflareAuthMethod: "oauth",
+    });
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "client-id");
+    vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "client-secret");
+    const fetch = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.pathname === "/oauth2/token") {
+        return Response.json({
+          access_token: "refreshed-access-token",
+          refresh_token: "refreshed-refresh-token",
+          expires_in: 3_600,
+        });
+      }
+      expect(new Headers(init?.headers).get("Authorization")).toBe("Bearer refreshed-access-token");
+      switch (url.pathname) {
+        case "/client/v4/accounts":
+          return cloudflareAccountsResponse([
+            { id: primaryCloudflareAccountId, name: "Primary account", type: "standard" },
+          ]);
+        case `/client/v4/accounts/${primaryCloudflareAccountId}/workers/account-settings`:
+        case `/client/v4/accounts/${primaryCloudflareAccountId}/builds/account/limits`:
+          return cloudflareSuccessResponse({});
+        default:
           throw new Error(`Unexpected Cloudflare probe ${url.pathname}.`);
-        }
-        return cloudflareAccountsResponse([
-          { id: secondaryCloudflareAccountId, name: "Secondary account", type: "standard" },
-        ]);
-      });
-      vi.stubGlobal("fetch", fetch);
+      }
+    });
+    vi.stubGlobal("fetch", fetch);
 
-      const access = await asOwner.action(
-        api.cloudflareProviderAccess.checkCloudflareConnectionAccess,
-        { organizationId },
-      );
+    const access = await asOwner.action(
+      api.cloudflareProviderAccess.checkCloudflareConnectionAccess,
+      { organizationId },
+    );
 
-      expect(access.checks).toEqual([
-        { key: "token", status: "error" },
-        { key: "accounts", status: "error" },
-        { key: "workers", status: "not_run" },
-        { key: "workers_builds", status: "not_run" },
-      ]);
-      expect(fetch).toHaveBeenCalledTimes(1);
-      await expect(
-        t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare),
-      ).resolves.toEqual(credentialBefore);
-      await expect(
-        t.run(async (ctx) => (await ctx.db.get(organizationId))?.cloudflareAccount),
-      ).resolves.toEqual(targetBefore);
-    }
+    expect(access.checks).toEqual([
+      { key: "token", status: "ok" },
+      { key: "accounts", status: "ok" },
+      { key: "workers", status: "ok" },
+      { key: "workers_builds", status: "ok" },
+    ]);
+    expect(fetch).toHaveBeenCalledTimes(4);
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(providerCredentialsId))?.cloudflare?.auth),
+    ).resolves.toMatchObject({
+      method: "oauth",
+      credential: "refreshed-access-token",
+      refreshCredential: "refreshed-refresh-token",
+    });
   });
 
   it("clears a shared MCP refresh lease when account deletion wins the return race", async () => {
@@ -959,7 +1006,7 @@ describe("organization provider status", () => {
     expect(fetch).toHaveBeenCalledOnce();
   });
 
-  it("replaces direct and MCP refresh errors at the shared resolver boundary", async () => {
+  it("preserves direct and MCP refresh errors at the shared resolver boundary", async () => {
     for (const method of ["oauth", "mcp_oauth"] as const) {
       const { organizationId, t, userId } = await seedProviderOrganization({
         cloudflareAuthMethod: method,
@@ -977,8 +1024,7 @@ describe("organization provider status", () => {
               userId,
             }),
       );
-      expect(error.message).toContain("Cloudflare token refresh failed.");
-      expect(error.message).not.toContain(`private ${method} refresh detail`);
+      expect(error.message).toContain(`private ${method} refresh detail`);
     }
   });
 });

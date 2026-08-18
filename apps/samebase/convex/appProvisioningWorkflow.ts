@@ -10,7 +10,7 @@ import { isLiveConnectedVault } from "./vault/state";
 import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
 
 const workflow = new WorkflowManager(components.workflow);
-const { boolean, id, literal, null: nullValue, object, string, union } = v;
+const { boolean, id, literal, object, string, union } = v;
 const idempotentProviderStepRetry = {
   maxAttempts: 3,
   initialBackoffMs: 1_000,
@@ -39,12 +39,14 @@ const composedInfrastructureState = object({
       state: literal("missing"),
       accountId: string(),
       workerName: string(),
+      buildTokenUuid: union(string(), v.null()),
     }),
     object({
       state: literal("attached"),
       accountId: string(),
       workerName: string(),
       workerId: id("vaultCloudflareWorkers"),
+      buildTokenUuid: union(string(), v.null()),
     }),
   ),
 });
@@ -214,11 +216,13 @@ export const readComposedInfrastructureState = internalQuery({
             accountId: vault.cloudflareAccountId,
             workerName: plan.cloudflare.workerName,
             workerId: worker._id,
+            buildTokenUuid: plan.cloudflare.buildTokenUuid,
           }
         : {
             state: "missing",
             accountId: vault.cloudflareAccountId,
             workerName: plan.cloudflare.workerName,
+            buildTokenUuid: plan.cloudflare.buildTokenUuid,
           },
     };
   },
@@ -312,7 +316,7 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
     if (authority.run.trigger !== "create" && authority.run.trigger !== "retry") {
@@ -583,51 +587,54 @@ async function runComposedInfrastructure(
     state: initialState,
   });
 
-  const afterConvex = await readCurrentComposedInfrastructureState(step, {
-    vaultId: args.vaultId,
-    runId: args.parentRunId,
-    userId: args.userId,
-    name: "read_infra_after_convex",
-  });
-  if (afterConvex.cloudflare.state === "missing") {
+  const buildTokenUuid = initialState.cloudflare.buildTokenUuid;
+  if (buildTokenUuid !== null) {
+    const afterConvex = await readCurrentComposedInfrastructureState(step, {
+      vaultId: args.vaultId,
+      runId: args.parentRunId,
+      userId: args.userId,
+      name: "read_infra_after_convex",
+    });
+    if (afterConvex.cloudflare.state === "missing") {
+      await appendComposedInfrastructureParentEvent(step, {
+        runId: args.parentRunId,
+        step: "attach_worker",
+        message: "Attaching Cloudflare Worker.",
+      });
+    }
+    const workerId = await runComposedCloudflareAttachment(step, {
+      vaultId: args.vaultId,
+      parentRunId: args.parentRunId,
+      userId: args.userId,
+      state: afterConvex,
+    });
+
     await appendComposedInfrastructureParentEvent(step, {
       runId: args.parentRunId,
-      step: "attach_worker",
-      message: "Attaching Cloudflare Worker.",
+      step: "configure_workers_builds_for_github",
+      message: "Configuring Workers Builds for GitHub.",
+    });
+    const build = await runComposedWorkersBuildsGitHubConfiguration(step, {
+      vaultId: args.vaultId,
+      parentRunId: args.parentRunId,
+      userId: args.userId,
+      workerId,
+    });
+
+    await appendComposedInfrastructureParentEvent(step, {
+      runId: args.parentRunId,
+      step: "rotate_convex_deploy_keys_for_workers_builds",
+      message: "Rotating Convex deploy keys for Workers Builds.",
+    });
+    await runComposedConvexDeployKeyRotation(step, {
+      vaultId: args.vaultId,
+      parentRunId: args.parentRunId,
+      userId: args.userId,
+      workerId,
+      convexProjectId,
+      build,
     });
   }
-  const workerId = await runComposedCloudflareAttachment(step, {
-    vaultId: args.vaultId,
-    parentRunId: args.parentRunId,
-    userId: args.userId,
-    state: afterConvex,
-  });
-
-  await appendComposedInfrastructureParentEvent(step, {
-    runId: args.parentRunId,
-    step: "configure_workers_builds_for_github",
-    message: "Configuring Workers Builds for GitHub.",
-  });
-  const build = await runComposedWorkersBuildsGitHubConfiguration(step, {
-    vaultId: args.vaultId,
-    parentRunId: args.parentRunId,
-    userId: args.userId,
-    workerId,
-  });
-
-  await appendComposedInfrastructureParentEvent(step, {
-    runId: args.parentRunId,
-    step: "rotate_convex_deploy_keys_for_workers_builds",
-    message: "Rotating Convex deploy keys for Workers Builds.",
-  });
-  await runComposedConvexDeployKeyRotation(step, {
-    vaultId: args.vaultId,
-    parentRunId: args.parentRunId,
-    userId: args.userId,
-    workerId,
-    convexProjectId,
-    build,
-  });
 
   await step.runMutation(
     internal.appProvisioningWorkflow.finishComposedInfrastructureProvisioning,
@@ -644,7 +651,10 @@ async function runComposedInfrastructure(
       runId: args.parentRunId,
       step: "finish",
       level: "info",
-      message: "App provider resources are attached and configured.",
+      message:
+        buildTokenUuid === null
+          ? "GitHub and Convex are ready. Cloudflare setup is required."
+          : "App provider resources are attached and configured.",
       state: "succeeded",
     },
     { name: "finish_composed_infra" },

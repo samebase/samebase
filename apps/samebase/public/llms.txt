@@ -38,6 +38,8 @@ HTML pages. Action and operate docs are raw markdown only.
   inventory, and the four claims: yours, safer, lanes, cheaper
 - [The stack](https://samebase.com/docs/the-stack.md): what the app template ships and why each
   piece was chosen
+- [Cloudflare setup](https://samebase.com/docs/cloudflare-setup.md): create the first Workers Builds
+  API token, then let Samebase create the real Worker
 - [Do it yourself](https://samebase.com/docs/do-it-yourself.md): deploy the same stack by hand, for
   $0/month, with no Samebase account
 - [Receipts](https://samebase.com/docs/receipts.md): every factual claim with its primary source
@@ -52,7 +54,7 @@ Choose an explicit action whose contract matches the required stable IDs, then r
 
 - [List Samebase vaults](https://samebase.com/docs/actions/get_user_vaults.md): List the Samebase vaults available to the authenticated user, including attached provider resources.
 - [List Cloudflare Workers Builds tokens](https://samebase.com/docs/actions/list_workers_build_tokens.md): List the non-secret Workers Builds token names and UUIDs in the Cloudflare account connected to a Samebase organization, with its available last-used UUID.
-- [Create Samebase app](https://samebase.com/docs/actions/create_repository.md): Create a new Samebase app by starting the managed app provisioning workflow: create the GitHub repository, seed the starter app, provision Convex, and provision Cloudflare.
+- [Create Samebase app](https://samebase.com/docs/actions/create_repository.md): Create a new Samebase app. A current Workers Builds token provisions GitHub, Convex, and Cloudflare; a confirmed empty token list provisions GitHub and Convex and leaves Cloudflare pending.
 - [Connect existing repository](https://samebase.com/docs/actions/connect_existing_repository.md): Connect an existing GitHub repository as a Samebase vault and sync its repository tree; Convex and Cloudflare stay unconfigured until explicitly attached.
 - [Discover Convex projects](https://samebase.com/docs/actions/discover_convex_projects.md): Discover Convex code locations in a vault's GitHub repository and projects available through the connected Convex team.
 - [Discover Cloudflare Workers](https://samebase.com/docs/actions/discover_cloudflare_workers.md): Discover Workers in the vault's stored Cloudflare account and observe which ones are currently connected to this vault's GitHub repository and live Workers Builds roots.

@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
+import { startVaultInfrastructureProvisioningWorkflow } from "./appProvisioningWorkflow";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
-async function createComposedVault() {
+async function createComposedVault(buildTokenUuid: string | null = "build-token") {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
@@ -76,7 +77,7 @@ async function createComposedVault() {
         state: "planned",
         workerName: "composed-app",
         rootDirectory: "/",
-        buildTokenUuid: "build-token",
+        buildTokenUuid,
       },
       createdAt: 30,
       updatedAt: 30,
@@ -112,7 +113,7 @@ async function attachComposedResources({
         workerName: "composed-app",
         workerTag: "composed-worker-tag",
         rootDirectory: plan.cloudflare.rootDirectory,
-        buildTokenUuid: plan.cloudflare.buildTokenUuid,
+        buildTokenUuid: "build-token",
       },
     });
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
@@ -156,6 +157,7 @@ describe("app provisioning workflow composition", () => {
         state: "missing",
         accountId: "cloudflare-account",
         workerName: "composed-app",
+        buildTokenUuid: "build-token",
       },
     });
 
@@ -171,6 +173,74 @@ describe("app provisioning workflow composition", () => {
       convex: { state: "attached", convexProjectId: attachments.convexProjectId },
       cloudflare: { state: "attached", workerId: attachments.workerId },
     });
+  });
+
+  it("skips Cloudflare setup when the confirmed token list was empty", async () => {
+    const { ids, t } = await createComposedVault(null);
+    await t.run(async (ctx) => {
+      await ctx.db.patch(ids.planId, {
+        convex: {
+          state: "created",
+          projectName: "composed-app",
+          projectId: "convex-project",
+        },
+      });
+      await ctx.db.insert("vaultConvexProjects", {
+        vaultId: ids.vaultId,
+        organizationId: ids.organizationId,
+        teamId: "convex-team",
+        projectId: "convex-project",
+        convexConfigPath: "convex.json",
+        origin: "provisioned",
+      });
+    });
+
+    vi.useFakeTimers();
+    try {
+      const workflowId = await t.run(async (ctx) => {
+        return await startVaultInfrastructureProvisioningWorkflow(ctx, {
+          vaultId: ids.vaultId,
+          runId: ids.runId,
+        });
+      });
+      await t.run(async (ctx) => await ctx.db.patch(ids.runId, { workflowId }));
+      await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+      const result = await t.run(async (ctx) => {
+        const events = await ctx.db
+          .query("workflow_vaultProvisioning_events")
+          .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
+          .collect();
+        return {
+          run: await ctx.db.get(ids.runId),
+          steps: events.map((event) => event.step),
+          write: await ctx.db
+            .query("workflow_vaultProvisioning_writeLocks")
+            .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+            .unique(),
+          plan: await ctx.db.get(ids.planId),
+          workers: await ctx.db.query("vaultCloudflareWorkers").take(1),
+        };
+      });
+
+      expect(result.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
+      expect(result.write).toMatchObject({
+        owner: { kind: "managed_run", runId: ids.runId },
+        state: "succeeded",
+      });
+      expect(result.steps).toContain("claim_infra");
+      expect(result.steps).toContain("finish");
+      expect(result.steps).not.toContain("attach_worker");
+      expect(result.steps).not.toContain("configure_workers_builds_for_github");
+      expect(result.steps).not.toContain("rotate_convex_deploy_keys_for_workers_builds");
+      expect(result.plan).toMatchObject({
+        convex: { state: "created", projectId: "convex-project" },
+        cloudflare: { state: "planned", buildTokenUuid: null },
+      });
+      expect(result.workers).toEqual([]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("keeps managed provider freshness when infrastructure ownership completes", async () => {

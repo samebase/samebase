@@ -7,6 +7,7 @@ describe("readPublicPrerenderPages", () => {
     const paths = pages.map((page) => page.path);
 
     expect(paths).toContain("/");
+    expect(paths).toContain("/docs/cloudflare-setup");
     expect(paths).toContain("/docs/do-it-yourself");
     expect(paths).toContain("/docs/the-stack");
     expect(paths).toContain("/landing-preview");

@@ -14,8 +14,8 @@ export function NewAppPageVisualFixture({ mode }: { mode: NewAppPageVisualMode }
             <NewAppCreateFormFields
               cloudflareBuildTokenField={
                 <CloudflareBuildTokenField
-                  accountId="account_acme_production"
                   disabled={false}
+                  emptyState="deferred"
                   error={false}
                   id="visual-cloudflare-build-token"
                   isLoading={false}
@@ -46,6 +46,7 @@ export function NewAppPageVisualFixture({ mode }: { mode: NewAppPageVisualMode }
               onConvexProjectNameBlur={() => {}}
               onConvexProjectNameChange={() => {}}
               onNewRepositoryNameChange={() => {}}
+              showCloudflareWorkerName
             />
           </div>
           <Button className="self-start">New App</Button>

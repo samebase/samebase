@@ -580,7 +580,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     convexTeamId: string(),
     cloudflareAccountId: string(),
     cloudflareWorkerName: string(),
-    cloudflareBuildTokenUuid: string(),
+    cloudflareBuildTokenUuid: union(string(), nullValidator),
   },
   returns: object({
     vaultId: id("vaults"),

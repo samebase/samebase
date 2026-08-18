@@ -29,7 +29,7 @@ import {
 } from "./infrastructureOperation";
 import { isLiveConnectedVault } from "./state";
 
-const { array, id, literal, null: nullValue, object, string, union } = v;
+const { array, id, literal, object, string, union } = v;
 
 type ConvexProjectGraphReadCtx = Pick<QueryCtx, "db">;
 
@@ -182,7 +182,7 @@ export const requireConvexProjectConnectionVault = internalQuery({
     vaultId: id("vaults"),
     userId: id("users"),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     await requireConnectedVault(ctx, args);
     return null;
@@ -264,7 +264,7 @@ export const beginManagedProjectCreate = internalMutation({
     projectName: string(),
     teamId: string(),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
     if (plan.convex.projectName !== args.projectName) {
@@ -451,7 +451,7 @@ export const reconcileProjectCodeLocation = internalMutation({
     expectedCodeLocation: vConvexCodeLocation,
     nextCodeLocation: vConvexCodeLocation,
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const vault = await requireUserVaultInfrastructureIdle(ctx, args);
     const project = await ctx.db.get(args.convexProjectId);
@@ -504,7 +504,7 @@ export const detachProject = internalMutation({
     projectId: string(),
     codeLocation: vConvexCodeLocation,
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const vault = await requireUserVaultInfrastructureIdle(ctx, args);
     const project = await ctx.db.get(args.convexProjectId);

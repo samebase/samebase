@@ -15,7 +15,7 @@ import {
   type PolarProductCatalog,
 } from "./polarClient";
 
-const { boolean, literal, null: nullValue, number, object, string, union } = v;
+const { boolean, literal, number, object, string, union } = v;
 
 const vPolarBillingState = union(
   object({
@@ -142,7 +142,7 @@ export const beginObservation = internalMutation({
   args: {
     externalCustomerId: string(),
   },
-  returns: union(vPolarObservationTarget, nullValue()),
+  returns: union(vPolarObservationTarget, v.null()),
   handler: async (ctx, args) => {
     const target = await findBillingAccountByPolarExternalCustomerId(
       ctx.db,

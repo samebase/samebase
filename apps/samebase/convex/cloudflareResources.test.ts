@@ -1467,6 +1467,15 @@ describe("cloudflare resources", () => {
         }),
       ),
     ).toBe(true);
+    expect(
+      isCloudflareMcpInvalidAccessTokenError(
+        new CloudflareApiError({
+          method: "GET",
+          path: "/accounts",
+          details: [{ code: "9109", message: "Invalid access token" }],
+        }),
+      ),
+    ).toBe(true);
   });
 
   it("recognizes Cloudflare GitHub App repository authorization failures", () => {

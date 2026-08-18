@@ -202,13 +202,36 @@ default. The token-list result returns the last-used UUID only while Cloudflare 
 the exact account.
 
 The web client visibly selects a current Worker's observed token for repair, then the available
-organization last-used token, then the first record. The MCP and agent plugin use the available
-last-used UUID without asking. With no available last-used UUID, they use one result, ask the user
-to choose from several results, or direct the user to Cloudflare when the list is empty. Samebase
-lists records by name from Z to A without case sensitivity. Provider writes never infer a record
-from a name, list position, or another Worker's existing binding. The name and trigger binding
-remain live Cloudflare observations. OAuth reauthorization restores management access only. It does
-not prove or replace a Worker's build-token binding.
+organization last-used token, then the first record. For managed app creation, the MCP and agent
+plugin use the available last-used UUID without asking. With no available last-used UUID, they use
+one result or ask the user to choose from several results. When the token list is empty, they pass
+explicit null in the required `cloudflareBuildTokenUuid` field. The managed flow then creates the
+GitHub repository and Convex project but creates no Cloudflare Worker. It skips all Cloudflare,
+Workers Builds, and deploy-key writes. This null value does not authorize a Cloudflare or Builds
+write. A ready provider setup means the requested managed work finished. It does not mean that
+Cloudflare setup is complete when the selected token was null.
+
+Manual Worker creation and Workers Builds configuration require one exact UUID from the current
+non-empty list. The MCP and agent plugin stop those manual actions when the list is empty. They use
+current inventory to select the next action.
+
+For a tokenless managed app with no Worker, the user follows
+https://samebase.com/docs/cloudflare-setup, creates the first account token, and deletes the
+temporary Worker. Samebase must not attach the temporary Worker. It then lists the current tokens
+again. The normal Create Worker action creates the real Worker and configures Builds. The separate
+deploy-key action installs production and preview keys for the selected attached Convex project and
+starts a production build. The completed managed run is not resumed or retried.
+
+When a Worker is already attached, Samebase keeps it. After the user completes token setup, Samebase
+lists tokens again and configures Workers Builds for that existing attachment. It does not create
+another Worker. For another manual vault, Samebase continues only with the action that matches the
+request and current inventory. Generic Worker creation configures Builds and requests the first
+build. It does not create, change, or delete Convex deploy keys.
+
+Samebase lists token records by name from Z to A without case sensitivity. Provider writes never
+infer a record from a name, list position, or another Worker's existing binding. The name and
+trigger binding remain live Cloudflare observations. OAuth reauthorization restores management
+access only. It does not prove or replace a Worker's build-token binding.
 
 Disconnect clears only the local credential. Samebase does not revoke Convex or Cloudflare access
 upstream. The owner receives a manual revocation notice. Disconnect keeps `organizations.convexTeam`

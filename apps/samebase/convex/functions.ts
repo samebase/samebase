@@ -45,7 +45,7 @@ import {
   AUTHENTICATED_ACCOUNT_REFERENCE_INVALID,
 } from "../shared/authenticatedAccountAvailability";
 
-const { id, literal, null: vNull, object, union } = v;
+const { id, literal, object, union } = v;
 
 // Viewer model exposed through ctx.viewer on app-owned Convex builders.
 type AnonymousViewerRole = "role_anonymous";
@@ -79,8 +79,8 @@ export type AppViewer = PublicAppViewer | AuthenticatedAppViewer;
 const vSignedOutResolvedViewer = object({
   role: literal("role_anonymous"),
   accessKeys: v.array(vAccessKey),
-  userId: vNull(),
-  user: vNull(),
+  userId: v.null(),
+  user: v.null(),
 });
 
 const vUserResolvedViewer = object({

@@ -40,7 +40,7 @@ import {
 const CLOUDFLARE_OAUTH_AUTHORIZATION_URL = "https://dash.cloudflare.com/oauth2/auth";
 const CLOUDFLARE_OAUTH_TOKEN_URL = "https://dash.cloudflare.com/oauth2/token";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
-const { boolean, id, null: nullValue, number, object, optional, string, union } = v;
+const { boolean, id, number, object, optional, string, union } = v;
 
 type OAuthContext = ActionCtx | MutationCtx;
 type CloudflareOAuthTokenOperation =
@@ -299,7 +299,7 @@ const storeCloudflareOauthConnectionArgs = {
   accessToken: string(),
   refreshToken: string(),
   expiresAt: number(),
-  account: union(vCloudflareAccount, nullValue()),
+  account: union(vCloudflareAccount, v.null()),
   oauthStateId: id("providerOAuthCallbackStates"),
   oauthState: string(),
 } as const;
@@ -484,7 +484,7 @@ const resolvedCloudflareConnectionValidator = object({
 });
 const resolveConnectionForOrganizationResultValidator = union(
   resolvedCloudflareConnectionValidator,
-  nullValue(),
+  v.null(),
 );
 export type ResolvedCloudflareConnection = Infer<typeof resolvedCloudflareConnectionValidator>;
 
@@ -630,13 +630,23 @@ async function resolveConnectionForAuthority(
         source: invalidToken ? "refresh_attempt" : "runtime_error",
         errorMessage: sanitizeTokenHealthError(error),
       };
+      console.error(
+        "cloudflare:oauth_token:refresh_failed",
+        {
+          organizationId,
+          derivedStatus: derivedTokenHealth.status,
+          expiresAt,
+          invalidToken,
+        },
+        error,
+      );
       await replaceCloudflareCredentialForAuthority(ctx, authority, organizationId, {
         expectedAuth: credential.auth,
         expectedTokenRefreshLease: refreshLease,
         auth: credential.auth,
         tokenHealth,
       });
-      throw new Error("Cloudflare token refresh failed.");
+      throw error;
     }
 
     const nextExpiresAt = Date.now() + refreshed.expiresIn * 1000;
@@ -933,11 +943,14 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
     });
-    console.log("cloudflare:oauth:exchange_failed", {
-      organizationId: oauthState.organizationId,
-      outcome: "failed",
-      errorName: err instanceof Error ? err.name : "UnknownError",
-    });
+    console.error(
+      "cloudflare:oauth:exchange_failed",
+      {
+        organizationId: oauthState.organizationId,
+        outcome: "failed",
+      },
+      err,
+    );
     completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
       provider: "cloudflare",
       code: "failed",

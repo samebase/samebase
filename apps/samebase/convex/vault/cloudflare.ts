@@ -66,7 +66,7 @@ import {
   requireManualProviderActionDeadline,
 } from "./infrastructureOperation";
 
-const { id, null: nullValue, object, string } = v;
+const { id, object, string } = v;
 
 type CloudflareConnectWorkerResult = Infer<typeof cloudflareConnectWorkerContract.returns>;
 type CloudflareActionConnection = {
@@ -1557,7 +1557,7 @@ export const updateWorkerName = action({
     workerId: id("vaultCloudflareWorkers"),
     expectedWorkerName: string(),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const context = await readWorkerConfigurationContext(ctx, {
       vaultId: args.vaultId,
@@ -1601,7 +1601,7 @@ export const updateWorkerRootDirectory = action({
     workerId: id("vaultCloudflareWorkers"),
     expectedRootDirectory: string(),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const context = await readWorkerConfigurationContext(ctx, {
       vaultId: args.vaultId,
@@ -1746,7 +1746,7 @@ export const rotateConvexDeployKeysForWorkersBuildsForWorkflow = internalAction(
     convexProjectId: id("vaultConvexProjects"),
     build: vPreparedCloudflareWorkerBuilds,
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (
     ctx,
     { vaultId, runId, userId, workerId, convexProjectId, build },

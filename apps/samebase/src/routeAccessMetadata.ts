@@ -42,6 +42,7 @@ const routeAccessMetadataByPath = {
     prerender: false,
   },
   "/landing": { access: "access_public", pathSuggestion: "redirect", prerender: false },
+  "/docs/cloudflare-setup": { access: "access_public", pathSuggestion: "hidden" },
   "/docs/do-it-yourself": { access: "access_public", pathSuggestion: "hidden" },
   "/docs/receipts": { access: "access_public", pathSuggestion: "hidden" },
   "/docs/the-stack": { access: "access_public", pathSuggestion: "hidden" },

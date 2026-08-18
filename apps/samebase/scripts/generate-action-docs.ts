@@ -246,6 +246,8 @@ HTML pages. Action and operate docs are raw markdown only.
   inventory, and the four claims: yours, safer, lanes, cheaper
 - [The stack](https://samebase.com/docs/the-stack.md): what the app template ships and why each
   piece was chosen
+- [Cloudflare setup](https://samebase.com/docs/cloudflare-setup.md): create the first Workers Builds
+  API token, then let Samebase create the real Worker
 - [Do it yourself](https://samebase.com/docs/do-it-yourself.md): deploy the same stack by hand, for
   $0/month, with no Samebase account
 - [Receipts](https://samebase.com/docs/receipts.md): every factual claim with its primary source

@@ -12,7 +12,7 @@ import { assertPasswordAuthLogLevelAllowed } from "./deploymentProfile";
 import { readOptionalEnv } from "./oauthUtils";
 import { readActiveUser } from "./userLifecycle";
 
-const { boolean, id, literal, null: vNull, object, string, union } = v;
+const { boolean, id, literal, object, string, union } = v;
 
 const passwordAccountResolution = union(
   object({
@@ -81,7 +81,7 @@ export const approvePasswordAccount = internalMutation({
     email: string(),
     expectedUserId: id("users"),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     const email = normalizeAccountEmail(args.email);
     const account = await ctx.db

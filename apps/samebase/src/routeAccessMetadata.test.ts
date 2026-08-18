@@ -26,6 +26,13 @@ describe("route access metadata", () => {
     });
   });
 
+  it("keeps the first-app Cloudflare guide public and out of route suggestions", () => {
+    expect(ROUTE_ACCESS_METADATA_BY_PATH["/docs/cloudflare-setup"]).toEqual({
+      access: "access_public",
+      pathSuggestion: "hidden",
+    });
+  });
+
   it("keeps developer logo routes public and developer-only in suggestions", () => {
     const developerLogoRoutes = [
       "/logo/iso",

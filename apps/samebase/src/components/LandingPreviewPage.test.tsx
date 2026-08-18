@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
 import {
+  DocsCloudflareSetupPage,
   DocsDoItYourselfPage,
   DocsPricingPage,
   DocsTheStackPage,
@@ -246,16 +247,35 @@ describe("LandingPreviewPage", () => {
 
     expect(sidebarMarkup).toContain("Overview");
     expect(sidebarMarkup).toContain("The stack");
+    expect(sidebarMarkup).toContain("Cloudflare setup");
     expect(sidebarMarkup).toContain("Do it yourself");
     expect(sidebarMarkup).toContain("Pricing");
     expect(sidebarMarkup).toContain('href="/landing-preview"');
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');
+    expect(sidebarMarkup).toContain('href="/docs/cloudflare-setup"');
     expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
     expect(sidebarMarkup).toContain('href="/pricing"');
     expect(sidebarMarkup).not.toContain("Start here");
     expect(sidebarMarkup).not.toContain("samebase.com");
     expect(sidebarMarkup).not.toContain('href="#');
     expect(sidebarMarkup).not.toContain("Same stack");
+
+    expect(sidebarMarkup.indexOf("The stack")).toBeLessThan(
+      sidebarMarkup.indexOf("Cloudflare setup"),
+    );
+    expect(sidebarMarkup.indexOf("Cloudflare setup")).toBeLessThan(
+      sidebarMarkup.indexOf("Do it yourself"),
+    );
+  });
+
+  it("renders the first-app Cloudflare setup guide separately", () => {
+    const markup = renderToStaticMarkup(<DocsCloudflareSetupPage />);
+
+    expect(markup).toContain("Set up Cloudflare for your first Samebase app");
+    const createWorkerIndex = markup.indexOf("Create Worker");
+    const deployKeyActionIndex = markup.indexOf("Use `&lt;project&gt;` for Workers Builds");
+    expect(createWorkerIndex).toBeGreaterThan(-1);
+    expect(deployKeyActionIndex).toBeGreaterThan(createWorkerIndex);
   });
 
   it("renders the do-it-yourself guide separately", () => {

@@ -13,7 +13,7 @@ import {
 import { readConvexProductionDeployment } from "./convexProjectResources";
 import { requireVaultForUser } from "../organizationAccess";
 
-const { id, literal, null: nullValue, object, string, union } = v;
+const { id, literal, object, string, union } = v;
 
 const EMBEDDED_DASHBOARD_DEPLOY_KEY_TTL_MS = 60 * 60 * 1000;
 const EMBEDDED_DASHBOARD_ALLOWED_ACTIONS = [
@@ -74,7 +74,7 @@ export const readEmbeddedDashboardProject = internalQuery({
       teamId: string(),
       projectId: string(),
     }),
-    nullValue(),
+    v.null(),
   ),
   handler: async (ctx, args) => {
     const [vault, project] = await Promise.all([
@@ -236,7 +236,7 @@ export const revokeEmbeddedDashboardCredentials = action({
     convexProjectId: v.id("vaultConvexProjects"),
     deployKeyName: string(),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const context = await readVaultDatabaseDeploymentContext(ctx, args);
     if (

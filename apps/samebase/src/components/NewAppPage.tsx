@@ -69,7 +69,11 @@ function isCreateResourceNameAvailabilityBlocking(
   mode: CreateResourceNameMode,
   availability: CreateResourceNameAvailability | null,
 ): boolean {
-  if (!availability || availability.status === "available") {
+  if (
+    !availability ||
+    availability.status === "available" ||
+    availability.status === "not_required"
+  ) {
     return false;
   }
   return !(mode === "auto" && availability.status === "taken" && availability.suggestion);
@@ -106,11 +110,13 @@ function useCreateResourceNameAvailability(args: {
   githubRepositoryName: string;
   convexProjectName: string;
   cloudflareWorkerName: string;
+  cloudflareBuildTokenUuid: string | null;
   checkCreateRepositoryResourceNames: (input: {
     organizationId: Id<"organizations">;
     githubRepositoryName: string;
     convexProjectName: string;
     cloudflareWorkerName: string;
+    cloudflareBuildTokenUuid: string | null;
   }) => Promise<CreateResourceNameCheckResult>;
 }): {
   checkResult: CreateResourceNameCheckResult | null;
@@ -123,6 +129,7 @@ function useCreateResourceNameAvailability(args: {
     githubRepositoryName,
     convexProjectName,
     cloudflareWorkerName,
+    cloudflareBuildTokenUuid,
     checkCreateRepositoryResourceNames,
   } = args;
   const queryEnabled = enabled && organizationId !== null;
@@ -133,6 +140,7 @@ function useCreateResourceNameAvailability(args: {
       githubRepositoryName,
       convexProjectName,
       cloudflareWorkerName,
+      cloudflareBuildTokenUuid,
     ],
     queryFn: async ({ signal }) => {
       if (organizationId === null) {
@@ -144,6 +152,7 @@ function useCreateResourceNameAvailability(args: {
         githubRepositoryName,
         convexProjectName,
         cloudflareWorkerName,
+        cloudflareBuildTokenUuid,
       });
     },
     enabled: queryEnabled,
@@ -342,6 +351,7 @@ export function NewAppCreateFormFields({
   onConvexProjectNameBlur,
   onConvexProjectNameChange,
   onNewRepositoryNameChange,
+  showCloudflareWorkerName,
 }: {
   cloudflareBuildTokenField: ReactNode;
   cloudflareWorkerName: string;
@@ -357,6 +367,7 @@ export function NewAppCreateFormFields({
   onConvexProjectNameBlur: () => void;
   onConvexProjectNameChange: (value: string) => void;
   onNewRepositoryNameChange: (value: string) => void;
+  showCloudflareWorkerName: boolean;
 }) {
   const canEditProviderResourceNames = newRepositoryName.trim().length > 0;
   const providerResourceNameInputDisabled =
@@ -388,15 +399,19 @@ export function NewAppCreateFormFields({
           disabled={providerResourceNameInputDisabled}
         />
         <CreateControlMessageSlot>{convexProjectNameSupport}</CreateControlMessageSlot>
-        <CreateProviderNameInput
-          placeholder="Cloudflare Worker name"
-          value={cloudflareWorkerName}
-          onChange={onCloudflareWorkerNameChange}
-          onBlur={onCloudflareWorkerNameBlur}
-          icon={<CloudflareProviderLogo />}
-          disabled={providerResourceNameInputDisabled}
-        />
-        <CreateControlMessageSlot>{cloudflareWorkerNameSupport}</CreateControlMessageSlot>
+        {showCloudflareWorkerName ? (
+          <>
+            <CreateProviderNameInput
+              placeholder="Cloudflare Worker name"
+              value={cloudflareWorkerName}
+              onChange={onCloudflareWorkerNameChange}
+              onBlur={onCloudflareWorkerNameBlur}
+              icon={<CloudflareProviderLogo />}
+              disabled={providerResourceNameInputDisabled}
+            />
+            <CreateControlMessageSlot>{cloudflareWorkerNameSupport}</CreateControlMessageSlot>
+          </>
+        ) : null}
         {cloudflareBuildTokenField}
       </div>
     </>
@@ -526,6 +541,8 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     enabled: cloudflareConnected,
     organizationId,
   });
+  const cloudflareBuildTokensLoading =
+    cloudflareBuildTokensQuery.isPending || cloudflareBuildTokensQuery.isFetching;
   const cloudflareBuildTokens = cloudflareBuildTokensQuery.data?.tokens ?? [];
   const cloudflareBuildTokenSelection = useCloudflareBuildTokenSelection({
     error: Boolean(cloudflareBuildTokensQuery.error),
@@ -535,6 +552,12 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     tokens: cloudflareBuildTokensQuery.data?.tokens ?? null,
   });
   const cloudflareBuildTokenUuid = cloudflareBuildTokenSelection.selectedUuid;
+  const cloudflareBuildTokensConfirmedEmpty = Boolean(
+    cloudflareBuildTokensQuery.data &&
+    !cloudflareBuildTokensQuery.isFetching &&
+    !cloudflareBuildTokensQuery.error &&
+    cloudflareBuildTokens.length === 0,
+  );
   const hasRequiredCreateConnections = Boolean(convexConnected && cloudflareConnected);
   const providerBlocker = readNewAppProviderBlocker({
     canManageOrganization,
@@ -573,6 +596,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     githubRepositoryName: createRepositoryName,
     convexProjectName: checkedConvexProjectName,
     cloudflareWorkerName: checkedCloudflareWorkerName,
+    cloudflareBuildTokenUuid: cloudflareBuildTokenUuid || null,
     checkCreateRepositoryResourceNames,
   });
   const githubRepositoryNameAvailability = currentResourceNameCheck?.github ?? null;
@@ -613,11 +637,11 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     createRepositoryName &&
     (isGitHubRepositoryNameBlocking ||
       !convexProjectNameValidation.valid ||
-      !cloudflareWorkerNameValidation.valid ||
+      (!cloudflareBuildTokensConfirmedEmpty && !cloudflareWorkerNameValidation.valid) ||
       createResourceNameCheckError ||
       isCreateResourceNameCheckPending ||
       isConvexProjectNameAvailabilityBlocking ||
-      isCloudflareWorkerNameAvailabilityBlocking),
+      (!cloudflareBuildTokensConfirmedEmpty && isCloudflareWorkerNameAvailabilityBlocking)),
   );
   const showCloudflareCreateWarning =
     connectedCloudflareConnection !== null &&
@@ -627,7 +651,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     isCreating ||
     createRepositoryName.length === 0 ||
     !canCreateRepo ||
-    !cloudflareBuildTokenSelection.canWrite ||
+    (!cloudflareBuildTokenSelection.canWrite && !cloudflareBuildTokensConfirmedEmpty) ||
     hasBlockingCreateResourceName;
 
   const setNewRepositoryName = useCallback((value: string) => {
@@ -708,6 +732,10 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     }
 
     if (!availability) {
+      return manualReset;
+    }
+
+    if (availability.status === "not_required") {
       return manualReset;
     }
 
@@ -819,22 +847,16 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         )}
       </div>
     ) : null;
-  const cloudflareBuildTokenAccountId = cloudflareBuildTokensQuery.data
-    ? cloudflareBuildTokensQuery.data.accountId
-    : connectedCloudflareConnection
-      ? connectedCloudflareConnection.accountId
-      : null;
-
   const createFormFields = (
     <NewAppCreateFormFields
       cloudflareBuildTokenField={
         cloudflareConnected ? (
           <CloudflareBuildTokenField
-            accountId={cloudflareBuildTokenAccountId}
             disabled={isCreating}
+            emptyState="deferred"
             error={Boolean(cloudflareBuildTokensQuery.error)}
             id="new-app-cloudflare-build-token"
-            isLoading={cloudflareBuildTokensQuery.isFetching}
+            isLoading={cloudflareBuildTokensLoading}
             lastUsedUuid={cloudflareBuildTokensQuery.data?.lastUsedBuildTokenUuid ?? null}
             onReload={() => {
               void cloudflareBuildTokensQuery.refetch();
@@ -898,6 +920,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         setConvexProjectName(value, "manual");
       }}
       onNewRepositoryNameChange={setNewRepositoryName}
+      showCloudflareWorkerName={!cloudflareBuildTokensConfirmedEmpty}
     />
   );
 
@@ -923,13 +946,13 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       setCreateError(convexProjectNameValidation.message);
       return;
     }
-    if (!cloudflareWorkerNameValidation.valid) {
-      setCreateError(cloudflareWorkerNameValidation.message);
-      return;
-    }
-    if (!cloudflareBuildTokenUuid) {
-      setCreateError("Choose an API token.");
-      return;
+    let submittedCloudflareWorkerName = defaultCloudflareWorkerName;
+    if (!cloudflareBuildTokensConfirmedEmpty) {
+      if (!cloudflareWorkerNameValidation.valid) {
+        setCreateError(cloudflareWorkerNameValidation.message);
+        return;
+      }
+      submittedCloudflareWorkerName = cloudflareWorkerNameValidation.value;
     }
     if (createResourceNameCheckError) {
       setCreateError(createResourceNameCheckError);
@@ -951,7 +974,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       );
       return;
     }
-    if (isCloudflareWorkerNameAvailabilityBlocking) {
+    if (!cloudflareBuildTokensConfirmedEmpty && isCloudflareWorkerNameAvailabilityBlocking) {
       setCreateError(
         cloudflareWorkerNameAvailability?.message ?? "Cloudflare Worker name is not available.",
       );
@@ -966,8 +989,8 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         organizationId,
         name: repoName,
         convexProjectName: convexProjectNameValidation.value,
-        cloudflareWorkerName: cloudflareWorkerNameValidation.value,
-        cloudflareBuildTokenUuid,
+        cloudflareWorkerName: submittedCloudflareWorkerName,
+        cloudflareBuildTokenUuid: cloudflareBuildTokenUuid || null,
         private: true,
       });
       setNewRepositoryNameState("");
@@ -992,13 +1015,6 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           : error instanceof Error
             ? error.message
             : "Failed to create app";
-      if (
-        message.startsWith(
-          "The selected Cloudflare Workers Builds token is not in Cloudflare's current list",
-        )
-      ) {
-        await cloudflareBuildTokensQuery.refetch();
-      }
       setCreateError(message);
     } finally {
       setIsCreating(false);
