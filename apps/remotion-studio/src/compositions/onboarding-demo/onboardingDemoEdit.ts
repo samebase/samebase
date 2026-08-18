@@ -181,8 +181,15 @@ const sourceSections = [
   {
     kind: "face",
     name: "Face 10:45",
-    sourceEndInSeconds: 675.54,
+    sourceEndInSeconds: 670.92,
     sourceStartInSeconds: 645.52,
+  },
+  {
+    endingPlaybackRate: 0.5,
+    kind: "slowdown",
+    name: "Slowdown 11:10",
+    sourceEndInSeconds: 675.54,
+    sourceStartInSeconds: 670.92,
   },
   {
     kind: "face",

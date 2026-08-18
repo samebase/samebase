@@ -1,5 +1,5 @@
 import { parseSrt, type Caption } from "@remotion/captions";
-import { useCallback, useEffect, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useState } from "react";
 import {
   AbsoluteFill,
   Html5Audio,
@@ -20,7 +20,8 @@ import {
   type RecordedDemoEdit,
   type RecordedDemoEditSegment,
   type RecordedDemoFaceSegment,
-  type RecordedDemoWaitSegment,
+  type RecordedDemoSlowdownSegment,
+  type RecordedDemoVariableSegment,
 } from "./recordedDemoEdit";
 
 const maximumDirectPlaybackRate = 16;
@@ -109,7 +110,7 @@ const FaceBubble: React.FC<{
   fadeIn: boolean;
   fadeOut: boolean;
   layoutScale: number;
-  segment: RecordedDemoFaceSegment;
+  segment: RecordedDemoFaceSegment | RecordedDemoSlowdownSegment;
 }> = ({ edit, faceCrop, facePlacement, faceRecording, fadeIn, fadeOut, layoutScale, segment }) => {
   const frame = useCurrentFrame();
   const faceFadeDurationInFrames = Math.round(edit.fps * 0.4);
@@ -118,6 +119,15 @@ const FaceBubble: React.FC<{
     fadeIn ? frame / faceFadeDurationInFrames : 1,
     fadeOut ? (segment.durationInFrames - 1 - frame) / faceFadeDurationInFrames : 1,
   );
+  const faceVideoStyle: CSSProperties = {
+    height: faceCrop === "lower" ? "112%" : "100%",
+    left: faceCrop === "lower" ? "-6%" : undefined,
+    objectFit: "cover",
+    objectPosition: "57% 58%",
+    position: faceCrop === "lower" ? "absolute" : undefined,
+    top: faceCrop === "lower" ? "-13%" : undefined,
+    width: faceCrop === "lower" ? "112%" : "100%",
+  };
 
   return (
     <Interactive.Div
@@ -136,35 +146,58 @@ const FaceBubble: React.FC<{
         width: 330 * layoutScale,
       }}
     >
+      {segment.kind === "face" ? (
+        <OffthreadVideo
+          muted
+          playbackRate={segment.playbackRate}
+          src={faceRecording}
+          style={faceVideoStyle}
+          trimAfter={segment.sourceEndInFrames}
+          trimBefore={segment.sourceStartInFrames}
+        />
+      ) : (
+        <VariableFaceVideo
+          faceRecording={faceRecording}
+          faceVideoStyle={faceVideoStyle}
+          segment={segment}
+        />
+      )}
+    </Interactive.Div>
+  );
+};
+
+const VariableFaceVideo: React.FC<{
+  faceRecording: string;
+  faceVideoStyle: CSSProperties;
+  segment: RecordedDemoSlowdownSegment;
+}> = ({ faceRecording, faceVideoStyle, segment }) => {
+  const frame = useCurrentFrame();
+  const playbackRate = getRecordedDemoSegmentPlaybackRate(segment, frame);
+  const sourceFrame = getRecordedDemoSegmentSourceFrame(segment, frame);
+
+  return (
+    <Sequence from={frame} showInTimeline={false}>
       <OffthreadVideo
         muted
-        playbackRate={segment.playbackRate}
-        src={faceRecording}
-        style={{
-          height: faceCrop === "lower" ? "112%" : "100%",
-          left: faceCrop === "lower" ? "-6%" : undefined,
-          objectFit: "cover",
-          objectPosition: "57% 58%",
-          position: faceCrop === "lower" ? "absolute" : undefined,
-          top: faceCrop === "lower" ? "-13%" : undefined,
-          width: faceCrop === "lower" ? "112%" : "100%",
-        }}
+        playbackRate={playbackRate}
+        src={`${faceRecording}#disable`}
+        style={faceVideoStyle}
         trimAfter={segment.sourceEndInFrames}
-        trimBefore={segment.sourceStartInFrames}
+        trimBefore={sourceFrame}
       />
-    </Interactive.Div>
+    </Sequence>
   );
 };
 
 const AcceleratedScreen: React.FC<{
   screenRecording: string;
-  segment: RecordedDemoWaitSegment;
+  segment: RecordedDemoVariableSegment;
   timelapseRecording: string;
 }> = ({ screenRecording, segment, timelapseRecording }) => {
   const frame = useCurrentFrame();
   const playbackRate = getRecordedDemoSegmentPlaybackRate(segment, frame);
   const sourceFrame = getRecordedDemoSegmentSourceFrame(segment, frame);
-  const isTimelapse = playbackRate > maximumDirectPlaybackRate;
+  const isTimelapse = segment.kind === "wait" && playbackRate > maximumDirectPlaybackRate;
   const acceleratedScreenRecording = `${screenRecording}#disable`;
   const acceleratedTimelapseRecording = `${timelapseRecording}#disable`;
 
@@ -200,6 +233,10 @@ const SegmentAudio: React.FC<{
         trimBefore={segment.sourceStartInFrames}
       />
     );
+  }
+
+  if (segment.kind === "slowdown") {
+    return null;
   }
 
   const audioFadeDurationInFrames = edit.fps;
@@ -350,7 +387,7 @@ export const RecordedDemo: React.FC<RecordedDemoProps> = ({
                 timelapseRecording={timelapseRecording}
               />
             )}
-            {segment.kind === "face" ? (
+            {segment.kind !== "wait" ? (
               <FaceBubble
                 edit={edit}
                 faceCrop={faceCrop}

@@ -15,6 +15,10 @@ export type RecordedDemoSourceSection =
   | (RecordedDemoSourceSectionBase & {
       kind: "wait";
       maximumPlaybackRate: number;
+    })
+  | (RecordedDemoSourceSectionBase & {
+      endingPlaybackRate: number;
+      kind: "slowdown";
     });
 
 type RecordedDemoSegmentBase = {
@@ -37,7 +41,15 @@ export type RecordedDemoWaitSegment = RecordedDemoSegmentBase & {
   sourceFrames: readonly number[];
 };
 
-export type RecordedDemoEditSegment = RecordedDemoFaceSegment | RecordedDemoWaitSegment;
+export type RecordedDemoSlowdownSegment = RecordedDemoSegmentBase & {
+  kind: "slowdown";
+  playbackRates: readonly number[];
+  sourceFrames: readonly number[];
+};
+
+export type RecordedDemoVariableSegment = RecordedDemoSlowdownSegment | RecordedDemoWaitSegment;
+
+export type RecordedDemoEditSegment = RecordedDemoFaceSegment | RecordedDemoVariableSegment;
 
 export type RecordedDemoEdit = {
   durationInFrames: number;
@@ -151,6 +163,54 @@ export const createWaitPlaybackRates = ({
   return [...rampUpPlaybackRates, ...cruisePlaybackRates, ...rampDownPlaybackRates];
 };
 
+const createSlowdownPlaybackRates = ({
+  endingPlaybackRate,
+  sourceDurationInFrames,
+}: {
+  endingPlaybackRate: number;
+  sourceDurationInFrames: number;
+}) => {
+  if (endingPlaybackRate <= 0 || endingPlaybackRate >= 1) {
+    throw new Error("A recorded demo slowdown ending rate must be between 0 and 1");
+  }
+
+  const averagePlaybackRate = (1 + endingPlaybackRate) / 2;
+  const durationInFrames = Math.round(sourceDurationInFrames / averagePlaybackRate);
+  const basePlaybackRates = Array.from({ length: durationInFrames }, (_, index) => {
+    const progress = index / (durationInFrames - 1);
+    const easedProgress = (1 - Math.cos(Math.PI * progress)) / 2;
+
+    return 1 + (endingPlaybackRate - 1) * easedProgress;
+  });
+  const sourceDurationAdjustment =
+    sourceDurationInFrames -
+    basePlaybackRates.reduce((duration, playbackRate) => duration + playbackRate, 0);
+  const adjustmentWeights = basePlaybackRates.map((_, index) =>
+    Math.sin((Math.PI * index) / (basePlaybackRates.length - 1)),
+  );
+  const adjustmentWeightTotal = adjustmentWeights.reduce((total, weight) => total + weight, 0);
+  const playbackRates = basePlaybackRates.map(
+    (playbackRate, index) =>
+      playbackRate +
+      (sourceDurationAdjustment * (adjustmentWeights[index] ?? 0)) / adjustmentWeightTotal,
+  );
+
+  for (let index = 0; index < playbackRates.length; index += 1) {
+    const playbackRate = playbackRates[index];
+    const previousPlaybackRate = playbackRates[index - 1];
+
+    if (!playbackRate || playbackRate < endingPlaybackRate || playbackRate > 1) {
+      throw new Error("A recorded demo slowdown exceeds its playback range");
+    }
+
+    if (previousPlaybackRate && playbackRate > previousPlaybackRate) {
+      throw new Error("A recorded demo slowdown must decrease continuously");
+    }
+  }
+
+  return playbackRates;
+};
+
 export const createRecordedDemoEdit = ({
   fps,
   sourceDurationInFrames,
@@ -208,11 +268,17 @@ export const createRecordedDemoEdit = ({
       continue;
     }
 
-    const playbackRates = createWaitPlaybackRates({
-      fps,
-      maximumPlaybackRate: section.maximumPlaybackRate,
-      sourceDurationInFrames: sourceDuration,
-    });
+    const playbackRates =
+      section.kind === "wait"
+        ? createWaitPlaybackRates({
+            fps,
+            maximumPlaybackRate: section.maximumPlaybackRate,
+            sourceDurationInFrames: sourceDuration,
+          })
+        : createSlowdownPlaybackRates({
+            endingPlaybackRate: section.endingPlaybackRate,
+            sourceDurationInFrames: sourceDuration,
+          });
     let sourceFrame = sourceStartInFrames;
     const sourceFrames = playbackRates.map((playbackRate) => {
       const currentSourceFrame = sourceFrame;
@@ -226,13 +292,16 @@ export const createRecordedDemoEdit = ({
     }
 
     const durationInFrames = playbackRates.length;
-    const peakPlaybackRate = Math.max(...playbackRates);
+    const playbackRateLabel =
+      section.kind === "wait"
+        ? `${Math.max(...playbackRates).toFixed(1)}× peak`
+        : `${section.endingPlaybackRate.toFixed(1)}× ending`;
     segments.push({
-      kind: "wait",
+      kind: section.kind,
       durationInFrames,
       editEndInFrames: editStartInFrames + durationInFrames,
       editStartInFrames,
-      name: `${section.name} · ${peakPlaybackRate.toFixed(1)}× peak`,
+      name: `${section.name} · ${playbackRateLabel}`,
       playbackRates,
       sourceEndInFrames,
       sourceFrames,

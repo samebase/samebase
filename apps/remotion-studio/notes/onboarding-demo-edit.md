@@ -36,7 +36,9 @@ These are operator-selected source-time boundaries. Keep all other sections at 1
 The 16x maximum is provisional. Review the longer waits in Remotion Studio and increase their
 configured maximum only if the current curve does not compress them enough.
 
-Play `11:15.54` to the end at `0.5x` with the screen, face, audio, and captions kept together.
+Use the silent section from `11:10.92` to `11:15.54` to decelerate the screen and face smoothly from
+`1x` to `0.5x`. Play `11:15.54` to the end at `0.5x` with the screen, face, audio, and captions kept
+together.
 
 Each wait uses the shared four-second smooth curve from 1x to its configured maximum and back to 1x.
 A wait that is too short to reach its configured maximum uses the same curve with a lower peak. The
