@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
 import {
+  DocsCloudflareSetupPage,
   DocsDoItYourselfPage,
   DocsPricingPage,
   DocsTheStackPage,
@@ -246,16 +247,37 @@ describe("LandingPreviewPage", () => {
 
     expect(sidebarMarkup).toContain("Overview");
     expect(sidebarMarkup).toContain("The stack");
+    expect(sidebarMarkup).toContain("Cloudflare setup");
     expect(sidebarMarkup).toContain("Do it yourself");
     expect(sidebarMarkup).toContain("Pricing");
     expect(sidebarMarkup).toContain('href="/landing-preview"');
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');
+    expect(sidebarMarkup).toContain('href="/docs/cloudflare-setup"');
     expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
     expect(sidebarMarkup).toContain('href="/pricing"');
     expect(sidebarMarkup).not.toContain("Start here");
     expect(sidebarMarkup).not.toContain("samebase.com");
     expect(sidebarMarkup).not.toContain('href="#');
     expect(sidebarMarkup).not.toContain("Same stack");
+
+    expect(sidebarMarkup.indexOf("The stack")).toBeLessThan(
+      sidebarMarkup.indexOf("Cloudflare setup"),
+    );
+    expect(sidebarMarkup.indexOf("Cloudflare setup")).toBeLessThan(
+      sidebarMarkup.indexOf("Do it yourself"),
+    );
+  });
+
+  it("renders the first-app Cloudflare setup guide separately", () => {
+    const markup = renderToStaticMarkup(<DocsCloudflareSetupPage />);
+
+    expect(markup).toContain("Set up Cloudflare for your first Samebase app");
+    expect(markup).toContain("Samebase does not create a Cloudflare Worker");
+    expect(markup).toContain("Create new token");
+    expect(markup).toContain("Delete the temporary Worker in Cloudflare");
+    expect(markup).toContain("Do not attach it to Samebase");
+    expect(markup).toContain("adds the Convex production and preview deploy keys");
+    expect(markup).toMatch(/starts the first\s+deployment\./);
   });
 
   it("renders the do-it-yourself guide separately", () => {

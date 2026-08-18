@@ -130,9 +130,16 @@ function setInputValue(input: HTMLInputElement, value: string): void {
   valueDescriptor.set.call(input, value);
 }
 
-function availableNames() {
+function availableNames(cloudflareStatus: "available" | "not_required" = "available") {
   const available = { message: null, status: "available" as const, suggestion: null };
-  return { cloudflare: available, convex: available, github: available };
+  return {
+    cloudflare:
+      cloudflareStatus === "available"
+        ? available
+        : { message: null, status: "not_required" as const, suggestion: null },
+    convex: available,
+    github: available,
+  };
 }
 
 describe("NewAppPage", () => {
@@ -249,6 +256,7 @@ describe("NewAppPage", () => {
       githubRepositoryName: "second-app",
       convexProjectName: "second-app",
       cloudflareWorkerName: "second-app",
+      cloudflareBuildTokenUuid: "build-token-1",
     });
     await vi.waitFor(() =>
       expect(container.textContent).toContain("GitHub repository name is available."),
@@ -259,10 +267,10 @@ describe("NewAppPage", () => {
     expect(createButton?.disabled).toBe(false);
   });
 
-  it("creates an app with no Workers Builds API token after an empty list is confirmed", async () => {
+  it("hides the Worker field and creates an app after an empty token list is confirmed", async () => {
     vi.useFakeTimers();
     cloudflareBuildTokenTestState.state = "empty";
-    const checkNames = vi.fn(async () => availableNames());
+    const checkNames = vi.fn(async () => availableNames("not_required"));
     const createRepository = vi.fn(async () => undefined);
     testState.actions.set(
       getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
@@ -275,9 +283,13 @@ describe("NewAppPage", () => {
       throw new Error("GitHub repository name input was not rendered.");
     }
 
+    expect(container.querySelector("[aria-label='Cloudflare Worker name']")).toBeNull();
     expect(container.textContent).toContain(
-      "No API token is available. You can create the app now and add one before deployment.",
+      "No API token is available. Samebase will create the GitHub repository and Convex project, but it will not create a Cloudflare Worker.",
     );
+    expect(
+      container.querySelector<HTMLAnchorElement>('a[href="/docs/cloudflare-setup"]')?.textContent,
+    ).toBe("View first-time Cloudflare setup");
     setInputValue(input, "no-token-app");
     await act(async () => input.dispatchEvent(new Event("input", { bubbles: true })));
     await act(async () => vi.advanceTimersByTimeAsync(350));
@@ -285,6 +297,14 @@ describe("NewAppPage", () => {
     await vi.waitFor(() =>
       expect(container.textContent).toContain("GitHub repository name is available."),
     );
+    expect(checkNames).toHaveBeenCalledWith({
+      organizationId: organization.organizationId,
+      githubRepositoryName: "no-token-app",
+      convexProjectName: "no-token-app",
+      cloudflareWorkerName: "no-token-app",
+      cloudflareBuildTokenUuid: null,
+    });
+    expect(container.querySelector("[aria-label='Cloudflare Worker name']")).toBeNull();
 
     const createButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "New App",
@@ -310,7 +330,7 @@ describe("NewAppPage", () => {
       cloudflareBuildTokenTestState.state = "loaded";
       return undefined;
     });
-    const checkNames = vi.fn(async () => availableNames());
+    const checkNames = vi.fn(async () => availableNames("not_required"));
     const createRepository = vi.fn(async () => {
       throw new ConvexError("A Cloudflare Workers Builds token is available. Select it and retry.");
     });

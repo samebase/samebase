@@ -3,13 +3,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
+import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { CloudflareBuildTokenField } from "./CloudflareBuildTokenField";
 
 describe("CloudflareBuildTokenField", () => {
   it("shows loading and failed list states without presenting a selection", () => {
     const loadingMarkup = renderToStaticMarkup(
       <CloudflareBuildTokenField
-        accountId="account-1"
         disabled={false}
         emptyState="required"
         error={false}
@@ -25,7 +25,6 @@ describe("CloudflareBuildTokenField", () => {
     );
     const failedMarkup = renderToStaticMarkup(
       <CloudflareBuildTokenField
-        accountId="account-1"
         disabled={false}
         emptyState="required"
         error
@@ -50,7 +49,6 @@ describe("CloudflareBuildTokenField", () => {
   it("shows the selected name and distinguishes duplicate names by UUID", () => {
     const markup = renderToStaticMarkup(
       <CloudflareBuildTokenField
-        accountId="account-1"
         disabled={false}
         emptyState="required"
         error={false}
@@ -71,10 +69,9 @@ describe("CloudflareBuildTokenField", () => {
     expect(markup).toContain("Workers Builds (bbbbbbbb) · Last used");
   });
 
-  it("keeps required and deferred empty states distinct", () => {
+  it("keeps generic repair and first-time empty states distinct", () => {
     const requiredMarkup = renderToStaticMarkup(
       <CloudflareBuildTokenField
-        accountId="account-1"
         disabled={false}
         emptyState="required"
         error={false}
@@ -89,40 +86,69 @@ describe("CloudflareBuildTokenField", () => {
       />,
     );
     const deferredMarkup = renderToStaticMarkup(
-      <CloudflareBuildTokenField
-        accountId="account-1"
-        disabled={false}
-        emptyState="deferred"
-        error={false}
-        id="build-token"
-        isLoading={false}
-        lastUsedUuid={null}
-        onReload={() => {}}
-        onValueChange={() => {}}
-        selectionUnavailable={false}
-        tokens={[]}
-        value=""
-      />,
+      <TestRouterProvider initialEntries={["/org/ada/new-app"]}>
+        <CloudflareBuildTokenField
+          disabled={false}
+          emptyState="deferred"
+          error={false}
+          id="build-token"
+          isLoading={false}
+          lastUsedUuid={null}
+          onReload={() => {}}
+          onValueChange={() => {}}
+          selectionUnavailable={false}
+          tokens={[]}
+          value=""
+        />
+      </TestRouterProvider>,
+    );
+    const firstTimeMarkup = renderToStaticMarkup(
+      <TestRouterProvider initialEntries={["/vault/ada/demo/settings"]}>
+        <CloudflareBuildTokenField
+          disabled={false}
+          emptyState="first-time"
+          error={false}
+          id="build-token"
+          isLoading={false}
+          lastUsedUuid={null}
+          onReload={() => {}}
+          onValueChange={() => {}}
+          selectionUnavailable={false}
+          tokens={[]}
+          value=""
+        />
+      </TestRouterProvider>,
     );
 
     expect(requiredMarkup).toContain("No API tokens are listed.");
     expect(requiredMarkup).not.toContain("You can create the app now");
-    expect(requiredMarkup).toContain(
-      'href="https://dash.cloudflare.com/account-1/workers-and-pages"',
+    expect(requiredMarkup).not.toContain("Open Cloudflare");
+    expect(requiredMarkup).not.toContain("dash.cloudflare.com");
+    expect(deferredMarkup).toContain(
+      "No API token is available. Samebase will create the GitHub repository and Convex project, but it will not create a Cloudflare Worker.",
     );
     expect(deferredMarkup).toContain(
-      "No API token is available. You can create the app now and add one before deployment.",
+      "Complete first-time Cloudflare setup after you create the app.",
     );
+    expect(deferredMarkup).toContain('href="/docs/cloudflare-setup"');
+    expect(deferredMarkup).toContain("View first-time Cloudflare setup");
     expect(deferredMarkup).toContain('role="status"');
     expect(deferredMarkup).not.toContain("Create one in Cloudflare");
     expect(deferredMarkup).not.toContain("Open Cloudflare");
     expect(deferredMarkup).toContain("Reload tokens");
+    expect(firstTimeMarkup).toContain(
+      "No API tokens are listed. Complete first-time Cloudflare setup, then reload tokens.",
+    );
+    expect(firstTimeMarkup).toContain('href="/docs/cloudflare-setup"');
+    expect(firstTimeMarkup).toContain("View setup guide");
+    expect(firstTimeMarkup).toContain("Reload tokens");
+    expect(firstTimeMarkup).not.toContain("Open Cloudflare");
+    expect(firstTimeMarkup).not.toContain("dash.cloudflare.com");
   });
 
   it("does not replace a selection that is no longer listed", () => {
     const markup = renderToStaticMarkup(
       <CloudflareBuildTokenField
-        accountId="account-1"
         disabled={false}
         emptyState="required"
         error={false}

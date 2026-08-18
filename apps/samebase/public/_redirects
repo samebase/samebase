@@ -13,6 +13,10 @@
 
 / /_landing.html 200
 
+/docs/cloudflare-setup /docs/cloudflare-setup/index.html 200
+/docs/cloudflare-setup/ /docs/cloudflare-setup/index.html 200
+/docs/cloudflare-setup/index.html /docs/cloudflare-setup/index.html 200
+
 /docs/do-it-yourself /docs/do-it-yourself/index.html 200
 /docs/do-it-yourself/ /docs/do-it-yourself/index.html 200
 /docs/do-it-yourself/index.html /docs/do-it-yourself/index.html 200

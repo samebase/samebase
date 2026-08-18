@@ -8,6 +8,7 @@ import { PullRequestsSection } from "@/components/vault-dashboard/VaultPullReque
 import { RepositorySettings } from "@/components/vault-dashboard/VaultRepositorySettings";
 import { VaultWorkspaceDataInspector } from "@/components/vault-dashboard/VaultWorkspaceDataInspector";
 import type { VaultRepositorySettingsState } from "@/components/vault-dashboard/vaultRepositorySettingsState";
+import { DOCS_CLOUDFLARE_SETUP_ROUTE } from "@/routeSearch/landingPreview";
 import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRoutes";
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 import { Link } from "@tanstack/react-router";
@@ -155,6 +156,28 @@ function FailureNotice({
   );
 }
 
+function IncompleteCloudflareBuildsNotice() {
+  return (
+    <div
+      className="flex flex-wrap items-start justify-between gap-3 border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950"
+      role="status"
+    >
+      <div className="flex min-w-0 items-start gap-3">
+        <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" />
+        <div className="min-w-0">
+          <h2 className="text-sm font-medium">Finish Cloudflare setup</h2>
+          <div className="mt-1 text-xs leading-5 text-muted-foreground">
+            Create the first API token, then create this app&apos;s Worker in Settings.
+          </div>
+        </div>
+      </div>
+      <Button asChild size="sm" type="button" variant="outline">
+        <Link to={DOCS_CLOUDFLARE_SETUP_ROUTE}>View setup guide</Link>
+      </Button>
+    </div>
+  );
+}
+
 function VaultStateNotice({
   isRetryingVaultAction,
   onRetryInfrastructureProvisioning,
@@ -283,6 +306,18 @@ export function VaultOverviewPage({
         ? "Setting up"
         : null;
   const showRepositoryContent = workspace.vault.hasConnectedGitHubRepository;
+  const managedProviderPlan = workspace.vault.providerPlan;
+  const showIncompleteCloudflareBuilds =
+    workspace.vault.sourceSetup.status === "ready" &&
+    workspace.vault.providerSetup.status === "ready" &&
+    workspace.vault.deletion.state === "not_deleting" &&
+    workspace.vault.hasConnectedGitHubRepository &&
+    workspace.vault.hasConvexProvision &&
+    workspace.vault.cloudflareWorkers.length === 0 &&
+    managedProviderPlan?.convex.state === "created" &&
+    (managedProviderPlan.cloudflare.state === "planned" ||
+      managedProviderPlan.cloudflare.state === "created") &&
+    managedProviderPlan.cloudflare.buildTokenUuid === null;
 
   return (
     <div className="min-h-full bg-background text-foreground">
@@ -316,6 +351,8 @@ export function VaultOverviewPage({
                 {provisioningLabel}
               </span>
             </section>
+          ) : showIncompleteCloudflareBuilds ? (
+            <IncompleteCloudflareBuildsNotice />
           ) : (
             <VaultStateNotice
               isRetryingVaultAction={isRetryingVaultAction}

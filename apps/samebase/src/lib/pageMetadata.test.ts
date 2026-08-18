@@ -230,6 +230,22 @@ describe("page metadata", () => {
     });
   });
 
+  it("uses dedicated metadata for the first-app Cloudflare setup guide", () => {
+    expect(
+      resolvePageMetadata({
+        pathname: "/docs/cloudflare-setup",
+        isAuthenticated: false,
+      }),
+    ).toEqual({
+      canonicalPath: "/docs/cloudflare-setup",
+      description:
+        "Create the first Cloudflare Workers Builds API token, then let Samebase create the real Worker.",
+      openGraphType: "website",
+      robots: "noindex,nofollow",
+      title: "Set up Cloudflare for your first Samebase app | Samebase",
+    });
+  });
+
   it("builds non-indexed server metadata for public logo labs", () => {
     const head = buildLogoLabPageHead("/logo/iso", "Logo ISO Preview");
 

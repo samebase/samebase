@@ -197,7 +197,6 @@ function CloudflareDialogFixture({
         cloudflareBuildTokenField={
           showsBuildToken ? (
             <CloudflareBuildTokenField
-              accountId="samebase-account"
               disabled={false}
               emptyState="required"
               error={false}
@@ -218,6 +217,7 @@ function CloudflareDialogFixture({
           ) : null
         }
         hasSelectedBuildToken
+        createOnly={false}
         createRootDirectory={repair ? "apps/portal" : "/"}
         createWorkerName={invalidName ? "samebase app" : ""}
         didAddWorker={false}

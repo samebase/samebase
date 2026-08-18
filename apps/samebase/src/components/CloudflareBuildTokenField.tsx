@@ -3,15 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { linkStyle } from "@/components/styles";
+import { DOCS_CLOUDFLARE_SETUP_ROUTE } from "@/routeSearch/landingPreview";
+import { Link } from "@tanstack/react-router";
 
 export type CloudflareBuildTokenOption = {
   name: string;
   uuid: string;
 };
-
-function buildCloudflareWorkersUrl(accountId: string): string {
-  return `https://dash.cloudflare.com/${encodeURIComponent(accountId)}/workers-and-pages`;
-}
 
 function formatCloudflareBuildTokenOption(
   token: CloudflareBuildTokenOption,
@@ -26,7 +24,6 @@ function formatCloudflareBuildTokenOption(
 }
 
 export function CloudflareBuildTokenField({
-  accountId,
   disabled,
   emptyState,
   error,
@@ -39,9 +36,8 @@ export function CloudflareBuildTokenField({
   tokens,
   value,
 }: {
-  accountId: string | null;
   disabled: boolean;
-  emptyState: "deferred" | "required";
+  emptyState: "deferred" | "first-time" | "required";
   error: boolean;
   id: string;
   isLoading: boolean;
@@ -83,7 +79,7 @@ export function CloudflareBuildTokenField({
         <Label>API token</Label>
         <div
           className={
-            emptyState === "deferred"
+            emptyState === "deferred" || emptyState === "first-time"
               ? "text-xs leading-5 text-amber-700"
               : "text-xs leading-5 text-muted-foreground"
           }
@@ -91,25 +87,23 @@ export function CloudflareBuildTokenField({
         >
           {emptyState === "deferred" ? (
             <>
-              No API token is available. You can create the app now and add one before
-              deployment.{" "}
+              No API token is available. Samebase will create the GitHub repository and Convex
+              project, but it will not create a Cloudflare Worker. Complete first-time Cloudflare
+              setup after you create the app.{" "}
+              <Link className={linkStyle} to={DOCS_CLOUDFLARE_SETUP_ROUTE}>
+                View first-time Cloudflare setup
+              </Link>
+            </>
+          ) : emptyState === "first-time" ? (
+            <>
+              No API tokens are listed. Complete first-time Cloudflare setup, then reload tokens.{" "}
+              <Link className={linkStyle} to={DOCS_CLOUDFLARE_SETUP_ROUTE}>
+                View setup guide
+              </Link>
             </>
           ) : (
-            <>
-              No API tokens are listed. Create one in Cloudflare&apos;s Workers Builds setup, then
-              reload.{" "}
-            </>
+            <>No API tokens are listed. Create one in Cloudflare Workers Builds, then reload.</>
           )}
-          {accountId && emptyState === "required" ? (
-            <a
-              className={linkStyle}
-              href={buildCloudflareWorkersUrl(accountId)}
-              rel="noreferrer noopener"
-              target="_blank"
-            >
-              Open Cloudflare
-            </a>
-          ) : null}
         </div>
         <Button
           className="justify-self-start"
