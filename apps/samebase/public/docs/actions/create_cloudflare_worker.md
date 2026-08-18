@@ -6,11 +6,23 @@ MCP tool `vault_cloudflare_createWorker` · scope `access_provider_connections` 
 
 Creates one new Worker in the vault's stored Cloudflare account for an existing connected repository
 vault. Samebase checks vault ownership, live repository identity, Cloudflare account access, the
-provider-write lock, and the Worker quota before the create request. It records the Worker as an
-attachment, creates production and preview Workers Builds triggers for the requested repository
-root, and requests the first production build only with a reread default branch and full commit SHA.
-An existing Worker or Builds connection is not overwritten. If Builds setup fails after Worker
-creation, the Worker can remain attached. Reread inventory after every result before another write.
+provider-write lock, the current non-empty token list, and the Worker quota before the create
+request. It records the Worker as an attachment and creates production and preview Workers Builds
+triggers for the requested repository root. The triggers use `pnpm run build` with `pnpm run deploy`
+for production and `pnpm run deploy:preview` for preview builds.
+
+The automatic Convex-key path applies only when the managed plan recorded a null build token, the
+vault has no attached Worker, and the exact Convex project from that plan is attached. This path
+creates and installs new production and preview deploy keys as `CONVEX_DEPLOY_KEY` and
+`PREVIEW_CONVEX_DEPLOY_KEY`. It deletes older Samebase-named deploy keys before it creates their
+replacements. It starts the first production build only after the new keys are installed.
+
+For every other connected vault, the action keeps the generic behavior: it configures Builds and
+requests the first production build without creating, changing, or deleting Convex keys. Every first
+build uses a reread default branch and full commit SHA.
+
+An existing Worker or Builds connection is not overwritten. If setup fails after Worker creation,
+the Worker can remain attached. Reread inventory after every result before another write.
 
 ## Arguments
 

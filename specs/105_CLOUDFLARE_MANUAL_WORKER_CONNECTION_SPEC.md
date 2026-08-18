@@ -95,17 +95,18 @@ Cloudflare Workers Builds. Samebase creates the Worker and records its exact pro
 approved root, and `provisioned` attachment together before configuring Builds. It then writes the
 GitHub Builds configuration and re-reads the resulting repository and root evidence.
 
-When a completed managed app has a `null` Builds token in its plan, a still-`planned` Cloudflare
-checkpoint, and the exact planned Convex project attachment, Create Worker is the continuation of
-that managed setup. The user can choose the current Worker name and root. Samebase records those
-approved values in the Cloudflare checkpoint, configures Builds with its initial build deferred,
-rotates production and preview deploy keys for the exact planned Convex project, and then starts one
-first production build through the existing key-rotation operation. No project selector is needed.
+When a completed managed app has a `null` Builds token in its plan, a `planned` or `created`
+Cloudflare checkpoint, no attached Worker, and the exact planned Convex project attachment, Create
+Worker is the continuation of that managed setup. The user can choose the current Worker name and
+root. Samebase records those approved values in the Cloudflare checkpoint, configures Builds with
+its initial build deferred, rotates production and preview deploy keys for the exact planned Convex
+project, and then starts one first production build through the existing key-rotation operation. No
+project selector is needed. This also repairs a detached Worker after an earlier managed Create
+Worker recorded the Cloudflare checkpoint as `created`.
 
 If those exact managed conditions do not hold, Create Worker keeps its generic behavior. It
 configures Builds and requests the first production build without requiring or changing a Convex
-attachment. A managed plan whose Cloudflare checkpoint is already `created` also uses this generic
-behavior so that later Worker replacement remains available.
+attachment. Create Worker also keeps this generic behavior when another Worker is attached.
 
 The create flow requires the same visible token selection. A current Worker's observed token has
 priority during repair. Otherwise, the client selects the organization account's last-used token

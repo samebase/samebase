@@ -176,7 +176,7 @@ check(
 );
 check(
   samebaseSkill.includes(
-    "If the token list is empty, use explicit null. Otherwise, use an available `lastUsedBuildTokenUuid` without asking, use the only listed token, or ask the user to choose by name and UUID when several tokens are listed.",
+    "If that current token list is confirmed empty, use explicit null. Otherwise, use an available `lastUsedBuildTokenUuid` without asking, use the only listed token, or ask the user to choose by name and UUID when several tokens are listed.",
   ) &&
     samebaseSkill.includes(
       "Create the app with the required `cloudflareBuildTokenUuid` set to the selected exact UUID or explicit null.",
@@ -185,12 +185,47 @@ check(
 );
 check(
   samebaseSkill.includes(
+    "When the token was null, the managed run creates the GitHub repository and Convex project but no Cloudflare Worker.",
+  ) &&
+    samebaseSkill.includes(
+      "A ready provider setup means only that this requested managed work finished.",
+    ) &&
+    samebaseSkill.includes(
+      "Confirm that the exact planned Convex project is attached and `cloudflareWorkers` is empty.",
+    ) &&
+    samebaseSkill.includes(
+      "[samebase.com/docs/cloudflare-setup](https://samebase.com/docs/cloudflare-setup)",
+    ),
+  "The Samebase skill must report the confirmed tokenless result as GitHub and Convex ready with Cloudflare pending.",
+);
+check(
+  samebaseSkill.includes(
+    "The user completes Cloudflare's standard repository setup to create the first account token, then deletes the temporary Worker.",
+  ) &&
+    samebaseSkill.includes(
+      "list the current tokens again and call `vault_cloudflare_createWorker` with one exact UUID.",
+    ) &&
+    samebaseSkill.includes(
+      "That managed continuation creates and configures the real Worker and installs the exact planned Convex deploy keys.",
+    ),
+  "The Samebase skill must use the temporary Worker only to bootstrap the first token, then create the real Worker through Samebase.",
+);
+check(
+  samebaseSkill.includes(
     "For manual Cloudflare Worker creation or Workers Builds configuration, first call `cloudflare_listWorkersBuildTokens`.",
   ) &&
     samebaseSkill.includes(
-      "Pass only an exact UUID from the current non-empty list. If the list is empty, stop and tell the user to complete Workers Builds token setup in Cloudflare, then list again. Never pass null to these manual actions.",
-    ),
-  "The Samebase skill must block manual Worker and Builds writes when the token list is empty.",
+      "If the list is empty, stop the write and use current inventory to select the recovery:",
+    ) &&
+    samebaseSkill.includes(
+      "For the tokenless managed app with its exact planned Convex project and no attached Worker, use",
+    ) &&
+    samebaseSkill.includes(
+      "When a Worker is already attached, keep it. After token setup, list tokens again and call `vault_cloudflare_configureWorkersBuildsForGitHub` for that attachment. Do not create another Worker.",
+    ) &&
+    samebaseSkill.includes("Generic Worker creation does not install Convex deploy keys.") &&
+    samebaseSkill.includes("Never pass null to a manual Worker or Builds action."),
+  "The Samebase skill must branch empty-token recovery by current vault state.",
 );
 const openSamebaseIndex = samebaseSkill.indexOf(
   "Treat `open @samebase` as an exact command and an explicit choice of the in-app Browser.",

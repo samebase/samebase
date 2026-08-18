@@ -461,11 +461,12 @@ sequenceDiagram
   `rotate_convex_deploy_keys_for_workers_builds`. Its Cloudflare plan stays `planned`, and no
   `vaultCloudflareWorkers` row exists.
 - One later Create Worker action is the managed continuation only when the null-token Cloudflare
-  plan is still `planned` and its exact created Convex project is attached at the planned config
-  path. The action accepts its current validated Worker name and root, patches the plan to
-  `created`, configures Builds with the first build deferred, rotates keys for that exact Convex
-  attachment, and lets key rotation start exactly one production build. If the Cloudflare plan is
-  already `created`, Create Worker uses the generic manual behavior.
+  plan is `planned` or `created`, no Worker is attached, and its exact created Convex project is
+  attached at the planned config path. The action accepts its current validated Worker name and
+  root, patches the plan to `created`, configures Builds with the first build deferred, rotates keys
+  for that exact Convex attachment, and lets key rotation start exactly one production build. This
+  rule also repairs a detached Worker after an earlier managed Create Worker recorded the plan as
+  `created`. If another Worker is attached, Create Worker uses the generic manual behavior.
 - One shared infrastructure-state reader checks the deletion gate and the write-lock row.
 - Only one operation can change a provider attachment or provider resource in one vault at one time.
 - The transaction that creates a create or retry run also creates its active managed lock. The

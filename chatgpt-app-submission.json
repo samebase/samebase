@@ -39,8 +39,8 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Starts a managed app provisioning workflow that creates provider resources and records Samebase state.",
-        "open_world_justification": "Creates resources in external systems including GitHub, Convex, and Cloudflare, and can create a public GitHub repository when requested.",
+        "read_only_justification": "Starts a managed app provisioning workflow that creates a GitHub repository and Convex project, records Samebase state, and creates Cloudflare resources only when a current Workers Builds token UUID is supplied.",
+        "open_world_justification": "Creates resources in GitHub and Convex, can create a public GitHub repository when requested, and creates Cloudflare resources only when a current Workers Builds token UUID is supplied. A confirmed empty token list creates no Cloudflare Worker.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
@@ -108,12 +108,12 @@
       "annotations": {
         "readOnlyHint": false,
         "openWorldHint": true,
-        "destructiveHint": false
+        "destructiveHint": true
       },
       "justifications": {
-        "read_only_justification": "Creates one Cloudflare Worker, records it as a vault attachment, configures its Workers Builds triggers, and requests an initial production build.",
-        "open_world_justification": "Creates and configures a Worker in the caller's Cloudflare account and starts a build for the caller's GitHub repository.",
-        "destructive_justification": "Rejects existing Worker names and existing Workers Builds connections. It does not overwrite or delete a Worker, trigger, repository, deployment, or user data."
+        "read_only_justification": "Creates one Cloudflare Worker, records it as a vault attachment, configures its Workers Builds triggers, and requests the first production build. Only the tokenless managed continuation with no attached Worker installs the exact planned Convex deploy keys.",
+        "open_world_justification": "Creates and configures a Worker in the caller's Cloudflare account and starts a build for the caller's GitHub repository. Only a managed plan with a null build token, no attached Worker, and its exact Convex project attached also creates Convex deploy keys.",
+        "destructive_justification": "For the tokenless managed continuation, it installs replacement Convex deploy keys and can delete older Samebase-named keys. The generic path does not change Convex keys. It does not delete Workers, repositories, deployments, or user data."
       }
     },
     "vault_cloudflare_configureWorkersBuildsForGitHub": {
@@ -207,7 +207,7 @@
       "user_prompt": "Create a private Samebase app under noter-guest with a unique name that starts with tmp-plugin-review-. Wait until it is ready.",
       "file_attachment_urls": null,
       "tools_triggered": "vault_dashboard_getUserVaults, cloudflare_listWorkersBuildTokens, vault_actions_createRepository",
-      "expected_output": "Reads inventory and the connected Cloudflare account's Workers Builds token records. If the token list is empty, it passes explicit null in the required cloudflareBuildTokenUuid field and continues managed app creation without Workers Builds. Otherwise, it uses a returned available lastUsedBuildTokenUuid without asking, uses the only listed token, or asks the user to choose when several tokens are listed, then passes that exact UUID. It uses the selected name for the private repository-backed app and its new provider resources. It polls only inventory until source setup is ready or failed. After source setup is ready, it also polls only inventory until provider setup is ready or failed. It reports the repository and final states without treating the initial run IDs as completion.",
+      "expected_output": "Reads inventory and the connected Cloudflare account's current Workers Builds token records. If that list is confirmed empty, it passes explicit null in the required cloudflareBuildTokenUuid field. The managed run then creates the GitHub repository and Convex project but no Cloudflare Worker. It polls only inventory until source and provider setup reach ready or failed. A ready provider setup in this case means only that the requested GitHub and Convex work finished. It reports Cloudflare setup as pending and links to https://samebase.com/docs/cloudflare-setup. Otherwise, it uses an available lastUsedBuildTokenUuid without asking, uses the only listed token, or asks the user to choose when several tokens are listed, then passes that exact UUID. It never treats the initial run IDs as completion.",
       "expected_output_url": null
     },
     {

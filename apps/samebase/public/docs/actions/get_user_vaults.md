@@ -7,9 +7,21 @@ MCP tool `vault_dashboard_getUserVaults` · scope `access_dashboard` · write
 Returns every vault the authenticated account can see in the web app. An MCP call returns vaults
 across all organizations where that account is a current member. Repository connection, source
 setup, provider setup, and deletion are independent axes; a source-setup failure does not revoke an
-already connected repository. Provider resources are stable identities only. Current Cloudflare and
-Convex state, including the Worker-to-project marker, is loaded from those providers when a relevant
-view opens; it is not mirrored by this query.
+already connected repository. Provider setup status reports the managed work that was requested. It
+does not prove that every provider is attached.
+
+For a managed plan whose providerPlan.cloudflare.buildTokenUuid is null, a ready providerSetup means
+the GitHub and Convex work finished. When the exact Convex project from the plan is attached and
+cloudflareWorkers is empty, report Cloudflare setup as pending, not complete. Give the user
+https://samebase.com/docs/cloudflare-setup. After the user creates the first account token through
+Cloudflare's standard repository setup and deletes the temporary Worker, list the current tokens and
+use vault_cloudflare_createWorker to create and configure the real Worker. Do not attach the
+temporary Worker or retry the completed managed run. If a Worker is already attached, keep that
+Worker and use its existing Builds repair after token setup. Do not create another Worker.
+
+Provider resources are stable identities only. Current Cloudflare and Convex state, including the
+Worker-to-project marker, is loaded from those providers when a relevant view opens; it is not
+mirrored by this query.
 
 ## Arguments
 
