@@ -469,9 +469,9 @@ function LandingPreviewOverview() {
                 width={1440}
               />
             </div>
-            <p className="mt-4 text-right text-sm text-muted-foreground">
+            <p className="mt-4 text-sm">
               <a
-                className="border-b border-border pb-px no-underline hover:border-foreground hover:text-foreground"
+                className="border-b border-red-600 pb-px font-semibold text-red-600 no-underline hover:border-red-700 hover:text-red-700"
                 href="https://www.youtube.com/watch?v=dlIacfCxDPk"
                 rel="noreferrer"
                 target="_blank"
