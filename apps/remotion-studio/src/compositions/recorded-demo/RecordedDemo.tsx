@@ -144,7 +144,7 @@ const FaceBubble: React.FC<{
           objectFit: "cover",
           objectPosition: "57% 58%",
           position: faceCrop === "lower" ? "absolute" : undefined,
-          top: faceCrop === "lower" ? "-9%" : undefined,
+          top: faceCrop === "lower" ? "-13%" : undefined,
           width: faceCrop === "lower" ? "112%" : "100%",
         }}
         trimAfter={segment.sourceEndInFrames}
