@@ -76,7 +76,7 @@ describe("LandingPreviewPage", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
     // Hero: the category correction plus the one-action pitch.
-    expect(markup).toContain("Not another AI app builder.");
+    expect(markup).toContain("The correct way to build web apps.");
     expect(markup).toContain("The tool your AI uses");
     expect(markup).toContain("to ship real apps.");
     expect(markup).toContain(">BETA</span>");

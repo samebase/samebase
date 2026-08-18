@@ -422,7 +422,7 @@ function LandingPreviewOverview() {
           <div className="@3xl:grid @3xl:grid-cols-2 @3xl:gap-4">
             <div>
               <h1 className="max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
-                <span className="block">Not another AI app builder.</span>
+                <span className="block">The correct way to build web apps.</span>
                 <span className="block">
                   <span className="text-muted-foreground">The tool your AI uses</span> to ship real
                   apps.
