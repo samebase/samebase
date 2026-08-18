@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { internal } from "./_generated/api";
+import { startVaultInfrastructureProvisioningWorkflow } from "./appProvisioningWorkflow";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
 async function createComposedVault(buildTokenUuid: string | null = "build-token") {
@@ -26,14 +27,6 @@ async function createComposedVault(buildTokenUuid: string | null = "build-token"
     });
     await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
-    await ctx.db.insert("organizationProviderCredentials", {
-      organizationId,
-      cloudflare: {
-        auth: { method: "api_key", credential: "cloudflare-token" },
-        connectedByUserId: userId,
-        updatedAt: 1,
-      },
-    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       convexTeamId: "convex-team",
@@ -120,7 +113,7 @@ async function attachComposedResources({
         workerName: "composed-app",
         workerTag: "composed-worker-tag",
         rootDirectory: plan.cloudflare.rootDirectory,
-        buildTokenUuid: plan.cloudflare.buildTokenUuid,
+        buildTokenUuid: "build-token",
       },
     });
     const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
@@ -141,33 +134,6 @@ async function attachComposedResources({
       origin: "provisioned",
     });
     return { convexProjectId, workerId };
-  });
-}
-
-async function attachComposedConvexProject({
-  ids,
-  t,
-}: Awaited<ReturnType<typeof createComposedVault>>) {
-  return await t.run(async (ctx) => {
-    const plan = await ctx.db.get(ids.planId);
-    if (!plan) {
-      throw new Error("Expected provisioning plan.");
-    }
-    await ctx.db.patch(plan._id, {
-      convex: {
-        state: "created",
-        projectName: "composed-app",
-        projectId: "convex-project",
-      },
-    });
-    return await ctx.db.insert("vaultConvexProjects", {
-      vaultId: ids.vaultId,
-      organizationId: ids.organizationId,
-      teamId: "convex-team",
-      projectId: "convex-project",
-      convexConfigPath: "convex.json",
-      origin: "provisioned",
-    });
   });
 }
 
@@ -209,59 +175,49 @@ describe("app provisioning workflow composition", () => {
     });
   });
 
-  it("finishes attached provider setup without Builds when the confirmed token list was empty", async () => {
+  it("skips Cloudflare setup when the confirmed token list was empty", async () => {
     const { ids, t } = await createComposedVault(null);
-    await attachComposedConvexProject({ ids, t });
     await t.run(async (ctx) => {
-      const run = await ctx.db.get(ids.runId);
-      const write = await ctx.db
-        .query("workflow_vaultProvisioning_writeLocks")
-        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
-        .unique();
-      if (!run || !write) {
-        throw new Error("Expected provisioning run and write lock.");
-      }
-      await ctx.db.patch(ids.organizationId, {
-        cloudflareAccount: {
-          accountId: "cloudflare-account",
-          accountName: "Cloudflare account",
-          lastUsedBuildTokenUuid: "prior-build-token",
+      await ctx.db.patch(ids.planId, {
+        convex: {
+          state: "created",
+          projectName: "composed-app",
+          projectId: "convex-project",
         },
       });
-      await ctx.db.patch(run._id, {
-        state: "failed",
-        currentStep: "configure_workers_builds_for_github",
-        lastError: "Workers Builds token was not available.",
-        completedAt: 40,
-        updatedAt: 40,
-      });
-      await ctx.db.patch(write._id, {
-        state: "failed",
-        updatedAt: 40,
+      await ctx.db.insert("vaultConvexProjects", {
+        vaultId: ids.vaultId,
+        organizationId: ids.organizationId,
+        teamId: "convex-team",
+        projectId: "convex-project",
+        convexConfigPath: "convex.json",
+        origin: "provisioned",
       });
     });
 
     vi.useFakeTimers();
     try {
-      const retryRunId = await t.mutation(internal.appProvisioningRuns.createRetryForVault, {
-        userId: ids.userId,
-        vaultId: ids.vaultId,
+      const workflowId = await t.run(async (ctx) => {
+        return await startVaultInfrastructureProvisioningWorkflow(ctx, {
+          vaultId: ids.vaultId,
+          runId: ids.runId,
+        });
       });
+      await t.run(async (ctx) => await ctx.db.patch(ids.runId, { workflowId }));
       await t.finishAllScheduledFunctions(vi.runAllTimers);
 
       const result = await t.run(async (ctx) => {
         const events = await ctx.db
           .query("workflow_vaultProvisioning_events")
-          .withIndex("by_run_and_created_at", (q) => q.eq("runId", retryRunId))
+          .withIndex("by_run_and_created_at", (q) => q.eq("runId", ids.runId))
           .collect();
         return {
-          run: await ctx.db.get(retryRunId),
+          run: await ctx.db.get(ids.runId),
           steps: events.map((event) => event.step),
           write: await ctx.db
             .query("workflow_vaultProvisioning_writeLocks")
             .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
             .unique(),
-          cloudflareAccount: (await ctx.db.get(ids.organizationId))?.cloudflareAccount,
           plan: await ctx.db.get(ids.planId),
           workers: await ctx.db.query("vaultCloudflareWorkers").take(1),
         };
@@ -269,9 +225,10 @@ describe("app provisioning workflow composition", () => {
 
       expect(result.run).toMatchObject({ state: "succeeded", currentStep: "finish" });
       expect(result.write).toMatchObject({
-        owner: { kind: "managed_run", runId: retryRunId },
+        owner: { kind: "managed_run", runId: ids.runId },
         state: "succeeded",
       });
+      expect(result.steps).toContain("claim_infra");
       expect(result.steps).toContain("finish");
       expect(result.steps).not.toContain("attach_worker");
       expect(result.steps).not.toContain("configure_workers_builds_for_github");
@@ -281,9 +238,6 @@ describe("app provisioning workflow composition", () => {
         cloudflare: { state: "planned", buildTokenUuid: null },
       });
       expect(result.workers).toEqual([]);
-      expect(result.cloudflareAccount).toMatchObject({
-        lastUsedBuildTokenUuid: "prior-build-token",
-      });
     } finally {
       vi.useRealTimers();
     }

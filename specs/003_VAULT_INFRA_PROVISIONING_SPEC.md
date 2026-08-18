@@ -35,8 +35,8 @@ Vault creation succeeds even if downstream provisioning partially fails.
 New App also admits a confirmed empty Workers Builds token list. In that case, the managed workflow
 completes source setup and Convex attachment, then succeeds without creating or attaching a Worker.
 After a token becomes available, one explicit Create Worker action creates the Worker, configures
-Workers Builds, installs deploy keys for the exact managed Convex project, and starts the first
-production build.
+Workers Builds, and changes only Cloudflare freshness. The existing separate deploy-key action
+installs keys for one selected attached Convex project and starts the production build.
 
 ## Important Behavior
 
@@ -89,9 +89,9 @@ work uses these fixed destinations, and each attached provider resource must mat
 - `convexConfigPath`
 - `convex`: `{ state: "planned", projectName }`, `{ state: "creating", projectName }`, or
   `{ state: "created", projectName, projectId }`
-- `cloudflare`: `{ state: "planned", workerName, rootDirectory, buildTokenUuid }`,
-  `{ state: "creating", workerName, rootDirectory, buildTokenUuid }`, or
-  `{ state: "created", workerName, workerTag, rootDirectory, buildTokenUuid }`
+- `cloudflare`: `{ state: "planned", workerName, rootDirectory, buildTokenUuid: string | null }`,
+  `{ state: "creating", workerName, rootDirectory, buildTokenUuid: string }`, or
+  `{ state: "created", workerName, workerTag, rootDirectory, buildTokenUuid: string }`
 - `createdAt`, `updatedAt`
 
 The plan row records provider resource names, provider configuration input, and stable resource
@@ -108,21 +108,22 @@ attachment in one database transaction. Checkbox-controlled cleanup derives owne
 stable attachment, never from an unattached checkpoint. Current connected resource identities live
 in the durable resource tables used by the dashboard.
 
-`buildTokenUuid` is an explicit `string | null` non-secret Workers Builds token choice. A string is
-the token record selected for the run. The plan keeps it because a retry must use the same user
-choice. Before each trigger write, Samebase requires Cloudflare to list that UUID for the vault
-account. Samebase does not store the token name, the underlying user API token ID, or its secret. If
-Cloudflare no longer lists the selected UUID, managed setup tells the user to remove the failed app
-and create it again with another token. Retry does not choose a replacement token.
+`buildTokenUuid` is an explicit non-secret Workers Builds token choice. The `planned` state accepts
+a selected token UUID or `null`. The `creating` and `created` states require a selected token UUID.
+The plan keeps a selected UUID because a retry must use the same user choice. Before each trigger
+write, Samebase requires Cloudflare to list that UUID for the vault account. Samebase does not store
+the token name, the underlying user API token ID, or its secret. If Cloudflare no longer lists the
+selected UUID, managed setup tells the user to remove the failed app and create it again with
+another token. Retry does not choose a replacement token.
 
 `null` records that the account had no listed token when New App started. It is not a general option
 to skip managed Builds setup. The public action confirms that the provider token list is empty
 before it accepts `null`. The managed run succeeds after it attaches the Convex project. It does not
 start the Worker, Workers Builds, or deploy-key blocks, and it creates no Worker attachment. A later
-Create Worker action selects a current token and completes all remaining setup. It uses the exact
-created Convex attachment from the plan, accepts the action's current validated Worker name and
-root, and replaces the plan's deferred Worker coordinates with those approved values. The managed
-plan does not invent or persist the later token choice.
+Create Worker action selects a current token, creates and attaches the Worker, and configures
+Builds. The separate deploy-key action selects an attached Convex project, installs its keys, and
+starts the production build. The managed plan stays unchanged and does not persist the later token
+choice.
 
 After both trigger writes succeed for a selected UUID, Samebase records the UUID as the organization
 account's last-used Builds token. That organization default affects only future selections. It never
@@ -145,9 +146,9 @@ write. A manual owner stores one manual action name from a fixed list. The actio
 provider observation times that can change:
 
 - `create_convex_project`: Convex
-- `connect_cloudflare_worker` and `configure_workers_builds_for_github`: Cloudflare
-- `create_cloudflare_worker` and `rotate_convex_deploy_keys_for_workers_builds`: Convex and
-  Cloudflare
+- `connect_cloudflare_worker`, `create_cloudflare_worker`, and
+  `configure_workers_builds_for_github`: Cloudflare
+- `rotate_convex_deploy_keys_for_workers_builds`: Convex and Cloudflare
 
 Only create and retry runs can own a managed lock. The transaction that creates either run also
 creates its active lock. The lock stays active during source and provider setup. A terminal run
@@ -559,8 +560,8 @@ Dashboard external links:
 - Cloudflare provisioning requires the vault's `cloudflareAccountId` and an organization credential
   that can access it. It must not inventory accounts and choose one during provisioning.
 - A null-token managed run does not create a Worker. Samebase's normal Create Worker action requires
-  a Workers Builds token and configures Builds. The separate deploy-key action connects the Worker
-  to an attached Convex project.
+  a Workers Builds token and configures Builds. The separate deploy-key action installs keys for an
+  attached Convex project and starts the production build.
 - Workers Builds repository connection uses the connected vault's stored GitHub repo id and a
   required owner id read from the GitHub repository response. The response repo id must match the
   vault before Cloudflare receives the connection request.

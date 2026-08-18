@@ -629,7 +629,7 @@ describe("organization-owned vaults", () => {
         convexTeamId: expectedDestinations.convexTeamId,
         cloudflareAccountId: expectedDestinations.cloudflareAccountId,
         cloudflareWorkerName: "managed-app",
-        cloudflareBuildTokenUuid: null,
+        cloudflareBuildTokenUuid: "build-token",
       },
     );
     const initialManagedState = await t.run(async (ctx) => {
@@ -646,7 +646,7 @@ describe("organization-owned vaults", () => {
     expect(initialManagedState.managedRun).toMatchObject({ organizationId });
     expect(initialManagedState.vault).toMatchObject(expectedDestinations);
     expect(initialManagedState.plan?.convex).not.toHaveProperty("teamId");
-    expect(initialManagedState.plan?.cloudflare).toMatchObject({ buildTokenUuid: null });
+    expect(initialManagedState.plan?.cloudflare).toMatchObject({ buildTokenUuid: "build-token" });
     expect(initialManagedState.plan?.cloudflare).not.toHaveProperty("accountId");
 
     await t.mutation(internal.vault.records.connectSamebaseManagedVaultGitHub, {

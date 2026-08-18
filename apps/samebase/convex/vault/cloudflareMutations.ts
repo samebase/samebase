@@ -473,20 +473,24 @@ export const readManagedWorkerCreateCheckpoint = internalQuery({
     ) {
       throw new Error("Managed Cloudflare Worker does not match the provisioning plan.");
     }
-    const buildTokenUuid = plan.cloudflare.buildTokenUuid;
-    if (buildTokenUuid === null) {
-      throw new Error("Select a Cloudflare Workers Builds token and retry.");
-    }
     switch (plan.cloudflare.state) {
-      case "planned":
+      case "planned": {
+        const buildTokenUuid = plan.cloudflare.buildTokenUuid;
+        if (buildTokenUuid === null) {
+          throw new Error("Select a Cloudflare Workers Builds token and retry.");
+        }
         return { state: "planned" as const, buildTokenUuid };
+      }
       case "creating":
-        return { state: "creating" as const, buildTokenUuid };
+        return {
+          state: "creating" as const,
+          buildTokenUuid: plan.cloudflare.buildTokenUuid,
+        };
       case "created":
         return {
           state: "created" as const,
           workerTag: plan.cloudflare.workerTag,
-          buildTokenUuid,
+          buildTokenUuid: plan.cloudflare.buildTokenUuid,
         };
     }
   },
@@ -512,12 +516,16 @@ export const beginManagedWorkerCreate = internalMutation({
     if (plan.cloudflare.state !== "planned") {
       throw new Error("Managed Cloudflare Worker creation already started.");
     }
+    const buildTokenUuid = plan.cloudflare.buildTokenUuid;
+    if (buildTokenUuid === null) {
+      throw new Error("Select a Cloudflare Workers Builds token and retry.");
+    }
     await ctx.db.patch(plan._id, {
       cloudflare: {
         state: "creating",
         workerName: args.workerName,
         rootDirectory: plan.cloudflare.rootDirectory,
-        buildTokenUuid: plan.cloudflare.buildTokenUuid,
+        buildTokenUuid,
       },
       updatedAt: Date.now(),
     });
@@ -717,10 +725,6 @@ export const readManagedWorkerConfigurationContext = internalQuery({
     ) {
       throw new Error("Managed Cloudflare Worker does not match the active provisioning run.");
     }
-    const buildTokenUuid = plan.cloudflare.buildTokenUuid;
-    if (buildTokenUuid === null) {
-      throw new Error("Select a Cloudflare Workers Builds token and retry.");
-    }
     return {
       organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
@@ -731,7 +735,7 @@ export const readManagedWorkerConfigurationContext = internalQuery({
       workerName: worker.workerName,
       workerTag: worker.workerTag,
       rootDirectory: plan.cloudflare.rootDirectory,
-      buildTokenUuid,
+      buildTokenUuid: plan.cloudflare.buildTokenUuid,
     };
   },
 });

@@ -95,10 +95,10 @@ Cloudflare Workers Builds. Samebase creates the Worker and records its exact pro
 approved root, and `provisioned` attachment together before configuring Builds. It then writes the
 GitHub Builds configuration and re-reads the resulting repository and root evidence.
 
-Create Worker configures Builds and requests the first production build without requiring or
-changing a Convex attachment. A tokenless managed app uses this same action after the user completes
+Create Worker configures Builds without requiring or changing a Convex attachment. It changes only
+Cloudflare freshness. A tokenless managed app uses this same action after the user completes
 first-time token setup. The separate `Use <project> for Workers Builds` action then installs the
-Convex deploy keys for the selected attached project and starts a production build.
+Convex deploy keys for the selected attached project and starts the production build.
 
 The create flow requires the same visible token selection. A current Worker's observed token has
 priority during repair. Otherwise, the client selects the organization account's last-used token
@@ -170,8 +170,8 @@ Samebase does not persist a Worker-to-project edge.
 Cloudflare attachment mutations use the shared exclusion check in spec 003. Cloudflare provider
 actions use the claim, expiry, no-replay, and freshness rules in spec 003.
 
-Creating a Worker and deploy-key rotation affect Convex and Cloudflare observations. Connecting an
-unconnected Worker and configuring Workers Builds affect Cloudflare observations.
+Creating a Worker, connecting an unconnected Worker, and configuring Workers Builds affect only
+Cloudflare observations. Deploy-key rotation affects Convex and Cloudflare observations.
 
 After a failed or silent provider action, Samebase gets fresh observations. The user or agent then
 uses the normal action for that state:

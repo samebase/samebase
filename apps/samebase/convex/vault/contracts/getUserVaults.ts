@@ -110,7 +110,7 @@ export const vManagedProviderPlan = union(
         accountId: string(),
         workerName: string(),
         rootDirectory: string(),
-        buildTokenUuid: union(string(), v.null()),
+        buildTokenUuid: string(),
       }),
       object({
         state: literal("created"),
@@ -118,7 +118,7 @@ export const vManagedProviderPlan = union(
         workerName: string(),
         workerTag: string(),
         rootDirectory: string(),
-        buildTokenUuid: union(string(), v.null()),
+        buildTokenUuid: string(),
       }),
     ),
   }),
