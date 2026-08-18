@@ -75,10 +75,8 @@ describe("LandingPreviewPage", () => {
   it("renders the agent-first landing overview by default", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
-    // Hero: the category correction plus the one-action pitch.
+    // Hero: the stack opinion plus the one-action pitch.
     expect(markup).toContain("The correct way to build web apps.");
-    expect(markup).toContain("The tool your AI uses");
-    expect(markup).toContain("to ship real apps.");
     expect(markup).toContain(">BETA</span>");
     expect(markup).toContain("-rotate-3");
     expect(markup).toContain("border-0");
