@@ -15,7 +15,7 @@ import {
 import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
 import { requireManualProviderWriteCheckpoint } from "./vault/infrastructureOperation";
 
-const { id, literal, null: nullValue, number, object, union } = v;
+const { id, literal, number, object, union } = v;
 
 const PERSONAL_FREE_CONNECTION_LIMIT = 15;
 const ORGANIZATION_FREE_CONNECTION_LIMIT = 6;
@@ -186,7 +186,7 @@ export const requireBillingResourceCapacityForProviderCreate = internalQuery({
     userId: id("users"),
     organizationId: id("organizations"),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     await requireBillingResourceCapacity(ctx, args);
     return null;
@@ -228,7 +228,7 @@ export const requireBillingResourceCapacityForVaultProvisioning = internalQuery(
     userId: id("users"),
     vaultId: id("vaults"),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     await requireBillingResourceCapacityForAuthority(ctx, {
       authority: {

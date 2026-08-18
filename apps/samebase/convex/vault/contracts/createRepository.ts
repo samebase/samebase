@@ -3,7 +3,7 @@ import { v, type Infer } from "convex/values";
 import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { boolean, id, null: nullValue, object, optional, string, union } = v;
+const { boolean, id, object, optional, string, union } = v;
 
 const vCreateRepositoryResult = object({
   vaultId: id("vaults"),
@@ -14,7 +14,7 @@ const createRepositoryFields = {
   name: string(),
   convexProjectName: string(),
   cloudflareWorkerName: string(),
-  cloudflareBuildTokenUuid: union(string(), nullValue()),
+  cloudflareBuildTokenUuid: union(string(), v.null()),
   description: optional(string()),
   private: optional(boolean()),
 };

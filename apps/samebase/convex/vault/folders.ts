@@ -11,7 +11,7 @@ import {
 } from "../organizationAccess";
 import { vVaultFolder, vVaultFolderAssignment } from "./folderModel";
 
-const { array, boolean, id, literal, null: vNull, object, string, union } = v;
+const { array, boolean, id, literal, object, string, union } = v;
 
 const vVaultFolderState = object({
   assignments: array(vVaultFolderAssignment),
@@ -243,7 +243,7 @@ export const setVaultFolderCollapsed = mutation({
 
 export const moveVaultToFolder = mutation({
   access: "access_dashboard",
-  args: { folderId: union(id("ui_vaultFolders"), vNull()), vaultId: id("vaults") },
+  args: { folderId: union(id("ui_vaultFolders"), v.null()), vaultId: id("vaults") },
   returns: v.null(),
   handler: async (ctx, args) => {
     const userId = ctx.viewer.userId;

@@ -35,7 +35,7 @@ import {
   vVaultProviderWorkflowAuthority,
 } from "./vaultWorkflowAuthority";
 
-const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
+const { boolean, id, literal, number, object, optional, string, union } = v;
 
 const vOrganizationProviderConfiguration = object({
   convexTeam: optional(vOrganizationConvexTeam),
@@ -280,7 +280,7 @@ export const loadCloudflareAccountForOAuthCallback = internalQuery({
   args: {
     organizationId: id("organizations"),
   },
-  returns: union(vOrganizationCloudflareAccount, vNull()),
+  returns: union(vOrganizationCloudflareAccount, v.null()),
   handler: async (ctx, args) => {
     const organization = await ctx.db.get(args.organizationId);
     return organization?.cloudflareAccount ?? null;
@@ -299,7 +299,7 @@ export const loadConvexForOrganizationTeam = internalQuery({
       teamSlug: optional(string()),
       credential: optional(vConvexProviderCredential),
     }),
-    vNull(),
+    v.null(),
   ),
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderMember(ctx.db, args);
@@ -486,7 +486,7 @@ export const connectConvex = internalMutation({
     oauthStateId: optional(id("providerOAuthCallbackStates")),
     oauthState: optional(string()),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     await connectConvexCredential(ctx, args);
     return null;
@@ -599,7 +599,7 @@ export const connectCloudflare = internalMutation({
     oauthStateId: optional(id("providerOAuthCallbackStates")),
     oauthState: optional(string()),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     await connectCloudflareCredential(ctx, args);
     return null;
@@ -639,7 +639,7 @@ export const setConvexTeamSlug = internalMutation({
     teamId: string(),
     teamSlug: string(),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderMember(ctx.db, args);
     await setConvexTeamSlugAfterAuthority(ctx, args.organizationId, args);
@@ -654,7 +654,7 @@ export const setConvexTeamSlugForVaultWorkflow = internalMutation({
     teamId: string(),
     teamSlug: string(),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     const authority = await requireVaultProviderWorkflowAuthority(ctx.db, args.authority);
     await setConvexTeamSlugAfterAuthority(ctx, authority.organizationId, args);
@@ -799,7 +799,7 @@ export const replaceCloudflareCredential = internalMutation({
     tokenHealth: vMcpTokenHealth,
     expectedTokenRefreshLease: optional(vCloudflareTokenRefreshLease),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     if (args.expectedTokenRefreshLease === undefined) {
       await requireActiveOrganizationProviderMember(ctx.db, args);
@@ -817,7 +817,7 @@ export const replaceCloudflareCredentialForVaultWorkflow = internalMutation({
     tokenHealth: vMcpTokenHealth,
     expectedTokenRefreshLease: optional(vCloudflareTokenRefreshLease),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     const authority = await requireVaultProviderWorkflowAuthority(ctx.db, args.authority);
     await replaceCloudflareCredentialAfterAuthority(ctx, authority.organizationId, args);
@@ -831,7 +831,7 @@ export const disconnectConvex = internalMutation({
     disconnectedByUserId: id("users"),
     expectedAuth: vStandardProviderAuth,
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderOwner(ctx.db, {
       organizationId: args.organizationId,
@@ -863,7 +863,7 @@ export const disconnectCloudflare = internalMutation({
     disconnectedByUserId: id("users"),
     expectedAuth: vCloudflareProviderAuth,
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     await requireActiveOrganizationProviderOwner(ctx.db, {
       organizationId: args.organizationId,

@@ -2,7 +2,7 @@ import { v, type Infer } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { array, id, null: vNull, object, string, union } = v;
+const { array, id, object, string, union } = v;
 
 const vCloudflareWorkersBuildToken = object({
   uuid: string(),
@@ -11,7 +11,7 @@ const vCloudflareWorkersBuildToken = object({
 
 const vCloudflareWorkersBuildTokens = object({
   accountId: string(),
-  lastUsedBuildTokenUuid: union(string(), vNull()),
+  lastUsedBuildTokenUuid: union(string(), v.null()),
   tokens: array(vCloudflareWorkersBuildToken),
 });
 

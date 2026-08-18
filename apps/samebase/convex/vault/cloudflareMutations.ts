@@ -22,7 +22,7 @@ import { isLiveConnectedVault } from "./state";
 import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
 import { normalizeVaultRootDirectory } from "../../shared/vaultRootDirectory";
 
-const { array, id, literal, null: nullValue, object, string, union } = v;
+const { array, id, literal, object, string, union } = v;
 
 const workerConfigurationContextFields = {
   organizationId: id("organizations"),
@@ -316,7 +316,7 @@ export const detachWorker = internalMutation({
     workerName: string(),
     workerTag: string(),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const vault = await requireUserVaultInfrastructureIdle(ctx, args);
     const worker = await requireWorker(ctx, vault, args);
@@ -342,7 +342,7 @@ export const updateWorkerName = internalMutation({
     expectedStoredWorkerName: string(),
     workerName: string(),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const vault = await requireUserVaultInfrastructureIdle(ctx, args);
     const worker = await requireWorker(ctx, vault, args);
@@ -404,7 +404,7 @@ export const updateWorkerRootDirectory = internalMutation({
     expectedStoredRootDirectory: string(),
     rootDirectory: string(),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const vault = await requireUserVaultInfrastructureIdle(ctx, args);
     const worker = await requireWorker(ctx, vault, args);
@@ -500,7 +500,7 @@ export const beginManagedWorkerCreate = internalMutation({
     accountId: string(),
     workerName: string(),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
     if (

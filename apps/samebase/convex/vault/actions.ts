@@ -36,7 +36,7 @@ import { createRepositoryContract, type CreateRepositoryArgs } from "./contracts
 import { connectRepositoryContract } from "./contracts/connectRepository";
 import { retryInfrastructureProvisioningContract } from "./contracts/retryInfrastructureProvisioning";
 
-const { id, literal, null: nullValue, object, string, union } = v;
+const { id, literal, object, string, union } = v;
 const appResourceNameAvailability = object({
   status: union(
     literal("available"),
@@ -45,8 +45,8 @@ const appResourceNameAvailability = object({
     literal("unknown"),
     literal("not_required"),
   ),
-  message: union(string(), nullValue()),
-  suggestion: union(string(), nullValue()),
+  message: union(string(), v.null()),
+  suggestion: union(string(), v.null()),
 });
 
 type AppResourceNameAvailability = Infer<typeof appResourceNameAvailability>;
@@ -853,7 +853,7 @@ export const checkCreateRepositoryResourceNames = action({
     githubRepositoryName: string(),
     convexProjectName: string(),
     cloudflareWorkerName: string(),
-    cloudflareBuildTokenUuid: union(string(), nullValue()),
+    cloudflareBuildTokenUuid: union(string(), v.null()),
   },
   returns: object({
     github: appResourceNameAvailability,

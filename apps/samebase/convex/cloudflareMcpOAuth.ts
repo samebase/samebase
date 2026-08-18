@@ -70,7 +70,7 @@ const CLOUDFLARE_OAUTH_ERROR_MESSAGE_KEYS = [
   "detail",
   "statusText",
 ] as const;
-const { boolean, id, null: nullValue, number, object, optional, string, union } = v;
+const { boolean, id, number, object, optional, string, union } = v;
 
 type OAuthContext = ActionCtx | MutationCtx;
 type CloudflareOAuthTokenOperation =
@@ -418,7 +418,7 @@ const storeCloudflareMcpOauthConnectionArgs = {
   refreshToken: string(),
   expiresAt: number(),
   clientId: string(),
-  account: union(vCloudflareAccount, nullValue()),
+  account: union(vCloudflareAccount, v.null()),
   oauthStateId: id("providerOAuthCallbackStates"),
   oauthState: string(),
 } as const;
@@ -611,7 +611,7 @@ const resolvedCloudflareConnectionValidator = object({
 });
 const resolveConnectionForOrganizationResultValidator = union(
   resolvedCloudflareConnectionValidator,
-  nullValue(),
+  v.null(),
 );
 const getCloudflareMcpOAuthUrlResultValidator = string();
 type ResolvedCloudflareConnection = Infer<typeof resolvedCloudflareConnectionValidator>;

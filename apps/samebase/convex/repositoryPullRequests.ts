@@ -10,7 +10,7 @@ import { createGitHubRequestDeadlineSignal } from "./githubRepoApi";
 import type { VaultConnectedRepositoryTarget } from "./vault/model";
 import { isLiveConnectedVault } from "./vault/state";
 
-const { array, boolean, id, literal, null: vNull, number, object, string, union } = v;
+const { array, boolean, id, literal, number, object, string, union } = v;
 
 const GITHUB_CHECK_RUN_STATES = [
   "ACTION_REQUIRED",
@@ -67,16 +67,16 @@ const checkContext = union(
     kind: literal("check_run"),
     name: string(),
     status: checkStatus,
-    conclusion: union(vNull(), checkConclusion),
-    detailsUrl: union(vNull(), string()),
-    title: union(vNull(), string()),
+    conclusion: union(v.null(), checkConclusion),
+    detailsUrl: union(v.null(), string()),
+    title: union(v.null(), string()),
   }),
   object({
     kind: literal("status_context"),
     context: string(),
     state: statusState,
-    targetUrl: union(vNull(), string()),
-    description: union(vNull(), string()),
+    targetUrl: union(v.null(), string()),
+    description: union(v.null(), string()),
   }),
 );
 const checkCountFields = {
@@ -87,13 +87,13 @@ const checkCountFields = {
   statusContextCountsByState: array(object({ state: statusState, count: number() })),
 };
 const vStatusCheckCounts = union(
-  vNull(),
+  v.null(),
   object({
     contexts: object(checkCountFields),
   }),
 );
 const vStatusCheckRollup = union(
-  vNull(),
+  v.null(),
   object({
     contexts: object({
       ...checkCountFields,
@@ -116,7 +116,7 @@ const vPullRequest = object({
   headRefName: string(),
   headRefOid: string(),
   headRepository: union(
-    vNull(),
+    v.null(),
     object({
       id: string(),
       nameWithOwner: string(),
@@ -129,7 +129,7 @@ const vPullRequest = object({
   statusCheckRollup: vStatusCheckRollup,
 });
 const vRepositoryDefaultBranch = union(
-  vNull(),
+  v.null(),
   object({
     name: string(),
     headCommitOid: string(),
@@ -141,7 +141,7 @@ const vRepositoryDefaultBranch = union(
 );
 const vRepositoryPullRequestPage = object({
   repository: union(
-    vNull(),
+    v.null(),
     object({
       id: string(),
       databaseId: number(),
@@ -151,7 +151,7 @@ const vRepositoryPullRequestPage = object({
         totalCount: number(),
         pageInfo: object({
           hasNextPage: boolean(),
-          endCursor: union(vNull(), string()),
+          endCursor: union(v.null(), string()),
         }),
         nodes: array(vPullRequest),
       }),
@@ -161,7 +161,7 @@ const vRepositoryPullRequestPage = object({
 const vVaultSidebarSummary = object({
   vaultId: id("vaults"),
   repository: union(
-    vNull(),
+    v.null(),
     object({
       openPullRequestCount: number(),
       statusCheckRollup: vStatusCheckCounts,
@@ -176,7 +176,7 @@ export type VaultSidebarSummary = Infer<typeof vVaultSidebarSummary>;
 const vBranchPullRequest = object({
   aheadBy: number(),
   pullRequest: union(
-    vNull(),
+    v.null(),
     object({
       number: number(),
       url: string(),
@@ -753,7 +753,7 @@ export const listOpenPullRequests = action({
   args: {
     vaultId: id("vaults"),
     first: number(),
-    after: union(string(), vNull()),
+    after: union(string(), v.null()),
   },
   returns: vRepositoryPullRequestPage,
   handler: async (ctx, args): Promise<RepositoryPullRequestPage> => {

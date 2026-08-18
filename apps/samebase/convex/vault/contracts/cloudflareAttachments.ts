@@ -2,7 +2,7 @@ import { v } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { array, id, literal, null: nullValue, object, string, union } = v;
+const { array, id, literal, object, string, union } = v;
 const providerConnectionAccess = "access_provider_connections" as const;
 
 export const vCloudflareConvexProjectReference = object({
@@ -202,5 +202,5 @@ export const cloudflareDetachWorkerContract = {
     vaultId: id("vaults"),
     workerId: id("vaultCloudflareWorkers"),
   },
-  returns: nullValue(),
+  returns: v.null(),
 } as const;

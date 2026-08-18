@@ -20,7 +20,7 @@ import { assertConnectedVault, isLiveConnectedVault } from "./vault/state";
 import { readActiveUser } from "./userLifecycle";
 
 export const AUTO_COMMIT_DELAY_MS = 2 * 1000;
-const { array, boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
 const vaultIdValidator = id("vaults");
 const fileStagingIdValidator = id("vaultStagedFiles");
@@ -30,8 +30,8 @@ const branchValidator = string();
 const filePathValidator = string();
 const contentValidator = string();
 const stagedFileKindValidator = union(literal("text"), literal("binary"));
-const nullableStringValidator = union(string(), nullValue());
-const nullResultValidator = nullValue();
+const nullableStringValidator = union(string(), v.null());
+const nullResultValidator = v.null();
 
 const stagedFileValidator = object({
   _id: fileStagingIdValidator,
@@ -75,7 +75,7 @@ const stagedFileSnapshotValidator = object({
 });
 type StagedFileSnapshot = Infer<typeof stagedFileSnapshotValidator>;
 
-const stagedFileOrNullValidator = union(stagedFileValidator, nullValue());
+const stagedFileOrNullValidator = union(stagedFileValidator, v.null());
 const stagedFileListValidator = array(stagedFileValidator);
 const stagedFileSnapshotListValidator = array(stagedFileSnapshotValidator);
 const stagedFilesCategoryCountsValidator = object({

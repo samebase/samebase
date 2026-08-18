@@ -31,7 +31,7 @@ import {
 import { vVaultConvexProjectDocument } from "./model";
 import { readConvexProductionDeployment } from "./convexProjectResources";
 
-const { array, id, literal, null: nullValue, number, object, optional, string, union } = v;
+const { array, id, literal, number, object, optional, string, union } = v;
 
 type ConvexSchemaRefreshTarget = {
   authMethod: ConvexDeployKeyAuthMethod;
@@ -107,7 +107,7 @@ const vConvexSchemaGraphSnapshotResult = object({
 
 const vConvexSchemaGraphStateResult = object({
   project: vConvexSchemaGraphProjectOption,
-  snapshot: union(vConvexSchemaGraphSnapshotResult, nullValue()),
+  snapshot: union(vConvexSchemaGraphSnapshotResult, v.null()),
   layout: array(vConvexSchemaGraphLayoutPoint),
 });
 export type ConvexSchemaGraphStateResult = Infer<typeof vConvexSchemaGraphStateResult>;
@@ -960,7 +960,7 @@ export const get = query({
     vaultId: id("vaults"),
     convexProjectId: id("vaultConvexProjects"),
   },
-  returns: union(vConvexSchemaGraphStateResult, nullValue()),
+  returns: union(vConvexSchemaGraphStateResult, v.null()),
   handler: async (ctx, args): Promise<ConvexSchemaGraphStateResult | null> => {
     const vault = await findVaultForUser(ctx.db, {
       userId: ctx.viewer.userId,
@@ -1027,7 +1027,7 @@ export const saveLayout = mutation({
     x: number(),
     y: number(),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     const vault = await findVaultForUser(ctx.db, {
       userId: ctx.viewer.userId,

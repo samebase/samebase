@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
-const { id, literal, null: nullValue, number, object, optional, string, union } = v;
+const { id, literal, number, object, optional, string, union } = v;
 
 export const vAppProvisioningEventLevel = union(literal("info"), literal("warn"), literal("error"));
 export type AppProvisioningEventLevel = Infer<typeof vAppProvisioningEventLevel>;
@@ -143,20 +143,20 @@ export const vaultProvisioningTables = {
         state: literal("planned"),
         workerName: string(),
         rootDirectory: string(),
-        buildTokenUuid: union(string(), nullValue()),
+        buildTokenUuid: union(string(), v.null()),
       }),
       object({
         state: literal("creating"),
         workerName: string(),
         rootDirectory: string(),
-        buildTokenUuid: union(string(), nullValue()),
+        buildTokenUuid: union(string(), v.null()),
       }),
       object({
         state: literal("created"),
         workerName: string(),
         workerTag: string(),
         rootDirectory: string(),
-        buildTokenUuid: union(string(), nullValue()),
+        buildTokenUuid: union(string(), v.null()),
       }),
     ),
     createdAt: number(),

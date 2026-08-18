@@ -44,7 +44,7 @@ import { normalizeAccountEmail, resolveAccountPresentation } from "../shared/acc
 import schema from "./schema";
 import { vOrganizationMembershipRole } from "./organizationModel";
 
-const { boolean, id, literal, null: vNull, number, object, optional, string, union } = v;
+const { boolean, id, literal, number, object, optional, string, union } = v;
 
 const vBillingPlan = union(literal("free"), literal("pro"));
 
@@ -458,7 +458,7 @@ export const getBillingAccountForOrganization = internalQuery({
 
 export const confirmCurrentBillingPayer = internalQuery({
   args: { userId: id("users"), organizationId: id("organizations") },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.userId);
     const membership = await findOrganizationMembership(ctx.db, args);
@@ -596,7 +596,7 @@ export const finishPolarBillingPayerTransfer = internalMutation({
     organizationId: id("organizations"),
     targetUserId: id("users"),
   },
-  returns: vNull(),
+  returns: v.null(),
   handler: async (ctx, args) => {
     const account = await ctx.db
       .query("organizationBillingAccounts")

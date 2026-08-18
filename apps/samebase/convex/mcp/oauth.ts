@@ -21,7 +21,7 @@ import {
   verifyPkceS256,
 } from "./tokens";
 
-const { array, boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
 const registerDynamicClientArgsValidator = object({
   clientId: string(),
@@ -43,7 +43,7 @@ const getClientByClientIdResultValidator = union(
     registrationStatus: vMcpOauthClientRegistrationStatus,
     provisionalExpiresAt: optional(number()),
   }),
-  nullValue(),
+  v.null(),
 );
 type GetClientByClientIdResult = Infer<typeof getClientByClientIdResultValidator>;
 
@@ -158,7 +158,7 @@ const getAuthorizationRequestForCurrentUserResultValidator = union(
     createdAt: number(),
     expiresAt: number(),
   }),
-  nullValue(),
+  v.null(),
 );
 type GetAuthorizationRequestForCurrentUserResult = Infer<
   typeof getAuthorizationRequestForCurrentUserResultValidator

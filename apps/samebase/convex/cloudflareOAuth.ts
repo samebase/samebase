@@ -40,7 +40,7 @@ import {
 const CLOUDFLARE_OAUTH_AUTHORIZATION_URL = "https://dash.cloudflare.com/oauth2/auth";
 const CLOUDFLARE_OAUTH_TOKEN_URL = "https://dash.cloudflare.com/oauth2/token";
 const DEFAULT_OAUTH_TIMEOUT_MS = 10_000;
-const { boolean, id, null: nullValue, number, object, optional, string, union } = v;
+const { boolean, id, number, object, optional, string, union } = v;
 
 type OAuthContext = ActionCtx | MutationCtx;
 type CloudflareOAuthTokenOperation =
@@ -299,7 +299,7 @@ const storeCloudflareOauthConnectionArgs = {
   accessToken: string(),
   refreshToken: string(),
   expiresAt: number(),
-  account: union(vCloudflareAccount, nullValue()),
+  account: union(vCloudflareAccount, v.null()),
   oauthStateId: id("providerOAuthCallbackStates"),
   oauthState: string(),
 } as const;
@@ -484,7 +484,7 @@ const resolvedCloudflareConnectionValidator = object({
 });
 const resolveConnectionForOrganizationResultValidator = union(
   resolvedCloudflareConnectionValidator,
-  nullValue(),
+  v.null(),
 );
 export type ResolvedCloudflareConnection = Infer<typeof resolvedCloudflareConnectionValidator>;
 

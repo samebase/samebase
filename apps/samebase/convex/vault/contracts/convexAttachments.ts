@@ -2,7 +2,7 @@ import { v } from "convex/values";
 
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { array, id, literal, null: nullValue, object, string, union } = v;
+const { array, id, literal, object, string, union } = v;
 const providerConnectionAccess = "access_provider_connections" as const;
 
 export const vGitHubConvexCodeLocationCandidate = union(
@@ -159,7 +159,7 @@ export const convexChangeProjectCodeLocationContract = {
     convexProjectId: id("vaultConvexProjects"),
     codeLocation: vConvexCodeLocationSelection,
   },
-  returns: nullValue(),
+  returns: v.null(),
 } as const;
 
 export const convexDetachProjectContract = {
@@ -168,5 +168,5 @@ export const convexDetachProjectContract = {
     vaultId: id("vaults"),
     convexProjectId: id("vaultConvexProjects"),
   },
-  returns: nullValue(),
+  returns: v.null(),
 } as const;

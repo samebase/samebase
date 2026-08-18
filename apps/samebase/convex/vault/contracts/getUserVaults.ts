@@ -5,7 +5,7 @@ import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolic
 import { vConvexCodeLocation } from "./convexAttachments";
 import { vVaultProviderWriteTimes } from "../../appProvisioningModel";
 
-const { array, boolean, id, literal, null: nullValue, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
 export const vSourceSetupStep = union(
   literal("run_created"),
@@ -76,7 +76,7 @@ export const vProviderSetupSummary = union(
 );
 
 export const vManagedProviderPlan = union(
-  nullValue(),
+  v.null(),
   object({
     convexConfigPath: string(),
     convex: union(
@@ -103,14 +103,14 @@ export const vManagedProviderPlan = union(
         accountId: string(),
         workerName: string(),
         rootDirectory: string(),
-        buildTokenUuid: union(string(), nullValue()),
+        buildTokenUuid: union(string(), v.null()),
       }),
       object({
         state: literal("creating"),
         accountId: string(),
         workerName: string(),
         rootDirectory: string(),
-        buildTokenUuid: union(string(), nullValue()),
+        buildTokenUuid: union(string(), v.null()),
       }),
       object({
         state: literal("created"),
@@ -118,7 +118,7 @@ export const vManagedProviderPlan = union(
         workerName: string(),
         workerTag: string(),
         rootDirectory: string(),
-        buildTokenUuid: union(string(), nullValue()),
+        buildTokenUuid: union(string(), v.null()),
       }),
     ),
   }),

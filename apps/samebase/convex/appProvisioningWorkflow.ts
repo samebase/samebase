@@ -10,7 +10,7 @@ import { isLiveConnectedVault } from "./vault/state";
 import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
 
 const workflow = new WorkflowManager(components.workflow);
-const { boolean, id, literal, null: nullValue, object, string, union } = v;
+const { boolean, id, literal, object, string, union } = v;
 const idempotentProviderStepRetry = {
   maxAttempts: 3,
   initialBackoffMs: 1_000,
@@ -39,14 +39,14 @@ const composedInfrastructureState = object({
       state: literal("missing"),
       accountId: string(),
       workerName: string(),
-      buildTokenUuid: union(string(), nullValue()),
+      buildTokenUuid: union(string(), v.null()),
     }),
     object({
       state: literal("attached"),
       accountId: string(),
       workerName: string(),
       workerId: id("vaultCloudflareWorkers"),
-      buildTokenUuid: union(string(), nullValue()),
+      buildTokenUuid: union(string(), v.null()),
     }),
   ),
 });
@@ -316,7 +316,7 @@ export const finishComposedInfrastructureProvisioning = internalMutation({
     runId: id("workflow_vaultProvisioning_runs"),
     userId: id("users"),
   },
-  returns: nullValue(),
+  returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
     if (authority.run.trigger !== "create" && authority.run.trigger !== "retry") {

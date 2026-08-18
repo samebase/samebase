@@ -9,7 +9,7 @@ const EMAIL_FROM = {
   address: "notifications@samebase.com",
   name: "Samebase",
 };
-const { null: vNull, object, string } = v;
+const { object, string } = v;
 
 export const vSendEmailArgs = object({
   to: string(),
@@ -123,7 +123,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<null> {
 
 export const send = internalAction({
   args: vSendEmailArgs,
-  returns: vNull(),
+  returns: v.null(),
   handler: async (_ctx, args) => {
     return await sendEmail(args);
   },

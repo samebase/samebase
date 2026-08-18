@@ -3,7 +3,7 @@ import { v, type Infer } from "convex/values";
 import { vAccessKey, vViewerRole } from "../../accessModelValidators";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { array, literal, null: nullValue, object, optional, string, union } = v;
+const { array, literal, object, optional, string, union } = v;
 
 const vMcpAuthenticationStatusUser = object({
   name: optional(string()),
@@ -24,7 +24,7 @@ const vMcpAuthenticationStatus = union(
   }),
   object({
     authenticated: literal(false),
-    user: nullValue(),
+    user: v.null(),
     ...mcpAuthenticationStatusFields,
   }),
 );
