@@ -66,41 +66,12 @@ projects, and Cloudflare Workers keep running.
 ```
 
 The current signed-in session proves which account is requesting deletion. The flow does not ask the
-user to type their email and does not add a separate recent-authentication flow.
+user to type their email and does not add a separate recent-authentication flow. The dialog requires
+the exact phrase `delete my account`. The displayed phrase is selectable, and pasting into the
+confirmation input is allowed.
 
-When the account has uncommitted file changes, the dialog includes an exact warning sourced from the
-same live stakes as the typed phrase:
-
-```text
-5 uncommitted file changes will be permanently deleted. They will not be
-pushed to GitHub.
-```
-
-One change uses singular grammar. More than 500 changes uses the capped wording from the typed
-phrase. The dialog does not show a staged-changes warning when the count is zero or still loading.
-For exact counts, it lists every affected repository and branch with its change count and a direct
-link to the staged-changes review. The list is bounded by an internal scroller. If the count is over
-the cap, or a complete reviewable list cannot be produced, the dialog links to the vault list
-instead of presenting a partial list.
-
-Account deletion never commits, exports, or publishes staged changes. The user can cancel, commit
-the work normally, and return to deletion without a second confirmation mechanism.
-
-When the account has an active Samebase subscription, the same dialog also states that deletion
-immediately revokes the subscription and does not automatically refund unused time.
-
-The dialog shows the viewer's current deletion stakes and requires typing a dynamic confirmation
-phrase before the destructive action enables. The base phrase is `delete my account`; nonzero counts
-extend it with the vault count and the uncommitted file change count, for example
-`delete my account, 3 vaults, and 5 uncommitted file changes`. Counting stops at 500 uncommitted
-file changes, after which the phrase reads `more than 500 uncommitted file changes`. The displayed
-phrase is selectable, and pasting into the confirmation input is allowed.
-
-The request mutation recomputes the phrase and the complete displayed stakes from current data. It
-rejects either mismatch with a `stakes_changed` result instead of creating a run, so confirmation
-cannot silently survive a change moving between repositories or branches, or a Samebase subscription
-becoming cancellable. The subscribed stakes query remains the only source of displayed details. The
-dialog then clears the typed phrase, shows a short notice, and asks the user to confirm again.
+The request is rejected while any organization membership exists. The user must leave every shared
+organization. A sole owner must remove every vault and delete the organization first.
 
 The confirmation action is disabled until the typed phrase matches and while the request is being
 accepted. Acceptance atomically creates one durable queued account deletion run and gates the user.
@@ -296,31 +267,33 @@ test succeeds in the production-like environment with a dedicated non-staff acco
 ### Manual release acceptance
 
 1. Sign in to the dedicated account and record its Convex user ID.
-2. Give the account exactly this minimum state: one vault containing at least one uncommitted staged
-   change, one connected provider, and the same account signed in through a different browser or
-   isolated browser profile. MCP and billing boundaries use automated fixtures rather than making
-   the human walkthrough depend on optional setup.
-3. Open `/settings`, choose `Delete account`, verify the destructive statement and external-resource
-   reassurance are visually separate, verify the exact uncommitted-change warning and every affected
-   repository and branch are shown with working review links, then confirm once.
-4. Verify the app immediately navigates to `/account-deletion`, ordinary product navigation is no
+2. Add the account to an organization. Open `/settings`, choose `Delete account`, enter the exact
+   phrase `delete my account`, and verify that the request is rejected while the membership exists.
+3. Leave every shared organization. If the account is a sole owner, remove every vault and delete
+   the organization. Give the account one connected provider and sign in to the same account through
+   a different browser or isolated browser profile. MCP and billing boundaries use automated
+   fixtures rather than making the human walkthrough depend on optional setup.
+4. Open `/settings`, choose `Delete account`, verify the destructive statement and external-resource
+   reassurance are visually separate, verify the exact phrase `delete my account`, then confirm
+   once.
+5. Verify the app immediately navigates to `/account-deletion`, ordinary product navigation is no
    longer available, the exact deletion start time is seven days after the request, and a second
    confirmation cannot create another run.
-5. Verify the staff `/admin/account-deletions` page shows the same queued operation, account
+6. Verify the staff `/admin/account-deletions` page shows the same queued operation, account
    identity, deletion start time, Restore account action, and Delete now action.
-6. Restore the account and verify normal account access returns. Request deletion again, then use
+7. Restore the account and verify normal account access returns. Request deletion again, then use
    Delete now for the remaining acceptance steps.
-7. Verify the other browser or isolated profile and the provider connection stop granting Samebase
+8. Verify the other browser or isolated profile and the provider connection stop granting Samebase
    access while the initiating session can only read deletion status.
-8. Let the run succeed. Verify the browser is signed out, local Samebase browser data is cleared,
+9. Let the run succeed. Verify the browser is signed out, local Samebase browser data is cleared,
    and the completion email arrives or its delivery failure is visible to staff.
-9. Verify the auth account, sessions, user row, credentials, Samebase storage objects, and all
-   classified user data are absent.
-10. Verify the admin page retains a successful scrubbed receipt without the account's email, user
+10. Verify the auth account, sessions, user row, credentials, Samebase storage objects, and all
+    classified user data are absent.
+11. Verify the admin page retains a successful scrubbed receipt without the account's email, user
     ID, or other identity.
-11. Verify the account's external repositories, Convex projects and deployments, Cloudflare
+12. Verify the account's external repositories, Convex projects and deployments, Cloudflare
     resources, and deployed applications still exist and remain running.
-12. Sign in again with the same identity. Verify the deleted data does not return and any resulting
+13. Sign in again with the same identity. Verify the deleted data does not return and any resulting
     account is a new empty account governed by the normal signup and approval flow.
 
 ### Automated validation

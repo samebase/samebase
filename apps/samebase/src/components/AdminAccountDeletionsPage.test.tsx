@@ -86,48 +86,52 @@ describe("AdminAccountDeletionsPage", () => {
     mutationState.retry.mockResolvedValue(undefined);
   });
 
-  it("lets staff restore or immediately delete only a queued account", async () => {
-    queryState.detail.run.state = "queued";
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const root = createRoot(rootElement);
-    await act(async () => {
-      root.render(<AdminAccountDeletionsPage />);
-    });
-    try {
-      const operation = Array.from(rootElement.querySelectorAll("button")).find(
-        (button) => button.textContent === "run_id-1",
-      );
-      await act(async () => operation?.click());
-
-      const restore = Array.from(rootElement.querySelectorAll("button")).find(
-        (button) => button.textContent === "Restore account",
-      );
-      const deleteNow = Array.from(rootElement.querySelectorAll("button")).find(
-        (button) => button.textContent === "Delete now",
-      );
-      expect(restore).toBeDefined();
-      expect(deleteNow).toBeDefined();
-      expect(rootElement.textContent).toContain("Deletion starts");
-      expect(rootElement.textContent).not.toContain("Retry");
-
+  it.each([
+    {
+      buttonName: "Delete now",
+      clearsSelection: false,
+      mutation: mutationState.deleteNow,
+    },
+    {
+      buttonName: "Restore account",
+      clearsSelection: true,
+      mutation: mutationState.restore,
+    },
+  ])(
+    "calls $buttonName for a queued account",
+    async ({ buttonName, clearsSelection, mutation }) => {
+      queryState.detail.run.state = "queued";
+      const rootElement = document.createElement("div");
+      document.body.append(rootElement);
+      const root = createRoot(rootElement);
       await act(async () => {
-        deleteNow?.click();
-        await Promise.resolve();
+        root.render(<AdminAccountDeletionsPage />);
       });
-      expect(mutationState.deleteNow).toHaveBeenCalledWith({ runId: "run_id-1" });
+      try {
+        const operation = Array.from(rootElement.querySelectorAll("button")).find(
+          (button) => button.textContent === "run_id-1",
+        );
+        await act(async () => operation?.click());
 
-      await act(async () => {
-        restore?.click();
-        await Promise.resolve();
-      });
-      expect(mutationState.restore).toHaveBeenCalledWith({ runId: "run_id-1" });
-      expect(rootElement.querySelector("section")).toBeNull();
-    } finally {
-      await act(async () => root.unmount());
-      rootElement.remove();
-    }
-  });
+        const action = Array.from(rootElement.querySelectorAll("button")).find(
+          (button) => button.textContent === buttonName,
+        );
+        expect(action).toBeDefined();
+        expect(rootElement.textContent).toContain("Deletion starts");
+        expect(rootElement.textContent).not.toContain("Retry");
+
+        await act(async () => {
+          action?.click();
+          await Promise.resolve();
+        });
+        expect(mutation).toHaveBeenCalledWith({ runId: "run_id-1" });
+        expect(rootElement.querySelector("section") === null).toBe(clearsSelection);
+      } finally {
+        await act(async () => root.unmount());
+        rootElement.remove();
+      }
+    },
+  );
 
   it("masks operations and exposes safe provider outcomes with retry only on attention", async () => {
     const rootElement = document.createElement("div");

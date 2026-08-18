@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: August 12, 2026
+Last updated: August 19, 2026
 
 This Privacy Policy explains how Samebase handles information when you use samebase.com, the
 Samebase web app, the Samebase remote MCP server, or a published Samebase agent plugin.
