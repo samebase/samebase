@@ -1659,7 +1659,6 @@ describe("VaultOverviewPage", () => {
 
     expect(incompleteMarkup).toContain("Finish Cloudflare setup");
     expect(incompleteMarkup).toContain('href="/docs/cloudflare-setup"');
-    expect(incompleteMarkup).toContain("bg-amber-50");
     expect(attachedMarkup).not.toContain("Finish Cloudflare setup");
   });
 

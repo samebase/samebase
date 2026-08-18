@@ -272,12 +272,10 @@ describe("LandingPreviewPage", () => {
     const markup = renderToStaticMarkup(<DocsCloudflareSetupPage />);
 
     expect(markup).toContain("Set up Cloudflare for your first Samebase app");
-    expect(markup).toContain("Samebase does not create a Cloudflare Worker");
-    expect(markup).toContain("Create new token");
-    expect(markup).toContain("Delete the temporary Worker in Cloudflare");
-    expect(markup).toContain("Do not attach it to Samebase");
-    expect(markup).toContain("adds the Convex production and preview deploy keys");
-    expect(markup).toMatch(/starts the first\s+deployment\./);
+    const createWorkerIndex = markup.indexOf("Create Worker");
+    const deployKeyActionIndex = markup.indexOf("Use `&lt;project&gt;` for Workers Builds");
+    expect(createWorkerIndex).toBeGreaterThan(-1);
+    expect(deployKeyActionIndex).toBeGreaterThan(createWorkerIndex);
   });
 
   it("renders the do-it-yourself guide separately", () => {

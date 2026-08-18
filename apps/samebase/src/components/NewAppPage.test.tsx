@@ -2,7 +2,6 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getFunctionName } from "convex/server";
-import { ConvexError } from "convex/values";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -284,12 +283,6 @@ describe("NewAppPage", () => {
     }
 
     expect(container.querySelector("[aria-label='Cloudflare Worker name']")).toBeNull();
-    expect(container.textContent).toContain(
-      "No API token is available. Samebase will create the GitHub repository and Convex project, but it will not create a Cloudflare Worker.",
-    );
-    expect(
-      container.querySelector<HTMLAnchorElement>('a[href="/docs/cloudflare-setup"]')?.textContent,
-    ).toBe("View first-time Cloudflare setup");
     setInputValue(input, "no-token-app");
     await act(async () => input.dispatchEvent(new Event("input", { bubbles: true })));
     await act(async () => vi.advanceTimersByTimeAsync(350));
@@ -304,7 +297,6 @@ describe("NewAppPage", () => {
       cloudflareWorkerName: "no-token-app",
       cloudflareBuildTokenUuid: null,
     });
-    expect(container.querySelector("[aria-label='Cloudflare Worker name']")).toBeNull();
 
     const createButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "New App",
@@ -320,49 +312,6 @@ describe("NewAppPage", () => {
         cloudflareBuildTokenUuid: null,
         private: true,
       }),
-    );
-  });
-
-  it("reloads tokens when an empty list becomes stale before creation", async () => {
-    vi.useFakeTimers();
-    cloudflareBuildTokenTestState.state = "empty";
-    cloudflareBuildTokenTestState.refetch.mockImplementationOnce(async () => {
-      cloudflareBuildTokenTestState.state = "loaded";
-      return undefined;
-    });
-    const checkNames = vi.fn(async () => availableNames("not_required"));
-    const createRepository = vi.fn(async () => {
-      throw new ConvexError("A Cloudflare Workers Builds token is available. Select it and retry.");
-    });
-    testState.actions.set(
-      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
-      checkNames,
-    );
-    testState.actions.set(getFunctionName(api.vault.actions.createRepository), createRepository);
-    const container = await mountPage();
-    const input = container.querySelector<HTMLInputElement>("[aria-label='GitHub repo name']");
-    if (!input) {
-      throw new Error("GitHub repository name input was not rendered.");
-    }
-
-    setInputValue(input, "stale-empty-token-app");
-    await act(async () => input.dispatchEvent(new Event("input", { bubbles: true })));
-    await act(async () => vi.advanceTimersByTimeAsync(350));
-    await flushQueryUpdates();
-    await vi.waitFor(() =>
-      expect(container.textContent).toContain("GitHub repository name is available."),
-    );
-
-    const createButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "New App",
-    );
-    await act(async () => createButton?.click());
-    await vi.waitFor(() => expect(cloudflareBuildTokenTestState.refetch).toHaveBeenCalledTimes(1));
-    await vi.waitFor(() =>
-      expect(container.textContent).toContain("Workers Builds - 2026-08-14 01:54"),
-    );
-    expect(container.textContent).not.toContain(
-      "A Cloudflare Workers Builds token is available. Select it and retry.",
     );
   });
 

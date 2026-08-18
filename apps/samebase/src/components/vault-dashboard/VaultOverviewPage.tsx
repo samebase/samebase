@@ -315,8 +315,7 @@ export function VaultOverviewPage({
     workspace.vault.hasConvexProvision &&
     workspace.vault.cloudflareWorkers.length === 0 &&
     managedProviderPlan?.convex.state === "created" &&
-    (managedProviderPlan.cloudflare.state === "planned" ||
-      managedProviderPlan.cloudflare.state === "created") &&
+    managedProviderPlan.cloudflare.state === "planned" &&
     managedProviderPlan.cloudflare.buildTokenUuid === null;
 
   return (

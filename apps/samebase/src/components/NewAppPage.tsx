@@ -1015,17 +1015,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           : error instanceof Error
             ? error.message
             : "Failed to create app";
-      const shouldReloadCloudflareBuildTokens =
-        message === "A Cloudflare Workers Builds token is available. Select it and retry." ||
-        message.startsWith(
-          "The selected Cloudflare Workers Builds token is not in Cloudflare's current list",
-        );
-      if (shouldReloadCloudflareBuildTokens) {
-        await cloudflareBuildTokensQuery.refetch();
-        setCreateError(null);
-      } else {
-        setCreateError(message);
-      }
+      setCreateError(message);
     } finally {
       setIsCreating(false);
     }
