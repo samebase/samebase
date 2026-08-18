@@ -12,8 +12,14 @@ import { buildVaultDashboardRoute, buildVaultSettingsRoute } from "@/lib/vaultRo
 import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 import { Link } from "@tanstack/react-router";
 import { AlertTriangle, LayoutList, Loader2, Settings } from "lucide-react";
+import type { ReactNode } from "react";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import type { VaultWorkspaceSelected } from "./vaultWorkspaceModel";
+
+const CLOUDFLARE_GITHUB_APP_RECOVERY_URL =
+  "https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
+const CLOUDFLARE_GITHUB_APP_URL = "https://github.com/apps/cloudflare-workers-and-pages";
+const CLOUDFLARE_WORKERS_AND_PAGES_URL = "https://dash.cloudflare.com/";
 
 export type VaultOverviewPageKind = "overview" | "settings";
 
@@ -117,17 +123,17 @@ function FailureNotice({
   onRetry,
   title,
 }: {
-  description: string;
+  description: ReactNode;
   isRetrying?: boolean;
   onRetry?: () => void;
-  title: string;
+  title: ReactNode;
 }) {
   const content = (
     <>
       <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-700" />
       <div className="min-w-0">
-        <div className="text-sm font-medium">{title}</div>
-        <div className="mt-1 text-xs leading-5 text-red-800">{description}</div>
+        <h2 className="text-sm font-medium">{title}</h2>
+        <div className="mt-1 text-xs leading-5 text-muted-foreground">{description}</div>
       </div>
     </>
   );
@@ -160,6 +166,8 @@ function VaultStateNotice({
   onRetryVaultDeletion: () => void;
   vault: UserVaultResult;
 }) {
+  const cloudflareGitHubAuthorizationTitle = `Cloudflare Workers and Pages GitHub App is not authorized for ${vault.repositoryFullName}.`;
+
   if (vault.deletion.state === "delete_failed") {
     return (
       <FailureNotice
@@ -183,6 +191,65 @@ function VaultStateNotice({
     );
   }
   if (vault.providerSetup.status === "failed") {
+    if (vault.providerSetup.message.startsWith(cloudflareGitHubAuthorizationTitle)) {
+      return (
+        <FailureNotice
+          description={
+            <>
+              <a
+                className="font-medium text-foreground underline underline-offset-4"
+                href={CLOUDFLARE_GITHUB_APP_RECOVERY_URL}
+                rel="noreferrer noopener"
+                target="_blank"
+              >
+                Cloudflare recovery guide
+              </a>
+              <ol className="mt-1 list-decimal space-y-1 pl-4">
+                <li className="pl-1">
+                  <a
+                    className="font-medium text-foreground underline underline-offset-4"
+                    href={CLOUDFLARE_GITHUB_APP_URL}
+                    rel="noreferrer noopener"
+                    target="_blank"
+                  >
+                    Open the Cloudflare Workers and Pages GitHub App
+                  </a>{" "}
+                  and uninstall it for{" "}
+                  <span className="font-mono font-medium text-foreground">{vault.ghRepoOwner}</span>
+                  .
+                </li>
+                <li className="pl-1">
+                  <a
+                    className="font-medium text-foreground underline underline-offset-4"
+                    href={CLOUDFLARE_WORKERS_AND_PAGES_URL}
+                    rel="noreferrer noopener"
+                    target="_blank"
+                  >
+                    Open Workers &amp; Pages
+                  </a>
+                  . Select Create application, Pages, and Connect to Git. Add{" "}
+                  <span className="font-mono font-medium text-foreground">{vault.ghRepoOwner}</span>
+                  , then include{" "}
+                  <span className="font-mono font-medium text-foreground">
+                    {vault.repositoryFullName}
+                  </span>
+                  .
+                </li>
+                <li className="pl-1">Return to Samebase and select Retry.</li>
+              </ol>
+            </>
+          }
+          isRetrying={isRetryingVaultAction}
+          onRetry={onRetryInfrastructureProvisioning}
+          title={
+            <>
+              Cloudflare Workers and Pages GitHub App is not authorized for{" "}
+              <span className="font-mono font-semibold">{vault.repositoryFullName}</span>.
+            </>
+          }
+        />
+      );
+    }
     return (
       <FailureNotice
         description={vault.providerSetup.message}
