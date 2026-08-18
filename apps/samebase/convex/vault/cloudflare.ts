@@ -48,6 +48,7 @@ import { validateAppResourceName } from "../../shared/appResourceNames";
 import { buildVaultCloudflareBuildConfigForRootDirectory } from "./model";
 import { buildWorkersBuildsConvexDeployKeyNames } from "./workersBuildsConvexDeployKeyNames";
 import type {
+  ManualWorkerCreateContinuation,
   WorkerConfigurationContext,
   WorkerConvexProjectConfigurationContext,
 } from "./cloudflareMutations";
@@ -1394,6 +1395,15 @@ export async function createWorkerForUser(
   const providerCreate = { started: false };
   let workerRecorded = false;
   try {
+    const continuation: ManualWorkerCreateContinuation = await ctx.runQuery(
+      internal.vault.cloudflareMutations.readManualWorkerCreateContinuationContext,
+      {
+        vaultId: args.vaultId,
+        userId: args.userId,
+        actionId,
+        accountId,
+      },
+    );
     const resolved = await resolveCloudflareRepositoryContext(ctx, { ...args, accountId });
     await requireCloudflareBuildTokenUuid({
       token: resolved.connection.token,
@@ -1430,7 +1440,7 @@ export async function createWorkerForUser(
         providerCreate.started = true;
       },
     });
-    const workerId = await ctx.runMutation(
+    const recorded = await ctx.runMutation(
       internal.vault.cloudflareMutations.recordManualWorkerCreated,
       {
         vaultId: args.vaultId,
@@ -1443,13 +1453,21 @@ export async function createWorkerForUser(
       },
     );
     workerRecorded = true;
+    if (
+      recorded.continuation.state !== continuation.state ||
+      (recorded.continuation.state === "managed" &&
+        continuation.state === "managed" &&
+        recorded.continuation.convexProjectId !== continuation.convexProjectId)
+    ) {
+      throw new Error("Managed Cloudflare setup changed while the Worker was created.");
+    }
     requireManualProviderActionDeadline(claim.deadlineAt);
-    await configureResolvedWorkersBuildsForGitHub(
+    const build = await configureResolvedWorkersBuildsForGitHub(
       {
         vaultId: args.vaultId,
         rootDirectory: buildConfig.rootDir,
         buildTokenUuid: args.buildTokenUuid,
-        initialBuild: "requested",
+        initialBuild: continuation.state === "managed" ? "deferred" : "requested",
         existingBuilds: "require_unconnected",
         beforeProviderWrite: () => requireManualProviderActionDeadline(claim.deadlineAt),
         afterBuildsConfigured: async () => {
@@ -1463,12 +1481,40 @@ export async function createWorkerForUser(
       resolved,
       worker,
     );
+    if (continuation.state === "managed") {
+      requireManualProviderActionDeadline(claim.deadlineAt);
+      const prepared = await prepareConvexDeployKeyRotation(
+        ctx,
+        {
+          authority: { kind: "user", userId: args.userId, vaultId: args.vaultId },
+          workerId: recorded.workerId,
+          convexProjectId: continuation.convexProjectId,
+        },
+        {
+          state: "prepared",
+          build: {
+            rootDirectory: build.rootDirectory,
+            production: { triggerUuid: build.production.triggerUuid },
+            preview: { triggerUuid: build.preview.triggerUuid },
+          },
+        },
+      );
+      await rotatePreparedConvexDeployKeys(
+        {
+          vaultId: args.vaultId,
+          beforeProviderWrite: () => {
+            requireManualProviderActionDeadline(claim.deadlineAt);
+          },
+        },
+        prepared,
+      );
+    }
     await ctx.runMutation(internal.vault.infrastructureOperation.finishManualProviderWriteResult, {
       vaultId: args.vaultId,
       actionId,
       result: "succeeded",
     });
-    return workerId;
+    return recorded.workerId;
   } catch (error) {
     const reportedError =
       providerCreate.started && !workerRecorded

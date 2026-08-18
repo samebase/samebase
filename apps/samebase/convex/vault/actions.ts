@@ -38,7 +38,13 @@ import { retryInfrastructureProvisioningContract } from "./contracts/retryInfras
 
 const { id, literal, null: nullValue, object, string, union } = v;
 const appResourceNameAvailability = object({
-  status: union(literal("available"), literal("taken"), literal("invalid"), literal("unknown")),
+  status: union(
+    literal("available"),
+    literal("taken"),
+    literal("invalid"),
+    literal("unknown"),
+    literal("not_required"),
+  ),
   message: union(string(), nullValue()),
   suggestion: union(string(), nullValue()),
 });
@@ -49,6 +55,14 @@ export type CreateRepositoryResult = Infer<typeof createRepositoryContract.retur
 function buildAvailableResult(): AppResourceNameAvailability {
   return {
     status: "available",
+    message: null,
+    suggestion: null,
+  };
+}
+
+function buildNotRequiredResult(): AppResourceNameAvailability {
+  return {
+    status: "not_required",
     message: null,
     suggestion: null,
   };
@@ -596,6 +610,7 @@ async function checkCreateResourceNameAvailabilityForUser(
     githubRepositoryName: string;
     convexProjectName: string;
     cloudflareWorkerName: string;
+    cloudflareBuildTokenUuid: string | null;
   },
 ): Promise<{
   github: AppResourceNameAvailability;
@@ -613,11 +628,13 @@ async function checkCreateResourceNameAvailabilityForUser(
       organizationId: args.organizationId,
       projectName: args.convexProjectName,
     }),
-    checkCloudflareWorkerNameAvailability(ctx, {
-      userId: args.userId,
-      organizationId: args.organizationId,
-      workerName: args.cloudflareWorkerName,
-    }),
+    args.cloudflareBuildTokenUuid === null
+      ? buildNotRequiredResult()
+      : checkCloudflareWorkerNameAvailability(ctx, {
+          userId: args.userId,
+          organizationId: args.organizationId,
+          workerName: args.cloudflareWorkerName,
+        }),
   ]);
 
   return { github, convex, cloudflare };
@@ -724,11 +741,11 @@ export async function createAppForUser(
   if (!convexNameValidation.valid) {
     throw new Error(convexNameValidation.availability.message ?? "Invalid Convex project name.");
   }
-  const cloudflareNameValidation = validateCreateResourceName(
-    "cloudflare",
-    args.cloudflareWorkerName,
-  );
-  if (!cloudflareNameValidation.valid) {
+  const cloudflareNameValidation =
+    args.cloudflareBuildTokenUuid === null
+      ? null
+      : validateCreateResourceName("cloudflare", args.cloudflareWorkerName);
+  if (cloudflareNameValidation && !cloudflareNameValidation.valid) {
     throw new Error(
       cloudflareNameValidation.availability.message ?? "Invalid Cloudflare Worker name.",
     );
@@ -755,16 +772,20 @@ export async function createAppForUser(
         connection: convexConnection,
         projectName: convexNameValidation.value,
       }),
-      checkCloudflareWorkerNameAvailabilityForConnection(ctx, {
-        userId: args.userId,
-        organizationId: githubAccess.organizationId,
-        workerName: cloudflareNameValidation.value,
-        connection: cloudflareConnection,
-      }),
+      cloudflareNameValidation
+        ? checkCloudflareWorkerNameAvailabilityForConnection(ctx, {
+            userId: args.userId,
+            organizationId: githubAccess.organizationId,
+            workerName: cloudflareNameValidation.value,
+            connection: cloudflareConnection,
+          })
+        : buildNotRequiredResult(),
     ]);
   assertResourceNameAvailable("GitHub repository name", githubNameAvailability);
   assertResourceNameAvailable("Convex project name", convexNameAvailability);
-  assertResourceNameAvailable("Cloudflare Worker name", cloudflareNameAvailability);
+  if (cloudflareNameAvailability.status !== "not_required") {
+    assertResourceNameAvailable("Cloudflare Worker name", cloudflareNameAvailability);
+  }
   const cloudflareTokenArgs = {
     token: cloudflareConnection.cloudflareToken,
     transport: resolveCloudflareApiTransport(cloudflareConnection.cloudflareAuthMethod),
@@ -795,7 +816,9 @@ export async function createAppForUser(
       convexProjectName: convexNameValidation.value,
       convexTeamId: convexConnection.convexTeamId,
       cloudflareAccountId: cloudflareConnection.cloudflareAccountId,
-      cloudflareWorkerName: cloudflareNameValidation.value,
+      cloudflareWorkerName: cloudflareNameValidation?.valid
+        ? cloudflareNameValidation.value
+        : repoName,
       cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
     },
   );
@@ -830,6 +853,7 @@ export const checkCreateRepositoryResourceNames = action({
     githubRepositoryName: string(),
     convexProjectName: string(),
     cloudflareWorkerName: string(),
+    cloudflareBuildTokenUuid: union(string(), nullValue()),
   },
   returns: object({
     github: appResourceNameAvailability,
@@ -844,6 +868,7 @@ export const checkCreateRepositoryResourceNames = action({
       githubRepositoryName: args.githubRepositoryName,
       convexProjectName: args.convexProjectName,
       cloudflareWorkerName: args.cloudflareWorkerName,
+      cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
     });
   },
 });

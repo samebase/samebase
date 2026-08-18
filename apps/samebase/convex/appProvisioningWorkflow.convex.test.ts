@@ -26,6 +26,14 @@ async function createComposedVault(buildTokenUuid: string | null = "build-token"
     });
     await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", { organizationId, userId, role: "owner" });
+    await ctx.db.insert("organizationProviderCredentials", {
+      organizationId,
+      cloudflare: {
+        auth: { method: "api_key", credential: "cloudflare-token" },
+        connectedByUserId: userId,
+        updatedAt: 1,
+      },
+    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       convexTeamId: "convex-team",
@@ -136,6 +144,33 @@ async function attachComposedResources({
   });
 }
 
+async function attachComposedConvexProject({
+  ids,
+  t,
+}: Awaited<ReturnType<typeof createComposedVault>>) {
+  return await t.run(async (ctx) => {
+    const plan = await ctx.db.get(ids.planId);
+    if (!plan) {
+      throw new Error("Expected provisioning plan.");
+    }
+    await ctx.db.patch(plan._id, {
+      convex: {
+        state: "created",
+        projectName: "composed-app",
+        projectId: "convex-project",
+      },
+    });
+    return await ctx.db.insert("vaultConvexProjects", {
+      vaultId: ids.vaultId,
+      organizationId: ids.organizationId,
+      teamId: "convex-team",
+      projectId: "convex-project",
+      convexConfigPath: "convex.json",
+      origin: "provisioned",
+    });
+  });
+}
+
 describe("app provisioning workflow composition", () => {
   it("maps the provisioning root to the Convex config path and reads exact attachments", async () => {
     const { ids, t } = await createComposedVault();
@@ -176,7 +211,7 @@ describe("app provisioning workflow composition", () => {
 
   it("finishes attached provider setup without Builds when the confirmed token list was empty", async () => {
     const { ids, t } = await createComposedVault(null);
-    await attachComposedResources({ ids, t });
+    await attachComposedConvexProject({ ids, t });
     await t.run(async (ctx) => {
       const run = await ctx.db.get(ids.runId);
       const write = await ctx.db
@@ -227,6 +262,8 @@ describe("app provisioning workflow composition", () => {
             .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
             .unique(),
           cloudflareAccount: (await ctx.db.get(ids.organizationId))?.cloudflareAccount,
+          plan: await ctx.db.get(ids.planId),
+          workers: await ctx.db.query("vaultCloudflareWorkers").take(1),
         };
       });
 
@@ -236,8 +273,14 @@ describe("app provisioning workflow composition", () => {
         state: "succeeded",
       });
       expect(result.steps).toContain("finish");
+      expect(result.steps).not.toContain("attach_worker");
       expect(result.steps).not.toContain("configure_workers_builds_for_github");
       expect(result.steps).not.toContain("rotate_convex_deploy_keys_for_workers_builds");
+      expect(result.plan).toMatchObject({
+        convex: { state: "created", projectId: "convex-project" },
+        cloudflare: { state: "planned", buildTokenUuid: null },
+      });
+      expect(result.workers).toEqual([]);
       expect(result.cloudflareAccount).toMatchObject({
         lastUsedBuildTokenUuid: "prior-build-token",
       });

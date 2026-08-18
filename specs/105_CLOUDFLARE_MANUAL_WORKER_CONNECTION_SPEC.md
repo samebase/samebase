@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-08-17
+- Last updated: 2026-08-18
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
@@ -95,6 +95,18 @@ Cloudflare Workers Builds. Samebase creates the Worker and records its exact pro
 approved root, and `provisioned` attachment together before configuring Builds. It then writes the
 GitHub Builds configuration and re-reads the resulting repository and root evidence.
 
+When a completed managed app has a `null` Builds token in its plan, a still-`planned` Cloudflare
+checkpoint, and the exact planned Convex project attachment, Create Worker is the continuation of
+that managed setup. The user can choose the current Worker name and root. Samebase records those
+approved values in the Cloudflare checkpoint, configures Builds with its initial build deferred,
+rotates production and preview deploy keys for the exact planned Convex project, and then starts one
+first production build through the existing key-rotation operation. No project selector is needed.
+
+If those exact managed conditions do not hold, Create Worker keeps its generic behavior. It
+configures Builds and requests the first production build without requiring or changing a Convex
+attachment. A managed plan whose Cloudflare checkpoint is already `created` also uses this generic
+behavior so that later Worker replacement remains available.
+
 The create flow requires the same visible token selection. A current Worker's observed token has
 priority during repair. Otherwise, the client selects the organization account's last-used token
 when it remains in the current list, then the first record. Samebase orders the account token list
@@ -138,8 +150,9 @@ state, but is not removal authority.
 
 Attaching a Worker does not imply that Samebase may rewrite an existing Worker. `Connect and add`
 explicitly authorizes initial GitHub Builds setup only after Samebase verifies that the Worker has
-no active Builds triggers. GitHub Builds repair and Convex deploy-key rotation remain explicit
-operations.
+no active Builds triggers. GitHub Builds repair and standalone Convex deploy-key rotation remain
+explicit operations. Create Worker for the exact tokenless managed continuation explicitly
+authorizes both initial Builds setup and deploy-key rotation for the plan's Convex project.
 
 `Configure Workers Builds` uses the attachment's saved approved root. It does not replace that input
 with a different live root. The member must use `Update root` first when the current provider root
@@ -165,8 +178,8 @@ Samebase does not persist a Worker-to-project edge.
 Cloudflare attachment mutations use the shared exclusion check in spec 003. Cloudflare provider
 actions use the claim, expiry, no-replay, and freshness rules in spec 003.
 
-Creating a Worker, connecting an unconnected Worker, and configuring Workers Builds affect
-Cloudflare observations. Deploy-key rotation affects Convex and Cloudflare observations.
+Creating a Worker and deploy-key rotation affect Convex and Cloudflare observations. Connecting an
+unconnected Worker and configuring Workers Builds affect Cloudflare observations.
 
 After a failed or silent provider action, Samebase gets fresh observations. The user or agent then
 uses the normal action for that state:
@@ -203,6 +216,9 @@ uses the normal action for that state:
   silent provider action.
 - Write-time tests prove that Cloudflare-only actions update only Cloudflare and deploy-key rotation
   updates both providers.
+- Managed continuation tests prove that Create Worker uses the exact planned Convex attachment,
+  accepts the current Worker name and root, defers the initial build, rotates both deploy keys, and
+  starts one first production build. Generic Create Worker tests require no Convex attachment.
 - UI tests cover vault-level routing, default multiple selection, grouping by stored root, the
   focused unconnected-Worker root flow, count copy, exact Convex action targets, stored-root Builds
   repair, and `Needs attention`.

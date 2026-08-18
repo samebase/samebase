@@ -587,28 +587,28 @@ async function runComposedInfrastructure(
     state: initialState,
   });
 
-  const afterConvex = await readCurrentComposedInfrastructureState(step, {
-    vaultId: args.vaultId,
-    runId: args.parentRunId,
-    userId: args.userId,
-    name: "read_infra_after_convex",
-  });
-  if (afterConvex.cloudflare.state === "missing") {
-    await appendComposedInfrastructureParentEvent(step, {
-      runId: args.parentRunId,
-      step: "attach_worker",
-      message: "Attaching Cloudflare Worker.",
-    });
-  }
-  const workerId = await runComposedCloudflareAttachment(step, {
-    vaultId: args.vaultId,
-    parentRunId: args.parentRunId,
-    userId: args.userId,
-    state: afterConvex,
-  });
-
-  const buildTokenUuid = afterConvex.cloudflare.buildTokenUuid;
+  const buildTokenUuid = initialState.cloudflare.buildTokenUuid;
   if (buildTokenUuid !== null) {
+    const afterConvex = await readCurrentComposedInfrastructureState(step, {
+      vaultId: args.vaultId,
+      runId: args.parentRunId,
+      userId: args.userId,
+      name: "read_infra_after_convex",
+    });
+    if (afterConvex.cloudflare.state === "missing") {
+      await appendComposedInfrastructureParentEvent(step, {
+        runId: args.parentRunId,
+        step: "attach_worker",
+        message: "Attaching Cloudflare Worker.",
+      });
+    }
+    const workerId = await runComposedCloudflareAttachment(step, {
+      vaultId: args.vaultId,
+      parentRunId: args.parentRunId,
+      userId: args.userId,
+      state: afterConvex,
+    });
+
     await appendComposedInfrastructureParentEvent(step, {
       runId: args.parentRunId,
       step: "configure_workers_builds_for_github",
@@ -653,7 +653,7 @@ async function runComposedInfrastructure(
       level: "info",
       message:
         buildTokenUuid === null
-          ? "App provider resources are attached."
+          ? "GitHub and Convex are ready. Cloudflare setup is required."
           : "App provider resources are attached and configured.",
       state: "succeeded",
     },

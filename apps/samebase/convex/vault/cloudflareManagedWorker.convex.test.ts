@@ -1,10 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const providerMocks = vi.hoisted(() => ({
+  configureCloudflareWorkerBuildsForGitHub: vi.fn(),
   createCloudflareWorker: vi.fn(),
+  createConvexDeployKey: vi.fn(),
+  createConvexPreviewDeployKey: vi.fn(),
+  createRepositoryOctokit: vi.fn(),
+  deleteConvexDeployKeyByName: vi.fn(),
+  deleteConvexPreviewDeployKeyByName: vi.fn(),
+  getRepository: vi.fn(),
   listCloudflareAccountsForToken: vi.fn(),
   readCloudflareWorkerIdentity: vi.fn(),
+  readConvexProductionDeployment: vi.fn(),
   requireCloudflareBuildTokenUuid: vi.fn(),
+  rotateConvexDeployKeysForCloudflareWorkerBuilds: vi.fn(),
 }));
 
 vi.mock("../cloudflareAccountDiscovery", async (importOriginal) => {
@@ -19,21 +28,52 @@ vi.mock("../cloudflareResources", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../cloudflareResources")>();
   return {
     ...actual,
+    configureCloudflareWorkerBuildsForGitHub:
+      providerMocks.configureCloudflareWorkerBuildsForGitHub,
     createCloudflareWorker: providerMocks.createCloudflareWorker,
     readCloudflareWorkerIdentity: providerMocks.readCloudflareWorkerIdentity,
     requireCloudflareBuildTokenUuid: providerMocks.requireCloudflareBuildTokenUuid,
+    rotateConvexDeployKeysForCloudflareWorkerBuilds:
+      providerMocks.rotateConvexDeployKeysForCloudflareWorkerBuilds,
   };
 });
 
-import { internal } from "../_generated/api";
+vi.mock("../infraProvisioning", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../infraProvisioning")>();
+  return {
+    ...actual,
+    createConvexDeployKey: providerMocks.createConvexDeployKey,
+    createConvexPreviewDeployKey: providerMocks.createConvexPreviewDeployKey,
+    deleteConvexDeployKeyByName: providerMocks.deleteConvexDeployKeyByName,
+    deleteConvexPreviewDeployKeyByName: providerMocks.deleteConvexPreviewDeployKeyByName,
+  };
+});
+
+vi.mock("./convexProjectResources", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./convexProjectResources")>();
+  return {
+    ...actual,
+    readConvexProductionDeployment: providerMocks.readConvexProductionDeployment,
+  };
+});
+
+vi.mock("../githubApp", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../githubApp")>();
+  return {
+    ...actual,
+    createGitHubRepositoryInstallationOctokit: providerMocks.createRepositoryOctokit,
+  };
+});
+
+import { api } from "../_generated/api";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
-async function createManagedWorkerFixture() {
+async function createWorkerFixture(managedContinuation: boolean) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       state: "active",
-      email: "create-worker-without-build-token@example.test",
+      email: "create-managed-worker@example.test",
       isApproved: true,
     });
     const organizationId = await ctx.db.insert("organizations", {
@@ -54,14 +94,30 @@ async function createManagedWorkerFixture() {
       role: "owner",
     });
     await insertTestOrganizationBillingAccount(ctx.db, organizationId);
-    await ctx.db.insert("organizationProviderCredentials", {
-      organizationId,
-      cloudflare: {
-        auth: { method: "api_key", credential: "cloudflare-token" },
-        connectedByUserId: userId,
-        updatedAt: 1,
-      },
-    });
+    if (managedContinuation) {
+      await ctx.db.insert("organizationProviderCredentials", {
+        organizationId,
+        convex: {
+          auth: { method: "api_key", credential: "convex-token" },
+          connectedByUserId: userId,
+          updatedAt: 1,
+        },
+        cloudflare: {
+          auth: { method: "api_key", credential: "cloudflare-token" },
+          connectedByUserId: userId,
+          updatedAt: 1,
+        },
+      });
+    } else {
+      await ctx.db.insert("organizationProviderCredentials", {
+        organizationId,
+        cloudflare: {
+          auth: { method: "api_key", credential: "cloudflare-token" },
+          connectedByUserId: userId,
+          updatedAt: 1,
+        },
+      });
+    }
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       convexTeamId: "convex-team",
@@ -75,10 +131,11 @@ async function createManagedWorkerFixture() {
       vaultId,
       repositoryFullName: "samebase/managed-app",
       trigger: "create",
-      state: "running",
-      currentStep: "attach_worker",
+      state: "succeeded",
+      currentStep: "finish",
       createdAt: 1,
       updatedAt: 1,
+      completedAt: 1,
     });
     await ctx.db.replace(vaultId, {
       organizationId,
@@ -94,29 +151,43 @@ async function createManagedWorkerFixture() {
       defaultBranch: "main",
       connectedAt: 1,
     });
-    await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-      vaultId,
-      owner: { kind: "managed_run", runId },
-      state: "active",
-      lastWriteAt: {},
-      updatedAt: 1,
-    });
-    await ctx.db.insert("workflow_vaultProvisioning_plans", {
-      vaultId,
-      convexConfigPath: "convex.json",
-      convex: { state: "planned", projectName: "managed-app" },
-      cloudflare: {
-        state: "planned",
-        workerName: "managed-app",
-        rootDirectory: "/",
-        buildTokenUuid: null,
-      },
-      createdAt: 1,
-      updatedAt: 1,
-    });
-    return { organizationId, runId, userId, vaultId };
+    if (managedContinuation) {
+      await ctx.db.insert("workflow_vaultProvisioning_plans", {
+        vaultId,
+        convexConfigPath: "convex.json",
+        convex: {
+          state: "created",
+          projectName: "managed-app",
+          projectId: "convex-project",
+        },
+        cloudflare: {
+          state: "planned",
+          workerName: "hidden-placeholder",
+          rootDirectory: "/",
+          buildTokenUuid: null,
+        },
+        createdAt: 1,
+        updatedAt: 1,
+      });
+      await ctx.db.insert("vaultConvexProjects", {
+        vaultId,
+        organizationId,
+        teamId: "convex-team",
+        projectId: "convex-project",
+        convexConfigPath: "convex.json",
+        origin: "provisioned",
+      });
+    }
+    return { organizationId, userId, vaultId };
   });
-  return { ids, t };
+  return {
+    ids,
+    t,
+    viewer: t.withIdentity({
+      subject: `${ids.userId}|test-session`,
+      tokenIdentifier: `test:${ids.userId}`,
+    }),
+  };
 }
 
 beforeEach(() => {
@@ -125,65 +196,140 @@ beforeEach(() => {
     { accountId: "cloudflare-account", accountName: "Cloudflare account" },
   ]);
   providerMocks.readCloudflareWorkerIdentity.mockResolvedValue(null);
-  providerMocks.createCloudflareWorker.mockResolvedValue({
-    workerName: "managed-app",
+  providerMocks.createCloudflareWorker.mockImplementation(async (args: { workerName: string }) => ({
+    workerName: args.workerName,
     workerTag: "worker-tag",
+  }));
+  providerMocks.requireCloudflareBuildTokenUuid.mockResolvedValue("build-token");
+  providerMocks.getRepository.mockResolvedValue({
+    data: {
+      id: "repository-1",
+      default_branch: "main",
+      owner: { id: "managed-worker-owner" },
+    },
   });
+  providerMocks.createRepositoryOctokit.mockResolvedValue({
+    rest: { repos: { get: providerMocks.getRepository } },
+  });
+  providerMocks.configureCloudflareWorkerBuildsForGitHub.mockImplementation(
+    async (args: { afterBuildsConfigured?: () => void | Promise<void> }) => {
+      await args.afterBuildsConfigured?.();
+      return {
+        state: "connected",
+        rootDirectory: "/",
+        buildCommand: "pnpm run build",
+        deployCommand: "pnpm run deploy",
+        previewDeployCommand: "pnpm run deploy:preview",
+        pathIncludes: ["*"],
+        pathExcludes: [],
+        production: { triggerUuid: "production-trigger" },
+        preview: { triggerUuid: "preview-trigger" },
+      };
+    },
+  );
+  providerMocks.readConvexProductionDeployment.mockResolvedValue({ name: "production-deployment" });
+  providerMocks.createConvexDeployKey.mockResolvedValue({ deployKey: "production-key" });
+  providerMocks.createConvexPreviewDeployKey.mockResolvedValue({ deployKey: "preview-key" });
+  providerMocks.deleteConvexDeployKeyByName.mockResolvedValue(undefined);
+  providerMocks.deleteConvexPreviewDeployKeyByName.mockResolvedValue(undefined);
+  providerMocks.rotateConvexDeployKeysForCloudflareWorkerBuilds.mockResolvedValue(undefined);
 });
 
-describe("managed Cloudflare Worker creation", () => {
-  it("creates and attaches the Worker without reading Builds tokens when the plan token is null", async () => {
-    const { ids, t } = await createManagedWorkerFixture();
+describe("manual Cloudflare Worker creation", () => {
+  it("finishes the tokenless managed plan with its exact Convex project and one build owner", async () => {
+    const { ids, t, viewer } = await createWorkerFixture(true);
 
-    const workerId = await t.action(internal.vault.cloudflare.ensureCloudflareWorkerConnection, {
+    const workerId = await viewer.action(api.vault.cloudflare.createWorker, {
       vaultId: ids.vaultId,
-      runId: ids.runId,
-      userId: ids.userId,
       accountId: "cloudflare-account",
-      workerName: "managed-app",
+      workerName: "chosen-worker",
+      rootDirectory: "/",
+      buildTokenUuid: "build-token",
     });
 
+    expect(providerMocks.configureCloudflareWorkerBuildsForGitHub).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workerName: "chosen-worker",
+        workerTag: "worker-tag",
+        initialBuild: { state: "deferred" },
+      }),
+    );
+    expect(providerMocks.rotateConvexDeployKeysForCloudflareWorkerBuilds).toHaveBeenCalledOnce();
+    expect(providerMocks.rotateConvexDeployKeysForCloudflareWorkerBuilds).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workerName: "chosen-worker",
+        workerTag: "worker-tag",
+        build: {
+          rootDirectory: "/",
+          production: { triggerUuid: "production-trigger" },
+          preview: { triggerUuid: "preview-trigger" },
+        },
+        convexProject: { teamId: "convex-team", projectId: "convex-project" },
+      }),
+    );
     await expect(
       t.run(async (ctx) => ({
+        organization: await ctx.db.get(ids.organizationId),
         plan: await ctx.db
           .query("workflow_vaultProvisioning_plans")
           .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
           .unique(),
         worker: await ctx.db.get(workerId),
+        write: await ctx.db
+          .query("workflow_vaultProvisioning_writeLocks")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .unique(),
       })),
     ).resolves.toMatchObject({
+      organization: {
+        cloudflareAccount: { lastUsedBuildTokenUuid: "build-token" },
+      },
       plan: {
+        convex: { state: "created", projectId: "convex-project" },
         cloudflare: {
           state: "created",
-          buildTokenUuid: null,
-          workerName: "managed-app",
+          workerName: "chosen-worker",
           workerTag: "worker-tag",
+          buildTokenUuid: null,
         },
       },
       worker: {
-        organizationId: ids.organizationId,
         accountId: "cloudflare-account",
-        workerName: "managed-app",
+        workerName: "chosen-worker",
         workerTag: "worker-tag",
+        origin: "provisioned",
+      },
+      write: {
+        owner: { kind: "manual_provider_write", action: "create_cloudflare_worker" },
+        state: "succeeded",
+        lastWriteAt: {
+          convex: expect.any(Number),
+          cloudflare: expect.any(Number),
+        },
       },
     });
-    expect(providerMocks.listCloudflareAccountsForToken).toHaveBeenCalledWith({
-      token: "cloudflare-token",
-      transport: "direct",
-      accountId: "cloudflare-account",
-    });
-    expect(providerMocks.readCloudflareWorkerIdentity).toHaveBeenCalledWith({
-      token: "cloudflare-token",
-      transport: "direct",
-      accountId: "cloudflare-account",
-      workerName: "managed-app",
-    });
-    expect(providerMocks.createCloudflareWorker).toHaveBeenCalledWith({
-      token: "cloudflare-token",
-      transport: "direct",
-      accountId: "cloudflare-account",
-      workerName: "managed-app",
-    });
-    expect(providerMocks.requireCloudflareBuildTokenUuid).not.toHaveBeenCalled();
+  });
+
+  it("keeps the generic create path working without a Convex connection", async () => {
+    const { ids, viewer } = await createWorkerFixture(false);
+
+    await expect(
+      viewer.action(api.vault.cloudflare.createWorker, {
+        vaultId: ids.vaultId,
+        accountId: "cloudflare-account",
+        workerName: "chosen-worker",
+        rootDirectory: "/",
+        buildTokenUuid: "build-token",
+      }),
+    ).resolves.toBeDefined();
+
+    expect(providerMocks.configureCloudflareWorkerBuildsForGitHub).toHaveBeenCalledWith(
+      expect.objectContaining({
+        initialBuild: expect.objectContaining({ state: "requested" }),
+      }),
+    );
+    expect(providerMocks.readConvexProductionDeployment).not.toHaveBeenCalled();
+    expect(providerMocks.createConvexDeployKey).not.toHaveBeenCalled();
+    expect(providerMocks.rotateConvexDeployKeysForCloudflareWorkerBuilds).not.toHaveBeenCalled();
   });
 });

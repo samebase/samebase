@@ -60,9 +60,9 @@ export function readManualProviderWriteProviders(action: ManualProviderWriteActi
     case "create_convex_project":
       return ["convex"];
     case "connect_cloudflare_worker":
-    case "create_cloudflare_worker":
     case "configure_workers_builds_for_github":
       return ["cloudflare"];
+    case "create_cloudflare_worker":
     case "rotate_convex_deploy_keys_for_workers_builds":
       return ["convex", "cloudflare"];
     default:

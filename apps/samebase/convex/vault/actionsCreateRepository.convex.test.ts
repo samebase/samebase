@@ -121,7 +121,7 @@ describe("create repository Workers Builds token admission", () => {
       organizationId,
       name: "new-app",
       convexProjectName: "new-app",
-      cloudflareWorkerName: "new-app",
+      cloudflareWorkerName: "not a valid Worker name",
       cloudflareBuildTokenUuid: null,
     });
 
@@ -132,13 +132,39 @@ describe("create repository Workers Builds token admission", () => {
           .withIndex("by_vault", (q) => q.eq("vaultId", result.vaultId))
           .unique();
       }),
-    ).resolves.toMatchObject({ cloudflare: { buildTokenUuid: null } });
+    ).resolves.toMatchObject({
+      cloudflare: {
+        state: "planned",
+        workerName: "new-app",
+        buildTokenUuid: null,
+      },
+    });
     expect(providerMocks.listCloudflareBuildTokens).toHaveBeenCalledWith({
       token: "cloudflare-token",
       transport: "direct",
       accountId: "cloudflare-account",
     });
+    expect(providerMocks.isCloudflareWorkerNameAvailable).not.toHaveBeenCalled();
     expect(providerMocks.requireCloudflareBuildTokenUuid).not.toHaveBeenCalled();
+  });
+
+  it("does not validate or read Worker-name availability for a null token selection", async () => {
+    const { organizationId, viewer } = await createRepositoryFixture();
+
+    await expect(
+      viewer.action(api.vault.actions.checkCreateRepositoryResourceNames, {
+        organizationId,
+        githubRepositoryName: "new-app",
+        convexProjectName: "new-app",
+        cloudflareWorkerName: "not a valid Worker name",
+        cloudflareBuildTokenUuid: null,
+      }),
+    ).resolves.toMatchObject({
+      github: { status: "available" },
+      convex: { status: "available" },
+      cloudflare: { status: "not_required", message: null, suggestion: null },
+    });
+    expect(providerMocks.isCloudflareWorkerNameAvailable).not.toHaveBeenCalled();
   });
 
   it("rejects null before creating a vault when Cloudflare has an available token", async () => {

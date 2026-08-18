@@ -23,7 +23,8 @@ resource attachment:
 
 1. create/connect the GitHub source and sync the default-branch tree
 2. attach or create the Convex project at the plan's confirmed `convex.json` path
-3. attach or create the Cloudflare Worker named by the plan
+3. when the plan has a selected Workers Builds token, attach or create the Cloudflare Worker named
+   by the plan
 4. configure the Worker's Workers Builds triggers for GitHub
 5. rotate and install the selected Convex project's deploy keys, then start the first production
    build
@@ -32,9 +33,10 @@ Provisioning is asynchronous. Retries reuse provider identities that were succes
 Vault creation succeeds even if downstream provisioning partially fails.
 
 New App also admits a confirmed empty Workers Builds token list. In that case, the managed workflow
-completes source setup, Convex attachment, and Worker attachment, then succeeds without configuring
-Workers Builds or starting the first production build. The existing manual provider actions complete
-those later blocks after a token becomes available.
+completes source setup and Convex attachment, then succeeds without creating or attaching a Worker.
+After a token becomes available, one explicit Create Worker action creates the Worker, configures
+Workers Builds, installs deploy keys for the exact managed Convex project, and starts the first
+production build.
 
 ## Important Behavior
 
@@ -115,10 +117,12 @@ and create it again with another token. Retry does not choose a replacement toke
 
 `null` records that the account had no listed token when New App started. It is not a general option
 to skip managed Builds setup. The public action confirms that the provider token list is empty
-before it accepts `null`. Worker creation does not use a Builds token. After the Worker attachment
-succeeds, the managed run succeeds and skips the Workers Builds and first-build blocks. A later
-manual provider action selects a current token and continues the existing setup path. The managed
-plan does not invent or persist that later choice.
+before it accepts `null`. The managed run succeeds after it attaches the Convex project. It does not
+start the Worker, Workers Builds, or deploy-key blocks, and it creates no Worker attachment. A later
+Create Worker action selects a current token and completes all remaining setup. It uses the exact
+created Convex attachment from the plan, accepts the action's current validated Worker name and
+root, and replaces the plan's deferred Worker coordinates with those approved values. The managed
+plan does not invent or persist the later token choice.
 
 After both trigger writes succeed for a selected UUID, Samebase records the UUID as the organization
 account's last-used Builds token. That organization default affects only future selections. It never
@@ -141,9 +145,9 @@ write. A manual owner stores one manual action name from a fixed list. The actio
 provider observation times that can change:
 
 - `create_convex_project`: Convex
-- `connect_cloudflare_worker`, `create_cloudflare_worker`, and
-  `configure_workers_builds_for_github`: Cloudflare
-- `rotate_convex_deploy_keys_for_workers_builds`: Convex and Cloudflare
+- `connect_cloudflare_worker` and `configure_workers_builds_for_github`: Cloudflare
+- `create_cloudflare_worker` and `rotate_convex_deploy_keys_for_workers_builds`: Convex and
+  Cloudflare
 
 Only create and retry runs can own a managed lock. The transaction that creates either run also
 creates its active lock. The lock stays active during source and provider setup. A terminal run
@@ -374,6 +378,11 @@ Repository default branch:
 
 - Create records a provisioned attachment with its approved root before later provider configuration
   can fail.
+- For the exact tokenless managed continuation, Create also configures Builds with its initial build
+  deferred, rotates deploy keys for the plan's created Convex attachment, and then starts one first
+  production build through that key rotation.
+- For other connected vaults, Create keeps its generic behavior and does not require or change a
+  Convex attachment.
 - Detach changes only the organization's attachment intent and never deletes a selected existing
   Worker.
 
@@ -421,10 +430,10 @@ sequenceDiagram
   WF->>CVXB: attach_convex child run
   CVXB->>CVX: create/read project + production deployment
   CVXB->>DB: write vaultConvexProjects
-  WF->>CFB: attach_worker child run
-  CFB->>CFL: create/read Worker
-  CFB->>DB: write vaultCloudflareWorkers
   alt selected Workers Builds token
+    WF->>CFB: attach_worker child run
+    CFB->>CFL: create/read Worker
+    CFB->>DB: write vaultCloudflareWorkers
     WF->>CFB: configure_workers_builds_for_github child run
     CFB->>CFL: connect GitHub repo + create build triggers
     CFB->>DB: record Workers Builds configuration event
@@ -434,7 +443,7 @@ sequenceDiagram
     CFB->>CFL: start first production build
     CFB->>DB: record deploy-key rotation event
   else no listed token
-    WF->>DB: leave Workers Builds pending for manual setup
+    WF->>DB: leave Cloudflare plan pending with no Worker attachment
   end
   WF->>DB: mark parent run succeeded
 ```
@@ -447,9 +456,16 @@ sequenceDiagram
 - `configure_workers_builds_for_github` and `rotate_convex_deploy_keys_for_workers_builds` do not
   change either attachment row. Their provider writes are observed live when a caller next requests
   current state.
-- A plan with `buildTokenUuid: null` reaches terminal success after `attach_worker`. It does not
-  attempt either later provider block. The attached Worker's live `builds.not_connected` result is
-  the pending setup state for the existing manual actions.
+- A plan with `buildTokenUuid: null` reaches terminal success after `attach_convex`. It does not
+  attempt `attach_worker`, `configure_workers_builds_for_github`, or
+  `rotate_convex_deploy_keys_for_workers_builds`. Its Cloudflare plan stays `planned`, and no
+  `vaultCloudflareWorkers` row exists.
+- One later Create Worker action is the managed continuation only when the null-token Cloudflare
+  plan is still `planned` and its exact created Convex project is attached at the planned config
+  path. The action accepts its current validated Worker name and root, patches the plan to
+  `created`, configures Builds with the first build deferred, rotates keys for that exact Convex
+  attachment, and lets key rotation start exactly one production build. If the Cloudflare plan is
+  already `created`, Create Worker uses the generic manual behavior.
 - One shared infrastructure-state reader checks the deletion gate and the write-lock row.
 - Only one operation can change a provider attachment or provider resource in one vault at one time.
 - The transaction that creates a create or retry run also creates its active managed lock. The
@@ -513,7 +529,8 @@ In `VaultDashboard`:
 In `NewAppPage`:
 
 - A confirmed empty Workers Builds token list is a non-error notice and does not block New App after
-  the repository, Convex project, and Worker names are valid.
+  the repository and Convex project names are valid. Samebase does not validate the generated Worker
+  name or read its availability in this mode because the managed workflow will not create a Worker.
 - Token-list loading and token-list read failure remain distinct from a confirmed empty result.
 - New App submits one selected token UUID when tokens exist and explicit `null` when none exist.
 
@@ -548,8 +565,8 @@ Dashboard external links:
   member can run authorized provider work through those backend-only credentials.
 - Cloudflare provisioning requires the vault's `cloudflareAccountId` and an organization credential
   that can access it. It must not inventory accounts and choose one during provisioning.
-- Worker creation does not require a Workers Builds token. The token is required only when the
-  Workers Builds configuration block starts.
+- A null-token managed run does not create a Worker. Samebase's later Create Worker action requires
+  a Workers Builds token because the same action completes Builds, deploy keys, and the first build.
 - Workers Builds repository connection uses the connected vault's stored GitHub repo id and a
   required owner id read from the GitHub repository response. The response repo id must match the
   vault before Cloudflare receives the connection request.
@@ -582,8 +599,10 @@ Dashboard external links:
 - [x] New samebase-managed vault creation schedules infra provisioning automatically.
 - [x] A confirmed empty Workers Builds token list admits New App with explicit `null` input.
 - [x] The public create action rejects `null` when Cloudflare lists an available token.
-- [x] A no-token managed run attaches source, Convex, and Worker resources, skips the two token-
-      dependent blocks, and succeeds with live Workers Builds setup still pending.
+- [x] A no-token managed run attaches source and Convex, creates no Worker attachment, skips all
+      Cloudflare blocks, and succeeds with manual Worker setup pending.
+- [x] One later Create Worker action uses the exact managed Convex project, configures Builds with
+      the initial build deferred, rotates both deploy keys, and starts exactly one first build.
 - [x] Existing-repo connect flow does not auto-provision infra.
 - [x] Create and retry own the managed provider lock from run creation.
 - [x] Existing-repo source setup never owns the provider lock.
