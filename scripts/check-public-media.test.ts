@@ -3,7 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { publicMediaManifest } from "../apps/samebase/shared/publicMediaManifest.ts";
 import { validatePublicMediaResponse } from "./check-public-media.ts";
 
-const asset = publicMediaManifest.landingTicTacToeCodex;
+const asset = publicMediaManifest.landingFounderDemo;
 
 describe("check-public-media", () => {
   it("accepts an origin-backed one-byte range response matching the manifest", () => {

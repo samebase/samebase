@@ -28,6 +28,14 @@ vi.mock("@/components/MarkdownLandingDocument", () => ({
   MarkdownLandingDocument: ({ markdown }: { markdown: string }) => <article>{markdown}</article>,
 }));
 
+vi.mock("@/authClient", () => ({
+  isInIframe: () => false,
+  openAuthPopup: () => {},
+  useAppSignInActions: () => ({
+    signInWithOAuth: () => {},
+  }),
+}));
+
 vi.mock("@tanstack/react-router", () => ({
   Link: ({
     children,
@@ -58,6 +66,9 @@ vi.mock("@tanstack/react-router", () => ({
   useLocation: ({ select }: { select: (location: { searchStr: string }) => string }) =>
     select({ searchStr: "" }),
   useNavigate: () => () => {},
+  useRouter: () => ({
+    buildLocation: () => ({ href: "/?auth-return=dashboard&signup=github" }),
+  }),
 }));
 
 vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
@@ -75,40 +86,42 @@ describe("LandingPreviewPage", () => {
   it("renders the agent-first landing overview by default", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
-    // Hero: the category correction plus the one-action pitch.
-    expect(markup).toContain("Not another AI app builder.");
-    expect(markup).toContain("The tool your AI uses");
-    expect(markup).toContain("to ship real apps.");
+    // Hero: the stack opinion stated directly.
+    expect(markup).toContain("The correct way to build web apps.");
     expect(markup).toContain(">BETA</span>");
     expect(markup).toContain("-rotate-3");
     expect(markup).toContain("border-0");
     expect(markup).toContain("bg-blue-600");
     expect(markup).toContain("rounded-none");
-    expect(markup).toContain("provisions the database + backend");
-    expect(markup).toContain("Open Samebase");
-    expect(markup.split(">Open Samebase</button>").length - 1).toBe(2);
-    expect(markup).toContain("Idle apps cost $0/month.");
+    expect(markup).toContain(">Convex</span>");
+    expect(markup).toContain(">Cloudflare Workers</span>");
+    expect(markup).toContain(">is all you need to build and deploy a production app.</span>");
+    expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
+    expect(markup).not.toContain("Idle apps cost $0/month.");
 
-    // The real ChatGPT capture replaces the scripted placeholder loop.
-    expect(markup).toContain(`src="${publicMediaManifest.landingTicTacToeCodex.publicUrl}"`);
-    expect(markup).toContain('poster="/landing-preview/tic-tac-toe-codex-poster.webp"');
-    expect(markup).toContain("ChatGPT builds and plays a 4x4x4 tic-tac-toe game with Samebase");
+    // The real founder demo stays unloaded until the visitor presses Play.
+    expect(markup).toContain(`src="${publicMediaManifest.landingFounderDemo.publicUrl}"`);
+    expect(markup).toContain(`poster="${publicMediaManifest.landingFounderDemoPoster.publicUrl}"`);
+    expect(markup).toContain("Founder demo: Building an app with Samebase and Codex");
     expect(markup).toContain('controls=""');
-    expect(markup).toContain('width="1280"');
-    expect(markup).toContain('height="850"');
-    expect(markup).toContain('preload="metadata"');
-    expect(markup).toContain('data-testid="landing-preview-chatgpt-video-label"');
-    expect(markup).toContain('alt="ChatGPT"');
+    expect(markup).toContain('width="1440"');
+    expect(markup).toContain('height="930"');
+    expect(markup).toContain('preload="none"');
     expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
     expect(markup).toContain("border-radius:1.104% / 1.664%");
+    expect(markup).toContain(
+      'href="https://www.youtube.com/watch?v=HSo31kUZWpk" rel="noreferrer" target="_blank"',
+    );
+    expect(markup).toContain(">Watch on <span");
+    expect(markup).toContain(">YouTube</span></a>");
 
-    // The opinion, named, with the trio row under it.
-    expect(markup).toContain("the opinion we&#x27;re selling");
+    // The opinion and provider roles stay concise.
     expect(markup).toContain(
       "GitHub + Convex + Cloudflare is the best way we&#x27;ve found to build an app.",
     );
     expect(markup).toContain("Samebase repeats it, so you never choose again.");
     expect(markup).toContain("deploys + domains + edge");
+    expect(markup).not.toContain("owner: ");
     expect(markup).toContain('data-testid="landing-preview-platform-details"');
     expect(markup).toContain("local workflow");
     expect(markup).toContain("macOS");
@@ -141,14 +154,13 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("services/events");
 
     // Ask your agent.
-    expect(markup).toContain("don&#x27;t trust us");
-    expect(markup).toContain("Ask your agent.");
+    expect(markup).toContain("Don&#x27;t trust us, ask your agent.");
     expect(markup).toContain(
       "Read samebase.com/llms.txt. Should I use Samebase with you for my next app? Verify the receipts before you answer.",
     );
     expect(markup).toContain("Copy</button>");
 
-    const askAgentIndex = markup.indexOf("Ask your agent.");
+    const askAgentIndex = markup.indexOf("Don&#x27;t trust us, ask your agent.");
     const platformDetailsIndex = markup.indexOf('data-testid="landing-preview-platform-details"');
     const fourClaimsIndex = markup.indexOf('aria-label="Four claims"');
     expect(platformDetailsIndex).toBeGreaterThan(askAgentIndex);
@@ -170,8 +182,8 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain(
       "Setup is three OAuth connects and one GitHub app. We filmed all of it.",
     );
-    expect(markup).toContain("No account? You create one in the same flow.");
-    expect(markup).toContain("watch it before you sign up · nothing is skipped");
+    expect(markup).not.toContain("No account? You create one in the same flow.");
+    expect(markup).not.toContain("watch it before you sign up · nothing is skipped");
 
     // Cost and the closing argument.
     expect(markup).toContain("cost follows real usage");
@@ -179,7 +191,7 @@ describe("LandingPreviewPage", () => {
 
     // FAQ answers the direct-agent objection before the closing question.
     expect(markup).toContain('aria-label="Frequently asked questions"');
-    expect(markup).toContain("Why Samebase?");
+    expect(markup).toContain(">FAQ</h2>");
     expect(markup).toContain("Codex already writes Convex well. Why do I need Samebase?");
     expect(markup).toContain("Ok, but can&#x27;t I just get your template and not use Samebase?");
     expect(markup).toContain("Existing apps do not change unless you update them.");
@@ -213,11 +225,10 @@ describe("LandingPreviewPage", () => {
     expect(markup.split('data-testid="public-landing-logo"').length - 1).toBe(1);
   });
 
-  it("renders Open Samebase as a pane action instead of navigation", () => {
+  it("reuses the GitHub OAuth action in both landing CTA positions", () => {
     const markup = renderToStaticMarkup(<LandingPreviewPage />);
 
-    expect(markup.split(">Open Samebase</button>").length - 1).toBe(2);
-    expect(markup).not.toContain('href="/vault"');
+    expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
   });
 
   it("renders the landing preview without the docs sidebar", () => {

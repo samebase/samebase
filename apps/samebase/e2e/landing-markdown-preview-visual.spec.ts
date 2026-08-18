@@ -9,7 +9,6 @@ import {
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
   LANDING_PREVIEW_ROUTE,
 } from "../src/routeSearch/landingPreview";
-import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
 import { publicMediaManifest } from "../shared/publicMediaManifest";
 
 const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewMobileDevice } =
@@ -17,7 +16,7 @@ const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewM
 
 test.setTimeout(120_000);
 
-const LANDING_HERO_VIDEO_URL = publicMediaManifest.landingTicTacToeCodex.publicUrl;
+const LANDING_HERO_VIDEO_URL = publicMediaManifest.landingFounderDemo.publicUrl;
 const LANDING_PREVIEW_PROD_UI_ROUTE = `${LANDING_PREVIEW_ROUTE}?prod-ui`;
 
 const expectedLandingPreviewSidebarFiles = [
@@ -84,7 +83,7 @@ test("landing overview preserves its unloaded video frame and wide desktop layou
     width: element.clientWidth,
   }));
   expect(initialVideoLayout.readyState).toBe(0);
-  expect(initialVideoLayout.width / initialVideoLayout.height).toBeCloseTo(1280 / 850, 3);
+  expect(initialVideoLayout.width / initialVideoLayout.height).toBeCloseTo(1440 / 930, 2);
 
   await page.waitForLoadState("networkidle");
 
@@ -238,7 +237,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
   await expect(
     article.getByRole("heading", {
-      name: /Not another AI app builder/,
+      name: /The correct way to build web apps/,
     }),
   ).toBeVisible();
   const monorepo = article.getByRole("region", { name: "Monorepo" });
@@ -363,47 +362,10 @@ test("landing document navigation resets pages, restores history, and aligns dir
     .toBeLessThan(81);
 });
 
-test("landing preview CTA reopens the desktop public sidebar", async ({ page }) => {
-  await page.setViewportSize({ height: 900, width: 1440 });
-  await showLandingHeroPoster(page);
-  await page.goto(LANDING_PREVIEW_ROUTE, {
-    waitUntil: "domcontentloaded",
-  });
-  await page.waitForLoadState("networkidle");
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-  });
-
-  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await expect(rightPane).toHaveCSS("transition-property", "none");
-  if (await rightPane.evaluate((pane) => Number.parseFloat(getComputedStyle(pane).width) > 0)) {
-    await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
-  }
-  await expect(rightPane).toHaveCSS("width", "0px");
-  await page.emulateMedia({ reducedMotion: "no-preference" });
-  await expect(rightPane).toHaveCSS("transition-property", "width");
-  await expect(rightPane).toHaveCSS("transition-duration", "0.15s");
-
-  await page
-    .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
-    .getByRole("button", { name: "Open Samebase" })
-    .first()
-    .click();
-
-  await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}$`));
-  await expect(rightPane).toHaveAttribute("style", /width: 288px/);
-  const accountSection = page
-    .getByTestId("workspace-layout-v2-pane-right")
-    .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
-  await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
-  await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
-});
-
 test.describe("mobile landing preview", () => {
   test.use(landingPreviewMobileDevice);
 
-  test("renders the mobile overview and opens the public sidebar", async ({ page }) => {
+  test("renders the mobile overview", async ({ page }) => {
     await page.setViewportSize({ height: 900, width: 390 });
     await showLandingHeroPoster(page);
     await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
@@ -437,19 +399,6 @@ test.describe("mobile landing preview", () => {
         timeout: 30_000,
       },
     );
-    await article.getByRole("button", { name: "Open Samebase" }).first().click();
-
-    await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}(?:\\?prod-ui)?$`));
-    await expect(workspace).toHaveAttribute("data-mobile-pane", "right", { timeout: 30_000 });
-    const accountSection = page
-      .getByTestId("workspace-layout-v2-pane-right")
-      .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
-    await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toHaveCount(
-      0,
-    );
-    await expect(
-      accountSection.getByRole("button", { name: "Continue with GitHub" }),
-    ).toBeVisible();
   });
 
   test("renders the FAQ for a mobile pane", async ({ page }) => {

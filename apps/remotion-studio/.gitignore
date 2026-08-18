@@ -2,3 +2,6 @@ out/
 .env*
 public/media/*
 !public/media/.gitkeep
+!public/media/*.mp4
+!public/media/*.srt
+public/media/founder-demo.mp4

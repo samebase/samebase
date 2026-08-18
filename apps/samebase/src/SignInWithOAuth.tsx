@@ -67,8 +67,8 @@ export function SignInWithOAuth({
   return (
     <Button
       data-testid={testId}
-      className="h-auto min-w-0 flex-1 whitespace-normal py-2.5 @max-[200px]:leading-tight @max-[120px]:px-1.5"
-      variant="outline"
+      className="h-auto w-fit max-w-full min-w-0 whitespace-normal px-6 py-2.5 @max-[200px]:leading-tight @max-[120px]:px-1.5"
+      variant={provider === "github" ? "default" : "outline"}
       type="button"
       onClick={() => {
         if (isInIframe()) {
