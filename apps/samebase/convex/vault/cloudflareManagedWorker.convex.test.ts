@@ -300,7 +300,10 @@ describe("manual Cloudflare Worker creation", () => {
         origin: "provisioned",
       },
       write: {
-        owner: { kind: "manual_provider_write", action: "create_cloudflare_worker" },
+        owner: {
+          kind: "manual_provider_write",
+          action: "create_cloudflare_worker_with_convex",
+        },
         state: "succeeded",
         lastWriteAt: {
           convex: expect.any(Number),
@@ -310,8 +313,170 @@ describe("manual Cloudflare Worker creation", () => {
     });
   });
 
+  it("uses the managed continuation again after its Worker attachment is removed", async () => {
+    const { ids, t, viewer } = await createWorkerFixture(true);
+
+    const firstWorkerId = await viewer.action(api.vault.cloudflare.createWorker, {
+      vaultId: ids.vaultId,
+      accountId: "cloudflare-account",
+      workerName: "first-worker",
+      rootDirectory: "/",
+      buildTokenUuid: "build-token",
+    });
+    await viewer.action(api.vault.cloudflare.detachWorker, {
+      vaultId: ids.vaultId,
+      workerId: firstWorkerId,
+    });
+    const replacementWorkerId = await viewer.action(api.vault.cloudflare.createWorker, {
+      vaultId: ids.vaultId,
+      accountId: "cloudflare-account",
+      workerName: "replacement-worker",
+      rootDirectory: "/",
+      buildTokenUuid: "build-token",
+    });
+
+    expect(providerMocks.configureCloudflareWorkerBuildsForGitHub).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        workerName: "replacement-worker",
+        initialBuild: { state: "deferred" },
+      }),
+    );
+    expect(providerMocks.rotateConvexDeployKeysForCloudflareWorkerBuilds).toHaveBeenCalledTimes(2);
+    await expect(
+      t.run(async (ctx) => ({
+        plan: await ctx.db
+          .query("workflow_vaultProvisioning_plans")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .unique(),
+        workers: await ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .take(2),
+      })),
+    ).resolves.toMatchObject({
+      plan: {
+        cloudflare: {
+          state: "created",
+          workerName: "replacement-worker",
+          workerTag: "worker-tag",
+        },
+      },
+      workers: [{ _id: replacementWorkerId, workerName: "replacement-worker" }],
+    });
+  });
+
+  it("recovers a managed create that failed after recording its first Worker", async () => {
+    const { ids, t, viewer } = await createWorkerFixture(true);
+    providerMocks.configureCloudflareWorkerBuildsForGitHub.mockRejectedValueOnce(
+      new Error("Builds configuration failed."),
+    );
+
+    await expect(
+      viewer.action(api.vault.cloudflare.createWorker, {
+        vaultId: ids.vaultId,
+        accountId: "cloudflare-account",
+        workerName: "failed-worker",
+        rootDirectory: "/",
+        buildTokenUuid: "build-token",
+      }),
+    ).rejects.toThrow("Builds configuration failed.");
+    const failedState = await t.run(async (ctx) => ({
+      plan: await ctx.db
+        .query("workflow_vaultProvisioning_plans")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique(),
+      worker: await ctx.db
+        .query("vaultCloudflareWorkers")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique(),
+      write: await ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique(),
+    }));
+    expect(failedState).toMatchObject({
+      plan: { cloudflare: { state: "created", workerName: "failed-worker" } },
+      worker: { workerName: "failed-worker" },
+      write: {
+        owner: { action: "create_cloudflare_worker_with_convex" },
+        state: "failed",
+        lastWriteAt: { convex: expect.any(Number), cloudflare: expect.any(Number) },
+      },
+    });
+    if (!failedState.worker) {
+      throw new Error("Failed Worker attachment was not recorded.");
+    }
+
+    await viewer.action(api.vault.cloudflare.detachWorker, {
+      vaultId: ids.vaultId,
+      workerId: failedState.worker._id,
+    });
+    await viewer.action(api.vault.cloudflare.createWorker, {
+      vaultId: ids.vaultId,
+      accountId: "cloudflare-account",
+      workerName: "recovered-worker",
+      rootDirectory: "/",
+      buildTokenUuid: "build-token",
+    });
+
+    expect(providerMocks.configureCloudflareWorkerBuildsForGitHub).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        workerName: "recovered-worker",
+        initialBuild: { state: "deferred" },
+      }),
+    );
+    expect(providerMocks.rotateConvexDeployKeysForCloudflareWorkerBuilds).toHaveBeenCalledOnce();
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db
+          .query("workflow_vaultProvisioning_plans")
+          .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+          .unique(),
+      ),
+    ).resolves.toMatchObject({
+      cloudflare: { state: "created", workerName: "recovered-worker" },
+    });
+  });
+
+  it("keeps an additional Worker generic while the managed Worker is attached", async () => {
+    const { ids, viewer } = await createWorkerFixture(true);
+
+    await viewer.action(api.vault.cloudflare.createWorker, {
+      vaultId: ids.vaultId,
+      accountId: "cloudflare-account",
+      workerName: "managed-worker",
+      rootDirectory: "/",
+      buildTokenUuid: "build-token",
+    });
+    providerMocks.createCloudflareWorker.mockImplementationOnce(
+      async (args: { workerName: string }) => ({
+        workerName: args.workerName,
+        workerTag: "additional-worker-tag",
+      }),
+    );
+    await viewer.action(api.vault.cloudflare.createWorker, {
+      vaultId: ids.vaultId,
+      accountId: "cloudflare-account",
+      workerName: "additional-worker",
+      rootDirectory: "/",
+      buildTokenUuid: "build-token",
+    });
+
+    expect(providerMocks.configureCloudflareWorkerBuildsForGitHub).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        workerName: "additional-worker",
+        initialBuild: expect.objectContaining({ state: "requested" }),
+      }),
+    );
+    expect(providerMocks.createConvexDeployKey).toHaveBeenCalledOnce();
+    expect(providerMocks.rotateConvexDeployKeysForCloudflareWorkerBuilds).toHaveBeenCalledOnce();
+  });
+
   it("keeps the generic create path working without a Convex connection", async () => {
-    const { ids, viewer } = await createWorkerFixture(false);
+    const { ids, t, viewer } = await createWorkerFixture(false);
 
     await expect(
       viewer.action(api.vault.cloudflare.createWorker, {
@@ -331,5 +496,17 @@ describe("manual Cloudflare Worker creation", () => {
     expect(providerMocks.readConvexProductionDeployment).not.toHaveBeenCalled();
     expect(providerMocks.createConvexDeployKey).not.toHaveBeenCalled();
     expect(providerMocks.rotateConvexDeployKeysForCloudflareWorkerBuilds).not.toHaveBeenCalled();
+    const write = await t.run(async (ctx) =>
+      ctx.db
+        .query("workflow_vaultProvisioning_writeLocks")
+        .withIndex("by_vault", (q) => q.eq("vaultId", ids.vaultId))
+        .unique(),
+    );
+    expect(write).toMatchObject({
+      owner: { action: "create_cloudflare_worker" },
+      state: "succeeded",
+      lastWriteAt: { cloudflare: expect.any(Number) },
+    });
+    expect(write?.lastWriteAt.convex).toBeUndefined();
   });
 });

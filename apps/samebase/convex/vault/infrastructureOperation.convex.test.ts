@@ -468,7 +468,7 @@ describe("manual provider write ownership", () => {
 
       await expect(readProviderWrite(t, ids.vaultId)).resolves.toMatchObject({
         state: "failed",
-        lastWriteAt: { convex: 200, cloudflare: 200 },
+        lastWriteAt: { convex: 100, cloudflare: 200 },
       });
     } finally {
       vi.useRealTimers();

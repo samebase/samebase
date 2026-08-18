@@ -48,7 +48,6 @@ import { validateAppResourceName } from "../../shared/appResourceNames";
 import { buildVaultCloudflareBuildConfigForRootDirectory } from "./model";
 import { buildWorkersBuildsConvexDeployKeyNames } from "./workersBuildsConvexDeployKeyNames";
 import type {
-  ManualWorkerCreateContinuation,
   WorkerConfigurationContext,
   WorkerConvexProjectConfigurationContext,
 } from "./cloudflareMutations";
@@ -65,6 +64,7 @@ import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "./cont
 import {
   attemptManualProviderWriteFailureRecord,
   requireManualProviderActionDeadline,
+  type ManualWorkerCreateContinuation,
 } from "./infrastructureOperation";
 
 const { id, null: nullValue, object, string } = v;
@@ -1384,26 +1384,18 @@ export async function createWorkerForUser(
   const buildConfig = toCloudflareBuildConfig(args.rootDirectory);
   const actionId = crypto.randomUUID();
   const claim = await ctx.runMutation(
-    internal.vault.infrastructureOperation.claimManualProviderWrite,
+    internal.vault.infrastructureOperation.claimManualCloudflareWorkerCreate,
     {
       vaultId: args.vaultId,
       userId: args.userId,
       actionId,
-      action: "create_cloudflare_worker",
+      accountId,
     },
   );
   const providerCreate = { started: false };
   let workerRecorded = false;
   try {
-    const continuation: ManualWorkerCreateContinuation = await ctx.runQuery(
-      internal.vault.cloudflareMutations.readManualWorkerCreateContinuationContext,
-      {
-        vaultId: args.vaultId,
-        userId: args.userId,
-        actionId,
-        accountId,
-      },
-    );
+    const continuation: ManualWorkerCreateContinuation = claim.continuation;
     const resolved = await resolveCloudflareRepositoryContext(ctx, { ...args, accountId });
     await requireCloudflareBuildTokenUuid({
       token: resolved.connection.token,

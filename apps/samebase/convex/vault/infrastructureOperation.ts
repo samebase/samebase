@@ -31,6 +31,25 @@ const vManualProviderWriteClaim = object({
   deadlineAt: number(),
 });
 type ManualProviderWriteClaim = Infer<typeof vManualProviderWriteClaim>;
+export const vManualWorkerCreateContinuation = union(
+  object({ state: literal("generic") }),
+  object({
+    state: literal("managed"),
+    convexProjectId: id("vaultConvexProjects"),
+  }),
+);
+export type ManualWorkerCreateContinuation = Infer<typeof vManualWorkerCreateContinuation>;
+const vManualWorkerCreateClaim = object({
+  deadlineAt: number(),
+  continuation: vManualWorkerCreateContinuation,
+});
+type ManualWorkerCreateClaim = Infer<typeof vManualWorkerCreateClaim>;
+
+type ManualWorkerCreateContinuationCheckpoint =
+  | Extract<ManualWorkerCreateContinuation, { state: "generic" }>
+  | (Extract<ManualWorkerCreateContinuation, { state: "managed" }> & {
+      plan: Doc<"workflow_vaultProvisioning_plans">;
+    });
 
 export const MANUAL_PROVIDER_ACTION_LIMIT_MS = 5 * 60 * 1000;
 export const MANUAL_PROVIDER_WRITE_EXPIRY_MS = 10 * 60 * 1000;
@@ -61,14 +80,69 @@ export function readManualProviderWriteProviders(action: ManualProviderWriteActi
       return ["convex"];
     case "connect_cloudflare_worker":
     case "configure_workers_builds_for_github":
-      return ["cloudflare"];
     case "create_cloudflare_worker":
+      return ["cloudflare"];
+    case "create_cloudflare_worker_with_convex":
     case "rotate_convex_deploy_keys_for_workers_builds":
       return ["convex", "cloudflare"];
     default:
       action satisfies never;
       throw new Error("Unknown manual provider write action.");
   }
+}
+
+export async function readManualWorkerCreateContinuation(
+  ctx: InfrastructureOperationReadCtx,
+  vault: Extract<Doc<"vaults">, { state: "connected" }>,
+  args: {
+    vaultId: Id<"vaults">;
+    accountId: string;
+  },
+): Promise<ManualWorkerCreateContinuationCheckpoint> {
+  const [plan, attachedWorker] = await Promise.all([
+    ctx.db
+      .query("workflow_vaultProvisioning_plans")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .unique(),
+    ctx.db
+      .query("vaultCloudflareWorkers")
+      .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
+      .first(),
+  ]);
+  if (
+    !plan ||
+    plan.cloudflare.buildTokenUuid !== null ||
+    attachedWorker ||
+    (plan.cloudflare.state !== "planned" && plan.cloudflare.state !== "created")
+  ) {
+    return { state: "generic" };
+  }
+  if (args.accountId !== vault.cloudflareAccountId) {
+    throw new Error("Cloudflare Worker account does not match the vault destination.");
+  }
+  if (plan.convex.state !== "created") {
+    throw new Error("The managed Convex project is not ready for Cloudflare setup.");
+  }
+  const convexPlan = plan.convex;
+  const project = await ctx.db
+    .query("vaultConvexProjects")
+    .withIndex("by_project", (q) => q.eq("projectId", convexPlan.projectId))
+    .unique();
+  if (
+    !project ||
+    project.vaultId !== args.vaultId ||
+    project.organizationId !== vault.organizationId ||
+    project.teamId !== vault.convexTeamId ||
+    !("convexConfigPath" in project) ||
+    project.convexConfigPath !== plan.convexConfigPath
+  ) {
+    throw new Error("The managed Convex project attachment does not match its plan.");
+  }
+  return {
+    state: "managed",
+    plan,
+    convexProjectId: project._id,
+  };
 }
 
 /**
@@ -253,6 +327,70 @@ export async function requireManualProviderWriteCheckpoint(
 
 const vManualProviderWriteResult = union(literal("succeeded"), literal("failed"));
 
+async function readManualProviderWriteClaimContext(
+  ctx: Pick<MutationCtx, "db">,
+  args: { vaultId: Id<"vaults">; userId: Id<"users"> },
+) {
+  const vault = await requireVaultForUser(ctx.db, args);
+  if (vault.state !== "connected") {
+    throw new Error("Vault not found.");
+  }
+  const connectedVault = assertConnectedVault(vault);
+  const infrastructure = await readVaultInfrastructureState(ctx, connectedVault);
+  if (infrastructure.operation.kind !== "none") {
+    throw new Error("Another vault infrastructure operation is active.");
+  }
+  return { vault: connectedVault, providerWrite: infrastructure.providerWrite };
+}
+
+async function writeManualProviderWriteClaim(
+  ctx: MutationCtx,
+  args: {
+    vaultId: Id<"vaults">;
+    userId: Id<"users">;
+    actionId: string;
+    action: ManualProviderWriteAction;
+    providerWrite: ProviderWrite | null;
+  },
+): Promise<ManualProviderWriteClaim> {
+  const now = Date.now();
+  const deadlineAt = now + MANUAL_PROVIDER_ACTION_LIMIT_MS;
+  const expiresAt = now + MANUAL_PROVIDER_WRITE_EXPIRY_MS;
+  const owner = {
+    kind: "manual_provider_write" as const,
+    userId: args.userId,
+    actionId: args.actionId,
+    action: args.action,
+    expiresAt,
+  };
+  if (args.providerWrite) {
+    await ctx.db.replace(args.providerWrite._id, {
+      vaultId: args.vaultId,
+      owner,
+      state: "active",
+      lastWriteAt: args.providerWrite.lastWriteAt,
+      updatedAt: now,
+    });
+  } else {
+    await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
+      vaultId: args.vaultId,
+      owner,
+      state: "active",
+      lastWriteAt: {},
+      updatedAt: now,
+    });
+  }
+  await ctx.scheduler.runAt(
+    expiresAt,
+    internal.vault.infrastructureOperation.expireManualProviderWrite,
+    {
+      vaultId: args.vaultId,
+      actionId: args.actionId,
+    },
+  );
+  return { deadlineAt };
+}
+
 export const claimManualProviderWrite = internalMutation({
   args: {
     vaultId: id("vaults"),
@@ -262,52 +400,52 @@ export const claimManualProviderWrite = internalMutation({
   },
   returns: vManualProviderWriteClaim,
   handler: async (ctx, args): Promise<ManualProviderWriteClaim> => {
-    const vault = await requireVaultForUser(ctx.db, args);
-    if (vault.state !== "connected") {
-      throw new Error("Vault not found.");
-    }
-    const connectedVault = assertConnectedVault(vault);
-    const infrastructure = await readVaultInfrastructureState(ctx, connectedVault);
-    if (infrastructure.operation.kind !== "none") {
-      throw new Error("Another vault infrastructure operation is active.");
-    }
-
-    const now = Date.now();
-    const deadlineAt = now + MANUAL_PROVIDER_ACTION_LIMIT_MS;
-    const expiresAt = now + MANUAL_PROVIDER_WRITE_EXPIRY_MS;
-    const owner = {
-      kind: "manual_provider_write" as const,
+    const context = await readManualProviderWriteClaimContext(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+    });
+    return await writeManualProviderWriteClaim(ctx, {
+      vaultId: args.vaultId,
       userId: args.userId,
       actionId: args.actionId,
       action: args.action,
-      expiresAt,
-    };
-    if (infrastructure.providerWrite) {
-      await ctx.db.replace(infrastructure.providerWrite._id, {
-        vaultId: args.vaultId,
-        owner,
-        state: "active",
-        lastWriteAt: infrastructure.providerWrite.lastWriteAt,
-        updatedAt: now,
-      });
-    } else {
-      await ctx.db.insert("workflow_vaultProvisioning_writeLocks", {
-        vaultId: args.vaultId,
-        owner,
-        state: "active",
-        lastWriteAt: {},
-        updatedAt: now,
-      });
-    }
-    await ctx.scheduler.runAt(
-      expiresAt,
-      internal.vault.infrastructureOperation.expireManualProviderWrite,
-      {
-        vaultId: args.vaultId,
-        actionId: args.actionId,
-      },
-    );
-    return { deadlineAt };
+      providerWrite: context.providerWrite,
+    });
+  },
+});
+
+export const claimManualCloudflareWorkerCreate = internalMutation({
+  args: {
+    vaultId: id("vaults"),
+    userId: id("users"),
+    actionId: string(),
+    accountId: string(),
+  },
+  returns: vManualWorkerCreateClaim,
+  handler: async (ctx, args): Promise<ManualWorkerCreateClaim> => {
+    const context = await readManualProviderWriteClaimContext(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+    });
+    const checkpoint = await readManualWorkerCreateContinuation(ctx, context.vault, {
+      vaultId: args.vaultId,
+      accountId: args.accountId,
+    });
+    const continuation: ManualWorkerCreateContinuation =
+      checkpoint.state === "managed"
+        ? { state: "managed", convexProjectId: checkpoint.convexProjectId }
+        : { state: "generic" };
+    const claim = await writeManualProviderWriteClaim(ctx, {
+      vaultId: args.vaultId,
+      userId: args.userId,
+      actionId: args.actionId,
+      action:
+        continuation.state === "managed"
+          ? "create_cloudflare_worker_with_convex"
+          : "create_cloudflare_worker",
+      providerWrite: context.providerWrite,
+    });
+    return { deadlineAt: claim.deadlineAt, continuation };
   },
 });
 
@@ -326,6 +464,7 @@ export const recordManualWorkersBuildsTokenUse = internalMutation({
     if (
       write.owner.action !== "connect_cloudflare_worker" &&
       write.owner.action !== "create_cloudflare_worker" &&
+      write.owner.action !== "create_cloudflare_worker_with_convex" &&
       write.owner.action !== "configure_workers_builds_for_github"
     ) {
       throw new Error("This manual provider action does not configure Workers Builds.");

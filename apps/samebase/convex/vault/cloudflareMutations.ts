@@ -14,9 +14,12 @@ import {
 } from "../_generated/server";
 import { vVaultProviderResourceOrigin } from "./model";
 import {
+  readManualWorkerCreateContinuation,
   requireManualProviderWriteCheckpoint,
   requireUserVaultInfrastructureIdle,
   recordManagedProviderWrite,
+  vManualWorkerCreateContinuation,
+  type ManualWorkerCreateContinuation,
 } from "./infrastructureOperation";
 import { isLiveConnectedVault } from "./state";
 import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
@@ -67,15 +70,6 @@ export const vManagedWorkerConvexProjectConfigurationContext = object({
 export type ManagedWorkerConvexProjectConfigurationContext = Infer<
   typeof vManagedWorkerConvexProjectConfigurationContext
 >;
-
-const vManualWorkerCreateContinuation = union(
-  object({ state: literal("generic") }),
-  object({
-    state: literal("managed"),
-    convexProjectId: id("vaultConvexProjects"),
-  }),
-);
-export type ManualWorkerCreateContinuation = Infer<typeof vManualWorkerCreateContinuation>;
 
 type WorkerGraphReadCtx = Pick<QueryCtx, "db">;
 
@@ -171,59 +165,6 @@ async function requireConvexProject(
     throw new Error("Convex project attachment not found.");
   }
   return project;
-}
-
-async function readManualWorkerCreateContinuation(
-  ctx: WorkerGraphReadCtx,
-  vault: Extract<Doc<"vaults">, { state: "connected" }>,
-  args: {
-    vaultId: Id<"vaults">;
-    accountId: string;
-  },
-): Promise<
-  | { state: "generic" }
-  | {
-      state: "managed";
-      plan: Doc<"workflow_vaultProvisioning_plans">;
-      convexProjectId: Id<"vaultConvexProjects">;
-    }
-> {
-  const plan = await ctx.db
-    .query("workflow_vaultProvisioning_plans")
-    .withIndex("by_vault", (q) => q.eq("vaultId", args.vaultId))
-    .unique();
-  if (!plan || plan.cloudflare.buildTokenUuid !== null) {
-    return { state: "generic" };
-  }
-  if (plan.cloudflare.state !== "planned") {
-    return { state: "generic" };
-  }
-  if (args.accountId !== vault.cloudflareAccountId) {
-    throw new Error("Cloudflare Worker account does not match the vault destination.");
-  }
-  if (plan.convex.state !== "created") {
-    throw new Error("The managed Convex project is not ready for Cloudflare setup.");
-  }
-  const convexPlan = plan.convex;
-  const project = await ctx.db
-    .query("vaultConvexProjects")
-    .withIndex("by_project", (q) => q.eq("projectId", convexPlan.projectId))
-    .unique();
-  if (
-    !project ||
-    project.vaultId !== args.vaultId ||
-    project.organizationId !== vault.organizationId ||
-    project.teamId !== vault.convexTeamId ||
-    !("convexConfigPath" in project) ||
-    project.convexConfigPath !== plan.convexConfigPath
-  ) {
-    throw new Error("The managed Convex project attachment does not match its plan.");
-  }
-  return {
-    state: "managed",
-    plan,
-    convexProjectId: project._id,
-  };
 }
 
 async function readMatchingWorker(
@@ -746,28 +687,6 @@ export const recordManualWorkerCreated = internalMutation({
       workerId,
       continuation: recordedContinuation,
     };
-  },
-});
-
-export const readManualWorkerCreateContinuationContext = internalQuery({
-  args: {
-    vaultId: id("vaults"),
-    userId: id("users"),
-    actionId: string(),
-    accountId: string(),
-  },
-  returns: vManualWorkerCreateContinuation,
-  handler: async (ctx, args): Promise<ManualWorkerCreateContinuation> => {
-    const vault = await requireManualProviderWriteCheckpoint(ctx, {
-      vaultId: args.vaultId,
-      actionId: args.actionId,
-      userId: args.userId,
-    });
-    const continuation = await readManualWorkerCreateContinuation(ctx, vault, args);
-    if (continuation.state === "managed") {
-      return { state: "managed", convexProjectId: continuation.convexProjectId };
-    }
-    return { state: "generic" };
   },
 });
 
