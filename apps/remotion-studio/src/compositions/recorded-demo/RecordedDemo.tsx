@@ -34,6 +34,8 @@ export const recordedDemoYouTubeWidth = 3_840;
 type RecordedDemoProps = {
   captionsSource: string;
   edit: RecordedDemoEdit;
+  faceCrop: "center" | "lower";
+  facePlacement: "bottom-left" | "top-right";
   faceRecording: string;
   screenRecording: string;
   timelapseRecording: string;
@@ -101,10 +103,12 @@ const SegmentCaptions: React.FC<{
 
 const FaceBubble: React.FC<{
   edit: RecordedDemoEdit;
+  faceCrop: RecordedDemoProps["faceCrop"];
+  facePlacement: RecordedDemoProps["facePlacement"];
   faceRecording: string;
   layoutScale: number;
   segment: RecordedDemoFaceSegment;
-}> = ({ edit, faceRecording, layoutScale, segment }) => {
+}> = ({ edit, faceCrop, facePlacement, faceRecording, layoutScale, segment }) => {
   const frame = useCurrentFrame();
   const faceFadeDurationInFrames = Math.round(edit.fps * 0.4);
   const opacity = Math.min(
@@ -118,13 +122,15 @@ const FaceBubble: React.FC<{
       name="Face camera"
       style={{
         borderRadius: "50%",
+        bottom: facePlacement === "bottom-left" ? 44 * layoutScale : undefined,
         boxShadow: `0 ${18 * layoutScale}px ${44 * layoutScale}px rgba(0, 0, 0, 0.28)`,
         height: 330 * layoutScale,
+        left: facePlacement === "bottom-left" ? 40 * layoutScale : undefined,
         opacity,
         overflow: "hidden",
         position: "absolute",
-        right: 40 * layoutScale,
-        top: 44 * layoutScale,
+        right: facePlacement === "top-right" ? 40 * layoutScale : undefined,
+        top: facePlacement === "top-right" ? 44 * layoutScale : undefined,
         width: 330 * layoutScale,
       }}
     >
@@ -133,10 +139,13 @@ const FaceBubble: React.FC<{
         playbackRate={1}
         src={faceRecording}
         style={{
-          height: "100%",
+          height: faceCrop === "lower" ? "112%" : "100%",
+          left: faceCrop === "lower" ? "-6%" : undefined,
           objectFit: "cover",
           objectPosition: "57% 58%",
-          width: "100%",
+          position: faceCrop === "lower" ? "absolute" : undefined,
+          top: faceCrop === "lower" ? "-9%" : undefined,
+          width: faceCrop === "lower" ? "112%" : "100%",
         }}
         trimAfter={segment.sourceEndInFrames}
         trimBefore={segment.sourceStartInFrames}
@@ -247,6 +256,8 @@ export const RecordedDemoAudio: React.FC<{
 export const RecordedDemo: React.FC<RecordedDemoProps> = ({
   captionsSource,
   edit,
+  faceCrop,
+  facePlacement,
   faceRecording,
   screenRecording,
   timelapseRecording,
@@ -314,6 +325,8 @@ export const RecordedDemo: React.FC<RecordedDemoProps> = ({
             {segment.kind === "face" ? (
               <FaceBubble
                 edit={edit}
+                faceCrop={faceCrop}
+                facePlacement={facePlacement}
                 faceRecording={faceRecording}
                 layoutScale={layoutScale}
                 segment={segment}

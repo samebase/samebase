@@ -15,6 +15,8 @@ export const OnboardingDemo: React.FC = () => (
   <RecordedDemo
     captionsSource={subtitles}
     edit={onboardingDemoEdit}
+    faceCrop="lower"
+    facePlacement="bottom-left"
     faceRecording={faceRecording}
     screenRecording={screenRecording}
     timelapseRecording={timelapseRecording}

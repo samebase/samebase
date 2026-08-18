@@ -21,6 +21,8 @@ export const FounderDemo = () => (
   <RecordedDemo
     captionsSource={captionsSource}
     edit={founderDemoEdit}
+    faceCrop="center"
+    facePlacement="top-right"
     faceRecording={faceRecording}
     screenRecording={screenRecording}
     timelapseRecording={timelapseRecording}
