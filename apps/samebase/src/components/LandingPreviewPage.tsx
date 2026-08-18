@@ -1,5 +1,6 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
+import { SignInWithOAuth } from "@/SignInWithOAuth";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LANDING_CLOSING_BAND_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
@@ -10,7 +11,6 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   useWorkspacePaneActions,
   useWorkspacePaneState,
@@ -108,33 +108,6 @@ function DocsSidebar() {
 
 const LANDING_AGENT_PROMPT =
   "Read samebase.com/llms.txt. Should I use Samebase with you for my next app? Verify the receipts before you answer.";
-
-const LANDING_SETUP_STEPS = [
-  {
-    detail: "No account? You create one in the same flow.",
-    kind: "oauth",
-    number: "1",
-    title: "Connect GitHub.",
-  },
-  {
-    detail: "A team in your name, not ours.",
-    kind: "oauth",
-    number: "2",
-    title: "Connect Convex.",
-  },
-  {
-    detail: "Deploys and domains on your account.",
-    kind: "oauth",
-    number: "3",
-    title: "Connect Cloudflare.",
-  },
-  {
-    detail: "The GitHub app wires builds to pushes.",
-    kind: "github app",
-    number: "4",
-    title: "Link Cloudflare to your repo.",
-  },
-] as const;
 
 const LANDING_MONOREPO_PATHS = [
   { path: "apps/storefront", resources: ["Convex", "Worker"] },
@@ -246,37 +219,16 @@ function LandingSection({ ariaLabel, children }: { ariaLabel?: string; children:
   );
 }
 
-function LandingSectionIntro({
-  heading,
-  kicker,
-  sub,
-}: {
-  heading: ReactNode;
-  kicker: string;
-  sub?: ReactNode;
-}) {
+function LandingSectionIntro({ heading, sub }: { heading: ReactNode; sub?: ReactNode }) {
   return (
     <>
-      <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-        {kicker}
-      </p>
-      <h2 className="mt-3 max-w-[26ch] text-[clamp(24px,3cqw,32px)] font-semibold leading-[1.25] tracking-[-0.02em]">
+      <h2 className="max-w-[26ch] text-[clamp(24px,3cqw,32px)] font-semibold leading-[1.25] tracking-[-0.02em]">
         {heading}
       </h2>
       {sub === undefined ? null : (
         <p className="mt-4 max-w-[52ch] text-base leading-relaxed text-primary">{sub}</p>
       )}
     </>
-  );
-}
-
-function LandingCreateAppButton() {
-  const { openRightPane } = useWorkspacePaneActions();
-
-  return (
-    <Button className="h-12 px-7 text-base font-semibold no-underline" onClick={openRightPane}>
-      Open Samebase
-    </Button>
   );
 }
 
@@ -314,31 +266,17 @@ function LandingCopyPromptButton() {
 
 function LandingProviderRow({ logo, role }: { logo: ReactNode; role: string }) {
   return (
-    <div className="contents @3xl:flex @3xl:items-center @3xl:gap-3.5">
-      <div className="flex items-center gap-2 @3xl:w-fit">{logo}</div>
-      <div>
-        <p className="text-sm text-muted-foreground">{role}</p>
-        <p className="font-mono text-[11px] text-muted-foreground">
-          owner: <span className="font-semibold text-secondary">you</span>
-        </p>
-      </div>
+    <div>
+      <div className="flex h-11 items-center gap-2">{logo}</div>
+      <p className="mt-2 text-sm text-muted-foreground">{role}</p>
     </div>
   );
 }
 
-function LandingClaim({
-  children,
-  heading,
-  label,
-}: {
-  children: ReactNode;
-  heading: ReactNode;
-  label: string;
-}) {
+function LandingClaim({ children, heading }: { children: ReactNode; heading: ReactNode }) {
   return (
     <div>
-      <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</p>
-      <h2 className="mt-3 max-w-[30ch] text-[21px] font-semibold leading-[1.3] tracking-[-0.015em] @3xl:text-[23px]">
+      <h2 className="max-w-[30ch] text-[21px] font-semibold leading-[1.3] tracking-[-0.015em] @3xl:text-[23px]">
         {heading}
       </h2>
       <p className="mt-3 max-w-[52ch] text-base leading-relaxed text-primary">{children}</p>
@@ -425,19 +363,35 @@ function LandingPreviewOverview() {
                 The correct way to build web apps.
               </h1>
               <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                One action creates the repo, provisions the database + backend, and deploys the app
-                on accounts you own.
+                <span className="flex items-center gap-2 font-bold leading-none text-foreground">
+                  <span className="inline-flex items-center gap-1.5">
+                    <img
+                      alt=""
+                      className="h-5 w-5"
+                      height="20"
+                      src="/landing-preview/logos/convex-mark.svg"
+                      width="20"
+                    />
+                    <span>Convex</span>
+                  </span>
+                  <span aria-hidden="true">+</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <img
+                      alt=""
+                      className="h-5 w-5"
+                      height="20"
+                      src="/landing-preview/logos/cloudflare.svg"
+                      width="20"
+                    />
+                    <span>Cloudflare Workers</span>
+                  </span>
+                </span>
+                <span className="mt-1 block">
+                  is all you need to build and deploy a production app.
+                </span>
               </p>
-              <div className="mt-9 flex flex-wrap items-center gap-x-6 gap-y-4">
-                <LandingCreateAppButton />
-                <p className="text-sm text-muted-foreground">
-                  Idle apps cost $0/month.
-                  <LandingFootnoteMark
-                    fragment="landing-note-zero"
-                    label="footnote: zero"
-                    marker="‡"
-                  />
-                </p>
+              <div className="mt-9">
+                <SignInWithOAuth provider="github" authReturn="dashboard" markPublicSignupReturn />
               </div>
             </div>
             <LandingHeroMenger placement="preview" />
@@ -467,12 +421,15 @@ function LandingPreviewOverview() {
             </div>
             <p className="mt-4 text-sm">
               <a
-                className="border-b border-red-600 pb-px font-semibold text-red-600 no-underline hover:border-red-700 hover:text-red-700"
+                className="group font-semibold text-foreground no-underline"
                 href="https://www.youtube.com/watch?v=HSo31kUZWpk"
                 rel="noreferrer"
                 target="_blank"
               >
-                Watch on YouTube
+                Watch on{" "}
+                <span className="border-b border-red-600 pb-px text-red-600 group-hover:border-red-700 group-hover:text-red-700">
+                  YouTube
+                </span>
               </a>
             </p>
           </div>
@@ -481,11 +438,10 @@ function LandingPreviewOverview() {
         <section className="mt-10 pt-8 @3xl:mt-16 @3xl:pt-12">
           <LandingSectionIntro
             heading="GitHub + Convex + Cloudflare is the best way we've found to build an app."
-            kicker="the opinion we're selling"
             sub="Simplest, cheapest, hardest to mess up. Samebase repeats it, so you never choose again."
           />
           <div
-            className="mt-8 grid grid-cols-[max-content_minmax(0,1fr)] items-center gap-x-4 gap-y-5 @3xl:grid-cols-3 @3xl:gap-8"
+            className="mt-8 grid gap-8 @2xl:grid-cols-3"
             data-testid={LANDING_PREVIEW_PROVIDER_GRID_TEST_ID}
           >
             <LandingProviderRow
@@ -536,22 +492,18 @@ function LandingPreviewOverview() {
           <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_460px] @5xl:items-start @5xl:gap-x-14">
             <div>
               <LandingSectionIntro
-                heading="Ask your agent."
-                kicker="don't trust us"
+                heading="Don't trust us, ask your agent."
                 sub={
                   <>
-                    Every claim on this page links a{" "}
+                    Paste this into the agent you already run. Every claim on this page links a{" "}
                     <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>dated receipt</LandingInlineLink>,
-                    so the agent you already run can verify us instead of trusting us.
+                    so it can verify us instead of trusting us.
                   </>
                 }
               />
             </div>
             <div className="mt-8 @5xl:mt-1.5">
-              <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-                paste this into the agent you already run
-              </p>
-              <div className="mt-3 border border-border @2xl:flex @2xl:items-stretch">
+              <div className="border border-border @2xl:flex @2xl:items-stretch">
                 <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
                   {LANDING_AGENT_PROMPT}
                 </p>
@@ -591,10 +543,7 @@ function LandingPreviewOverview() {
 
         <LandingSection ariaLabel="Four claims">
           <div className="grid gap-x-14 gap-y-10 @3xl:grid-cols-2">
-            <LandingClaim
-              heading="Delete your Samebase account. Your app doesn't notice."
-              label="01 · yours"
-            >
+            <LandingClaim heading="Delete your Samebase account. Your app doesn't notice.">
               It was always on your GitHub, your Convex, your Cloudflare. We even publish the full{" "}
               <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>
                 do-it-yourself recipe
@@ -612,15 +561,11 @@ function LandingPreviewOverview() {
                   />
                 </>
               }
-              label="02 · safer"
             >
               Convex is only reachable through TypeScript functions you wrote. No client-facing
               database, no rules you have to configure perfectly, forever.
             </LandingClaim>
-            <LandingClaim
-              heading="Run agents in parallel. Every PR gets its own preview, with its own database."
-              label="03 · lanes"
-            >
+            <LandingClaim heading="Run agents in parallel. Every PR gets its own preview, with its own database.">
               Local folder, worktrees, pull requests: each lane gets isolated code, data, and
               deploy. ChatGPT and Claude Code already understand worktrees; the stack keeps up.
             </LandingClaim>
@@ -635,7 +580,6 @@ function LandingPreviewOverview() {
                   />
                 </>
               }
-              label="04 · cheaper"
             >
               You already pay OpenAI or Anthropic directly; a builder's chat box adds margin, not
               capability. Providers bill you at their own prices, and idle apps sit in free tiers.
@@ -648,34 +592,17 @@ function LandingPreviewOverview() {
             <div className="@5xl:col-start-1 @5xl:row-start-1">
               <LandingSectionIntro
                 heading="Setup is three OAuth connects and one GitHub app. We filmed all of it."
-                kicker="the honest part"
                 sub="It's the biggest hurdle in Samebase, so we don't hide it. Here it is in real time."
               />
             </div>
             {/* Placeholder for the recorded onboarding capture. Swap for the
                 real embed once the footage exists; the copy above claims it. */}
-            <div className="mt-8 @5xl:col-start-2 @5xl:row-span-2 @5xl:row-start-1 @5xl:mt-1.5">
+            <div className="mt-8 @5xl:col-start-2 @5xl:row-start-1 @5xl:mt-1.5">
               <div className="flex aspect-video w-full items-center justify-center bg-muted">
                 <p className="max-w-[36ch] text-center font-mono text-xs uppercase leading-relaxed tracking-[0.14em] text-muted-foreground">
                   video: the full onboarding, real time, unedited (~3 min)
                 </p>
               </div>
-              <p className="mt-2.5 font-mono text-[11px] text-muted-foreground">
-                watch it before you sign up · nothing is skipped
-              </p>
-            </div>
-            <div className="mt-10 grid gap-x-10 gap-y-6 @2xl:grid-cols-2 @5xl:col-start-1 @5xl:row-start-2">
-              {LANDING_SETUP_STEPS.map((step) => (
-                <div className="border-t border-border pt-4" key={step.number}>
-                  <p className="font-mono text-xs font-semibold text-secondary">
-                    {step.number} · {step.kind}
-                  </p>
-                  <p className="mt-2 text-[15px] leading-relaxed text-primary">
-                    <span className="font-semibold text-foreground">{step.title}</span>{" "}
-                    {step.detail}
-                  </p>
-                </div>
-              ))}
             </div>
           </div>
         </LandingSection>
@@ -683,7 +610,6 @@ function LandingPreviewOverview() {
         <LandingSection ariaLabel="Monorepo">
           <LandingSectionIntro
             heading="Full monorepo support, by design."
-            kicker="monorepos"
             sub="Samebase shows each connected Worker and Convex project under its repository path."
           />
           <LandingRepositoryTree />
@@ -724,7 +650,7 @@ function LandingPreviewOverview() {
         </LandingSection>
 
         <LandingSection ariaLabel="Frequently asked questions">
-          <LandingSectionIntro heading="Why Samebase?" kicker="FAQ" />
+          <LandingSectionIntro heading="FAQ" />
           <Accordion keepMounted className="mt-8 max-w-[960px]">
             {LANDING_FAQS.map((faq) => (
               <AccordionItem
@@ -837,7 +763,13 @@ function LandingPreviewOverview() {
                 the exit door.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
-                <LandingCreateAppButton />
+                <div>
+                  <SignInWithOAuth
+                    provider="github"
+                    authReturn="dashboard"
+                    markPublicSignupReturn
+                  />
+                </div>
                 <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>Do it yourself</LandingInlineLink>
               </div>
             </div>

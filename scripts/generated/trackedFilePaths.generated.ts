@@ -52,6 +52,7 @@ export const trackedFilePaths = [
   ".github/workflows/public-media.yml",
   ".github/workflows/sync-ssr.yml",
   ".gitignore",
+  ".lfsconfig",
   ".nvmrc",
   ".vite-hooks/pre-commit",
   ".vite-hooks/pre-push",

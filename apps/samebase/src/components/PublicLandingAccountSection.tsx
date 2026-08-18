@@ -67,11 +67,11 @@ function PublicLandingLoggedOutAccountSection() {
     >
       <div
         data-vault-dashboard-account-section-label
-        className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-sm font-medium [overflow-wrap:anywhere]"
+        className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-center text-sm font-medium [overflow-wrap:anywhere]"
       >
         Sign in or create an account
       </div>
-      <div className="mt-3 flex flex-col gap-2">
+      <div className="mt-3 flex flex-col items-center gap-2">
         {authorizationError !== null ? (
           <AuthorizationErrorNotice>
             {formatAuthorizationErrorMessage(authorizationError)}
