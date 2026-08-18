@@ -1588,7 +1588,7 @@ describe("VaultOverviewPage", () => {
   });
 
   it("shows first-time Cloudflare setup until a Worker is attached", () => {
-    const tokenlessManagedVault = makeRepositorySettingsBuilderVault({
+    const vault = makeRepositorySettingsBuilderVault({
       providerPlan: {
         convexConfigPath: "convex.json",
         convex: {
@@ -1620,13 +1620,7 @@ describe("VaultOverviewPage", () => {
       reload: () => {},
       observations: [],
     };
-    const settingsState = {
-      addCloudflareWorker: { disabled: false },
-      addConvexProject: { disabled: false },
-      providerActionBlockReason: null,
-      roots: [],
-    };
-    const renderOverview = (vault: RepositorySettingsBuilderVault) =>
+    const renderOverview = (currentVault: typeof vault) =>
       renderToStaticMarkup(
         <TestRouterProvider initialEntries={["/vault/ada/demo"]}>
           <VaultOverviewPage
@@ -1636,7 +1630,12 @@ describe("VaultOverviewPage", () => {
             onRetryInfrastructureProvisioning={() => {}}
             onRetryVaultDeletion={() => {}}
             page="overview"
-            settingsState={settingsState}
+            settingsState={{
+              addCloudflareWorker: { disabled: false },
+              addConvexProject: { disabled: false },
+              providerActionBlockReason: null,
+              roots: [],
+            }}
             workspace={{
               access: { state: "ready", accessKeys: [] },
               cloudflareConnection: { state: "loading" },
@@ -1645,78 +1644,23 @@ describe("VaultOverviewPage", () => {
               environmentRoots: [],
               githubRepositoryUrl: "https://github.com/ada/demo",
               pullRequests: { state: "not_requested" },
-              vault,
+              vault: currentVault,
             }}
           />
         </TestRouterProvider>,
       );
 
-    const connectedMarkup = renderOverview(
-      makeRepositorySettingsBuilderVault({
-        ...tokenlessManagedVault,
-        providerPlan: {
-          convexConfigPath: "convex.json",
-          convex: {
-            state: "created",
-            projectName: "demo-convex",
-            projectId: "demo-project-id",
-            teamId: "team-1",
-          },
-          cloudflare: {
-            state: "created",
-            accountId: "account-1",
-            buildTokenUuid: "build-token",
-            workerName: "demo-worker",
-            workerTag: "demo-worker-tag",
-            rootDirectory: "/",
-          },
-        },
-        hasCloudflareProvision: true,
-        cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({})],
-      }),
-    );
-    const replacementMarkup = renderOverview({
-      ...tokenlessManagedVault,
-      providerPlan: {
-        convexConfigPath: "convex.json",
-        convex: {
-          state: "created",
-          projectName: "demo-convex",
-          projectId: "demo-project-id",
-          teamId: "team-1",
-        },
-        cloudflare: {
-          state: "created",
-          accountId: "account-1",
-          buildTokenUuid: null,
-          workerName: "demo-worker",
-          workerTag: "detached-worker-tag",
-          rootDirectory: "/",
-        },
-      },
+    const incompleteMarkup = renderOverview(vault);
+    const attachedMarkup = renderOverview({
+      ...vault,
+      hasCloudflareProvision: true,
+      cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({})],
     });
-    const incompleteMarkup = renderOverview(tokenlessManagedVault);
-    const notReadyMarkup = renderOverview({
-      ...tokenlessManagedVault,
-      hasConvexProvision: false,
-    });
-    const unmanagedMarkup = renderOverview(
-      makeRepositorySettingsBuilderVault({ providerSetup: { status: "ready" } }),
-    );
 
     expect(incompleteMarkup).toContain("Finish Cloudflare setup");
-    expect(incompleteMarkup).toContain(
-      "Create the first API token, then create this app&#x27;s Worker in Settings.",
-    );
     expect(incompleteMarkup).toContain('href="/docs/cloudflare-setup"');
-    expect(incompleteMarkup).toContain("View setup guide");
     expect(incompleteMarkup).toContain("bg-amber-50");
-    expect(incompleteMarkup).not.toContain("bg-red-50");
-    expect(replacementMarkup).toContain("Finish Cloudflare setup");
-    expect(replacementMarkup).toContain('href="/docs/cloudflare-setup"');
-    expect(connectedMarkup).not.toContain("Finish Cloudflare setup");
-    expect(notReadyMarkup).not.toContain("Finish Cloudflare setup");
-    expect(unmanagedMarkup).not.toContain("Finish Cloudflare setup");
+    expect(attachedMarkup).not.toContain("Finish Cloudflare setup");
   });
 
   it("keeps safe provider links during setup and provider checks", () => {
@@ -2426,289 +2370,11 @@ describe("VaultCloudflareDialogContent", () => {
     }
   });
 
-  it("shows a Create-only setup guide only for a tokenless managed app with no Worker", async () => {
-    const discoverWorkers = vi.fn(async () => ({
-      inventoryState: "complete" as const,
-      workers: [
-        makeCloudflareDialogWorker({
-          workerName: "temporary-bootstrap-worker",
-          workerTag: "temporary-bootstrap-worker-tag",
-          repository: {
-            state: "ready",
-            rootDirectory: "/",
-            builds: { state: "not_available" },
-          },
-        }),
-      ],
-    }));
-    const listBuildTokens = vi.fn(async () => ({
-      accountId: "account-1",
-      lastUsedBuildTokenUuid: null,
-      tokens: [],
-    }));
-    useActionMock.mockImplementation((action: FunctionReference<"action">) => {
-      const actionName = getFunctionName(action);
-      if (actionName === getFunctionName(api.vault.cloudflare.discoverWorkers)) {
-        return discoverWorkers;
-      }
-      if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {
-        return listBuildTokens;
-      }
-      return vi.fn();
-    });
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const root = createRoot(rootElement);
-    const tokenlessManagedVault = makeRepositorySettingsBuilderVault({
-      providerPlan: {
-        convexConfigPath: "convex.json",
-        convex: {
-          state: "created",
-          projectName: "demo-convex",
-          projectId: "demo-project-id",
-          teamId: "team-1",
-        },
-        cloudflare: {
-          state: "planned",
-          accountId: "account-1",
-          buildTokenUuid: null,
-          workerName: "demo-worker",
-          rootDirectory: "/",
-        },
-      },
-      providerSetup: { status: "ready" },
-      hasConvexProvision: true,
-      convexProjects: [makeRepositorySettingsConvexProject({})],
-    });
-    const renderDialog = async (key: string, vault: RepositorySettingsBuilderVault) => {
-      await act(async () => {
-        root.render(
-          <QueryClientProvider client={queryClient}>
-            <TestRouterProvider initialEntries={["/vault/ada/demo/settings"]}>
-              <VaultCloudflareDialog
-                key={key}
-                blockedReason={null}
-                onClose={() => {}}
-                repairBuildTokenUuid={null}
-                repairWorkerId={null}
-                vault={vault}
-              />
-            </TestRouterProvider>
-          </QueryClientProvider>,
-        );
-      });
-    };
-
-    try {
-      await renderDialog("tokenless-managed", tokenlessManagedVault);
-      const setupGuideLink = await act(() =>
-        vi.waitFor(() => {
-          const link = [...rootElement.querySelectorAll("a")].find((candidate) =>
-            candidate.textContent.includes("View setup guide"),
-          );
-          if (!link) {
-            throw new Error("Expected the first-time Cloudflare setup guide link.");
-          }
-          return link;
-        }),
-      );
-      const createWorkerButton = [...rootElement.querySelectorAll("button")].find(
-        (button) => button.textContent === "Create Worker",
-      );
-
-      expect(setupGuideLink.getAttribute("href")).toBe("/docs/cloudflare-setup");
-      expect(rootElement.textContent).toContain(
-        "No API tokens are listed. Complete first-time Cloudflare setup, then reload tokens.",
-      );
-      expect(rootElement.textContent).toContain("Reload tokens");
-      expect(rootElement.textContent).not.toContain("Open Cloudflare");
-      expect(rootElement.textContent).not.toContain("temporary-bootstrap-worker");
-      expect(rootElement.textContent).not.toContain("Connect another Worker");
-      expect(
-        [...rootElement.querySelectorAll("button")].some(
-          (button) => button.textContent === "Existing" || button.textContent === "Create",
-        ),
-      ).toBe(false);
-      expect(createWorkerButton?.disabled).toBe(true);
-      expect(discoverWorkers).not.toHaveBeenCalled();
-
-      await renderDialog(
-        "generic",
-        makeRepositorySettingsBuilderVault({ providerSetup: { status: "ready" } }),
-      );
-      const createModeButton = await act(() =>
-        vi.waitFor(() => {
-          const button = [...rootElement.querySelectorAll("button")].find(
-            (candidate) => candidate.textContent === "Create",
-          );
-          if (!button) {
-            throw new Error("Expected the Create mode button.");
-          }
-          return button;
-        }),
-      );
-      await act(async () => {
-        createModeButton.click();
-      });
-      await vi.waitFor(() =>
-        expect(rootElement.textContent).toContain(
-          "No API tokens are listed. Create one in Cloudflare Workers Builds, then reload.",
-        ),
-      );
-      expect(rootElement.textContent).not.toContain("View setup guide");
-      expect(rootElement.textContent).not.toContain("Open Cloudflare");
-      expect(discoverWorkers).toHaveBeenCalledTimes(1);
-    } finally {
-      await act(async () => root.unmount());
-      queryClient.clear();
-      rootElement.remove();
-      useActionMock.mockReset();
-    }
-  });
-
-  it("replaces a detached managed Worker without reading or attaching discovered inventory", async () => {
-    const bootstrapWorker = makeCloudflareDialogWorker({
-      workerName: "temporary-bootstrap-worker",
-      workerTag: "temporary-bootstrap-worker-tag",
-      repository: {
-        state: "ready",
-        rootDirectory: "/",
-        builds: { state: "not_available" },
-      },
-    });
-    const discoverWorkers = vi.fn(async () => {
-      throw new Error("Inventory failed.");
-    });
-    const attachWorkers = vi.fn(async () => null);
-    const connectWorker = vi.fn(async () => null);
-    const createWorker = vi.fn(async () => null);
-    const listBuildTokens = vi.fn(async () => ({
-      accountId: "account-1",
-      lastUsedBuildTokenUuid: "build-token",
-      tokens: [{ name: "Build token", uuid: "build-token" }],
-    }));
-    useActionMock.mockImplementation((action: FunctionReference<"action">) => {
-      const actionName = getFunctionName(action);
-      if (actionName === getFunctionName(api.vault.cloudflare.discoverWorkers)) {
-        return discoverWorkers;
-      }
-      if (actionName === getFunctionName(api.vault.cloudflare.attachWorkers)) {
-        return attachWorkers;
-      }
-      if (actionName === getFunctionName(api.vault.cloudflare.connectWorker)) {
-        return connectWorker;
-      }
-      if (actionName === getFunctionName(api.vault.cloudflare.createWorker)) {
-        return createWorker;
-      }
-      if (actionName === getFunctionName(api.cloudflareBuildTokens.list)) {
-        return listBuildTokens;
-      }
-      return vi.fn();
-    });
-    const tokenlessManagedVault = makeRepositorySettingsBuilderVault({
-      providerPlan: {
-        convexConfigPath: "convex.json",
-        convex: {
-          state: "created",
-          projectName: "demo-convex",
-          projectId: "demo-project-id",
-          teamId: "team-1",
-        },
-        cloudflare: {
-          state: "created",
-          accountId: "account-1",
-          buildTokenUuid: null,
-          workerName: "demo-worker",
-          workerTag: "detached-worker-tag",
-          rootDirectory: "/",
-        },
-      },
-      providerSetup: { status: "ready" },
-      hasConvexProvision: true,
-      convexProjects: [makeRepositorySettingsConvexProject({})],
-    });
-    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    queryClient.setQueryData(
-      [
-        "vault-provider-discovery",
-        tokenlessManagedVault._id,
-        "cloudflare-workers",
-        tokenlessManagedVault.cloudflareAccountId,
-        [],
-        tokenlessManagedVault.providerWrite.lastWriteAt.cloudflare,
-      ],
-      { inventoryState: "complete", workers: [bootstrapWorker] },
-    );
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const root = createRoot(rootElement);
-
-    try {
-      await act(async () => {
-        root.render(
-          <QueryClientProvider client={queryClient}>
-            <TestRouterProvider initialEntries={["/vault/ada/demo/settings"]}>
-              <VaultCloudflareDialog
-                blockedReason={null}
-                onClose={() => {}}
-                repairBuildTokenUuid={null}
-                repairWorkerId={null}
-                vault={tokenlessManagedVault}
-              />
-            </TestRouterProvider>
-          </QueryClientProvider>,
-        );
-      });
-
-      const createWorkerButton = await act(() =>
-        vi.waitFor(() => {
-          const button = [...rootElement.querySelectorAll("button")].find(
-            (candidate) => candidate.textContent === "Create Worker" && !candidate.disabled,
-          );
-          if (!button) {
-            throw new Error("Expected the enabled Create Worker button.");
-          }
-          return button;
-        }),
-      );
-
-      expect(rootElement.textContent).not.toContain("temporary-bootstrap-worker");
-      expect(rootElement.textContent).not.toContain("Could not load Cloudflare resources.");
-      expect(rootElement.textContent).not.toContain("Connect another Worker");
-      expect(discoverWorkers).not.toHaveBeenCalled();
-
-      await act(async () => {
-        createWorkerButton.click();
-      });
-      await act(() => vi.waitFor(() => expect(createWorker).toHaveBeenCalledTimes(1)));
-
-      expect(createWorker).toHaveBeenCalledWith({
-        accountId: "account-1",
-        buildTokenUuid: "build-token",
-        rootDirectory: "/",
-        vaultId: fakeVaultId(),
-        workerName: "demo",
-      });
-      expect(attachWorkers).not.toHaveBeenCalled();
-      expect(connectWorker).not.toHaveBeenCalled();
-      expect(discoverWorkers).not.toHaveBeenCalled();
-      expect(listBuildTokens).toHaveBeenCalledTimes(1);
-    } finally {
-      await act(async () => root.unmount());
-      queryClient.clear();
-      rootElement.remove();
-      useActionMock.mockReset();
-    }
-  });
-
   it("replaces disabled controls with a timed loading state while searching", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
-        createOnly={false}
         createRootDirectory="/"
         createWorkerName=""
         didAddWorker={false}
@@ -2746,7 +2412,6 @@ describe("VaultCloudflareDialogContent", () => {
       <VaultCloudflareDialogContent
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
-        createOnly={false}
         createRootDirectory="/"
         createWorkerName=""
         didAddWorker
@@ -2923,7 +2588,6 @@ describe("VaultCloudflareDialogContent", () => {
       <VaultCloudflareDialogContent
         cloudflareBuildTokenField={<div>API token</div>}
         hasSelectedBuildToken={false}
-        createOnly={false}
         createRootDirectory="apps/web"
         createWorkerName="samebase_app"
         didAddWorker={false}
@@ -2964,7 +2628,6 @@ describe("VaultCloudflareDialogContent", () => {
       <VaultCloudflareDialogContent
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
-        createOnly={false}
         createRootDirectory="apps/web"
         createWorkerName="samebase app"
         didAddWorker={false}
@@ -3007,7 +2670,6 @@ describe("VaultCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
         blockedReason="A provider operation is in progress."
-        createOnly={false}
         createRootDirectory="apps/web"
         createWorkerName="web-worker"
         didAddWorker={false}
@@ -3045,7 +2707,6 @@ describe("VaultCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
         blockedReason="Samebase could not confirm the Cloudflare Worker connection."
-        createOnly={false}
         createRootDirectory="apps/web"
         createWorkerName=""
         didAddWorker={false}
@@ -3082,7 +2743,6 @@ describe("VaultCloudflareDialogContent", () => {
       <VaultCloudflareDialogContent
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
-        createOnly={false}
         createRootDirectory="/"
         createWorkerName=""
         didAddWorker={false}
@@ -3288,92 +2948,6 @@ describe("buildVaultRepositorySettingsState", () => {
     );
     expect(state.addCloudflareWorker.disabled).toBe(true);
     expect(state.addConvexProject.disabled).toBe(true);
-  });
-
-  it("offers Workers Builds configuration after tokenless managed setup succeeds", () => {
-    const workerId = fakeCloudflareWorkerId("worker-tokenless-managed");
-    const convexProjectId = fakeConvexProjectId("convex-tokenless-managed");
-    const configureWorkersBuilds = vi.fn();
-    const state = buildVaultRepositorySettingsState({
-      cloudflareAccount: {
-        accountId: "account-1",
-        accountName: "Ada Cloud",
-      },
-      cloudflareBuildTokens: { state: "loaded", tokens: [] },
-      cloudflareObservations: makeLoadedCloudflareObservations({
-        workers: [makeAvailableRepositorySettingsCloudflareObservation({ workerId })],
-        builds: [
-          makeAvailableRepositorySettingsCloudflareBuildsObservation({
-            workerId,
-            builds: { state: "not_connected" },
-          }),
-        ],
-        convexBuildAccess: [],
-      }),
-      configureWorkersBuildsForGitHubOnClick: configureWorkersBuilds,
-      convexObservations: {
-        state: "loaded",
-        refreshFailed: false,
-        reload: () => {},
-        observations: [
-          {
-            convexProjectId,
-            projectId: "demo-project-id",
-            codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-            source: { kind: "config", state: "valid" },
-            provider: {
-              state: "current",
-              projectSlug: "demo-convex",
-              teamSlug: "ada",
-              productionDeployment: {
-                state: "available",
-                deploymentName: "calm-swan-123",
-                dashboardUrl: "https://dashboard.convex.dev/t/ada/demo-convex/calm-swan-123",
-              },
-            },
-          },
-        ],
-      },
-      pendingAction: null,
-      vault: makeRepositorySettingsBuilderVault({
-        providerPlan: {
-          convexConfigPath: "convex.json",
-          convex: {
-            state: "created",
-            projectName: "demo-convex",
-            teamId: "team-1",
-            projectId: "demo-project-id",
-          },
-          cloudflare: {
-            state: "created",
-            accountId: "account-1",
-            buildTokenUuid: null,
-            workerName: "demo-worker",
-            workerTag: "demo-worker-tag",
-            rootDirectory: "/",
-          },
-        },
-        providerSetup: { status: "ready" },
-        providerWrite: { status: "idle", lastWriteAt: {} },
-        hasConvexProvision: true,
-        hasCloudflareProvision: true,
-        cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
-        convexProjects: [
-          makeRepositorySettingsConvexProject({
-            convexProjectId,
-            projectId: "demo-project-id",
-          }),
-        ],
-      }),
-    });
-    const cloudflareResource = getRepositorySettingsResource(state, "/", "cloudflare");
-
-    expect(cloudflareResource.actions?.map((action) => action.label)).toEqual([
-      "Configure Workers Builds for GitHub",
-    ]);
-    expect(cloudflareResource.actions?.map((action) => action.kind)).not.toContain("retry");
-    cloudflareResource.actions?.[0].onClick?.();
-    expect(configureWorkersBuilds).toHaveBeenCalledWith(workerId);
   });
 
   it("keeps planned targets after managed provider setup fails", () => {

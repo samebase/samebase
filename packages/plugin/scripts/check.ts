@@ -206,16 +206,16 @@ check(
       "list the current tokens again and call `vault_cloudflare_createWorker` with one exact UUID.",
     ) &&
     samebaseSkill.includes(
-      "That managed continuation creates and configures the real Worker and installs the exact planned Convex deploy keys.",
+      "`vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds` with the new Worker and the attached",
     ),
-  "The Samebase skill must use the temporary Worker only to bootstrap the first token, then create the real Worker through Samebase.",
+  "The Samebase skill must use the temporary Worker only to bootstrap the first token, then use the existing Worker and deploy-key actions.",
 );
 check(
   samebaseSkill.includes(
     "For manual Cloudflare Worker creation or Workers Builds configuration, first call `cloudflare_listWorkersBuildTokens`.",
   ) &&
     samebaseSkill.includes(
-      "If the list is empty, stop the write and use current inventory to select the recovery:",
+      "If the list is empty, stop the write and use current inventory to select the next action:",
     ) &&
     samebaseSkill.includes(
       "For the tokenless managed app with its exact planned Convex project and no attached Worker, use",
@@ -223,9 +223,9 @@ check(
     samebaseSkill.includes(
       "When a Worker is already attached, keep it. After token setup, list tokens again and call `vault_cloudflare_configureWorkersBuildsForGitHub` for that attachment. Do not create another Worker.",
     ) &&
-    samebaseSkill.includes("Generic Worker creation does not install Convex deploy keys.") &&
+    samebaseSkill.includes("Worker creation does not install Convex") &&
     samebaseSkill.includes("Never pass null to a manual Worker or Builds action."),
-  "The Samebase skill must branch empty-token recovery by current vault state.",
+  "The Samebase skill must select existing Cloudflare actions from current vault state.",
 );
 const openSamebaseIndex = samebaseSkill.indexOf(
   "Treat `open @samebase` as an exact command and an explicit choice of the in-app Browser.",

@@ -41,12 +41,17 @@ The Workers Builds API token stays in your Cloudflare account after you delete t
 1. Return to the app in Samebase.
 2. Open **Settings**.
 3. Select **Add Cloudflare Worker**.
-4. Select the new API token. If it is not in the list, select **Reload tokens**.
-5. Select **Create Worker**.
+4. Select **Create**.
+5. Select the new API token. If it is not in the list, select **Reload tokens**.
+6. Select **Create Worker**.
 
 Samebase creates the real Worker and connects it to the repository. Samebase sets the correct build
-and deploy commands, adds the Convex production and preview deploy keys, and starts the first
-deployment.
+and deploy commands. The automatic build can fail until you add the Convex deploy keys.
+
+## 5: Add the Convex deploy keys
+
+In the same Settings page, find the new Worker and select **Use `<project>` for Workers Builds**.
+Samebase adds the production and preview Convex deploy keys, then starts a production build.
 
 ## Future apps
 

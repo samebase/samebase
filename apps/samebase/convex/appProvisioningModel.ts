@@ -91,7 +91,6 @@ export const vManualProviderWriteAction = union(
   literal("create_convex_project"),
   literal("connect_cloudflare_worker"),
   literal("create_cloudflare_worker"),
-  literal("create_cloudflare_worker_with_convex"),
   literal("configure_workers_builds_for_github"),
   literal("rotate_convex_deploy_keys_for_workers_builds"),
 );

@@ -47,7 +47,6 @@ type CloudflareInventoryState =
 export function VaultCloudflareDialogContent({
   blockedReason,
   cloudflareBuildTokenField,
-  createOnly,
   createRootDirectory,
   createWorkerName,
   didAddWorker,
@@ -74,7 +73,6 @@ export function VaultCloudflareDialogContent({
 }: {
   blockedReason?: string | null;
   cloudflareBuildTokenField: ReactNode;
-  createOnly: boolean;
   createRootDirectory: string;
   createWorkerName: string;
   didAddWorker: boolean;
@@ -100,7 +98,6 @@ export function VaultCloudflareDialogContent({
   workers: readonly CloudflareWorkerOption[];
 }) {
   const dialogContentRef = useRef<HTMLDivElement>(null);
-  const activeMode = createOnly ? "create" : mode;
   const workersByRoot = new Map<string, CloudflareWorkerOption[]>();
   for (const worker of workers) {
     if (worker.repository.state !== "ready") {
@@ -148,9 +145,9 @@ export function VaultCloudflareDialogContent({
     (repairWorker
       ? !createRootDirectory.trim() || !hasSelectedBuildToken
       : isLoading ||
-        (activeMode === "existing"
+        (mode === "existing"
           ? selectedWorkerTags.length === 0
-          : activeMode === "connect"
+          : mode === "connect"
             ? !workerToConnect || !createRootDirectory.trim() || !hasSelectedBuildToken
             : !createWorkerNameValidation.valid ||
               !createRootDirectory.trim() ||
@@ -166,16 +163,16 @@ export function VaultCloudflareDialogContent({
           <DialogTitle>
             {repairWorker
               ? `Configure ${repairWorker.workerName} Builds`
-              : activeMode === "connect"
+              : mode === "connect"
                 ? `Connect a Worker to ${vault.repositoryFullName}`
                 : `Add Cloudflare to ${vault.repositoryFullName}`}
           </DialogTitle>
           <DialogDescription>
             {repairWorker
               ? "Samebase will use the saved repository root."
-              : activeMode === "connect"
+              : mode === "connect"
                 ? "Choose the Worker and its repository root."
-                : activeMode === "existing"
+                : mode === "existing"
                   ? "Choose Workers connected to this repository, or connect another Worker."
                   : "Create a Worker and choose the repository root Cloudflare should build."}
           </DialogDescription>
@@ -193,7 +190,7 @@ export function VaultCloudflareDialogContent({
             </div>
           ) : isLoading ? (
             <VaultProviderDiscoveryLoadingState label="Searching for Cloudflare Workers" />
-          ) : activeMode === "connect" ? (
+          ) : mode === "connect" ? (
             <div className="grid gap-3">
               <div className="grid gap-1.5">
                 <Label htmlFor="cloudflare-worker-to-connect">Worker</Label>
@@ -236,32 +233,30 @@ export function VaultCloudflareDialogContent({
             </div>
           ) : (
             <>
-              {createOnly ? null : (
-                <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    type="button"
-                    variant={activeMode === "existing" ? "default" : "outline"}
-                    onClick={() => onModeChange("existing")}
-                    disabled={isSubmitting}
-                  >
-                    Existing
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={activeMode === "create" ? "default" : "outline"}
-                    onClick={() => onModeChange("create")}
-                    disabled={isSubmitting}
-                  >
-                    Create
-                  </Button>
-                </div>
-              )}
-              {!createOnly && inventoryState === "partial" ? (
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant={mode === "existing" ? "default" : "outline"}
+                  onClick={() => onModeChange("existing")}
+                  disabled={isSubmitting}
+                >
+                  Existing
+                </Button>
+                <Button
+                  type="button"
+                  variant={mode === "create" ? "default" : "outline"}
+                  onClick={() => onModeChange("create")}
+                  disabled={isSubmitting}
+                >
+                  Create
+                </Button>
+              </div>
+              {inventoryState === "partial" ? (
                 <div className="text-sm text-muted-foreground">
                   The Worker list may be incomplete. Verified Workers found so far are shown.
                 </div>
               ) : null}
-              {activeMode === "existing" ? (
+              {mode === "existing" ? (
                 <div className="grid gap-3">
                   {workerGroups.length > 0 ? (
                     <div className="grid max-h-80 gap-3 overflow-y-auto">
@@ -350,7 +345,7 @@ export function VaultCloudflareDialogContent({
             onClick={() => {
               if (blockedReason) {
                 onOpenChange(false);
-              } else if (activeMode === "connect") {
+              } else if (mode === "connect") {
                 onConnectWorkerBack();
               } else {
                 onOpenChange(false);
@@ -360,7 +355,7 @@ export function VaultCloudflareDialogContent({
           >
             {blockedReason
               ? "Close"
-              : activeMode === "connect"
+              : mode === "connect"
                 ? "Back"
                 : didAddWorker
                   ? selectedWorkerTags.length > 0
@@ -374,16 +369,16 @@ export function VaultCloudflareDialogContent({
               {isSubmitting
                 ? repairWorker
                   ? "Configuring..."
-                  : activeMode === "connect"
+                  : mode === "connect"
                     ? "Connecting..."
-                    : activeMode === "existing"
+                    : mode === "existing"
                       ? "Adding..."
                       : "Creating..."
                 : repairWorker
                   ? "Configure Workers Builds"
-                  : activeMode === "connect"
+                  : mode === "connect"
                     ? "Connect and add"
-                    : activeMode === "existing"
+                    : mode === "existing"
                       ? selectedWorkerTags.length === 0
                         ? "Add Workers"
                         : `Add ${selectedWorkerTags.length} Worker${selectedWorkerTags.length === 1 ? "" : "s"}`
@@ -425,22 +420,8 @@ export function VaultCloudflareDialog({
   const repairWorker = repairWorkerId
     ? (vault.cloudflareWorkers.find((worker) => worker.workerId === repairWorkerId) ?? null)
     : null;
-  const showFirstTimeCloudflareSetup =
-    !repairWorker &&
-    vault.sourceSetup.status === "ready" &&
-    vault.providerSetup.status === "ready" &&
-    vault.hasConnectedGitHubRepository &&
-    vault.hasConvexProvision &&
-    vault.cloudflareWorkers.length === 0 &&
-    vault.providerPlan?.convex.state === "created" &&
-    (vault.providerPlan.cloudflare.state === "planned" ||
-      vault.providerPlan.cloudflare.state === "created") &&
-    vault.providerPlan.cloudflare.buildTokenUuid === null;
   const [workerSelection, setWorkerSelection] = useState<readonly string[] | null>(null);
-  const [mode, setMode] = useState<CloudflareWorkerConnectMode>(() =>
-    showFirstTimeCloudflareSetup ? "create" : "existing",
-  );
-  const activeMode = showFirstTimeCloudflareSetup ? "create" : mode;
+  const [mode, setMode] = useState<CloudflareWorkerConnectMode>("existing");
   const [createRootDirectory, setCreateRootDirectory] = useState(
     repairWorker?.rootDirectory ?? "/",
   );
@@ -457,7 +438,7 @@ export function VaultCloudflareDialog({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const buildTokensQuery = useCloudflareBuildTokens({
-    enabled: Boolean(repairWorker || activeMode === "connect" || activeMode === "create"),
+    enabled: Boolean(repairWorker || mode === "connect" || mode === "create"),
     organizationId: vault.organizationId,
   });
   const buildTokens = buildTokensQuery.data?.tokens ?? [];
@@ -469,7 +450,7 @@ export function VaultCloudflareDialog({
     tokens: buildTokensQuery.data?.tokens ?? null,
   });
   const buildTokenUuid = buildTokenSelection.selectedUuid;
-  const writesWorkersBuilds = Boolean(repairWorker || workerToConnect || activeMode === "create");
+  const writesWorkersBuilds = Boolean(repairWorker || workerToConnect || mode === "create");
   const hasSelectedBuildToken = buildTokenSelection.canWrite;
   const attachedWorkerTags = vault.cloudflareWorkers
     .filter((worker) => worker.accountId === vault.cloudflareAccountId)
@@ -486,27 +467,20 @@ export function VaultCloudflareDialog({
     ],
     queryFn: async () =>
       await discoverWorkers({ accountId: vault.cloudflareAccountId, vaultId: vault._id }),
-    enabled: !repairWorker && !showFirstTimeCloudflareSetup,
+    enabled: !repairWorker,
     retry: false,
   });
   const unavailableWorkerTags = new Set([...attachedWorkerTags, ...connectedWorkerTags]);
-  const workers = showFirstTimeCloudflareSetup
-    ? []
-    : (workersQuery.data?.workers ?? []).filter(
-        (worker) => !unavailableWorkerTags.has(worker.workerTag),
-      );
+  const workers = (workersQuery.data?.workers ?? []).filter(
+    (worker) => !unavailableWorkerTags.has(worker.workerTag),
+  );
   const defaultSelectedWorkerTags = workers
     .filter((worker) => worker.repository.state === "ready")
     .map((worker) => worker.workerTag);
   const selectedWorkerTags = workerSelection ?? defaultSelectedWorkerTags;
-  const inventoryState = showFirstTimeCloudflareSetup
-    ? null
-    : (workersQuery.data?.inventoryState ?? null);
-  const resourceError =
-    !showFirstTimeCloudflareSetup && workersQuery.error
-      ? "Could not load Cloudflare resources."
-      : null;
-  const isLoading = !repairWorker && !showFirstTimeCloudflareSetup && workersQuery.isPending;
+  const inventoryState = workersQuery.data?.inventoryState ?? null;
+  const resourceError = workersQuery.error ? "Could not load Cloudflare resources." : null;
+  const isLoading = !repairWorker && workersQuery.isPending;
 
   const handleSubmit = async () => {
     if (blockedReason || isSubmitting) {
@@ -526,7 +500,7 @@ export function VaultCloudflareDialog({
           vaultId: vault._id,
           workerId: repairWorker.workerId,
         });
-      } else if (!showFirstTimeCloudflareSetup && workerToConnect) {
+      } else if (workerToConnect) {
         if (!buildTokenUuid) {
           throw new Error("Choose an API token.");
         }
@@ -549,7 +523,7 @@ export function VaultCloudflareDialog({
         }
         setIsSubmitting(false);
         return;
-      } else if (activeMode === "existing") {
+      } else if (mode === "existing") {
         const selectedWorkers = selectedWorkerTags.map((workerTag) => {
           const worker = workers.find((candidate) => candidate.workerTag === workerTag);
           if (!worker || worker.repository.state !== "ready") {
@@ -605,7 +579,7 @@ export function VaultCloudflareDialog({
         writesWorkersBuilds ? (
           <CloudflareBuildTokenField
             disabled={isSubmitting || Boolean(blockedReason)}
-            emptyState={showFirstTimeCloudflareSetup ? "first-time" : "required"}
+            emptyState="required"
             error={Boolean(buildTokensQuery.error)}
             id="vault-cloudflare-build-token"
             isLoading={buildTokensQuery.isFetching}
@@ -623,7 +597,6 @@ export function VaultCloudflareDialog({
           />
         ) : null
       }
-      createOnly={showFirstTimeCloudflareSetup}
       createRootDirectory={createRootDirectory}
       createWorkerName={createWorkerName}
       didAddWorker={connectedWorkerTags.length > 0}
@@ -633,7 +606,7 @@ export function VaultCloudflareDialog({
       isLoading={isLoading}
       isSubmitting={isSubmitting}
       inventoryState={inventoryState}
-      mode={activeMode}
+      mode={mode}
       onCreateRootDirectoryChange={setCreateRootDirectory}
       onCreateWorkerNameChange={setCreateWorkerName}
       onConnectWorker={(worker) => {

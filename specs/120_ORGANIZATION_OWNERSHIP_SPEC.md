@@ -213,17 +213,14 @@ Cloudflare setup is complete when the selected token was null.
 
 Manual Worker creation and Workers Builds configuration require one exact UUID from the current
 non-empty list. The MCP and agent plugin stop those manual actions when the list is empty. They use
-current inventory to select the recovery.
+current inventory to select the next action.
 
-The first-app guide and managed Create Worker continuation apply only when the managed plan has a
-null build token, no Worker is attached, and the exact Convex project from that plan is attached.
-The user follows https://samebase.com/docs/cloudflare-setup, creates the first account token, and
-deletes the temporary Worker. Samebase must not attach the temporary Worker. It then lists the
-current tokens again. Create Worker with one current exact UUID creates and configures the real
-Worker. It installs the production and preview deploy keys for the exact Convex project from the
-plan before it starts the first build. This action does not resume or retry the completed managed
-run. It deletes older Samebase-named deploy keys before it creates their replacements, so its MCP
-destructive hint is true.
+For a tokenless managed app with no Worker, the user follows
+https://samebase.com/docs/cloudflare-setup, creates the first account token, and deletes the
+temporary Worker. Samebase must not attach the temporary Worker. It then lists the current tokens
+again. The normal Create Worker action creates the real Worker and configures Builds. The separate
+deploy-key action installs production and preview keys for the selected attached Convex project and
+starts a production build. The completed managed run is not resumed or retried.
 
 When a Worker is already attached, Samebase keeps it. After the user completes token setup, Samebase
 lists tokens again and configures Workers Builds for that existing attachment. It does not create

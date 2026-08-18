@@ -14,12 +14,9 @@ import {
 } from "../_generated/server";
 import { vVaultProviderResourceOrigin } from "./model";
 import {
-  readManualWorkerCreateContinuation,
   requireManualProviderWriteCheckpoint,
   requireUserVaultInfrastructureIdle,
   recordManagedProviderWrite,
-  vManualWorkerCreateContinuation,
-  type ManualWorkerCreateContinuation,
 } from "./infrastructureOperation";
 import { isLiveConnectedVault } from "./state";
 import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
@@ -460,11 +457,12 @@ export const readManagedWorkerCreateCheckpoint = internalQuery({
     workerName: string(),
   },
   returns: union(
-    object({ state: literal("planned") }),
-    object({ state: literal("creating") }),
+    object({ state: literal("planned"), buildTokenUuid: string() }),
+    object({ state: literal("creating"), buildTokenUuid: string() }),
     object({
       state: literal("created"),
       workerTag: string(),
+      buildTokenUuid: string(),
     }),
   ),
   handler: async (ctx, args) => {
@@ -475,15 +473,20 @@ export const readManagedWorkerCreateCheckpoint = internalQuery({
     ) {
       throw new Error("Managed Cloudflare Worker does not match the provisioning plan.");
     }
+    const buildTokenUuid = plan.cloudflare.buildTokenUuid;
+    if (buildTokenUuid === null) {
+      throw new Error("Select a Cloudflare Workers Builds token and retry.");
+    }
     switch (plan.cloudflare.state) {
       case "planned":
-        return { state: "planned" as const };
+        return { state: "planned" as const, buildTokenUuid };
       case "creating":
-        return { state: "creating" as const };
+        return { state: "creating" as const, buildTokenUuid };
       case "created":
         return {
           state: "created" as const,
           workerTag: plan.cloudflare.workerTag,
+          buildTokenUuid,
         };
     }
   },
@@ -641,19 +644,14 @@ export const recordManualWorkerCreated = internalMutation({
     workerTag: string(),
     rootDirectory: string(),
   },
-  returns: object({
-    workerId: id("vaultCloudflareWorkers"),
-    continuation: vManualWorkerCreateContinuation,
-  }),
-  handler: async (ctx, args) => {
+  returns: id("vaultCloudflareWorkers"),
+  handler: async (ctx, args): Promise<Id<"vaultCloudflareWorkers">> => {
     const vault = await requireManualProviderWriteCheckpoint(ctx, {
       vaultId: args.vaultId,
       actionId: args.actionId,
       userId: args.userId,
     });
-    const continuation = await readManualWorkerCreateContinuation(ctx, vault, args);
-    const rootDirectory = normalizeVaultRootDirectory(args.rootDirectory);
-    const workerId = await insertWorker(ctx, vault, {
+    return await insertWorker(ctx, vault, {
       vaultId: args.vaultId,
       billingAuthority: {
         kind: "manual_provider_write",
@@ -664,29 +662,9 @@ export const recordManualWorkerCreated = internalMutation({
       accountId: args.accountId,
       workerName: args.workerName,
       workerTag: args.workerTag,
-      rootDirectory,
+      rootDirectory: normalizeVaultRootDirectory(args.rootDirectory),
       origin: "provisioned",
     });
-    if (continuation.state === "managed") {
-      await ctx.db.patch(continuation.plan._id, {
-        cloudflare: {
-          state: "created",
-          workerName: args.workerName,
-          workerTag: args.workerTag,
-          rootDirectory,
-          buildTokenUuid: null,
-        },
-        updatedAt: Date.now(),
-      });
-    }
-    const recordedContinuation: ManualWorkerCreateContinuation =
-      continuation.state === "managed"
-        ? { state: "managed", convexProjectId: continuation.convexProjectId }
-        : { state: "generic" };
-    return {
-      workerId,
-      continuation: recordedContinuation,
-    };
   },
 });
 

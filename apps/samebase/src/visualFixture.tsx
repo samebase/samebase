@@ -252,7 +252,6 @@ const CONNECT_REPOSITORY_VISUAL_MODES = [
 ] as const satisfies readonly ConnectRepositoryVisualMode[];
 const NEW_APP_VISUAL_MODES = [
   "new-app-build-token",
-  "new-app-no-build-token",
   "new-app-provider-blocked",
 ] as const satisfies readonly NewAppPageVisualMode[];
 const ORGANIZATION_MEMBERS_VISUAL_MODES = [
@@ -472,11 +471,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <ConnectRepositoryVisualFixture mode={mode} />;
   }
 
-  if (
-    mode === "new-app-build-token" ||
-    mode === "new-app-no-build-token" ||
-    mode === "new-app-provider-blocked"
-  ) {
+  if (mode === "new-app-build-token" || mode === "new-app-provider-blocked") {
     return <NewAppPageVisualFixture mode={mode} />;
   }
 

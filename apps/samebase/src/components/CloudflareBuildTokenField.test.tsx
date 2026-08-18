@@ -69,7 +69,7 @@ describe("CloudflareBuildTokenField", () => {
     expect(markup).toContain("Workers Builds (bbbbbbbb) · Last used");
   });
 
-  it("keeps generic repair and first-time empty states distinct", () => {
+  it("keeps required and deferred empty states distinct", () => {
     const requiredMarkup = renderToStaticMarkup(
       <CloudflareBuildTokenField
         disabled={false}
@@ -102,24 +102,6 @@ describe("CloudflareBuildTokenField", () => {
         />
       </TestRouterProvider>,
     );
-    const firstTimeMarkup = renderToStaticMarkup(
-      <TestRouterProvider initialEntries={["/vault/ada/demo/settings"]}>
-        <CloudflareBuildTokenField
-          disabled={false}
-          emptyState="first-time"
-          error={false}
-          id="build-token"
-          isLoading={false}
-          lastUsedUuid={null}
-          onReload={() => {}}
-          onValueChange={() => {}}
-          selectionUnavailable={false}
-          tokens={[]}
-          value=""
-        />
-      </TestRouterProvider>,
-    );
-
     expect(requiredMarkup).toContain("No API tokens are listed.");
     expect(requiredMarkup).not.toContain("You can create the app now");
     expect(requiredMarkup).not.toContain("Open Cloudflare");
@@ -136,14 +118,6 @@ describe("CloudflareBuildTokenField", () => {
     expect(deferredMarkup).not.toContain("Create one in Cloudflare");
     expect(deferredMarkup).not.toContain("Open Cloudflare");
     expect(deferredMarkup).toContain("Reload tokens");
-    expect(firstTimeMarkup).toContain(
-      "No API tokens are listed. Complete first-time Cloudflare setup, then reload tokens.",
-    );
-    expect(firstTimeMarkup).toContain('href="/docs/cloudflare-setup"');
-    expect(firstTimeMarkup).toContain("View setup guide");
-    expect(firstTimeMarkup).toContain("Reload tokens");
-    expect(firstTimeMarkup).not.toContain("Open Cloudflare");
-    expect(firstTimeMarkup).not.toContain("dash.cloudflare.com");
   });
 
   it("does not replace a selection that is no longer listed", () => {

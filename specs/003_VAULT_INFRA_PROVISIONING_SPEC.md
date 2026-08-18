@@ -377,11 +377,7 @@ Repository default branch:
 9. `api.vault.cloudflare.createWorker` and `api.vault.cloudflare.detachWorker`
 
 - Create records a provisioned attachment with its approved root before later provider configuration
-  can fail.
-- For the exact tokenless managed continuation, Create also configures Builds with its initial build
-  deferred, rotates deploy keys for the plan's created Convex attachment, and then starts one first
-  production build through that key rotation.
-- For other connected vaults, Create keeps its generic behavior and does not require or change a
+  can fail. It configures Builds and requests an initial build. It does not require or change a
   Convex attachment.
 - Detach changes only the organization's attachment intent and never deletes a selected existing
   Worker.
@@ -460,13 +456,9 @@ sequenceDiagram
   attempt `attach_worker`, `configure_workers_builds_for_github`, or
   `rotate_convex_deploy_keys_for_workers_builds`. Its Cloudflare plan stays `planned`, and no
   `vaultCloudflareWorkers` row exists.
-- One later Create Worker action is the managed continuation only when the null-token Cloudflare
-  plan is `planned` or `created`, no Worker is attached, and its exact created Convex project is
-  attached at the planned config path. The action accepts its current validated Worker name and
-  root, patches the plan to `created`, configures Builds with the first build deferred, rotates keys
-  for that exact Convex attachment, and lets key rotation start exactly one production build. This
-  rule also repairs a detached Worker after an earlier managed Create Worker recorded the plan as
-  `created`. If another Worker is attached, Create Worker uses the generic manual behavior.
+- After first-time token setup, the user uses the normal Create Worker action. That action creates
+  the Worker and configures Builds. The existing deploy-key action then installs keys for the
+  selected attached Convex project and starts a production build.
 - One shared infrastructure-state reader checks the deletion gate and the write-lock row.
 - Only one operation can change a provider attachment or provider resource in one vault at one time.
 - The transaction that creates a create or retry run also creates its active managed lock. The
@@ -566,8 +558,9 @@ Dashboard external links:
   member can run authorized provider work through those backend-only credentials.
 - Cloudflare provisioning requires the vault's `cloudflareAccountId` and an organization credential
   that can access it. It must not inventory accounts and choose one during provisioning.
-- A null-token managed run does not create a Worker. Samebase's later Create Worker action requires
-  a Workers Builds token because the same action completes Builds, deploy keys, and the first build.
+- A null-token managed run does not create a Worker. Samebase's normal Create Worker action requires
+  a Workers Builds token and configures Builds. The separate deploy-key action connects the Worker
+  to an attached Convex project.
 - Workers Builds repository connection uses the connected vault's stored GitHub repo id and a
   required owner id read from the GitHub repository response. The response repo id must match the
   vault before Cloudflare receives the connection request.
@@ -602,8 +595,8 @@ Dashboard external links:
 - [x] The public create action rejects `null` when Cloudflare lists an available token.
 - [x] A no-token managed run attaches source and Convex, creates no Worker attachment, skips all
       Cloudflare blocks, and succeeds with manual Worker setup pending.
-- [x] One later Create Worker action uses the exact managed Convex project, configures Builds with
-      the initial build deferred, rotates both deploy keys, and starts exactly one first build.
+- [x] After first-time token setup, the normal Create Worker action configures Builds and the normal
+      deploy-key action installs Convex keys and starts a production build.
 - [x] Existing-repo connect flow does not auto-provision infra.
 - [x] Create and retry own the managed provider lock from run creation.
 - [x] Existing-repo source setup never owns the provider lock.

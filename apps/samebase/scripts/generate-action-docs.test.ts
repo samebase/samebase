@@ -53,20 +53,13 @@ describe("generated action documentation", () => {
     expect(listBuildTokensDoc).toContain(
       "call vault_cloudflare_configureWorkersBuildsForGitHub for that attachment. Do not create",
     );
-    expect(listBuildTokensDoc).toContain("Generic Worker creation does not");
-    expect(listBuildTokensDoc).toContain("install Convex deploy keys.");
+    expect(listBuildTokensDoc).toContain(
+      "vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds with the new Worker",
+    );
+    expect(listBuildTokensDoc).toMatch(/Worker creation does not install\s+Convex deploy keys\./);
     expect(llmsTxt).toContain("[Cloudflare setup](https://samebase.com/docs/cloudflare-setup.md)");
-    expect(createCloudflareWorkerDoc).toContain(
-      "vault has no attached Worker, and the exact Convex project from that plan is attached",
-    );
-    expect(createCloudflareWorkerDoc).toContain(
-      "It deletes older Samebase-named deploy keys before it creates their\nreplacements.",
-    );
-    expect(createCloudflareWorkerDoc).toContain(
-      "For every other connected vault, the action keeps the generic behavior",
-    );
-    expect(createCloudflareWorkerDoc).toContain(
-      "without creating, changing, or deleting Convex keys",
+    expect(createCloudflareWorkerDoc).toMatch(
+      /This action does not change Convex deploy keys\. Use the\s+separate deploy-key action/,
     );
   });
 });

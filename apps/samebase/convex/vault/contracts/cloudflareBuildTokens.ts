@@ -55,18 +55,19 @@ Cloudflare setup as pending and give the user https://samebase.com/docs/cloudfla
 
 Manual Worker creation and Workers Builds configuration require one exact UUID from a non-empty
 current list. When the list is empty, do not call those writes. Use current vault inventory to
-select the recovery:
+select the next action:
 
 - For a managed plan with a null build token, no attached Worker, and the exact planned Convex
   project attached, give the user https://samebase.com/docs/cloudflare-setup. After the user creates
   the first account token and deletes the temporary Worker, list tokens again and call
-  vault_cloudflare_createWorker with a current exact UUID.
+  vault_cloudflare_createWorker with a current exact UUID. Reread inventory, then call
+  vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds with the new Worker and attached project.
 - When a Worker is already attached, keep it. After the user completes token setup, list tokens
   again and call vault_cloudflare_configureWorkersBuildsForGitHub for that attachment. Do not create
   another Worker.
 - For another manual vault, complete token setup, list tokens again, and continue only with the
-  action that matches the user's request and current inventory. Generic Worker creation does not
-  install Convex deploy keys.
+  action that matches the user's request and current inventory. Worker creation does not install
+  Convex deploy keys.
 
 Never pass null to a manual Worker or Builds write.`,
 } as const;

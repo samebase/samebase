@@ -37,7 +37,7 @@ export function CloudflareBuildTokenField({
   value,
 }: {
   disabled: boolean;
-  emptyState: "deferred" | "first-time" | "required";
+  emptyState: "deferred" | "required";
   error: boolean;
   id: string;
   isLoading: boolean;
@@ -79,7 +79,7 @@ export function CloudflareBuildTokenField({
         <Label>API token</Label>
         <div
           className={
-            emptyState === "deferred" || emptyState === "first-time"
+            emptyState === "deferred"
               ? "text-xs leading-5 text-amber-700"
               : "text-xs leading-5 text-muted-foreground"
           }
@@ -92,13 +92,6 @@ export function CloudflareBuildTokenField({
               setup after you create the app.{" "}
               <Link className={linkStyle} to={DOCS_CLOUDFLARE_SETUP_ROUTE}>
                 View first-time Cloudflare setup
-              </Link>
-            </>
-          ) : emptyState === "first-time" ? (
-            <>
-              No API tokens are listed. Complete first-time Cloudflare setup, then reload tokens.{" "}
-              <Link className={linkStyle} to={DOCS_CLOUDFLARE_SETUP_ROUTE}>
-                View setup guide
               </Link>
             </>
           ) : (

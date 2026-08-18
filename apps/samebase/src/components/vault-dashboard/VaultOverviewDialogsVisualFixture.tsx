@@ -217,7 +217,6 @@ function CloudflareDialogFixture({
           ) : null
         }
         hasSelectedBuildToken
-        createOnly={false}
         createRootDirectory={repair ? "apps/portal" : "/"}
         createWorkerName={invalidName ? "samebase app" : ""}
         didAddWorker={false}

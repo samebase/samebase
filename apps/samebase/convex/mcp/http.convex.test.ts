@@ -292,7 +292,7 @@ describe("MCP tool listing access", () => {
     });
     const expectedSafety = [
       ["vault_actions_createRepository", false],
-      ["vault_cloudflare_createWorker", true],
+      ["vault_cloudflare_createWorker", false],
       ["vault_cloudflare_configureWorkersBuildsForGitHub", true],
       ["vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds", true],
       ["vault_actions_retryInfrastructureProvisioning", true],
@@ -482,7 +482,7 @@ describe("MCP tools/call access enforcement", () => {
         ttlMs: 0,
         cacheScope: "private",
         instructions: expect.stringMatching(
-          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*When that current token list is confirmed empty, pass cloudflareBuildTokenUuid as explicit null\.[\s\S]*keeps cloudflareBuildTokenUuid required[\s\S]*creates the GitHub repository and Convex project but no Cloudflare Worker\.[\s\S]*exact planned Convex project is attached and cloudflareWorkers is empty[\s\S]*Only this managed continuation installs the exact planned Convex deploy keys\.[\s\S]*Before a manual Cloudflare Worker create or Builds configuration action[\s\S]*If the token list is empty, do not call the write\.[\s\S]*When a Worker is already attached, keep it\.[\s\S]*call vault_cloudflare_configureWorkersBuildsForGitHub for that attachment\.[\s\S]*Generic Worker creation does not install Convex deploy keys\.[\s\S]*Never pass null to a manual Worker create or Builds configuration action\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
+          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*When that current token list is confirmed empty, pass cloudflareBuildTokenUuid as explicit null\.[\s\S]*keeps cloudflareBuildTokenUuid required[\s\S]*creates the GitHub repository and Convex project but no Cloudflare Worker\.[\s\S]*exact planned Convex project is attached and cloudflareWorkers is empty[\s\S]*call vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds with the new Worker[\s\S]*Before a manual Cloudflare Worker create or Builds configuration action[\s\S]*If the token list is empty, do not call the write\.[\s\S]*When a Worker is already attached, keep it\.[\s\S]*call vault_cloudflare_configureWorkersBuildsForGitHub for that attachment\.[\s\S]*vault_cloudflare_createWorker does not install Convex deploy keys\.[\s\S]*Never pass null to a manual Worker create or Builds configuration action\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
         ),
         _meta: {
           "io.modelcontextprotocol/serverInfo": {

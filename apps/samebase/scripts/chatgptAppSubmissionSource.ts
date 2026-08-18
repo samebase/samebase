@@ -67,11 +67,11 @@ export const toolJustifications = {
   },
   vault_cloudflare_createWorker: {
     read_only_justification:
-      "Creates one Cloudflare Worker, records it as a vault attachment, configures its Workers Builds triggers, and requests the first production build. Only the tokenless managed continuation with no attached Worker installs the exact planned Convex deploy keys.",
+      "Creates one Cloudflare Worker, records it as a vault attachment, configures its Workers Builds triggers, and requests an initial production build.",
     open_world_justification:
-      "Creates and configures a Worker in the caller's Cloudflare account and starts a build for the caller's GitHub repository. Only a managed plan with a null build token, no attached Worker, and its exact Convex project attached also creates Convex deploy keys.",
+      "Creates and configures a Worker in the caller's Cloudflare account and starts a build for the caller's GitHub repository.",
     destructive_justification:
-      "For the tokenless managed continuation, it installs replacement Convex deploy keys and can delete older Samebase-named keys. The generic path does not change Convex keys. It does not delete Workers, repositories, deployments, or user data.",
+      "Rejects existing Worker names and existing Workers Builds connections. It does not overwrite or delete a Worker, trigger, repository, deployment, or user data.",
   },
   vault_cloudflare_discoverWorkers: {
     read_only_justification:

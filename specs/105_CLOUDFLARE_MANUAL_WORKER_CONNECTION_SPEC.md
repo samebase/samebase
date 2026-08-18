@@ -95,18 +95,10 @@ Cloudflare Workers Builds. Samebase creates the Worker and records its exact pro
 approved root, and `provisioned` attachment together before configuring Builds. It then writes the
 GitHub Builds configuration and re-reads the resulting repository and root evidence.
 
-When a completed managed app has a `null` Builds token in its plan, a `planned` or `created`
-Cloudflare checkpoint, no attached Worker, and the exact planned Convex project attachment, Create
-Worker is the continuation of that managed setup. The user can choose the current Worker name and
-root. Samebase records those approved values in the Cloudflare checkpoint, configures Builds with
-its initial build deferred, rotates production and preview deploy keys for the exact planned Convex
-project, and then starts one first production build through the existing key-rotation operation. No
-project selector is needed. This also repairs a detached Worker after an earlier managed Create
-Worker recorded the Cloudflare checkpoint as `created`.
-
-If those exact managed conditions do not hold, Create Worker keeps its generic behavior. It
-configures Builds and requests the first production build without requiring or changing a Convex
-attachment. Create Worker also keeps this generic behavior when another Worker is attached.
+Create Worker configures Builds and requests the first production build without requiring or
+changing a Convex attachment. A tokenless managed app uses this same action after the user completes
+first-time token setup. The separate `Use <project> for Workers Builds` action then installs the
+Convex deploy keys for the selected attached project and starts a production build.
 
 The create flow requires the same visible token selection. A current Worker's observed token has
 priority during repair. Otherwise, the client selects the organization account's last-used token
@@ -152,8 +144,7 @@ state, but is not removal authority.
 Attaching a Worker does not imply that Samebase may rewrite an existing Worker. `Connect and add`
 explicitly authorizes initial GitHub Builds setup only after Samebase verifies that the Worker has
 no active Builds triggers. GitHub Builds repair and standalone Convex deploy-key rotation remain
-explicit operations. Create Worker for the exact tokenless managed continuation explicitly
-authorizes both initial Builds setup and deploy-key rotation for the plan's Convex project.
+explicit operations.
 
 `Configure Workers Builds` uses the attachment's saved approved root. It does not replace that input
 with a different live root. The member must use `Update root` first when the current provider root
@@ -217,9 +208,6 @@ uses the normal action for that state:
   silent provider action.
 - Write-time tests prove that Cloudflare-only actions update only Cloudflare and deploy-key rotation
   updates both providers.
-- Managed continuation tests prove that Create Worker uses the exact planned Convex attachment,
-  accepts the current Worker name and root, defers the initial build, rotates both deploy keys, and
-  starts one first production build. Generic Create Worker tests require no Convex attachment.
 - UI tests cover vault-level routing, default multiple selection, grouping by stored root, the
   focused unconnected-Worker root flow, count copy, exact Convex action targets, stored-root Builds
   repair, and `Needs attention`.
