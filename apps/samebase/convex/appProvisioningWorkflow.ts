@@ -39,12 +39,14 @@ const composedInfrastructureState = object({
       state: literal("missing"),
       accountId: string(),
       workerName: string(),
+      buildTokenUuid: union(string(), nullValue()),
     }),
     object({
       state: literal("attached"),
       accountId: string(),
       workerName: string(),
       workerId: id("vaultCloudflareWorkers"),
+      buildTokenUuid: union(string(), nullValue()),
     }),
   ),
 });
@@ -214,11 +216,13 @@ export const readComposedInfrastructureState = internalQuery({
             accountId: vault.cloudflareAccountId,
             workerName: plan.cloudflare.workerName,
             workerId: worker._id,
+            buildTokenUuid: plan.cloudflare.buildTokenUuid,
           }
         : {
             state: "missing",
             accountId: vault.cloudflareAccountId,
             workerName: plan.cloudflare.workerName,
+            buildTokenUuid: plan.cloudflare.buildTokenUuid,
           },
     };
   },
@@ -603,31 +607,34 @@ async function runComposedInfrastructure(
     state: afterConvex,
   });
 
-  await appendComposedInfrastructureParentEvent(step, {
-    runId: args.parentRunId,
-    step: "configure_workers_builds_for_github",
-    message: "Configuring Workers Builds for GitHub.",
-  });
-  const build = await runComposedWorkersBuildsGitHubConfiguration(step, {
-    vaultId: args.vaultId,
-    parentRunId: args.parentRunId,
-    userId: args.userId,
-    workerId,
-  });
+  const buildTokenUuid = afterConvex.cloudflare.buildTokenUuid;
+  if (buildTokenUuid !== null) {
+    await appendComposedInfrastructureParentEvent(step, {
+      runId: args.parentRunId,
+      step: "configure_workers_builds_for_github",
+      message: "Configuring Workers Builds for GitHub.",
+    });
+    const build = await runComposedWorkersBuildsGitHubConfiguration(step, {
+      vaultId: args.vaultId,
+      parentRunId: args.parentRunId,
+      userId: args.userId,
+      workerId,
+    });
 
-  await appendComposedInfrastructureParentEvent(step, {
-    runId: args.parentRunId,
-    step: "rotate_convex_deploy_keys_for_workers_builds",
-    message: "Rotating Convex deploy keys for Workers Builds.",
-  });
-  await runComposedConvexDeployKeyRotation(step, {
-    vaultId: args.vaultId,
-    parentRunId: args.parentRunId,
-    userId: args.userId,
-    workerId,
-    convexProjectId,
-    build,
-  });
+    await appendComposedInfrastructureParentEvent(step, {
+      runId: args.parentRunId,
+      step: "rotate_convex_deploy_keys_for_workers_builds",
+      message: "Rotating Convex deploy keys for Workers Builds.",
+    });
+    await runComposedConvexDeployKeyRotation(step, {
+      vaultId: args.vaultId,
+      parentRunId: args.parentRunId,
+      userId: args.userId,
+      workerId,
+      convexProjectId,
+      build,
+    });
+  }
 
   await step.runMutation(
     internal.appProvisioningWorkflow.finishComposedInfrastructureProvisioning,
@@ -644,7 +651,10 @@ async function runComposedInfrastructure(
       runId: args.parentRunId,
       step: "finish",
       level: "info",
-      message: "App provider resources are attached and configured.",
+      message:
+        buildTokenUuid === null
+          ? "App provider resources are attached."
+          : "App provider resources are attached and configured.",
       state: "succeeded",
     },
     { name: "finish_composed_infra" },

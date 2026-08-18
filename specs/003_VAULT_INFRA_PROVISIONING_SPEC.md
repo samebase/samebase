@@ -4,7 +4,7 @@
 
 - Status: Implemented for MVP
 - Owner: Samebase backend/frontend
-- Last updated: 2026-08-17
+- Last updated: 2026-08-18
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Related deletion contract: `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
@@ -31,14 +31,22 @@ resource attachment:
 Provisioning is asynchronous. Retries reuse provider identities that were successfully checkpointed.
 Vault creation succeeds even if downstream provisioning partially fails.
 
+New App also admits a confirmed empty Workers Builds token list. In that case, the managed workflow
+completes source setup, Convex attachment, and Worker attachment, then succeeds without configuring
+Workers Builds or starting the first production build. The existing manual provider actions complete
+those later blocks after a token becomes available.
+
 ## Important Behavior
 
 - `api.vault.actions.createRepository` (new samebase-managed repo) requires a selected GitHub
-  user/org owner. One admission transaction inserts the initializing vault, the create run, the
-  active managed provider lock, and the provisioning plan, then starts the Workflow and stores its
-  ID. A Workflow start failure rolls back all admission writes. The Workflow validates the
-  organization's provider credentials against the vault destinations and starts provider
-  provisioning after source setup succeeds.
+  user/org owner. A Workers Builds token is either one selected UUID or `null` when the current
+  account has no listed token. Before admission, Samebase verifies the selected UUID or confirms
+  that the current token list is empty. One admission transaction inserts the initializing vault,
+  the create run, the active managed provider lock, and the provisioning plan, then starts the
+  Workflow and stores its ID. A Workflow start failure rolls back all admission writes. The Workflow
+  validates the organization's provider credentials against the vault destinations and starts
+  provider provisioning after source setup succeeds. The Workers Builds block verifies a selected
+  UUID again before it writes provider state.
 - `api.vault.actions.connectRepository` (existing GitHub repo connection) does **not**
   auto-provision infra. Its `connect_existing_repository` run is source-only and never owns the
   provider lock.
@@ -98,14 +106,23 @@ attachment in one database transaction. Checkbox-controlled cleanup derives owne
 stable attachment, never from an unattached checkpoint. Current connected resource identities live
 in the durable resource tables used by the dashboard.
 
-`buildTokenUuid` is the explicit non-secret Workers Builds token record selected for this run. The
-plan keeps it because a retry must use the same user choice. Before each trigger write, Samebase
-requires Cloudflare to list that UUID for the vault account. Samebase does not store the token name,
-the underlying user API token ID, or its secret. If Cloudflare no longer lists the selected UUID,
-managed setup tells the user to remove the failed app and create it again with another token. Retry
-does not choose a replacement token. After both trigger writes succeed, Samebase also records this
-UUID as the organization account's last-used Builds token. That organization default affects only
-future selections. It never replaces the plan UUID during a retry.
+`buildTokenUuid` is an explicit `string | null` non-secret Workers Builds token choice. A string is
+the token record selected for the run. The plan keeps it because a retry must use the same user
+choice. Before each trigger write, Samebase requires Cloudflare to list that UUID for the vault
+account. Samebase does not store the token name, the underlying user API token ID, or its secret. If
+Cloudflare no longer lists the selected UUID, managed setup tells the user to remove the failed app
+and create it again with another token. Retry does not choose a replacement token.
+
+`null` records that the account had no listed token when New App started. It is not a general option
+to skip managed Builds setup. The public action confirms that the provider token list is empty
+before it accepts `null`. Worker creation does not use a Builds token. After the Worker attachment
+succeeds, the managed run succeeds and skips the Workers Builds and first-build blocks. A later
+manual provider action selects a current token and continues the existing setup path. The managed
+plan does not invent or persist that later choice.
+
+After both trigger writes succeed for a selected UUID, Samebase records the UUID as the organization
+account's last-used Builds token. That organization default affects only future selections. It never
+replaces the plan UUID during a retry.
 
 Indexes:
 
@@ -407,14 +424,18 @@ sequenceDiagram
   WF->>CFB: attach_worker child run
   CFB->>CFL: create/read Worker
   CFB->>DB: write vaultCloudflareWorkers
-  WF->>CFB: configure_workers_builds_for_github child run
-  CFB->>CFL: connect GitHub repo + create build triggers
-  CFB->>DB: record Workers Builds configuration event
-  WF->>CFB: rotate_convex_deploy_keys_for_workers_builds child run
-  CFB->>CVX: mint production + project preview deploy keys
-  CFB->>CFL: patch keys + SAMEBASE_CONVEX_PROJECT on both triggers
-  CFB->>CFL: start first production build
-  CFB->>DB: record deploy-key rotation event
+  alt selected Workers Builds token
+    WF->>CFB: configure_workers_builds_for_github child run
+    CFB->>CFL: connect GitHub repo + create build triggers
+    CFB->>DB: record Workers Builds configuration event
+    WF->>CFB: rotate_convex_deploy_keys_for_workers_builds child run
+    CFB->>CVX: mint production + project preview deploy keys
+    CFB->>CFL: patch keys + SAMEBASE_CONVEX_PROJECT on both triggers
+    CFB->>CFL: start first production build
+    CFB->>DB: record deploy-key rotation event
+  else no listed token
+    WF->>DB: leave Workers Builds pending for manual setup
+  end
   WF->>DB: mark parent run succeeded
 ```
 
@@ -426,6 +447,9 @@ sequenceDiagram
 - `configure_workers_builds_for_github` and `rotate_convex_deploy_keys_for_workers_builds` do not
   change either attachment row. Their provider writes are observed live when a caller next requests
   current state.
+- A plan with `buildTokenUuid: null` reaches terminal success after `attach_worker`. It does not
+  attempt either later provider block. The attached Worker's live `builds.not_connected` result is
+  the pending setup state for the existing manual actions.
 - One shared infrastructure-state reader checks the deletion gate and the write-lock row.
 - Only one operation can change a provider attachment or provider resource in one vault at one time.
 - The transaction that creates a create or retry run also creates its active managed lock. The
@@ -486,6 +510,13 @@ In `VaultDashboard`:
   remains usable while later facts show a quiet loading pulse. Reload actions retry only the failed
   observation axis.
 
+In `NewAppPage`:
+
+- A confirmed empty Workers Builds token list is a non-error notice and does not block New App after
+  the repository, Convex project, and Worker names are valid.
+- Token-list loading and token-list read failure remain distinct from a confirmed empty result.
+- New App submits one selected token UUID when tokens exist and explicit `null` when none exist.
+
 Dashboard external links:
 
 - Samebase-managed vaults with infrastructure metadata render a compact service-link row near the
@@ -517,6 +548,8 @@ Dashboard external links:
   member can run authorized provider work through those backend-only credentials.
 - Cloudflare provisioning requires the vault's `cloudflareAccountId` and an organization credential
   that can access it. It must not inventory accounts and choose one during provisioning.
+- Worker creation does not require a Workers Builds token. The token is required only when the
+  Workers Builds configuration block starts.
 - Workers Builds repository connection uses the connected vault's stored GitHub repo id and a
   required owner id read from the GitHub repository response. The response repo id must match the
   vault before Cloudflare receives the connection request.
@@ -547,6 +580,10 @@ Dashboard external links:
 ## Acceptance Checklist
 
 - [x] New samebase-managed vault creation schedules infra provisioning automatically.
+- [x] A confirmed empty Workers Builds token list admits New App with explicit `null` input.
+- [x] The public create action rejects `null` when Cloudflare lists an available token.
+- [x] A no-token managed run attaches source, Convex, and Worker resources, skips the two token-
+      dependent blocks, and succeeds with live Workers Builds setup still pending.
 - [x] Existing-repo connect flow does not auto-provision infra.
 - [x] Create and retry own the managed provider lock from run creation.
 - [x] Existing-repo source setup never owns the provider lock.

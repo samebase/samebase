@@ -512,13 +512,6 @@ async function createWorkerForManagedWorkflow(
     transport: connection.transport,
     accountId,
   });
-  await requireCloudflareBuildTokenUuid({
-    token: connection.token,
-    transport: connection.transport,
-    accountId: account.accountId,
-    buildTokenUuid: checkpoint.buildTokenUuid,
-  });
-
   let worker: { workerName: string; workerTag: string };
   let workerCreated = false;
   if (checkpoint.state === "created") {

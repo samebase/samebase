@@ -1,6 +1,6 @@
 "use node";
 
-import { v, type Infer } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -24,6 +24,7 @@ import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
   isCloudflareMcpInvalidAccessTokenError,
   isCloudflareWorkerNameAvailable,
+  listCloudflareBuildTokens,
   requireCloudflareBuildTokenUuid,
 } from "../cloudflareResources";
 import {
@@ -764,12 +765,22 @@ export async function createAppForUser(
   assertResourceNameAvailable("GitHub repository name", githubNameAvailability);
   assertResourceNameAvailable("Convex project name", convexNameAvailability);
   assertResourceNameAvailable("Cloudflare Worker name", cloudflareNameAvailability);
-  await requireCloudflareBuildTokenUuid({
+  const cloudflareTokenArgs = {
     token: cloudflareConnection.cloudflareToken,
     transport: resolveCloudflareApiTransport(cloudflareConnection.cloudflareAuthMethod),
     accountId: cloudflareConnection.cloudflareAccountId,
-    buildTokenUuid: args.cloudflareBuildTokenUuid,
-  });
+  };
+  if (args.cloudflareBuildTokenUuid === null) {
+    const buildTokens = await listCloudflareBuildTokens(cloudflareTokenArgs);
+    if (buildTokens.length > 0) {
+      throw new ConvexError("A Cloudflare Workers Builds token is available. Select it and retry.");
+    }
+  } else {
+    await requireCloudflareBuildTokenUuid({
+      ...cloudflareTokenArgs,
+      buildTokenUuid: args.cloudflareBuildTokenUuid,
+    });
+  }
 
   const visibility = args.private === false ? "public" : "private";
   const { vaultId, runId } = await ctx.runMutation(

@@ -3,7 +3,7 @@ import { v, type Infer } from "convex/values";
 import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 
-const { boolean, id, object, optional, string } = v;
+const { boolean, id, null: nullValue, object, optional, string, union } = v;
 
 const vCreateRepositoryResult = object({
   vaultId: id("vaults"),
@@ -14,7 +14,7 @@ const createRepositoryFields = {
   name: string(),
   convexProjectName: string(),
   cloudflareWorkerName: string(),
-  cloudflareBuildTokenUuid: string(),
+  cloudflareBuildTokenUuid: union(string(), nullValue()),
   description: optional(string()),
   private: optional(boolean()),
 };
@@ -49,15 +49,16 @@ export const createRepositoryContract = {
       convexProjectName: "Convex project name to provision for the app.",
       cloudflareWorkerName: "Cloudflare Worker name to provision for the app.",
       cloudflareBuildTokenUuid:
-        "Workers Builds token UUID returned by cloudflare_listWorkersBuildTokens.",
+        "Workers Builds token UUID returned by cloudflare_listWorkersBuildTokens, or null when that list is empty.",
       description: "Optional GitHub repository description.",
       private: "Whether to create a private GitHub repository. Defaults to true.",
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Creates a complete Samebase app in one action: a GitHub repository under the selected
 organization's verified GitHub owner, seeded with the starter template, a Convex project and dev/prod deployments, a
-Cloudflare Worker, Workers Builds configured for the repository (push to the default branch deploys,
-pull requests get preview deploys), and Convex deploy keys placed into the build triggers.
+Cloudflare Worker, and, when a Workers Builds token is available, Workers Builds configured for the
+repository (push to the default branch deploys, pull requests get preview deploys) with Convex deploy
+keys placed into the build triggers.
 
 Preconditions: the caller must be an organization member. Its GitHub App installation and selected
 Convex and Cloudflare provider connections must be available. The
@@ -65,10 +66,10 @@ target names must be available on each provider. A name collision fails the call
 any vault or run is created, so pick different names and call again; failures after
 provisioning starts surface through \`get_user_vaults\` instead.
 
-What it writes: one repository (private by default), one Convex project, one Worker, and two
-Workers Builds triggers that each carry \`CONVEX_DEPLOY_KEY\` and
-\`PREVIEW_CONVEX_DEPLOY_KEY\` variables. All resources live in the organization's provider accounts.
-Deleting the Samebase account does not remove or stop any of them.
+What it writes: one repository (private by default), one Convex project, and one Worker. When
+\`cloudflareBuildTokenUuid\` is not null, it also writes two Workers Builds triggers that each carry
+\`CONVEX_DEPLOY_KEY\` and \`PREVIEW_CONVEX_DEPLOY_KEY\` variables. All resources live in the
+organization's provider accounts. Deleting the Samebase account does not remove or stop any of them.
 
 Progress and failure are readable through \`get_user_vaults\`: while running, \`providerSetup\`
 carries the current step; on failure it carries the failed step and a message. Repair it with

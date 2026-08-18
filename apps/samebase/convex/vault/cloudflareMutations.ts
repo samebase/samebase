@@ -457,12 +457,11 @@ export const readManagedWorkerCreateCheckpoint = internalQuery({
     workerName: string(),
   },
   returns: union(
-    object({ state: literal("planned"), buildTokenUuid: string() }),
-    object({ state: literal("creating"), buildTokenUuid: string() }),
+    object({ state: literal("planned") }),
+    object({ state: literal("creating") }),
     object({
       state: literal("created"),
       workerTag: string(),
-      buildTokenUuid: string(),
     }),
   ),
   handler: async (ctx, args) => {
@@ -475,14 +474,13 @@ export const readManagedWorkerCreateCheckpoint = internalQuery({
     }
     switch (plan.cloudflare.state) {
       case "planned":
-        return { state: "planned" as const, buildTokenUuid: plan.cloudflare.buildTokenUuid };
+        return { state: "planned" as const };
       case "creating":
-        return { state: "creating" as const, buildTokenUuid: plan.cloudflare.buildTokenUuid };
+        return { state: "creating" as const };
       case "created":
         return {
           state: "created" as const,
           workerTag: plan.cloudflare.workerTag,
-          buildTokenUuid: plan.cloudflare.buildTokenUuid,
         };
     }
   },
@@ -713,6 +711,10 @@ export const readManagedWorkerConfigurationContext = internalQuery({
     ) {
       throw new Error("Managed Cloudflare Worker does not match the active provisioning run.");
     }
+    const buildTokenUuid = plan.cloudflare.buildTokenUuid;
+    if (buildTokenUuid === null) {
+      throw new Error("Select a Cloudflare Workers Builds token and retry.");
+    }
     return {
       organizationId: vault.organizationId,
       ghRepoId: vault.ghRepoId,
@@ -723,7 +725,7 @@ export const readManagedWorkerConfigurationContext = internalQuery({
       workerName: worker.workerName,
       workerTag: worker.workerTag,
       rootDirectory: plan.cloudflare.rootDirectory,
-      buildTokenUuid: plan.cloudflare.buildTokenUuid,
+      buildTokenUuid,
     };
   },
 });
