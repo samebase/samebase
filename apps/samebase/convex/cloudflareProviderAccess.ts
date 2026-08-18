@@ -82,31 +82,32 @@ export const checkCloudflareConnectionAccess = action({
         organizationId: args.organizationId,
       },
     );
+    const configuration = await ctx.runQuery(
+      internal.organizationProviderCredentials.loadForProviderStatus,
+      {
+        organizationId,
+        userId: ctx.viewer.userId,
+      },
+    );
+    const credential = configuration.cloudflareCredential;
     let connection: ResolvedCloudflareConnection | null;
-    try {
-      const configuration = await ctx.runQuery(
-        internal.organizationProviderCredentials.loadForProviderStatus,
-        {
-          organizationId,
-          userId: ctx.viewer.userId,
-        },
-      );
-      const credential = configuration.cloudflareCredential;
-      if (credential === undefined) {
-        connection = null;
-      } else {
-        const account = configuration.cloudflareAccount;
-        if (account === undefined) {
-          throw new Error("Cloudflare credential has no configured account.");
-        }
-        connection = {
-          auth: credential.auth,
-          account,
-          ...(credential.tokenHealth ? { tokenHealth: credential.tokenHealth } : {}),
-        };
+    if (credential === undefined) {
+      connection = null;
+    } else if (credential.auth.method === "api_key") {
+      const account = configuration.cloudflareAccount;
+      if (account === undefined) {
+        throw new Error("Cloudflare credential has no configured account.");
       }
-    } catch {
-      throw new Error("Cloudflare access check failed.");
+      connection = {
+        auth: credential.auth,
+        account,
+        ...(credential.tokenHealth ? { tokenHealth: credential.tokenHealth } : {}),
+      };
+    } else {
+      connection = await ctx.runAction(internal.cloudflareOAuth.resolveConnectionForOrganization, {
+        organizationId,
+        userId: ctx.viewer.userId,
+      });
     }
     if (connection === null) {
       return {
@@ -226,10 +227,7 @@ async function runCloudflareProbe<Value>({
       },
     };
   } catch (error) {
-    console.warn("cloudflare:provider_access_probe_failed", {
-      check: key,
-      errorName: error instanceof Error ? error.name : "unknown",
-    });
+    console.warn("cloudflare:provider_access_probe_failed", { check: key }, error);
     return {
       state: "error",
       check: {

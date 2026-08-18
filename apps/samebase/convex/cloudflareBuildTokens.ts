@@ -1,7 +1,7 @@
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
-import { CloudflareApiError, resolveCloudflareApiTransport } from "./cloudflareApi/client";
+import { resolveCloudflareApiTransport } from "./cloudflareApi/client";
 import { listCloudflareBuildTokens } from "./cloudflareResources";
 import { action } from "./functions";
 import {
@@ -25,31 +25,24 @@ export async function listWorkersBuildTokensForUser(
   if (!connection || !token || !accountId) {
     throw new Error("Cloudflare connection is required.");
   }
-  try {
-    const tokens = await listCloudflareBuildTokens({
-      token,
-      transport: resolveCloudflareApiTransport(connection.auth.method),
-      accountId,
-    });
-    const lastUsedBuildTokenUuid = connection.account.lastUsedBuildTokenUuid;
-    return {
-      accountId,
-      lastUsedBuildTokenUuid:
-        lastUsedBuildTokenUuid &&
-        tokens.some((buildToken) => buildToken.uuid === lastUsedBuildTokenUuid)
-          ? lastUsedBuildTokenUuid
-          : null,
-      tokens: tokens.map((buildToken) => ({
-        uuid: buildToken.uuid,
-        name: buildToken.name,
-      })),
-    };
-  } catch (error) {
-    if (error instanceof CloudflareApiError) {
-      throw new Error("Could not load Cloudflare Workers Builds tokens.");
-    }
-    throw error;
-  }
+  const tokens = await listCloudflareBuildTokens({
+    token,
+    transport: resolveCloudflareApiTransport(connection.auth.method),
+    accountId,
+  });
+  const lastUsedBuildTokenUuid = connection.account.lastUsedBuildTokenUuid;
+  return {
+    accountId,
+    lastUsedBuildTokenUuid:
+      lastUsedBuildTokenUuid &&
+      tokens.some((buildToken) => buildToken.uuid === lastUsedBuildTokenUuid)
+        ? lastUsedBuildTokenUuid
+        : null,
+    tokens: tokens.map((buildToken) => ({
+      uuid: buildToken.uuid,
+      name: buildToken.name,
+    })),
+  };
 }
 
 export const list = action({

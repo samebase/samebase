@@ -779,22 +779,25 @@ async function resolveConnectionForAuthority(
         source: invalidToken ? "refresh_attempt" : "runtime_error",
         errorMessage: sanitizeTokenHealthError(error),
       };
-      console.log("cloudflare:mcp_token:refresh_failed", {
-        organizationId,
-        reason: "refresh_request_failed",
-        derivedStatus: derivedTokenHealth.status,
-        expiresAt,
-        invalidToken,
-        clientIdLength: clientId.length,
-        errorMessage: tokenHealth.errorMessage,
-      });
+      console.error(
+        "cloudflare:mcp_token:refresh_failed",
+        {
+          organizationId,
+          reason: "refresh_request_failed",
+          derivedStatus: derivedTokenHealth.status,
+          expiresAt,
+          invalidToken,
+          clientIdLength: clientId.length,
+        },
+        error,
+      );
       await replaceCloudflareCredentialForAuthority(ctx, authority, organizationId, {
         expectedAuth: credential.auth,
         expectedTokenRefreshLease: refreshLease,
         auth: credential.auth,
         tokenHealth,
       });
-      throw new Error("Cloudflare token refresh failed.");
+      throw error;
     }
     const nextExpiresAt = Date.now() + refreshed.expires_in * 1000;
     const refreshedAuth: CloudflareMcpOAuthAuth = {
@@ -1109,13 +1112,16 @@ export const finishCloudflareMcpOAuth = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
     });
-    console.log("cloudflare:mcp_oauth:exchange_failed", {
-      organizationId: oauthState.organizationId,
-      outcome: "failed",
-      clientIdLength: clientId.length,
-      hasCodeVerifier: codeVerifier.length > 0,
-      errorName: err instanceof Error ? err.name : "UnknownError",
-    });
+    console.error(
+      "cloudflare:mcp_oauth:exchange_failed",
+      {
+        organizationId: oauthState.organizationId,
+        outcome: "failed",
+        clientIdLength: clientId.length,
+        hasCodeVerifier: codeVerifier.length > 0,
+      },
+      err,
+    );
     completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
       provider: "cloudflare",
       code: "failed",

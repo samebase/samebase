@@ -1935,15 +1935,18 @@ export async function configureCloudflareWorkerBuildsForGitHub(
 
     return build;
   } catch (error) {
-    console.error("infra:cloudflare:workers_builds:configure_github:failed", {
-      vaultId: args.vaultId,
-      accountId: args.accountId,
-      workerName: args.workerName,
-      workerTag: args.workerTag,
-      repo: `${args.owner}/${args.repo}`,
-      step,
-      message: toErrorMessage(error),
-    });
+    console.error(
+      "infra:cloudflare:workers_builds:configure_github:failed",
+      {
+        vaultId: args.vaultId,
+        accountId: args.accountId,
+        workerName: args.workerName,
+        workerTag: args.workerTag,
+        repo: `${args.owner}/${args.repo}`,
+        step,
+      },
+      error,
+    );
     throw error;
   }
 }
@@ -2073,14 +2076,17 @@ export async function rotateConvexDeployKeysForCloudflareWorkerBuilds(
       workerTag: args.workerTag,
     });
   } catch (error) {
-    console.error("infra:cloudflare:convex_deploy_keys:rotate_for_workers_builds:failed", {
-      vaultId: args.vaultId,
-      accountId: args.accountId,
-      workerName: args.workerName,
-      workerTag: args.workerTag,
-      step,
-      message: toErrorMessage(error),
-    });
+    console.error(
+      "infra:cloudflare:convex_deploy_keys:rotate_for_workers_builds:failed",
+      {
+        vaultId: args.vaultId,
+        accountId: args.accountId,
+        workerName: args.workerName,
+        workerTag: args.workerTag,
+        step,
+      },
+      error,
+    );
     throw error;
   }
 }

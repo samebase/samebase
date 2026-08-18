@@ -155,7 +155,7 @@ describe("Cloudflare Workers Builds token list", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("does not expose Cloudflare provider error details", async () => {
+  it("preserves Cloudflare provider error details", async () => {
     const { memberId, organizationId, t } = await seedCloudflareOrganization();
     vi.stubGlobal(
       "fetch",
@@ -180,7 +180,6 @@ describe("Cloudflare Workers Builds token list", () => {
       errorMessage = error instanceof Error ? error.message : String(error);
     }
 
-    expect(errorMessage).toContain("Could not load Cloudflare Workers Builds tokens.");
-    expect(errorMessage).not.toContain("provider-internal-detail");
+    expect(errorMessage).toContain("code 9999: provider-internal-detail");
   });
 });

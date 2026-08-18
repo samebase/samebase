@@ -630,13 +630,23 @@ async function resolveConnectionForAuthority(
         source: invalidToken ? "refresh_attempt" : "runtime_error",
         errorMessage: sanitizeTokenHealthError(error),
       };
+      console.error(
+        "cloudflare:oauth_token:refresh_failed",
+        {
+          organizationId,
+          derivedStatus: derivedTokenHealth.status,
+          expiresAt,
+          invalidToken,
+        },
+        error,
+      );
       await replaceCloudflareCredentialForAuthority(ctx, authority, organizationId, {
         expectedAuth: credential.auth,
         expectedTokenRefreshLease: refreshLease,
         auth: credential.auth,
         tokenHealth,
       });
-      throw new Error("Cloudflare token refresh failed.");
+      throw error;
     }
 
     const nextExpiresAt = Date.now() + refreshed.expiresIn * 1000;
@@ -933,11 +943,14 @@ export const finishCloudflareOAuth = httpAction(async (ctx, request) => {
     await ctx.runMutation(internal.oauthState.deleteOauthState, {
       id: oauthState._id,
     });
-    console.log("cloudflare:oauth:exchange_failed", {
-      organizationId: oauthState.organizationId,
-      outcome: "failed",
-      errorName: err instanceof Error ? err.name : "UnknownError",
-    });
+    console.error(
+      "cloudflare:oauth:exchange_failed",
+      {
+        organizationId: oauthState.organizationId,
+        outcome: "failed",
+      },
+      err,
+    );
     completionReturnUrl = buildAuthorizationErrorUrl(returnUrl, {
       provider: "cloudflare",
       code: "failed",

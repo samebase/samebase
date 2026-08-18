@@ -546,9 +546,7 @@ async function checkCloudflareWorkerNameAvailability(
       connection,
     });
   } catch (error) {
-    console.warn("vault:create:cloudflare_name_check_failed", {
-      message: toErrorMessage(error),
-    });
+    console.warn("vault:create:cloudflare_name_check_failed", error);
     return buildUnknownResult("Could not check Cloudflare Worker name.");
   }
 }
@@ -594,9 +592,7 @@ async function checkCloudflareWorkerNameAvailabilityForConnection(
       throw error;
     }
   } catch (error) {
-    console.warn("vault:create:cloudflare_name_check_failed", {
-      message: toErrorMessage(error),
-    });
+    console.warn("vault:create:cloudflare_name_check_failed", error);
     return buildUnknownResult("Could not check Cloudflare Worker name.");
   }
 }
