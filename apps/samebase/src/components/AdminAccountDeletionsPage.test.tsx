@@ -1,11 +1,17 @@
 // @vitest-environment jsdom
 
+import { getFunctionName } from "convex/server";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { api } from "../../convex/_generated/api";
 import { AdminAccountDeletionsPage } from "./AdminAccountDeletionsPage";
 
-const mutationState = vi.hoisted(() => ({ retry: vi.fn() }));
+const mutationState = vi.hoisted(() => ({
+  deleteNow: vi.fn(),
+  restore: vi.fn(),
+  retry: vi.fn(),
+}));
 const queryState = vi.hoisted(() => ({
   detail: {
     run: {
@@ -14,6 +20,7 @@ const queryState = vi.hoisted(() => ({
       currentStep: "revoke_access",
       requestedAt: 1,
       latestProgressAt: 2,
+      deletionStartsAt: Date.UTC(2026, 7, 26, 12),
       retryCount: 1,
       email: "person_name@example.test",
       latestSafeError: "Provider revocation needs staff attention.",
@@ -44,21 +51,82 @@ const queryState = vi.hoisted(() => ({
   },
 }));
 
-vi.mock("convex/react", () => ({
-  useMutation: () => mutationState.retry,
-  usePaginatedQuery: () => ({
-    results: [queryState.detail.run],
-    status: "Exhausted",
-    loadMore: vi.fn(),
-  }),
-  useQuery: (_reference: unknown, args: object | "skip") =>
-    args === "skip" ? undefined : queryState.detail,
-}));
+vi.mock("convex/react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("convex/react")>();
+  return {
+    ...actual,
+    useMutation: (reference: Parameters<typeof actual.useMutation>[0]) => {
+      const name = getFunctionName(reference);
+      if (name === getFunctionName(api.accountDeletion.index.deleteNow)) {
+        return mutationState.deleteNow;
+      }
+      if (name === getFunctionName(api.accountDeletion.index.restore)) {
+        return mutationState.restore;
+      }
+      return mutationState.retry;
+    },
+    usePaginatedQuery: () => ({
+      results: [queryState.detail.run],
+      status: "Exhausted",
+      loadMore: vi.fn(),
+    }),
+    useQuery: (_reference: unknown, args: object | "skip") =>
+      args === "skip" ? undefined : queryState.detail,
+  };
+});
 
 describe("AdminAccountDeletionsPage", () => {
   beforeEach(() => {
+    queryState.detail.run.state = "needs_attention";
+    mutationState.deleteNow.mockReset();
+    mutationState.deleteNow.mockResolvedValue(undefined);
+    mutationState.restore.mockReset();
+    mutationState.restore.mockResolvedValue(undefined);
     mutationState.retry.mockReset();
     mutationState.retry.mockResolvedValue(undefined);
+  });
+
+  it("lets staff restore or immediately delete only a queued account", async () => {
+    queryState.detail.run.state = "queued";
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+    await act(async () => {
+      root.render(<AdminAccountDeletionsPage />);
+    });
+    try {
+      const operation = Array.from(rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "run_id-1",
+      );
+      await act(async () => operation?.click());
+
+      const restore = Array.from(rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Restore account",
+      );
+      const deleteNow = Array.from(rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Delete now",
+      );
+      expect(restore).toBeDefined();
+      expect(deleteNow).toBeDefined();
+      expect(rootElement.textContent).toContain("Deletion starts");
+      expect(rootElement.textContent).not.toContain("Retry");
+
+      await act(async () => {
+        deleteNow?.click();
+        await Promise.resolve();
+      });
+      expect(mutationState.deleteNow).toHaveBeenCalledWith({ runId: "run_id-1" });
+
+      await act(async () => {
+        restore?.click();
+        await Promise.resolve();
+      });
+      expect(mutationState.restore).toHaveBeenCalledWith({ runId: "run_id-1" });
+      expect(rootElement.querySelector("section")).toBeNull();
+    } finally {
+      await act(async () => root.unmount());
+      rootElement.remove();
+    }
   });
 
   it("masks operations and exposes safe provider outcomes with retry only on attention", async () => {

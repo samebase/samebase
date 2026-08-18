@@ -261,6 +261,7 @@ const CONNECT_ORGANIZATION_VISUAL_MODES = [
   "connect-organization-page",
 ] as const satisfies readonly VisualFixtureMode[];
 const MISC_VISUAL_MODES = [
+  "account-deletion-queued",
   "account-deletion-running",
   "account-deletion-attention",
   "public-account-checking-login",
@@ -371,7 +372,11 @@ function readSelection(modeSearchValue: string | undefined): VisualFixtureSelect
 }
 
 function renderVisualFixture(mode: VisualFixtureMode) {
-  if (mode === "account-deletion-running" || mode === "account-deletion-attention") {
+  if (
+    mode === "account-deletion-queued" ||
+    mode === "account-deletion-running" ||
+    mode === "account-deletion-attention"
+  ) {
     return <AccountDeletionStatusVisualFixture mode={mode} />;
   }
 

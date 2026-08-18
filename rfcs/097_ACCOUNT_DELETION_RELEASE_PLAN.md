@@ -30,11 +30,13 @@ Before release, a signed-in user must be able to delete their Samebase account f
 observe the deletion until it succeeds or needs attention. Staff must be able to observe the same
 run and retry failed work.
 
-Deletion has three product stages:
+Deletion has four product stages:
 
 1. **Lock:** accept the request, create a durable deletion run, and deny normal account access.
-2. **Clean:** cancel billing, revoke access, and delete Samebase-owned user data in retryable steps.
-3. **Finish:** delete authentication and user records, send completion email, and retain only a
+2. **Wait:** keep the run queued for seven days so support can restore the account or start deletion
+   sooner after a direct user request.
+3. **Clean:** cancel billing, revoke access, and delete Samebase-owned user data in retryable steps.
+4. **Finish:** delete authentication and user records, send completion email, and retain only a
    scrubbed operation receipt.
 
 The feature is not finished merely when a workflow can start. It is finished when the manual release
@@ -50,12 +52,16 @@ the URL-owned `?delete-account` confirmation dialog with this meaning:
 ```text
 Delete account?
 
-This permanently deletes your Samebase account and data.
+Your account will be disabled now. Permanent deletion will start seven days
+after you continue.
+
+During those seven days, email contact@samebase.com to restore your account
+or start deletion sooner.
 
 Nothing outside Samebase is deleted: your apps, GitHub repositories, Convex
 projects, and Cloudflare Workers keep running.
 
-[ Cancel ] [ Delete account ]
+[ Cancel ] [ Schedule deletion ]
 ```
 
 The current signed-in session proves which account is requesting deletion. The flow does not ask the
@@ -96,15 +102,20 @@ becoming cancellable. The subscribed stakes query remains the only source of dis
 dialog then clears the typed phrase, shows a short notice, and asks the user to confirm again.
 
 The confirmation action is disabled until the typed phrase matches and while the request is being
-accepted. Acceptance atomically creates one durable account deletion run and gates the user.
-Repeated submission returns the same active run instead of creating another deletion and does not
-recheck the phrase.
+accepted. Acceptance atomically creates one durable queued account deletion run and gates the user.
+The workflow is scheduled for exactly seven days after acceptance. Repeated submission returns the
+same active run instead of creating another deletion and does not recheck the phrase.
 
 ### While deletion runs
 
 After acceptance, the app navigates to `/account-deletion`.
 
-The user can see:
+While the run is queued, the user sees the exact permanent deletion start time and the
+`contact@samebase.com` address. Support can restore the same account or start the existing deletion
+run early. Restoration removes the queued run and request event. It does not retain a cancellation
+receipt or create a new cancellation state.
+
+After permanent deletion starts, the user can see:
 
 - that deletion is in progress
 - the current user-safe step and latest progress time
@@ -215,12 +226,15 @@ The paginated list and detail view show:
 - user email only while deletion is incomplete
 - state, current step, and latest progress time
 - retry count and latest safe error
+- the permanent deletion start time for queued runs
+- restore and delete-now controls for queued runs
 - billing, provider revocation, and completion-email outcomes
 - retry control for retryable failed work
 
 Completed runs show the operation ID, timestamps, step outcomes, and result after the identity has
-been scrubbed. Staff cannot skip mandatory steps, force a run to success, impersonate the user, or
-initiate arbitrary account deletion from this page in version one.
+been scrubbed. Staff cannot restore a run after permanent deletion starts. Staff cannot skip
+mandatory steps, force a run to success, impersonate the user, or initiate deletion for an account
+that did not request it.
 
 ## Backend Contract
 
@@ -233,6 +247,10 @@ identifier.
 An active user's row has no deletion marker. A deleting user's row contains the run ID and request
 time. Access resolution maps that user to a deletion-only role granting only public access and the
 narrow account-deletion status function.
+
+The request schedules the workflow for seven days later. A queued-only staff mutation can start it
+early. A separate queued-only staff mutation restores the same user to active and deletes the run
+and request event in one transaction. A scheduled callback with no run does nothing.
 
 The workflow processes bounded, idempotent steps. A fail-closed policy registry classifies every
 user-owned or user-referencing table as delete, detach, anonymize, or retain. Executable cleanup
@@ -265,7 +283,8 @@ real deletion volume justifies it, and the account run never retains identity on
 - No automatic deletion of repositories, deployments, projects, Workers, domains, or other external
   provider resources.
 - No automatic PostHog deletion integration.
-- No grace-period restore or permanent soft-deleted `users` row.
+- No self-service restoration, cancellation state, cancellation receipt, or permanent soft-deleted
+  `users` row.
 
 ## Definition Of Done
 
@@ -283,20 +302,23 @@ test succeeds in the production-like environment with a dedicated non-staff acco
    reassurance are visually separate, verify the exact uncommitted-change warning and every affected
    repository and branch are shown with working review links, then confirm once.
 4. Verify the app immediately navigates to `/account-deletion`, ordinary product navigation is no
-   longer available, and a second confirmation cannot create another run.
-5. Verify the staff `/admin/account-deletions` page shows the same operation, account identity,
-   current step, and progress.
-6. Verify the other browser or isolated profile and the provider connection stop granting Samebase
+   longer available, the exact deletion start time is seven days after the request, and a second
+   confirmation cannot create another run.
+5. Verify the staff `/admin/account-deletions` page shows the same queued operation, account
+   identity, deletion start time, Restore account action, and Delete now action.
+6. Restore the account and verify normal account access returns. Request deletion again, then use
+   Delete now for the remaining acceptance steps.
+7. Verify the other browser or isolated profile and the provider connection stop granting Samebase
    access while the initiating session can only read deletion status.
-7. Let the run succeed. Verify the browser is signed out, local Samebase browser data is cleared,
+8. Let the run succeed. Verify the browser is signed out, local Samebase browser data is cleared,
    and the completion email arrives or its delivery failure is visible to staff.
-8. Verify the auth account, sessions, user row, credentials, Samebase storage objects, and all
+9. Verify the auth account, sessions, user row, credentials, Samebase storage objects, and all
    classified user data are absent.
-9. Verify the admin page retains a successful scrubbed receipt without the account's email, user ID,
-   or other identity.
-10. Verify the account's external repositories, Convex projects and deployments, Cloudflare
+10. Verify the admin page retains a successful scrubbed receipt without the account's email, user
+    ID, or other identity.
+11. Verify the account's external repositories, Convex projects and deployments, Cloudflare
     resources, and deployed applications still exist and remain running.
-11. Sign in again with the same identity. Verify the deleted data does not return and any resulting
+12. Sign in again with the same identity. Verify the deleted data does not return and any resulting
     account is a new empty account governed by the normal signup and approval flow.
 
 ### Automated validation
@@ -305,6 +327,8 @@ test succeeds in the production-like environment with a dedicated non-staff acco
 - Seed more than one cleanup batch and prove bounded deletion reaches completion.
 - Prove all normal writes and routes reject the deleting role.
 - Prove request acceptance is idempotent and creates one run.
+- Prove the scheduled start waits seven days and a queued run can be restored or started early only
+  by staff.
 - Prove failure and retry at every durable step are idempotent.
 - Prove billing cancellation failure prevents success.
 - Prove provider-resource deletion is never requested.

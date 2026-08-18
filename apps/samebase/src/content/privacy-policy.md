@@ -176,8 +176,10 @@ revocation is required.
 You can delete a vault from the dashboard. Samebase can also remove related GitHub, Convex, and
 Cloudflare resources when the deletion options and resource ownership allow it.
 
-You can delete your account from Settings. Account deletion removes your profile and access, along
-with personal settings, memberships, authorizations, and provider connections that you added.
+You can delete your account from Settings. Samebase disables the account immediately and schedules
+permanent deletion to start seven days later. During those seven days, email contact@samebase.com to
+restore the account or request an earlier start. Permanent deletion removes your profile and access,
+along with personal settings, memberships, authorizations, and provider connections that you added.
 Samebase keeps limited records needed to confirm the deletion and preserve shared organization
 history.
 

@@ -87,8 +87,12 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
           <DialogTitle>Delete account?</DialogTitle>
           <DialogDescription className="space-y-2 text-foreground">
             <span className="block font-medium">
-              This permanently deletes your Samebase account and disconnects provider connections
-              you added.
+              Your account will be disabled now. Permanent deletion will start seven days after you
+              continue.
+            </span>
+            <span className="block text-muted-foreground">
+              During those seven days, email contact@samebase.com to restore your account or start
+              deletion sooner.
             </span>
             <span className="block text-muted-foreground">
               First, leave or delete every organization. GitHub repositories, Convex projects,
@@ -131,10 +135,10 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
             {isRequestingDeletion ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Deleting...
+                Scheduling...
               </>
             ) : (
-              "Delete account"
+              "Schedule deletion"
             )}
           </Button>
         </DialogFooter>
