@@ -2,12 +2,17 @@ import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenFiel
 import { NewAppCreateFormFields, NewAppProviderReadiness } from "@/components/NewAppPage";
 import { Button } from "@/components/ui/button";
 
-export type NewAppPageVisualMode = "new-app-build-token" | "new-app-provider-blocked";
+export type NewAppPageVisualMode =
+  | "new-app-build-token"
+  | "new-app-no-build-token"
+  | "new-app-provider-blocked";
 
 export function NewAppPageVisualFixture({ mode }: { mode: NewAppPageVisualMode }) {
-  if (mode === "new-app-build-token") {
+  if (mode === "new-app-build-token" || mode === "new-app-no-build-token") {
+    const hasBuildToken = mode === "new-app-build-token";
+
     return (
-      <div data-testid="new-app-build-token" className="container flex max-w-xl flex-col py-6">
+      <div data-testid={mode} className="container flex max-w-xl flex-col py-6">
         <form className="flex w-full max-w-md flex-col gap-4">
           <h1 className="text-2xl font-semibold">New App</h1>
           <div className="flex w-full flex-col items-stretch gap-2">
@@ -16,21 +21,26 @@ export function NewAppPageVisualFixture({ mode }: { mode: NewAppPageVisualMode }
                 <CloudflareBuildTokenField
                   accountId="account_acme_production"
                   disabled={false}
+                  emptyState="deferred"
                   error={false}
                   id="visual-cloudflare-build-token"
                   isLoading={false}
-                  lastUsedUuid="build-token-2026-08-14"
+                  lastUsedUuid={hasBuildToken ? "build-token-2026-08-14" : null}
                   onReload={() => {}}
                   onValueChange={() => {}}
                   selectionUnavailable={false}
-                  tokens={[
-                    {
-                      name: "Workers Builds - 2026-08-14 01:54",
-                      uuid: "build-token-2026-08-14",
-                    },
-                    { name: "samebase build token", uuid: "samebase-build-token" },
-                  ]}
-                  value="build-token-2026-08-14"
+                  tokens={
+                    hasBuildToken
+                      ? [
+                          {
+                            name: "Workers Builds - 2026-08-14 01:54",
+                            uuid: "build-token-2026-08-14",
+                          },
+                          { name: "samebase build token", uuid: "samebase-build-token" },
+                        ]
+                      : []
+                  }
+                  value={hasBuildToken ? "build-token-2026-08-14" : ""}
                 />
               }
               cloudflareWorkerName="acme-notes"

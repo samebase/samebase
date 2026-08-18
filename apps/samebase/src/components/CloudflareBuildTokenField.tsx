@@ -28,6 +28,7 @@ function formatCloudflareBuildTokenOption(
 export function CloudflareBuildTokenField({
   accountId,
   disabled,
+  emptyState,
   error,
   id,
   isLoading,
@@ -40,6 +41,7 @@ export function CloudflareBuildTokenField({
 }: {
   accountId: string | null;
   disabled: boolean;
+  emptyState: "deferred" | "required";
   error: boolean;
   id: string;
   isLoading: boolean;
@@ -79,9 +81,25 @@ export function CloudflareBuildTokenField({
     return (
       <div className="grid gap-1.5">
         <Label>API token</Label>
-        <div className="text-xs leading-5 text-muted-foreground">
-          No API tokens are listed. Create one in Cloudflare&apos;s Workers Builds setup, then
-          reload.{" "}
+        <div
+          className={
+            emptyState === "deferred"
+              ? "text-xs leading-5 text-amber-700"
+              : "text-xs leading-5 text-muted-foreground"
+          }
+          role="status"
+        >
+          {emptyState === "deferred" ? (
+            <>
+              No API token is available. You can create the app now and add one before
+              deployment.{" "}
+            </>
+          ) : (
+            <>
+              No API tokens are listed. Create one in Cloudflare&apos;s Workers Builds setup, then
+              reload.{" "}
+            </>
+          )}
           {accountId ? (
             <a
               className={linkStyle}

@@ -2874,6 +2874,92 @@ describe("buildVaultRepositorySettingsState", () => {
     expect(state.addConvexProject.disabled).toBe(true);
   });
 
+  it("offers Workers Builds configuration after tokenless managed setup succeeds", () => {
+    const workerId = fakeCloudflareWorkerId("worker-tokenless-managed");
+    const convexProjectId = fakeConvexProjectId("convex-tokenless-managed");
+    const configureWorkersBuilds = vi.fn();
+    const state = buildVaultRepositorySettingsState({
+      cloudflareAccount: {
+        accountId: "account-1",
+        accountName: "Ada Cloud",
+      },
+      cloudflareBuildTokens: { state: "loaded", tokens: [] },
+      cloudflareObservations: makeLoadedCloudflareObservations({
+        workers: [makeAvailableRepositorySettingsCloudflareObservation({ workerId })],
+        builds: [
+          makeAvailableRepositorySettingsCloudflareBuildsObservation({
+            workerId,
+            builds: { state: "not_connected" },
+          }),
+        ],
+        convexBuildAccess: [],
+      }),
+      configureWorkersBuildsForGitHubOnClick: configureWorkersBuilds,
+      convexObservations: {
+        state: "loaded",
+        refreshFailed: false,
+        reload: () => {},
+        observations: [
+          {
+            convexProjectId,
+            projectId: "demo-project-id",
+            codeLocation: { kind: "config", convexConfigPath: "convex.json" },
+            source: { kind: "config", state: "valid" },
+            provider: {
+              state: "current",
+              projectSlug: "demo-convex",
+              teamSlug: "ada",
+              productionDeployment: {
+                state: "available",
+                deploymentName: "calm-swan-123",
+                dashboardUrl: "https://dashboard.convex.dev/t/ada/demo-convex/calm-swan-123",
+              },
+            },
+          },
+        ],
+      },
+      pendingAction: null,
+      vault: makeRepositorySettingsBuilderVault({
+        providerPlan: {
+          convexConfigPath: "convex.json",
+          convex: {
+            state: "created",
+            projectName: "demo-convex",
+            teamId: "team-1",
+            projectId: "demo-project-id",
+          },
+          cloudflare: {
+            state: "created",
+            accountId: "account-1",
+            buildTokenUuid: null,
+            workerName: "demo-worker",
+            workerTag: "demo-worker-tag",
+            rootDirectory: "/",
+          },
+        },
+        providerSetup: { status: "ready" },
+        providerWrite: { status: "idle", lastWriteAt: {} },
+        hasConvexProvision: true,
+        hasCloudflareProvision: true,
+        cloudflareWorkers: [makeRepositorySettingsCloudflareWorker({ workerId })],
+        convexProjects: [
+          makeRepositorySettingsConvexProject({
+            convexProjectId,
+            projectId: "demo-project-id",
+          }),
+        ],
+      }),
+    });
+    const cloudflareResource = getRepositorySettingsResource(state, "/", "cloudflare");
+
+    expect(cloudflareResource.actions?.map((action) => action.label)).toEqual([
+      "Configure Workers Builds for GitHub",
+    ]);
+    expect(cloudflareResource.actions?.map((action) => action.kind)).not.toContain("retry");
+    cloudflareResource.actions?.[0].onClick?.();
+    expect(configureWorkersBuilds).toHaveBeenCalledWith(workerId);
+  });
+
   it("keeps planned targets after managed provider setup fails", () => {
     const state = buildVaultRepositorySettingsState({
       cloudflareObservations: makeLoadedCloudflareObservations({

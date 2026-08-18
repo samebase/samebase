@@ -526,6 +526,8 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     enabled: cloudflareConnected,
     organizationId,
   });
+  const cloudflareBuildTokensLoading =
+    cloudflareBuildTokensQuery.isPending || cloudflareBuildTokensQuery.isFetching;
   const cloudflareBuildTokens = cloudflareBuildTokensQuery.data?.tokens ?? [];
   const cloudflareBuildTokenSelection = useCloudflareBuildTokenSelection({
     error: Boolean(cloudflareBuildTokensQuery.error),
@@ -535,6 +537,12 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     tokens: cloudflareBuildTokensQuery.data?.tokens ?? null,
   });
   const cloudflareBuildTokenUuid = cloudflareBuildTokenSelection.selectedUuid;
+  const cloudflareBuildTokensConfirmedEmpty = Boolean(
+    cloudflareBuildTokensQuery.data &&
+    !cloudflareBuildTokensQuery.isFetching &&
+    !cloudflareBuildTokensQuery.error &&
+    cloudflareBuildTokens.length === 0,
+  );
   const hasRequiredCreateConnections = Boolean(convexConnected && cloudflareConnected);
   const providerBlocker = readNewAppProviderBlocker({
     canManageOrganization,
@@ -627,7 +635,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     isCreating ||
     createRepositoryName.length === 0 ||
     !canCreateRepo ||
-    !cloudflareBuildTokenSelection.canWrite ||
+    (!cloudflareBuildTokenSelection.canWrite && !cloudflareBuildTokensConfirmedEmpty) ||
     hasBlockingCreateResourceName;
 
   const setNewRepositoryName = useCallback((value: string) => {
@@ -832,9 +840,10 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           <CloudflareBuildTokenField
             accountId={cloudflareBuildTokenAccountId}
             disabled={isCreating}
+            emptyState="deferred"
             error={Boolean(cloudflareBuildTokensQuery.error)}
             id="new-app-cloudflare-build-token"
-            isLoading={cloudflareBuildTokensQuery.isFetching}
+            isLoading={cloudflareBuildTokensLoading}
             lastUsedUuid={cloudflareBuildTokensQuery.data?.lastUsedBuildTokenUuid ?? null}
             onReload={() => {
               void cloudflareBuildTokensQuery.refetch();
@@ -927,10 +936,6 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       setCreateError(cloudflareWorkerNameValidation.message);
       return;
     }
-    if (!cloudflareBuildTokenUuid) {
-      setCreateError("Choose an API token.");
-      return;
-    }
     if (createResourceNameCheckError) {
       setCreateError(createResourceNameCheckError);
       return;
@@ -967,7 +972,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         name: repoName,
         convexProjectName: convexProjectNameValidation.value,
         cloudflareWorkerName: cloudflareWorkerNameValidation.value,
-        cloudflareBuildTokenUuid,
+        cloudflareBuildTokenUuid: cloudflareBuildTokenUuid || null,
         private: true,
       });
       setNewRepositoryNameState("");
@@ -992,14 +997,17 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           : error instanceof Error
             ? error.message
             : "Failed to create app";
-      if (
+      const shouldReloadCloudflareBuildTokens =
+        message === "A Cloudflare Workers Builds token is available. Select it and retry." ||
         message.startsWith(
           "The selected Cloudflare Workers Builds token is not in Cloudflare's current list",
-        )
-      ) {
+        );
+      if (shouldReloadCloudflareBuildTokens) {
         await cloudflareBuildTokensQuery.refetch();
+        setCreateError(null);
+      } else {
+        setCreateError(message);
       }
-      setCreateError(message);
     } finally {
       setIsCreating(false);
     }

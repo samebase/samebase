@@ -11,6 +11,7 @@ describe("CloudflareBuildTokenField", () => {
       <CloudflareBuildTokenField
         accountId="account-1"
         disabled={false}
+        emptyState="required"
         error={false}
         id="build-token"
         isLoading
@@ -26,6 +27,7 @@ describe("CloudflareBuildTokenField", () => {
       <CloudflareBuildTokenField
         accountId="account-1"
         disabled={false}
+        emptyState="required"
         error
         id="build-token"
         isLoading={false}
@@ -50,6 +52,7 @@ describe("CloudflareBuildTokenField", () => {
       <CloudflareBuildTokenField
         accountId="account-1"
         disabled={false}
+        emptyState="required"
         error={false}
         id="build-token"
         isLoading={false}
@@ -68,11 +71,28 @@ describe("CloudflareBuildTokenField", () => {
     expect(markup).toContain("Workers Builds (bbbbbbbb) · Last used");
   });
 
-  it("gives the Cloudflare setup and reload actions when no records are available", () => {
-    const markup = renderToStaticMarkup(
+  it("keeps required and deferred empty states distinct", () => {
+    const requiredMarkup = renderToStaticMarkup(
       <CloudflareBuildTokenField
         accountId="account-1"
         disabled={false}
+        emptyState="required"
+        error={false}
+        id="build-token"
+        isLoading={false}
+        lastUsedUuid={null}
+        onReload={() => {}}
+        onValueChange={() => {}}
+        selectionUnavailable={false}
+        tokens={[]}
+        value=""
+      />,
+    );
+    const deferredMarkup = renderToStaticMarkup(
+      <CloudflareBuildTokenField
+        accountId="account-1"
+        disabled={false}
+        emptyState="deferred"
         error={false}
         id="build-token"
         isLoading={false}
@@ -85,10 +105,18 @@ describe("CloudflareBuildTokenField", () => {
       />,
     );
 
-    expect(markup).toContain("No API tokens are listed.");
-    expect(markup).toContain('href="https://dash.cloudflare.com/account-1/workers-and-pages"');
-    expect(markup).toContain("Open Cloudflare");
-    expect(markup).toContain("Reload tokens");
+    expect(requiredMarkup).toContain("No API tokens are listed.");
+    expect(requiredMarkup).not.toContain("You can create the app now");
+    expect(deferredMarkup).toContain(
+      "No API token is available. You can create the app now and add one before deployment.",
+    );
+    expect(deferredMarkup).toContain('role="status"');
+    expect(deferredMarkup).not.toContain("Create one in Cloudflare");
+    expect(deferredMarkup).toContain(
+      'href="https://dash.cloudflare.com/account-1/workers-and-pages"',
+    );
+    expect(deferredMarkup).toContain("Open Cloudflare");
+    expect(deferredMarkup).toContain("Reload tokens");
   });
 
   it("does not replace a selection that is no longer listed", () => {
@@ -96,6 +124,7 @@ describe("CloudflareBuildTokenField", () => {
       <CloudflareBuildTokenField
         accountId="account-1"
         disabled={false}
+        emptyState="required"
         error={false}
         id="build-token"
         isLoading={false}

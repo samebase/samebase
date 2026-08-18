@@ -199,6 +199,7 @@ function CloudflareDialogFixture({
             <CloudflareBuildTokenField
               accountId="samebase-account"
               disabled={false}
+              emptyState="required"
               error={false}
               id="visual-cloudflare-build-token"
               isLoading={false}

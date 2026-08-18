@@ -580,6 +580,7 @@ export function VaultCloudflareDialog({
           <CloudflareBuildTokenField
             accountId={buildTokensQuery.data?.accountId ?? vault.cloudflareAccountId}
             disabled={isSubmitting || Boolean(blockedReason)}
+            emptyState="required"
             error={Boolean(buildTokensQuery.error)}
             id="vault-cloudflare-build-token"
             isLoading={buildTokensQuery.isFetching}

@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getFunctionName } from "convex/server";
+import { ConvexError } from "convex/values";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -11,24 +12,62 @@ import type { Id } from "../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { NewAppPage } from "./NewAppPage";
 
+const cloudflareBuildTokenTestState = vi.hoisted(() => ({
+  refetch: vi.fn(async () => undefined),
+  state: "loaded",
+}));
+
 vi.mock("@/components/useCloudflareBuildTokens", () => ({
   useCloudflareBuildTokenSelection: () => ({
-    canWrite: true,
-    selectedUuid: "build-token-1",
+    canWrite: cloudflareBuildTokenTestState.state === "loaded",
+    selectedUuid: cloudflareBuildTokenTestState.state === "loaded" ? "build-token-1" : "",
     selectionUnavailable: false,
     setRequestedUuid: vi.fn(),
   }),
-  useCloudflareBuildTokens: () => ({
-    data: {
-      accountId: "account-acme-production",
-      lastUsedBuildTokenUuid: "build-token-1",
-      tokens: [{ name: "Workers Builds - 2026-08-14 01:54", uuid: "build-token-1" }],
-    },
-    error: null,
-    isFetching: false,
-    isPending: false,
-    refetch: vi.fn(async () => undefined),
-  }),
+  useCloudflareBuildTokens: () => {
+    if (cloudflareBuildTokenTestState.state === "loading") {
+      return {
+        data: undefined,
+        error: null,
+        isFetching: true,
+        isPending: true,
+        refetch: cloudflareBuildTokenTestState.refetch,
+      };
+    }
+    if (cloudflareBuildTokenTestState.state === "paused") {
+      return {
+        data: undefined,
+        error: null,
+        isFetching: false,
+        isPending: true,
+        refetch: cloudflareBuildTokenTestState.refetch,
+      };
+    }
+    if (cloudflareBuildTokenTestState.state === "failed") {
+      return {
+        data: undefined,
+        error: new Error("Could not load API tokens."),
+        isFetching: false,
+        isPending: false,
+        refetch: cloudflareBuildTokenTestState.refetch,
+      };
+    }
+    return {
+      data: {
+        accountId: "account-acme-production",
+        lastUsedBuildTokenUuid:
+          cloudflareBuildTokenTestState.state === "loaded" ? "build-token-1" : null,
+        tokens:
+          cloudflareBuildTokenTestState.state === "loaded"
+            ? [{ name: "Workers Builds - 2026-08-14 01:54", uuid: "build-token-1" }]
+            : [],
+      },
+      error: null,
+      isFetching: false,
+      isPending: false,
+      refetch: cloudflareBuildTokenTestState.refetch,
+    };
+  },
 }));
 
 function fakeOrganizationId(value: string): Id<"organizations"> {
@@ -102,6 +141,9 @@ describe("NewAppPage", () => {
   let queryClient: QueryClient;
 
   beforeEach(() => {
+    cloudflareBuildTokenTestState.refetch.mockReset();
+    cloudflareBuildTokenTestState.refetch.mockResolvedValue(undefined);
+    cloudflareBuildTokenTestState.state = "loaded";
     testState.actions.clear();
     testState.fallbackAction.mockReset();
     testState.fallbackAction.mockResolvedValue(undefined);
@@ -215,6 +257,127 @@ describe("NewAppPage", () => {
       (button) => button.textContent === "New App",
     );
     expect(createButton?.disabled).toBe(false);
+  });
+
+  it("creates an app with no Workers Builds API token after an empty list is confirmed", async () => {
+    vi.useFakeTimers();
+    cloudflareBuildTokenTestState.state = "empty";
+    const checkNames = vi.fn(async () => availableNames());
+    const createRepository = vi.fn(async () => undefined);
+    testState.actions.set(
+      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
+      checkNames,
+    );
+    testState.actions.set(getFunctionName(api.vault.actions.createRepository), createRepository);
+    const container = await mountPage();
+    const input = container.querySelector<HTMLInputElement>("[aria-label='GitHub repo name']");
+    if (!input) {
+      throw new Error("GitHub repository name input was not rendered.");
+    }
+
+    expect(container.textContent).toContain(
+      "No API token is available. You can create the app now and add one before deployment.",
+    );
+    setInputValue(input, "no-token-app");
+    await act(async () => input.dispatchEvent(new Event("input", { bubbles: true })));
+    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await flushQueryUpdates();
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain("GitHub repository name is available."),
+    );
+
+    const createButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "New App",
+    );
+    expect(createButton?.disabled).toBe(false);
+    await act(async () => createButton?.click());
+    await vi.waitFor(() =>
+      expect(createRepository).toHaveBeenCalledWith({
+        organizationId: organization.organizationId,
+        name: "no-token-app",
+        convexProjectName: "no-token-app",
+        cloudflareWorkerName: "no-token-app",
+        cloudflareBuildTokenUuid: null,
+        private: true,
+      }),
+    );
+  });
+
+  it("reloads tokens when an empty list becomes stale before creation", async () => {
+    vi.useFakeTimers();
+    cloudflareBuildTokenTestState.state = "empty";
+    cloudflareBuildTokenTestState.refetch.mockImplementationOnce(async () => {
+      cloudflareBuildTokenTestState.state = "loaded";
+      return undefined;
+    });
+    const checkNames = vi.fn(async () => availableNames());
+    const createRepository = vi.fn(async () => {
+      throw new ConvexError("A Cloudflare Workers Builds token is available. Select it and retry.");
+    });
+    testState.actions.set(
+      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
+      checkNames,
+    );
+    testState.actions.set(getFunctionName(api.vault.actions.createRepository), createRepository);
+    const container = await mountPage();
+    const input = container.querySelector<HTMLInputElement>("[aria-label='GitHub repo name']");
+    if (!input) {
+      throw new Error("GitHub repository name input was not rendered.");
+    }
+
+    setInputValue(input, "stale-empty-token-app");
+    await act(async () => input.dispatchEvent(new Event("input", { bubbles: true })));
+    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await flushQueryUpdates();
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain("GitHub repository name is available."),
+    );
+
+    const createButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "New App",
+    );
+    await act(async () => createButton?.click());
+    await vi.waitFor(() => expect(cloudflareBuildTokenTestState.refetch).toHaveBeenCalledTimes(1));
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain("Workers Builds - 2026-08-14 01:54"),
+    );
+    expect(container.textContent).not.toContain(
+      "A Cloudflare Workers Builds token is available. Select it and retry.",
+    );
+  });
+
+  it.each([
+    ["loading", "Loading API tokens..."],
+    ["paused", "Loading API tokens..."],
+    ["failed", "Could not load API tokens."],
+  ])("keeps the %s API token state distinct and blocks creation", async (state, message) => {
+    vi.useFakeTimers();
+    cloudflareBuildTokenTestState.state = state;
+    const checkNames = vi.fn(async () => availableNames());
+    testState.actions.set(
+      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
+      checkNames,
+    );
+    const container = await mountPage();
+    const input = container.querySelector<HTMLInputElement>("[aria-label='GitHub repo name']");
+    if (!input) {
+      throw new Error("GitHub repository name input was not rendered.");
+    }
+
+    setInputValue(input, "blocked-token-app");
+    await act(async () => input.dispatchEvent(new Event("input", { bubbles: true })));
+    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await flushQueryUpdates();
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain("GitHub repository name is available."),
+    );
+
+    expect(container.textContent).toContain(message);
+    expect(container.textContent).not.toContain("You can create the app now");
+    const createButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "New App",
+    );
+    expect(createButton?.disabled).toBe(true);
   });
 
   it("shows a name-check error and keeps creation blocked", async () => {

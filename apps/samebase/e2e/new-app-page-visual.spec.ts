@@ -19,6 +19,25 @@ test("new app Workers Builds token", async ({ page }) => {
   });
 });
 
+test("new app without a Workers Builds token", async ({ page }) => {
+  await page.setViewportSize({ width: 900, height: 560 });
+  await page.goto("/visual-fixture?mode=new-app-no-build-token", {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForLoadState("networkidle");
+
+  const surface = page.getByTestId("new-app-no-build-token");
+  await expect(surface).toContainText(
+    "No API token is available. You can create the app now and add one before deployment.",
+  );
+  await expect(surface.getByRole("combobox", { name: "API token" })).toHaveCount(0);
+  await expect(surface).toHaveScreenshot("new-app-no-build-token.png", {
+    animations: "disabled",
+    caret: "hide",
+    scale: "css",
+  });
+});
+
 test("new app provider blocker", async ({ page }) => {
   await page.setViewportSize({ width: 900, height: 320 });
   await page.goto("/visual-fixture?mode=new-app-provider-blocked", {
