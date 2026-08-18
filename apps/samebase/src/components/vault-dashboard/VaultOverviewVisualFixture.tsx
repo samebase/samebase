@@ -51,6 +51,7 @@ export type VaultOverviewVisualMode =
   | "vault-overview-v2"
   | "vault-overview-v2-auto-pagination"
   | "vault-overview-v2-cloudflare-build-status-unavailable"
+  | "vault-overview-v2-cloudflare-github-authorization-failed"
   | "vault-overview-v2-dev"
   | "vault-overview-v2-loading"
   | "vault-overview-v2-partial-loading"
@@ -534,6 +535,7 @@ const LIST_SPACING_PULL_REQUESTS = [
 
 type VaultOverviewProvisioningVisualMode = Extract<
   VaultOverviewVisualMode,
+  | "vault-overview-v2-cloudflare-github-authorization-failed"
   | "vault-overview-v2-provisioning-source"
   | "vault-overview-v2-provisioning-github"
   | "vault-overview-v2-provisioning-early-empty"
@@ -986,6 +988,31 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
   let convexObservations: VaultProviderObservationState<VaultConvexProjectObservation>;
 
   switch (mode) {
+    case "vault-overview-v2-cloudflare-github-authorization-failed": {
+      const repositoryFullName = "noter-guest/tmp-testing-waters";
+      const recoveryUrl =
+        "https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
+      vault = {
+        ...PROVISIONING_VAULT,
+        ghRepoOwner: "noter-guest",
+        ghRepoName: "tmp-testing-waters",
+        repositoryFullName,
+        cloudflareWorkers: [],
+        convexProjects: [],
+        providerSetup: {
+          status: "failed",
+          provider: "cloudflare",
+          runId: PROVISIONING_RUN_ID,
+          step: "attach_worker",
+          message: `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}. Follow Cloudflare's recovery steps at ${recoveryUrl}: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include ${repositoryFullName}, then retry.`,
+          updatedAt: FIXTURE_NOW,
+        },
+      };
+      pullRequests = fixturePullRequests([], PROVISIONING_DEFAULT_BRANCH);
+      cloudflareObservations = PROVISIONING_EMPTY_CLOUDFLARE_OBSERVATIONS;
+      convexObservations = PROVISIONING_EMPTY_CONVEX_OBSERVATIONS;
+      break;
+    }
     case "vault-overview-v2-provisioning-source":
       vault = {
         ...PROVISIONING_VAULT,
@@ -1078,7 +1105,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
     cloudflareAccountName: "Fixture Account",
     cloudflareObservations,
     convexObservations,
-    githubRepositoryUrl: "https://github.com/nicu-chiciuc/tmp-f149-vault-loading-states",
+    githubRepositoryUrl: `https://github.com/${vault.repositoryFullName}`,
     pullRequests,
     vault,
   });
@@ -1093,7 +1120,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
     ],
   } satisfies VaultSidebarSummariesState;
   return (
-    <TestRouterProvider initialEntries={["/vault/nicu-chiciuc/tmp-f149-vault-loading-states"]}>
+    <TestRouterProvider initialEntries={[`/vault/${vault.repositoryFullName}`]}>
       <WorkspaceLayoutV2FixtureFrame
         dataTestId={mode}
         left={{
@@ -1101,7 +1128,13 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
           content: (
             <VaultOverviewOrganizationSidebar
               {...FIXTURE_VAULT_FOLDER_PROPS}
-              organizations={[PROVISIONING_ORGANIZATION]}
+              organizations={[
+                {
+                  ...PROVISIONING_ORGANIZATION,
+                  githubOwnerId: `github-owner-${vault.ghRepoOwner}`,
+                  githubOwnerLogin: vault.ghRepoOwner,
+                },
+              ]}
               organizationsCollapsible
               page="overview"
               selectedVaultId={vault._id}
@@ -1322,6 +1355,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
       return <VaultOverviewDialogsVisualFixture mode={mode} />;
     case "vault-overview-v2-convex-schema":
       return <VaultConvexSchemaGraphVisualFixture mode={mode} />;
+    case "vault-overview-v2-cloudflare-github-authorization-failed":
     case "vault-overview-v2-provisioning-source":
     case "vault-overview-v2-provisioning-github":
     case "vault-overview-v2-provisioning-early-empty":

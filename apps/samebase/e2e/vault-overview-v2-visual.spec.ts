@@ -583,6 +583,46 @@ test("keeps available resources visible when one provider fails", async ({ page 
   });
 });
 
+test("shows Cloudflare GitHub App authorization recovery", async ({ page }) => {
+  await page.setViewportSize({ width: 700, height: 700 });
+  const fixture = await openVaultOverviewV2(
+    page,
+    "vault-overview-v2-cloudflare-github-authorization-failed",
+  );
+  const repositoryFullName = "noter-guest/tmp-testing-waters";
+  const recoveryUrl =
+    "https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
+
+  await expect(
+    fixture.getByRole("heading", {
+      name: `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}.`,
+    }),
+  ).toBeVisible();
+  await expect(fixture.getByRole("link", { name: "Cloudflare recovery guide" })).toHaveAttribute(
+    "href",
+    recoveryUrl,
+  );
+  await expect(
+    fixture.getByRole("link", { name: "Open the Cloudflare Workers and Pages GitHub App" }),
+  ).toHaveAttribute("href", "https://github.com/apps/cloudflare-workers-and-pages");
+  await expect(fixture.getByRole("link", { name: "Open Workers & Pages" })).toHaveAttribute(
+    "href",
+    "https://dash.cloudflare.com/",
+  );
+  await expect(fixture.locator("ol > li")).toHaveCount(3);
+  await expect(fixture.getByText(`then include ${repositoryFullName}.`)).toBeVisible();
+  await expect(fixture.getByText("Return to Samebase and select Retry.")).toBeVisible();
+  await expect(fixture).toHaveScreenshot(
+    "vault-overview-v2-cloudflare-github-authorization-failed.png",
+    {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixelRatio: 0.02,
+      scale: "css",
+    },
+  );
+});
+
 test("reproduces the observed new repository provisioning states", async ({ page }) => {
   await page.setViewportSize({ width: 700, height: 995 });
 

@@ -76,20 +76,24 @@ function LocationProbe() {
 }
 
 function makeVault({
+  owner = "ada",
   providerSetup = { status: "ready" },
   providerWrite,
+  repoName = "demo",
 }: {
+  owner?: string;
   providerSetup?: UserVaultResult["providerSetup"];
   providerWrite: UserVaultResult["providerWrite"];
+  repoName?: string;
 }): UserVaultResult {
   return {
     _id: fakeVaultId(),
     organizationId: fakeOrganizationId(),
     convexTeamId: "team-1",
     cloudflareAccountId: "account-1",
-    ghRepoOwner: "ada",
-    ghRepoName: "demo",
-    repositoryFullName: "ada/demo",
+    ghRepoOwner: owner,
+    ghRepoName: repoName,
+    repositoryFullName: `${owner}/${repoName}`,
     defaultBranch: "main",
     fileCount: 0,
     sourceSetup: { status: "ready" },
@@ -142,13 +146,13 @@ function makeWorkspace(vault: UserVaultResult): VaultWorkspaceSelected {
       reload: () => {},
     },
     environmentRoots: [],
-    githubRepositoryUrl: "https://github.com/ada/demo",
+    githubRepositoryUrl: `https://github.com/${vault.repositoryFullName}`,
     pullRequests: { state: "not_requested" },
     vault,
   };
 }
 
-describe("VaultSelectedWorkspace dialog route", () => {
+describe("VaultSelectedWorkspace route", () => {
   let root: Root | null = null;
   let rootElement: HTMLDivElement | null = null;
 
@@ -169,7 +173,11 @@ describe("VaultSelectedWorkspace dialog route", () => {
     rootElement = null;
   });
 
-  async function renderWorkspace(workspace: VaultWorkspaceSelected, initialEntry: string) {
+  async function renderWorkspace(
+    workspace: VaultWorkspaceSelected,
+    initialEntry: string,
+    page: "overview" | "settings" = "settings",
+  ) {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
     const mountedRoot = createRoot(rootElement);
@@ -178,7 +186,7 @@ describe("VaultSelectedWorkspace dialog route", () => {
     await act(async () => {
       mountedRoot.render(
         <TestRouterProvider initialEntries={[initialEntry]}>
-          <VaultSelectedWorkspace developerToolsVisible page="settings" workspace={workspace} />
+          <VaultSelectedWorkspace developerToolsVisible page={page} workspace={workspace} />
           <LocationProbe />
         </TestRouterProvider>,
       );
@@ -216,5 +224,57 @@ describe("VaultSelectedWorkspace dialog route", () => {
       element.querySelector('[data-testid="router-location"]')?.getAttribute("data-href") ?? "";
     expect(href).toContain("add-cloudflare");
     expect(href).toContain("dev");
+  });
+
+  it("shows Cloudflare GitHub authorization recovery as a titled linked notice", async () => {
+    const owner = "noter-guest";
+    const repoName = "tmp-testing-waters";
+    const repositoryFullName = `${owner}/${repoName}`;
+    const storedRecoveryUrl =
+      "https://developers.cloudflare.com/pages/configuration/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
+    const recoveryUrl =
+      "https://developers.cloudflare.com/workers/ci-cd/builds/git-integration/github-integration/#reinstall-the-cloudflare-github-app";
+    const vault = makeVault({
+      owner,
+      providerSetup: {
+        status: "failed",
+        provider: "cloudflare",
+        runId: fakeRunId(),
+        step: "attach_worker",
+        message: `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}. Follow Cloudflare's recovery steps at ${storedRecoveryUrl}: uninstall the GitHub App first, then reinstall/connect GitHub from Workers & Pages and include ${repositoryFullName}, then retry.`,
+        updatedAt: 20,
+      },
+      providerWrite: { status: "idle", lastWriteAt: {} },
+      repoName,
+    });
+
+    await renderWorkspace(
+      makeWorkspace(vault),
+      "/vault/noter-guest/tmp-testing-waters",
+      "overview",
+    );
+    const element = rootElement;
+    if (!element) {
+      throw new Error("Expected the selected workspace to render.");
+    }
+
+    expect(element.querySelector("h2")?.textContent).toBe(
+      `Cloudflare Workers and Pages GitHub App is not authorized for ${repositoryFullName}.`,
+    );
+    expect(element.querySelector(`a[href="${recoveryUrl}"]`)?.textContent).toBe(
+      "Cloudflare recovery guide",
+    );
+    expect(
+      element.querySelector('a[href="https://github.com/apps/cloudflare-workers-and-pages"]')
+        ?.textContent,
+    ).toBe("Open the Cloudflare Workers and Pages GitHub App");
+    expect(element.querySelector('a[href="https://dash.cloudflare.com/"]')?.textContent).toBe(
+      "Open Workers & Pages",
+    );
+    expect(Array.from(element.querySelectorAll("ol li"), (step) => step.textContent)).toEqual([
+      `Open the Cloudflare Workers and Pages GitHub App and uninstall it for ${owner}.`,
+      `Open Workers & Pages. Select Create application, Pages, and Connect to Git. Add ${owner}, then include ${repositoryFullName}.`,
+      "Return to Samebase and select Retry.",
+    ]);
   });
 });

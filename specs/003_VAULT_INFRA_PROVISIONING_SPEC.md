@@ -526,6 +526,11 @@ Dashboard external links:
   dashboard may summarize that stored provider failure into shorter recovery copy. The recovery copy
   must link to Cloudflare's reinstall recovery steps, tell the user to uninstall the Cloudflare
   Workers and Pages GitHub App first, then reconnect GitHub from Workers & Pages before retrying.
+  The dashboard shows this sequence as three numbered steps. The first step links to the Cloudflare
+  Workers and Pages GitHub App and tells the user to uninstall it for the repository owner. The
+  second step links to Workers & Pages and tells the user to start the GitHub connection there and
+  include the failed repository. The third step tells the user to return to Samebase and select
+  `Retry`. A separate link opens Cloudflare's current recovery guide.
 - Managed provisioning reuses confirmed provider checkpoints and does not auto-teardown resources on
   vault deletion unless explicitly requested. After an unconfirmed provider create outcome, retry
   stops when the same-named resource exists and tells the user to delete it in the provider
