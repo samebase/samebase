@@ -1,4 +1,4 @@
-import { useLocation, useRouter } from "@tanstack/react-router";
+import { useLocation, useMatches, useRouter } from "@tanstack/react-router";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { ConvexClient } from "convex/browser";
 import { useConvex, useConvexAuth, useQuery_experimental } from "convex/react";
@@ -85,6 +85,9 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
   const { signOut } = useAuthActions();
   const convex = useConvex();
   const pathname = useLocation({ select: (location) => location.pathname });
+  const routeIsPublic = useMatches({
+    select: (matches) => matches.every((match) => match.staticData.access === "access_public"),
+  });
   const router = useRouter();
   const viewerAccessQuery = useQuery_experimental({
     query: api.users.currentViewerAccess,
@@ -155,13 +158,21 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
   useEffect(() => {
     if (
       pathname === ACCOUNT_DELETION_ROUTE ||
+      (routeIsPublic && !authenticatedAccountDeleted) ||
       (viewerAccess?.role !== "role_deleting" &&
         (!authenticatedAccountDeleted || completionCapability === null))
     ) {
       return;
     }
     void router.navigate({ href: ACCOUNT_DELETION_ROUTE, replace: true });
-  }, [authenticatedAccountDeleted, completionCapability, pathname, router, viewerAccess?.role]);
+  }, [
+    authenticatedAccountDeleted,
+    completionCapability,
+    pathname,
+    routeIsPublic,
+    router,
+    viewerAccess?.role,
+  ]);
 
   useEffect(() => {
     if (
@@ -249,6 +260,7 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
     !showChildren &&
     !isLoading &&
     ownsCompletionReceipt &&
+    !routeIsPublic &&
     viewerAccess?.role !== "role_deleting"
   ) {
     return (
@@ -270,7 +282,9 @@ export function AccountDeletionBrowserBoundary({ children }: { children: ReactNo
 
   if (
     (isAuthenticated && viewerAccess === undefined) ||
-    (viewerAccess?.role === "role_deleting" && pathname !== ACCOUNT_DELETION_ROUTE)
+    (viewerAccess?.role === "role_deleting" &&
+      pathname !== ACCOUNT_DELETION_ROUTE &&
+      !routeIsPublic)
   ) {
     return null;
   }

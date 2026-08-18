@@ -21,17 +21,20 @@ document only when it clears the last credential slot.
 Account deletion is rejected while any organization membership exists. A member must leave each
 shared organization first. A sole owner must remove every vault and delete the organization first.
 
-Acceptance creates one durable queued deletion run, marks the user as deleting, and routes every
-signed-in session to `/account-deletion`. The account is disabled immediately. The permanent
-deletion workflow starts exactly seven days after the request. The status page shows that time and
-directs the user to email `contact@samebase.com` to restore the account or for other inquiries. The
-dialog and status page use the exact confirmation text
+Acceptance creates one durable queued deletion run, marks the user as deleting, and routes the
+initiating session to `/account-deletion`. Other signed-in sessions on protected app routes redirect
+to `/account-deletion`. Public routes remain available, and the user can sign out from the account
+deletion page. The account is disabled immediately. The permanent deletion workflow starts exactly
+seven days after the request. The status page shows that time and directs the user to email
+`contact@samebase.com` to restore the account or for other inquiries. The dialog and status page use
+the exact confirmation text
 `Samebase will send you a confirmation email as account deletion finishes.` Repeated requests return
 the same active run without rechecking the phrase.
 
 A deleting user cannot use ordinary authenticated product routes or create new user-owned data. A
-deleting user cannot create a new auth session. The initiating session remains available only for
-account-deletion access until the workflow removes it or staff restores the queued account.
+deleting user cannot create a new auth session. Existing sessions retain only account-deletion and
+public-route access until the user signs out, the workflow removes the session, or staff restores
+the queued account.
 
 ## User Lifecycle
 

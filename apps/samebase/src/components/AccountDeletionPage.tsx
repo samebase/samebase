@@ -2,8 +2,13 @@ import { useQuery } from "convex/react";
 import type { FunctionReturnType } from "convex/server";
 import { Check, Circle, Loader2, TriangleAlert } from "lucide-react";
 import { entries } from "@samebase/dependent/object";
+import { useState } from "react";
+import { useRouter } from "@tanstack/react-router";
 
 import { api } from "../../convex/_generated/api";
+import { useAppAuthActions } from "@/authClient";
+import { Button } from "@/components/ui/button";
+import { toast } from "@/components/ui/use-toast";
 
 type AccountDeletionStatus = Pick<
   Exclude<FunctionReturnType<typeof api.accountDeletion.index.status>, null>,
@@ -26,10 +31,31 @@ const ACCOUNT_DELETION_STEPS = entries(ACCOUNT_DELETION_STEP_LABELS).map(([step,
 
 export function AccountDeletionPage() {
   const status = useQuery(api.accountDeletion.index.status);
+  const { signOut } = useAppAuthActions();
+  const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
-  if (status === undefined) {
-    return null;
-  }
+  const handleSignOut = () => {
+    if (isSigningOut) {
+      return;
+    }
+
+    setIsSigningOut(true);
+    void signOut()
+      .then(() => {
+        void router.navigate({ href: "/", replace: true, state: true });
+      })
+      .catch((error: unknown) => {
+        toast({
+          description: error instanceof Error ? error.message : "Please try again.",
+          title: "Could not sign out",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        setIsSigningOut(false);
+      });
+  };
 
   if (status === null) {
     return (
@@ -40,14 +66,44 @@ export function AccountDeletionPage() {
     );
   }
 
-  return <AccountDeletionStatusView status={status} />;
+  return (
+    <AccountDeletionStatusView
+      isSigningOut={isSigningOut}
+      onSignOut={handleSignOut}
+      status={status}
+    />
+  );
 }
 
-export function AccountDeletionStatusView({ status }: { status: AccountDeletionStatus }) {
+export function AccountDeletionStatusView({
+  isSigningOut,
+  onSignOut,
+  status,
+}: {
+  isSigningOut: boolean;
+  onSignOut: () => void;
+  status: AccountDeletionStatus | undefined;
+}) {
+  if (status === undefined) {
+    return (
+      <main data-testid="account-deletion-page" className="container mx-auto w-full max-w-2xl py-6">
+        <AccountDeletionHeader
+          isSigningOut={isSigningOut}
+          onSignOut={onSignOut}
+          title="Account deletion"
+        />
+      </main>
+    );
+  }
+
   if (status.state === "queued") {
     return (
       <main data-testid="account-deletion-page" className="container mx-auto w-full max-w-2xl py-6">
-        <h1 className="text-xl font-semibold @2xl:text-2xl">Account deletion scheduled</h1>
+        <AccountDeletionHeader
+          isSigningOut={isSigningOut}
+          onSignOut={onSignOut}
+          title="Account deletion scheduled"
+        />
         <p className="mt-4 text-sm text-muted-foreground">
           Your account is disabled. Permanent deletion will start on{" "}
           {new Date(status.deletionStartsAt).toLocaleString()}.
@@ -71,9 +127,11 @@ export function AccountDeletionStatusView({ status }: { status: AccountDeletionS
 
   return (
     <main data-testid="account-deletion-page" className="container mx-auto w-full max-w-2xl py-6">
-      <h1 className="text-xl font-semibold @2xl:text-2xl">
-        {needsAttention ? "Account deletion needs attention" : "Deleting your account"}
-      </h1>
+      <AccountDeletionHeader
+        isSigningOut={isSigningOut}
+        onSignOut={onSignOut}
+        title={needsAttention ? "Account deletion needs attention" : "Deleting your account"}
+      />
       <p className="mt-4 text-sm text-muted-foreground">
         {needsAttention
           ? "Samebase staff must retry the deletion. Your account remains locked."
@@ -124,5 +182,25 @@ export function AccountDeletionStatusView({ status }: { status: AccountDeletionS
         Last activity {new Date(status.latestProgressAt).toLocaleString()}
       </p>
     </main>
+  );
+}
+
+function AccountDeletionHeader({
+  isSigningOut,
+  onSignOut,
+  title,
+}: {
+  isSigningOut: boolean;
+  onSignOut: () => void;
+  title: string;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-4">
+      <h1 className="text-xl font-semibold @2xl:text-2xl">{title}</h1>
+      <Button type="button" variant="outline" disabled={isSigningOut} onClick={onSignOut}>
+        {isSigningOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+        {isSigningOut ? "Signing out..." : "Sign out"}
+      </Button>
+    </div>
   );
 }
