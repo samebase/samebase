@@ -1605,7 +1605,7 @@ describe("VaultOverviewPage", () => {
           rootDirectory: "/",
         },
       },
-      providerSetup: { status: "ready" },
+      providerSetup: { status: "not_applicable" },
       hasConvexProvision: true,
       convexProjects: [makeRepositorySettingsConvexProject({})],
     });

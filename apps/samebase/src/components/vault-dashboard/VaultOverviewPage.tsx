@@ -309,7 +309,6 @@ export function VaultOverviewPage({
   const managedProviderPlan = workspace.vault.providerPlan;
   const showIncompleteCloudflareBuilds =
     workspace.vault.sourceSetup.status === "ready" &&
-    workspace.vault.providerSetup.status === "ready" &&
     workspace.vault.deletion.state === "not_deleting" &&
     workspace.vault.hasConnectedGitHubRepository &&
     workspace.vault.hasConvexProvision &&
