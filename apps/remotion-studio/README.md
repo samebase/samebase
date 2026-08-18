@@ -23,9 +23,9 @@ appear in Studio immediately.
 - `LogoHype` explains the flat-to-isometric identity sequence, production shuffle, recursive depth,
   and Menger exploration using the shared Samebase logo model.
 - `FounderDemo` contains the 1920×1240 founder introduction and product walkthrough preview.
-- `FounderDemoYouTube` renders the same edit at the original 3840×2480 screen resolution.
-- `OnboardingDemo` contains the complete onboarding walkthrough at the original 3840×2480
-  resolution.
+- `FounderDemoYouTube` renders the same edit at 3344×2160 while preserving the source aspect ratio.
+- `OnboardingDemo` contains the complete onboarding walkthrough at 3344×2160 while preserving the
+  source aspect ratio.
 - `TicTacToeRecording` contains the production edit used by the landing page.
 
 Each production composition owns its component, timing model, and supporting edit data under
@@ -71,7 +71,7 @@ Render the YouTube master with:
 pnpm --filter @samebase/remotion-studio render:founder-demo
 ```
 
-Render the original-resolution YouTube master with:
+Render the 2160p YouTube master with:
 
 ```console
 pnpm --filter @samebase/remotion-studio render:founder-demo-youtube
@@ -146,11 +146,11 @@ Do not commit:
 - `pnpm --filter @samebase/remotion-studio dev`: open Remotion Studio.
 - `pnpm check:remotion-studio`: typecheck and lint from the repository root.
 - `pnpm --filter @samebase/remotion-studio render:founder-demo`: render the founder demo.
-- `pnpm --filter @samebase/remotion-studio render:founder-demo-youtube`: render the founder demo at
-  the original 3840×2480 resolution.
+- `pnpm --filter @samebase/remotion-studio render:founder-demo-youtube`: render the 2160p founder
+  demo while preserving the source aspect ratio.
 - `pnpm --filter @samebase/remotion-studio render:logo-hype`: render the logo identity exploration.
-- `pnpm --filter @samebase/remotion-studio render:onboarding-demo`: render the original-resolution
-  onboarding demo for YouTube.
+- `pnpm --filter @samebase/remotion-studio render:onboarding-demo`: render the 2160p onboarding demo
+  for YouTube while preserving the source aspect ratio.
 - `pnpm --filter @samebase/remotion-studio render:tic-tac-toe`: render the production landing edit.
 
 Review the current [Remotion license terms](https://www.remotion.dev/docs/license/pricing) as the

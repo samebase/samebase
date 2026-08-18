@@ -10,8 +10,8 @@ const captionsSource = staticFile("media/founder-demo.srt");
 
 export const founderDemoHeight = 1_240;
 export const founderDemoWidth = 1_920;
-export const founderDemoYouTubeHeight = 2_480;
-export const founderDemoYouTubeWidth = 3_840;
+export const founderDemoYouTubeHeight = 2_160;
+export const founderDemoYouTubeWidth = 3_344;
 
 export const FounderDemoAudio = () => (
   <RecordedDemoAudio edit={founderDemoEdit} screenRecording={screenRecording} />

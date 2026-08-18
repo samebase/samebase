@@ -28,8 +28,6 @@ const timelapsePlaybackRate = 24;
 
 export const recordedDemoHeight = 1_240;
 export const recordedDemoWidth = 1_920;
-export const recordedDemoYouTubeHeight = 2_480;
-export const recordedDemoYouTubeWidth = 3_840;
 
 type RecordedDemoProps = {
   captionsSource: string;

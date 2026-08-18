@@ -8,8 +8,8 @@ const screenRecording = staticFile("media/onboarding-demo-screen.mp4");
 const timelapseRecording = staticFile("media/onboarding-demo-screen-24x.mp4");
 const subtitles = staticFile("media/onboarding-demo.srt");
 
-export const onboardingDemoHeight = 2_480;
-export const onboardingDemoWidth = 3_840;
+export const onboardingDemoHeight = 2_160;
+export const onboardingDemoWidth = 3_344;
 
 export const OnboardingDemo: React.FC = () => (
   <RecordedDemo
