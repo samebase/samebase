@@ -247,6 +247,31 @@ const RecordedDemoAudioTimeline: React.FC<{
   </Series>
 );
 
+const RecordedDemoCaptionTimeline: React.FC<{
+  captions: Caption[];
+  edit: RecordedDemoEdit;
+  layoutScale: number;
+}> = ({ captions, edit, layoutScale }) => (
+  <Series name="Recorded demo captions">
+    {edit.segments.map((segment) => (
+      <Series.Sequence
+        durationInFrames={segment.durationInFrames}
+        key={`${segment.sourceStartInFrames}-${segment.sourceEndInFrames}`}
+        name={`${segment.name} captions`}
+      >
+        {segment.kind === "face" ? (
+          <SegmentCaptions
+            captions={captions}
+            edit={edit}
+            layoutScale={layoutScale}
+            segment={segment}
+          />
+        ) : null}
+      </Series.Sequence>
+    ))}
+  </Series>
+);
+
 export const RecordedDemoAudio: React.FC<{
   edit: RecordedDemoEdit;
   screenRecording: string;
@@ -339,14 +364,6 @@ export const RecordedDemo: React.FC<RecordedDemoProps> = ({
                 segment={segment}
               />
             ) : null}
-            {captions && segment.kind === "face" ? (
-              <SegmentCaptions
-                captions={captions}
-                edit={edit}
-                layoutScale={layoutScale}
-                segment={segment}
-              />
-            ) : null}
           </Series.Sequence>
         ))}
       </Series>
@@ -373,6 +390,9 @@ export const RecordedDemo: React.FC<RecordedDemoProps> = ({
         </span>
         <span style={{ fontSize: 28 * layoutScale, fontWeight: 650 }}>{sourceTime}</span>
       </Interactive.Div>
+      {captions ? (
+        <RecordedDemoCaptionTimeline captions={captions} edit={edit} layoutScale={layoutScale} />
+      ) : null}
     </AbsoluteFill>
   );
 };
