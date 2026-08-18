@@ -299,6 +299,9 @@ export const observeCloudflareWorkers = action({
     if (context.cloudflareWorkers.length === 0) {
       return [];
     }
+    if (context.cloudflareAccountId === undefined) {
+      throw new Error("Cloudflare account is not configured for this vault.");
+    }
     const input = await readCloudflareObservationInput(ctx, {
       organizationId: context.organizationId,
       userId: ctx.viewer.userId,
@@ -358,6 +361,9 @@ export const observeCloudflareWorkerBuilds = action({
     });
     if (context.cloudflareWorkers.length === 0) {
       return [];
+    }
+    if (context.cloudflareAccountId === undefined) {
+      throw new Error("Cloudflare account is not configured for this vault.");
     }
     let defaultBranch: string;
     try {
@@ -533,6 +539,9 @@ export const observeCloudflareWorkerConvexBuildAccess = action({
     }
     if (targets.length === 0) {
       return [];
+    }
+    if (context.cloudflareAccountId === undefined) {
+      throw new Error("Cloudflare account is not configured for this vault.");
     }
     const input = await readCloudflareObservationInput(ctx, {
       organizationId: context.organizationId,

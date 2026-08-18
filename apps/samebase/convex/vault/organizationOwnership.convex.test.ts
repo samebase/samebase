@@ -80,6 +80,49 @@ async function createConnectedVault(
 }
 
 describe("organization-owned vaults", () => {
+  it("connects an existing repository without deployment provider destinations", async () => {
+    const t = makeConvexTest();
+    const ownerUserId = await createUser(t, "source-only@example.com");
+    const organization = await t.mutation(
+      internal.organizations.createOrReconnectVerifiedOrganization,
+      {
+        userId: ownerUserId,
+        githubOwnerId: "source-only-owner",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "source-only",
+        githubInstallationId: "source-only-installation",
+      },
+    );
+    const source = await t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        organizationId: organization.organizationId,
+        userId: ownerUserId,
+        ghRepoId: "source-only-repository",
+        ghRepoOwner: "source-only",
+        ghRepoName: "app",
+      },
+    );
+
+    await t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+      ...source,
+      userId: ownerUserId,
+      ghRepoId: "source-only-repository",
+      ghRepoOwner: "source-only",
+      ghRepoName: "app",
+      defaultBranch: "main",
+      visibility: "private",
+    });
+
+    const vault = await t.run(async (ctx) => await ctx.db.get(source.vaultId));
+    expect(vault).toMatchObject({
+      state: "connected",
+      githubMode: "connect_existing_repository",
+    });
+    expect(vault).not.toHaveProperty("convexTeamId");
+    expect(vault).not.toHaveProperty("cloudflareAccountId");
+  });
+
   it("does not start personal repository creation without the matching GitHub user authorization", async () => {
     vi.stubEnv("GITHUB_APP_ID", "123");
     vi.stubEnv("GITHUB_APP_SLUG", "samebase-test");

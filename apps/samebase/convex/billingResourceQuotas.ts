@@ -19,8 +19,8 @@ const { id, literal, number, object, union } = v;
 
 const PERSONAL_FREE_CONNECTION_LIMIT = 15;
 const ORGANIZATION_FREE_CONNECTION_LIMIT = 6;
-const PRO_CONNECTION_LIMIT = 120;
-const CONNECTION_USAGE_READ_LIMIT = PRO_CONNECTION_LIMIT + 1;
+export const MAX_ORGANIZATION_CONNECTIONS = 120;
+const CONNECTION_USAGE_READ_LIMIT = MAX_ORGANIZATION_CONNECTIONS + 1;
 
 type BillingResourceReadCtx = Pick<QueryCtx, "db">;
 export type BillingResourceAuthority =
@@ -75,7 +75,7 @@ function readOrganizationConnectionLimit(
   organization: Doc<"organizations">,
 ): number {
   if (readOrganizationMemberCapacity({ account, organization }).hasVerifiedSubscription) {
-    return PRO_CONNECTION_LIMIT;
+    return MAX_ORGANIZATION_CONNECTIONS;
   }
   switch (organization.githubOwnerType) {
     case "user":

@@ -291,6 +291,9 @@ async function readManagedProviderPlan(
   if (!plan) {
     return null;
   }
+  if (vault.convexTeamId === undefined || vault.cloudflareAccountId === undefined) {
+    throw new Error("Managed vault provider destinations are not configured.");
+  }
 
   return {
     convexConfigPath: plan.convexConfigPath,

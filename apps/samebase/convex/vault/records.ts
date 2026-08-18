@@ -35,8 +35,6 @@ import {
 const nullValidator = v.null();
 const { array, id, object, optional, string, union } = v;
 
-type ProvisioningVault = Extract<Doc<"vaults">, { state: "provisioning" }>;
-
 // Get a specific vault by repository full name for a user
 export const getVaultByRepository = query({
   access: "access_files_read",
@@ -235,7 +233,15 @@ export const getProviderTargetsForProvisioningRun = internalQuery({
   },
   returns: vVaultProviderTargets,
   handler: async (ctx, args) => {
-    const vault = (await requireActiveVaultProvisioningAuthority(ctx.db, args)).vault;
+    const authority = await requireActiveVaultProvisioningAuthority(ctx.db, args);
+    const vault = authority.vault;
+    if (
+      authority.run.trigger !== "create" ||
+      vault.convexTeamId === undefined ||
+      vault.cloudflareAccountId === undefined
+    ) {
+      throw new Error("Managed vault provider destinations are not configured.");
+    }
     return {
       convexTeamId: vault.convexTeamId,
       cloudflareAccountId: vault.cloudflareAccountId,
@@ -334,7 +340,7 @@ async function requireVaultRepositoryOwner(
     vault: Doc<"vaults">;
     owner: string;
   },
-): Promise<void> {
+): Promise<Doc<"organizations">> {
   const organization = await ctx.db.get(args.vault.organizationId);
   if (
     organization === null ||
@@ -342,15 +348,7 @@ async function requireVaultRepositoryOwner(
   ) {
     throw new Error("Repository owner does not match the vault organization.");
   }
-}
-
-function pickProvisioningVaultCoreFields(vault: ProvisioningVault) {
-  return {
-    organizationId: vault.organizationId,
-    convexTeamId: vault.convexTeamId,
-    cloudflareAccountId: vault.cloudflareAccountId,
-    deletion: vault.deletion,
-  };
+  return organization;
 }
 
 function requireOrganizationProviderDestinations(organization: Doc<"organizations">): {
@@ -419,7 +417,8 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
       owner: requestedOwner,
     });
     const owner = organization.githubOwnerLogin;
-    const destinations = requireOrganizationProviderDestinations(organization);
+    const convexTeamId = organization.convexTeam?.teamId.trim();
+    const cloudflareAccountId = organization.cloudflareAccount?.accountId.trim();
     await assertOrganizationHasNoVaultForRepository(ctx, {
       organizationId: organization._id,
       name,
@@ -439,7 +438,8 @@ export const createInitializingExistingRepositoryVaultForUser = internalMutation
     const now = Date.now();
     const vaultId = await ctx.db.insert("vaults", {
       organizationId: organization._id,
-      ...destinations,
+      ...(convexTeamId ? { convexTeamId } : {}),
+      ...(cloudflareAccountId ? { cloudflareAccountId } : {}),
       deletion: { state: "not_deleting" },
       state: "not_connected",
     });
@@ -507,10 +507,13 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
       return null;
     }
 
-    await requireVaultRepositoryOwner(ctx, {
+    const organization = await requireVaultRepositoryOwner(ctx, {
       vault,
       owner: args.ghRepoOwner,
     });
+    const convexTeamId = vault.convexTeamId ?? organization.convexTeam?.teamId.trim();
+    const cloudflareAccountId =
+      vault.cloudflareAccountId ?? organization.cloudflareAccount?.accountId.trim();
 
     // GitHub repository id stays stable across owner/name renames.
     const existingVault = await ctx.db
@@ -551,8 +554,8 @@ export const connectExistingRepositoryVaultGitHub = internalMutation({
 
     await ctx.db.replace(args.vaultId, {
       organizationId: vault.organizationId,
-      convexTeamId: vault.convexTeamId,
-      cloudflareAccountId: vault.cloudflareAccountId,
+      ...(convexTeamId ? { convexTeamId } : {}),
+      ...(cloudflareAccountId ? { cloudflareAccountId } : {}),
       deletion: vault.deletion,
       state: "connected",
       githubMode: "connect_existing_repository",
@@ -822,10 +825,12 @@ export const markGithubProvisioningFailed = internalMutation({
       return null;
     }
 
-    const coreFields = pickProvisioningVaultCoreFields(vault);
     if (vault.githubMode === "create_repository") {
       await ctx.db.replace(vault._id, {
-        ...coreFields,
+        organizationId: vault.organizationId,
+        convexTeamId: vault.convexTeamId,
+        cloudflareAccountId: vault.cloudflareAccountId,
+        deletion: vault.deletion,
         state: "failed",
         githubMode: "create_repository",
         runId: args.runId,
@@ -837,7 +842,12 @@ export const markGithubProvisioningFailed = internalMutation({
     }
 
     await ctx.db.replace(vault._id, {
-      ...coreFields,
+      organizationId: vault.organizationId,
+      ...(vault.convexTeamId === undefined ? {} : { convexTeamId: vault.convexTeamId }),
+      ...(vault.cloudflareAccountId === undefined
+        ? {}
+        : { cloudflareAccountId: vault.cloudflareAccountId }),
+      deletion: vault.deletion,
       state: "failed",
       githubMode: "connect_existing_repository",
       runId: args.runId,

@@ -185,6 +185,9 @@ export const recordManagedProviderWrites = internalMutation({
       if (vault === null) {
         throw new Error("Vault not found.");
       }
+      if (vault.cloudflareAccountId === undefined) {
+        throw new Error("Cloudflare account is not configured for this vault.");
+      }
       await recordOrganizationLastUsedBuildToken(ctx, {
         organizationId: vault.organizationId,
         cloudflareAccountId: vault.cloudflareAccountId,
@@ -329,6 +332,9 @@ export const recordManualWorkersBuildsTokenUse = internalMutation({
       write.owner.action !== "configure_workers_builds_for_github"
     ) {
       throw new Error("This manual provider action does not configure Workers Builds.");
+    }
+    if (vault.cloudflareAccountId === undefined) {
+      throw new Error("Cloudflare account is not configured for this vault.");
     }
     await recordOrganizationLastUsedBuildToken(ctx, {
       organizationId: vault.organizationId,

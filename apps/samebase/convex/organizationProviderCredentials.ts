@@ -34,6 +34,7 @@ import {
   requireVaultProviderWorkflowAuthority,
   vVaultProviderWorkflowAuthority,
 } from "./vaultWorkflowAuthority";
+import { MAX_ORGANIZATION_CONNECTIONS } from "./billingResourceQuotas";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -390,6 +391,25 @@ async function resolveOrganizationForCredentialWrite(
   return organization;
 }
 
+async function listLiveOrganizationVaultsForProviderBinding(
+  ctx: Pick<MutationCtx, "db">,
+  organizationId: Id<"organizations">,
+): Promise<Doc<"vaults">[]> {
+  const vaults = await ctx.db
+    .query("vaults")
+    .withIndex("by_organization_and_state_and_deletion_state", (query) =>
+      query
+        .eq("organizationId", organizationId)
+        .eq("state", "connected")
+        .eq("deletion.state", "not_deleting"),
+    )
+    .take(MAX_ORGANIZATION_CONNECTIONS + 1);
+  if (vaults.length > MAX_ORGANIZATION_CONNECTIONS) {
+    throw new Error("Organization connection limit was exceeded before provider binding.");
+  }
+  return vaults;
+}
+
 type ConnectConvexCredentialArgs = {
   organizationId: Id<"organizations">;
   connectedByUserId: Id<"users">;
@@ -468,6 +488,11 @@ export async function connectConvexCredential(
     await ctx.db.patch(organization._id, {
       convexTeam: { ...organization.convexTeam, teamSlug: args.teamSlug },
     });
+  }
+  for (const vault of await listLiveOrganizationVaultsForProviderBinding(ctx, organization._id)) {
+    if (vault.convexTeamId === undefined) {
+      await ctx.db.patch(vault._id, { convexTeamId: args.teamId });
+    }
   }
   if (oauthState !== null) {
     await ctx.db.delete(oauthState._id);
@@ -581,6 +606,11 @@ export async function connectCloudflareCredential(
         accountName: args.account.accountName,
       },
     });
+  }
+  for (const vault of await listLiveOrganizationVaultsForProviderBinding(ctx, organization._id)) {
+    if (vault.cloudflareAccountId === undefined) {
+      await ctx.db.patch(vault._id, { cloudflareAccountId: args.account.accountId });
+    }
   }
   if (oauthState !== null) {
     await ctx.db.delete(oauthState._id);

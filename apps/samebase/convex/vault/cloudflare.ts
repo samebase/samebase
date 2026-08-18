@@ -104,8 +104,8 @@ type CloudflareWorkerBuildPreparation =
 
 type ProviderAttachmentVaultContext = {
   organizationId: Id<"organizations">;
-  convexTeamId: string;
-  cloudflareAccountId: string;
+  convexTeamId?: string;
+  cloudflareAccountId?: string;
   ghRepoId: string;
   owner: string;
   name: string;

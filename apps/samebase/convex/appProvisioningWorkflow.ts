@@ -153,6 +153,10 @@ export const readComposedInfrastructureState = internalQuery({
     if (!plan) {
       throw new Error("Infrastructure provisioning plan not found for vault.");
     }
+    if (vault.convexTeamId === undefined || vault.cloudflareAccountId === undefined) {
+      throw new Error("Managed vault provider destinations are not configured.");
+    }
+    const cloudflareAccountId = vault.cloudflareAccountId;
 
     const convexConfigPath = plan.convexConfigPath;
     const convexCheckpoint = plan.convex.state === "created" ? plan.convex : null;
@@ -169,7 +173,7 @@ export const readComposedInfrastructureState = internalQuery({
             .query("vaultCloudflareWorkers")
             .withIndex("by_account_and_worker_tag", (q) =>
               q
-                .eq("accountId", vault.cloudflareAccountId)
+                .eq("accountId", cloudflareAccountId)
                 .eq("workerTag", cloudflareCheckpoint.workerTag),
             )
             .unique()
@@ -213,14 +217,14 @@ export const readComposedInfrastructureState = internalQuery({
       cloudflare: worker
         ? {
             state: "attached",
-            accountId: vault.cloudflareAccountId,
+            accountId: cloudflareAccountId,
             workerName: plan.cloudflare.workerName,
             workerId: worker._id,
             buildTokenUuid: plan.cloudflare.buildTokenUuid,
           }
         : {
             state: "missing",
-            accountId: vault.cloudflareAccountId,
+            accountId: cloudflareAccountId,
             workerName: plan.cloudflare.workerName,
             buildTokenUuid: plan.cloudflare.buildTokenUuid,
           },

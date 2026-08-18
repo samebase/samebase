@@ -847,8 +847,6 @@ JSON Schema for the tool's `structuredContent`:
         "required": [
           "_id",
           "organizationId",
-          "convexTeamId",
-          "cloudflareAccountId",
           "ghRepoOwner",
           "ghRepoName",
           "repositoryFullName",

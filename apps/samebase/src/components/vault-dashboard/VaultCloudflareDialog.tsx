@@ -437,8 +437,16 @@ export function VaultCloudflareDialog({
   const [connectedWorkerTags, setConnectedWorkerTags] = useState<readonly string[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const cloudflareAccountId = vault.cloudflareAccountId;
+  const cloudflareBlockedReason =
+    cloudflareAccountId === undefined
+      ? "Connect Cloudflare in Providers before adding a Worker."
+      : blockedReason;
   const buildTokensQuery = useCloudflareBuildTokens({
-    enabled: Boolean(repairWorker || mode === "connect" || mode === "create"),
+    enabled: Boolean(
+      cloudflareAccountId !== undefined &&
+      (repairWorker || mode === "connect" || mode === "create"),
+    ),
     organizationId: vault.organizationId,
   });
   const buildTokens = buildTokensQuery.data?.tokens ?? [];
@@ -453,7 +461,7 @@ export function VaultCloudflareDialog({
   const writesWorkersBuilds = Boolean(repairWorker || workerToConnect || mode === "create");
   const hasSelectedBuildToken = buildTokenSelection.canWrite;
   const attachedWorkerTags = vault.cloudflareWorkers
-    .filter((worker) => worker.accountId === vault.cloudflareAccountId)
+    .filter((worker) => worker.accountId === cloudflareAccountId)
     .map((worker) => worker.workerTag)
     .sort((left, right) => left.localeCompare(right));
   const workersQuery = useTanStackQuery({
@@ -461,13 +469,17 @@ export function VaultCloudflareDialog({
       "vault-provider-discovery",
       vault._id,
       "cloudflare-workers",
-      vault.cloudflareAccountId,
+      cloudflareAccountId,
       attachedWorkerTags,
       vault.providerWrite.lastWriteAt.cloudflare,
     ],
-    queryFn: async () =>
-      await discoverWorkers({ accountId: vault.cloudflareAccountId, vaultId: vault._id }),
-    enabled: !repairWorker,
+    queryFn: async () => {
+      if (cloudflareAccountId === undefined) {
+        throw new Error("Cloudflare account is not configured for this vault.");
+      }
+      return await discoverWorkers({ accountId: cloudflareAccountId, vaultId: vault._id });
+    },
+    enabled: !repairWorker && cloudflareAccountId !== undefined,
     retry: false,
   });
   const unavailableWorkerTags = new Set([...attachedWorkerTags, ...connectedWorkerTags]);
@@ -480,10 +492,10 @@ export function VaultCloudflareDialog({
   const selectedWorkerTags = workerSelection ?? defaultSelectedWorkerTags;
   const inventoryState = workersQuery.data?.inventoryState ?? null;
   const resourceError = workersQuery.error ? "Could not load Cloudflare resources." : null;
-  const isLoading = !repairWorker && workersQuery.isPending;
+  const isLoading = !repairWorker && cloudflareAccountId !== undefined && workersQuery.isPending;
 
   const handleSubmit = async () => {
-    if (blockedReason || isSubmitting) {
+    if (cloudflareBlockedReason || isSubmitting || cloudflareAccountId === undefined) {
       return;
     }
 
@@ -506,7 +518,7 @@ export function VaultCloudflareDialog({
         }
         const result = await connectWorker({
           vaultId: vault._id,
-          accountId: vault.cloudflareAccountId,
+          accountId: cloudflareAccountId,
           workerName: workerToConnect.workerName,
           workerTag: workerToConnect.workerTag,
           rootDirectory: createRootDirectory,
@@ -539,7 +551,7 @@ export function VaultCloudflareDialog({
         }
         await attachWorkers({
           vaultId: vault._id,
-          accountId: vault.cloudflareAccountId,
+          accountId: cloudflareAccountId,
           workers: selectedWorkers,
         });
       } else {
@@ -548,7 +560,7 @@ export function VaultCloudflareDialog({
         }
         await createWorker({
           vaultId: vault._id,
-          accountId: vault.cloudflareAccountId,
+          accountId: cloudflareAccountId,
           workerName: createWorkerName,
           rootDirectory: createRootDirectory,
           buildTokenUuid,
@@ -574,11 +586,11 @@ export function VaultCloudflareDialog({
 
   return (
     <VaultCloudflareDialogContent
-      blockedReason={blockedReason}
+      blockedReason={cloudflareBlockedReason}
       cloudflareBuildTokenField={
         writesWorkersBuilds ? (
           <CloudflareBuildTokenField
-            disabled={isSubmitting || Boolean(blockedReason)}
+            disabled={isSubmitting || Boolean(cloudflareBlockedReason)}
             emptyState="required"
             error={Boolean(buildTokensQuery.error)}
             id="vault-cloudflare-build-token"
@@ -627,7 +639,7 @@ export function VaultCloudflareDialog({
         }
       }}
       onOpenChange={(isOpen) => {
-        if (!isOpen && (!isSubmitting || blockedReason)) {
+        if (!isOpen && (!isSubmitting || cloudflareBlockedReason)) {
           onClose();
         }
       }}
