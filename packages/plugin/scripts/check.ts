@@ -158,7 +158,9 @@ const managedInventoryIndex = samebaseSkill.indexOf("Read the app inventory.");
 const managedTokenListIndex = samebaseSkill.indexOf(
   "Call `cloudflare_listWorkersBuildTokens` for the selected organization.",
 );
-const managedCreateIndex = samebaseSkill.indexOf("Create the app with the selected token UUID.");
+const managedCreateIndex = samebaseSkill.indexOf(
+  "Create the app with the required `cloudflareBuildTokenUuid` set to the selected exact UUID or explicit null.",
+);
 const managedSourcePollIndex = samebaseSkill.indexOf(
   "Read only the inventory until source setup is `ready` or `failed`.",
 );
@@ -174,9 +176,21 @@ check(
 );
 check(
   samebaseSkill.includes(
-    "If the result includes an available `lastUsedBuildTokenUuid`, use that UUID without asking. If not, use the only listed token, ask the user to choose by name and UUID when several tokens are listed, or stop and tell the user to complete Workers Builds token setup when none are listed.",
-  ),
-  "The Samebase skill must use the last-used Workers Builds token before its explicit fallbacks.",
+    "If the token list is empty, use explicit null. Otherwise, use an available `lastUsedBuildTokenUuid` without asking, use the only listed token, or ask the user to choose by name and UUID when several tokens are listed.",
+  ) &&
+    samebaseSkill.includes(
+      "Create the app with the required `cloudflareBuildTokenUuid` set to the selected exact UUID or explicit null.",
+    ),
+  "The Samebase skill must pass explicit null only when managed app creation has an empty token list.",
+);
+check(
+  samebaseSkill.includes(
+    "For manual Cloudflare Worker creation or Workers Builds configuration, first call `cloudflare_listWorkersBuildTokens`.",
+  ) &&
+    samebaseSkill.includes(
+      "Pass only an exact UUID from the current non-empty list. If the list is empty, stop and tell the user to complete Workers Builds token setup in Cloudflare, then list again. Never pass null to these manual actions.",
+    ),
+  "The Samebase skill must block manual Worker and Builds writes when the token list is empty.",
 );
 const openSamebaseIndex = samebaseSkill.indexOf(
   "Treat `open @samebase` as an exact command and an explicit choice of the in-app Browser.",

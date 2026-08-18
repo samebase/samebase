@@ -8,10 +8,13 @@ Lists the Workers Builds token records in the Cloudflare account connected to th
 organization. The result contains each token's non-secret name and Workers Builds UUID. It also
 returns lastUsedBuildTokenUuid when that organization default remains in the current list, or null
 when it is unavailable. It never returns the token secret or the underlying Cloudflare user API
-token id. Pass one returned UUID to app or Worker creation and Workers Builds configuration actions.
-Use an available lastUsedBuildTokenUuid without asking. If there is no available last-used UUID, use
-one result, ask the user to choose by displayed name and UUID when several results exist, or tell
-the user to complete Workers Builds token setup in Cloudflare when the list is empty.
+token id. For managed app creation, use an available lastUsedBuildTokenUuid without asking. If there
+is no available last-used UUID, use one result or ask the user to choose by displayed name and UUID
+when several results exist. Pass that exact UUID in the required cloudflareBuildTokenUuid field.
+When the list is empty, pass explicit null in that required field so managed app creation can
+continue without Workers Builds. Manual Worker creation and Workers Builds configuration require one
+exact UUID from a non-empty current list. When the list is empty, do not call those manual writes.
+Tell the user to complete Workers Builds token setup in Cloudflare, then list again.
 
 ## Arguments
 

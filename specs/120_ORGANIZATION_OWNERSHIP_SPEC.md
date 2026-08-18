@@ -202,13 +202,19 @@ default. The token-list result returns the last-used UUID only while Cloudflare 
 the exact account.
 
 The web client visibly selects a current Worker's observed token for repair, then the available
-organization last-used token, then the first record. The MCP and agent plugin use the available
-last-used UUID without asking. With no available last-used UUID, they use one result, ask the user
-to choose from several results, or direct the user to Cloudflare when the list is empty. Samebase
-lists records by name from Z to A without case sensitivity. Provider writes never infer a record
-from a name, list position, or another Worker's existing binding. The name and trigger binding
-remain live Cloudflare observations. OAuth reauthorization restores management access only. It does
-not prove or replace a Worker's build-token binding.
+organization last-used token, then the first record. For managed app creation, the MCP and agent
+plugin use the available last-used UUID without asking. With no available last-used UUID, they use
+one result or ask the user to choose from several results. When the token list is empty, they pass
+explicit null in the required `cloudflareBuildTokenUuid` field. The managed flow then skips its
+Workers Builds and deploy-key blocks. This null value does not authorize a Builds write.
+
+Manual Worker creation and Workers Builds configuration require one exact UUID from the current
+non-empty list. The MCP and agent plugin stop those manual actions when the list is empty and direct
+the user to complete Workers Builds token setup in Cloudflare. Samebase lists records by name from Z
+to A without case sensitivity. Provider writes never infer a record from a name, list position, or
+another Worker's existing binding. The name and trigger binding remain live Cloudflare observations.
+OAuth reauthorization restores management access only. It does not prove or replace a Worker's
+build-token binding.
 
 Disconnect clears only the local credential. Samebase does not revoke Convex or Cloudflare access
 upstream. The owner receives a manual revocation notice. Disconnect keeps `organizations.convexTeam`

@@ -40,10 +40,11 @@ actions. Each action reports missing authentication itself.
 - For a new app, use only this closed flow:
   1. Read the app inventory.
   2. Call `cloudflare_listWorkersBuildTokens` for the selected organization.
-  3. If the result includes an available `lastUsedBuildTokenUuid`, use that UUID without asking. If
-     not, use the only listed token, ask the user to choose by name and UUID when several tokens are
-     listed, or stop and tell the user to complete Workers Builds token setup when none are listed.
-  4. Create the app with the selected token UUID.
+  3. If the token list is empty, use explicit null. Otherwise, use an available
+     `lastUsedBuildTokenUuid` without asking, use the only listed token, or ask the user to choose
+     by name and UUID when several tokens are listed.
+  4. Create the app with the required `cloudflareBuildTokenUuid` set to the selected exact UUID or
+     explicit null.
   5. Read only the inventory until source setup is `ready` or `failed`.
   6. If source setup is ready, separately read only the inventory until provider setup is `ready` or
      `failed`. Authentication-status, browser-handoff, and Cloudflare account-list reads are not
@@ -51,6 +52,10 @@ actions. Each action reports missing authentication itself.
      list, create, and inventory polls. Call create directly after the token list. Do not list
      Cloudflare accounts first. Create has no `accountId` and uses the connected Cloudflare
      provider.
+- For manual Cloudflare Worker creation or Workers Builds configuration, first call
+  `cloudflare_listWorkersBuildTokens`. Pass only an exact UUID from the current non-empty list. If
+  the list is empty, stop and tell the user to complete Workers Builds token setup in Cloudflare,
+  then list again. Never pass null to these manual actions.
 
 After you select the route, use live tool descriptions only for the exact tool name and arguments.
 Match an inventory `nextAction` to its action contract at

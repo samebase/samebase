@@ -6,8 +6,9 @@ MCP tool `vault_actions_createRepository` · scope `access_app_create` · write
 
 Creates a complete Samebase app in one action: a GitHub repository under the selected organization's
 verified GitHub owner, seeded with the starter template, a Convex project and dev/prod deployments,
-a Cloudflare Worker, Workers Builds configured for the repository (push to the default branch
-deploys, pull requests get preview deploys), and Convex deploy keys placed into the build triggers.
+a Cloudflare Worker, and, when a Workers Builds token is available, Workers Builds configured for
+the repository (push to the default branch deploys, pull requests get preview deploys) with Convex
+deploy keys placed into the build triggers.
 
 Preconditions: the caller must be an organization member. Its GitHub App installation and selected
 Convex and Cloudflare provider connections must be available. The target names must be available on
@@ -15,10 +16,10 @@ each provider. A name collision fails the call immediately before any vault or r
 pick different names and call again; failures after provisioning starts surface through
 `get_user_vaults` instead.
 
-What it writes: one repository (private by default), one Convex project, one Worker, and two Workers
-Builds triggers that each carry `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` variables. All
-resources live in the organization's provider accounts. Deleting the Samebase account does not
-remove or stop any of them.
+What it writes: one repository (private by default), one Convex project, and one Worker. When
+`cloudflareBuildTokenUuid` is not null, it also writes two Workers Builds triggers that each carry
+`CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` variables. All resources live in the
+organization's provider accounts. Deleting the Samebase account does not remove or stop any of them.
 
 Progress and failure are readable through `get_user_vaults`: while running, `providerSetup` carries
 the current step; on failure it carries the failed step and a message. Repair it with
@@ -31,8 +32,8 @@ an idle app costs $0/month.
 - `name` (string, required): Name for the new app and GitHub repository.
 - `convexProjectName` (string, required): Convex project name to provision for the app.
 - `cloudflareWorkerName` (string, required): Cloudflare Worker name to provision for the app.
-- `cloudflareBuildTokenUuid` (string, required): Workers Builds token UUID returned by
-  cloudflare_listWorkersBuildTokens.
+- `cloudflareBuildTokenUuid` (value, required): Workers Builds token UUID returned by
+  cloudflare_listWorkersBuildTokens, or null when that list is empty.
 - `description` (string, optional): Optional GitHub repository description.
 - `private` (boolean, optional): Whether to create a private GitHub repository. Defaults to true.
 

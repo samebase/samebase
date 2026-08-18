@@ -173,7 +173,9 @@ describe("MCP tool listing access", () => {
       inputSchema: {
         properties: {
           githubOwnerLogin: { type: "string" },
-          cloudflareBuildTokenUuid: { type: "string" },
+          cloudflareBuildTokenUuid: {
+            anyOf: [{ type: "string" }, { type: "null" }],
+          },
         },
         required: expect.arrayContaining(["githubOwnerLogin", "cloudflareBuildTokenUuid"]),
       },
@@ -480,7 +482,7 @@ describe("MCP tools/call access enforcement", () => {
         ttlMs: 0,
         cacheScope: "private",
         instructions: expect.stringMatching(
-          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*If lastUsedBuildTokenUuid is available, use that UUID without asking\.[\s\S]*If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
+          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*When the token list is empty, pass cloudflareBuildTokenUuid as explicit null\.[\s\S]*keeps cloudflareBuildTokenUuid required[\s\S]*Before a manual Cloudflare Worker create or Builds configuration action[\s\S]*If the token list is empty, do not call the write\.[\s\S]*Never pass null to a manual Worker create or Builds configuration action\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
         ),
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
