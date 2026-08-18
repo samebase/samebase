@@ -13,21 +13,28 @@
 The face and screen files have matching video packet timing and identical audio streams. The edit
 uses the same source frame for both files without an offset.
 
-## First draft
+## Acceleration markers
 
-Keep narration and normal interaction at 1x. Accelerate only these provisioning and agent waits:
+These are operator-selected source-time boundaries. Keep all other sections at 1x.
 
-| Source time           | Maximum speed | Activity                      |
-| --------------------- | ------------: | ----------------------------- |
-| `05:24.588-05:55.557` |           24x | Create the first app          |
-| `08:09.699-08:40.499` |           24x | Install the Samebase plugin   |
-| `08:42.637-09:10.471` |           24x | Start plugin authorization    |
-| `09:37.524-09:58.304` |           24x | Open Samebase from the agent  |
-| `10:25.400-10:45.594` |           24x | Create the app from the agent |
+| Source time         | Maximum speed |
+| ------------------- | ------------: |
+| `00:48.69-00:54.69` |           16x |
+| `00:56.14-01:11.76` |           16x |
+| `01:14.66-01:22.71` |           16x |
+| `01:32.67-01:37.48` |           16x |
+| `01:55.94-02:06.34` |           16x |
+| `02:10.00-02:23.69` |           16x |
+| `03:00.80-03:07.11` |           16x |
+| `03:55.43-04:02.11` |           16x |
+| `05:24.69-05:55.63` |           16x |
+| `08:08.17-08:39.97` |           16x |
+| `08:49.97-09:09.62` |           16x |
+| `09:43.03-09:57.79` |           16x |
+| `10:26.63-10:45.52` |           16x |
 
-The brief spoken `Can you` fragment at `08:42.350-08:42.637` stays at 1x between the two plugin
-waits. Short OAuth, navigation, and retry pauses stay at 1x in the first draft. Review them after
-the main waits are compressed.
+The 16x maximum is provisional. Review the longer waits in Remotion Studio and increase their
+configured maximum only if the current curve does not compress them enough.
 
 Each wait uses the shared four-second smooth curve from 1x to its configured maximum and back to 1x.
 A wait that is too short to reach its configured maximum uses the same curve with a lower peak. The
@@ -49,5 +56,4 @@ Inspect the start and end of every accelerated section for:
 - smooth source switching above 16x
 - one-second audio fade to silence and back
 
-After the first complete draft, decide whether the shorter provider authorization and navigation
-waits also need acceleration.
+After the first complete pass, decide which longer waits need a higher maximum speed.
