@@ -24,6 +24,8 @@ appear in Studio immediately.
   and Menger exploration using the shared Samebase logo model.
 - `FounderDemo` contains the 1920×1240 founder introduction and product walkthrough preview.
 - `FounderDemoYouTube` renders the same edit at the original 3840×2480 screen resolution.
+- `OnboardingDemo` contains the complete onboarding walkthrough at the original 3840×2480
+  resolution.
 - `TicTacToeRecording` contains the production edit used by the landing page.
 
 Each production composition owns its component, timing model, and supporting edit data under
@@ -63,7 +65,7 @@ download large source files. Fetch the Remotion recordings when the studio needs
 git lfs pull --include="apps/remotion-studio/public/media" --exclude=""
 ```
 
-Render the local master with:
+Render the YouTube master with:
 
 ```console
 pnpm --filter @samebase/remotion-studio render:founder-demo
@@ -73,6 +75,33 @@ Render the original-resolution YouTube master with:
 
 ```console
 pnpm --filter @samebase/remotion-studio render:founder-demo-youtube
+```
+
+## Onboarding demo
+
+The onboarding demo uses these tracked inputs:
+
+```text
+apps/remotion-studio/public/media/onboarding-demo-screen.mp4
+apps/remotion-studio/public/media/onboarding-demo-face.mp4
+apps/remotion-studio/public/media/onboarding-demo-screen-24x.mp4
+apps/remotion-studio/public/media/onboarding-demo.srt
+```
+
+The screen and face recordings use the same 30 fps timeline. The screen recording owns the audio.
+The edit manifest assigns a maximum speed to each wait. The shared recorded-demo component uses one
+smooth acceleration curve for both 24x and 32x waits.
+
+Rebuild the 24x screen proxy after the source recording changes:
+
+```console
+ffmpeg -i apps/remotion-studio/public/media/onboarding-demo-screen.mp4 -map 0:v:0 -vf 'setpts=PTS/24,fps=30,scale=1920:1240:flags=lanczos' -an -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p -movflags +faststart apps/remotion-studio/public/media/onboarding-demo-screen-24x.mp4
+```
+
+Render the local master with:
+
+```console
+pnpm --filter @samebase/remotion-studio render:onboarding-demo
 ```
 
 ## Tic-Tac-Toe landing video
@@ -120,6 +149,8 @@ Do not commit:
 - `pnpm --filter @samebase/remotion-studio render:founder-demo-youtube`: render the founder demo at
   the original 3840×2480 resolution.
 - `pnpm --filter @samebase/remotion-studio render:logo-hype`: render the logo identity exploration.
+- `pnpm --filter @samebase/remotion-studio render:onboarding-demo`: render the original-resolution
+  onboarding demo for YouTube.
 - `pnpm --filter @samebase/remotion-studio render:tic-tac-toe`: render the production landing edit.
 
 Review the current [Remotion license terms](https://www.remotion.dev/docs/license/pricing) as the

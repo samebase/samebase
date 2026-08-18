@@ -1,0 +1,895 @@
+1
+00:00:00,089 --> 00:00:03,129
+Onboarding with Samebase is a bit more complicated
+
+2
+00:00:03,209 --> 00:00:04,569
+than our competitors.
+
+3
+00:00:05,689 --> 00:00:08,648
+That's because instead of locking you into our
+
+4
+00:00:08,648 --> 00:00:09,448
+infrastructure,
+
+5
+00:00:10,169 --> 00:00:12,249
+we connect to providers that you own.
+
+6
+00:00:13,208 --> 00:00:15,689
+So you have complete ownership of your code,
+
+7
+00:00:15,689 --> 00:00:18,169
+of your data and of your deployments.
+
+8
+00:00:18,867 --> 00:00:22,204
+Other competitors optimize for the first 10
+
+9
+00:00:22,204 --> 00:00:22,644
+minutes,
+
+10
+00:00:23,204 --> 00:00:25,764
+whereas we optimize for the first two years.
+
+11
+00:00:27,444 --> 00:00:27,764
+Also,
+
+12
+00:00:27,764 --> 00:00:28,963
+you need to do it just once.
+
+13
+00:00:29,444 --> 00:00:30,084
+Afterwards,
+
+14
+00:00:30,084 --> 00:00:31,044
+It's pretty simple.
+
+15
+00:00:33,204 --> 00:00:34,923
+So here's the current landing page.
+
+16
+00:00:34,923 --> 00:00:37,524
+You probably will see the one that's
+
+17
+00:00:37,844 --> 00:00:39,204
+currently being produced.
+
+18
+00:00:40,804 --> 00:00:41,564
+Nevertheless,
+
+19
+00:00:41,564 --> 00:00:42,823
+on any page you,
+
+20
+00:00:42,894 --> 00:00:44,814
+you'll see this continue with GitHub button.
+
+21
+00:00:45,454 --> 00:00:47,293
+So first of all you need a GitHub account.
+
+22
+00:00:48,573 --> 00:00:50,734
+This is a new GitHub account.
+
+23
+00:00:50,734 --> 00:00:51,454
+Just for this.
+
+24
+00:00:53,054 --> 00:00:55,373
+Also you'll need a Convex account.
+
+25
+00:00:55,933 --> 00:00:56,974
+Here's Convex.
+
+26
+00:00:58,974 --> 00:01:00,254
+You can log in with
+
+27
+00:01:00,733 --> 00:01:01,853
+your GitHub account.
+
+28
+00:01:01,933 --> 00:01:02,653
+That's fine.
+
+29
+00:01:08,743 --> 00:01:09,944
+And this is Cloudflare.
+
+30
+00:01:26,183 --> 00:01:26,743
+Okay.
+
+31
+00:01:27,224 --> 00:01:27,864
+Okay.
+
+32
+00:01:29,224 --> 00:01:29,784
+So now
+
+33
+00:01:30,103 --> 00:01:31,944
+let's create our account.
+
+34
+00:01:43,794 --> 00:01:44,353
+So this account,
+
+35
+00:01:45,784 --> 00:01:48,194
+doesn't have any connection to any organization.
+
+36
+00:01:49,953 --> 00:01:51,713
+An organization is basically
+
+37
+00:01:52,034 --> 00:01:54,353
+a GitHub organization.
+
+38
+00:01:58,993 --> 00:01:59,713
+You need to,
+
+40
+00:02:12,093 --> 00:02:14,653
+Let's go to connect an organization either on this
+
+41
+00:02:14,734 --> 00:02:15,653
+link or this link.
+
+42
+00:02:15,653 --> 00:02:16,413
+It's the same
+
+43
+00:02:16,973 --> 00:02:17,373
+place,
+
+45
+00:02:23,949 --> 00:02:24,989
+So let's log in.
+
+46
+00:02:33,549 --> 00:02:35,789
+First we need to connect to an organization.
+
+47
+00:02:37,709 --> 00:02:40,269
+Since we have just our account when we were not
+
+48
+00:02:40,269 --> 00:02:41,549
+part of a different organization,
+
+49
+00:02:44,028 --> 00:02:45,149
+for us it's simpler.
+
+50
+00:02:50,691 --> 00:02:53,330
+Now we connected an organization in Samebase,
+
+51
+00:02:54,050 --> 00:02:55,570
+you can go to Providers
+
+52
+00:02:57,501 --> 00:02:59,341
+and you can see that we are already connected to
+
+53
+00:02:59,341 --> 00:03:01,860
+the GitHub and all the connections are green.
+
+54
+00:03:01,860 --> 00:03:02,540
+So that's good.
+
+55
+00:03:03,260 --> 00:03:06,100
+But next we need to connect to both Convex and
+
+56
+00:03:06,100 --> 00:03:06,700
+Cloudflare.
+
+57
+00:03:07,740 --> 00:03:08,781
+So let's do that.
+
+58
+00:03:19,020 --> 00:03:21,860
+Convex is also connected and now we connect to
+
+59
+00:03:21,860 --> 00:03:22,540
+Cloudflare.
+
+60
+00:03:36,471 --> 00:03:38,151
+And Cloudflare is also connected.
+
+61
+00:03:38,408 --> 00:03:40,313
+Now you need to go to New App
+
+62
+00:03:41,120 --> 00:03:42,049
+and you can
+
+63
+00:03:42,481 --> 00:03:44,242
+type the name of your new app,
+
+64
+00:03:44,962 --> 00:03:46,002
+My new app.
+
+65
+00:03:46,722 --> 00:03:49,082
+But of course you will see that you get a warning
+
+66
+00:03:49,082 --> 00:03:49,442
+here.
+
+67
+00:03:50,002 --> 00:03:52,802
+And this is the main hurdle with Cloudflare.
+
+69
+00:03:53,922 --> 00:03:56,082
+Maybe at the time you're seeing this demo
+
+70
+00:03:57,201 --> 00:03:59,362
+the Cloudflare team will already fix this.
+
+71
+00:03:59,762 --> 00:04:00,162
+But
+
+72
+00:04:00,562 --> 00:04:02,682
+there's some additional steps that you have to
+
+73
+00:04:02,682 --> 00:04:03,442
+take before
+
+74
+00:04:04,562 --> 00:04:06,162
+this is connected properly.
+
+75
+00:04:06,932 --> 00:04:08,772
+But it's fine for now we can click new app.
+
+76
+00:04:09,892 --> 00:04:13,172
+So it will just create a repository for us and a
+
+77
+00:04:13,172 --> 00:04:14,052
+Convex project
+
+80
+00:04:14,451 --> 00:04:16,692
+without creating a Cloudflare Worker.
+
+81
+00:04:23,012 --> 00:04:24,451
+Here is the repository
+
+82
+00:04:25,972 --> 00:04:27,012
+and the worker
+
+83
+00:04:29,172 --> 00:04:31,732
+and here's the information regarding how to
+
+84
+00:04:33,252 --> 00:04:33,972
+do the setup.
+
+85
+00:04:34,852 --> 00:04:37,412
+And in order to do the setup you need to go
+
+86
+00:04:37,412 --> 00:04:38,932
+directly to Cloudflare.
+
+87
+00:04:40,247 --> 00:04:43,706
+The Cloudflare dashboard may seem a bit
+
+88
+00:04:43,706 --> 00:04:44,526
+overwhelming,
+
+89
+00:04:44,526 --> 00:04:45,447
+but that's fine.
+
+90
+00:04:45,766 --> 00:04:48,086
+The only thing you need to care about is this
+
+91
+00:04:48,086 --> 00:04:48,487
+part.
+
+92
+00:04:48,567 --> 00:04:49,127
+Compute,
+
+93
+00:04:49,526 --> 00:04:50,646
+Workers and Pages,
+
+94
+00:04:52,086 --> 00:04:53,047
+and then you create,
+
+95
+00:04:53,047 --> 00:04:54,487
+click Create application.
+
+96
+00:04:56,727 --> 00:04:58,247
+So this is the important screen.
+
+97
+00:04:59,716 --> 00:05:01,877
+This connect GitHub is what we need
+
+98
+00:05:01,959 --> 00:05:02,432
+to make
+
+99
+00:05:03,072 --> 00:05:03,242
+Samebase,
+
+101
+00:05:03,792 --> 00:05:06,471
+work because basically Cloudflare connects to
+
+102
+00:05:06,471 --> 00:05:07,151
+GitHub.
+
+103
+00:05:10,271 --> 00:05:13,192
+So the same way we install Samebase in GitHub,
+
+104
+00:05:13,192 --> 00:05:13,872
+the same way
+
+105
+00:05:14,192 --> 00:05:16,031
+Cloudflare is installed in GitHub.
+
+106
+00:05:22,831 --> 00:05:23,951
+That's the first step.
+
+107
+00:05:24,134 --> 00:05:25,894
+But then this step is a bit confusing
+
+108
+00:05:26,694 --> 00:05:28,454
+because we're going through the
+
+109
+00:05:28,605 --> 00:05:29,237
+standard,
+
+111
+00:05:29,988 --> 00:05:31,654
+onboarding of creating a worker,
+
+113
+00:05:32,104 --> 00:05:32,864
+in Cloudflare.
+
+114
+00:05:32,884 --> 00:05:35,774
+But the only thing we actually care about is none
+
+115
+00:05:35,774 --> 00:05:37,093
+of these settings,
+
+116
+00:05:37,307 --> 00:05:39,147
+but a very specific setting.
+
+117
+00:05:39,468 --> 00:05:40,166
+This one
+
+118
+00:05:40,166 --> 00:05:41,413
+Create new token.
+
+119
+00:05:41,413 --> 00:05:43,550
+This is the only reason that we have to go
+
+120
+00:05:44,000 --> 00:05:45,860
+through this detour instead of
+
+121
+00:05:45,906 --> 00:05:47,449
+Just doing it from Samebase,
+
+122
+00:05:47,449 --> 00:05:48,776
+you can probably give it a name,
+
+123
+00:05:48,935 --> 00:05:51,096
+or you can skip and not give it a name.
+
+124
+00:05:51,495 --> 00:05:51,896
+Our
+
+125
+00:05:52,695 --> 00:05:53,735
+nice token,
+
+126
+00:05:53,735 --> 00:05:54,375
+let's say,
+
+127
+00:05:55,656 --> 00:05:56,776
+then click Deploy.
+
+128
+00:05:58,776 --> 00:06:00,055
+It will probably fail,
+
+129
+00:06:00,055 --> 00:06:02,575
+but we don't really care about if it fails or not.
+
+130
+00:06:02,575 --> 00:06:05,255
+We only care about that token being created.
+
+131
+00:06:09,185 --> 00:06:10,706
+Because if you go here to Settings,
+
+132
+00:06:15,505 --> 00:06:17,105
+There is this setting here.
+
+134
+00:06:18,480 --> 00:06:21,082
+At some point they'll fix it because the team
+
+135
+00:06:21,882 --> 00:06:22,843
+works on the workers,
+
+136
+00:06:24,043 --> 00:06:26,043
+makes a lot of changes all the time.
+
+137
+00:06:26,122 --> 00:06:26,522
+So,
+
+138
+00:06:26,923 --> 00:06:27,362
+okay,
+
+139
+00:06:27,362 --> 00:06:28,362
+so this is our token.
+
+140
+00:06:31,812 --> 00:06:32,772
+So if you go here
+
+141
+00:06:33,733 --> 00:06:36,212
+the next time we'll try to create a new app,
+
+142
+00:06:36,882 --> 00:06:37,283
+say
+
+143
+00:06:37,763 --> 00:06:38,882
+our new app.
+
+144
+00:06:39,763 --> 00:06:41,603
+We can already see the token here.
+
+145
+00:06:42,242 --> 00:06:42,643
+So
+
+146
+00:06:42,918 --> 00:06:44,624
+we can just create a new app and everything will
+
+147
+00:06:44,624 --> 00:06:45,184
+just work.
+
+148
+00:07:16,153 --> 00:07:16,434
+Okay,
+
+149
+00:07:16,434 --> 00:07:17,994
+so we already have a build going on
+
+150
+00:07:20,564 --> 00:07:22,804
+when it comes to this worker that we created.
+
+151
+00:07:22,804 --> 00:07:23,923
+We don't really need it.
+
+152
+00:07:23,923 --> 00:07:25,043
+We can delete it.
+
+153
+00:07:32,004 --> 00:07:32,283
+Now,
+
+154
+00:07:32,283 --> 00:07:32,963
+you may think,
+
+155
+00:07:33,204 --> 00:07:35,843
+what do we do with this initial,
+
+156
+00:07:36,114 --> 00:07:38,723
+vault that we created?
+
+157
+00:07:39,754 --> 00:07:43,403
+The very cool thing about Samebase is that this new
+
+158
+00:07:43,403 --> 00:07:45,684
+app flow is just a very specific version.
+
+159
+00:07:46,134 --> 00:07:46,374
+But
+
+160
+00:07:46,774 --> 00:07:48,533
+there's a lot of ways
+
+161
+00:07:49,334 --> 00:07:51,254
+to fix your existing setup.
+
+162
+00:07:51,653 --> 00:07:52,254
+For example,
+
+163
+00:07:52,254 --> 00:07:53,894
+you can go to Settings and you can add.
+
+164
+00:07:53,894 --> 00:07:55,334
+Add Cloudflare Worker,
+
+165
+00:07:57,653 --> 00:07:59,734
+and then you can create Create Worker,
+
+166
+00:08:00,374 --> 00:08:03,093
+and then it will pick the token that we created.
+
+167
+00:08:04,454 --> 00:08:07,093
+So you can attach a new worker whenever you want.
+
+168
+00:08:07,254 --> 00:08:07,653
+Right.
+
+169
+00:08:07,734 --> 00:08:11,254
+The new app flow is just there to provide a very
+
+170
+00:08:12,574 --> 00:08:13,533
+easy introduction.
+
+171
+00:08:18,494 --> 00:08:19,354
+And here are more,
+
+173
+00:08:19,653 --> 00:08:21,653
+complex button because we basically want to
+
+174
+00:08:21,653 --> 00:08:23,614
+connect the Worker to Convex.
+
+175
+00:08:26,514 --> 00:08:26,714
+Later,
+
+176
+00:08:26,714 --> 00:08:30,634
+I might go more in depth about how all these flows
+
+177
+00:08:30,634 --> 00:08:30,914
+work,
+
+178
+00:08:30,914 --> 00:08:32,194
+specifically when you have
+
+179
+00:08:32,514 --> 00:08:33,875
+a big monorepo,
+
+180
+00:08:34,115 --> 00:08:36,514
+multiple Workers with multiple Convex projects
+
+182
+00:08:38,514 --> 00:08:38,914
+But
+
+183
+00:08:39,554 --> 00:08:40,355
+the good thing,
+
+184
+00:08:40,355 --> 00:08:42,715
+and the cool thing is that it works even for small
+
+185
+00:08:42,715 --> 00:08:44,274
+apps and for big apps.
+
+186
+00:08:47,235 --> 00:08:47,875
+So that's it.
+
+187
+00:08:50,343 --> 00:08:54,663
+The next step is to add the Samebase plugin
+
+188
+00:08:55,624 --> 00:08:57,703
+to Codex or Claude Code.
+
+189
+00:08:58,903 --> 00:09:01,463
+Currently our plugin is not yet in the official
+
+190
+00:09:01,543 --> 00:09:03,943
+marketplace because our API changes
+
+191
+00:09:04,264 --> 00:09:04,943
+every day.
+
+192
+00:09:04,943 --> 00:09:06,024
+So we cannot
+
+193
+00:09:07,223 --> 00:09:08,743
+wait 10 days for review.
+
+194
+00:09:12,423 --> 00:09:14,343
+You can get it from GitHub
+
+195
+00:09:15,384 --> 00:09:16,103
+Samebase
+
+196
+00:09:16,903 --> 00:09:17,624
+plugin.
+
+197
+00:09:21,806 --> 00:09:24,605
+What you can do is to go into ChatGPT
+
+198
+00:09:26,125 --> 00:09:28,526
+and ask it to install it for you.
+
+201
+00:10:02,946 --> 00:10:03,233
+Can you.
+
+203
+00:10:31,093 --> 00:10:32,853
+So it started the authorization flow
+
+204
+00:10:33,413 --> 00:10:35,894
+and here you'll get redirected to Samebase.
+
+205
+00:10:36,853 --> 00:10:38,453
+Basically, this connects
+
+206
+00:10:39,894 --> 00:10:41,253
+that specific installation.
+
+207
+00:10:41,879 --> 00:10:42,759
+to Samebase.
+
+208
+00:10:43,559 --> 00:10:44,679
+You can approve it.
+
+209
+00:10:47,639 --> 00:10:49,399
+Then let's return to Codex.
+
+210
+00:10:51,159 --> 00:10:54,039
+So now it should be open. To test it, we can
+
+211
+00:10:54,759 --> 00:10:55,639
+start a new
+
+212
+00:10:56,279 --> 00:10:56,919
+task.
+
+213
+00:10:57,320 --> 00:10:58,120
+Open.
+
+214
+00:11:18,928 --> 00:11:19,210
+Okay,
+
+215
+00:11:19,210 --> 00:11:19,809
+here I was,
+
+216
+00:11:20,129 --> 00:11:20,690
+I was
+
+217
+00:11:21,889 --> 00:11:23,169
+logged into a different account.
+
+218
+00:11:23,250 --> 00:11:24,370
+So let's try it again.
+
+219
+00:11:25,970 --> 00:11:27,009
+Open again.
+
+220
+00:11:34,059 --> 00:11:34,500
+Okay,
+
+221
+00:11:34,500 --> 00:11:36,460
+so now I'm logged into this new account
+
+222
+00:11:37,740 --> 00:11:39,539
+and yeah,
+
+223
+00:11:39,539 --> 00:11:40,700
+here you can even try
+
+224
+00:11:41,019 --> 00:11:42,299
+create new app.
+
+225
+00:11:43,340 --> 00:11:43,740
+My
+
+226
+00:11:44,059 --> 00:11:45,980
+super cool new app.
+
+227
+00:12:06,190 --> 00:12:08,629
+As you can see, it already started to provision it
+
+228
+00:12:10,950 --> 00:12:13,190
+because it basically uses the same
+
+229
+00:12:14,149 --> 00:12:14,950
+handlers
+
+230
+00:12:15,590 --> 00:12:16,470
+like the web app.
+
+231
+00:12:18,230 --> 00:12:18,870
+Afterwards
+
+232
+00:12:19,519 --> 00:12:21,840
+you can just ask it to do anything
+
+233
+00:12:22,240 --> 00:12:23,519
+else and it will
+
+234
+00:12:24,559 --> 00:12:24,960
+just
+
+235
+00:12:25,360 --> 00:12:25,919
+do it.
+
+236
+00:12:27,679 --> 00:12:28,080
+So
+
+237
+00:12:30,240 --> 00:12:31,440
+thank you for listening.
+
+238
+00:12:36,240 --> 00:12:37,279
+Like and subscribe.

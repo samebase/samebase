@@ -13,6 +13,15 @@ import {
   founderDemoFps,
 } from "./compositions/founder-demo/founderDemoEdit";
 import { LogoHype, logoHypeDurationInFrames, logoHypeFps } from "./compositions/logo-hype/LogoHype";
+import {
+  OnboardingDemo,
+  onboardingDemoHeight,
+  onboardingDemoWidth,
+} from "./compositions/onboarding-demo/OnboardingDemo";
+import {
+  onboardingDemoEditDurationInFrames,
+  onboardingDemoFps,
+} from "./compositions/onboarding-demo/onboardingDemoEdit";
 import { TicTacToeRecording } from "./compositions/tic-tac-toe/TicTacToeRecording";
 import {
   ticTacToeEditDurationInFrames,
@@ -46,6 +55,14 @@ export function RemotionRoot() {
         fps={founderDemoFps}
         height={2}
         width={2}
+      />
+      <Composition
+        id="OnboardingDemo"
+        component={OnboardingDemo}
+        durationInFrames={onboardingDemoEditDurationInFrames}
+        fps={onboardingDemoFps}
+        height={onboardingDemoHeight}
+        width={onboardingDemoWidth}
       />
       <Composition
         id="LogoHype"
