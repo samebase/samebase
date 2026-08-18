@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
-import { api } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
 async function seedActiveViewer(t: ReturnType<typeof makeConvexTest>, email: string) {
@@ -25,6 +25,20 @@ async function seedActiveViewer(t: ReturnType<typeof makeConvexTest>, email: str
       tokenIdentifier: `test:${userId}`,
     }),
   };
+}
+
+async function seedStaffViewer(t: ReturnType<typeof makeConvexTest>) {
+  const userId = await t.run(async (ctx) => {
+    return await ctx.db.insert("users", {
+      state: "active",
+      email: "nicu@samebase.com",
+      isApproved: true,
+    });
+  });
+  return t.withIdentity({
+    subject: `${userId}|staff-session`,
+    tokenIdentifier: `test:${userId}`,
+  });
 }
 
 describe("account deletion request and status", () => {
@@ -55,7 +69,7 @@ describe("account deletion request and status", () => {
     expect(after).toEqual(before);
   });
 
-  it("creates one run, preserves the session, and returns the same status on repeat", async () => {
+  it("queues one run for seven days, preserves the session, and starts from the callback", async () => {
     const t = makeConvexTest();
     const { sessionId, userId, viewer } = await seedActiveViewer(t, "requester@example.invalid");
     const initiatingSession = await t.run(async (ctx) => await ctx.db.get(sessionId));
@@ -64,34 +78,154 @@ describe("account deletion request and status", () => {
       deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
     };
 
-    const first = await viewer.mutation(api.accountDeletion.index.request, args);
-    if (first.state !== "accepted") {
+    vi.useFakeTimers();
+    vi.setSystemTime(1_000);
+    try {
+      const first = await viewer.mutation(api.accountDeletion.index.request, args);
+      if (first.state !== "accepted") {
+        throw new Error("Account deletion request was not accepted.");
+      }
+      const status = await viewer.query(api.accountDeletion.index.status, {});
+      const repeated = await viewer.mutation(api.accountDeletion.index.request, args);
+
+      expect(first.status).toMatchObject({
+        requestedAt: 1_000,
+        deletionStartsAt: 604_801_000,
+        state: "queued",
+      });
+      expect(status).toEqual(first.status);
+      expect(repeated).toEqual(first);
+      const snapshot = await t.run(async (ctx) => ({
+        events: await ctx.db.query("workflow_accountDeletion_events").collect(),
+        run: await ctx.db.get(first.status.runId),
+        runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
+        scheduledFunctions: await ctx.db.system.query("_scheduled_functions").take(2),
+        session: await ctx.db.get(sessionId),
+        user: await ctx.db.get(userId),
+      }));
+      expect(snapshot.runs).toHaveLength(1);
+      expect(snapshot.events).toHaveLength(1);
+      expect(snapshot.scheduledFunctions).toEqual([
+        expect.objectContaining({
+          scheduledTime: 604_801_000,
+          state: { kind: "pending" },
+        }),
+      ]);
+      expect(snapshot.session).toEqual(initiatingSession);
+      expect(snapshot.run).toMatchObject({
+        _id: first.status.runId,
+        initiatingSessionId: sessionId,
+        state: "queued",
+        workflow: { state: "not_started" },
+      });
+      expect(snapshot.user).toMatchObject({
+        _id: userId,
+        runId: first.status.runId,
+        state: "deleting",
+      });
+
+      await expect(
+        t.mutation(internal.accountDeletion.index.startScheduled, {
+          runId: first.status.runId,
+        }),
+      ).resolves.toBeNull();
+      await expect(
+        t.run(async (ctx) => await ctx.db.get(first.status.runId)),
+      ).resolves.toMatchObject({
+        state: "running",
+        workflow: { state: "started", attempt: 1 },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("lets staff start only a queued deletion and makes the late callback a no-op", async () => {
+    const t = makeConvexTest();
+    const { viewer } = await seedActiveViewer(t, "delete-now@example.invalid");
+    const requested = await viewer.mutation(api.accountDeletion.index.request, {
+      completionCapability: "1".repeat(64),
+      deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+    });
+    if (requested.state !== "accepted") {
       throw new Error("Account deletion request was not accepted.");
     }
-    const status = await viewer.query(api.accountDeletion.index.status, {});
-    const repeated = await viewer.mutation(api.accountDeletion.index.request, args);
 
-    expect(status).toEqual(first.status);
-    expect(repeated).toEqual(first);
-    const snapshot = await t.run(async (ctx) => ({
-      events: await ctx.db.query("workflow_accountDeletion_events").collect(),
-      run: await ctx.db.get(first.status.runId),
-      runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
+    await expect(
+      viewer.mutation(api.accountDeletion.index.deleteNow, { runId: requested.status.runId }),
+    ).rejects.toThrow("Access denied");
+
+    const staff = await seedStaffViewer(t);
+    await expect(
+      staff.mutation(api.accountDeletion.index.deleteNow, { runId: requested.status.runId }),
+    ).resolves.toMatchObject({
+      runId: requested.status.runId,
+      state: "running",
+    });
+    await expect(
+      staff.mutation(api.accountDeletion.index.restore, { runId: requested.status.runId }),
+    ).rejects.toThrow("Account deletion run is not restorable.");
+    const started = await t.run(async (ctx) => await ctx.db.get(requested.status.runId));
+
+    await expect(
+      t.mutation(internal.accountDeletion.index.startScheduled, {
+        runId: requested.status.runId,
+      }),
+    ).resolves.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(requested.status.runId))).resolves.toEqual(
+      started,
+    );
+    await expect(
+      staff.mutation(api.accountDeletion.index.deleteNow, { runId: requested.status.runId }),
+    ).rejects.toThrow("Account deletion run is not queued.");
+  });
+
+  it("lets staff restore only a queued deletion and makes the late callback a no-op", async () => {
+    const t = makeConvexTest();
+    const { sessionId, userId, viewer } = await seedActiveViewer(t, "restore@example.invalid");
+    await t.run(async (ctx) => await ctx.db.patch(userId, { name: "Restored User" }));
+    const requested = await viewer.mutation(api.accountDeletion.index.request, {
+      completionCapability: "2".repeat(64),
+      deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+    });
+    if (requested.state !== "accepted") {
+      throw new Error("Account deletion request was not accepted.");
+    }
+
+    await expect(
+      viewer.mutation(api.accountDeletion.index.restore, { runId: requested.status.runId }),
+    ).rejects.toThrow("Access denied");
+
+    const staff = await seedStaffViewer(t);
+    await expect(
+      staff.mutation(api.accountDeletion.index.restore, { runId: requested.status.runId }),
+    ).resolves.toBeNull();
+    const restored = await t.run(async (ctx) => ({
+      events: await ctx.db
+        .query("workflow_accountDeletion_events")
+        .withIndex("by_run_and_created_at", (query) => query.eq("runId", requested.status.runId))
+        .collect(),
+      run: await ctx.db.get(requested.status.runId),
       session: await ctx.db.get(sessionId),
       user: await ctx.db.get(userId),
     }));
-    expect(snapshot.runs).toHaveLength(1);
-    expect(snapshot.events).toHaveLength(1);
-    expect(snapshot.session).toEqual(initiatingSession);
-    expect(snapshot.run).toMatchObject({
-      _id: first.status.runId,
-      initiatingSessionId: sessionId,
-      state: "running",
-    });
-    expect(snapshot.user).toMatchObject({
+    expect(restored.events).toEqual([]);
+    expect(restored.run).toBeNull();
+    expect(restored.session).not.toBeNull();
+    expect(restored.user).toMatchObject({
       _id: userId,
-      runId: first.status.runId,
-      state: "deleting",
+      email: "restore@example.invalid",
+      name: "Restored User",
+      state: "active",
+    });
+
+    await expect(
+      t.mutation(internal.accountDeletion.index.startScheduled, {
+        runId: requested.status.runId,
+      }),
+    ).resolves.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(userId))).resolves.toMatchObject({
+      state: "active",
     });
   });
 
