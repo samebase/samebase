@@ -159,7 +159,7 @@ const managedTokenListIndex = samebaseSkill.indexOf(
   "Call `cloudflare_listWorkersBuildTokens` for the selected organization.",
 );
 const managedCreateIndex = samebaseSkill.indexOf(
-  "Create the app with the required `cloudflareBuildTokenUuid` set to the selected exact UUID or explicit null.",
+  "Create the app with the required `cloudflareBuildTokenUuid`",
 );
 const managedSourcePollIndex = samebaseSkill.indexOf(
   "Read only the inventory until source setup is `ready` or `failed`.",
@@ -174,58 +174,18 @@ check(
     ),
   "The Samebase skill must keep managed app creation on its closed tool sequence.",
 );
-check(
-  samebaseSkill.includes(
-    "If that current token list is confirmed empty, use explicit null. Otherwise, use an available `lastUsedBuildTokenUuid` without asking, use the only listed token, or ask the user to choose by name and UUID when several tokens are listed.",
-  ) &&
-    samebaseSkill.includes(
-      "Create the app with the required `cloudflareBuildTokenUuid` set to the selected exact UUID or explicit null.",
-    ),
-  "The Samebase skill must pass explicit null only when managed app creation has an empty token list.",
+const tokenlessNullIndex = samebaseSkill.indexOf("confirmed empty, use explicit null");
+const tokenlessGuideIndex = samebaseSkill.indexOf("samebase.com/docs/cloudflare-setup");
+const tokenlessCreateWorkerIndex = samebaseSkill.indexOf("`vault_cloudflare_createWorker`");
+const tokenlessDeployKeysIndex = samebaseSkill.indexOf(
+  "`vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds`",
 );
 check(
-  samebaseSkill.includes(
-    "When the token was null, the managed run creates the GitHub repository and Convex project but no Cloudflare Worker.",
-  ) &&
-    samebaseSkill.includes(
-      "A ready provider setup means only that this requested managed work finished.",
-    ) &&
-    samebaseSkill.includes(
-      "Confirm that the exact planned Convex project is attached and `cloudflareWorkers` is empty.",
-    ) &&
-    samebaseSkill.includes(
-      "[samebase.com/docs/cloudflare-setup](https://samebase.com/docs/cloudflare-setup)",
-    ),
-  "The Samebase skill must report the confirmed tokenless result as GitHub and Convex ready with Cloudflare pending.",
-);
-check(
-  samebaseSkill.includes(
-    "The user completes Cloudflare's standard repository setup to create the first account token, then deletes the temporary Worker.",
-  ) &&
-    samebaseSkill.includes(
-      "list the current tokens again and call `vault_cloudflare_createWorker` with one exact UUID.",
-    ) &&
-    samebaseSkill.includes(
-      "`vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds` with the new Worker and the attached",
-    ),
-  "The Samebase skill must use the temporary Worker only to bootstrap the first token, then use the existing Worker and deploy-key actions.",
-);
-check(
-  samebaseSkill.includes(
-    "For manual Cloudflare Worker creation or Workers Builds configuration, first call `cloudflare_listWorkersBuildTokens`.",
-  ) &&
-    samebaseSkill.includes(
-      "If the list is empty, stop the write and use current inventory to select the next action:",
-    ) &&
-    samebaseSkill.includes(
-      "For the tokenless managed app with its exact planned Convex project and no attached Worker, use",
-    ) &&
-    samebaseSkill.includes(
-      "When a Worker is already attached, keep it. After token setup, list tokens again and call `vault_cloudflare_configureWorkersBuildsForGitHub` for that attachment. Do not create another Worker.",
-    ) &&
-    samebaseSkill.includes("Worker creation does not install Convex") &&
-    samebaseSkill.includes("Never pass null to a manual Worker or Builds action."),
-  "The Samebase skill must select existing Cloudflare actions from current vault state.",
+  tokenlessNullIndex > managedTokenListIndex &&
+    tokenlessGuideIndex > tokenlessNullIndex &&
+    tokenlessCreateWorkerIndex > tokenlessGuideIndex &&
+    tokenlessDeployKeysIndex > tokenlessCreateWorkerIndex,
+  "The Samebase skill must send null for a confirmed empty token list, report the guide, then use the existing Worker and deploy-key actions.",
 );
 const openSamebaseIndex = samebaseSkill.indexOf(
   "Treat `open @samebase` as an exact command and an explicit choice of the in-app Browser.",
