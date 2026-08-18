@@ -6,8 +6,8 @@
 - Screen and audio: `public/media/onboarding-demo-screen.mp4`
 - Accelerated screen proxy: `public/media/onboarding-demo-screen-24x.mp4`
 - Captions: `public/media/onboarding-demo.srt`
-- Duration: `12:38.566`
-- Video: `3840x2480`, 30 fps, 22,755 frames
+- Duration: `11:17.966`
+- Video: `3840x2480`, 30 fps, 20,337 frames
 - Audio: AAC stereo at 44.1 kHz
 
 The face and screen files have matching video packet timing and identical audio streams. The edit
@@ -19,13 +19,13 @@ Keep narration and normal interaction at 1x. Accelerate only these provisioning 
 
 | Source time           | Maximum speed | Activity                      |
 | --------------------- | ------------: | ----------------------------- |
-| `06:45.184-07:16.133` |           24x | Create the first app          |
-| `09:30.296-10:01.096` |           24x | Install the Samebase plugin   |
-| `10:03.233-10:31.067` |           24x | Start plugin authorization    |
-| `10:58.120-11:18.900` |           24x | Open Samebase from the agent  |
-| `11:46.000-12:06.167` |           24x | Create the app from the agent |
+| `05:24.588-05:55.557` |           24x | Create the first app          |
+| `08:09.699-08:40.499` |           24x | Install the Samebase plugin   |
+| `08:42.637-09:10.471` |           24x | Start plugin authorization    |
+| `09:37.524-09:58.304` |           24x | Open Samebase from the agent  |
+| `10:25.400-10:45.594` |           24x | Create the app from the agent |
 
-The brief spoken `Can you` fragment at `10:02.946-10:03.233` stays at 1x between the two plugin
+The brief spoken `Can you` fragment at `08:42.350-08:42.637` stays at 1x between the two plugin
 waits. Short OAuth, navigation, and retry pauses stay at 1x in the first draft. Review them after
 the main waits are compressed.
 
