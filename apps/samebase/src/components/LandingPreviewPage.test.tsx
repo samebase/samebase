@@ -111,7 +111,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
     expect(markup).toContain("border-radius:1.104% / 1.664%");
     expect(markup).toContain(
-      'href="https://www.youtube.com/watch?v=HSo31kUZWpk" rel="noreferrer" target="_blank"',
+      'href="https://youtu.be/UfxE8rvprqc" rel="noreferrer" target="_blank"',
     );
     expect(markup).toContain(">Watch on <span");
     expect(markup).toContain(">YouTube</span></a>");

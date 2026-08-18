@@ -431,7 +431,7 @@ function LandingPreviewOverview() {
             <p className="mt-4 text-sm">
               <a
                 className="group font-semibold text-foreground no-underline"
-                href="https://www.youtube.com/watch?v=HSo31kUZWpk"
+                href="https://youtu.be/UfxE8rvprqc"
                 rel="noreferrer"
                 target="_blank"
               >
