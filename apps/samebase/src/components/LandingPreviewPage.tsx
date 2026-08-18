@@ -472,7 +472,7 @@ function LandingPreviewOverview() {
             <p className="mt-4 text-sm">
               <a
                 className="border-b border-red-600 pb-px font-semibold text-red-600 no-underline hover:border-red-700 hover:text-red-700"
-                href="https://www.youtube.com/watch?v=dlIacfCxDPk"
+                href="https://www.youtube.com/watch?v=HSo31kUZWpk"
                 rel="noreferrer"
                 target="_blank"
               >
