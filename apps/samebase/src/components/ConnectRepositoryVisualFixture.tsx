@@ -6,7 +6,7 @@ import { findRepositorySearchMatch } from "@/lib/repositorySearch";
 
 export type ConnectRepositoryVisualMode =
   | "connect-repository-loading-more"
-  | "connect-repository-provider-blocked";
+  | "connect-repository-github-unavailable";
 
 const repositories = [
   {
@@ -53,16 +53,15 @@ export function ConnectRepositoryVisualFixture({ mode }: { mode: ConnectReposito
 
   return (
     <ConnectRepositoryPageContent
-      canConnectRepositories={mode !== "connect-repository-provider-blocked"}
       connectingRepositoryFullName={null}
       emptyRepositoryMessage={null}
       error={null}
       loading={false}
       loadingMore={mode === "connect-repository-loading-more"}
+      githubUnavailable={mode === "connect-repository-github-unavailable"}
       repositoryPreviewCount={10}
       repositoryRows={repositoryRows}
       repositoryTotalCount={repositories.length}
-      providerDestinationsLoaded
       retryingFullRepositories={false}
       searchQuery=""
       showBackgroundError={false}

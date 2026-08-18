@@ -32,7 +32,7 @@ apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.pn
 apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
 apps/samebase/e2e/connect-organization-visual.spec.ts-snapshots/connect-organization-page.png
 apps/samebase/e2e/connect-repository-visual.spec.ts-snapshots/connect-repository-loading-more.png
-apps/samebase/e2e/connect-repository-visual.spec.ts-snapshots/connect-repository-provider-blocked.png
+apps/samebase/e2e/connect-repository-visual.spec.ts-snapshots/connect-repository-github-unavailable.png
 apps/samebase/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-raw.png
 apps/samebase/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-zoomed.png
 apps/samebase/e2e/corner-notch-visual.spec.ts-snapshots/corner-notch.png
