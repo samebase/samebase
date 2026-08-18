@@ -220,6 +220,37 @@ async function readStoredCoordinates(fixture: Awaited<ReturnType<typeof createFi
 }
 
 describe("Cloudflare Worker stored coordinates", () => {
+  it("returns an existing Worker name conflict to the client", async () => {
+    const fixture = await createFixture();
+    providerMocks.requestCloudflareApiOrThrow.mockImplementation(
+      async (request: CloudflareTestRequest) => {
+        if (request.path === "/accounts") {
+          return [{ id: "cloudflare-account", name: "Cloudflare account" }];
+        }
+        if (request.path === "/accounts/{account_id}/builds/tokens") {
+          return [{ build_token_uuid: "build-token", build_token_name: "Build token" }];
+        }
+        if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
+          return workerResponse({ workerName: "tmp-some-new-app" });
+        }
+        throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
+      },
+    );
+
+    await expect(
+      fixture.owner.action(api.vault.cloudflare.createWorker, {
+        vaultId: fixture.ids.vaultId,
+        accountId: "cloudflare-account",
+        workerName: "tmp-some-new-app",
+        rootDirectory: "/",
+        buildTokenUuid: "build-token",
+      }),
+    ).rejects.toMatchObject({
+      name: "ConvexError",
+      data: "Cloudflare Worker name tmp-some-new-app already exists. Attach that Worker or choose another name.",
+    });
+  });
+
   it("updates a Worker name through the public action after a stable-tag reread", async () => {
     const fixture = await createFixture();
     useCloudflareReadFixture({ workerName: "provider-current-worker" });
