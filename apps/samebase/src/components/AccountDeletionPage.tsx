@@ -7,7 +7,7 @@ import { api } from "../../convex/_generated/api";
 
 type AccountDeletionStatus = Pick<
   Exclude<FunctionReturnType<typeof api.accountDeletion.index.status>, null>,
-  "currentStep" | "latestProgressAt" | "state"
+  "currentStep" | "deletionStartsAt" | "latestProgressAt" | "state"
 >;
 
 const ACCOUNT_DELETION_STEP_LABELS = {
@@ -44,6 +44,26 @@ export function AccountDeletionPage() {
 }
 
 export function AccountDeletionStatusView({ status }: { status: AccountDeletionStatus }) {
+  if (status.state === "queued") {
+    return (
+      <main data-testid="account-deletion-page" className="container mx-auto w-full max-w-2xl py-6">
+        <h1 className="text-xl font-semibold @2xl:text-2xl">Account deletion scheduled</h1>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Your account is disabled. Permanent deletion will start on{" "}
+          {new Date(status.deletionStartsAt).toLocaleString()}.
+        </p>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Email{" "}
+          <a className="underline underline-offset-4" href="mailto:contact@samebase.com">
+            contact@samebase.com
+          </a>{" "}
+          to restore your account or for other inquiries. Samebase will send you a confirmation
+          email as account deletion finishes.
+        </p>
+      </main>
+    );
+  }
+
   const needsAttention = status.state === "needs_attention";
   const currentStepIndex = ACCOUNT_DELETION_STEPS.findIndex(
     ({ step }) => step === status.currentStep,

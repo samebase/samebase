@@ -28,23 +28,52 @@ export function AdminAccountDeletionsPage() {
     selectedRunId === null ? "skip" : { runId: selectedRunId },
   );
   const retry = useMutation(api.accountDeletion.index.retry);
-  const [retryingRunId, setRetryingRunId] = useState<Id<"workflow_accountDeletion_runs"> | null>(
+  const restore = useMutation(api.accountDeletion.index.restore);
+  const deleteNow = useMutation(api.accountDeletion.index.deleteNow);
+  const [pendingAction, setPendingAction] = useState<"delete_now" | "restore" | "retry" | null>(
     null,
   );
-  const [retryError, setRetryError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const handleRetry = async (runId: Id<"workflow_accountDeletion_runs">) => {
-    if (retryingRunId !== null) {
+    if (pendingAction !== null) {
       return;
     }
-    setRetryingRunId(runId);
-    setRetryError(null);
+    setPendingAction("retry");
+    setActionError(null);
     try {
       await retry({ runId });
     } catch {
-      setRetryError("Could not retry account deletion. Please try again.");
+      setActionError("Could not retry account deletion. Please try again.");
     } finally {
-      setRetryingRunId(null);
+      setPendingAction(null);
+    }
+  };
+
+  const handleQueuedAction = async (
+    action: "delete_now" | "restore",
+    runId: Id<"workflow_accountDeletion_runs">,
+  ) => {
+    if (pendingAction !== null) {
+      return;
+    }
+    setPendingAction(action);
+    setActionError(null);
+    try {
+      if (action === "restore") {
+        await restore({ runId });
+        setSelectedRunId((selected) => (selected === runId ? null : selected));
+      } else {
+        await deleteNow({ runId });
+      }
+    } catch {
+      setActionError(
+        action === "restore"
+          ? "Could not restore the account. Please try again."
+          : "Could not start account deletion. Please try again.",
+      );
+    } finally {
+      setPendingAction(null);
     }
   };
 
@@ -76,7 +105,7 @@ export function AdminAccountDeletionsPage() {
                     aria-pressed={selectedRunId === run.runId}
                     onClick={() => {
                       setSelectedRunId(run.runId);
-                      setRetryError(null);
+                      setActionError(null);
                     }}
                   >
                     {run.runId}
@@ -116,13 +145,46 @@ export function AdminAccountDeletionsPage() {
             <h2 id="account-deletion-detail-heading" className="text-base font-semibold">
               Operation details
             </h2>
-            {detail.run.state === "needs_attention" ? (
+            {detail.run.state === "queued" ? (
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={pendingAction !== null}
+                  onClick={() => void handleQueuedAction("restore", detail.run.runId)}
+                >
+                  {pendingAction === "restore" ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Restoring...
+                    </>
+                  ) : (
+                    "Restore account"
+                  )}
+                </Button>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={pendingAction !== null}
+                  onClick={() => void handleQueuedAction("delete_now", detail.run.runId)}
+                >
+                  {pendingAction === "delete_now" ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Delete now"
+                  )}
+                </Button>
+              </div>
+            ) : detail.run.state === "needs_attention" ? (
               <Button
                 type="button"
-                disabled={retryingRunId !== null}
+                disabled={pendingAction !== null}
                 onClick={() => void handleRetry(detail.run.runId)}
               >
-                {retryingRunId === detail.run.runId ? (
+                {pendingAction === "retry" ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Retrying...
@@ -133,14 +195,20 @@ export function AdminAccountDeletionsPage() {
               </Button>
             ) : null}
           </div>
-          {retryError === null ? null : (
+          {actionError === null ? null : (
             <p className="mt-4 text-sm text-destructive" role="alert">
-              {retryError}
+              {actionError}
             </p>
           )}
           <dl className="mt-6 space-y-4">
             <OutcomeState label="Operation" state={detail.run.runId} />
             <OutcomeState label="Account" state={detail.run.email ?? "Scrubbed"} />
+            {detail.run.state === "queued" ? (
+              <OutcomeState
+                label="Deletion starts"
+                state={new Date(detail.run.deletionStartsAt).toLocaleString()}
+              />
+            ) : null}
             <OutcomeState
               label="Provider revocation"
               state={detail.run.outcomes.providerRevocation.state.replace(/_/g, " ")}

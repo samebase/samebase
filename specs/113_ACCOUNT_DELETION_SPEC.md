@@ -21,11 +21,17 @@ document only when it clears the last credential slot.
 Account deletion is rejected while any organization membership exists. A member must leave each
 shared organization first. A sole owner must remove every vault and delete the organization first.
 
-Acceptance creates one durable deletion run, marks the user as deleting, and routes every signed-in
-session to `/account-deletion`. Repeated requests return the same active run without rechecking the
-phrase. A deleting user cannot use ordinary authenticated product routes or create new user-owned
-data. A deleting user cannot create a new auth session. The initiating session remains available
-only for account-deletion access until the workflow removes it.
+Acceptance creates one durable queued deletion run, marks the user as deleting, and routes every
+signed-in session to `/account-deletion`. The account is disabled immediately. The permanent
+deletion workflow starts exactly seven days after the request. The status page shows that time and
+directs the user to email `contact@samebase.com` to restore the account or for other inquiries. The
+dialog and status page use the exact confirmation text
+`Samebase will send you a confirmation email as account deletion finishes.` Repeated requests return
+the same active run without rechecking the phrase.
+
+A deleting user cannot use ordinary authenticated product routes or create new user-owned data. A
+deleting user cannot create a new auth session. The initiating session remains available only for
+account-deletion access until the workflow removes it or staff restores the queued account.
 
 ## User Lifecycle
 
@@ -37,9 +43,15 @@ The `users` table has one closed lifecycle union:
 3. `deleted` contains only the existing Convex `_id`, system `_creationTime`, `state: "deleted"`,
    and `deletedAt`. It grants no authority and is terminal.
 
-The allowed forward transitions are `active` to `deleting` and `deleting` to `deleted`. A workflow
-failure leaves the user deleting and marks the run as needing attention. No transition can leave
-`deleted`. A later signup by the same person creates a new active row with a new user ID.
+The normal forward transitions are `active` to `deleting` and `deleting` to `deleted`. Before the
+permanent deletion workflow starts, staff can restore the queued account from `deleting` to
+`active`. Restoration deletes the queued run and its request event in the same transaction. The
+scheduled callback then does nothing because the run no longer exists. This flow does not retain a
+canceled run or add a cancellation state.
+
+A workflow failure leaves the user deleting and marks the run as needing attention. Staff cannot
+restore an account after the permanent deletion workflow starts. No transition can leave `deleted`.
+A later signup by the same person creates a new active row with a new user ID.
 
 A missing user row means that a stored user reference is invalid or damaged. Product code must not
 present it as a deleted account. An approved durable user reference resolves a deleted row to the
@@ -78,6 +90,10 @@ page stays in a finishing state and tells the user to close other Samebase tabs 
 
 ## Deletion Order
 
+The run stays queued until its scheduled deletion time. Staff can start the same queued run early
+after a direct user request. Starting the run manually or at its scheduled time uses the same
+permanent deletion workflow.
+
 The workflow must:
 
 1. Stop the user's other Samebase sessions.
@@ -92,7 +108,8 @@ The workflow must:
    setup states in bounded batches. Preserve organization invitations and their creator and acceptor
    user references. For each accepted invitation that names this user as acceptor, remove its code
    and GitHub recipient fields before finalization.
-6. Attempt the completion email with the opaque deletion operation ID as the support reference.
+6. Attempt the confirmation email as account deletion finishes and include the opaque deletion
+   operation ID as the support reference.
 7. Repeat every final readiness check, then delete the final auth session. In the same transaction,
    replace the matching `deleting` user row with the exact PII-free `deleted` variant and replace
    the live deletion run with its scrubbed successful receipt. Use one completion time for
@@ -101,8 +118,9 @@ The workflow must:
    retain an identity-free execution journal for operational recovery.
 
 A failed required step leaves the account deletion-only and marks the run as needing staff
-attention. It never silently reactivates the account. Staff can inspect and retry the same run from
-`/admin/account-deletions` but cannot skip required steps or force success.
+attention. It never silently reactivates the account. Staff can restore or start only a queued run,
+or retry a run that needs attention, from `/admin/account-deletions`. Staff cannot skip required
+steps or force success.
 
 Row existence never grants authority. Active users get their normal account, staff, approval,
 organization, provider, vault, billing, browser handoff, and MCP access. Deleting users get only
@@ -171,6 +189,10 @@ hard-deleted IDs cannot be restored.
 ## Required Validation
 
 - A request is idempotent and capability retries keep observing the same run.
+- A request disables the account immediately, stays queued for seven days, and exposes the exact
+  permanent deletion start time.
+- Staff can restore or start only a queued run. Restoration removes the run and returns the same
+  user to active. A later scheduled callback is a no-op.
 - A request with any organization membership is rejected without creating a deletion run.
 - Normal routes and writes reject a deleting user.
 - Viewer, session, OAuth, browser handoff, provider callback, and MCP state-matrix tests enforce the

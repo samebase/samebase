@@ -2,7 +2,9 @@ import { getAuthSessionId } from "@convex-dev/auth/server";
 import { paginationOptsValidator, paginationResultValidator } from "convex/server";
 import { v } from "convex/values";
 
+import { internal } from "../_generated/api";
 import type { Doc } from "../_generated/dataModel";
+import { internalMutation, type MutationCtx } from "../_generated/server";
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
 import { mutation, query } from "../functions";
 import { isAdminUser } from "../userAccess";
@@ -15,6 +17,8 @@ import {
 import { startAccountDeletionWorkflow } from "./workflow";
 
 const { array, id, literal, number, object, optional, string, union } = v;
+
+const ACCOUNT_DELETION_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1_000;
 
 const vActiveAccountDeletionRunState = union(
   literal("queued"),
@@ -35,6 +39,7 @@ const vAccountDeletionStatus = object({
   state: vActiveAccountDeletionRunState,
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
+  deletionStartsAt: number(),
   latestProgressAt: number(),
 });
 
@@ -61,6 +66,7 @@ const adminAccountDeletionFields = {
   state: vAccountDeletionRunState,
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
+  deletionStartsAt: number(),
   latestProgressAt: number(),
   retryCount: number(),
   outcomes: vAccountDeletionOutcomeSummary,
@@ -82,6 +88,7 @@ function projectStatus(run: Doc<"workflow_accountDeletion_runs">) {
     state: run.state,
     currentStep: run.currentStep,
     requestedAt: run.requestedAt,
+    deletionStartsAt: run.requestedAt + ACCOUNT_DELETION_GRACE_PERIOD_MS,
     latestProgressAt: run.updatedAt,
   };
 }
@@ -92,6 +99,7 @@ function projectAdminListItem(run: Doc<"workflow_accountDeletion_runs">) {
     state: run.state,
     currentStep: run.currentStep,
     requestedAt: run.requestedAt,
+    deletionStartsAt: run.requestedAt + ACCOUNT_DELETION_GRACE_PERIOD_MS,
     latestProgressAt: run.updatedAt,
     retryCount: run.retryCount,
     outcomes: run.outcomes,
@@ -99,6 +107,30 @@ function projectAdminListItem(run: Doc<"workflow_accountDeletion_runs">) {
     ...(run.state === "needs_attention" ? { latestSafeError: run.latestSafeError } : {}),
     ...(run.state === "succeeded" ? { completedAt: run.completedAt } : {}),
   };
+}
+
+async function startQueuedAccountDeletion(
+  ctx: MutationCtx,
+  run: Extract<Doc<"workflow_accountDeletion_runs">, { state: "queued" }>,
+): Promise<void> {
+  const user = await ctx.db.get(run.identity.userId);
+  if (user === null || user.state !== "deleting" || user.runId !== run._id) {
+    throw new Error("Account deletion marker is inconsistent.");
+  }
+
+  const workflowId = await startAccountDeletionWorkflow(ctx, run._id);
+  await ctx.db.replace(run._id, {
+    identity: run.identity,
+    completionCapability: run.completionCapability,
+    state: "running",
+    workflow: { state: "started", workflowId, attempt: 1 },
+    currentStep: run.currentStep,
+    requestedAt: run.requestedAt,
+    updatedAt: Date.now(),
+    initiatingSessionId: run.initiatingSessionId,
+    retryCount: run.retryCount,
+    outcomes: run.outcomes,
+  });
 }
 
 export const request = mutation({
@@ -193,18 +225,84 @@ export const request = mutation({
       requestedAt: now,
     });
 
-    const workflowId = await startAccountDeletionWorkflow(ctx, runId);
-    await ctx.db.replace(runId, {
-      ...activeRunFields,
-      state: "running",
-      workflow: { state: "started", workflowId, attempt: 1 },
-    });
+    await ctx.scheduler.runAt(
+      now + ACCOUNT_DELETION_GRACE_PERIOD_MS,
+      internal.accountDeletion.index.startScheduled,
+      { runId },
+    );
 
     const run = await ctx.db.get(runId);
     if (run === null || run.identity.state !== "active") {
       throw new Error("Account deletion run was not created.");
     }
     return { state: "accepted" as const, status: projectStatus(run) };
+  },
+});
+
+export const startScheduled = internalMutation({
+  args: { runId: id("workflow_accountDeletion_runs") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (run === null || run.state !== "queued") {
+      return null;
+    }
+
+    await startQueuedAccountDeletion(ctx, run);
+    return null;
+  },
+});
+
+export const deleteNow = mutation({
+  access: "access_admin",
+  args: { runId: id("workflow_accountDeletion_runs") },
+  returns: vAccountDeletionStatus,
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (run === null || run.state !== "queued") {
+      throw new Error("Account deletion run is not queued.");
+    }
+
+    await startQueuedAccountDeletion(ctx, run);
+
+    const started = await ctx.db.get(run._id);
+    if (started === null) {
+      throw new Error("Account deletion run was not started.");
+    }
+    return projectStatus(started);
+  },
+});
+
+export const restore = mutation({
+  access: "access_admin",
+  args: { runId: id("workflow_accountDeletion_runs") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const run = await ctx.db.get(args.runId);
+    if (run === null || run.state !== "queued") {
+      throw new Error("Account deletion run is not restorable.");
+    }
+
+    const user = await ctx.db.get(run.identity.userId);
+    if (user === null || user.state !== "deleting" || user.runId !== run._id) {
+      throw new Error("Account deletion marker is inconsistent.");
+    }
+
+    const event = await ctx.db
+      .query("workflow_accountDeletion_events")
+      .withIndex("by_run_and_created_at", (query) => query.eq("runId", run._id))
+      .unique();
+    if (event === null || event.step !== "request_accepted") {
+      throw new Error("Account deletion request event is inconsistent.");
+    }
+
+    await ctx.db.replace(user._id, {
+      state: "active",
+      ...readUserProfile(user),
+    });
+    await ctx.db.delete(event._id);
+    await ctx.db.delete(run._id);
+    return null;
   },
 });
 

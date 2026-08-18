@@ -7,6 +7,21 @@ const screenshotOptions = {
   maxDiffPixelRatio: 0.03,
 } as const;
 
+test("account deletion queued", async ({ page }) => {
+  await page.setViewportSize({ width: 1200, height: 900 });
+  await page.goto("/visual-fixture?mode=account-deletion-queued", {
+    waitUntil: "networkidle",
+  });
+
+  const status = page.getByTestId("account-deletion-page");
+  await expect(status.getByRole("heading", { name: "Account deletion scheduled" })).toBeVisible();
+  await expect(status.getByRole("link", { name: "contact@samebase.com" })).toHaveAttribute(
+    "href",
+    "mailto:contact@samebase.com",
+  );
+  await expect(status).toHaveScreenshot("account-deletion-queued-desktop.png", screenshotOptions);
+});
+
 test("account deletion running timeline", async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 900 });
   await page.goto("/visual-fixture?mode=account-deletion-running", {

@@ -150,7 +150,13 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   const deleteDialog = page.getByRole("dialog", { name: "Delete account?" });
   await expect(
     deleteDialog.getByText(
-      "This permanently deletes your Samebase account and disconnects provider connections you added.",
+      "Your account will be disabled now. Permanent deletion will start seven days after you continue.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(
+    deleteDialog.getByText(
+      "During those seven days, email contact@samebase.com to restore your account or for other inquiries. Samebase will send you a confirmation email as account deletion finishes.",
       { exact: true },
     ),
   ).toBeVisible();
@@ -164,6 +170,7 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
     "uncommitted file changes will be permanently deleted",
   );
   await expect(deleteDialog).toContainText("Type the phrase to confirm");
+  await expect(deleteDialog.getByRole("button", { name: "Schedule deletion" })).toBeDisabled();
   await expect(deleteDialog.getByLabel("Type the phrase to confirm")).toHaveCSS(
     "font-size",
     "16px",
