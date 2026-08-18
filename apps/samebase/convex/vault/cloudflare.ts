@@ -1415,7 +1415,7 @@ export async function createWorkerForUser(
       workerName: validation.value,
     });
     if (existing) {
-      throw new Error(
+      throw new ConvexError(
         `Cloudflare Worker name ${validation.value} already exists. Attach that Worker or choose another name.`,
       );
     }
