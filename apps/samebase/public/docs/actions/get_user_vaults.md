@@ -430,14 +430,7 @@ JSON Schema for the tool's `structuredContent`:
                             "type": "string"
                           },
                           "buildTokenUuid": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
+                            "type": "string"
                           }
                         },
                         "required": [
@@ -468,14 +461,7 @@ JSON Schema for the tool's `structuredContent`:
                             "type": "string"
                           },
                           "buildTokenUuid": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "null"
-                              }
-                            ]
+                            "type": "string"
                           }
                         },
                         "required": [
