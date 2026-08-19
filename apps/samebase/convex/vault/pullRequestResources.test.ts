@@ -8,7 +8,9 @@ import {
   buildPullRequestHostingPreviews,
   normalizeGitHubHostingCommentBodyReads,
   normalizeGitHubHostingCommentPage,
+  normalizeGitHubPullRequestCommitPage,
   normalizeGitHubPullRequestResourceHeadReads,
+  readGitHubCloudflareWorkerChecks,
   readGitHubHostingCommentBodies,
   recoverGitHubPullRequestGraphqlData,
   reportPullRequestHostingCommentParseFailures,
@@ -17,10 +19,12 @@ import {
   type PullRequestResourceHead,
 } from "./pullRequestResources";
 
-const headBase: Omit<PullRequestResourceHead, "hostingPreviews"> = {
+const headBase: Omit<PullRequestResourceHead, "cloudflareWorkerChecks" | "hostingPreviews"> = {
   id: "PR_17",
   number: 17,
   isCrossRepository: false,
+  baseRefOid: "a".repeat(40),
+  headRefOid: "b".repeat(40),
   headRepositoryId: "R_base",
   headRefName: "feature/live-truth",
 };
@@ -30,13 +34,13 @@ describe("hosting comment parse observability", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     try {
       reportPullRequestHostingCommentParseFailures([
-        { providerFormat: "cloudflare_workers", failureKind: "format_drift" },
-        { providerFormat: "cloudflare_workers", failureKind: "format_drift" },
+        { providerFormat: "cloudflare_pages", failureKind: "format_drift" },
+        { providerFormat: "cloudflare_pages", failureKind: "format_drift" },
         { providerFormat: "netlify", failureKind: "invalid_or_conflict" },
       ]);
       expect(warn.mock.calls).toEqual([
         [
-          'pull_request_hosting_comment_parse {"topic":"pull_request_hosting_comment_parse","version":1,"outcome":"failed","provider_format":"cloudflare_workers","failure_kind":"format_drift"}',
+          'pull_request_hosting_comment_parse {"topic":"pull_request_hosting_comment_parse","version":1,"outcome":"failed","provider_format":"cloudflare_pages","failure_kind":"format_drift"}',
         ],
         [
           'pull_request_hosting_comment_parse {"topic":"pull_request_hosting_comment_parse","version":1,"outcome":"failed","provider_format":"netlify","failure_kind":"invalid_or_conflict"}',
@@ -49,8 +53,9 @@ describe("hosting comment parse observability", () => {
 });
 const head: PullRequestResourceHead = {
   ...headBase,
+  cloudflareWorkerChecks: { state: "available", previews: [], workerBuilds: [] },
   hostingPreviews: {
-    cloudflare: { state: "available", previews: [], workerBuilds: [] },
+    cloudflare: { state: "available", previews: [] },
     netlify: { state: "available", previews: [] },
   },
 };
@@ -230,6 +235,84 @@ describe("hosting pull request comment metadata", () => {
             },
           ],
         },
+        previous,
+      ),
+    ).toEqual({ state: "unavailable" });
+  });
+});
+
+describe("pull request commit pagination", () => {
+  function commit(index: number) {
+    return {
+      commit: {
+        id: `C_${index}`,
+        oid: index.toString(16).padStart(40, "0"),
+      },
+    };
+  }
+
+  it("completes a stable 101-commit scan in pull request order", () => {
+    const newestPage = normalizeGitHubPullRequestCommitPage({
+      totalCount: 101,
+      pageInfo: { hasPreviousPage: true, startCursor: "cursor-2" },
+      nodes: Array.from({ length: 100 }, (_value, index) => commit(index + 2)),
+    });
+    if (newestPage.state !== "available") {
+      throw new Error("Expected an available first commit page.");
+    }
+
+    const complete = normalizeGitHubPullRequestCommitPage(
+      {
+        totalCount: 101,
+        pageInfo: { hasPreviousPage: false, startCursor: "cursor-1" },
+        nodes: [commit(1)],
+      },
+      newestPage,
+    );
+    expect(complete).toMatchObject({
+      state: "available",
+      totalCount: 101,
+      before: null,
+    });
+    if (complete.state === "available") {
+      expect(complete.commits).toHaveLength(101);
+      expect(complete.commits.at(0)?.id).toBe("C_1");
+      expect(complete.commits.at(-1)?.id).toBe("C_101");
+    }
+  });
+
+  it("fails closed when count, cursor, or commit identity changes", () => {
+    const previous = normalizeGitHubPullRequestCommitPage({
+      totalCount: 2,
+      pageInfo: { hasPreviousPage: true, startCursor: "cursor-2" },
+      nodes: [commit(2)],
+    });
+    if (previous.state !== "available") {
+      throw new Error("Expected an available first commit page.");
+    }
+    const olderPage = {
+      totalCount: 2,
+      pageInfo: { hasPreviousPage: false, startCursor: "cursor-1" },
+      nodes: [commit(1)],
+    };
+
+    expect(normalizeGitHubPullRequestCommitPage({ ...olderPage, totalCount: 3 }, previous)).toEqual(
+      {
+        state: "unavailable",
+      },
+    );
+    expect(
+      normalizeGitHubPullRequestCommitPage(
+        {
+          ...olderPage,
+          pageInfo: { hasPreviousPage: true, startCursor: "cursor-2" },
+        },
+        previous,
+      ),
+    ).toEqual({ state: "unavailable" });
+    expect(
+      normalizeGitHubPullRequestCommitPage(
+        { ...olderPage, nodes: [{ commit: { ...commit(2).commit, id: "C_1" } }] },
         previous,
       ),
     ).toEqual({ state: "unavailable" });
@@ -482,22 +565,28 @@ describe("buildPullRequestHostingPreviews", () => {
       buildPullRequestHostingPreviews({
         head: {
           ...head,
+          cloudflareWorkerChecks: {
+            state: "available",
+            previews: [
+              {
+                kind: "worker",
+                accountId: "account-1",
+                name: "attached-worker",
+                url: "https://branch-attached-worker.example.workers.dev",
+              },
+              {
+                kind: "worker",
+                accountId: "account-1",
+                name: "unattached-worker",
+                url: "https://branch-unattached-worker.example.workers.dev",
+              },
+            ],
+            workerBuilds: [],
+          },
           hostingPreviews: {
             cloudflare: {
               state: "available",
               previews: [
-                {
-                  kind: "worker",
-                  accountId: "account-1",
-                  name: "attached-worker",
-                  url: "https://branch-attached-worker.example.workers.dev",
-                },
-                {
-                  kind: "worker",
-                  accountId: "account-1",
-                  name: "unattached-worker",
-                  url: "https://branch-unattached-worker.example.workers.dev",
-                },
                 {
                   kind: "pages",
                   accountId: "account-1",
@@ -505,7 +594,6 @@ describe("buildPullRequestHostingPreviews", () => {
                   url: "https://branch.docs.pages.dev",
                 },
               ],
-              workerBuilds: [],
             },
             netlify: {
               state: "available",
@@ -558,7 +646,7 @@ describe("buildPullRequestCloudflareWorkerResources", () => {
     rootDirectory: "apps/samebase",
   };
 
-  it("uses the matching comment row without a pull request head check", () => {
+  it("uses the matching check result from the current pull request commit scan", () => {
     expect(
       buildPullRequestCloudflareWorkerResources({
         cloudflare: {
@@ -627,7 +715,7 @@ describe("buildPullRequestCloudflareWorkerResources", () => {
     });
   });
 
-  it("returns one unavailable result when Cloudflare comments are unreadable", () => {
+  it("returns one unavailable result when Cloudflare checks are unreadable", () => {
     expect(
       buildPullRequestCloudflareWorkerResources({
         cloudflare: { state: "unavailable" },
@@ -645,12 +733,19 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
     isCrossRepository: false,
     state: "OPEN",
     repository: { databaseId: 42 },
+    baseRefOid: "a".repeat(40),
+    headRefOid: "b".repeat(40),
     headRepository: { id: "R_base" },
     headRefName: "feature/live-truth",
     comments: {
       totalCount: 0,
       pageInfo: { hasNextPage: false, endCursor: null },
       nodes: [],
+    },
+    commits: {
+      totalCount: 1,
+      pageInfo: { hasPreviousPage: false, startCursor: "commit-cursor-1" },
+      nodes: [{ commit: { id: "C_1", oid: "b".repeat(40) } }],
     },
   };
 
@@ -671,6 +766,12 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
             hostingComments: [],
             totalCount: 0,
             after: null,
+          },
+          commitScan: {
+            state: "available",
+            commits: [{ id: "C_1", oid: "b".repeat(40) }],
+            totalCount: 1,
+            before: null,
           },
         },
       },
@@ -722,6 +823,12 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
             totalCount: 0,
             after: null,
           },
+          commitScan: {
+            state: "available",
+            commits: [{ id: "C_1", oid: "b".repeat(40) }],
+            totalCount: 1,
+            before: null,
+          },
         },
       },
       { state: "unavailable", pullRequestId: "PR_18" },
@@ -746,6 +853,12 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
         head: {
           ...headBase,
           hostingCommentScan: { state: "unavailable" },
+          commitScan: {
+            state: "available",
+            commits: [{ id: "C_1", oid: "b".repeat(40) }],
+            totalCount: 1,
+            before: null,
+          },
         },
       },
     ]);
@@ -784,6 +897,12 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
         head: {
           ...headBase,
           hostingCommentScan: { state: "unavailable" },
+          commitScan: {
+            state: "available",
+            commits: [{ id: "C_1", oid: "b".repeat(40) }],
+            totalCount: 1,
+            before: null,
+          },
         },
       },
       {
@@ -797,6 +916,12 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
             hostingComments: [],
             totalCount: 0,
             after: null,
+          },
+          commitScan: {
+            state: "available",
+            commits: [{ id: "C_1", oid: "b".repeat(40) }],
+            totalCount: 1,
+            before: null,
           },
         },
       },
@@ -816,6 +941,197 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
     expect(() => recoverGitHubPullRequestGraphqlData(error)).toThrow(
       "Request failed due to following response errors",
     );
+  });
+});
+
+describe("Cloudflare Worker check transport", () => {
+  const commits = [
+    { id: "C_1", oid: "1".repeat(40) },
+    { id: "C_2", oid: "2".repeat(40) },
+  ];
+  const seed = {
+    ...headBase,
+    hostingCommentScan: {
+      state: "available" as const,
+      allCommentIds: [],
+      hostingComments: [],
+      totalCount: 0,
+      after: null,
+    },
+    commitScan: {
+      state: "available" as const,
+      commits,
+      totalCount: commits.length,
+      before: null,
+    },
+  };
+
+  function response(headRefOid: string) {
+    return {
+      data: {
+        commits: commits.map((commit) => ({
+          __typename: "Commit",
+          ...commit,
+          checkSuites: { totalCount: 0, nodes: [] },
+        })),
+        pullRequests: [
+          {
+            __typename: "PullRequest",
+            id: headBase.id,
+            state: "OPEN",
+            repository: { databaseId: 42 },
+            baseRefOid: headBase.baseRefOid,
+            headRefOid,
+          },
+        ],
+      },
+    };
+  }
+
+  it("batches commits and asks GitHub for only the latest Cloudflare check attempt", async () => {
+    const requestBodies: string[] = [];
+    const octokit = new Octokit({
+      request: {
+        fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+          requestBodies.push(typeof init?.body === "string" ? init.body : "");
+          return new Response(JSON.stringify(response(headBase.headRefOid)), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        },
+      },
+    });
+
+    const reads = await readGitHubCloudflareWorkerChecks({
+      octokit,
+      signal: new AbortController().signal,
+      ghRepoId: "42",
+      heads: [seed],
+    });
+
+    expect(reads.get(headBase.id)).toEqual({
+      state: "available",
+      previews: [],
+      workerBuilds: [],
+    });
+    expect(requestBodies).toHaveLength(1);
+    expect(requestBodies[0]).toContain("checkType: LATEST");
+    expect(requestBodies[0]).toContain('"commitIds":["C_1","C_2"]');
+  });
+
+  it("rejects the check batch when the pull request head changes", async () => {
+    const octokit = new Octokit({
+      request: {
+        fetch: async () =>
+          new Response(JSON.stringify(response("c".repeat(40))), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          }),
+      },
+    });
+
+    const reads = await readGitHubCloudflareWorkerChecks({
+      octokit,
+      signal: new AbortController().signal,
+      ghRepoId: "42",
+      heads: [seed],
+    });
+
+    expect(reads.get(headBase.id)).toEqual({ state: "unavailable" });
+  });
+
+  it("follows a stable check-run page beyond 100 latest runs", async () => {
+    const commit = commits[0];
+    const oneCommitSeed = {
+      ...seed,
+      commitScan: {
+        state: "available" as const,
+        commits: [commit],
+        totalCount: 1,
+        before: null,
+      },
+    };
+    const checkRun = (index: number) => ({
+      __typename: "CheckRun",
+      id: `CR_${index}`,
+      name: `Pages: project-${index}`,
+      status: "COMPLETED",
+      conclusion: "SUCCESS",
+      detailsUrl: null,
+      externalId: null,
+      title: null,
+      summary: null,
+    });
+    const requestBodies: string[] = [];
+    const octokit = new Octokit({
+      request: {
+        fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
+          const requestBody = typeof init?.body === "string" ? init.body : "";
+          requestBodies.push(requestBody);
+          const pullRequest = {
+            __typename: "PullRequest",
+            id: headBase.id,
+            state: "OPEN",
+            repository: { databaseId: 42 },
+            baseRefOid: headBase.baseRefOid,
+            headRefOid: headBase.headRefOid,
+          };
+          const checkRuns = requestBody.includes("PullRequestCloudflareCheckRunPage")
+            ? {
+                totalCount: 101,
+                pageInfo: { hasNextPage: false, endCursor: "check-cursor-101" },
+                nodes: [checkRun(101)],
+              }
+            : {
+                totalCount: 101,
+                pageInfo: { hasNextPage: true, endCursor: "check-cursor-100" },
+                nodes: Array.from({ length: 100 }, (_value, index) => checkRun(index + 1)),
+              };
+          const suite = {
+            __typename: "CheckSuite",
+            id: "CS_kwDOPOZOdc8AAAAUT6KHug",
+            app: {
+              databaseId: 85455,
+              slug: "cloudflare-workers-and-pages",
+            },
+            checkRuns,
+          };
+          const body = requestBody.includes("PullRequestCloudflareCheckRunPage")
+            ? { data: { pullRequest, suite } }
+            : {
+                data: {
+                  commits: [
+                    {
+                      __typename: "Commit",
+                      ...commit,
+                      checkSuites: { totalCount: 1, nodes: [suite] },
+                    },
+                  ],
+                  pullRequests: [pullRequest],
+                },
+              };
+          return new Response(JSON.stringify(body), {
+            status: 200,
+            headers: { "content-type": "application/json" },
+          });
+        },
+      },
+    });
+
+    const reads = await readGitHubCloudflareWorkerChecks({
+      octokit,
+      signal: new AbortController().signal,
+      ghRepoId: "42",
+      heads: [oneCommitSeed],
+    });
+
+    expect(reads.get(headBase.id)).toEqual({
+      state: "available",
+      previews: [],
+      workerBuilds: [],
+    });
+    expect(requestBodies).toHaveLength(2);
+    expect(requestBodies[1]).toContain('"after":"check-cursor-100"');
   });
 });
 
