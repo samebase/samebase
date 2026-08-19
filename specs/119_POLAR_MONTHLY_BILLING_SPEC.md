@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase platform
-- Last updated: 2026-08-13
+- Last updated: 2026-08-19
 - Previous rollout plan: `archive/098_POLAR_MONTHLY_BILLING_LAUNCH_PLAN.md`
 - Supersedes: `archive/033_POLAR_BILLING_SPEC.md` and
   `archive/034_POLAR_BILLING_PHASED_ROLLOUT_SPEC.md`
@@ -17,7 +17,7 @@ Every Samebase workspace is an organization backed by one GitHub repository owne
 
 | GitHub owner                         | Plan | Monthly base price | Pooled connections | Included members |
 | ------------------------------------ | ---- | -----------------: | -----------------: | ---------------: |
-| Personal account (`user`)            | Free |                 $0 |                 15 |                1 |
+| Personal account (`user`)            | Free |                 $0 |                 12 |                1 |
 | GitHub organization (`organization`) | Free |                 $0 |                  6 |                2 |
 | Either owner type                    | Pro  |                 $4 |                120 |                2 |
 
@@ -258,7 +258,7 @@ Before the narrowed schema deploys, the pre-beta reset must also remove any stor
 
 The contract is complete only when tests and Sandbox checks prove:
 
-- Personal Free allows 15 pooled connections and blocks the 16th.
+- Personal Free allows 12 pooled connections and blocks the 13th.
 - GitHub organization Free allows 6 pooled connections and blocks the 7th.
 - Pro allows 120 pooled connections and blocks the 121st for either owner type.
 - Repository, Worker, and Convex attachments consume the same pool.

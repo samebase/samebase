@@ -4,7 +4,7 @@ Start free. Upgrade when you need more connections.
 
 | GitHub owner        | Plan | Monthly base | Connections | Included members |
 | ------------------- | ---- | -----------: | ----------: | ---------------: |
-| Personal account    | Free |           $0 |          15 |                1 |
+| Personal account    | Free |           $0 |          12 |                1 |
 | GitHub organization | Free |           $0 |           6 |                2 |
 | Any owner           | Pro  |           $4 |         120 |                2 |
 

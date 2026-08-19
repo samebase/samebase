@@ -34,8 +34,8 @@ repos and pages (operator policy: link now, flip later; this file records the fl
 
 ## Pricing track
 
-- [x] Public `/pricing` route (unauthenticated, prerendered, linked from llms.txt) with Free at 5
-      Workers and 5 Convex projects, and Pro at 40 of each for $4 per month
+- [x] Public `/pricing` route (unauthenticated, prerendered, linked from llms.txt) with Personal
+      Free at 12 pooled connections, GitHub organization Free at 6, and Pro at 120 for $4 per month
 - [ ] Cost-model research: PostHog compute attribution; FileView mirroring/collab cost per vault
 - [ ] Infra-cost ledger: one-time archaeology of past payments (personal cards, email receipts),
       then an ongoing recording system; once it exists, publish the real infra bill as a dated

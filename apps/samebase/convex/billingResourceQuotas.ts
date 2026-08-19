@@ -17,7 +17,7 @@ import { requireManualProviderWriteCheckpoint } from "./vault/infrastructureOper
 
 const { id, literal, number, object, union } = v;
 
-const PERSONAL_FREE_CONNECTION_LIMIT = 15;
+const PERSONAL_FREE_CONNECTION_LIMIT = 12;
 const ORGANIZATION_FREE_CONNECTION_LIMIT = 6;
 export const MAX_ORGANIZATION_CONNECTIONS = 120;
 const CONNECTION_USAGE_READ_LIMIT = MAX_ORGANIZATION_CONNECTIONS + 1;
