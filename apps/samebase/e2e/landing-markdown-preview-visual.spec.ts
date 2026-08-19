@@ -1,6 +1,7 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import {
   DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_INDEX_ROUTE,
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
@@ -569,6 +570,26 @@ test("pricing route renders the public pricing page", async ({ page }) => {
   await expect(article).not.toContainText("FileView");
 
   await expect(page).toHaveScreenshot("docs-pricing-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+});
+
+test("docs index renders the docs navigation in the main pane", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto(DOCS_INDEX_ROUTE, {
+    waitUntil: "networkidle",
+  });
+
+  const mainPane = page.getByTestId("workspace-layout-v2-pane-main");
+  const docsNavigation = mainPane.getByTestId(DOCS_SIDEBAR_TEST_ID);
+
+  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+  await expect(docsNavigation).toBeVisible();
+  await expectSidebarFiles(docsNavigation);
+  await expect(mainPane).toHaveScreenshot("docs-index-desktop.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,

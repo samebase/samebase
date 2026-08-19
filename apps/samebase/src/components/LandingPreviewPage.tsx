@@ -895,6 +895,16 @@ export function LandingPreviewPage() {
   return <LandingPreviewChromePage documentKey="overview" showDocsSidebar={false} />;
 }
 
+export function DocsIndexPage() {
+  return (
+    <AppWorkspaceRouteChrome left={null}>
+      <div className="mx-auto min-h-full w-full max-w-[1100px]">
+        <DocsSidebar />
+      </div>
+    </AppWorkspaceRouteChrome>
+  );
+}
+
 export function DocsDoItYourselfPage() {
   return <LandingPreviewChromePage documentKey="doItYourself" showDocsSidebar />;
 }

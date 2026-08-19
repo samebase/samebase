@@ -21,6 +21,7 @@ import { Route as localStorageRouteImport } from "./routes/localStorage";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as landingRouteImport } from "./routes/landing";
 import { Route as indexDBRouteImport } from "./routes/indexDB";
+import { Route as docsRouteImport } from "./routes/docs";
 import { Route as connectOrganizationRouteImport } from "./routes/connect-organization";
 import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
 import { Route as indexRouteImport } from "./routes/index";
@@ -117,6 +118,11 @@ const landingRoute = landingRouteImport.update({
 const indexDBRoute = indexDBRouteImport.update({
   id: "/indexDB",
   path: "/indexDB",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const docsRoute = docsRouteImport.update({
+  id: "/docs",
+  path: "/docs",
   getParentRoute: () => rootRouteImport,
 } as any);
 const connectOrganizationRoute = connectOrganizationRouteImport.update({
@@ -311,6 +317,7 @@ export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
   "/connect-organization": typeof connectOrganizationRoute;
+  "/docs": typeof docsRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
@@ -362,6 +369,7 @@ export interface FileRoutesByTo {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
   "/connect-organization": typeof connectOrganizationRoute;
+  "/docs": typeof docsRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
@@ -414,6 +422,7 @@ export interface FileRoutesById {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
   "/connect-organization": typeof connectOrganizationRoute;
+  "/docs": typeof docsRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
@@ -467,6 +476,7 @@ export interface FileRouteTypes {
     | "/"
     | "/account-deletion"
     | "/connect-organization"
+    | "/docs"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
@@ -518,6 +528,7 @@ export interface FileRouteTypes {
     | "/"
     | "/account-deletion"
     | "/connect-organization"
+    | "/docs"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
@@ -569,6 +580,7 @@ export interface FileRouteTypes {
     | "/"
     | "/account-deletion"
     | "/connect-organization"
+    | "/docs"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
@@ -621,6 +633,7 @@ export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
   accountDeletionRoute: typeof accountDeletionRoute;
   connectOrganizationRoute: typeof connectOrganizationRoute;
+  docsRoute: typeof docsRoute;
   indexDBRoute: typeof indexDBRoute;
   landingRoute: typeof landingRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
@@ -753,6 +766,13 @@ declare module "@tanstack/react-router" {
       path: "/indexDB";
       fullPath: "/indexDB";
       preLoaderRoute: typeof indexDBRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/docs": {
+      id: "/docs";
+      path: "/docs";
+      fullPath: "/docs";
+      preLoaderRoute: typeof docsRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/connect-organization": {
@@ -1021,6 +1041,7 @@ const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
   accountDeletionRoute: accountDeletionRoute,
   connectOrganizationRoute: connectOrganizationRoute,
+  docsRoute: docsRoute,
   indexDBRoute: indexDBRoute,
   landingRoute: landingRoute,
   landingPreviewRoute: landingPreviewRoute,

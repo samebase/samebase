@@ -24,6 +24,13 @@ const anonymousViewer = {
 const localEnvironment = "local";
 const prodUiEnvironment = "production";
 const deployedEnvironment = "preview";
+const publicDocsPaths = [
+  "/docs",
+  "/docs/cloudflare-setup",
+  "/docs/do-it-yourself",
+  "/docs/receipts",
+  "/docs/the-stack",
+] as const;
 
 describe("readRouteUrlPathSuggestions", () => {
   it("exposes sorted user-facing TanStack route paths", () => {
@@ -36,6 +43,9 @@ describe("readRouteUrlPathSuggestions", () => {
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/pricing");
+    for (const path of publicDocsPaths) {
+      expect(suggestions).toContain(path);
+    }
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/indexDB");
     expect(suggestions).not.toContain("/logo/hover/carpet");
@@ -46,7 +56,6 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).toContain("/vault/$");
     expect(suggestions).not.toContain("/_public");
     expect(suggestions).not.toContain("/_public/vault");
-    expect(suggestions).not.toContain("/docs/do-it-yourself");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(new Set(suggestions).size).toBe(suggestions.length);
@@ -114,11 +123,13 @@ describe("readRouteUrlPathSuggestions", () => {
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/pricing");
+    for (const path of publicDocsPaths) {
+      expect(suggestions).toContain(path);
+    }
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/org/$owner/connect-repo");
     expect(suggestions).not.toContain("/vault");
     expect(suggestions).not.toContain("/indexDB");
-    expect(suggestions).not.toContain("/docs/do-it-yourself");
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/localStorage");
     expect(suggestions).toContain("/logo/hover/carpet");
@@ -158,6 +169,9 @@ describe("readRouteUrlPathSuggestions", () => {
     );
 
     expect(suggestions).toContain("/");
+    for (const path of publicDocsPaths) {
+      expect(suggestions).toContain(path);
+    }
     expect(suggestions).toContain("/org/$owner/connect-repo");
     expect(suggestions).toContain("/org/$owner/vaults");
     expect(suggestions).toContain("/vault");

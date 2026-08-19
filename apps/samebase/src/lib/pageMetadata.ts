@@ -3,6 +3,7 @@ import { INDEXED_DB_ROUTE } from "./indexedDbRoute";
 import {
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
+  DOCS_INDEX_ROUTE,
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_THE_STACK_ROUTE,
@@ -117,6 +118,14 @@ export const LANDING_PREVIEW_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const DOCS_INDEX_PAGE_METADATA: PageMetadata = {
+  title: "Docs | Samebase",
+  description: "Samebase product, setup, stack, pricing, and source documentation.",
+  canonicalPath: DOCS_INDEX_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export const DOCS_DO_IT_YOURSELF_PAGE_METADATA: PageMetadata = {
   title: "Do it yourself | Samebase",
   description: "Deploy the Samebase stack by hand, with no Samebase account.",
@@ -203,6 +212,10 @@ export function resolveAppPageTitle(pathname: string): string {
     return LANDING_PREVIEW_PAGE_METADATA.title;
   }
 
+  if (pathname === DOCS_INDEX_ROUTE) {
+    return DOCS_INDEX_PAGE_METADATA.title;
+  }
+
   if (pathname === DOCS_DO_IT_YOURSELF_ROUTE) {
     return DOCS_DO_IT_YOURSELF_PAGE_METADATA.title;
   }
@@ -260,6 +273,10 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === LANDING_PREVIEW_ROUTE) {
     return LANDING_PREVIEW_PAGE_METADATA;
+  }
+
+  if (args.pathname === DOCS_INDEX_ROUTE) {
+    return DOCS_INDEX_PAGE_METADATA;
   }
 
   if (args.pathname === DOCS_DO_IT_YOURSELF_ROUTE) {
