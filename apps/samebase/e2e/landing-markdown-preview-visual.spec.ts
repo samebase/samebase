@@ -25,6 +25,7 @@ const expectedLandingPreviewSidebarFiles = [
   "Do it yourself",
   "Receipts",
   "Pricing",
+  "Cloudflare setup",
 ] as const;
 
 async function expectSidebarFiles(sidebar: Locator) {

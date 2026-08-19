@@ -120,7 +120,9 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain(
       "GitHub + Convex + Cloudflare is the best way we&#x27;ve found to build an app.",
     );
-    expect(markup).toContain("Samebase repeats it, so you never choose again.");
+    expect(markup).toContain(
+      "Samebase repeats it, so you can focus on your ideas instead of your tech stack.",
+    );
     expect(markup).toContain("deploys + domains + edge");
     expect(markup).not.toContain("owner: ");
     expect(markup).toContain('data-testid="landing-preview-platform-details"');
@@ -179,9 +181,9 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("We resell nothing. Not tokens, not hosting.");
     expect(markup).toContain("adds margin, not capability");
 
-    // Honest onboarding.
+    // Onboarding walkthrough.
     expect(markup).toContain(
-      "Setup is three OAuth connects and one GitHub app. We filmed the full flow.",
+      "Watch the complete Samebase onboarding, including first-time Cloudflare setup.",
     );
     expect(markup).toContain('aria-label="Onboarding walkthrough"');
     expect(markup).toContain(

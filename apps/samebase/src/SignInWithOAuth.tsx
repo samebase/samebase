@@ -13,6 +13,9 @@ import {
 import { useRouter } from "@tanstack/react-router";
 import { Github } from "lucide-react";
 
+export const SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME =
+  "h-auto w-fit max-w-full min-w-0 whitespace-normal px-6 py-2.5 @max-[200px]:leading-tight @max-[120px]:px-1.5";
+
 export function SignInWithOAuth({
   provider,
   authReturn,
@@ -67,7 +70,7 @@ export function SignInWithOAuth({
   return (
     <Button
       data-testid={testId}
-      className="h-auto w-fit max-w-full min-w-0 whitespace-normal px-6 py-2.5 @max-[200px]:leading-tight @max-[120px]:px-1.5"
+      className={SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME}
       variant={provider === "github" ? "default" : "outline"}
       type="button"
       onClick={() => {

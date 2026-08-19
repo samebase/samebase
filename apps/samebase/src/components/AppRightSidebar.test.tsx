@@ -348,7 +348,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).not.toContain(">/vault<");
   });
 
-  it("keeps only the prehydration GitHub placeholder non-interactive", () => {
+  it("matches the signed-out GitHub geometry while keeping the placeholder non-interactive", () => {
     authState.isAuthenticated = false;
     authState.isLoading = true;
 
@@ -362,11 +362,24 @@ describe("AppRightSidebarContent", () => {
     if (!(githubPlaceholder instanceof HTMLButtonElement)) {
       throw new Error("Prehydration GitHub placeholder not found.");
     }
+    const signedOutLabel = rootElement.querySelector(
+      "[data-app-auth-prehydration-signed-out-label]",
+    );
+    if (!(signedOutLabel instanceof HTMLElement)) {
+      throw new Error("Prehydration signed-out label not found.");
+    }
 
     expect(rootElement.textContent).not.toContain("Continue with Google");
     expect(githubPlaceholder.disabled).toBe(true);
     expect(githubPlaceholder.getAttribute("aria-hidden")).toBe("true");
     expect(githubPlaceholder.tabIndex).toBe(-1);
+    expect(githubPlaceholder.classList).toContain("w-fit");
+    expect(githubPlaceholder.classList).toContain("max-w-full");
+    expect(githubPlaceholder.classList).toContain("px-6");
+    expect(githubPlaceholder.classList).toContain("bg-primary");
+    expect(githubPlaceholder.classList).not.toContain("flex-1");
+    expect(githubPlaceholder.parentElement?.parentElement?.classList).toContain("items-center");
+    expect(signedOutLabel.classList).toContain("text-center");
   });
 
   it("uses the public signed-out account row after hydration when loading without local auth material", async () => {

@@ -524,6 +524,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-faq-mobile.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-hero-mobile.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-monorepo-narrow-pane.png",
+  "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-onboarding-desktop.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-overview-desktop.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-overview-narrow-pane.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-platform-desktop.png",

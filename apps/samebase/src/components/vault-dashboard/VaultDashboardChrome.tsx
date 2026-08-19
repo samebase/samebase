@@ -13,6 +13,7 @@ import { Github } from "lucide-react";
 import type { AccountPresentation } from "../../../shared/accountPresentation";
 import { Link } from "@tanstack/react-router";
 import { SETTINGS_ROUTE } from "@/lib/settingsRoute";
+import { SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME } from "@/SignInWithOAuth";
 
 const SIDEBAR_METADATA_TEXT_CLASS = "min-w-0 line-clamp-2 [overflow-wrap:anywhere]";
 // pointer-fine, not a width variant: touch devices keep the stacked full-row
@@ -117,17 +118,17 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
       <div data-app-auth-prehydration-signed-out className="hidden">
         <div
           data-app-auth-prehydration-signed-out-label
-          className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-sm font-medium [overflow-wrap:anywhere]"
+          className="min-w-0 line-clamp-2 border-b border-border/50 pb-3 text-center text-sm font-medium [overflow-wrap:anywhere]"
         >
           {null}
         </div>
-        <div className="mt-3">
+        <div className="mt-3 flex flex-col items-center">
           <div className="flex flex-col gap-2">
             {GOOGLE_AUTH_UI_ENABLED ? (
               <Button
                 aria-hidden="true"
                 data-testid={PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID}
-                className="h-auto min-w-0 flex-1 whitespace-normal py-2.5 disabled:opacity-100 @max-[200px]:leading-tight @max-[120px]:px-1.5"
+                className={clsx(SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, "disabled:opacity-100")}
                 disabled
                 tabIndex={-1}
                 variant="outline"
@@ -139,10 +140,10 @@ export function VaultDashboardStaticAccountPrehydrationPlaceholders() {
             <Button
               aria-hidden="true"
               data-testid={PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID}
-              className="h-auto min-w-0 flex-1 whitespace-normal py-2.5 disabled:opacity-100 @max-[200px]:leading-tight @max-[120px]:px-1.5"
+              className={clsx(SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, "disabled:opacity-100")}
               disabled
               tabIndex={-1}
-              variant="outline"
+              variant="default"
               type="button"
             >
               <Github className="mr-2 h-4 w-4 @max-[120px]:hidden" />
