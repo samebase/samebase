@@ -35,6 +35,7 @@ describe("route access metadata", () => {
 
   it("keeps developer logo routes public and developer-only in suggestions", () => {
     const developerLogoRoutes = [
+      "/logo",
       "/logo/iso",
       "/logo/raster",
       "/logo/raster-seams",

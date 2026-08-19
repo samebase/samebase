@@ -212,18 +212,20 @@ describe("RouteUrlEditorNext", () => {
       '[data-testid="route-url-editor-suggestion"]',
     );
     const developerBadge = developerRow?.querySelector<HTMLElement>('[data-slot="badge"]');
-    const standardValue = values.find((element) => element.textContent.trim() === "/logo");
-    const standardRow = standardValue?.closest<HTMLElement>(
+    const rootDeveloperValue = values.find((element) => element.textContent.trim() === "/logo");
+    const rootDeveloperRow = rootDeveloperValue?.closest<HTMLElement>(
       '[data-testid="route-url-editor-suggestion"]',
     );
+    const rootDeveloperBadge = rootDeveloperRow?.querySelector<HTMLElement>('[data-slot="badge"]');
 
     expect(developerValue?.textContent.trim()).toBe("/logo/iso");
     expect(developerRow?.classList.contains("bg-sky-500/5")).toBe(true);
     expect(developerBadge?.textContent.trim()).toBe("dev");
     expect(developerBadge?.getAttribute("aria-hidden")).toBe("true");
     expect(developerBadge?.classList.contains("bg-sky-500/10")).toBe(true);
-    expect(standardRow?.classList.contains("bg-sky-500/5")).toBe(false);
-    expect(standardRow?.querySelector('[data-slot="badge"]')).toBeNull();
+    expect(rootDeveloperValue?.textContent.trim()).toBe("/logo");
+    expect(rootDeveloperRow?.classList.contains("bg-sky-500/5")).toBe(true);
+    expect(rootDeveloperBadge?.textContent.trim()).toBe("dev");
   });
 
   it("suggests page-owned hashes from the current document", async () => {

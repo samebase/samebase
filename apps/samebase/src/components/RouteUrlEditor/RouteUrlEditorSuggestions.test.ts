@@ -81,7 +81,7 @@ describe("readSuggestions", () => {
   it("identifies the current path suggestion from a path cursor", () => {
     expect(
       readCurrentSuggestionValue({
-        routeAddress: "/logo?",
+        routeAddress: "/logo?dev",
         routeTextBeforeCursor: "/lo",
       }),
     ).toBe("/logo");
@@ -129,7 +129,7 @@ describe("readSuggestions", () => {
     });
 
     expect(values).toContain("/");
-    expect(values).toContain("/logo");
+    expect(values).not.toContain("/logo");
     expect(values).not.toContain("?top=");
   });
 
@@ -145,8 +145,9 @@ describe("readSuggestions", () => {
       .map((row) => row.value);
 
     expect(standardRows.some((row) => row.kind === "path" && row.dev)).toBe(false);
-    expect(standardRows.map((row) => row.value)).not.toContain("/logo/iso");
+    expect(standardRows.map((row) => row.value)).not.toContain("/logo");
     expect(developerPaths).toEqual([
+      "/logo",
       "/logo/hover/carpet",
       "/logo/hover/menger",
       "/logo/iso",
@@ -158,15 +159,6 @@ describe("readSuggestions", () => {
       "/logo/transition/menger",
       "/logo/transition/transforms",
     ]);
-    expect(developerRows).toContainEqual(
-      expect.objectContaining({
-        kind: "path",
-        value: "/logo",
-      }),
-    );
-    expect(
-      developerRows.find((row) => row.kind === "path" && row.value === "/logo"),
-    ).not.toHaveProperty("dev");
   });
 
   it("preserves query text when building path suggestion rows", () => {
@@ -512,11 +504,11 @@ describe("readSuggestions", () => {
 
     expect(pathRows).toContainEqual({
       kind: "path",
-      nextSelectionRouteIndex: "/logo?".length,
-      previewRouteAddress: "/logo?",
+      nextSelectionRouteIndex: "/terms?".length,
+      previewRouteAddress: "/terms?",
       previewSelectionRouteIndex: 1,
-      selectedRouteAddress: "/logo?",
-      value: "/logo",
+      selectedRouteAddress: "/terms?",
+      value: "/terms",
     });
 
     const keyRows = readRows({

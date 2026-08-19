@@ -183,7 +183,7 @@ describe("readRouteUrlPathSuggestions", () => {
       false,
     );
 
-    expect(suggestions).toContain("/logo");
+    expect(suggestions).toContain("/terms");
     expect(suggestions).not.toContain("/test");
     expect(suggestions).not.toContain("/visual-fixture");
   });
