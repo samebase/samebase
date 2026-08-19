@@ -91,6 +91,7 @@ export function AppSidebarMetaSection({
 
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
+      <Link to="/pricing">/pricing</Link>
       <Link to="/">/landing</Link>
 
       <div className={APP_SIDEBAR_META_VERSION_CLASS_NAMES[linkAlignment]}>
