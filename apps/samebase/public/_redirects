@@ -13,6 +13,10 @@
 
 / /_landing.html 200
 
+/docs /docs/index.html 200
+/docs/ /docs/index.html 200
+/docs/index.html /docs/index.html 200
+
 /docs/cloudflare-setup /docs/cloudflare-setup/index.html 200
 /docs/cloudflare-setup/ /docs/cloudflare-setup/index.html 200
 /docs/cloudflare-setup/index.html /docs/cloudflare-setup/index.html 200

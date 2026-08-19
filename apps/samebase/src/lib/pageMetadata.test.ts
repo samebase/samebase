@@ -246,6 +246,21 @@ describe("page metadata", () => {
     });
   });
 
+  it("uses dedicated metadata for the docs index", () => {
+    expect(
+      resolvePageMetadata({
+        pathname: "/docs",
+        isAuthenticated: false,
+      }),
+    ).toEqual({
+      canonicalPath: "/docs",
+      description: "Samebase product, setup, stack, pricing, and source documentation.",
+      openGraphType: "website",
+      robots: "noindex,nofollow",
+      title: "Docs | Samebase",
+    });
+  });
+
   it("builds non-indexed server metadata for public logo labs", () => {
     const head = buildLogoLabPageHead("/logo/iso", "Logo ISO Preview");
 

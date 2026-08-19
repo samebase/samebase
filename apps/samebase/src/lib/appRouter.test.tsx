@@ -224,6 +224,7 @@ vi.mock("@/components/LandingPreviewPage", () => ({
   DocsDoItYourselfPage: () => (
     <div data-testid="docs-do-it-yourself-page">Docs do it yourself page</div>
   ),
+  DocsIndexPage: () => <div data-testid="docs-index-page">Docs index page</div>,
   DocsPricingPage: () => <div data-testid="docs-pricing-page">Docs pricing page</div>,
   LandingPreviewPage: () => <div data-testid="landing-preview-page">Landing preview page</div>,
 }));
@@ -895,6 +896,15 @@ describe("appRouter", () => {
 
     expect(rootElement?.querySelector('[data-testid="docs-pricing-page"]')?.textContent).toBe(
       "Docs pricing page",
+    );
+    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
+  });
+
+  it.each(["/docs", "/docs/"])("renders the docs index for %s instead of a 404", async (path) => {
+    await renderRoute(path);
+
+    expect(rootElement?.querySelector('[data-testid="docs-index-page"]')?.textContent).toBe(
+      "Docs index page",
     );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });

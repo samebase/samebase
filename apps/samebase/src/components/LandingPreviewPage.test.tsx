@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vite-plus/test";
 import {
   DocsCloudflareSetupPage,
   DocsDoItYourselfPage,
+  DocsIndexPage,
   DocsPricingPage,
   DocsTheStackPage,
   LandingPreviewPage,
@@ -276,6 +277,22 @@ describe("LandingPreviewPage", () => {
     expect(sidebarMarkup.indexOf("Cloudflare setup")).toBeLessThan(
       sidebarMarkup.indexOf("Do it yourself"),
     );
+  });
+
+  it("renders the docs navigation in the main pane on the docs index", () => {
+    const markup = renderToStaticMarkup(<DocsIndexPage />);
+    const mainStart = markup.indexOf("<main>");
+    const sidebarMarkup = markup.slice(0, mainStart);
+    const mainMarkup = markup.slice(mainStart);
+
+    expect(sidebarMarkup).not.toContain(`data-testid="docs-sidebar"`);
+    expect(mainMarkup).toContain(`data-testid="docs-sidebar"`);
+    expect(mainMarkup).toContain('href="/landing-preview"');
+    expect(mainMarkup).toContain('href="/docs/the-stack"');
+    expect(mainMarkup).toContain('href="/docs/cloudflare-setup"');
+    expect(mainMarkup).toContain('href="/docs/do-it-yourself"');
+    expect(mainMarkup).toContain('href="/docs/receipts"');
+    expect(mainMarkup).toContain('href="/pricing"');
   });
 
   it("renders the first-app Cloudflare setup guide separately", () => {
