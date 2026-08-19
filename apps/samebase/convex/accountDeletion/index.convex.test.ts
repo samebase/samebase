@@ -10,6 +10,8 @@ async function seedActiveViewer(t: ReturnType<typeof makeConvexTest>, email: str
       state: "active",
       email,
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const sessionId = await ctx.db.insert("authSessions", {
       userId,
@@ -33,6 +35,8 @@ async function seedStaffViewer(t: ReturnType<typeof makeConvexTest>) {
       state: "active",
       email: "nicu@samebase.com",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
   });
   return {

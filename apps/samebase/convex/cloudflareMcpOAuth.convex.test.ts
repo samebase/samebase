@@ -16,6 +16,8 @@ describe("getCloudflareMcpOAuthUrl", () => {
         state: "active",
         email: "test@example.invalid",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
     });
     const { organizationId } = await t.mutation(

@@ -43,11 +43,15 @@ async function seedRunningDeletion() {
       state: "active",
       email: "deleting@example.invalid",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const teammateUserId = await ctx.db.insert("users", {
       state: "active",
       email: "teammate@example.invalid",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const initiatingSessionId = await ctx.db.insert("authSessions", {
       userId: deletingUserId,
@@ -303,11 +307,15 @@ describe("account deletion organization boundary", () => {
         state: "active",
         email: "invitation-deleting@example.invalid",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const ownerUserId = await ctx.db.insert("users", {
         state: "active",
         email: "invitation-owner@example.invalid",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const organizationId = await ctx.db.insert("organizations", {
         githubOwnerId: "invitation-cleanup-owner",
@@ -1105,6 +1113,8 @@ describe("account deletion organization boundary", () => {
         state: "active",
         email: "nicu@samebase.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
     });
     const asStaff = t.withIdentity({

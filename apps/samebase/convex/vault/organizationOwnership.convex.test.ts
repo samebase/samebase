@@ -16,6 +16,8 @@ async function createUser(t: ConvexTest, email: string): Promise<Id<"users">> {
       state: "active",
       email,
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
   });
 }

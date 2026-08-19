@@ -19,6 +19,7 @@ async function seedGrant(args?: { approved?: boolean; scope?: string }) {
       state: "active",
       email: "handoff@example.test",
       isApproved: args?.approved ?? true,
+      ...(args?.approved === false ? {} : { termsVersion: "2026-08-12", termsAcceptedAt: 1 }),
       name: "Handoff User",
     });
     await ctx.db.insert("mcpOauthClients", {
@@ -287,6 +288,8 @@ describe("agent browser handoff lifecycle", () => {
         state: "active",
         email: "other@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
     });
     const createArgs = await createHandoff(ids.userId);

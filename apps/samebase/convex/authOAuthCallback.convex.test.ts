@@ -111,6 +111,8 @@ describe("OAuth callback errors", () => {
         email: "missing-intent@example.com",
         emailVerificationTime: Date.now(),
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       await ctx.db.insert("authAccounts", {
         userId,
@@ -192,6 +194,8 @@ describe("OAuth callback errors", () => {
         email: "callback-race@example.com",
         emailVerificationTime: Date.now(),
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       await ctx.db.insert("authAccounts", {
         userId,

@@ -228,6 +228,8 @@ async function createIdentityVault(t: ConvexTest) {
       state: "active",
       email: "github-identity-owner@example.com",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
   });
   const { organizationId } = await t.mutation(
@@ -326,6 +328,8 @@ describe("viewer GitHub installation health", () => {
         state: "active",
         email: "github-installation@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
     });
     const { organizationId } = await t.mutation(
@@ -344,6 +348,8 @@ describe("viewer GitHub installation health", () => {
           state: "active",
           email: `github-installation-extra-${index}@example.com`,
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
         await ctx.db.insert("organizationMemberships", {
           organizationId,
@@ -461,6 +467,8 @@ describe("GitHub identity observation and approval", () => {
         state: "active",
         email: "github-identity-member@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       await ctx.db.insert("organizationMemberships", {
         organizationId,

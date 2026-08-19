@@ -55,12 +55,16 @@ describe("MCP HTTP tool invocation args", () => {
         name: "Token User",
         email: "token@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const argumentUserId = await ctx.db.insert("users", {
         state: "active",
         name: "Argument User",
         email: "argument@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       return { argumentUserId, tokenUserId };
     });
@@ -387,6 +391,7 @@ describe("MCP tools/call access enforcement", () => {
         name: "Ada",
         email: "ada@example.com",
         isApproved: args.isApproved,
+        ...(args.isApproved ? { termsVersion: "2026-08-12", termsAcceptedAt: 1 } : {}),
       });
       const organizationId = await ctx.db.insert("organizations", {
         githubInstallationId: "12345",

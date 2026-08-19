@@ -10,6 +10,8 @@ async function seedCheckoutContinuation() {
       state: "active",
       email: "checkout-owner@example.invalid",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubOwnerId: "checkout-owner",
@@ -43,6 +45,8 @@ describe("organization billing access", () => {
         state: "active",
         email: "personal-pro-owner@example.invalid",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const organizationId = await ctx.db.insert("organizations", {
         githubOwnerId: "personal-pro-owner",
@@ -166,6 +170,8 @@ describe("organization billing access", () => {
           state: "active",
           email: `limited-member-${index}@example.invalid`,
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
         await ctx.db.insert("organizationMemberships", {
           organizationId: seed.organizationId,

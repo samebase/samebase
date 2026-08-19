@@ -36,6 +36,8 @@ async function createQuotaFixture(args: {
       state: "active",
       email: "owner@example.invalid",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubOwnerId: "github-owner",
@@ -446,6 +448,8 @@ describe("pooled organization connection quotas", () => {
           state: "active",
           email: "managed-extra@example.invalid",
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
         await ctx.db.insert("organizationMemberships", {
           organizationId: ids.organizationId,
@@ -485,6 +489,8 @@ describe("pooled organization connection quotas", () => {
           state: "active",
           email: "manual-extra@example.invalid",
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
         await ctx.db.insert("organizationMemberships", {
           organizationId: ids.organizationId,

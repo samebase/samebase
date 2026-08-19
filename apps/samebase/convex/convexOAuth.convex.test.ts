@@ -15,6 +15,8 @@ describe("Convex organization OAuth", () => {
         state: "active",
         email: "member@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
     });
     const { organizationId } = await t.mutation(

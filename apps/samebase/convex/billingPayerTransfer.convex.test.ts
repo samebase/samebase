@@ -34,12 +34,16 @@ async function seedPayerTransfer() {
       displayName: "Current Payer",
       email: "current-payer@example.invalid",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const targetUserId = await ctx.db.insert("users", {
       state: "active",
       displayName: "Next Payer",
       email: "next-payer@example.invalid",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubOwnerId: "payer-transfer-org",

@@ -98,11 +98,15 @@ async function createFixture() {
       state: "active",
       email: "worker-owner@example.invalid",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const memberId = await ctx.db.insert("users", {
       state: "active",
       email: "worker-member@example.invalid",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubOwnerId: "github-owner",
