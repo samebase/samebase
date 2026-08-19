@@ -17,6 +17,8 @@ const userProfileFields = {
   email: string(),
   emailVerificationTime: optional(number()),
   isApproved: optional(boolean()),
+  termsVersion: optional(string()),
+  termsAcceptedAt: optional(number()),
 };
 
 export const vUserProfile = object(userProfileFields);
@@ -84,6 +86,8 @@ export function readUserProfile(user: NonDeletedUserLifecycleDoc): UserProfile {
     image: user.image,
     emailVerificationTime: user.emailVerificationTime,
     isApproved: user.isApproved,
+    termsVersion: user.termsVersion,
+    termsAcceptedAt: user.termsAcceptedAt,
   });
 }
 

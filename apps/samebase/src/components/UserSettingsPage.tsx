@@ -42,13 +42,19 @@ function readErrorMessage(error: unknown, fallback: string) {
 }
 
 export function UserSettingsPage({ authorizationNotice }: { authorizationNotice: ReactNode }) {
+  const viewerAccess = useQuery(api.users.currentViewerAccess, {});
+  const exitActionsOnly =
+    viewerAccess?.role === "role_pending_access" || viewerAccess?.termsAccepted === false;
   const router = useRouter();
   const navigate = settingsRouteApi.useNavigate();
   const search = settingsRouteApi.useSearch();
   const deleteDialogHistoryEntry = useLocation({
     select: (location) => location.state.settingsDeleteAccountDialog,
   });
-  const settings = useQuery(api.users.getUserSettings);
+  const settings = useQuery(
+    api.users.getUserSettings,
+    viewerAccess === undefined || exitActionsOnly ? "skip" : {},
+  );
   const setDisplayName = useMutation(api.users.setDisplayName);
   const beginAuthAccountLink = useMutation(api.users.beginAuthAccountLink);
   const { signOut } = useAppAuthActions();
@@ -64,6 +70,10 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
 
   useEffect(() => {
+    if (exitActionsOnly) {
+      return;
+    }
+
     const resetRestoredAccountLinkRequest = (event: PageTransitionEvent) => {
       if (event.persisted) {
         setAuthAccountLinkRequestState("idle");
@@ -74,9 +84,9 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
     return () => {
       window.removeEventListener("pageshow", resetRestoredAccountLinkRequest);
     };
-  }, []);
+  }, [exitActionsOnly]);
 
-  if (settings === undefined) {
+  if (viewerAccess === undefined) {
     return null;
   }
 
@@ -235,17 +245,45 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
     });
   };
 
+  const accountSettingsHeader = (
+    <div className="flex items-center justify-between gap-4">
+      <h1 className="text-xl font-semibold @2xl:text-2xl">Account settings</h1>
+      <Button type="button" variant="outline" disabled={isSigningOut} onClick={handleSignOut}>
+        {isSigningOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+        {isSigningOut ? "Signing out..." : "Sign out"}
+      </Button>
+    </div>
+  );
+  const deleteAccountButton = (
+    <Button
+      type="button"
+      variant="destructive"
+      disabled={isDeleteDialogOpen}
+      onClick={openDeleteDialog}
+    >
+      Delete account
+    </Button>
+  );
+
+  if (exitActionsOnly) {
+    return (
+      <main data-testid="user-settings-page" className="container mx-auto w-full max-w-2xl py-6">
+        {accountSettingsHeader}
+        <div className="mt-8 border-t pt-6">{deleteAccountButton}</div>
+        {isDeleteDialogOpen ? <AccountDeletionDialog onClose={closeDeleteDialog} /> : null}
+      </main>
+    );
+  }
+
+  if (settings === undefined) {
+    return null;
+  }
+
   const pending = saveState.kind === "saving" || sessionRefreshState.kind === "refreshing";
 
   return (
     <main data-testid="user-settings-page" className="container mx-auto w-full max-w-2xl py-6">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="text-xl font-semibold @2xl:text-2xl">Account settings</h1>
-        <Button type="button" variant="outline" disabled={isSigningOut} onClick={handleSignOut}>
-          {isSigningOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-          {isSigningOut ? "Signing out..." : "Sign out"}
-        </Button>
-      </div>
+      {accountSettingsHeader}
       {authorizationNotice ? <div className="mt-4">{authorizationNotice}</div> : null}
 
       <section className="mt-8 border-t pt-6" aria-labelledby="settings-profile-heading">
@@ -385,16 +423,7 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
             {settings.accountEmail}
           </dd>
         </dl>
-        <div className="mt-6">
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={isDeleteDialogOpen}
-            onClick={openDeleteDialog}
-          >
-            Delete account
-          </Button>
-        </div>
+        <div className="mt-6">{deleteAccountButton}</div>
       </section>
 
       {isDeleteDialogOpen ? <AccountDeletionDialog onClose={closeDeleteDialog} /> : null}

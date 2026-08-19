@@ -38,6 +38,7 @@ async function seedLifecycleUser(args: {
   email: string;
   isApproved: boolean;
   state: LifecycleState;
+  termsAccepted?: boolean;
 }): Promise<{ t: TestBackend; userId: Id<"users"> }> {
   const t = makeConvexTest();
   const userId = await t.run(async (ctx) => {
@@ -45,6 +46,7 @@ async function seedLifecycleUser(args: {
       state: "active",
       email: args.email,
       isApproved: args.isApproved,
+      ...(args.termsAccepted === false ? {} : { termsVersion: "2026-08-12", termsAcceptedAt: 1 }),
     });
     switch (args.state) {
       case "active":
@@ -55,6 +57,9 @@ async function seedLifecycleUser(args: {
           state: args.state,
           email: args.email,
           isApproved: args.isApproved,
+          ...(args.termsAccepted === false
+            ? {}
+            : { termsVersion: "2026-08-12", termsAcceptedAt: 1 }),
           runId,
           requestedAt: 1,
         });
@@ -152,6 +157,13 @@ describe("user lifecycle authorization", () => {
       },
       {
         state: "active" as const,
+        email: "terms@example.test",
+        isApproved: true,
+        termsAccepted: false,
+        role: "role_member",
+      },
+      {
+        state: "active" as const,
         email: "pending@example.test",
         isApproved: false,
         role: "role_pending_access",
@@ -165,11 +177,17 @@ describe("user lifecycle authorization", () => {
     ];
 
     for (const testCase of cases) {
-      const { t, userId } = await seedLifecycleUser(testCase);
+      const { t, userId } = await seedLifecycleUser({
+        state: testCase.state,
+        email: testCase.email,
+        isApproved: testCase.isApproved,
+        termsAccepted: testCase.termsAccepted,
+      });
       await expect(
         asUser(t, userId).query(api.users.currentViewerAccess, {}),
       ).resolves.toMatchObject({
         role: testCase.role,
+        termsAccepted: testCase.termsAccepted !== false,
       });
     }
   });

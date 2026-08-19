@@ -32,6 +32,7 @@ const viewerAccessState = vi.hoisted(
       | {
           accessKeys: string[];
           role?: "role_anonymous" | "role_deleting" | "role_member" | "role_pending_access";
+          termsAccepted?: boolean;
         }
       | undefined;
   } => ({
@@ -90,6 +91,10 @@ vi.mock("convex/react", () => ({
 
 vi.mock("@/components/NotFoundRoutePage", () => ({
   NotFoundRoutePage: () => <div data-testid="not-found-route">Not found route</div>,
+}));
+
+vi.mock("@/components/TermsAcceptanceGate", () => ({
+  TermsAcceptanceScreen: () => <div data-testid="terms-acceptance">Terms acceptance</div>,
 }));
 
 async function renderRouteAccessOutletAfterEffects() {
@@ -191,6 +196,60 @@ describe("RouteAccessOutlet", () => {
     expect(viewerAccessState.queryCalls).toBe(1);
   });
 
+  it("shows Terms acceptance before a Terms-pending viewer enters an app route", () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      { staticData: { access: "access_dashboard" } },
+    ];
+    viewerAccessState.result = {
+      accessKeys: ["access_public", "access_dashboard"],
+      role: "role_member",
+      termsAccepted: false,
+    };
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toContain("Terms acceptance");
+    expect(markup).not.toContain("Route outlet");
+    expect(markup).not.toContain("Not found route");
+  });
+
+  it("keeps the account deletion status route available before Terms acceptance", () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      { staticData: { access: "access_account_deletion" } },
+    ];
+    locationState.pathname = "/account-deletion";
+    viewerAccessState.result = {
+      accessKeys: ["access_public", "access_account_deletion"],
+      role: "role_member",
+      termsAccepted: false,
+    };
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toContain("Route outlet");
+    expect(markup).not.toContain("Terms acceptance");
+  });
+
+  it("keeps Settings available before Terms acceptance", () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      { staticData: { access: "access_user_preferences" } },
+    ];
+    locationState.pathname = "/settings";
+    viewerAccessState.result = {
+      accessKeys: ["access_public", "access_user_preferences"],
+      role: "role_member",
+      termsAccepted: false,
+    };
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toContain("Route outlet");
+    expect(markup).not.toContain("Terms acceptance");
+  });
+
   it("renders app-create routes when the viewer has app-create access", () => {
     routeMatchState.matches = [
       { staticData: { access: "access_public" } },
@@ -207,6 +266,23 @@ describe("RouteAccessOutlet", () => {
     expect(viewerAccessState.queryCalls).toBe(1);
   });
 
+  it("does not show Terms acceptance before account approval", () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      { staticData: { access: "access_dashboard" } },
+    ];
+    viewerAccessState.result = {
+      accessKeys: ["access_public"],
+      role: "role_pending_access",
+      termsAccepted: false,
+    };
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toContain("Not found route");
+    expect(markup).not.toContain("Terms acceptance");
+  });
+
   it("renders Settings for a pending-access viewer", () => {
     routeMatchState.matches = [
       { staticData: { access: "access_public" } },
@@ -214,6 +290,8 @@ describe("RouteAccessOutlet", () => {
     ];
     viewerAccessState.result = {
       accessKeys: ["access_public", "access_user_preferences"],
+      role: "role_pending_access",
+      termsAccepted: false,
     };
 
     const markup = renderToStaticMarkup(<RouteAccessOutlet />);

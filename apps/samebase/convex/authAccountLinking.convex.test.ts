@@ -1,7 +1,7 @@
 import GitHub from "@auth/core/providers/github";
 import Google from "@auth/core/providers/google";
 import { ConvexError } from "convex/values";
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -9,6 +9,14 @@ import type { MutationCtx } from "./_generated/server";
 import { createOrUpdateSamebaseUser, type CreateOrUpdateAuthUserArgs } from "./authAccountLinking";
 import type { AuthAccountProvider } from "./authAccountModel";
 import { makeConvexTest } from "./test.setup";
+
+beforeEach(() => {
+  vi.stubEnv("AUTO_APPROVE_NEW_USERS", "true");
+});
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
 
 function oauthArgs(args: {
   email: string;
@@ -163,7 +171,7 @@ describe("Samebase OAuth account linking", () => {
     );
   });
 
-  it("creates a verified Samebase user from a new GitHub identity", async () => {
+  it("creates an approved Samebase user that must accept the Terms", async () => {
     const t = makeConvexTest();
 
     const userId = await t.run(async (ctx) =>
@@ -180,11 +188,98 @@ describe("Samebase OAuth account linking", () => {
     );
 
     const user = await t.run(async (ctx) => await ctx.db.get(userId));
+    if (user?.state !== "active") {
+      throw new Error("The new OAuth user is not active.");
+    }
     expect(user).toMatchObject({
       email: "new-github@example.com",
       name: "OAuth User",
       image: "https://example.com/avatar.png",
       emailVerificationTime: expect.any(Number),
+      isApproved: true,
+    });
+    expect(user).not.toHaveProperty("termsVersion");
+    expect(user).not.toHaveProperty("termsAcceptedAt");
+
+    const asNewUser = t.withIdentity({
+      subject: `${userId}|github-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    await expect(asNewUser.query(api.users.currentViewerAccess, {})).resolves.toMatchObject({
+      role: "role_member",
+      termsAccepted: false,
+    });
+
+    await expect(asNewUser.mutation(api.users.acceptCurrentTerms, {})).resolves.toBeNull();
+    const acceptedUser = await t.run(async (ctx) => await ctx.db.get(userId));
+    expect(acceptedUser).toMatchObject({
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: expect.any(Number),
+    });
+    await expect(asNewUser.query(api.users.currentViewerAccess, {})).resolves.toMatchObject({
+      role: "role_member",
+      termsAccepted: true,
+    });
+
+    const firstAcceptedAt = acceptedUser?.state === "active" ? acceptedUser.termsAcceptedAt : null;
+    await expect(asNewUser.mutation(api.users.acceptCurrentTerms, {})).resolves.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(userId))).resolves.toMatchObject({
+      termsAcceptedAt: firstAcceptedAt,
+    });
+  });
+
+  it("creates an unapproved Samebase user when automatic approval is disabled", async () => {
+    vi.stubEnv("AUTO_APPROVE_NEW_USERS", "false");
+    const t = makeConvexTest();
+
+    const userId = await t.run(async (ctx) =>
+      createOrUpdateSamebaseUser(
+        ctx,
+        oauthArgs({
+          provider: "google",
+          providerAccountId: "google-pending",
+          email: "pending@example.com",
+          existingSessionId: null,
+          existingUserId: null,
+        }),
+      ),
+    );
+
+    await expect(t.run(async (ctx) => await ctx.db.get(userId))).resolves.toMatchObject({
+      email: "pending@example.com",
+      isApproved: false,
+    });
+
+    const asPendingUser = t.withIdentity({
+      subject: `${userId}|google-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    await expect(asPendingUser.mutation(api.users.acceptCurrentTerms, {})).rejects.toThrow();
+    const pendingUser = await t.run(async (ctx) => await ctx.db.get(userId));
+    expect(pendingUser).not.toHaveProperty("termsVersion");
+    expect(pendingUser).not.toHaveProperty("termsAcceptedAt");
+  });
+
+  it("creates an unapproved Samebase user when automatic approval is unset", async () => {
+    vi.unstubAllEnvs();
+    const t = makeConvexTest();
+
+    const userId = await t.run(async (ctx) =>
+      createOrUpdateSamebaseUser(
+        ctx,
+        oauthArgs({
+          provider: "google",
+          providerAccountId: "google-default-pending",
+          email: "default-pending@example.com",
+          existingSessionId: null,
+          existingUserId: null,
+        }),
+      ),
+    );
+
+    await expect(t.run(async (ctx) => await ctx.db.get(userId))).resolves.toMatchObject({
+      email: "default-pending@example.com",
+      isApproved: false,
     });
   });
 

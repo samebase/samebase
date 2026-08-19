@@ -30,8 +30,8 @@ import {
   resolveAccountPresentation,
   vAccountPresentation,
 } from "../shared/accountPresentation";
-
 const { boolean, id, literal, number, object, optional, string, union } = v;
+const CURRENT_TERMS_VERSION = "2026-08-12";
 
 const vSignInMethod = object({ email: string() });
 const vGitHubSignInMethod = object({ email: string(), login: string() });
@@ -398,6 +398,27 @@ export const setDisplayName = mutation({
   },
 });
 
+export const acceptCurrentTerms = mutation({
+  access: "access_dashboard",
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const user = ctx.viewer.user;
+    if (user.state !== "active") {
+      throw new Error("An active Samebase account is required.");
+    }
+    if (user.termsAcceptedAt !== undefined) {
+      return null;
+    }
+
+    await ctx.db.patch("users", ctx.viewer.userId, {
+      termsVersion: CURRENT_TERMS_VERSION,
+      termsAcceptedAt: Date.now(),
+    });
+    return null;
+  },
+});
+
 export const currentViewerAccess = query({
   access: "access_public",
   args: {},
@@ -406,6 +427,7 @@ export const currentViewerAccess = query({
     return {
       role: ctx.viewer.role,
       accessKeys: [...ctx.viewer.accessKeys],
+      termsAccepted: ctx.viewer.user === null || ctx.viewer.user.termsAcceptedAt !== undefined,
     };
   },
 });

@@ -4,6 +4,7 @@ import workflow from "@convex-dev/workflow/convex.config";
 
 const app = defineApp({
   env: {
+    AUTO_APPROVE_NEW_USERS: v.optional(v.union(v.literal("true"), v.literal("false"))),
     AUTH_GITHUB_ID: v.optional(v.string()),
     AUTH_GITHUB_SECRET: v.optional(v.string()),
     AUTH_GOOGLE_ID: v.optional(v.string()),

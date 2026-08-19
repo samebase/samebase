@@ -29,6 +29,7 @@ type Env = {
   readonly AUTH_GITHUB_SECRET: string | undefined;
   readonly AUTH_GOOGLE_ID: string | undefined;
   readonly AUTH_GOOGLE_SECRET: string | undefined;
+  readonly AUTO_APPROVE_NEW_USERS: "true" | "false" | undefined;
   readonly CLOUDFLARE_EMAIL_ACCOUNT_ID: string | undefined;
   readonly CLOUDFLARE_EMAIL_API_TOKEN: string | undefined;
   readonly DEV_SEED_GITHUB_API_KEY: string | undefined;

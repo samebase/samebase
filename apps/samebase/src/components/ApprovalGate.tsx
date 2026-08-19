@@ -1,5 +1,6 @@
 import { useAppAuthActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
+import { TermsAcceptanceScreen } from "@/components/TermsAcceptanceGate";
 import type { RouteAccessViewer } from "@/routing/permissions";
 import { useQuery } from "convex/react";
 import { createContext, useContext, type ReactNode } from "react";
@@ -8,6 +9,7 @@ import { api } from "../../convex/_generated/api";
 
 type ApprovalGateViewerAccess = RouteAccessViewer & {
   role?: ViewerRole;
+  termsAccepted?: boolean;
 };
 
 const ApprovalGateViewerAccessContext = createContext<ApprovalGateViewerAccess | null>(null);
@@ -62,6 +64,10 @@ export function ApprovalGate({ children }: { children: ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  if (viewerAccess.termsAccepted === false) {
+    return <TermsAcceptanceScreen />;
   }
 
   return <>{children}</>;

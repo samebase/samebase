@@ -10,6 +10,7 @@ const viewerAccessState = vi.hoisted(
     result:
       | (RouteAccessViewer & {
           role?: ViewerRole;
+          termsAccepted?: boolean;
         })
       | undefined;
   } => ({
@@ -31,6 +32,10 @@ vi.mock("@/authClient", () => ({
   useAppAuthActions: () => ({
     signOut: () => {},
   }),
+}));
+
+vi.mock("@/components/TermsAcceptanceGate", () => ({
+  TermsAcceptanceScreen: () => <div>Terms acceptance</div>,
 }));
 
 function renderApprovalGate() {
@@ -56,11 +61,26 @@ describe("ApprovalGate", () => {
     viewerAccessState.result = {
       role: "role_pending_access",
       accessKeys: ["access_public", "access_user_preferences"],
+      termsAccepted: false,
     };
 
     const markup = renderApprovalGate();
 
     expect(markup).toContain("Account access pending");
+    expect(markup).not.toContain("Terms acceptance");
+    expect(markup).not.toContain("Route child");
+  });
+
+  it("renders Terms acceptance for a Terms-pending viewer", () => {
+    viewerAccessState.result = {
+      role: "role_member",
+      accessKeys: ["access_public", "access_dashboard"],
+      termsAccepted: false,
+    };
+
+    const markup = renderApprovalGate();
+
+    expect(markup).toContain("Terms acceptance");
     expect(markup).not.toContain("Route child");
   });
 

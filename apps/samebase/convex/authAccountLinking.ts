@@ -4,7 +4,7 @@ import { ConvexError } from "convex/values";
 
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx } from "./_generated/server";
+import { env, type MutationCtx } from "./_generated/server";
 import { LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL } from "../../../runtime/localWorktreePasswordAuth";
 import {
   type PasswordAuthMode,
@@ -279,6 +279,7 @@ async function createOrResolveOAuthUser(
     state: "active",
     email: profile.email,
     emailVerificationTime: now,
+    isApproved: env.AUTO_APPROVE_NEW_USERS === "true",
     ...(profile.name ? { name: profile.name } : {}),
     ...(profile.image ? { image: profile.image } : {}),
   });
