@@ -35,7 +35,10 @@ type AppRightSidebarViewerAccess = (typeof api.users.currentViewerAccess)["_retu
 type AppRightSidebarViewer = NonNullable<(typeof api.users.viewer)["_returnType"]>;
 
 function hasProviderSidebarAccess(viewerAccess: AppRightSidebarViewerAccess | undefined) {
-  return viewerAccess?.accessKeys.includes("access_provider_connections") ?? false;
+  return (
+    viewerAccess?.termsAccepted !== false &&
+    (viewerAccess?.accessKeys.includes("access_provider_connections") ?? false)
+  );
 }
 
 function AppRightSidebarAccountLoadingSection() {

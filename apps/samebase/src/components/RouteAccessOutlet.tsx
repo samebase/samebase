@@ -1,5 +1,7 @@
 import { ApprovalGateViewerAccessProvider } from "@/components/ApprovalGate";
 import { NotFoundRoutePage } from "@/components/NotFoundRoutePage";
+import { TermsAcceptanceScreen } from "@/components/TermsAcceptanceGate";
+import { ACCOUNT_DELETION_ROUTE } from "@/lib/accountDeletionRoute";
 import { canAccessRouteMatchesAccess, type RouteAccessViewer } from "@/routing/permissions";
 import {
   readRouteSearchAccessCanonicalRouteAddress,
@@ -30,11 +32,15 @@ function AuthenticatedRouteAccessOutlet({
   const router = useRouter();
   const routeAccessAllowed =
     viewerAccess !== undefined && canAccessRouteMatchesAccess(matches, viewerAccess);
+  const termsAcceptancePending = viewerAccess?.termsAccepted === false;
   // The deletion boundary owns this redirect. Do not clean route search or paint
   // a denied-route 404 while its navigation to /account-deletion is pending.
   const deletionRedirectPending = viewerAccess?.role === "role_deleting" && !routeAccessAllowed;
   const canonicalRouteAddress =
-    authIsLoading || viewerAccess === undefined || deletionRedirectPending
+    authIsLoading ||
+    viewerAccess === undefined ||
+    deletionRedirectPending ||
+    (termsAcceptancePending && location.pathname !== ACCOUNT_DELETION_ROUTE)
       ? null
       : readRouteSearchAccessCanonicalRouteAddress({
           location,
@@ -63,6 +69,10 @@ function AuthenticatedRouteAccessOutlet({
     canonicalRouteAddress !== null
   ) {
     return null;
+  }
+
+  if (termsAcceptancePending && location.pathname !== ACCOUNT_DELETION_ROUTE) {
+    return <TermsAcceptanceScreen />;
   }
 
   const routeContent = routeAccessAllowed ? <Outlet /> : <NotFoundRoutePage />;

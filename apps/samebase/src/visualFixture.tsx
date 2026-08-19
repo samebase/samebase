@@ -95,6 +95,7 @@ import {
   type OrganizationMembersPageVisualMode,
 } from "@/components/OrganizationMembersPageVisualFixture";
 import { ConnectOrganizationPageVisualFixture } from "@/components/ConnectOrganizationPageVisualFixture";
+import { TermsAcceptanceVisualFixture } from "@/components/TermsAcceptanceVisualFixture";
 
 type VisualFixtureMode =
   | CommitReviewVisualMode
@@ -123,7 +124,8 @@ type VisualFixtureMode =
   | ConnectRepositoryVisualMode
   | NewAppPageVisualMode
   | OrganizationMembersPageVisualMode
-  | "connect-organization-page";
+  | "connect-organization-page"
+  | "terms-acceptance";
 
 type VisualFixtureSelection =
   | {
@@ -271,6 +273,7 @@ const MISC_VISUAL_MODES = [
   "app-boot-failure-generic",
   "corner-notch",
   "corner-notch-detail",
+  "terms-acceptance",
 ] as const satisfies readonly VisualFixtureMode[];
 
 const VISUAL_FIXTURE_GROUPS = [
@@ -502,6 +505,10 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (mode === "corner-notch-detail") {
     return <CornerNotchDetailVisualFixture />;
+  }
+
+  if (mode === "terms-acceptance") {
+    return <TermsAcceptanceVisualFixture />;
   }
 
   if (includes(COMMIT_REVIEW_VISUAL_MODES, mode)) {

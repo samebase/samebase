@@ -163,7 +163,7 @@ describe("Samebase OAuth account linking", () => {
     );
   });
 
-  it("creates an approved Samebase user with Terms acceptance from a new GitHub identity", async () => {
+  it("creates an approved Samebase user that must accept the Terms", async () => {
     const t = makeConvexTest();
 
     const userId = await t.run(async (ctx) =>
@@ -189,10 +189,35 @@ describe("Samebase OAuth account linking", () => {
       image: "https://example.com/avatar.png",
       emailVerificationTime: expect.any(Number),
       isApproved: true,
+    });
+    expect(user).not.toHaveProperty("termsVersion");
+    expect(user).not.toHaveProperty("termsAcceptedAt");
+
+    const asNewUser = t.withIdentity({
+      subject: `${userId}|github-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    await expect(asNewUser.query(api.users.currentViewerAccess, {})).resolves.toMatchObject({
+      role: "role_member",
+      termsAccepted: false,
+    });
+
+    await expect(asNewUser.mutation(api.users.acceptCurrentTerms, {})).resolves.toBeNull();
+    const acceptedUser = await t.run(async (ctx) => await ctx.db.get(userId));
+    expect(acceptedUser).toMatchObject({
       termsVersion: "2026-08-12",
       termsAcceptedAt: expect.any(Number),
     });
-    expect(user.termsAcceptedAt).toBe(user.emailVerificationTime);
+    await expect(asNewUser.query(api.users.currentViewerAccess, {})).resolves.toMatchObject({
+      role: "role_member",
+      termsAccepted: true,
+    });
+
+    const firstAcceptedAt = acceptedUser?.state === "active" ? acceptedUser.termsAcceptedAt : null;
+    await expect(asNewUser.mutation(api.users.acceptCurrentTerms, {})).resolves.toBeNull();
+    await expect(t.run(async (ctx) => await ctx.db.get(userId))).resolves.toMatchObject({
+      termsAcceptedAt: firstAcceptedAt,
+    });
   });
 
   it("links GitHub to the user whose current session has a valid intent", async () => {

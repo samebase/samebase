@@ -32,6 +32,7 @@ const viewerAccessState = vi.hoisted(
       | {
           accessKeys: string[];
           role?: "role_anonymous" | "role_deleting" | "role_member" | "role_pending_access";
+          termsAccepted?: boolean;
         }
       | undefined;
   } => ({
@@ -90,6 +91,10 @@ vi.mock("convex/react", () => ({
 
 vi.mock("@/components/NotFoundRoutePage", () => ({
   NotFoundRoutePage: () => <div data-testid="not-found-route">Not found route</div>,
+}));
+
+vi.mock("@/components/TermsAcceptanceGate", () => ({
+  TermsAcceptanceScreen: () => <div data-testid="terms-acceptance">Terms acceptance</div>,
 }));
 
 async function renderRouteAccessOutletAfterEffects() {
@@ -189,6 +194,42 @@ describe("RouteAccessOutlet", () => {
     expect(markup).toContain("Route outlet");
     expect(markup).not.toContain("not-found-route");
     expect(viewerAccessState.queryCalls).toBe(1);
+  });
+
+  it("shows Terms acceptance before a pending viewer enters an app route", () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      { staticData: { access: "access_dashboard" } },
+    ];
+    viewerAccessState.result = {
+      accessKeys: ["access_public", "access_dashboard"],
+      role: "role_member",
+      termsAccepted: false,
+    };
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toContain("Terms acceptance");
+    expect(markup).not.toContain("Route outlet");
+    expect(markup).not.toContain("Not found route");
+  });
+
+  it("keeps the account deletion status route available before Terms acceptance", () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      { staticData: { access: "access_account_deletion" } },
+    ];
+    locationState.pathname = "/account-deletion";
+    viewerAccessState.result = {
+      accessKeys: ["access_public", "access_account_deletion"],
+      role: "role_member",
+      termsAccepted: false,
+    };
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toContain("Route outlet");
+    expect(markup).not.toContain("Terms acceptance");
   });
 
   it("renders app-create routes when the viewer has app-create access", () => {
