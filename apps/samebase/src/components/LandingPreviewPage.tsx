@@ -596,26 +596,6 @@ function LandingPreviewOverview() {
           </div>
         </LandingSection>
 
-        <LandingSection>
-          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_440px] @5xl:gap-x-14">
-            <div className="@5xl:col-start-1 @5xl:row-start-1">
-              <LandingSectionIntro
-                heading="Setup is three OAuth connects and one GitHub app. We filmed all of it."
-                sub="It's the biggest hurdle in Samebase, so we don't hide it. Here it is in real time."
-              />
-            </div>
-            {/* Placeholder for the recorded onboarding capture. Swap for the
-                real embed once the footage exists; the copy above claims it. */}
-            <div className="mt-8 @5xl:col-start-2 @5xl:row-start-1 @5xl:mt-1.5">
-              <div className="flex aspect-video w-full items-center justify-center bg-muted">
-                <p className="max-w-[36ch] text-center font-mono text-xs uppercase leading-relaxed tracking-[0.14em] text-muted-foreground">
-                  video: the full onboarding, real time, unedited (~3 min)
-                </p>
-              </div>
-            </div>
-          </div>
-        </LandingSection>
-
         <LandingSection ariaLabel="Monorepo">
           <LandingSectionIntro
             heading="Full monorepo support, by design."
@@ -676,6 +656,28 @@ function LandingPreviewOverview() {
               </AccordionItem>
             ))}
           </Accordion>
+        </LandingSection>
+
+        <LandingSection>
+          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_440px] @5xl:gap-x-14">
+            <div className="@5xl:col-start-1 @5xl:row-start-1">
+              <LandingSectionIntro
+                heading="Setup is three OAuth connects and one GitHub app. We filmed the full flow."
+                sub="Watch the complete onboarding, including first-time Cloudflare setup. Long waits are accelerated, but no setup step is skipped."
+              />
+            </div>
+            <div className="mt-8 @5xl:col-start-2 @5xl:row-start-1 @5xl:mt-1.5">
+              <iframe
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="aspect-[48/31] w-full border-0"
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
+                src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"
+                title="Samebase onboarding: Complete setup from scratch"
+              />
+            </div>
+          </div>
         </LandingSection>
 
         <section className="mt-16 @3xl:mt-24">

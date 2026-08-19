@@ -181,10 +181,13 @@ describe("LandingPreviewPage", () => {
 
     // Honest onboarding.
     expect(markup).toContain(
-      "Setup is three OAuth connects and one GitHub app. We filmed all of it.",
+      "Setup is three OAuth connects and one GitHub app. We filmed the full flow.",
     );
-    expect(markup).not.toContain("No account? You create one in the same flow.");
-    expect(markup).not.toContain("watch it before you sign up · nothing is skipped");
+    expect(markup).toContain(
+      'src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y" title="Samebase onboarding: Complete setup from scratch"',
+    );
+    expect(markup).toContain('loading="lazy"');
+    expect(markup).toContain('allowFullScreen=""');
 
     // Cost and the closing argument.
     expect(markup).toContain("cost follows real usage");
@@ -205,11 +208,15 @@ describe("LandingPreviewPage", () => {
 
     const costIndex = markup.indexOf("cost follows real usage");
     const faqIndex = markup.indexOf('aria-label="Frequently asked questions"');
+    const onboardingVideoIndex = markup.indexOf(
+      'src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"',
+    );
     const closingQuestionIndex = markup.indexOf(
       "If your app builder is so good, why is it not building itself?",
     );
     expect(faqIndex).toBeGreaterThan(costIndex);
-    expect(closingQuestionIndex).toBeGreaterThan(faqIndex);
+    expect(onboardingVideoIndex).toBeGreaterThan(faqIndex);
+    expect(closingQuestionIndex).toBeGreaterThan(onboardingVideoIndex);
 
     expect(markup).toContain("If your app builder is so good, why is it not building itself?");
 
