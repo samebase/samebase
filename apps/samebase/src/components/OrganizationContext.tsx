@@ -10,9 +10,12 @@ export function OrganizationContextProvider({ children }: { children: ReactNode 
   const surface = readAppOrganizationSurface(pathname);
   const organizationContextRequired =
     surface.kind === "allVaults" || surface.kind === "organization";
+  const viewerAccess = useQuery(api.users.currentViewerAccess, isAuthenticated ? {} : "skip");
   const organizations = useQuery(
     api.organizations.listForViewer,
-    isAuthenticated && organizationContextRequired ? {} : "skip",
+    organizationContextRequired && viewerAccess?.accessKeys.includes("access_dashboard")
+      ? {}
+      : "skip",
   );
 
   return (
