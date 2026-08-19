@@ -782,7 +782,6 @@ export const trackedFilePaths = [
   "apps/samebase/public/landing-preview/step-1-create-accounts.mp4",
   "apps/samebase/public/landing-preview/step-2-use-template.mp4",
   "apps/samebase/public/landing-preview/step-3-connect-cloudflare-pages.mp4",
-  "apps/samebase/public/landing-preview/step-3-create-convex-project.mp4",
   "apps/samebase/public/landing-preview/step-4-create-convex-project.mp4",
   "apps/samebase/public/landing-preview/step-5-create-cloudflare-pages-deploy.mp4",
   "apps/samebase/public/landing-preview/tic-tac-toe-codex-poster.webp",

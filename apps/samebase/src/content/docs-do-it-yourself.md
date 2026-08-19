@@ -1,17 +1,9 @@
 # Do it yourself: deploy the Samebase stack for $0/month
 
-You can deploy the Samebase starter without a Samebase account. This guide gives you the exact
-provider steps. When you finish, you will have:
+You can deploy the Samebase starter without a Samebase account. The repository, database, and Worker
+stay in your provider accounts.
 
-- a GitHub repository that you own
-- a production Convex deployment and isolated Convex previews
-- a Cloudflare Worker that deploys from GitHub
-
-Two original phone recordings are included where the action is still valid and the recording does
-not show an account credential. Some screens show the old Noter name or an older dashboard. Follow
-the current links, labels, and commands in the text.
-
-## 1: Create the provider accounts
+## 1. Create the provider accounts
 
 Create or sign in to these three accounts:
 
@@ -22,7 +14,7 @@ Create or sign in to these three accounts:
 You can create all three accounts from a phone. The Cloudflare setup in step 4 is easier on a wider
 screen.
 
-## 2: Copy the starter to your GitHub account
+## 2. Copy the starter to your GitHub account
 
 1. Open the [samebase/app starter](https://github.com/samebase/app).
 2. Select **Use this template**, then **Create a new repository**.
@@ -33,12 +25,7 @@ screen.
 This gives the new repository its own history. Use **Fork** only if you want to keep the starter's
 full history and send changes back to it.
 
-The recording shows the old `notermd/app` name. Use the current `samebase/app` link above. The
-GitHub template steps are the same.
-
-<video controls preload="metadata" width="540" height="1194" title="Copy the starter repository from a phone" src="/landing-preview/step-2-use-template.mp4"></video>
-
-## 3: Create the Convex deployments and keys
+## 3. Create the Convex deployments and keys
 
 1. Open the [Convex dashboard](https://dashboard.convex.dev/) and create a project.
 2. Open its production deployment, then open **Settings** and **General**.
@@ -50,15 +37,9 @@ GitHub template steps are the same.
 Keep both keys secret. Do not put them in the repository. You will add them to Cloudflare in the
 next step.
 
-The recording shows the older Convex dashboard. The current key form also asks for permissions.
-Enable `deployment:deploy` as described above.
+## 4. Import the repository into Cloudflare Workers
 
-<video controls preload="metadata" width="720" height="1592" title="Create the Convex project and open the production deploy-key form from a phone" src="/landing-preview/step-3-create-convex-project.mp4"></video>
-
-## 4: Import the repository into Cloudflare Workers
-
-The old guide created a Cloudflare Pages project. Do not follow that path now. Cloudflare directs
-new projects to Workers, and the starter deploys its frontend and Worker as one unit.
+Create a Worker, not a Pages project. The starter deploys its frontend and Worker as one unit.
 
 1. In the [Cloudflare dashboard](https://dash.cloudflare.com/), open **Workers & Pages**.
 2. Select **Create application**.
@@ -86,10 +67,7 @@ Do not add `VITE_CONVEX_URL`. The starter gets the correct URL from Convex durin
 Enable builds for non-production branches under **Settings**, **Build**, and **Branch control**.
 Then save the configuration and start the first deployment.
 
-The two old Cloudflare recordings are not included here because they create a Pages project. That
-flow is obsolete for the current starter.
-
-## 5: Check the first deployment
+## 5. Check the first deployment
 
 Wait for the production build to finish, then open the `workers.dev` URL from the Worker page. You
 should see the starter todo app.
@@ -104,7 +82,7 @@ After setup:
 - a push to another branch updates its preview
 - the production and preview deployments do not share data
 
-## 6: Run the app on your computer
+## 6. Run the app on your computer
 
 Clone your repository. Install [Vite+](https://viteplus.dev/guide/), then run:
 
@@ -116,7 +94,7 @@ vp run dev
 On the first run, Convex asks you to sign in and select or create a development deployment. This
 local deployment is separate from production and the pull-request previews.
 
-## 7: Delete the app
+## 7. Delete the app
 
 Delete each resource from the provider that owns it:
 
