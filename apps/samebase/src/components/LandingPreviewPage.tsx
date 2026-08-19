@@ -349,26 +349,25 @@ function LandingPreviewOverview() {
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
       <div className="mx-auto w-full max-w-[1200px] px-6 pt-10 @2xl:px-10 @3xl:pt-14">
-        <p className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5">
-            <img
-              alt=""
-              className="h-9 w-9 dark:invert"
-              height="36"
-              src="/brand/logo/v1-side-primary-duotone.svg"
-              width="36"
-            />
-            <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
-          </span>
-          <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
-            BETA
-          </Badge>
-        </p>
-
-        <section className="mt-10">
+        <section>
           <div className="@3xl:grid @3xl:grid-cols-2 @3xl:gap-4">
             <div>
-              <h1 className="max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
+              <p className="flex items-center gap-4">
+                <span className="flex items-center gap-1.5">
+                  <img
+                    alt=""
+                    className="h-9 w-9 dark:invert"
+                    height="36"
+                    src="/brand/logo/v1-side-primary-duotone.svg"
+                    width="36"
+                  />
+                  <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
+                </span>
+                <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
+                  BETA
+                </Badge>
+              </p>
+              <h1 className="mt-10 max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
                 The correct way to build web apps.
               </h1>
               <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
