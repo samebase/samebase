@@ -52,7 +52,7 @@ const routeAccessMetadataByPath = {
     pathSuggestion: "hidden",
   },
   "/localStorage": { access: "access_admin" },
-  "/logo": { access: "access_public" },
+  "/logo": { access: "access_public", pathSuggestion: "dev" },
   "/logo/hover/carpet": { access: "access_public", pathSuggestion: "dev" },
   "/logo/hover/menger": { access: "access_public", pathSuggestion: "dev" },
   "/logo/iso": { access: "access_public", pathSuggestion: "dev" },
