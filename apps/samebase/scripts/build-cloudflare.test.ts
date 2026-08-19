@@ -1,8 +1,21 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vite-plus/test";
 
 import { main, selectConvexDeployPlan } from "./build-cloudflare.js";
 
+const cloudflareHeaders = readFileSync(new URL("../public/_headers", import.meta.url), "utf8");
+
 describe("build-cloudflare", () => {
+  it("applies one global clickjacking policy", () => {
+    const globalRule = cloudflareHeaders.split("\n\n").find((rule) => rule.startsWith("/*\n"));
+
+    expect(globalRule).toContain("Content-Security-Policy: frame-ancestors 'none'");
+    expect(globalRule).toContain("X-Frame-Options: DENY");
+    expect(cloudflareHeaders.match(/^  Content-Security-Policy:/gm) ?? []).toHaveLength(1);
+    expect(cloudflareHeaders.match(/^  X-Frame-Options:/gm) ?? []).toHaveLength(1);
+  });
+
   it("requires the preview key for non-main branches with the production key present", () => {
     expect(() =>
       selectConvexDeployPlan({
