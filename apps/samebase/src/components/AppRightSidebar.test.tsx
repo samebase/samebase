@@ -346,6 +346,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).not.toContain("checking login");
     expect(markup).not.toContain("/providers");
     expect(markup).not.toContain(">/vault<");
+    expect(markup).not.toContain("Watch the complete onboarding");
   });
 
   it("matches the signed-out GitHub geometry while keeping the placeholder non-interactive", () => {
@@ -606,6 +607,14 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain('data-testid="organization-context-control"');
     expect(hydratedMarkup).not.toContain("/admin/users");
     expect(hydratedMarkup).not.toContain("/admin/account-deletions");
+    expect(hydratedMarkup).toContain("New to Samebase?");
+    expect(hydratedMarkup).toContain(
+      'href="https://youtu.be/8-ZEGPpqi9Y" rel="noreferrer noopener" target="_blank"',
+    );
+    expect(hydratedMarkup).toContain("Watch the complete onboarding");
+    expect(hydratedMarkup.indexOf("Watch the complete onboarding")).toBeLessThan(
+      hydratedMarkup.indexOf('href="/terms"'),
+    );
     expectProviderStatusQueriesNotSeen();
   });
 

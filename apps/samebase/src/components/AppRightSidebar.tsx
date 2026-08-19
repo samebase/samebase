@@ -34,6 +34,9 @@ import { api } from "../../convex/_generated/api";
 type AppRightSidebarViewerAccess = (typeof api.users.currentViewerAccess)["_returnType"];
 type AppRightSidebarViewer = NonNullable<(typeof api.users.viewer)["_returnType"]>;
 
+const ONBOARDING_VIDEO_URL = "https://youtu.be/8-ZEGPpqi9Y";
+const ONBOARDING_VIDEO_THUMBNAIL_URL = "https://i.ytimg.com/vi/8-ZEGPpqi9Y/maxresdefault.jpg";
+
 function hasProviderSidebarAccess(viewerAccess: AppRightSidebarViewerAccess | undefined) {
   return (
     viewerAccess?.termsAccepted !== false &&
@@ -50,13 +53,45 @@ function AppRightSidebarAccountLoadingSection() {
   );
 }
 
+function AppRightSidebarOnboardingVideoLink() {
+  return (
+    <section className="vault-dashboard-sidebar-inset pb-3">
+      <h2 className="text-sm font-medium">New to Samebase?</h2>
+      <a
+        className="mt-2 block text-sm font-medium underline underline-offset-4"
+        href={ONBOARDING_VIDEO_URL}
+        rel="noreferrer noopener"
+        target="_blank"
+      >
+        <img
+          alt=""
+          className="aspect-video w-full object-cover"
+          height="720"
+          loading="lazy"
+          referrerPolicy="strict-origin-when-cross-origin"
+          src={ONBOARDING_VIDEO_THUMBNAIL_URL}
+          width="1280"
+        />
+        <span className="mt-2 block">Watch the complete onboarding</span>
+      </a>
+    </section>
+  );
+}
+
+function AppRightSidebarFooter({ authenticated }: { authenticated: boolean }) {
+  return (
+    <div className="mt-auto">
+      {authenticated ? <AppRightSidebarOnboardingVideoLink /> : null}
+      <AppSidebarMetaSection linkAlignment="left" />
+    </div>
+  );
+}
+
 function PublicAppRightSidebarContent({ accountPending }: { accountPending: boolean }) {
   return (
     <VaultDashboardSidebarContent>
       {accountPending ? <AppRightSidebarAccountLoadingSection /> : <PublicLandingAccountSection />}
-      <div className="mt-auto">
-        <AppSidebarMetaSection linkAlignment="left" />
-      </div>
+      <AppRightSidebarFooter authenticated={false} />
     </VaultDashboardSidebarContent>
   );
 }
@@ -90,9 +125,7 @@ function TemporaryAuthenticatedAppRightSidebarContent({
   return (
     <VaultDashboardSidebarContent>
       <AppRightSidebarSignedInAccountSection profile={profile} />
-      <div className="mt-auto">
-        <AppSidebarMetaSection linkAlignment="left" />
-      </div>
+      <AppRightSidebarFooter authenticated />
     </VaultDashboardSidebarContent>
   );
 }
@@ -136,9 +169,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
           </p>
         </section>
       ) : null}
-      <div className="mt-auto">
-        <AppSidebarMetaSection linkAlignment="left" />
-      </div>
+      <AppRightSidebarFooter authenticated />
     </VaultDashboardSidebarContent>
   );
 }
@@ -255,9 +286,7 @@ function AuthenticatedAppRightSidebarContent({
       {organizationContextPending ? null : (
         <GlobalAppRightSidebarLinks showAllVaults={surface.kind !== "allVaults"} />
       )}
-      <div className="mt-auto">
-        <AppSidebarMetaSection linkAlignment="left" />
-      </div>
+      <AppRightSidebarFooter authenticated />
     </VaultDashboardSidebarContent>
   );
 }

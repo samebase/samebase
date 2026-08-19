@@ -189,6 +189,18 @@ test("signed-in app right sidebar keeps the account row inside a narrow desktop 
     mask: [getPrivateAccountMask(accountSection)],
     maskColor: "#d1d5db",
   });
+
+  const onboardingSection = rightPane
+    .getByRole("heading", { name: "New to Samebase?" })
+    .locator("..");
+  await expect(onboardingSection).toHaveScreenshot(
+    "app-right-sidebar-onboarding-video-narrow.png",
+    {
+      ...appRightSidebarScreenshotOptions,
+      mask: [onboardingSection.locator("img")],
+      maskColor: "#d1d5db",
+    },
+  );
 });
 
 test("signed-in app right sidebar keeps the account row inside the minimum mobile right pane", async ({
