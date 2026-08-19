@@ -129,45 +129,45 @@ describe("OrganizationContextControl", () => {
     const container = await mountControl();
 
     expect(container.querySelector('[data-testid="organization-context-control"]')).not.toBeNull();
-    expect(container.textContent).toContain("All vaults");
+    expect(container.textContent).toContain("No organization selected");
     expect(container.textContent).toContain("samebase");
     expect(
-      container.querySelector('[aria-label="Switch organization, current context All vaults"]'),
+      container.querySelector(
+        '[aria-label="Switch organization, current context No organization selected"]',
+      ),
     ).not.toBeNull();
     const menuItems = [
       ...container.querySelectorAll('[data-testid="organization-context-menu-item"]'),
     ];
-    expect(menuItems.map((item) => item.textContent)).toEqual([
-      "All vaults",
-      "samebase",
-      "Connect organization",
-    ]);
+    expect(menuItems.map((item) => item.textContent)).toEqual(["samebase", "Connect organization"]);
     await act(async () => {
-      menuItems[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      menuItems[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await Promise.resolve();
     });
 
     expect(testState.navigate).toHaveBeenCalledWith({ to: "/connect-organization" });
   });
 
-  it("shows All vaults for zero organizations", async () => {
+  it("shows that no organization is selected for zero organizations", async () => {
     testState.context.organizations = [];
     const container = await mountControl();
 
-    expect(container.textContent).toContain("All vaults");
+    expect(container.textContent).toContain("No organization selected");
     expect(container.querySelector('[aria-label^="Switch organization"]')).toBeNull();
   });
 
-  it("keeps All vaults as the global switch context for multiple organizations", async () => {
+  it("shows that no organization is selected for multiple organizations", async () => {
     testState.context.organizations = [organization("zeta"), organization("alpha")];
     const container = await mountControl();
 
     expect(
-      container.querySelector('[aria-label="Switch organization, current context All vaults"]'),
+      container.querySelector(
+        '[aria-label="Switch organization, current context No organization selected"]',
+      ),
     ).not.toBeNull();
   });
 
-  it("matches the vault list order and cleans billing state for All vaults", async () => {
+  it("matches the vault list order without repeating All vaults", async () => {
     testState.context.organizations = [
       organization("zeta"),
       organization("personal", "user"),
@@ -179,32 +179,17 @@ describe("OrganizationContextControl", () => {
       section: "settings",
       source: "organization",
     };
-    testState.location.hash = "#billing";
-    testState.location.search = {
-      checkout: "success",
-      customer_session_token: true,
-      "prod-ui": true,
-    };
     const container = await mountControl();
     const menuItems = [
       ...container.querySelectorAll('[data-testid="organization-context-menu-item"]'),
     ];
 
     expect(menuItems.map((item) => item.textContent)).toEqual([
-      "All vaults",
       "personal",
       "zeta",
       "alpha",
       "Connect organization",
     ]);
-    await act(async () => {
-      menuItems[0]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-      await Promise.resolve();
-    });
-
-    expect(testState.navigate).toHaveBeenCalledWith({
-      href: "/vault?prod-ui#billing",
-    });
   });
 
   it("announces the current context from the sidebar trigger", async () => {
@@ -238,7 +223,7 @@ describe("OrganizationContextControl", () => {
     ];
 
     await act(async () => {
-      menuItems[2]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      menuItems[1]?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
       await Promise.resolve();
     });
 

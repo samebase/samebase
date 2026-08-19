@@ -15,7 +15,7 @@ import { ChevronDown } from "lucide-react";
 
 function readContextLabel(surface: AppOrganizationSurface): string | null {
   if (surface.kind === "allVaults") {
-    return "All vaults";
+    return "No organization selected";
   }
   if (surface.kind === "organization") {
     return surface.owner;
@@ -61,15 +61,6 @@ export function OrganizationContextControl() {
     );
   }
 
-  const navigateToAllVaults = () => {
-    void navigate({
-      href: buildOrganizationSwitchHref({
-        hash: location.hash,
-        search: location.search,
-        target: { kind: "allVaults" },
-      }),
-    });
-  };
   const navigateToOrganization = (owner: string) => {
     const section =
       surface.kind === "organization" && surface.source === "organization"
@@ -103,7 +94,6 @@ export function OrganizationContextControl() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-48">
-          <DropdownMenuItem onSelect={navigateToAllVaults}>All vaults</DropdownMenuItem>
           {orderedOrganizations.map((organization) => (
             <DropdownMenuItem
               key={organization.organizationId}

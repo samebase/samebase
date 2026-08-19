@@ -87,7 +87,11 @@ describe("organization context acceptance fixtures", () => {
       vaults: await ctx.db.query("vaults").collect(),
     }));
 
-    expect(snapshot.user).toMatchObject({ isApproved: true });
+    expect(snapshot.user).toMatchObject({
+      isApproved: true,
+      termsAcceptedAt: expect.any(Number),
+      termsVersion: "2026-08-12",
+    });
     expect(snapshot.organizations).toHaveLength(3);
     for (const organization of snapshot.organizations) {
       expect(organization.convexTeam).toEqual({

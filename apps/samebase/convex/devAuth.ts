@@ -17,6 +17,7 @@ import { discoverPreviewSeedGitHubAppInstallations } from "./githubApp";
 import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import { readActiveUser } from "./userLifecycle";
+import { CURRENT_TERMS_VERSION } from "./users";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
 
@@ -225,10 +226,20 @@ export const approveSeedPasswordAccount = internalMutation({
     if (activeUser === null) {
       throw new Error(`Cannot approve inactive seed user ${args.userId}`);
     }
-    // Seeded preview/local password accounts must skip the pending access gate so
-    // operators do not need a parallel code-side allowlist for dev access.
-    if (activeUser.isApproved !== true) {
-      await ctx.db.patch(args.userId, { isApproved: true });
+    // Seeded preview/local password accounts must skip the access and Terms gates.
+    if (
+      activeUser.isApproved !== true ||
+      activeUser.termsAcceptedAt === undefined ||
+      activeUser.termsVersion !== CURRENT_TERMS_VERSION
+    ) {
+      await ctx.db.patch(args.userId, {
+        isApproved: true,
+        termsAcceptedAt:
+          activeUser.termsVersion === CURRENT_TERMS_VERSION
+            ? (activeUser.termsAcceptedAt ?? Date.now())
+            : Date.now(),
+        termsVersion: CURRENT_TERMS_VERSION,
+      });
     }
     return null;
   },
@@ -548,8 +559,19 @@ export const applyOrganizationContextAcceptanceFixture = internalMutation({
     if (activeUser === null) {
       throw new Error("An active acceptance user is required.");
     }
-    if (activeUser.isApproved !== true) {
-      await ctx.db.patch(userId, { isApproved: true });
+    if (
+      activeUser.isApproved !== true ||
+      activeUser.termsAcceptedAt === undefined ||
+      activeUser.termsVersion !== CURRENT_TERMS_VERSION
+    ) {
+      await ctx.db.patch(userId, {
+        isApproved: true,
+        termsAcceptedAt:
+          activeUser.termsVersion === CURRENT_TERMS_VERSION
+            ? (activeUser.termsAcceptedAt ?? Date.now())
+            : Date.now(),
+        termsVersion: CURRENT_TERMS_VERSION,
+      });
     }
 
     const owners = new Set<string>();
