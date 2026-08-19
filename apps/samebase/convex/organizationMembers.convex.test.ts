@@ -661,7 +661,7 @@ describe("organization member lifecycle", () => {
         code,
         createdByUserId: ids.ownerUserId,
         createdAt: roundedNow,
-        expiresAt: roundedNow + 60_000,
+        expiresAt: Date.now() + 60_000,
         state: "pending",
       });
       return { billingAccountId: billingAccount._id, invitationId };
@@ -749,7 +749,7 @@ describe("organization member lifecycle", () => {
         code: firstCode,
         createdByUserId: ids.ownerUserId,
         createdAt: roundedNow,
-        expiresAt: roundedNow + 60_000,
+        expiresAt: Date.now() + 60_000,
         state: "pending",
       });
       await ctx.db.insert("organizationInvitations", {
@@ -759,7 +759,7 @@ describe("organization member lifecycle", () => {
         code: secondCode,
         createdByUserId: ids.ownerUserId,
         createdAt: roundedNow,
-        expiresAt: roundedNow + 60_000,
+        expiresAt: Date.now() + 60_000,
         state: "pending",
       });
       return userId;
