@@ -604,7 +604,37 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("Sign in or create an account");
     expect(hydratedMarkup).toContain('data-testid="organization-context-control"');
+    expect(hydratedMarkup).not.toContain("/admin/users");
+    expect(hydratedMarkup).not.toContain("/admin/account-deletions");
     expectProviderStatusQueriesNotSeen();
+  });
+
+  it("renders both admin routes for staff", async () => {
+    const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
+      new Map([
+        [
+          getFunctionName(api.users.currentViewerAccess),
+          {
+            role: "role_staff",
+            accessKeys: ["access_public", "access_provider_connections", "access_admin"],
+          },
+        ],
+        [
+          getFunctionName(api.users.viewer),
+          {
+            _id: "user_staff",
+            accountPresentation: {
+              kind: "email",
+              label: "staff@example.test",
+            },
+          },
+        ],
+      ]),
+    );
+
+    expect(hydratedMarkup).toContain('aria-label="Admin"');
+    expect(hydratedMarkup).toContain('href="/admin/users"');
+    expect(hydratedMarkup).toContain('href="/admin/account-deletions"');
   });
 
   it("renders the approved organization navigation without a billing item", async () => {

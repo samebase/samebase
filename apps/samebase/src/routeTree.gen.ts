@@ -39,6 +39,7 @@ import { Route as docsReceiptsRouteImport } from "./routes/docs-receipts";
 import { Route as docsDoItYourselfRouteImport } from "./routes/docs-do-it-yourself";
 import { Route as docsCloudflareSetupRouteImport } from "./routes/docs-cloudflare-setup";
 import { Route as agentsConnectRouteImport } from "./routes/agents-connect";
+import { Route as adminUsersRouteImport } from "./routes/admin-users";
 import { Route as adminAccountDeletionsRouteImport } from "./routes/admin-account-deletions";
 import { Route as vaultDashboardRootRouteImport } from "./routes/vault-dashboard-root";
 import { Route as vaultDashboardRouteImport } from "./routes/vault-dashboard";
@@ -208,6 +209,11 @@ const agentsConnectRoute = agentsConnectRouteImport.update({
   path: "/agents/connect",
   getParentRoute: () => rootRouteImport,
 } as any);
+const adminUsersRoute = adminUsersRouteImport.update({
+  id: "/admin/users",
+  path: "/admin/users",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const adminAccountDeletionsRoute = adminAccountDeletionsRouteImport.update({
   id: "/admin/account-deletions",
   path: "/admin/account-deletions",
@@ -319,6 +325,7 @@ export interface FileRoutesByFullPath {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/admin/users": typeof adminUsersRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
@@ -369,6 +376,7 @@ export interface FileRoutesByTo {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/admin/users": typeof adminUsersRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
@@ -420,6 +428,7 @@ export interface FileRoutesById {
   "/visual-fixture": typeof visualFixtureRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
+  "/admin/users": typeof adminUsersRoute;
   "/agents/connect": typeof agentsConnectRoute;
   "/docs/cloudflare-setup": typeof docsCloudflareSetupRoute;
   "/docs/do-it-yourself": typeof docsDoItYourselfRoute;
@@ -472,6 +481,7 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault/"
     | "/admin/account-deletions"
+    | "/admin/users"
     | "/agents/connect"
     | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
@@ -522,6 +532,7 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault"
     | "/admin/account-deletions"
+    | "/admin/users"
     | "/agents/connect"
     | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
@@ -572,6 +583,7 @@ export interface FileRouteTypes {
     | "/visual-fixture"
     | "/vault/"
     | "/admin/account-deletions"
+    | "/admin/users"
     | "/agents/connect"
     | "/docs/cloudflare-setup"
     | "/docs/do-it-yourself"
@@ -623,6 +635,7 @@ export interface RootRouteChildren {
   visualFixtureRoute: typeof visualFixtureRoute;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
+  adminUsersRoute: typeof adminUsersRoute;
   agentsConnectRoute: typeof agentsConnectRoute;
   docsCloudflareSetupRoute: typeof docsCloudflareSetupRoute;
   docsDoItYourselfRoute: typeof docsDoItYourselfRoute;
@@ -868,6 +881,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof agentsConnectRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/admin/users": {
+      id: "/admin/users";
+      path: "/admin/users";
+      fullPath: "/admin/users";
+      preLoaderRoute: typeof adminUsersRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/admin/account-deletions": {
       id: "/admin/account-deletions";
       path: "/admin/account-deletions";
@@ -1015,6 +1035,7 @@ const rootRouteChildren: RootRouteChildren = {
   visualFixtureRoute: visualFixtureRoute,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
+  adminUsersRoute: adminUsersRoute,
   agentsConnectRoute: agentsConnectRoute,
   docsCloudflareSetupRoute: docsCloudflareSetupRoute,
   docsDoItYourselfRoute: docsDoItYourselfRoute,

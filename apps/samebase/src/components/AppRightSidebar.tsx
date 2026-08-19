@@ -160,6 +160,22 @@ function GlobalAppRightSidebarLinks({ showAllVaults }: { showAllVaults: boolean 
   );
 }
 
+function AdminAppRightSidebarLinks() {
+  return (
+    <nav
+      aria-label="Admin"
+      className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
+    >
+      <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to="/admin/users">
+        Users
+      </Link>
+      <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to="/admin/account-deletions">
+        Account deletions
+      </Link>
+    </nav>
+  );
+}
+
 function OrganizationAppRightSidebarLinks({ organization }: { organization: ViewerOrganization }) {
   const params = { owner: organization.githubOwnerLogin };
   return (
@@ -215,8 +231,10 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
 
 function AuthenticatedAppRightSidebarContent({
   profile,
+  showAdminNavigation,
 }: {
   profile: AppAuthPresentationProfile | null;
+  showAdminNavigation: boolean;
 }) {
   const user = useConvexQuery(api.users.viewer);
   const { organizations, surface } = useOrganizationContext();
@@ -230,6 +248,7 @@ function AuthenticatedAppRightSidebarContent({
     <VaultDashboardSidebarContent>
       <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
       <OrganizationContextControl />
+      {showAdminNavigation ? <AdminAppRightSidebarLinks /> : null}
       {organizationContextPending || routedOrganization === null ? null : (
         <OrganizationAppRightSidebarLinks organization={routedOrganization} />
       )}
@@ -265,7 +284,12 @@ export function AppRightSidebarContent() {
       );
     }
 
-    return <AuthenticatedAppRightSidebarContent profile={authPresentation.profile} />;
+    return (
+      <AuthenticatedAppRightSidebarContent
+        profile={authPresentation.profile}
+        showAdminNavigation={viewerAccess?.accessKeys.includes("access_admin") ?? false}
+      />
+    );
   }
 
   if (authPresentation.kind === "temporaryAuthenticated") {
