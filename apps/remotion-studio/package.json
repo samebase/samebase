@@ -8,6 +8,7 @@
   "scripts": {
     "build": "remotion bundle",
     "dev": "remotion studio",
+    "generate:subtitles": "node src/scripts/generateRecordedDemoSubtitles.ts",
     "render:founder-demo": "remotion render FounderDemo out/founder-demo-master.mp4",
     "render:founder-demo-youtube": "remotion render FounderDemoYouTube out/founder-demo-youtube.mp4",
     "render:logo-hype": "remotion render LogoHype out/logo-hype.mp4",
@@ -26,6 +27,7 @@
     "three": "^0.183.2"
   },
   "devDependencies": {
+    "@types/node": "^20.14.9",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@types/three": "^0.183.1",

@@ -1,7 +1,7 @@
 import {
   createRecordedDemoEdit,
   type RecordedDemoSourceSection,
-} from "../recorded-demo/recordedDemoEdit";
+} from "../recorded-demo/recordedDemoEdit.ts";
 
 export const onboardingDemoFps = 30;
 

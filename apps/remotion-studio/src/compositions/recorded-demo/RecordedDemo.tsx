@@ -23,6 +23,7 @@ import {
   type RecordedDemoSlowdownSegment,
   type RecordedDemoVariableSegment,
 } from "./recordedDemoEdit";
+import { createRecordedDemoCaptionCues } from "./recordedDemoCaptions";
 
 const maximumDirectPlaybackRate = 16;
 const timelapsePlaybackRate = 24;
@@ -62,45 +63,6 @@ const CaptionText: React.FC<{ layoutScale: number; text: string }> = ({ layoutSc
     {text}
   </div>
 );
-
-const SegmentCaptions: React.FC<{
-  captions: Caption[];
-  edit: RecordedDemoEdit;
-  layoutScale: number;
-  segment: RecordedDemoFaceSegment;
-}> = ({ captions, edit, layoutScale, segment }) =>
-  captions.map((caption, index) => {
-    const captionStartInSourceFrames = (caption.startMs / 1_000) * edit.fps;
-    const captionEndInSourceFrames = (caption.endMs / 1_000) * edit.fps;
-    const visibleStartInSourceFrames = Math.max(
-      captionStartInSourceFrames,
-      segment.sourceStartInFrames,
-    );
-    const visibleEndInSourceFrames = Math.min(captionEndInSourceFrames, segment.sourceEndInFrames);
-
-    if (visibleEndInSourceFrames <= visibleStartInSourceFrames || caption.text.trim() === "") {
-      return null;
-    }
-
-    const from = Math.floor(
-      (visibleStartInSourceFrames - segment.sourceStartInFrames) / segment.playbackRate,
-    );
-    const end = Math.min(
-      segment.durationInFrames,
-      Math.ceil((visibleEndInSourceFrames - segment.sourceStartInFrames) / segment.playbackRate),
-    );
-
-    return (
-      <Sequence
-        durationInFrames={Math.max(1, end - from)}
-        from={from}
-        key={`${caption.startMs}-${caption.endMs}-${index}`}
-        name={`Caption ${index + 1}`}
-      >
-        <CaptionText layoutScale={layoutScale} text={caption.text} />
-      </Sequence>
-    );
-  });
 
 const FaceBubble: React.FC<{
   edit: RecordedDemoEdit;
@@ -288,26 +250,24 @@ const RecordedDemoCaptionTimeline: React.FC<{
   captions: Caption[];
   edit: RecordedDemoEdit;
   layoutScale: number;
-}> = ({ captions, edit, layoutScale }) => (
-  <Series name="Recorded demo captions">
-    {edit.segments.map((segment) => (
-      <Series.Sequence
-        durationInFrames={segment.durationInFrames}
-        key={`${segment.sourceStartInFrames}-${segment.sourceEndInFrames}`}
-        name={`${segment.name} captions`}
-      >
-        {segment.kind === "face" ? (
-          <SegmentCaptions
-            captions={captions}
-            edit={edit}
-            layoutScale={layoutScale}
-            segment={segment}
-          />
-        ) : null}
-      </Series.Sequence>
-    ))}
-  </Series>
-);
+}> = ({ captions, edit, layoutScale }) => {
+  const cues = createRecordedDemoCaptionCues(captions, edit);
+
+  return (
+    <Sequence name="Recorded demo captions">
+      {cues.map((cue, index) => (
+        <Sequence
+          durationInFrames={cue.editEndInFrames - cue.editStartInFrames}
+          from={cue.editStartInFrames}
+          key={`${cue.caption.startMs}-${cue.caption.endMs}-${index}`}
+          name={`Caption ${index + 1}`}
+        >
+          <CaptionText layoutScale={layoutScale} text={cue.caption.text} />
+        </Sequence>
+      ))}
+    </Sequence>
+  );
+};
 
 export const RecordedDemoAudio: React.FC<{
   edit: RecordedDemoEdit;

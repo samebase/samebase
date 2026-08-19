@@ -40,9 +40,10 @@ Each production composition owns its component, timing model, and supporting edi
 3. Record timestamps, pacing decisions, and review notes in `apps/remotion-studio/notes/`.
 4. Build and inspect the composition in Remotion Studio.
 5. Run `pnpm check:remotion-studio` and render a local master into `apps/remotion-studio/out/`.
-6. Create the delivery encode and poster for the target surface.
-7. Publish the accepted delivery file to its target platform.
-8. When the Samebase app serves the video directly, record its immutable URL and observed metadata
+6. Generate retimed SRT files from the same edit manifests as the rendered videos.
+7. Create the delivery encode and poster for the target surface.
+8. Publish the accepted delivery file to its target platform.
+9. When the Samebase app serves the video directly, record its immutable URL and observed metadata
    in `apps/samebase/shared/publicMediaManifest.ts`.
 
 Do not put provider tokens or other secrets in this app.
@@ -104,6 +105,18 @@ Render the local master with:
 pnpm --filter @samebase/remotion-studio render:onboarding-demo
 ```
 
+## YouTube subtitles
+
+Generate SRT files that use the accelerated output timelines with:
+
+```console
+pnpm --filter @samebase/remotion-studio generate:subtitles
+```
+
+The command writes `founder-demo-youtube.srt` and `onboarding-demo-youtube.srt` to
+`apps/remotion-studio/out/`. It omits captions from accelerated waits and uses the same frame
+boundaries as the captions rendered into each composition.
+
 ## Tic-Tac-Toe landing video
 
 The source recording belongs at:
@@ -145,6 +158,8 @@ Do not commit:
 
 - `pnpm --filter @samebase/remotion-studio dev`: open Remotion Studio.
 - `pnpm check:remotion-studio`: typecheck and lint from the repository root.
+- `pnpm --filter @samebase/remotion-studio generate:subtitles`: generate retimed SRT files for the
+  Founder Demo and Onboarding Demo.
 - `pnpm --filter @samebase/remotion-studio render:founder-demo`: render the founder demo.
 - `pnpm --filter @samebase/remotion-studio render:founder-demo-youtube`: render the 2160p founder
   demo while preserving the source aspect ratio.
