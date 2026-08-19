@@ -348,7 +348,7 @@ function LandingPreviewOverview() {
       className="min-h-full shrink-0 bg-background pb-48 text-foreground"
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
-      <div className="mx-auto w-full max-w-[1200px] px-6 pt-10 @2xl:px-10 @3xl:pt-14">
+      <div className="mx-auto w-full max-w-[1200px] px-6 pt-10 @2xl:px-10 @3xl:pt-8">
         <section>
           <div className="@3xl:grid @3xl:grid-cols-2 @3xl:gap-4">
             <div>
@@ -404,7 +404,7 @@ function LandingPreviewOverview() {
             </div>
             <LandingHeroMenger placement="preview" />
           </div>
-          <div className="relative mt-12" style={{ containerType: "inline-size" }}>
+          <div className="relative" style={{ containerType: "inline-size" }}>
             <div
               className="overflow-hidden"
               data-testid="landing-preview-hero-video-frame"
