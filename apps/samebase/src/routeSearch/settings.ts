@@ -12,7 +12,7 @@ export const DELETE_ACCOUNT_QUERY_PARAM = "delete-account";
 
 const RouteSearchSchema_settings = defineRouteSearchParams({
   [DELETE_ACCOUNT_QUERY_PARAM]: routeSearchPresenceParam({
-    access: "access_user_preferences",
+    access: "access_account_deletion",
     suggestion: "route",
   }),
 });

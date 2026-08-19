@@ -4,7 +4,7 @@ import { api, internal } from "./_generated/api";
 import { makeConvexTest } from "./test.setup";
 
 describe("GitHub-backed organizations", () => {
-  it("lets a pending-access user load an empty organization list for Settings", async () => {
+  it("denies organization inventory before account approval", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -18,7 +18,9 @@ describe("GitHub-backed organizations", () => {
       tokenIdentifier: `test:${userId}`,
     });
 
-    await expect(asPendingUser.query(api.organizations.listForViewer, {})).resolves.toEqual([]);
+    await expect(asPendingUser.query(api.organizations.listForViewer, {})).rejects.toThrow(
+      "Access denied",
+    );
   });
 
   it("creates one organization graph and reconnects it without duplicates", async () => {
@@ -28,6 +30,8 @@ describe("GitHub-backed organizations", () => {
         state: "active",
         email: "owner@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
     });
 
@@ -143,11 +147,15 @@ describe("GitHub-backed organizations", () => {
         state: "active",
         email: "rename-owner@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const memberUserId = await ctx.db.insert("users", {
         state: "active",
         email: "rename-member@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       return { memberUserId, ownerUserId };
     });
@@ -231,6 +239,8 @@ describe("GitHub-backed organizations", () => {
         state: "active",
         email: "owner-return@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
     });
     const { organizationId } = await t.mutation(
@@ -257,6 +267,8 @@ describe("GitHub-backed organizations", () => {
         state: "active",
         email: "sorted-owner@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
     });
     for (const githubOwnerLogin of ["Zulu", "beta", "Alpha"]) {
@@ -290,6 +302,8 @@ describe("GitHub-backed organizations", () => {
         state: "active",
         email: "personal-capability@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const now = Date.now();
       await ctx.db.insert("githubUserAuthorizations", {
@@ -366,11 +380,15 @@ describe("GitHub-backed organizations", () => {
         state: "active",
         email: "owner@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const secondUserId = await ctx.db.insert("users", {
         state: "active",
         email: "member@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       return { ownerUserId, secondUserId };
     });
@@ -475,11 +493,15 @@ describe("GitHub-backed organizations", () => {
         state: "active",
         email: "first-owner@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const secondUserId = await ctx.db.insert("users", {
         state: "active",
         email: "second-owner@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       return { firstUserId, secondUserId };
     });
@@ -584,11 +606,15 @@ describe("GitHub-backed organizations", () => {
         state: "active",
         email: "deleted-member@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const missingUserId = await ctx.db.insert("users", {
         state: "active",
         email: "missing-member@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const organizationId = await ctx.db.insert("organizations", {
         githubOwnerId: "stale-membership-owner",

@@ -51,6 +51,8 @@ async function insertUser(ctx: MutationCtx, email: string): Promise<Id<"users">>
     email,
     emailVerificationTime: Date.now(),
     isApproved: true,
+    termsVersion: "2026-08-12",
+    termsAcceptedAt: 1,
   });
 }
 
@@ -206,7 +208,7 @@ describe("Samebase OAuth account linking", () => {
       tokenIdentifier: `test:${userId}`,
     });
     await expect(asNewUser.query(api.users.currentViewerAccess, {})).resolves.toMatchObject({
-      role: "role_member",
+      role: "role_terms_pending",
       termsAccepted: false,
     });
 

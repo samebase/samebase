@@ -33,8 +33,7 @@ function AuthenticatedRouteAccessOutlet({
   const router = useRouter();
   const routeAccessAllowed =
     viewerAccess !== undefined && canAccessRouteMatchesAccess(matches, viewerAccess);
-  const termsAcceptancePending =
-    viewerAccess?.role !== "role_pending_access" && viewerAccess?.termsAccepted === false;
+  const termsAcceptancePending = viewerAccess?.role === "role_terms_pending";
   const termsAcceptanceRouteAllowed =
     location.pathname === ACCOUNT_DELETION_ROUTE || location.pathname === SETTINGS_ROUTE;
   // The deletion boundary owns this redirect. Do not clean route search or paint

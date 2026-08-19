@@ -44,7 +44,7 @@ function readErrorMessage(error: unknown, fallback: string) {
 export function UserSettingsPage({ authorizationNotice }: { authorizationNotice: ReactNode }) {
   const viewerAccess = useQuery(api.users.currentViewerAccess, {});
   const exitActionsOnly =
-    viewerAccess?.role === "role_pending_access" || viewerAccess?.termsAccepted === false;
+    viewerAccess?.role === "role_pending_access" || viewerAccess?.role === "role_terms_pending";
   const router = useRouter();
   const navigate = settingsRouteApi.useNavigate();
   const search = settingsRouteApi.useSearch();

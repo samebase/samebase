@@ -763,7 +763,7 @@ export const getInvitation = action({
 });
 
 export const acceptInvitation = mutation({
-  access: "access_user_preferences",
+  access: "access_organization_invitation_accept",
   args: { code: string() },
   returns: vAcceptInvitationResult,
   handler: async (ctx, args): Promise<AcceptInvitationResult> => {

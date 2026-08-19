@@ -31,7 +31,12 @@ const viewerAccessState = vi.hoisted(
     result:
       | {
           accessKeys: string[];
-          role?: "role_anonymous" | "role_deleting" | "role_member" | "role_pending_access";
+          role?:
+            | "role_anonymous"
+            | "role_deleting"
+            | "role_member"
+            | "role_pending_access"
+            | "role_terms_pending";
           termsAccepted?: boolean;
         }
       | undefined;
@@ -202,8 +207,8 @@ describe("RouteAccessOutlet", () => {
       { staticData: { access: "access_dashboard" } },
     ];
     viewerAccessState.result = {
-      accessKeys: ["access_public", "access_dashboard"],
-      role: "role_member",
+      accessKeys: ["access_public", "access_account_deletion", "access_account_settings"],
+      role: "role_terms_pending",
       termsAccepted: false,
     };
 
@@ -222,7 +227,7 @@ describe("RouteAccessOutlet", () => {
     locationState.pathname = "/account-deletion";
     viewerAccessState.result = {
       accessKeys: ["access_public", "access_account_deletion"],
-      role: "role_member",
+      role: "role_terms_pending",
       termsAccepted: false,
     };
 
@@ -235,12 +240,12 @@ describe("RouteAccessOutlet", () => {
   it("keeps Settings available before Terms acceptance", () => {
     routeMatchState.matches = [
       { staticData: { access: "access_public" } },
-      { staticData: { access: "access_user_preferences" } },
+      { staticData: { access: "access_account_settings" } },
     ];
     locationState.pathname = "/settings";
     viewerAccessState.result = {
-      accessKeys: ["access_public", "access_user_preferences"],
-      role: "role_member",
+      accessKeys: ["access_public", "access_account_deletion", "access_account_settings"],
+      role: "role_terms_pending",
       termsAccepted: false,
     };
 
@@ -286,10 +291,10 @@ describe("RouteAccessOutlet", () => {
   it("renders Settings for a pending-access viewer", () => {
     routeMatchState.matches = [
       { staticData: { access: "access_public" } },
-      { staticData: { access: "access_user_preferences" } },
+      { staticData: { access: "access_account_settings" } },
     ];
     viewerAccessState.result = {
-      accessKeys: ["access_public", "access_user_preferences"],
+      accessKeys: ["access_public", "access_account_deletion", "access_account_settings"],
       role: "role_pending_access",
       termsAccepted: false,
     };

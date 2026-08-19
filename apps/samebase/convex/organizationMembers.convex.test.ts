@@ -58,6 +58,8 @@ async function seedMembers() {
       email: "owner@example.invalid",
       displayName: "Owner",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const inviteeUserId = await ctx.db.insert("users", {
       state: "active",
@@ -69,6 +71,8 @@ async function seedMembers() {
       email: "member@example.invalid",
       displayName: "Member",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     await ctx.db.insert("authAccounts", {
       userId: ownerUserId,
@@ -351,6 +355,8 @@ describe("organization member lifecycle", () => {
           email,
           displayName,
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
         tiedMembershipIds.push(
           await ctx.db.insert("organizationMemberships", {
@@ -525,6 +531,14 @@ describe("organization member lifecycle", () => {
     await expect(
       asInvitee.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
     ).resolves.toEqual({ state: "joined", organizationOwnerLogin: "samebase-test-org" });
+    await expect(asInvitee.query(api.users.currentViewerAccess, {})).resolves.toMatchObject({
+      role: "role_terms_pending",
+      termsAccepted: false,
+    });
+    await expect(
+      asInvitee.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
+    ).rejects.toThrow("Access denied");
+    await expect(asInvitee.mutation(api.users.acceptCurrentTerms, {})).resolves.toBeNull();
     await expect(
       asInvitee.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
     ).resolves.toEqual({
@@ -545,6 +559,7 @@ describe("organization member lifecycle", () => {
       throw new Error("Invitation acceptance did not keep an active user.");
     }
     expect(snapshot.user.isApproved).toBe(true);
+    expect(snapshot.user.termsAcceptedAt).toEqual(expect.any(Number));
     expect(snapshot.membership?.role).toBe("member");
     expect(snapshot.invitation).toMatchObject({
       state: "accepted",

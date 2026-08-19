@@ -66,7 +66,7 @@ export function ApprovalGate({ children }: { children: ReactNode }) {
     );
   }
 
-  if (viewerAccess.termsAccepted === false) {
+  if (viewerAccess.role === "role_terms_pending") {
     return <TermsAcceptanceScreen />;
   }
 
