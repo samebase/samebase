@@ -80,9 +80,12 @@ installs keys for one selected attached Convex project and starts the production
 
 ### `vaults`
 
-Every vault lifecycle variant stores required `convexTeamId` and `cloudflareAccountId` fields. Vault
-creation copies both values from the organization in the admission transaction. All later provider
-work uses these fixed destinations, and each attached provider resource must match them.
+Samebase-managed vault creation requires `convexTeamId` and `cloudflareAccountId` and copies both
+values from the organization in the admission transaction. Existing-repository vaults copy each
+destination that is configured, but GitHub source connection requires neither one. A later provider
+connection fills that provider's missing vault destination in the credential transaction. Provider
+work requires its own fixed vault destination and current credential, and each attached resource
+must match that destination.
 
 ### `workflow_vaultProvisioning_plans`
 

@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase backend
-- Last updated: 2026-08-14
+- Last updated: 2026-08-18
 - Source of truth: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Evidence: `research/2026-08-06-provider-connection-authorization-audit.md`
 - Replaces: the temporary multi-row provider model in `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
@@ -13,7 +13,7 @@
 ## Decision
 
 During beta, one Samebase organization has at most one Convex team and one Cloudflare account. All
-vaults in that organization use those two deployment destinations.
+provider resources in that organization use its configured destination for that provider.
 
 This is a current product limit. It is not part of Samebase organization identity and it is not a
 permanent provider limit. The current product has no provider picker and no use case that needs
@@ -98,16 +98,18 @@ membership and operation permission authorize use.
 
 ### `vaults`
 
-Every vault lifecycle variant has these required fields:
+Samebase-managed vault lifecycle variants have these required fields. Existing-repository variants
+make each field optional:
 
 ```text
 convexTeamId: string
 cloudflareAccountId: string
 ```
 
-Every vault creation path copies both IDs from its organization in the same transaction. This
-includes the existing-repository connection path. Creation fails when either organization
-destination is absent. It does not require a live credential when it only records the vault.
+Samebase-managed creation copies both IDs from its organization and fails when either destination is
+absent. Existing-repository connection requires only GitHub and copies each destination that is
+configured. When a provider is connected later, the credential transaction fills that provider's
+missing ID in the organization's existing vaults.
 
 Delete the duplicate `teamId` and `accountId` fields from `workflow_vaultProvisioning_plans`. Keep
 project and Worker names, provider resource checkpoints, configuration paths, root directories,
@@ -229,8 +231,8 @@ manage them. After Disconnect, the page confirms that Samebase removed its local
 tells the owner to revoke upstream access manually if needed.
 
 `/org/<owner>/new-app` has no provider selector. It shows the one Convex team and Cloudflare
-account. It blocks when a destination or credential is missing. `/org/<owner>/connect-repo` also
-requires both destinations because the resulting vault must have stable provider IDs.
+account. It blocks when a destination or credential is missing. `/org/<owner>/connect-repo` requires
+only the GitHub connection. Convex and Cloudflare can be connected and attached later.
 
 ## Why Not A More Flexible Model
 
@@ -241,9 +243,9 @@ requires both destinations because the resulting vault must have stable provider
 | Several independent credentials and failover     | Reject. There is no current failover use case.                               |
 | Separate collections of destinations and grants  | Defer. Current cardinality would add joins and routing with no user benefit. |
 
-A future several-destination design is possible because each vault and resource already stores its
-stable provider IDs. Before that UI exists, an accepted decision must define the user need,
-new-vault selection, credential routing, disconnect behavior, and migration.
+A future several-destination design is possible because each provider-backed vault and resource
+stores its stable provider ID. Before that UI exists, an accepted decision must define the user
+need, new-vault selection, credential routing, disconnect behavior, and migration.
 
 ## Clean Reset And Deployment
 
@@ -278,15 +280,17 @@ confirm the exact rows before the destructive step.
 
 1. Replace provider rows with organization destinations and the backend credential document. Adapt
    OAuth, refresh, account deletion, provider access, and focused lifecycle tests.
-2. Add required provider IDs to vaults. Remove duplicate plan IDs, account-selection side effects,
-   provider connection IDs, and project-team reconciliation. Add destination-match tests.
+2. Add required provider IDs to managed vaults and optional provider IDs to existing-repository
+   vaults. Remove duplicate plan IDs, account-selection side effects, provider connection IDs, and
+   project-team reconciliation. Add destination-match tests.
 3. Apply the clean reset, deploy the narrow schema, update the provider and creation UI, and run the
    complete organization-member creation check.
 
 ## Summary
 
 The organization stores one Convex team and one Cloudflare account. One backend-only credential
-document stores the replaceable grants. Every vault stores both stable provider IDs. Disconnect
-removes access but not the destinations or resources. Reconnect proves the same destinations. Direct
-Cloudflare OAuth remains required. The schema has no selected connection, provider list, failover
-policy, or retained-resource dependency scan.
+document stores the replaceable grants. Managed vaults store both stable provider IDs.
+Existing-repository vaults store a provider ID when that provider is configured. Disconnect removes
+access but not destinations or resources. Reconnect proves the same destinations. Direct Cloudflare
+OAuth remains required. The schema has no selected connection, provider list, failover policy, or
+retained-resource dependency scan.

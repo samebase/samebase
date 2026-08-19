@@ -8,12 +8,12 @@ import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import { isLiveConnectedVault } from "./state";
 import { requireActiveVaultProvisioningAuthority } from "../vaultWorkflowAuthority";
 
-const { array, id, object, string } = v;
+const { array, id, object, optional, string } = v;
 
 const vVaultProviderObservationContext = object({
   organizationId: id("organizations"),
-  convexTeamId: string(),
-  cloudflareAccountId: string(),
+  convexTeamId: optional(string()),
+  cloudflareAccountId: optional(string()),
   ghRepoId: string(),
   owner: string(),
   name: string(),
@@ -40,8 +40,8 @@ export type VaultProviderObservationContext = Infer<typeof vVaultProviderObserva
 
 const vProviderAttachmentVaultContext = object({
   organizationId: id("organizations"),
-  convexTeamId: string(),
-  cloudflareAccountId: string(),
+  convexTeamId: optional(string()),
+  cloudflareAccountId: optional(string()),
   ghRepoId: string(),
   owner: string(),
   name: string(),

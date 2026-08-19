@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase
-- Last updated: 2026-08-15
+- Last updated: 2026-08-18
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
@@ -20,9 +20,11 @@ A vault belongs to one Samebase organization and connects it to one GitHub repos
 resource attachment records the organization's intent to include one independently identified
 provider resource in that vault.
 
-Every vault lifecycle variant stores required `convexTeamId` and `cloudflareAccountId` fields. Vault
-creation copies both values from the organization in the same transaction. These values are the
-fixed destinations for all provider resources attached to that vault.
+Samebase-managed vault creation requires `convexTeamId` and `cloudflareAccountId`. An
+existing-repository vault can start without either field. It copies each configured organization
+destination during admission, and a later provider connection fills that provider's missing field in
+the credential transaction. A stored value is the fixed destination for all resources from that
+provider that attach to the vault.
 
 Samebase has no durable app, folder, or root-group entity. In particular, there is no `vaultApps`
 table and provider attachments do not carry an `appId`.

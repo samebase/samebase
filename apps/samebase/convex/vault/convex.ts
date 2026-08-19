@@ -54,14 +54,21 @@ type ConvexActionConnection = {
 };
 type ProviderAttachmentVaultContext = {
   organizationId: Id<"organizations">;
-  convexTeamId: string;
-  cloudflareAccountId: string;
+  convexTeamId?: string;
+  cloudflareAccountId?: string;
   ghRepoId: string;
   owner: string;
   name: string;
   defaultBranch: string;
 };
 type ConvexWorkerReference = ConvexAttachmentProject["workerReferences"][number];
+
+function requireConvexTeamId(context: ProviderAttachmentVaultContext): string {
+  if (context.convexTeamId === undefined) {
+    throw new Error("Convex connection is required before adding a project.");
+  }
+  return context.convexTeamId;
+}
 
 async function resolveConvexConnectionForTeam(
   ctx: Pick<ActionCtx, "runQuery">,
@@ -314,6 +321,10 @@ async function readConvexWorkerReferences(
     defaultBranch: string;
   },
 ): Promise<Map<string, ConvexWorkerReference[]>> {
+  const accountId = args.context.cloudflareAccountId;
+  if (accountId === undefined) {
+    return new Map();
+  }
   try {
     const connection = await ctx.runAction(
       internal.cloudflareOAuth.resolveConnectionForOrganization,
@@ -323,14 +334,9 @@ async function readConvexWorkerReferences(
       },
     );
     const token = connection?.auth.credential.trim();
-    if (
-      !connection ||
-      !token ||
-      connection.account.accountId !== args.context.cloudflareAccountId
-    ) {
+    if (!connection || !token || connection.account.accountId !== accountId) {
       return new Map();
     }
-    const accountId = args.context.cloudflareAccountId;
     const discovery = await discoverCloudflareWorkersForRepository({
       token,
       transport: resolveCloudflareApiTransport(connection.auth.method),
@@ -384,7 +390,7 @@ export async function discoverProjectsForUser(
   const connection = await resolveConvexConnectionForTeam(ctx, {
     userId: args.userId,
     organizationId: sourceDiscovery.context.organizationId,
-    teamId: sourceDiscovery.context.convexTeamId,
+    teamId: requireConvexTeamId(sourceDiscovery.context),
   });
   const [providerProjects, workerReferences] = await Promise.all([
     listProjectsForConnection(connection),
@@ -427,7 +433,7 @@ export async function attachExistingProjectsForUser(
   const connection = await resolveConvexConnectionForTeam(ctx, {
     userId: args.userId,
     organizationId: sourceDiscovery.context.organizationId,
-    teamId: sourceDiscovery.context.convexTeamId,
+    teamId: requireConvexTeamId(sourceDiscovery.context),
   });
   for (const project of normalizedProjects) {
     requireVerifiedConvexCodeLocation(sourceDiscovery.source, project.codeLocation);
@@ -486,7 +492,7 @@ async function createProjectForUser(
     const connection = await resolveConvexConnectionForTeam(ctx, {
       userId: args.userId,
       organizationId: sourceDiscovery.context.organizationId,
-      teamId: sourceDiscovery.context.convexTeamId,
+      teamId: requireConvexTeamId(sourceDiscovery.context),
     });
     requireVerifiedConvexCodeLocation(sourceDiscovery.source, codeLocation);
     const projects = await listProjectsForConnection(connection);
@@ -586,7 +592,7 @@ async function createProjectForManagedWorkflow(
     vaultId: args.vaultId,
     runId: args.runId,
     userId: args.userId,
-    teamId: context.convexTeamId,
+    teamId: requireConvexTeamId(context),
   });
   const checkpoint = await ctx.runQuery(
     internal.vault.convexMutations.readManagedProjectCreateCheckpoint,

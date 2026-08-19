@@ -254,6 +254,43 @@ async function startDeletion(seed: Seed) {
 }
 
 describe("organization provider credential lifecycle", () => {
+  it("binds provider destinations after an existing repository connects without them", async () => {
+    const seed = await seedOrganization();
+    const source = await seed.t.mutation(
+      internal.vault.records.createInitializingExistingRepositoryVaultForUser,
+      {
+        organizationId: seed.organizationId,
+        userId: seed.connectorId,
+        ghRepoId: "repository-without-providers",
+        ghRepoOwner: "Primary",
+        ghRepoName: "source-only",
+      },
+    );
+
+    await connectConvex(seed, seed.connectorId, apiKey("convex"));
+    await seed.t.mutation(internal.vault.records.connectExistingRepositoryVaultGitHub, {
+      ...source,
+      userId: seed.connectorId,
+      ghRepoId: "repository-without-providers",
+      ghRepoOwner: "Primary",
+      ghRepoName: "source-only",
+      defaultBranch: "main",
+      visibility: "private",
+    });
+
+    const convexVault = await seed.t.run(async (ctx) => await ctx.db.get(source.vaultId));
+    expect(convexVault).toMatchObject({ convexTeamId: teamId });
+    expect(convexVault).not.toHaveProperty("cloudflareAccountId");
+
+    await connectCloudflare(seed, seed.connectorId, apiKey("cloudflare"));
+    await expect(
+      seed.t.run(async (ctx) => await ctx.db.get(source.vaultId)),
+    ).resolves.toMatchObject({
+      convexTeamId: teamId,
+      cloudflareAccountId: accountId,
+    });
+  });
+
   it("rejects a new token refresh claim after the member starts account deletion", async () => {
     const seed = await seedCloudflareOAuth();
     await startDeletion(seed);

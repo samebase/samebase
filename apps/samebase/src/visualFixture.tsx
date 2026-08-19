@@ -248,7 +248,7 @@ const PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES = [
 ] as const satisfies readonly ProviderConnectionsPageVisualMode[];
 const CONNECT_REPOSITORY_VISUAL_MODES = [
   "connect-repository-loading-more",
-  "connect-repository-provider-blocked",
+  "connect-repository-github-unavailable",
 ] as const satisfies readonly ConnectRepositoryVisualMode[];
 const NEW_APP_VISUAL_MODES = [
   "new-app-build-token",
@@ -471,7 +471,7 @@ function renderVisualFixture(mode: VisualFixtureMode) {
 
   if (
     mode === "connect-repository-loading-more" ||
-    mode === "connect-repository-provider-blocked"
+    mode === "connect-repository-github-unavailable"
   ) {
     return <ConnectRepositoryVisualFixture mode={mode} />;
   }

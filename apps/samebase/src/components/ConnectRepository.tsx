@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useCacheQuery as useQuery } from "@/lib/convexQueryCache";
-import { useAction, useQuery as useConvexQuery } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useQuery as useReactQuery } from "@tanstack/react-query";
 import { useState, type ReactElement } from "react";
@@ -32,16 +32,15 @@ type ConnectRepositoryRow = {
 };
 
 type ConnectRepositoryPageContentProps = {
-  canConnectRepositories: boolean;
   connectingRepositoryFullName: string | null;
   emptyRepositoryMessage: string | null;
   error: string | null;
   loading: boolean;
   loadingMore: boolean;
+  githubUnavailable: boolean;
   repositoryPreviewCount: number;
   repositoryRows: ConnectRepositoryRow[];
   repositoryTotalCount: number;
-  providerDestinationsLoaded: boolean;
   retryingFullRepositories: boolean;
   searchQuery: string;
   showBackgroundError: boolean;
@@ -49,6 +48,12 @@ type ConnectRepositoryPageContentProps = {
   onRetryFullRepositories: () => void;
   onSearchQueryChange: (value: string) => void;
 };
+
+const githubUnavailableError = "GitHub App installation is not connected.";
+
+function isGitHubUnavailable(error: string | null): boolean {
+  return error?.includes(githubUnavailableError) ?? false;
+}
 
 function formatTimeAgo(timestamp: number) {
   const now = Date.now();
@@ -109,18 +114,6 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
   const listRepositories = useAction(api.github.listRepositories);
   const connectRepository = useAction(api.vault.actions.connectRepository);
   const organizationId = organization.organizationId;
-  const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus, {
-    organizationId,
-  });
-  const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
-    organizationId,
-  });
-  const providerDestinationsLoaded =
-    convexConnection !== undefined && cloudflareConnection !== undefined;
-  const canConnectRepositories = Boolean(
-    (convexConnection?.state === "connected" || convexConnection?.state === "disconnected") &&
-    (cloudflareConnection?.state === "connected" || cloudflareConnection?.state === "disconnected"),
-  );
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connectingRepositoryFullName, setConnectingRepositoryFullName] = useState<string | null>(
     null,
@@ -180,13 +173,14 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
           ? "No repositories match your search"
           : null;
 
-  const error =
-    connectError ??
-    (previewQueryError
-      ? previewQueryError instanceof Error
+  const previewError =
+    previewQueryError === null
+      ? null
+      : previewQueryError instanceof Error
         ? previewQueryError.message
-        : "Failed to fetch repositories"
-      : null);
+        : "Failed to fetch repositories";
+  const githubUnavailable = isGitHubUnavailable(connectError) || isGitHubUnavailable(previewError);
+  const error = githubUnavailable ? null : (connectError ?? previewError);
 
   const connectedVaults = vaults || [];
 
@@ -211,7 +205,7 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
   };
 
   const connectSelectedRepository = (repository: Repository) => {
-    if (connectingRepositoryFullName !== null || !canConnectRepositories) {
+    if (connectingRepositoryFullName !== null || githubUnavailable) {
       return;
     }
 
@@ -246,16 +240,15 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
 
   return (
     <ConnectRepositoryPageContent
-      canConnectRepositories={canConnectRepositories}
       connectingRepositoryFullName={connectingRepositoryFullName}
       emptyRepositoryMessage={emptyRepositoryMessage}
       error={error}
       loading={loading}
       loadingMore={loadingMore}
+      githubUnavailable={githubUnavailable}
       repositoryPreviewCount={repositoryPreview?.repositories.length ?? 0}
       repositoryRows={filteredRepositories}
       repositoryTotalCount={repositories.length}
-      providerDestinationsLoaded={providerDestinationsLoaded}
       retryingFullRepositories={retryingFullRepositories}
       searchQuery={searchQuery}
       showBackgroundError={showBackgroundError}
@@ -267,16 +260,15 @@ export function ConnectRepository({ organization }: { organization: ViewerOrgani
 }
 
 export function ConnectRepositoryPageContent({
-  canConnectRepositories,
   connectingRepositoryFullName,
   emptyRepositoryMessage,
   error,
   loading,
   loadingMore,
+  githubUnavailable,
   repositoryPreviewCount,
   repositoryRows,
   repositoryTotalCount,
-  providerDestinationsLoaded,
   retryingFullRepositories,
   searchQuery,
   showBackgroundError,
@@ -302,9 +294,9 @@ export function ConnectRepositoryPageContent({
         </div>
       )}
 
-      {providerDestinationsLoaded && !canConnectRepositories ? (
+      {githubUnavailable ? (
         <div className="mb-4 max-w-md text-sm text-muted-foreground">
-          Choose a Convex team and a Cloudflare account in Providers before connecting a repository.
+          Connect GitHub in Providers before connecting a repository.
         </div>
       ) : null}
       <div className="mb-6 flex-shrink-0">
@@ -398,7 +390,7 @@ export function ConnectRepositoryPageContent({
                         size="sm"
                         className="mt-2"
                         onClick={() => onConnectRepository(repo)}
-                        disabled={connectingRepositoryFullName !== null || !canConnectRepositories}
+                        disabled={connectingRepositoryFullName !== null || githubUnavailable}
                       >
                         {connectingRepositoryFullName === repo.full_name
                           ? "Connecting..."

@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-17
+- Last updated: 2026-08-18
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -247,9 +247,11 @@ lease alone authorizes the matching release, which clears only that lease. This 
 finish after the actor is deleting or deleted only while the unchanged shared credential slot
 exists. It cannot recreate a slot that cleanup removed.
 
-Every vault stores required `convexTeamId` and `cloudflareAccountId` fields. Vault creation copies
-them from the organization in the same transaction. These fields bind all later provider work for
-that vault. They do not store a credential ID.
+Samebase-managed vault creation requires `convexTeamId` and `cloudflareAccountId`.
+Existing-repository connection requires only GitHub and copies each organization provider
+destination that is configured. A later provider connection fills that provider's missing vault
+destination in the same credential transaction. Each stored field binds later work for that
+provider. The fields do not store a credential ID.
 
 Long-lived `vaultConvexProjects` rows identify external resources with `teamId` and `projectId`.
 Long-lived `vaultCloudflareWorkers` rows identify external resources with `accountId` and stable

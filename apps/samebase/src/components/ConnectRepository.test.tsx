@@ -46,16 +46,15 @@ function buildRepositoryRow(repository: ConnectRepositoryRepository, searchQuery
 
 function renderConnectRepositoryContent(overrides: Partial<ConnectRepositoryPageContentProps>) {
   const props: ConnectRepositoryPageContentProps = {
-    canConnectRepositories: true,
     connectingRepositoryFullName: null,
     emptyRepositoryMessage: null,
     error: null,
     loading: false,
     loadingMore: false,
+    githubUnavailable: false,
     repositoryPreviewCount: 0,
     repositoryRows: [],
     repositoryTotalCount: 0,
-    providerDestinationsLoaded: true,
     retryingFullRepositories: false,
     searchQuery: "",
     showBackgroundError: false,
@@ -83,18 +82,24 @@ describe("ConnectRepositoryPageContent", () => {
     expect(markup).toContain("Search repositories...");
   });
 
-  it("blocks connection until both provider destinations are configured", () => {
+  it("blocks connection only when GitHub is unavailable", () => {
     const repository = buildRepository(1, "acme/app");
-    const markup = renderConnectRepositoryContent({
-      canConnectRepositories: false,
+    const availableMarkup = renderConnectRepositoryContent({
+      repositoryRows: [buildRepositoryRow(repository, "")],
+      repositoryTotalCount: 1,
+    });
+    const unavailableMarkup = renderConnectRepositoryContent({
+      githubUnavailable: true,
       repositoryRows: [buildRepositoryRow(repository, "")],
       repositoryTotalCount: 1,
     });
 
-    expect(markup).toContain(
-      "Choose a Convex team and a Cloudflare account in Providers before connecting a repository.",
+    expect(availableMarkup).not.toContain("Providers before connecting a repository.");
+    expect(availableMarkup).not.toContain('data-disabled=""');
+    expect(unavailableMarkup).toContain(
+      "Connect GitHub in Providers before connecting a repository.",
     );
-    expect(markup).toContain("disabled");
+    expect(unavailableMarkup).toContain('data-disabled=""');
   });
 
   it("renders partial repository discovery with retry copy and real rows", () => {
