@@ -74,10 +74,8 @@ cover one new construct.
 GitHub `user-attachments` URLs from private repositories are not stable public browser assets. They
 may work through authenticated GitHub rendering, but the resolved video URLs are temporary.
 
-For now, Codex manually mirrors README media into `apps/samebase/public/landing-preview/` and
-rewrites the preview copy to use local paths such as `/landing-preview/step-1-create-accounts.mp4`.
-Relative README logo paths should also be mirrored under
-`apps/samebase/public/landing-preview/logos/`.
+For now, Codex manually mirrors README assets into `apps/samebase/public/landing-preview/`. Relative
+README logo paths should be mirrored under `apps/samebase/public/landing-preview/logos/`.
 
 Landing preview videos should be authored as inline raw `<video>` embeds rather than hidden inside
 `<details>` disclosures. Non-video notes may still use `<details>` when the README needs collapsible
