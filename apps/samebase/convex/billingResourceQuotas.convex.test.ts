@@ -169,7 +169,7 @@ async function readConnectionCounts(
 
 describe("pooled organization connection quotas", () => {
   it.each([
-    ["personal Free", "user", "free", 15],
+    ["personal Free", "user", "free", 12],
     ["GitHub organization Free", "organization", "free", 6],
     ["personal Pro", "user", "pro", 120],
     ["GitHub organization Pro", "organization", "pro", 120],
@@ -242,7 +242,7 @@ describe("pooled organization connection quotas", () => {
 
   it("blocks both repository initialization paths before they create local provisioning state", async () => {
     const { ids, t } = await createQuotaFixture({ githubOwnerType: "user", plan: "free" });
-    await seedProjects(t, { ...ids, count: 14 });
+    await seedProjects(t, { ...ids, count: 11 });
 
     await expect(
       t.mutation(internal.vault.records.createInitializingExistingRepositoryVaultForUser, {
@@ -252,7 +252,7 @@ describe("pooled organization connection quotas", () => {
         ghRepoOwner: "quota-owner",
         ghRepoName: "existing-blocked",
       }),
-    ).rejects.toThrow("Organization connection limit reached (15).");
+    ).rejects.toThrow("Organization connection limit reached (12).");
     await expect(
       t.mutation(internal.vault.records.createInitializingSamebaseManagedVaultForUser, {
         organizationId: ids.organizationId,
@@ -267,11 +267,11 @@ describe("pooled organization connection quotas", () => {
         cloudflareWorkerName: "managed-blocked",
         cloudflareBuildTokenUuid: "build-token",
       }),
-    ).rejects.toThrow("Organization connection limit reached (15).");
+    ).rejects.toThrow("Organization connection limit reached (12).");
 
     await expect(readConnectionCounts(t, ids.organizationId)).resolves.toMatchObject({
       repositories: 1,
-      total: 15,
+      total: 12,
     });
     await expect(
       t.run(async (ctx) =>
@@ -285,7 +285,7 @@ describe("pooled organization connection quotas", () => {
 
   it("rechecks both repository transitions after an in-flight provisioning race", async () => {
     const { ids, t } = await createQuotaFixture({ githubOwnerType: "user", plan: "free" });
-    await seedProjects(t, { ...ids, count: 13 });
+    await seedProjects(t, { ...ids, count: 10 });
     const existing = await t.mutation(
       internal.vault.records.createInitializingExistingRepositoryVaultForUser,
       {
@@ -328,7 +328,7 @@ describe("pooled organization connection quotas", () => {
         defaultBranch: "main",
         visibility: "private",
       }),
-    ).rejects.toThrow("Organization connection limit reached (15).");
+    ).rejects.toThrow("Organization connection limit reached (12).");
     await expect(
       t.mutation(internal.vault.records.connectSamebaseManagedVaultGitHub, {
         ...managed,
@@ -339,7 +339,7 @@ describe("pooled organization connection quotas", () => {
         defaultBranch: "main",
         visibility: "private",
       }),
-    ).rejects.toThrow("Organization connection limit reached (15).");
+    ).rejects.toThrow("Organization connection limit reached (12).");
 
     const states = await t.run(async (ctx) =>
       Promise.all([ctx.db.get(existing.vaultId), ctx.db.get(managed.vaultId)]),

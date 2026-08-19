@@ -144,11 +144,21 @@ describe("AppSidebarMetaSection", () => {
     const prerenderedElement = document.createElement("div");
     prerenderedElement.innerHTML = markup;
 
-    expect(readSidebarLinkLabels(prerenderedElement)).toEqual(["/terms", "/privacy", "/landing"]);
+    expect(readSidebarLinkLabels(prerenderedElement)).toEqual([
+      "/terms",
+      "/privacy",
+      "/pricing",
+      "/landing",
+    ]);
 
     const browserElement = await renderSidebarMetaSection();
 
-    expect(readSidebarLinkLabels(browserElement)).toEqual(["/terms", "/privacy", "/landing"]);
+    expect(readSidebarLinkLabels(browserElement)).toEqual([
+      "/terms",
+      "/privacy",
+      "/pricing",
+      "/landing",
+    ]);
     unmountSidebarMetaSection();
 
     for (const clientEntry of ["/?dev", "/?prod-ui"]) {
@@ -166,6 +176,7 @@ describe("AppSidebarMetaSection", () => {
         "?reset",
         "/terms",
         "/privacy",
+        "/pricing",
         "/landing",
       ]);
       unmountSidebarMetaSection();
@@ -185,6 +196,7 @@ describe("AppSidebarMetaSection", () => {
       "?reset",
       "/terms",
       "/privacy",
+      "/pricing",
       "/landing",
     ]);
   });

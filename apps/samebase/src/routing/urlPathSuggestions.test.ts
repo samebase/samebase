@@ -35,6 +35,7 @@ describe("readRouteUrlPathSuggestions", () => {
     );
 
     expect(suggestions).toContain("/");
+    expect(suggestions).toContain("/pricing");
     expect(suggestions).toContain("/vault");
     expect(suggestions).toContain("/indexDB");
     expect(suggestions).not.toContain("/logo/hover/carpet");
@@ -112,6 +113,7 @@ describe("readRouteUrlPathSuggestions", () => {
     );
 
     expect(suggestions).toContain("/");
+    expect(suggestions).toContain("/pricing");
     expect(suggestions).toContain("/logo");
     expect(suggestions).not.toContain("/org/$owner/connect-repo");
     expect(suggestions).not.toContain("/vault");
@@ -172,7 +174,7 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/indexDB");
     expect(suggestions).not.toContain("/localStorage");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
-    expect(suggestions).not.toContain("/pricing");
+    expect(suggestions).toContain("/pricing");
   });
 
   it("hides local-only route paths from the prod UI environment", () => {
