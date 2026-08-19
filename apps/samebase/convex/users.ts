@@ -399,12 +399,12 @@ export const setDisplayName = mutation({
 });
 
 export const acceptCurrentTerms = mutation({
-  access: "access_public",
+  access: "access_dashboard",
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
     const user = ctx.viewer.user;
-    if (user === null || user.state !== "active") {
+    if (user.state !== "active") {
       throw new Error("An active Samebase account is required.");
     }
     if (user.termsAcceptedAt !== undefined) {

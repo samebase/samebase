@@ -42,10 +42,6 @@ export function ApprovalGate({ children }: { children: ReactNode }) {
     return null;
   }
 
-  if (viewerAccess.termsAccepted === false) {
-    return <TermsAcceptanceScreen />;
-  }
-
   if (
     viewerAccess.role === "role_pending_access" ||
     !viewerAccess.accessKeys.some((accessKey) => accessKey !== "access_public")
@@ -68,6 +64,10 @@ export function ApprovalGate({ children }: { children: ReactNode }) {
         </div>
       </div>
     );
+  }
+
+  if (viewerAccess.termsAccepted === false) {
+    return <TermsAcceptanceScreen />;
   }
 
   return <>{children}</>;

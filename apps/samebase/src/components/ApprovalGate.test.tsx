@@ -61,11 +61,13 @@ describe("ApprovalGate", () => {
     viewerAccessState.result = {
       role: "role_pending_access",
       accessKeys: ["access_public", "access_user_preferences"],
+      termsAccepted: false,
     };
 
     const markup = renderApprovalGate();
 
     expect(markup).toContain("Account access pending");
+    expect(markup).not.toContain("Terms acceptance");
     expect(markup).not.toContain("Route child");
   });
 

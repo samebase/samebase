@@ -43,7 +43,8 @@ function readErrorMessage(error: unknown, fallback: string) {
 
 export function UserSettingsPage({ authorizationNotice }: { authorizationNotice: ReactNode }) {
   const viewerAccess = useQuery(api.users.currentViewerAccess, {});
-  const termsAcceptancePending = viewerAccess?.termsAccepted === false;
+  const exitActionsOnly =
+    viewerAccess?.role === "role_pending_access" || viewerAccess?.termsAccepted === false;
   const router = useRouter();
   const navigate = settingsRouteApi.useNavigate();
   const search = settingsRouteApi.useSearch();
@@ -52,7 +53,7 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
   });
   const settings = useQuery(
     api.users.getUserSettings,
-    viewerAccess === undefined || termsAcceptancePending ? "skip" : {},
+    viewerAccess === undefined || exitActionsOnly ? "skip" : {},
   );
   const setDisplayName = useMutation(api.users.setDisplayName);
   const beginAuthAccountLink = useMutation(api.users.beginAuthAccountLink);
@@ -69,7 +70,7 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
 
   useEffect(() => {
-    if (termsAcceptancePending) {
+    if (exitActionsOnly) {
       return;
     }
 
@@ -83,7 +84,7 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
     return () => {
       window.removeEventListener("pageshow", resetRestoredAccountLinkRequest);
     };
-  }, [termsAcceptancePending]);
+  }, [exitActionsOnly]);
 
   if (viewerAccess === undefined) {
     return null;
@@ -264,7 +265,7 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
     </Button>
   );
 
-  if (termsAcceptancePending) {
+  if (exitActionsOnly) {
     return (
       <main data-testid="user-settings-page" className="container mx-auto w-full max-w-2xl py-6">
         {accountSettingsHeader}

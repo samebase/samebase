@@ -120,10 +120,11 @@ let rootElement: HTMLDivElement | null = null;
 async function mountSettingsPage(
   authorizationNotice: React.ReactNode = null,
   termsAccepted = true,
+  role: "role_member" | "role_pending_access" = "role_member",
 ) {
   testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
     accessKeys: ["access_public", "access_user_preferences"],
-    role: "role_member",
+    role,
     termsAccepted,
   });
   rootElement = document.createElement("div");
@@ -239,6 +240,18 @@ describe("UserSettingsPage", () => {
 
   it("shows only account exit actions before Terms acceptance", async () => {
     const container = await mountSettingsPage(null, false);
+
+    expect([...container.querySelectorAll("button")].map((button) => button.textContent)).toEqual([
+      "Sign out",
+      "Delete account",
+    ]);
+    expect(container.textContent).not.toContain("Profile");
+    expect(container.textContent).not.toContain("Sign-in methods");
+    expect(container.textContent).not.toContain("MCP clients");
+  });
+
+  it("shows only account exit actions before account approval", async () => {
+    const container = await mountSettingsPage(null, true, "role_pending_access");
 
     expect([...container.querySelectorAll("button")].map((button) => button.textContent)).toEqual([
       "Sign out",

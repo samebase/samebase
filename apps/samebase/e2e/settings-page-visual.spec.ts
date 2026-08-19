@@ -58,61 +58,6 @@ async function blockHydrationScripts(page: Page) {
   });
 }
 
-async function readStoredAccountPresentation(page: Page) {
-  return await page.evaluate(() => {
-    const jwtStorageKey = Object.keys(window.localStorage).find((key) =>
-      key.startsWith("__convexAuthJWT_"),
-    );
-    if (jwtStorageKey === undefined) {
-      throw new Error("Convex Auth JWT storage entry is missing.");
-    }
-    const token = window.localStorage.getItem(jwtStorageKey);
-    const payloadPart = token?.split(".")[1];
-    if (payloadPart === undefined) {
-      throw new Error("Convex Auth JWT payload is missing.");
-    }
-    const base64 = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
-    const paddedBase64 = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-    const payload: unknown = JSON.parse(window.atob(paddedBase64));
-    if (payload === null || typeof payload !== "object") {
-      throw new Error("Convex Auth JWT payload is invalid.");
-    }
-    const kindDescriptor = Object.getOwnPropertyDescriptor(payload, "accountLabelKind");
-    const labelDescriptor = Object.getOwnPropertyDescriptor(payload, "accountLabel");
-    if (
-      kindDescriptor === undefined ||
-      !("value" in kindDescriptor) ||
-      typeof kindDescriptor.value !== "string" ||
-      labelDescriptor === undefined ||
-      !("value" in labelDescriptor) ||
-      typeof labelDescriptor.value !== "string"
-    ) {
-      throw new Error("Convex Auth JWT account presentation is invalid.");
-    }
-    return {
-      kind: kindDescriptor.value,
-      label: labelDescriptor.value,
-    };
-  });
-}
-
-async function readPrehydratedAccountLabel(page: Page) {
-  return await page.getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID).evaluate((element) => {
-    const label = element.querySelector("[data-app-auth-prehydration-account-label]");
-    return label === null ? null : window.getComputedStyle(label, "::after").content;
-  });
-}
-
-async function expectNoAccountEmailLeak(page: Page, email: string) {
-  const accountSection = page.getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
-  await expect(accountSection.getByText(email, { exact: true })).toHaveCount(0);
-  const titles = await accountSection
-    .locator("[title]")
-    .evaluateAll((elements) => elements.map((element) => element.getAttribute("title")));
-  expect(titles).not.toContain(email);
-  expect(await page.title()).not.toContain(email);
-}
-
 test("Settings page uses the authenticated account surface", async ({ page }) => {
   await page.setViewportSize({ width: 1200, height: 900 });
   await openSettings(page);
@@ -194,7 +139,7 @@ test("Settings page uses the authenticated account surface", async ({ page }) =>
   await expect(deleteDialog).toBeHidden();
 });
 
-test("Terms-pending Settings shows only account exit actions on mobile", async ({
+test("Pending-approval Settings shows only account exit actions on mobile", async ({
   browser,
 }, testInfo) => {
   const baseURL = testInfo.project.use.baseURL;
@@ -351,73 +296,4 @@ test("prehydrated mobile Settings reload preserves the selected sidebar", async 
   } finally {
     await context.close();
   }
-});
-
-test("pending users save a private display name and refresh prehydration", async ({
-  page,
-}, testInfo) => {
-  test.slow();
-  // A unique reserved-domain account avoids PII and keeps the fully parallel suite away from the
-  // shared seeded account while this test performs real profile mutations.
-  const email = `settings-route-${testInfo.workerIndex}-${Date.now()}@example.test`;
-  const displayName = "Video Demo Account";
-
-  await page.goto("/", { waitUntil: "domcontentloaded" });
-  await createPendingAccount(page, email);
-  await page.getByRole("button", { exact: true, name: "Agree and continue" }).click();
-  await page.goto("/vault", { waitUntil: "domcontentloaded" });
-  await expect(page).toHaveURL(/\/vault\/?$/u);
-  await expect(page.getByRole("heading", { name: "Account access pending" })).toBeVisible();
-  await page.evaluate(() => {
-    document.documentElement.dataset.settingsNavigation = "spa";
-  });
-  await page.getByRole("link", { exact: true, name: "Account settings" }).click();
-  await expect(page).toHaveURL(/\/settings$/u);
-  await expect(page.getByTestId("user-settings-page")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Account access pending" })).toHaveCount(0);
-  await expect(page.getByRole("button", { name: "Install GitHub App" })).toHaveCount(0);
-  await expect
-    .poll(() => page.evaluate(() => document.documentElement.dataset.settingsNavigation))
-    .toBe("spa");
-
-  const displayNameInput = page.getByLabel("Display name");
-  await displayNameInput.fill(displayName);
-  await page.getByRole("button", { exact: true, name: "Save" }).click();
-  await expect(page.getByTestId("user-settings-page").getByRole("status")).toHaveText("Saved");
-  await expect(readStoredAccountPresentation(page)).resolves.toEqual({
-    kind: "displayName",
-    label: displayName,
-  });
-
-  const accountSection = page.getByTestId(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
-  await expect(accountSection.getByText(displayName, { exact: true })).toBeVisible();
-  await expectNoAccountEmailLeak(page, email);
-  const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
-  await expect(rightSidebar.getByRole("heading", { name: "Beta access pending" })).toBeVisible();
-  await expect(rightSidebar).toHaveScreenshot(
-    "settings-pending-access-right-sidebar.png",
-    screenshotOptions,
-  );
-
-  await blockHydrationScripts(page);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
-  expect(await readPrehydratedAccountLabel(page)).toBe(JSON.stringify(displayName));
-  await expectNoAccountEmailLeak(page, email);
-
-  await page.unroute("**/*");
-  await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByTestId("user-settings-page")).toBeVisible();
-  await page.getByLabel("Display name").fill("");
-  await page.getByRole("button", { exact: true, name: "Save" }).click();
-  await expect(page.getByTestId("user-settings-page").getByRole("status")).toHaveText("Saved");
-  await expect(readStoredAccountPresentation(page)).resolves.toEqual({
-    kind: "email",
-    label: email,
-  });
-
-  await blockHydrationScripts(page);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
-  expect(await readPrehydratedAccountLabel(page)).toBe(JSON.stringify(email));
 });

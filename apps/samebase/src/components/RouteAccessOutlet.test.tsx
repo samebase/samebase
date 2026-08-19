@@ -196,7 +196,7 @@ describe("RouteAccessOutlet", () => {
     expect(viewerAccessState.queryCalls).toBe(1);
   });
 
-  it("shows Terms acceptance before a pending viewer enters an app route", () => {
+  it("shows Terms acceptance before a Terms-pending viewer enters an app route", () => {
     routeMatchState.matches = [
       { staticData: { access: "access_public" } },
       { staticData: { access: "access_dashboard" } },
@@ -266,6 +266,23 @@ describe("RouteAccessOutlet", () => {
     expect(viewerAccessState.queryCalls).toBe(1);
   });
 
+  it("does not show Terms acceptance before account approval", () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      { staticData: { access: "access_dashboard" } },
+    ];
+    viewerAccessState.result = {
+      accessKeys: ["access_public"],
+      role: "role_pending_access",
+      termsAccepted: false,
+    };
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toContain("Not found route");
+    expect(markup).not.toContain("Terms acceptance");
+  });
+
   it("renders Settings for a pending-access viewer", () => {
     routeMatchState.matches = [
       { staticData: { access: "access_public" } },
@@ -273,6 +290,8 @@ describe("RouteAccessOutlet", () => {
     ];
     viewerAccessState.result = {
       accessKeys: ["access_public", "access_user_preferences"],
+      role: "role_pending_access",
+      termsAccepted: false,
     };
 
     const markup = renderToStaticMarkup(<RouteAccessOutlet />);

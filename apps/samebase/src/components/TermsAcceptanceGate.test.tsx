@@ -31,9 +31,9 @@ describe("TermsAcceptanceGate", () => {
     testState.queryResult = { role: "role_member", termsAccepted: true };
   });
 
-  it("replaces the route with the Terms screen for a pending viewer", () => {
+  it("replaces the route with the Terms screen for a Terms-pending member", () => {
     const markup = renderToStaticMarkup(
-      <TermsAcceptanceGate viewerAccess={{ termsAccepted: false }}>
+      <TermsAcceptanceGate viewerAccess={{ role: "role_member", termsAccepted: false }}>
         <div>Route child</div>
       </TermsAcceptanceGate>,
     );
@@ -48,7 +48,18 @@ describe("TermsAcceptanceGate", () => {
 
   it("renders the route after Terms acceptance", () => {
     const markup = renderToStaticMarkup(
-      <TermsAcceptanceGate viewerAccess={{ termsAccepted: true }}>
+      <TermsAcceptanceGate viewerAccess={{ role: "role_member", termsAccepted: true }}>
+        <div>Route child</div>
+      </TermsAcceptanceGate>,
+    );
+
+    expect(markup).toContain("Route child");
+    expect(markup).not.toContain("Agree and continue");
+  });
+
+  it("renders the route before account approval", () => {
+    const markup = renderToStaticMarkup(
+      <TermsAcceptanceGate viewerAccess={{ role: "role_pending_access", termsAccepted: false }}>
         <div>Route child</div>
       </TermsAcceptanceGate>,
     );

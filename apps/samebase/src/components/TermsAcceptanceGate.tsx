@@ -3,8 +3,10 @@ import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
 import { useState, type ReactNode } from "react";
 import { api } from "../../convex/_generated/api";
+import type { ViewerRole } from "../../shared/accessModel";
 
 type TermsAcceptanceViewerAccess = {
+  role: ViewerRole;
   termsAccepted: boolean;
 };
 
@@ -91,7 +93,10 @@ export function TermsAcceptanceGate({
   if (resolvedViewerAccess === undefined) {
     return null;
   }
-  if (resolvedViewerAccess.termsAccepted === false) {
+  if (
+    resolvedViewerAccess.termsAccepted === false &&
+    (resolvedViewerAccess.role === "role_member" || resolvedViewerAccess.role === "role_staff")
+  ) {
     return <TermsAcceptanceScreen />;
   }
   return <>{children}</>;
