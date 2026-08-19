@@ -1,5 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { getFunctionName } from "convex/server";
+import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { OrganizationContextProvider } from "./OrganizationContext";
@@ -22,15 +24,20 @@ const organization = {
 } satisfies ViewerOrganization;
 
 const testState = vi.hoisted<{
-  organizations: ViewerOrganization[] | undefined;
-}>(() => ({ organizations: undefined }));
+  queryCalls: Array<{ args: unknown; name: string }>;
+  queryResults: Map<string, unknown>;
+}>(() => ({ queryCalls: [], queryResults: new Map() }));
 
 vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
   return {
     ...actual,
     useConvexAuth: () => ({ isAuthenticated: true, isLoading: false }),
-    useQuery: () => testState.organizations,
+    useQuery: (reference: Parameters<typeof actual.useQuery>[0], args: unknown) => {
+      const name = getFunctionName(reference);
+      testState.queryCalls.push({ args, name });
+      return args === "skip" ? undefined : testState.queryResults.get(name);
+    },
   };
 });
 
@@ -48,7 +55,32 @@ function renderBoundary(owner: string) {
 
 describe("OrganizationRouteBoundary", () => {
   beforeEach(() => {
-    testState.organizations = undefined;
+    testState.queryCalls = [];
+    testState.queryResults = new Map([
+      [
+        getFunctionName(api.users.currentViewerAccess),
+        {
+          accessKeys: ["access_public", "access_dashboard"],
+          role: "role_member",
+          termsAccepted: true,
+        },
+      ],
+      [getFunctionName(api.organizations.listForViewer), undefined],
+    ]);
+  });
+
+  it("does not read organizations before the viewer has dashboard access", () => {
+    testState.queryResults.set(getFunctionName(api.users.currentViewerAccess), {
+      accessKeys: ["access_public", "access_account_deletion", "access_account_settings"],
+      role: "role_terms_pending",
+      termsAccepted: false,
+    });
+
+    expect(renderBoundary("samebase")).toBe("");
+    expect(testState.queryCalls).toEqual([
+      { args: {}, name: getFunctionName(api.users.currentViewerAccess) },
+      { args: "skip", name: getFunctionName(api.organizations.listForViewer) },
+    ]);
   });
 
   it("waits for the membership list before it selects a route", () => {
@@ -56,7 +88,7 @@ describe("OrganizationRouteBoundary", () => {
   });
 
   it("shows the unavailable state for zero memberships or lost access", () => {
-    testState.organizations = [];
+    testState.queryResults.set(getFunctionName(api.organizations.listForViewer), []);
     const markup = renderBoundary("samebase");
 
     expect(markup).toContain("Organization unavailable");
@@ -66,7 +98,7 @@ describe("OrganizationRouteBoundary", () => {
   });
 
   it("renders a matching organization without changing its URL", () => {
-    testState.organizations = [organization];
+    testState.queryResults.set(getFunctionName(api.organizations.listForViewer), [organization]);
 
     expect(renderBoundary("Samebase")).toContain("samebase providers");
   });
