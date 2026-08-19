@@ -42,7 +42,6 @@ async function createApprovedAccount(
 
 async function openRoute(page: Page, route: string) {
   await page.goto(route, { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
 }
 
 test.beforeEach(async ({ page }) => {
@@ -70,7 +69,8 @@ test("shows the explicit zero-membership global inventory", async ({ page }, tes
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
   const contextControl = rightPane.getByTestId("organization-context-control");
-  await expect(contextControl.getByText("All vaults", { exact: true })).toBeVisible();
+  await expect(contextControl.getByText("No organization selected", { exact: true })).toBeVisible();
+  await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
   await expect(contextControl.getByRole("button", { name: "Connect organization" })).toBeVisible();
   await expect(rightPane.getByRole("navigation", { name: "Organization" })).toHaveCount(0);
 });
@@ -119,7 +119,8 @@ test("groups the global inventory and exposes every organization context", async
   await expect(rightPane).toBeVisible();
   await rightPane.getByRole("button", { name: "Switch organization" }).click();
   const contextMenu = page.getByRole("menu");
-  await expect(contextMenu.getByRole("menuitem", { name: "All vaults" })).toBeVisible();
+  await expect(contextMenu.getByRole("menuitem", { name: "All vaults" })).toHaveCount(0);
+  await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-alpha" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-beta" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-zeta" })).toBeVisible();
@@ -131,6 +132,8 @@ test("groups the global inventory and exposes every organization context", async
   await expect(page).toHaveScreenshot("organization-context-global-inventory.png", {
     ...screenshotOptions,
     fullPage: true,
+    mask: [page.locator('iframe[title="Samebase onboarding: Complete setup from scratch"]')],
+    maskColor: "#d1d5db",
   });
 });
 
@@ -537,7 +540,8 @@ test.describe("small screen organization context", () => {
         .toBe(true);
       await rightPane.getByRole("button", { name: "Switch organization" }).click();
       const contextMenu = page.getByRole("menu");
-      await expect(contextMenu.getByRole("menuitem", { name: "All vaults" })).toBeVisible();
+      await expect(contextMenu.getByRole("menuitem", { name: "All vaults" })).toHaveCount(0);
+      await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
       await expect(
         contextMenu.getByRole("menuitem", { name: "org-context-mobile-alpha" }),
       ).toBeVisible();

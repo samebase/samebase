@@ -87,7 +87,6 @@ function getPrivateAccountMask(accountSection: Locator) {
 async function openSignedInApp(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await signInIfNeeded(page, "/");
-  await page.waitForLoadState("networkidle");
 }
 
 async function expectNoHorizontalOverflow(locator: Locator) {
@@ -191,7 +190,7 @@ test("signed-in app right sidebar keeps the account row inside a narrow desktop 
   });
 
   const onboardingSection = rightPane
-    .getByRole("heading", { name: "Watch the complete onboarding" })
+    .getByRole("heading", { name: "First time using Samebase?" })
     .locator("..");
   await expect(onboardingSection).toHaveScreenshot(
     "app-right-sidebar-onboarding-video-narrow.png",

@@ -52,8 +52,16 @@ function AppRightSidebarAccountLoadingSection() {
 
 function AppRightSidebarOnboardingVideo() {
   return (
-    <section className="vault-dashboard-sidebar-inset pb-3">
-      <h2 className="text-sm font-medium">Watch the complete onboarding</h2>
+    <section className="vault-dashboard-sidebar-inset pb-3 pt-6">
+      <h2 className="text-2xl font-medium">First time using Samebase?</h2>
+      <a
+        href="https://youtu.be/8-ZEGPpqi9Y"
+        rel="noreferrer"
+        target="_blank"
+        className="mt-2 block text-lg underline"
+      >
+        Watch the complete onboarding on <span className="text-red-600">YouTube</span>
+      </a>
       <iframe
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowFullScreen
@@ -67,10 +75,10 @@ function AppRightSidebarOnboardingVideo() {
   );
 }
 
-function AppRightSidebarFooter({ authenticated }: { authenticated: boolean }) {
+function AppRightSidebarFooter({ showOnboardingVideo }: { showOnboardingVideo: boolean }) {
   return (
     <div className="mt-auto">
-      {authenticated ? <AppRightSidebarOnboardingVideo /> : null}
+      {showOnboardingVideo ? <AppRightSidebarOnboardingVideo /> : null}
       <AppSidebarMetaSection linkAlignment="left" />
     </div>
   );
@@ -80,7 +88,7 @@ function PublicAppRightSidebarContent({ accountPending }: { accountPending: bool
   return (
     <VaultDashboardSidebarContent>
       {accountPending ? <AppRightSidebarAccountLoadingSection /> : <PublicLandingAccountSection />}
-      <AppRightSidebarFooter authenticated={false} />
+      <AppRightSidebarFooter showOnboardingVideo={false} />
     </VaultDashboardSidebarContent>
   );
 }
@@ -114,7 +122,8 @@ function TemporaryAuthenticatedAppRightSidebarContent({
   return (
     <VaultDashboardSidebarContent>
       <AppRightSidebarSignedInAccountSection profile={profile} />
-      <AppRightSidebarFooter authenticated />
+      <GlobalAppRightSidebarLinks />
+      <AppRightSidebarFooter showOnboardingVideo={false} />
     </VaultDashboardSidebarContent>
   );
 }
@@ -142,6 +151,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
       ) : (
         <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
       )}
+      <GlobalAppRightSidebarLinks />
       {pending && accountPresentation !== undefined ? (
         <section
           aria-labelledby="pending-access-sidebar-heading"
@@ -158,16 +168,12 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
           </p>
         </section>
       ) : null}
-      <AppRightSidebarFooter authenticated />
+      <AppRightSidebarFooter showOnboardingVideo />
     </VaultDashboardSidebarContent>
   );
 }
 
-function GlobalAppRightSidebarLinks({ showAllVaults }: { showAllVaults: boolean }) {
-  if (!showAllVaults) {
-    return null;
-  }
-
+function GlobalAppRightSidebarLinks() {
   return (
     <nav
       aria-label="Account"
@@ -257,25 +263,27 @@ function AuthenticatedAppRightSidebarContent({
   showAdminNavigation: boolean;
 }) {
   const user = useConvexQuery(api.users.viewer);
+  const vaults = useConvexQuery(api.vault.dashboard.getUserVaults);
   const { organizations, surface } = useOrganizationContext();
   const routedOrganization =
     surface.kind === "organization" && organizations
       ? findViewerOrganization(organizations, surface.owner)
       : null;
   const organizationContextPending = surface.kind === "organization" && organizations === undefined;
+  const showOnboardingVideo =
+    vaults !== undefined &&
+    !vaults.some((vault) => vault.hasConvexProvision && vault.hasCloudflareProvision);
 
   return (
     <VaultDashboardSidebarContent>
       <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
+      <GlobalAppRightSidebarLinks />
       <OrganizationContextControl />
       {showAdminNavigation ? <AdminAppRightSidebarLinks /> : null}
       {organizationContextPending || routedOrganization === null ? null : (
         <OrganizationAppRightSidebarLinks organization={routedOrganization} />
       )}
-      {organizationContextPending ? null : (
-        <GlobalAppRightSidebarLinks showAllVaults={surface.kind !== "allVaults"} />
-      )}
-      <AppRightSidebarFooter authenticated />
+      <AppRightSidebarFooter showOnboardingVideo={showOnboardingVideo} />
     </VaultDashboardSidebarContent>
   );
 }

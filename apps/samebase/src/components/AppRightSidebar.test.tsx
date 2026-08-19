@@ -428,6 +428,7 @@ describe("AppRightSidebarContent", () => {
     expect(markup).not.toContain("Sign out");
     expect(hydratedMarkup).toContain("Nicu");
     expect(hydratedMarkup).toContain("Account settings");
+    expect(hydratedMarkup).toContain('href="/vault"');
     expect(hydratedMarkup).not.toContain("Sign out");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
@@ -524,12 +525,41 @@ describe("AppRightSidebarContent", () => {
     );
     expect(hydratedMarkup).toContain('role="status"');
     expect(hydratedMarkup).toContain("Account settings");
+    expect(hydratedMarkup).toContain('href="/vault"');
     expect(hydratedMarkup).not.toContain("Pending Access User");
     expect(hydratedMarkup).not.toContain("checking login");
     expect(hydratedMarkup).not.toContain("/providers");
     expect(hydratedMarkup).not.toContain("/new-app");
     expect(hydratedMarkup).not.toContain("organization-context-control");
     expectProviderStatusQueriesNotSeen();
+  });
+
+  it("keeps All vaults visible before the viewer accepts the terms", async () => {
+    const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
+      new Map([
+        [
+          getFunctionName(api.users.currentViewerAccess),
+          {
+            role: "role_member",
+            termsAccepted: false,
+            accessKeys: ["access_public", "access_provider_connections"],
+          },
+        ],
+        [
+          getFunctionName(api.users.viewer),
+          {
+            _id: "user_terms-pending",
+            accountPresentation: {
+              kind: "email",
+              label: "terms-pending@example.com",
+            },
+          },
+        ],
+      ]),
+    );
+
+    expect(hydratedMarkup).toContain('href="/vault"');
+    expect(hydratedMarkup).not.toContain("organization-context-control");
   });
 
   it("shows a non-interactive account state while deletion runs", async () => {
@@ -560,6 +590,7 @@ describe("AppRightSidebarContent", () => {
     expect(mounted).toContain("deleting@example.com");
     expect(mounted).toContain("Deleting account");
     expect(mounted).toContain('role="status"');
+    expect(mounted).toContain('href="/vault"');
     expect(mounted).not.toContain("/settings");
     expect(mounted).not.toContain("/providers");
     expect(mounted).not.toContain("organization-context-control");
@@ -582,6 +613,10 @@ describe("AppRightSidebarContent", () => {
         [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
         [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
         [
+          getFunctionName(api.vault.dashboard.getUserVaults),
+          [{ hasConvexProvision: true, hasCloudflareProvision: false }],
+        ],
+        [
           getFunctionName(api.users.viewer),
           {
             _id: "user_123",
@@ -596,8 +631,9 @@ describe("AppRightSidebarContent", () => {
 
     expect(hydratedMarkup).toContain("nicu@samebase.md");
     expect(hydratedMarkup).not.toContain("Nicu");
-    expect(hydratedMarkup).not.toContain('href="/vault"');
+    expect(hydratedMarkup).toContain('href="/vault"');
     expect(hydratedMarkup).toContain("All vaults");
+    expect(hydratedMarkup).toContain("No organization selected");
     expect(hydratedMarkup).not.toContain("/settings/mcp");
     expect(hydratedMarkup).not.toContain("MCP clients");
     expect(hydratedMarkup).toContain("Account settings");
@@ -610,14 +646,53 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain(
       'src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y" title="Samebase onboarding: Complete setup from scratch"',
     );
-    expect(hydratedMarkup).toContain("Watch the complete onboarding");
-    expect(hydratedMarkup.indexOf("Watch the complete onboarding")).toBeLessThan(
+    expect(hydratedMarkup).toContain("First time using Samebase?");
+    expect(hydratedMarkup).toContain("Watch the complete onboarding on ");
+    expect(hydratedMarkup).toContain('class="text-red-600">YouTube</span>');
+    expect(hydratedMarkup).toContain(
+      'href="https://youtu.be/8-ZEGPpqi9Y" rel="noreferrer" target="_blank" class="mt-2 block text-lg underline"',
+    );
+    expect(hydratedMarkup.indexOf("First time using Samebase?")).toBeLessThan(
+      hydratedMarkup.indexOf("Watch the complete onboarding on "),
+    );
+    expect(hydratedMarkup.indexOf("Watch the complete onboarding on ")).toBeLessThan(
       hydratedMarkup.indexOf('src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"'),
     );
-    expect(hydratedMarkup.indexOf("Watch the complete onboarding")).toBeLessThan(
+    expect(hydratedMarkup.indexOf("Watch the complete onboarding on ")).toBeLessThan(
       hydratedMarkup.indexOf('href="/terms"'),
     );
     expectProviderStatusQueriesNotSeen();
+  });
+
+  it("hides onboarding after one vault has both provider attachments", async () => {
+    const hydratedMarkup = await renderRightSidebarAfterEffectsWithNamedQueries(
+      new Map([
+        [
+          getFunctionName(api.users.currentViewerAccess),
+          {
+            role: "role_member",
+            accessKeys: ["access_public", "access_provider_connections"],
+          },
+        ],
+        [
+          getFunctionName(api.vault.dashboard.getUserVaults),
+          [{ hasConvexProvision: true, hasCloudflareProvision: true }],
+        ],
+        [
+          getFunctionName(api.users.viewer),
+          {
+            _id: "user_123",
+            accountPresentation: {
+              kind: "email",
+              label: "nicu@samebase.md",
+            },
+          },
+        ],
+      ]),
+    );
+
+    expect(hydratedMarkup).not.toContain("First time using Samebase?");
+    expect(hydratedMarkup).not.toContain("https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y");
   });
 
   it("renders both admin routes for staff", async () => {
@@ -699,14 +774,16 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain("All vaults");
     expect(hydratedMarkup).toContain("Account settings");
     const accountIndex = hydratedMarkup.indexOf(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
+    const allVaultsIndex = hydratedMarkup.indexOf('href="/vault"');
     const contextIndex = hydratedMarkup.indexOf('data-testid="organization-context-control"');
     const organizationNavigationIndex = hydratedMarkup.indexOf('aria-label="Organization"');
     expect(accountIndex).toBeGreaterThanOrEqual(0);
-    expect(contextIndex).toBeGreaterThan(accountIndex);
+    expect(allVaultsIndex).toBeGreaterThan(accountIndex);
+    expect(contextIndex).toBeGreaterThan(allVaultsIndex);
     expect(organizationNavigationIndex).toBeGreaterThan(contextIndex);
   });
 
-  it("does not show global links while organization memberships load", async () => {
+  it("keeps All vaults visible while organization memberships load", async () => {
     organizationContextState.organizations = undefined;
     organizationContextState.surface = {
       kind: "organization",
@@ -736,7 +813,7 @@ describe("AppRightSidebarContent", () => {
     );
 
     expect(hydratedMarkup).toContain("Account settings");
-    expect(hydratedMarkup).not.toContain("All vaults");
+    expect(hydratedMarkup).toContain('href="/vault"');
     expect(hydratedMarkup).not.toContain("MCP clients");
     expect(hydratedMarkup).not.toContain("Organization settings");
   });

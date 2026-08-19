@@ -168,7 +168,6 @@ test("Pending-approval Settings shows only account exit actions on mobile", asyn
   try {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await createPendingAccount(page, email);
-    await page.waitForLoadState("networkidle");
     await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
       "data-mobile-pane",
       "right",
@@ -250,14 +249,12 @@ test("prehydrated mobile Settings reload preserves the selected sidebar", async 
   try {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await createPendingAccount(page, email);
-    await page.waitForLoadState("networkidle");
     await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
       "data-mobile-pane",
       "right",
     );
     await blockHydrationScripts(page);
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    await page.waitForLoadState("networkidle");
     await expect(page.locator("html")).toHaveAttribute(
       "data-app-auth-presentation-prehydrated",
       "signed-in",
@@ -279,7 +276,7 @@ test("prehydrated mobile Settings reload preserves the selected sidebar", async 
     );
 
     await page.unroute("**/*");
-    await page.reload({ waitUntil: "networkidle" });
+    await page.reload({ waitUntil: "domcontentloaded" });
     await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
       "data-mobile-pane",
       "right",

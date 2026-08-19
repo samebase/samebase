@@ -31,7 +31,7 @@ import {
   vAccountPresentation,
 } from "../shared/accountPresentation";
 const { boolean, id, literal, number, object, optional, string, union } = v;
-const CURRENT_TERMS_VERSION = "2026-08-12";
+export const CURRENT_TERMS_VERSION = "2026-08-12";
 
 const vSignInMethod = object({ email: string() });
 const vGitHubSignInMethod = object({ email: string(), login: string() });

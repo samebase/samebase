@@ -73,7 +73,7 @@ describe("devAuth password account seed", () => {
     });
   });
 
-  it("approves the explicit seed user", async () => {
+  it("approves the explicit seed user and accepts the current Terms", async () => {
     const t = makeConvexTest();
     const userId = await t.run(async (ctx) => {
       return await ctx.db.insert("users", {
@@ -88,6 +88,8 @@ describe("devAuth password account seed", () => {
 
     await expect(t.run(async (ctx) => await ctx.db.get(userId))).resolves.toMatchObject({
       isApproved: true,
+      termsAcceptedAt: expect.any(Number),
+      termsVersion: "2026-08-12",
     });
   });
 
