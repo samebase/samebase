@@ -1,12 +1,5 @@
 import { TermsAcceptanceView } from "@/components/TermsAcceptanceGate";
 
 export function TermsAcceptanceVisualFixture() {
-  return (
-    <TermsAcceptanceView
-      error={null}
-      onAccept={() => {}}
-      onSignOut={() => {}}
-      pendingAction={null}
-    />
-  );
+  return <TermsAcceptanceView accepting={false} error={null} onAccept={() => {}} />;
 }

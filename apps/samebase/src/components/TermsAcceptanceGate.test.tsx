@@ -9,16 +9,11 @@ import { TermsAcceptanceGate, TermsAcceptanceScreen } from "./TermsAcceptanceGat
 const testState = vi.hoisted(() => ({
   acceptCurrentTerms: vi.fn(async () => null),
   queryResult: { role: "role_member", termsAccepted: true },
-  signOut: vi.fn(async () => {}),
 }));
 
 vi.mock("convex/react", () => ({
   useMutation: () => testState.acceptCurrentTerms,
   useQuery: () => testState.queryResult,
-}));
-
-vi.mock("@/authClient", () => ({
-  useAppAuthActions: () => ({ signOut: testState.signOut }),
 }));
 
 vi.mock("@tanstack/react-router", () => ({
@@ -34,8 +29,6 @@ describe("TermsAcceptanceGate", () => {
     testState.acceptCurrentTerms.mockReset();
     testState.acceptCurrentTerms.mockResolvedValue(null);
     testState.queryResult = { role: "role_member", termsAccepted: true };
-    testState.signOut.mockReset();
-    testState.signOut.mockResolvedValue();
   });
 
   it("replaces the route with the Terms screen for a pending viewer", () => {
@@ -49,6 +42,7 @@ describe("TermsAcceptanceGate", () => {
     expect(markup).toContain("Agree and continue");
     expect(markup).toContain('href="/terms"');
     expect(markup).toContain('href="/privacy"');
+    expect(markup).not.toContain("Sign out");
     expect(markup).not.toContain("Route child");
   });
 
@@ -96,33 +90,6 @@ describe("TermsAcceptanceGate", () => {
       await acceptance;
     });
     expect(acceptButton.disabled).toBe(false);
-
-    await act(async () => {
-      root.unmount();
-    });
-    rootElement.remove();
-  });
-
-  it("signs out from the secondary action", async () => {
-    const rootElement = document.createElement("div");
-    document.body.append(rootElement);
-    const root = createRoot(rootElement);
-
-    await act(async () => {
-      root.render(<TermsAcceptanceScreen />);
-    });
-    const signOutButton = [...rootElement.querySelectorAll("button")].find(
-      (button) => button.textContent === "Sign out",
-    );
-    if (signOutButton === undefined) {
-      throw new Error("The sign-out action is missing.");
-    }
-
-    await act(async () => {
-      signOutButton.click();
-    });
-
-    expect(testState.signOut).toHaveBeenCalledOnce();
 
     await act(async () => {
       root.unmount();

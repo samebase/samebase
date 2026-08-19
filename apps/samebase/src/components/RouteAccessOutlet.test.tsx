@@ -232,6 +232,24 @@ describe("RouteAccessOutlet", () => {
     expect(markup).not.toContain("Terms acceptance");
   });
 
+  it("keeps Settings available before Terms acceptance", () => {
+    routeMatchState.matches = [
+      { staticData: { access: "access_public" } },
+      { staticData: { access: "access_user_preferences" } },
+    ];
+    locationState.pathname = "/settings";
+    viewerAccessState.result = {
+      accessKeys: ["access_public", "access_user_preferences"],
+      role: "role_member",
+      termsAccepted: false,
+    };
+
+    const markup = renderToStaticMarkup(<RouteAccessOutlet />);
+
+    expect(markup).toContain("Route outlet");
+    expect(markup).not.toContain("Terms acceptance");
+  });
+
   it("renders app-create routes when the viewer has app-create access", () => {
     routeMatchState.matches = [
       { staticData: { access: "access_public" } },

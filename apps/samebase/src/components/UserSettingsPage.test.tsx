@@ -78,8 +78,8 @@ vi.mock("convex/react", async (importOriginal) => {
     ...actual,
     useMutation: (reference: Parameters<typeof actual.useMutation>[0]) =>
       testState.mutations.get(getFunctionName(reference)) ?? vi.fn(async () => undefined),
-    useQuery: (reference: Parameters<typeof actual.useQuery>[0]) =>
-      testState.queries.get(getFunctionName(reference)),
+    useQuery: (reference: Parameters<typeof actual.useQuery>[0], args: unknown) =>
+      args === "skip" ? undefined : testState.queries.get(getFunctionName(reference)),
   };
 });
 
@@ -98,6 +98,11 @@ function createJwt(accountPresentation: AccountPresentation) {
 }
 
 function setDefaultQueries() {
+  testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
+    accessKeys: ["access_public", "access_user_preferences"],
+    role: "role_member",
+    termsAccepted: true,
+  });
   testState.queries.set(getFunctionName(api.users.getUserSettings), {
     accountEmail: "nicu@samebase.com",
     displayName: "Current name",
@@ -112,7 +117,15 @@ function setDefaultQueries() {
 let root: Root | null = null;
 let rootElement: HTMLDivElement | null = null;
 
-async function mountSettingsPage(authorizationNotice: React.ReactNode = null) {
+async function mountSettingsPage(
+  authorizationNotice: React.ReactNode = null,
+  termsAccepted = true,
+) {
+  testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
+    accessKeys: ["access_public", "access_user_preferences"],
+    role: "role_member",
+    termsAccepted,
+  });
   rootElement = document.createElement("div");
   document.body.append(rootElement);
   root = createRoot(rootElement);
@@ -222,6 +235,18 @@ describe("UserSettingsPage", () => {
 
     expect(container.querySelectorAll('[role="alert"]')).toHaveLength(1);
     expect(container.textContent).toContain("Account link failed");
+  });
+
+  it("shows only account exit actions before Terms acceptance", async () => {
+    const container = await mountSettingsPage(null, false);
+
+    expect([...container.querySelectorAll("button")].map((button) => button.textContent)).toEqual([
+      "Sign out",
+      "Delete account",
+    ]);
+    expect(container.textContent).not.toContain("Profile");
+    expect(container.textContent).not.toContain("Sign-in methods");
+    expect(container.textContent).not.toContain("MCP clients");
   });
 
   it("shows the GitHub sign-in row and hides the connected Google account", async () => {

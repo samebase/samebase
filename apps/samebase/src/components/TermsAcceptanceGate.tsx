@@ -1,4 +1,3 @@
-import { useAppAuthActions } from "@/authClient";
 import { Button } from "@/components/ui/button";
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery } from "convex/react";
@@ -10,15 +9,13 @@ type TermsAcceptanceViewerAccess = {
 };
 
 export function TermsAcceptanceView({
+  accepting,
   error,
   onAccept,
-  onSignOut,
-  pendingAction,
 }: {
+  accepting: boolean;
   error: string | null;
   onAccept: () => void;
-  onSignOut: () => void;
-  pendingAction: "accept" | "sign-out" | null;
 }) {
   return (
     <div className="container my-auto" data-testid="terms-acceptance">
@@ -46,14 +43,9 @@ export function TermsAcceptanceView({
           {"."}
         </p>
         {error === null ? null : <p className="text-sm text-destructive">{error}</p>}
-        <div className="flex items-center gap-2">
-          <Button disabled={pendingAction !== null} onClick={onAccept}>
-            {pendingAction === "accept" ? "Continuing..." : "Agree and continue"}
-          </Button>
-          <Button disabled={pendingAction !== null} onClick={onSignOut} variant="outline">
-            {pendingAction === "sign-out" ? "Signing out..." : "Sign out"}
-          </Button>
-        </div>
+        <Button disabled={accepting} onClick={onAccept}>
+          {accepting ? "Continuing..." : "Agree and continue"}
+        </Button>
       </div>
     </div>
   );
@@ -61,36 +53,24 @@ export function TermsAcceptanceView({
 
 export function TermsAcceptanceScreen() {
   const acceptCurrentTerms = useMutation(api.users.acceptCurrentTerms);
-  const { signOut } = useAppAuthActions();
-  const [pendingAction, setPendingAction] = useState<"accept" | "sign-out" | null>(null);
+  const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   return (
     <TermsAcceptanceView
+      accepting={accepting}
       error={error}
       onAccept={() => {
         setError(null);
-        setPendingAction("accept");
+        setAccepting(true);
         void acceptCurrentTerms({})
           .catch(() => {
             setError("Samebase could not save your acceptance. Try again.");
           })
           .finally(() => {
-            setPendingAction(null);
+            setAccepting(false);
           });
       }}
-      onSignOut={() => {
-        setError(null);
-        setPendingAction("sign-out");
-        void Promise.resolve(signOut())
-          .catch(() => {
-            setError("Samebase could not sign you out. Try again.");
-          })
-          .finally(() => {
-            setPendingAction(null);
-          });
-      }}
-      pendingAction={pendingAction}
     />
   );
 }
