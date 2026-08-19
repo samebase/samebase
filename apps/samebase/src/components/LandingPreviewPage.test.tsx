@@ -111,7 +111,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
     expect(markup).toContain("border-radius:1.104% / 1.664%");
     expect(markup).toContain(
-      'href="https://www.youtube.com/watch?v=HSo31kUZWpk" rel="noreferrer" target="_blank"',
+      'href="https://youtu.be/UfxE8rvprqc" rel="noreferrer" target="_blank"',
     );
     expect(markup).toContain(">Watch on <span");
     expect(markup).toContain(">YouTube</span></a>");
@@ -120,7 +120,9 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain(
       "GitHub + Convex + Cloudflare is the best way we&#x27;ve found to build an app.",
     );
-    expect(markup).toContain("Samebase repeats it, so you never choose again.");
+    expect(markup).toContain(
+      "Samebase repeats it, so you can focus on your ideas instead of your tech stack.",
+    );
     expect(markup).toContain("deploys + domains + edge");
     expect(markup).not.toContain("owner: ");
     expect(markup).toContain('data-testid="landing-preview-platform-details"');
@@ -179,12 +181,16 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain("We resell nothing. Not tokens, not hosting.");
     expect(markup).toContain("adds margin, not capability");
 
-    // Honest onboarding.
+    // Onboarding walkthrough.
     expect(markup).toContain(
-      "Setup is three OAuth connects and one GitHub app. We filmed all of it.",
+      "Watch the complete Samebase onboarding, including first-time Cloudflare setup.",
     );
-    expect(markup).not.toContain("No account? You create one in the same flow.");
-    expect(markup).not.toContain("watch it before you sign up · nothing is skipped");
+    expect(markup).toContain('aria-label="Onboarding walkthrough"');
+    expect(markup).toContain(
+      'src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y" title="Samebase onboarding: Complete setup from scratch"',
+    );
+    expect(markup).toContain('loading="lazy"');
+    expect(markup).toContain('allowFullScreen=""');
 
     // Cost and the closing argument.
     expect(markup).toContain("cost follows real usage");
@@ -205,11 +211,15 @@ describe("LandingPreviewPage", () => {
 
     const costIndex = markup.indexOf("cost follows real usage");
     const faqIndex = markup.indexOf('aria-label="Frequently asked questions"');
+    const onboardingVideoIndex = markup.indexOf(
+      'src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"',
+    );
     const closingQuestionIndex = markup.indexOf(
       "If your app builder is so good, why is it not building itself?",
     );
     expect(faqIndex).toBeGreaterThan(costIndex);
-    expect(closingQuestionIndex).toBeGreaterThan(faqIndex);
+    expect(onboardingVideoIndex).toBeGreaterThan(faqIndex);
+    expect(closingQuestionIndex).toBeGreaterThan(onboardingVideoIndex);
 
     expect(markup).toContain("If your app builder is so good, why is it not building itself?");
 

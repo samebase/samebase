@@ -195,7 +195,7 @@ function LandingFootnoteMark({
 function LandingReceiptLink({ children, href }: { children: ReactNode; href: string }) {
   return (
     <a
-      className="border-b border-border pb-px no-underline hover:border-foreground hover:text-foreground"
+      className="underline decoration-current underline-offset-4 hover:text-foreground"
       href={href}
       rel="noreferrer"
       target="_blank"
@@ -208,7 +208,7 @@ function LandingReceiptLink({ children, href }: { children: ReactNode; href: str
 function LandingInlineLink({ children, to }: { children: ReactNode; to: string }) {
   return (
     <Link
-      className="border-b border-border pb-px text-primary no-underline hover:border-foreground hover:text-foreground"
+      className="text-primary underline decoration-current underline-offset-4 hover:text-foreground"
       to={to}
     >
       {children}
@@ -216,13 +216,10 @@ function LandingInlineLink({ children, to }: { children: ReactNode; to: string }
   );
 }
 
-/** Every section below the hero opens with the same hairline and kicker rhythm. */
+/** Every section below the hero uses the same spacing rhythm. */
 function LandingSection({ ariaLabel, children }: { ariaLabel?: string; children: ReactNode }) {
   return (
-    <section
-      aria-label={ariaLabel}
-      className="mt-10 border-t border-border pt-8 @3xl:mt-16 @3xl:pt-12"
-    >
+    <section aria-label={ariaLabel} className="mt-10 pt-8 @3xl:mt-16 @3xl:pt-12">
       {children}
     </section>
   );
@@ -348,31 +345,30 @@ function LandingPreviewOverview() {
       className="min-h-full shrink-0 bg-background pb-48 text-foreground"
       data-testid={LANDING_PREVIEW_ARTICLE_TEST_ID}
     >
-      <div className="mx-auto w-full max-w-[1200px] px-6 pt-10 @2xl:px-10 @3xl:pt-14">
-        <p className="flex items-center gap-4">
-          <span className="flex items-center gap-1.5">
-            <img
-              alt=""
-              className="h-9 w-9 dark:invert"
-              height="36"
-              src="/brand/logo/v1-side-primary-duotone.svg"
-              width="36"
-            />
-            <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
-          </span>
-          <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
-            BETA
-          </Badge>
-        </p>
-
-        <section className="mt-10">
+      <div className="mx-auto w-full max-w-[1200px] px-6 pt-10 @2xl:px-10 @3xl:pt-0">
+        <section>
           <div className="@3xl:grid @3xl:grid-cols-2 @3xl:gap-4">
-            <div>
-              <h1 className="max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
+            <div className="pb-4 @3xl:pt-4">
+              <p className="flex items-center gap-4">
+                <span className="flex items-center gap-1.5">
+                  <img
+                    alt=""
+                    className="h-9 w-9 dark:invert"
+                    height="36"
+                    src="/brand/logo/v1-side-primary-duotone.svg"
+                    width="36"
+                  />
+                  <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
+                </span>
+                <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
+                  BETA
+                </Badge>
+              </p>
+              <h1 className="mt-10 max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
                 The correct way to build web apps.
               </h1>
               <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                <span className="flex items-center gap-2 font-bold leading-none text-foreground">
+                <span className="inline-flex flex-col items-start gap-2 font-bold leading-none text-foreground @sm:flex-row @sm:items-center">
                   <span className="inline-flex items-center gap-1.5">
                     <img
                       alt=""
@@ -383,7 +379,9 @@ function LandingPreviewOverview() {
                     />
                     <span>Convex</span>
                   </span>
-                  <span aria-hidden="true">+</span>
+                  <span className="pl-1 @sm:pl-0" aria-hidden="true">
+                    +
+                  </span>
                   <span className="inline-flex items-center gap-1.5">
                     <img
                       alt=""
@@ -395,7 +393,7 @@ function LandingPreviewOverview() {
                     <span>Cloudflare Workers</span>
                   </span>
                 </span>
-                <span className="mt-1 block">
+                <span className="mt-3 block @sm:mt-1">
                   is all you need to build and deploy a production app.
                 </span>
               </p>
@@ -405,7 +403,17 @@ function LandingPreviewOverview() {
             </div>
             <LandingHeroMenger placement="preview" />
           </div>
-          <div className="relative mt-12" style={{ containerType: "inline-size" }}>
+          <div className="relative" style={{ containerType: "inline-size" }}>
+            <p className="mb-3 flex justify-end text-sm">
+              <a
+                className="group font-semibold text-foreground underline decoration-red-600 underline-offset-4 hover:decoration-red-700"
+                href="https://youtu.be/UfxE8rvprqc"
+                rel="noreferrer"
+                target="_blank"
+              >
+                Watch on <span className="text-red-600 group-hover:text-red-700">YouTube</span>
+              </a>
+            </p>
             <div
               className="overflow-hidden"
               data-testid="landing-preview-hero-video-frame"
@@ -428,26 +436,13 @@ function LandingPreviewOverview() {
                 width={1440}
               />
             </div>
-            <p className="mt-4 text-sm">
-              <a
-                className="group font-semibold text-foreground no-underline"
-                href="https://www.youtube.com/watch?v=HSo31kUZWpk"
-                rel="noreferrer"
-                target="_blank"
-              >
-                Watch on{" "}
-                <span className="border-b border-red-600 pb-px text-red-600 group-hover:border-red-700 group-hover:text-red-700">
-                  YouTube
-                </span>
-              </a>
-            </p>
           </div>
         </section>
 
         <section className="mt-10 pt-8 @3xl:mt-16 @3xl:pt-12">
           <LandingSectionIntro
             heading="GitHub + Convex + Cloudflare is the best way we've found to build an app."
-            sub="Simplest, cheapest, hardest to mess up. Samebase repeats it, so you never choose again."
+            sub="Simplest, cheapest, hardest to mess up. Samebase repeats it, so you can focus on your ideas instead of your tech stack."
           />
           <div
             className="mt-8 grid gap-8 @2xl:grid-cols-3"
@@ -596,26 +591,6 @@ function LandingPreviewOverview() {
           </div>
         </LandingSection>
 
-        <LandingSection>
-          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_440px] @5xl:gap-x-14">
-            <div className="@5xl:col-start-1 @5xl:row-start-1">
-              <LandingSectionIntro
-                heading="Setup is three OAuth connects and one GitHub app. We filmed all of it."
-                sub="It's the biggest hurdle in Samebase, so we don't hide it. Here it is in real time."
-              />
-            </div>
-            {/* Placeholder for the recorded onboarding capture. Swap for the
-                real embed once the footage exists; the copy above claims it. */}
-            <div className="mt-8 @5xl:col-start-2 @5xl:row-start-1 @5xl:mt-1.5">
-              <div className="flex aspect-video w-full items-center justify-center bg-muted">
-                <p className="max-w-[36ch] text-center font-mono text-xs uppercase leading-relaxed tracking-[0.14em] text-muted-foreground">
-                  video: the full onboarding, real time, unedited (~3 min)
-                </p>
-              </div>
-            </div>
-          </div>
-        </LandingSection>
-
         <LandingSection ariaLabel="Monorepo">
           <LandingSectionIntro
             heading="Full monorepo support, by design."
@@ -676,6 +651,25 @@ function LandingPreviewOverview() {
               </AccordionItem>
             ))}
           </Accordion>
+        </LandingSection>
+
+        <LandingSection ariaLabel="Onboarding walkthrough">
+          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_440px] @5xl:gap-x-14">
+            <div className="@5xl:col-start-1 @5xl:row-start-1">
+              <LandingSectionIntro heading="Watch the complete Samebase onboarding, including first-time Cloudflare setup." />
+            </div>
+            <div className="mt-8 @5xl:col-start-2 @5xl:row-start-1 @5xl:mt-1.5">
+              <iframe
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                className="aspect-[48/31] w-full border-0"
+                loading="lazy"
+                referrerPolicy="strict-origin-when-cross-origin"
+                src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"
+                title="Samebase onboarding: Complete setup from scratch"
+              />
+            </div>
+          </div>
         </LandingSection>
 
         <section className="mt-16 @3xl:mt-24">

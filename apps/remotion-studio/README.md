@@ -23,7 +23,9 @@ appear in Studio immediately.
 - `LogoHype` explains the flat-to-isometric identity sequence, production shuffle, recursive depth,
   and Menger exploration using the shared Samebase logo model.
 - `FounderDemo` contains the 1920×1240 founder introduction and product walkthrough preview.
-- `FounderDemoYouTube` renders the same edit at the original 3840×2480 screen resolution.
+- `FounderDemoYouTube` renders the same edit at 3344×2160 while preserving the source aspect ratio.
+- `OnboardingDemo` contains the complete onboarding walkthrough at 3344×2160 while preserving the
+  source aspect ratio.
 - `TicTacToeRecording` contains the production edit used by the landing page.
 
 Each production composition owns its component, timing model, and supporting edit data under
@@ -38,9 +40,10 @@ Each production composition owns its component, timing model, and supporting edi
 3. Record timestamps, pacing decisions, and review notes in `apps/remotion-studio/notes/`.
 4. Build and inspect the composition in Remotion Studio.
 5. Run `pnpm check:remotion-studio` and render a local master into `apps/remotion-studio/out/`.
-6. Create the delivery encode and poster for the target surface.
-7. Publish the accepted delivery file to its target platform.
-8. When the Samebase app serves the video directly, record its immutable URL and observed metadata
+6. Generate retimed SRT files from the same edit manifests as the rendered videos.
+7. Create the delivery encode and poster for the target surface.
+8. Publish the accepted delivery file to its target platform.
+9. When the Samebase app serves the video directly, record its immutable URL and observed metadata
    in `apps/samebase/shared/publicMediaManifest.ts`.
 
 Do not put provider tokens or other secrets in this app.
@@ -63,17 +66,56 @@ download large source files. Fetch the Remotion recordings when the studio needs
 git lfs pull --include="apps/remotion-studio/public/media" --exclude=""
 ```
 
-Render the local master with:
+Render the YouTube master with:
 
 ```console
 pnpm --filter @samebase/remotion-studio render:founder-demo
 ```
 
-Render the original-resolution YouTube master with:
+Render the 2160p YouTube master with:
 
 ```console
 pnpm --filter @samebase/remotion-studio render:founder-demo-youtube
 ```
+
+## Onboarding demo
+
+The onboarding demo uses these tracked inputs:
+
+```text
+apps/remotion-studio/public/media/onboarding-demo-screen.mp4
+apps/remotion-studio/public/media/onboarding-demo-face.mp4
+apps/remotion-studio/public/media/onboarding-demo-screen-24x.mp4
+apps/remotion-studio/public/media/onboarding-demo.srt
+```
+
+The screen and face recordings use the same 30 fps timeline. The screen recording owns the audio.
+The edit manifest assigns a maximum speed to each wait. The shared recorded-demo component uses one
+smooth acceleration curve for both 24x and 32x waits.
+
+Rebuild the 24x screen proxy after the source recording changes:
+
+```console
+ffmpeg -i apps/remotion-studio/public/media/onboarding-demo-screen.mp4 -map 0:v:0 -vf 'setpts=PTS/24,fps=30,scale=1920:1240:flags=lanczos' -an -c:v libx264 -preset fast -crf 18 -pix_fmt yuv420p -movflags +faststart apps/remotion-studio/public/media/onboarding-demo-screen-24x.mp4
+```
+
+Render the local master with:
+
+```console
+pnpm --filter @samebase/remotion-studio render:onboarding-demo
+```
+
+## YouTube subtitles
+
+Generate SRT files that use the accelerated output timelines with:
+
+```console
+pnpm --filter @samebase/remotion-studio generate:subtitles
+```
+
+The command writes `founder-demo-youtube.srt` and `onboarding-demo-youtube.srt` to
+`apps/remotion-studio/out/`. It omits captions from accelerated waits and uses the same frame
+boundaries as the captions rendered into each composition.
 
 ## Tic-Tac-Toe landing video
 
@@ -116,10 +158,14 @@ Do not commit:
 
 - `pnpm --filter @samebase/remotion-studio dev`: open Remotion Studio.
 - `pnpm check:remotion-studio`: typecheck and lint from the repository root.
+- `pnpm --filter @samebase/remotion-studio generate:subtitles`: generate retimed SRT files for the
+  Founder Demo and Onboarding Demo.
 - `pnpm --filter @samebase/remotion-studio render:founder-demo`: render the founder demo.
-- `pnpm --filter @samebase/remotion-studio render:founder-demo-youtube`: render the founder demo at
-  the original 3840×2480 resolution.
+- `pnpm --filter @samebase/remotion-studio render:founder-demo-youtube`: render the 2160p founder
+  demo while preserving the source aspect ratio.
 - `pnpm --filter @samebase/remotion-studio render:logo-hype`: render the logo identity exploration.
+- `pnpm --filter @samebase/remotion-studio render:onboarding-demo`: render the 2160p onboarding demo
+  for YouTube while preserving the source aspect ratio.
 - `pnpm --filter @samebase/remotion-studio render:tic-tac-toe`: render the production landing edit.
 
 Review the current [Remotion license terms](https://www.remotion.dev/docs/license/pricing) as the

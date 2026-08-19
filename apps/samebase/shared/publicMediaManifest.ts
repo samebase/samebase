@@ -1,16 +1,16 @@
 export const publicMediaManifest = {
   landingFounderDemo: {
     bucket: "samebase-public-media",
-    key: "landing/founder-demo-v1.mp4",
-    publicUrl: "https://media.samebase.com/landing/founder-demo-v1.mp4",
-    byteLength: 14_728_042,
+    key: "landing/founder-demo-v2.mp4",
+    publicUrl: "https://media.samebase.com/landing/founder-demo-v2.mp4",
+    byteLength: 13_946_814,
     contentType: "video/mp4",
     contentDisposition: "inline",
     cacheControl: "public, max-age=31536000, immutable",
-    etag: '"4f6518459929b585a67037ab8847f677"',
+    etag: '"f9b9adad246547e7227eba9aee9f1dbb"',
     source: {
       repository: "https://github.com/samebase/samebase",
-      commit: "de26ca14c5bfb565f6d13392cfcf4f6c366df012",
+      commit: "ff62219fbaf57de7e0f0ee0f13f54575acaa154d",
       composition: "FounderDemoYouTube",
     },
   },
