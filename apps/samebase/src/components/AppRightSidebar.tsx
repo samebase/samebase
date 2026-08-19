@@ -34,9 +34,6 @@ import { api } from "../../convex/_generated/api";
 type AppRightSidebarViewerAccess = (typeof api.users.currentViewerAccess)["_returnType"];
 type AppRightSidebarViewer = NonNullable<(typeof api.users.viewer)["_returnType"]>;
 
-const ONBOARDING_VIDEO_URL = "https://youtu.be/8-ZEGPpqi9Y";
-const ONBOARDING_VIDEO_THUMBNAIL_URL = "https://i.ytimg.com/vi/8-ZEGPpqi9Y/maxresdefault.jpg";
-
 function hasProviderSidebarAccess(viewerAccess: AppRightSidebarViewerAccess | undefined) {
   return (
     viewerAccess?.termsAccepted !== false &&
@@ -53,27 +50,19 @@ function AppRightSidebarAccountLoadingSection() {
   );
 }
 
-function AppRightSidebarOnboardingVideoLink() {
+function AppRightSidebarOnboardingVideo() {
   return (
     <section className="vault-dashboard-sidebar-inset pb-3">
-      <h2 className="text-sm font-medium">New to Samebase?</h2>
-      <a
-        className="mt-2 block text-sm font-medium underline underline-offset-4"
-        href={ONBOARDING_VIDEO_URL}
-        rel="noreferrer noopener"
-        target="_blank"
-      >
-        <img
-          alt=""
-          className="aspect-video w-full object-cover"
-          height="720"
-          loading="lazy"
-          referrerPolicy="strict-origin-when-cross-origin"
-          src={ONBOARDING_VIDEO_THUMBNAIL_URL}
-          width="1280"
-        />
-        <span className="mt-2 block">Watch the complete onboarding</span>
-      </a>
+      <h2 className="text-sm font-medium">Watch the complete onboarding</h2>
+      <iframe
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+        className="mt-2 aspect-[48/31] w-full border-0"
+        loading="lazy"
+        referrerPolicy="strict-origin-when-cross-origin"
+        src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"
+        title="Samebase onboarding: Complete setup from scratch"
+      />
     </section>
   );
 }
@@ -81,7 +70,7 @@ function AppRightSidebarOnboardingVideoLink() {
 function AppRightSidebarFooter({ authenticated }: { authenticated: boolean }) {
   return (
     <div className="mt-auto">
-      {authenticated ? <AppRightSidebarOnboardingVideoLink /> : null}
+      {authenticated ? <AppRightSidebarOnboardingVideo /> : null}
       <AppSidebarMetaSection linkAlignment="left" />
     </div>
   );

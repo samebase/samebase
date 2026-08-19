@@ -191,13 +191,13 @@ test("signed-in app right sidebar keeps the account row inside a narrow desktop 
   });
 
   const onboardingSection = rightPane
-    .getByRole("heading", { name: "New to Samebase?" })
+    .getByRole("heading", { name: "Watch the complete onboarding" })
     .locator("..");
   await expect(onboardingSection).toHaveScreenshot(
     "app-right-sidebar-onboarding-video-narrow.png",
     {
       ...appRightSidebarScreenshotOptions,
-      mask: [onboardingSection.locator("img")],
+      mask: [onboardingSection.locator("iframe")],
       maskColor: "#d1d5db",
     },
   );

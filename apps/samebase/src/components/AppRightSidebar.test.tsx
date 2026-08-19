@@ -607,11 +607,13 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain('data-testid="organization-context-control"');
     expect(hydratedMarkup).not.toContain("/admin/users");
     expect(hydratedMarkup).not.toContain("/admin/account-deletions");
-    expect(hydratedMarkup).toContain("New to Samebase?");
     expect(hydratedMarkup).toContain(
-      'href="https://youtu.be/8-ZEGPpqi9Y" rel="noreferrer noopener" target="_blank"',
+      'src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y" title="Samebase onboarding: Complete setup from scratch"',
     );
     expect(hydratedMarkup).toContain("Watch the complete onboarding");
+    expect(hydratedMarkup.indexOf("Watch the complete onboarding")).toBeLessThan(
+      hydratedMarkup.indexOf('src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"'),
+    );
     expect(hydratedMarkup.indexOf("Watch the complete onboarding")).toBeLessThan(
       hydratedMarkup.indexOf('href="/terms"'),
     );
