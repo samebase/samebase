@@ -658,7 +658,7 @@ function LandingPreviewOverview() {
           </Accordion>
         </LandingSection>
 
-        <LandingSection>
+        <LandingSection ariaLabel="Onboarding walkthrough">
           <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_440px] @5xl:gap-x-14">
             <div className="@5xl:col-start-1 @5xl:row-start-1">
               <LandingSectionIntro

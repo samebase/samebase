@@ -183,6 +183,7 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain(
       "Setup is three OAuth connects and one GitHub app. We filmed the full flow.",
     );
+    expect(markup).toContain('aria-label="Onboarding walkthrough"');
     expect(markup).toContain(
       'src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y" title="Samebase onboarding: Complete setup from scratch"',
     );

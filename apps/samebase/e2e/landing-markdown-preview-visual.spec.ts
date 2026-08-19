@@ -175,6 +175,33 @@ test("landing preview FAQ answers the direct-agent questions", async ({ page }) 
   await expect(firstAnswer).toBeHidden();
 });
 
+test("landing preview renders the onboarding walkthrough near the end", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await showLandingHeroPoster(page);
+  await page.route("https://www.youtube-nocookie.com/**", (route) => route.abort());
+  await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+
+  const walkthrough = page
+    .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
+    .getByRole("region", { name: "Onboarding walkthrough" });
+  const video = walkthrough.getByTitle("Samebase onboarding: Complete setup from scratch");
+  await expect(video).toHaveAttribute("src", "https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y");
+  await expect(walkthrough).toHaveScreenshot("landing-preview-onboarding-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    mask: [video],
+    maskColor: "#000000",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+    timeout: 30_000,
+  });
+});
+
 test("landing preview FAQ stays responsive while the closing logo is off screen", async ({
   page,
 }) => {
