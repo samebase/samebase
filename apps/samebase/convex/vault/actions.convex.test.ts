@@ -44,6 +44,8 @@ async function createConnectRepositoryFixture() {
       state: "active",
       email: "connect-by-repository-id@example.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubInstallationId: "1001",

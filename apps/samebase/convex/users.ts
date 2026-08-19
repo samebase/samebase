@@ -399,7 +399,7 @@ export const setDisplayName = mutation({
 });
 
 export const acceptCurrentTerms = mutation({
-  access: "access_dashboard",
+  access: "access_account_settings",
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
@@ -409,6 +409,9 @@ export const acceptCurrentTerms = mutation({
     }
     if (user.termsAcceptedAt !== undefined) {
       return null;
+    }
+    if (ctx.viewer.role !== "role_terms_pending") {
+      throw new Error("An approved Samebase account is required.");
     }
 
     await ctx.db.patch("users", ctx.viewer.userId, {

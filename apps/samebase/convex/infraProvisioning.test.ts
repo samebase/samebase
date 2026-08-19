@@ -22,6 +22,8 @@ async function seedRun(t: ConvexTest, args: SeedRunArgs) {
       name: "Ada",
       email: "ada@example.com",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubInstallationId: `installation-${args.repoName}`,

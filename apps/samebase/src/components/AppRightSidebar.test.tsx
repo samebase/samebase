@@ -498,7 +498,13 @@ describe("AppRightSidebarContent", () => {
           getFunctionName(api.users.currentViewerAccess),
           {
             role: "role_pending_access",
-            accessKeys: ["access_public", "access_user_preferences"],
+            accessKeys: [
+              "access_public",
+              "access_account_deletion",
+              "access_account_settings",
+              "access_organization_invitation_accept",
+              "access_user_preferences",
+            ],
           },
         ],
         [
@@ -540,9 +546,9 @@ describe("AppRightSidebarContent", () => {
         [
           getFunctionName(api.users.currentViewerAccess),
           {
-            role: "role_member",
+            role: "role_terms_pending",
             termsAccepted: false,
-            accessKeys: ["access_public", "access_provider_connections"],
+            accessKeys: ["access_public", "access_account_deletion", "access_account_settings"],
           },
         ],
         [

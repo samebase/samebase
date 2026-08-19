@@ -135,6 +135,8 @@ describe("canonical Polar billing state", () => {
         state: "active",
         email: "polar-payer@example.invalid",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const organizationId = await ctx.db.insert("organizations", {
         githubOwnerId: "polar-owner",

@@ -95,6 +95,8 @@ async function seedSchemaGraphVault(t: ReturnType<typeof makeConvexTest>, convex
       name: "Ada",
       email: "nicu@samebase.com",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubInstallationId: "schema-graph-installation",

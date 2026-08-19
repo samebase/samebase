@@ -6,7 +6,13 @@ import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.se
 
 async function seedUser(t: ReturnType<typeof makeConvexTest>, email: string) {
   return await t.run(async (ctx) => {
-    return await ctx.db.insert("users", { state: "active", email, isApproved: true });
+    return await ctx.db.insert("users", {
+      state: "active",
+      email,
+      isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
+    });
   });
 }
 

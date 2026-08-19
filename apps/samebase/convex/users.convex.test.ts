@@ -135,16 +135,22 @@ async function seedProviderOrganization(options?: {
         state: "active",
         email: "owner@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const memberId = await ctx.db.insert("users", {
         state: "active",
         email: "member@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const outsiderId = await ctx.db.insert("users", {
         state: "active",
         email: "outsider@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const organizationId = await ctx.db.insert("organizations", {
         githubOwnerId: "owner-1",
@@ -225,6 +231,8 @@ async function makeSeedProviderOrganizationBillingLimited(
       state: "active",
       email: "billing-limited-provider-member@example.com",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     await ctx.db.insert("organizationMemberships", {
       organizationId,

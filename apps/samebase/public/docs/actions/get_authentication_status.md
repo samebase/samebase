@@ -58,6 +58,9 @@ JSON Schema for the tool's `structuredContent`:
                   "const": "role_pending_access"
                 },
                 {
+                  "const": "role_terms_pending"
+                },
+                {
                   "const": "role_member"
                 },
                 {
@@ -74,6 +77,12 @@ JSON Schema for the tool's `structuredContent`:
                   },
                   {
                     "const": "access_account_deletion"
+                  },
+                  {
+                    "const": "access_account_settings"
+                  },
+                  {
+                    "const": "access_organization_invitation_accept"
                   },
                   {
                     "const": "access_user_preferences"
@@ -145,6 +154,9 @@ JSON Schema for the tool's `structuredContent`:
                   "const": "role_pending_access"
                 },
                 {
+                  "const": "role_terms_pending"
+                },
+                {
                   "const": "role_member"
                 },
                 {
@@ -161,6 +173,12 @@ JSON Schema for the tool's `structuredContent`:
                   },
                   {
                     "const": "access_account_deletion"
+                  },
+                  {
+                    "const": "access_account_settings"
+                  },
+                  {
+                    "const": "access_organization_invitation_accept"
                   },
                   {
                     "const": "access_user_preferences"

@@ -39,6 +39,8 @@ async function seedBillingOrganization(args: {
       state: "active",
       email: "billing-owner@example.invalid",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubOwnerId: `billing-${args.githubOwnerType}`,
@@ -57,6 +59,8 @@ async function seedBillingOrganization(args: {
         state: "active",
         email: `billing-member-${memberIndex}@example.invalid`,
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       await ctx.db.insert("organizationMemberships", {
         organizationId,
@@ -505,11 +509,15 @@ describe("Polar billing changes", () => {
         state: "active",
         email: "member@example.invalid",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const otherOwnerUserId = await ctx.db.insert("users", {
         state: "active",
         email: "other-owner@example.invalid",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       await ctx.db.insert("organizationMemberships", {
         organizationId: seed.organizationId,

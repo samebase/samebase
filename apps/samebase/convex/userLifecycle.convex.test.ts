@@ -146,8 +146,15 @@ describe("user lifecycle authorization", () => {
       {
         state: "active" as const,
         email: "nicu@samebase.com",
-        isApproved: true,
+        isApproved: false,
         role: "role_staff",
+      },
+      {
+        state: "active" as const,
+        email: "nicu@samebase.com",
+        isApproved: false,
+        termsAccepted: false,
+        role: "role_terms_pending",
       },
       {
         state: "active" as const,
@@ -160,7 +167,7 @@ describe("user lifecycle authorization", () => {
         email: "terms@example.test",
         isApproved: true,
         termsAccepted: false,
-        role: "role_member",
+        role: "role_terms_pending",
       },
       {
         state: "active" as const,
@@ -190,6 +197,87 @@ describe("user lifecycle authorization", () => {
         termsAccepted: testCase.termsAccepted !== false,
       });
     }
+  });
+
+  it("blocks member operations until an approved user accepts the Terms", async () => {
+    const { t, userId } = await seedLifecycleUser({
+      state: "active",
+      email: "terms-boundary@example.test",
+      isApproved: true,
+      termsAccepted: false,
+    });
+    const { organizationId, vaultId } = await insertOrganizationVaultForUser(t, userId);
+    await insertProviderConfiguration(t, { organizationId, userId });
+    const sessionId = await t.run(async (ctx) => {
+      return await ctx.db.insert("authSessions", {
+        userId,
+        expirationTime: Date.now() + 60_000,
+      });
+    });
+    const viewer = t.withIdentity({
+      subject: `${userId}|${sessionId}`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(viewer.query(api.users.currentViewerAccess, {})).resolves.toEqual({
+      role: "role_terms_pending",
+      accessKeys: ["access_public", "access_account_deletion", "access_account_settings"],
+      termsAccepted: false,
+    });
+    await expect(viewer.query(api.users.getUserSettings, {})).rejects.toThrow("Access denied");
+    await expect(viewer.query(api.accountDeletion.index.status, {})).resolves.toBeNull();
+    await expect(
+      viewer.mutation(api.accountDeletion.index.request, {
+        completionCapability: "a".repeat(64),
+        deletionConfirmationText: "keep my account",
+      }),
+    ).resolves.toEqual({ state: "confirmation_mismatch" });
+
+    await expect(viewer.query(api.organizations.listForViewer, {})).rejects.toThrow(
+      "Access denied",
+    );
+    await expect(
+      viewer.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).rejects.toThrow("Access denied");
+    await expect(
+      viewer.query(api.vault.organizationTree.getVaultOrganizationTreeSettings, {}),
+    ).rejects.toThrow("Access denied");
+    await expect(
+      viewer.query(api.billingResourceQuotas.getViewerBillingResourceUsage, { organizationId }),
+    ).rejects.toThrow("Access denied");
+    await expect(
+      viewer.query(api.mcp.grants.listCurrentUserGrants, {
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).rejects.toThrow("Access denied");
+    await expect(viewer.query(api.appProvisioningEvents.listForVault, { vaultId })).rejects.toThrow(
+      "Access denied",
+    );
+
+    await expect(viewer.mutation(api.users.acceptCurrentTerms, {})).resolves.toBeNull();
+
+    await expect(viewer.query(api.users.currentViewerAccess, {})).resolves.toMatchObject({
+      role: "role_member",
+      termsAccepted: true,
+    });
+    await expect(viewer.query(api.organizations.listForViewer, {})).resolves.toHaveLength(1);
+    await expect(
+      viewer.query(api.users.getConvexConnectionStatus, { organizationId }),
+    ).resolves.toMatchObject({ state: "connected" });
+    await expect(
+      viewer.query(api.vault.organizationTree.getVaultOrganizationTreeSettings, {}),
+    ).resolves.toEqual([]);
+    await expect(
+      viewer.query(api.billingResourceQuotas.getViewerBillingResourceUsage, { organizationId }),
+    ).resolves.toHaveProperty("connections");
+    await expect(
+      viewer.query(api.mcp.grants.listCurrentUserGrants, {
+        paginationOpts: { cursor: null, numItems: 10 },
+      }),
+    ).resolves.toMatchObject({ page: [] });
+    await expect(
+      viewer.query(api.appProvisioningEvents.listForVault, { vaultId }),
+    ).resolves.toEqual([]);
   });
 
   it("rejects stale authenticated identities for deleted and missing users", async () => {

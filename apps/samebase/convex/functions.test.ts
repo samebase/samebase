@@ -16,10 +16,19 @@ import {
 const EXPECTED_PHASE_1_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
   role_anonymous: ["access_public"],
   role_deleting: ["access_public", "access_account_deletion"],
-  role_pending_access: ["access_public", "access_account_deletion", "access_user_preferences"],
+  role_pending_access: [
+    "access_public",
+    "access_account_deletion",
+    "access_account_settings",
+    "access_organization_invitation_accept",
+    "access_user_preferences",
+  ],
+  role_terms_pending: ["access_public", "access_account_deletion", "access_account_settings"],
   role_member: [
     "access_public",
     "access_account_deletion",
+    "access_account_settings",
+    "access_organization_invitation_accept",
     "access_user_preferences",
     "access_dashboard",
     "access_provider_connections",

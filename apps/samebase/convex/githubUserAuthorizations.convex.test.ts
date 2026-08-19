@@ -55,6 +55,8 @@ async function seedClaimedGitHubRefresh(email: string, githubUserId: string) {
       state: "active",
       email,
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     await insertGitHubSignInAccount(ctx, {
       userId,
@@ -124,11 +126,15 @@ describe("viewer GitHub user authorization", () => {
         state: "active",
         email: "github-status@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const extraMemberId = await ctx.db.insert("users", {
         state: "active",
         email: "github-status-extra-member@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const organizationId = await ctx.db.insert("organizations", {
         githubOwnerId: "101",
@@ -260,6 +266,8 @@ describe("viewer GitHub user authorization", () => {
         state: "active",
         email: "github-revoke@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const now = Date.now();
       const authorizationId = await ctx.db.insert("githubUserAuthorizations", {
@@ -309,6 +317,8 @@ describe("GitHub user authorization identity boundaries", () => {
         state: "active",
         email: "github-switch@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const now = Date.now();
       const authorizationId = await ctx.db.insert("githubUserAuthorizations", {
@@ -359,11 +369,15 @@ describe("GitHub user authorization identity boundaries", () => {
         state: "active",
         email: "github-owner@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const secondUserId = await ctx.db.insert("users", {
         state: "active",
         email: "github-other@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const now = Date.now();
       const authorizationId = await ctx.db.insert("githubUserAuthorizations", {
@@ -420,6 +434,8 @@ describe("GitHub user authorization identity boundaries", () => {
         state: "active",
         email: "github-sign-in@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       await ctx.db.insert("authAccounts", {
         userId,
@@ -461,11 +477,15 @@ describe("GitHub user authorization identity boundaries", () => {
         state: "active",
         email: "github-sign-in-owner@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const secondUserId = await ctx.db.insert("users", {
         state: "active",
         email: "github-access-candidate@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       await ctx.db.insert("authAccounts", {
         userId: firstUserId,
@@ -512,6 +532,8 @@ describe("GitHub user authorization identity boundaries", () => {
         state: "active",
         email: "github-sign-in-required@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
     });
 
@@ -537,6 +559,8 @@ describe("GitHub user authorization identity boundaries", () => {
         state: "active",
         email: "github-use-sign-in-required@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const now = Date.now();
       await ctx.db.insert("githubUserAuthorizations", {

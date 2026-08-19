@@ -63,6 +63,8 @@ describe("vault provider observations", () => {
         state: "active",
         email: "provider-observations@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const organizationId = await ctx.db.insert("organizations", {
         githubOwnerId: "provider-observations-owner",

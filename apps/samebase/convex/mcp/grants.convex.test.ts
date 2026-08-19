@@ -23,12 +23,16 @@ async function seedGrants() {
       state: "active",
       email: "owner@example.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
       name: "Owner",
     });
     const otherUserId = await ctx.db.insert("users", {
       state: "active",
       email: "other@example.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
       name: "Other",
     });
     await ctx.db.insert("mcpOauthClients", {

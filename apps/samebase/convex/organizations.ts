@@ -75,7 +75,7 @@ async function deleteRows<TableName extends TableNames>(
 }
 
 export const listForViewer = query({
-  access: "access_user_preferences",
+  access: "access_dashboard",
   args: {},
   returns: v.array(vOrganizationSummary),
   handler: async (ctx) => {

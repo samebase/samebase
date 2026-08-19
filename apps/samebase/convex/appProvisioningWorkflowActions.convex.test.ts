@@ -61,6 +61,8 @@ async function createExistingRepositoryRun() {
       state: "active",
       email: "stable-repository-workflow@example.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubInstallationId: "1001",
@@ -116,6 +118,8 @@ async function createManagedRepositoryRun() {
       state: "active",
       email: "managed-stable-repository-workflow@example.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubInstallationId: "1001",

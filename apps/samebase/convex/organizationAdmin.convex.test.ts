@@ -9,6 +9,8 @@ async function seedDeletableOrganization(t: ReturnType<typeof makeConvexTest>, s
       state: "active",
       email: `owner-${suffix}@example.invalid`,
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubOwnerId: `organization-${suffix}`,
@@ -58,6 +60,8 @@ describe("organization membership administration", () => {
         state: "active",
         email: "deleting-member@example.invalid",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const initiatingSessionId = await ctx.db.insert("authSessions", {
         userId: deletingUserId,
@@ -292,6 +296,8 @@ describe("organization deletion", () => {
         state: "active",
         email: "shared-member@example.invalid",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       await ctx.db.insert("organizationMemberships", {
         organizationId: seed.organizationId,

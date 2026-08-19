@@ -56,6 +56,8 @@ async function createRepositoryFixture() {
       state: "active",
       email: "create-without-build-token@example.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubInstallationId: "installation-1",

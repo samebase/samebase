@@ -238,6 +238,8 @@ describe("provider OAuth callback organization returns", () => {
           state: "active",
           email: `${scenario.provider}@example.com`,
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
       });
       const { organizationId } = await t.mutation(
@@ -308,6 +310,8 @@ describe("provider OAuth callback organization returns", () => {
           state: "active",
           email: `${scenario.provider}-deleted@example.test`,
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
       });
       const { organizationId } = await t.mutation(
@@ -347,6 +351,8 @@ describe("provider OAuth callback organization returns", () => {
           state: "active",
           email: `${scenario.provider}-declined@example.com`,
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
       });
       const { organizationId } = await t.mutation(
@@ -416,6 +422,8 @@ describe("provider OAuth callback organization returns", () => {
         state: "active",
         email: "cloudflare-exchange-failure@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
     });
     const { organizationId } = await t.mutation(
@@ -476,6 +484,8 @@ describe("provider OAuth callback organization returns", () => {
           state: "active",
           email: `${scenario.provider}-success@example.com`,
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
       });
       const { organizationId } = await t.mutation(
@@ -581,6 +591,8 @@ describe("provider OAuth callback organization returns", () => {
           state: "active",
           email: `${scenario.provider}-storage@example.com`,
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
       });
       const { organizationId } = await t.mutation(
@@ -705,6 +717,8 @@ describe("provider OAuth callback organization returns", () => {
           state: "active",
           email: `${scenario.provider}-${scenario.accountCase}@example.com`,
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
       });
       const { organizationId } = await t.mutation(
@@ -806,6 +820,8 @@ describe("provider OAuth callback organization returns", () => {
           state: "active",
           email: `${scenario.provider}-current-grant@example.com`,
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
       });
       const { organizationId } = await t.mutation(
@@ -962,6 +978,8 @@ describe("provider OAuth callback organization returns", () => {
         state: "active",
         email: "convex-target-mismatch@example.com",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
     });
     const { organizationId } = await t.mutation(
@@ -1049,6 +1067,8 @@ describe("provider OAuth callback organization returns", () => {
           state: "active",
           email: `${scenario.provider}-target-mismatch@example.com`,
           isApproved: true,
+          termsVersion: "2026-08-12",
+          termsAcceptedAt: 1,
         });
       });
       const { organizationId } = await t.mutation(

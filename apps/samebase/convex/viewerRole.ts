@@ -7,6 +7,9 @@ export function readViewerRoleForUser(user: NonDeletedUserLifecycleDoc): ViewerR
     case "deleting":
       return "role_deleting";
     case "active":
+      if (user.termsAcceptedAt === undefined && (isAdminUser(user.email) || user.isApproved)) {
+        return "role_terms_pending";
+      }
       if (isAdminUser(user.email)) {
         return "role_staff";
       }

@@ -36,16 +36,22 @@ async function seedOrganization() {
       state: "active",
       email: "a@x.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const otherOwnerId = await ctx.db.insert("users", {
       state: "active",
       email: "b@x.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const memberId = await ctx.db.insert("users", {
       state: "active",
       email: "c@x.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubOwnerId: "owner-1",

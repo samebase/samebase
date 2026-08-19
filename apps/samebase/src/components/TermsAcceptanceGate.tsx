@@ -93,10 +93,7 @@ export function TermsAcceptanceGate({
   if (resolvedViewerAccess === undefined) {
     return null;
   }
-  if (
-    resolvedViewerAccess.termsAccepted === false &&
-    (resolvedViewerAccess.role === "role_member" || resolvedViewerAccess.role === "role_staff")
-  ) {
+  if (resolvedViewerAccess.role === "role_terms_pending") {
     return <TermsAcceptanceScreen />;
   }
   return <>{children}</>;

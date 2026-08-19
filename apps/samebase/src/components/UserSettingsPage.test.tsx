@@ -99,7 +99,12 @@ function createJwt(accountPresentation: AccountPresentation) {
 
 function setDefaultQueries() {
   testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
-    accessKeys: ["access_public", "access_user_preferences"],
+    accessKeys: [
+      "access_public",
+      "access_account_deletion",
+      "access_account_settings",
+      "access_user_preferences",
+    ],
     role: "role_member",
     termsAccepted: true,
   });
@@ -120,10 +125,18 @@ let rootElement: HTMLDivElement | null = null;
 async function mountSettingsPage(
   authorizationNotice: React.ReactNode = null,
   termsAccepted = true,
-  role: "role_member" | "role_pending_access" = "role_member",
+  role: "role_member" | "role_pending_access" | "role_terms_pending" = "role_member",
 ) {
   testState.queries.set(getFunctionName(api.users.currentViewerAccess), {
-    accessKeys: ["access_public", "access_user_preferences"],
+    accessKeys:
+      role === "role_terms_pending"
+        ? ["access_public", "access_account_deletion", "access_account_settings"]
+        : [
+            "access_public",
+            "access_account_deletion",
+            "access_account_settings",
+            "access_user_preferences",
+          ],
     role,
     termsAccepted,
   });
@@ -239,7 +252,7 @@ describe("UserSettingsPage", () => {
   });
 
   it("shows only account exit actions before Terms acceptance", async () => {
-    const container = await mountSettingsPage(null, false);
+    const container = await mountSettingsPage(null, false, "role_terms_pending");
 
     expect([...container.querySelectorAll("button")].map((button) => button.textContent)).toEqual([
       "Sign out",

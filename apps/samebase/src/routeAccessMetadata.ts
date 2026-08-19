@@ -133,7 +133,7 @@ const routeAccessMetadataByPath = {
   "/pricing": { access: "access_public" },
   "/privacy": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/settings": {
-    access: "access_user_preferences",
+    access: "access_account_settings",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
   "/terms": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },

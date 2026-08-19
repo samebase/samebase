@@ -45,6 +45,8 @@ async function seedRefreshTokenFamily() {
       state: "active",
       email: "refresh-replay@example.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
       name: "Refresh Replay User",
     });
     await ctx.db.insert("mcpOauthClients", {
@@ -277,6 +279,8 @@ describe("MCP OAuth token resource binding", () => {
         state: "active",
         email: "authorization-code-resource@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       await ctx.db.insert("mcpAuthorizationCodes", {
         codeHash: "resource_bound_code_hash",
@@ -328,6 +332,8 @@ describe("MCP OAuth authorization request boundaries", () => {
         state: "active",
         email: "revoked-grant@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       await ctx.db.insert("mcpOauthClients", {
         clientId,
@@ -437,11 +443,15 @@ describe("MCP OAuth authorization request boundaries", () => {
         state: "active",
         email: "authorization-owner@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const otherUserId = await ctx.db.insert("users", {
         state: "active",
         email: "authorization-other@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       for (const operation of ["issue", "deny"] as const) {
         const sharedRequest = {
@@ -563,11 +573,15 @@ describe("MCP OAuth account deletion access", () => {
         state: "active",
         email: "deleting-auth-request@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const missingUserId = await ctx.db.insert("users", {
         state: "active",
         email: "missing-auth-request@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const initiatingSessionId = await ctx.db.insert("authSessions", {
         userId: deletingUserId,
@@ -642,11 +656,15 @@ describe("MCP OAuth account deletion access", () => {
         state: "active",
         email: "deleting-code-owner@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const missingUserId = await ctx.db.insert("users", {
         state: "active",
         email: "missing-code-owner@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const initiatingSessionId = await ctx.db.insert("authSessions", {
         userId: deletingUserId,
@@ -749,6 +767,8 @@ describe("MCP OAuth account deletion access", () => {
         state: "active",
         email: "deleting-mcp@example.test",
         isApproved: true,
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1,
       });
       const initiatingSessionId = await ctx.db.insert("authSessions", {
         userId,

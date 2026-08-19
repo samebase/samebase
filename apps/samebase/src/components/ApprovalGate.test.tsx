@@ -73,8 +73,8 @@ describe("ApprovalGate", () => {
 
   it("renders Terms acceptance for a Terms-pending viewer", () => {
     viewerAccessState.result = {
-      role: "role_member",
-      accessKeys: ["access_public", "access_dashboard"],
+      role: "role_terms_pending",
+      accessKeys: ["access_public", "access_account_deletion", "access_account_settings"],
       termsAccepted: false,
     };
 

@@ -10,16 +10,22 @@ async function seedCloudflareOrganization() {
       state: "active",
       email: "owner@example.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const memberId = await ctx.db.insert("users", {
       state: "active",
       email: "member@example.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const outsiderId = await ctx.db.insert("users", {
       state: "active",
       email: "outsider@example.test",
       isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
       githubOwnerId: "cloudflare-token-owner",

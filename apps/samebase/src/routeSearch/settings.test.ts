@@ -28,13 +28,13 @@ describe("settings route search", () => {
       acceptedSearchKeys: [DELETE_ACCOUNT_QUERY_PARAM],
       searchParamAccess: [
         {
-          access: "access_user_preferences",
+          access: "access_account_deletion",
           key: DELETE_ACCOUNT_QUERY_PARAM,
         },
       ],
       searchParamSuggestions: [
         {
-          access: "access_user_preferences",
+          access: "access_account_deletion",
           key: DELETE_ACCOUNT_QUERY_PARAM,
           searchParamKind: "presence",
         },

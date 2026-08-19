@@ -31,9 +31,9 @@ describe("TermsAcceptanceGate", () => {
     testState.queryResult = { role: "role_member", termsAccepted: true };
   });
 
-  it("replaces the route with the Terms screen for a Terms-pending member", () => {
+  it("replaces the route with the Terms screen for a Terms-pending account", () => {
     const markup = renderToStaticMarkup(
-      <TermsAcceptanceGate viewerAccess={{ role: "role_member", termsAccepted: false }}>
+      <TermsAcceptanceGate viewerAccess={{ role: "role_terms_pending", termsAccepted: false }}>
         <div>Route child</div>
       </TermsAcceptanceGate>,
     );
