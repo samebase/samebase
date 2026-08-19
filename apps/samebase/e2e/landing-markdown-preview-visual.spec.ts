@@ -349,7 +349,7 @@ test("landing document navigation resets pages, restores history, and aligns dir
     }),
   ).toBeInViewport();
 
-  await article.locator('[id="deleting-samebase"]').scrollIntoViewIfNeeded();
+  await article.locator('[id="7-delete-the-app"]').scrollIntoViewIfNeeded();
   await expect.poll(() => readMainPaneScrollTop(page)).toBeGreaterThan(0);
   const doItYourselfScrollTop = await readMainPaneScrollTop(page);
 
@@ -381,10 +381,10 @@ test("landing document navigation resets pages, restores history, and aligns dir
   await expect.poll(() => new URL(page.url()).pathname).toBe(LANDING_PREVIEW_ROUTE);
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
 
-  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#deleting-samebase`, {
+  await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#7-delete-the-app`, {
     waitUntil: "domcontentloaded",
   });
-  const finalHeading = article.locator('[id="deleting-samebase"]');
+  const finalHeading = article.locator('[id="7-delete-the-app"]');
   await expect(finalHeading).toBeInViewport();
   await expect
     .poll(() => finalHeading.evaluate((element) => element.getBoundingClientRect().top))
