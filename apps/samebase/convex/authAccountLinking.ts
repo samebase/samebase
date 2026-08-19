@@ -20,6 +20,8 @@ type ConvexAuthCallbacks = NonNullable<ConvexAuthConfig["callbacks"]>;
 type CreateOrUpdateUser = NonNullable<ConvexAuthCallbacks["createOrUpdateUser"]>;
 export type CreateOrUpdateAuthUserArgs = Parameters<CreateOrUpdateUser>[1];
 
+const CURRENT_TERMS_VERSION = "2026-08-12";
+
 const isAuthSessionUser = guard<unknown, { state?: unknown }>((value) =>
   typeof value === "object" && value !== null ? value : null,
 );
@@ -279,6 +281,9 @@ async function createOrResolveOAuthUser(
     state: "active",
     email: profile.email,
     emailVerificationTime: now,
+    isApproved: true,
+    termsVersion: CURRENT_TERMS_VERSION,
+    termsAcceptedAt: now,
     ...(profile.name ? { name: profile.name } : {}),
     ...(profile.image ? { image: profile.image } : {}),
   });

@@ -163,7 +163,7 @@ describe("Samebase OAuth account linking", () => {
     );
   });
 
-  it("creates a verified Samebase user from a new GitHub identity", async () => {
+  it("creates an approved Samebase user with Terms acceptance from a new GitHub identity", async () => {
     const t = makeConvexTest();
 
     const userId = await t.run(async (ctx) =>
@@ -180,12 +180,19 @@ describe("Samebase OAuth account linking", () => {
     );
 
     const user = await t.run(async (ctx) => await ctx.db.get(userId));
+    if (user?.state !== "active") {
+      throw new Error("The new OAuth user is not active.");
+    }
     expect(user).toMatchObject({
       email: "new-github@example.com",
       name: "OAuth User",
       image: "https://example.com/avatar.png",
       emailVerificationTime: expect.any(Number),
+      isApproved: true,
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: expect.any(Number),
     });
+    expect(user.termsAcceptedAt).toBe(user.emailVerificationTime);
   });
 
   it("links GitHub to the user whose current session has a valid intent", async () => {

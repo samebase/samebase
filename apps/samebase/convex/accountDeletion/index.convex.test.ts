@@ -183,7 +183,13 @@ describe("account deletion request and status", () => {
   it("lets staff restore only a queued deletion and makes the late callback a no-op", async () => {
     const t = makeConvexTest();
     const { sessionId, userId, viewer } = await seedActiveViewer(t, "restore@example.invalid");
-    await t.run(async (ctx) => await ctx.db.patch(userId, { name: "Restored User" }));
+    await t.run(async (ctx) =>
+      ctx.db.patch(userId, {
+        name: "Restored User",
+        termsVersion: "2026-08-12",
+        termsAcceptedAt: 1_755_000_000_000,
+      }),
+    );
     const requested = await viewer.mutation(api.accountDeletion.index.request, {
       completionCapability: "2".repeat(64),
       deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
@@ -217,6 +223,8 @@ describe("account deletion request and status", () => {
       email: "restore@example.invalid",
       name: "Restored User",
       state: "active",
+      termsVersion: "2026-08-12",
+      termsAcceptedAt: 1_755_000_000_000,
     });
 
     await expect(
