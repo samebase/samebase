@@ -3,7 +3,7 @@ import { paginationOptsValidator, paginationResultValidator } from "convex/serve
 import { v } from "convex/values";
 
 import { internal } from "../_generated/api";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { internalMutation, type MutationCtx } from "../_generated/server";
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
 import { mutation, query } from "../functions";
@@ -16,7 +16,7 @@ import {
 } from "./model";
 import { startAccountDeletionWorkflow } from "./workflow";
 
-const { array, id, literal, number, object, optional, string, union } = v;
+const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
 const ACCOUNT_DELETION_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1_000;
 
@@ -77,6 +77,16 @@ const adminAccountDeletionFields = {
 
 const vAdminAccountDeletionListItem = object(adminAccountDeletionFields);
 
+const vAdminUserListItem = object({
+  userId: id("users"),
+  email: optional(string()),
+  state: union(literal("active"), literal("deleting"), literal("deleted")),
+  isApproved: boolean(),
+  isCurrentUser: boolean(),
+  providers: array(string()),
+  createdAt: number(),
+});
+
 function projectStatus(run: Doc<"workflow_accountDeletion_runs">) {
   if (run.state === "succeeded") {
     throw new Error("Account deletion completion state is inconsistent.");
@@ -109,6 +119,63 @@ function projectAdminListItem(run: Doc<"workflow_accountDeletion_runs">) {
   };
 }
 
+async function queueAccountDeletion(
+  ctx: MutationCtx,
+  args: {
+    completionCapability: string;
+    eventMessage: string;
+    initiatingSessionId?: Id<"authSessions">;
+    user: Extract<Doc<"users">, { state: "active" }>;
+  },
+) {
+  const now = Date.now();
+  const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
+    identity: {
+      state: "active",
+      userId: args.user._id,
+      email: args.user.email,
+    },
+    completionCapability: args.completionCapability,
+    state: "queued",
+    workflow: { state: "not_started" },
+    currentStep: "request_accepted",
+    requestedAt: now,
+    updatedAt: now,
+    ...(args.initiatingSessionId === undefined
+      ? {}
+      : { initiatingSessionId: args.initiatingSessionId }),
+    retryCount: 0,
+    outcomes: {
+      providerRevocation: { state: "not_started" },
+      completionEmail: { state: "not_started" },
+    },
+  });
+  await ctx.db.insert("workflow_accountDeletion_events", {
+    runId,
+    step: "request_accepted",
+    level: "info",
+    message: args.eventMessage,
+    createdAt: now,
+  });
+  await ctx.db.replace(args.user._id, {
+    state: "deleting",
+    ...readUserProfile(args.user),
+    runId,
+    requestedAt: now,
+  });
+  await ctx.scheduler.runAt(
+    now + ACCOUNT_DELETION_GRACE_PERIOD_MS,
+    internal.accountDeletion.index.startScheduled,
+    { runId },
+  );
+
+  const run = await ctx.db.get(runId);
+  if (run === null || run.identity.state !== "active") {
+    throw new Error("Account deletion run was not created.");
+  }
+  return run;
+}
+
 async function startQueuedAccountDeletion(
   ctx: MutationCtx,
   run: Extract<Doc<"workflow_accountDeletion_runs">, { state: "queued" }>,
@@ -127,7 +194,9 @@ async function startQueuedAccountDeletion(
     currentStep: run.currentStep,
     requestedAt: run.requestedAt,
     updatedAt: Date.now(),
-    initiatingSessionId: run.initiatingSessionId,
+    ...(run.initiatingSessionId === undefined
+      ? {}
+      : { initiatingSessionId: run.initiatingSessionId }),
     retryCount: run.retryCount,
     outcomes: run.outcomes,
   });
@@ -187,54 +256,12 @@ export const request = mutation({
       throw new Error("Account deletion completion capability is already in use.");
     }
 
-    const now = Date.now();
-    const activeRunFields = {
-      identity: {
-        state: "active",
-        userId: ctx.viewer.userId,
-        email: ctx.viewer.user.email,
-      },
+    const run = await queueAccountDeletion(ctx, {
       completionCapability: args.completionCapability,
-      currentStep: "request_accepted",
-      requestedAt: now,
-      updatedAt: now,
+      eventMessage: "Account deletion was requested.",
       initiatingSessionId,
-      retryCount: 0,
-      outcomes: {
-        providerRevocation: { state: "not_started" },
-        completionEmail: { state: "not_started" },
-      },
-    } as const;
-
-    const runId = await ctx.db.insert("workflow_accountDeletion_runs", {
-      ...activeRunFields,
-      state: "queued",
-      workflow: { state: "not_started" },
+      user: ctx.viewer.user,
     });
-    await ctx.db.insert("workflow_accountDeletion_events", {
-      runId,
-      step: "request_accepted",
-      level: "info",
-      message: "Account deletion was requested.",
-      createdAt: now,
-    });
-    await ctx.db.replace(ctx.viewer.userId, {
-      state: "deleting",
-      ...readUserProfile(ctx.viewer.user),
-      runId,
-      requestedAt: now,
-    });
-
-    await ctx.scheduler.runAt(
-      now + ACCOUNT_DELETION_GRACE_PERIOD_MS,
-      internal.accountDeletion.index.startScheduled,
-      { runId },
-    );
-
-    const run = await ctx.db.get(runId);
-    if (run === null || run.identity.state !== "active") {
-      throw new Error("Account deletion run was not created.");
-    }
     return { state: "accepted" as const, status: projectStatus(run) };
   },
 });
@@ -270,6 +297,42 @@ export const deleteNow = mutation({
       throw new Error("Account deletion run was not started.");
     }
     return projectStatus(started);
+  },
+});
+
+export const queueUserDeletionForAdmin = mutation({
+  access: "access_admin",
+  args: { userId: id("users") },
+  returns: vAccountDeletionStatus,
+  handler: async (ctx, args) => {
+    if (args.userId === ctx.viewer.userId) {
+      throw new Error("Use Account settings to delete the current account.");
+    }
+
+    const user = await ctx.db.get(args.userId);
+    if (user === null || user.state !== "active") {
+      throw new Error("User account is not active.");
+    }
+
+    const membership = await ctx.db
+      .query("organizationMemberships")
+      .withIndex("by_user", (query) => query.eq("userId", args.userId))
+      .first();
+    if (membership !== null) {
+      throw new Error("User must leave all organizations before account deletion.");
+    }
+
+    const capabilityBytes = new Uint8Array(32);
+    crypto.getRandomValues(capabilityBytes);
+    const completionCapability = Array.from(capabilityBytes, (byte) =>
+      byte.toString(16).padStart(2, "0"),
+    ).join("");
+    const run = await queueAccountDeletion(ctx, {
+      completionCapability,
+      eventMessage: "Account deletion was requested by staff.",
+      user,
+    });
+    return projectStatus(run);
   },
 });
 
@@ -338,7 +401,9 @@ export const retry = mutation({
       currentStep: run.currentStep,
       requestedAt: run.requestedAt,
       updatedAt: now,
-      initiatingSessionId: run.initiatingSessionId,
+      ...(run.initiatingSessionId === undefined
+        ? {}
+        : { initiatingSessionId: run.initiatingSessionId }),
       retryCount: run.retryCount + 1,
       outcomes: run.outcomes,
     });
@@ -418,6 +483,46 @@ export const listForAdmin = query({
       ...runs,
       page: runs.page.map(projectAdminListItem),
     };
+  },
+});
+
+export const listUsersForAdmin = query({
+  access: "access_admin",
+  args: {
+    paginationOpts: paginationOptsValidator,
+  },
+  returns: paginationResultValidator(vAdminUserListItem),
+  handler: async (ctx, args) => {
+    const users = await ctx.db.query("users").order("desc").paginate(args.paginationOpts);
+    const page = await Promise.all(
+      users.page.map(async (user) => {
+        if (user.state === "deleted") {
+          return {
+            userId: user._id,
+            state: user.state,
+            isApproved: false,
+            isCurrentUser: false,
+            providers: [],
+            createdAt: user._creationTime,
+          };
+        }
+
+        const accounts = await ctx.db
+          .query("authAccounts")
+          .withIndex("userIdAndProvider", (query) => query.eq("userId", user._id))
+          .take(10);
+        return {
+          userId: user._id,
+          email: user.email,
+          state: user.state,
+          isApproved: user.isApproved === true,
+          isCurrentUser: user._id === ctx.viewer.userId,
+          providers: [...new Set(accounts.map(({ provider }) => provider))].sort(),
+          createdAt: user._creationTime,
+        };
+      }),
+    );
+    return { ...users, page };
   },
 });
 

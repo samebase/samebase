@@ -786,6 +786,103 @@ describe("account deletion organization boundary", () => {
     expect(deletedUser.deletedAt).toBe(snapshot.run.completedAt);
   });
 
+  it("finalizes a staff-requested deletion without preserving a target session", async () => {
+    const { ids, t } = await seedRunningDeletion();
+    const authIds = await t.run(async (ctx) => {
+      await ctx.db.patch(ids.runId, { initiatingSessionId: undefined });
+      const verifierId = await ctx.db.insert("authVerifiers", {
+        sessionId: ids.initiatingSessionId,
+      });
+      const refreshTokenId = await ctx.db.insert("authRefreshTokens", {
+        sessionId: ids.initiatingSessionId,
+        expirationTime: 2_000_000_000_000,
+      });
+      const accountId = await ctx.db.insert("authAccounts", {
+        userId: ids.deletingUserId,
+        provider: "google",
+        providerAccountId: "staff-requested-deletion",
+      });
+      const verificationCodeId = await ctx.db.insert("authVerificationCodes", {
+        accountId,
+        provider: "google",
+        code: "unused",
+        expirationTime: 2_000_000_000_000,
+        verifier: "unused",
+      });
+      return { accountId, refreshTokenId, verificationCodeId, verifierId };
+    });
+
+    await prepareIdentityDeletionData(t, ids.runId);
+
+    let sessionsRemoved = false;
+    for (let batch = 0; batch < 8; batch += 1) {
+      sessionsRemoved = await t.mutation(
+        internal.accountDeletion.authCleanup.deleteOtherSessionBatch,
+        { runId: ids.runId, workflowId },
+      );
+      if (sessionsRemoved) {
+        break;
+      }
+    }
+    expect(sessionsRemoved).toBe(true);
+
+    let accountsRemoved = false;
+    for (let batch = 0; batch < 8; batch += 1) {
+      accountsRemoved = await t.mutation(
+        internal.accountDeletion.authCleanup.deleteAuthAccountBatch,
+        { runId: ids.runId, workflowId },
+      );
+      if (accountsRemoved) {
+        break;
+      }
+    }
+    expect(accountsRemoved).toBe(true);
+    await t.mutation(internal.accountDeletion.authCleanup.deleteIdentityRateLimit, {
+      runId: ids.runId,
+      workflowId,
+    });
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.deleteInitiatingSessionBatch, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toBe(true);
+    await expect(
+      t.mutation(internal.accountDeletion.authCleanup.deleteEventBatch, {
+        runId: ids.runId,
+        workflowId,
+      }),
+    ).resolves.toBe(true);
+    await t.mutation(internal.accountDeletion.workflow.recordIdentityDeletionStart, {
+      runId: ids.runId,
+      workflowId,
+    });
+    await t.mutation(internal.accountDeletion.authCleanup.finishIdentityDeletion, {
+      runId: ids.runId,
+      workflowId,
+    });
+
+    await expect(
+      t.run(async (ctx) => ({
+        account: await ctx.db.get(authIds.accountId),
+        refreshToken: await ctx.db.get(authIds.refreshTokenId),
+        run: await ctx.db.get(ids.runId),
+        session: await ctx.db.get(ids.initiatingSessionId),
+        user: await ctx.db.get(ids.deletingUserId),
+        verificationCode: await ctx.db.get(authIds.verificationCodeId),
+        verifier: await ctx.db.get(authIds.verifierId),
+      })),
+    ).resolves.toMatchObject({
+      account: null,
+      refreshToken: null,
+      run: { state: "succeeded", identity: { state: "scrubbed" } },
+      session: null,
+      user: { state: "deleted" },
+      verificationCode: null,
+      verifier: null,
+    });
+  });
+
   it("rejects final identity deletion when an older run still has an organization membership", async () => {
     const { ids, t } = await seedRunningDeletion();
     const membershipId = await t.run(async (ctx) => {

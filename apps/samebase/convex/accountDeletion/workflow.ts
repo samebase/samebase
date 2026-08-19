@@ -525,7 +525,9 @@ export const handleWorkflowComplete = internalMutation({
       workflow: run.workflow,
       currentStep: run.currentStep,
       requestedAt: run.requestedAt,
-      initiatingSessionId: run.initiatingSessionId,
+      ...(run.initiatingSessionId === undefined
+        ? {}
+        : { initiatingSessionId: run.initiatingSessionId }),
       retryCount: run.retryCount,
       outcomes: run.outcomes,
       latestSafeError: SAFE_WORKFLOW_ERROR,

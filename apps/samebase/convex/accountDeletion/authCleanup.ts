@@ -69,7 +69,10 @@ export const deleteOtherSessionBatch = internalMutation({
       .query("authSessions")
       .withIndex("userId", (query) => query.eq("userId", run.identity.userId))
       .take(2);
-    const session = sessions.find(({ _id }) => _id !== run.initiatingSessionId);
+    const session =
+      run.initiatingSessionId === undefined
+        ? sessions[0]
+        : sessions.find(({ _id }) => _id !== run.initiatingSessionId);
 
     if (session === undefined) {
       return true;
@@ -143,6 +146,10 @@ export const deleteInitiatingSessionBatch = internalMutation({
   handler: async (ctx, args) => {
     const run = await readOwnedActiveRun(ctx, args);
 
+    if (run.initiatingSessionId === undefined) {
+      return true;
+    }
+
     const session = await ctx.db.get(run.initiatingSessionId);
 
     if (session !== null && session.userId !== run.identity.userId) {
@@ -201,7 +208,9 @@ export async function assertIdentityDeletionReady(
     throw new Error("Organization membership remains during account deletion.");
   }
 
-  const initiatingSession = await ctx.db.get(run.initiatingSessionId);
+  const initiatingSessionId = run.initiatingSessionId;
+  const initiatingSession =
+    initiatingSessionId === undefined ? null : await ctx.db.get(initiatingSessionId);
 
   if (initiatingSession !== null && initiatingSession.userId !== run.identity.userId) {
     throw new Error("Initiating auth session belongs to another user.");
@@ -212,22 +221,30 @@ export async function assertIdentityDeletionReady(
     .withIndex("userId", (query) => query.eq("userId", run.identity.userId))
     .take(2);
 
-  if (
+  if (initiatingSessionId === undefined) {
+    if (remainingSessions.length > 0) {
+      throw new Error("Auth sessions remain during account deletion.");
+    }
+  } else if (
     remainingSessions.length > 1 ||
-    (remainingSessions.length === 1 && remainingSessions[0]._id !== run.initiatingSessionId)
+    (remainingSessions.length === 1 && remainingSessions[0]._id !== initiatingSessionId)
   ) {
-    throw new Error("Only the initiating auth session may remain during finalization.");
+    throw new Error("Unexpected auth sessions remain during account deletion.");
   }
 
-  const remainingVerifier = await ctx.db
-    .query("authVerifiers")
-    .withIndex("sessionId", (query) => query.eq("sessionId", run.initiatingSessionId))
-    .first();
-
-  const remainingRefreshToken = await ctx.db
-    .query("authRefreshTokens")
-    .withIndex("sessionId", (query) => query.eq("sessionId", run.initiatingSessionId))
-    .first();
+  const [remainingVerifier, remainingRefreshToken] =
+    initiatingSessionId === undefined
+      ? [null, null]
+      : await Promise.all([
+          ctx.db
+            .query("authVerifiers")
+            .withIndex("sessionId", (query) => query.eq("sessionId", initiatingSessionId))
+            .first(),
+          ctx.db
+            .query("authRefreshTokens")
+            .withIndex("sessionId", (query) => query.eq("sessionId", initiatingSessionId))
+            .first(),
+        ]);
 
   if (remainingVerifier !== null || remainingRefreshToken !== null) {
     throw new Error("Initiating auth session children remain during finalization.");
@@ -306,7 +323,8 @@ export const finishIdentityDeletion = internalMutation({
 
     await assertIdentityDeletionReady(ctx, run);
 
-    const initiatingSession = await ctx.db.get(run.initiatingSessionId);
+    const initiatingSession =
+      run.initiatingSessionId === undefined ? null : await ctx.db.get(run.initiatingSessionId);
     const completedAt = Date.now();
 
     if (initiatingSession?.userId === run.identity.userId) {
