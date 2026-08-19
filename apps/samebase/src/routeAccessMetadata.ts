@@ -34,6 +34,10 @@ const routeAccessMetadataByPath = {
     access: "access_admin",
     appWorkspaceRouteChrome: { leftPane: "none" },
   },
+  "/admin/users": {
+    access: "access_admin",
+    appWorkspaceRouteChrome: { leftPane: "none" },
+  },
   "/indexDB": { access: "access_admin" },
   "/invite/$code": {
     access: "access_public",

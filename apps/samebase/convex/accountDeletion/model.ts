@@ -1,7 +1,7 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
-const { id, literal, number, object, string, union } = v;
+const { id, literal, number, object, optional, string, union } = v;
 
 export const vAccountDeletionStep = union(
   literal("request_accepted"),
@@ -64,7 +64,8 @@ const activeAccountDeletionRunFields = {
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
   updatedAt: number(),
-  initiatingSessionId: id("authSessions"),
+  /** Present for self-service requests. Staff requests delete every target session. */
+  initiatingSessionId: optional(id("authSessions")),
   retryCount: number(),
   outcomes: vAccountDeletionOutcomeSummary,
 };

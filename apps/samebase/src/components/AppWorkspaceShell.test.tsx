@@ -421,6 +421,7 @@ describe("AppWorkspaceShell", () => {
       "/",
       "/account-deletion",
       "/admin/account-deletions",
+      "/admin/users",
       "/logo/raster-seams",
       "/logo/single-cube",
       "/logo/svg",
