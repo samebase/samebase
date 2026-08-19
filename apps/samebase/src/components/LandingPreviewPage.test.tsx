@@ -310,7 +310,12 @@ describe("LandingPreviewPage", () => {
 
     expect(markup).toContain("Do it yourself: deploy the Samebase stack for $0/month");
     expect(markup).toContain('href="/docs/receipts"');
-    expect(markup).toContain("What the Samebase account adds");
+    expect(markup).toContain("/landing-preview/step-2-use-template.mp4");
+    expect(markup).toContain("/landing-preview/step-3-create-convex-project.mp4");
+    expect(markup).toContain("pnpm run deploy:preview");
+    expect(markup).toContain("What Samebase adds");
+    expect(markup).not.toContain("step-3-connect-cloudflare-pages.mp4");
+    expect(markup).not.toContain("step-5-create-cloudflare-pages-deploy.mp4");
   });
 
   it("renders the broader Cloudflare topology in the stack guide", () => {
