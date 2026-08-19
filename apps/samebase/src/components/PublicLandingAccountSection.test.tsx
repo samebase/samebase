@@ -334,9 +334,16 @@ describe("PublicLandingAccountSection", () => {
 
   it("shows only GitHub OAuth in a static logged-out account section", () => {
     const markup = renderLandingAccountSection("/");
+    const rootElement = document.createElement("div");
+    rootElement.innerHTML = markup;
 
     expect(markup).toContain("Sign in or create an account");
     expect(markup).toContain("Continue with GitHub");
+    expect(rootElement.textContent).toContain(
+      "By continuing, you agree to the Terms of Service. The Privacy Policy explains how Samebase uses your data.",
+    );
+    expect(rootElement.querySelector('a[href="/terms"]')?.textContent).toBe("Terms of Service");
+    expect(rootElement.querySelector('a[href="/privacy"]')?.textContent).toBe("Privacy Policy");
     expect(markup).not.toContain("Continue with Google");
     expect(markup).not.toContain("lucide-chevron-down");
     expect(markup).not.toContain("The app is still internal.");

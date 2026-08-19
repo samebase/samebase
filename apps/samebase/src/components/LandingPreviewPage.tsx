@@ -1,5 +1,6 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
+import { PublicSignupLegalNotice } from "@/components/PublicSignupLegalNotice";
 import { SignInWithOAuth } from "@/SignInWithOAuth";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
@@ -399,8 +400,9 @@ function LandingPreviewOverview() {
                   is all you need to build and deploy a production app.
                 </span>
               </p>
-              <div className="mt-9">
+              <div className="mt-9 flex flex-col gap-2">
                 <SignInWithOAuth provider="github" authReturn="dashboard" markPublicSignupReturn />
+                <PublicSignupLegalNotice />
               </div>
             </div>
             <LandingHeroMenger placement="preview" />
@@ -772,12 +774,13 @@ function LandingPreviewOverview() {
                 the exit door.
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
-                <div>
+                <div className="flex flex-col gap-2">
                   <SignInWithOAuth
                     provider="github"
                     authReturn="dashboard"
                     markPublicSignupReturn
                   />
+                  <PublicSignupLegalNotice />
                 </div>
                 <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>Do it yourself</LandingInlineLink>
               </div>

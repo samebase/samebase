@@ -98,6 +98,10 @@ describe("LandingPreviewPage", () => {
     expect(markup).toContain(">Cloudflare Workers</span>");
     expect(markup).toContain(">is all you need to build and deploy a production app.</span>");
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
+    expect(markup.split("By continuing, you agree to the").length - 1).toBe(2);
+    expect(markup.split('href="/terms">Terms of Service</a>').length - 1).toBe(2);
+    expect(markup.split('href="/privacy">Privacy Policy</a>').length - 1).toBe(2);
+    expect(markup.split("explains how Samebase uses your data.").length - 1).toBe(2);
     expect(markup).not.toContain("Idle apps cost $0/month.");
 
     // The real founder demo stays unloaded until the visitor presses Play.

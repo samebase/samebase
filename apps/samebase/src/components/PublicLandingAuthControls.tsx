@@ -19,6 +19,7 @@ import {
 } from "@/lib/prodUiMode";
 import { readRootRouteSearch } from "@/routeSearch/root";
 import { SignInWithOAuth } from "@/SignInWithOAuth";
+import { PublicSignupLegalNotice } from "@/components/PublicSignupLegalNotice";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useConvexAuth, useQuery } from "convex/react";
 import { useEffect, useState } from "react";
@@ -163,6 +164,7 @@ export function PublicLandingAuthControls({
         authReturn={publicSignup ? "dashboard" : undefined}
         markPublicSignupReturn={markPublicSignupReturn}
       />
+      <PublicSignupLegalNotice />
       {passwordAuthSurface !== "hidden" ? (
         <PasswordAuthForm
           onSignIn={
