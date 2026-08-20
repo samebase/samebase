@@ -24,12 +24,8 @@ their own privacy terms for the information that they process.
 - Signup notifications. When a new account is created, Samebase sends an internal notification to
   authorized Samebase staff. It can include the account name, email address, internal user ID, and
   sign-in method. Samebase uses Cloudflare Email Sending for this notification.
-- Communications. Samebase processes the information that you provide when you contact Samebase.
-- Feedback reports. When you approve an agent feedback submission, Samebase sends the exact report
-  to authorized Samebase staff through Cloudflare Email Sending and the Google-hosted staff mailbox.
-  Samebase stores an account-linked submission-attempt counter, but not the report, in its database
-  to enforce the feedback rate limit. The feedback tool does not request your complete conversation,
-  credentials, file contents, or full logs.
+- Communications and feedback. Samebase processes the information that you choose to send when you
+  contact Samebase or submit feedback.
 - Organization data. Samebase stores organization memberships, roles, and invitations. It uses
   public GitHub profile information for invitations.
 - Connected provider credentials and identifiers. If you connect GitHub, Convex, or Cloudflare,
