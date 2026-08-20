@@ -367,36 +367,48 @@ function LandingPreviewOverview() {
               <h1 className="mt-10 max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
                 The correct way to build web apps.
               </h1>
-              <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                <span className="inline-flex flex-col items-start gap-2 font-bold leading-none text-foreground @sm:flex-row @sm:items-center">
-                  <span className="inline-flex items-center gap-1.5">
+              <div className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
+                <p>
+                  <span className="whitespace-nowrap font-bold text-foreground">
                     <img
                       alt=""
-                      className="h-5 w-5"
+                      className="inline-block h-5 w-5 align-[-0.125em]"
                       height="20"
                       src="/landing-preview/logos/convex-mark.svg"
                       width="20"
                     />
-                    <span>Convex</span>
+                    {"\u00a0"}
+                    Convex
                   </span>
-                  <span className="pl-1 @sm:pl-0" aria-hidden="true">
-                    +
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
+                  <strong className="text-foreground"> + </strong>
+                  <span className="whitespace-nowrap font-bold text-foreground">
                     <img
                       alt=""
-                      className="h-5 w-5"
+                      className="inline-block h-5 w-7 object-cover align-[-0.125em]"
                       height="20"
                       src="/landing-preview/logos/cloudflare.svg"
+                      width="28"
+                    />
+                    {"\u00a0"}
+                    Cloudflare Workers
+                  </span>{" "}
+                  is all you need to ship a production app.
+                </p>
+                <p>
+                  <span className="whitespace-nowrap font-bold text-foreground">
+                    <img
+                      alt=""
+                      className="inline-block h-5 w-5 align-[-0.125em] dark:invert"
+                      height="20"
+                      src="/brand/logo/v1-side-primary-duotone-inline-80.svg"
                       width="20"
                     />
-                    <span>Cloudflare Workers</span>
-                  </span>
-                </span>
-                <span className="mt-3 block @sm:mt-1">
-                  is all you need to build and deploy a production app.
-                </span>
-              </p>
+                    {"\u00a0"}
+                    Samebase
+                  </span>{" "}
+                  gives you one place to manage that stack across all your apps.
+                </p>
+              </div>
               <div className="mt-9">
                 <SignInWithOAuth provider="github" authReturn="dashboard" markPublicSignupReturn />
               </div>
@@ -404,7 +416,7 @@ function LandingPreviewOverview() {
             <LandingHeroMenger placement="preview" />
           </div>
           <div className="relative" style={{ containerType: "inline-size" }}>
-            <p className="mb-3 flex justify-end text-sm">
+            <p className="mb-3 flex justify-end text-xl">
               <a
                 className="group font-semibold text-foreground underline decoration-red-600 underline-offset-4 hover:decoration-red-700"
                 href="https://youtu.be/UfxE8rvprqc"
