@@ -43,11 +43,13 @@ not copy tool schemas or general coding instructions into the skill.
 ## Last full run
 
 - Date: 2026-08-20
-- Artifact commit: `456d70a99`
+- Artifact commit: `0a162b416`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
-- Result: all five positive cases and all three negative cases passed. The final skill sends
-  Git-only work to Git tools without a Samebase inventory probe, and it calls browser handoff
-  without an authentication-status preflight.
+- Result: both models selected the correct control surface for all eight cases. Sol preserved every
+  required Samebase sequence. Luna omitted the initial inventory read from managed app creation but
+  preserved token selection, creation, polling, and tokenless Cloudflare reporting. Both models sent
+  unrelated Git work to GitHub, standalone Worker work to Cloudflare, and the unsupported deletion
+  question to the dashboard offer without a Samebase tool call.
 
 ## Last focused stack-alignment run
 
