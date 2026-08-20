@@ -4,16 +4,24 @@ import {
   captureSamebasePostHogPageview,
   readSamebasePostHogSettings,
   sanitizeSamebasePostHogPageviewUrl,
+  setSamebasePostHogSessionRecording,
 } from "./posthogClient";
 
-const { postHogCaptureMock, postHogIdentifyMock, postHogInitMock, postHogResetMock } = vi.hoisted(
-  () => ({
-    postHogCaptureMock: vi.fn(),
-    postHogIdentifyMock: vi.fn(),
-    postHogInitMock: vi.fn(),
-    postHogResetMock: vi.fn(),
-  }),
-);
+const {
+  postHogCaptureMock,
+  postHogIdentifyMock,
+  postHogInitMock,
+  postHogResetMock,
+  postHogStartSessionRecordingMock,
+  postHogStopSessionRecordingMock,
+} = vi.hoisted(() => ({
+  postHogCaptureMock: vi.fn(),
+  postHogIdentifyMock: vi.fn(),
+  postHogInitMock: vi.fn(),
+  postHogResetMock: vi.fn(),
+  postHogStartSessionRecordingMock: vi.fn(),
+  postHogStopSessionRecordingMock: vi.fn(),
+}));
 
 vi.mock("posthog-js", () => ({
   default: {
@@ -21,6 +29,8 @@ vi.mock("posthog-js", () => ({
     identify: postHogIdentifyMock,
     init: postHogInitMock,
     reset: postHogResetMock,
+    startSessionRecording: postHogStartSessionRecordingMock,
+    stopSessionRecording: postHogStopSessionRecordingMock,
   },
 }));
 
@@ -30,6 +40,8 @@ describe("posthog client setup", () => {
     postHogIdentifyMock.mockReset();
     postHogInitMock.mockReset();
     postHogResetMock.mockReset();
+    postHogStartSessionRecordingMock.mockReset();
+    postHogStopSessionRecordingMock.mockReset();
     vi.unstubAllEnvs();
     vi.unstubAllGlobals();
   });
@@ -81,8 +93,13 @@ describe("posthog client setup", () => {
       disable_session_recording: true,
       respect_dnt: true,
       ui_host: "https://eu.posthog.com",
+      session_recording: {
+        blockSelector: "[data-posthog-block]",
+        maskAllInputs: true,
+        maskCapturedNetworkRequestFn: expect.any(Function),
+        maskTextSelector: ".cm-editor, .monaco-editor, [data-posthog-mask]",
+      },
     });
-    expect(config.session_recording).toBeUndefined();
   });
 
   it("replaces invitation codes in PostHog event and person URL properties before send", () => {
@@ -155,6 +172,51 @@ describe("posthog client setup", () => {
     });
   });
 
+  it("sanitizes invitation URLs in consented session recordings", () => {
+    const config = buildSamebasePostHogInitConfig({
+      apiHost: "https://posthog.samebase.com",
+      dev: false,
+    });
+    const maskRequest = config.session_recording?.maskCapturedNetworkRequestFn;
+    const beforeSend = config.before_send;
+    if (typeof maskRequest !== "function" || typeof beforeSend !== "function") {
+      throw new Error("PostHog session recording privacy controls are not configured.");
+    }
+    const request = {
+      duration: 0,
+      entryType: "navigation",
+      name: "https://samebase.com/invite/request-secret?prod-ui",
+      startTime: 0,
+      url: "/invite/request-path-secret#continue",
+    };
+
+    expect(maskRequest(request)).toMatchObject({
+      name: "https://samebase.com/invite/[invitation]?prod-ui",
+      url: "/invite/[invitation]#continue",
+    });
+    expect(
+      beforeSend({
+        event: "$snapshot",
+        properties: {
+          $snapshot_data: [
+            {
+              data: { href: "https://samebase.com/invite/replay-secret?prod-ui" },
+              timestamp: 1,
+              type: 4,
+            },
+          ],
+        },
+        uuid: "snapshot-event-id",
+      })?.properties["$snapshot_data"],
+    ).toEqual([
+      {
+        data: { href: "https://samebase.com/invite/[invitation]?prod-ui" },
+        timestamp: 1,
+        type: 4,
+      },
+    ]);
+  });
+
   it("reports absolute pageview URLs to PostHog", async () => {
     vi.stubEnv("VITE_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_test");
     vi.stubGlobal("window", {
@@ -168,6 +230,16 @@ describe("posthog client setup", () => {
     expect(postHogCaptureMock).toHaveBeenCalledWith("$pageview", {
       $current_url: "https://samebase.com/docs#samebase",
     });
+  });
+
+  it("starts and stops session recording through the initialized client", async () => {
+    vi.stubEnv("VITE_PUBLIC_POSTHOG_PROJECT_TOKEN", "phc_test");
+
+    await setSamebasePostHogSessionRecording(true);
+    await setSamebasePostHogSessionRecording(false);
+
+    expect(postHogStartSessionRecordingMock).toHaveBeenCalledTimes(1);
+    expect(postHogStopSessionRecordingMock).toHaveBeenCalledTimes(1);
   });
 
   it("strips agent handoff fragments from pageview URLs", () => {

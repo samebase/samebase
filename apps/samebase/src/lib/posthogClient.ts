@@ -3,6 +3,7 @@ import {
   isAgentBrowserHandoffRoute,
 } from "../../shared/agentBrowserHandoff";
 import { isOrganizationInvitationPath } from "@/lib/organizationInvitationRoute";
+import { isRecord } from "@samebase/dependent";
 import type { BeforeSendFn as SamebasePostHogBeforeSend } from "posthog-js";
 
 type SamebasePostHogClient = (typeof import("posthog-js"))["default"];
@@ -50,6 +51,40 @@ function sanitizeSamebasePostHogUrlLikeValue(value: string): string {
   return isPath ? `${url.pathname}${url.search}${url.hash}` : url.href;
 }
 
+function sanitizeSamebasePostHogCapturedNetworkRequest<
+  Request extends { name: string; url?: string },
+>(request: Request): Request {
+  request.name = sanitizeSamebasePostHogUrlLikeValue(request.name);
+  if (request.url !== undefined) {
+    request.url = sanitizeSamebasePostHogUrlLikeValue(request.url);
+  }
+  return request;
+}
+
+function sanitizeSamebasePostHogSnapshotData(value: unknown): unknown {
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  return value.map((snapshot) => {
+    if (!isRecord(snapshot)) {
+      return snapshot;
+    }
+    const data = snapshot["data"];
+    if (!isRecord(data) || typeof data["href"] !== "string") {
+      return snapshot;
+    }
+
+    return {
+      ...snapshot,
+      data: {
+        ...data,
+        href: sanitizeSamebasePostHogUrlLikeValue(data["href"]),
+      },
+    };
+  });
+}
+
 function sanitizeSamebasePostHogUrlProperties(
   properties: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -69,6 +104,7 @@ const sanitizeSamebasePostHogEvent: SamebasePostHogBeforeSend = (event) => {
   }
 
   const properties = sanitizeSamebasePostHogUrlProperties(event.properties);
+  properties["$snapshot_data"] = sanitizeSamebasePostHogSnapshotData(properties["$snapshot_data"]);
 
   return {
     ...event,
@@ -128,6 +164,12 @@ export function buildSamebasePostHogInitConfig(args: {
     internal_or_test_user_hostname: args.dev ? null : undefined,
     respect_dnt: true,
     ui_host: DEFAULT_POSTHOG_UI_HOST,
+    session_recording: {
+      blockSelector: "[data-posthog-block]",
+      maskAllInputs: true,
+      maskCapturedNetworkRequestFn: sanitizeSamebasePostHogCapturedNetworkRequest,
+      maskTextSelector: ".cm-editor, .monaco-editor, [data-posthog-mask]",
+    },
   };
 }
 
@@ -194,6 +236,19 @@ export async function identifySamebasePostHogUser(userId: string) {
   posthog?.identify(userId);
 }
 
+export async function setSamebasePostHogSessionRecording(enabled: boolean) {
+  const posthog = await loadSamebasePostHogClient();
+  try {
+    if (enabled) {
+      posthog?.startSessionRecording();
+    } else {
+      posthog?.stopSessionRecording();
+    }
+  } catch {
+    // Analytics is optional and cannot block app access.
+  }
+}
+
 /**
  * Sign-out clears the PostHog identity without making auth code import the SDK
  * eagerly. This can no-op when the token is absent or the SDK import fails.
@@ -201,6 +256,7 @@ export async function identifySamebasePostHogUser(userId: string) {
 export async function resetSamebasePostHogClient() {
   const posthog = await loadSamebasePostHogClient();
   try {
+    posthog?.stopSessionRecording();
     posthog?.reset();
   } catch {
     // Analytics cleanup is best-effort; browser data cleanup must still continue.

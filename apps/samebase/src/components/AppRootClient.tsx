@@ -14,7 +14,11 @@ import { useRootRouteSearch } from "@/routeSearch/root";
 import { readRootThemeMode, syncDocumentRootThemeMode } from "@/lib/rootThemeModeSearch";
 import { OptionalThemeProvider } from "@/lib/themeStorageFallback";
 import { AppAuthPresentationProvider } from "@/lib/AppAuthPresentationProvider";
-import { captureSamebasePostHogPageview, identifySamebasePostHogUser } from "@/lib/posthogClient";
+import {
+  captureSamebasePostHogPageview,
+  identifySamebasePostHogUser,
+  setSamebasePostHogSessionRecording,
+} from "@/lib/posthogClient";
 import { AccountDeletionBrowserBoundary } from "@/components/AccountDeletionBrowserBoundary";
 
 function usePostHogPageviews() {
@@ -33,12 +37,17 @@ function usePostHogPageviews() {
   }, [href]);
 }
 
-function usePostHogViewerIdentity() {
+function usePostHogAuthenticatedRuntime() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const viewer = useQuery(api.users.viewer, isAuthenticated && !isLoading ? {} : "skip");
   const viewerAccess = useQuery(
     api.users.currentViewerAccess,
     isAuthenticated && !isLoading ? {} : "skip",
+  );
+  const hasDashboardAccess = viewerAccess?.accessKeys.includes("access_dashboard") ?? false;
+  const sessionRecordingConsent = useQuery(
+    api.users.getSessionRecordingConsent,
+    hasDashboardAccess ? {} : "skip",
   );
   const identifiedUserIdRef = useRef<string | null>(null);
 
@@ -52,12 +61,7 @@ function usePostHogViewerIdentity() {
     // Wait for the server-resolved viewer instead of reading JWT/localStorage
     // fields. `api.users.viewer` is the same user document backend attribution
     // code will use, and the ref prevents re-identifying on unrelated re-renders.
-    if (
-      viewer === undefined ||
-      viewer === null ||
-      viewerAccess === undefined ||
-      !viewerAccess.accessKeys.includes("access_dashboard")
-    ) {
+    if (viewer === undefined || viewer === null || !hasDashboardAccess) {
       return;
     }
     if (identifiedUserIdRef.current === viewer._id) {
@@ -65,11 +69,23 @@ function usePostHogViewerIdentity() {
     }
     identifiedUserIdRef.current = viewer._id;
     void identifySamebasePostHogUser(viewer._id);
-  }, [viewer, viewerAccess]);
+  }, [hasDashboardAccess, viewer]);
+
+  useEffect(() => {
+    if (!isLoading && (!isAuthenticated || !hasDashboardAccess)) {
+      void setSamebasePostHogSessionRecording(false);
+      return;
+    }
+    if (sessionRecordingConsent === undefined) {
+      return;
+    }
+
+    void setSamebasePostHogSessionRecording(sessionRecordingConsent.state === "granted");
+  }, [hasDashboardAccess, isAuthenticated, isLoading, sessionRecordingConsent]);
 }
 
 function AppAccountRuntime() {
-  usePostHogViewerIdentity();
+  usePostHogAuthenticatedRuntime();
 
   return (
     <AppWorkspaceShell>
