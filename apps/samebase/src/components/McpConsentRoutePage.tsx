@@ -8,7 +8,7 @@ import { getRouteApi } from "@tanstack/react-router";
 import { Authenticated, Unauthenticated, useAction, useConvexAuth, useQuery } from "convex/react";
 import { useMemo, useState } from "react";
 import { api } from "../../convex/_generated/api";
-import { ACCESS_BROWSER_LOGIN_HANDOFF } from "../../shared/accessModel";
+import { ACCESS_BROWSER_LOGIN_HANDOFF, ACCESS_FEEDBACK_SUBMIT } from "../../shared/accessModel";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 const mcpConsentRouteApi = getRouteApi(MCP_CONSENT_APP_PATH);
@@ -16,6 +16,9 @@ const mcpConsentRouteApi = getRouteApi(MCP_CONSENT_APP_PATH);
 function readMcpConsentScopeLabel(scope: string): string {
   if (scope === ACCESS_BROWSER_LOGIN_HANDOFF) {
     return "Open Samebase in a browser as your account";
+  }
+  if (scope === ACCESS_FEEDBACK_SUBMIT) {
+    return "Send approved feedback to Samebase";
   }
 
   return scope;

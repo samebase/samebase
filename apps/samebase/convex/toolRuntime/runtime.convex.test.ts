@@ -1,6 +1,6 @@
 import type { FunctionReturnType } from "convex/server";
 import type { Infer } from "convex/values";
-import { describe, expect, expectTypeOf, it } from "vite-plus/test";
+import { afterEach, describe, expect, expectTypeOf, it, vi } from "vite-plus/test";
 
 import { internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
@@ -9,6 +9,11 @@ import { cloudflareCreateWorkerContract } from "../vault/contracts/cloudflareAtt
 type CloudflareCreateWorkerToolResult = FunctionReturnType<
   typeof internal.toolRuntime.runtime.cloudflareCreateWorkerTool
 >;
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.unstubAllGlobals();
+});
 
 async function seedToolRuntimeOwner() {
   const t = makeConvexTest();
@@ -197,6 +202,119 @@ describe("MCP tool runtime boundaries", () => {
         expect.objectContaining({ organizationId: otherOrganizationId }),
       ]),
     );
+  });
+
+  it("emails the exact approved feedback without account metadata", async () => {
+    const { t, userId } = await seedToolRuntimeOwner();
+    const report = "  Samebase returned the wrong setup state.\nPlease check the inventory.  ";
+    vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
+    vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
+    vi.stubEnv("CONVEX_DEPLOYMENT", "dev:samebase");
+    const fetch = vi.fn(async (_input: RequestInfo | URL, _init?: RequestInit) => {
+      return new Response(
+        JSON.stringify({
+          success: true,
+          result: {
+            delivered: ["contact@samebase.com"],
+            message_id: "<message-id@samebase.com>",
+            permanent_bounces: [],
+            queued: [],
+          },
+        }),
+        { status: 200 },
+      );
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+        userId,
+        grantedScopes: ["access_feedback_submit"],
+        report,
+      }),
+    ).resolves.toEqual({
+      status: "ok",
+      text: "Feedback submitted to Samebase.",
+    });
+
+    expect(fetch).toHaveBeenCalledTimes(1);
+    const [, request] = fetch.mock.calls[0];
+    if (typeof request?.body !== "string") {
+      throw new Error("Expected a JSON request body.");
+    }
+    expect(JSON.parse(request.body)).toEqual({
+      to: "contact@samebase.com",
+      from: {
+        address: "notifications@samebase.com",
+        name: "Samebase",
+      },
+      subject: "[Development] Samebase agent feedback",
+      text: report,
+    });
+    await expect(
+      t.run(async (ctx) => {
+        return await ctx.db
+          .query("mcpFeedbackRateLimits")
+          .withIndex("by_user_id", (query) => query.eq("userId", userId))
+          .unique();
+      }),
+    ).resolves.toMatchObject({ count: 1, userId });
+  });
+
+  it.each([" \n ", "x".repeat(2_001)])("rejects invalid feedback without email", async (report) => {
+    const { t, userId } = await seedToolRuntimeOwner();
+    vi.stubEnv("CONVEX_DEPLOYMENT", "local:local-agent");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+        userId,
+        grantedScopes: ["access_feedback_submit"],
+        report,
+      }),
+    ).resolves.toMatchObject({
+      status: "error",
+      text: expect.stringContaining("Feedback report"),
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("does not report success when local email sending is disabled", async () => {
+    const { t, userId } = await seedToolRuntimeOwner();
+    vi.stubEnv("CONVEX_DEPLOYMENT", "local:local-agent");
+    const fetch = vi.fn();
+    vi.stubGlobal("fetch", fetch);
+
+    await expect(
+      t.action(internal.toolRuntime.runtime.submitFeedbackTool, {
+        userId,
+        grantedScopes: ["access_feedback_submit"],
+        report: "Samebase returned the wrong setup state.",
+      }),
+    ).resolves.toEqual({
+      status: "error",
+      text: "Feedback email is not configured in local development.",
+    });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("limits feedback to five submission attempts per user in 24 hours", async () => {
+    const { t, userId } = await seedToolRuntimeOwner();
+
+    for (let reservationNumber = 1; reservationNumber <= 5; reservationNumber += 1) {
+      await expect(
+        t.mutation(internal.mcp.feedback.reserveFeedbackSend, {
+          userId,
+        }),
+      ).resolves.toBeNull();
+    }
+
+    await expect(
+      t.mutation(internal.mcp.feedback.reserveFeedbackSend, {
+        userId,
+      }),
+    ).rejects.toThrow("Feedback rate limit reached. Try again later.");
   });
 
   it("converts a product helper error into a tool error without a provider write", async () => {

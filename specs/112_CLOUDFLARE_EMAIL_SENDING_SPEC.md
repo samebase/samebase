@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase application email and deployment configuration
-- Last updated: 2026-07-28
+- Last updated: 2026-08-21
 - Related:
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `apps/samebase/convex/deploymentProfile.ts`
@@ -27,6 +27,7 @@ Application email uses:
 
 - sender: `Samebase <notifications@samebase.com>`
 - first recipient: `nicuchiciuc@gmail.com` for new-user notifications
+- feedback recipient: `contact@samebase.com`
 - provider API: `POST /accounts/{account_id}/email/sending/send`
 - Convex environment variables:
   - `CLOUDFLARE_EMAIL_API_TOKEN`
@@ -62,9 +63,9 @@ default changes.
 
 ## Sending Behavior
 
-All application email goes through one internal Convex action that owns the Cloudflare request,
-fixed sender, deployment subject prefix, response validation, and provider error handling. Callers
-provide only the recipient, base subject, and text body.
+All application email goes through one shared Convex email module that owns the Cloudflare request,
+fixed sender, deployment subject prefix, response validation, and provider error handling. Internal
+action callers provide only the recipient, base subject, and text body.
 
 The first caller is the Convex Auth user-creation callback:
 
@@ -76,9 +77,21 @@ The first caller is the Convex Auth user-creation callback:
    email-provider failure does not reject signup.
 5. The notification includes the new user's name, email, user ID, and auth provider when available.
 
-Cloudflare errors fail the scheduled action and remain visible in Convex function logs. The first
-admin-notification use case does not add a database outbox or automatic retry model. User-facing
-email flows that require delivery guarantees must define those guarantees when they are added.
+The MCP feedback action is the second caller:
+
+1. It requires an approved account and the dedicated feedback-submit scope. The server adds this
+   scope to the default request for clients, such as the published plugin, that cannot name scopes.
+   A client without the scope must reconnect and approve the new grant.
+2. It accepts only the exact user-approved report, with a 2,000-character maximum.
+3. It sends only the report to `contact@samebase.com`.
+4. It returns an error when Cloudflare rejects the request, reports a permanent bounce, or local
+   email sending is disabled. It does not retry automatically.
+5. It stores one per-user counter to enforce five submission attempts per 24 hours. It does not
+   store report text or add a database outbox or separate retention job.
+
+Cloudflare errors fail the calling action and remain visible in Convex function logs. A failed
+scheduled signup notification does not reject signup. A failed feedback send returns a tool error.
+Neither caller adds a database outbox or automatic retry model.
 
 ## Domain Setup Guidance
 
@@ -116,8 +129,12 @@ and receiving remains the responsibility of Google Workspace.
 - Convex action tests verify the Cloudflare URL, bearer token, sender, recipient, text body, and
   response validation without exposing credentials.
 - Auth notification tests verify new-user, existing-user, and seeded-account decisions.
+- MCP runtime tests verify the fixed feedback recipient, subject, exact report, invalid-report
+  rejection, and per-user limit.
 - Local and worktree tests verify that missing email configuration causes no external request.
 - A manual production smoke test creates a fresh test account and confirms one message reaches
   `nicuchiciuc@gmail.com` with the production subject.
+- A manual production feedback smoke test submits one approved test report and confirms the exact
+  report reaches `contact@samebase.com` with the production subject.
 - A manual preview smoke test invokes the internal email action or creates a genuinely new Google
   account, then confirms the `[Preview]` prefix and Cloudflare Email Sending activity log entry.

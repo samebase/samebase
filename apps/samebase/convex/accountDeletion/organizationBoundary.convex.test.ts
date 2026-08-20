@@ -210,6 +210,10 @@ async function seedRunningDeletion() {
       createdAt: 1,
       expiresAt: 2_000_000_000_000,
     });
+    await ctx.db.insert("mcpFeedbackRateLimits", {
+      userId: deletingUserId,
+      count: 2,
+    });
     const deletingUser = await ctx.db.get(deletingUserId);
     if (deletingUser === null) {
       throw new Error("Deleting user is missing.");
@@ -745,6 +749,10 @@ describe("account deletion organization boundary", () => {
         .query("mcpAccessTokens")
         .withIndex("by_user_id", (query) => query.eq("userId", ids.deletingUserId))
         .first(),
+      feedbackRateLimit: await ctx.db
+        .query("mcpFeedbackRateLimits")
+        .withIndex("by_user_id", (query) => query.eq("userId", ids.deletingUserId))
+        .first(),
       run: await ctx.db.get(ids.runId),
     }));
 
@@ -777,6 +785,7 @@ describe("account deletion organization boundary", () => {
     expect(snapshot.organizationTreeSetting).toBeNull();
     expect(snapshot.grant).toBeNull();
     expect(snapshot.accessToken).toBeNull();
+    expect(snapshot.feedbackRateLimit).toBeNull();
     expect(snapshot.run).toMatchObject({
       state: "succeeded",
       identity: { state: "scrubbed" },

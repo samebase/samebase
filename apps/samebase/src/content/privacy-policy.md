@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: August 20, 2026
+Last updated: August 21, 2026
 
 This Privacy Policy explains how Samebase handles information when you use samebase.com, the
 Samebase web app, the Samebase remote MCP server, or a published Samebase agent plugin.
@@ -25,6 +25,11 @@ their own privacy terms for the information that they process.
   authorized Samebase staff. It can include the account name, email address, internal user ID, and
   sign-in method. Samebase uses Cloudflare Email Sending for this notification.
 - Communications. Samebase processes the information that you provide when you contact Samebase.
+- Feedback reports. When you approve an agent feedback submission, Samebase sends the exact report
+  to authorized Samebase staff through Cloudflare Email Sending and the Google-hosted staff mailbox.
+  Samebase stores an account-linked submission-attempt counter, but not the report, in its database
+  to enforce the feedback rate limit. The feedback tool does not request your complete conversation,
+  credentials, file contents, or full logs.
 - Organization data. Samebase stores organization memberships, roles, and invitations. It uses
   public GitHub profile information for invitations.
 - Connected provider credentials and identifiers. If you connect GitHub, Convex, or Cloudflare,
@@ -168,6 +173,8 @@ The current MCP expiry periods are:
 - provisional client registrations stop working after 7 days
 - browser-handoff links stop working after 5 minutes, and their database rows are scheduled for
   deletion
+- feedback submission limits reset after 24 hours; the counter row can remain until the next
+  submission attempt or account deletion
 
 Expiry stops a record from being used. It does not always delete the database row. Other expired MCP
 records can remain until account deletion or operational cleanup.
@@ -194,9 +201,12 @@ other provider resources. Convex OAuth credentials stored by Samebase are delete
 Convex production and preview deploy keys remain usable until you revoke Samebase in Convex
 Authorized Applications.
 
-Provider backups, application logs, billing records, PostHog data, and agent-client history can
-remain under those providers' retention rules after active Samebase account data is deleted.
-Samebase handles an identified PostHog deletion manually when required.
+Provider backups, staff mailbox messages, application logs, billing records, PostHog data, and
+agent-client history can remain under those providers' retention rules after active Samebase account
+data is deleted. Samebase staff delete feedback messages when they are no longer needed to review
+and act on the report. A verified privacy deletion request also applies to identifiable feedback
+messages unless Samebase must retain them by law. Samebase handles an identified PostHog deletion
+manually when required.
 
 ## International Processing
 

@@ -66,6 +66,7 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
   mcpAccessTokens: "account_data",
   mcpRefreshTokens: "account_data",
   mcpBrowserLoginTokens: "account_data",
+  mcpFeedbackRateLimits: "account_data",
   audit_mcpAccess_events: "account_data",
 } satisfies Record<TableNames, AccountDeletionTablePolicy>;
 
@@ -293,6 +294,13 @@ const ACCOUNT_DATA_CLEANUP_HANDLERS = {
   mcpBrowserLoginTokens: async (ctx, userId) => {
     const rows = await ctx.db
       .query("mcpBrowserLoginTokens")
+      .withIndex("by_user_id", (query) => query.eq("userId", userId))
+      .take(ACCOUNT_DATA_BATCH_SIZE);
+    return await deleteRowsById(ctx, rows);
+  },
+  mcpFeedbackRateLimits: async (ctx, userId) => {
+    const rows = await ctx.db
+      .query("mcpFeedbackRateLimits")
       .withIndex("by_user_id", (query) => query.eq("userId", userId))
       .take(ACCOUNT_DATA_BATCH_SIZE);
     return await deleteRowsById(ctx, rows);

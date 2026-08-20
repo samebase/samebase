@@ -20,6 +20,7 @@ import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/cont
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
+import { submitFeedbackContract } from "../mcp/contracts/submitFeedback";
 import { cloudflareListWorkersBuildTokensContract } from "../vault/contracts/cloudflareBuildTokens";
 import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
 import type { AccessKey } from "../../shared/accessModel";
@@ -45,6 +46,7 @@ import { internal } from "../_generated/api";
 import { mcpScopeAllowsAccess } from "./mcpScopes";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { listWorkersBuildTokensForUser } from "../cloudflareBuildTokens";
+import { sendEmail } from "../email";
 
 const { array, id, literal, object, string, union } = v;
 const vToolInvocationArgs = {
@@ -310,6 +312,33 @@ export const retryInfrastructureProvisioningTool = defineMcpTool({
   run: async (ctx, args) => {
     await retryInfrastructureProvisioningForUser(ctx, args);
     return { text: "Started retry_infrastructure_provisioning run." };
+  },
+});
+
+export const submitFeedbackTool = defineMcpTool({
+  contract: submitFeedbackContract,
+  args: submitFeedbackContract.args,
+  successFields: {},
+  run: async (ctx, args) => {
+    if (args.report.trim().length === 0) {
+      throw new Error("Feedback report cannot be empty.");
+    }
+    if (args.report.length > 2_000) {
+      throw new Error("Feedback report must be 2,000 characters or fewer.");
+    }
+
+    await ctx.runMutation(internal.mcp.feedback.reserveFeedbackSend, {
+      userId: args.userId,
+    });
+    const emailResult = await sendEmail({
+      to: "contact@samebase.com",
+      subject: "Samebase agent feedback",
+      text: args.report,
+    });
+    if (emailResult === "skipped") {
+      throw new Error("Feedback email is not configured in local development.");
+    }
+    return { text: "Feedback submitted to Samebase." };
   },
 });
 

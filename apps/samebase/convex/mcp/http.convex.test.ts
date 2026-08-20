@@ -134,6 +134,13 @@ describe("MCP tool listing access", () => {
         currentAccessKeys: ["access_dashboard", "access_app_create", "access_repo_connect"],
       }).map((tool) => tool.name),
     ).toEqual(["vault_actions_connectRepository"]);
+
+    expect(
+      listMcpToolsForAccess({
+        grantedScopes: ["access_feedback_submit"],
+        currentAccessKeys: ["access_feedback_submit"],
+      }).map((tool) => tool.name),
+    ).toEqual(["samebase_feedback_submit"]);
   });
 
   it("uses Claude-compatible public tool names", () => {
@@ -347,7 +354,7 @@ describe("MCP tools/call access enforcement", () => {
     expect(header).toContain('resource_metadata="');
     expect(header).toContain('/.well-known/oauth-protected-resource/mcp"');
     expect(header).toContain(
-      'scope="access_dashboard access_provider_connections access_app_create access_repo_connect access_browser_login_handoff"',
+      'scope="access_dashboard access_provider_connections access_app_create access_repo_connect access_feedback_submit access_browser_login_handoff"',
     );
     expect(header).toContain('error="invalid_token"');
     expect(header).toContain(`error_description="${errorDescription}"`);

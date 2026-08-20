@@ -1,6 +1,7 @@
 import { includes } from "@samebase/dependent/main";
 import { asRecord, isRecord } from "../jsonUtils";
 import { actionContracts } from "../toolRuntime/actionCatalog";
+import { submitFeedbackContract } from "./contracts/submitFeedback";
 import { createRepositoryContract } from "../vault/contracts/createRepository";
 import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
 import type { AccessKey } from "../../shared/accessModel";
@@ -30,14 +31,17 @@ const pkceValuePattern = /^[A-Za-z0-9\-._~]{43,128}$/;
 export const MCP_V1_SUPPORTED_SCOPES: readonly AccessKey[] = Array.from(
   new Set(actionContracts.map((contract) => contract.access)),
 ).filter((access) => access !== "access_public");
-// Some MCP clients omit `scope`. Omission must not silently widen as the
-// catalog grows: clients that never asked keep exactly the original v1
-// operational surface (app status reads plus app creation); public status
-// tools are allowed independently at dispatch. Every newer non-public scope,
-// starting with access_repo_connect, has to be requested explicitly. Token
-// order is load-bearing: oauth.ts reuses grants by exact string comparison,
-// and every grant stored before the catalog existed used this order.
-const DEFAULT_MCP_SCOPE = [createRepositoryContract.access, getUserVaultsContract.access].join(" ");
+// Some MCP clients, including the published Samebase plugin, cannot request
+// scopes. The default includes its app surface and the approved-feedback
+// write. Existing grants keep their stored scopes. A new authorization uses
+// this exact string, so oauth.ts requires consent when the default changes.
+// Other newer non-public scopes have to be requested explicitly. Token order
+// is load-bearing because grant reuse compares the exact string.
+const DEFAULT_MCP_SCOPE = [
+  createRepositoryContract.access,
+  getUserVaultsContract.access,
+  submitFeedbackContract.access,
+].join(" ");
 
 type McpSupportedScope = AccessKey;
 
