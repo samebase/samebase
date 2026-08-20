@@ -1,48 +1,53 @@
-# Existing Repository Adoption
+# Adopt an existing repository
 
-Connect an existing repository to Samebase before provider setup. The connection creates the
-Samebase app record and syncs the repository tree. It does not attach or change Convex or Cloudflare
-resources. Samebase can therefore represent the app while source and provider work stay separate.
+Connect an existing repository to Samebase before you set up a provider. Samebase creates the app
+record and syncs the repository tree. Samebase does not attach or change Convex or Cloudflare
+resources. You can then change the source and set up providers as separate tasks.
 
-## Recommended Order
+## Recommended sequence
 
-Use this order by default:
-
-1. Read the Samebase app inventory and connect the repository when it is not present.
+1. Read the Samebase app inventory. If the repository is not in the inventory, connect it.
 2. Read the repository instructions and deployment commands from its current default branch.
 3. Prepare and validate the required source changes in a pull request.
-4. Before provider setup, name the exact provider account, the resources to attach or create, and
-   any production build that the action can start.
-5. After operator approval, attach or create the provider resources and verify their live state.
-6. After the reviewed source reaches the default branch, verify production and a reachable pull
-   request preview separately.
+4. Before provider setup, name the provider account and each resource to attach or create. Also
+   state which production builds the action can start.
+5. After the operator approves those provider writes, attach or create the resources. Then verify
+   their live state.
+6. Wait until the reviewed source reaches the default branch. Then verify production. Separately,
+   verify that the pull request preview is reachable.
 
-This order avoids an automatic provider build against source that is not ready. It is suitable for
-an important app or an app that already serves traffic.
+This sequence prevents an automatic provider build from using source that is not ready. Use this
+sequence if the app serves traffic or if a failed production build would disrupt users.
 
-## Earlier Provider Setup
+## Set up the provider earlier
 
-The operator can choose earlier provider setup for a small or experimental app. Connect the
-repository first, then explain the exact effect and get approval before the provider write.
+For a small or experimental app, the operator can set up the provider before the source changes
+reach the default branch. Connect the repository first. Before each provider write, explain what
+will change and get the operator's approval.
 
-Creating a Worker through Samebase also configures its production and preview GitHub Builds triggers
-and requests the first production build. That build can fail because the unchanged default branch
-does not yet contain the required deployment contract. Use the failure and its provider logs as
-diagnostic evidence while preparing the source pull request. Do not report it as a deployment.
+When Samebase creates a Worker, it configures the production and preview GitHub Builds triggers.
+Samebase also requests the first production build. The build can fail if the default branch does not
+yet contain the required deployment contract. Use the failure and provider logs to diagnose the
+build while you prepare the source pull request. Do not report a failed build as a deployment.
 
-Keep an existing live route or known-good Worker version available until the new production path is
-verified.
+Keep the existing live route active or retain a known-good Worker version until you verify the new
+production path.
 
-## First-Deployment Preview Observation
+## Preview behavior before the first deployment
 
-During one adoption of an assets-only 3D browser game, a new Worker uploaded a preview version
-before it had an active deployment. Its version URL and branch alias returned Cloudflare error 1042.
-After an approved default-branch build created the first active deployment, the old preview URLs and
-a new pull request preview became reachable. The new preview did not replace the production version.
+During one assets-only 3D browser game adoption, a new Worker had a preview version before its first
+active deployment. Cloudflare returned error 1042 for the version URL and branch alias. After the
+operator approved the default-branch build, the build created the first active deployment. The
+previous preview URLs and a new pull request preview then became reachable. The new preview did not
+replace the production version.
 
-This is one project observation, not a general Cloudflare requirement. When the same state appears:
+This happened in one project. It is not a Cloudflare requirement. Use these steps if a Worker has a
+preview version but no active deployment, and Cloudflare returns error 1042 for its preview URLs:
 
-1. Keep preview verification blocked while its URL is not reachable.
-2. Do not start a production deployment only to repair the preview without explicit approval.
-3. After the approved first production deployment, check the old preview and create a fresh preview.
-4. Verify that the fresh preview is reachable and that the active production version did not change.
+1. Keep preview verification blocked while the preview URL is not reachable.
+2. Do not start a production deployment only to make the preview URL reachable without the
+   operator's explicit approval.
+3. After the operator approves the first production deployment and the deployment completes, check
+   the previous preview URLs. Then create a new preview.
+4. Verify that the new preview is reachable. Also verify that the active production version did not
+   change.
