@@ -11,8 +11,8 @@ repos and pages (operator policy: link now, flip later; this file records the fl
 - [x] Merge and deploy the round-1 corpus fixes (PR #1181, merged 2026-07-08)
 - [x] Public pricing / early-access posture page (also answers the Q7 maturity flag): `/pricing`,
       permanent free tier, "Samebase is early" posture in the metering paragraph
-- [ ] Tighten MCP/operate wording: Samebase gives coordinates and repair actions; provider-direct
-      tools perform logs and domains
+- [x] Tighten MCP/operate wording: Samebase gives coordinates and repair actions; provider-direct
+      tools perform logs and domains (PR #1183, merged 2026-07-08)
 - [ ] Eval round 2 against the deployed corpus
 - [ ] Second clean round (RFC 093 bar), then decide whether transcripts go public
 
