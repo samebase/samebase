@@ -522,8 +522,6 @@ importers:
         specifier: workspace:*
         version: link:../dependent
 
-  packages/plugin: {}
-
   packages/sure:
     devDependencies:
       ajv:
