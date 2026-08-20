@@ -7,11 +7,13 @@ import {
   COMPACT_IDENTITY_FOREGROUND_COLOR,
   COMPACT_IDENTITY_SOURCE_SVG_URL,
   COMPACT_IDENTITY_SVG_URL,
+  LANDING_INLINE_80_PERCENT_MARK_SVG_URL,
   INSTALL_ICON_SVG_URL,
   MASKABLE_COMPACT_IDENTITY_SOURCE_SVG_URL,
   createCompactIdentitySvgMarkup,
   createDarkCompactIdentitySvgMarkup,
   createFaviconCompactIdentitySvgMarkup,
+  createLandingInline80PercentMarkSvgMarkup,
   createMaskableCompactIdentitySvgMarkup,
 } from "@/components/compactIdentitySvgAsset";
 
@@ -130,11 +132,19 @@ describe("compactIdentitySvgAsset", () => {
     expect(generatedSvg).toContain('x="23" y="23" width="14" height="14"');
   });
 
-  it("keeps favicon geometry aligned to the 8px grid", () => {
+  it("keeps the favicon visible mark at 75% on the 8px grid", () => {
     const generatedSvg = createFaviconCompactIdentitySvgMarkup();
 
     expect(generatedSvg).toContain('x="1" y="1" width="6" height="6"');
     expect(generatedSvg).toContain('x="3" y="3" width="2" height="2"');
+  });
+
+  it("keeps the landing-page inline visible mark at 80%", () => {
+    const generatedSvg = createLandingInline80PercentMarkSvgMarkup().replace(/\r\n/g, "\n").trim();
+
+    expect(readPublicSvg(LANDING_INLINE_80_PERCENT_MARK_SVG_URL)).toBe(generatedSvg);
+    expect(generatedSvg).toContain('x="6" y="6" width="48" height="48"');
+    expect(generatedSvg).toContain('x="22" y="22" width="16" height="16"');
   });
 
   it("keeps the dark ChatGPT icon on the inverse compact identity", () => {

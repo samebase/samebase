@@ -3,6 +3,7 @@ import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
 import { SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, SignInWithOAuth } from "@/SignInWithOAuth";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
+import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
 import { buttonVariants } from "@/components/ui/button";
 import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
 import {
@@ -363,7 +364,7 @@ function LandingPreviewOverview() {
                     alt=""
                     className="h-9 w-9 dark:invert"
                     height="36"
-                    src="/brand/logo/v1-side-primary-duotone.svg"
+                    src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
                     width="36"
                   />
                   <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>

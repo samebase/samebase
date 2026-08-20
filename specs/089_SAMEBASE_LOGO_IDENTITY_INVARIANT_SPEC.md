@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase frontend
-- Last updated: 2026-07-20
+- Last updated: 2026-08-20
 - Related files: `apps/samebase/src/components/logo/logoStaticSvgContract.ts`,
   `apps/samebase/src/components/logo/logoStaticSvgAsset.ts`,
   `apps/samebase/src/components/compactIdentitySvgAsset.ts`,
@@ -103,7 +103,9 @@ gets the same stripe phase.
 - Favicons, Apple touch, manifest, ChatGPT plugin, structured identity metadata, and compact in-app
   marks all use the same clean version 1 geometry.
 - The 16px and 32px favicon rasters retain their denser pixel-aligned spacing instead of inheriting
-  the avatar-safe clear space.
+  the avatar-safe clear space. Their visible mark occupies 75% of the canvas.
+- The landing-page inline lockup uses a generated compact mark whose visible square occupies 80% of
+  the canvas.
 - Maskable manifest assets preserve the same square-ring geometry with additional white safety space
   so platform crops do not clip the outer square.
 

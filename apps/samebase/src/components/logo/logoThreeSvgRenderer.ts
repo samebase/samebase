@@ -164,8 +164,16 @@ function projectPoint(
   };
 }
 
-function serializePolygon(points: readonly LogoProjectedPoint[]): string {
-  return points.map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`).join(" ");
+function serializePolygon(
+  points: readonly LogoProjectedPoint[],
+  coordinateFractionDigits = 6,
+): string {
+  return points
+    .map(
+      (point) =>
+        `${point.x.toFixed(coordinateFractionDigits)},${point.y.toFixed(coordinateFractionDigits)}`,
+    )
+    .join(" ");
 }
 
 function readProjectedPolygonArea(points: readonly LogoProjectedPoint[]): number {
@@ -458,6 +466,7 @@ export function createLogoThreeSvgMarkup({
   gridSize = DEFAULT_LOGO_GRID_SIZE,
   leftFaceStyle = DEFAULT_LOGO_LEFT_FACE_STYLE,
   rotationDegrees = DEFAULT_ROTATION_DEGREES,
+  singleColorPathCoordinateFractionDigits = 6,
   viewBoxSize = LOGO_THREE_SVG_VIEWBOX_SIZE,
 }: {
   backgroundColor: string;
@@ -469,6 +478,7 @@ export function createLogoThreeSvgMarkup({
   gridSize?: number;
   leftFaceStyle?: LogoLeftFaceStyle;
   rotationDegrees?: number;
+  singleColorPathCoordinateFractionDigits?: number;
   viewBoxSize?: number;
 }): string {
   const normalizedDepth = normalizeLogoFractalDepth(depth);
@@ -508,6 +518,7 @@ export function createLogoThreeSvgMarkup({
   );
   const renderedFaces =
     createSingleColorProjectedPathSvgMarkup({
+      coordinateFractionDigits: singleColorPathCoordinateFractionDigits,
       leftFaceStyle,
       projectedQuads: visibleProjectedQuads,
     }) ??
@@ -527,9 +538,11 @@ export function createLogoThreeSvgMarkup({
 
 // One SVG fill gives touching faces one raster boundary instead of a seam per projected quad.
 function createSingleColorProjectedPathSvgMarkup({
+  coordinateFractionDigits,
   leftFaceStyle,
   projectedQuads,
 }: {
+  coordinateFractionDigits: number;
   leftFaceStyle: LogoLeftFaceStyle;
   projectedQuads: readonly LogoProjectedQuad[];
 }): string | null {
@@ -547,7 +560,9 @@ function createSingleColorProjectedPathSvgMarkup({
     return null;
   }
 
-  const projectedPolygons = new Set(projectedQuads.map((quad) => serializePolygon(quad.points)));
+  const projectedPolygons = new Set(
+    projectedQuads.map((quad) => serializePolygon(quad.points, coordinateFractionDigits)),
+  );
   const pathData = [...projectedPolygons].map((points) => `M${points}Z`).join("");
   const fill = escapeSvgAttribute(firstQuad.color);
 
