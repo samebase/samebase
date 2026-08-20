@@ -46,7 +46,7 @@ const composedInfrastructureState = object({
       accountId: string(),
       workerName: string(),
       workerId: id("vaultCloudflareWorkers"),
-      buildTokenUuid: union(string(), v.null()),
+      buildTokenUuid: string(),
     }),
   ),
 });
@@ -214,20 +214,21 @@ export const readComposedInfrastructureState = internalQuery({
             state: "missing",
             projectName: plan.convex.projectName,
           },
-      cloudflare: worker
-        ? {
-            state: "attached",
-            accountId: cloudflareAccountId,
-            workerName: plan.cloudflare.workerName,
-            workerId: worker._id,
-            buildTokenUuid: plan.cloudflare.buildTokenUuid,
-          }
-        : {
-            state: "missing",
-            accountId: cloudflareAccountId,
-            workerName: plan.cloudflare.workerName,
-            buildTokenUuid: plan.cloudflare.buildTokenUuid,
-          },
+      cloudflare:
+        worker && cloudflareCheckpoint
+          ? {
+              state: "attached",
+              accountId: cloudflareAccountId,
+              workerName: plan.cloudflare.workerName,
+              workerId: worker._id,
+              buildTokenUuid: cloudflareCheckpoint.buildTokenUuid,
+            }
+          : {
+              state: "missing",
+              accountId: cloudflareAccountId,
+              workerName: plan.cloudflare.workerName,
+              buildTokenUuid: plan.cloudflare.buildTokenUuid,
+            },
     };
   },
 });
