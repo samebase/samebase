@@ -8,7 +8,7 @@ repos and pages (operator policy: link now, flip later; this file records the fl
 
 ## Eval gate (before the landing swap)
 
-- [ ] Merge and deploy the round-1 corpus fixes (PR #1181)
+- [x] Merge and deploy the round-1 corpus fixes (PR #1181, merged 2026-07-08)
 - [x] Public pricing / early-access posture page (also answers the Q7 maturity flag): `/pricing`,
       permanent free tier, "Samebase is early" posture in the metering paragraph
 - [ ] Tighten MCP/operate wording: Samebase gives coordinates and repair actions; provider-direct
