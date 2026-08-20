@@ -102,8 +102,8 @@ function AppRightSidebarSessionRecordingConsent() {
         Help improve Samebase
       </h2>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        Allow Samebase to record page content and clicks to find bugs and improve onboarding. Inputs
-        and code editors are masked. PostHog processes recordings for Samebase.
+        Allow session replay to help us find bugs and improve onboarding. Inputs and code editors
+        are masked.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button
@@ -113,7 +113,7 @@ function AppRightSidebarSessionRecordingConsent() {
           type="button"
           variant="outline"
         >
-          {pendingDecision === "granted" ? "Saving..." : "Allow recording"}
+          {pendingDecision === "granted" ? "Saving..." : "Allow"}
         </Button>
         <Button
           disabled={pendingDecision !== null}

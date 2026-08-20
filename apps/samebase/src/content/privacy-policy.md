@@ -51,9 +51,9 @@ their own privacy terms for the information that they process.
 - Browser analytics and diagnostics. When PostHog is enabled, it can receive page URLs, navigation,
   browser and device data, referrer data, IP address, an internal user ID after app access is
   approved, and client-side errors. Samebase disables browser persistence, automatic interaction
-  capture, heatmaps, and performance capture. Samebase starts session recording only after you allow
-  it. A recording can include visible page content and clicks. Samebase masks inputs and code
-  editors and blocks selected sensitive surfaces from recordings.
+  capture, heatmaps, and performance capture. Samebase starts session replay only after you allow
+  it. A replay can include visible page content and clicks. Samebase masks inputs and code editors
+  and blocks selected sensitive surfaces from recordings.
 - Backend usage diagnostics. When the production Convex log integration is enabled, PostHog Logs can
   receive Convex function-execution data and compact Samebase usage markers. The markers can include
   an internal user ID, account role, access level, MCP method, and MCP tool name.
@@ -96,8 +96,8 @@ Samebase does not use your repository or workspace content to train its own AI m
   results can include workspace data.
 - Samebase configures PostHog browser analytics without cookies or local-storage identifiers.
   Sign-in providers such as Google and GitHub can set their own cookies or session state.
-- Samebase stores your session-recording choice in your account. You can change it in Account
-  settings. Withdrawing consent stops new session recording.
+- Samebase stores your session replay choice in your account. You can change it in Account settings.
+  Withdrawing consent stops new session replay.
 
 ## How Samebase Uses Information
 

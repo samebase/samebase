@@ -452,13 +452,13 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
             }
           />
           <div>
-            <Label htmlFor="settings-session-recording">Session recording</Label>
+            <Label htmlFor="settings-session-recording">Session replay</Label>
             <p
               className="mt-1 text-sm leading-6 text-muted-foreground"
               id="settings-session-recording-description"
             >
-              Allow Samebase to record page content and clicks to find bugs and improve onboarding.
-              Inputs and code editors are masked. PostHog processes recordings for Samebase.
+              Allow session replay to help us find bugs and improve onboarding. Inputs and code
+              editors are masked.
             </p>
             <Link className="mt-2 inline-block text-sm underline" to="/privacy">
               Privacy details
