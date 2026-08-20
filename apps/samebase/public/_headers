@@ -23,5 +23,11 @@
   Referrer-Policy: no-referrer
   X-Robots-Tag: noindex, nofollow
 
+/docs/*.md
+  X-Robots-Tag: noindex, follow
+
+/pricing.md
+  X-Robots-Tag: noindex, follow
+
 /assets/*
   Cache-Control: public, max-age=31536000, immutable

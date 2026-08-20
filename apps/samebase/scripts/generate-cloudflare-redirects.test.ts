@@ -38,6 +38,12 @@ describe("generate-cloudflare-redirects", () => {
     );
   });
 
+  it("temporarily redirects retired home paths to the vault", () => {
+    expect(cloudflareRedirects).toContain(
+      ["/home /vault/ 302", "/home/ /vault/ 302", "/home/index.html /vault/ 302"].join("\n"),
+    );
+  });
+
   it("creates exact aliases from public prerender pages", () => {
     expect(createCloudflarePrerenderRedirectsBlock(pages)).toBe(
       [

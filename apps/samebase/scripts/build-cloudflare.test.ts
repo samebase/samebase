@@ -5,6 +5,7 @@ import { describe, expect, it } from "vite-plus/test";
 import { main, selectConvexDeployPlan } from "./build-cloudflare.js";
 
 const cloudflareHeaders = readFileSync(new URL("../public/_headers", import.meta.url), "utf8");
+const sitemap = readFileSync(new URL("../public/sitemap.xml", import.meta.url), "utf8");
 
 describe("build-cloudflare", () => {
   it("applies one global browser security policy", () => {
@@ -16,6 +17,31 @@ describe("build-cloudflare", () => {
     expect(cloudflareHeaders.match(/^  Content-Security-Policy:/gm) ?? []).toHaveLength(1);
     expect(cloudflareHeaders.match(/^  X-Content-Type-Options:/gm) ?? []).toHaveLength(1);
     expect(cloudflareHeaders.match(/^  X-Frame-Options:/gm) ?? []).toHaveLength(1);
+  });
+
+  it("keeps raw agent Markdown out of search results", () => {
+    expect(cloudflareHeaders).toContain(
+      ["/docs/*.md", "  X-Robots-Tag: noindex, follow"].join("\n"),
+    );
+    expect(cloudflareHeaders).toContain(
+      ["/pricing.md", "  X-Robots-Tag: noindex, follow"].join("\n"),
+    );
+  });
+
+  it("lists each canonical public decision page in the sitemap", () => {
+    const urls = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((match) => match[1]);
+
+    expect(urls).toEqual([
+      "https://samebase.com/",
+      "https://samebase.com/docs",
+      "https://samebase.com/docs/cloudflare-setup",
+      "https://samebase.com/docs/do-it-yourself",
+      "https://samebase.com/docs/receipts",
+      "https://samebase.com/docs/the-stack",
+      "https://samebase.com/pricing",
+      "https://samebase.com/privacy",
+      "https://samebase.com/terms",
+    ]);
   });
 
   it("requires the preview key for non-main branches with the production key present", () => {
