@@ -155,10 +155,7 @@ async function runConvexProbe<Value>({
       },
     };
   } catch (error) {
-    console.warn("convex:provider_access_probe_failed", {
-      check: key,
-      errorName: error instanceof Error ? error.name : "unknown",
-    });
+    console.warn("convex:provider_access_probe_failed", { check: key }, error);
     return {
       state: "error",
       check: {

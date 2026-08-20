@@ -825,6 +825,35 @@ describe("organization provider status", () => {
     expect(fetch).toHaveBeenCalledTimes(3);
   });
 
+  it("logs the original Convex provider error", async () => {
+    const { organizationId, t, userId } = await seedProviderOrganization();
+    const asOwner = t.withIdentity({
+      subject: `${userId}|session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response("Invalid access token", { status: 401 })),
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+
+    const access = await asOwner.action(api.convexProviderAccess.checkConvexConnectionAccess, {
+      organizationId,
+    });
+
+    expect(access.checks).toContainEqual({ key: "token", status: "error" });
+    expect(warn).toHaveBeenCalledWith(
+      "convex:provider_access_probe_failed",
+      { check: "token" },
+      expect.objectContaining({
+        name: "ConvexManagementApiError",
+        path: "/token_details",
+        responseBodySummary: "Invalid access token",
+        status: 401,
+      }),
+    );
+  });
+
   it("reports an inaccessible Cloudflare account while provider status is billing-limited", async () => {
     const { organizationId, t, userId } = await seedProviderOrganization();
     await makeSeedProviderOrganizationBillingLimited(t, organizationId);
