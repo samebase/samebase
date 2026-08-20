@@ -3,7 +3,6 @@ import {
   isAgentBrowserHandoffRoute,
 } from "../../shared/agentBrowserHandoff";
 import { isOrganizationInvitationPath } from "@/lib/organizationInvitationRoute";
-import { isRecord } from "@samebase/dependent";
 import type { BeforeSendFn as SamebasePostHogBeforeSend } from "posthog-js";
 
 type SamebasePostHogClient = (typeof import("posthog-js"))["default"];
@@ -51,57 +50,6 @@ function sanitizeSamebasePostHogUrlLikeValue(value: string): string {
   return isPath ? `${url.pathname}${url.search}${url.hash}` : url.href;
 }
 
-function sanitizeSamebasePostHogCapturedNetworkRequest<
-  Request extends { name: string; url?: string },
->(request: Request): Request {
-  request.name = sanitizeSamebasePostHogUrlLikeValue(request.name);
-  if (request.url !== undefined) {
-    request.url = sanitizeSamebasePostHogUrlLikeValue(request.url);
-  }
-  return request;
-}
-
-function sanitizeSamebasePostHogSnapshotData(value: unknown): unknown {
-  if (!Array.isArray(value)) {
-    return value;
-  }
-
-  return value.map((snapshot) => {
-    if (!isRecord(snapshot)) {
-      return snapshot;
-    }
-    const data = snapshot["data"];
-    if (!isRecord(data) || typeof data["href"] !== "string") {
-      return snapshot;
-    }
-
-    return {
-      ...snapshot,
-      data: {
-        ...data,
-        href: sanitizeSamebasePostHogUrlLikeValue(data["href"]),
-      },
-    };
-  });
-}
-
-function sanitizeSamebasePostHogHeatmapData(value: unknown): unknown {
-  if (!isRecord(value)) {
-    return value;
-  }
-
-  const sanitized: Record<string, unknown> = {};
-  for (const [url, entries] of Object.entries(value)) {
-    const sanitizedUrl = sanitizeSamebasePostHogUrlLikeValue(url);
-    const existingEntries = sanitized[sanitizedUrl];
-    sanitized[sanitizedUrl] =
-      Array.isArray(existingEntries) && Array.isArray(entries)
-        ? [...existingEntries, ...entries]
-        : entries;
-  }
-  return sanitized;
-}
-
 function sanitizeSamebasePostHogUrlProperties(
   properties: Record<string, unknown>,
 ): Record<string, unknown> {
@@ -121,8 +69,6 @@ const sanitizeSamebasePostHogEvent: SamebasePostHogBeforeSend = (event) => {
   }
 
   const properties = sanitizeSamebasePostHogUrlProperties(event.properties);
-  properties["$snapshot_data"] = sanitizeSamebasePostHogSnapshotData(properties["$snapshot_data"]);
-  properties["$heatmap_data"] = sanitizeSamebasePostHogHeatmapData(properties["$heatmap_data"]);
 
   return {
     ...event,
@@ -160,8 +106,11 @@ export function buildSamebasePostHogInitConfig(args: {
   return {
     api_host: args.apiHost,
     advanced_disable_feature_flags: true,
+    autocapture: false,
     before_send: sanitizeSamebasePostHogEvent,
     capture_exceptions: true,
+    capture_heatmaps: false,
+    capture_performance: false,
     // Samebase captures route pageviews from TanStack Router so the first
     // pageview is tied to app mount, not to PostHog's SDK boot heuristics.
     capture_pageview: false,
@@ -170,38 +119,15 @@ export function buildSamebasePostHogInitConfig(args: {
     // browser unload so Web Analytics can compute bounce rate and duration.
     capture_pageleave: true,
     defaults: "2026-01-30",
-    // Replays still require "Record user sessions" in PostHog project settings.
-    // This keeps Samebase app code from disabling the recorder once the project
-    // is configured. Docs: https://posthog.com/docs/libraries/js/usage#session-replay
-    disable_session_recording: false,
+    // Keep browser analytics free of cookies and local-storage identifiers. Samebase records
+    // explicit pageviews and errors without storing an analytics identity on the device.
+    disable_persistence: true,
+    disable_session_recording: true,
     // Keep localhost sessions visible while developing instead of classifying
     // them as internal/test users under the defaults snapshot.
     internal_or_test_user_hostname: args.dev ? null : undefined,
+    respect_dnt: true,
     ui_host: DEFAULT_POSTHOG_UI_HOST,
-    session_recording: {
-      // Add data-posthog-block to a wrapper when the whole subtree should be
-      // removed from replay, for example a temporary credential preview.
-      blockSelector: "[data-posthog-block]",
-      // Form controls often contain credentials, prompts, or provider IDs; keep
-      // those masked before they leave the browser.
-      maskAllInputs: true,
-      // Inputs stay masked by default. Add data-posthog-unmask only when the
-      // control is explicitly reviewed as safe for replay, such as the route
-      // URL editor. Docs: https://posthog.com/docs/session-replay/privacy
-      maskInputFn: (text, element) => {
-        if (element?.hasAttribute("data-posthog-unmask")) {
-          return text;
-        }
-
-        return "*".repeat(text.length);
-      },
-      maskCapturedNetworkRequestFn: sanitizeSamebasePostHogCapturedNetworkRequest,
-      // Editor DOM is not always an <input>. CodeMirror/ProseMark and Monaco can
-      // render repository files, prompts, assistant output, and provider data as
-      // normal text nodes, so mask those surfaces by default.
-      // Docs: https://posthog.com/docs/session-replay/privacy
-      maskTextSelector: ".cm-editor, .monaco-editor, [data-posthog-mask]",
-    },
   };
 }
 

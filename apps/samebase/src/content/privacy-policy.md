@@ -49,10 +49,9 @@ their own privacy terms for the information that they process.
   identifiers, file paths, and error details. Samebase does not intend to put raw credentials,
   complete prompts, or file content in these logs.
 - Browser analytics and diagnostics. When PostHog is enabled, it can receive page URLs, navigation,
-  interaction data, browser and device data, referrer data, IP address, performance data, an
-  internal user ID, client-side errors, and session recordings. Input values and editor surfaces are
-  masked by default, but visible page content and fields that are explicitly marked for capture can
-  appear in a recording.
+  browser and device data, referrer data, IP address, an internal user ID after app access is
+  approved, and client-side errors. Samebase disables browser persistence, automatic interaction
+  capture, heatmaps, performance capture, and session recording.
 - Backend usage diagnostics. When the production Convex log integration is enabled, PostHog Logs can
   receive Convex function-execution data and compact Samebase usage markers. The markers can include
   an internal user ID, account role, access level, MCP method, and MCP tool name.
@@ -93,8 +92,8 @@ Samebase does not use your repository or workspace content to train its own AI m
   removes the token from the URL before the app loads and clears the stored value after use.
 - Browser IndexedDB caches some Convex query results under the `convexQueryCache` database. Cached
   results can include workspace data.
-- PostHog can use cookies and local storage for browser identifiers and session state. Sign-in
-  providers such as Google and GitHub can also set their own cookies or session state.
+- Samebase configures PostHog browser analytics without cookies or local-storage identifiers.
+  Sign-in providers such as Google and GitHub can set their own cookies or session state.
 
 ## How Samebase Uses Information
 
@@ -208,8 +207,7 @@ contact@samebase.com to request more information about a specific transfer.
 
 Samebase uses HTTPS, access controls, OAuth scopes, and short-lived authorization records. Samebase
 stores MCP authorization codes, access tokens, refresh tokens, and browser-handoff token values as
-hashes. Input and editor masking reduces the content recorded by session replay. No security method
-can remove all risk.
+hashes. No security method can remove all risk.
 
 Treat browser-handoff URLs and provider credentials as sensitive. Do not send credentials or other
 highly sensitive data unless a Samebase feature requires them and you are authorized to use them.

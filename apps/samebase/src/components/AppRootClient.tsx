@@ -36,6 +36,10 @@ function usePostHogPageviews() {
 function usePostHogViewerIdentity() {
   const { isAuthenticated, isLoading } = useConvexAuth();
   const viewer = useQuery(api.users.viewer, isAuthenticated && !isLoading ? {} : "skip");
+  const viewerAccess = useQuery(
+    api.users.currentViewerAccess,
+    isAuthenticated && !isLoading ? {} : "skip",
+  );
   const identifiedUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -48,7 +52,12 @@ function usePostHogViewerIdentity() {
     // Wait for the server-resolved viewer instead of reading JWT/localStorage
     // fields. `api.users.viewer` is the same user document backend attribution
     // code will use, and the ref prevents re-identifying on unrelated re-renders.
-    if (viewer === undefined || viewer === null) {
+    if (
+      viewer === undefined ||
+      viewer === null ||
+      viewerAccess === undefined ||
+      !viewerAccess.accessKeys.includes("access_dashboard")
+    ) {
       return;
     }
     if (identifiedUserIdRef.current === viewer._id) {
@@ -56,7 +65,7 @@ function usePostHogViewerIdentity() {
     }
     identifiedUserIdRef.current = viewer._id;
     void identifySamebasePostHogUser(viewer._id);
-  }, [viewer]);
+  }, [viewer, viewerAccess]);
 }
 
 function AppAccountRuntime() {
