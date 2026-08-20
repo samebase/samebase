@@ -2,7 +2,16 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { array, isObject, literal, object, optional, string, type InferGood } from "@samebase/sure";
+import {
+  array,
+  isObject,
+  literal,
+  object,
+  optional,
+  string,
+  union,
+  type InferGood,
+} from "@samebase/sure";
 import { createServer } from "vite";
 
 import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
@@ -19,6 +28,11 @@ const defaultRedirectsFilePath = path.resolve(
 
 const publicPrerenderPageSchema = object({
   path: string,
+  expectedMetadata: object({
+    title: string,
+    description: string,
+    robots: union(literal("index,follow"), literal("noindex,nofollow")),
+  }),
   prerender: object({
     enabled: literal(true),
     outputPath: optional(string),

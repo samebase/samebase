@@ -12,6 +12,12 @@ import {
 
 const rootPage = {
   path: "/",
+  expectedMetadata: {
+    title: "Samebase | The correct way to build web apps",
+    description:
+      "The correct way to build web apps. Convex + Cloudflare is all you need. You own 100% of your code and data.",
+    robots: "index,follow",
+  },
   prerender: {
     enabled: true,
     outputPath: "/_landing.html",
@@ -75,7 +81,7 @@ describe("strip-public-prerender-modulepreloads", () => {
   });
 
   it("verifies exact first-response metadata for configured public routes", () => {
-    expect(() => verifyPublicPrerenderMetadata("/", landingHead)).not.toThrow();
+    expect(() => verifyPublicPrerenderMetadata(rootPage, landingHead)).not.toThrow();
 
     for (const missingMarkup of [
       "<title>",
@@ -84,13 +90,13 @@ describe("strip-public-prerender-modulepreloads", () => {
       '<link rel="canonical"',
     ]) {
       expect(() =>
-        verifyPublicPrerenderMetadata("/", landingHead.replace(missingMarkup, "<removed")),
+        verifyPublicPrerenderMetadata(rootPage, landingHead.replace(missingMarkup, "<removed")),
       ).toThrow("Public prerender / must contain one exact head element");
     }
 
     expect(() =>
       verifyPublicPrerenderMetadata(
-        "/",
+        rootPage,
         landingHead.replace("</head>", '<meta name="robots" content="noindex,nofollow"/></head>'),
       ),
     ).toThrow("Public prerender / must contain one exact head element");

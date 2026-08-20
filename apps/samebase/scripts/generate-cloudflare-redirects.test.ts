@@ -10,9 +10,16 @@ import {
   replaceGeneratedCloudflareRedirectsBlock,
 } from "./generate-cloudflare-redirects.js";
 
+const expectedMetadata = {
+  title: "Test page | Samebase",
+  description: "Test page metadata.",
+  robots: "noindex,nofollow",
+} satisfies PublicPrerenderPage["expectedMetadata"];
+
 const pages = [
   {
     path: "/",
+    expectedMetadata,
     prerender: {
       enabled: true,
       outputPath: "/_landing.html",
@@ -20,6 +27,7 @@ const pages = [
   },
   {
     path: "/terms",
+    expectedMetadata,
     prerender: {
       enabled: true,
     },
@@ -115,6 +123,7 @@ describe("generate-cloudflare-redirects", () => {
   it("keeps prerender pages from taking the Cloudflare SPA shell path", () => {
     const workerSsrRootPage = {
       path: "/",
+      expectedMetadata,
       prerender: {
         enabled: true,
         outputPath: "/index.html",
