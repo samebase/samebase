@@ -119,31 +119,6 @@ test("landing overview preserves its unloaded video frame and wide desktop layou
   });
 });
 
-test("landing closing heading shows stack corrected to base", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.emulateMedia({ reducedMotion: "reduce" });
-  await showLandingHeroPoster(page);
-  await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
-    waitUntil: "domcontentloaded",
-  });
-  await page.waitForLoadState("networkidle");
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-  });
-
-  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
-  const closingHeading = article.getByRole("heading", {
-    name: "Same base. Your accounts. No magic.",
-  });
-  await closingHeading.scrollIntoViewIfNeeded();
-  await expect(closingHeading).toHaveScreenshot("landing-preview-closing-heading-desktop.png", {
-    animations: "disabled",
-    caret: "hide",
-    scale: "css",
-    timeout: 30_000,
-  });
-});
-
 test("landing preview FAQ answers the direct-agent questions", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "reduce" });

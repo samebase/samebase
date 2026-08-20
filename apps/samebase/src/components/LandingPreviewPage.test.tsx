@@ -252,7 +252,7 @@ describe("LandingPage", () => {
 
     // The closing band keeps one fractal logo without logo-lab helper copy.
     expect(markup).toContain(
-      'Same <del aria-hidden="true">stack</del> base. Your accounts. No magic.',
+      'Same <del class="text-muted-foreground" aria-hidden="true">stack</del> base. Your accounts. No magic.',
     );
     expect(markup.split('data-testid="public-landing-logo"').length - 1).toBe(1);
   });
