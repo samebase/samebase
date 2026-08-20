@@ -52,22 +52,20 @@ function AppRightSidebarOnboardingVideo() {
     <section className="vault-dashboard-sidebar-inset pb-3 pt-6">
       <h2 className="text-2xl font-medium">First time using Samebase?</h2>
       <a
+        className="mt-2 block"
         href="https://youtu.be/8-ZEGPpqi9Y"
         rel="noreferrer"
         target="_blank"
-        className="mt-2 block text-lg underline"
       >
-        Watch the complete onboarding on <span className="text-red-600">YouTube</span>
+        <span className="text-lg underline">
+          Watch the complete onboarding on <span className="text-red-600">YouTube</span>
+        </span>
+        <img
+          alt="Samebase onboarding video preview"
+          className="mt-2 aspect-[48/31] w-full object-cover"
+          src="/onboarding/complete-onboarding-poster.webp"
+        />
       </a>
-      <iframe
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-        allowFullScreen
-        className="mt-2 aspect-[48/31] w-full border-0"
-        loading="lazy"
-        referrerPolicy="strict-origin-when-cross-origin"
-        src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"
-        title="Samebase onboarding: Complete setup from scratch"
-      />
     </section>
   );
 }

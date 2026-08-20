@@ -649,20 +649,18 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain('data-testid="organization-context-control"');
     expect(hydratedMarkup).not.toContain("/admin/users");
     expect(hydratedMarkup).not.toContain("/admin/account-deletions");
-    expect(hydratedMarkup).toContain(
-      'src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y" title="Samebase onboarding: Complete setup from scratch"',
-    );
+    expect(hydratedMarkup).not.toContain("youtube-nocookie.com");
     expect(hydratedMarkup).toContain("First time using Samebase?");
     expect(hydratedMarkup).toContain("Watch the complete onboarding on ");
     expect(hydratedMarkup).toContain('class="text-red-600">YouTube</span>');
     expect(hydratedMarkup).toContain(
-      'href="https://youtu.be/8-ZEGPpqi9Y" rel="noreferrer" target="_blank" class="mt-2 block text-lg underline"',
+      'class="mt-2 block" href="https://youtu.be/8-ZEGPpqi9Y" rel="noreferrer" target="_blank"',
     );
     expect(hydratedMarkup.indexOf("First time using Samebase?")).toBeLessThan(
       hydratedMarkup.indexOf("Watch the complete onboarding on "),
     );
     expect(hydratedMarkup.indexOf("Watch the complete onboarding on ")).toBeLessThan(
-      hydratedMarkup.indexOf('src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"'),
+      hydratedMarkup.indexOf('src="/onboarding/complete-onboarding-poster.webp"'),
     );
     expect(hydratedMarkup.indexOf("Watch the complete onboarding on ")).toBeLessThan(
       hydratedMarkup.indexOf('href="/terms"'),
@@ -698,7 +696,7 @@ describe("AppRightSidebarContent", () => {
     );
 
     expect(hydratedMarkup).not.toContain("First time using Samebase?");
-    expect(hydratedMarkup).not.toContain("https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y");
+    expect(hydratedMarkup).not.toContain("/onboarding/complete-onboarding-poster.webp");
   });
 
   it("renders both admin routes for staff", async () => {

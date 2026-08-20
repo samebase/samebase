@@ -787,6 +787,7 @@ export const trackedFilePaths = [
   "apps/samebase/public/logo_pick.svg",
   "apps/samebase/public/manifest.webmanifest",
   "apps/samebase/public/media-visual-fixture.svg",
+  "apps/samebase/public/onboarding/complete-onboarding-poster.webp",
   "apps/samebase/public/repository-media-fixtures/monu10.png",
   "apps/samebase/public/repository-media-fixtures/monu10.vox",
   "apps/samebase/public/robots.txt",

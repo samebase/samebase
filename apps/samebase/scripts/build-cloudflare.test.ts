@@ -7,12 +7,14 @@ import { main, selectConvexDeployPlan } from "./build-cloudflare.js";
 const cloudflareHeaders = readFileSync(new URL("../public/_headers", import.meta.url), "utf8");
 
 describe("build-cloudflare", () => {
-  it("applies one global clickjacking policy", () => {
+  it("applies one global browser security policy", () => {
     const globalRule = cloudflareHeaders.split("\n\n").find((rule) => rule.startsWith("/*\n"));
 
     expect(globalRule).toContain("Content-Security-Policy: frame-ancestors 'none'");
+    expect(globalRule).toContain("X-Content-Type-Options: nosniff");
     expect(globalRule).toContain("X-Frame-Options: DENY");
     expect(cloudflareHeaders.match(/^  Content-Security-Policy:/gm) ?? []).toHaveLength(1);
+    expect(cloudflareHeaders.match(/^  X-Content-Type-Options:/gm) ?? []).toHaveLength(1);
     expect(cloudflareHeaders.match(/^  X-Frame-Options:/gm) ?? []).toHaveLength(1);
   });
 
