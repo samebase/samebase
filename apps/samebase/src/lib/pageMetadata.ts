@@ -175,6 +175,14 @@ export const MCP_CONSENT_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const LOGO_PAGE_METADATA: PageMetadata = {
+  title: "Logo Preview | Samebase",
+  description: "Developer preview for exploring Samebase logo rendering.",
+  canonicalPath: "/logo",
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export function resolveAppPageTitle(pathname: string): string {
   if (pathname === DASHBOARD_ROUTE || pathname === `${DASHBOARD_ROUTE}/`) {
     return "Vaults | Samebase";
@@ -297,6 +305,10 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === MCP_CONSENT_APP_PATH) {
     return MCP_CONSENT_PAGE_METADATA;
+  }
+
+  if (args.pathname === "/logo") {
+    return LOGO_PAGE_METADATA;
   }
 
   if (isAgentBrowserHandoffRoute(args.pathname)) {

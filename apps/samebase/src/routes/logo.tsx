@@ -7,7 +7,7 @@ import {
   validateLogoRouteSearchForRenderer,
 } from "@/routeSearch/logo";
 import { ROUTE_ACCESS_METADATA_BY_PATH } from "@/routeAccessMetadata";
-import { buildLogoLabPageHead } from "@/lib/pageMetadata";
+import { buildPageHead, LOGO_PAGE_METADATA } from "@/lib/pageMetadata";
 import { RoutedPage } from "./-publicRouteComponents";
 
 const pathname = "/logo";
@@ -34,7 +34,7 @@ function LogoThreeRouteComponent() {
 }
 
 export const Route = createFileRoute("/logo")({
-  head: () => buildLogoLabPageHead(pathname, "Logo Preview"),
+  head: () => buildPageHead(LOGO_PAGE_METADATA),
   staticData: {
     ...ROUTE_ACCESS_METADATA_BY_PATH[pathname],
     acceptedSearchKeys: LOGO_ROUTE_SEARCH_KEYS,

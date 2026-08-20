@@ -86,16 +86,36 @@ export function verifyPublicPrerenderMetadata(pathname: string, html: string) {
   }
 
   const canonicalUrl = new URL(pathname, "https://samebase.com").toString();
-  const expectedHeadMarkup = [
-    `<title>${expected.title}</title>`,
-    `<meta name="description" content="${expected.description}"/>`,
-    `<meta name="robots" content="${expected.robots}"/>`,
-    `<link rel="canonical" href="${canonicalUrl}"/>`,
+  const headEndIndex = html.indexOf("</head>");
+  if (headEndIndex === -1) {
+    throw new Error(`Public prerender ${pathname} has no closing head tag.`);
+  }
+  const head = html.slice(0, headEndIndex);
+  const expectedHeadElements = [
+    {
+      expectedMarkup: `<title>${expected.title}</title>`,
+      pattern: /<title\b[^>]*>[^<]*<\/title>/gi,
+    },
+    {
+      expectedMarkup: `<meta name="description" content="${expected.description}"/>`,
+      pattern: /<meta\b(?=[^>]*\bname=["']description["'])[^>]*>/gi,
+    },
+    {
+      expectedMarkup: `<meta name="robots" content="${expected.robots}"/>`,
+      pattern: /<meta\b(?=[^>]*\bname=["']robots["'])[^>]*>/gi,
+    },
+    {
+      expectedMarkup: `<link rel="canonical" href="${canonicalUrl}"/>`,
+      pattern: /<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/gi,
+    },
   ];
 
-  for (const markup of expectedHeadMarkup) {
-    if (!html.includes(markup)) {
-      throw new Error(`Public prerender ${pathname} is missing exact head markup: ${markup}`);
+  for (const element of expectedHeadElements) {
+    const matches = head.match(element.pattern) ?? [];
+    if (matches.length !== 1 || matches[0] !== element.expectedMarkup) {
+      throw new Error(
+        `Public prerender ${pathname} must contain one exact head element: ${element.expectedMarkup}`,
+      );
     }
   }
 }

@@ -85,8 +85,15 @@ describe("strip-public-prerender-modulepreloads", () => {
     ]) {
       expect(() =>
         verifyPublicPrerenderMetadata("/", landingHead.replace(missingMarkup, "<removed")),
-      ).toThrow("Public prerender / is missing exact head markup");
+      ).toThrow("Public prerender / must contain one exact head element");
     }
+
+    expect(() =>
+      verifyPublicPrerenderMetadata(
+        "/",
+        landingHead.replace("</head>", '<meta name="robots" content="noindex,nofollow"/></head>'),
+      ),
+    ).toThrow("Public prerender / must contain one exact head element");
   });
 
   it("overwrites the configured public prerender output", () => {

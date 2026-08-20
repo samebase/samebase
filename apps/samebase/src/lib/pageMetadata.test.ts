@@ -334,6 +334,21 @@ describe("page metadata", () => {
     ]);
   });
 
+  it("keeps the root logo preview metadata after hydration", () => {
+    expect(
+      resolvePageMetadata({
+        pathname: "/logo",
+        isAuthenticated: false,
+      }),
+    ).toEqual({
+      canonicalPath: "/logo",
+      description: "Developer preview for exploring Samebase logo rendering.",
+      openGraphType: "website",
+      robots: "noindex,nofollow",
+      title: "Logo Preview | Samebase",
+    });
+  });
+
   it("omits the homepage canonical from nested route document shells", () => {
     expect(buildRootHead({ includeHomeCanonical: false }).links).not.toContainEqual({
       rel: "canonical",
