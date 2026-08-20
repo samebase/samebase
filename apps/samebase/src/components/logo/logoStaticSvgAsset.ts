@@ -74,7 +74,7 @@ export function createLogoIdentityViewSvgMarkup(
   return createLogoThreeSvgMarkup({
     backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
     cameraFrustumPadding: options.cameraFrustumPadding ?? LOGO_THREE_SVG_CAMERA_FRUSTUM_PADDING,
-    coordinateFractionDigits:
+    singleColorPathCoordinateFractionDigits:
       viewId === "side-primary" ? SIDE_PRIMARY_SVG_COORDINATE_FRACTION_DIGITS : undefined,
     depth: options.depth,
     elevationDegrees: view.elevationDegrees,
