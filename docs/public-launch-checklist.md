@@ -11,11 +11,6 @@ repos and pages (operator policy: link now, flip later; this file records the fl
 - [ ] Eval round 2 against the deployed corpus
 - [ ] Second clean round (RFC 093 bar), then decide whether transcripts go public
 
-## samebase.com flips
-
-- [ ] Landing swap: make the current `/landing-preview` page the public `/` route, then update route
-      metadata, prerendering, and screenshot coverage
-
 ## Pricing track
 
 - [ ] Cost-model research: PostHog compute attribution; FileView mirroring/collab cost per vault

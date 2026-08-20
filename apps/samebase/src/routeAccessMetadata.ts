@@ -53,8 +53,8 @@ const routeAccessMetadataByPath = {
   "/docs/the-stack": { access: "access_public" },
   "/landing-preview": {
     access: "access_public",
-    appWorkspaceRouteChrome: { leftPane: "none" },
-    pathSuggestion: "hidden",
+    pathSuggestion: "redirect",
+    prerender: false,
   },
   "/localStorage": { access: "access_admin" },
   "/logo": { access: "access_public", pathSuggestion: "dev" },

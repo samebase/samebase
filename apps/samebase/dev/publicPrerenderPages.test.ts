@@ -12,7 +12,7 @@ describe("readPublicPrerenderPages", () => {
     expect(paths).toContain("/docs/do-it-yourself");
     expect(paths).toContain("/docs/receipts");
     expect(paths).toContain("/docs/the-stack");
-    expect(paths).toContain("/landing-preview");
+    expect(paths).not.toContain("/landing-preview");
     expect(paths).toContain("/logo/hover/menger");
     expect(paths).toContain("/logo/iso");
     expect(paths).toContain("/logo/raster");

@@ -9,6 +9,7 @@ import {
 import { normalizeRouteSearchPresenceFlags } from "@/routing/searchFlags";
 
 export const LANDING_PREVIEW_ROUTE = "/landing-preview";
+export const LANDING_PAGE_ROUTE = "/";
 export const DOCS_INDEX_ROUTE = "/docs";
 export const DOCS_CLOUDFLARE_SETUP_ROUTE = "/docs/cloudflare-setup";
 export const DOCS_DO_IT_YOURSELF_ROUTE = "/docs/do-it-yourself";
@@ -25,7 +26,7 @@ export const DOCS_SIDEBAR_TEST_ID = "docs-sidebar";
 // The landing keeps its left pane surface for now: the workspace prehydration
 // script expects the pane element to exist. A later PR makes the landing
 // sidebar-less together with prehydration support for pane-less routes.
-const RouteSearchSchema_landingPreview = defineRouteSearchParams({
+const RouteSearchSchema_landingPage = defineRouteSearchParams({
   left: routeSearchPresenceParam({
     access: "access_public",
     suggestion: "hidden",
@@ -47,31 +48,31 @@ const RouteSearchSchema_docs = defineRouteSearchParams({
   }),
 });
 
-export type LandingPreviewRouteSearch = InferRouteSearch<typeof RouteSearchSchema_landingPreview>;
+export type LandingPageRouteSearch = InferRouteSearch<typeof RouteSearchSchema_landingPage>;
 export type DocsRouteSearch = InferRouteSearch<typeof RouteSearchSchema_docs>;
 
-const landingPreviewRouteSearchParamMetadata = readRouteSearchParamMetadata(
-  RouteSearchSchema_landingPreview,
+const landingPageRouteSearchParamMetadata = readRouteSearchParamMetadata(
+  RouteSearchSchema_landingPage,
 );
 const docsRouteSearchParamMetadata = readRouteSearchParamMetadata(RouteSearchSchema_docs);
 
-const LANDING_PREVIEW_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
-  landingPreviewRouteSearchParamMetadata,
+const LANDING_PAGE_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(
+  landingPageRouteSearchParamMetadata,
 );
 const DOCS_PRESENCE_SEARCH_KEYS = readRouteSearchPresenceKeys(docsRouteSearchParamMetadata);
 
-export const LANDING_PREVIEW_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
-  landingPreviewRouteSearchParamMetadata,
+export const LANDING_PAGE_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
+  landingPageRouteSearchParamMetadata,
 );
 export const DOCS_ROUTE_SEARCH_STATIC_DATA = readRouteSearchStaticData(
   docsRouteSearchParamMetadata,
 );
 
-export function validateLandingPreviewRouteSearch(
+export function validateLandingPageRouteSearch(
   search: Record<string, unknown>,
-): LandingPreviewRouteSearch {
-  return RouteSearchSchema_landingPreview.parse(
-    normalizeRouteSearchPresenceFlags(search, LANDING_PREVIEW_PRESENCE_SEARCH_KEYS),
+): LandingPageRouteSearch {
+  return RouteSearchSchema_landingPage.parse(
+    normalizeRouteSearchPresenceFlags(search, LANDING_PAGE_PRESENCE_SEARCH_KEYS),
   );
 }
 

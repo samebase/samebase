@@ -87,9 +87,8 @@ function isRouteUrlNavigablePath(
 ): boolean {
   return (
     (path === "/" || (path.startsWith("/") && !path.startsWith("/_"))) &&
-    // Redirect-only paths never commit: typing toward /landing-preview passes
-    // exactly through /landing, and committing that mid-edit draft would
-    // bounce the visitor to the redirect target while they are still typing.
+    // Redirect-only paths never commit because navigation would replace the
+    // draft with the redirect target while the visitor is still typing.
     staticData.pathSuggestion !== "redirect" &&
     canAccessRouteStaticData(staticData, viewer, routeEnvironment)
   );

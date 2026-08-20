@@ -242,7 +242,7 @@ HTML pages. Action and operate docs are raw markdown only.
 
 ## Docs
 
-- [Overview](https://samebase.com/landing-preview): the best-stack opinion, the connected-app
+- [Overview](https://samebase.com/): the best-stack opinion, the connected-app
   inventory, and the four claims: yours, safer, lanes, cheaper
 - [The stack](https://samebase.com/docs/the-stack.md): what the app template ships and why each
   piece was chosen

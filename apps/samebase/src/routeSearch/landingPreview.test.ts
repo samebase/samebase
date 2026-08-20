@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vite-plus/test";
-import { validateLandingPreviewRouteSearch } from "@/routeSearch/landingPreview";
+import { validateLandingPageRouteSearch } from "@/routeSearch/landingPreview";
 
-describe("landingPreview", () => {
+describe("landing page route search", () => {
   it("ignores unsupported query values", () => {
-    expect(validateLandingPreviewRouteSearch({ lang: "ro" })).toEqual({});
+    expect(validateLandingPageRouteSearch({ lang: "ro" })).toEqual({});
   });
 
   it("keeps hidden mobile pane query flags", () => {
-    expect(validateLandingPreviewRouteSearch({ left: "", right: undefined })).toEqual({
+    expect(validateLandingPageRouteSearch({ left: "", right: undefined })).toEqual({
       left: true,
     });
 
-    expect(validateLandingPreviewRouteSearch({ left: undefined, right: "" })).toEqual({
+    expect(validateLandingPageRouteSearch({ left: undefined, right: "" })).toEqual({
       right: true,
     });
   });

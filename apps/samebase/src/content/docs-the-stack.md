@@ -61,5 +61,5 @@ like a story, one small decision at a time.
 
 ## The rest
 
-- Why the base is GitHub, Convex, and Cloudflare: the [Overview](/landing-preview).
+- Why the base is GitHub, Convex, and Cloudflare: the [Overview](/).
 - Build everything by hand, with no Samebase account: [Do it yourself](/docs/do-it-yourself).

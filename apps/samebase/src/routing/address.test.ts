@@ -111,34 +111,24 @@ describe("readRouteAddressReadiness", () => {
 
   it("applies hidden route paths and their query params", () => {
     // pathSuggestion: "hidden" hides the dropdown entry without blocking the
-    // route: typing /landing-preview or editing its params must still commit.
+    // route: typing the MCP consent route or editing its theme must still commit.
     expect(
       readRouteAddressReadinessForTest({
-        draftRouteAddress: "/landing-preview",
+        draftRouteAddress: "/oauth/mcp/consent",
       }),
     ).toEqual({
       kind: "readyExact",
-      routeAddress: "/landing-preview",
+      routeAddress: "/oauth/mcp/consent",
     });
 
     expect(
       readRouteAddressReadinessForTest({
-        currentRouteAddress: "/landing-preview",
-        draftRouteAddress: "/landing-preview?dark",
+        currentRouteAddress: "/oauth/mcp/consent",
+        draftRouteAddress: "/oauth/mcp/consent?dark",
       }),
     ).toEqual({
       kind: "readyExact",
-      routeAddress: "/landing-preview?dark",
-    });
-
-    expect(
-      readRouteAddressReadinessForTest({
-        currentRouteAddress: "/landing-preview",
-        draftRouteAddress: "/landing-preview?right",
-      }),
-    ).toEqual({
-      kind: "readyExact",
-      routeAddress: "/landing-preview?right",
+      routeAddress: "/oauth/mcp/consent?dark",
     });
   });
 
@@ -146,6 +136,15 @@ describe("readRouteAddressReadiness", () => {
     expect(
       readRouteAddressReadinessForTest({
         draftRouteAddress: "/landing",
+      }),
+    ).toEqual({
+      kind: "local",
+      reason: "pathNotReady",
+    });
+
+    expect(
+      readRouteAddressReadinessForTest({
+        draftRouteAddress: "/landing-preview",
       }),
     ).toEqual({
       kind: "local",

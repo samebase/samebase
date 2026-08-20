@@ -6,9 +6,9 @@ import {
   DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_STACK_ROUTE,
+  LANDING_PAGE_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
-  LANDING_PREVIEW_ROUTE,
 } from "../src/routeSearch/landingPreview";
 import { publicMediaManifest } from "../shared/publicMediaManifest";
 
@@ -18,7 +18,7 @@ const { defaultBrowserType: _landingPreviewMobileBrowserType, ...landingPreviewM
 test.setTimeout(120_000);
 
 const LANDING_HERO_VIDEO_URL = publicMediaManifest.landingFounderDemo.publicUrl;
-const LANDING_PREVIEW_PROD_UI_ROUTE = `${LANDING_PREVIEW_ROUTE}?prod-ui`;
+const LANDING_PAGE_PROD_UI_ROUTE = `${LANDING_PAGE_ROUTE}?prod-ui`;
 
 const expectedLandingPreviewSidebarFiles = [
   "Overview",
@@ -39,7 +39,7 @@ async function expectSidebarFiles(sidebar: Locator) {
   // the route with an optional search suffix.
   await expect(sidebar.getByRole("link", { name: "Overview" })).toHaveAttribute(
     "href",
-    new RegExp(`^${LANDING_PREVIEW_ROUTE}(\\?|$)`),
+    new RegExp(`^${LANDING_PAGE_ROUTE}(\\?|$)`),
   );
   await expect(sidebar.getByRole("link", { name: "Do it yourself" })).toHaveAttribute(
     "href",
@@ -73,7 +73,7 @@ test("landing overview preserves its unloaded video frame and wide desktop layou
   await page.setViewportSize({ width: 1440, height: 1000 });
   await showLandingHeroPoster(page);
 
-  await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
+  await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
     waitUntil: "domcontentloaded",
   });
 
@@ -123,7 +123,7 @@ test("landing preview FAQ answers the direct-agent questions", async ({ page }) 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await showLandingHeroPoster(page);
-  await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
+  await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -181,7 +181,7 @@ test("landing preview renders the onboarding walkthrough near the end", async ({
   await page.setViewportSize({ width: 1440, height: 1000 });
   await showLandingHeroPoster(page);
   await page.route("https://www.youtube-nocookie.com/**", (route) => route.abort());
-  await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
+  await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.evaluate(async () => {
@@ -209,7 +209,7 @@ test("landing preview FAQ stays responsive while the closing logo is off screen"
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await showLandingHeroPoster(page);
-  await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
+  await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
     waitUntil: "domcontentloaded",
   });
 
@@ -254,7 +254,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 900 });
   await showLandingHeroPoster(page);
 
-  await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
+  await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -325,7 +325,7 @@ test("landing document navigation resets pages, restores history, and aligns dir
     };
   });
   await showLandingHeroPoster(page);
-  await page.goto(LANDING_PREVIEW_ROUTE, {
+  await page.goto(LANDING_PAGE_ROUTE, {
     waitUntil: "domcontentloaded",
   });
   await page.waitForLoadState("networkidle");
@@ -367,7 +367,7 @@ test("landing document navigation resets pages, restores history, and aligns dir
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(doItYourselfScrollTop);
 
   await page.goBack();
-  await expect(page).toHaveURL(new RegExp(`${LANDING_PREVIEW_ROUTE}$`));
+  await expect(page).toHaveURL(new RegExp(`${LANDING_PAGE_ROUTE}$`));
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
 
   await page.getByRole("link", { exact: true, name: "/terms" }).click();
@@ -378,7 +378,7 @@ test("landing document navigation resets pages, restores history, and aligns dir
   ).toBeInViewport();
 
   await page.goBack();
-  await expect.poll(() => new URL(page.url()).pathname).toBe(LANDING_PREVIEW_ROUTE);
+  await expect.poll(() => new URL(page.url()).pathname).toBe(LANDING_PAGE_ROUTE);
   await expect.poll(() => readMainPaneScrollTop(page)).toBe(overviewScrollTop);
 
   await page.goto(`${DOCS_DO_IT_YOURSELF_ROUTE}#7-delete-the-app`, {
@@ -397,7 +397,7 @@ test.describe("mobile landing preview", () => {
   test("renders the mobile overview", async ({ page }) => {
     await page.setViewportSize({ height: 900, width: 390 });
     await showLandingHeroPoster(page);
-    await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
+    await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
       waitUntil: "domcontentloaded",
     });
     await page.waitForLoadState("networkidle");
@@ -434,7 +434,7 @@ test.describe("mobile landing preview", () => {
     await page.setViewportSize({ height: 1200, width: 390 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await showLandingHeroPoster(page);
-    await page.goto(LANDING_PREVIEW_PROD_UI_ROUTE, {
+    await page.goto(LANDING_PAGE_PROD_UI_ROUTE, {
       waitUntil: "domcontentloaded",
     });
     await page.waitForLoadState("networkidle");
@@ -477,7 +477,7 @@ test.describe("mobile landing preview", () => {
   });
 
   test("opens linked documents at the top of the main pane", async ({ page }) => {
-    await page.goto(LANDING_PREVIEW_ROUTE, {
+    await page.goto(LANDING_PAGE_ROUTE, {
       waitUntil: "domcontentloaded",
     });
 
