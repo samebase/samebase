@@ -1,7 +1,7 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import { PNG } from "pngjs";
 import {
-  APP_BUILD_COMMIT_LINK_TEST_ID,
+  APP_BUILD_COMMIT_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
@@ -11,7 +11,6 @@ import { LANDING_PREVIEW_ARTICLE_TEST_ID } from "../src/routeSearch/landingPrevi
 import { formatRouteSearchPresenceFlagLinkLabel } from "../src/routing/searchFlags";
 import { SEARCH_RESET_QUERY_PARAM } from "../src/lib/searchReset";
 
-const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
 const searchResetLinkLabel = formatRouteSearchPresenceFlagLinkLabel(SEARCH_RESET_QUERY_PARAM, true);
 const strictScreenshotOptions = {
   animations: "disabled",
@@ -195,14 +194,6 @@ async function expectAppBuildVersionDisplay(
     .toBe(`${versionText ?? ""}${commitText ?? ""}`);
 }
 
-async function expectAppBuildCommitLink(commitLabel: Locator) {
-  const href = await commitLabel.getAttribute("href");
-
-  expect(href).toMatch(/^https:\/\/github\.com\/samebase\/samebase\/commit\/[0-9a-f]{40}$/);
-
-  return href;
-}
-
 async function expectLegalLinksUseRightSidebarInnerEdge(statusBar: Locator) {
   const termsLink = statusBar.getByRole("link", { name: "/terms" });
   const privacyLink = statusBar.getByRole("link", { name: "/privacy" });
@@ -321,24 +312,6 @@ async function expectBuildVersionFitsVisibleViewport(page: Page) {
     .toBe(true);
 }
 
-async function selectText(locator: Locator) {
-  const box = await locator.boundingBox();
-  expect(box).not.toBeNull();
-  if (box === null) {
-    throw new Error("Expected selectable text bounds");
-  }
-
-  await locator.hover({ force: true });
-  await locator.page().mouse.move(box.x + 1, box.y + box.height / 2);
-  await locator.page().mouse.down();
-  await locator.page().mouse.move(box.x + box.width - 1, box.y + box.height / 2, { steps: 20 });
-  await locator.page().mouse.up();
-}
-
-async function readClipboardText(page: Parameters<typeof test>[0]["page"]) {
-  return page.evaluate(async () => navigator.clipboard.readText());
-}
-
 test("public landing renders the routed landing UI directly", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
@@ -421,21 +394,15 @@ test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page 
   );
 });
 
-test("build version copies as a Markdown link on the public landing", async ({ page }) => {
-  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+test("build identity does not link to the private source repository", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
   const version = page.getByTestId(APP_BUILD_VERSION_TEST_ID);
-  const commit = page.getByTestId(APP_BUILD_COMMIT_LINK_TEST_ID);
+  const commit = page.getByTestId(APP_BUILD_COMMIT_TEST_ID);
   await expectAppBuildVersionDisplay(statusBar, version, commit);
-  const versionText = await version.textContent();
-  const versionHref = await expectAppBuildCommitLink(commit);
-  expect(versionText).not.toBeNull();
-  await selectText(commit);
-  await page.keyboard.press(COPY_SHORTCUT_KEY);
-  const clipboardText = await readClipboardText(page);
-  expect(clipboardText).toBe(`[${versionText}](${versionHref})`);
+  expect(await commit.getAttribute("href")).toBeNull();
+  expect(await commit.evaluate((element) => element.tagName)).toBe("SPAN");
 });
 
 test.describe("iPhone SE landing sidebar", () => {

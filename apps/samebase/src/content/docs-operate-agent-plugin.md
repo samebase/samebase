@@ -11,7 +11,9 @@ arguments, safety metadata, and results.
 
 ## Codex
 
-Add the marketplace and install the plugin:
+Add the public [samebase/plugin](https://github.com/samebase/plugin) marketplace and install the
+plugin. `samebase@samebase` means the `samebase` plugin from the `samebase` marketplace. It is not
+an npm package name.
 
 ```sh
 codex plugin marketplace add samebase/plugin
@@ -23,7 +25,7 @@ Samebase OAuth when Codex prompts for access.
 
 ## Claude Code
 
-Add the marketplace, install, and reload:
+Add the same public marketplace, install, and reload:
 
 ```text
 /plugin marketplace add samebase/plugin

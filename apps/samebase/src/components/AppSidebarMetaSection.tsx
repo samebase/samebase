@@ -1,20 +1,15 @@
 import {
-  APP_BUILD_COMMIT_LINK_TEST_ID,
+  APP_BUILD_COMMIT_TEST_ID,
   APP_BUILD_STATUS_BAR_TEST_ID,
   APP_BUILD_VERSION_TEST_ID,
   formatAppBuildCommitLabel,
   formatAppBuildVersionLabel,
-  hasSelectedAppBuildVersion,
 } from "@/lib/appBuild";
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { formatRouteSearchPresenceFlagLinkLabel } from "@/routing/searchFlags";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-
-function normalizeRepoUrl(repoUrl: string): string {
-  return repoUrl.endsWith(".git") ? repoUrl.slice(0, -4) : repoUrl;
-}
 
 type AppSidebarMetaLinkAlignment = "left" | "right";
 
@@ -55,7 +50,7 @@ export function AppSidebarMetaSection({
 }: {
   linkAlignment?: AppSidebarMetaLinkAlignment;
 }) {
-  const { appCommit, appCommitNumber, appRepoUrl } = appBuildConfig;
+  const { appCommit, appCommitNumber } = appBuildConfig;
   const location = useLocation();
 
   const hasHydrated = useHasHydrated();
@@ -63,9 +58,6 @@ export function AppSidebarMetaSection({
 
   const buildVersionLabel = formatAppBuildVersionLabel(appCommitNumber);
   const commitLabel = formatAppBuildCommitLabel(appCommit);
-  const normalizedRepoUrl = normalizeRepoUrl(appRepoUrl);
-  const commitUrl =
-    normalizedRepoUrl && appCommit !== "unknown" ? `${normalizedRepoUrl}/commit/${appCommit}` : "";
 
   return (
     <div
@@ -99,33 +91,13 @@ export function AppSidebarMetaSection({
           {buildVersionLabel}
         </span>
 
-        <a
-          data-testid={APP_BUILD_COMMIT_LINK_TEST_ID}
+        <span
+          data-testid={APP_BUILD_COMMIT_TEST_ID}
           className="min-w-0 max-w-full truncate select-text"
-          href={commitUrl}
-          target="_blank"
-          rel="noreferrer noopener"
-          draggable={false}
           title={appCommit}
-          onDragStart={(event) => {
-            event.preventDefault();
-          }}
-          onClick={(event) => {
-            if (hasSelectedAppBuildVersion(event.currentTarget)) {
-              event.preventDefault();
-            }
-          }}
-          onCopy={(event) => {
-            if (!commitUrl || !hasSelectedAppBuildVersion(event.currentTarget)) {
-              return;
-            }
-
-            event.clipboardData.setData("text/plain", `[${buildVersionLabel}](${commitUrl})`);
-            event.preventDefault();
-          }}
         >
           {commitLabel}
-        </a>
+        </span>
       </div>
     </div>
   );

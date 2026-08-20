@@ -16,4 +16,12 @@ describe("generated action documentation", () => {
       "Use provider-native tools to verify\ncurrent provider existence, configuration, deployment state, and logs",
     );
   });
+
+  it("identifies the public plugin marketplace without implying an npm package", () => {
+    expect(llmsTxt).toContain("[samebase/plugin](https://github.com/samebase/plugin) marketplace");
+    expect(llmsTxt).toContain(
+      "`samebase@samebase`. That value means the `samebase` plugin from the `samebase` marketplace.",
+    );
+    expect(llmsTxt).toContain("It is not an npm package name.");
+  });
 });

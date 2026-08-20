@@ -8,11 +8,6 @@ export const publicMediaManifest = {
     contentDisposition: "inline",
     cacheControl: "public, max-age=31536000, immutable",
     etag: '"f9b9adad246547e7227eba9aee9f1dbb"',
-    source: {
-      repository: "https://github.com/samebase/samebase",
-      commit: "ff62219fbaf57de7e0f0ee0f13f54575acaa154d",
-      composition: "FounderDemoYouTube",
-    },
   },
   landingFounderDemoPoster: {
     bucket: "samebase-public-media",
@@ -23,10 +18,5 @@ export const publicMediaManifest = {
     contentDisposition: "inline",
     cacheControl: "public, max-age=31536000, immutable",
     etag: '"30020f575ac71e99a6c9f4ee7166a94a"',
-    source: {
-      repository: "https://github.com/samebase/samebase",
-      commit: "de26ca14c5bfb565f6d13392cfcf4f6c366df012",
-      composition: "FounderDemoYouTube",
-    },
   },
 } as const;

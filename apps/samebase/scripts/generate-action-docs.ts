@@ -229,9 +229,11 @@ Inventory reports Samebase-owned workflow state and stable resource IDs. It coor
 Samebase actions; it is not proof of live provider state. Use provider-native tools to verify
 current provider existence, configuration, deployment state, and logs unless an explicit Samebase
 action exposes that live read.
-Codex and Claude Code can install \`samebase@samebase\`, which packages the create or connect, local
-repository build, and Git-backed hosting workflows. Cursor and other MCP clients can call the same
-actions directly.
+Codex and Claude Code can add the public
+[samebase/plugin](https://github.com/samebase/plugin) marketplace and install
+\`samebase@samebase\`. That value means the \`samebase\` plugin from the \`samebase\` marketplace.
+It is not an npm package name. The plugin packages the create or connect, local repository build,
+and Git-backed hosting workflows. Cursor and other MCP clients can call the same actions directly.
 
 Apps created through Samebase live in the user's own GitHub, Convex, and Cloudflare accounts.
 Deleting the Samebase account does not stop a running app. The knowledge is free: anyone can build

@@ -96,7 +96,6 @@ const appCommitNumber = resolveAppCommitNumber({
   runGitCommand,
 });
 
-const appRepoUrl = "https://github.com/samebase/samebase";
 const localEnvPath = path.resolve(currentDir, ".env.local");
 const browserConvexProxyTarget = resolveBrowserConvexProxyTarget({
   devOrigin: process.env["DEV_ENV_ORIGIN"],
@@ -111,7 +110,6 @@ const landingPageSlogan = readBuildLandingSlogan({
 const appBuildConfig: AppBuildConfig = {
   appCommit,
   appCommitNumber,
-  appRepoUrl,
   browserConvexProxyPath,
   landingPageSlogan,
 };

@@ -9,7 +9,6 @@ const rootDir = path.dirname(fileURLToPath(import.meta.url));
 const testAppBuildConfig = {
   appCommit: "test",
   appCommitNumber: null,
-  appRepoUrl: "https://github.com/samebase/samebase",
   browserConvexProxyPath: null,
   landingPageSlogan: "test landing slogan",
 } satisfies AppBuildConfig;
