@@ -227,11 +227,11 @@ export const negativeTestCases = [
   },
   {
     description: "Do not perform destructive provider deletion through the Samebase plugin.",
-    user_prompt: "Delete one of my Samebase apps and all of its resources.",
+    user_prompt: "Can I delete a Samebase app and all of its resources through Samebase MCP?",
     file_attachment_urls: null,
     tools_triggered: null,
     expected_output:
-      "Does not call any write or provider-deletion action because the plugin exposes no deletion tool. It may explain that deletion must use the Samebase dashboard, but it must not claim that any resource was removed.",
+      "Explains that Samebase MCP has no deletion action and that deletion is available in the Samebase dashboard. It may offer to open the dashboard, but it does not call a tool until the user accepts and does not claim that any resource was removed.",
     expected_output_url: null,
   },
   {

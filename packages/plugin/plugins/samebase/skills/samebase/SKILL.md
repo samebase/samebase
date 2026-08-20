@@ -1,68 +1,60 @@
 ---
 name: samebase
 description:
-  Use Samebase to build, connect, change, publish, or operate repository-backed web apps across
-  GitHub, Convex, and Cloudflare. Covers app inventory, provider setup and repair, browser handoff,
-  repository work, deployment checks, logs, environment values, migrations, and domains.
+  Use Samebase to create and manage web apps with a GitHub repository and optional Convex and
+  Cloudflare resources. Use when the user asks to list, create, connect, configure, repair, open,
+  publish, or operate a Samebase app.
 ---
 
 # Samebase
 
-## Scope
+## Choose the control surface
 
-- Use Samebase only for repository-backed apps and provider resources attached to them.
-- A Git-only request that does not mention Samebase or an attached provider is unrelated Git work.
-  Do not call a Samebase tool to check whether its repository is connected.
-- Do not use Samebase for standalone provider resources. Do not call app inventory first.
-- For a deletion request, tell the user to use the Samebase dashboard. Do not call a Samebase or
-  provider tool, including app inventory or browser handoff. Do not delete an attached resource.
+- Use Samebase actions to list apps, create or connect an app repository, attach or repair provider
+  resources, and open the Samebase dashboard.
+- Use GitHub, Convex, or Cloudflare tools for direct work in those systems. A provider action does
+  not change the Samebase app unless the action says that it does.
+- When a requested Samebase operation is not available through MCP, explain where the user can do it
+  and offer to open the Samebase dashboard. Do not claim that the operation finished.
+- Choose the action from the user's request. Follow the live MCP server and tool instructions for
+  the current actions, arguments, effects, and required order.
+- Call only the actions needed for that route. Do not read app or authentication state as a generic
+  preflight.
 
-## Route the request
+## Open Samebase
 
-- Choose the action from the user's request. Do not call authentication status or browser handoff as
-  a preflight. A tool reports when it needs authorization.
-- For app inventory, call only the Samebase app inventory.
-- Treat `open @samebase` as an exact command that selects the in-app Browser. The user does not need
-  to add `dashboard` or name the Browser plugin.
-  1. Samebase authorization is required for a secure browser handoff. Do not call authentication
-     status first.
-  2. Select the in-app Browser. Do not select Chrome or another external browser.
-  3. Call `create_browser_handoff` directly.
-  4. If the action is unavailable or reports missing authorization, tell the user that authorization
-     is required. Ask, `Would you like me to start authorization with Samebase?`
-  5. Start authorization only after the user agrees. Wait for it to finish, then call
+- Treat `open @samebase` and another request to open the Samebase dashboard as a request to use the
+  in-app Browser.
+  1. Select the in-app Browser. Do not select Chrome or another external browser.
+  2. Call `create_browser_handoff` directly. Do not call authentication status first.
+  3. If browser handoff is unavailable or reports missing authorization, explain that Samebase
+     authorization is required. Ask, `Would you like me to start authorization with Samebase?`
+  4. Start authorization only after the user agrees. Wait for it to finish, then call
      `create_browser_handoff` again.
-  6. Open the returned URL in the selected Browser before it expires.
-- Use the same authorization and browser handoff steps for another request to open the Samebase
-  dashboard. If the in-app Browser is unavailable, say so. Do not open Chrome.
+  5. Open the returned URL in the selected Browser before it expires.
+- If the in-app Browser is unavailable, say so. Do not open Chrome.
 - Use authentication status only when the user asks about authentication or a tool reports missing
   authentication.
-- For all other Samebase work, follow the live MCP server and tool instructions. They define the
-  current actions, arguments, and required order.
 
 ## Protect app identity
 
 - Read app inventory before a Samebase write when a repository can already be connected.
 - Reuse returned app, repository, provider account, and attachment identifiers without changing
   them. Treat identifiers as opaque.
-- Create a new app only when the user needs one. Use a private repository unless the user requests a
-  public repository.
 - Source setup and provider setup are separate states. Source work can continue while provider setup
   is incomplete or failed.
 
 ## Approve provider writes
 
-- Before a sequence can start or request a production build, state the repository, provider account,
-  each possible production change, and whether Samebase will attach an existing resource or create a
-  new one. Get explicit approval.
+- Before a Samebase sequence can create or change provider resources or start a production build,
+  state the repository, provider account, expected changes, and whether Samebase will attach an
+  existing resource or create a new one. Get explicit approval.
 - Ask again if the target, effects, or approved scope changes.
 
 ## Work in the repository
 
-- Work in the selected app's GitHub repository.
-- Before editing, read its instructions, setup commands, lockfile, generated-file rules, and
-  validation commands. Run the required setup and code generation.
-- Validate the changed source. Commit or push only when the user asks to publish.
+- Use the selected app's GitHub repository for code work. Follow its instructions and validation
+  commands.
 
 ## Verify the result
 
