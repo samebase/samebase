@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -24,8 +25,19 @@ const pages = [
     },
   },
 ] satisfies PublicPrerenderPage[];
+const cloudflareRedirects = readFileSync(new URL("../public/_redirects", import.meta.url), "utf8");
 
 describe("generate-cloudflare-redirects", () => {
+  it("redirects retired landing paths before the SPA fallback", () => {
+    expect(cloudflareRedirects).toContain(
+      [
+        "/landing-preview / 301",
+        "/landing-preview/ / 301",
+        "/landing-preview/index.html / 301",
+      ].join("\n"),
+    );
+  });
+
   it("creates exact aliases from public prerender pages", () => {
     expect(createCloudflarePrerenderRedirectsBlock(pages)).toBe(
       [

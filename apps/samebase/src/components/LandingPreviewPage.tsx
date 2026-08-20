@@ -125,7 +125,7 @@ function DocsSidebar() {
 }
 
 const LANDING_AGENT_PROMPT =
-  "Read samebase.com/llms.txt. Should I use Samebase with you for my next app? Verify the receipts before you answer.";
+  "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.";
 
 const LANDING_MONOREPO_PATHS = [
   { path: "apps/storefront", resources: ["Convex", "Worker"] },

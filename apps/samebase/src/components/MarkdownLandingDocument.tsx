@@ -104,7 +104,7 @@ function buildInternalLinkTarget({
   }
 
   return {
-    hash: targetUrl.hash || undefined,
+    hash: targetUrl.hash.slice(1) || undefined,
     search: targetUrl.searchParams.size > 0 ? search : undefined,
     to: targetUrl.pathname,
   };

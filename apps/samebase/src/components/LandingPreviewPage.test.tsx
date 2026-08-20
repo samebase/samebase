@@ -178,7 +178,7 @@ describe("LandingPage", () => {
     // Ask your agent.
     expect(markup).toContain("Don&#x27;t trust us, ask your agent.");
     expect(markup).toContain(
-      "Read samebase.com/llms.txt. Should I use Samebase with you for my next app? Verify the receipts before you answer.",
+      "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.",
     );
     expect(markup).toContain("Copy</button>");
 
