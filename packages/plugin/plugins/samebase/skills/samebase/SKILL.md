@@ -29,9 +29,13 @@ actions. Each action reports missing authentication itself.
   inventory, authentication status, or browser handoff as a preflight.
 - Treat `open @samebase` as an exact command and an explicit choice of the in-app Browser. The user
   does not have to say `dashboard` or mention the Browser plugin.
-  1. Select the in-app Browser. Do not select Chrome or a different external browser.
-  2. Call `create_browser_handoff`.
-  3. Open the returned URL promptly in the selected in-app Browser. The URL signs that browser into
+  1. The user must authorize Samebase before this command can use the secure browser handoff. If
+     Samebase is not authorized or `create_browser_handoff` is unavailable, explain that
+     authorization is required and ask, `Would you like me to start authorization with Samebase?` Do
+     not suggest that the user reload or reinstall the plugin. Continue only after authorization.
+  2. Select the in-app Browser. Do not select Chrome or a different external browser.
+  3. Call `create_browser_handoff`.
+  4. Open the returned URL promptly in the selected in-app Browser. The URL signs that browser into
      Samebase as the user behind the current MCP grant and opens the dashboard by default.
 - Use the same flow for another request to open the Samebase dashboard. If the in-app Browser is
   unavailable, report that it is unavailable. Do not substitute Chrome.

@@ -190,6 +190,12 @@ check(
 const openSamebaseIndex = samebaseSkill.indexOf(
   "Treat `open @samebase` as an exact command and an explicit choice of the in-app Browser.",
 );
+const requireSamebaseAuthorizationIndex = samebaseSkill.indexOf(
+  "The user must authorize Samebase before this command can use the secure browser handoff.",
+);
+const offerSamebaseAuthorizationIndex = samebaseSkill.indexOf(
+  "ask, `Would you like me to start authorization with Samebase?`",
+);
 const selectInAppBrowserIndex = samebaseSkill.indexOf(
   "Select the in-app Browser. Do not select Chrome or a different external browser.",
 );
@@ -202,11 +208,14 @@ check(
     samebaseSkill.includes(
       "The user does not have to say `dashboard` or mention the Browser plugin.",
     ) &&
-    selectInAppBrowserIndex > openSamebaseIndex &&
+    requireSamebaseAuthorizationIndex > openSamebaseIndex &&
+    offerSamebaseAuthorizationIndex > requireSamebaseAuthorizationIndex &&
+    samebaseSkill.includes("Do not suggest that the user reload or reinstall the plugin.") &&
+    selectInAppBrowserIndex > offerSamebaseAuthorizationIndex &&
     createBrowserHandoffIndex > selectInAppBrowserIndex &&
     openHandoffUrlIndex > createBrowserHandoffIndex,
-  "The Samebase skill must make `open @samebase` select the in-app Browser before it creates and " +
-    "opens an authenticated handoff.",
+  "The Samebase skill must require and offer authorization before `open @samebase` selects the " +
+    "in-app Browser and opens an authenticated handoff.",
 );
 
 console.log("Agent plugin checks passed.");
