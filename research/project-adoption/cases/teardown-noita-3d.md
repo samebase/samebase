@@ -93,10 +93,12 @@ request 12 supplied a new documentation-only commit and a fresh preview build. I
 branch alias, JavaScript, CSS, WASM, VOX, and PNG assets all returned 200. Provider-native reads
 still showed one active deployment, version `599266c1` from the merged main commit.
 
-This is one assets-only Worker observation. It suggests that the first active deployment made the
-Worker service routes available to preview versions and aliases. It does not prove a general
-Cloudflare requirement or cause. A manager must keep Preview blocked when a version URL is not
-reachable. It must not start an active deployment only to repair Preview without explicit approval.
+This experiment did not diagnose error 1042. Cloudflare
+[defines it](https://developers.cloudflare.com/workers/observability/errors/) as one Worker fetching
+another Worker in the same zone. The first deployment happened before the preview URLs became
+reachable, but that timing does not establish a cause. Keep Preview blocked when a version URL is
+not reachable. Diagnose the Worker fetch instead of starting a production deployment to repair
+Preview.
 
 ## Bidirectional results
 
@@ -137,9 +139,6 @@ Teardown Noita 3D supports these rules once. Test them on the next adoption befo
   the commit that the provider will build before trigger setup
 - verify the active Samebase session and provider account, then use authenticated browser handoff
   when MCP lacks the exact Samebase action
-- when a new Worker has no active deployment and a successful preview upload returns error 1042,
-  record the state as a first-deployment preview candidate; after an approved first deployment, test
-  old and new preview URLs and confirm that production did not move to the preview version
 
 ### Intentionally different
 
