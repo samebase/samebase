@@ -33,6 +33,7 @@ const queryState = vi.hoisted<{
   resultsByQueryName: new Map(),
   seenQueryNames: [],
 }));
+const mutationState = vi.hoisted(() => new Map<string, (args: unknown) => Promise<unknown>>());
 const organizationContextState = vi.hoisted<{
   organizations: ViewerOrganization[] | undefined;
   surface: AppOrganizationSurface;
@@ -111,7 +112,8 @@ vi.mock("convex/react", async (importOriginal) => {
     ...actual,
     useAction: createAsyncHandler,
     useConvexAuth: () => authState,
-    useMutation: createAsyncHandler,
+    useMutation: (mutation: Parameters<typeof actual.useMutation>[0]) =>
+      mutationState.get(getFunctionName(mutation)) ?? createAsyncHandler(),
     useQuery: (query: Parameters<typeof actual.useQuery>[0], args: unknown) => {
       if (args === "skip") {
         return undefined;
@@ -314,6 +316,7 @@ describe("AppRightSidebarContent", () => {
     queryState.resultsByQueryName = new Map();
     queryState.blockedQueryNames = new Set();
     queryState.seenQueryNames = [];
+    mutationState.clear();
     organizationContextState.organizations = undefined;
     organizationContextState.surface = { kind: "allVaults" };
   });
@@ -618,6 +621,7 @@ describe("AppRightSidebarContent", () => {
         ],
         [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
         [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
         [
           getFunctionName(api.vault.dashboard.getUserVaults),
           [{ hasConvexProvision: true, hasCloudflareProvision: false }],
@@ -650,6 +654,10 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain("/admin/users");
     expect(hydratedMarkup).not.toContain("/admin/account-deletions");
     expect(hydratedMarkup).not.toContain("youtube-nocookie.com");
+    expect(hydratedMarkup).toContain("Help improve Samebase");
+    expect(hydratedMarkup).toContain(">Allow</button>");
+    expect(hydratedMarkup).toContain("No thanks");
+    expect(hydratedMarkup).toContain('href="/privacy"');
     expect(hydratedMarkup).toContain("First time using Samebase?");
     expect(hydratedMarkup).toContain("Watch the complete onboarding on ");
     expect(hydratedMarkup).toContain('class="text-red-600">YouTube</span>');
@@ -665,7 +673,57 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup.indexOf("Watch the complete onboarding on ")).toBeLessThan(
       hydratedMarkup.indexOf('href="/terms"'),
     );
+    expect(hydratedMarkup.indexOf("Help improve Samebase")).toBeLessThan(
+      hydratedMarkup.indexOf("First time using Samebase?"),
+    );
     expectProviderStatusQueriesNotSeen();
+  });
+
+  it("saves a denied session recording choice from the sidebar", async () => {
+    const setSessionRecordingConsent = vi.fn(async () => null);
+    mutationState.set(
+      getFunctionName(api.users.setSessionRecordingConsent),
+      setSessionRecordingConsent,
+    );
+    prepareRightSidebarNamed(
+      new Map([
+        [
+          getFunctionName(api.users.currentViewerAccess),
+          {
+            role: "role_member",
+            accessKeys: ["access_public", "access_provider_connections"],
+          },
+        ],
+        [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
+        [getFunctionName(api.vault.dashboard.getUserVaults), []],
+        [
+          getFunctionName(api.users.viewer),
+          {
+            _id: "user_123",
+            accountPresentation: { kind: "email", label: "nicu@samebase.md" },
+          },
+        ],
+      ]),
+    );
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => root.render(createRightSidebarElement()));
+      const denyButton = Array.from(rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "No thanks",
+      );
+      await act(async () => {
+        denyButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(setSessionRecordingConsent).toHaveBeenCalledWith({ decision: "denied" });
+    } finally {
+      await act(async () => root.unmount());
+      rootElement.remove();
+    }
   });
 
   it("hides onboarding after one vault has both provider attachments", async () => {
@@ -682,6 +740,7 @@ describe("AppRightSidebarContent", () => {
           getFunctionName(api.vault.dashboard.getUserVaults),
           [{ hasConvexProvision: true, hasCloudflareProvision: true }],
         ],
+        [getFunctionName(api.users.getSessionRecordingConsent), { state: "granted" }],
         [
           getFunctionName(api.users.viewer),
           {
@@ -697,6 +756,7 @@ describe("AppRightSidebarContent", () => {
 
     expect(hydratedMarkup).not.toContain("First time using Samebase?");
     expect(hydratedMarkup).not.toContain("/onboarding/complete-onboarding-poster.webp");
+    expect(hydratedMarkup).not.toContain("Help improve Samebase");
   });
 
   it("renders both admin routes for staff", async () => {

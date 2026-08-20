@@ -28,8 +28,10 @@ import {
 } from "@/lib/organizationRoutes";
 import { APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
 import { Link } from "@tanstack/react-router";
-import { useQuery as useConvexQuery } from "convex/react";
+import { useMutation, useQuery as useConvexQuery } from "convex/react";
+import { useState } from "react";
 import { api } from "../../convex/_generated/api";
+import { Button } from "@/components/ui/button";
 
 type AppRightSidebarViewerAccess = (typeof api.users.currentViewerAccess)["_returnType"];
 type AppRightSidebarViewer = NonNullable<(typeof api.users.viewer)["_returnType"]>;
@@ -70,9 +72,81 @@ function AppRightSidebarOnboardingVideo() {
   );
 }
 
-function AppRightSidebarFooter({ showOnboardingVideo }: { showOnboardingVideo: boolean }) {
+function AppRightSidebarSessionRecordingConsent() {
+  const setSessionRecordingConsent = useMutation(api.users.setSessionRecordingConsent);
+  const [pendingDecision, setPendingDecision] = useState<"granted" | "denied" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const saveDecision = async (decision: "granted" | "denied") => {
+    if (pendingDecision !== null) {
+      return;
+    }
+
+    setPendingDecision(decision);
+    setError(null);
+    try {
+      await setSessionRecordingConsent({ decision });
+    } catch {
+      setError("Could not save this choice.");
+    } finally {
+      setPendingDecision(null);
+    }
+  };
+
+  return (
+    <section
+      aria-labelledby="session-recording-consent-heading"
+      className="vault-dashboard-sidebar-inset pb-3 pt-6"
+    >
+      <h2 id="session-recording-consent-heading" className="text-base font-semibold">
+        Help improve Samebase
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        Allow session replay to help us find bugs and improve onboarding. Inputs and code editors
+        are masked.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          disabled={pendingDecision !== null}
+          onClick={() => void saveDecision("granted")}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          {pendingDecision === "granted" ? "Saving..." : "Allow"}
+        </Button>
+        <Button
+          disabled={pendingDecision !== null}
+          onClick={() => void saveDecision("denied")}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          {pendingDecision === "denied" ? "Saving..." : "No thanks"}
+        </Button>
+      </div>
+      <Link className="mt-3 inline-block text-sm underline" to="/privacy">
+        Privacy details
+      </Link>
+      {error === null ? null : (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
+function AppRightSidebarFooter({
+  showOnboardingVideo,
+  showSessionRecordingConsent,
+}: {
+  showOnboardingVideo: boolean;
+  showSessionRecordingConsent: boolean;
+}) {
   return (
     <div className="mt-auto">
+      {showSessionRecordingConsent ? <AppRightSidebarSessionRecordingConsent /> : null}
       {showOnboardingVideo ? <AppRightSidebarOnboardingVideo /> : null}
       <AppSidebarMetaSection linkAlignment="left" />
     </div>
@@ -83,7 +157,7 @@ function PublicAppRightSidebarContent({ accountPending }: { accountPending: bool
   return (
     <VaultDashboardSidebarContent>
       {accountPending ? <AppRightSidebarAccountLoadingSection /> : <PublicLandingAccountSection />}
-      <AppRightSidebarFooter showOnboardingVideo={false} />
+      <AppRightSidebarFooter showOnboardingVideo={false} showSessionRecordingConsent={false} />
     </VaultDashboardSidebarContent>
   );
 }
@@ -118,7 +192,7 @@ function TemporaryAuthenticatedAppRightSidebarContent({
     <VaultDashboardSidebarContent>
       <AppRightSidebarSignedInAccountSection profile={profile} />
       <GlobalAppRightSidebarLinks />
-      <AppRightSidebarFooter showOnboardingVideo={false} />
+      <AppRightSidebarFooter showOnboardingVideo={false} showSessionRecordingConsent={false} />
     </VaultDashboardSidebarContent>
   );
 }
@@ -163,7 +237,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
           </p>
         </section>
       ) : null}
-      <AppRightSidebarFooter showOnboardingVideo />
+      <AppRightSidebarFooter showOnboardingVideo showSessionRecordingConsent={false} />
     </VaultDashboardSidebarContent>
   );
 }
@@ -259,6 +333,7 @@ function AuthenticatedAppRightSidebarContent({
 }) {
   const user = useConvexQuery(api.users.viewer);
   const vaults = useConvexQuery(api.vault.dashboard.getUserVaults);
+  const sessionRecordingConsent = useConvexQuery(api.users.getSessionRecordingConsent);
   const { organizations, surface } = useOrganizationContext();
   const routedOrganization =
     surface.kind === "organization" && organizations
@@ -278,7 +353,10 @@ function AuthenticatedAppRightSidebarContent({
       {organizationContextPending || routedOrganization === null ? null : (
         <OrganizationAppRightSidebarLinks organization={routedOrganization} />
       )}
-      <AppRightSidebarFooter showOnboardingVideo={showOnboardingVideo} />
+      <AppRightSidebarFooter
+        showOnboardingVideo={showOnboardingVideo}
+        showSessionRecordingConsent={sessionRecordingConsent?.state === "not_decided"}
+      />
     </VaultDashboardSidebarContent>
   );
 }

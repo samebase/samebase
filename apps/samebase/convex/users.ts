@@ -32,6 +32,14 @@ import {
 } from "../shared/accountPresentation";
 const { boolean, id, literal, number, object, optional, string, union } = v;
 export const CURRENT_TERMS_VERSION = "2026-08-12";
+const CURRENT_SESSION_RECORDING_CONSENT_VERSION = "2026-08-20";
+
+const vSessionRecordingConsentDecision = union(literal("granted"), literal("denied"));
+const vSessionRecordingConsentStatus = union(
+  object({ state: literal("not_decided") }),
+  object({ state: literal("granted") }),
+  object({ state: literal("denied") }),
+);
 
 const vSignInMethod = object({ email: string() });
 const vGitHubSignInMethod = object({ email: string(), login: string() });
@@ -339,6 +347,23 @@ export const getUserSettings = query({
   },
 });
 
+export const getSessionRecordingConsent = query({
+  access: "access_dashboard",
+  args: {},
+  returns: vSessionRecordingConsentStatus,
+  handler: async (ctx) => {
+    const consent = ctx.viewer.user.sessionRecordingConsent;
+    if (
+      consent === undefined ||
+      consent.policyVersion !== CURRENT_SESSION_RECORDING_CONSENT_VERSION
+    ) {
+      return { state: "not_decided" } as const;
+    }
+
+    return { state: consent.decision } as const;
+  },
+});
+
 export const beginAuthAccountLink = mutation({
   access: "access_user_preferences",
   args: {
@@ -395,6 +420,32 @@ export const setDisplayName = mutation({
       displayName,
     });
     return accountPresentation;
+  },
+});
+
+export const setSessionRecordingConsent = mutation({
+  access: "access_dashboard",
+  args: {
+    decision: vSessionRecordingConsentDecision,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const current = ctx.viewer.user.sessionRecordingConsent;
+    if (
+      current?.decision === args.decision &&
+      current.policyVersion === CURRENT_SESSION_RECORDING_CONSENT_VERSION
+    ) {
+      return null;
+    }
+
+    await ctx.db.patch("users", ctx.viewer.userId, {
+      sessionRecordingConsent: {
+        decision: args.decision,
+        policyVersion: CURRENT_SESSION_RECORDING_CONSENT_VERSION,
+        decidedAt: Date.now(),
+      },
+    });
+    return null;
   },
 });
 

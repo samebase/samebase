@@ -280,6 +280,67 @@ describe("user lifecycle authorization", () => {
     ).resolves.toEqual([]);
   });
 
+  it("stores current session recording consent after approval and Terms acceptance", async () => {
+    const { t, userId } = await seedLifecycleUser({
+      state: "active",
+      email: "session-recording-consent@example.test",
+      isApproved: false,
+      termsAccepted: false,
+    });
+    const viewer = asUser(t, userId);
+
+    await expect(viewer.query(api.users.getSessionRecordingConsent, {})).rejects.toThrow(
+      "Access denied",
+    );
+    await expect(
+      viewer.mutation(api.users.setSessionRecordingConsent, { decision: "granted" }),
+    ).rejects.toThrow("Access denied");
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch("users", userId, { isApproved: true });
+    });
+    await expect(viewer.query(api.users.getSessionRecordingConsent, {})).rejects.toThrow(
+      "Access denied",
+    );
+    await viewer.mutation(api.users.acceptCurrentTerms, {});
+    await expect(viewer.query(api.users.getSessionRecordingConsent, {})).resolves.toEqual({
+      state: "not_decided",
+    });
+
+    await t.run(async (ctx) => {
+      await ctx.db.patch("users", userId, {
+        sessionRecordingConsent: {
+          decision: "granted",
+          policyVersion: "old-policy",
+          decidedAt: 1,
+        },
+      });
+    });
+    await expect(viewer.query(api.users.getSessionRecordingConsent, {})).resolves.toEqual({
+      state: "not_decided",
+    });
+
+    await viewer.mutation(api.users.setSessionRecordingConsent, { decision: "granted" });
+    await expect(viewer.query(api.users.getSessionRecordingConsent, {})).resolves.toEqual({
+      state: "granted",
+    });
+    await expect(
+      t.run(async (ctx) => {
+        const user = await ctx.db.get(userId);
+        return user?.state === "deleted" ? undefined : user?.sessionRecordingConsent;
+      }),
+    ).resolves.toEqual({
+      decision: "granted",
+      policyVersion: "2026-08-20",
+      decidedAt: expect.any(Number),
+    });
+
+    await viewer.mutation(api.users.setSessionRecordingConsent, { decision: "denied" });
+    await expect(viewer.query(api.users.getSessionRecordingConsent, {})).resolves.toEqual({
+      state: "denied",
+    });
+  });
+
   it("rejects stale authenticated identities for deleted and missing users", async () => {
     const deleted = await seedLifecycleUser({
       state: "deleted",

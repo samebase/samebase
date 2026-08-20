@@ -9,11 +9,12 @@ import { useAppAuthActions, useAppSignInActions } from "@/authClient";
 import { AccountDeletionDialog } from "@/components/AccountDeletionDialog";
 import { McpClientsSettingsSection } from "@/components/McpClientsSettingsSection";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/components/ui/use-toast";
 import { readCurrentAuthTokenProfileClaims } from "@/lib/authTokenProfileJwt";
-import { getRouteApi, useLocation, useRouter } from "@tanstack/react-router";
+import { getRouteApi, Link, useLocation, useRouter } from "@tanstack/react-router";
 import { DELETE_ACCOUNT_QUERY_PARAM } from "@/routeSearch/settings";
 import { applySearchPatch } from "@/routing/searchFlags";
 import { getCurrentRootRelativeUrl } from "@/lib/currentRootRelativeUrl";
@@ -55,7 +56,12 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
     api.users.getUserSettings,
     viewerAccess === undefined || exitActionsOnly ? "skip" : {},
   );
+  const sessionRecordingConsent = useQuery(
+    api.users.getSessionRecordingConsent,
+    viewerAccess === undefined || exitActionsOnly ? "skip" : {},
+  );
   const setDisplayName = useMutation(api.users.setDisplayName);
+  const setSessionRecordingConsent = useMutation(api.users.setSessionRecordingConsent);
   const beginAuthAccountLink = useMutation(api.users.beginAuthAccountLink);
   const { signOut } = useAppAuthActions();
   const { signInWithOAuth } = useAppSignInActions();
@@ -67,6 +73,10 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
   });
   const [authAccountLinkRequestState, setAuthAccountLinkRequestState] =
     useState<AuthAccountLinkRequestState>("idle");
+  const [isSavingSessionRecordingConsent, setIsSavingSessionRecordingConsent] = useState(false);
+  const [sessionRecordingConsentError, setSessionRecordingConsentError] = useState<string | null>(
+    null,
+  );
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
 
   useEffect(() => {
@@ -211,6 +221,22 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
       .finally(() => {
         setIsSigningOut(false);
       });
+  };
+
+  const saveSessionRecordingConsent = async (decision: "granted" | "denied") => {
+    if (isSavingSessionRecordingConsent) {
+      return;
+    }
+
+    setIsSavingSessionRecordingConsent(true);
+    setSessionRecordingConsentError(null);
+    try {
+      await setSessionRecordingConsent({ decision });
+    } catch {
+      setSessionRecordingConsentError("Could not save this choice.");
+    } finally {
+      setIsSavingSessionRecordingConsent(false);
+    }
   };
 
   const openDeleteDialog = () => {
@@ -409,6 +435,41 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
             </div>
           ) : null}
         </dl>
+      </section>
+
+      <section className="mt-8 border-t pt-6" aria-labelledby="settings-privacy-heading">
+        <h2 id="settings-privacy-heading" className="text-base font-semibold">
+          Privacy
+        </h2>
+        <div className="mt-4 flex max-w-lg items-start gap-3">
+          <Checkbox
+            aria-describedby="settings-session-recording-description"
+            checked={sessionRecordingConsent?.state === "granted"}
+            disabled={sessionRecordingConsent === undefined || isSavingSessionRecordingConsent}
+            id="settings-session-recording"
+            onCheckedChange={(checked) =>
+              void saveSessionRecordingConsent(checked === true ? "granted" : "denied")
+            }
+          />
+          <div>
+            <Label htmlFor="settings-session-recording">Session replay</Label>
+            <p
+              className="mt-1 text-sm leading-6 text-muted-foreground"
+              id="settings-session-recording-description"
+            >
+              Allow session replay to help us find bugs and improve onboarding. Inputs and code
+              editors are masked.
+            </p>
+            <Link className="mt-2 inline-block text-sm underline" to="/privacy">
+              Privacy details
+            </Link>
+          </div>
+        </div>
+        {sessionRecordingConsentError === null ? null : (
+          <p className="mt-2 text-sm text-destructive" role="alert">
+            {sessionRecordingConsentError}
+          </p>
+        )}
       </section>
 
       <McpClientsSettingsSection />

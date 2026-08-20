@@ -10,6 +10,12 @@ import {
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
+const vSessionRecordingConsent = object({
+  decision: union(literal("granted"), literal("denied")),
+  policyVersion: string(),
+  decidedAt: number(),
+});
+
 const userProfileFields = {
   name: optional(string()),
   displayName: optional(string()),
@@ -19,6 +25,7 @@ const userProfileFields = {
   isApproved: optional(boolean()),
   termsVersion: optional(string()),
   termsAcceptedAt: optional(number()),
+  sessionRecordingConsent: optional(vSessionRecordingConsent),
 };
 
 export const vUserProfile = object(userProfileFields);
@@ -88,6 +95,7 @@ export function readUserProfile(user: NonDeletedUserLifecycleDoc): UserProfile {
     isApproved: user.isApproved,
     termsVersion: user.termsVersion,
     termsAcceptedAt: user.termsAcceptedAt,
+    sessionRecordingConsent: user.sessionRecordingConsent,
   });
 }
 
