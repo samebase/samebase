@@ -7,7 +7,6 @@ import {
   DOCS_PRICING_ROUTE,
   DOCS_RECEIPTS_ROUTE,
   DOCS_THE_STACK_ROUTE,
-  LANDING_PREVIEW_ROUTE,
 } from "@/routeSearch/landingPreview";
 import { LOCAL_STORAGE_ROUTE } from "./localStorageRoute";
 import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
@@ -110,14 +109,6 @@ export const INDEXED_DB_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
-export const LANDING_PREVIEW_PAGE_METADATA: PageMetadata = {
-  title: "Landing Preview | Samebase",
-  description: "Landing page preview for Samebase.",
-  canonicalPath: LANDING_PREVIEW_ROUTE,
-  robots: "noindex,nofollow",
-  openGraphType: "website",
-};
-
 export const DOCS_INDEX_PAGE_METADATA: PageMetadata = {
   title: "Docs | Samebase",
   description: "Samebase product, setup, stack, pricing, and source documentation.",
@@ -208,10 +199,6 @@ export function resolveAppPageTitle(pathname: string): string {
     return PITCH_DECK_MOBILE_PRINT_PAGE_METADATA.title;
   }
 
-  if (pathname === LANDING_PREVIEW_ROUTE) {
-    return LANDING_PREVIEW_PAGE_METADATA.title;
-  }
-
   if (pathname === DOCS_INDEX_ROUTE) {
     return DOCS_INDEX_PAGE_METADATA.title;
   }
@@ -269,10 +256,6 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === "/pitch/print/mobile") {
     return PITCH_DECK_MOBILE_PRINT_PAGE_METADATA;
-  }
-
-  if (args.pathname === LANDING_PREVIEW_ROUTE) {
-    return LANDING_PREVIEW_PAGE_METADATA;
   }
 
   if (args.pathname === DOCS_INDEX_ROUTE) {

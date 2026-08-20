@@ -6,22 +6,12 @@ import {
   APP_BUILD_VERSION_TEST_ID,
 } from "../src/lib/appBuild";
 import { PRODUCTION_PUBLIC_HOSTNAME } from "../src/lib/prodUiMode";
-import {
-  PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
-  PUBLIC_LANDING_COPY_TEST_ID,
-  PUBLIC_LANDING_MENGER_TEST_ID,
-  PUBLIC_LANDING_SCROLL_SHELL_TEST_ID,
-} from "../src/lib/publicLanding";
+import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "../src/lib/publicLanding";
+import { LANDING_PREVIEW_ARTICLE_TEST_ID } from "../src/routeSearch/landingPreview";
 import { formatRouteSearchPresenceFlagLinkLabel } from "../src/routing/searchFlags";
 import { SEARCH_RESET_QUERY_PARAM } from "../src/lib/searchReset";
 
 const COPY_SHORTCUT_KEY = process.platform === "darwin" ? "Meta+C" : "Control+C";
-const LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS = [
-  "/terms",
-  "/privacy",
-  "/pricing",
-  "/landing",
-] as const;
 const searchResetLinkLabel = formatRouteSearchPresenceFlagLinkLabel(SEARCH_RESET_QUERY_PARAM, true);
 const strictScreenshotOptions = {
   animations: "disabled",
@@ -58,36 +48,6 @@ function buildProductionPublicLandingUrl(search: string): string {
   return `http://${PRODUCTION_PUBLIC_HOSTNAME}:${playwrightVitePort}/${search}`;
 }
 
-type LandingReloadFrame = {
-  content: {
-    top: number;
-    height: number;
-  } | null;
-  copy: {
-    top: number;
-    height: number;
-  } | null;
-};
-
-type LandingFontStableSidebarLinkLabel = (typeof LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS)[number];
-
-type LandingFontStableRect = {
-  height: number;
-  left: number;
-  top: number;
-  width: number;
-};
-
-type LandingFontStableFrame = {
-  copy: LandingFontStableRect | null;
-  sidebarLinks: Partial<Record<LandingFontStableSidebarLinkLabel, LandingFontStableRect>>;
-};
-
-type LandingFontStableCapture = {
-  frames: LandingFontStableFrame[];
-  webfontRequestCount: number;
-};
-
 type RgbaPixel = {
   alpha: number;
   blue: number;
@@ -95,17 +55,10 @@ type RgbaPixel = {
   red: number;
 };
 
-declare global {
-  interface Window {
-    __landingFontStableFrames?: LandingFontStableFrame[];
-    __landingReloadFrames?: LandingReloadFrame[];
-  }
-}
-
 async function readLandingRightSidebarCopyMetrics(page: Page): Promise<{
+  articleWidth: number;
   carouselWidth: number;
-  contentWidth: number;
-  copyHeight: number;
+  headingHeight: number;
   mainPaneWidth: number;
   mainPaneClientWidth: number;
   rightPaneClientWidth: number;
@@ -117,8 +70,8 @@ async function readLandingRightSidebarCopyMetrics(page: Page): Promise<{
     const carousel = document.querySelector('[data-testid="workspace-layout-v2-pane-main"]');
     const rightPane = document.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
     const mainPane = carousel?.querySelector(".snap-center > div");
-    const content = document.querySelector('[data-testid="public-landing-content"]');
-    const copy = document.querySelector('[data-testid="public-landing-copy"]');
+    const article = document.querySelector('[data-testid="landing-preview-article"]');
+    const heading = article?.querySelector("h1");
 
     if (!(shell instanceof HTMLElement)) {
       throw new Error("Expected mobile landing shell");
@@ -132,17 +85,17 @@ async function readLandingRightSidebarCopyMetrics(page: Page): Promise<{
     if (!(mainPane instanceof HTMLElement)) {
       throw new Error("Expected landing main pane");
     }
-    if (!(content instanceof HTMLElement)) {
-      throw new Error("Expected landing content");
+    if (!(article instanceof HTMLElement)) {
+      throw new Error("Expected landing article");
     }
-    if (!(copy instanceof HTMLElement)) {
-      throw new Error("Expected landing copy");
+    if (!(heading instanceof HTMLElement)) {
+      throw new Error("Expected landing heading");
     }
 
     return {
+      articleWidth: Math.round(article.getBoundingClientRect().width),
       carouselWidth: Math.round(carousel.getBoundingClientRect().width),
-      contentWidth: Math.round(content.getBoundingClientRect().width),
-      copyHeight: Math.round(copy.getBoundingClientRect().height),
+      headingHeight: Math.round(heading.getBoundingClientRect().height),
       mainPaneWidth: Math.round(mainPane.getBoundingClientRect().width),
       mainPaneClientWidth: mainPane.clientWidth,
       rightPaneClientWidth: rightPane.clientWidth,
@@ -216,241 +169,6 @@ async function readLandingRightSidebarSeparatorPaint(page: Page): Promise<{
     separatorPixel,
     separatorX: geometry.separatorX,
   };
-}
-
-async function captureLandingReloadFrames(
-  page: Parameters<typeof test>[0]["page"],
-  path?: string,
-): Promise<LandingReloadFrame[]> {
-  await page.addInitScript(() => {
-    const sampleCount = 60;
-    const frameStore: LandingReloadFrame[] = [];
-    window.__landingReloadFrames = frameStore;
-
-    const readRect = (node: Element | null) => {
-      if (!(node instanceof HTMLElement)) {
-        return null;
-      }
-
-      const rect = node.getBoundingClientRect();
-      return {
-        top: Number(rect.top.toFixed(3)),
-        height: Number(rect.height.toFixed(3)),
-      };
-    };
-
-    let frame = 0;
-    const capture = () => {
-      frameStore.push({
-        content: readRect(document.querySelector('[data-testid="public-landing-content"]')),
-        copy: readRect(document.querySelector('[data-testid="public-landing-copy"]')),
-      });
-      frame += 1;
-      if (frame >= sampleCount) {
-        return;
-      }
-      requestAnimationFrame(capture);
-    };
-
-    requestAnimationFrame(capture);
-  });
-
-  if (path !== undefined) {
-    await page.goto(path, { waitUntil: "networkidle" });
-  }
-  await page.reload({ waitUntil: "networkidle" });
-  await page.waitForTimeout(1000);
-
-  return await page.evaluate(() => {
-    const landingReloadFrames = window.__landingReloadFrames;
-
-    return Array.isArray(landingReloadFrames) ? landingReloadFrames : [];
-  });
-}
-
-async function captureLandingFontStableFrames(
-  page: Parameters<typeof test>[0]["page"],
-): Promise<LandingFontStableCapture> {
-  let webfontRequestCount = 0;
-
-  await page.route("**/*.woff2", async (route) => {
-    webfontRequestCount += 1;
-    await new Promise<void>((resolve) => {
-      setTimeout(resolve, 1_500);
-    });
-    await route.continue();
-  });
-
-  await page.addInitScript(
-    ({ statusBarTestId }) => {
-      Math.random = () => 0.57;
-
-      const linkLabels = [
-        "/terms",
-        "/privacy",
-        "/pricing",
-        "/landing",
-      ] as const satisfies readonly LandingFontStableSidebarLinkLabel[];
-      const minimumVisibleFrameCount = 10;
-      const maximumSampleCount = 600;
-      const frameStore: LandingFontStableFrame[] = [];
-      let visibleFrameCount = 0;
-      window.__landingFontStableFrames = frameStore;
-
-      const readRect = (node: Element | null): LandingFontStableRect | null => {
-        if (!(node instanceof HTMLElement)) {
-          return null;
-        }
-
-        const rect = node.getBoundingClientRect();
-        return {
-          height: Number(rect.height.toFixed(3)),
-          left: Number(rect.left.toFixed(3)),
-          top: Number(rect.top.toFixed(3)),
-          width: Number(rect.width.toFixed(3)),
-        };
-      };
-
-      const capture = () => {
-        const sidebar = document.querySelector(`[data-testid="${statusBarTestId}"]`);
-        const sidebarAnchors = Array.from(sidebar?.querySelectorAll("a") ?? []);
-        const sidebarLinks: Partial<
-          Record<LandingFontStableSidebarLinkLabel, LandingFontStableRect>
-        > = {};
-
-        for (const label of linkLabels) {
-          const anchor = sidebarAnchors.find(
-            (candidate) => candidate.textContent?.trim() === label,
-          );
-          sidebarLinks[label] = readRect(anchor ?? null) ?? undefined;
-        }
-
-        const copy = readRect(document.querySelector('[data-testid="public-landing-copy"]'));
-        const frame = {
-          copy,
-          sidebarLinks,
-        };
-        frameStore.push(frame);
-
-        const hasAllSidebarLinks = linkLabels.every(
-          (label) => frame.sidebarLinks[label] !== undefined,
-        );
-        if (copy !== null && hasAllSidebarLinks) {
-          visibleFrameCount += 1;
-        }
-
-        if (
-          frameStore.length < maximumSampleCount &&
-          visibleFrameCount < minimumVisibleFrameCount
-        ) {
-          requestAnimationFrame(capture);
-        }
-      };
-
-      requestAnimationFrame(capture);
-    },
-    { statusBarTestId: APP_BUILD_STATUS_BAR_TEST_ID },
-  );
-
-  await page.goto("/?prod-ui", { waitUntil: "domcontentloaded" });
-  await page.waitForLoadState("networkidle");
-  await page.waitForFunction(
-    ({ labels, minimumVisibleFrameCount, maximumSampleCount }) => {
-      const frames = window.__landingFontStableFrames ?? [];
-      const visibleFrames = frames.filter((frame) => {
-        if (frame.copy === null) {
-          return false;
-        }
-        return labels.every((label) => frame.sidebarLinks[label] !== undefined);
-      });
-
-      return (
-        visibleFrames.length >= minimumVisibleFrameCount || frames.length >= maximumSampleCount
-      );
-    },
-    {
-      labels: LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS,
-      maximumSampleCount: 600,
-      minimumVisibleFrameCount: 10,
-    },
-  );
-
-  return {
-    frames: await page.evaluate(() => window.__landingFontStableFrames ?? []),
-    webfontRequestCount,
-  };
-}
-
-function expectStableLandingReloadFrames(frames: LandingReloadFrame[]) {
-  const visibleFrames = frames.flatMap((frame) => {
-    if (frame.content === null || frame.copy === null) {
-      return [];
-    }
-    return [frame];
-  });
-
-  expect(visibleFrames.length).toBeGreaterThanOrEqual(10);
-
-  const contentTopValues = visibleFrames.map((frame) => frame.content!.top);
-  const copyTopValues = visibleFrames.map((frame) => frame.copy!.top);
-  const copyHeightValues = visibleFrames.map((frame) => frame.copy!.height);
-
-  expect(Math.max(...contentTopValues) - Math.min(...contentTopValues)).toBeLessThanOrEqual(1);
-  expect(Math.max(...copyTopValues) - Math.min(...copyTopValues)).toBeLessThanOrEqual(1);
-  expect(Math.max(...copyHeightValues) - Math.min(...copyHeightValues)).toBeLessThanOrEqual(1);
-}
-
-function expectStableLandingFontFrames(frames: LandingFontStableFrame[]) {
-  const visibleFrames = frames.flatMap((frame) => {
-    if (frame.copy === null) {
-      return [];
-    }
-
-    const hasAllSidebarLinks = LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS.every(
-      (label) => frame.sidebarLinks[label] !== undefined,
-    );
-    return hasAllSidebarLinks ? [frame] : [];
-  });
-
-  expect(visibleFrames.length).toBeGreaterThanOrEqual(10);
-
-  const copyHeightValues = visibleFrames.map((frame) => frame.copy!.height);
-  const copyLeftValues = visibleFrames.map((frame) => frame.copy!.left);
-  const copyTopValues = visibleFrames.map((frame) => frame.copy!.top);
-  expect(Math.max(...copyHeightValues) - Math.min(...copyHeightValues)).toBeLessThanOrEqual(1);
-  expect(Math.max(...copyLeftValues) - Math.min(...copyLeftValues)).toBeLessThanOrEqual(1);
-  expect(Math.max(...copyTopValues) - Math.min(...copyTopValues)).toBeLessThanOrEqual(1);
-
-  for (const label of LANDING_FONT_STABLE_SIDEBAR_LINK_LABELS) {
-    const leftValues = visibleFrames.map((frame) => frame.sidebarLinks[label]!.left);
-    const topValues = visibleFrames.map((frame) => frame.sidebarLinks[label]!.top);
-    const widthValues = visibleFrames.map((frame) => frame.sidebarLinks[label]!.width);
-    expect(Math.max(...leftValues) - Math.min(...leftValues)).toBeLessThanOrEqual(1);
-    expect(Math.max(...topValues) - Math.min(...topValues)).toBeLessThanOrEqual(1);
-    expect(Math.max(...widthValues) - Math.min(...widthValues)).toBeLessThanOrEqual(1);
-  }
-}
-
-async function insertLandingHeadingMarker(
-  page: Parameters<typeof test>[0]["page"],
-  marker: string,
-) {
-  const editor = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID).locator(".cm-content");
-  const headingLine = editor.locator(".cm-line").first();
-
-  await expect(headingLine).toBeVisible();
-  await headingLine.click();
-  await editor.pressSequentially(` ${marker}`);
-  await expect(editor).toContainText(marker);
-}
-
-async function expectRootLandingMengerReady(page: Page) {
-  const hero = page.getByTestId(PUBLIC_LANDING_MENGER_TEST_ID);
-  const scene = hero.getByTestId("logo-menger-hover-scene");
-
-  await expect(hero).toBeVisible();
-  await expect(scene.locator("canvas")).toBeVisible({ timeout: 30_000 });
-  await expect(hero).toHaveAttribute("data-state", "ready");
 }
 
 async function expectAppBuildVersion(versionLabel: Locator) {
@@ -624,12 +342,14 @@ async function readClipboardText(page: Parameters<typeof test>[0]["page"]) {
 test("public landing renders the routed landing UI directly", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
 
-  const landingContent = page.getByTestId("public-landing-content");
-  await expect(landingContent).toBeVisible();
-  await expect(landingContent.locator(".border-t")).toHaveCount(0);
-  await expect(page.getByTestId(PUBLIC_LANDING_SCROLL_SHELL_TEST_ID)).toBeVisible();
-  await expectRootLandingMengerReady(page);
-  await expect(page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID)).toHaveText("Samebase is near.");
+  const landingArticle = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+  await expect(landingArticle).toBeVisible();
+  await expect(
+    landingArticle.getByRole("heading", {
+      level: 1,
+      name: "The correct way to build web apps.",
+    }),
+  ).toBeVisible();
   const accountSection = page.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
   await expect(
@@ -661,26 +381,6 @@ test("landing reset shortcut stays visible before clearing root search", async (
 
   await resetLink.click();
   await expect(page).toHaveURL(/\/$/);
-});
-
-test("public landing stays vertically stable while the page reloads", async ({ page }) => {
-  // `/?prod-ui` mirrors the shipped production shell while suppressing the
-  // worktree-only password auth surface that would otherwise add a separate
-  // preview-only layout shift on local routes.
-  const reloadFrames = await captureLandingReloadFrames(page, "/?prod-ui");
-
-  expectStableLandingReloadFrames(reloadFrames);
-});
-
-test("public landing keeps copy and sidebar links stable without bundled fonts", async ({
-  page,
-}) => {
-  const capture = await captureLandingFontStableFrames(page);
-
-  // The landing shell uses the system font stack, so there should be no delayed
-  // webfont request that can reflow the copy or sidebar link stack.
-  expect(capture.webfontRequestCount).toBe(0);
-  expectStableLandingFontFrames(capture.frames);
 });
 
 test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page }) => {
@@ -738,119 +438,6 @@ test("build version copies as a Markdown link on the public landing", async ({ p
   expect(clipboardText).toBe(`[${versionText}](${versionHref})`);
 });
 
-test.describe("mobile landing shell", () => {
-  test.use(mobileLandingDevice);
-
-  test("landing fits below the mobile address chrome without vertical scrolling", async ({
-    page,
-  }) => {
-    await page.goto("/", { waitUntil: "networkidle" });
-    await page.setViewportSize({ width: 390, height: 450 });
-
-    await expectRootLandingMengerReady(page);
-    const mengerScene = page
-      .getByTestId(PUBLIC_LANDING_MENGER_TEST_ID)
-      .getByTestId("logo-menger-hover-scene");
-    await expect(mengerScene).toHaveAttribute("data-menger-automatic-probe", "play");
-    await expect(mengerScene).toHaveAttribute("data-automatic-probe-state", "playing");
-    await expect(mengerScene).toHaveAttribute("data-menger-pointer-tilt", "off");
-    await expect(mengerScene).toHaveAttribute("data-presentation-horizontal-degrees", "0.000");
-    await expect(mengerScene).toHaveAttribute("data-presentation-vertical-degrees", "0.000");
-
-    const mobileShell = page.locator('[data-workspace-layout-v2="responsive"]');
-    const addressChrome = page.getByTestId("workspace-layout-v2-address-chrome");
-    await expect(mobileShell).toHaveAttribute("data-mobile-pane", "main");
-    await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
-    await expect(addressChrome).toBeVisible();
-    await expect(addressChrome.getByTestId("route-url-editor")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Toggle sidebar" })).toHaveCount(0);
-
-    const verticalOverflow = await page.evaluate(() => {
-      const shell = document.querySelector('[data-testid="public-landing-scroll-shell"]');
-      const scrollingElement = document.scrollingElement;
-
-      if (!(shell instanceof HTMLElement)) {
-        throw new Error("Expected landing shell");
-      }
-      if (!(scrollingElement instanceof HTMLElement)) {
-        throw new Error("Expected document scrolling element");
-      }
-
-      let routeScrollport = shell.parentElement;
-      while (routeScrollport) {
-        const overflowY = getComputedStyle(routeScrollport).overflowY;
-        if (overflowY === "auto" || overflowY === "scroll") {
-          break;
-        }
-        routeScrollport = routeScrollport.parentElement;
-      }
-
-      if (!(routeScrollport instanceof HTMLElement)) {
-        throw new Error("Expected landing route scrollport");
-      }
-
-      return {
-        documentOverflow: scrollingElement.scrollHeight - scrollingElement.clientHeight,
-        routeOverflow: routeScrollport.scrollHeight - routeScrollport.clientHeight,
-      };
-    });
-
-    expect(verticalOverflow.documentOverflow).toBeLessThanOrEqual(1);
-    expect(verticalOverflow.routeOverflow).toBeLessThanOrEqual(1);
-  });
-
-  test("landing avoids an inner scroll shell on mobile", async ({ page }) => {
-    await page.goto("/?prod-ui", { waitUntil: "networkidle" });
-    await page.setViewportSize({ width: 390, height: 320 });
-
-    const scrollOwnership = await page.evaluate(() => {
-      const shell = document.querySelector('[data-testid="public-landing-scroll-shell"]');
-      const scrollingElement = document.scrollingElement;
-
-      if (!(shell instanceof HTMLElement)) {
-        throw new Error("Expected landing shell");
-      }
-      if (!(scrollingElement instanceof HTMLElement)) {
-        throw new Error("Expected document scrolling element");
-      }
-
-      const shellStyle = getComputedStyle(shell);
-      return {
-        documentCanScroll: scrollingElement.scrollHeight > scrollingElement.clientHeight,
-        shellOverflowY: shellStyle.overflowY,
-      };
-    });
-
-    expect(scrollOwnership.shellOverflowY).not.toBe("auto");
-
-    const scrollTop = await page.evaluate(() => {
-      const shell = document.querySelector('[data-testid="public-landing-scroll-shell"]');
-      const scrollingElement = document.scrollingElement;
-
-      if (!(shell instanceof HTMLElement)) {
-        throw new Error("Expected landing shell");
-      }
-      if (!(scrollingElement instanceof HTMLElement)) {
-        throw new Error("Expected document scrolling element");
-      }
-
-      window.scrollTo(0, 160);
-      return {
-        documentScrollTop: scrollingElement.scrollTop,
-        shellScrollTop: shell.scrollTop,
-      };
-    });
-
-    if (scrollOwnership.documentCanScroll) {
-      expect(scrollTop.documentScrollTop).toBeGreaterThan(0);
-    } else {
-      expect(scrollTop.documentScrollTop).toBe(0);
-    }
-    expect(scrollTop.shellScrollTop).toBe(0);
-  });
-});
-
 test.describe("iPhone SE landing sidebar", () => {
   test.use(iphoneSeLandingDevice);
 
@@ -891,8 +478,8 @@ test.describe("iPhone SE landing sidebar", () => {
     expect(afterSlideMetrics.rightPaneClientWidth).toBe(beforeSlideMetrics.rightPaneClientWidth);
     expect(afterSlideMetrics.mainPaneWidth).toBe(beforeSlideMetrics.mainPaneWidth);
     expect(afterSlideMetrics.mainPaneClientWidth).toBe(beforeSlideMetrics.mainPaneClientWidth);
-    expect(afterSlideMetrics.contentWidth).toBe(beforeSlideMetrics.contentWidth);
-    expect(afterSlideMetrics.copyHeight).toBe(beforeSlideMetrics.copyHeight);
+    expect(afterSlideMetrics.articleWidth).toBe(beforeSlideMetrics.articleWidth);
+    expect(afterSlideMetrics.headingHeight).toBe(beforeSlideMetrics.headingHeight);
 
     const separatorPaint = await readLandingRightSidebarSeparatorPaint(page);
     expect(separatorPaint.separatorPixel.alpha).toBe(255);
@@ -931,7 +518,6 @@ test.describe("Android-sized standalone display-mode landing right sidebar", () 
     });
 
     await page.goto("/", { waitUntil: "networkidle" });
-    await expectRootLandingMengerReady(page);
 
     await openMobileRightSidebar(page);
     await expectBuildVersionFitsVisibleViewport(page);
@@ -990,41 +576,4 @@ test.describe("production public host landing", () => {
     const privacyFocusedInput = await focusRouteEditor();
     await expect(privacyFocusedInput).toHaveValue(`${rootPrefix}privacy?`);
   });
-
-  test("keeps ?dev landing copy editable", async ({ page }) => {
-    const headingMarker = "prod-host-marker";
-
-    await page.goto(buildProductionPublicLandingUrl("?dev"), {
-      waitUntil: "domcontentloaded",
-    });
-
-    const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
-    await landingCopy.waitFor({ state: "visible" });
-    await expect(landingCopy.locator('[contenteditable="true"]')).toHaveCount(1);
-
-    await insertLandingHeadingMarker(page, headingMarker);
-    await expect(landingCopy).toContainText(headingMarker);
-  });
-});
-
-test("landing dev edits stay visible after clearing the dev query", async ({ page }) => {
-  const headingMarker = "codex-marker";
-
-  await page.goto("/?dev", { waitUntil: "domcontentloaded" });
-
-  const landingCopy = page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID);
-
-  await expect(landingCopy).toContainText("Samebase is near.");
-  await expect(landingCopy.locator('[contenteditable="true"]')).toHaveCount(1);
-
-  await insertLandingHeadingMarker(page, headingMarker);
-
-  const resetLink = page.getByRole("link", { exact: true, name: searchResetLinkLabel });
-  await resetLink.press("Enter");
-
-  await expect(page).toHaveURL(/\/$/);
-  await expect(
-    page.locator('[data-testid="public-landing-copy"] [contenteditable="true"]'),
-  ).toHaveCount(0);
-  await expect(page.getByTestId(PUBLIC_LANDING_COPY_TEST_ID)).toContainText(headingMarker);
 });

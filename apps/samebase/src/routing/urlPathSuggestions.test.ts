@@ -430,26 +430,6 @@ describe("isRouteUrlPathReadyForNavigation", () => {
     expect(
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
-        draftHref: "/landing-preview",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: anonymousViewer,
-      }),
-    ).toBe(true);
-
-    expect(
-      isRouteUrlPathReadyForNavigation({
-        currentHref: "/landing-preview",
-        draftHref: "/landing-preview?dark",
-        origin: ORIGIN,
-        routesByPath,
-        viewer: anonymousViewer,
-      }),
-    ).toBe(true);
-
-    expect(
-      isRouteUrlPathReadyForNavigation({
-        currentHref: "/",
         draftHref: "/docs/the-stack",
         origin: ORIGIN,
         routesByPath,
@@ -469,12 +449,22 @@ describe("isRouteUrlPathReadyForNavigation", () => {
   });
 
   it("keeps redirect-only route paths local", () => {
-    // /landing only forwards to /; committing it while someone types toward
-    // /landing-preview would tear the editor away mid-draft.
+    // Redirect aliases only forward to /. Committing one while someone types
+    // a longer path would tear the editor away mid-draft.
     expect(
       isRouteUrlPathReadyForNavigation({
         currentHref: "/",
         draftHref: "/landing",
+        origin: ORIGIN,
+        routesByPath,
+        viewer: staffViewer,
+      }),
+    ).toBe(false);
+
+    expect(
+      isRouteUrlPathReadyForNavigation({
+        currentHref: "/",
+        draftHref: "/landing-preview",
         origin: ORIGIN,
         routesByPath,
         viewer: staffViewer,

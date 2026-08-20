@@ -59,7 +59,7 @@ describe("MarkdownLandingDocument", () => {
 
     await act(async () => {
       root?.render(
-        <TestRouterProvider initialEntries={["/landing-preview"]}>
+        <TestRouterProvider initialEntries={["/"]}>
           <MarkdownLandingDocument markdown={markdown} />
           <LocationProbe />
         </TestRouterProvider>,

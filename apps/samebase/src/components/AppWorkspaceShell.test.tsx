@@ -440,7 +440,6 @@ describe("AppWorkspaceShell", () => {
       "/settings",
       "/terms",
       "/privacy",
-      "/landing-preview",
       "/test",
       "/vault/",
       "/vault/ada/demo/db/main/project/convex-attachment",
@@ -489,7 +488,7 @@ describe("AppWorkspaceShell", () => {
 
     act(() => {
       root?.render(
-        <TestRouterProvider initialEntries={["/landing-preview"]}>
+        <TestRouterProvider initialEntries={["/terms"]}>
           <AppWorkspaceShell>
             <LeftPaneRouteChromeProbe />
           </AppWorkspaceShell>

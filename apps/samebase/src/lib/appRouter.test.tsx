@@ -226,7 +226,6 @@ vi.mock("@/components/LandingPreviewPage", () => ({
   ),
   DocsIndexPage: () => <div data-testid="docs-index-page">Docs index page</div>,
   DocsPricingPage: () => <div data-testid="docs-pricing-page">Docs pricing page</div>,
-  LandingPreviewPage: () => <div data-testid="landing-preview-page">Landing preview page</div>,
 }));
 
 vi.mock("@/components/FileView/FileView", () => ({
@@ -979,12 +978,13 @@ describe("appRouter", () => {
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
-  it("renders landing preview through an explicit route", async () => {
-    await renderRoute("/landing-preview");
+  it("redirects the retired landing preview route to the public landing", async () => {
+    const router = await renderRoute("/landing-preview");
 
-    expect(
-      rootElement?.querySelector('[data-testid="landing-preview-page"]')?.textContent,
-    ).toContain("Landing preview page");
+    expect(router.state.location.pathname).toBe("/");
+    expect(rootElement?.querySelector('[data-testid="root-index-route"]')?.textContent).toBe(
+      "Root index route",
+    );
     expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
@@ -1119,15 +1119,6 @@ describe("appRouter", () => {
       "Logo SVG page",
     );
     expect(rootElement?.querySelector('[data-testid="app-workspace-left-pane"]')).not.toBeNull();
-  });
-
-  it("ignores the obsolete language query on the landing preview route", async () => {
-    await renderRoute("/landing-preview?lang=ro");
-
-    expect(
-      rootElement?.querySelector('[data-testid="landing-preview-page"]')?.textContent,
-    ).toContain("Landing preview page");
-    expect(rootElement?.querySelector('[data-testid="not-found-route"]')).toBeNull();
   });
 
   it("renders the generic vault route through an explicit TanStack route instead of the App fallback", async () => {

@@ -185,5 +185,5 @@ This one is checkable without citations. An app created through Samebase lives i
 account, your Convex team, and your Cloudflare account, deployed by Cloudflare's own Workers Builds
 connected to your repository. Delete your Samebase account and the repository, backend, and hosting
 keep running, because none of them are ours. Open the three provider dashboards and look. The
-[Overview](/landing-preview) explains why the product is built this way, and
-[Do it yourself](/docs/do-it-yourself) is the same setup with no Samebase account at all.
+[Overview](/) explains why the product is built this way, and [Do it yourself](/docs/do-it-yourself)
+is the same setup with no Samebase account at all.

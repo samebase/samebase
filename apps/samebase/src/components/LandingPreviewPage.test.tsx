@@ -7,7 +7,7 @@ import {
   DocsIndexPage,
   DocsPricingPage,
   DocsTheStackPage,
-  LandingPreviewPage,
+  LandingPage,
 } from "@/components/LandingPreviewPage";
 import { publicMediaManifest } from "../../shared/publicMediaManifest";
 
@@ -84,9 +84,9 @@ vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
   }),
 }));
 
-describe("LandingPreviewPage", () => {
+describe("LandingPage", () => {
   it("renders the agent-first landing overview by default", () => {
-    const markup = renderToStaticMarkup(<LandingPreviewPage />);
+    const markup = renderToStaticMarkup(<LandingPage />);
 
     // Hero: the stack opinion stated directly.
     expect(markup).toContain("The correct way to build web apps.");
@@ -238,13 +238,13 @@ describe("LandingPreviewPage", () => {
   });
 
   it("reuses the GitHub OAuth action in both landing CTA positions", () => {
-    const markup = renderToStaticMarkup(<LandingPreviewPage />);
+    const markup = renderToStaticMarkup(<LandingPage />);
 
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
   });
 
-  it("renders the landing preview without the docs sidebar", () => {
-    const markup = renderToStaticMarkup(<LandingPreviewPage />);
+  it("renders the landing page without the docs sidebar", () => {
+    const markup = renderToStaticMarkup(<LandingPage />);
     const sidebarMarkup = markup.slice(0, markup.indexOf("<main>"));
 
     expect(sidebarMarkup).not.toContain("Overview");
@@ -261,7 +261,7 @@ describe("LandingPreviewPage", () => {
     expect(sidebarMarkup).toContain("Cloudflare setup");
     expect(sidebarMarkup).toContain("Do it yourself");
     expect(sidebarMarkup).toContain("Pricing");
-    expect(sidebarMarkup).toContain('href="/landing-preview"');
+    expect(sidebarMarkup).toContain('href="/"');
     expect(sidebarMarkup).toContain('href="/docs/the-stack"');
     expect(sidebarMarkup).toContain('href="/docs/cloudflare-setup"');
     expect(sidebarMarkup).toContain('href="/docs/do-it-yourself"');
@@ -287,7 +287,7 @@ describe("LandingPreviewPage", () => {
 
     expect(sidebarMarkup).not.toContain(`data-testid="docs-sidebar"`);
     expect(mainMarkup).toContain(`data-testid="docs-sidebar"`);
-    expect(mainMarkup).toContain('href="/landing-preview"');
+    expect(mainMarkup).toContain('href="/"');
     expect(mainMarkup).toContain('href="/docs/the-stack"');
     expect(mainMarkup).toContain('href="/docs/cloudflare-setup"');
     expect(mainMarkup).toContain('href="/docs/do-it-yourself"');

@@ -42,6 +42,14 @@ describe("route access metadata", () => {
     }
   });
 
+  it("keeps the retired landing preview as a non-prerendered redirect", () => {
+    expect(ROUTE_ACCESS_METADATA_BY_PATH["/landing-preview"]).toEqual({
+      access: "access_public",
+      pathSuggestion: "redirect",
+      prerender: false,
+    });
+  });
+
   it("keeps developer logo routes public and developer-only in suggestions", () => {
     const developerLogoRoutes = [
       "/logo",

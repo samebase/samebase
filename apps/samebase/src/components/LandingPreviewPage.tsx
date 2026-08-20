@@ -23,10 +23,10 @@ import {
   DOCS_RECEIPTS_ROUTE,
   DOCS_SIDEBAR_TEST_ID,
   DOCS_THE_STACK_ROUTE,
+  LANDING_PAGE_ROUTE,
   LANDING_PREVIEW_ARTICLE_TEST_ID,
   LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID,
   LANDING_PREVIEW_PROVIDER_GRID_TEST_ID,
-  LANDING_PREVIEW_ROUTE,
   LANDING_PREVIEW_TEST_ID,
 } from "@/routeSearch/landingPreview";
 import { type LogoRouteSearch } from "@/routeSearch/logo";
@@ -50,7 +50,7 @@ type LandingPreviewDocumentKey =
   | "pricing";
 
 const DOCS_SIDEBAR_LINKS = [
-  { label: "Overview", to: LANDING_PREVIEW_ROUTE },
+  { label: "Overview", to: LANDING_PAGE_ROUTE },
   { label: "The stack", to: DOCS_THE_STACK_ROUTE },
   { label: "Cloudflare setup", to: DOCS_CLOUDFLARE_SETUP_ROUTE },
   { label: "Do it yourself", to: DOCS_DO_IT_YOURSELF_ROUTE },
@@ -891,7 +891,7 @@ function LandingPreviewChromePage({
   );
 }
 
-export function LandingPreviewPage() {
+export function LandingPage() {
   return <LandingPreviewChromePage documentKey="overview" showDocsSidebar={false} />;
 }
 
