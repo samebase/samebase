@@ -6,6 +6,7 @@ import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID,
   PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID,
+  PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
 } from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
 import { expectScreenshotsToMatch } from "./visualDiff";
@@ -278,6 +279,14 @@ test("signed-in app right sidebar prehydration matches the account row", async (
 
   const rightSidebar = getRightSidebar(page);
   const hydratedAccountSection = getSignedInAccountSection(page);
+  const hydratedLandingActions = page.getByTestId(PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID);
+  await expect(hydratedLandingActions).toHaveCount(2);
+  await expect(hydratedLandingActions.getByRole("link", { name: "Go to dashboard" })).toHaveCount(
+    2,
+  );
+  await expect(
+    hydratedLandingActions.getByRole("button", { name: "Continue with GitHub" }),
+  ).toHaveCount(0);
   await expect(hydratedAccountSection.getByText("Signed in with", { exact: false })).toHaveCount(0);
   for (const linkName of ["Account settings", "All vaults"]) {
     const navigationLink = rightSidebar.getByRole("link", { name: linkName, exact: true });
@@ -305,6 +314,15 @@ test("signed-in app right sidebar prehydration matches the account row", async (
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle");
   await waitForFonts(page);
+
+  const prehydratedLandingActions = page.getByTestId(PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID);
+  await expect(prehydratedLandingActions).toHaveCount(2);
+  await expect(
+    prehydratedLandingActions.getByRole("link", { name: "Go to dashboard" }),
+  ).toHaveCount(2);
+  await expect(
+    prehydratedLandingActions.getByRole("button", { name: "Continue with GitHub" }),
+  ).toHaveCount(0);
 
   await expectPrehydratedAccountSectionToMatchHydrated({
     artifactPrefix: "app-right-sidebar-signed-in-account-prehydration",

@@ -1,6 +1,7 @@
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
 } from "@/lib/publicLanding";
 import { appBuildConfig } from "@/lib/appBuildConfig";
 import { Inlineable_createAppAuthPresentationRuntime } from "@/lib/appAuthPresentationRuntime";
@@ -25,6 +26,7 @@ export type AppAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: string | null;
   envConvexUrl: string | null;
   ignoredPathnames: readonly string[];
+  landingPrimaryActionTestId: string;
   mcpConsentPathname: string;
   rootAttribute: string;
   styleElementId: string;
@@ -40,6 +42,7 @@ const appAuthPresentationPrehydrationArgs = {
   browserConvexProxyPath: appBuildConfig.browserConvexProxyPath,
   envConvexUrl: import.meta.env["VITE_CONVEX_URL"] ?? null,
   ignoredPathnames: ["/visual-fixture"],
+  landingPrimaryActionTestId: PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
   mcpConsentPathname: MCP_CONSENT_APP_PATH,
   rootAttribute: APP_AUTH_PRESENTATION_PREHYDRATION_ROOT_ATTRIBUTE,
   styleElementId: APP_AUTH_PRESENTATION_PREHYDRATION_STYLE_ELEMENT_ID,
@@ -104,6 +107,12 @@ function InlineScript_prehydrateAppAuthPresentation(
       staticAccountSectionSelector + " [data-app-auth-prehydration-signed-in]";
     const signedInAccountLabelSelector =
       staticAccountSectionSelector + " [data-app-auth-prehydration-account-label]";
+    const landingPrimaryActionSelector =
+      "[data-testid=" + cssStringLiteral(args.landingPrimaryActionTestId) + "]";
+    const landingPrimaryActionSignedOutSelector =
+      landingPrimaryActionSelector + " [data-public-landing-primary-action-signed-out]";
+    const landingPrimaryActionSignedInSelector =
+      landingPrimaryActionSelector + " [data-public-landing-primary-action-signed-in]";
     const styleElement = document.createElement("style");
     styleElement.id = args.styleElementId;
     styleElement.textContent = `
@@ -181,6 +190,14 @@ html[${args.rootAttribute}="signed-in"] ${signedInSelector} {
 
 html[${args.rootAttribute}="signed-in"] ${signedInAccountLabelSelector}::after {
   content: ${cssStringLiteral(presentation.label)};
+}
+
+html[${args.rootAttribute}="signed-in"] ${landingPrimaryActionSignedOutSelector} {
+  display: none !important;
+}
+
+html[${args.rootAttribute}="signed-in"] ${landingPrimaryActionSignedInSelector} {
+  display: block !important;
 }
     `;
     document.head.append(styleElement);

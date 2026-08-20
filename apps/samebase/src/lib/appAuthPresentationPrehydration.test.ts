@@ -14,6 +14,7 @@ import {
 import {
   APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID,
   PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID,
+  PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
 } from "@/lib/publicLanding";
 import {
   AUTHORIZATION_ERROR_CODES,
@@ -33,6 +34,7 @@ const TEST_ARGS = {
   browserConvexProxyPath: null,
   envConvexUrl: TEST_STORAGE_NAMESPACE,
   ignoredPathnames: [],
+  landingPrimaryActionTestId: PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
   mcpConsentPathname: MCP_CONSENT_APP_PATH,
   rootAttribute: "data-app-auth-presentation-prehydrated",
   styleElementId: "samebase-app-auth-presentation-prehydration",
@@ -232,6 +234,12 @@ describe("appAuthPresentationPrehydration", () => {
     expect(styleText).toContain(`[data-testid="${APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID}"]`);
     expect(styleText).toContain("[data-app-auth-prehydration-signed-in]");
     expect(styleText).toContain("[data-app-auth-prehydration-account-label]::after");
+    expect(styleText).toContain(
+      `[data-testid="${PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID}"] [data-public-landing-primary-action-signed-out]`,
+    );
+    expect(styleText).toContain(
+      `[data-testid="${PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID}"] [data-public-landing-primary-action-signed-in]`,
+    );
     expect(styleText).toContain('content: "nicu@samebase.com";');
     expect(styleText).not.toContain("data-app-auth-prehydration-provider");
     expect(styleText).not.toContain("Signed in with");

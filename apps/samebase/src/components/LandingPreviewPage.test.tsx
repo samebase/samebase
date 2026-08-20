@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   DocsCloudflareSetupPage,
   DocsDoItYourselfPage,
@@ -10,6 +10,13 @@ import {
   LandingPage,
 } from "@/components/LandingPreviewPage";
 import { publicMediaManifest } from "../../shared/publicMediaManifest";
+
+const authPresentation = vi.hoisted(() => ({ kind: "signedOut" }));
+
+vi.mock("@/lib/appAuthPresentationState", async (importOriginal) => ({
+  ...(await importOriginal()),
+  useAppAuthPresentation: () => authPresentation,
+}));
 
 vi.mock("@/components/AppWorkspaceShell", () => ({
   AppWorkspaceRouteChrome: ({
@@ -85,6 +92,10 @@ vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
 }));
 
 describe("LandingPage", () => {
+  afterEach(() => {
+    authPresentation.kind = "signedOut";
+  });
+
   it("renders the agent-first landing overview by default", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
 
@@ -242,10 +253,26 @@ describe("LandingPage", () => {
     expect(markup.split('data-testid="public-landing-logo"').length - 1).toBe(1);
   });
 
-  it("reuses the GitHub OAuth action in both landing CTA positions", () => {
+  it("reuses the GitHub OAuth action in both signed-out landing CTA positions", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
 
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
+    expect(
+      markup.split('class="hidden" data-public-landing-primary-action-signed-in="true"').length - 1,
+    ).toBe(2);
+  });
+
+  it("links both signed-in landing CTA positions to the dashboard", () => {
+    authPresentation.kind = "temporaryAuthenticated";
+
+    const markup = renderToStaticMarkup(<LandingPage />);
+
+    expect(markup.split('href="/vault"').length - 1).toBe(2);
+    expect(markup.split(">Go to dashboard</a>").length - 1).toBe(2);
+    expect(
+      markup.split('class="hidden" data-public-landing-primary-action-signed-out="true"').length -
+        1,
+    ).toBe(2);
   });
 
   it("renders the landing page without the docs sidebar", () => {
