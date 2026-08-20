@@ -49,6 +49,7 @@ The shared known list lives in `ROUTE_SEARCH_PRESENCE_FLAG_KEYS`. It currently c
 - `devtools`
 - `diff`
 - `freeView`
+- `includeScrubbed`
 - `light`
 - `mcp_login_required`
 - `openedByCli`

@@ -1,5 +1,6 @@
 import { AppDialogContent } from "@/components/AppDialogContent";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogDescription,
@@ -7,12 +8,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Link } from "@tanstack/react-router";
+import { Label } from "@/components/ui/label";
+import { INCLUDE_SCRUBBED_QUERY_PARAM } from "@/routeSearch/adminUsers";
+import { applySearchPatch } from "@/routing/searchFlags";
+import { getRouteApi, Link } from "@tanstack/react-router";
 import { useMutation, usePaginatedQuery } from "convex/react";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
+
+const adminUsersRouteApi = getRouteApi("/admin/users");
+const INCLUDE_SCRUBBED_CHECKBOX_ID = "admin-users-include-scrubbed";
 
 type DeleteTarget = {
   email: string;
@@ -20,9 +27,12 @@ type DeleteTarget = {
 };
 
 export function AdminUsersPage() {
+  const navigate = adminUsersRouteApi.useNavigate();
+  const search = adminUsersRouteApi.useSearch();
+  const includeScrubbed = search[INCLUDE_SCRUBBED_QUERY_PARAM] ?? false;
   const { results, status, loadMore } = usePaginatedQuery(
     api.accountDeletion.index.listUsersForAdmin,
-    {},
+    { includeScrubbed },
     { initialNumItems: 25 },
   );
   const queueUserDeletion = useMutation(api.accountDeletion.index.queueUserDeletionForAdmin);
@@ -54,7 +64,25 @@ export function AdminUsersPage() {
       className="container mx-auto w-full max-w-6xl py-6"
     >
       <h1 className="text-xl font-semibold @2xl:text-2xl">Users</h1>
-      <div className="mt-8 overflow-x-auto border-t">
+      <div className="mt-6 flex items-center gap-2">
+        <Checkbox
+          checked={includeScrubbed}
+          id={INCLUDE_SCRUBBED_CHECKBOX_ID}
+          onCheckedChange={(checked) => {
+            void navigate({
+              replace: true,
+              resetScroll: false,
+              search: (currentSearch) =>
+                applySearchPatch(currentSearch, {
+                  [INCLUDE_SCRUBBED_QUERY_PARAM]: checked === true ? true : null,
+                }),
+              to: ".",
+            });
+          }}
+        />
+        <Label htmlFor={INCLUDE_SCRUBBED_CHECKBOX_ID}>Include scrubbed users</Label>
+      </div>
+      <div className="mt-6 overflow-x-auto border-t">
         <table className="w-full min-w-3xl text-left text-sm">
           <thead className="border-b">
             <tr>

@@ -31,9 +31,10 @@ describe("tanstackSearchParams", () => {
         dev: false,
         diff: 0,
         freeView: "false",
+        includeScrubbed: "false",
         openedByCli: null,
       }),
-    ).toBe("?delete&dev&diff&freeView");
+    ).toBe("?delete&dev&diff&freeView&includeScrubbed");
   });
 
   it("builds paths with normalized app search and hash strings", () => {

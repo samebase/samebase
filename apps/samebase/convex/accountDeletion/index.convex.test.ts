@@ -187,7 +187,7 @@ describe("account deletion request and status", () => {
     ).rejects.toThrow("Account deletion run is not queued.");
   });
 
-  it("lists all users with their auth providers and current-account state", async () => {
+  it("lists current users by default and includes scrubbed users on request", async () => {
     const t = makeConvexTest();
     const { userId: staffUserId, viewer: staff } = await seedStaffViewer(t);
     const { deletedUserId, targetUserId } = await t.run(async (ctx) => {
@@ -213,6 +213,7 @@ describe("account deletion request and status", () => {
     });
 
     const result = await staff.query(api.accountDeletion.index.listUsersForAdmin, {
+      includeScrubbed: false,
       paginationOpts: { cursor: null, numItems: 10 },
     });
 
@@ -234,7 +235,18 @@ describe("account deletion request and status", () => {
       providers: [],
       createdAt: expect.any(Number),
     });
-    expect(result.page).toContainEqual({
+    expect(result.page).not.toContainEqual(
+      expect.objectContaining({
+        userId: deletedUserId,
+      }),
+    );
+
+    const resultWithScrubbed = await staff.query(api.accountDeletion.index.listUsersForAdmin, {
+      includeScrubbed: true,
+      paginationOpts: { cursor: null, numItems: 10 },
+    });
+
+    expect(resultWithScrubbed.page).toContainEqual({
       userId: deletedUserId,
       state: "deleted",
       isApproved: false,
