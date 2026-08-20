@@ -4,7 +4,7 @@
 
 - Status: Implemented for MVP
 - Owner: Samebase backend/frontend
-- Last updated: 2026-08-18
+- Last updated: 2026-08-20
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Related deletion contract: `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
@@ -597,7 +597,7 @@ Dashboard external links:
 
 - [x] New samebase-managed vault creation schedules infra provisioning automatically.
 - [x] A confirmed empty Workers Builds token list admits New App with explicit `null` input.
-- [x] The public create action rejects `null` when Cloudflare lists an available token.
+- [x] The public create action accepts explicit `null` without a second Cloudflare provider read.
 - [x] A no-token managed run attaches source and Convex, creates no Worker attachment, skips all
       Cloudflare blocks, and succeeds with manual Worker setup pending.
 - [x] After first-time token setup, the normal Create Worker action configures Builds and the normal

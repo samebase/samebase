@@ -426,7 +426,10 @@ function GitHubInstallationDetails({
         isChecking={isChecking}
       />
       {access?.status === "unavailable" || error || failedChecks.length > 0 ? (
-        <AuthorizationErrorNotice>Could not confirm GitHub App access.</AuthorizationErrorNotice>
+        <AuthorizationErrorNotice>
+          Could not confirm GitHub App access. Reload this page. If it still fails, the GitHub owner
+          must reconnect the GitHub App.
+        </AuthorizationErrorNotice>
       ) : null}
       {organization.githubOwnerType === "user" ? (
         <PersonalRepositoryCreationDetails
@@ -603,18 +606,20 @@ function getCloudflareRemediation(
   key: AppCloudflareConnectionAccess["checks"][number]["key"],
   authMethod: "oauth" | "mcp_oauth" | "api_key",
 ): string {
+  const persistentFailureAction =
+    authMethod === "api_key" ? "update the Cloudflare API token" : "reconnect Cloudflare";
   switch (key) {
     case "token":
       return getCloudflareCredentialRemediation(authMethod);
     case "accounts":
-      return "Reconnect Cloudflare with access to this account.";
+      return `Could not check access to the selected Cloudflare account. Reload this page. If it still fails, ${persistentFailureAction}.`;
     case "workers":
-      return "Reconnect Cloudflare with Workers access.";
+      return `Could not check Cloudflare Workers access. Reload this page. If it still fails, ${persistentFailureAction}.`;
     case "workers_builds":
-      return "Reconnect Cloudflare with Workers Builds access.";
+      return `Could not check Cloudflare Workers Builds access. Reload this page. If it still fails, ${persistentFailureAction}.`;
     default:
       key satisfies never;
-      return "Reconnect Cloudflare, then refresh.";
+      return `Could not check Cloudflare access. Reload this page. If it still fails, ${persistentFailureAction}.`;
   }
 }
 
@@ -646,7 +651,10 @@ function ConvexConnectionDetails({
       ) : disconnected ? (
         <AuthorizationErrorNotice>{getConvexRemediation(authMethod)}</AuthorizationErrorNotice>
       ) : hasFailedChecks ? (
-        <AuthorizationErrorNotice>{getConvexRemediation(authMethod)}</AuthorizationErrorNotice>
+        <AuthorizationErrorNotice>
+          Could not check Convex access. Reload this page. If it still fails,{" "}
+          {authMethod === "oauth" ? "reauthorize Convex." : "update the Convex token."}
+        </AuthorizationErrorNotice>
       ) : null}
     </div>
   );

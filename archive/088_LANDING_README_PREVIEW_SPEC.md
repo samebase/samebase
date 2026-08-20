@@ -1,11 +1,16 @@
-# Landing README Preview Spec
+# Superseded Landing README Preview Spec
 
 ## Document Control
 
-- Status: Accepted
+- Status: Superseded
 - Owner: Samebase landing/onboarding
-- Last updated: 2026-07-07 (access contract amended to match the shipped public overview role; see
-  `rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md`)
+- Last updated: 2026-08-20
+- Superseded by: the custom React landing page in
+  `apps/samebase/src/components/LandingPreviewPage.tsx` and its current tests
+
+The content below describes the removed README renderer. Its file references are historical and can
+no longer exist in the current tree.
+
 - Related files:
   - `apps/samebase/src/routes/landing-preview.tsx`
   - `apps/samebase/src/components/LandingMarkdownPreviewPage.tsx`

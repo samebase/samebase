@@ -290,7 +290,8 @@ export const checkViewerInstallation = action({
         ...installationAccess,
         octokit: createGitHubInstallationOctokit(installationAccess.githubInstallationId),
       };
-    } catch {
+    } catch (error) {
+      console.warn("github:installation_access_probe_failed", { check: "initialization" }, error);
       return {
         status: "unavailable",
         checks: [
@@ -330,18 +331,18 @@ export const checkViewerInstallation = action({
       },
     ];
     if (repositoriesResult.status === "rejected") {
-      console.warn("github:installation_access_probe_failed", {
-        check: "repositories",
-        errorName:
-          repositoriesResult.reason instanceof Error ? repositoriesResult.reason.name : "unknown",
-      });
+      console.warn(
+        "github:installation_access_probe_failed",
+        { check: "repositories" },
+        repositoriesResult.reason,
+      );
     }
     if (installationResult.status === "rejected") {
-      console.warn("github:installation_access_probe_failed", {
-        check: "installation",
-        errorName:
-          installationResult.reason instanceof Error ? installationResult.reason.name : "unknown",
-      });
+      console.warn(
+        "github:installation_access_probe_failed",
+        { check: "installation" },
+        installationResult.reason,
+      );
     }
 
     if (installationResult.status === "rejected") {

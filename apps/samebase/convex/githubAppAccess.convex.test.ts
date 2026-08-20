@@ -402,6 +402,7 @@ describe("viewer GitHub installation health", () => {
       }
       throw new Error(`Unexpected GitHub route: ${route}`);
     });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const degraded = await asUser.action(api.githubAppAccess.checkViewerInstallation, {
       organizationId,
     });
@@ -412,6 +413,11 @@ describe("viewer GitHub installation health", () => {
     ]);
     expect(degraded.permissions).toEqual(connected.permissions);
     expect(degraded.repositorySelection).toBe("selected");
+    expect(warn).toHaveBeenCalledWith(
+      "github:installation_access_probe_failed",
+      { check: "repositories" },
+      expect.objectContaining({ message: "GitHub unavailable" }),
+    );
 
     githubMocks.request.mockImplementation(async (route: string) => {
       if (route === "GET /installation/repositories") {
@@ -455,6 +461,11 @@ describe("viewer GitHub installation health", () => {
     ]);
     expect(unavailable.permissions).toEqual([]);
     expect(githubMocks.request).not.toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      "github:installation_access_probe_failed",
+      { check: "initialization" },
+      expect.objectContaining({ message: "Organization membership is required." }),
+    );
   });
 });
 

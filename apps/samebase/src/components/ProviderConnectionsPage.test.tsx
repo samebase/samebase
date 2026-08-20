@@ -278,6 +278,45 @@ describe("ProviderConnectionsPage", () => {
     expect(checkCloudflareAccess).toHaveBeenLastCalledWith({ organizationId: ORGANIZATION_ID });
   });
 
+  it("does not diagnose a failed provider check as lost authorization", async () => {
+    testState.actions.set(
+      getFunctionName(api.githubAppAccess.checkViewerInstallation),
+      vi.fn(async () => ({
+        ...githubAccess(),
+        checks: [{ key: "repositories" as const, status: "error" as const }],
+        status: "unavailable" as const,
+      })),
+    );
+    testState.actions.set(
+      getFunctionName(api.convexProviderAccess.checkConvexConnectionAccess),
+      vi.fn(async () => ({
+        ...convexAccess(),
+        checks: [{ key: "projects" as const, status: "error" as const }],
+      })),
+    );
+    testState.queries.set(getFunctionName(api.users.getConvexConnectionStatus), {
+      authMethod: "oauth",
+      state: "connected",
+      teamId: "team_samebase",
+      teamSlug: "samebase",
+    });
+    testState.queries.set(getFunctionName(api.users.getCloudflareConnectionStatus), {
+      state: "not_configured",
+    });
+    const container = mountProviderConnectionsPage();
+
+    await act(async () => {
+      await vi.waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    });
+
+    expect(container.textContent).toContain(
+      "Could not confirm GitHub App access. Reload this page. If it still fails, the GitHub owner must reconnect the GitHub App.",
+    );
+    expect(container.textContent).toContain(
+      "Could not check Convex access. Reload this page. If it still fails, reauthorize Convex.",
+    );
+  });
+
   it("does not show earlier passes after a refresh fails", async () => {
     let shouldFail = false;
     const checkGitHubAccess = vi.fn(async () => {
@@ -757,6 +796,10 @@ describe("ProviderConnectionsPage", () => {
     expect(markup.match(/Connected by/g)).toHaveLength(2);
     expect(markup).toContain("Ava Chen");
     expect(markup).not.toContain("Cloudflare GitHub App");
+    expect(markup).toContain(
+      "Could not check Cloudflare Workers Builds access. Reload this page. If it still fails, reconnect Cloudflare.",
+    );
+    expect(markup).not.toContain("Reconnect Cloudflare with Workers Builds access.");
   });
 
   it("tells users to authorize only the configured Cloudflare account", () => {
