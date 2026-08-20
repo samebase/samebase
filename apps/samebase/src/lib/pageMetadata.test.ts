@@ -220,6 +220,21 @@ describe("page metadata", () => {
     });
   });
 
+  it("keeps the MCP consent route non-indexed and canonical", () => {
+    expect(
+      resolvePageMetadata({
+        pathname: "/oauth/mcp/consent",
+        isAuthenticated: false,
+      }),
+    ).toEqual({
+      canonicalPath: "/oauth/mcp/consent",
+      description: "Authorization route for a Samebase MCP client.",
+      openGraphType: "website",
+      robots: "noindex,nofollow",
+      title: "Authorize MCP client | Samebase",
+    });
+  });
+
   it("keeps the public root metadata separate from the dashboard app metadata", () => {
     expect(APP_PAGE_METADATA.canonicalPath).toBe("/vault");
     expect(resolveAppPageTitle("/vault")).toBe("Vaults | Samebase");

@@ -9,6 +9,97 @@ const linkTagPattern = /<link\b[^>]*>/gi;
 const relAttributePattern = /\srel\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)/i;
 const modulePreloadTextPattern = /\bmodulepreload\b/i;
 
+type ExpectedPublicPrerenderMetadata = {
+  title: string;
+  description: string;
+  robots: "index,follow" | "noindex,nofollow";
+};
+
+const expectedPublicPrerenderMetadataByPath: Partial<
+  Record<string, ExpectedPublicPrerenderMetadata>
+> = {
+  "/": {
+    title: "Samebase | The correct way to build web apps",
+    description:
+      "The correct way to build web apps. Convex + Cloudflare is all you need. You own 100% of your code and data.",
+    robots: "index,follow",
+  },
+  "/docs": {
+    title: "Docs | Samebase",
+    description: "Samebase product, setup, stack, pricing, and source documentation.",
+    robots: "index,follow",
+  },
+  "/docs/cloudflare-setup": {
+    title: "Set up Cloudflare for your first Samebase app | Samebase",
+    description:
+      "Create the first Cloudflare Workers Builds API token, then let Samebase create the real Worker.",
+    robots: "index,follow",
+  },
+  "/docs/do-it-yourself": {
+    title: "Do it yourself | Samebase",
+    description: "Deploy the Samebase stack by hand, with no Samebase account.",
+    robots: "index,follow",
+  },
+  "/docs/receipts": {
+    title: "Receipts | Samebase",
+    description: "Every factual Samebase claim with its primary source and check date.",
+    robots: "index,follow",
+  },
+  "/docs/the-stack": {
+    title: "The stack | Samebase",
+    description: "What the Samebase template ships and why each piece was chosen.",
+    robots: "index,follow",
+  },
+  "/logo": {
+    title: "Logo Preview | Samebase",
+    description: "Developer preview for exploring Samebase logo rendering.",
+    robots: "noindex,nofollow",
+  },
+  "/oauth/mcp/consent": {
+    title: "Authorize MCP client | Samebase",
+    description: "Authorization route for a Samebase MCP client.",
+    robots: "noindex,nofollow",
+  },
+  "/pricing": {
+    title: "Pricing | Samebase",
+    description: "The Free and Pro connection limits, member limits, and monthly prices.",
+    robots: "index,follow",
+  },
+  "/privacy": {
+    title: "Privacy Policy | Samebase",
+    description:
+      "Privacy Policy for Samebase. Describes the data the current app stores, the providers it talks to, and the browser storage it uses.",
+    robots: "index,follow",
+  },
+  "/terms": {
+    title: "Terms of Service | Samebase",
+    description:
+      "Terms of Service for Samebase. Describes the rules, responsibilities, and legal terms for using Samebase and samebase.com.",
+    robots: "index,follow",
+  },
+};
+
+export function verifyPublicPrerenderMetadata(pathname: string, html: string) {
+  const expected = expectedPublicPrerenderMetadataByPath[pathname];
+  if (!expected) {
+    return;
+  }
+
+  const canonicalUrl = new URL(pathname, "https://samebase.com").toString();
+  const expectedHeadMarkup = [
+    `<title>${expected.title}</title>`,
+    `<meta name="description" content="${expected.description}"/>`,
+    `<meta name="robots" content="${expected.robots}"/>`,
+    `<link rel="canonical" href="${canonicalUrl}"/>`,
+  ];
+
+  for (const markup of expectedHeadMarkup) {
+    if (!html.includes(markup)) {
+      throw new Error(`Public prerender ${pathname} is missing exact head markup: ${markup}`);
+    }
+  }
+}
+
 function readRelAttributeValue(linkTag: string) {
   const match = relAttributePattern.exec(linkTag);
   if (!match) {
@@ -106,6 +197,7 @@ export function writePublicPrerenderWithoutModulePreloads(args: {
   }
 
   const result = stripModulePreloadLinks(args.html);
+  verifyPublicPrerenderMetadata(args.page.path, result.html);
 
   if (result.html !== args.html) {
     writeFileSync(htmlFilePath, result.html, "utf8");

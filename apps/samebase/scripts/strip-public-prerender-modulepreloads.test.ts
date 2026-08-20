@@ -6,6 +6,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { PublicPrerenderPage } from "./generate-cloudflare-redirects.js";
 import {
   stripModulePreloadLinks,
+  verifyPublicPrerenderMetadata,
   writePublicPrerenderWithoutModulePreloads,
 } from "./strip-public-prerender-modulepreloads.js";
 
@@ -16,6 +17,15 @@ const rootPage = {
     outputPath: "/_landing.html",
   },
 } satisfies PublicPrerenderPage;
+
+const landingHead = [
+  "<head>",
+  "<title>Samebase | The correct way to build web apps</title>",
+  '<meta name="description" content="The correct way to build web apps. Convex + Cloudflare is all you need. You own 100% of your code and data."/>',
+  '<meta name="robots" content="index,follow"/>',
+  '<link rel="canonical" href="https://samebase.com/"/>',
+  "</head>",
+].join("");
 
 describe("strip-public-prerender-modulepreloads", () => {
   it("strips current Vite modulepreload links without removing stylesheet or module entry tags", () => {
@@ -64,6 +74,21 @@ describe("strip-public-prerender-modulepreloads", () => {
     ).toThrow("Failed to strip every modulepreload reference");
   });
 
+  it("verifies exact first-response metadata for configured public routes", () => {
+    expect(() => verifyPublicPrerenderMetadata("/", landingHead)).not.toThrow();
+
+    for (const missingMarkup of [
+      "<title>",
+      '<meta name="description"',
+      '<meta name="robots"',
+      '<link rel="canonical"',
+    ]) {
+      expect(() =>
+        verifyPublicPrerenderMetadata("/", landingHead.replace(missingMarkup, "<removed")),
+      ).toThrow("Public prerender / is missing exact head markup");
+    }
+  });
+
   it("overwrites the configured public prerender output", () => {
     const clientDistDir = mkdtempSync(path.join(tmpdir(), "samebase-public-prerender-"));
     const landingFilePath = path.join(clientDistDir, "_landing.html");
@@ -73,13 +98,14 @@ describe("strip-public-prerender-modulepreloads", () => {
       writePublicPrerenderWithoutModulePreloads({
         clientDistDir,
         html:
+          landingHead +
           '<link rel="modulepreload" href="/assets/index.js"/>' +
           '<script type="module">import("/assets/index.js");</script>',
         page: rootPage,
       });
 
       expect(readFileSync(landingFilePath, "utf8")).toBe(
-        '<script type="module">import("/assets/index.js");</script>',
+        landingHead + '<script type="module">import("/assets/index.js");</script>',
       );
     } finally {
       rmSync(clientDistDir, { force: true, recursive: true });

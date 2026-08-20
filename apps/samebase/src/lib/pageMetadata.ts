@@ -15,6 +15,7 @@ import {
   isAgentBrowserHandoffRoute,
 } from "../../shared/agentBrowserHandoff";
 import { CONNECT_ORGANIZATION_ROUTE } from "./connectOrganizationRoute";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 export type PageMetadata = {
   title: string;
@@ -166,6 +167,14 @@ export const AGENT_BROWSER_HANDOFF_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
+export const MCP_CONSENT_PAGE_METADATA: PageMetadata = {
+  title: "Authorize MCP client | Samebase",
+  description: "Authorization route for a Samebase MCP client.",
+  canonicalPath: MCP_CONSENT_APP_PATH,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
 export function resolveAppPageTitle(pathname: string): string {
   if (pathname === DASHBOARD_ROUTE || pathname === `${DASHBOARD_ROUTE}/`) {
     return "Vaults | Samebase";
@@ -286,6 +295,10 @@ export function resolvePageMetadata(args: {
     return INDEXED_DB_PAGE_METADATA;
   }
 
+  if (args.pathname === MCP_CONSENT_APP_PATH) {
+    return MCP_CONSENT_PAGE_METADATA;
+  }
+
   if (isAgentBrowserHandoffRoute(args.pathname)) {
     return AGENT_BROWSER_HANDOFF_PAGE_METADATA;
   }
@@ -366,7 +379,7 @@ export function buildPageHead(metadata: PageMetadata) {
   };
 }
 
-export function buildLogoLabPageHead(canonicalPath: `/logo/${string}`, title: string) {
+export function buildLogoLabPageHead(canonicalPath: "/logo" | `/logo/${string}`, title: string) {
   return buildPageHead({
     title: `${title} | Samebase`,
     description: "Developer preview for exploring Samebase logo rendering.",

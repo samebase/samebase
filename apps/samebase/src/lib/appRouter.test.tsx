@@ -226,6 +226,8 @@ vi.mock("@/components/LandingPreviewPage", () => ({
   ),
   DocsIndexPage: () => <div data-testid="docs-index-page">Docs index page</div>,
   DocsPricingPage: () => <div data-testid="docs-pricing-page">Docs pricing page</div>,
+  DocsReceiptsPage: () => <div data-testid="docs-receipts-page">Docs receipts page</div>,
+  DocsTheStackPage: () => <div data-testid="docs-the-stack-page">Docs the stack page</div>,
 }));
 
 vi.mock("@/components/FileView/FileView", () => ({
