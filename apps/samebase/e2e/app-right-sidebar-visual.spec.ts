@@ -258,10 +258,10 @@ test("signed-out GitHub sign-in fits the minimum mobile right pane", async ({ pa
   await page.goto("/?prod-ui", { waitUntil: "networkidle" });
 
   const rightPane = getRightPane(page);
-  const githubButton = page.getByRole("button", { name: "Continue with GitHub" });
+  const githubButton = rightPane.getByRole("button", { name: "Continue with GitHub" });
 
   await expect(rightPane).toHaveCSS("width", "130px");
-  await expect(page.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
+  await expect(rightPane.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
   await expect(githubButton).toBeVisible();
   await expect(githubButton).toHaveCSS("white-space", "normal");
   await expectNoHorizontalOverflow(rightPane);
