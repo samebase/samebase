@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 
+import "@/test/reactActEnvironment";
 import { getFunctionName } from "convex/server";
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -56,6 +57,11 @@ vi.mock("@tanstack/react-router", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@tanstack/react-router")>();
   return {
     ...actual,
+    Link: ({ children, className, to }: React.ComponentProps<"a"> & { to: string }) => (
+      <a className={className} href={to}>
+        {children}
+      </a>
+    ),
     getRouteApi: () => ({
       useNavigate: () => testState.router.navigate,
       useSearch: () => testState.route.search,
@@ -116,6 +122,9 @@ function setDefaultQueries() {
       google: { email: "nicu@samebase.com" },
       password: null,
     },
+  });
+  testState.queries.set(getFunctionName(api.users.getSessionRecordingConsent), {
+    state: "denied",
   });
 }
 
@@ -320,6 +329,30 @@ describe("UserSettingsPage", () => {
     expect(accountSection?.textContent).toContain("Account email");
     expect(accountSection?.textContent).toContain("account@samebase.com");
     expect(accountSection?.textContent).not.toContain("Sign-in email");
+  });
+
+  it("changes the saved session recording choice", async () => {
+    testState.queries.set(getFunctionName(api.users.getSessionRecordingConsent), {
+      state: "granted",
+    });
+    const setSessionRecordingConsent = vi.fn(async () => null);
+    testState.mutations.set(
+      getFunctionName(api.users.setSessionRecordingConsent),
+      setSessionRecordingConsent,
+    );
+    const container = await mountSettingsPage();
+    const checkbox = container.querySelector<HTMLButtonElement>("#settings-session-recording");
+
+    expect(container.textContent).toContain("Privacy");
+    expect(container.textContent).toContain("Inputs and code editors are masked.");
+    expect(container.querySelector('a[href="/privacy"]')?.textContent).toBe("Privacy details");
+
+    await act(async () => {
+      checkbox?.click();
+      await Promise.resolve();
+    });
+
+    expect(setSessionRecordingConsent).toHaveBeenCalledWith({ decision: "denied" });
   });
 
   it("saves the profile and refreshes the session", async () => {
