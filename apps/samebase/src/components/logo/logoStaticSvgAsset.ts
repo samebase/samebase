@@ -35,6 +35,8 @@ type StaticLogoSvgOptions = {
   };
 };
 
+const SIDE_PRIMARY_SVG_COORDINATE_FRACTION_DIGITS = 2;
+
 function readStaticLogoLeftFaceStyle(options: StaticLogoSvgOptions): LogoLeftFaceStyle {
   return (
     options.leftFaceStyle ??
@@ -72,6 +74,8 @@ export function createLogoIdentityViewSvgMarkup(
   return createLogoThreeSvgMarkup({
     backgroundColor: STATIC_LOGO_BACKGROUND_COLOR,
     cameraFrustumPadding: options.cameraFrustumPadding ?? LOGO_THREE_SVG_CAMERA_FRUSTUM_PADDING,
+    coordinateFractionDigits:
+      viewId === "side-primary" ? SIDE_PRIMARY_SVG_COORDINATE_FRACTION_DIGITS : undefined,
     depth: options.depth,
     elevationDegrees: view.elevationDegrees,
     faceColors: options.faceColors ?? DEFAULT_FACE_COLORS,

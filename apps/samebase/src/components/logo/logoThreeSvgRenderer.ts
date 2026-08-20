@@ -164,8 +164,16 @@ function projectPoint(
   };
 }
 
-function serializePolygon(points: readonly LogoProjectedPoint[]): string {
-  return points.map((point) => `${point.x.toFixed(6)},${point.y.toFixed(6)}`).join(" ");
+function serializePolygon(
+  points: readonly LogoProjectedPoint[],
+  coordinateFractionDigits: number,
+): string {
+  return points
+    .map(
+      (point) =>
+        `${point.x.toFixed(coordinateFractionDigits)},${point.y.toFixed(coordinateFractionDigits)}`,
+    )
+    .join(" ");
 }
 
 function readProjectedPolygonArea(points: readonly LogoProjectedPoint[]): number {
@@ -451,6 +459,7 @@ export function createLogoThreeProjectedQuads({
 export function createLogoThreeSvgMarkup({
   backgroundColor,
   cameraFrustumPadding = LOGO_THREE_SVG_CAMERA_FRUSTUM_PADDING,
+  coordinateFractionDigits = 6,
   depth = DEFAULT_LOGO_FRACTAL_DEPTH,
   elevationDegrees = DEFAULT_ELEVATION_DEGREES,
   faceColors,
@@ -462,6 +471,7 @@ export function createLogoThreeSvgMarkup({
 }: {
   backgroundColor: string;
   cameraFrustumPadding?: number;
+  coordinateFractionDigits?: number;
   depth?: number;
   elevationDegrees?: number;
   faceColors: FaceColors;
@@ -478,6 +488,7 @@ export function createLogoThreeSvgMarkup({
       backgroundColor,
       baseGridSize,
       cameraFrustumPadding,
+      coordinateFractionDigits,
       depth: normalizedDepth,
       elevationDegrees,
       faceColors,
@@ -508,6 +519,7 @@ export function createLogoThreeSvgMarkup({
   );
   const renderedFaces =
     createSingleColorProjectedPathSvgMarkup({
+      coordinateFractionDigits,
       leftFaceStyle,
       projectedQuads: visibleProjectedQuads,
     }) ??
@@ -515,6 +527,7 @@ export function createLogoThreeSvgMarkup({
       .map((quad) =>
         createProjectedQuadSvgMarkup({
           backgroundColor,
+          coordinateFractionDigits,
           faceColors,
           leftFaceStyle,
           quad,
@@ -527,9 +540,11 @@ export function createLogoThreeSvgMarkup({
 
 // One SVG fill gives touching faces one raster boundary instead of a seam per projected quad.
 function createSingleColorProjectedPathSvgMarkup({
+  coordinateFractionDigits,
   leftFaceStyle,
   projectedQuads,
 }: {
+  coordinateFractionDigits: number;
   leftFaceStyle: LogoLeftFaceStyle;
   projectedQuads: readonly LogoProjectedQuad[];
 }): string | null {
@@ -547,7 +562,9 @@ function createSingleColorProjectedPathSvgMarkup({
     return null;
   }
 
-  const projectedPolygons = new Set(projectedQuads.map((quad) => serializePolygon(quad.points)));
+  const projectedPolygons = new Set(
+    projectedQuads.map((quad) => serializePolygon(quad.points, coordinateFractionDigits)),
+  );
   const pathData = [...projectedPolygons].map((points) => `M${points}Z`).join("");
   const fill = escapeSvgAttribute(firstQuad.color);
 
@@ -556,15 +573,17 @@ function createSingleColorProjectedPathSvgMarkup({
 
 function createSolidProjectedQuadSvgMarkup({
   color,
+  coordinateFractionDigits,
   points,
   strokeWidth,
 }: {
   color: string;
+  coordinateFractionDigits: number;
   points: readonly LogoProjectedPoint[];
   strokeWidth: number;
 }): string {
   const fill = escapeSvgAttribute(color);
-  return `<polygon points="${escapeSvgAttribute(serializePolygon(points))}" fill="${fill}" stroke="${fill}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill"/>`;
+  return `<polygon points="${escapeSvgAttribute(serializePolygon(points, coordinateFractionDigits))}" fill="${fill}" stroke="${fill}" stroke-width="${strokeWidth}" stroke-linejoin="round" paint-order="stroke fill"/>`;
 }
 
 function dotUvPoint(point: LogoFaceUvPoint, normal: LogoFaceUvPoint): number {
@@ -765,11 +784,13 @@ function createStripedLeftFaceProjectedPolygons(
 
 function createProjectedQuadSvgMarkup({
   backgroundColor,
+  coordinateFractionDigits,
   faceColors,
   leftFaceStyle,
   quad,
 }: {
   backgroundColor: string;
+  coordinateFractionDigits: number;
   faceColors: FaceColors;
   leftFaceStyle: LogoLeftFaceStyle;
   quad: LogoProjectedQuad;
@@ -778,6 +799,7 @@ function createProjectedQuadSvgMarkup({
   if (quad.colorKey !== "left" || normalizedStyle.kind !== "striped") {
     return createSolidProjectedQuadSvgMarkup({
       color: quad.color,
+      coordinateFractionDigits,
       points: quad.points,
       strokeWidth: quad.strokeWidth,
     });
@@ -787,6 +809,7 @@ function createProjectedQuadSvgMarkup({
   const backgroundFill = readStripedLeftFaceBackgroundColor(backgroundColor);
   const backgroundPolygon = createSolidProjectedQuadSvgMarkup({
     color: backgroundFill,
+    coordinateFractionDigits,
     points: quad.points,
     strokeWidth: 0,
   });
@@ -794,6 +817,7 @@ function createProjectedQuadSvgMarkup({
     .map((points) =>
       createSolidProjectedQuadSvgMarkup({
         color: stripeColor,
+        coordinateFractionDigits,
         points,
         strokeWidth: 0,
       }),
@@ -889,6 +913,7 @@ function createRecursiveUseGroup({
   baseGridSize,
   baseCoordinates,
   childGridSize,
+  coordinateFractionDigits,
   level,
   origin,
   projector,
@@ -896,6 +921,7 @@ function createRecursiveUseGroup({
   baseGridSize: LogoGridSize;
   baseCoordinates: readonly VoxelCoordinate[];
   childGridSize: number;
+  coordinateFractionDigits: number;
   level: number;
   origin: LogoProjectedPoint;
   projector: LogoProjector;
@@ -917,7 +943,7 @@ function createRecursiveUseGroup({
         origin,
         projector,
       });
-      return `<use href="#${previousLevelId}" transform="translate(${translation.x.toFixed(6)} ${translation.y.toFixed(6)})"/>`;
+      return `<use href="#${previousLevelId}" transform="translate(${translation.x.toFixed(coordinateFractionDigits)} ${translation.y.toFixed(coordinateFractionDigits)})"/>`;
     })
     .join("");
 
@@ -928,6 +954,7 @@ function createLogoThreeRecursiveSvgMarkup({
   backgroundColor,
   baseGridSize,
   cameraFrustumPadding,
+  coordinateFractionDigits,
   depth,
   elevationDegrees,
   faceColors,
@@ -939,6 +966,7 @@ function createLogoThreeRecursiveSvgMarkup({
   backgroundColor: string;
   baseGridSize: LogoGridSize;
   cameraFrustumPadding: number;
+  coordinateFractionDigits: number;
   depth: number;
   elevationDegrees: number;
   faceColors: FaceColors;
@@ -967,6 +995,7 @@ function createLogoThreeRecursiveSvgMarkup({
     .map((quad) =>
       createProjectedQuadSvgMarkup({
         backgroundColor,
+        coordinateFractionDigits,
         faceColors,
         leftFaceStyle,
         quad,
@@ -981,6 +1010,7 @@ function createLogoThreeRecursiveSvgMarkup({
         baseGridSize,
         baseCoordinates,
         childGridSize: getLogoFractalGridSize(baseGridSize, level - 1),
+        coordinateFractionDigits,
         level,
         origin,
         projector,

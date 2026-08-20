@@ -3,6 +3,8 @@ export const COMPACT_IDENTITY_FOREGROUND_COLOR = "#394447";
 export const COMPACT_IDENTITY_SVG_URL = "/samebase-icon.svg";
 export const INSTALL_ICON_SVG_URL = "/install-icon.svg";
 export const COMPACT_IDENTITY_SOURCE_SVG_URL = "/brand/icon/compact-v1.svg";
+export const LANDING_INLINE_80_PERCENT_MARK_SVG_URL =
+  "/brand/icon/compact-v1-landing-inline-80.svg";
 export const MASKABLE_COMPACT_IDENTITY_SOURCE_SVG_URL = "/brand/icon/compact-v1-maskable.svg";
 
 type CompactIdentityGeometry = {
@@ -65,8 +67,8 @@ export function createDarkCompactIdentitySvgMarkup() {
 }
 
 /**
- * Browser favicons retain the denser 8px grid so their edges align exactly
- * when rasterized at 16px and 32px.
+ * Browser favicons use a 75% visible mark on the denser 8px grid so their
+ * edges align exactly when rasterized at 16px and 32px.
  */
 export function createFaviconCompactIdentitySvgMarkup() {
   return createCompactIdentitySvgMarkupForGeometry({
@@ -77,6 +79,19 @@ export function createFaviconCompactIdentitySvgMarkup() {
     openingInset: 3,
     openingSize: 2,
     viewBoxSize: 8,
+  });
+}
+
+/** The landing-page inline lockup uses an 80% visible mark. */
+export function createLandingInline80PercentMarkSvgMarkup() {
+  return createCompactIdentitySvgMarkupForGeometry({
+    backgroundColor: COMPACT_IDENTITY_BACKGROUND_COLOR,
+    foregroundColor: COMPACT_IDENTITY_FOREGROUND_COLOR,
+    inset: 6,
+    markSize: 48,
+    openingInset: 22,
+    openingSize: 16,
+    viewBoxSize: 60,
   });
 }
 

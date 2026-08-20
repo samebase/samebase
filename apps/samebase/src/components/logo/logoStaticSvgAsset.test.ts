@@ -107,6 +107,15 @@ describe("logoStaticSvgAsset", () => {
     expect(createLogoIdentityViewSvgMarkup("spatial")).toContain("<polygon ");
   });
 
+  it("limits the axis-aligned side-primary mark to two decimal places", () => {
+    const sidePrimarySvg = createLogoIdentityViewSvgMarkup("side-primary");
+    const pathData = sidePrimarySvg.match(/<path d="([^"]+)"/u)?.[1];
+
+    expect(pathData).toBeDefined();
+    expect(pathData).not.toMatch(/\d\.\d{3}/u);
+    expect(createLogoIdentityViewSvgMarkup("side-diagonal")).toMatch(/\d\.\d{6}/u);
+  });
+
   it("keeps the committed logo identity svgs in sync with their view contract", () => {
     for (const view of LOGO_IDENTITY_VIEW_CONTRACTS) {
       const committedSvg = readPublicAsset(view.assetPath);

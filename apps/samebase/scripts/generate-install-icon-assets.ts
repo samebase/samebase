@@ -26,6 +26,7 @@ type LogoAssetModules = {
   createCompactIdentitySvgMarkup: () => string;
   createDarkCompactIdentitySvgMarkup: () => string;
   createFaviconCompactIdentitySvgMarkup: () => string;
+  createLandingInline80PercentMarkSvgMarkup: () => string;
   createLogoIdentitySvgAssets: () => LogoIdentitySvgAsset[];
   createMaskableCompactIdentitySvgMarkup: () => string;
   createSamebaseSocialCardSvgMarkup: (args: { faceTreatment: LogoFaceTreatment }) => string;
@@ -195,6 +196,10 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
       compactIdentityModule,
       "createFaviconCompactIdentitySvgMarkup",
     );
+    const createLandingInline80PercentMarkSvgMarkup = readUnknownFunction(
+      compactIdentityModule,
+      "createLandingInline80PercentMarkSvgMarkup",
+    );
     const createDarkCompactIdentitySvgMarkup = readUnknownFunction(
       compactIdentityModule,
       "createDarkCompactIdentitySvgMarkup",
@@ -228,6 +233,11 @@ async function loadLogoAssetModules(): Promise<LogoAssetModules> {
         readStringResult(
           createFaviconCompactIdentitySvgMarkup(),
           "createFaviconCompactIdentitySvgMarkup",
+        ),
+      createLandingInline80PercentMarkSvgMarkup: () =>
+        readStringResult(
+          createLandingInline80PercentMarkSvgMarkup(),
+          "createLandingInline80PercentMarkSvgMarkup",
         ),
       createLogoIdentitySvgAssets: () =>
         readLogoIdentitySvgAssetsResult(createLogoIdentitySvgAssets()),
@@ -329,6 +339,10 @@ function syncCompactIdentityAssets(modules: LogoAssetModules) {
   const sourceAssetPath = "/brand/icon/compact-v1.svg";
   const maskableSourceAssetPath = "/brand/icon/compact-v1-maskable.svg";
   writeTextAsset(sourceAssetPath, modules.createCompactIdentitySvgMarkup());
+  writeTextAsset(
+    "/brand/icon/compact-v1-landing-inline-80.svg",
+    modules.createLandingInline80PercentMarkSvgMarkup(),
+  );
   writeTextAsset(maskableSourceAssetPath, modules.createMaskableCompactIdentitySvgMarkup());
   copyTextAsset(sourceAssetPath, "/samebase-icon.svg");
   copyTextAsset(sourceAssetPath, "/install-icon.svg");

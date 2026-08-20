@@ -9,6 +9,7 @@ import {
   DocsTheStackPage,
   LandingPage,
 } from "@/components/LandingPreviewPage";
+import { LANDING_INLINE_80_PERCENT_MARK_SVG_URL } from "@/components/compactIdentitySvgAsset";
 import { publicMediaManifest } from "../../shared/publicMediaManifest";
 
 const authPresentation = vi.hoisted(() => ({ kind: "signedOut" }));
@@ -99,6 +100,7 @@ describe("LandingPage", () => {
   it("renders the agent-first landing overview by default", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
 
+    expect(markup).toContain(`src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}"`);
     // Hero: the stack opinion stated directly.
     expect(markup).toContain("The correct way to build web apps.");
     expect(markup).toContain(">BETA</span>");
