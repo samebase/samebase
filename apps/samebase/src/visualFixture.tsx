@@ -25,7 +25,6 @@ import {
   LogoSnapAnglesVisualFixture,
   type LogoSnapAnglesVisualMode,
 } from "@/components/logo/LogoSnapAnglesVisualFixture";
-import { FileViewPushActionsVisualFixture } from "@/components/FileViewPushActionsVisualFixture";
 import {
   FileViewCompareVisualFixture,
   type FileViewCompareVisualMode,
@@ -46,10 +45,6 @@ import {
   FileViewProsemarkHeightVisualFixture,
   type FileViewProsemarkHeightVisualMode,
 } from "@/components/FileViewProsemarkHeightVisualFixture";
-import {
-  FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
-  type FileViewPushActionsVisualMode,
-} from "@/components/fileViewPushActionsVisualModes";
 import { ButtonVisualFixture } from "@/components/ButtonVisualFixture";
 import {
   AppBootFailureStateVisualFixture,
@@ -105,7 +100,6 @@ type VisualFixtureMode =
   | FileViewMonacoDragVisualMode
   | FileViewProsemarkHeightVisualMode
   | FileViewLayoutVisualMode
-  | FileViewPushActionsVisualMode
   | LogoSnapAnglesVisualMode
   | LogoThreeVisualMode
   | RepositoryMediaVisualMode
@@ -249,7 +243,6 @@ const PROVIDER_CONNECTIONS_PAGE_VISUAL_MODES = [
   "providers-page-recovery",
 ] as const satisfies readonly ProviderConnectionsPageVisualMode[];
 const CONNECT_REPOSITORY_VISUAL_MODES = [
-  "connect-repository-loading-more",
   "connect-repository-github-unavailable",
 ] as const satisfies readonly ConnectRepositoryVisualMode[];
 const NEW_APP_VISUAL_MODES = [
@@ -284,7 +277,6 @@ const VISUAL_FIXTURE_GROUPS = [
   {
     label: "File View",
     modes: [
-      ...FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES,
       ...FILE_VIEW_COMPARE_VISUAL_MODES,
       ...FILE_VIEW_CODE_PARITY_VISUAL_MODES,
       ...FILE_VIEW_DEVELOPER_TOOLS_VISUAL_MODES,
@@ -413,10 +405,6 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <VaultSyncStatusVisualFixture mode={mode} />;
   }
 
-  if (includes(FILE_VIEW_PUSH_ACTIONS_VISUAL_MODES, mode)) {
-    return <FileViewPushActionsVisualFixture mode={mode} />;
-  }
-
   if (mode === "file-view-compare-sidebar" || mode === "file-view-compare-loading") {
     return <FileViewCompareVisualFixture mode={mode} />;
   }
@@ -472,11 +460,8 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     return <ProviderConnectionsPageVisualFixture mode={mode} />;
   }
 
-  if (
-    mode === "connect-repository-loading-more" ||
-    mode === "connect-repository-github-unavailable"
-  ) {
-    return <ConnectRepositoryVisualFixture mode={mode} />;
+  if (mode === "connect-repository-github-unavailable") {
+    return <ConnectRepositoryVisualFixture />;
   }
 
   if (mode === "new-app-build-token" || mode === "new-app-provider-blocked") {

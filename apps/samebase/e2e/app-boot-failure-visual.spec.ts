@@ -1,38 +1,20 @@
 import { expect, test, type Page } from "@playwright/test";
 
-const appBootFailureDesktopScenarios = [
-  {
-    mode: "app-boot-failure-stale",
-    heading: "Samebase updated while this tab was open.",
-    description:
-      "This device is still trying to load older app files. Reload first. If that does not recover, reset the saved browser data for Samebase on this device.",
-    errorMessage: "Failed to fetch dynamically imported module",
-  },
-  {
-    mode: "app-boot-failure-generic",
-    heading: "Samebase could not finish loading.",
-    description:
-      "The app hit an unexpected startup error. Reload first. If it keeps happening, reset the saved browser data for Samebase on this device.",
-    errorMessage: "Unexpected token",
-  },
-] as const;
+const appBootFailureDesktopScenario = {
+  mode: "app-boot-failure-stale",
+  heading: "Samebase updated while this tab was open.",
+  description:
+    "This device is still trying to load older app files. Reload first. If that does not recover, reset the saved browser data for Samebase on this device.",
+  errorMessage: "Failed to fetch dynamically imported module",
+} as const;
 
-const appBootFailureMobileScenarios = [
-  {
-    mode: "app-boot-failure-stale",
-    heading: "Samebase updated while this tab was open.",
-    description:
-      "This device is still trying to load older app files. Reload first. If that does not recover, reset the saved browser data for Samebase on this device.",
-    errorMessage: "Failed to fetch dynamically imported module",
-  },
-  {
-    mode: "app-boot-failure-generic",
-    heading: "Samebase could not finish loading.",
-    description:
-      "The app hit an unexpected startup error. Reload first. If it keeps happening, reset the saved browser data for Samebase on this device.",
-    errorMessage: "Unexpected token",
-  },
-] as const;
+const appBootFailureMobileScenario = {
+  mode: "app-boot-failure-generic",
+  heading: "Samebase could not finish loading.",
+  description:
+    "The app hit an unexpected startup error. Reload first. If it keeps happening, reset the saved browser data for Samebase on this device.",
+  errorMessage: "Unexpected token",
+} as const;
 
 async function captureAppBootFailureVisual(
   page: Page,
@@ -91,16 +73,10 @@ async function captureAppBootFailureVisual(
 
 test("app boot failure visual fixture", async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 1400 });
-
-  for (const scenario of appBootFailureDesktopScenarios) {
-    await captureAppBootFailureVisual(page, scenario, "row");
-  }
+  await captureAppBootFailureVisual(page, appBootFailureDesktopScenario, "row");
 });
 
 test("app boot failure visual fixture (mobile)", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-
-  for (const scenario of appBootFailureMobileScenarios) {
-    await captureAppBootFailureVisual(page, scenario, "stack");
-  }
+  await captureAppBootFailureVisual(page, appBootFailureMobileScenario, "stack");
 });

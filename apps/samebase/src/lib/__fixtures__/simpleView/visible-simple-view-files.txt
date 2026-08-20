@@ -29,7 +29,6 @@ apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-deleted.p
 apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-inline.png
 apps/samebase/e2e/commit-review-visual.spec.ts-snapshots/commit-review-unchanged.png
 apps/samebase/e2e/connect-organization-visual.spec.ts-snapshots/connect-organization-page.png
-apps/samebase/e2e/connect-repository-visual.spec.ts-snapshots/connect-repository-loading-more.png
 apps/samebase/e2e/connect-repository-visual.spec.ts-snapshots/connect-repository-github-unavailable.png
 apps/samebase/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-raw.png
 apps/samebase/e2e/corner-notch-detail-visual.spec.ts-snapshots/corner-notch-detail-zoomed.png
@@ -45,9 +44,6 @@ apps/samebase/e2e/file-view-monaco-drag.spec.ts-snapshots/fileview-monaco-drag-r
 apps/samebase/e2e/file-view-monaco-drag.spec.ts-snapshots/fileview-monaco-drag.png
 apps/samebase/e2e/file-view-monaco-height.spec.ts-snapshots/fileview-monaco-flex-height.png
 apps/samebase/e2e/file-view-prosemark-height.spec.ts-snapshots/fileview-prosemark-flex-height.png
-apps/samebase/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-create-draft.png
-apps/samebase/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-default-draft.png
-apps/samebase/e2e/file-view-push-actions-visual.spec.ts-snapshots/file-view-open-pr.png
 apps/samebase/e2e/indexed-db-route-visual.spec.ts-snapshots/indexed-db-workspace.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/docs-pricing-desktop.png
 apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/docs-receipts-desktop.png

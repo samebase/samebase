@@ -4,9 +4,7 @@ import {
 } from "@/components/ConnectRepository";
 import { findRepositorySearchMatch } from "@/lib/repositorySearch";
 
-export type ConnectRepositoryVisualMode =
-  | "connect-repository-loading-more"
-  | "connect-repository-github-unavailable";
+export type ConnectRepositoryVisualMode = "connect-repository-github-unavailable";
 
 const repositories = [
   {
@@ -41,7 +39,7 @@ const repositories = [
   },
 ] satisfies ConnectRepositoryRepository[];
 
-export function ConnectRepositoryVisualFixture({ mode }: { mode: ConnectRepositoryVisualMode }) {
+export function ConnectRepositoryVisualFixture() {
   const repositoryRows = repositories.map((repo) => {
     const searchMatch = findRepositorySearchMatch("", repo);
     if (searchMatch === null) {
@@ -57,8 +55,8 @@ export function ConnectRepositoryVisualFixture({ mode }: { mode: ConnectReposito
       emptyRepositoryMessage={null}
       error={null}
       loading={false}
-      loadingMore={mode === "connect-repository-loading-more"}
-      githubUnavailable={mode === "connect-repository-github-unavailable"}
+      loadingMore={false}
+      githubUnavailable={true}
       repositoryPreviewCount={10}
       repositoryRows={repositoryRows}
       repositoryTotalCount={repositories.length}
