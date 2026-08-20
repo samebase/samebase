@@ -5,4 +5,5 @@ export const PUBLIC_LANDING_GITHUB_AUTH_SLOT_TEST_ID = "public-landing-github-au
 export const PUBLIC_LANDING_GOOGLE_AUTH_SLOT_TEST_ID = "public-landing-google-auth-slot";
 export const PUBLIC_LANDING_MENGER_FALLBACK_TEST_ID = "public-landing-menger-fallback";
 export const PUBLIC_LANDING_MENGER_TEST_ID = "public-landing-menger";
+export const PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID = "public-landing-primary-action";
 export const PUBLIC_LANDING_SCROLL_SHELL_TEST_ID = "public-landing-scroll-shell";

@@ -1,8 +1,16 @@
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
 import { MarkdownLandingDocument } from "@/components/MarkdownLandingDocument";
-import { SignInWithOAuth } from "@/SignInWithOAuth";
+import { SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME, SignInWithOAuth } from "@/SignInWithOAuth";
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
+import { buttonVariants } from "@/components/ui/button";
+import { DASHBOARD_ROUTE } from "@/lib/dashboardRoute";
+import {
+  isAppPresentationAuthenticated,
+  useAppAuthPresentation,
+} from "@/lib/appAuthPresentationState";
+import { PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID } from "@/lib/publicLanding";
+import { cn } from "@/lib/utils";
 import { LANDING_CLOSING_BAND_VIEW_STATE_KEY } from "@/lib/rotatedLogoViewState";
 import {
   Accordion,
@@ -410,7 +418,7 @@ function LandingPreviewOverview() {
                 </p>
               </div>
               <div className="mt-9">
-                <SignInWithOAuth provider="github" authReturn="dashboard" markPublicSignupReturn />
+                <PublicLandingPrimaryAction />
               </div>
             </div>
             <LandingHeroMenger placement="preview" />
@@ -779,11 +787,7 @@ function LandingPreviewOverview() {
               </p>
               <div className="mt-8 flex flex-wrap items-center gap-x-7 gap-y-4">
                 <div>
-                  <SignInWithOAuth
-                    provider="github"
-                    authReturn="dashboard"
-                    markPublicSignupReturn
-                  />
+                  <PublicLandingPrimaryAction />
                 </div>
                 <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>Do it yourself</LandingInlineLink>
               </div>
@@ -800,6 +804,33 @@ function LandingPreviewOverview() {
         </LandingSection>
       </div>
     </article>
+  );
+}
+
+function PublicLandingPrimaryAction() {
+  const authPresentation = useAppAuthPresentation();
+  const isAuthenticated = isAppPresentationAuthenticated(authPresentation);
+
+  return (
+    <div className="w-fit max-w-full" data-testid={PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID}>
+      <div
+        className={isAuthenticated ? "hidden" : undefined}
+        data-public-landing-primary-action-signed-out
+      >
+        <SignInWithOAuth provider="github" authReturn="dashboard" markPublicSignupReturn />
+      </div>
+      <div
+        className={isAuthenticated ? undefined : "hidden"}
+        data-public-landing-primary-action-signed-in
+      >
+        <Link
+          className={cn(buttonVariants(), SIGN_IN_WITH_OAUTH_BUTTON_CLASS_NAME)}
+          to={DASHBOARD_ROUTE}
+        >
+          Go to dashboard
+        </Link>
+      </div>
+    </div>
   );
 }
 
