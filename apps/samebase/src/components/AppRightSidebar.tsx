@@ -61,7 +61,7 @@ function AppRightSidebarOnboardingVideo() {
           Watch the complete onboarding on <span className="text-red-600">YouTube</span>
         </span>
         <img
-          alt="Samebase onboarding video preview"
+          alt=""
           className="mt-2 aspect-[48/31] w-full object-cover"
           src="/onboarding/complete-onboarding-poster.webp"
         />
