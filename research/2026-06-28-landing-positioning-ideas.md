@@ -11,7 +11,7 @@
   - `apps/samebase/src/components/LandingPreviewPage.tsx`
   - `apps/samebase/src/content/landing-do-it-yourself.md`
   - `specs/035_LANDING_SLOGAN_SOURCE_AND_SELECTION_SPEC.md`
-  - `specs/088_LANDING_README_PREVIEW_SPEC.md`
+  - `archive/088_LANDING_README_PREVIEW_SPEC.md`
 
 ## Why This Exists
 

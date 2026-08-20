@@ -28,9 +28,8 @@ repos and pages (operator policy: link now, flip later; this file records the fl
 - [x] `apps/samebase/src/content/docs-do-it-yourself.md`: replace the "private today" sentence with
       the template link and a "Use this template" step
 - [x] `apps/samebase/src/content/docs-the-stack.md`: same sentence in the template paragraph
-- [ ] Landing swap: pasteable-prompt hero supersedes the spec 035 slogan rotation (amend spec 035,
-      screenshot coverage)
-- [ ] Revisit spec 088's mirrored media once raw template URLs are public and stable
+- [ ] Landing swap: make the current `/landing-preview` page the public `/` route, then update route
+      metadata, prerendering, and screenshot coverage
 
 ## Pricing track
 

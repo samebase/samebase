@@ -17,8 +17,8 @@
   `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`,
   `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`,
   `specs/106_CONVEX_MANUAL_DEPLOYMENT_CONNECTION_SPEC.md`,
-  `specs/035_LANDING_SLOGAN_SOURCE_AND_SELECTION_SPEC.md`,
-  `specs/088_LANDING_README_PREVIEW_SPEC.md`
+  `specs/035_LANDING_SLOGAN_SOURCE_AND_SELECTION_SPEC.md`
+- Related archive: `archive/088_LANDING_README_PREVIEW_SPEC.md`
 - Related research: `research/2026-07-02-landing-copy-interview.md`,
   `research/2026-07-02-landing-copy-receipts.md`,
   `research/2026-05-18-convex-native-ai-app-builder-competitors.md`,

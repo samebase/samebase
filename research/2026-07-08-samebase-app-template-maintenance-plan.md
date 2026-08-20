@@ -175,7 +175,7 @@ Monorepo follow-up (complete required set, from the integration sweep):
 
 At the go-public moment (separate, later): flip visibility; drop the "private today" sentences in
 `apps/samebase/src/content/docs-do-it-yourself.md` and `docs-the-stack.md` and add the repo link;
-optionally revisit spec 088's mirrored media now that raw URLs are stable.
+The former mirrored-media contract is preserved in `archive/088_LANDING_README_PREVIEW_SPEC.md`.
 
 ## What was deliberately not adopted
 
