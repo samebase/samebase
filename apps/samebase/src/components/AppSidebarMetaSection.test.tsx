@@ -5,7 +5,6 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it } from "vite-plus/test";
-import { APP_BUILD_COMMIT_LINK_TEST_ID } from "@/lib/appBuild";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { AppSidebarMetaSection } from "./AppSidebarMetaSection";
 
@@ -117,9 +116,7 @@ describe("AppSidebarMetaSection", () => {
   }
 
   function readSidebarLinkLabels(container: ParentNode) {
-    return [...container.querySelectorAll<HTMLAnchorElement>("a")]
-      .filter((link) => link.getAttribute("data-testid") !== APP_BUILD_COMMIT_LINK_TEST_ID)
-      .map((link) => link.textContent);
+    return [...container.querySelectorAll<HTMLAnchorElement>("a")].map((link) => link.textContent);
   }
 
   async function clickLink(link: HTMLAnchorElement) {

@@ -9,6 +9,43 @@ const linkTagPattern = /<link\b[^>]*>/gi;
 const relAttributePattern = /\srel\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)/i;
 const modulePreloadTextPattern = /\bmodulepreload\b/i;
 
+export function verifyPublicPrerenderMetadata(page: PublicPrerenderPage, html: string) {
+  const { expectedMetadata: expected, path: pathname } = page;
+  const canonicalUrl = new URL(pathname, "https://samebase.com").toString();
+  const headEndIndex = html.indexOf("</head>");
+  if (headEndIndex === -1) {
+    throw new Error(`Public prerender ${pathname} has no closing head tag.`);
+  }
+  const head = html.slice(0, headEndIndex);
+  const expectedHeadElements = [
+    {
+      expectedMarkup: `<title>${expected.title}</title>`,
+      pattern: /<title\b[^>]*>[^<]*<\/title>/gi,
+    },
+    {
+      expectedMarkup: `<meta name="description" content="${expected.description}"/>`,
+      pattern: /<meta\b(?=[^>]*\bname=["']description["'])[^>]*>/gi,
+    },
+    {
+      expectedMarkup: `<meta name="robots" content="${expected.robots}"/>`,
+      pattern: /<meta\b(?=[^>]*\bname=["']robots["'])[^>]*>/gi,
+    },
+    {
+      expectedMarkup: `<link rel="canonical" href="${canonicalUrl}"/>`,
+      pattern: /<link\b(?=[^>]*\brel=["']canonical["'])[^>]*>/gi,
+    },
+  ];
+
+  for (const element of expectedHeadElements) {
+    const matches = head.match(element.pattern) ?? [];
+    if (matches.length !== 1 || matches[0] !== element.expectedMarkup) {
+      throw new Error(
+        `Public prerender ${pathname} must contain one exact head element: ${element.expectedMarkup}`,
+      );
+    }
+  }
+}
+
 function readRelAttributeValue(linkTag: string) {
   const match = relAttributePattern.exec(linkTag);
   if (!match) {
@@ -106,6 +143,7 @@ export function writePublicPrerenderWithoutModulePreloads(args: {
   }
 
   const result = stripModulePreloadLinks(args.html);
+  verifyPublicPrerenderMetadata(args.page, result.html);
 
   if (result.html !== args.html) {
     writeFileSync(htmlFilePath, result.html, "utf8");

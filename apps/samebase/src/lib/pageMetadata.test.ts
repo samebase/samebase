@@ -5,9 +5,18 @@ import {
   APP_PAGE_METADATA,
   applyPageMetadata,
   buildLogoLabPageHead,
+  buildPageHead,
+  DOCS_CLOUDFLARE_SETUP_PAGE_METADATA,
+  DOCS_DO_IT_YOURSELF_PAGE_METADATA,
+  DOCS_INDEX_PAGE_METADATA,
+  DOCS_PRICING_PAGE_METADATA,
+  DOCS_RECEIPTS_PAGE_METADATA,
+  DOCS_THE_STACK_PAGE_METADATA,
+  PRIVACY_PAGE_METADATA,
   resolveAppPageTitle,
   resolveNotFoundPageMetadata,
   resolvePageMetadata,
+  TERMS_PAGE_METADATA,
 } from "./pageMetadata";
 import { SAMEBASE_BRAND_COPY } from "./samebaseBrandCopy";
 
@@ -211,6 +220,21 @@ describe("page metadata", () => {
     });
   });
 
+  it("keeps the MCP consent route non-indexed and canonical", () => {
+    expect(
+      resolvePageMetadata({
+        pathname: "/oauth/mcp/consent",
+        isAuthenticated: false,
+      }),
+    ).toEqual({
+      canonicalPath: "/oauth/mcp/consent",
+      description: "Authorization route for a Samebase MCP client.",
+      openGraphType: "website",
+      robots: "noindex,nofollow",
+      title: "Authorize MCP client | Samebase",
+    });
+  });
+
   it("keeps the public root metadata separate from the dashboard app metadata", () => {
     expect(APP_PAGE_METADATA.canonicalPath).toBe("/vault");
     expect(resolveAppPageTitle("/vault")).toBe("Vaults | Samebase");
@@ -241,7 +265,7 @@ describe("page metadata", () => {
       description:
         "Create the first Cloudflare Workers Builds API token, then let Samebase create the real Worker.",
       openGraphType: "website",
-      robots: "noindex,nofollow",
+      robots: "index,follow",
       title: "Set up Cloudflare for your first Samebase app | Samebase",
     });
   });
@@ -256,9 +280,36 @@ describe("page metadata", () => {
       canonicalPath: "/docs",
       description: "Samebase product, setup, stack, pricing, and source documentation.",
       openGraphType: "website",
-      robots: "noindex,nofollow",
+      robots: "index,follow",
       title: "Docs | Samebase",
     });
+  });
+
+  it("builds crawlable server metadata for each public decision page", () => {
+    const pageMetadata = [
+      DOCS_INDEX_PAGE_METADATA,
+      DOCS_CLOUDFLARE_SETUP_PAGE_METADATA,
+      DOCS_DO_IT_YOURSELF_PAGE_METADATA,
+      DOCS_RECEIPTS_PAGE_METADATA,
+      DOCS_THE_STACK_PAGE_METADATA,
+      DOCS_PRICING_PAGE_METADATA,
+      PRIVACY_PAGE_METADATA,
+      TERMS_PAGE_METADATA,
+    ];
+
+    for (const metadata of pageMetadata) {
+      const head = buildPageHead(metadata);
+      const canonicalUrl = new URL(metadata.canonicalPath, "https://samebase.com").toString();
+
+      expect(head.links).toEqual([{ rel: "canonical", href: canonicalUrl }]);
+      expect(head.meta).toContainEqual({ title: metadata.title });
+      expect(head.meta).toContainEqual({
+        name: "description",
+        content: metadata.description,
+      });
+      expect(head.meta).toContainEqual({ name: "robots", content: "index,follow" });
+      expect(head.meta).toContainEqual({ property: "og:url", content: canonicalUrl });
+    }
   });
 
   it("builds non-indexed server metadata for public logo labs", () => {
@@ -281,6 +332,21 @@ describe("page metadata", () => {
         href: "https://samebase.com/logo/iso",
       },
     ]);
+  });
+
+  it("keeps the root logo preview metadata after hydration", () => {
+    expect(
+      resolvePageMetadata({
+        pathname: "/logo",
+        isAuthenticated: false,
+      }),
+    ).toEqual({
+      canonicalPath: "/logo",
+      description: "Developer preview for exploring Samebase logo rendering.",
+      openGraphType: "website",
+      robots: "noindex,nofollow",
+      title: "Logo Preview | Samebase",
+    });
   });
 
   it("omits the homepage canonical from nested route document shells", () => {
@@ -354,6 +420,8 @@ describe("page metadata", () => {
     expect(structuredDataScript.children).toContain(
       '"logo":"https://samebase.com/samebase-icon.svg"',
     );
+    expect(structuredDataScript.children).toContain('"sameAs":["https://github.com/samebase"]');
+    expect(structuredDataScript.children).not.toContain("github.com/samebase/samebase");
     expect(rootHead.meta).toContainEqual({
       property: "og:url",
       content: "https://samebase.com/",

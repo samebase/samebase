@@ -5,6 +5,7 @@ type RouteMetadata = Pick<
   RouteStaticData,
   "access" | "appWorkspaceRouteChrome" | "availableEnvironments" | "pathSuggestion" | "prerender"
 >;
+export type RoutePath = keyof FileRoutesByFullPath;
 
 /**
  * Config-time consumers need route access policy without importing route
@@ -12,7 +13,7 @@ type RouteMetadata = Pick<
  * easier for Node to resolve than the app-only `@` alias, but Vite config
  * should still stay on metadata-only modules instead of the full route tree.
  */
-const routeAccessMetadataByPath = {
+export const ROUTE_ACCESS_METADATA_BY_PATH = {
   "/": { access: "access_public", appWorkspaceRouteChrome: { leftPane: "none" } },
   "/agents/connect": {
     access: "access_public",
@@ -160,7 +161,24 @@ const routeAccessMetadataByPath = {
     },
     availableEnvironments: ["local"],
   },
-} as const satisfies Record<keyof FileRoutesByFullPath, RouteMetadata>;
+} as const satisfies Record<RoutePath, RouteMetadata>;
 
-export const ROUTE_ACCESS_METADATA_BY_PATH: Record<keyof FileRoutesByFullPath, RouteMetadata> =
-  routeAccessMetadataByPath;
+type RouteAccessMetadataByPath = typeof ROUTE_ACCESS_METADATA_BY_PATH;
+
+export type PublicPrerenderRoutePath = {
+  [Path in RoutePath]: RouteAccessMetadataByPath[Path] extends {
+    access: "access_public";
+  }
+    ? RouteAccessMetadataByPath[Path] extends { prerender: false }
+      ? never
+      : Path extends `${string}$${string}`
+        ? never
+        : RouteAccessMetadataByPath[Path] extends {
+              availableEnvironments: readonly string[];
+            }
+          ? "production" extends RouteAccessMetadataByPath[Path]["availableEnvironments"][number]
+            ? Path
+            : never
+          : Path
+    : never;
+}[RoutePath];

@@ -10,9 +10,16 @@ import {
   replaceGeneratedCloudflareRedirectsBlock,
 } from "./generate-cloudflare-redirects.js";
 
+const expectedMetadata = {
+  title: "Test page | Samebase",
+  description: "Test page metadata.",
+  robots: "noindex,nofollow",
+} satisfies PublicPrerenderPage["expectedMetadata"];
+
 const pages = [
   {
     path: "/",
+    expectedMetadata,
     prerender: {
       enabled: true,
       outputPath: "/_landing.html",
@@ -20,6 +27,7 @@ const pages = [
   },
   {
     path: "/terms",
+    expectedMetadata,
     prerender: {
       enabled: true,
     },
@@ -35,6 +43,12 @@ describe("generate-cloudflare-redirects", () => {
         "/landing-preview/ / 301",
         "/landing-preview/index.html / 301",
       ].join("\n"),
+    );
+  });
+
+  it("temporarily redirects retired home paths to the vault", () => {
+    expect(cloudflareRedirects).toContain(
+      ["/home /vault/ 302", "/home/ /vault/ 302", "/home/index.html /vault/ 302"].join("\n"),
     );
   });
 
@@ -109,6 +123,7 @@ describe("generate-cloudflare-redirects", () => {
   it("keeps prerender pages from taking the Cloudflare SPA shell path", () => {
     const workerSsrRootPage = {
       path: "/",
+      expectedMetadata,
       prerender: {
         enabled: true,
         outputPath: "/index.html",

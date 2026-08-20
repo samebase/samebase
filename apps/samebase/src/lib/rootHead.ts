@@ -14,7 +14,7 @@ const structuredData = {
       alternateName: SAMEBASE_BRAND_COPY.siteName,
       url: "https://samebase.com/",
       logo: `https://samebase.com${COMPACT_IDENTITY_SVG_URL}`,
-      sameAs: ["https://github.com/samebase/samebase"],
+      sameAs: ["https://github.com/samebase"],
     },
     {
       "@type": "WebSite",

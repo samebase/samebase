@@ -15,6 +15,7 @@ import {
   isAgentBrowserHandoffRoute,
 } from "../../shared/agentBrowserHandoff";
 import { CONNECT_ORGANIZATION_ROUTE } from "./connectOrganizationRoute";
+import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
 
 export type PageMetadata = {
   title: string;
@@ -113,7 +114,7 @@ export const DOCS_INDEX_PAGE_METADATA: PageMetadata = {
   title: "Docs | Samebase",
   description: "Samebase product, setup, stack, pricing, and source documentation.",
   canonicalPath: DOCS_INDEX_ROUTE,
-  robots: "noindex,nofollow",
+  robots: "index,follow",
   openGraphType: "website",
 };
 
@@ -121,7 +122,7 @@ export const DOCS_DO_IT_YOURSELF_PAGE_METADATA: PageMetadata = {
   title: "Do it yourself | Samebase",
   description: "Deploy the Samebase stack by hand, with no Samebase account.",
   canonicalPath: DOCS_DO_IT_YOURSELF_ROUTE,
-  robots: "noindex,nofollow",
+  robots: "index,follow",
   openGraphType: "website",
 };
 
@@ -130,7 +131,7 @@ export const DOCS_CLOUDFLARE_SETUP_PAGE_METADATA: PageMetadata = {
   description:
     "Create the first Cloudflare Workers Builds API token, then let Samebase create the real Worker.",
   canonicalPath: DOCS_CLOUDFLARE_SETUP_ROUTE,
-  robots: "noindex,nofollow",
+  robots: "index,follow",
   openGraphType: "website",
 };
 
@@ -138,7 +139,7 @@ export const DOCS_THE_STACK_PAGE_METADATA: PageMetadata = {
   title: "The stack | Samebase",
   description: "What the Samebase template ships and why each piece was chosen.",
   canonicalPath: DOCS_THE_STACK_ROUTE,
-  robots: "noindex,nofollow",
+  robots: "index,follow",
   openGraphType: "website",
 };
 
@@ -146,7 +147,7 @@ export const DOCS_RECEIPTS_PAGE_METADATA: PageMetadata = {
   title: "Receipts | Samebase",
   description: "Every factual Samebase claim with its primary source and check date.",
   canonicalPath: DOCS_RECEIPTS_ROUTE,
-  robots: "noindex,nofollow",
+  robots: "index,follow",
   openGraphType: "website",
 };
 
@@ -154,7 +155,7 @@ export const DOCS_PRICING_PAGE_METADATA: PageMetadata = {
   title: "Pricing | Samebase",
   description: "The Free and Pro connection limits, member limits, and monthly prices.",
   canonicalPath: DOCS_PRICING_ROUTE,
-  robots: "noindex,nofollow",
+  robots: "index,follow",
   openGraphType: "website",
 };
 
@@ -162,6 +163,22 @@ export const AGENT_BROWSER_HANDOFF_PAGE_METADATA: PageMetadata = {
   title: "Connect Samebase | Samebase",
   description: "One-time browser connection route for Samebase MCP clients.",
   canonicalPath: AGENT_BROWSER_HANDOFF_ROUTE,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
+export const MCP_CONSENT_PAGE_METADATA: PageMetadata = {
+  title: "Authorize MCP client | Samebase",
+  description: "Authorization route for a Samebase MCP client.",
+  canonicalPath: MCP_CONSENT_APP_PATH,
+  robots: "noindex,nofollow",
+  openGraphType: "website",
+};
+
+export const LOGO_PAGE_METADATA: PageMetadata = {
+  title: "Logo Preview | Samebase",
+  description: "Developer preview for exploring Samebase logo rendering.",
+  canonicalPath: "/logo",
   robots: "noindex,nofollow",
   openGraphType: "website",
 };
@@ -286,6 +303,14 @@ export function resolvePageMetadata(args: {
     return INDEXED_DB_PAGE_METADATA;
   }
 
+  if (args.pathname === MCP_CONSENT_APP_PATH) {
+    return MCP_CONSENT_PAGE_METADATA;
+  }
+
+  if (args.pathname === "/logo") {
+    return LOGO_PAGE_METADATA;
+  }
+
   if (isAgentBrowserHandoffRoute(args.pathname)) {
     return AGENT_BROWSER_HANDOFF_PAGE_METADATA;
   }
@@ -316,10 +341,8 @@ function resolveCanonicalUrl(canonicalPath: string): string {
   return new URL(canonicalPath, resolveSiteOrigin()).toString();
 }
 
-export function buildLogoLabPageHead(canonicalPath: `/logo/${string}`, title: string) {
-  const pageTitle = `${title} | Samebase`;
-  const description = "Developer preview for exploring Samebase logo rendering.";
-  const canonicalUrl = resolveCanonicalUrl(canonicalPath);
+export function buildPageHead(metadata: PageMetadata) {
+  const canonicalUrl = resolveCanonicalUrl(metadata.canonicalPath);
 
   return {
     links: [
@@ -330,23 +353,27 @@ export function buildLogoLabPageHead(canonicalPath: `/logo/${string}`, title: st
     ],
     meta: [
       {
-        title: pageTitle,
+        title: metadata.title,
       },
       {
         name: "description",
-        content: description,
+        content: metadata.description,
       },
       {
         name: "robots",
-        content: "noindex,nofollow",
+        content: metadata.robots,
+      },
+      {
+        property: "og:type",
+        content: metadata.openGraphType ?? "website",
       },
       {
         property: "og:title",
-        content: pageTitle,
+        content: metadata.title,
       },
       {
         property: "og:description",
-        content: description,
+        content: metadata.description,
       },
       {
         property: "og:url",
@@ -354,14 +381,24 @@ export function buildLogoLabPageHead(canonicalPath: `/logo/${string}`, title: st
       },
       {
         name: "twitter:title",
-        content: pageTitle,
+        content: metadata.title,
       },
       {
         name: "twitter:description",
-        content: description,
+        content: metadata.description,
       },
     ],
   };
+}
+
+export function buildLogoLabPageHead(canonicalPath: "/logo" | `/logo/${string}`, title: string) {
+  return buildPageHead({
+    title: `${title} | Samebase`,
+    description: "Developer preview for exploring Samebase logo rendering.",
+    canonicalPath,
+    robots: "noindex,nofollow",
+    openGraphType: "website",
+  });
 }
 
 function upsertMetaTag({
