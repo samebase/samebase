@@ -45,5 +45,7 @@ export const identityTables = {
     .index("providerAndAccountId", ["provider", "providerAccountId"]),
 
   /** Samebase accounts with an explicit terminal lifecycle. */
-  users: defineTable(vUserLifecycle).index("email", ["email"]),
+  users: defineTable(vUserLifecycle)
+    .index("by_deleted_at", ["deletedAt"])
+    .index("email", ["email"]),
 };

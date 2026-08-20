@@ -7,7 +7,23 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 const testState = vi.hoisted(() => ({
   deleteUser: vi.fn(),
+  includeScrubbed: false,
   loadMore: vi.fn(),
+  navigatedSearches: new Array<Record<string, unknown>>(),
+  queryArgs: new Array<{ includeScrubbed: boolean }>(),
+  navigate: vi.fn(
+    async (options: {
+      search?: (currentSearch: Record<string, unknown>) => Record<string, unknown>;
+    }) => {
+      if (options.search) {
+        testState.navigatedSearches.push(
+          options.search(
+            testState.includeScrubbed ? { dev: true, includeScrubbed: true } : { dev: true },
+          ),
+        );
+      }
+    },
+  ),
   results: [
     {
       userId: "user_active",
@@ -50,16 +66,27 @@ const testState = vi.hoisted(() => ({
 
 vi.mock("convex/react", () => ({
   useMutation: () => testState.deleteUser,
-  usePaginatedQuery: () => ({
-    loadMore: testState.loadMore,
-    results: testState.results,
-    status: testState.status,
-  }),
+  usePaginatedQuery: (_reference: unknown, args: { includeScrubbed: boolean }) => {
+    testState.queryArgs.push(args);
+    return {
+      loadMore: testState.loadMore,
+      results: testState.results,
+      status: testState.status,
+    };
+  },
 }));
 
-vi.mock("@tanstack/react-router", () => ({
-  Link: ({ children, to }: { children?: ReactNode; to: string }) => <a href={to}>{children}</a>,
-}));
+vi.mock("@tanstack/react-router", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tanstack/react-router")>();
+  return {
+    ...actual,
+    getRouteApi: () => ({
+      useNavigate: () => testState.navigate,
+      useSearch: () => (testState.includeScrubbed ? { includeScrubbed: true as const } : {}),
+    }),
+    Link: ({ children, to }: { children?: ReactNode; to: string }) => <a href={to}>{children}</a>,
+  };
+});
 
 vi.mock("@/components/AppDialogContent", () => ({
   AppDialogContent: ({ children }: { children?: ReactNode }) => <div>{children}</div>,
@@ -117,6 +144,10 @@ describe("AdminUsersPage", () => {
     testState.deleteUser.mockReset();
     testState.deleteUser.mockResolvedValue(undefined);
     testState.loadMore.mockReset();
+    testState.navigate.mockClear();
+    testState.includeScrubbed = false;
+    testState.navigatedSearches.length = 0;
+    testState.queryArgs.length = 0;
     testState.status = "Exhausted";
   });
 
@@ -129,10 +160,27 @@ describe("AdminUsersPage", () => {
     rootElement = null;
   });
 
-  it("lists every account and sends the current account to Settings", async () => {
+  it("requests current accounts by default and stores the opt-in in route search", async () => {
+    const container = await mountPage();
+    const checkbox = container.querySelector<HTMLElement>('[role="checkbox"]');
+
+    expect(testState.queryArgs).toEqual([{ includeScrubbed: false }]);
+    expect(checkbox?.getAttribute("aria-checked")).toBe("false");
+
+    await act(async () => checkbox?.click());
+
+    expect(testState.navigatedSearches).toEqual([{ dev: true, includeScrubbed: true }]);
+    expect(testState.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({ replace: true, resetScroll: false, to: "." }),
+    );
+  });
+
+  it("includes scrubbed accounts from route search and sends the current account to Settings", async () => {
+    testState.includeScrubbed = true;
     const container = await mountPage();
     const rows = Array.from(container.querySelectorAll("tbody tr"));
 
+    expect(testState.queryArgs).toEqual([{ includeScrubbed: true }]);
     expect(container.querySelector("[data-posthog-mask]")).not.toBeNull();
     expect(rows).toHaveLength(4);
     expect(rows[0]?.textContent).toContain("active@example.test");
@@ -147,6 +195,11 @@ describe("AdminUsersPage", () => {
     expect(rows[3]?.textContent).toContain("Scrubbed");
     expect(rows[3]?.textContent).toContain("Deleted");
     expect(rows[3]?.querySelector("button")?.disabled).toBe(true);
+
+    const checkbox = container.querySelector<HTMLElement>('[role="checkbox"]');
+    await act(async () => checkbox?.click());
+
+    expect(testState.navigatedSearches).toEqual([{ dev: true, includeScrubbed: undefined }]);
   });
 
   it("requires confirmation and disables delete triggers while the request is pending", async () => {

@@ -489,11 +489,20 @@ export const listForAdmin = query({
 export const listUsersForAdmin = query({
   access: "access_admin",
   args: {
+    includeScrubbed: boolean(),
     paginationOpts: paginationOptsValidator,
   },
   returns: paginationResultValidator(vAdminUserListItem),
   handler: async (ctx, args) => {
-    const users = await ctx.db.query("users").order("desc").paginate(args.paginationOpts);
+    const users = await (
+      args.includeScrubbed
+        ? ctx.db.query("users")
+        : ctx.db
+            .query("users")
+            .withIndex("by_deleted_at", (query) => query.eq("deletedAt", undefined))
+    )
+      .order("desc")
+      .paginate(args.paginationOpts);
     const page = await Promise.all(
       users.page.map(async (user) => {
         if (user.state === "deleted") {
