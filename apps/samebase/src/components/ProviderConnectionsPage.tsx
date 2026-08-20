@@ -427,8 +427,8 @@ function GitHubInstallationDetails({
       />
       {access?.status === "unavailable" || error || failedChecks.length > 0 ? (
         <AuthorizationErrorNotice>
-          Could not confirm GitHub App access. Reload this page. If it still fails, an organization
-          owner must reconnect the GitHub App.
+          Could not confirm GitHub App access. Reload this page. If it still fails, the GitHub owner
+          must reconnect the GitHub App.
         </AuthorizationErrorNotice>
       ) : null}
       {organization.githubOwnerType === "user" ? (

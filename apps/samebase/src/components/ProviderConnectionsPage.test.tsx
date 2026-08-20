@@ -310,7 +310,7 @@ describe("ProviderConnectionsPage", () => {
     });
 
     expect(container.textContent).toContain(
-      "Could not confirm GitHub App access. Reload this page. If it still fails, an organization owner must reconnect the GitHub App.",
+      "Could not confirm GitHub App access. Reload this page. If it still fails, the GitHub owner must reconnect the GitHub App.",
     );
     expect(container.textContent).toContain(
       "Could not check Convex access. Reload this page. If it still fails, reauthorize Convex.",
