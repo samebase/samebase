@@ -370,7 +370,6 @@ packages/onboarding-video-tools/README.md
 packages/plugin/LICENSE
 packages/plugin/NOTICE
 packages/plugin/plugins/samebase/assets/icon.png
-packages/plugin/plugins/samebase/skills/samebase/references/existing-repository-adoption.md
 packages/plugin/plugins/samebase/skills/samebase/SKILL.md
 packages/plugin/README.md
 packages/plugin/SECURITY.md

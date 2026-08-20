@@ -152,7 +152,7 @@ jobs:
 
       - name: Validate Samebase plugin version for main
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: node ./scripts/check-agent-plugin-version.ts --latest-package-change
+        run: node ./scripts/check-agent-plugin-version.ts --latest-plugin-change
 
       # Bootstrap an anonymous local Convex deployment so CONVEX_DEPLOYMENT
       # exists and generated files are materialized for CI-only lint/build.

@@ -6,10 +6,10 @@ import path from "node:path";
 import { isMainModule, resolveRepoRoot, runMain } from "./lib/scriptRuntime.ts";
 import { trackedFilePath } from "./lib/trackedFilePath.ts";
 
-const packageManifestPath = trackedFilePath("packages/plugin/package.json");
-// The first packages/plugin release compares with the package at its previous Git path.
-const previousPackageManifestPath = "packages/agent-plugins/package.json";
-const packageRoot = path.dirname(packageManifestPath);
+const pluginManifestPath = trackedFilePath(
+  "packages/plugin/plugins/samebase/.codex-plugin/plugin.json",
+);
+const pluginRoot = path.dirname(trackedFilePath("packages/plugin/README.md"));
 const releaseVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 
 type ReleaseVersion = {
@@ -18,7 +18,7 @@ type ReleaseVersion = {
   patch: bigint;
 };
 
-function readPackageVersion(contents: string, label: string): string {
+function readPluginVersion(contents: string, label: string): string {
   const parsed: unknown = JSON.parse(contents);
   if (
     typeof parsed !== "object" ||
@@ -31,22 +31,19 @@ function readPackageVersion(contents: string, label: string): string {
   return parsed.version;
 }
 
-function readBasePackageVersion(repoRoot: string, baseCommit: string): string {
-  for (const manifestPath of [packageManifestPath, previousPackageManifestPath]) {
-    const result = spawnSync("git", ["show", `${baseCommit}:${manifestPath}`], {
-      cwd: repoRoot,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    if (result.error) {
-      throw result.error;
-    }
-    if (result.status === 0) {
-      return readPackageVersion(result.stdout, "Base Samebase plugin package");
-    }
+function readBasePluginVersion(repoRoot: string, baseCommit: string): string {
+  const result = spawnSync("git", ["show", `${baseCommit}:${pluginManifestPath}`], {
+    cwd: repoRoot,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+  if (result.error) {
+    throw result.error;
   }
-
-  throw new Error(`Unable to read the base Samebase plugin package at ${baseCommit}.`);
+  if (result.status !== 0) {
+    throw new Error(`Unable to read the base Samebase plugin manifest at ${baseCommit}.`);
+  }
+  return readPluginVersion(result.stdout, "Base Samebase plugin manifest");
 }
 
 function parseReleaseVersion(version: string, label: string): ReleaseVersion {
@@ -73,8 +70,8 @@ export function isReleaseVersionGreater(version: string, baseVersion: string): b
   );
 }
 
-function packageChanged(repoRoot: string, baseCommit: string): boolean {
-  const result = spawnSync("git", ["diff", "--quiet", baseCommit, "HEAD", "--", packageRoot], {
+function pluginChanged(repoRoot: string, baseCommit: string): boolean {
+  const result = spawnSync("git", ["diff", "--quiet", baseCommit, "HEAD", "--", pluginRoot], {
     cwd: repoRoot,
     encoding: "utf8",
   });
@@ -90,20 +87,20 @@ function packageChanged(repoRoot: string, baseCommit: string): boolean {
   );
 }
 
-export function findLatestPackageChangeBase(repoRoot: string): string {
-  const latestPackageChange = execFileSync(
+export function findLatestPluginChangeBase(repoRoot: string): string {
+  const latestPluginChange = execFileSync(
     "git",
-    ["log", "--first-parent", "-1", "--format=%H", "HEAD", "--", packageRoot],
+    ["log", "--first-parent", "-1", "--format=%H", "HEAD", "--", pluginRoot],
     {
       cwd: repoRoot,
       encoding: "utf8",
     },
   ).trim();
-  if (!latestPackageChange) {
+  if (!latestPluginChange) {
     throw new Error("Unable to find a Samebase plugin change in Git history.");
   }
 
-  return `${latestPackageChange}^`;
+  return `${latestPluginChange}^`;
 }
 
 export function checkAgentPluginVersion(repoRoot: string, baseCommit: string): string {
@@ -111,15 +108,15 @@ export function checkAgentPluginVersion(repoRoot: string, baseCommit: string): s
     throw new Error("A base commit is required.");
   }
 
-  const version = readPackageVersion(
-    readFileSync(path.join(repoRoot, packageManifestPath), "utf8"),
-    "Current Samebase plugin package",
+  const version = readPluginVersion(
+    readFileSync(path.join(repoRoot, pluginManifestPath), "utf8"),
+    "Current Samebase plugin manifest",
   );
-  if (!packageChanged(repoRoot, baseCommit)) {
+  if (!pluginChanged(repoRoot, baseCommit)) {
     return `The Samebase plugin is unchanged at version ${version}.`;
   }
 
-  const baseVersion = readBasePackageVersion(repoRoot, baseCommit);
+  const baseVersion = readBasePluginVersion(repoRoot, baseCommit);
   if (!isReleaseVersionGreater(version, baseVersion)) {
     throw new Error(
       `The Samebase plugin changed, but version ${version} is not greater than ${baseVersion}. Increase the plugin version.`,
@@ -134,7 +131,7 @@ if (isMainModule(import.meta.url)) {
     const argument = process.argv[2] ?? "";
     const repoRoot = resolveRepoRoot();
     const baseCommit =
-      argument === "--latest-package-change" ? findLatestPackageChangeBase(repoRoot) : argument;
+      argument === "--latest-plugin-change" ? findLatestPluginChangeBase(repoRoot) : argument;
     console.log(checkAgentPluginVersion(repoRoot, baseCommit));
   });
 }

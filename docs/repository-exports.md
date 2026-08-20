@@ -76,13 +76,12 @@ fresh job.
 ## Agent plugin versions
 
 Every change under `packages/plugin` must increase its numeric `major.minor.patch` version. Pull
-request CI compares the package with the pull request base commit. Main CI repeats the check against
-the package state before the latest package-changing commit. A failed package change stays failed
-across later unrelated commits, so the publisher cannot release it.
+request CI compares the Codex plugin manifest with the pull request base commit. Main CI repeats the
+check against the plugin state before the latest plugin-changing commit. A failed plugin change
+stays failed across later unrelated commits, so the publisher cannot release it.
 
-Update the version manually. `packages/plugin/scripts/check.ts` requires the package, Codex
-manifest, and Claude manifest versions to match. The Claude marketplace reads the version from the
-Claude plugin manifest, which prevents two version fields from drifting.
+Update both plugin manifests manually. `scripts/check-samebase-agent-plugin.ts` requires their
+versions to match. The Claude marketplace reads the version from the Claude plugin manifest.
 
 Rebase a package-changing pull request onto current `main` before merging it. This catches another
 package pull request that already used the same next version. Main CI remains the final fail-closed

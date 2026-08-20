@@ -6,7 +6,7 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   checkAgentPluginVersion,
-  findLatestPackageChangeBase,
+  findLatestPluginChangeBase,
   isReleaseVersionGreater,
 } from "./check-agent-plugin-version.ts";
 
@@ -18,9 +18,13 @@ function git(repoRoot: string, args: readonly string[]): string {
   }).trim();
 }
 
-function writePackageVersion(repoRoot: string, packageRoot: string, version: string): void {
+const pluginRoot = "packages/plugin";
+const pluginManifestPath = `${pluginRoot}/plugins/samebase/.codex-plugin/plugin.json`;
+
+function writePluginVersion(repoRoot: string, version: string): void {
+  mkdirSync(path.dirname(path.join(repoRoot, pluginManifestPath)), { recursive: true });
   writeFileSync(
-    path.join(repoRoot, packageRoot, "package.json"),
+    path.join(repoRoot, pluginManifestPath),
     `{
   "version": "${version}"
 }
@@ -51,44 +55,32 @@ describe("agent plugin release versions", () => {
     );
   });
 
-  it("handles the package directory rename and keeps an invalid change failed", () => {
+  it("keeps an invalid plugin change failed until its version increases", () => {
     const repoRoot = mkdtempSync(path.join(tmpdir(), "samebase-agent-plugin-version-test-"));
-    const previousPackageRoot = "packages/agent-plugins";
-    const packageRoot = "packages/plugin";
 
     try {
       git(repoRoot, ["init", "-b", "main"]);
       git(repoRoot, ["config", "commit.gpgsign", "false"]);
       git(repoRoot, ["config", "user.name", "Agent Plugin Version Test"]);
       git(repoRoot, ["config", "user.email", "agent-plugin-version-test@example.com"]);
-      mkdirSync(path.join(repoRoot, previousPackageRoot), { recursive: true });
-      writePackageVersion(repoRoot, previousPackageRoot, "0.2.18");
-      writeFileSync(path.join(repoRoot, previousPackageRoot, "README.md"), "Initial\n", "utf8");
-      const initialCommit = commit(repoRoot, "Initial package");
+      writePluginVersion(repoRoot, "0.2.19");
+      writeFileSync(path.join(repoRoot, pluginRoot, "README.md"), "Initial\n", "utf8");
+      const initialCommit = commit(repoRoot, "Initial plugin");
 
-      git(repoRoot, ["mv", previousPackageRoot, packageRoot]);
-      writePackageVersion(repoRoot, packageRoot, "0.2.19");
-      const renameCommit = commit(repoRoot, "Rename package");
-      const renameBase = findLatestPackageChangeBase(repoRoot);
-      expect(git(repoRoot, ["rev-parse", renameBase])).toBe(initialCommit);
-      expect(checkAgentPluginVersion(repoRoot, renameBase)).toBe(
-        "Samebase plugin version increased from 0.2.18 to 0.2.19.",
-      );
-
-      writeFileSync(path.join(repoRoot, packageRoot, "README.md"), "Changed\n", "utf8");
-      commit(repoRoot, "Change package without version");
+      writeFileSync(path.join(repoRoot, pluginRoot, "README.md"), "Changed\n", "utf8");
+      commit(repoRoot, "Change plugin without version");
       writeFileSync(path.join(repoRoot, "unrelated.txt"), "Unrelated\n", "utf8");
       commit(repoRoot, "Unrelated change");
 
-      const baseCommit = findLatestPackageChangeBase(repoRoot);
-      expect(git(repoRoot, ["rev-parse", baseCommit])).toBe(renameCommit);
+      const baseCommit = findLatestPluginChangeBase(repoRoot);
+      expect(git(repoRoot, ["rev-parse", baseCommit])).toBe(initialCommit);
       expect(() => checkAgentPluginVersion(repoRoot, baseCommit)).toThrow(
         "version 0.2.19 is not greater than 0.2.19",
       );
 
-      writePackageVersion(repoRoot, packageRoot, "0.2.20");
-      commit(repoRoot, "Increase package version");
-      expect(checkAgentPluginVersion(repoRoot, findLatestPackageChangeBase(repoRoot))).toBe(
+      writePluginVersion(repoRoot, "0.2.20");
+      commit(repoRoot, "Increase plugin version");
+      expect(checkAgentPluginVersion(repoRoot, findLatestPluginChangeBase(repoRoot))).toBe(
         "Samebase plugin version increased from 0.2.19 to 0.2.20.",
       );
     } finally {

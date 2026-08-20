@@ -18,8 +18,7 @@ not copy tool schemas or general coding instructions into the skill.
 2. Delete rules for removed capabilities. Do not preserve internal compatibility.
 3. Update the hand-written submission source when tool effects, review prompts, or expected results
    change. Run `pnpm --filter samebase generate:action-docs`.
-4. For every change under `packages/plugin`, increase the version in its package manifest and both
-   plugin manifests.
+4. For every change under `packages/plugin`, increase the version in both plugin manifests.
 5. Run `pnpm run check:plugin` and `pnpm --filter samebase verify:action-docs`.
 
 ## Forward-test
@@ -43,10 +42,14 @@ not copy tool schemas or general coding instructions into the skill.
 
 ## Last full run
 
-- Date: 2026-08-04
-- Artifact commit: `4f265d314`
-- Models: GPT-5.6 Terra low and GPT-5.6 Sol low
-- Result: all five positive cases and all three negative cases passed
+- Date: 2026-08-20
+- Artifact commit: `0a162b416`
+- Models: GPT-5.6 Luna low and GPT-5.6 Sol low
+- Result: both models selected the correct control surface for all eight cases. Sol preserved every
+  required Samebase sequence. Luna omitted the initial inventory read from managed app creation but
+  preserved token selection, creation, polling, and tokenless Cloudflare reporting. Both models sent
+  unrelated Git work to GitHub, standalone Worker work to Cloudflare, and the unsupported deletion
+  question to the dashboard offer without a Samebase tool call.
 
 ## Last focused stack-alignment run
 

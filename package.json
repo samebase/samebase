@@ -25,7 +25,7 @@
     "build:ci": "vp run --filter samebase build:ci",
     "check": "pnpm run check:workspace && pnpm run check:root",
     "check:ci": "pnpm run check:workspace:ci && pnpm run check:root",
-    "check:plugin": "vp fmt --check packages/plugin && node packages/plugin/scripts/check.ts && node scripts/check-agent-plugin-logo.ts",
+    "check:plugin": "vp fmt --check packages/plugin && node scripts/check-samebase-agent-plugin.ts && node scripts/check-agent-plugin-logo.ts",
     "check:packages": "pnpm run check:plugin && pnpm --filter @samebase/sure check && pnpm --filter @samebase/dependent check && pnpm --filter @samebase/logo-model check && pnpm --filter @samebase/onboarding-video-tools check",
     "check:remotion-studio": "pnpm run typecheck:remotion-studio && pnpm run lint:remotion-studio",
     "check:workspace": "vp run --filter samebase check && pnpm run check:packages && pnpm run check:remotion-studio",
