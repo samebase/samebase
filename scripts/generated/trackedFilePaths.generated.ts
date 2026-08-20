@@ -726,6 +726,7 @@ export const trackedFilePaths = [
   "apps/samebase/public/_headers",
   "apps/samebase/public/_redirects",
   "apps/samebase/public/apple-touch-icon.png",
+  "apps/samebase/public/brand/icon/compact-v1-landing-inline-80.svg",
   "apps/samebase/public/brand/icon/compact-v1-maskable.svg",
   "apps/samebase/public/brand/icon/compact-v1.svg",
   "apps/samebase/public/brand/logo/v1-side-primary-duotone-inline-80.svg",
