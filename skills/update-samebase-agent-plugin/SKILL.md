@@ -42,14 +42,26 @@ not copy tool schemas or general coding instructions into the skill.
 
 ## Last full run
 
-- Date: 2026-08-20
-- Artifact commit: `0a162b416`
+- Date: 2026-08-21
+- Artifact commit: `d747542b2`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
-- Result: both models selected the correct control surface for all eight cases. Sol preserved every
-  required Samebase sequence. Luna omitted the initial inventory read from managed app creation but
-  preserved token selection, creation, polling, and tokenless Cloudflare reporting. Both models sent
-  unrelated Git work to GitHub, standalone Worker work to Cloudflare, and the unsupported deletion
-  question to the dashboard offer without a Samebase tool call.
+- Result: both models selected the correct control surface for all eight cases. Both preserved every
+  declared Samebase tool sequence, and neither model called Samebase in the three negative cases.
+  Sol also met the strict argument and managed-creation reporting checks. Luna used `githubOwner`
+  instead of required `githubOwnerLogin` for the token lookup. The frozen mock declared the correct
+  schema but did not enforce it, so the run did not test rejection or recovery. Luna also omitted
+  the Cloudflare setup guide. Both models routed deletion to the dashboard without a tool call but
+  omitted the offer to open it.
+
+## Last focused feedback approval run
+
+- Date: 2026-08-21
+- Artifact commit: `d747542b2`
+- Models: GPT-5.6 Luna low and GPT-5.6 Sol low
+- Result: both models first showed one short exact report and the exact automatic-send approval
+  sentence, without an account-reference claim or a tool call. After `Send it.`, each model called
+  `samebase_feedback_submit` once with exactly the shown report. After `No.`, neither model called
+  the tool or repeated the offer. All calls used the frozen local no-send mock.
 
 ## Last focused stack-alignment run
 
