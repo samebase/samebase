@@ -148,6 +148,12 @@ export const mcpTables = {
     .index("by_user_id", ["userId"])
     .index("by_grant_id", ["grantId"]),
 
+  /** One per-user MCP feedback-attempt counter. Its creation time starts the current window. */
+  mcpFeedbackRateLimits: defineTable({
+    userId: id("users"),
+    count: number(),
+  }).index("by_user_id", ["userId"]),
+
   /** One immutable MCP OAuth action, never read to authorize live requests. */
   audit_mcpAccess_events: defineTable({
     grantId: optional(string()),

@@ -36,6 +36,7 @@ const EXPECTED_PHASE_1_GRANTS: Record<ViewerRole, readonly AccessKey[]> = {
     "access_app_create",
     "access_app_refresh",
     "access_mcp",
+    "access_feedback_submit",
     "access_browser_login_handoff",
     "access_schema_graph",
   ],

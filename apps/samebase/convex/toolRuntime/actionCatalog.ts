@@ -1,4 +1,5 @@
 import { getAuthenticationStatusContract } from "../mcp/contracts/getAuthenticationStatus";
+import { submitFeedbackContract } from "../mcp/contracts/submitFeedback";
 import { createRepositoryContract } from "../vault/contracts/createRepository";
 import { getUserVaultsContract } from "../vault/contracts/getUserVaults";
 import { connectRepositoryContract } from "../vault/contracts/connectRepository";
@@ -41,6 +42,7 @@ export const actionContracts = [
   cloudflareConfigureWorkersBuildsForGitHubContract,
   cloudflareRotateConvexDeployKeysForWorkersBuildsContract,
   retryInfrastructureProvisioningContract,
+  submitFeedbackContract,
   createBrowserHandoffContract,
   getAuthenticationStatusContract,
 ] as const;

@@ -55,7 +55,7 @@ function formatSubject(subject: string, deploymentProfile: DeploymentProfile): s
   }
 }
 
-export async function sendEmail(args: SendEmailArgs): Promise<null> {
+export async function sendEmail(args: SendEmailArgs): Promise<"accepted" | "skipped"> {
   const token = env.CLOUDFLARE_EMAIL_API_TOKEN?.trim();
   const accountId = env.CLOUDFLARE_EMAIL_ACCOUNT_ID?.trim();
   const deploymentProfile = resolveDeploymentProfile();
@@ -65,7 +65,7 @@ export async function sendEmail(args: SendEmailArgs): Promise<null> {
       deploymentProfile.kind === "local_development" ||
       deploymentProfile.kind === "local_worktree"
     ) {
-      return null;
+      return "skipped";
     }
     throw new Error(
       "CLOUDFLARE_EMAIL_API_TOKEN and CLOUDFLARE_EMAIL_ACCOUNT_ID are required for deployed email sending.",
@@ -118,13 +118,14 @@ export async function sendEmail(args: SendEmailArgs): Promise<null> {
       `Cloudflare Email Sending permanently bounced for ${result.data.result.permanent_bounces.length} recipient(s).`,
     );
   }
-  return null;
+  return "accepted";
 }
 
 export const send = internalAction({
   args: vSendEmailArgs,
   returns: v.null(),
   handler: async (_ctx, args) => {
-    return await sendEmail(args);
+    await sendEmail(args);
+    return null;
   },
 });

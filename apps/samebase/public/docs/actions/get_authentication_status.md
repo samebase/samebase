@@ -112,6 +112,9 @@ JSON Schema for the tool's `structuredContent`:
                     "const": "access_mcp"
                   },
                   {
+                    "const": "access_feedback_submit"
+                  },
+                  {
                     "const": "access_browser_login_handoff"
                   },
                   {
@@ -206,6 +209,9 @@ JSON Schema for the tool's `structuredContent`:
                   },
                   {
                     "const": "access_mcp"
+                  },
+                  {
+                    "const": "access_feedback_submit"
                   },
                   {
                     "const": "access_browser_login_handoff"

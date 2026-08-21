@@ -126,6 +126,13 @@ export const toolJustifications = {
     destructive_justification:
       "Consumes the one-time handoff token on redemption or account mismatch; does not delete user data, repositories, deployments, Workers, or provider resources.",
   },
+  samebase_feedback_submit: {
+    read_only_justification:
+      "Sends one user-approved feedback report to a fixed Samebase staff mailbox and updates an account-linked submission-attempt counter.",
+    open_world_justification:
+      "Uses Cloudflare Email Sending and the Samebase staff mailbox. It does not publish the report or modify user-owned provider resources.",
+    destructive_justification: noDestructiveActions,
+  },
 } as const satisfies Record<string, ToolJustifications>;
 
 type SubmissionToolName = keyof typeof toolJustifications;

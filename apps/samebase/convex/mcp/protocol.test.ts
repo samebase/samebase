@@ -24,6 +24,7 @@ describe("buildMcpProtectedResourceMetadata", () => {
       "access_provider_connections",
       "access_app_create",
       "access_repo_connect",
+      "access_feedback_submit",
       "access_browser_login_handoff",
     ]);
   });
@@ -217,7 +218,7 @@ describe("validateAuthorizeRequestFromUrl", () => {
       expect(result.error).toBe("resource is required.");
     }
   });
-  it("defaults missing scope to the original v1 surface without newer scopes", () => {
+  it("defaults missing scope to the published plugin surface", () => {
     const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
@@ -229,11 +230,15 @@ describe("validateAuthorizeRequestFromUrl", () => {
     const result = validateAuthorizeRequestFromUrl(url);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.scopes).toEqual(["access_app_create", "access_dashboard"]);
+      expect(result.value.scopes).toEqual([
+        "access_app_create",
+        "access_dashboard",
+        "access_feedback_submit",
+      ]);
     }
   });
 
-  it("defaults blank scope to the original v1 surface without newer scopes", () => {
+  it("defaults blank scope to the published plugin surface", () => {
     const url = new URL("https://samebase.com/oauth/mcp/authorize");
     url.searchParams.set("response_type", "code");
     url.searchParams.set("client_id", "client_123");
@@ -246,7 +251,11 @@ describe("validateAuthorizeRequestFromUrl", () => {
     const result = validateAuthorizeRequestFromUrl(url);
     expect(result.ok).toBe(true);
     if (result.ok) {
-      expect(result.value.scopes).toEqual(["access_app_create", "access_dashboard"]);
+      expect(result.value.scopes).toEqual([
+        "access_app_create",
+        "access_dashboard",
+        "access_feedback_submit",
+      ]);
     }
   });
   it("rejects unsupported scopes", () => {

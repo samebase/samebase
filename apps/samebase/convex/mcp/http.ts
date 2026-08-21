@@ -40,6 +40,7 @@ import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/cont
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
+import { submitFeedbackContract } from "./contracts/submitFeedback";
 import { cloudflareListWorkersBuildTokensContract } from "../vault/contracts/cloudflareBuildTokens";
 import {
   buildMcpAuthorizationSuccessRedirectUrl,
@@ -239,6 +240,9 @@ const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   ),
   [retryInfrastructureProvisioningContract.mcp.name]: createMcpRuntimeToolCall(
     internal.toolRuntime.runtime.retryInfrastructureProvisioningTool,
+  ),
+  [submitFeedbackContract.mcp.name]: createMcpRuntimeToolCall(
+    internal.toolRuntime.runtime.submitFeedbackTool,
   ),
   [createBrowserHandoffContract.mcp.name]: callCreateBrowserHandoffMcpTool,
   [getAuthenticationStatusContract.mcp.name]: callGetAuthenticationStatusMcpTool,

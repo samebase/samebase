@@ -77,6 +77,8 @@ import type * as infraProvisioning from "../infraProvisioning.js";
 import type * as jsonUtils from "../jsonUtils.js";
 import type * as mcp_client from "../mcp/client.js";
 import type * as mcp_contracts_getAuthenticationStatus from "../mcp/contracts/getAuthenticationStatus.js";
+import type * as mcp_contracts_submitFeedback from "../mcp/contracts/submitFeedback.js";
+import type * as mcp_feedback from "../mcp/feedback.js";
 import type * as mcp_grants from "../mcp/grants.js";
 import type * as mcp_http from "../mcp/http.js";
 import type * as mcp_model from "../mcp/model.js";
@@ -247,6 +249,8 @@ declare const fullApi: ApiFromModules<{
   jsonUtils: typeof jsonUtils;
   "mcp/client": typeof mcp_client;
   "mcp/contracts/getAuthenticationStatus": typeof mcp_contracts_getAuthenticationStatus;
+  "mcp/contracts/submitFeedback": typeof mcp_contracts_submitFeedback;
+  "mcp/feedback": typeof mcp_feedback;
   "mcp/grants": typeof mcp_grants;
   "mcp/http": typeof mcp_http;
   "mcp/model": typeof mcp_model;

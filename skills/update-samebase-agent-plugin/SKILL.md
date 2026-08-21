@@ -42,14 +42,29 @@ not copy tool schemas or general coding instructions into the skill.
 
 ## Last full run
 
-- Date: 2026-08-20
-- Artifact commit: `0a162b416`
+- Date: 2026-08-21
+- Artifact commit: `55733aa33`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
-- Result: both models selected the correct control surface for all eight cases. Sol preserved every
-  required Samebase sequence. Luna omitted the initial inventory read from managed app creation but
-  preserved token selection, creation, polling, and tokenless Cloudflare reporting. Both models sent
-  unrelated Git work to GitHub, standalone Worker work to Cloudflare, and the unsupported deletion
-  question to the dashboard offer without a Samebase tool call.
+- Result: Luna selected the correct control surface and preserved the declared tool sequence in all
+  eight cases. Sol passed seven of eight cases. In case 4, Sol called app inventory and the Workers
+  Builds token lookup, then asked for provider approval again instead of using the approval already
+  present in the prompt to create the repository and poll inventory. This repeated an existing
+  unrelated routing deviation from the earlier candidate. Neither model offered or called Samebase
+  feedback in any forward case. Luna routed deletion to the Samebase dashboard without a tool call
+  but did not offer to open it. Sol did offer to open it.
+
+## Last focused feedback approval run
+
+- Date: 2026-08-21
+- Artifact commit: `55733aa33`
+- Models: GPT-5.6 Luna low and GPT-5.6 Sol low
+- Result: both models passed all seven focused trigger cases. For an unexpected Samebase failure and
+  a wrong Samebase result with clear user frustration, each model showed one short exact report and
+  the exact automatic-send approval sentence without calling the tool. After `Send it.`, each model
+  called `samebase_feedback_submit` once with a report byte-for-byte equal to the shown report.
+  After `No.`, neither model called the tool or repeated the offer, and each said that the report
+  would not be sent. Normal missing authorization, a standalone Cloudflare failure, and ordinary
+  Samebase success caused no feedback offer or call. All calls used the frozen local no-send mock.
 
 ## Last focused stack-alignment run
 

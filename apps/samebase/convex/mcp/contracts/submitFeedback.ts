@@ -1,0 +1,38 @@
+import { v } from "convex/values";
+
+import { ACCESS_FEEDBACK_SUBMIT } from "../../../shared/accessModel";
+import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
+
+const { string } = v;
+
+export const submitFeedbackContract = {
+  id: "submit_feedback",
+  access: ACCESS_FEEDBACK_SUBMIT,
+  args: {
+    report: string(),
+  },
+  returns: v.null(),
+  mcp: {
+    title: "Submit Samebase feedback",
+    name: "samebase_feedback_submit",
+    description:
+      "Email one feedback report to Samebase staff. After a clear Samebase product or plugin problem, draft a short report that states what the user tried, what happened, and what should improve. Show the exact report and say that you can send it automatically with no form. Call only after the user approves that exact text. A direct request to send specified feedback is approval. Call once and do not retry unless the user asks. Do not include credentials, file contents, full logs, or unrelated conversation.",
+    safety: "write",
+    annotations: {
+      readOnlyHint: false,
+      openWorldHint: true,
+      destructiveHint: false,
+    },
+    inputDescriptions: {
+      report: "The exact user-approved feedback report. Maximum 2,000 characters.",
+    },
+  } as const satisfies AppFunctionMcpMetadata,
+  doc: `Emails one feedback report to Samebase staff. The agent must show the complete report
+and get the user's explicit approval for that exact text before it calls the tool. A direct request
+to send specified feedback is already approval.
+
+The email contains only the exact report. It must not contain credentials, file contents, full logs,
+or unrelated conversation. The tool sends the email through Cloudflare Email Sending to a fixed
+Samebase staff mailbox. Samebase stores one account-linked submission-attempt counter, but it does
+not store the report in the Samebase database.`,
+} as const;
