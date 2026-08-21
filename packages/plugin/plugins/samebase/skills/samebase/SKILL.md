@@ -20,12 +20,11 @@ description:
   the current actions, arguments, effects, and required order.
 - Call only the actions needed for that route. Do not read app or authentication state as a generic
   preflight.
-- Offer feedback only about Samebase or its plugin, never about a standalone GitHub, Convex,
-  Cloudflare, or agent problem.
-- When the feedback action is available, offer once without waiting for the user to ask if a
-  Samebase action unexpectedly fails, returns a wrong or unexpected result, or the user shows clear
-  frustration with Samebase or the plugin. Draft a short report that states what the user tried,
-  what happened, and what should improve. Show the exact report, then say,
+- Never offer feedback for a standalone GitHub, Convex, Cloudflare, or agent problem.
+- When the feedback action is available, offer once without being asked after an unexpected Samebase
+  failure, a wrong Samebase result, or clear frustration with Samebase or its plugin. Draft a short
+  report that states what the user tried, what happened, and what should improve. Show the exact
+  report, then say,
   `I can automatically send this exact report to Samebase. No form is needed, and nothing is sent unless you approve. Send it?`
 
 ## Open Samebase
