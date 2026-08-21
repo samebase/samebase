@@ -15,6 +15,7 @@ import {
   readMcpMethodForUsage,
   readMcpToolNameForUsage,
 } from "./http";
+import codexPluginManifest from "../../../../packages/plugin/plugins/samebase/.codex-plugin/plugin.json" with { type: "json" };
 
 const mcpRequestMetadata = {
   "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
@@ -486,7 +487,8 @@ describe("MCP tools/call access enforcement", () => {
     });
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toMatchObject({
+    const responseJson = response.json();
+    await expect(responseJson).resolves.toMatchObject({
       result: {
         resultType: "complete",
         supportedVersions: [MCP_PROTOCOL_VERSION],
@@ -494,7 +496,7 @@ describe("MCP tools/call access enforcement", () => {
         ttlMs: 0,
         cacheScope: "private",
         instructions: expect.stringMatching(
-          /^Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*confirmed empty, pass cloudflareBuildTokenUuid as explicit null[\s\S]*samebase\.com\/docs\/cloudflare-setup[\s\S]*call vault_cloudflare_createWorker[\s\S]*call vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds[\s\S]*If lastUsedBuildTokenUuid is available, use that UUID without asking\.[\s\S]*If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
+          /^In Codex, the latest Samebase plugin version available from the direct Samebase marketplace is .*[\s\S]*loaded Samebase skill path contains a lower numeric major\.minor\.patch version[\s\S]*tell the user once before the first Samebase tool call[\s\S]*codex plugin marketplace upgrade samebase[\s\S]*codex plugin add samebase@samebase[\s\S]*start a new task after the update\.[\s\S]*Samebase is only for repository-backed apps.*The MCP acts as the authenticated Samebase account across every organization that the account can currently access\..*Never request or send an opaque Samebase organization ID\.[\s\S]*call cloudflare_listWorkersBuildTokens with the human GitHub owner login[\s\S]*confirmed empty, pass cloudflareBuildTokenUuid as explicit null[\s\S]*samebase\.com\/docs\/cloudflare-setup[\s\S]*call vault_cloudflare_createWorker[\s\S]*call vault_cloudflare_rotateConvexDeployKeysForWorkersBuilds[\s\S]*If lastUsedBuildTokenUuid is available, use that UUID without asking\.[\s\S]*If it is unavailable and the list has several results, ask the user to choose by the displayed name and UUID\.[\s\S]*A started provisioning run, requested build, or successful Git push is not proof of a successful deployment\./,
         ),
         _meta: {
           "io.modelcontextprotocol/serverInfo": {
@@ -502,6 +504,13 @@ describe("MCP tools/call access enforcement", () => {
             version: "0.1.0",
           },
         },
+      },
+    });
+    await expect(responseJson).resolves.toMatchObject({
+      result: {
+        instructions: expect.stringContaining(
+          `latest Samebase plugin version available from the direct Samebase marketplace is ${codexPluginManifest.version}.`,
+        ),
       },
     });
   });

@@ -76,6 +76,7 @@ import {
 } from "./protocol";
 import { isMcpOauthClientInactive } from "./client";
 import { parseScopeTokens } from "./scopes";
+import codexPluginManifest from "../../../../packages/plugin/plugins/samebase/.codex-plugin/plugin.json" with { type: "json" };
 
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
@@ -84,7 +85,9 @@ const MCP_SERVER_INFO = {
   name: "Samebase",
   version: "0.1.0",
 } as const;
-const MCP_SERVER_INSTRUCTIONS = `Samebase is only for repository-backed apps and explicit attachments to user-owned Convex and Cloudflare resources. The MCP acts as the authenticated Samebase account across every organization that the account can currently access. Never request or send an opaque Samebase organization ID. Never use Samebase for unrelated Git work or standalone provider resources.
+const MCP_SERVER_INSTRUCTIONS = `In Codex, the latest Samebase plugin version available from the direct Samebase marketplace is ${codexPluginManifest.version}. If the loaded Samebase skill path contains a lower numeric major.minor.patch version, tell the user once before the first Samebase tool call that an update is available and ask whether to install it. Do not mention an update when the loaded path has no version or the version cannot be compared. After the user approves, run codex plugin marketplace upgrade samebase, then run codex plugin add samebase@samebase. Tell the user to start a new task after the update.
+
+Samebase is only for repository-backed apps and explicit attachments to user-owned Convex and Cloudflare resources. The MCP acts as the authenticated Samebase account across every organization that the account can currently access. Never request or send an opaque Samebase organization ID. Never use Samebase for unrelated Git work or standalone provider resources.
 
 For managed app creation, use only this closed sequence: read ${getUserVaultsContract.mcp.name}, call ${cloudflareListWorkersBuildTokensContract.mcp.name} with the human GitHub owner login, call ${createRepositoryContract.mcp.name}, then poll ${getUserVaultsContract.mcp.name}. When that current token list is confirmed empty, pass cloudflareBuildTokenUuid as explicit null. Otherwise, use an available lastUsedBuildTokenUuid without asking, use the only listed token, or ask the user to choose by the displayed name and UUID when several tokens are listed. Pass the selected exact UUID as cloudflareBuildTokenUuid. Ask the user for the GitHub owner login when it is unclear. ${createRepositoryContract.mcp.name} keeps cloudflareBuildTokenUuid required, does not accept an accountId, and uses the organization's configured Cloudflare account.
 
