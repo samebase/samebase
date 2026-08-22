@@ -2,13 +2,19 @@
 
 ## Document Control
 
-- Status: Proposed
+- Status: Superseded
 - Owner: Noter auth/MCP UX
-- Last updated: 2026-03-19
+- Last updated: 2026-08-22
+- Superseded by:
+  - `specs/018_AUTH_APPROVAL_BOUNDARY_SPEC.md`
+  - `specs/086_PUBLIC_OAUTH_RETURN_NOTICE_SPEC.md`
 - Related specs:
-  - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
+  - `specs/018_AUTH_APPROVAL_BOUNDARY_SPEC.md`
   - `rfcs/043_REMOTE_MCP_OAUTH_PROVIDER_CONVEX_ARCHITECTURE_SPEC.md`
   - `rfcs/062_MCP_DUAL_ORIGIN_CONSENT_LOGIN_REDIRECT_SPEC.md`
+
+This document records the former Noter closed-signup design. It does not define current Samebase
+behavior. Samebase now uses self-service OAuth signup and the OAuth return notice in Spec 086.
 
 ## Summary
 
@@ -65,7 +71,7 @@ The result is a flow that looks broken even when the backend is behaving as desi
 1. `apps/noter/convex/auth.ts` rejects non-allowlisted emails inside `createOrUpdateUser`.
 2. That means a new, unapproved user does not get a `users` row and does not get an authenticated
    session.
-3. This behavior is intentional and matches `018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`.
+3. This behavior is intentional and matches `018_AUTH_APPROVAL_BOUNDARY_SPEC.md`.
 
 ### Convex Auth currently swallows callback failures for this flow
 
@@ -245,8 +251,7 @@ Required coverage:
    to consent.
 2. A user without Noter access sees a clear explanation and a request-access path instead of a
    silent landing-page loop.
-3. The original security policy from `018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md` remains
-   unchanged.
+3. The original security policy from `018_AUTH_APPROVAL_BOUNDARY_SPEC.md` remains unchanged.
 4. The UI does not imply that an expired authorization request can be resumed after later approval.
 
 ## Open Questions

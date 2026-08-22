@@ -10,7 +10,7 @@
   [BuilderIO/agent-native](https://github.com/BuilderIO/agent-native)
 - Related rfcs: `rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md`,
   `archive/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md`,
-  `rfcs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`,
+  `archive/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`,
   `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`, `rfcs/094_AGENT_ACTION_DOCS_REGISTRY_PLAN.md`
   (guide layer; see its relationship section)
 - Related specs: `specs/003_REPOSITORY_INFRA_PROVISIONING_SPEC.md`,
@@ -83,7 +83,7 @@ The repo has been converging on this design for months. Much of the original pla
 | Existing-repository adoption                          | `connectRepositoryContract` in `apps/samebase/convex/vault/contracts/connectRepository.ts:12`                                                                | Any readable GitHub repo can be registered without touching Convex or Cloudflare, remain GitHub-only, or attach providers later                                  |
 | Monorepo app roots                                    | `vaultApps` in `apps/samebase/convex/schema.ts:469`, `VaultDashboardAppRootDialog` in `apps/samebase/src/components/vault-dashboard/VaultDashboard.tsx:1125` | Several deployable roots per repo are supported in the dashboard and provider records; no MCP action creates roots yet                                           |
 | Public agent-readable corpus                          | `/landing-preview`, `/docs/*`, `/pricing.md`, `/llms.txt`                                                                                                    | Public, prerendered or raw-served, and indexed from `/llms.txt`                                                                                                  |
-| MCP OAuth and pre-account direction                   | `apps/samebase/convex/mcp/`, `rfcs/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`                                                                               | OAuth, PKCE, dynamic client registration, user-wide grants, and browser handoff are live; the earlier pre-account flow remains prior art                         |
+| MCP OAuth and pre-account direction                   | `apps/samebase/convex/mcp/`, `archive/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`                                                                            | OAuth, PKCE, dynamic client registration, user-wide grants, and browser handoff are live; the earlier pre-account flow remains prior art                         |
 
 What does **not** exist yet: public CLONK or Conductor comparison pages, MCP creation of monorepo
 app roots, automatic discovery of an entire GitHub account, or fleet-wide base versioning and drift

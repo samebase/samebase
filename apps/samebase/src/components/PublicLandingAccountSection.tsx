@@ -1,4 +1,4 @@
-import { PublicSignupClosedNotice } from "@/components/PublicSignupClosedNotice";
+import { PublicOAuthReturnNotice } from "@/components/PublicOAuthReturnNotice";
 import { AuthorizationErrorNotice } from "@/components/AuthorizationErrorNotice";
 import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControls";
 import {
@@ -10,7 +10,7 @@ import {
   type AppAuthPresentationProfile,
 } from "@/lib/appAuthPresentationState";
 import { type GetFunctionReferenceReturnType } from "@/lib/convexUtils";
-import { shouldRenderOAuthSignupClosedState } from "@/lib/publicLandingAuthState";
+import { shouldRenderOAuthReturnNotice } from "@/lib/publicLandingAuthState";
 import { formatAuthorizationErrorMessage } from "@/lib/authorizationErrorMessage";
 import { useAuthorizationErrorNotice } from "@/lib/useAuthorizationErrorNotice";
 import { PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID } from "@/lib/publicLanding";
@@ -55,10 +55,7 @@ function PublicLandingLoggedOutAccountSection() {
     search: rootRouteSearch,
     scopeKey: location.pathname,
   });
-  const showOAuthSignupClosedState = shouldRenderOAuthSignupClosedState(
-    location.pathname,
-    rootRouteSearch,
-  );
+  const showOAuthReturnNotice = shouldRenderOAuthReturnNotice(location.pathname, rootRouteSearch);
 
   return (
     <div
@@ -77,8 +74,8 @@ function PublicLandingLoggedOutAccountSection() {
             {formatAuthorizationErrorMessage(authorizationError)}
           </AuthorizationErrorNotice>
         ) : null}
-        {showOAuthSignupClosedState ? (
-          <PublicSignupClosedNotice />
+        {showOAuthReturnNotice ? (
+          <PublicOAuthReturnNotice />
         ) : (
           <PublicLandingAuthControls
             oauthAuthFlow={

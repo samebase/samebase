@@ -290,12 +290,12 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
           role="status"
         >
           <h2 id="pending-access-sidebar-heading" className="text-base font-semibold leading-6">
-            Beta access pending
+            Account access unavailable
           </h2>
           <p className="mt-2 text-sm leading-6 text-muted-foreground">
-            Samebase is currently in private beta, so access is approved manually. You’re signed in
-            as <span className="[overflow-wrap:anywhere]">{accountPresentation.label}</span>
-            {". This page will update automatically when your account is approved."}
+            You are signed in as{" "}
+            <span className="[overflow-wrap:anywhere]">{accountPresentation.label}</span>
+            {", but this account does not have access to Samebase."}
           </p>
         </section>
       ) : null}

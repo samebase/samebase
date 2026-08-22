@@ -383,7 +383,7 @@ describe("appAuthPresentationPrehydration", () => {
     "/?signup=github",
     "/settings?signup=github",
   ])(
-    "does not reveal signed-out auth controls before the closed-signup state hydrates on %s",
+    "does not reveal signed-out auth controls before the OAuth return notice hydrates on %s",
     (route) => {
       window.history.replaceState({}, "", route);
 

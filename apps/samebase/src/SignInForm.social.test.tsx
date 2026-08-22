@@ -41,7 +41,6 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 import { SignInForm } from "@/SignInForm";
-import { PublicSignupClosedNotice } from "@/components/PublicSignupClosedNotice";
 
 const SAMEBASE_X_PROFILE_URL = "https://x.com/samebasecom";
 
@@ -58,13 +57,5 @@ describe("public Samebase social links", () => {
 
     expect(markup).toContain(`href="${SAMEBASE_X_PROFILE_URL}"`);
     expect(markup).toContain(SAMEBASE_X_PROFILE_URL);
-  });
-
-  it("renders the Samebase X profile link in the closed signup notice", () => {
-    const markup = renderToStaticMarkup(<PublicSignupClosedNotice />);
-
-    expect(markup).toContain(`href="${SAMEBASE_X_PROFILE_URL}"`);
-    expect(markup).toContain("@samebasecom");
-    expect(markup).not.toContain("pending access");
   });
 });

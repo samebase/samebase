@@ -339,7 +339,6 @@ describe("PublicLandingAccountSection", () => {
     expect(markup).toContain("Continue with GitHub");
     expect(markup).not.toContain("Continue with Google");
     expect(markup).not.toContain("lucide-chevron-down");
-    expect(markup).not.toContain("The app is still internal.");
   });
 
   it("keeps protected-route login in the account sidebar", async () => {
@@ -473,22 +472,15 @@ describe("PublicLandingAccountSection", () => {
     rootElement.remove();
   });
 
-  it("shows the internal-app message after a failed public Google signup return", () => {
+  it("shows the incomplete sign-in notice after a public Google OAuth return", () => {
     const markup = renderLandingAccountSection("/?signup=google");
+    const renderedDocument = new DOMParser().parseFromString(markup, "text/html");
 
-    expect(markup).toContain("Sign in or create an account");
-    expect(markup).toContain("The app is still internal.");
-    expect(markup).not.toContain("Google");
-  });
-
-  it("shows the internal-app message after a failed protected-route Google signup return", () => {
-    routeState.access = "access_user_preferences";
-
-    const markup = renderLandingAccountSection("/settings?signup=google");
-
-    expect(markup).toContain("Sign in or create an account");
-    expect(markup).toContain("The app is still internal.");
-    expect(markup).not.toContain("Google");
+    expect(renderedDocument.body.textContent).toContain("Sign in or create an account");
+    expect(renderedDocument.body.textContent).toContain("Sign-in was not completed.");
+    expect(renderedDocument.querySelector('a[href="/"]')?.textContent).toBe("Try again");
+    expect(renderedDocument.querySelectorAll("button")).toHaveLength(0);
+    expect(renderedDocument.querySelectorAll("input")).toHaveLength(0);
   });
 
   it("explains how to link GitHub and keeps GitHub sign-in available", async () => {
@@ -501,7 +493,7 @@ describe("PublicLandingAccountSection", () => {
     );
     expect(markup).toContain("Continue with GitHub");
     expect(markup).not.toContain("Continue with Google");
-    expect(markup).not.toContain("The app is still internal.");
+    expect(markup).not.toContain("Sign-in was not completed.");
     expect(navigateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         replace: true,

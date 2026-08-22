@@ -6,7 +6,7 @@
 - Owner: Samebase auth/backend
 - Last updated: 2026-09-02
 - Related:
-  - `specs/018_AUTH_ALLOWLIST_PRELOGIN_ENFORCEMENT_SPEC.md`
+  - `specs/018_AUTH_APPROVAL_BOUNDARY_SPEC.md`
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
   - `specs/117_MANUAL_PASSWORD_AUTH_SPEC.md`
   - `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`

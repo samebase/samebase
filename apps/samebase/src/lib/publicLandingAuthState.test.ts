@@ -6,7 +6,7 @@ import {
   getVisiblePasswordAuthSurface,
   rememberPublicLandingPasswordAuthMode,
   resolvePublicLandingPasswordAuthMode,
-  shouldRenderOAuthSignupClosedState,
+  shouldRenderOAuthReturnNotice,
 } from "./publicLandingAuthState";
 import { validateRootRouteSearch } from "@/routeSearch/root";
 import { MCP_CONSENT_APP_PATH } from "../../shared/mcpOAuth";
@@ -49,24 +49,24 @@ afterEach(() => {
 
 describe("publicLandingAuthState", () => {
   it.each(["/", "/settings"])(
-    "shows the closed-signup state for a marked Google return on %s",
+    "shows the OAuth return notice for a marked Google return on %s",
     (pathname) => {
       const routeSearch = validateRootRouteSearch({ signup: "google" });
 
-      expect(shouldRenderOAuthSignupClosedState(pathname, routeSearch)).toBe(true);
+      expect(shouldRenderOAuthReturnNotice(pathname, routeSearch)).toBe(true);
     },
   );
 
   it("keeps MCP consent available when a stale signup marker is present", () => {
     const routeSearch = validateRootRouteSearch({ signup: "google" });
 
-    expect(shouldRenderOAuthSignupClosedState(MCP_CONSENT_APP_PATH, routeSearch)).toBe(false);
+    expect(shouldRenderOAuthReturnNotice(MCP_CONSENT_APP_PATH, routeSearch)).toBe(false);
   });
 
   it("keeps an invitation available when a stale signup marker is present", () => {
     const routeSearch = validateRootRouteSearch({ signup: "github" });
 
-    expect(shouldRenderOAuthSignupClosedState("/invite/invitation-code", routeSearch)).toBe(false);
+    expect(shouldRenderOAuthReturnNotice("/invite/invitation-code", routeSearch)).toBe(false);
   });
 
   it("keeps sign-in methods available after an account-linking error", () => {
@@ -76,7 +76,7 @@ describe("publicLandingAuthState", () => {
       "authorization-error": "account-link-required",
     });
 
-    expect(shouldRenderOAuthSignupClosedState("/", routeSearch)).toBe(false);
+    expect(shouldRenderOAuthReturnNotice("/", routeSearch)).toBe(false);
   });
 
   it("maps the public password auth mode to a stable landing surface", () => {
