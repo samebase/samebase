@@ -193,31 +193,32 @@ function requirePreviewSeedGitHubAppInstallation(
   return installation;
 }
 
-function buildPreviewSeedOrganizationConfigs(
-  installations: PreviewSeedGitHubAppInstallation[],
-): SeedOrganizationConfig[] {
-  const samebaseProviderCredentials = readRequiredPreviewSamebaseProviderCredentials();
+function buildPreviewSeedOrganizationConfigs(args: {
+  installations: PreviewSeedGitHubAppInstallation[];
+  liveTestsProviderCredentials: SeedProviderCredentials;
+  samebaseProviderCredentials: SeedProviderCredentials;
+}): SeedOrganizationConfig[] {
   return [
     {
-      ...requirePreviewSeedGitHubAppInstallation(installations, {
+      ...requirePreviewSeedGitHubAppInstallation(args.installations, {
         githubOwnerLogin: "nicu-chiciuc",
         githubOwnerType: "user",
       }),
-      ...samebaseProviderCredentials,
+      ...args.samebaseProviderCredentials,
     },
     {
-      ...requirePreviewSeedGitHubAppInstallation(installations, {
+      ...requirePreviewSeedGitHubAppInstallation(args.installations, {
         githubOwnerLogin: "samebase",
         githubOwnerType: "organization",
       }),
-      ...samebaseProviderCredentials,
+      ...args.samebaseProviderCredentials,
     },
     {
-      ...requirePreviewSeedGitHubAppInstallation(installations, {
+      ...requirePreviewSeedGitHubAppInstallation(args.installations, {
         githubOwnerLogin: "samebase-live-tests",
         githubOwnerType: "organization",
       }),
-      ...readRequiredPreviewSeedProviderCredentials(),
+      ...args.liveTestsProviderCredentials,
     },
   ];
 }
@@ -728,14 +729,19 @@ export const seedPasswordAccount = internalAction({
     const { email, password } = accountConfig;
     const worktreeOrganizationConfig =
       accountConfig.kind === "local_worktree_seed" ? readSeedWorktreeOrganizationConfig() : null;
-    const previewSeed =
-      accountConfig.kind === "preview_seed"
-        ? buildPreviewSeedOrganizationConfigs(
-            await discoverPreviewSeedGitHubAppInstallations(
-              requireSeedValue(readSeedValue("DEV_SEED_GITHUB_API_KEY"), "DEV_SEED_GITHUB_API_KEY"),
-            ),
-          )
-        : null;
+    let previewSeed: SeedOrganizationConfig[] | null = null;
+    if (accountConfig.kind === "preview_seed") {
+      const samebaseProviderCredentials = readRequiredPreviewSamebaseProviderCredentials();
+      const liveTestsProviderCredentials = readRequiredPreviewSeedProviderCredentials();
+      const installations = await discoverPreviewSeedGitHubAppInstallations(
+        requireSeedValue(readSeedValue("DEV_SEED_GITHUB_API_KEY"), "DEV_SEED_GITHUB_API_KEY"),
+      );
+      previewSeed = buildPreviewSeedOrganizationConfigs({
+        installations,
+        liveTestsProviderCredentials,
+        samebaseProviderCredentials,
+      });
+    }
 
     let created = false;
     let userId: Id<"users">;

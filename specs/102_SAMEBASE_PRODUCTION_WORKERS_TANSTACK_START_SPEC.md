@@ -259,8 +259,8 @@ Samebase production itself.
      and the `samebase-live-tests` organization; later seed runs preserve organizations that the
      user connects through the preview UI
    - lets only the exact seeded password account list and connect other manageable installations;
-     every list or connect request repeats the live GitHub discovery, and repository access
-     continues to use GitHub App installation authentication
+     the backend verifies current management access before it connects an installation, and
+     repository access continues to use GitHub App installation authentication
    - attaches the current `DEV_SEED_*` Convex and Cloudflare provider credentials only to
      `samebase-live-tests`
    - attaches the main provider accounts to `samebase` and `nicu-chiciuc`; preview defaults must

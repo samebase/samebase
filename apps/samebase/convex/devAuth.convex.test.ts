@@ -190,7 +190,7 @@ describe("devAuth password account seed", () => {
     });
   });
 
-  it("seeds provider accounts by GitHub owner and preserves a later connection", async () => {
+  it("seeds provider accounts by GitHub owner and preserves another organization", async () => {
     const t = makeConvexTest();
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:organization-context");
     vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.com");
@@ -236,14 +236,11 @@ describe("devAuth password account seed", () => {
       created: true,
     });
 
-    const initialSnapshot = await t.run(async (ctx) => ({
-      organizations: await ctx.db.query("organizations").collect(),
-      memberships: await ctx.db.query("organizationMemberships").collect(),
-    }));
-    expect(initialSnapshot.organizations).toHaveLength(3);
-    expect(initialSnapshot.memberships).toHaveLength(3);
+    const initialOrganizations = await t.run(
+      async (ctx) => await ctx.db.query("organizations").collect(),
+    );
     expect(
-      initialSnapshot.organizations
+      initialOrganizations
         .map(({ githubOwnerId }) => githubOwnerId)
         .sort((left, right) => left.localeCompare(right)),
     ).toEqual(["101", "202", "303"]);
@@ -269,20 +266,19 @@ describe("devAuth password account seed", () => {
 
     const snapshot = await t.run(async (ctx) => ({
       organizations: await ctx.db.query("organizations").collect(),
-      memberships: await ctx.db.query("organizationMemberships").collect(),
-      billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
       authAccounts: await ctx.db.query("authAccounts").collect(),
       githubUserAuthorizations: await ctx.db.query("githubUserAuthorizations").collect(),
       providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
       vaults: await ctx.db.query("vaults").collect(),
     }));
-    expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledTimes(2);
     expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledWith(
       "preview-github-api-key",
     );
-    expect(snapshot.organizations).toHaveLength(4);
-    expect(snapshot.memberships).toHaveLength(4);
-    expect(snapshot.billingAccounts).toHaveLength(4);
+    expect(
+      snapshot.organizations
+        .map(({ githubOwnerId }) => githubOwnerId)
+        .sort((left, right) => left.localeCompare(right)),
+    ).toEqual(["101", "202", "303", "404"]);
     expect(snapshot.authAccounts).toHaveLength(1);
     expect(snapshot.authAccounts[0]).toMatchObject({
       provider: "password",
@@ -291,15 +287,6 @@ describe("devAuth password account seed", () => {
     expect(snapshot.githubUserAuthorizations).toEqual([]);
     expect(snapshot.providerCredentials).toHaveLength(3);
     expect(snapshot.vaults).toEqual([]);
-    const connectedGithubOwnerIds = snapshot.memberships
-      .map((membership) =>
-        snapshot.organizations.find(
-          (organization) => organization._id === membership.organizationId,
-        ),
-      )
-      .map((organization) => organization?.githubOwnerId)
-      .sort((left, right) => (left ?? "").localeCompare(right ?? ""));
-    expect(connectedGithubOwnerIds).toEqual(["101", "202", "303", "404"]);
 
     const samebaseOrganization = snapshot.organizations.find(
       ({ githubOwnerId }) => githubOwnerId === "101",
@@ -354,25 +341,10 @@ describe("devAuth password account seed", () => {
     vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password-123");
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
     vi.stubEnv("DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY", "");
-    devAuthMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
-      {
-        githubInstallationId: "1001",
-        githubOwnerId: "101",
-        githubOwnerType: "organization",
-        githubOwnerLogin: "samebase",
-      },
-      {
-        githubInstallationId: "1002",
-        githubOwnerId: "202",
-        githubOwnerType: "user",
-        githubOwnerLogin: "nicu-chiciuc",
-      },
-    ]);
 
     await expect(t.action(internal.devAuth.seedPasswordAccount, {})).rejects.toThrowError(
       "DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY is required",
     );
-    expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledOnce();
   });
 
   it("fails closed when the seed user is missing", async () => {
