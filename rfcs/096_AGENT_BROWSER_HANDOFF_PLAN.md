@@ -9,7 +9,7 @@
   a visible browser session without adding a broad production password backdoor.
 - Related rfcs:
   - `archive/063_MCP_PREACCOUNT_ONBOARDING_FLOW_SPEC.md`
-  - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
+  - `archive/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md`
   - `rfcs/093_AGENT_NATIVE_ONE_BASE_PLAN.md`
 - Related specs:

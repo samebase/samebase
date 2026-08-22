@@ -14,7 +14,7 @@
   - `specs/122_ACCOUNT_SIGN_IN_METHODS_SPEC.md`
   - `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md`
   - `rfcs/122_ORGANIZATION_DEPLOYMENT_PROVIDER_ROLLOUT.md`
-  - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
+  - `archive/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
   - `research/2026-06-18-workos-authorization-model.md`
 
 This contract defines the organization boundary for the first public beta. It replaces user-owned

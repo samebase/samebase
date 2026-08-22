@@ -2,10 +2,15 @@
 
 ## Document Control
 
-- Status: Proposed; slice 1 implemented in the same PR
-- Owner: Noter frontend/app shell
-- Last updated: 2026-06-12
-- Depends on:
+- Status: Superseded
+- Owner: Samebase frontend/app shell
+- Last updated: 2026-08-22
+- Superseded by:
+  - `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md`
+  - `specs/090_ROUTE_SEARCH_PRESENCE_FLAGS_SPEC.md`
+  - `specs/107_ROUTE_URL_EDITOR_SUGGESTION_MODEL_SPEC.md`
+  - `specs/109_ROUTE_URL_EDITOR_REBUILD_REQUIREMENTS_SPEC.md`
+- Historical dependencies:
   - `apps/noter/src/lib/routeSearchParamMetadata.ts`
   - `apps/noter/src/lib/rootRouteSearch.ts`
   - `apps/noter/src/lib/logoRouteSearch.ts`
@@ -15,7 +20,10 @@
   - `specs/107_ROUTE_URL_EDITOR_SUGGESTION_MODEL_SPEC.md`
   - `specs/109_ROUTE_URL_EDITOR_REBUILD_REQUIREMENTS_SPEC.md`
   - `archive/082_TANSTACK_ROUTER_CLEANUP_SPEC.md`
-  - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
+  - `archive/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
+
+This archived plan was written when Samebase used the Noter name and the `apps/noter` path. It does
+not define current Samebase behavior.
 
 ## Summary
 

@@ -8,7 +8,7 @@
 - Related research:
   - `research/2026-07-10-user-settings-and-account-deletion.md`
 - Related RFCs:
-  - `rfcs/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
+  - `archive/085_ACCESS_MODEL_ROLES_AND_GRANTS_SPEC.md`
 - Related specs:
   - `specs/018_AUTH_APPROVAL_BOUNDARY_SPEC.md`
   - `specs/098_REPOSITORY_REMOVAL_WORKFLOW_SPEC.md`
