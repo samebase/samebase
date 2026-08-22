@@ -115,7 +115,7 @@ describe("LandingPage", () => {
     expect(markup).toContain(
       'src="/brand/logo/v1-side-primary-duotone-inline-80.svg" width="20"/> Samebase</span> gives you one place to manage that stack across all your apps.</p>',
     );
-    expect(markup).toContain('class="mb-3 flex justify-end text-xl"');
+    expect(markup).toContain('class="mb-3 flex justify-end text-lg"');
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
     expect(markup).not.toContain("Idle apps cost $0/month.");
 
