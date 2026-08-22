@@ -1,253 +1,133 @@
 # Privacy Policy
 
-Last updated: August 21, 2026
+Effective: August 22, 2026
 
-This Privacy Policy explains how Samebase handles information when you use samebase.com, the
-Samebase web app, the Samebase remote MCP server, or a published Samebase agent plugin.
+This Privacy Policy explains how Samebase handles personal information when you use samebase.com,
+the Samebase web app, the Samebase remote MCP server, or a published Samebase agent plugin.
 
-## Scope and Contact
+## Who operates Samebase
 
-The Samebase team operates Samebase and is responsible for the processing described in this Policy.
-When data protection law uses the term controller, it means the operator of Samebase for the
-processing described here.
+The Samebase team operates Samebase. It is responsible for the processing described in this Policy
+and is the controller where that term applies.
 
-For privacy questions or requests, email contact@samebase.com.
+For privacy questions, requests, or complaints, email contact@samebase.com.
 
-GitHub, Convex, Cloudflare, Google, Polar, PostHog, jsDelivr, and the agent client that you use have
-their own privacy terms for the information that they process.
+## Information Samebase handles
 
-## Information Samebase Handles
+Samebase handles these categories of personal information:
 
-- Account and sign-in data. Samebase stores the account fields needed to identify you and operate
-  sign-in. These fields can include your name, email address, profile image, email verification
-  time, sign-in methods, approval state, and authentication or session records.
-- Signup notifications. When a new account is created, Samebase sends an internal notification to
-  authorized Samebase staff. It can include the account name, email address, internal user ID, and
-  sign-in method. Samebase uses Cloudflare Email Sending for this notification.
-- Communications and feedback. Samebase processes the information that you choose to send when you
-  contact Samebase or submit feedback.
-- Organization data. Samebase stores organization memberships, roles, and invitations. It uses
-  public GitHub profile information for invitations.
-- Connected provider credentials and identifiers. If you connect GitHub, Convex, or Cloudflare,
-  Samebase stores the credentials and metadata needed to operate the connection. This information
-  can include OAuth access and refresh tokens, API keys, expiry times, usernames, team IDs, account
-  IDs, and provider-specific identifiers.
-- Repository and workspace data. Samebase stores repository owner and name, repository IDs, Git
-  trees and object hashes, branch data, file paths, staged and initial file content, deduplicated
-  blobs, collaborative editing updates, infrastructure status, domain mappings, and related
-  operational data.
-- MCP and agent-client data. Samebase processes the tool requests and results needed to perform the
-  requested action. Samebase stores OAuth client registrations, authorization requests and codes,
-  grants, hashed access-token and refresh-token records, browser-handoff token hashes, and security
-  or audit events.
-- Billing data. If you use a paid plan, Samebase stores the billing provider, plan, status, renewal
-  period end, and a Polar external customer ID. Polar can receive your name, email address, plan
-  choice, customer ID, and checkout or portal return URLs. Samebase does not store raw payment card
-  numbers in the current app database.
-- Operational and request logs. Samebase and its service providers keep logs for security,
-  troubleshooting, performance, and usage analysis. Logs can include IP addresses, request metadata,
-  internal user IDs, account roles, MCP method or tool names, repository or provider resource
-  identifiers, file paths, and error details. Samebase does not intend to put raw credentials,
-  complete prompts, or file content in these logs.
-- Browser analytics and diagnostics. When PostHog is enabled, it can receive page URLs, navigation,
-  browser and device data, referrer data, IP address, an internal user ID after app access is
-  approved, and client-side errors. Samebase disables browser persistence, automatic interaction
-  capture, heatmaps, and performance capture. Samebase starts session replay only after you allow
-  it. A replay can include visible page content and clicks. Samebase masks inputs and code editors
-  and blocks selected sensitive surfaces from recordings.
-- Backend usage diagnostics. When the production Convex log integration is enabled, PostHog Logs can
-  receive Convex function-execution data and compact Samebase usage markers. The markers can include
-  an internal user ID, account role, access level, MCP method, and MCP tool name.
+- Account and organization information, such as your name, email address, profile image, sign-in and
+  session information, memberships, roles, invitations, and records of agreements and privacy
+  choices.
+- Connected-service information, such as account identifiers, permissions, credentials, and
+  repository or infrastructure information from services that you connect.
+- Repository and workspace content and related metadata.
+- MCP requests, inputs, results, authorization records, and security events.
+- Communications and feedback that you choose to send to Samebase.
+- Billing contact, plan, subscription, and transaction information.
+- Use and device information, such as IP address, browser and device information, page and request
+  information, errors, security logs, analytics, and service-use information.
+- Session replay information, such as visible pages and clicks, only when you consent.
 
-## Agent Plugins and MCP
+Samebase gets this information from you, your browser or device, members of your organization,
+services that you connect, providers that help operate Samebase, and public sources such as GitHub.
 
-The published Samebase agent plugins contain static configuration and instructions. They configure a
-compatible agent client to connect to the Samebase remote MCP server. Installing a plugin does not
-create a Samebase account or authorize access by itself.
+## How Samebase uses information
 
-After you authorize an MCP client, the client sends structured tool names, arguments, and selected
-resources to Samebase. Samebase does not request or reconstruct your complete client conversation.
-The client receives tool results that can include:
+Samebase uses account, organization, connected-service, repository, workspace, MCP, and billing
+information to provide the service and perform the actions that you request. Where applicable, the
+legal basis is the contract to provide Samebase. When contract is not the applicable basis, Samebase
+relies on its legitimate interest and the interests of your organization in operating the requested
+service.
 
-- your account name, email address, internal account ID, role, access status, and granted OAuth
-  scopes
-- repository names, branch names, file paths, object hashes, file counts, and related metadata
-- Samebase vault, attachment, and operation identifiers
-- Cloudflare account, Worker, build-trigger, and connection data
-- Convex team, project, deployment-location, and connection data
-- provisioning, deletion, and provider status, error messages, and action confirmations
+Samebase uses account, connection, use, device, log, communication, and feedback information to
+review access, secure the service, prevent abuse, find errors, provide support, measure use, and
+improve reliability. The legal basis is Samebase's legitimate interest in operating a safe and
+reliable service.
 
-The browser-handoff tool can return a short-lived, one-time Samebase sign-in URL. The URL contains a
-sensitive bearer value. It expires after five minutes and should be opened promptly.
+Samebase uses session replay only with your consent. Samebase can also handle information when
+needed to meet a legal obligation or to establish, exercise, or defend legal claims.
 
-Your agent provider can process and retain prompts, tool arguments, and Samebase tool results under
-its own privacy terms. Deleting your Samebase account does not delete copies that remain in an agent
-client's task or conversation history.
+Account and sign-in information is required to use a Samebase account. Connected-service and billing
+information is required only when you connect a service or use a paid plan. Feedback and session
+replay are optional.
 
-Samebase does not make separate OpenAI or Anthropic model API calls for these MCP operations.
-Samebase does not use your repository or workspace content to train its own AI models.
-
-## Browser Storage and Cookies
-
-- Local storage can contain Convex Auth access and refresh tokens, sign-in helper state, file-view
-  or workspace-shell preferences, and an account-deletion completion capability.
-- Per-tab session storage and browser history state briefly hold a browser-handoff token. The app
-  removes the token from the URL before the app loads and clears the stored value after use.
-- Browser IndexedDB caches some Convex query results under the `convexQueryCache` database. Cached
-  results can include workspace data.
-- Samebase configures PostHog browser analytics without cookies or local-storage identifiers.
-  Sign-in providers such as Google and GitHub can set their own cookies or session state.
-- Samebase stores your session replay choice in your account. You can change it in Account settings.
-  Withdrawing consent stops new session replay.
-
-## How Samebase Uses Information
-
-- To create accounts, authenticate users, maintain sessions, and enforce access controls.
-- To connect to providers and perform the actions that you request, including reading repositories,
-  staging edits, proposing commits, creating repositories, provisioning infrastructure, and creating
-  or rotating deployment credentials.
-- To sync collaborative editing state and preserve workspace, branch, and interface context.
-- To create and operate hosted resources, previews, domains, and related infrastructure.
-- To process checkout or customer-portal requests and keep subscription status in sync.
-- To provide MCP access, return requested tool results, and maintain OAuth security and audit
-  records.
-- To protect Samebase, prevent abuse, investigate errors, provide support, measure service use, and
-  improve reliability.
-- To meet legal obligations and enforce Samebase terms.
-
-## Legal Bases
-
-Where applicable law requires a legal basis, Samebase relies on:
-
-- the steps that you request and the contract to provide Samebase for account, workspace, provider,
-  MCP, and billing operations
-- legitimate interests in service security, fraud prevention, reliability, support, and limited
-  product analysis where those interests do not override your rights
-- consent for optional processing where Samebase asks you to make a privacy choice
-- legal obligations when Samebase must keep, use, or disclose information under law
-
-This Policy is a notice. Samebase does not treat your acceptance of this Policy as consent where the
+This Policy is a notice. Samebase does not treat your acceptance of this Policy as consent when the
 law requires a separate choice.
 
-## When Samebase Shares Information
+## Who receives information
 
-- Convex provides the core Samebase database, file storage, authentication, functions, and
-  workflows. Convex processes information whenever you use Samebase.
-- Cloudflare hosts and delivers the web app, routes network requests, proxies browser telemetry,
-  sends transactional email, and keeps operational request logs. Cloudflare processes information
-  whenever you use Samebase.
-- Google provides Samebase's staff mailbox. Google or GitHub processes account and sign-in
-  information when you use its sign-in method.
-- GitHub, Convex, and Cloudflare process provider-account data when you connect an account or ask
-  Samebase to perform an action in that account.
-- Polar processes billing and checkout information when you use a paid-plan action.
-- PostHog processes browser analytics, diagnostics, and, when enabled, backend or MCP usage logs.
-  Production browser telemetry first goes through a Samebase Cloudflare-hosted event proxy.
-- jsDelivr receives imported npm package names in request URLs when the TypeScript editor downloads
-  package type definitions. Samebase does not intentionally send the source file body to jsDelivr.
-- An MCP client receives the tool results that you authorize and request.
-- Organization members can see profile and role information about other members.
-- Authorized Samebase staff can receive account, support, security, and operational information when
-  needed to operate the service.
-- Samebase can disclose information when law requires it or when it is necessary to protect users,
-  Samebase, or other people.
+Samebase uses providers for hosting, database services, authentication, network delivery, email,
+billing, analytics, diagnostics, content delivery, and embedded video. Current providers include
+Convex, Cloudflare, Google, GitHub, Polar, PostHog, jsDelivr, and YouTube. The information that each
+provider receives depends on its role and the services that you choose to use.
+
+Samebase also shares information:
+
+- With connected services, MCP clients, and agent providers when you request or authorize an action.
+  They can keep copies under their own terms.
+- With members of your organization when collaboration requires it.
+- With authorized Samebase staff when needed to operate, secure, and support the service.
+- When required by law or needed to protect people or the service.
+
+Invitation links disclose public GitHub profile information to people who open them.
 
 Samebase does not sell personal information or share it for cross-context behavioral advertising.
-The current app does not include advertising SDKs or third-party marketing trackers.
 
-## Retention and Deletion
+## Browser storage and analytics
 
-Samebase does not have one automatic deletion period for all data. Account, workspace, billing, and
-audit data generally remains while your account is active and while it is needed to provide the
-service, protect security, resolve disputes, or meet legal obligations.
+Samebase and its sign-in or embedded-content providers use browser storage to keep you signed in,
+protect the service, remember choices, cache workspace information, and provide content.
 
-The current MCP expiry periods are:
+Samebase uses PostHog for browser analytics. PostHog can receive your IP address and Samebase user
+ID. Session replay starts only after you consent. You can withdraw that consent in Account settings.
+Withdrawal stops new session replay.
 
-- authorization requests and authorization codes stop working after 10 minutes
-- access tokens stop working after 1 hour
-- refresh tokens stop working after 30 days
-- provisional client registrations stop working after 7 days
-- browser-handoff links stop working after 5 minutes, and their database rows are scheduled for
-  deletion
-- feedback submission limits reset after 24 hours; the counter row can remain until the next
-  submission attempt or account deletion
+## Retention and deletion
 
-Expiry stops a record from being used. It does not always delete the database row. Other expired MCP
-records can remain until account deletion or operational cleanup.
+Samebase keeps account information until you delete your account. It keeps organization, workspace,
+and connection information while the related organization, workspace, or connection remains active.
+It keeps billing information while the related organization or subscription exists and afterward as
+needed for disputes or legal obligations. It keeps communications, feedback, logs, security records,
+and limited deletion records while needed for the service, security, support, dispute resolution, or
+legal obligations.
 
-You can disconnect a provider. This deletes Samebase's saved connection record, but it does not
-always revoke the credential at the provider. Use the provider's account settings when upstream
-revocation is required.
+You can delete your account from Settings after you complete any required organization cleanup.
+Samebase disables the account immediately and starts permanent deletion seven days later.
 
-You can delete a vault from the dashboard. Samebase can also remove related GitHub, Convex, and
-Cloudflare resources when the deletion options and resource ownership allow it.
+Permanent deletion removes information tied only to your account. Limited records, backups,
+organization information and subscriptions, external resources, and copies held by other members or
+third parties can remain. Deletion can remove Samebase's saved credential without revoking
+authorization at the connected service.
 
-You can delete your account from Settings. Samebase disables the account immediately and schedules
-permanent deletion to start seven days later. During those seven days, email contact@samebase.com to
-restore the account or for other inquiries. Permanent deletion removes your profile and access,
-along with personal settings, memberships, authorizations, and provider connections that you added.
-Samebase will send you a confirmation email as account deletion finishes. Samebase keeps limited
-records needed to confirm the deletion and preserve shared organization history.
+## International processing and security
 
-Account deletion does not cancel an organization subscription or delete shared organization data.
-Shared organization data remains available to other members.
+Samebase and its providers can process information outside your country. Processing locations and
+transfer protections depend on the provider, connected service, and resource location. Email
+contact@samebase.com for information about a specific transfer.
 
-Account deletion does not delete external repositories, projects, deployments, Workers, domains, or
-other provider resources. Convex OAuth credentials stored by Samebase are deleted, but existing
-Convex production and preview deploy keys remain usable until you revoke Samebase in Convex
-Authorized Applications.
+Samebase uses safeguards that include encrypted network connections, access controls, scoped
+authorization, credential protection, and security monitoring. No security method removes all risk.
 
-Provider backups, staff mailbox messages, application logs, billing records, PostHog data, and
-agent-client history can remain under those providers' retention rules after active Samebase account
-data is deleted. Samebase staff delete feedback messages when they are no longer needed to review
-and act on the report. A verified privacy deletion request also applies to identifiable feedback
-messages unless Samebase must retain them by law. Samebase handles an identified PostHog deletion
-manually when required.
+## Your rights and choices
 
-## International Processing
+Depending on the law where you live, you can request access, correction, deletion, restriction, or a
+portable copy of your personal information. You can object to processing based on legitimate
+interests. You can withdraw consent at any time. Withdrawal does not affect processing that was
+lawful before the withdrawal.
 
-Samebase and its service providers can process information outside your country. Samebase configures
-browser telemetry to use PostHog's European endpoint. Cloudflare can route requests globally. Other
-processing locations depend on the provider, connected account, and resource location that you use.
-
-The applicable provider terms describe the transfer mechanisms for those services. Email
-contact@samebase.com to request more information about a specific transfer.
-
-## Security
-
-Samebase uses HTTPS, access controls, OAuth scopes, and short-lived authorization records. Samebase
-stores MCP authorization codes, access tokens, refresh tokens, and browser-handoff token values as
-hashes. No security method can remove all risk.
-
-Treat browser-handoff URLs and provider credentials as sensitive. Do not send credentials or other
-highly sensitive data unless a Samebase feature requires them and you are authorized to use them.
-
-## Your Rights and Choices
-
-Depending on the law where you live, you can request access, correction, export, restriction,
-objection, or deletion of your personal data. Where processing depends on consent, you can withdraw
-that consent. You can also complain to the data protection authority that applies to you.
-
-Use Samebase account, provider, vault, and account-deletion controls where available. For any other
-request, email contact@samebase.com. Samebase can ask for information needed to verify your identity
-before it completes a request.
-
-Samebase does not use automated decision-making that produces legal or similarly significant
-effects.
+Email contact@samebase.com to make a request or complaint, including a deletion request when account
+closure is not available in Settings. Samebase can ask for information needed to verify your
+identity. You can also complain to the data protection authority that applies to you.
 
 ## Children
 
-Samebase is not intended for children under 13. Samebase does not knowingly collect personal data
-from children under 13. If the law where you live requires parental or guardian permission at a
-higher age, you must have that permission. Email contact@samebase.com if you believe a child has
-provided personal data without the required permission.
+Samebase is not intended for children under 13 and does not knowingly collect their personal
+information. Where local law requires parental permission at a higher age, you must have it. Email
+contact@samebase.com if you believe that a child provided personal information without the required
+permission.
 
-## Changes to This Policy
+## Changes to this Policy
 
-Samebase can update this Policy when the product or its data handling changes. The updated version
-will appear on this page with a new date. Samebase will give additional notice when applicable law
-requires it.
-
-## Contact
-
-For privacy questions or requests, email contact@samebase.com.
+Samebase can update this Policy when its processing changes. Samebase will publish the new date and
+give additional notice or request consent when required by law.

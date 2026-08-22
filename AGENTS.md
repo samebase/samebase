@@ -93,6 +93,10 @@ The full protocol for PR bodies, review, labels, and cleanup lives in `docs/agen
   reviewability preference, not a hard requirement.
 - Default to additive minimalism in copy and visuals. Do not add decorative chrome, filler copy,
   extra buttons, or ornamental layout unless explicitly requested.
+- Keep public privacy notices at the data-category level. Update one only when a change affects data
+  categories, purposes, recipients, legal bases, retention criteria, or rights and choices. Put
+  feature behavior, record fields, expiry mechanics, and negative capability lists in product docs,
+  approval copy, or internal compliance records.
 - For app-owned UI, prefer an empty well-behaved container over a clever or richly pre-structured
   abstraction. If the standard needs to evolve, change the standard instead of front-loading
   speculative slots and props.
