@@ -425,7 +425,7 @@ function LandingPreviewOverview() {
             <LandingHeroMenger placement="preview" />
           </div>
           <div className="relative" style={{ containerType: "inline-size" }}>
-            <p className="mb-3 flex justify-end text-xl">
+            <p className="mb-3 flex justify-end text-lg">
               <a
                 className="group font-semibold text-foreground underline decoration-red-600 underline-offset-4 hover:decoration-red-700"
                 href="https://youtu.be/UfxE8rvprqc"
