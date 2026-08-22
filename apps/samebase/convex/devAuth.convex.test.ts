@@ -193,17 +193,17 @@ describe("devAuth password account seed", () => {
   it("seeds provider accounts by GitHub owner and preserves a later connection", async () => {
     const t = makeConvexTest();
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:organization-context");
-    vi.stubEnv("PREVIEW_SEED_AUTH_EMAIL", "preview@example.com");
-    vi.stubEnv("PREVIEW_SEED_AUTH_PASSWORD", "preview-password-123");
+    vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.com");
+    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password-123");
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
     vi.stubEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY", "preview-convex-credential");
     vi.stubEnv("DEV_SEED_CONVEX_TEAM_ID", "preview-convex-team-id");
     vi.stubEnv("DEV_SEED_CLOUDFLARE_API_KEY", "preview-cloudflare-credential");
     vi.stubEnv("DEV_SEED_CLOUDFLARE_ACCOUNT_ID", "preview-cloudflare-account-id");
-    vi.stubEnv("PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY", "samebase-convex-credential");
-    vi.stubEnv("PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID", "samebase-convex-team-id");
-    vi.stubEnv("PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY", "samebase-cloudflare-credential");
-    vi.stubEnv("PREVIEW_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID", "samebase-cloudflare-account-id");
+    vi.stubEnv("DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY", "samebase-convex-credential");
+    vi.stubEnv("DEV_SEED_SAMEBASE_CONVEX_TEAM_ID", "samebase-convex-team-id");
+    vi.stubEnv("DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY", "samebase-cloudflare-credential");
+    vi.stubEnv("DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID", "samebase-cloudflare-account-id");
     devAuthMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
       {
         githubInstallationId: "1001",
@@ -335,10 +335,10 @@ describe("devAuth password account seed", () => {
   it("fails preview seeding when the Samebase provider setup is missing", async () => {
     const t = makeConvexTest();
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:organization-context");
-    vi.stubEnv("PREVIEW_SEED_AUTH_EMAIL", "preview@example.com");
-    vi.stubEnv("PREVIEW_SEED_AUTH_PASSWORD", "preview-password-123");
+    vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.com");
+    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password-123");
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
-    vi.stubEnv("PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY", "");
+    vi.stubEnv("DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY", "");
     devAuthMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
       {
         githubInstallationId: "1001",
@@ -355,7 +355,7 @@ describe("devAuth password account seed", () => {
     ]);
 
     await expect(t.action(internal.devAuth.seedPasswordAccount, {})).rejects.toThrowError(
-      "PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY is required",
+      "DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY is required",
     );
     expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledOnce();
   });

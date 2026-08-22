@@ -22,10 +22,10 @@ const app = defineApp({
     PASSWORD_AUTH_ENABLED: v.optional(v.string()),
     POLAR_ACCESS_TOKEN: v.optional(v.string()),
     POLAR_WEBHOOK_SECRET: v.optional(v.string()),
-    PREVIEW_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID: v.optional(v.string()),
-    PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY: v.optional(v.string()),
-    PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY: v.optional(v.string()),
-    PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID: v.optional(v.string()),
+    DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID: v.optional(v.string()),
+    DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY: v.optional(v.string()),
+    DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY: v.optional(v.string()),
+    DEV_SEED_SAMEBASE_CONVEX_TEAM_ID: v.optional(v.string()),
   },
 });
 

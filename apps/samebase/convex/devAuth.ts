@@ -149,20 +149,20 @@ function readRequiredPreviewSeedProviderCredentials(): SeedProviderCredentials {
 
 function readRequiredPreviewSamebaseProviderCredentials(): SeedProviderCredentials {
   const convexCredential = requireSeedValue(
-    normalizeSeedValue(env.PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY),
-    "PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY",
+    normalizeSeedValue(env.DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY),
+    "DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY",
   );
   const convexTeamId = requireSeedValue(
-    normalizeSeedValue(env.PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID),
-    "PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID",
+    normalizeSeedValue(env.DEV_SEED_SAMEBASE_CONVEX_TEAM_ID),
+    "DEV_SEED_SAMEBASE_CONVEX_TEAM_ID",
   );
   const cloudflareCredential = requireSeedValue(
-    normalizeSeedValue(env.PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY),
-    "PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY",
+    normalizeSeedValue(env.DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY),
+    "DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY",
   );
   const cloudflareAccountId = requireSeedValue(
-    normalizeSeedValue(env.PREVIEW_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID),
-    "PREVIEW_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID",
+    normalizeSeedValue(env.DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID),
+    "DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID",
   );
 
   return {
@@ -280,8 +280,8 @@ function readSeedPasswordAccountConfig():
       return {
         kind: passwordAuthMode,
         ...readRequiredSeedPasswordAccountConfig({
-          emailEnvName: "PREVIEW_SEED_AUTH_EMAIL",
-          passwordEnvName: "PREVIEW_SEED_AUTH_PASSWORD",
+          emailEnvName: "DEV_SEED_AUTH_EMAIL",
+          passwordEnvName: "DEV_SEED_AUTH_PASSWORD",
         }),
       };
     case "manual":

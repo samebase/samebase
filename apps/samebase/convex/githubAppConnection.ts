@@ -73,8 +73,8 @@ async function isPreviewSeedUser(db: DatabaseReader, userId: Id<"users">): Promi
   if (resolveDeploymentProfile().kind !== "preview") {
     return false;
   }
-  const seedEmail = readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL");
-  if (seedEmail === null || readOptionalEnv("PREVIEW_SEED_AUTH_PASSWORD") === null) {
+  const seedEmail = readOptionalEnv("DEV_SEED_AUTH_EMAIL");
+  if (seedEmail === null || readOptionalEnv("DEV_SEED_AUTH_PASSWORD") === null) {
     return false;
   }
   const email = normalizeAccountEmail(seedEmail);

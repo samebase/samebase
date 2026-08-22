@@ -264,8 +264,8 @@ Samebase production itself.
    - attaches the current `DEV_SEED_*` Convex and Cloudflare provider credentials only to
      `samebase-live-tests`
    - attaches the main provider accounts only to `samebase`; preview defaults must provide
-     `PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY`, `PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID`,
-     `PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY`, and `PREVIEW_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID`
+     `DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY`, `DEV_SEED_SAMEBASE_CONVEX_TEAM_ID`,
+     `DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY`, and `DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID`
    - leaves `nicu-chiciuc` without provider credentials and creates no vaults during seeding
    - rejects non-production builds that are missing `PREVIEW_CONVEX_DEPLOY_KEY`, even when
      `CONVEX_DEPLOY_KEY` is present

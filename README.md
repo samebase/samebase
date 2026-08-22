@@ -176,8 +176,8 @@ pnpm test
 
 1. Configure Convex deployment env vars.
 2. Configure app-login providers. Google is the default. Local worktrees use their seeded password
-   account. Preview deployments use `PREVIEW_SEED_AUTH_EMAIL` and `PREVIEW_SEED_AUTH_PASSWORD`.
-   Other deployments can use the [manual password account runbook](docs/manual-password-auth.md).
+   account. Preview deployments use `DEV_SEED_AUTH_EMAIL` and `DEV_SEED_AUTH_PASSWORD`. Other
+   deployments can use the [manual password account runbook](docs/manual-password-auth.md).
 3. Configure the GitHub App deployment settings and the Convex and Cloudflare connection OAuth/API
    keys.
 

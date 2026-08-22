@@ -97,7 +97,7 @@ function readSeededPasswordEmail(passwordAuthMode: PasswordAuthMode): string | n
     case "local_worktree_seed":
       return LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL;
     case "preview_seed":
-      return readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL");
+      return readOptionalEnv("DEV_SEED_AUTH_EMAIL");
     case "manual":
     case "off":
       return null;
