@@ -18,6 +18,7 @@ import {
   type PreviewSeedGitHubAppInstallation,
 } from "./githubApp";
 import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
+import { PREVIEW_SEED_PERSONAL_GITHUB_OWNER_LOGIN } from "./previewSeedAccount";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import { readActiveUser } from "./userLifecycle";
 import { CURRENT_TERMS_VERSION } from "./users";
@@ -201,7 +202,7 @@ function buildPreviewSeedOrganizationConfigs(args: {
   return [
     {
       ...requirePreviewSeedGitHubAppInstallation(args.installations, {
-        githubOwnerLogin: "nicu-chiciuc",
+        githubOwnerLogin: PREVIEW_SEED_PERSONAL_GITHUB_OWNER_LOGIN,
         githubOwnerType: "user",
       }),
       ...args.samebaseProviderCredentials,

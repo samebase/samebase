@@ -261,6 +261,9 @@ Samebase production itself.
    - lets only the exact seeded password account list and connect other manageable installations;
      the backend verifies current management access before it connects an installation, and
      repository access continues to use GitHub App installation authentication
+   - lets that account create repositories for the personal `nicu-chiciuc` owner with
+     `DEV_SEED_GITHUB_API_KEY`; the backend verifies that the key manages the matching personal
+     owner before admission and again during provisioning, and never stores the key as OAuth data
    - attaches the current `DEV_SEED_*` Convex and Cloudflare provider credentials only to
      `samebase-live-tests`
    - attaches the main provider accounts to `samebase` and `nicu-chiciuc`; preview defaults must

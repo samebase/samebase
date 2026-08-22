@@ -1,25 +1,13 @@
 import { RequestError } from "@octokit/request-error";
 import { v, type Infer } from "convex/values";
 
-import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { canAccess } from "../shared/accessModel";
 import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
+import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import {
-  env,
-  internalMutation,
-  internalQuery,
-  type ActionCtx,
-  type DatabaseReader,
-  type MutationCtx,
-} from "./_generated/server";
-import { resolveDeploymentProfile } from "./deploymentProfile";
-import {
-  discoverPreviewSeedGitHubAppInstallations,
   listGitHubAppConnectionInstallations,
   verifyGitHubAppConnectionInstallation,
   type GitHubAppConnectionInstallation,
-  type PreviewSeedGitHubAppInstallation,
 } from "./githubApp";
 import {
   hasMatchingGitHubUserAuthorization,
@@ -29,7 +17,7 @@ import {
 import { action } from "./functions";
 import { findOrganizationMembership } from "./organizationAccess";
 import { vGitHubOwnerType } from "./organizationModel";
-import { readOptionalEnv } from "./oauthUtils";
+import { isPreviewSeedUser, resolvePreviewSeedGitHubInstallations } from "./previewSeedAccount";
 
 const { array, boolean, id, literal, object, string, union } = v;
 
@@ -68,47 +56,6 @@ const vListOptionsResult = union(
   object({ status: literal("github_sign_in_required") }),
 );
 type ListOptionsResult = Infer<typeof vListOptionsResult>;
-
-async function isPreviewSeedUser(db: DatabaseReader, userId: Id<"users">): Promise<boolean> {
-  if (resolveDeploymentProfile().kind !== "preview") {
-    return false;
-  }
-  const seedEmail = readOptionalEnv("DEV_SEED_AUTH_EMAIL");
-  if (seedEmail === null || readOptionalEnv("DEV_SEED_AUTH_PASSWORD") === null) {
-    return false;
-  }
-  const email = normalizeAccountEmail(seedEmail);
-  const passwordAccounts = await db
-    .query("authAccounts")
-    .withIndex("providerAndAccountId", (query) =>
-      query.eq("provider", "password").eq("providerAccountId", email),
-    )
-    .take(2);
-  return passwordAccounts.length === 1 && passwordAccounts[0].userId === userId;
-}
-
-export const resolvePreviewSeedUser = internalQuery({
-  args: { userId: id("users") },
-  returns: boolean(),
-  handler: async (ctx, args) => await isPreviewSeedUser(ctx.db, args.userId),
-});
-
-async function resolvePreviewSeedGitHubInstallations(
-  ctx: Pick<ActionCtx, "runQuery">,
-  userId: Id<"users">,
-): Promise<PreviewSeedGitHubAppInstallation[] | null> {
-  const previewSeedUser = await ctx.runQuery(internal.githubAppConnection.resolvePreviewSeedUser, {
-    userId,
-  });
-  if (!previewSeedUser) {
-    return null;
-  }
-  const apiKey = env.DEV_SEED_GITHUB_API_KEY?.trim();
-  if (!apiKey) {
-    throw new Error("DEV_SEED_GITHUB_API_KEY is required for preview GitHub access.");
-  }
-  return await discoverPreviewSeedGitHubAppInstallations(apiKey);
-}
 
 export const classifyOptions = internalQuery({
   args: {

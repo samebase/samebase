@@ -105,6 +105,7 @@ import type * as polarBillingState from "../polarBillingState.js";
 import type * as polarCheckout from "../polarCheckout.js";
 import type * as polarClient from "../polarClient.js";
 import type * as polarWebhooks from "../polarWebhooks.js";
+import type * as previewSeedAccount from "../previewSeedAccount.js";
 import type * as providerApiLog from "../providerApiLog.js";
 import type * as providerAuth from "../providerAuth.js";
 import type * as providerAuthFingerprint from "../providerAuthFingerprint.js";
@@ -277,6 +278,7 @@ declare const fullApi: ApiFromModules<{
   polarCheckout: typeof polarCheckout;
   polarClient: typeof polarClient;
   polarWebhooks: typeof polarWebhooks;
+  previewSeedAccount: typeof previewSeedAccount;
   providerApiLog: typeof providerApiLog;
   providerAuth: typeof providerAuth;
   providerAuthFingerprint: typeof providerAuthFingerprint;

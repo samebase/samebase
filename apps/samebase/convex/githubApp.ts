@@ -373,8 +373,9 @@ function parseGitHubOrganizationMembership(value: unknown): {
 }
 
 /**
- * Preview seeding uses a personal access token only for GitHub identity discovery.
- * Returned organizations keep using GitHub App installation authentication at runtime.
+ * Preview setup uses a personal access token to verify GitHub identity and manageable App
+ * installations. Organization repositories keep using GitHub App installation authentication.
+ * Personal preview repository creation reuses the token without storing OAuth data.
  */
 export async function discoverPreviewSeedGitHubAppInstallations(
   apiKey: string,
