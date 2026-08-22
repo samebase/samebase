@@ -263,10 +263,10 @@ Samebase production itself.
      continues to use GitHub App installation authentication
    - attaches the current `DEV_SEED_*` Convex and Cloudflare provider credentials only to
      `samebase-live-tests`
-   - attaches the main provider accounts only to `samebase`; preview defaults must provide
-     `DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY`, `DEV_SEED_SAMEBASE_CONVEX_TEAM_ID`,
+   - attaches the main provider accounts to `samebase` and `nicu-chiciuc`; preview defaults must
+     provide `DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY`, `DEV_SEED_SAMEBASE_CONVEX_TEAM_ID`,
      `DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY`, and `DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID`
-   - leaves `nicu-chiciuc` without provider credentials and creates no vaults during seeding
+   - creates no vaults during seeding
    - rejects non-production builds that are missing `PREVIEW_CONVEX_DEPLOY_KEY`, even when
      `CONVEX_DEPLOY_KEY` is present
    - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head

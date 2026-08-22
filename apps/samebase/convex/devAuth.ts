@@ -196,21 +196,21 @@ function requirePreviewSeedGitHubAppInstallation(
 function buildPreviewSeedOrganizationConfigs(
   installations: PreviewSeedGitHubAppInstallation[],
 ): SeedOrganizationConfig[] {
+  const samebaseProviderCredentials = readRequiredPreviewSamebaseProviderCredentials();
   return [
     {
       ...requirePreviewSeedGitHubAppInstallation(installations, {
         githubOwnerLogin: "nicu-chiciuc",
         githubOwnerType: "user",
       }),
-      convexConnection: null,
-      cloudflareConnection: null,
+      ...samebaseProviderCredentials,
     },
     {
       ...requirePreviewSeedGitHubAppInstallation(installations, {
         githubOwnerLogin: "samebase",
         githubOwnerType: "organization",
       }),
-      ...readRequiredPreviewSamebaseProviderCredentials(),
+      ...samebaseProviderCredentials,
     },
     {
       ...requirePreviewSeedGitHubAppInstallation(installations, {

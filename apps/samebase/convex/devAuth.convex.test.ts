@@ -289,7 +289,7 @@ describe("devAuth password account seed", () => {
       providerAccountId: "preview@example.com",
     });
     expect(snapshot.githubUserAuthorizations).toEqual([]);
-    expect(snapshot.providerCredentials).toHaveLength(2);
+    expect(snapshot.providerCredentials).toHaveLength(3);
     expect(snapshot.vaults).toEqual([]);
     const connectedGithubOwnerIds = snapshot.memberships
       .map((membership) =>
@@ -312,6 +312,21 @@ describe("devAuth password account seed", () => {
       cloudflareAccount: { accountId: "samebase-cloudflare-account-id" },
     });
     expect(samebaseCredentials).toMatchObject({
+      convex: { auth: { credential: "samebase-convex-credential" } },
+      cloudflare: { auth: { credential: "samebase-cloudflare-credential" } },
+    });
+
+    const personalOrganization = snapshot.organizations.find(
+      ({ githubOwnerId }) => githubOwnerId === "202",
+    );
+    const personalCredentials = snapshot.providerCredentials.find(
+      ({ organizationId }) => organizationId === personalOrganization?._id,
+    );
+    expect(personalOrganization).toMatchObject({
+      convexTeam: { teamId: "samebase-convex-team-id" },
+      cloudflareAccount: { accountId: "samebase-cloudflare-account-id" },
+    });
+    expect(personalCredentials).toMatchObject({
       convex: { auth: { credential: "samebase-convex-credential" } },
       cloudflare: { auth: { credential: "samebase-cloudflare-credential" } },
     });
