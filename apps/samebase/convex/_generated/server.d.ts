@@ -48,6 +48,11 @@ type Env = {
   readonly PASSWORD_AUTH_ENABLED: string | undefined;
   readonly POLAR_ACCESS_TOKEN: string | undefined;
   readonly POLAR_WEBHOOK_SECRET: string | undefined;
+  readonly PREVIEW_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID: string | undefined;
+  readonly PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY: string | undefined;
+  readonly PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY: string | undefined;
+  readonly PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID: string | undefined;
+  readonly PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_SLUG: string | undefined;
 };
 
 /**

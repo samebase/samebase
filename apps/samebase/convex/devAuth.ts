@@ -6,7 +6,7 @@ import {
 } from "../../../runtime/localWorktreePasswordAuth";
 import { internal } from "./_generated/api";
 import { resolveDeploymentProfile, resolvePasswordAuthMode } from "./deploymentProfile";
-import { internalAction, internalMutation, type MutationCtx } from "./_generated/server";
+import { env, internalAction, internalMutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
@@ -23,18 +23,17 @@ import { readActiveUser } from "./userLifecycle";
 import { CURRENT_TERMS_VERSION } from "./users";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
-const PREVIEW_SEED_GITHUB_OWNERS = [
-  { githubOwnerLogin: "nicu-chiciuc", githubOwnerType: "user" },
-  { githubOwnerLogin: "samebase", githubOwnerType: "organization" },
-] as const;
 
-function readSeedValue(envName: string): string | undefined {
-  const value = readOptionalEnv(envName);
-  if (value === null) {
+function normalizeSeedValue(value: string | null | undefined): string | undefined {
+  if (value === null || value === undefined) {
     return undefined;
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function readSeedValue(envName: string): string | undefined {
+  return normalizeSeedValue(readOptionalEnv(envName));
 }
 
 function readRequiredSeedPasswordAccountConfig(args: {
@@ -148,23 +147,81 @@ function readRequiredPreviewSeedProviderCredentials(): SeedProviderCredentials {
   return credentials;
 }
 
-function selectPreviewSeedGitHubAppInstallations(
+function readRequiredPreviewSamebaseProviderCredentials(): SeedProviderCredentials {
+  const convexCredential = requireSeedValue(
+    normalizeSeedValue(env.PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY),
+    "PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY",
+  );
+  const convexTeamId = requireSeedValue(
+    normalizeSeedValue(env.PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID),
+    "PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID",
+  );
+  const convexTeamSlug = normalizeSeedValue(env.PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_SLUG);
+  const cloudflareCredential = requireSeedValue(
+    normalizeSeedValue(env.PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY),
+    "PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY",
+  );
+  const cloudflareAccountId = requireSeedValue(
+    normalizeSeedValue(env.PREVIEW_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID),
+    "PREVIEW_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID",
+  );
+
+  return {
+    convexConnection: {
+      credential: convexCredential,
+      teamId: convexTeamId,
+      ...(convexTeamSlug === undefined ? {} : { teamSlug: convexTeamSlug }),
+    },
+    cloudflareConnection: {
+      credential: cloudflareCredential,
+      accountId: cloudflareAccountId,
+    },
+  };
+}
+
+function requirePreviewSeedGitHubAppInstallation(
   installations: PreviewSeedGitHubAppInstallation[],
-): PreviewSeedGitHubAppInstallation[] {
-  return PREVIEW_SEED_GITHUB_OWNERS.map((owner) => {
-    const matches = installations.filter(
-      (installation) =>
-        normalizeGitHubOwnerLogin(installation.githubOwnerLogin) === owner.githubOwnerLogin &&
-        installation.githubOwnerType === owner.githubOwnerType,
-    );
-    const installation = matches.at(0);
-    if (matches.length !== 1 || installation === undefined) {
-      throw new Error(
-        `Expected one preview GitHub App installation for ${owner.githubOwnerLogin}.`,
-      );
-    }
-    return installation;
-  });
+  owner: { githubOwnerLogin: string; githubOwnerType: "organization" | "user" },
+): PreviewSeedGitHubAppInstallation {
+  const matches = installations.filter(
+    (installation) =>
+      normalizeGitHubOwnerLogin(installation.githubOwnerLogin) === owner.githubOwnerLogin &&
+      installation.githubOwnerType === owner.githubOwnerType,
+  );
+  const installation = matches.at(0);
+  if (matches.length !== 1 || installation === undefined) {
+    throw new Error(`Expected one preview GitHub App installation for ${owner.githubOwnerLogin}.`);
+  }
+  return installation;
+}
+
+function buildPreviewSeedOrganizationConfigs(
+  installations: PreviewSeedGitHubAppInstallation[],
+): SeedOrganizationConfig[] {
+  return [
+    {
+      ...requirePreviewSeedGitHubAppInstallation(installations, {
+        githubOwnerLogin: "nicu-chiciuc",
+        githubOwnerType: "user",
+      }),
+      convexConnection: null,
+      cloudflareConnection: null,
+    },
+    {
+      ...requirePreviewSeedGitHubAppInstallation(installations, {
+        githubOwnerLogin: "samebase",
+        githubOwnerType: "organization",
+      }),
+      ...readRequiredPreviewSamebaseProviderCredentials(),
+    },
+    {
+      ...requirePreviewSeedGitHubAppInstallation(installations, {
+        githubOwnerLogin: "samebase-live-tests",
+        githubOwnerType: "organization",
+      }),
+      ...readRequiredPreviewSeedProviderCredentials(),
+    },
+  ];
 }
 
 function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
@@ -675,17 +732,11 @@ export const seedPasswordAccount = internalAction({
       accountConfig.kind === "local_worktree_seed" ? readSeedWorktreeOrganizationConfig() : null;
     const previewSeed =
       accountConfig.kind === "preview_seed"
-        ? {
-            providerCredentials: readRequiredPreviewSeedProviderCredentials(),
-            installations: selectPreviewSeedGitHubAppInstallations(
-              await discoverPreviewSeedGitHubAppInstallations(
-                requireSeedValue(
-                  readSeedValue("DEV_SEED_GITHUB_API_KEY"),
-                  "DEV_SEED_GITHUB_API_KEY",
-                ),
-              ),
+        ? buildPreviewSeedOrganizationConfigs(
+            await discoverPreviewSeedGitHubAppInstallations(
+              requireSeedValue(readSeedValue("DEV_SEED_GITHUB_API_KEY"), "DEV_SEED_GITHUB_API_KEY"),
             ),
-          }
+          )
         : null;
 
     let created = false;
@@ -737,15 +788,15 @@ export const seedPasswordAccount = internalAction({
       });
     }
     if (previewSeed !== null) {
-      for (const installation of previewSeed.installations) {
+      for (const organizationConfig of previewSeed) {
         await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
           userId,
-          githubOwnerId: installation.githubOwnerId,
-          githubOwnerType: installation.githubOwnerType,
-          githubOwnerLogin: installation.githubOwnerLogin,
-          githubInstallationId: installation.githubInstallationId,
-          convexConnection: previewSeed.providerCredentials.convexConnection,
-          cloudflareConnection: previewSeed.providerCredentials.cloudflareConnection,
+          githubOwnerId: organizationConfig.githubOwnerId,
+          githubOwnerType: organizationConfig.githubOwnerType,
+          githubOwnerLogin: organizationConfig.githubOwnerLogin,
+          githubInstallationId: organizationConfig.githubInstallationId,
+          convexConnection: organizationConfig.convexConnection,
+          cloudflareConnection: organizationConfig.cloudflareConnection,
         });
       }
     }

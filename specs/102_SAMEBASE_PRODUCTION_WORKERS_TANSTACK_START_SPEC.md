@@ -255,16 +255,18 @@ Samebase production itself.
    - uses `DEV_SEED_GITHUB_API_KEY` only in preview deployments to discover the matching GitHub user
      and the configured GitHub App installations that user can manage, without storing the key or a
      GitHub sign-in or user authorization record
-   - creates initial memberships only for the personal `nicu-chiciuc` owner and the `samebase`
-     organization; later seed runs preserve organizations that the user connects through the preview
-     UI
+   - creates initial memberships for the personal `nicu-chiciuc` owner, the `samebase` organization,
+     and the `samebase-live-tests` organization; later seed runs preserve organizations that the
+     user connects through the preview UI
    - lets only the exact seeded password account list and connect other manageable installations;
      every list or connect request repeats the live GitHub discovery, and repository access
      continues to use GitHub App installation authentication
-   - attaches the same seeded Convex team and Cloudflare account to the two initial preview
-     organizations, without creating vaults; preview defaults must provide
-     `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`, `DEV_SEED_CONVEX_TEAM_ID`, `DEV_SEED_CLOUDFLARE_API_KEY`,
-     and `DEV_SEED_CLOUDFLARE_ACCOUNT_ID`
+   - attaches the current `DEV_SEED_*` Convex and Cloudflare provider credentials only to
+     `samebase-live-tests`
+   - attaches the main provider accounts only to `samebase`; preview defaults must provide
+     `PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY`, `PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID`,
+     `PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY`, and `PREVIEW_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID`
+   - leaves `nicu-chiciuc` without provider credentials and creates no vaults during seeding
    - rejects non-production builds that are missing `PREVIEW_CONVEX_DEPLOY_KEY`, even when
      `CONVEX_DEPLOY_KEY` is present
    - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head
