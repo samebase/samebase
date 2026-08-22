@@ -82,6 +82,14 @@ export function AppSidebarMetaSection({
       ) : null}
 
       <a
+        className="text-[#FF0000]"
+        href="https://www.youtube.com/@samebasecom"
+        rel="noreferrer"
+        target="_blank"
+      >
+        /youtube
+      </a>
+      <a
         className="text-[#5865F2]"
         href="https://discord.gg/DHvBcD4k5r"
         rel="noreferrer"
