@@ -156,7 +156,6 @@ function readRequiredPreviewSamebaseProviderCredentials(): SeedProviderCredentia
     normalizeSeedValue(env.PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID),
     "PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID",
   );
-  const convexTeamSlug = normalizeSeedValue(env.PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_SLUG);
   const cloudflareCredential = requireSeedValue(
     normalizeSeedValue(env.PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY),
     "PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY",
@@ -170,7 +169,6 @@ function readRequiredPreviewSamebaseProviderCredentials(): SeedProviderCredentia
     convexConnection: {
       credential: convexCredential,
       teamId: convexTeamId,
-      ...(convexTeamSlug === undefined ? {} : { teamSlug: convexTeamSlug }),
     },
     cloudflareConnection: {
       credential: cloudflareCredential,

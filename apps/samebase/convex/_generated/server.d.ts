@@ -52,7 +52,6 @@ type Env = {
   readonly PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY: string | undefined;
   readonly PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY: string | undefined;
   readonly PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID: string | undefined;
-  readonly PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_SLUG: string | undefined;
 };
 
 /**

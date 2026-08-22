@@ -26,7 +26,6 @@ const app = defineApp({
     PREVIEW_SEED_SAMEBASE_CLOUDFLARE_API_KEY: v.optional(v.string()),
     PREVIEW_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY: v.optional(v.string()),
     PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_ID: v.optional(v.string()),
-    PREVIEW_SEED_SAMEBASE_CONVEX_TEAM_SLUG: v.optional(v.string()),
   },
 });
 

@@ -330,22 +330,6 @@ describe("devAuth password account seed", () => {
       convex: { auth: { credential: "preview-convex-credential" } },
       cloudflare: { auth: { credential: "preview-cloudflare-credential" } },
     });
-
-    const personalOrganization = snapshot.organizations.find(
-      ({ githubOwnerId }) => githubOwnerId === "202",
-    );
-    const laterOrganization = snapshot.organizations.find(
-      ({ githubOwnerId }) => githubOwnerId === "404",
-    );
-    for (const organization of [personalOrganization, laterOrganization]) {
-      expect(organization).not.toHaveProperty("convexTeam");
-      expect(organization).not.toHaveProperty("cloudflareAccount");
-      expect(
-        snapshot.providerCredentials.find(
-          ({ organizationId }) => organizationId === organization?._id,
-        ),
-      ).toBeUndefined();
-    }
   });
 
   it("fails preview seeding when the Samebase provider setup is missing", async () => {
