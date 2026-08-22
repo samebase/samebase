@@ -252,12 +252,24 @@ Samebase production itself.
      `WORKERS_CI_BRANCH` is a non-production branch
    - runs the idempotent `devAuth:seedPasswordAccount` action after every successful preview deploy,
      including preview reuse, without relying on preview creation
-   - uses `DEV_SEED_GITHUB_API_KEY` during preview seeding only to match the seed user and active
-     administrator memberships to installations of the configured GitHub App, then stores only the
-     matched owner and installation identities
-   - attaches the same seeded Convex team and Cloudflare account to every matched preview
-     organization; preview defaults must provide `DEV_SEED_CONVEX_MANAGEMENT_API_KEY`,
-     `DEV_SEED_CONVEX_TEAM_ID`, `DEV_SEED_CLOUDFLARE_API_KEY`, and `DEV_SEED_CLOUDFLARE_ACCOUNT_ID`
+   - uses `DEV_SEED_GITHUB_API_KEY` only in preview deployments to discover the matching GitHub user
+     and the configured GitHub App installations that user can manage, without storing the key or a
+     GitHub sign-in or user authorization record
+   - creates initial memberships for the personal `nicu-chiciuc` owner, the `samebase` organization,
+     and the `samebase-live-tests` organization; later seed runs preserve organizations that the
+     user connects through the preview UI
+   - lets only the exact seeded password account list and connect other manageable installations;
+     the backend verifies current management access before it connects an installation, and
+     repository access continues to use GitHub App installation authentication
+   - lets that account create repositories for the personal `nicu-chiciuc` owner with
+     `DEV_SEED_GITHUB_API_KEY`; the backend verifies that the key manages the matching personal
+     owner before admission and again during provisioning, and never stores the key as OAuth data
+   - attaches the current `DEV_SEED_*` Convex and Cloudflare provider credentials only to
+     `samebase-live-tests`
+   - attaches the main provider accounts to `samebase` and `nicu-chiciuc`; preview defaults must
+     provide `DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY`, `DEV_SEED_SAMEBASE_CONVEX_TEAM_ID`,
+     `DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY`, and `DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID`
+   - creates no vaults during seeding
    - rejects non-production builds that are missing `PREVIEW_CONVEX_DEPLOY_KEY`, even when
      `CONVEX_DEPLOY_KEY` is present
    - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head

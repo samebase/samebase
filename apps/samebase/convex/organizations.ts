@@ -6,6 +6,7 @@ import { mutation, query } from "./functions";
 import { requireOrganizationOwnerAccessContext } from "./organizationAccess";
 import { vGitHubOwnerType, vOrganizationMembershipRole } from "./organizationModel";
 import { vGitHubAppInstallationAccess } from "./githubAppAccess";
+import { isPreviewSeedUser, PREVIEW_SEED_PERSONAL_GITHUB_OWNER_LOGIN } from "./previewSeedAccount";
 import { readActiveUser } from "./userLifecycle";
 
 const { boolean, id, object, string } = v;
@@ -80,7 +81,7 @@ export const listForViewer = query({
   returns: v.array(vOrganizationSummary),
   handler: async (ctx) => {
     const organizations = [];
-    const [githubSignInAccount, githubUserAuthorization] = await Promise.all([
+    const [githubSignInAccount, githubUserAuthorization, previewSeedUser] = await Promise.all([
       ctx.db
         .query("authAccounts")
         .withIndex("userIdAndProvider", (query) =>
@@ -91,6 +92,7 @@ export const listForViewer = query({
         .query("githubUserAuthorizations")
         .withIndex("by_user", (query) => query.eq("userId", ctx.viewer.userId))
         .unique(),
+      isPreviewSeedUser(ctx.db, ctx.viewer.userId),
     ]);
 
     for await (const membership of ctx.db
@@ -105,7 +107,9 @@ export const listForViewer = query({
         canCreateRepository:
           organization.githubOwnerType === "organization" ||
           (githubSignInAccount?.providerAccountId === organization.githubOwnerId &&
-            githubUserAuthorization?.githubUserId === organization.githubOwnerId),
+            githubUserAuthorization?.githubUserId === organization.githubOwnerId) ||
+          (previewSeedUser &&
+            organization.githubOwnerLoginNormalized === PREVIEW_SEED_PERSONAL_GITHUB_OWNER_LOGIN),
         organizationId: organization._id,
         githubOwnerId: organization.githubOwnerId,
         githubOwnerType: organization.githubOwnerType,

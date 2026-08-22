@@ -35,8 +35,8 @@ type DeploymentProfileEnv = {
   CONVEX_DEPLOYMENT?: string;
   CONVEX_SITE_URL?: string;
   PASSWORD_AUTH_ENABLED?: string;
-  PREVIEW_SEED_AUTH_EMAIL?: string;
-  PREVIEW_SEED_AUTH_PASSWORD?: string;
+  DEV_SEED_AUTH_EMAIL?: string;
+  DEV_SEED_AUTH_PASSWORD?: string;
   SITE_URL?: string;
 };
 
@@ -70,8 +70,8 @@ function readAgentMode(env: DeploymentProfileEnv): string | null {
 
 function hasPreviewSeedPasswordAuth(env: DeploymentProfileEnv): boolean {
   return (
-    readTrimmedValue(env.PREVIEW_SEED_AUTH_EMAIL) !== null &&
-    readTrimmedValue(env.PREVIEW_SEED_AUTH_PASSWORD) !== null
+    readTrimmedValue(env.DEV_SEED_AUTH_EMAIL) !== null &&
+    readTrimmedValue(env.DEV_SEED_AUTH_PASSWORD) !== null
   );
 }
 
@@ -167,8 +167,8 @@ export function resolveDeploymentProfile(): DeploymentProfile {
     CONVEX_CLOUD_URL: readOptionalEnv("CONVEX_CLOUD_URL") ?? undefined,
     CONVEX_DEPLOYMENT: readOptionalEnv("CONVEX_DEPLOYMENT") ?? undefined,
     CONVEX_SITE_URL: readOptionalEnv("CONVEX_SITE_URL") ?? undefined,
-    PREVIEW_SEED_AUTH_EMAIL: readOptionalEnv("PREVIEW_SEED_AUTH_EMAIL") ?? undefined,
-    PREVIEW_SEED_AUTH_PASSWORD: readOptionalEnv("PREVIEW_SEED_AUTH_PASSWORD") ?? undefined,
+    DEV_SEED_AUTH_EMAIL: readOptionalEnv("DEV_SEED_AUTH_EMAIL") ?? undefined,
+    DEV_SEED_AUTH_PASSWORD: readOptionalEnv("DEV_SEED_AUTH_PASSWORD") ?? undefined,
     SITE_URL: readOptionalEnv("SITE_URL") ?? undefined,
   });
 }

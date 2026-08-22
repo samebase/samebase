@@ -68,8 +68,8 @@ describe("deploymentProfile", () => {
   it("falls back to preview seed envs when runtime deployment metadata is absent", () => {
     expect(
       resolveDeploymentProfileFromEnv({
-        PREVIEW_SEED_AUTH_EMAIL: "preview@example.com",
-        PREVIEW_SEED_AUTH_PASSWORD: "secret-password",
+        DEV_SEED_AUTH_EMAIL: "preview@example.com",
+        DEV_SEED_AUTH_PASSWORD: "secret-password",
       }),
     ).toEqual({ kind: "preview" });
   });

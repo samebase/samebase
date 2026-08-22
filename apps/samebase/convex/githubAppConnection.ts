@@ -3,10 +3,11 @@ import { v, type Infer } from "convex/values";
 
 import { canAccess } from "../shared/accessModel";
 import { internal } from "./_generated/api";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "./_generated/server";
 import {
   listGitHubAppConnectionInstallations,
   verifyGitHubAppConnectionInstallation,
+  type GitHubAppConnectionInstallation,
 } from "./githubApp";
 import {
   hasMatchingGitHubUserAuthorization,
@@ -16,6 +17,7 @@ import {
 import { action } from "./functions";
 import { findOrganizationMembership } from "./organizationAccess";
 import { vGitHubOwnerType } from "./organizationModel";
+import { isPreviewSeedUser, resolvePreviewSeedGitHubInstallations } from "./previewSeedAccount";
 
 const { array, boolean, id, literal, object, string, union } = v;
 
@@ -121,14 +123,53 @@ export const classifyOptions = internalQuery({
   },
 });
 
+const verifiedInstallationFields = {
+  userId: id("users"),
+  installationId: string(),
+  githubOwnerId: string(),
+  githubOwnerType: vGitHubOwnerType,
+  githubOwnerLogin: string(),
+} as const;
+const vVerifiedInstallation = object(verifiedInstallationFields);
+type VerifiedInstallation = Infer<typeof vVerifiedInstallation>;
+
+async function connectInstallationAfterAuthority(
+  ctx: MutationCtx,
+  args: VerifiedInstallation,
+): Promise<ConnectionResult> {
+  const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
+    userId: args.userId,
+  });
+  if (viewer.user === null || !canAccess("access_app_create", viewer.accessKeys)) {
+    return { status: "access_lost" };
+  }
+  const organization = await ctx.db
+    .query("organizations")
+    .withIndex("by_github_owner_id", (query) => query.eq("githubOwnerId", args.githubOwnerId))
+    .unique();
+  if (organization !== null) {
+    const membership = await findOrganizationMembership(ctx.db, {
+      organizationId: organization._id,
+      userId: args.userId,
+    });
+    return membership === null
+      ? { status: "invite_required" }
+      : { status: "open", organizationOwnerLogin: organization.githubOwnerLogin };
+  }
+  await ctx.runMutation(internal.organizations.createOrReconnectVerifiedOrganization, {
+    userId: args.userId,
+    githubOwnerId: args.githubOwnerId,
+    githubOwnerType: args.githubOwnerType,
+    githubOwnerLogin: args.githubOwnerLogin,
+    githubInstallationId: args.installationId,
+  });
+  return { status: "connected", organizationOwnerLogin: args.githubOwnerLogin };
+}
+
 export const connectVerifiedInstallation = internalMutation({
   args: {
-    userId: id("users"),
+    ...verifiedInstallationFields,
     githubUserId: string(),
-    installationId: string(),
-    githubOwnerId: string(),
-    githubOwnerType: vGitHubOwnerType,
-    githubOwnerLogin: string(),
   },
   returns: vConnectionResult,
   handler: async (ctx, args): Promise<ConnectionResult> => {
@@ -142,33 +183,18 @@ export const connectVerifiedInstallation = internalMutation({
     if (!(await hasMatchingGitHubUserAuthorization(ctx.db, args))) {
       return { status: "authorization_required" };
     }
-    const viewer = await ctx.runQuery(internal.functions.resolveViewerForUserId, {
-      userId: args.userId,
-    });
-    if (viewer.user === null || !canAccess("access_app_create", viewer.accessKeys)) {
-      return { status: "access_lost" };
+    return await connectInstallationAfterAuthority(ctx, args);
+  },
+});
+
+export const connectPreviewSeedVerifiedInstallation = internalMutation({
+  args: verifiedInstallationFields,
+  returns: vConnectionResult,
+  handler: async (ctx, args): Promise<ConnectionResult> => {
+    if (!(await isPreviewSeedUser(ctx.db, args.userId))) {
+      return { status: "authorization_required" };
     }
-    const organization = await ctx.db
-      .query("organizations")
-      .withIndex("by_github_owner_id", (query) => query.eq("githubOwnerId", args.githubOwnerId))
-      .unique();
-    if (organization !== null) {
-      const membership = await findOrganizationMembership(ctx.db, {
-        organizationId: organization._id,
-        userId: args.userId,
-      });
-      return membership === null
-        ? { status: "invite_required" }
-        : { status: "open", organizationOwnerLogin: organization.githubOwnerLogin };
-    }
-    await ctx.runMutation(internal.organizations.createOrReconnectVerifiedOrganization, {
-      userId: args.userId,
-      githubOwnerId: args.githubOwnerId,
-      githubOwnerType: args.githubOwnerType,
-      githubOwnerLogin: args.githubOwnerLogin,
-      githubInstallationId: args.installationId,
-    });
-    return { status: "connected", organizationOwnerLogin: args.githubOwnerLogin };
+    return await connectInstallationAfterAuthority(ctx, args);
   },
 });
 
@@ -181,18 +207,33 @@ export const listOptions = action({
   args: {},
   returns: vListOptionsResult,
   handler: async (ctx): Promise<ListOptionsResult> => {
-    const authorization = await resolveGitHubUserAuthorizationForAppConnection(
-      ctx,
-      ctx.viewer.userId,
-    );
-    if (authorization.status !== "ready") {
-      return { status: authorization.status };
-    }
     try {
-      const installations = await listGitHubAppConnectionInstallations({
-        octokit: authorization.octokit,
-        githubUserId: authorization.githubUserId,
-      });
+      const previewSeedInstallations = await resolvePreviewSeedGitHubInstallations(
+        ctx,
+        ctx.viewer.userId,
+      );
+      let installations: GitHubAppConnectionInstallation[];
+      if (previewSeedInstallations === null) {
+        const authorization = await resolveGitHubUserAuthorizationForAppConnection(
+          ctx,
+          ctx.viewer.userId,
+        );
+        if (authorization.status !== "ready") {
+          return { status: authorization.status };
+        }
+        installations = await listGitHubAppConnectionInstallations({
+          octokit: authorization.octokit,
+          githubUserId: authorization.githubUserId,
+        });
+      } else {
+        installations = previewSeedInstallations.map((installation) => ({
+          installationId: installation.githubInstallationId,
+          githubOwnerId: installation.githubOwnerId,
+          githubOwnerType: installation.githubOwnerType,
+          githubOwnerLogin: installation.githubOwnerLogin,
+          canManage: true,
+        }));
+      }
       const options: Array<Infer<typeof vConnectionOption>> = await ctx.runQuery(
         internal.githubAppConnection.classifyOptions,
         { userId: ctx.viewer.userId, installations },
@@ -212,14 +253,37 @@ export const connectInstallation = action({
   args: { installationId: string() },
   returns: vConnectionResult,
   handler: async (ctx, args): Promise<ConnectionResult> => {
-    const authorization = await resolveGitHubUserAuthorizationForAppConnection(
-      ctx,
-      ctx.viewer.userId,
-    );
-    if (authorization.status !== "ready") {
-      return { status: authorization.status };
-    }
     try {
+      const previewSeedInstallations = await resolvePreviewSeedGitHubInstallations(
+        ctx,
+        ctx.viewer.userId,
+      );
+      if (previewSeedInstallations !== null) {
+        const previewInstallation = previewSeedInstallations.find(
+          ({ githubInstallationId }) => githubInstallationId === args.installationId,
+        );
+        if (previewInstallation === undefined) {
+          return { status: "owner_required" };
+        }
+        return await ctx.runMutation(
+          internal.githubAppConnection.connectPreviewSeedVerifiedInstallation,
+          {
+            userId: ctx.viewer.userId,
+            installationId: previewInstallation.githubInstallationId,
+            githubOwnerId: previewInstallation.githubOwnerId,
+            githubOwnerType: previewInstallation.githubOwnerType,
+            githubOwnerLogin: previewInstallation.githubOwnerLogin,
+          },
+        );
+      }
+
+      const authorization = await resolveGitHubUserAuthorizationForAppConnection(
+        ctx,
+        ctx.viewer.userId,
+      );
+      if (authorization.status !== "ready") {
+        return { status: authorization.status };
+      }
       const installation = await verifyGitHubAppConnectionInstallation({
         octokit: authorization.octokit,
         githubUserId: authorization.githubUserId,

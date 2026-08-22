@@ -1,8 +1,11 @@
-import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const githubMocks = vi.hoisted(() => ({
   createRepositoryOctokit: vi.fn(),
   createStarterSeedClient: vi.fn(),
+  createUserOctokit: vi.fn(),
+  createUserRepository: vi.fn(),
+  discoverPreviewSeedGitHubAppInstallations: vi.fn(),
   getBranch: vi.fn(),
   getRepository: vi.fn(),
   listRepositories: vi.fn(),
@@ -15,6 +18,9 @@ vi.mock("./githubApp", async (importOriginal) => {
   return {
     ...actual,
     createGitHubRepositoryInstallationOctokit: githubMocks.createRepositoryOctokit,
+    createGitHubUserOctokit: githubMocks.createUserOctokit,
+    discoverPreviewSeedGitHubAppInstallations:
+      githubMocks.discoverPreviewSeedGitHubAppInstallations,
   };
 });
 
@@ -111,22 +117,38 @@ async function createExistingRepositoryRun() {
   return { ...ids, t };
 }
 
-async function createManagedRepositoryRun() {
+async function createManagedRepositoryRun(
+  args: {
+    email?: string;
+    githubOwnerLogin?: string;
+    githubOwnerType?: "organization" | "user";
+    passwordAccount?: true;
+  } = {},
+) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
+    const email = args.email ?? "managed-stable-repository-workflow@example.test";
     const userId = await ctx.db.insert("users", {
       state: "active",
-      email: "managed-stable-repository-workflow@example.test",
+      email,
       isApproved: true,
       termsVersion: "2026-08-12",
       termsAcceptedAt: 1,
     });
+    if (args.passwordAccount) {
+      await ctx.db.insert("authAccounts", {
+        userId,
+        provider: "password",
+        providerAccountId: email,
+      });
+    }
+    const githubOwnerLogin = args.githubOwnerLogin ?? "octocat";
     const organizationId = await ctx.db.insert("organizations", {
       githubInstallationId: "1001",
       githubOwnerId: "1",
-      githubOwnerLogin: "octocat",
-      githubOwnerLoginNormalized: "octocat",
-      githubOwnerType: "organization",
+      githubOwnerLogin,
+      githubOwnerLoginNormalized: githubOwnerLogin.toLowerCase(),
+      githubOwnerType: args.githubOwnerType ?? "organization",
       convexTeam: { teamId: "convex-team" },
       cloudflareAccount: {
         accountId: "cloudflare-account",
@@ -170,6 +192,10 @@ async function createManagedRepositoryRun() {
   return { ...ids, t };
 }
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
   const repository = installationRepositoryFixture();
@@ -179,6 +205,9 @@ beforeEach(() => {
   githubMocks.getRepository.mockResolvedValue({ data: repository });
   githubMocks.getBranch.mockResolvedValue({ data: { name: "master" } });
   githubMocks.createStarterSeedClient.mockReturnValue({});
+  githubMocks.createUserOctokit.mockReturnValue({
+    rest: { repos: { createForAuthenticatedUser: githubMocks.createUserRepository } },
+  });
   githubMocks.seedRepository.mockResolvedValue(undefined);
   githubMocks.createRepositoryOctokit.mockResolvedValue({
     request: githubMocks.listRepositories,
@@ -241,6 +270,73 @@ describe("existing repository provisioning identity", () => {
 });
 
 describe("managed repository provisioning identity", () => {
+  it("rechecks the seeded personal GitHub credential before repository creation", async () => {
+    vi.stubEnv("CONVEX_DEPLOYMENT", "preview:personal-repository-workflow");
+    vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.test");
+    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password");
+    vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-api-key");
+    githubMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
+      {
+        githubInstallationId: "1001",
+        githubOwnerId: "1",
+        githubOwnerType: "user",
+        githubOwnerLogin: "nicu-chiciuc",
+      },
+    ]);
+    githubMocks.resolveAppAccess.mockResolvedValue({
+      organizationId: "organization-id",
+      githubInstallationId: "1001",
+      githubOwnerId: "1",
+      githubOwnerLogin: "nicu-chiciuc",
+      githubOwnerType: "user",
+    });
+    githubMocks.createUserRepository.mockResolvedValue({
+      data: {
+        id: 2_345_678,
+        name: "preview-personal-app",
+        default_branch: "main",
+        private: true,
+        owner: { id: 1, login: "nicu-chiciuc" },
+      },
+    });
+    const { runId, t, userId, vaultId } = await createManagedRepositoryRun({
+      email: "preview@example.test",
+      githubOwnerLogin: "nicu-chiciuc",
+      githubOwnerType: "user",
+      passwordAccount: true,
+    });
+
+    await expect(
+      t.action(internal.appProvisioningWorkflowActions.createGitHubRepository, {
+        runId,
+        userId,
+        vaultId,
+        repositoryName: "preview-personal-app",
+        repositoryOwner: "nicu-chiciuc",
+        description: null,
+        private: true,
+      }),
+    ).resolves.toEqual({
+      ghRepoId: "2345678",
+      ownerName: "nicu-chiciuc",
+      repoName: "preview-personal-app",
+      defaultBranch: "main",
+      visibility: "private",
+    });
+    expect(githubMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledWith(
+      "preview-api-key",
+    );
+    expect(githubMocks.createUserOctokit).toHaveBeenCalledWith("preview-api-key");
+    expect(githubMocks.createUserRepository).toHaveBeenCalledWith({
+      name: "preview-personal-app",
+      auto_init: false,
+      private: true,
+    });
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("githubUserAuthorizations").collect()),
+    ).resolves.toEqual([]);
+  });
+
   it("seeds the created repository by stable ID at its current coordinates", async () => {
     const { runId, t, userId, vaultId } = await createManagedRepositoryRun();
 

@@ -1,6 +1,19 @@
-import { describe, expect, it } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
-import { internal } from "./_generated/api";
+const githubAppConnectionMocks = vi.hoisted(() => ({
+  discoverPreviewSeedGitHubAppInstallations: vi.fn(),
+}));
+
+vi.mock("./githubApp", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./githubApp")>();
+  return {
+    ...actual,
+    discoverPreviewSeedGitHubAppInstallations:
+      githubAppConnectionMocks.discoverPreviewSeedGitHubAppInstallations,
+  };
+});
+
+import { api, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { MutationCtx } from "./_generated/server";
 import { makeConvexTest } from "./test.setup";
@@ -41,6 +54,24 @@ async function insertAuthorizedUser(
   });
   return { authorizationId, userId };
 }
+
+async function insertPasswordUser(ctx: MutationCtx, email: string): Promise<Id<"users">> {
+  const userId = await insertUser(ctx, email);
+  await ctx.db.insert("authAccounts", {
+    userId,
+    provider: "password",
+    providerAccountId: email,
+  });
+  return userId;
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 describe("GitHub App connection", () => {
   it("classifies visible installations without granting Samebase membership", async () => {
@@ -176,6 +207,104 @@ describe("GitHub App connection", () => {
     });
     expect(snapshot.memberships).toHaveLength(1);
     expect(snapshot.memberships[0]).toMatchObject({ userId, role: "owner" });
+  });
+
+  it("lists and connects installations for the exact preview seed account", async () => {
+    vi.stubEnv("CONVEX_DEPLOYMENT", "preview:github-connection");
+    vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.test");
+    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password");
+    vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-api-key");
+    const t = makeConvexTest();
+    const userId = await t.run(
+      async (ctx) => await insertPasswordUser(ctx, "preview@example.test"),
+    );
+    githubAppConnectionMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
+      {
+        githubInstallationId: "connect-installation",
+        githubOwnerId: "connect-owner",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "Connect-Owner",
+      },
+    ]);
+    const asSeedUser = t.withIdentity({
+      subject: `${userId}|preview-session`,
+      tokenIdentifier: `test:${userId}`,
+    });
+
+    await expect(asSeedUser.action(api.githubAppConnection.listOptions, {})).resolves.toEqual({
+      status: "ready",
+      options: [
+        {
+          status: "connect",
+          installationId: "connect-installation",
+          githubOwnerType: "organization",
+          githubOwnerLogin: "Connect-Owner",
+        },
+      ],
+    });
+    await expect(
+      asSeedUser.action(api.githubAppConnection.connectInstallation, {
+        installationId: "connect-installation",
+      }),
+    ).resolves.toEqual({ status: "connected", organizationOwnerLogin: "Connect-Owner" });
+    expect(githubAppConnectionMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledWith(
+      "preview-api-key",
+    );
+    await expect(
+      t.run(async (ctx) =>
+        ctx.db
+          .query("organizations")
+          .withIndex("by_github_owner_id", (query) => query.eq("githubOwnerId", "connect-owner"))
+          .unique(),
+      ),
+    ).resolves.toMatchObject({ githubInstallationId: "connect-installation" });
+  });
+
+  it("does not give another preview account the seeded GitHub access", async () => {
+    vi.stubEnv("CONVEX_DEPLOYMENT", "preview:github-connection");
+    vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.test");
+    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password");
+    const t = makeConvexTest();
+    const otherUserId = await t.run(async (ctx) => {
+      await insertPasswordUser(ctx, "preview@example.test");
+      return await insertPasswordUser(ctx, "other@example.test");
+    });
+
+    await expect(
+      t.mutation(internal.githubAppConnection.connectPreviewSeedVerifiedInstallation, {
+        userId: otherUserId,
+        installationId: "other-installation",
+        githubOwnerId: "other-owner",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "Other-Owner",
+      }),
+    ).resolves.toEqual({ status: "authorization_required" });
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("organizations").collect()),
+    ).resolves.toEqual([]);
+  });
+
+  it("does not use the preview seed access outside a preview deployment", async () => {
+    vi.stubEnv("CONVEX_DEPLOYMENT", "dev:github-connection");
+    vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.test");
+    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password");
+    const t = makeConvexTest();
+    const userId = await t.run(
+      async (ctx) => await insertPasswordUser(ctx, "preview@example.test"),
+    );
+
+    await expect(
+      t.mutation(internal.githubAppConnection.connectPreviewSeedVerifiedInstallation, {
+        userId,
+        installationId: "development-installation",
+        githubOwnerId: "development-owner",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "Development-Owner",
+      }),
+    ).resolves.toEqual({ status: "authorization_required" });
+    await expect(
+      t.run(async (ctx) => await ctx.db.query("organizations").collect()),
+    ).resolves.toEqual([]);
   });
 
   it("does not create after Samebase app-creation access is lost", async () => {

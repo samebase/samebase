@@ -38,6 +38,10 @@ type Env = {
   readonly CLOUDFLARE_EMAIL_ACCOUNT_ID: string | undefined;
   readonly CLOUDFLARE_EMAIL_API_TOKEN: string | undefined;
   readonly DEV_SEED_GITHUB_API_KEY: string | undefined;
+  readonly DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID: string | undefined;
+  readonly DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY: string | undefined;
+  readonly DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY: string | undefined;
+  readonly DEV_SEED_SAMEBASE_CONVEX_TEAM_ID: string | undefined;
   readonly GITHUB_APP_CLIENT_ID: string;
   readonly GITHUB_APP_CLIENT_SECRET: string;
   readonly GITHUB_APP_ID: string;

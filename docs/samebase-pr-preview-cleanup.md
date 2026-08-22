@@ -46,10 +46,10 @@ set -a
 set +a
 export CLOUDFLARE_WORKER_NAME="${CLOUDFLARE_WORKER_NAME:-samebase}"
 
-: "${DEV_SEED_CLOUDFLARE_ACCOUNT_ID:?missing DEV_SEED_CLOUDFLARE_ACCOUNT_ID}"
-: "${DEV_SEED_CLOUDFLARE_API_KEY:?missing DEV_SEED_CLOUDFLARE_API_KEY}"
-: "${DEV_SEED_CONVEX_MANAGEMENT_API_KEY:?missing DEV_SEED_CONVEX_MANAGEMENT_API_KEY}"
-: "${DEV_SEED_CONVEX_TEAM_ID:?missing DEV_SEED_CONVEX_TEAM_ID}"
+: "${DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID:?missing DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID}"
+: "${DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY:?missing DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY}"
+: "${DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY:?missing DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY}"
+: "${DEV_SEED_SAMEBASE_CONVEX_TEAM_ID:?missing DEV_SEED_SAMEBASE_CONVEX_TEAM_ID}"
 ```
 
 If this preflight fails because the file or a value is missing, cleanup is blocked until the correct
@@ -80,8 +80,8 @@ number, URL, state, branch, and head SHA visible while inspecting provider resou
 List recent Worker versions and active deployments:
 
 ```bash
-CLOUDFLARE_API_TOKEN="$DEV_SEED_CLOUDFLARE_API_KEY" pnpm --dir apps/samebase exec wrangler versions list --name "$CLOUDFLARE_WORKER_NAME" --json
-CLOUDFLARE_API_TOKEN="$DEV_SEED_CLOUDFLARE_API_KEY" pnpm --dir apps/samebase exec wrangler deployments list --name "$CLOUDFLARE_WORKER_NAME" --json
+CLOUDFLARE_API_TOKEN="$DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY" pnpm --dir apps/samebase exec wrangler versions list --name "$CLOUDFLARE_WORKER_NAME" --json
+CLOUDFLARE_API_TOKEN="$DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY" pnpm --dir apps/samebase exec wrangler deployments list --name "$CLOUDFLARE_WORKER_NAME" --json
 ```
 
 Also inspect GitHub checks and PR comments for Cloudflare preview metadata:
@@ -109,8 +109,8 @@ the paginated Worker versions API before deciding which version to delete:
 
 ```bash
 curl --fail-with-body --request GET \
-  --url "https://api.cloudflare.com/client/v4/accounts/$DEV_SEED_CLOUDFLARE_ACCOUNT_ID/workers/workers/$CLOUDFLARE_WORKER_NAME/versions?per_page=100" \
-  --header "Authorization: Bearer $DEV_SEED_CLOUDFLARE_API_KEY"
+  --url "https://api.cloudflare.com/client/v4/accounts/$DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID/workers/workers/$CLOUDFLARE_WORKER_NAME/versions?per_page=100" \
+  --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY"
 ```
 
 Follow pagination until every Worker version has been inspected.
@@ -120,8 +120,8 @@ Delete only proven inactive versions:
 ```bash
 version_id="<matching-worker-version-id>"
 curl --fail-with-body --request DELETE \
-  --url "https://api.cloudflare.com/client/v4/accounts/$DEV_SEED_CLOUDFLARE_ACCOUNT_ID/workers/workers/$CLOUDFLARE_WORKER_NAME/versions/$version_id" \
-  --header "Authorization: Bearer $DEV_SEED_CLOUDFLARE_API_KEY"
+  --url "https://api.cloudflare.com/client/v4/accounts/$DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID/workers/workers/$CLOUDFLARE_WORKER_NAME/versions/$version_id" \
+  --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY"
 ```
 
 If there is still no exact version match, stop with `clean` blocked and report the lookup evidence.
@@ -133,8 +133,8 @@ Resolve the `samebase` project:
 
 ```bash
 curl --fail-with-body --request GET \
-  --url "https://api.convex.dev/v1/teams/$DEV_SEED_CONVEX_TEAM_ID/projects/samebase" \
-  --header "Authorization: Bearer $DEV_SEED_CONVEX_MANAGEMENT_API_KEY"
+  --url "https://api.convex.dev/v1/teams/$DEV_SEED_SAMEBASE_CONVEX_TEAM_ID/projects/samebase" \
+  --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY"
 ```
 
 Use the returned project ID to list deployments:
@@ -143,7 +143,7 @@ Use the returned project ID to list deployments:
 project_id="<samebase-project-id>"
 curl --fail-with-body --request GET \
   --url "https://api.convex.dev/v1/projects/$project_id/list_deployments" \
-  --header "Authorization: Bearer $DEV_SEED_CONVEX_MANAGEMENT_API_KEY"
+  --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY"
 ```
 
 Delete a Convex deployment only when all of these are true:
@@ -158,7 +158,7 @@ Delete only the matching preview deployment:
 deployment_name="<matching-convex-preview-deployment-name>"
 curl --fail-with-body --request POST \
   --url "https://api.convex.dev/v1/deployments/$deployment_name/delete" \
-  --header "Authorization: Bearer $DEV_SEED_CONVEX_MANAGEMENT_API_KEY"
+  --header "Authorization: Bearer $DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY"
 ```
 
 Never delete a `prod`, `dev`, or local Convex deployment during Samebase PR preview cleanup. If the

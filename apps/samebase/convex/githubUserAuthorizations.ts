@@ -20,6 +20,7 @@ import {
   requireExpiringGitHubUserAuthentication,
 } from "./githubApp";
 import { requireOrganizationMembershipRecord } from "./organizationAccess";
+import { resolvePreviewSeedGitHubUserOctokit } from "./previewSeedAccount";
 import { readActiveUser } from "./userLifecycle";
 import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
 
@@ -741,10 +742,17 @@ async function releaseGitHubUserAuthorizationRefresh(
 }
 
 async function resolveGitHubUserOctokitForAuthority(
-  ctx: Pick<ActionCtx, "runMutation">,
+  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
   authority: GitHubUserOctokitAuthority,
   githubUserId: string,
 ): Promise<Octokit> {
+  const previewOctokit = await resolvePreviewSeedGitHubUserOctokit(ctx, {
+    userId: authority.userId,
+    githubUserId,
+  });
+  if (previewOctokit !== null) {
+    return previewOctokit;
+  }
   const use = await claimGitHubUserAuthorization(ctx, authority, githubUserId);
   return await resolveGitHubUserOctokitFromUse(ctx, authority, use);
 }
@@ -822,7 +830,7 @@ export async function resolveGitHubUserAuthorizationForAppConnection(
 }
 
 export async function resolveGitHubUserOctokit(
-  ctx: Pick<ActionCtx, "runMutation">,
+  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
   args: {
     userId: Id<"users">;
     githubUserId: string;
@@ -836,7 +844,7 @@ export async function resolveGitHubUserOctokit(
 }
 
 export async function resolveGitHubUserOctokitForProvisioningRun(
-  ctx: Pick<ActionCtx, "runMutation">,
+  ctx: Pick<ActionCtx, "runMutation" | "runQuery">,
   args: {
     runId: Id<"workflow_vaultProvisioning_runs">;
     userId: Id<"users">;

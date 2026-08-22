@@ -6,28 +6,35 @@ import {
 } from "../../../runtime/localWorktreePasswordAuth";
 import { internal } from "./_generated/api";
 import { resolveDeploymentProfile, resolvePasswordAuthMode } from "./deploymentProfile";
-import { internalAction, internalMutation, type MutationCtx } from "./_generated/server";
+import { env, internalAction, internalMutation, type MutationCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { readOptionalEnv } from "./oauthUtils";
 import { normalizeAccountEmail } from "../shared/accountPresentation";
 import { vGitHubOwnerType } from "./organizationModel";
 import { normalizeGitHubOwnerLogin } from "./organizations";
 import { toSafeRepoName } from "../shared/repoName";
-import { discoverPreviewSeedGitHubAppInstallations } from "./githubApp";
+import {
+  discoverPreviewSeedGitHubAppInstallations,
+  type PreviewSeedGitHubAppInstallation,
+} from "./githubApp";
 import { getOrganizationProviderConfiguration } from "./organizationProviderCredentials";
+import { PREVIEW_SEED_PERSONAL_GITHUB_OWNER_LOGIN } from "./previewSeedAccount";
 import { hashOrganizationProviderSnapshot } from "./providerAuthFingerprint";
 import { readActiveUser } from "./userLifecycle";
 import { CURRENT_TERMS_VERSION } from "./users";
 
 const { array, boolean, id, literal, object, optional, string, union } = v;
 
-function readSeedValue(envName: string): string | undefined {
-  const value = readOptionalEnv(envName);
-  if (value === null) {
+function normalizeSeedValue(value: string | null | undefined): string | undefined {
+  if (value === null || value === undefined) {
     return undefined;
   }
   const normalized = value.trim();
   return normalized.length > 0 ? normalized : undefined;
+}
+
+function readSeedValue(envName: string): string | undefined {
+  return normalizeSeedValue(readOptionalEnv(envName));
 }
 
 function readRequiredSeedPasswordAccountConfig(args: {
@@ -141,6 +148,82 @@ function readRequiredPreviewSeedProviderCredentials(): SeedProviderCredentials {
   return credentials;
 }
 
+function readRequiredPreviewSamebaseProviderCredentials(): SeedProviderCredentials {
+  const convexCredential = requireSeedValue(
+    normalizeSeedValue(env.DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY),
+    "DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY",
+  );
+  const convexTeamId = requireSeedValue(
+    normalizeSeedValue(env.DEV_SEED_SAMEBASE_CONVEX_TEAM_ID),
+    "DEV_SEED_SAMEBASE_CONVEX_TEAM_ID",
+  );
+  const cloudflareCredential = requireSeedValue(
+    normalizeSeedValue(env.DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY),
+    "DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY",
+  );
+  const cloudflareAccountId = requireSeedValue(
+    normalizeSeedValue(env.DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID),
+    "DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID",
+  );
+
+  return {
+    convexConnection: {
+      credential: convexCredential,
+      teamId: convexTeamId,
+    },
+    cloudflareConnection: {
+      credential: cloudflareCredential,
+      accountId: cloudflareAccountId,
+    },
+  };
+}
+
+function requirePreviewSeedGitHubAppInstallation(
+  installations: PreviewSeedGitHubAppInstallation[],
+  owner: { githubOwnerLogin: string; githubOwnerType: "organization" | "user" },
+): PreviewSeedGitHubAppInstallation {
+  const matches = installations.filter(
+    (installation) =>
+      normalizeGitHubOwnerLogin(installation.githubOwnerLogin) === owner.githubOwnerLogin &&
+      installation.githubOwnerType === owner.githubOwnerType,
+  );
+  const installation = matches.at(0);
+  if (matches.length !== 1 || installation === undefined) {
+    throw new Error(`Expected one preview GitHub App installation for ${owner.githubOwnerLogin}.`);
+  }
+  return installation;
+}
+
+function buildPreviewSeedOrganizationConfigs(args: {
+  installations: PreviewSeedGitHubAppInstallation[];
+  liveTestsProviderCredentials: SeedProviderCredentials;
+  samebaseProviderCredentials: SeedProviderCredentials;
+}): SeedOrganizationConfig[] {
+  return [
+    {
+      ...requirePreviewSeedGitHubAppInstallation(args.installations, {
+        githubOwnerLogin: PREVIEW_SEED_PERSONAL_GITHUB_OWNER_LOGIN,
+        githubOwnerType: "user",
+      }),
+      ...args.samebaseProviderCredentials,
+    },
+    {
+      ...requirePreviewSeedGitHubAppInstallation(args.installations, {
+        githubOwnerLogin: "samebase",
+        githubOwnerType: "organization",
+      }),
+      ...args.samebaseProviderCredentials,
+    },
+    {
+      ...requirePreviewSeedGitHubAppInstallation(args.installations, {
+        githubOwnerLogin: "samebase-live-tests",
+        githubOwnerType: "organization",
+      }),
+      ...args.liveTestsProviderCredentials,
+    },
+  ];
+}
+
 function readSeedWorktreeOrganizationConfig(): SeedOrganizationConfig | null {
   const githubOwnerId = readSeedValue("DEV_SEED_GITHUB_OWNER_ID");
   const githubOwnerType = readSeedValue("DEV_SEED_GITHUB_OWNER_TYPE");
@@ -199,8 +282,8 @@ function readSeedPasswordAccountConfig():
       return {
         kind: passwordAuthMode,
         ...readRequiredSeedPasswordAccountConfig({
-          emailEnvName: "PREVIEW_SEED_AUTH_EMAIL",
-          passwordEnvName: "PREVIEW_SEED_AUTH_PASSWORD",
+          emailEnvName: "DEV_SEED_AUTH_EMAIL",
+          passwordEnvName: "DEV_SEED_AUTH_PASSWORD",
         }),
       };
     case "manual":
@@ -647,15 +730,19 @@ export const seedPasswordAccount = internalAction({
     const { email, password } = accountConfig;
     const worktreeOrganizationConfig =
       accountConfig.kind === "local_worktree_seed" ? readSeedWorktreeOrganizationConfig() : null;
-    const previewSeed =
-      accountConfig.kind === "preview_seed"
-        ? {
-            providerCredentials: readRequiredPreviewSeedProviderCredentials(),
-            installations: await discoverPreviewSeedGitHubAppInstallations(
-              requireSeedValue(readSeedValue("DEV_SEED_GITHUB_API_KEY"), "DEV_SEED_GITHUB_API_KEY"),
-            ),
-          }
-        : null;
+    let previewSeed: SeedOrganizationConfig[] | null = null;
+    if (accountConfig.kind === "preview_seed") {
+      const samebaseProviderCredentials = readRequiredPreviewSamebaseProviderCredentials();
+      const liveTestsProviderCredentials = readRequiredPreviewSeedProviderCredentials();
+      const installations = await discoverPreviewSeedGitHubAppInstallations(
+        requireSeedValue(readSeedValue("DEV_SEED_GITHUB_API_KEY"), "DEV_SEED_GITHUB_API_KEY"),
+      );
+      previewSeed = buildPreviewSeedOrganizationConfigs({
+        installations,
+        liveTestsProviderCredentials,
+        samebaseProviderCredentials,
+      });
+    }
 
     let created = false;
     let userId: Id<"users">;
@@ -706,15 +793,15 @@ export const seedPasswordAccount = internalAction({
       });
     }
     if (previewSeed !== null) {
-      for (const installation of previewSeed.installations) {
+      for (const organizationConfig of previewSeed) {
         await ctx.runMutation(internal.devAuth.seedOrganizationWithProviderCredentials, {
           userId,
-          githubOwnerId: installation.githubOwnerId,
-          githubOwnerType: installation.githubOwnerType,
-          githubOwnerLogin: installation.githubOwnerLogin,
-          githubInstallationId: installation.githubInstallationId,
-          convexConnection: previewSeed.providerCredentials.convexConnection,
-          cloudflareConnection: previewSeed.providerCredentials.cloudflareConnection,
+          githubOwnerId: organizationConfig.githubOwnerId,
+          githubOwnerType: organizationConfig.githubOwnerType,
+          githubOwnerLogin: organizationConfig.githubOwnerLogin,
+          githubInstallationId: organizationConfig.githubInstallationId,
+          convexConnection: organizationConfig.convexConnection,
+          cloudflareConnection: organizationConfig.cloudflareConnection,
         });
       }
     }

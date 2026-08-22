@@ -190,16 +190,20 @@ describe("devAuth password account seed", () => {
     });
   });
 
-  it("uses the preview API key without storing it and repeats organization seeding safely", async () => {
+  it("seeds provider accounts by GitHub owner and preserves another organization", async () => {
     const t = makeConvexTest();
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:organization-context");
-    vi.stubEnv("PREVIEW_SEED_AUTH_EMAIL", "preview@example.com");
-    vi.stubEnv("PREVIEW_SEED_AUTH_PASSWORD", "preview-password-123");
+    vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.com");
+    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password-123");
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
     vi.stubEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY", "preview-convex-credential");
     vi.stubEnv("DEV_SEED_CONVEX_TEAM_ID", "preview-convex-team-id");
     vi.stubEnv("DEV_SEED_CLOUDFLARE_API_KEY", "preview-cloudflare-credential");
     vi.stubEnv("DEV_SEED_CLOUDFLARE_ACCOUNT_ID", "preview-cloudflare-account-id");
+    vi.stubEnv("DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY", "samebase-convex-credential");
+    vi.stubEnv("DEV_SEED_SAMEBASE_CONVEX_TEAM_ID", "samebase-convex-team-id");
+    vi.stubEnv("DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY", "samebase-cloudflare-credential");
+    vi.stubEnv("DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID", "samebase-cloudflare-account-id");
     devAuthMocks.discoverPreviewSeedGitHubAppInstallations.mockResolvedValue([
       {
         githubInstallationId: "1001",
@@ -211,7 +215,19 @@ describe("devAuth password account seed", () => {
         githubInstallationId: "1002",
         githubOwnerId: "202",
         githubOwnerType: "user",
-        githubOwnerLogin: "octocat",
+        githubOwnerLogin: "nicu-chiciuc",
+      },
+      {
+        githubInstallationId: "1003",
+        githubOwnerId: "303",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "samebase-live-tests",
+      },
+      {
+        githubInstallationId: "1004",
+        githubOwnerId: "404",
+        githubOwnerType: "organization",
+        githubOwnerLogin: "later-organization",
       },
     ]);
 
@@ -219,6 +235,30 @@ describe("devAuth password account seed", () => {
       email: "preview@example.com",
       created: true,
     });
+
+    const initialOrganizations = await t.run(
+      async (ctx) => await ctx.db.query("organizations").collect(),
+    );
+    expect(
+      initialOrganizations
+        .map(({ githubOwnerId }) => githubOwnerId)
+        .sort((left, right) => left.localeCompare(right)),
+    ).toEqual(["101", "202", "303"]);
+
+    const seedUser = await t.mutation(internal.devAuth.resolveSeedPasswordAccountUser, {
+      email: "preview@example.com",
+    });
+    if (seedUser.kind === "missing") {
+      throw new Error("The preview seed user was not created.");
+    }
+    await t.mutation(internal.organizations.createOrReconnectVerifiedOrganization, {
+      userId: seedUser.userId,
+      githubInstallationId: "1004",
+      githubOwnerId: "404",
+      githubOwnerType: "organization",
+      githubOwnerLogin: "later-organization",
+    });
+
     await expect(t.action(internal.devAuth.seedPasswordAccount, {})).resolves.toEqual({
       email: "preview@example.com",
       created: false,
@@ -226,65 +266,85 @@ describe("devAuth password account seed", () => {
 
     const snapshot = await t.run(async (ctx) => ({
       organizations: await ctx.db.query("organizations").collect(),
-      memberships: await ctx.db.query("organizationMemberships").collect(),
-      billingAccounts: await ctx.db.query("organizationBillingAccounts").collect(),
+      authAccounts: await ctx.db.query("authAccounts").collect(),
       githubUserAuthorizations: await ctx.db.query("githubUserAuthorizations").collect(),
       providerCredentials: await ctx.db.query("organizationProviderCredentials").collect(),
+      vaults: await ctx.db.query("vaults").collect(),
     }));
-    expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledTimes(2);
     expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).toHaveBeenCalledWith(
       "preview-github-api-key",
     );
-    expect(snapshot.organizations).toHaveLength(2);
-    expect(snapshot.memberships).toHaveLength(2);
-    expect(snapshot.billingAccounts).toHaveLength(2);
+    expect(
+      snapshot.organizations
+        .map(({ githubOwnerId }) => githubOwnerId)
+        .sort((left, right) => left.localeCompare(right)),
+    ).toEqual(["101", "202", "303", "404"]);
+    expect(snapshot.authAccounts).toHaveLength(1);
+    expect(snapshot.authAccounts[0]).toMatchObject({
+      provider: "password",
+      providerAccountId: "preview@example.com",
+    });
     expect(snapshot.githubUserAuthorizations).toEqual([]);
-    expect(snapshot.providerCredentials).toHaveLength(2);
-    expect(snapshot.providerCredentials).not.toContainEqual(
-      expect.objectContaining({
-        convex: expect.objectContaining({
-          auth: { method: "api_key", credential: "preview-github-api-key" },
-        }),
-      }),
+    expect(snapshot.providerCredentials).toHaveLength(3);
+    expect(snapshot.vaults).toEqual([]);
+
+    const samebaseOrganization = snapshot.organizations.find(
+      ({ githubOwnerId }) => githubOwnerId === "101",
     );
-    for (const organization of snapshot.organizations) {
-      const organizationCredentials = snapshot.providerCredentials.filter(
-        (credentials) => credentials.organizationId === organization._id,
-      );
-      expect(organizationCredentials).toHaveLength(1);
-      expect(organizationCredentials[0]).toMatchObject({
-        convex: {
-          connectedByUserId: snapshot.memberships[0].userId,
-          auth: { method: "api_key", credential: "preview-convex-credential" },
-        },
-        cloudflare: {
-          connectedByUserId: snapshot.memberships[0].userId,
-          auth: { method: "api_key", credential: "preview-cloudflare-credential" },
-        },
-        organizationId: organization._id,
-      });
-      expect(organization.convexTeam).toMatchObject({ teamId: "preview-convex-team-id" });
-      expect(organization.cloudflareAccount).toMatchObject({
-        accountId: "preview-cloudflare-account-id",
-      });
-    }
+    const samebaseCredentials = snapshot.providerCredentials.find(
+      ({ organizationId }) => organizationId === samebaseOrganization?._id,
+    );
+    expect(samebaseOrganization).toMatchObject({
+      convexTeam: { teamId: "samebase-convex-team-id" },
+      cloudflareAccount: { accountId: "samebase-cloudflare-account-id" },
+    });
+    expect(samebaseCredentials).toMatchObject({
+      convex: { auth: { credential: "samebase-convex-credential" } },
+      cloudflare: { auth: { credential: "samebase-cloudflare-credential" } },
+    });
+
+    const personalOrganization = snapshot.organizations.find(
+      ({ githubOwnerId }) => githubOwnerId === "202",
+    );
+    const personalCredentials = snapshot.providerCredentials.find(
+      ({ organizationId }) => organizationId === personalOrganization?._id,
+    );
+    expect(personalOrganization).toMatchObject({
+      convexTeam: { teamId: "samebase-convex-team-id" },
+      cloudflareAccount: { accountId: "samebase-cloudflare-account-id" },
+    });
+    expect(personalCredentials).toMatchObject({
+      convex: { auth: { credential: "samebase-convex-credential" } },
+      cloudflare: { auth: { credential: "samebase-cloudflare-credential" } },
+    });
+
+    const liveTestsOrganization = snapshot.organizations.find(
+      ({ githubOwnerId }) => githubOwnerId === "303",
+    );
+    const liveTestsCredentials = snapshot.providerCredentials.find(
+      ({ organizationId }) => organizationId === liveTestsOrganization?._id,
+    );
+    expect(liveTestsOrganization).toMatchObject({
+      convexTeam: { teamId: "preview-convex-team-id" },
+      cloudflareAccount: { accountId: "preview-cloudflare-account-id" },
+    });
+    expect(liveTestsCredentials).toMatchObject({
+      convex: { auth: { credential: "preview-convex-credential" } },
+      cloudflare: { auth: { credential: "preview-cloudflare-credential" } },
+    });
   });
 
-  it("fails preview seeding when the shared provider setup is missing", async () => {
+  it("fails preview seeding when the Samebase provider setup is missing", async () => {
     const t = makeConvexTest();
     vi.stubEnv("CONVEX_DEPLOYMENT", "preview:organization-context");
-    vi.stubEnv("PREVIEW_SEED_AUTH_EMAIL", "preview@example.com");
-    vi.stubEnv("PREVIEW_SEED_AUTH_PASSWORD", "preview-password-123");
+    vi.stubEnv("DEV_SEED_AUTH_EMAIL", "preview@example.com");
+    vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "preview-password-123");
     vi.stubEnv("DEV_SEED_GITHUB_API_KEY", "preview-github-api-key");
-    vi.stubEnv("DEV_SEED_CONVEX_MANAGEMENT_API_KEY", "");
-    vi.stubEnv("DEV_SEED_CONVEX_TEAM_ID", "");
-    vi.stubEnv("DEV_SEED_CLOUDFLARE_API_KEY", "");
-    vi.stubEnv("DEV_SEED_CLOUDFLARE_ACCOUNT_ID", "");
+    vi.stubEnv("DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY", "");
 
     await expect(t.action(internal.devAuth.seedPasswordAccount, {})).rejects.toThrowError(
-      "Preview organization provider seeding requires DEV_SEED_CONVEX_MANAGEMENT_API_KEY, DEV_SEED_CONVEX_TEAM_ID, DEV_SEED_CLOUDFLARE_API_KEY, and DEV_SEED_CLOUDFLARE_ACCOUNT_ID",
+      "DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY is required",
     );
-    expect(devAuthMocks.discoverPreviewSeedGitHubAppInstallations).not.toHaveBeenCalled();
   });
 
   it("fails closed when the seed user is missing", async () => {
