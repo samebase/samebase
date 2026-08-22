@@ -142,6 +142,7 @@ describe("AppSidebarMetaSection", () => {
     prerenderedElement.innerHTML = markup;
 
     expect(readSidebarLinkLabels(prerenderedElement)).toEqual([
+      "/discord",
       "/terms",
       "/privacy",
       "/pricing",
@@ -151,11 +152,19 @@ describe("AppSidebarMetaSection", () => {
     const browserElement = await renderSidebarMetaSection();
 
     expect(readSidebarLinkLabels(browserElement)).toEqual([
+      "/discord",
       "/terms",
       "/privacy",
       "/pricing",
       "/landing",
     ]);
+    const discordLink = [...browserElement.querySelectorAll<HTMLAnchorElement>("a")].find(
+      (link) => link.textContent === "/discord",
+    );
+    expect(discordLink?.getAttribute("href")).toBe("https://discord.gg/DHvBcD4k5r");
+    expect(discordLink?.getAttribute("class")).toBe("text-[#5865F2]");
+    expect(discordLink?.getAttribute("rel")).toBe("noreferrer");
+    expect(discordLink?.getAttribute("target")).toBe("_blank");
     unmountSidebarMetaSection();
 
     for (const clientEntry of ["/?dev", "/?prod-ui"]) {
@@ -171,6 +180,7 @@ describe("AppSidebarMetaSection", () => {
 
       expect(readSidebarLinkLabels(rootElement)).toEqual([
         "?reset",
+        "/discord",
         "/terms",
         "/privacy",
         "/pricing",
@@ -191,6 +201,7 @@ describe("AppSidebarMetaSection", () => {
 
     expect(readSidebarLinkLabels(rootElement)).toEqual([
       "?reset",
+      "/discord",
       "/terms",
       "/privacy",
       "/pricing",

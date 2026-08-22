@@ -81,6 +81,14 @@ export function AppSidebarMetaSection({
         </>
       ) : null}
 
+      <a
+        className="text-[#5865F2]"
+        href="https://discord.gg/DHvBcD4k5r"
+        rel="noreferrer"
+        target="_blank"
+      >
+        /discord
+      </a>
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
       <Link to="/pricing">/pricing</Link>
