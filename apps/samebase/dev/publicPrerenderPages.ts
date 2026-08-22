@@ -112,7 +112,7 @@ const expectedPublicPrerenderMetadataByPath = {
   "/privacy": {
     title: "Privacy Policy | Samebase",
     description:
-      "Privacy Policy for Samebase. Describes the data the current app stores, the providers it talks to, and the browser storage it uses.",
+      "How Samebase handles personal information, including why it is used, who receives it, how long it is kept, and your rights.",
     robots: "index,follow",
   },
   "/terms": {
