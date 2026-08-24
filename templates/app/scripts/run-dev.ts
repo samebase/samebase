@@ -1,12 +1,14 @@
 /// <reference types="node" />
 import { spawn } from "node:child_process";
 import process from "node:process";
+import { fileURLToPath } from "node:url";
 
-const VP_COMMAND = process.platform === "win32" ? "vp.cmd" : "vp";
+const vitePlusEntrypoint = fileURLToPath(import.meta.resolve("vite-plus/bin"));
 
 const child = spawn(
-  VP_COMMAND,
+  process.execPath,
   [
+    vitePlusEntrypoint,
     "exec",
     "convex",
     "dev",
