@@ -1,5 +1,6 @@
 import { devices, expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
   DOCS_INDEX_ROUTE,
   DOCS_PRICING_ROUTE,
@@ -513,6 +514,41 @@ test("docs receipts route renders the claims ledger", async ({ page }) => {
     maxDiffPixelRatio: 0.02,
     scale: "css",
   });
+});
+
+test("Cloudflare setup loads the onboarding video only after Play", async ({ page }) => {
+  await page.setViewportSize({ width: 1100, height: 900 });
+  let youtubeRequestCount = 0;
+  await page.route("https://www.youtube-nocookie.com/**", (route) => {
+    youtubeRequestCount += 1;
+    return route.abort();
+  });
+
+  await page.goto(DOCS_CLOUDFLARE_SETUP_ROUTE, {
+    waitUntil: "networkidle",
+  });
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+
+  const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
+  const playOnboarding = article.locator(
+    'h1 + button[aria-label="Play the complete Samebase onboarding"]',
+  );
+  await expect(playOnboarding).toBeVisible();
+  expect(youtubeRequestCount).toBe(0);
+  await expect(playOnboarding).toHaveScreenshot("docs-cloudflare-setup-onboarding-video.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+
+  await playOnboarding.click();
+  await expect(
+    article.locator('h1 + iframe[title="Samebase onboarding: Complete setup from scratch"]'),
+  ).toBeVisible();
+  await expect.poll(() => youtubeRequestCount).toBe(1);
 });
 
 test("pricing route renders the public pricing page", async ({ page }) => {
