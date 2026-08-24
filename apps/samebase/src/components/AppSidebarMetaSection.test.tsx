@@ -142,6 +142,7 @@ describe("AppSidebarMetaSection", () => {
     prerenderedElement.innerHTML = markup;
 
     expect(readSidebarLinkLabels(prerenderedElement)).toEqual([
+      "/youtube",
       "/discord",
       "/terms",
       "/privacy",
@@ -152,14 +153,24 @@ describe("AppSidebarMetaSection", () => {
     const browserElement = await renderSidebarMetaSection();
 
     expect(readSidebarLinkLabels(browserElement)).toEqual([
+      "/youtube",
       "/discord",
       "/terms",
       "/privacy",
       "/pricing",
       "/landing",
     ]);
-    const discordLink = [...browserElement.querySelectorAll<HTMLAnchorElement>("a")].find(
-      (link) => link.textContent === "/discord",
+    const links = [...browserElement.querySelectorAll<HTMLAnchorElement>("a")];
+    const youtubeLink = links.find((link) => link.textContent === "/youtube");
+    expect(youtubeLink?.getAttribute("href")).toBe("https://www.youtube.com/@samebasecom");
+    expect(youtubeLink?.getAttribute("class")).toBe("text-[#FF0000]");
+    expect(youtubeLink?.getAttribute("rel")).toBe("noreferrer");
+    expect(youtubeLink?.getAttribute("target")).toBe("_blank");
+
+    const discordLink = links.find((link) => link.textContent === "/discord");
+    expect(youtubeLink?.parentElement).toBe(discordLink?.parentElement);
+    expect(youtubeLink?.parentElement?.getAttribute("class")).toBe(
+      "flex max-w-full flex-wrap items-center justify-start gap-3",
     );
     expect(discordLink?.getAttribute("href")).toBe("https://discord.gg/DHvBcD4k5r");
     expect(discordLink?.getAttribute("class")).toBe("text-[#5865F2]");
@@ -180,6 +191,7 @@ describe("AppSidebarMetaSection", () => {
 
       expect(readSidebarLinkLabels(rootElement)).toEqual([
         "?reset",
+        "/youtube",
         "/discord",
         "/terms",
         "/privacy",
@@ -201,6 +213,7 @@ describe("AppSidebarMetaSection", () => {
 
     expect(readSidebarLinkLabels(rootElement)).toEqual([
       "?reset",
+      "/youtube",
       "/discord",
       "/terms",
       "/privacy",
