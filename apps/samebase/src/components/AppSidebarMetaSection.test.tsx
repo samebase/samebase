@@ -168,6 +168,10 @@ describe("AppSidebarMetaSection", () => {
     expect(youtubeLink?.getAttribute("target")).toBe("_blank");
 
     const discordLink = links.find((link) => link.textContent === "/discord");
+    expect(youtubeLink?.parentElement).toBe(discordLink?.parentElement);
+    expect(youtubeLink?.parentElement?.getAttribute("class")).toBe(
+      "flex max-w-full flex-wrap items-center justify-start gap-3",
+    );
     expect(discordLink?.getAttribute("href")).toBe("https://discord.gg/DHvBcD4k5r");
     expect(discordLink?.getAttribute("class")).toBe("text-[#5865F2]");
     expect(discordLink?.getAttribute("rel")).toBe("noreferrer");

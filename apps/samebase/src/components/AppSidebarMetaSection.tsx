@@ -25,6 +25,11 @@ const APP_SIDEBAR_META_VERSION_CLASS_NAMES = {
     "flex max-w-full min-w-0 flex-row-reverse flex-wrap items-center justify-end gap-x-2 gap-y-1 font-mono",
 } as const satisfies Record<AppSidebarMetaLinkAlignment, string>;
 
+const APP_SIDEBAR_META_COMMUNITY_LINKS_CLASS_NAMES = {
+  left: "flex max-w-full flex-wrap items-center justify-start gap-3",
+  right: "flex max-w-full flex-wrap items-center justify-end gap-3",
+} as const satisfies Record<AppSidebarMetaLinkAlignment, string>;
+
 /**
  * SSG emits the same root HTML for every query string, while hydration renders
  * against the browser's real URL. Query-derived optional nodes must therefore
@@ -81,22 +86,24 @@ export function AppSidebarMetaSection({
         </>
       ) : null}
 
-      <a
-        className="text-[#FF0000]"
-        href="https://www.youtube.com/@samebasecom"
-        rel="noreferrer"
-        target="_blank"
-      >
-        /youtube
-      </a>
-      <a
-        className="text-[#5865F2]"
-        href="https://discord.gg/DHvBcD4k5r"
-        rel="noreferrer"
-        target="_blank"
-      >
-        /discord
-      </a>
+      <div className={APP_SIDEBAR_META_COMMUNITY_LINKS_CLASS_NAMES[linkAlignment]}>
+        <a
+          className="text-[#FF0000]"
+          href="https://www.youtube.com/@samebasecom"
+          rel="noreferrer"
+          target="_blank"
+        >
+          /youtube
+        </a>
+        <a
+          className="text-[#5865F2]"
+          href="https://discord.gg/DHvBcD4k5r"
+          rel="noreferrer"
+          target="_blank"
+        >
+          /discord
+        </a>
+      </div>
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
       <Link to="/pricing">/pricing</Link>
