@@ -2,17 +2,19 @@
 import { spawn } from "node:child_process";
 import process from "node:process";
 
+const VP_COMMAND = process.platform === "win32" ? "vp.cmd" : "vp";
+
 const child = spawn(
-  "vp",
+  VP_COMMAND,
   [
     "exec",
     "convex",
     "dev",
+    ...process.argv.slice(2),
     "--start",
     "node ./scripts/ensure-convex-auth.ts && vp run dev:frontend",
   ],
   {
-    shell: process.platform === "win32",
     stdio: "inherit",
   },
 );
