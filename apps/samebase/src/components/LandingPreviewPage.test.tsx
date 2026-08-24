@@ -35,7 +35,18 @@ vi.mock("@/components/AppWorkspaceShell", () => ({
 }));
 
 vi.mock("@/components/MarkdownLandingDocument", () => ({
-  MarkdownLandingDocument: ({ markdown }: { markdown: string }) => <article>{markdown}</article>,
+  MarkdownLandingDocument: ({
+    afterTitle,
+    markdown,
+  }: {
+    afterTitle?: ReactNode;
+    markdown: string;
+  }) => (
+    <article>
+      {afterTitle}
+      {markdown}
+    </article>
+  ),
 }));
 
 vi.mock("@/authClient", () => ({
@@ -335,6 +346,9 @@ describe("LandingPage", () => {
     const markup = renderToStaticMarkup(<DocsCloudflareSetupPage />);
 
     expect(markup).toContain("Set up Cloudflare for your first Samebase app");
+    expect(markup).toContain("/onboarding/complete-onboarding-poster.webp");
+    expect(markup).toContain("Play the complete Samebase onboarding");
+    expect(markup).not.toContain("youtube-nocookie.com");
     const createWorkerIndex = markup.indexOf("Create Worker");
     const deployKeyActionIndex = markup.indexOf("Use `&lt;project&gt;` for Workers Builds");
     expect(createWorkerIndex).toBeGreaterThan(-1);

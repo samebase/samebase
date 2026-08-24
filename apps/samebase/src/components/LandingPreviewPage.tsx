@@ -848,6 +848,47 @@ function PublicLandingPrimaryAction() {
 const DOCS_DOCUMENT_CLASS_NAME =
   "min-h-full shrink-0 pb-[calc(100svh-4rem)] @3xl:pb-[calc(100svh-4rem)]";
 
+const CLOUDFLARE_SETUP_ONBOARDING_VIDEO_URL =
+  "https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y?autoplay=1";
+const CLOUDFLARE_SETUP_ONBOARDING_VIDEO_TITLE = "Samebase onboarding: Complete setup from scratch";
+
+function CloudflareSetupOnboardingVideo() {
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  if (!isPlaying) {
+    return (
+      <button
+        aria-label="Play the complete Samebase onboarding"
+        className="relative aspect-[48/31] w-full overflow-hidden border-0 p-0"
+        onClick={() => setIsPlaying(true)}
+        type="button"
+      >
+        <img
+          alt=""
+          className="h-full w-full object-cover"
+          src="/onboarding/complete-onboarding-poster.webp"
+        />
+        <span className="absolute inset-0 grid place-items-center">
+          <span className="bg-black/80 px-4 py-3 text-lg font-semibold text-white">
+            Play onboarding
+          </span>
+        </span>
+      </button>
+    );
+  }
+
+  return (
+    <iframe
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+      allowFullScreen
+      className="aspect-[48/31] w-full border-0"
+      referrerPolicy="strict-origin-when-cross-origin"
+      src={CLOUDFLARE_SETUP_ONBOARDING_VIDEO_URL}
+      title={CLOUDFLARE_SETUP_ONBOARDING_VIDEO_TITLE}
+    />
+  );
+}
+
 function DocsTheStackDocument() {
   return (
     <MarkdownLandingDocument
@@ -871,6 +912,7 @@ function DocsDoItYourselfDocument() {
 function DocsCloudflareSetupDocument() {
   return (
     <MarkdownLandingDocument
+      afterTitle={<CloudflareSetupOnboardingVideo />}
       className={DOCS_DOCUMENT_CLASS_NAME}
       dataTestId={LANDING_PREVIEW_ARTICLE_TEST_ID}
       markdown={docsCloudflareSetupMarkdown}
