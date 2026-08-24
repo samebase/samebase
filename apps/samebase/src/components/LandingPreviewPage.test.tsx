@@ -348,6 +348,7 @@ describe("LandingPage", () => {
     expect(markup).toContain("Set up Cloudflare for your first Samebase app");
     expect(markup).toContain("/onboarding/complete-onboarding-poster.webp");
     expect(markup).toContain("Play the complete Samebase onboarding");
+    expect(markup).toContain("Play YouTube video");
     expect(markup).not.toContain("youtube-nocookie.com");
     const createWorkerIndex = markup.indexOf("Create Worker");
     const deployKeyActionIndex = markup.indexOf("Use `&lt;project&gt;` for Workers Builds");

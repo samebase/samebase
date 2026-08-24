@@ -870,7 +870,7 @@ function CloudflareSetupOnboardingVideo() {
         />
         <span className="absolute inset-0 grid place-items-center">
           <span className="bg-black/80 px-4 py-3 text-lg font-semibold text-white">
-            Play onboarding
+            Play YouTube video
           </span>
         </span>
       </button>
