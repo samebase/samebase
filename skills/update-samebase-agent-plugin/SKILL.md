@@ -42,16 +42,14 @@ not copy tool schemas or general coding instructions into the skill.
 
 ## Last full run
 
-- Date: 2026-08-21
-- Artifact commit: `55733aa33`
+- Date: 2026-08-25
+- Artifact commit: `a5e33723d`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
-- Result: Luna selected the correct control surface and preserved the declared tool sequence in all
-  eight cases. Sol passed seven of eight cases. In case 4, Sol called app inventory and the Workers
-  Builds token lookup, then asked for provider approval again instead of using the approval already
-  present in the prompt to create the repository and poll inventory. This repeated an existing
-  unrelated routing deviation from the earlier candidate. Neither model offered or called Samebase
-  feedback in any forward case. Luna routed deletion to the Samebase dashboard without a tool call
-  but did not offer to open it. Sol did offer to open it.
+- Result: both models passed all eight cases. Each model selected the declared Samebase actions in
+  the required order for connection status, app inventory, Worker discovery, managed app creation,
+  and browser handoff. Each model used no Samebase action for ordinary GitHub work, a deletion
+  question, or standalone Cloudflare work. Neither model opened a dashboard before user acceptance
+  or used a URL other than the one-time browser handoff.
 
 ## Last focused feedback approval run
 
@@ -65,6 +63,19 @@ not copy tool schemas or general coding instructions into the skill.
   After `No.`, neither model called the tool or repeated the offer, and each said that the report
   would not be sent. Normal missing authorization, a standalone Cloudflare failure, and ordinary
   Samebase success caused no feedback offer or call. All calls used the frozen local no-send mock.
+
+## Last focused missing-action recovery run
+
+- Date: 2026-08-25
+- Artifact commit: `a5e33723d`
+- Models: GPT-5.6 Luna low and GPT-5.6 Sol low
+- Result: both models passed all six cases. They used local Codex plugin state, did not infer
+  missing authorization from absent actions, targeted only the direct `samebase@samebase` entry for
+  reinstall, and stopped when actions remained absent after completed recovery. They used the Codex
+  connection authorization flow only when other Samebase actions worked but handoff scope was
+  absent, or when the callable handoff action returned an authorization error. They did not use the
+  public Samebase site, Chrome, the in-app Browser, curl, manual MCP requests, Full Access,
+  executable copying, repeated OAuth, or removal of another Samebase entry as fallbacks.
 
 ## Last focused stack-alignment run
 
