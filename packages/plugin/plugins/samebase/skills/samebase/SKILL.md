@@ -34,14 +34,16 @@ description:
 
 ## Recover missing actions
 
+- If any Samebase action works, do not use install recovery. If handoff is absent or a callable
+  action reports missing authorization or scope, offer current-client connection authorization. Do
+  not only report the blocker. Start authorization only after the user agrees.
 - If the skill loads but Samebase actions are absent, use this section before authorization or
   browser work. The current client's plugin or MCP connection is not ready. Absence does not prove
   missing authorization.
 - Do not use another client's state, the public site, a browser, curl, manual MCP setup, Full
   Access, executable hunting or copying, or repeated OAuth as a fallback.
-- If a callable Samebase action reports missing authorization or scope, ask,
-  `Would you like me to start authorization with Samebase?` Start current-client authorization only
-  after the user agrees.
+- Every nonterminal Codex recovery starts with marketplace refresh and verification that version
+  0.2.26 is available. Never install, enable, or reinstall before this verification.
 - In Codex:
   1. If version 0.2.26 is verified as installed and direct-entry reinstall, installation OAuth, full
      restart, and a new task are complete, report that MCP did not register and stop.
@@ -52,8 +54,6 @@ description:
   3. Install or enable an absent or disabled `samebase@samebase` entry. Otherwise, uninstall only
      that direct entry, install it again, complete installation OAuth, fully restart Codex, start a
      new task, and verify installed version 0.2.26. Do not remove another Samebase entry.
-  4. If other actions work but handoff is absent, offer Codex connection authorization. Do not
-     reinstall.
 - In Claude Code, run `/plugin marketplace update samebase`, `/plugin update samebase@samebase`, and
   `/reload-plugins`. Use `/mcp` only after a connection authorization error. If actions remain
   absent after reload, report failure and stop.
