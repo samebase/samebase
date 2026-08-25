@@ -62,6 +62,9 @@ description:
 
 ## Approve provider writes
 
+- A direct request to create a Samebase app approves one managed creation sequence after inventory
+  and token selection. State the resolved repository, provider account, and effects before the
+  create call, but do not ask again unless the target, effects, or scope changes.
 - Before a Samebase sequence can create or change provider resources or start a production build,
   state the repository, provider account, expected changes, and whether Samebase will attach an
   existing resource or create a new one. Get explicit approval.
