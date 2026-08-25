@@ -1,3 +1,6 @@
+import path from "node:path";
+import process from "node:process";
+
 import { describe, expect, it } from "vite-plus/test";
 
 import { buildWorktreeDevCommandPlan, parseWorktreeDevArgs } from "./run-worktree-dev.ts";
@@ -96,7 +99,7 @@ describe("run-worktree-dev", () => {
     expect(plan.at(-1)).toMatchObject({
       label: "launch the long-running worktree dev server",
       cwd: "/repo",
-      args: ["exec", "vp", "run", "--filter=samebase", "dev:raw"],
+      command: process.execPath,
       env: {
         CONVEX_AGENT_MODE: "anonymous",
         DEV_ENV_ORIGIN: "http://localhost:6001",
@@ -106,8 +109,9 @@ describe("run-worktree-dev", () => {
       },
       phase: "long-running",
     });
+    expect(plan.at(-1)?.args.slice(1)).toEqual(["run", "--filter=samebase", "dev:raw"]);
     expect(plan[0]).toMatchObject({
-      args: ["/repo/scripts/killport.ts"],
+      args: [path.join("/repo", "scripts", "killport.ts")],
       phase: "always",
     });
     const localBootstrap = plan.find(

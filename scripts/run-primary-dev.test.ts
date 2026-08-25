@@ -1,8 +1,10 @@
+import { spawnSync } from "node:child_process";
 import { createServer } from "node:net";
+import process from "node:process";
 
 import { describe, expect, it } from "vite-plus/test";
 
-import { buildPrimaryDevArgs, buildPrimaryDevEnvironment } from "./run-primary-dev.ts";
+import { buildPrimaryDevCommand, buildPrimaryDevEnvironment } from "./run-primary-dev.ts";
 
 const reserveFreePort = async (): Promise<string> =>
   await new Promise((resolve, reject) => {
@@ -59,24 +61,26 @@ describe("run-primary-dev", () => {
   });
 
   it("forwards extra arguments to Vite+ task running", () => {
-    expect(buildPrimaryDevArgs(["--", "--continue"])).toEqual([
-      "exec",
-      "vp",
-      "run",
-      "--filter=samebase",
-      "dev",
-      "--",
-      "--continue",
-    ]);
+    const command = buildPrimaryDevCommand(["--", "--continue"]);
+
+    expect(command.command).toBe(process.execPath);
+    expect(command.args.slice(1)).toEqual(["run", "--filter=samebase", "dev", "--", "--continue"]);
   });
 
   it("can build the raw app dev command for worktree startup", () => {
-    expect(buildPrimaryDevArgs([], "dev:raw")).toEqual([
-      "exec",
-      "vp",
-      "run",
-      "--filter=samebase",
-      "dev:raw",
-    ]);
+    const command = buildPrimaryDevCommand([], "dev:raw");
+
+    expect(command.command).toBe(process.execPath);
+    expect(command.args.slice(1)).toEqual(["run", "--filter=samebase", "dev:raw"]);
+  });
+
+  it("launches the resolved Vite+ entrypoint through Node", () => {
+    const command = buildPrimaryDevCommand([]);
+    const result = spawnSync(command.command, [command.args[0], "--help"], {
+      encoding: "utf8",
+    });
+
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain("Vite+");
   });
 });
