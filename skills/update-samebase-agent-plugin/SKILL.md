@@ -67,7 +67,7 @@ not copy tool schemas or general coding instructions into the skill.
 ## Last focused missing-action recovery run
 
 - Date: 2026-08-25
-- Artifact commit: `34739b392`
+- Artifact commit: `1a68e0a27`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
 - Result: both models passed five cases covering a missing Codex action, a callable authorization
   error, terminal Codex recovery, Claude Code, and ChatGPT. Missing actions caused one repair
