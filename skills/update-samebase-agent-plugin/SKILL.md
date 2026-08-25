@@ -43,7 +43,7 @@ not copy tool schemas or general coding instructions into the skill.
 ## Last full run
 
 - Date: 2026-08-25
-- Artifact commit: `a5e33723d`
+- Artifact commit: `36a05cde0`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
 - Result: both models passed all eight cases. Each model selected the declared Samebase actions in
   the required order for connection status, app inventory, Worker discovery, managed app creation,
@@ -67,15 +67,18 @@ not copy tool schemas or general coding instructions into the skill.
 ## Last focused missing-action recovery run
 
 - Date: 2026-08-25
-- Artifact commit: `a5e33723d`
+- Final artifact commit: `36a05cde0`
+- Preceding recovery artifact commit: `ba8aec630`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
-- Result: both models passed all six cases. They used local Codex plugin state, did not infer
-  missing authorization from absent actions, targeted only the direct `samebase@samebase` entry for
-  reinstall, and stopped when actions remained absent after completed recovery. They used the Codex
-  connection authorization flow only when other Samebase actions worked but handoff scope was
-  absent, or when the callable handoff action returned an authorization error. They did not use the
-  public Samebase site, Chrome, the in-app Browser, curl, manual MCP requests, Full Access,
-  executable copying, repeated OAuth, or removal of another Samebase entry as fallbacks.
+- Result: on the preceding artifact, both models passed six unchanged cases: unverified Codex
+  version, absent handoff with other actions registered, callable authorization error, first Codex
+  recovery, terminal Codex recovery, and Claude Code recovery. Sol passed ChatGPT recovery, while
+  Luna incorrectly added a Codex version check. After the ChatGPT branch was simplified, both models
+  passed that final case on the final artifact. Missing actions always caused current-client
+  registration recovery, not authorization. Only a callable authorization error caused an
+  authorization offer. No model used another client's state, the public Samebase site, a browser
+  fallback, curl, manual MCP, Full Access, executable copying, repeated OAuth, or another Samebase
+  entry.
 
 ## Last focused stack-alignment run
 
