@@ -844,7 +844,7 @@ execFileSync("pnpm", ["exec", "vp", "fmt", ...generatedFormatPaths], {
   cwd: appRoot,
   stdio: "inherit",
 });
-execFileSync("pnpm", ["exec", "vp", "check", "--fix", ...generatedFormatPaths], {
+execFileSync("pnpm", ["exec", "vp", "check", ...generatedFormatPaths], {
   cwd: appRoot,
   stdio: "inherit",
 });

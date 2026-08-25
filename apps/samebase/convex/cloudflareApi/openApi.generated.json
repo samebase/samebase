@@ -88,7 +88,11 @@
           "enterprise": true,
           "free": true,
           "pro": true
-        }
+        },
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "accounts",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "post": {
         "operationId": "account-creation",
@@ -142,7 +146,8 @@
         },
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "accounts",
-        "x-fern-sdk-method-name": "create"
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/account/limits": {
@@ -1366,7 +1371,11 @@
           }
         ],
         "tags": ["Workers"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.workers",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/workers/{external_script_id}/builds": {
@@ -1552,7 +1561,11 @@
           }
         ],
         "tags": ["Deploy Hooks"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.deploy-hooks",
+        "x-fern-sdk-method-name": "list",
+        "x-forge-hidden": true
       },
       "post": {
         "operationId": "createDeployHook",
@@ -1619,7 +1632,11 @@
           }
         ],
         "tags": ["Deploy Hooks"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.deploy-hooks",
+        "x-fern-sdk-method-name": "create",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/workers/{script_name}/deploy_hooks/{deploy_hook_uuid}": {
@@ -1675,7 +1692,11 @@
           }
         ],
         "tags": ["Deploy Hooks"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.deploy-hooks",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "operationId": "getDeployHook",
@@ -1729,7 +1750,11 @@
           }
         ],
         "tags": ["Deploy Hooks"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.deploy-hooks",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "put": {
         "operationId": "updateDeployHook",
@@ -1799,7 +1824,11 @@
           }
         ],
         "tags": ["Deploy Hooks"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.deploy-hooks",
+        "x-fern-sdk-method-name": "update",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/builds/workers/{script_tag}": {
@@ -1856,7 +1885,11 @@
           }
         ],
         "tags": ["Workers"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.workers",
+        "x-fern-sdk-method-name": "delete",
+        "x-forge-hidden": true
       },
       "get": {
         "operationId": "getWorkerBuild",
@@ -1910,7 +1943,11 @@
           }
         ],
         "tags": ["Workers"],
-        "x-api-token-group": ["Workers CI Write", "Workers CI Read"]
+        "x-api-token-group": ["Workers CI Write", "Workers CI Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.workers",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "patch": {
         "operationId": "updateWorkerBuild",
@@ -1983,7 +2020,11 @@
           }
         ],
         "tags": ["Workers"],
-        "x-api-token-group": ["Workers CI Write"]
+        "x-api-token-group": ["Workers CI Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers-builds.workers",
+        "x-fern-sdk-method-name": "edit",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/account-settings": {
@@ -3687,7 +3728,11 @@
             "api_key": []
           }
         ],
-        "tags": ["Workers for Platforms"]
+        "tags": ["Workers for Platforms"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "dispatch-namespaces.scripts.secrets",
+        "x-fern-sdk-method-name": "bulk-edit",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/dispatch/namespaces/{dispatch_namespace}/scripts/{script_name}/secrets/{secret_name}": {
@@ -5302,8 +5347,7 @@
         "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "observability.destinations",
-        "x-fern-sdk-method-name": "list",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "list"
       },
       "parameters": [
         {
@@ -5668,8 +5712,7 @@
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "observability.destinations",
-        "x-fern-sdk-method-name": "create",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "create"
       }
     },
     "/accounts/{account_id}/workers/observability/destinations/{slug}": {
@@ -5934,7 +5977,7 @@
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "observability.destinations",
         "x-fern-sdk-method-name": "delete",
-        "x-forge-hidden": true
+        "x-forge-require-confirmation": "This operation deletes the destination."
       },
       "parameters": [
         {
@@ -6286,8 +6329,7 @@
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "observability.destinations",
-        "x-fern-sdk-method-name": "update",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "update"
       }
     },
     "/accounts/{account_id}/workers/observability/metricsexport": {
@@ -6550,7 +6592,9 @@
           }
         },
         "tags": ["Metrics Export"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-ignore": true,
+        "x-forge-hidden": true
       },
       "get": {
         "operationId": "metricsExport.list",
@@ -6729,7 +6773,9 @@
           }
         },
         "tags": ["Metrics Export"],
-        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"]
+        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
+        "x-fern-ignore": true,
+        "x-forge-hidden": true
       },
       "parameters": [
         {
@@ -7124,7 +7170,9 @@
           }
         },
         "tags": ["Metrics Export"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-ignore": true,
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/observability/queries": {
@@ -7360,8 +7408,7 @@
         "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "observability.queries",
-        "x-fern-sdk-method-name": "list",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "list"
       },
       "parameters": [
         {
@@ -7797,8 +7844,7 @@
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "observability.queries",
-        "x-fern-sdk-method-name": "create",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "create"
       }
     },
     "/accounts/{account_id}/workers/observability/queries/{queryId}": {
@@ -8003,7 +8049,7 @@
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "observability.queries",
         "x-fern-sdk-method-name": "delete",
-        "x-forge-hidden": true
+        "x-forge-require-confirmation": "This operation deletes the saved query."
       },
       "get": {
         "operationId": "queries.get",
@@ -8205,8 +8251,7 @@
         "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "observability.queries",
-        "x-fern-sdk-method-name": "get",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "get"
       },
       "parameters": [
         {
@@ -8652,8 +8697,7 @@
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "observability.queries",
-        "x-fern-sdk-method-name": "edit",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "edit"
       }
     },
     "/accounts/{account_id}/workers/observability/shared/query": {
@@ -8692,6 +8736,11 @@
                   "compare": {
                     "description": "When true, includes a comparison dataset from the previous time period of equal length.",
                     "type": "boolean"
+                  },
+                  "distributionScale": {
+                    "description": "Value-axis bucketing for chartType 'distribution'. Omitted or 'log': geometric buckets, best for heavy-tailed latency. 'linear': fixed-width buckets, clearer for narrow or additive ranges. Ignored for other chartTypes. The response echoes the scheme used in distribution.bucketMode.",
+                    "type": "string",
+                    "enum": ["log", "linear"]
                   },
                   "dry": {
                     "description": "When true, executes the query without persisting the results. Useful for validation or previewing.",
@@ -8743,7 +8792,7 @@
                                   "type": "string"
                                 },
                                 "key": {
-                                  "description": "Field name to calculate over. Must exist in the data - verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it.",
+                                  "description": "Field name to calculate over. Must exist in the data. Verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it.",
                                   "type": "string"
                                 },
                                 "keyType": {
@@ -8767,7 +8816,7 @@
                                   "type": "string"
                                 },
                                 "key": {
-                                  "description": "Field name to calculate over. Must exist in the data - verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it.",
+                                  "description": "Field name to calculate over. Must exist in the data. Verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it.",
                                   "type": "string",
                                   "pattern": "\\S"
                                 },
@@ -8991,16 +9040,20 @@
                     "type": "string"
                   },
                   "timeframe": {
-                    "description": "Timeframe for the query using Unix timestamps in milliseconds. Narrower timeframes produce faster responses and more specific results.",
+                    "description": "Timeframe for the query using Unix timestamps in milliseconds. 'from' must be earlier than 'to'. Narrower timeframes produce faster responses and more specific results.",
                     "type": "object",
                     "properties": {
                       "from": {
-                        "description": "Start timestamp for the query timeframe (Unix timestamp in milliseconds)",
-                        "type": "number"
+                        "description": "Start timestamp for the query timeframe. Unix timestamp in milliseconds",
+                        "type": "integer",
+                        "maximum": 253402300799999,
+                        "minimum": 0
                       },
                       "to": {
-                        "description": "End timestamp for the query timeframe (Unix timestamp in milliseconds)",
-                        "type": "number"
+                        "description": "End timestamp for the query timeframe. Unix timestamp in milliseconds",
+                        "type": "integer",
+                        "maximum": 253402300799999,
+                        "minimum": 0
                       }
                     },
                     "required": ["to", "from"]
@@ -9259,7 +9312,10 @@
           }
         },
         "tags": ["Shared", "Query"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.shared-queries",
+        "x-fern-sdk-method-name": "create"
       }
     },
     "/accounts/{account_id}/workers/observability/shared/query/{id}": {
@@ -9271,6 +9327,7 @@
           {
             "name": "id",
             "in": "path",
+            "description": "Specify the ID of the shared query.",
             "required": true,
             "schema": {
               "description": "Specify the ID of the shared query.",
@@ -9280,6 +9337,7 @@
           {
             "name": "view",
             "in": "query",
+            "description": "Select the view of the query result to return, defaults to events.",
             "schema": {
               "description": "Select the view of the query result to return, defaults to events.",
               "type": "string",
@@ -9423,6 +9481,51 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "properties": {
+                          "detail": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string",
+                            "enum": ["Forbidden"]
+                          }
+                        },
+                        "required": ["message"],
+                        "type": "object"
+                      }
+                    },
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "properties": {
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["message"],
+                        "type": "object"
+                      }
+                    },
+                    "success": {
+                      "type": "boolean",
+                      "enum": [false]
+                    }
+                  },
+                  "required": ["errors", "success", "messages"]
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error",
             "content": {
@@ -9470,7 +9573,10 @@
           }
         },
         "tags": ["Shared", "Query"],
-        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"]
+        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "observability.shared-queries",
+        "x-fern-sdk-method-name": "get"
       },
       "parameters": [
         {
@@ -9942,8 +10048,7 @@
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "observability.telemetry",
-        "x-fern-sdk-method-name": "keys",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "keys"
       }
     },
     "/accounts/{account_id}/workers/observability/telemetry/live-tail": {
@@ -10220,7 +10325,9 @@
           }
         },
         "tags": ["Live Tail"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-ignore": true,
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/observability/telemetry/live-tail/heartbeat": {
@@ -10393,7 +10500,9 @@
           }
         },
         "tags": ["Live Tail"],
-        "x-api-token-group": ["Workers Observability Write"]
+        "x-api-token-group": ["Workers Observability Write"],
+        "x-fern-ignore": true,
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/observability/telemetry/query": {
@@ -10432,6 +10541,11 @@
                   "compare": {
                     "description": "When true, includes a comparison dataset from the previous time period of equal length.",
                     "type": "boolean"
+                  },
+                  "distributionScale": {
+                    "description": "Value-axis bucketing for chartType 'distribution'. Omitted or 'log': geometric buckets, best for heavy-tailed latency. 'linear': fixed-width buckets, clearer for narrow or additive ranges. Ignored for other chartTypes. The response echoes the scheme used in distribution.bucketMode.",
+                    "type": "string",
+                    "enum": ["log", "linear"]
                   },
                   "dry": {
                     "description": "When true, executes the query without persisting the results. Useful for validation or previewing.",
@@ -10483,7 +10597,7 @@
                                   "type": "string"
                                 },
                                 "key": {
-                                  "description": "Field name to calculate over. Must exist in the data - verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it.",
+                                  "description": "Field name to calculate over. Must exist in the data. Verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it.",
                                   "type": "string"
                                 },
                                 "keyType": {
@@ -10507,7 +10621,7 @@
                                   "type": "string"
                                 },
                                 "key": {
-                                  "description": "Field name to calculate over. Must exist in the data - verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it.",
+                                  "description": "Field name to calculate over. Must exist in the data. Verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it.",
                                   "type": "string",
                                   "pattern": "\\S"
                                 },
@@ -10731,16 +10845,20 @@
                     "type": "string"
                   },
                   "timeframe": {
-                    "description": "Timeframe for the query using Unix timestamps in milliseconds. Narrower timeframes produce faster responses and more specific results.",
+                    "description": "Timeframe for the query using Unix timestamps in milliseconds. 'from' must be earlier than 'to'. Narrower timeframes produce faster responses and more specific results.",
                     "type": "object",
                     "properties": {
                       "from": {
-                        "description": "Start timestamp for the query timeframe (Unix timestamp in milliseconds)",
-                        "type": "number"
+                        "description": "Start timestamp for the query timeframe. Unix timestamp in milliseconds",
+                        "type": "integer",
+                        "maximum": 253402300799999,
+                        "minimum": 0
                       },
                       "to": {
-                        "description": "End timestamp for the query timeframe (Unix timestamp in milliseconds)",
-                        "type": "number"
+                        "description": "End timestamp for the query timeframe. Unix timestamp in milliseconds",
+                        "type": "integer",
+                        "maximum": 253402300799999,
+                        "minimum": 0
                       }
                     },
                     "required": ["to", "from"]
@@ -11040,8 +11158,7 @@
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "observability.telemetry",
-        "x-fern-sdk-method-name": "query",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "query"
       }
     },
     "/accounts/{account_id}/workers/observability/telemetry/values": {
@@ -11491,8 +11608,7 @@
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-availability": "generally-available",
         "x-fern-sdk-group-name": "observability.telemetry",
-        "x-fern-sdk-method-name": "values",
-        "x-forge-hidden": true
+        "x-fern-sdk-method-name": "values"
       }
     },
     "/accounts/{account_id}/workers/observability/usage": {
@@ -11504,6 +11620,7 @@
           {
             "name": "from",
             "in": "query",
+            "description": "Unix timestamp in milliseconds for the start of the range.",
             "required": true,
             "schema": {
               "description": "Unix timestamp in milliseconds for the start of the range.",
@@ -11514,6 +11631,7 @@
           {
             "name": "to",
             "in": "query",
+            "description": "Unix timestamp in milliseconds for the end of the range.",
             "required": true,
             "schema": {
               "description": "Unix timestamp in milliseconds for the end of the range.",
@@ -11691,6 +11809,51 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "properties": {
+                          "detail": {
+                            "type": "string"
+                          },
+                          "message": {
+                            "type": "string",
+                            "enum": ["Forbidden"]
+                          }
+                        },
+                        "required": ["message"],
+                        "type": "object"
+                      }
+                    },
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "properties": {
+                          "message": {
+                            "type": "string"
+                          }
+                        },
+                        "required": ["message"],
+                        "type": "object"
+                      }
+                    },
+                    "success": {
+                      "type": "boolean",
+                      "enum": [false]
+                    }
+                  },
+                  "required": ["errors", "success", "messages"]
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too many requests",
             "content": {
@@ -11783,7 +11946,9 @@
           }
         },
         "tags": ["Usage"],
-        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"]
+        "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
+        "x-fern-ignore": true,
+        "x-forge-hidden": true
       },
       "parameters": [
         {
@@ -13512,7 +13677,11 @@
             "api_key": []
           }
         ],
-        "tags": ["Worker Script"]
+        "tags": ["Worker Script"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.secrets",
+        "x-fern-sdk-method-name": "bulk-edit",
+        "x-forge-hidden": true
       }
     },
     "/accounts/{account_id}/workers/scripts/{script_name}/secrets/{secret_name}": {
@@ -14145,7 +14314,11 @@
           }
         ],
         "tags": ["Worker Tail Logs"],
-        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write"]
+        "x-api-token-group": ["Workers Tail Read", "Workers Scripts Write"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.scripts.tail",
+        "x-fern-sdk-method-name": "get",
+        "x-forge-hidden": true
       },
       "post": {
         "operationId": "worker-tail-logs-start-tail",
@@ -16730,7 +16903,11 @@
             "api_key": []
           }
         ],
-        "tags": ["Versions"]
+        "tags": ["Versions"],
+        "x-fern-availability": "generally-available",
+        "x-fern-sdk-group-name": "workers.beta.workers.versions",
+        "x-fern-sdk-method-name": "edit",
+        "x-forge-hidden": true
       }
     },
     "/user/tokens/verify": {
@@ -16894,7 +17071,7 @@
             "description": "Timestamp for the creation of the account",
             "type": "string",
             "format": "date-time",
-            "example": "2014-03-01T12:21:02.0000Z",
+            "example": "2014-03-01T12:21:02Z",
             "readOnly": true,
             "x-auditable": true
           },
@@ -18886,7 +19063,7 @@
       "workers_compatibility_date": {
         "description": "Date indicating targeted support in the Workers runtime. Backwards incompatible fixes to the runtime following this date will not affect this Worker.",
         "type": "string",
-        "example": "2021-01-01",
+        "example": "2021-01-01T00:00:00Z",
         "x-auditable": true
       },
       "workers_compatibility_flags": {
@@ -19234,6 +19411,13 @@
             },
             "required": ["enabled", "invocation_logs"]
           },
+          "redact_query_string": {
+            "description": "Whether query strings are removed from request URLs in logs and traces.",
+            "type": "boolean",
+            "example": false,
+            "default": false,
+            "x-auditable": true
+          },
           "traces": {
             "description": "Trace settings for the Worker.",
             "type": "object",
@@ -19269,10 +19453,10 @@
                 "x-auditable": true
               },
               "propagation_policy": {
-                "description": "Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. \"authenticated\" (default) honors inbound trace context only when accompanied by a valid trace auth token. \"accept\" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled.",
+                "description": "Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. \"authenticated\" honors inbound trace context only when accompanied by a valid trace auth token. \"accept\" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled. Returns null when the trace propagation feature is not enabled for the account.",
                 "type": "string",
-                "default": "authenticated",
-                "enum": ["authenticated", "accept"],
+                "enum": ["authenticated", "accept", null],
+                "nullable": true,
                 "x-auditable": true
               }
             }
@@ -20886,6 +21070,12 @@
       "workers_binding_kind_vpc_network": {
         "type": "object",
         "properties": {
+          "identity": {
+            "description": "Enables Gateway identity for the binding. Requires network_id to be \"cf1:network\" and cannot be combined with tunnel_id.\n",
+            "type": "string",
+            "enum": ["runtime-email-alpha"],
+            "x-auditable": true
+          },
           "name": {
             "$ref": "#/components/schemas/workers_binding_name"
           },
@@ -22011,7 +22201,8 @@
             "type": "boolean"
           },
           "created": {
-            "type": "string"
+            "type": "string",
+            "format": "date-time"
           },
           "createdBy": {
             "type": "string"
@@ -22239,7 +22430,8 @@
             "type": "object"
           },
           "updated": {
-            "type": "string"
+            "type": "string",
+            "format": "date-time"
           },
           "updatedBy": {
             "type": "string"
@@ -22387,7 +22579,7 @@
                   }
                 },
                 "id": {
-                  "description": "Pagination cursor derived from the first agent invocation in the run.",
+                  "description": "Stable pagination cursor for this agent run.",
                   "type": "string"
                 },
                 "inputTokens": {
@@ -23378,6 +23570,7 @@
                         "type": "string"
                       },
                       {
+                        "format": "date-time",
                         "type": "string"
                       }
                     ]
@@ -23388,6 +23581,7 @@
                         "type": "string"
                       },
                       {
+                        "format": "date-time",
                         "type": "string"
                       }
                     ]
@@ -23426,16 +23620,20 @@
             "enum": ["STARTED", "COMPLETED"]
           },
           "timeframe": {
-            "description": "Time range for the query execution",
+            "description": "Time range for the query execution. 'from' must be earlier than 'to'. No fractional milliseconds.",
             "type": "object",
             "properties": {
               "from": {
-                "description": "Start timestamp for the query timeframe (Unix timestamp in milliseconds)",
-                "type": "number"
+                "description": "Start timestamp for the query timeframe. Unix timestamp in milliseconds",
+                "type": "integer",
+                "maximum": 253402300799999,
+                "minimum": 0
               },
               "to": {
-                "description": "End timestamp for the query timeframe (Unix timestamp in milliseconds)",
-                "type": "number"
+                "description": "End timestamp for the query timeframe. Unix timestamp in milliseconds",
+                "type": "integer",
+                "maximum": 253402300799999,
+                "minimum": 0
               }
             },
             "required": ["to", "from"]
@@ -24281,7 +24479,7 @@
                       "compatibility_date": {
                         "description": "Date indicating targeted support in the Workers runtime. Backwards incompatible fixes to the runtime following this date will not affect this Worker.",
                         "type": "string",
-                        "example": "2022-11-08",
+                        "example": "2022-11-08T00:00:00Z",
                         "readOnly": true,
                         "x-auditable": true
                       },
@@ -24487,6 +24685,12 @@
                   }
                 }
               },
+              "redact_query_string": {
+                "description": "Whether query strings are removed from request URLs in logs and traces.",
+                "type": "boolean",
+                "default": false,
+                "x-auditable": true
+              },
               "traces": {
                 "description": "Trace settings for the Worker.",
                 "type": "object",
@@ -24520,10 +24724,10 @@
                     "x-auditable": true
                   },
                   "propagation_policy": {
-                    "description": "Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. \"authenticated\" (default) honors inbound trace context only when accompanied by a valid trace auth token. \"accept\" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled.",
+                    "description": "Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. \"authenticated\" honors inbound trace context only when accompanied by a valid trace auth token. \"accept\" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled. Returns null when the trace propagation feature is not enabled for the account.",
                     "type": "string",
-                    "default": "authenticated",
-                    "enum": ["authenticated", "accept"],
+                    "enum": ["authenticated", "accept", null],
+                    "nullable": true,
                     "x-auditable": true
                   }
                 }
@@ -25783,11 +25987,41 @@
                           "example": "staging",
                           "maxLength": 63
                         },
+                        "workers/commit_sha": {
+                          "description": "Full commit SHA associated with the version, detected from the CI environment. Maximum 64 bytes.",
+                          "type": "string",
+                          "example": "8b6aeb38455e2f92e170deb46313b90166ccc1e5",
+                          "maxLength": 64
+                        },
                         "workers/message": {
                           "description": "Human-readable message about the version. Truncated to 1000 bytes if longer.",
                           "type": "string",
                           "example": "Fixed worker code.",
                           "maxLength": 1000
+                        },
+                        "workers/pull_request_number": {
+                          "description": "Number of the pull or merge request associated with the version, detected from the CI environment. Maximum 20 bytes.",
+                          "type": "string",
+                          "example": "14966",
+                          "maxLength": 20
+                        },
+                        "workers/pull_request_title": {
+                          "description": "Title of the pull or merge request associated with the version, detected from the CI environment. Maximum 512 bytes.",
+                          "type": "string",
+                          "example": "Add a cool new feature",
+                          "maxLength": 512
+                        },
+                        "workers/pull_request_url": {
+                          "description": "URL of the pull or merge request associated with the version, detected from the CI environment. Maximum 512 bytes.",
+                          "type": "string",
+                          "example": "https://github.com/cloudflare/workers-sdk/pull/14966",
+                          "maxLength": 512
+                        },
+                        "workers/repository_url": {
+                          "description": "URL of the source repository the version was built from, detected from the CI environment. Maximum 512 bytes.",
+                          "type": "string",
+                          "example": "https://github.com/cloudflare/workers-sdk",
+                          "maxLength": 512
                         },
                         "workers/tag": {
                           "description": "User-provided identifier for the version. Maximum 100 bytes.",

@@ -2091,7 +2091,7 @@ export interface components {
       /**
        * Format: date-time
        * @description Timestamp for the creation of the account
-       * @example 2014-03-01T12:21:02.0000Z
+       * @example 2014-03-01T12:21:02Z
        */
       created_on?: $Read<string>;
       id: components["schemas"]["iam_common_components-schemas-identifier"];
@@ -3014,7 +3014,7 @@ export interface components {
     };
     /**
      * @description Date indicating targeted support in the Workers runtime. Backwards incompatible fixes to the runtime following this date will not affect this Worker.
-     * @example 2021-01-01
+     * @example 2021-01-01T00:00:00Z
      */
     workers_compatibility_date: string;
     /**
@@ -3343,6 +3343,12 @@ export interface components {
          */
         persist: boolean;
       } | null;
+      /**
+       * @description Whether query strings are removed from request URLs in logs and traces.
+       * @default false
+       * @example false
+       */
+      redact_query_string: boolean;
       /** @description Trace settings for the Worker. */
       traces?: {
         /**
@@ -3369,11 +3375,10 @@ export interface components {
          */
         persist: boolean;
         /**
-         * @description Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. "authenticated" (default) honors inbound trace context only when accompanied by a valid trace auth token. "accept" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled.
-         * @default authenticated
-         * @enum {string}
+         * @description Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. "authenticated" honors inbound trace context only when accompanied by a valid trace auth token. "accept" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled. Returns null when the trace propagation feature is not enabled for the account.
+         * @enum {string|null}
          */
-        propagation_policy: "authenticated" | "accept";
+        propagation_policy?: "authenticated" | "accept" | null;
       } | null;
     };
     /** @description Configuration for [Smart Placement](https://developers.cloudflare.com/workers/configuration/smart-placement). Specify mode='smart' for Smart Placement, or one of region/hostname/host. */
@@ -4301,6 +4306,11 @@ export interface components {
       type: "vpc_service";
     };
     workers_binding_kind_vpc_network: {
+      /**
+       * @description Enables Gateway identity for the binding. Requires network_id to be "cf1:network" and cannot be combined with tunnel_id.
+       * @enum {string}
+       */
+      identity?: "runtime-email-alpha";
       name: components["schemas"]["workers_binding_name"];
       /**
        * @description Identifier of the network to bind to. Only "cf1:network" is currently supported. Mutually exclusive with tunnel_id.
@@ -4862,6 +4872,7 @@ export interface components {
     "workers-observability_query": {
       /** @description If the query wasn't explcitly saved */
       adhoc: boolean;
+      /** Format: date-time */
       created: string;
       createdBy: string;
       /** @example Query description */
@@ -4969,6 +4980,7 @@ export interface components {
           value: string;
         };
       };
+      /** Format: date-time */
       updated: string;
       updatedBy: string;
     };
@@ -5046,7 +5058,7 @@ export interface components {
         conversationId?: string;
         /** @description Distinct errors reported by spans in the run. */
         errors: string[];
-        /** @description Pagination cursor derived from the first agent invocation in the run. */
+        /** @description Stable pagination cursor for this agent run. */
         id: string;
         /** @description Input tokens summed across chat spans in the run's trace; informational, not billing data. */
         inputTokens?: number;
@@ -5423,11 +5435,11 @@ export interface components {
        * @enum {string}
        */
       status: "STARTED" | "COMPLETED";
-      /** @description Time range for the query execution */
+      /** @description Time range for the query execution. 'from' must be earlier than 'to'. No fractional milliseconds. */
       timeframe: {
-        /** @description Start timestamp for the query timeframe (Unix timestamp in milliseconds) */
+        /** @description Start timestamp for the query timeframe. Unix timestamp in milliseconds */
         from: number;
-        /** @description End timestamp for the query timeframe (Unix timestamp in milliseconds) */
+        /** @description End timestamp for the query timeframe. Unix timestamp in milliseconds */
         to: number;
       };
       /** @description ISO-8601 timestamp when the query run was last updated. */
@@ -5799,7 +5811,7 @@ export interface components {
         script_runtime?: $Read<{
           /**
            * @description Date indicating targeted support in the Workers runtime. Backwards incompatible fixes to the runtime following this date will not affect this Worker.
-           * @example 2022-11-08
+           * @example 2022-11-08T00:00:00Z
            */
           compatibility_date?: $Read<string>;
           /** @description Flags that enable or disable certain features in the Workers runtime. */
@@ -5926,6 +5938,11 @@ export interface components {
            */
           persist: boolean;
         };
+        /**
+         * @description Whether query strings are removed from request URLs in logs and traces.
+         * @default false
+         */
+        redact_query_string: boolean;
         /** @description Trace settings for the Worker. */
         traces?: {
           /**
@@ -5950,11 +5967,10 @@ export interface components {
            */
           persist: boolean;
           /**
-           * @description Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. "authenticated" (default) honors inbound trace context only when accompanied by a valid trace auth token. "accept" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled.
-           * @default authenticated
-           * @enum {string}
+           * @description Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. "authenticated" honors inbound trace context only when accompanied by a valid trace auth token. "accept" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled. Returns null when the trace propagation feature is not enabled for the account.
+           * @enum {string|null}
            */
-          propagation_policy: "authenticated" | "accept";
+          propagation_policy?: "authenticated" | "accept" | null;
         };
       };
       /** @description Other resources that reference the Worker and depend on it existing. */
@@ -6696,10 +6712,35 @@ export interface components {
                */
               "workers/alias"?: string;
               /**
+               * @description Full commit SHA associated with the version, detected from the CI environment. Maximum 64 bytes.
+               * @example 8b6aeb38455e2f92e170deb46313b90166ccc1e5
+               */
+              "workers/commit_sha"?: string;
+              /**
                * @description Human-readable message about the version. Truncated to 1000 bytes if longer.
                * @example Fixed worker code.
                */
               "workers/message"?: string;
+              /**
+               * @description Number of the pull or merge request associated with the version, detected from the CI environment. Maximum 20 bytes.
+               * @example 14966
+               */
+              "workers/pull_request_number"?: string;
+              /**
+               * @description Title of the pull or merge request associated with the version, detected from the CI environment. Maximum 512 bytes.
+               * @example Add a cool new feature
+               */
+              "workers/pull_request_title"?: string;
+              /**
+               * @description URL of the pull or merge request associated with the version, detected from the CI environment. Maximum 512 bytes.
+               * @example https://github.com/cloudflare/workers-sdk/pull/14966
+               */
+              "workers/pull_request_url"?: string;
+              /**
+               * @description URL of the source repository the version was built from, detected from the CI environment. Maximum 512 bytes.
+               * @example https://github.com/cloudflare/workers-sdk
+               */
+              "workers/repository_url"?: string;
               /**
                * @description User-provided identifier for the version. Maximum 100 bytes.
                * @example any-identifier-from-external-system
@@ -11016,6 +11057,11 @@ export interface operations {
           /** @description When true, includes a comparison dataset from the previous time period of equal length. */
           compare?: boolean;
           /**
+           * @description Value-axis bucketing for chartType 'distribution'. Omitted or 'log': geometric buckets, best for heavy-tailed latency. 'linear': fixed-width buckets, clearer for narrow or additive ranges. Ignored for other chartTypes. The response echoes the scheme used in distribution.bucketMode.
+           * @enum {string}
+           */
+          distributionScale?: "log" | "linear";
+          /**
            * @description When true, executes the query without persisting the results. Useful for validation or previewing.
            * @default false
            */
@@ -11045,7 +11091,7 @@ export interface operations {
               | {
                   /** @description Custom label for this calculation in the results. Useful for distinguishing multiple calculations. */
                   alias?: string;
-                  /** @description Field name to calculate over. Must exist in the data - verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it. */
+                  /** @description Field name to calculate over. Must exist in the data. Verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it. */
                   key?: string;
                   /**
                    * @description Data type of the key. Required when key is provided to ensure correct aggregation.
@@ -11061,7 +11107,7 @@ export interface operations {
               | {
                   /** @description Custom label for this calculation in the results. Useful for distinguishing multiple calculations. */
                   alias?: string;
-                  /** @description Field name to calculate over. Must exist in the data - verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it. */
+                  /** @description Field name to calculate over. Must exist in the data. Verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it. */
                   key: string;
                   /**
                    * @description Data type of the key. Required when key is provided to ensure correct aggregation.
@@ -11186,11 +11232,11 @@ export interface operations {
           };
           /** @description Identifier for the query. When parameters are omitted, this ID is used to load a previously saved query's parameters. When providing parameters inline, pass any identifier (e.g. an ad-hoc ID). */
           queryId: string;
-          /** @description Timeframe for the query using Unix timestamps in milliseconds. Narrower timeframes produce faster responses and more specific results. */
+          /** @description Timeframe for the query using Unix timestamps in milliseconds. 'from' must be earlier than 'to'. Narrower timeframes produce faster responses and more specific results. */
           timeframe: {
-            /** @description Start timestamp for the query timeframe (Unix timestamp in milliseconds) */
+            /** @description Start timestamp for the query timeframe. Unix timestamp in milliseconds */
             from: number;
-            /** @description End timestamp for the query timeframe (Unix timestamp in milliseconds) */
+            /** @description End timestamp for the query timeframe. Unix timestamp in milliseconds */
             to: number;
           };
           /**
@@ -11311,12 +11357,14 @@ export interface operations {
   "shared.query.get": {
     parameters: {
       query?: {
+        /** @description Select the view of the query result to return, defaults to events. */
         view?: "events" | "invocations" | "calculations";
       };
       header?: never;
       path: {
         /** @description Your Cloudflare account ID. */
         account_id: string;
+        /** @description Specify the ID of the shared query. */
         id: string;
       };
       cookie?: never;
@@ -11374,6 +11422,26 @@ export interface operations {
               detail?: string;
               /** @enum {string} */
               message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
             }[];
             messages: {
               message: string;
@@ -11839,6 +11907,11 @@ export interface operations {
           /** @description When true, includes a comparison dataset from the previous time period of equal length. */
           compare?: boolean;
           /**
+           * @description Value-axis bucketing for chartType 'distribution'. Omitted or 'log': geometric buckets, best for heavy-tailed latency. 'linear': fixed-width buckets, clearer for narrow or additive ranges. Ignored for other chartTypes. The response echoes the scheme used in distribution.bucketMode.
+           * @enum {string}
+           */
+          distributionScale?: "log" | "linear";
+          /**
            * @description When true, executes the query without persisting the results. Useful for validation or previewing.
            * @default false
            */
@@ -11868,7 +11941,7 @@ export interface operations {
               | {
                   /** @description Custom label for this calculation in the results. Useful for distinguishing multiple calculations. */
                   alias?: string;
-                  /** @description Field name to calculate over. Must exist in the data - verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it. */
+                  /** @description Field name to calculate over. Must exist in the data. Verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it. */
                   key?: string;
                   /**
                    * @description Data type of the key. Required when key is provided to ensure correct aggregation.
@@ -11884,7 +11957,7 @@ export interface operations {
               | {
                   /** @description Custom label for this calculation in the results. Useful for distinguishing multiple calculations. */
                   alias?: string;
-                  /** @description Field name to calculate over. Must exist in the data - verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it. */
+                  /** @description Field name to calculate over. Must exist in the data. Verify with the keys endpoint. Required for every operator except `count`, which aggregates whole rows and may omit it. */
                   key: string;
                   /**
                    * @description Data type of the key. Required when key is provided to ensure correct aggregation.
@@ -12009,11 +12082,11 @@ export interface operations {
           };
           /** @description Identifier for the query. When parameters are omitted, this ID is used to load a previously saved query's parameters. When providing parameters inline, pass any identifier (e.g. an ad-hoc ID). */
           queryId: string;
-          /** @description Timeframe for the query using Unix timestamps in milliseconds. Narrower timeframes produce faster responses and more specific results. */
+          /** @description Timeframe for the query using Unix timestamps in milliseconds. 'from' must be earlier than 'to'. Narrower timeframes produce faster responses and more specific results. */
           timeframe: {
-            /** @description Start timestamp for the query timeframe (Unix timestamp in milliseconds) */
+            /** @description Start timestamp for the query timeframe. Unix timestamp in milliseconds */
             from: number;
-            /** @description End timestamp for the query timeframe (Unix timestamp in milliseconds) */
+            /** @description End timestamp for the query timeframe. Unix timestamp in milliseconds */
             to: number;
           };
           /**
@@ -12339,7 +12412,9 @@ export interface operations {
   "usage.get": {
     parameters: {
       query: {
+        /** @description Unix timestamp in milliseconds for the start of the range. */
         from: string;
+        /** @description Unix timestamp in milliseconds for the end of the range. */
         to: string;
       };
       header?: never;
@@ -12416,6 +12491,26 @@ export interface operations {
               detail?: string;
               /** @enum {string} */
               message: "Unauthorized";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Forbidden";
             }[];
             messages: {
               message: string;
