@@ -21,9 +21,8 @@ import {
   LOCAL_WORKTREE_PASSWORD_AUTH_EMAIL,
   LOCAL_WORKTREE_PASSWORD_AUTH_PASSWORD,
 } from "../runtime/localWorktreePasswordAuth.ts";
-import { buildPrimaryDevArgs, buildPrimaryDevEnvironment } from "./run-primary-dev.ts";
+import { buildPrimaryDevCommand, buildPrimaryDevEnvironment } from "./run-primary-dev.ts";
 
-const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
 const DEFAULT_WORKTREE_DEV_VITE_PORT = 5174;
 // Refresh existing worktrees once so they copy the dedicated live-test provider defaults.
 const ONCE_BOOTSTRAP_MARKER = "worktree-anonymous-seed-auth-bootstrap-v2";
@@ -263,13 +262,15 @@ export function buildWorktreeDevCommandPlan(
     return plan;
   }
 
+  const primaryDevCommand = buildPrimaryDevCommand([], "dev:raw");
+
   return [
     ...plan,
     {
       label: "launch the long-running worktree dev server",
       cwd: repoRoot,
-      command: PNPM_COMMAND,
-      args: buildPrimaryDevArgs([], "dev:raw"),
+      command: primaryDevCommand.command,
+      args: primaryDevCommand.args,
       env: buildPrimaryDevEnvironment({
         ...anonymousEnv,
         ...LOCAL_WORKTREE_PASSWORD_AUTH_VITE_ENV,

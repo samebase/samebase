@@ -4,8 +4,6 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
-
 export type WorktreeKind = "main" | "linked";
 
 type WorktreeContext = {
@@ -56,9 +54,8 @@ export function buildContextBootstrapArgs(kind: WorktreeKind, args: string[]): s
   return bootstrapArgs;
 }
 
-export function buildContextDevArgs(kind: WorktreeKind, args: string[]): string[] {
-  const script = kind === "main" ? "dev:primary" : "dev:worktree";
-  return [script, ...args];
+export function selectDevRunner(kind: WorktreeKind): string {
+  return kind === "main" ? "run-primary-dev.ts" : "run-worktree-dev.ts";
 }
 
 function runDependencyBootstrap(context: WorktreeContext, args: string[]): void {
@@ -87,8 +84,10 @@ function runDependencyBootstrap(context: WorktreeContext, args: string[]): void 
 }
 
 async function runDev(context: WorktreeContext, args: string[]): Promise<void> {
+  const runnerPath = path.join(context.repoRoot, "scripts", selectDevRunner(context.kind));
+
   await new Promise<void>((resolve, reject) => {
-    const child = spawn(PNPM_COMMAND, buildContextDevArgs(context.kind, args), {
+    const child = spawn(process.execPath, [runnerPath, ...args], {
       cwd: context.repoRoot,
       stdio: "inherit",
     });

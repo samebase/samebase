@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { resolveLocalDevPort } from "../apps/samebase/scripts/convex-local-utils.ts";
 import { normalizeEnvValue } from "../apps/samebase/scripts/normalizeEnvValue.ts";
 
-const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const vitePlusEntrypoint = fileURLToPath(import.meta.resolve("vite-plus/bin"));
 const LOOPBACK_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1", "[::1]"]);
 
 function parseLoopbackOriginPort(origin: string): string | null {
@@ -48,8 +48,11 @@ export function buildPrimaryDevEnvironment(
   return nextEnv;
 }
 
-export function buildPrimaryDevArgs(args: string[], script: "dev" | "dev:raw" = "dev"): string[] {
-  return ["exec", "vp", "run", "--filter=samebase", script, ...args];
+export function buildPrimaryDevCommand(args: string[], script: "dev" | "dev:raw" = "dev") {
+  return {
+    command: process.execPath,
+    args: [vitePlusEntrypoint, "run", "--filter=samebase", script, ...args],
+  };
 }
 
 function isMainModule() {
@@ -57,7 +60,8 @@ function isMainModule() {
 }
 
 if (isMainModule()) {
-  const child = spawn(PNPM_COMMAND, buildPrimaryDevArgs(process.argv.slice(2)), {
+  const { command, args } = buildPrimaryDevCommand(process.argv.slice(2));
+  const child = spawn(command, args, {
     env: buildPrimaryDevEnvironment(process.env),
     stdio: "inherit",
   });
