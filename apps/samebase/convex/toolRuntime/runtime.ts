@@ -20,7 +20,10 @@ import { cloudflareConfigureWorkersBuildsForGitHubContract } from "../vault/cont
 import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds";
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
-import { submitFeedbackContract } from "../mcp/contracts/submitFeedback";
+import {
+  MAX_FEEDBACK_REPORT_LENGTH,
+  submitFeedbackContract,
+} from "../mcp/contracts/submitFeedback";
 import { cloudflareListWorkersBuildTokensContract } from "../vault/contracts/cloudflareBuildTokens";
 import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
 import type { AccessKey } from "../../shared/accessModel";
@@ -323,8 +326,8 @@ export const submitFeedbackTool = defineMcpTool({
     if (args.report.trim().length === 0) {
       throw new Error("Feedback report cannot be empty.");
     }
-    if (args.report.length > 2_000) {
-      throw new Error("Feedback report must be 2,000 characters or fewer.");
+    if (args.report.length > MAX_FEEDBACK_REPORT_LENGTH) {
+      throw new Error(`Feedback report must be ${MAX_FEEDBACK_REPORT_LENGTH} characters or fewer.`);
     }
 
     await ctx.runMutation(internal.mcp.feedback.reserveFeedbackSend, {

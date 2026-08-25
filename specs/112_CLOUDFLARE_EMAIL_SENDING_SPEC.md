@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase application email and deployment configuration
-- Last updated: 2026-08-21
+- Last updated: 2026-08-25
 - Related:
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `apps/samebase/convex/deploymentProfile.ts`
@@ -82,7 +82,7 @@ The MCP feedback action is the second caller:
 1. It requires an approved account and the dedicated feedback-submit scope. The server adds this
    scope to the default request for clients, such as the published plugin, that cannot name scopes.
    A client without the scope must reconnect and approve the new grant.
-2. It accepts only the exact user-approved report, with a 2,000-character maximum.
+2. It accepts only the exact user-approved report, with a 6,000-character maximum.
 3. It sends only the report to `contact@samebase.com`.
 4. It returns an error when Cloudflare rejects the request, reports a permanent bounce, or local
    email sending is disabled. It does not retry automatically.

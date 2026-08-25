@@ -204,9 +204,10 @@ describe("MCP tool runtime boundaries", () => {
     );
   });
 
-  it("emails the exact approved feedback without account metadata", async () => {
+  it("emails an approved 5,235-character report without account metadata", async () => {
     const { t, userId } = await seedToolRuntimeOwner();
-    const report = "  Samebase returned the wrong setup state.\nPlease check the inventory.  ";
+    const report = "Samebase incident report. ".padEnd(5_235, "x");
+    expect(report).toHaveLength(5_235);
     vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
     vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
     vi.stubEnv("CONVEX_DEPLOYMENT", "dev:samebase");
@@ -261,7 +262,7 @@ describe("MCP tool runtime boundaries", () => {
     ).resolves.toMatchObject({ count: 1, userId });
   });
 
-  it.each([" \n ", "x".repeat(2_001)])("rejects invalid feedback without email", async (report) => {
+  it.each([" \n ", "x".repeat(6_001)])("rejects invalid feedback without email", async (report) => {
     const { t, userId } = await seedToolRuntimeOwner();
     vi.stubEnv("CONVEX_DEPLOYMENT", "local:local-agent");
     const fetch = vi.fn();

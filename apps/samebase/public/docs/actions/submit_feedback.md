@@ -15,7 +15,7 @@ not store the report in the Samebase database.
 
 ## Arguments
 
-- `report` (string, required): The exact user-approved feedback report. Maximum 2,000 characters.
+- `report` (string, required): The exact user-approved feedback report. Maximum 6000 characters.
 
 ## Returns
 
