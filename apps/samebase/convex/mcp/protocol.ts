@@ -1,5 +1,5 @@
 import { includes } from "@samebase/dependent/main";
-import { asRecord, isRecord } from "../jsonUtils";
+import { asRecord, isRecord, type JsonRecord } from "../jsonUtils";
 import { actionContracts } from "../toolRuntime/actionCatalog";
 import { submitFeedbackContract } from "./contracts/submitFeedback";
 import { createRepositoryContract } from "../vault/contracts/createRepository";
@@ -12,8 +12,7 @@ const DEFAULT_RESPONSE_TYPES = ["code"] as const;
 const SUPPORTED_TOKEN_ENDPOINT_AUTH_METHOD = "none";
 const CODE_CHALLENGE_METHOD = "S256";
 
-export const MCP_PROTOCOL_VERSION = "2026-07-28";
-export const MCP_SUPPORTED_PROTOCOL_VERSIONS = [MCP_PROTOCOL_VERSION] as const;
+export const MCP_PROTOCOL_VERSION = "2025-06-18";
 
 const MAX_REDIRECT_URIS = 8;
 const MAX_REDIRECT_URI_LENGTH = 2048;
@@ -111,22 +110,30 @@ type JsonRpcRequestValidationResult =
       id?: string | number;
     };
 
-export type McpHttpRequestValidationResult =
+type McpRequestParamsValidationResult =
   | { ok: true }
   | {
       ok: false;
       kind: "invalid_params";
       error: string;
+    };
+
+type McpProtocolVersionHeaderValidationResult =
+  | { ok: true }
+  | { ok: false; kind: "missing" }
+  | { ok: false; kind: "unsupported"; requested: string };
+
+type McpToolCallParamsValidationResult =
+  | {
+      ok: true;
+      value: {
+        name: string;
+        arguments: JsonRecord;
+      };
     }
   | {
       ok: false;
-      kind: "header_mismatch";
       error: string;
-    }
-  | {
-      ok: false;
-      kind: "unsupported_protocol_version";
-      requested: string;
     };
 
 export type McpProtocolValidationOptions = {
@@ -758,132 +765,66 @@ export function validateJsonRpcRequestPayload(payload: unknown): JsonRpcRequestV
   };
 }
 
-function isPlainMcpHeaderValue(value: string): boolean {
-  if (value.length === 0) {
-    return false;
-  }
-
-  const firstCode = value.charCodeAt(0);
-  const lastCode = value.charCodeAt(value.length - 1);
-  if (firstCode < 0x21 || firstCode > 0x7e || lastCode < 0x21 || lastCode > 0x7e) {
-    return false;
-  }
-
-  for (let index = 1; index < value.length - 1; index += 1) {
-    const code = value.charCodeAt(index);
-    if (code !== 0x09 && (code < 0x20 || code > 0x7e)) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function decodeMcpHeaderValue(value: string): ValidationResult<string> {
-  const base64Prefix = "=?base64?";
-  const base64Suffix = "?=";
-  const hasEncodedShape = value.startsWith(base64Prefix) && value.endsWith(base64Suffix);
-  if (!hasEncodedShape) {
-    if (!isPlainMcpHeaderValue(value)) {
-      return { ok: false, status: 400, error: "Plain header value is malformed." };
-    }
-    return { ok: true, value };
-  }
-  const encoded = value.slice(base64Prefix.length, -base64Suffix.length);
-  if (
-    encoded.length === 0 ||
-    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)
-  ) {
-    return { ok: false, status: 400, error: "Base64 header value is malformed." };
-  }
-
-  try {
-    const binary = atob(encoded);
-    if (btoa(binary) !== encoded) {
-      return { ok: false, status: 400, error: "Base64 header value is malformed." };
-    }
-    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
-    return {
-      ok: true,
-      value: new TextDecoder("utf-8", { fatal: true }).decode(bytes),
-    };
-  } catch {
-    return { ok: false, status: 400, error: "Base64 header value is malformed." };
-  }
-}
-
-function invalidMcpParams(error: string): McpHttpRequestValidationResult {
+function invalidMcpParams(error: string): McpRequestParamsValidationResult {
   return { ok: false, kind: "invalid_params", error };
 }
 
-function mcpHeaderMismatch(error: string): McpHttpRequestValidationResult {
-  return { ok: false, kind: "header_mismatch", error };
-}
-
-function readMcpNameSourceField(method: string): "name" | "uri" | null {
-  if (method === "tools/call" || method === "prompts/get") {
-    return "name";
-  }
-  if (method === "resources/read") {
-    return "uri";
-  }
-  return null;
-}
-
-export function validateMcpHttpRequest(
-  rpcRequest: JsonRpcRequestPayload,
+export function validateMcpProtocolVersionHeader(
   headers: Headers,
-): McpHttpRequestValidationResult {
-  const protocolVersionHeader = headers.get("MCP-Protocol-Version");
-  if (!protocolVersionHeader) {
-    return mcpHeaderMismatch("MCP-Protocol-Version header is required.");
+): McpProtocolVersionHeaderValidationResult {
+  const requested = headers.get("MCP-Protocol-Version");
+  if (requested === null || requested.length === 0) {
+    return { ok: false, kind: "missing" };
   }
-  if (!isPlainMcpHeaderValue(protocolVersionHeader)) {
-    return mcpHeaderMismatch("MCP-Protocol-Version header is malformed.");
+  if (requested !== MCP_PROTOCOL_VERSION) {
+    return { ok: false, kind: "unsupported", requested };
   }
+  return { ok: true };
+}
 
-  const methodHeader = headers.get("Mcp-Method");
-  if (!methodHeader) {
-    return mcpHeaderMismatch("Mcp-Method header is required.");
+export function parseMcpToolCallParams(params: unknown): McpToolCallParamsValidationResult {
+  if (!isRecord(params)) {
+    return { ok: false, error: "tools/call params must be an object." };
   }
-  if (!isPlainMcpHeaderValue(methodHeader)) {
-    return mcpHeaderMismatch("Mcp-Method header is malformed.");
+  const name = params["name"];
+  if (typeof name !== "string" || name.length === 0) {
+    return { ok: false, error: "tools/call params.name must be a non-empty string." };
   }
+  const toolArguments = params["arguments"];
+  if (toolArguments !== undefined && !isRecord(toolArguments)) {
+    return {
+      ok: false,
+      error: "tools/call params.arguments must be an object when provided.",
+    };
+  }
+  return {
+    ok: true,
+    value: {
+      name,
+      arguments: toolArguments ?? {},
+    },
+  };
+}
 
-  const nameSourceField = readMcpNameSourceField(rpcRequest.method);
-  const nameHeader = headers.get("Mcp-Name");
-  if (nameSourceField && !nameHeader) {
-    return mcpHeaderMismatch(`Mcp-Name header is required for ${rpcRequest.method}.`);
-  }
-
-  if (!isRecord(rpcRequest.params)) {
-    return invalidMcpParams("params must be an object with per-request metadata.");
-  }
-  const metadata = rpcRequest.params["_meta"];
-  if (!isRecord(metadata)) {
-    return invalidMcpParams("params._meta must be an object.");
-  }
-
-  const protocolVersion = metadata["io.modelcontextprotocol/protocolVersion"];
-  if (typeof protocolVersion !== "string" || protocolVersion.length === 0) {
-    return invalidMcpParams(
-      "params._meta.io.modelcontextprotocol/protocolVersion must be a non-empty string.",
-    );
-  }
-
-  const clientCapabilities = metadata["io.modelcontextprotocol/clientCapabilities"];
-  if (!isRecord(clientCapabilities)) {
-    return invalidMcpParams(
-      "params._meta.io.modelcontextprotocol/clientCapabilities must be an object.",
-    );
-  }
-
-  const clientInfo = metadata["io.modelcontextprotocol/clientInfo"];
-  if (clientInfo !== undefined) {
+export function validateMcpRequestParams(
+  rpcRequest: JsonRpcRequestPayload,
+): McpRequestParamsValidationResult {
+  if (rpcRequest.method === "initialize") {
+    if (!isRecord(rpcRequest.params)) {
+      return invalidMcpParams("initialize params must be an object.");
+    }
+    if (
+      typeof rpcRequest.params["protocolVersion"] !== "string" ||
+      rpcRequest.params["protocolVersion"].length === 0
+    ) {
+      return invalidMcpParams("initialize params.protocolVersion must be a non-empty string.");
+    }
+    if (!isRecord(rpcRequest.params["capabilities"])) {
+      return invalidMcpParams("initialize params.capabilities must be an object.");
+    }
+    const clientInfo = rpcRequest.params["clientInfo"];
     if (!isRecord(clientInfo)) {
-      return invalidMcpParams(
-        "params._meta.io.modelcontextprotocol/clientInfo must be an object when provided.",
-      );
+      return invalidMcpParams("initialize params.clientInfo must be an object.");
     }
     if (
       typeof clientInfo["name"] !== "string" ||
@@ -892,61 +833,32 @@ export function validateMcpHttpRequest(
       clientInfo["version"].length === 0
     ) {
       return invalidMcpParams(
-        "params._meta.io.modelcontextprotocol/clientInfo must include name and version.",
-      );
-    }
-  }
-
-  if (protocolVersionHeader !== protocolVersion) {
-    return mcpHeaderMismatch(
-      `MCP-Protocol-Version header value '${protocolVersionHeader}' does not match body value '${protocolVersion}'.`,
-    );
-  }
-  if (protocolVersion !== MCP_PROTOCOL_VERSION) {
-    return {
-      ok: false,
-      kind: "unsupported_protocol_version",
-      requested: protocolVersion,
-    };
-  }
-
-  if (methodHeader !== rpcRequest.method) {
-    return mcpHeaderMismatch(
-      `Mcp-Method header value '${methodHeader}' does not match body value '${rpcRequest.method}'.`,
-    );
-  }
-
-  if (nameSourceField) {
-    const sourceValue = rpcRequest.params[nameSourceField];
-    if (typeof sourceValue !== "string" || sourceValue.length === 0) {
-      return invalidMcpParams(
-        `${rpcRequest.method} params.${nameSourceField} must be a non-empty string.`,
-      );
-    }
-    const decodedNameHeader = decodeMcpHeaderValue(nameHeader ?? "");
-    if (!decodedNameHeader.ok) {
-      return mcpHeaderMismatch("Mcp-Name header is malformed.");
-    }
-    if (decodedNameHeader.value !== sourceValue) {
-      return mcpHeaderMismatch(
-        `Mcp-Name header value '${decodedNameHeader.value}' does not match body value '${sourceValue}'.`,
+        "initialize params.clientInfo must include non-empty name and version strings.",
       );
     }
   }
 
   if (
-    rpcRequest.method === "tools/call" &&
-    rpcRequest.params["arguments"] !== undefined &&
-    !isRecord(rpcRequest.params["arguments"])
+    rpcRequest.method === "ping" &&
+    rpcRequest.params !== undefined &&
+    !isRecord(rpcRequest.params)
   ) {
-    return invalidMcpParams("tools/call params.arguments must be an object when provided.");
+    return invalidMcpParams("ping params must be an object when provided.");
   }
 
-  if (rpcRequest.method === "tools/list" && rpcRequest.params["cursor"] !== undefined) {
-    if (typeof rpcRequest.params["cursor"] !== "string") {
-      return invalidMcpParams("tools/list params.cursor must be a string when provided.");
+  if (rpcRequest.method === "tools/list") {
+    if (rpcRequest.params === undefined) {
+      return { ok: true };
     }
-    return invalidMcpParams("tools/list params.cursor is not supported and must be omitted.");
+    if (!isRecord(rpcRequest.params)) {
+      return invalidMcpParams("tools/list params must be an object when provided.");
+    }
+    if (rpcRequest.params["cursor"] !== undefined) {
+      if (typeof rpcRequest.params["cursor"] !== "string") {
+        return invalidMcpParams("tools/list params.cursor must be a string when provided.");
+      }
+      return invalidMcpParams("tools/list params.cursor is not supported and must be omitted.");
+    }
   }
 
   return { ok: true };

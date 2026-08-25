@@ -12,7 +12,7 @@ import {
   getMcpOauthProtectedResourceMetadata,
   handleMcpRequest,
   registerMcpOauthClient,
-  rejectMcpLegacyTransportMethod,
+  rejectMcpUnsupportedTransportMethod,
 } from "./mcp/http";
 import { handlePolarWebhook } from "./polarWebhooks";
 import { env, httpAction } from "./_generated/server";
@@ -122,13 +122,13 @@ http.route({
 http.route({
   path: "/mcp",
   method: "GET",
-  handler: rejectMcpLegacyTransportMethod,
+  handler: rejectMcpUnsupportedTransportMethod,
 });
 
 http.route({
   path: "/mcp",
   method: "DELETE",
-  handler: rejectMcpLegacyTransportMethod,
+  handler: rejectMcpUnsupportedTransportMethod,
 });
 
 http.route({
