@@ -57,6 +57,8 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/_public");
     expect(suggestions).not.toContain("/_public/vault");
     expect(suggestions).not.toContain("/landing-preview");
+    expect(suggestions).not.toContain("/youtube");
+    expect(suggestions).not.toContain("/discord");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(new Set(suggestions).size).toBe(suggestions.length);
     expect(suggestions).toEqual(

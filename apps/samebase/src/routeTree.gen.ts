@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/root";
+import { Route as youtubeRouteImport } from "./routes/youtube";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as testRouteImport } from "./routes/test";
 import { Route as termsRouteImport } from "./routes/terms";
@@ -22,6 +23,7 @@ import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as landingRouteImport } from "./routes/landing";
 import { Route as indexDBRouteImport } from "./routes/indexDB";
 import { Route as docsRouteImport } from "./routes/docs";
+import { Route as discordRouteImport } from "./routes/discord";
 import { Route as connectOrganizationRouteImport } from "./routes/connect-organization";
 import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
 import { Route as indexRouteImport } from "./routes/index";
@@ -60,6 +62,11 @@ import { Route as orgMembersRouteImport } from "./routes/org-members";
 import { Route as vaultSchemaProjectRouteImport } from "./routes/vault-schema-project";
 import { Route as vaultDatabaseProjectRouteImport } from "./routes/vault-database-project";
 
+const youtubeRoute = youtubeRouteImport.update({
+  id: "/youtube",
+  path: "/youtube",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const visualFixtureRoute = visualFixtureRouteImport.update({
   id: "/visual-fixture",
   path: "/visual-fixture",
@@ -123,6 +130,11 @@ const indexDBRoute = indexDBRouteImport.update({
 const docsRoute = docsRouteImport.update({
   id: "/docs",
   path: "/docs",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const discordRoute = discordRouteImport.update({
+  id: "/discord",
+  path: "/discord",
   getParentRoute: () => rootRouteImport,
 } as any);
 const connectOrganizationRoute = connectOrganizationRouteImport.update({
@@ -317,6 +329,7 @@ export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
   "/connect-organization": typeof connectOrganizationRoute;
+  "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
@@ -330,6 +343,7 @@ export interface FileRoutesByFullPath {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/youtube": typeof youtubeRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/users": typeof adminUsersRoute;
@@ -369,6 +383,7 @@ export interface FileRoutesByTo {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
   "/connect-organization": typeof connectOrganizationRoute;
+  "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
@@ -382,6 +397,7 @@ export interface FileRoutesByTo {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/youtube": typeof youtubeRoute;
   "/vault": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/users": typeof adminUsersRoute;
@@ -422,6 +438,7 @@ export interface FileRoutesById {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
   "/connect-organization": typeof connectOrganizationRoute;
+  "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
@@ -435,6 +452,7 @@ export interface FileRoutesById {
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/youtube": typeof youtubeRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/users": typeof adminUsersRoute;
@@ -476,6 +494,7 @@ export interface FileRouteTypes {
     | "/"
     | "/account-deletion"
     | "/connect-organization"
+    | "/discord"
     | "/docs"
     | "/indexDB"
     | "/landing"
@@ -489,6 +508,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/youtube"
     | "/vault/"
     | "/admin/account-deletions"
     | "/admin/users"
@@ -528,6 +548,7 @@ export interface FileRouteTypes {
     | "/"
     | "/account-deletion"
     | "/connect-organization"
+    | "/discord"
     | "/docs"
     | "/indexDB"
     | "/landing"
@@ -541,6 +562,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/youtube"
     | "/vault"
     | "/admin/account-deletions"
     | "/admin/users"
@@ -580,6 +602,7 @@ export interface FileRouteTypes {
     | "/"
     | "/account-deletion"
     | "/connect-organization"
+    | "/discord"
     | "/docs"
     | "/indexDB"
     | "/landing"
@@ -593,6 +616,7 @@ export interface FileRouteTypes {
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/youtube"
     | "/vault/"
     | "/admin/account-deletions"
     | "/admin/users"
@@ -633,6 +657,7 @@ export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
   accountDeletionRoute: typeof accountDeletionRoute;
   connectOrganizationRoute: typeof connectOrganizationRoute;
+  discordRoute: typeof discordRoute;
   docsRoute: typeof docsRoute;
   indexDBRoute: typeof indexDBRoute;
   landingRoute: typeof landingRoute;
@@ -646,6 +671,7 @@ export interface RootRouteChildren {
   termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
+  youtubeRoute: typeof youtubeRoute;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
   adminUsersRoute: typeof adminUsersRoute;
@@ -684,6 +710,13 @@ export interface RootRouteChildren {
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
+    "/youtube": {
+      id: "/youtube";
+      path: "/youtube";
+      fullPath: "/youtube";
+      preLoaderRoute: typeof youtubeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/visual-fixture": {
       id: "/visual-fixture";
       path: "/visual-fixture";
@@ -773,6 +806,13 @@ declare module "@tanstack/react-router" {
       path: "/docs";
       fullPath: "/docs";
       preLoaderRoute: typeof docsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/discord": {
+      id: "/discord";
+      path: "/discord";
+      fullPath: "/discord";
+      preLoaderRoute: typeof discordRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/connect-organization": {
@@ -1041,6 +1081,7 @@ const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
   accountDeletionRoute: accountDeletionRoute,
   connectOrganizationRoute: connectOrganizationRoute,
+  discordRoute: discordRoute,
   docsRoute: docsRoute,
   indexDBRoute: indexDBRoute,
   landingRoute: landingRoute,
@@ -1054,6 +1095,7 @@ const rootRouteChildren: RootRouteChildren = {
   termsRoute: termsRoute,
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
+  youtubeRoute: youtubeRoute,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
   adminUsersRoute: adminUsersRoute,

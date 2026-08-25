@@ -48,6 +48,8 @@ export const routes = rootRoute("root.tsx", [
   route("/logo/transition/transforms", "logo-transition-transforms-lab.tsx"),
   route("/privacy", "privacy.tsx"),
   route("/terms", "terms.tsx"),
+  route("/youtube", "youtube.tsx"),
+  route("/discord", "discord.tsx"),
   route("/test", "test.tsx"),
   route("/pitch", "pitch.tsx"),
   route("/pitch/print", "pitch-print.tsx"),
