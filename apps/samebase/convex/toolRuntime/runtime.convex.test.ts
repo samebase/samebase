@@ -204,10 +204,20 @@ describe("MCP tool runtime boundaries", () => {
     );
   });
 
-  it("emails an approved 5,235-character report without account metadata", async () => {
+  it.each([
+    {
+      expectedLength: 5_235,
+      label: "5,235-character incident report",
+      report: `  Samebase incident report.\n`.padEnd(5_233, "x") + "  ",
+    },
+    {
+      expectedLength: 6_000,
+      label: "6,000-character maximum report",
+      report: "x".repeat(6_000),
+    },
+  ])("emails an approved $label without account metadata", async ({ expectedLength, report }) => {
     const { t, userId } = await seedToolRuntimeOwner();
-    const report = `  Samebase incident report.\n`.padEnd(5_233, "x") + "  ";
-    expect(report).toHaveLength(5_235);
+    expect(report).toHaveLength(expectedLength);
     vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
     vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
     vi.stubEnv("CONVEX_DEPLOYMENT", "dev:samebase");
