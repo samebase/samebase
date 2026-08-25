@@ -49,12 +49,15 @@ description:
 ## Protect app identity
 
 - Read app inventory before a Samebase write when a repository can already be connected.
-- For managed app creation, read inventory first, then list the selected organization's current
-  Workers Builds tokens. Use the last-used token when available, use the sole token, ask the user to
-  choose when several tokens exist, or pass null only when the list is empty. Call the create action
-  once, then poll only inventory until source and provider setup reach `ready` or `failed`. Stop and
-  report a failed state. When creation used a null token, report Cloudflare setup as pending after
-  the other setup reaches `ready`.
+- Managed app creation always uses all four steps:
+  1. Read inventory.
+  2. List the selected organization's current Workers Builds tokens. Use the last-used token when
+     available, the sole token when only one exists, user choice when several exist, or null only
+     when the list is empty.
+  3. Call the create action once.
+  4. Poll only inventory until both source and provider setup reach `ready` or `failed`. Stop and
+     report a failed state. With a null token, report Cloudflare setup as pending after the other
+     setup reaches `ready`.
 - Reuse returned app, repository, provider account, and attachment identifiers without changing
   them. Treat identifiers as opaque.
 - Source setup and provider setup are separate states. Source work can continue while provider setup
