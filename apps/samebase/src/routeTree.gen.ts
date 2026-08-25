@@ -9,19 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/root";
+import { Route as youtubeRouteImport } from "./routes/youtube";
+import { Route as xRouteImport } from "./routes/x";
 import { Route as visualFixtureRouteImport } from "./routes/visual-fixture";
 import { Route as testRouteImport } from "./routes/test";
 import { Route as termsRouteImport } from "./routes/terms";
 import { Route as settingsRouteImport } from "./routes/settings";
 import { Route as privacyRouteImport } from "./routes/privacy";
 import { Route as pricingRouteImport } from "./routes/pricing";
+import { Route as pluginRouteImport } from "./routes/plugin";
 import { Route as pitchRouteImport } from "./routes/pitch";
 import { Route as logoRouteImport } from "./routes/logo";
 import { Route as localStorageRouteImport } from "./routes/localStorage";
+import { Route as linksRouteImport } from "./routes/links";
 import { Route as landingPreviewRouteImport } from "./routes/landing-preview";
 import { Route as landingRouteImport } from "./routes/landing";
 import { Route as indexDBRouteImport } from "./routes/indexDB";
 import { Route as docsRouteImport } from "./routes/docs";
+import { Route as discordRouteImport } from "./routes/discord";
 import { Route as connectOrganizationRouteImport } from "./routes/connect-organization";
 import { Route as accountDeletionRouteImport } from "./routes/account-deletion";
 import { Route as indexRouteImport } from "./routes/index";
@@ -60,6 +65,16 @@ import { Route as orgMembersRouteImport } from "./routes/org-members";
 import { Route as vaultSchemaProjectRouteImport } from "./routes/vault-schema-project";
 import { Route as vaultDatabaseProjectRouteImport } from "./routes/vault-database-project";
 
+const youtubeRoute = youtubeRouteImport.update({
+  id: "/youtube",
+  path: "/youtube",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const xRoute = xRouteImport.update({
+  id: "/x",
+  path: "/x",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const visualFixtureRoute = visualFixtureRouteImport.update({
   id: "/visual-fixture",
   path: "/visual-fixture",
@@ -90,6 +105,11 @@ const pricingRoute = pricingRouteImport.update({
   path: "/pricing",
   getParentRoute: () => rootRouteImport,
 } as any);
+const pluginRoute = pluginRouteImport.update({
+  id: "/plugin",
+  path: "/plugin",
+  getParentRoute: () => rootRouteImport,
+} as any);
 const pitchRoute = pitchRouteImport.update({
   id: "/pitch",
   path: "/pitch",
@@ -103,6 +123,11 @@ const logoRoute = logoRouteImport.update({
 const localStorageRoute = localStorageRouteImport.update({
   id: "/localStorage",
   path: "/localStorage",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const linksRoute = linksRouteImport.update({
+  id: "/links",
+  path: "/links",
   getParentRoute: () => rootRouteImport,
 } as any);
 const landingPreviewRoute = landingPreviewRouteImport.update({
@@ -123,6 +148,11 @@ const indexDBRoute = indexDBRouteImport.update({
 const docsRoute = docsRouteImport.update({
   id: "/docs",
   path: "/docs",
+  getParentRoute: () => rootRouteImport,
+} as any);
+const discordRoute = discordRouteImport.update({
+  id: "/discord",
+  path: "/discord",
   getParentRoute: () => rootRouteImport,
 } as any);
 const connectOrganizationRoute = connectOrganizationRouteImport.update({
@@ -317,19 +347,24 @@ export interface FileRoutesByFullPath {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
   "/connect-organization": typeof connectOrganizationRoute;
+  "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
+  "/links": typeof linksRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
   "/pitch": typeof pitchRoute;
+  "/plugin": typeof pluginRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
   "/settings": typeof settingsRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/x": typeof xRoute;
+  "/youtube": typeof youtubeRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/users": typeof adminUsersRoute;
@@ -369,19 +404,24 @@ export interface FileRoutesByTo {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
   "/connect-organization": typeof connectOrganizationRoute;
+  "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
+  "/links": typeof linksRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
   "/pitch": typeof pitchRoute;
+  "/plugin": typeof pluginRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
   "/settings": typeof settingsRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/x": typeof xRoute;
+  "/youtube": typeof youtubeRoute;
   "/vault": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/users": typeof adminUsersRoute;
@@ -422,19 +462,24 @@ export interface FileRoutesById {
   "/": typeof indexRoute;
   "/account-deletion": typeof accountDeletionRoute;
   "/connect-organization": typeof connectOrganizationRoute;
+  "/discord": typeof discordRoute;
   "/docs": typeof docsRoute;
   "/indexDB": typeof indexDBRoute;
   "/landing": typeof landingRoute;
   "/landing-preview": typeof landingPreviewRoute;
+  "/links": typeof linksRoute;
   "/localStorage": typeof localStorageRoute;
   "/logo": typeof logoRoute;
   "/pitch": typeof pitchRoute;
+  "/plugin": typeof pluginRoute;
   "/pricing": typeof pricingRoute;
   "/privacy": typeof privacyRoute;
   "/settings": typeof settingsRoute;
   "/terms": typeof termsRoute;
   "/test": typeof testRoute;
   "/visual-fixture": typeof visualFixtureRoute;
+  "/x": typeof xRoute;
+  "/youtube": typeof youtubeRoute;
   "/vault/": typeof vaultDashboardRootRoute;
   "/admin/account-deletions": typeof adminAccountDeletionsRoute;
   "/admin/users": typeof adminUsersRoute;
@@ -476,19 +521,24 @@ export interface FileRouteTypes {
     | "/"
     | "/account-deletion"
     | "/connect-organization"
+    | "/discord"
     | "/docs"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
+    | "/links"
     | "/localStorage"
     | "/logo"
     | "/pitch"
+    | "/plugin"
     | "/pricing"
     | "/privacy"
     | "/settings"
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/x"
+    | "/youtube"
     | "/vault/"
     | "/admin/account-deletions"
     | "/admin/users"
@@ -528,19 +578,24 @@ export interface FileRouteTypes {
     | "/"
     | "/account-deletion"
     | "/connect-organization"
+    | "/discord"
     | "/docs"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
+    | "/links"
     | "/localStorage"
     | "/logo"
     | "/pitch"
+    | "/plugin"
     | "/pricing"
     | "/privacy"
     | "/settings"
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/x"
+    | "/youtube"
     | "/vault"
     | "/admin/account-deletions"
     | "/admin/users"
@@ -580,19 +635,24 @@ export interface FileRouteTypes {
     | "/"
     | "/account-deletion"
     | "/connect-organization"
+    | "/discord"
     | "/docs"
     | "/indexDB"
     | "/landing"
     | "/landing-preview"
+    | "/links"
     | "/localStorage"
     | "/logo"
     | "/pitch"
+    | "/plugin"
     | "/pricing"
     | "/privacy"
     | "/settings"
     | "/terms"
     | "/test"
     | "/visual-fixture"
+    | "/x"
+    | "/youtube"
     | "/vault/"
     | "/admin/account-deletions"
     | "/admin/users"
@@ -633,19 +693,24 @@ export interface RootRouteChildren {
   indexRoute: typeof indexRoute;
   accountDeletionRoute: typeof accountDeletionRoute;
   connectOrganizationRoute: typeof connectOrganizationRoute;
+  discordRoute: typeof discordRoute;
   docsRoute: typeof docsRoute;
   indexDBRoute: typeof indexDBRoute;
   landingRoute: typeof landingRoute;
   landingPreviewRoute: typeof landingPreviewRoute;
+  linksRoute: typeof linksRoute;
   localStorageRoute: typeof localStorageRoute;
   logoRoute: typeof logoRoute;
   pitchRoute: typeof pitchRoute;
+  pluginRoute: typeof pluginRoute;
   pricingRoute: typeof pricingRoute;
   privacyRoute: typeof privacyRoute;
   settingsRoute: typeof settingsRoute;
   termsRoute: typeof termsRoute;
   testRoute: typeof testRoute;
   visualFixtureRoute: typeof visualFixtureRoute;
+  xRoute: typeof xRoute;
+  youtubeRoute: typeof youtubeRoute;
   vaultDashboardRootRoute: typeof vaultDashboardRootRoute;
   adminAccountDeletionsRoute: typeof adminAccountDeletionsRoute;
   adminUsersRoute: typeof adminUsersRoute;
@@ -684,6 +749,20 @@ export interface RootRouteChildren {
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
+    "/youtube": {
+      id: "/youtube";
+      path: "/youtube";
+      fullPath: "/youtube";
+      preLoaderRoute: typeof youtubeRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/x": {
+      id: "/x";
+      path: "/x";
+      fullPath: "/x";
+      preLoaderRoute: typeof xRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/visual-fixture": {
       id: "/visual-fixture";
       path: "/visual-fixture";
@@ -726,6 +805,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof pricingRouteImport;
       parentRoute: typeof rootRouteImport;
     };
+    "/plugin": {
+      id: "/plugin";
+      path: "/plugin";
+      fullPath: "/plugin";
+      preLoaderRoute: typeof pluginRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     "/pitch": {
       id: "/pitch";
       path: "/pitch";
@@ -745,6 +831,13 @@ declare module "@tanstack/react-router" {
       path: "/localStorage";
       fullPath: "/localStorage";
       preLoaderRoute: typeof localStorageRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/links": {
+      id: "/links";
+      path: "/links";
+      fullPath: "/links";
+      preLoaderRoute: typeof linksRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/landing-preview": {
@@ -773,6 +866,13 @@ declare module "@tanstack/react-router" {
       path: "/docs";
       fullPath: "/docs";
       preLoaderRoute: typeof docsRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
+    "/discord": {
+      id: "/discord";
+      path: "/discord";
+      fullPath: "/discord";
+      preLoaderRoute: typeof discordRouteImport;
       parentRoute: typeof rootRouteImport;
     };
     "/connect-organization": {
@@ -1041,19 +1141,24 @@ const rootRouteChildren: RootRouteChildren = {
   indexRoute: indexRoute,
   accountDeletionRoute: accountDeletionRoute,
   connectOrganizationRoute: connectOrganizationRoute,
+  discordRoute: discordRoute,
   docsRoute: docsRoute,
   indexDBRoute: indexDBRoute,
   landingRoute: landingRoute,
   landingPreviewRoute: landingPreviewRoute,
+  linksRoute: linksRoute,
   localStorageRoute: localStorageRoute,
   logoRoute: logoRoute,
   pitchRoute: pitchRoute,
+  pluginRoute: pluginRoute,
   pricingRoute: pricingRoute,
   privacyRoute: privacyRoute,
   settingsRoute: settingsRoute,
   termsRoute: termsRoute,
   testRoute: testRoute,
   visualFixtureRoute: visualFixtureRoute,
+  xRoute: xRoute,
+  youtubeRoute: youtubeRoute,
   vaultDashboardRootRoute: vaultDashboardRootRoute,
   adminAccountDeletionsRoute: adminAccountDeletionsRoute,
   adminUsersRoute: adminUsersRoute,

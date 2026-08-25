@@ -8,6 +8,7 @@ import {
 import { SEARCH_RESET_QUERY_PARAM } from "@/lib/searchReset";
 import { formatRouteSearchPresenceFlagLinkLabel } from "@/routing/searchFlags";
 import { appBuildConfig } from "@/lib/appBuildConfig";
+import { SAMEBASE_PUBLIC_LINKS } from "@/lib/publicLinks";
 import { Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
@@ -89,7 +90,7 @@ export function AppSidebarMetaSection({
       <div className={APP_SIDEBAR_META_COMMUNITY_LINKS_CLASS_NAMES[linkAlignment]}>
         <a
           className="text-[#FF0000]"
-          href="https://www.youtube.com/@samebasecom"
+          href={SAMEBASE_PUBLIC_LINKS.youtube.path}
           rel="noreferrer"
           target="_blank"
         >
@@ -97,13 +98,14 @@ export function AppSidebarMetaSection({
         </a>
         <a
           className="text-[#5865F2]"
-          href="https://discord.gg/DHvBcD4k5r"
+          href={SAMEBASE_PUBLIC_LINKS.discord.path}
           rel="noreferrer"
           target="_blank"
         >
           /discord
         </a>
       </div>
+      <Link to="/links">/links</Link>
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
       <Link to="/pricing">/pricing</Link>

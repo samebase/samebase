@@ -50,6 +50,21 @@ describe("route access metadata", () => {
     });
   });
 
+  it("keeps public links available without suggesting redirect-only paths", () => {
+    expect(ROUTE_ACCESS_METADATA_BY_PATH["/links"]).toEqual({
+      access: "access_public",
+      appWorkspaceRouteChrome: { leftPane: "none" },
+    });
+
+    for (const path of ["/youtube", "/discord", "/plugin", "/x"] as const) {
+      expect(ROUTE_ACCESS_METADATA_BY_PATH[path]).toEqual({
+        access: "access_public",
+        pathSuggestion: "redirect",
+        prerender: false,
+      });
+    }
+  });
+
   it("keeps developer logo routes public and developer-only in suggestions", () => {
     const developerLogoRoutes = [
       "/logo",
