@@ -43,7 +43,7 @@ not copy tool schemas or general coding instructions into the skill.
 ## Last full run
 
 - Date: 2026-08-25
-- Artifact commit: `6409ff091`
+- Artifact commit: `34739b392`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
 - Result: both models passed all eight cases. Each model selected the declared Samebase actions in
   the required order for connection status, app inventory, Worker discovery, managed app creation,
@@ -67,18 +67,12 @@ not copy tool schemas or general coding instructions into the skill.
 ## Last focused missing-action recovery run
 
 - Date: 2026-08-25
-- Final artifact commit: `6409ff091`
-- Preceding recovery artifact commit: `1ef248a1b`
+- Artifact commit: `34739b392`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
-- Result: on the preceding artifact, both models passed six unchanged cases: unverified Codex
-  version, absent handoff with other actions registered, callable authorization error, first Codex
-  recovery, terminal Codex recovery, and Claude Code recovery. Sol passed ChatGPT recovery, while
-  Luna incorrectly added a Codex version check. After the ChatGPT branch was simplified, both models
-  passed that final case on the final artifact. Missing actions always caused current-client
-  registration recovery, not authorization. Only a callable authorization error caused an
-  authorization offer. No model used another client's state, the public Samebase site, a browser
-  fallback, curl, manual MCP, Full Access, executable copying, repeated OAuth, or another Samebase
-  entry.
+- Result: both models passed five cases covering a missing Codex action, a callable authorization
+  error, terminal Codex recovery, Claude Code, and ChatGPT. Missing actions caused one repair
+  attempt through the current client. Only the callable authorization error caused an authorization
+  offer. No model used another client's state or the public Samebase site.
 
 ## Last focused stack-alignment run
 
