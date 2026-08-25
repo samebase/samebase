@@ -48,8 +48,9 @@ description:
 - If other Samebase actions are registered but `create_browser_handoff` is absent, explain that the
   current connection does not grant the handoff action. Ask before starting authorization through
   the Codex plugin or connection flow. Do not reinstall the plugin when its other actions work.
-- If actions are still absent after that recovery, report that the MCP connection did not register
-  and stop. Do not recommend Full Access or repeated OAuth.
+- If actions are still absent after that exact reinstall, installation OAuth, full restart, and new
+  task, report that the MCP connection did not register and stop. Do not repeat a recovery step in
+  the same incident. Do not recommend Full Access or repeated OAuth.
 
 ## Open Samebase
 
