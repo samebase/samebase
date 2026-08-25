@@ -8,13 +8,13 @@ silently drops the tail (`pnpm check:agents-budget` enforces the budget; history
 
 ## Startup
 
-- Use `pnpm dev` everywhere. It installs dependencies, completes linked-worktree local Convex
+- Use `pnpm run dev` everywhere. It installs dependencies, completes linked-worktree local Convex
   seed/auth setup, then starts the correct primary or anonymous dev flow. It does not depend on a
   Codex setup command.
-- In a new linked worktree, use `pnpm dev --once` to perform the same setup and exit before
+- In a new linked worktree, use `pnpm run dev --once` to perform the same setup and exit before
   lint/test/commit workflows. Do not replace this flow with direct `npx convex dev`.
 - If Convex tooling complains about missing `CONVEX_DEPLOYMENT`, or a worktree command fails with
-  `Local backend isn't running`, run `pnpm dev --once` and retry.
+  `Local backend isn't running`, run `pnpm run dev --once` and retry.
 
 ## Punctuation
 
@@ -71,7 +71,8 @@ The full protocol for PR bodies, review, labels, and cleanup lives in `docs/agen
 
 ## Worktree Rules
 
-- On detached HEAD, `pnpm dev` and `pnpm dev --once` create the `codex/<...>` branch themselves.
+- On detached HEAD, `pnpm run dev` and `pnpm run dev --once` create the `codex/<...>` branch
+  themselves.
 - Treat the current worktree root from `git rev-parse --show-toplevel` as the workspace boundary
   unless the user explicitly asks otherwise.
 - Before dev/test/commit work, confirm the current worktree and branch with

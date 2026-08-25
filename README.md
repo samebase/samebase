@@ -58,28 +58,25 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 
 ### Prerequisites
 
-- Node.js 24.11+ (`.nvmrc`)
-- PNPM 11.18.0
+- [Vite+](https://viteplus.dev/guide/), which supplies the Node.js version in `.node-version`
 - Git
 
 ### Windows (Outside WSL)
 
-Native Windows setup works, but it is a little different from the repo's macOS/Linux `make` flow.
-
-1. Install Node.js 24 LTS. If you use `winget`, this works well in PowerShell:
-
-```powershell
-winget install --id OpenJS.NodeJS.LTS -e
-```
-
-2. Install PNPM 11.18.0. If `corepack` is not available on your PATH after installing Node, install
-   PNPM directly:
+Native Windows setup uses Vite+ for Node.js and Corepack for the pinned pnpm version. Install Vite+
+in PowerShell:
 
 ```powershell
-npm install -g pnpm@11.18.0
+irm https://vite.plus/ps1 | iex
 ```
 
-3. Verify the toolchain from the repo root:
+Open a new PowerShell window. Enable the package-manager shims:
+
+```powershell
+corepack enable
+```
+
+Verify the toolchain from the repo root:
 
 ```powershell
 node -v
@@ -87,34 +84,29 @@ pnpm -v
 git --version
 ```
 
-4. Bootstrap dependencies from the primary checkout:
+Start the app. This command also installs missing dependencies:
 
 ```powershell
-node .\scripts\bootstrap-worktree.ts
+pnpm run dev
 ```
 
-5. Start the app:
-
-```powershell
-pnpm dev
-```
-
-6. Open the URL Vite prints in the terminal. The usual default is
-   [http://127.0.0.1:5173/](http://127.0.0.1:5173/), and if that port is busy Samebase now picks the
-   next free local port before startup so the frontend and `SITE_URL` stay aligned.
+Open the URL Vite prints in the terminal. The usual default is
+[http://127.0.0.1:5173/](http://127.0.0.1:5173/), and if that port is busy Samebase now picks the
+next free local port before startup so the frontend and `SITE_URL` stay aligned.
 
 Notes:
 
-- On a brand-new machine, the first `pnpm dev` run may pause for an interactive Convex CLI
+- On a brand-new machine, the first `pnpm run dev` run may pause for an interactive Convex CLI
   login/bootstrap prompt before `apps/samebase/.env.local` exists.
-- On native Windows primary checkouts, `pnpm dev` now retries local `SITE_URL` sync after the
+- On native Windows primary checkouts, `pnpm run dev` now retries local `SITE_URL` sync after the
   long-running backend starts, so local OAuth redirects continue to follow the URL Vite printed even
   when the temporary bootstrap backend exits first.
-- `pnpm dev` now tries to stop stale local `convex-local-backend` listeners on `3210` before
+- `pnpm run dev` now tries to stop stale local `convex-local-backend` listeners on `3210` before
   bootstrap. If it still reports that `3210` is occupied, stop the leftover backend process manually
   and retry.
-- The primary checkout path above works without GNU Make. Use `pnpm dev` in both primary and linked
-  worktree checkouts. In a new linked worktree, use `pnpm dev --once` to complete setup and exit.
+- The primary checkout path above works without GNU Make. Use `pnpm run dev` in both primary and
+  linked worktree checkouts. In a new linked worktree, use `pnpm run dev --once` to complete setup
+  and exit.
 
 ### Installation
 
@@ -127,7 +119,7 @@ node ./scripts/bootstrap-worktree.ts
 From the primary local checkout on macOS/Linux, use:
 
 ```bash
-pnpm dev
+pnpm run dev
 ```
 
 ### Worktrees
@@ -135,8 +127,8 @@ pnpm dev
 For a git worktree, complete setup once and then use the normal development command:
 
 ```bash
-pnpm dev --once
-pnpm dev
+pnpm run dev --once
+pnpm run dev
 ```
 
 The setup copies the allowlisted development GitHub App settings and non-secret owner and
