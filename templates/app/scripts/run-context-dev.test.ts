@@ -4,9 +4,17 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import { resolveWorktreeKind } from "./run-dev.ts";
+import { resolveWorktreeKind, selectDevRunner } from "./run-context-dev.ts";
 
-describe("run-dev", () => {
+describe("run-context-dev", () => {
+  it("selects the primary runner for the main Git worktree", () => {
+    expect(selectDevRunner("main")).toBe("run-primary-dev.ts");
+  });
+
+  it("selects the worktree runner for a linked Git worktree", () => {
+    expect(selectDevRunner("linked")).toBe("run-worktree-dev.ts");
+  });
+
   it("detects main and linked Git worktrees", () => {
     const temporaryDirectory = mkdtempSync(path.join(tmpdir(), "samebase-app-run-dev-test-"));
     const mainWorktree = path.join(temporaryDirectory, "main");

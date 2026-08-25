@@ -48,6 +48,7 @@ worktree command to force an isolated local backend in another checkout.
 vp run dev:worktree
 ```
 
-This repo's `dev:worktree` script is a TypeScript launcher run by Node instead
-of `CONVEX_AGENT_MODE=anonymous ...` shell syntax, so the same command works on
-PowerShell, macOS, and Linux.
+The context launcher selects `run-primary-dev.ts` or `run-worktree-dev.ts`.
+Both modes use the same Windows-safe service launcher. The three launcher files
+carry one shared content hash in their first line, and `vp run check` verifies
+that hash.
