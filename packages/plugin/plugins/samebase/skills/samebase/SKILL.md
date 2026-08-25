@@ -32,6 +32,29 @@ description:
   report, then say,
   `I can automatically send this exact report to Samebase. No form is needed, and nothing is sent unless you approve. Send it?`
 
+## Recover missing actions
+
+- If the skill loads but Samebase actions are absent, use this section before authorization or
+  browser work. The current client's plugin or MCP connection is not ready. Absence does not prove
+  missing authorization.
+- Do not use another client's state, the public site, a browser, curl, manual MCP setup, Full
+  Access, executable hunting or copying, or repeated OAuth as a fallback.
+- In Codex:
+  1. If version 0.2.26 is verified as installed and direct-entry reinstall, installation OAuth, full
+     restart, and a new task are complete, report that MCP did not register and stop.
+  2. Otherwise, run `codex plugin marketplace upgrade samebase`, then
+     `codex plugin list --available --json`, and verify that 0.2.26 is available. If the CLI does
+     not work, refresh the Samebase marketplace and verify 0.2.26 in Codex Plugins.
+  3. Install or enable an absent or disabled `samebase@samebase` entry. Otherwise, uninstall only
+     that direct entry, install it again, complete installation OAuth, fully restart Codex, start a
+     new task, and verify installed version 0.2.26. Do not remove another Samebase entry.
+  4. If other actions work but handoff is absent, offer Codex connection authorization. Do not
+     reinstall.
+- In Claude Code, use `/plugin` to update Samebase and `/reload-plugins`. Use `/mcp` only after a
+  connection authorization error. If actions remain absent after reload, report failure and stop.
+- In ChatGPT, use ChatGPT Plugins to update or reconnect Samebase, then start a new chat. Authorize
+  only after a reported authorization error. If actions remain absent, report failure and stop.
+
 ## Open Samebase
 
 - Treat `open @samebase` and another request to open the Samebase dashboard as a request to use the
@@ -88,37 +111,3 @@ description:
   has no matching read.
 - A started run, build request, commit, or push does not prove that a deployment is live.
 - Never put credentials in Git, logs, screenshots, or responses. Report only verified state.
-
-## Recover missing actions
-
-- If the skill loads but Samebase actions are absent, report that the current client's plugin or MCP
-  connection is not ready. Absence does not prove missing authorization. Use only the current
-  client's state.
-- Open a Samebase URL only when the current client starts plugin OAuth or `create_browser_handoff`
-  returns it. Do not use the public site, a browser, another client's state, curl, or manual MCP
-  requests as a fallback.
-
-### Codex
-
-- If version 0.2.26 was verified and reinstall, installation OAuth, full restart, and a new task are
-  complete, report that the MCP connection did not register and stop. Do not repeat recovery.
-- With a working CLI, run `codex plugin marketplace upgrade samebase`, then
-  `codex plugin list --available --json`, and verify that 0.2.26 is available. Otherwise, refresh
-  the Samebase marketplace in Codex Plugins and verify 0.2.26 there. Do not hunt for or copy a Codex
-  executable.
-- Install or enable an absent or disabled `samebase@samebase` entry. If the current direct entry is
-  enabled but actions remain absent in a fresh task, uninstall only that entry, install it again,
-  complete installation OAuth, fully restart Codex, and start a new task. Verify installed version
-  0.2.26. Do not remove another Samebase entry.
-- When other Samebase actions work but handoff is absent, ask before using Codex connection
-  authorization. Do not reinstall. Do not recommend Full Access or repeated OAuth.
-
-### Claude Code and ChatGPT
-
-- In Claude Code, inspect `/plugin`, then use `/plugin marketplace update samebase`,
-  `/plugin update samebase@samebase`, and `/reload-plugins`. Use `/mcp` only for a reported
-  authorization error. If actions remain absent after reload, report the registration failure and
-  stop.
-- In ChatGPT, use only ChatGPT Plugins controls to update or reconnect Samebase, then start a new
-  chat. Authorize only after ChatGPT or a callable action reports an authorization error. If actions
-  remain absent, report the registration failure and stop. Never use another client's state.
