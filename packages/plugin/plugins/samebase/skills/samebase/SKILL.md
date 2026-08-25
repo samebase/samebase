@@ -21,7 +21,8 @@ description:
   finished.
 - Choose the action from the user's request. Follow the live MCP server and tool instructions for
   the current actions, arguments, effects, and required order.
-- If a required Samebase action is absent, follow Recover missing actions.
+- If a required Samebase action is absent, read
+  [Recover missing actions](references/recover-missing-actions.md).
 - For a request about Samebase connection or authentication status, call the authentication-status
   action directly. Do not read app inventory.
 - Call only the actions needed for that route. Do not read app or authentication state as a generic
@@ -37,7 +38,8 @@ description:
 
 - Treat `open @samebase` and another request to open the Samebase dashboard as a request to use the
   in-app Browser.
-  1. If `create_browser_handoff` is absent, follow Recover missing actions for the current client.
+  1. If `create_browser_handoff` is absent, read
+     [Recover missing actions](references/recover-missing-actions.md).
   2. Call `create_browser_handoff` directly. Do not call authentication status first.
   3. If the callable action reports missing authorization or scope, explain the requirement. Ask,
      `Would you like me to start authorization with Samebase?`
@@ -89,23 +91,3 @@ description:
   has no matching read.
 - A started run, build request, commit, or push does not prove that a deployment is live.
 - Never put credentials in Git, logs, screenshots, or responses. Report only verified state.
-
-## Recover missing actions
-
-- An absent action means that the current client did not register it. It does not prove that
-  authorization is missing. Start authorization only after a callable Samebase action or connection
-  reports an authorization or scope error.
-- Use only the current client's plugin controls. Never use another client's plugin state or the
-  public Samebase site.
-- In Codex, use Plugins if the CLI is unavailable. Refresh the Samebase marketplace. Read the latest
-  available version and the direct entry's installed state and version. If the user says that repair
-  for this version already completed and the action is still absent, report that the plugin did not
-  register and stop. Otherwise, install or enable `samebase@samebase` if it is absent or disabled,
-  update it if it is older, or reinstall only that entry if the versions match. Complete install
-  OAuth. Before restart, tell the user to state the repaired version in the new task.
-- In Claude Code, update `samebase@samebase` and reload plugins. If the action is still absent,
-  report that the plugin did not register and stop.
-- In ChatGPT, stop if the user says that update or reconnection already completed in this new chat
-  and the action is still absent. Otherwise, update or reconnect Samebase in ChatGPT Plugins. Tell
-  the user to state in the new chat that repair completed. Do not use Codex plugin state or
-  controls.

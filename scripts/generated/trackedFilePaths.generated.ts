@@ -1683,6 +1683,7 @@ export const trackedFilePaths = [
   "packages/plugin/plugins/samebase/.mcp.json",
   "packages/plugin/plugins/samebase/assets/icon.png",
   "packages/plugin/plugins/samebase/skills/samebase/SKILL.md",
+  "packages/plugin/plugins/samebase/skills/samebase/references/recover-missing-actions.md",
   "packages/sure/LICENSE.md",
   "packages/sure/README.md",
   "packages/sure/package.json",

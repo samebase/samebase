@@ -118,6 +118,9 @@ resolvePluginPath(skillsRoot, "samebase/SKILL.md", "Samebase skill");
 for (const guidancePath of [
   trackedFilePath("packages/plugin/README.md"),
   trackedFilePath("packages/plugin/plugins/samebase/skills/samebase/SKILL.md"),
+  trackedFilePath(
+    "packages/plugin/plugins/samebase/skills/samebase/references/recover-missing-actions.md",
+  ),
   trackedFilePath("apps/samebase/src/content/docs-operate-agent-plugin.md"),
 ]) {
   check(
