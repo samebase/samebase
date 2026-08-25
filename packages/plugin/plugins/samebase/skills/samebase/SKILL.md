@@ -33,36 +33,56 @@ description:
 
 ## Recover missing actions
 
-- First check whether the user already completed direct-entry reinstall, installation OAuth, a full
-  Codex restart, and a new task. If actions remain absent after all four steps, report that the MCP
-  connection did not register and stop. Do not run more diagnostics or repeat a recovery step in the
-  same incident.
-- If the Samebase skill loads but Samebase actions are not registered, report that the local Codex
-  plugin or MCP connection is not ready. Absent actions do not prove missing authorization.
-- Open a Samebase URL only when Codex starts plugin OAuth or `create_browser_handoff` returns it.
-  Never open the public Samebase site, Chrome, or the in-app Browser as a fallback.
-- In Codex, run `codex plugin list --json` when the local CLI works. Do not use ChatGPT plugin
-  state, search for another Codex executable, copy an executable, or use browser, curl, or manual
-  MCP requests to replace missing actions.
-- If `samebase@samebase` is not installed or enabled, ask the user to install or enable that entry.
-  If it is installed and enabled but actions remain absent in a fresh task, ask the user to open
-  Codex Plugins, uninstall that direct-marketplace entry, install it again, complete the OAuth flow
-  started by installation, fully restart Codex, and start a new task. Do not remove another Samebase
-  entry.
+- If the Samebase skill loads but Samebase actions are not registered, report that the current
+  client's plugin or MCP connection is not ready. Absent actions do not prove missing authorization.
+  Use only the current client's plugin and connection state.
+- Open a Samebase URL only when the current client starts plugin OAuth or `create_browser_handoff`
+  returns it. Never open the public Samebase site, an external browser, or an in-app Browser as a
+  fallback.
+- Do not use another client's plugin state, browser, curl, or manual MCP requests to replace missing
+  actions.
+
+### Codex
+
+- First check whether version 0.2.26 was verified and the user already completed direct-entry
+  reinstall, installation OAuth, a full Codex restart, and a new task. If actions remain absent
+  after all five steps, report that the MCP connection did not register and stop. Do not run more
+  diagnostics or repeat a recovery step in the same incident.
+- When the local CLI works, run `codex plugin marketplace upgrade samebase`, then
+  `codex plugin list --available --json`. Verify that `samebase@samebase` version 0.2.26 is
+  available before reinstall. Do not search for another Codex executable or copy an executable.
+- If the CLI does not work, ask the user to open Codex Plugins, refresh the Samebase marketplace,
+  and verify that version 0.2.26 appears before reinstall.
+- If `samebase@samebase` is absent or disabled, ask the user to install or enable that entry. If the
+  current entry is installed and enabled but actions remain absent in a fresh task, ask the user to
+  uninstall only that direct-marketplace entry, install it again, complete the OAuth flow started by
+  installation, fully restart Codex, and start a new task. Verify that the installed version is
+  0.2.26. Do not remove another Samebase entry.
 - If other Samebase actions are registered but `create_browser_handoff` is absent, explain that the
   current connection does not grant the handoff action. Ask before starting authorization through
   the Codex plugin or connection flow. Do not reinstall the plugin when its other actions work.
 - Do not recommend Full Access or repeated OAuth.
 
+### Claude Code and ChatGPT
+
+- In Claude Code, ask the user to inspect the local entry with `/plugin`, then run
+  `/plugin marketplace update samebase`, `/plugin update samebase@samebase`, and `/reload-plugins`.
+  Use `/mcp` only when the connection reports an authorization error. If actions remain absent after
+  the reload, report that the MCP connection did not register and stop. Do not use Codex controls.
+- In ChatGPT, use only ChatGPT Plugins controls to update or reconnect Samebase, then start a new
+  chat. Start authorization only when ChatGPT or a callable Samebase action reports an authorization
+  error. If actions remain absent, report that the MCP connection did not register and stop. Do not
+  use Codex or Claude Code state.
+
 ## Open Samebase
 
 - Treat `open @samebase` and another request to open the Samebase dashboard as a request to use the
   in-app Browser.
-  1. If `create_browser_handoff` is absent, follow Recover missing actions.
+  1. If `create_browser_handoff` is absent, follow Recover missing actions for the current client.
   2. Call `create_browser_handoff` directly. Do not call authentication status first.
   3. If the callable action reports missing authorization or scope, explain the requirement. Ask,
      `Would you like me to start authorization with Samebase?`
-  4. Start authorization only through the Codex plugin or connection flow after the user agrees.
+  4. Start authorization only through the current plugin or connection flow after the user agrees.
      Wait for it to finish, then call `create_browser_handoff` again.
   5. Select the in-app Browser. Do not select Chrome or another external browser.
   6. Open only the URL returned by `create_browser_handoff`, before it expires.

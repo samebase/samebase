@@ -16,10 +16,9 @@ Do not add `https://api.samebase.com/mcp` as a second manual server.
 one-time URL returned by the Samebase browser-handoff action. The public Samebase site is not an
 authorization or dashboard fallback.
 
-If the Samebase skill loads but no Samebase actions appear, check `codex plugin list --json`. If the
-direct `samebase@samebase` entry is installed and enabled, open Codex Plugins, uninstall only that
-entry, and install it again. Complete the OAuth flow started by installation, fully restart Codex,
-and start a new task. Do not remove another Samebase entry when more than one appears.
+If the Samebase skill loads but no Samebase actions appear, use the recovery controls for the
+current client. Missing actions do not prove that authorization failed. Do not open the public
+Samebase site as a fallback.
 
 Start a new chat or task after installation or an update. To confirm the connection, ask:
 
@@ -45,6 +44,14 @@ codex plugin marketplace upgrade samebase
 codex plugin add samebase@samebase
 ```
 
+If actions are absent, run `codex plugin marketplace upgrade samebase`, then check
+`codex plugin list --available --json`. Verify that version 0.2.26 is available. If the direct
+`samebase@samebase` entry is installed and enabled but actions remain absent in a fresh task, open
+Codex Plugins, uninstall only that entry, and install it again. Complete the OAuth flow started by
+installation, fully restart Codex, start a new task, and verify that version 0.2.26 is installed. If
+the CLI does not work, refresh the Samebase marketplace and verify version 0.2.26 in Codex Plugins
+before reinstall. Do not remove another Samebase entry when more than one appears.
+
 ## Install with Claude Code
 
 Add the marketplace and install the plugin:
@@ -64,6 +71,11 @@ Update it with:
 ```
 
 Use `/mcp` to authorize Samebase when Claude Code asks for access.
+
+If actions are absent, inspect the local entry with `/plugin`, then run the marketplace update,
+plugin update, and reload commands above. Use `/mcp` only when the connection reports an
+authorization error. If actions remain absent after reload, report that the MCP connection did not
+register and stop. Do not use Codex plugin state or controls.
 
 ## Support and security
 
