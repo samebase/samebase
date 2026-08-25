@@ -743,7 +743,7 @@ const schema8 = {
       description: "Timestamp for the creation of the account",
       type: "string",
       format: "date-time",
-      example: "2014-03-01T12:21:02.0000Z",
+      example: "2014-03-01T12:21:02Z",
       readOnly: true,
       "x-auditable": true,
     },
@@ -11020,7 +11020,7 @@ const schema233 = {
   description:
     "Date indicating targeted support in the Workers runtime. Backwards incompatible fixes to the runtime following this date will not affect this Worker.",
   type: "string",
-  example: "2021-01-01",
+  example: "2021-01-01T00:00:00Z",
   "x-auditable": true,
 };
 const schema237 = {
@@ -11109,6 +11109,13 @@ const schema254 = {
       },
       required: ["enabled", "invocation_logs"],
     },
+    redact_query_string: {
+      description: "Whether query strings are removed from request URLs in logs and traces.",
+      type: "boolean",
+      example: false,
+      default: false,
+      "x-auditable": true,
+    },
     traces: {
       description: "Trace settings for the Worker.",
       type: "object",
@@ -11144,10 +11151,10 @@ const schema254 = {
         },
         propagation_policy: {
           description:
-            'Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. "authenticated" (default) honors inbound trace context only when accompanied by a valid trace auth token. "accept" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled.',
+            'Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. "authenticated" honors inbound trace context only when accompanied by a valid trace auth token. "accept" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled. Returns null when the trace propagation feature is not enabled for the account.',
           type: "string",
-          default: "authenticated",
-          enum: ["authenticated", "accept"],
+          enum: ["authenticated", "accept", null],
+          nullable: true,
           "x-auditable": true,
         },
       },
@@ -15205,15 +15212,15 @@ function validate226(
             }
           }
         }
-        if (data22.traces !== undefined) {
-          let data32 = data22.traces;
-          if (!(data32 && typeof data32 == "object" && !Array.isArray(data32)) && data32 !== null) {
+        if (data22.redact_query_string !== undefined) {
+          if (typeof data22.redact_query_string !== "boolean") {
             const err34 = {
-              instancePath: instancePath + "/observability/traces",
-              schemaPath: "#/components/schemas/workers_observability/properties/traces/type",
+              instancePath: instancePath + "/observability/redact_query_string",
+              schemaPath:
+                "#/components/schemas/workers_observability/properties/redact_query_string/type",
               keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
+              params: { type: "boolean" },
+              message: "must be boolean",
             };
             if (vErrors === null) {
               vErrors = [err34];
@@ -15222,14 +15229,32 @@ function validate226(
             }
             errors++;
           }
-          if (data32 && typeof data32 == "object" && !Array.isArray(data32)) {
-            if (data32.destinations !== undefined) {
-              let data33 = data32.destinations;
-              if (Array.isArray(data33)) {
-                const len4 = data33.length;
+        }
+        if (data22.traces !== undefined) {
+          let data33 = data22.traces;
+          if (!(data33 && typeof data33 == "object" && !Array.isArray(data33)) && data33 !== null) {
+            const err35 = {
+              instancePath: instancePath + "/observability/traces",
+              schemaPath: "#/components/schemas/workers_observability/properties/traces/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err35];
+            } else {
+              vErrors.push(err35);
+            }
+            errors++;
+          }
+          if (data33 && typeof data33 == "object" && !Array.isArray(data33)) {
+            if (data33.destinations !== undefined) {
+              let data34 = data33.destinations;
+              if (Array.isArray(data34)) {
+                const len4 = data34.length;
                 for (let i4 = 0; i4 < len4; i4++) {
-                  if (typeof data33[i4] !== "string") {
-                    const err35 = {
+                  if (typeof data34[i4] !== "string") {
+                    const err36 = {
                       instancePath: instancePath + "/observability/traces/destinations/" + i4,
                       schemaPath:
                         "#/components/schemas/workers_observability/properties/traces/properties/destinations/items/type",
@@ -15238,39 +15263,21 @@ function validate226(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err35];
+                      vErrors = [err36];
                     } else {
-                      vErrors.push(err35);
+                      vErrors.push(err36);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err36 = {
+                const err37 = {
                   instancePath: instancePath + "/observability/traces/destinations",
                   schemaPath:
                     "#/components/schemas/workers_observability/properties/traces/properties/destinations/type",
                   keyword: "type",
                   params: { type: "array" },
                   message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err36];
-                } else {
-                  vErrors.push(err36);
-                }
-                errors++;
-              }
-            }
-            if (data32.enabled !== undefined) {
-              if (typeof data32.enabled !== "boolean") {
-                const err37 = {
-                  instancePath: instancePath + "/observability/traces/enabled",
-                  schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/enabled/type",
-                  keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err37];
@@ -15280,16 +15287,15 @@ function validate226(
                 errors++;
               }
             }
-            if (data32.head_sampling_rate !== undefined) {
-              let data36 = data32.head_sampling_rate;
-              if (!(typeof data36 == "number") && data36 !== null) {
+            if (data33.enabled !== undefined) {
+              if (typeof data33.enabled !== "boolean") {
                 const err38 = {
-                  instancePath: instancePath + "/observability/traces/head_sampling_rate",
+                  instancePath: instancePath + "/observability/traces/enabled",
                   schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/head_sampling_rate/type",
+                    "#/components/schemas/workers_observability/properties/traces/properties/enabled/type",
                   keyword: "type",
-                  params: { type: "number" },
-                  message: "must be number",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err38];
@@ -15299,15 +15305,16 @@ function validate226(
                 errors++;
               }
             }
-            if (data32.persist !== undefined) {
-              if (typeof data32.persist !== "boolean") {
+            if (data33.head_sampling_rate !== undefined) {
+              let data37 = data33.head_sampling_rate;
+              if (!(typeof data37 == "number") && data37 !== null) {
                 const err39 = {
-                  instancePath: instancePath + "/observability/traces/persist",
+                  instancePath: instancePath + "/observability/traces/head_sampling_rate",
                   schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/persist/type",
+                    "#/components/schemas/workers_observability/properties/traces/properties/head_sampling_rate/type",
                   keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
+                  params: { type: "number" },
+                  message: "must be number",
                 };
                 if (vErrors === null) {
                   vErrors = [err39];
@@ -15317,16 +15324,15 @@ function validate226(
                 errors++;
               }
             }
-            if (data32.propagation_policy !== undefined) {
-              let data38 = data32.propagation_policy;
-              if (typeof data38 !== "string") {
+            if (data33.persist !== undefined) {
+              if (typeof data33.persist !== "boolean") {
                 const err40 = {
-                  instancePath: instancePath + "/observability/traces/propagation_policy",
+                  instancePath: instancePath + "/observability/traces/persist",
                   schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/propagation_policy/type",
+                    "#/components/schemas/workers_observability/properties/traces/properties/persist/type",
                   keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err40];
@@ -15335,8 +15341,27 @@ function validate226(
                 }
                 errors++;
               }
-              if (!(data38 === "authenticated" || data38 === "accept")) {
+            }
+            if (data33.propagation_policy !== undefined) {
+              let data39 = data33.propagation_policy;
+              if (typeof data39 !== "string" && data39 !== null) {
                 const err41 = {
+                  instancePath: instancePath + "/observability/traces/propagation_policy",
+                  schemaPath:
+                    "#/components/schemas/workers_observability/properties/traces/properties/propagation_policy/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err41];
+                } else {
+                  vErrors.push(err41);
+                }
+                errors++;
+              }
+              if (!(data39 === "authenticated" || data39 === "accept" || data39 === null)) {
+                const err42 = {
                   instancePath: instancePath + "/observability/traces/propagation_policy",
                   schemaPath:
                     "#/components/schemas/workers_observability/properties/traces/properties/propagation_policy/enum",
@@ -15347,9 +15372,9 @@ function validate226(
                   message: "must be equal to one of the allowed values",
                 };
                 if (vErrors === null) {
-                  vErrors = [err41];
+                  vErrors = [err42];
                 } else {
-                  vErrors.push(err41);
+                  vErrors.push(err42);
                 }
                 errors++;
               }
@@ -15357,7 +15382,7 @@ function validate226(
           }
         }
       } else {
-        const err42 = {
+        const err43 = {
           instancePath: instancePath + "/observability",
           schemaPath: "#/components/schemas/workers_observability/type",
           keyword: "type",
@@ -15365,9 +15390,9 @@ function validate226(
           message: "must be object",
         };
         if (vErrors === null) {
-          vErrors = [err42];
+          vErrors = [err43];
         } else {
-          vErrors.push(err42);
+          vErrors.push(err43);
         }
         errors++;
       }
@@ -15387,29 +15412,14 @@ function validate226(
       }
     }
     if (data.placement_mode !== undefined) {
-      let data40 = data.placement_mode;
-      if (typeof data40 !== "string") {
-        const err43 = {
+      let data41 = data.placement_mode;
+      if (typeof data41 !== "string") {
+        const err44 = {
           instancePath: instancePath + "/placement_mode",
           schemaPath: "#/components/schemas/workers_placement_mode/type",
           keyword: "type",
           params: { type: "string" },
           message: "must be string",
-        };
-        if (vErrors === null) {
-          vErrors = [err43];
-        } else {
-          vErrors.push(err43);
-        }
-        errors++;
-      }
-      if (!(data40 === "smart" || data40 === "targeted")) {
-        const err44 = {
-          instancePath: instancePath + "/placement_mode",
-          schemaPath: "#/components/schemas/workers_placement_mode/enum",
-          keyword: "enum",
-          params: { allowedValues: schema258.enum },
-          message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
           vErrors = [err44];
@@ -15418,13 +15428,13 @@ function validate226(
         }
         errors++;
       }
-      if (typeof data40 !== "string") {
+      if (!(data41 === "smart" || data41 === "targeted")) {
         const err45 = {
           instancePath: instancePath + "/placement_mode",
-          schemaPath: "#/properties/placement_mode/allOf/1/type",
-          keyword: "type",
-          params: { type: "string" },
-          message: "must be string",
+          schemaPath: "#/components/schemas/workers_placement_mode/enum",
+          keyword: "enum",
+          params: { allowedValues: schema258.enum },
+          message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
           vErrors = [err45];
@@ -15433,13 +15443,10 @@ function validate226(
         }
         errors++;
       }
-    }
-    if (data.placement_status !== undefined) {
-      let data41 = data.placement_status;
       if (typeof data41 !== "string") {
         const err46 = {
-          instancePath: instancePath + "/placement_status",
-          schemaPath: "#/components/schemas/workers_placement_status/type",
+          instancePath: instancePath + "/placement_mode",
+          schemaPath: "#/properties/placement_mode/allOf/1/type",
           keyword: "type",
           params: { type: "string" },
           message: "must be string",
@@ -15451,19 +15458,16 @@ function validate226(
         }
         errors++;
       }
-      if (
-        !(
-          data41 === "SUCCESS" ||
-          data41 === "UNSUPPORTED_APPLICATION" ||
-          data41 === "INSUFFICIENT_INVOCATIONS"
-        )
-      ) {
+    }
+    if (data.placement_status !== undefined) {
+      let data42 = data.placement_status;
+      if (typeof data42 !== "string") {
         const err47 = {
           instancePath: instancePath + "/placement_status",
-          schemaPath: "#/components/schemas/workers_placement_status/enum",
-          keyword: "enum",
-          params: { allowedValues: schema257.enum },
-          message: "must be equal to one of the allowed values",
+          schemaPath: "#/components/schemas/workers_placement_status/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
         };
         if (vErrors === null) {
           vErrors = [err47];
@@ -15472,13 +15476,19 @@ function validate226(
         }
         errors++;
       }
-      if (typeof data41 !== "string") {
+      if (
+        !(
+          data42 === "SUCCESS" ||
+          data42 === "UNSUPPORTED_APPLICATION" ||
+          data42 === "INSUFFICIENT_INVOCATIONS"
+        )
+      ) {
         const err48 = {
           instancePath: instancePath + "/placement_status",
-          schemaPath: "#/properties/placement_status/allOf/1/type",
-          keyword: "type",
-          params: { type: "string" },
-          message: "must be string",
+          schemaPath: "#/components/schemas/workers_placement_status/enum",
+          keyword: "enum",
+          params: { allowedValues: schema257.enum },
+          message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
           vErrors = [err48];
@@ -15487,12 +15497,10 @@ function validate226(
         }
         errors++;
       }
-    }
-    if (data.tag !== undefined) {
-      if (typeof data.tag !== "string") {
+      if (typeof data42 !== "string") {
         const err49 = {
-          instancePath: instancePath + "/tag",
-          schemaPath: "#/properties/tag/type",
+          instancePath: instancePath + "/placement_status",
+          schemaPath: "#/properties/placement_status/allOf/1/type",
           keyword: "type",
           params: { type: "string" },
           message: "must be string",
@@ -15501,6 +15509,23 @@ function validate226(
           vErrors = [err49];
         } else {
           vErrors.push(err49);
+        }
+        errors++;
+      }
+    }
+    if (data.tag !== undefined) {
+      if (typeof data.tag !== "string") {
+        const err50 = {
+          instancePath: instancePath + "/tag",
+          schemaPath: "#/properties/tag/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err50];
+        } else {
+          vErrors.push(err50);
         }
         errors++;
       }
@@ -15534,9 +15559,9 @@ function validate226(
       }
     }
     if (data.usage_model !== undefined) {
-      let data45 = data.usage_model;
-      if (typeof data45 !== "string") {
-        const err50 = {
+      let data46 = data.usage_model;
+      if (typeof data46 !== "string") {
+        const err51 = {
           instancePath: instancePath + "/usage_model",
           schemaPath: "#/components/schemas/workers_usage_model/type",
           keyword: "type",
@@ -15544,14 +15569,14 @@ function validate226(
           message: "must be string",
         };
         if (vErrors === null) {
-          vErrors = [err50];
+          vErrors = [err51];
         } else {
-          vErrors.push(err50);
+          vErrors.push(err51);
         }
         errors++;
       }
-      if (!(data45 === "standard" || data45 === "bundled" || data45 === "unbound")) {
-        const err51 = {
+      if (!(data46 === "standard" || data46 === "bundled" || data46 === "unbound")) {
+        const err52 = {
           instancePath: instancePath + "/usage_model",
           schemaPath: "#/components/schemas/workers_usage_model/enum",
           keyword: "enum",
@@ -15559,9 +15584,9 @@ function validate226(
           message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
-          vErrors = [err51];
+          vErrors = [err52];
         } else {
-          vErrors.push(err51);
+          vErrors.push(err52);
         }
         errors++;
       }
@@ -22912,6 +22937,13 @@ validate334.evaluated = {
 const schema346 = {
   type: "object",
   properties: {
+    identity: {
+      description:
+        'Enables Gateway identity for the binding. Requires network_id to be "cf1:network" and cannot be combined with tunnel_id.\n',
+      type: "string",
+      enum: ["runtime-email-alpha"],
+      "x-auditable": true,
+    },
     name: { $ref: "#/components/schemas/workers_binding_name" },
     network_id: {
       description:
@@ -22980,11 +23012,12 @@ function validate336(
       }
       errors++;
     }
-    if (data.name !== undefined) {
-      if (typeof data.name !== "string") {
+    if (data.identity !== undefined) {
+      let data0 = data.identity;
+      if (typeof data0 !== "string") {
         const err2 = {
-          instancePath: instancePath + "/name",
-          schemaPath: "#/components/schemas/workers_binding_name/type",
+          instancePath: instancePath + "/identity",
+          schemaPath: "#/properties/identity/type",
           keyword: "type",
           params: { type: "string" },
           message: "must be string",
@@ -22996,15 +23029,13 @@ function validate336(
         }
         errors++;
       }
-    }
-    if (data.network_id !== undefined) {
-      if (typeof data.network_id !== "string") {
+      if (!(data0 === "runtime-email-alpha")) {
         const err3 = {
-          instancePath: instancePath + "/network_id",
-          schemaPath: "#/properties/network_id/type",
-          keyword: "type",
-          params: { type: "string" },
-          message: "must be string",
+          instancePath: instancePath + "/identity",
+          schemaPath: "#/properties/identity/enum",
+          keyword: "enum",
+          params: { allowedValues: schema346.properties.identity.enum },
+          message: "must be equal to one of the allowed values",
         };
         if (vErrors === null) {
           vErrors = [err3];
@@ -23014,11 +23045,11 @@ function validate336(
         errors++;
       }
     }
-    if (data.tunnel_id !== undefined) {
-      if (typeof data.tunnel_id !== "string") {
+    if (data.name !== undefined) {
+      if (typeof data.name !== "string") {
         const err4 = {
-          instancePath: instancePath + "/tunnel_id",
-          schemaPath: "#/properties/tunnel_id/type",
+          instancePath: instancePath + "/name",
+          schemaPath: "#/components/schemas/workers_binding_name/type",
           keyword: "type",
           params: { type: "string" },
           message: "must be string",
@@ -23031,12 +23062,11 @@ function validate336(
         errors++;
       }
     }
-    if (data.type !== undefined) {
-      let data3 = data.type;
-      if (typeof data3 !== "string") {
+    if (data.network_id !== undefined) {
+      if (typeof data.network_id !== "string") {
         const err5 = {
-          instancePath: instancePath + "/type",
-          schemaPath: "#/properties/type/type",
+          instancePath: instancePath + "/network_id",
+          schemaPath: "#/properties/network_id/type",
           keyword: "type",
           params: { type: "string" },
           message: "must be string",
@@ -23048,13 +23078,15 @@ function validate336(
         }
         errors++;
       }
-      if (!(data3 === "vpc_network")) {
+    }
+    if (data.tunnel_id !== undefined) {
+      if (typeof data.tunnel_id !== "string") {
         const err6 = {
-          instancePath: instancePath + "/type",
-          schemaPath: "#/properties/type/enum",
-          keyword: "enum",
-          params: { allowedValues: schema346.properties.type.enum },
-          message: "must be equal to one of the allowed values",
+          instancePath: instancePath + "/tunnel_id",
+          schemaPath: "#/properties/tunnel_id/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
         };
         if (vErrors === null) {
           vErrors = [err6];
@@ -23064,8 +23096,41 @@ function validate336(
         errors++;
       }
     }
+    if (data.type !== undefined) {
+      let data4 = data.type;
+      if (typeof data4 !== "string") {
+        const err7 = {
+          instancePath: instancePath + "/type",
+          schemaPath: "#/properties/type/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
+        };
+        if (vErrors === null) {
+          vErrors = [err7];
+        } else {
+          vErrors.push(err7);
+        }
+        errors++;
+      }
+      if (!(data4 === "vpc_network")) {
+        const err8 = {
+          instancePath: instancePath + "/type",
+          schemaPath: "#/properties/type/enum",
+          keyword: "enum",
+          params: { allowedValues: schema346.properties.type.enum },
+          message: "must be equal to one of the allowed values",
+        };
+        if (vErrors === null) {
+          vErrors = [err8];
+        } else {
+          vErrors.push(err8);
+        }
+        errors++;
+      }
+    }
   } else {
-    const err7 = {
+    const err9 = {
       instancePath,
       schemaPath: "#/type",
       keyword: "type",
@@ -23073,9 +23138,9 @@ function validate336(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err7];
+      vErrors = [err9];
     } else {
-      vErrors.push(err7);
+      vErrors.push(err9);
     }
     errors++;
   }
@@ -23083,7 +23148,7 @@ function validate336(
   return errors === 0;
 }
 validate336.evaluated = {
-  props: { name: true, network_id: true, tunnel_id: true, type: true },
+  props: { identity: true, name: true, network_id: true, tunnel_id: true, type: true },
   dynamicProps: false,
   dynamicItems: false,
 };
@@ -24329,6 +24394,7 @@ function validate267(
                                                                           passing0 = 35;
                                                                           if (props0 !== true) {
                                                                             props0 = props0 || {};
+                                                                            props0.identity = true;
                                                                             props0.name = true;
                                                                             props0.network_id = true;
                                                                             props0.tunnel_id = true;
@@ -29863,15 +29929,15 @@ function validate380(
             }
           }
         }
-        if (data15.traces !== undefined) {
-          let data25 = data15.traces;
-          if (!(data25 && typeof data25 == "object" && !Array.isArray(data25)) && data25 !== null) {
+        if (data15.redact_query_string !== undefined) {
+          if (typeof data15.redact_query_string !== "boolean") {
             const err27 = {
-              instancePath: instancePath + "/observability/traces",
-              schemaPath: "#/components/schemas/workers_observability/properties/traces/type",
+              instancePath: instancePath + "/observability/redact_query_string",
+              schemaPath:
+                "#/components/schemas/workers_observability/properties/redact_query_string/type",
               keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
+              params: { type: "boolean" },
+              message: "must be boolean",
             };
             if (vErrors === null) {
               vErrors = [err27];
@@ -29880,14 +29946,32 @@ function validate380(
             }
             errors++;
           }
-          if (data25 && typeof data25 == "object" && !Array.isArray(data25)) {
-            if (data25.destinations !== undefined) {
-              let data26 = data25.destinations;
-              if (Array.isArray(data26)) {
-                const len3 = data26.length;
+        }
+        if (data15.traces !== undefined) {
+          let data26 = data15.traces;
+          if (!(data26 && typeof data26 == "object" && !Array.isArray(data26)) && data26 !== null) {
+            const err28 = {
+              instancePath: instancePath + "/observability/traces",
+              schemaPath: "#/components/schemas/workers_observability/properties/traces/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err28];
+            } else {
+              vErrors.push(err28);
+            }
+            errors++;
+          }
+          if (data26 && typeof data26 == "object" && !Array.isArray(data26)) {
+            if (data26.destinations !== undefined) {
+              let data27 = data26.destinations;
+              if (Array.isArray(data27)) {
+                const len3 = data27.length;
                 for (let i3 = 0; i3 < len3; i3++) {
-                  if (typeof data26[i3] !== "string") {
-                    const err28 = {
+                  if (typeof data27[i3] !== "string") {
+                    const err29 = {
                       instancePath: instancePath + "/observability/traces/destinations/" + i3,
                       schemaPath:
                         "#/components/schemas/workers_observability/properties/traces/properties/destinations/items/type",
@@ -29896,39 +29980,21 @@ function validate380(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err28];
+                      vErrors = [err29];
                     } else {
-                      vErrors.push(err28);
+                      vErrors.push(err29);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err29 = {
+                const err30 = {
                   instancePath: instancePath + "/observability/traces/destinations",
                   schemaPath:
                     "#/components/schemas/workers_observability/properties/traces/properties/destinations/type",
                   keyword: "type",
                   params: { type: "array" },
                   message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err29];
-                } else {
-                  vErrors.push(err29);
-                }
-                errors++;
-              }
-            }
-            if (data25.enabled !== undefined) {
-              if (typeof data25.enabled !== "boolean") {
-                const err30 = {
-                  instancePath: instancePath + "/observability/traces/enabled",
-                  schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/enabled/type",
-                  keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err30];
@@ -29938,16 +30004,15 @@ function validate380(
                 errors++;
               }
             }
-            if (data25.head_sampling_rate !== undefined) {
-              let data29 = data25.head_sampling_rate;
-              if (!(typeof data29 == "number") && data29 !== null) {
+            if (data26.enabled !== undefined) {
+              if (typeof data26.enabled !== "boolean") {
                 const err31 = {
-                  instancePath: instancePath + "/observability/traces/head_sampling_rate",
+                  instancePath: instancePath + "/observability/traces/enabled",
                   schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/head_sampling_rate/type",
+                    "#/components/schemas/workers_observability/properties/traces/properties/enabled/type",
                   keyword: "type",
-                  params: { type: "number" },
-                  message: "must be number",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err31];
@@ -29957,15 +30022,16 @@ function validate380(
                 errors++;
               }
             }
-            if (data25.persist !== undefined) {
-              if (typeof data25.persist !== "boolean") {
+            if (data26.head_sampling_rate !== undefined) {
+              let data30 = data26.head_sampling_rate;
+              if (!(typeof data30 == "number") && data30 !== null) {
                 const err32 = {
-                  instancePath: instancePath + "/observability/traces/persist",
+                  instancePath: instancePath + "/observability/traces/head_sampling_rate",
                   schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/persist/type",
+                    "#/components/schemas/workers_observability/properties/traces/properties/head_sampling_rate/type",
                   keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
+                  params: { type: "number" },
+                  message: "must be number",
                 };
                 if (vErrors === null) {
                   vErrors = [err32];
@@ -29975,16 +30041,15 @@ function validate380(
                 errors++;
               }
             }
-            if (data25.propagation_policy !== undefined) {
-              let data31 = data25.propagation_policy;
-              if (typeof data31 !== "string") {
+            if (data26.persist !== undefined) {
+              if (typeof data26.persist !== "boolean") {
                 const err33 = {
-                  instancePath: instancePath + "/observability/traces/propagation_policy",
+                  instancePath: instancePath + "/observability/traces/persist",
                   schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/propagation_policy/type",
+                    "#/components/schemas/workers_observability/properties/traces/properties/persist/type",
                   keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err33];
@@ -29993,8 +30058,27 @@ function validate380(
                 }
                 errors++;
               }
-              if (!(data31 === "authenticated" || data31 === "accept")) {
+            }
+            if (data26.propagation_policy !== undefined) {
+              let data32 = data26.propagation_policy;
+              if (typeof data32 !== "string" && data32 !== null) {
                 const err34 = {
+                  instancePath: instancePath + "/observability/traces/propagation_policy",
+                  schemaPath:
+                    "#/components/schemas/workers_observability/properties/traces/properties/propagation_policy/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err34];
+                } else {
+                  vErrors.push(err34);
+                }
+                errors++;
+              }
+              if (!(data32 === "authenticated" || data32 === "accept" || data32 === null)) {
+                const err35 = {
                   instancePath: instancePath + "/observability/traces/propagation_policy",
                   schemaPath:
                     "#/components/schemas/workers_observability/properties/traces/properties/propagation_policy/enum",
@@ -30005,9 +30089,9 @@ function validate380(
                   message: "must be equal to one of the allowed values",
                 };
                 if (vErrors === null) {
-                  vErrors = [err34];
+                  vErrors = [err35];
                 } else {
-                  vErrors.push(err34);
+                  vErrors.push(err35);
                 }
                 errors++;
               }
@@ -30015,39 +30099,9 @@ function validate380(
           }
         }
       } else {
-        const err35 = {
+        const err36 = {
           instancePath: instancePath + "/observability",
           schemaPath: "#/components/schemas/workers_observability/type",
-          keyword: "type",
-          params: { type: "object" },
-          message: "must be object",
-        };
-        if (vErrors === null) {
-          vErrors = [err35];
-        } else {
-          vErrors.push(err35);
-        }
-        errors++;
-      }
-    }
-    if (data.placement !== undefined) {
-      let data32 = data.placement;
-      if (
-        !validate395(data32, {
-          instancePath: instancePath + "/placement",
-          parentData: data,
-          parentDataProperty: "placement",
-          rootData,
-          dynamicAnchors,
-        })
-      ) {
-        vErrors = vErrors === null ? validate395.errors : vErrors.concat(validate395.errors);
-        errors = vErrors.length;
-      }
-      if (!(data32 && typeof data32 == "object" && !Array.isArray(data32))) {
-        const err36 = {
-          instancePath: instancePath + "/placement",
-          schemaPath: "#/properties/placement/allOf/1/type",
           keyword: "type",
           params: { type: "object" },
           message: "must be object",
@@ -30060,10 +30114,40 @@ function validate380(
         errors++;
       }
     }
-    if (data.tags !== undefined) {
-      let data33 = data.tags;
+    if (data.placement !== undefined) {
+      let data33 = data.placement;
       if (
-        !validate243(data33, {
+        !validate395(data33, {
+          instancePath: instancePath + "/placement",
+          parentData: data,
+          parentDataProperty: "placement",
+          rootData,
+          dynamicAnchors,
+        })
+      ) {
+        vErrors = vErrors === null ? validate395.errors : vErrors.concat(validate395.errors);
+        errors = vErrors.length;
+      }
+      if (!(data33 && typeof data33 == "object" && !Array.isArray(data33))) {
+        const err37 = {
+          instancePath: instancePath + "/placement",
+          schemaPath: "#/properties/placement/allOf/1/type",
+          keyword: "type",
+          params: { type: "object" },
+          message: "must be object",
+        };
+        if (vErrors === null) {
+          vErrors = [err37];
+        } else {
+          vErrors.push(err37);
+        }
+        errors++;
+      }
+    }
+    if (data.tags !== undefined) {
+      let data34 = data.tags;
+      if (
+        !validate243(data34, {
           instancePath: instancePath + "/tags",
           parentData: data,
           parentDataProperty: "tags",
@@ -30074,11 +30158,11 @@ function validate380(
         vErrors = vErrors === null ? validate243.errors : vErrors.concat(validate243.errors);
         errors = vErrors.length;
       }
-      if (Array.isArray(data33)) {
-        const len4 = data33.length;
+      if (Array.isArray(data34)) {
+        const len4 = data34.length;
         for (let i4 = 0; i4 < len4; i4++) {
-          if (typeof data33[i4] !== "string") {
-            const err37 = {
+          if (typeof data34[i4] !== "string") {
+            const err38 = {
               instancePath: instancePath + "/tags/" + i4,
               schemaPath: "#/properties/tags/allOf/1/items/type",
               keyword: "type",
@@ -30086,15 +30170,15 @@ function validate380(
               message: "must be string",
             };
             if (vErrors === null) {
-              vErrors = [err37];
+              vErrors = [err38];
             } else {
-              vErrors.push(err37);
+              vErrors.push(err38);
             }
             errors++;
           }
         }
       } else {
-        const err38 = {
+        const err39 = {
           instancePath: instancePath + "/tags",
           schemaPath: "#/properties/tags/allOf/1/type",
           keyword: "type",
@@ -30102,17 +30186,17 @@ function validate380(
           message: "must be array",
         };
         if (vErrors === null) {
-          vErrors = [err38];
+          vErrors = [err39];
         } else {
-          vErrors.push(err38);
+          vErrors.push(err39);
         }
         errors++;
       }
     }
     if (data.tail_consumers !== undefined) {
-      let data35 = data.tail_consumers;
+      let data36 = data.tail_consumers;
       if (
-        !validate245(data35, {
+        !validate245(data36, {
           instancePath: instancePath + "/tail_consumers",
           parentData: data,
           parentDataProperty: "tail_consumers",
@@ -30123,13 +30207,13 @@ function validate380(
         vErrors = vErrors === null ? validate245.errors : vErrors.concat(validate245.errors);
         errors = vErrors.length;
       }
-      if (Array.isArray(data35)) {
-        const len5 = data35.length;
+      if (Array.isArray(data36)) {
+        const len5 = data36.length;
         for (let i5 = 0; i5 < len5; i5++) {
-          let data36 = data35[i5];
-          if (data36 && typeof data36 == "object" && !Array.isArray(data36)) {
-            if (data36.service === undefined) {
-              const err39 = {
+          let data37 = data36[i5];
+          if (data37 && typeof data37 == "object" && !Array.isArray(data37)) {
+            if (data37.service === undefined) {
+              const err40 = {
                 instancePath: instancePath + "/tail_consumers/" + i5,
                 schemaPath: "#/components/schemas/workers_tail_consumers_script/required",
                 keyword: "required",
@@ -30137,36 +30221,18 @@ function validate380(
                 message: "must have required property '" + "service" + "'",
               };
               if (vErrors === null) {
-                vErrors = [err39];
+                vErrors = [err40];
               } else {
-                vErrors.push(err39);
+                vErrors.push(err40);
               }
               errors++;
             }
-            if (data36.environment !== undefined) {
-              if (typeof data36.environment !== "string") {
-                const err40 = {
+            if (data37.environment !== undefined) {
+              if (typeof data37.environment !== "string") {
+                const err41 = {
                   instancePath: instancePath + "/tail_consumers/" + i5 + "/environment",
                   schemaPath:
                     "#/components/schemas/workers_tail_consumers_script/properties/environment/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
-                };
-                if (vErrors === null) {
-                  vErrors = [err40];
-                } else {
-                  vErrors.push(err40);
-                }
-                errors++;
-              }
-            }
-            if (data36.namespace !== undefined) {
-              if (typeof data36.namespace !== "string") {
-                const err41 = {
-                  instancePath: instancePath + "/tail_consumers/" + i5 + "/namespace",
-                  schemaPath:
-                    "#/components/schemas/workers_tail_consumers_script/properties/namespace/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -30179,12 +30245,12 @@ function validate380(
                 errors++;
               }
             }
-            if (data36.service !== undefined) {
-              if (typeof data36.service !== "string") {
+            if (data37.namespace !== undefined) {
+              if (typeof data37.namespace !== "string") {
                 const err42 = {
-                  instancePath: instancePath + "/tail_consumers/" + i5 + "/service",
+                  instancePath: instancePath + "/tail_consumers/" + i5 + "/namespace",
                   schemaPath:
-                    "#/components/schemas/workers_tail_consumers_script/properties/service/type",
+                    "#/components/schemas/workers_tail_consumers_script/properties/namespace/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -30197,8 +30263,26 @@ function validate380(
                 errors++;
               }
             }
+            if (data37.service !== undefined) {
+              if (typeof data37.service !== "string") {
+                const err43 = {
+                  instancePath: instancePath + "/tail_consumers/" + i5 + "/service",
+                  schemaPath:
+                    "#/components/schemas/workers_tail_consumers_script/properties/service/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err43];
+                } else {
+                  vErrors.push(err43);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err43 = {
+            const err44 = {
               instancePath: instancePath + "/tail_consumers/" + i5,
               schemaPath: "#/components/schemas/workers_tail_consumers_script/type",
               keyword: "type",
@@ -30206,38 +30290,20 @@ function validate380(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err43];
+              vErrors = [err44];
             } else {
-              vErrors.push(err43);
+              vErrors.push(err44);
             }
             errors++;
           }
         }
       } else {
-        const err44 = {
+        const err45 = {
           instancePath: instancePath + "/tail_consumers",
           schemaPath: "#/properties/tail_consumers/allOf/1/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
-        };
-        if (vErrors === null) {
-          vErrors = [err44];
-        } else {
-          vErrors.push(err44);
-        }
-        errors++;
-      }
-    }
-    if (data.usage_model !== undefined) {
-      let data40 = data.usage_model;
-      if (typeof data40 !== "string") {
-        const err45 = {
-          instancePath: instancePath + "/usage_model",
-          schemaPath: "#/components/schemas/workers_usage_model/type",
-          keyword: "type",
-          params: { type: "string" },
-          message: "must be string",
         };
         if (vErrors === null) {
           vErrors = [err45];
@@ -30246,13 +30312,16 @@ function validate380(
         }
         errors++;
       }
-      if (!(data40 === "standard" || data40 === "bundled" || data40 === "unbound")) {
+    }
+    if (data.usage_model !== undefined) {
+      let data41 = data.usage_model;
+      if (typeof data41 !== "string") {
         const err46 = {
           instancePath: instancePath + "/usage_model",
-          schemaPath: "#/components/schemas/workers_usage_model/enum",
-          keyword: "enum",
-          params: { allowedValues: schema264.enum },
-          message: "must be equal to one of the allowed values",
+          schemaPath: "#/components/schemas/workers_usage_model/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
         };
         if (vErrors === null) {
           vErrors = [err46];
@@ -30261,9 +30330,24 @@ function validate380(
         }
         errors++;
       }
+      if (!(data41 === "standard" || data41 === "bundled" || data41 === "unbound")) {
+        const err47 = {
+          instancePath: instancePath + "/usage_model",
+          schemaPath: "#/components/schemas/workers_usage_model/enum",
+          keyword: "enum",
+          params: { allowedValues: schema264.enum },
+          message: "must be equal to one of the allowed values",
+        };
+        if (vErrors === null) {
+          vErrors = [err47];
+        } else {
+          vErrors.push(err47);
+        }
+        errors++;
+      }
     }
   } else {
-    const err47 = {
+    const err48 = {
       instancePath,
       schemaPath: "#/type",
       keyword: "type",
@@ -30271,9 +30355,9 @@ function validate380(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err47];
+      vErrors = [err48];
     } else {
-      vErrors.push(err47);
+      vErrors.push(err48);
     }
     errors++;
   }
@@ -38902,7 +38986,7 @@ const schema438 = {
   type: "object",
   properties: {
     adhoc: { description: "If the query wasn't explcitly saved", type: "boolean" },
-    created: { type: "string" },
+    created: { type: "string", format: "date-time" },
     createdBy: { type: "string" },
     description: { type: "string", example: "Query description", maxLength: 1000, nullable: true },
     id: { type: "string" },
@@ -39061,7 +39145,7 @@ const schema438 = {
       },
       type: "object",
     },
-    updated: { type: "string" },
+    updated: { type: "string", format: "date-time" },
     updatedBy: { type: "string" },
   },
   required: [
@@ -39891,7 +39975,7 @@ function validate456(
       }
     }
     if (data.created !== undefined) {
-      if (typeof data.created !== "string") {
+      if (!(typeof data.created === "string")) {
         const err10 = {
           instancePath: instancePath + "/created",
           schemaPath: "#/properties/created/type",
@@ -41215,7 +41299,7 @@ function validate456(
       }
     }
     if (data.updated !== undefined) {
-      if (typeof data.updated !== "string") {
+      if (!(typeof data.updated === "string")) {
         const err78 = {
           instancePath: instancePath + "/updated",
           schemaPath: "#/properties/updated/type",
@@ -43492,10 +43576,7 @@ const schema453 = {
             type: "array",
             items: { type: "string" },
           },
-          id: {
-            description: "Pagination cursor derived from the first agent invocation in the run.",
-            type: "string",
-          },
+          id: { description: "Stable pagination cursor for this agent run.", type: "string" },
           inputTokens: {
             description:
               "Input tokens summed across chat spans in the run's trace; informational, not billing data.",
@@ -44193,8 +44274,8 @@ const schema457 = {
         { $ref: "#/components/schemas/workers-observability_query" },
         {
           properties: {
-            created: { anyOf: [{ type: "string" }, { type: "string" }] },
-            updated: { anyOf: [{ type: "string" }, { type: "string" }] },
+            created: { anyOf: [{ type: "string" }, { format: "date-time", type: "string" }] },
+            updated: { anyOf: [{ type: "string" }, { format: "date-time", type: "string" }] },
           },
           type: "object",
         },
@@ -44225,16 +44306,21 @@ const schema457 = {
       enum: ["STARTED", "COMPLETED"],
     },
     timeframe: {
-      description: "Time range for the query execution",
+      description:
+        "Time range for the query execution. 'from' must be earlier than 'to'. No fractional milliseconds.",
       type: "object",
       properties: {
         from: {
-          description: "Start timestamp for the query timeframe (Unix timestamp in milliseconds)",
-          type: "number",
+          description: "Start timestamp for the query timeframe. Unix timestamp in milliseconds",
+          type: "integer",
+          maximum: 253402300799999,
+          minimum: 0,
         },
         to: {
-          description: "End timestamp for the query timeframe (Unix timestamp in milliseconds)",
-          type: "number",
+          description: "End timestamp for the query timeframe. Unix timestamp in milliseconds",
+          type: "integer",
+          maximum: 253402300799999,
+          minimum: 0,
         },
       },
       required: ["to", "from"],
@@ -44504,7 +44590,7 @@ function validate481(
           var _valid0 = _errs17 === errors;
           valid3 = valid3 || _valid0;
           const _errs19 = errors;
-          if (typeof data6 !== "string") {
+          if (!(typeof data6 === "string")) {
             const err14 = {
               instancePath: instancePath + "/query/created",
               schemaPath: "#/properties/query/allOf/1/properties/created/anyOf/1/type",
@@ -44569,7 +44655,7 @@ function validate481(
           var _valid1 = _errs23 === errors;
           valid4 = valid4 || _valid1;
           const _errs25 = errors;
-          if (typeof data7 !== "string") {
+          if (!(typeof data7 === "string")) {
             const err17 = {
               instancePath: instancePath + "/query/updated",
               schemaPath: "#/properties/query/allOf/1/properties/updated/anyOf/1/type",
@@ -44826,13 +44912,14 @@ function validate481(
           errors++;
         }
         if (data14.from !== undefined) {
-          if (!(typeof data14.from == "number")) {
+          let data15 = data14.from;
+          if (!(typeof data15 == "number" && !(data15 % 1) && !isNaN(data15))) {
             const err32 = {
               instancePath: instancePath + "/timeframe/from",
               schemaPath: "#/properties/timeframe/properties/from/type",
               keyword: "type",
-              params: { type: "number" },
-              message: "must be number",
+              params: { type: "integer" },
+              message: "must be integer",
             };
             if (vErrors === null) {
               vErrors = [err32];
@@ -44841,26 +44928,91 @@ function validate481(
             }
             errors++;
           }
+          if (typeof data15 == "number") {
+            if (data15 > 253402300799999 || isNaN(data15)) {
+              const err33 = {
+                instancePath: instancePath + "/timeframe/from",
+                schemaPath: "#/properties/timeframe/properties/from/maximum",
+                keyword: "maximum",
+                params: { comparison: "<=", limit: 253402300799999 },
+                message: "must be <= 253402300799999",
+              };
+              if (vErrors === null) {
+                vErrors = [err33];
+              } else {
+                vErrors.push(err33);
+              }
+              errors++;
+            }
+            if (data15 < 0 || isNaN(data15)) {
+              const err34 = {
+                instancePath: instancePath + "/timeframe/from",
+                schemaPath: "#/properties/timeframe/properties/from/minimum",
+                keyword: "minimum",
+                params: { comparison: ">=", limit: 0 },
+                message: "must be >= 0",
+              };
+              if (vErrors === null) {
+                vErrors = [err34];
+              } else {
+                vErrors.push(err34);
+              }
+              errors++;
+            }
+          }
         }
         if (data14.to !== undefined) {
-          if (!(typeof data14.to == "number")) {
-            const err33 = {
+          let data16 = data14.to;
+          if (!(typeof data16 == "number" && !(data16 % 1) && !isNaN(data16))) {
+            const err35 = {
               instancePath: instancePath + "/timeframe/to",
               schemaPath: "#/properties/timeframe/properties/to/type",
               keyword: "type",
-              params: { type: "number" },
-              message: "must be number",
+              params: { type: "integer" },
+              message: "must be integer",
             };
             if (vErrors === null) {
-              vErrors = [err33];
+              vErrors = [err35];
             } else {
-              vErrors.push(err33);
+              vErrors.push(err35);
             }
             errors++;
           }
+          if (typeof data16 == "number") {
+            if (data16 > 253402300799999 || isNaN(data16)) {
+              const err36 = {
+                instancePath: instancePath + "/timeframe/to",
+                schemaPath: "#/properties/timeframe/properties/to/maximum",
+                keyword: "maximum",
+                params: { comparison: "<=", limit: 253402300799999 },
+                message: "must be <= 253402300799999",
+              };
+              if (vErrors === null) {
+                vErrors = [err36];
+              } else {
+                vErrors.push(err36);
+              }
+              errors++;
+            }
+            if (data16 < 0 || isNaN(data16)) {
+              const err37 = {
+                instancePath: instancePath + "/timeframe/to",
+                schemaPath: "#/properties/timeframe/properties/to/minimum",
+                keyword: "minimum",
+                params: { comparison: ">=", limit: 0 },
+                message: "must be >= 0",
+              };
+              if (vErrors === null) {
+                vErrors = [err37];
+              } else {
+                vErrors.push(err37);
+              }
+              errors++;
+            }
+          }
         }
       } else {
-        const err34 = {
+        const err38 = {
           instancePath: instancePath + "/timeframe",
           schemaPath: "#/properties/timeframe/type",
           keyword: "type",
@@ -44868,16 +45020,16 @@ function validate481(
           message: "must be object",
         };
         if (vErrors === null) {
-          vErrors = [err34];
+          vErrors = [err38];
         } else {
-          vErrors.push(err34);
+          vErrors.push(err38);
         }
         errors++;
       }
     }
     if (data.updated !== undefined) {
       if (typeof data.updated !== "string") {
-        const err35 = {
+        const err39 = {
           instancePath: instancePath + "/updated",
           schemaPath: "#/properties/updated/type",
           keyword: "type",
@@ -44885,16 +45037,16 @@ function validate481(
           message: "must be string",
         };
         if (vErrors === null) {
-          vErrors = [err35];
+          vErrors = [err39];
         } else {
-          vErrors.push(err35);
+          vErrors.push(err39);
         }
         errors++;
       }
     }
     if (data.userId !== undefined) {
       if (typeof data.userId !== "string") {
-        const err36 = {
+        const err40 = {
           instancePath: instancePath + "/userId",
           schemaPath: "#/properties/userId/type",
           keyword: "type",
@@ -44902,15 +45054,15 @@ function validate481(
           message: "must be string",
         };
         if (vErrors === null) {
-          vErrors = [err36];
+          vErrors = [err40];
         } else {
-          vErrors.push(err36);
+          vErrors.push(err40);
         }
         errors++;
       }
     }
   } else {
-    const err37 = {
+    const err41 = {
       instancePath,
       schemaPath: "#/type",
       keyword: "type",
@@ -44918,9 +45070,9 @@ function validate481(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err37];
+      vErrors = [err41];
     } else {
-      vErrors.push(err37);
+      vErrors.push(err41);
     }
     errors++;
   }
@@ -63043,15 +63195,15 @@ function validate562(
             }
           }
         }
-        if (data1.traces !== undefined) {
-          let data11 = data1.traces;
-          if (!(data11 && typeof data11 == "object" && !Array.isArray(data11)) && data11 !== null) {
+        if (data1.redact_query_string !== undefined) {
+          if (typeof data1.redact_query_string !== "boolean") {
             const err13 = {
-              instancePath: instancePath + "/observability/traces",
-              schemaPath: "#/components/schemas/workers_observability/properties/traces/type",
+              instancePath: instancePath + "/observability/redact_query_string",
+              schemaPath:
+                "#/components/schemas/workers_observability/properties/redact_query_string/type",
               keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
+              params: { type: "boolean" },
+              message: "must be boolean",
             };
             if (vErrors === null) {
               vErrors = [err13];
@@ -63060,14 +63212,32 @@ function validate562(
             }
             errors++;
           }
-          if (data11 && typeof data11 == "object" && !Array.isArray(data11)) {
-            if (data11.destinations !== undefined) {
-              let data12 = data11.destinations;
-              if (Array.isArray(data12)) {
-                const len1 = data12.length;
+        }
+        if (data1.traces !== undefined) {
+          let data12 = data1.traces;
+          if (!(data12 && typeof data12 == "object" && !Array.isArray(data12)) && data12 !== null) {
+            const err14 = {
+              instancePath: instancePath + "/observability/traces",
+              schemaPath: "#/components/schemas/workers_observability/properties/traces/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err14];
+            } else {
+              vErrors.push(err14);
+            }
+            errors++;
+          }
+          if (data12 && typeof data12 == "object" && !Array.isArray(data12)) {
+            if (data12.destinations !== undefined) {
+              let data13 = data12.destinations;
+              if (Array.isArray(data13)) {
+                const len1 = data13.length;
                 for (let i1 = 0; i1 < len1; i1++) {
-                  if (typeof data12[i1] !== "string") {
-                    const err14 = {
+                  if (typeof data13[i1] !== "string") {
+                    const err15 = {
                       instancePath: instancePath + "/observability/traces/destinations/" + i1,
                       schemaPath:
                         "#/components/schemas/workers_observability/properties/traces/properties/destinations/items/type",
@@ -63076,39 +63246,21 @@ function validate562(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err14];
+                      vErrors = [err15];
                     } else {
-                      vErrors.push(err14);
+                      vErrors.push(err15);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err15 = {
+                const err16 = {
                   instancePath: instancePath + "/observability/traces/destinations",
                   schemaPath:
                     "#/components/schemas/workers_observability/properties/traces/properties/destinations/type",
                   keyword: "type",
                   params: { type: "array" },
                   message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err15];
-                } else {
-                  vErrors.push(err15);
-                }
-                errors++;
-              }
-            }
-            if (data11.enabled !== undefined) {
-              if (typeof data11.enabled !== "boolean") {
-                const err16 = {
-                  instancePath: instancePath + "/observability/traces/enabled",
-                  schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/enabled/type",
-                  keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err16];
@@ -63118,16 +63270,15 @@ function validate562(
                 errors++;
               }
             }
-            if (data11.head_sampling_rate !== undefined) {
-              let data15 = data11.head_sampling_rate;
-              if (!(typeof data15 == "number") && data15 !== null) {
+            if (data12.enabled !== undefined) {
+              if (typeof data12.enabled !== "boolean") {
                 const err17 = {
-                  instancePath: instancePath + "/observability/traces/head_sampling_rate",
+                  instancePath: instancePath + "/observability/traces/enabled",
                   schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/head_sampling_rate/type",
+                    "#/components/schemas/workers_observability/properties/traces/properties/enabled/type",
                   keyword: "type",
-                  params: { type: "number" },
-                  message: "must be number",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err17];
@@ -63137,15 +63288,16 @@ function validate562(
                 errors++;
               }
             }
-            if (data11.persist !== undefined) {
-              if (typeof data11.persist !== "boolean") {
+            if (data12.head_sampling_rate !== undefined) {
+              let data16 = data12.head_sampling_rate;
+              if (!(typeof data16 == "number") && data16 !== null) {
                 const err18 = {
-                  instancePath: instancePath + "/observability/traces/persist",
+                  instancePath: instancePath + "/observability/traces/head_sampling_rate",
                   schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/persist/type",
+                    "#/components/schemas/workers_observability/properties/traces/properties/head_sampling_rate/type",
                   keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
+                  params: { type: "number" },
+                  message: "must be number",
                 };
                 if (vErrors === null) {
                   vErrors = [err18];
@@ -63155,16 +63307,15 @@ function validate562(
                 errors++;
               }
             }
-            if (data11.propagation_policy !== undefined) {
-              let data17 = data11.propagation_policy;
-              if (typeof data17 !== "string") {
+            if (data12.persist !== undefined) {
+              if (typeof data12.persist !== "boolean") {
                 const err19 = {
-                  instancePath: instancePath + "/observability/traces/propagation_policy",
+                  instancePath: instancePath + "/observability/traces/persist",
                   schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/propagation_policy/type",
+                    "#/components/schemas/workers_observability/properties/traces/properties/persist/type",
                   keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err19];
@@ -63173,8 +63324,27 @@ function validate562(
                 }
                 errors++;
               }
-              if (!(data17 === "authenticated" || data17 === "accept")) {
+            }
+            if (data12.propagation_policy !== undefined) {
+              let data18 = data12.propagation_policy;
+              if (typeof data18 !== "string" && data18 !== null) {
                 const err20 = {
+                  instancePath: instancePath + "/observability/traces/propagation_policy",
+                  schemaPath:
+                    "#/components/schemas/workers_observability/properties/traces/properties/propagation_policy/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err20];
+                } else {
+                  vErrors.push(err20);
+                }
+                errors++;
+              }
+              if (!(data18 === "authenticated" || data18 === "accept" || data18 === null)) {
+                const err21 = {
                   instancePath: instancePath + "/observability/traces/propagation_policy",
                   schemaPath:
                     "#/components/schemas/workers_observability/properties/traces/properties/propagation_policy/enum",
@@ -63185,9 +63355,9 @@ function validate562(
                   message: "must be equal to one of the allowed values",
                 };
                 if (vErrors === null) {
-                  vErrors = [err20];
+                  vErrors = [err21];
                 } else {
-                  vErrors.push(err20);
+                  vErrors.push(err21);
                 }
                 errors++;
               }
@@ -63195,24 +63365,9 @@ function validate562(
           }
         }
       } else {
-        const err21 = {
-          instancePath: instancePath + "/observability",
-          schemaPath: "#/components/schemas/workers_observability/type",
-          keyword: "type",
-          params: { type: "object" },
-          message: "must be object",
-        };
-        if (vErrors === null) {
-          vErrors = [err21];
-        } else {
-          vErrors.push(err21);
-        }
-        errors++;
-      }
-      if (!(data1 && typeof data1 == "object" && !Array.isArray(data1)) && data1 !== null) {
         const err22 = {
           instancePath: instancePath + "/observability",
-          schemaPath: "#/properties/observability/allOf/1/type",
+          schemaPath: "#/components/schemas/workers_observability/type",
           keyword: "type",
           params: { type: "object" },
           message: "must be object",
@@ -63224,11 +63379,26 @@ function validate562(
         }
         errors++;
       }
+      if (!(data1 && typeof data1 == "object" && !Array.isArray(data1)) && data1 !== null) {
+        const err23 = {
+          instancePath: instancePath + "/observability",
+          schemaPath: "#/properties/observability/allOf/1/type",
+          keyword: "type",
+          params: { type: "object" },
+          message: "must be object",
+        };
+        if (vErrors === null) {
+          vErrors = [err23];
+        } else {
+          vErrors.push(err23);
+        }
+        errors++;
+      }
     }
     if (data.tags !== undefined) {
-      let data18 = data.tags;
+      let data19 = data.tags;
       if (
-        !validate243(data18, {
+        !validate243(data19, {
           instancePath: instancePath + "/tags",
           parentData: data,
           parentDataProperty: "tags",
@@ -63239,8 +63409,8 @@ function validate562(
         vErrors = vErrors === null ? validate243.errors : vErrors.concat(validate243.errors);
         errors = vErrors.length;
       }
-      if (!Array.isArray(data18) && data18 !== null) {
-        const err23 = {
+      if (!Array.isArray(data19) && data19 !== null) {
+        const err24 = {
           instancePath: instancePath + "/tags",
           schemaPath: "#/properties/tags/allOf/1/type",
           keyword: "type",
@@ -63248,39 +63418,24 @@ function validate562(
           message: "must be array",
         };
         if (vErrors === null) {
-          vErrors = [err23];
+          vErrors = [err24];
         } else {
-          vErrors.push(err23);
+          vErrors.push(err24);
         }
         errors++;
       }
-      if (Array.isArray(data18)) {
-        const len2 = data18.length;
+      if (Array.isArray(data19)) {
+        const len2 = data19.length;
         for (let i2 = 0; i2 < len2; i2++) {
-          let data19 = data18[i2];
-          if (typeof data19 === "string") {
-            if (func2(data19) > 1024) {
-              const err24 = {
+          let data20 = data19[i2];
+          if (typeof data20 === "string") {
+            if (func2(data20) > 1024) {
+              const err25 = {
                 instancePath: instancePath + "/tags/" + i2,
                 schemaPath: "#/components/schemas/workers_tag/maxLength",
                 keyword: "maxLength",
                 params: { limit: 1024 },
                 message: "must NOT have more than 1024 characters",
-              };
-              if (vErrors === null) {
-                vErrors = [err24];
-              } else {
-                vErrors.push(err24);
-              }
-              errors++;
-            }
-            if (!pattern2.test(data19)) {
-              const err25 = {
-                instancePath: instancePath + "/tags/" + i2,
-                schemaPath: "#/components/schemas/workers_tag/pattern",
-                keyword: "pattern",
-                params: { pattern: "^[^,&]*$" },
-                message: 'must match pattern "' + "^[^,&]*$" + '"',
               };
               if (vErrors === null) {
                 vErrors = [err25];
@@ -63289,8 +63444,23 @@ function validate562(
               }
               errors++;
             }
+            if (!pattern2.test(data20)) {
+              const err26 = {
+                instancePath: instancePath + "/tags/" + i2,
+                schemaPath: "#/components/schemas/workers_tag/pattern",
+                keyword: "pattern",
+                params: { pattern: "^[^,&]*$" },
+                message: 'must match pattern "' + "^[^,&]*$" + '"',
+              };
+              if (vErrors === null) {
+                vErrors = [err26];
+              } else {
+                vErrors.push(err26);
+              }
+              errors++;
+            }
           } else {
-            const err26 = {
+            const err27 = {
               instancePath: instancePath + "/tags/" + i2,
               schemaPath: "#/components/schemas/workers_tag/type",
               keyword: "type",
@@ -63298,9 +63468,9 @@ function validate562(
               message: "must be string",
             };
             if (vErrors === null) {
-              vErrors = [err26];
+              vErrors = [err27];
             } else {
-              vErrors.push(err26);
+              vErrors.push(err27);
             }
             errors++;
           }
@@ -63308,9 +63478,9 @@ function validate562(
       }
     }
     if (data.tail_consumers !== undefined) {
-      let data20 = data.tail_consumers;
-      if (!Array.isArray(data20) && data20 !== null) {
-        const err27 = {
+      let data21 = data.tail_consumers;
+      if (!Array.isArray(data21) && data21 !== null) {
+        const err28 = {
           instancePath: instancePath + "/tail_consumers",
           schemaPath: "#/properties/tail_consumers/type",
           keyword: "type",
@@ -63318,19 +63488,19 @@ function validate562(
           message: "must be array",
         };
         if (vErrors === null) {
-          vErrors = [err27];
+          vErrors = [err28];
         } else {
-          vErrors.push(err27);
+          vErrors.push(err28);
         }
         errors++;
       }
-      if (Array.isArray(data20)) {
-        const len3 = data20.length;
+      if (Array.isArray(data21)) {
+        const len3 = data21.length;
         for (let i3 = 0; i3 < len3; i3++) {
-          let data21 = data20[i3];
-          if (data21 && typeof data21 == "object" && !Array.isArray(data21)) {
-            if (data21.service === undefined) {
-              const err28 = {
+          let data22 = data21[i3];
+          if (data22 && typeof data22 == "object" && !Array.isArray(data22)) {
+            if (data22.service === undefined) {
+              const err29 = {
                 instancePath: instancePath + "/tail_consumers/" + i3,
                 schemaPath: "#/components/schemas/workers_tail_consumers_script/required",
                 keyword: "required",
@@ -63338,36 +63508,18 @@ function validate562(
                 message: "must have required property '" + "service" + "'",
               };
               if (vErrors === null) {
-                vErrors = [err28];
+                vErrors = [err29];
               } else {
-                vErrors.push(err28);
+                vErrors.push(err29);
               }
               errors++;
             }
-            if (data21.environment !== undefined) {
-              if (typeof data21.environment !== "string") {
-                const err29 = {
+            if (data22.environment !== undefined) {
+              if (typeof data22.environment !== "string") {
+                const err30 = {
                   instancePath: instancePath + "/tail_consumers/" + i3 + "/environment",
                   schemaPath:
                     "#/components/schemas/workers_tail_consumers_script/properties/environment/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
-                };
-                if (vErrors === null) {
-                  vErrors = [err29];
-                } else {
-                  vErrors.push(err29);
-                }
-                errors++;
-              }
-            }
-            if (data21.namespace !== undefined) {
-              if (typeof data21.namespace !== "string") {
-                const err30 = {
-                  instancePath: instancePath + "/tail_consumers/" + i3 + "/namespace",
-                  schemaPath:
-                    "#/components/schemas/workers_tail_consumers_script/properties/namespace/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -63380,12 +63532,12 @@ function validate562(
                 errors++;
               }
             }
-            if (data21.service !== undefined) {
-              if (typeof data21.service !== "string") {
+            if (data22.namespace !== undefined) {
+              if (typeof data22.namespace !== "string") {
                 const err31 = {
-                  instancePath: instancePath + "/tail_consumers/" + i3 + "/service",
+                  instancePath: instancePath + "/tail_consumers/" + i3 + "/namespace",
                   schemaPath:
-                    "#/components/schemas/workers_tail_consumers_script/properties/service/type",
+                    "#/components/schemas/workers_tail_consumers_script/properties/namespace/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -63398,8 +63550,26 @@ function validate562(
                 errors++;
               }
             }
+            if (data22.service !== undefined) {
+              if (typeof data22.service !== "string") {
+                const err32 = {
+                  instancePath: instancePath + "/tail_consumers/" + i3 + "/service",
+                  schemaPath:
+                    "#/components/schemas/workers_tail_consumers_script/properties/service/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err32];
+                } else {
+                  vErrors.push(err32);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err32 = {
+            const err33 = {
               instancePath: instancePath + "/tail_consumers/" + i3,
               schemaPath: "#/components/schemas/workers_tail_consumers_script/type",
               keyword: "type",
@@ -63407,9 +63577,9 @@ function validate562(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err32];
+              vErrors = [err33];
             } else {
-              vErrors.push(err32);
+              vErrors.push(err33);
             }
             errors++;
           }
@@ -63417,7 +63587,7 @@ function validate562(
       }
     }
   } else {
-    const err33 = {
+    const err34 = {
       instancePath,
       schemaPath: "#/type",
       keyword: "type",
@@ -63425,9 +63595,9 @@ function validate562(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err33];
+      vErrors = [err34];
     } else {
-      vErrors.push(err33);
+      vErrors.push(err34);
     }
     errors++;
   }
@@ -65012,15 +65182,15 @@ function validate598(
             }
           }
         }
-        if (data19.traces !== undefined) {
-          let data29 = data19.traces;
-          if (!(data29 && typeof data29 == "object" && !Array.isArray(data29)) && data29 !== null) {
+        if (data19.redact_query_string !== undefined) {
+          if (typeof data19.redact_query_string !== "boolean") {
             const err33 = {
-              instancePath: instancePath + "/observability/traces",
-              schemaPath: "#/components/schemas/workers_observability/properties/traces/type",
+              instancePath: instancePath + "/observability/redact_query_string",
+              schemaPath:
+                "#/components/schemas/workers_observability/properties/redact_query_string/type",
               keyword: "type",
-              params: { type: "object" },
-              message: "must be object",
+              params: { type: "boolean" },
+              message: "must be boolean",
             };
             if (vErrors === null) {
               vErrors = [err33];
@@ -65029,14 +65199,32 @@ function validate598(
             }
             errors++;
           }
-          if (data29 && typeof data29 == "object" && !Array.isArray(data29)) {
-            if (data29.destinations !== undefined) {
-              let data30 = data29.destinations;
-              if (Array.isArray(data30)) {
-                const len3 = data30.length;
+        }
+        if (data19.traces !== undefined) {
+          let data30 = data19.traces;
+          if (!(data30 && typeof data30 == "object" && !Array.isArray(data30)) && data30 !== null) {
+            const err34 = {
+              instancePath: instancePath + "/observability/traces",
+              schemaPath: "#/components/schemas/workers_observability/properties/traces/type",
+              keyword: "type",
+              params: { type: "object" },
+              message: "must be object",
+            };
+            if (vErrors === null) {
+              vErrors = [err34];
+            } else {
+              vErrors.push(err34);
+            }
+            errors++;
+          }
+          if (data30 && typeof data30 == "object" && !Array.isArray(data30)) {
+            if (data30.destinations !== undefined) {
+              let data31 = data30.destinations;
+              if (Array.isArray(data31)) {
+                const len3 = data31.length;
                 for (let i3 = 0; i3 < len3; i3++) {
-                  if (typeof data30[i3] !== "string") {
-                    const err34 = {
+                  if (typeof data31[i3] !== "string") {
+                    const err35 = {
                       instancePath: instancePath + "/observability/traces/destinations/" + i3,
                       schemaPath:
                         "#/components/schemas/workers_observability/properties/traces/properties/destinations/items/type",
@@ -65045,39 +65233,21 @@ function validate598(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err34];
+                      vErrors = [err35];
                     } else {
-                      vErrors.push(err34);
+                      vErrors.push(err35);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err35 = {
+                const err36 = {
                   instancePath: instancePath + "/observability/traces/destinations",
                   schemaPath:
                     "#/components/schemas/workers_observability/properties/traces/properties/destinations/type",
                   keyword: "type",
                   params: { type: "array" },
                   message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err35];
-                } else {
-                  vErrors.push(err35);
-                }
-                errors++;
-              }
-            }
-            if (data29.enabled !== undefined) {
-              if (typeof data29.enabled !== "boolean") {
-                const err36 = {
-                  instancePath: instancePath + "/observability/traces/enabled",
-                  schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/enabled/type",
-                  keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err36];
@@ -65087,16 +65257,15 @@ function validate598(
                 errors++;
               }
             }
-            if (data29.head_sampling_rate !== undefined) {
-              let data33 = data29.head_sampling_rate;
-              if (!(typeof data33 == "number") && data33 !== null) {
+            if (data30.enabled !== undefined) {
+              if (typeof data30.enabled !== "boolean") {
                 const err37 = {
-                  instancePath: instancePath + "/observability/traces/head_sampling_rate",
+                  instancePath: instancePath + "/observability/traces/enabled",
                   schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/head_sampling_rate/type",
+                    "#/components/schemas/workers_observability/properties/traces/properties/enabled/type",
                   keyword: "type",
-                  params: { type: "number" },
-                  message: "must be number",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err37];
@@ -65106,15 +65275,16 @@ function validate598(
                 errors++;
               }
             }
-            if (data29.persist !== undefined) {
-              if (typeof data29.persist !== "boolean") {
+            if (data30.head_sampling_rate !== undefined) {
+              let data34 = data30.head_sampling_rate;
+              if (!(typeof data34 == "number") && data34 !== null) {
                 const err38 = {
-                  instancePath: instancePath + "/observability/traces/persist",
+                  instancePath: instancePath + "/observability/traces/head_sampling_rate",
                   schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/persist/type",
+                    "#/components/schemas/workers_observability/properties/traces/properties/head_sampling_rate/type",
                   keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
+                  params: { type: "number" },
+                  message: "must be number",
                 };
                 if (vErrors === null) {
                   vErrors = [err38];
@@ -65124,16 +65294,15 @@ function validate598(
                 errors++;
               }
             }
-            if (data29.propagation_policy !== undefined) {
-              let data35 = data29.propagation_policy;
-              if (typeof data35 !== "string") {
+            if (data30.persist !== undefined) {
+              if (typeof data30.persist !== "boolean") {
                 const err39 = {
-                  instancePath: instancePath + "/observability/traces/propagation_policy",
+                  instancePath: instancePath + "/observability/traces/persist",
                   schemaPath:
-                    "#/components/schemas/workers_observability/properties/traces/properties/propagation_policy/type",
+                    "#/components/schemas/workers_observability/properties/traces/properties/persist/type",
                   keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err39];
@@ -65142,8 +65311,27 @@ function validate598(
                 }
                 errors++;
               }
-              if (!(data35 === "authenticated" || data35 === "accept")) {
+            }
+            if (data30.propagation_policy !== undefined) {
+              let data36 = data30.propagation_policy;
+              if (typeof data36 !== "string" && data36 !== null) {
                 const err40 = {
+                  instancePath: instancePath + "/observability/traces/propagation_policy",
+                  schemaPath:
+                    "#/components/schemas/workers_observability/properties/traces/properties/propagation_policy/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err40];
+                } else {
+                  vErrors.push(err40);
+                }
+                errors++;
+              }
+              if (!(data36 === "authenticated" || data36 === "accept" || data36 === null)) {
+                const err41 = {
                   instancePath: instancePath + "/observability/traces/propagation_policy",
                   schemaPath:
                     "#/components/schemas/workers_observability/properties/traces/properties/propagation_policy/enum",
@@ -65154,9 +65342,9 @@ function validate598(
                   message: "must be equal to one of the allowed values",
                 };
                 if (vErrors === null) {
-                  vErrors = [err40];
+                  vErrors = [err41];
                 } else {
-                  vErrors.push(err40);
+                  vErrors.push(err41);
                 }
                 errors++;
               }
@@ -65164,39 +65352,9 @@ function validate598(
           }
         }
       } else {
-        const err41 = {
+        const err42 = {
           instancePath: instancePath + "/observability",
           schemaPath: "#/components/schemas/workers_observability/type",
-          keyword: "type",
-          params: { type: "object" },
-          message: "must be object",
-        };
-        if (vErrors === null) {
-          vErrors = [err41];
-        } else {
-          vErrors.push(err41);
-        }
-        errors++;
-      }
-    }
-    if (data.placement !== undefined) {
-      let data36 = data.placement;
-      if (
-        !validate395(data36, {
-          instancePath: instancePath + "/placement",
-          parentData: data,
-          parentDataProperty: "placement",
-          rootData,
-          dynamicAnchors,
-        })
-      ) {
-        vErrors = vErrors === null ? validate395.errors : vErrors.concat(validate395.errors);
-        errors = vErrors.length;
-      }
-      if (!(data36 && typeof data36 == "object" && !Array.isArray(data36))) {
-        const err42 = {
-          instancePath: instancePath + "/placement",
-          schemaPath: "#/properties/placement/allOf/1/type",
           keyword: "type",
           params: { type: "object" },
           message: "must be object",
@@ -65209,10 +65367,40 @@ function validate598(
         errors++;
       }
     }
-    if (data.tags !== undefined) {
-      let data37 = data.tags;
+    if (data.placement !== undefined) {
+      let data37 = data.placement;
       if (
-        !validate243(data37, {
+        !validate395(data37, {
+          instancePath: instancePath + "/placement",
+          parentData: data,
+          parentDataProperty: "placement",
+          rootData,
+          dynamicAnchors,
+        })
+      ) {
+        vErrors = vErrors === null ? validate395.errors : vErrors.concat(validate395.errors);
+        errors = vErrors.length;
+      }
+      if (!(data37 && typeof data37 == "object" && !Array.isArray(data37))) {
+        const err43 = {
+          instancePath: instancePath + "/placement",
+          schemaPath: "#/properties/placement/allOf/1/type",
+          keyword: "type",
+          params: { type: "object" },
+          message: "must be object",
+        };
+        if (vErrors === null) {
+          vErrors = [err43];
+        } else {
+          vErrors.push(err43);
+        }
+        errors++;
+      }
+    }
+    if (data.tags !== undefined) {
+      let data38 = data.tags;
+      if (
+        !validate243(data38, {
           instancePath: instancePath + "/tags",
           parentData: data,
           parentDataProperty: "tags",
@@ -65223,11 +65411,11 @@ function validate598(
         vErrors = vErrors === null ? validate243.errors : vErrors.concat(validate243.errors);
         errors = vErrors.length;
       }
-      if (Array.isArray(data37)) {
-        const len4 = data37.length;
+      if (Array.isArray(data38)) {
+        const len4 = data38.length;
         for (let i4 = 0; i4 < len4; i4++) {
-          if (typeof data37[i4] !== "string") {
-            const err43 = {
+          if (typeof data38[i4] !== "string") {
+            const err44 = {
               instancePath: instancePath + "/tags/" + i4,
               schemaPath: "#/properties/tags/allOf/1/items/type",
               keyword: "type",
@@ -65235,15 +65423,15 @@ function validate598(
               message: "must be string",
             };
             if (vErrors === null) {
-              vErrors = [err43];
+              vErrors = [err44];
             } else {
-              vErrors.push(err43);
+              vErrors.push(err44);
             }
             errors++;
           }
         }
       } else {
-        const err44 = {
+        const err45 = {
           instancePath: instancePath + "/tags",
           schemaPath: "#/properties/tags/allOf/1/type",
           keyword: "type",
@@ -65251,17 +65439,17 @@ function validate598(
           message: "must be array",
         };
         if (vErrors === null) {
-          vErrors = [err44];
+          vErrors = [err45];
         } else {
-          vErrors.push(err44);
+          vErrors.push(err45);
         }
         errors++;
       }
     }
     if (data.tail_consumers !== undefined) {
-      let data39 = data.tail_consumers;
+      let data40 = data.tail_consumers;
       if (
-        !validate245(data39, {
+        !validate245(data40, {
           instancePath: instancePath + "/tail_consumers",
           parentData: data,
           parentDataProperty: "tail_consumers",
@@ -65272,13 +65460,13 @@ function validate598(
         vErrors = vErrors === null ? validate245.errors : vErrors.concat(validate245.errors);
         errors = vErrors.length;
       }
-      if (Array.isArray(data39)) {
-        const len5 = data39.length;
+      if (Array.isArray(data40)) {
+        const len5 = data40.length;
         for (let i5 = 0; i5 < len5; i5++) {
-          let data40 = data39[i5];
-          if (data40 && typeof data40 == "object" && !Array.isArray(data40)) {
-            if (data40.service === undefined) {
-              const err45 = {
+          let data41 = data40[i5];
+          if (data41 && typeof data41 == "object" && !Array.isArray(data41)) {
+            if (data41.service === undefined) {
+              const err46 = {
                 instancePath: instancePath + "/tail_consumers/" + i5,
                 schemaPath: "#/components/schemas/workers_tail_consumers_script/required",
                 keyword: "required",
@@ -65286,36 +65474,18 @@ function validate598(
                 message: "must have required property '" + "service" + "'",
               };
               if (vErrors === null) {
-                vErrors = [err45];
+                vErrors = [err46];
               } else {
-                vErrors.push(err45);
+                vErrors.push(err46);
               }
               errors++;
             }
-            if (data40.environment !== undefined) {
-              if (typeof data40.environment !== "string") {
-                const err46 = {
+            if (data41.environment !== undefined) {
+              if (typeof data41.environment !== "string") {
+                const err47 = {
                   instancePath: instancePath + "/tail_consumers/" + i5 + "/environment",
                   schemaPath:
                     "#/components/schemas/workers_tail_consumers_script/properties/environment/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
-                };
-                if (vErrors === null) {
-                  vErrors = [err46];
-                } else {
-                  vErrors.push(err46);
-                }
-                errors++;
-              }
-            }
-            if (data40.namespace !== undefined) {
-              if (typeof data40.namespace !== "string") {
-                const err47 = {
-                  instancePath: instancePath + "/tail_consumers/" + i5 + "/namespace",
-                  schemaPath:
-                    "#/components/schemas/workers_tail_consumers_script/properties/namespace/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -65328,12 +65498,12 @@ function validate598(
                 errors++;
               }
             }
-            if (data40.service !== undefined) {
-              if (typeof data40.service !== "string") {
+            if (data41.namespace !== undefined) {
+              if (typeof data41.namespace !== "string") {
                 const err48 = {
-                  instancePath: instancePath + "/tail_consumers/" + i5 + "/service",
+                  instancePath: instancePath + "/tail_consumers/" + i5 + "/namespace",
                   schemaPath:
-                    "#/components/schemas/workers_tail_consumers_script/properties/service/type",
+                    "#/components/schemas/workers_tail_consumers_script/properties/namespace/type",
                   keyword: "type",
                   params: { type: "string" },
                   message: "must be string",
@@ -65346,8 +65516,26 @@ function validate598(
                 errors++;
               }
             }
+            if (data41.service !== undefined) {
+              if (typeof data41.service !== "string") {
+                const err49 = {
+                  instancePath: instancePath + "/tail_consumers/" + i5 + "/service",
+                  schemaPath:
+                    "#/components/schemas/workers_tail_consumers_script/properties/service/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err49];
+                } else {
+                  vErrors.push(err49);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err49 = {
+            const err50 = {
               instancePath: instancePath + "/tail_consumers/" + i5,
               schemaPath: "#/components/schemas/workers_tail_consumers_script/type",
               keyword: "type",
@@ -65355,38 +65543,20 @@ function validate598(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err49];
+              vErrors = [err50];
             } else {
-              vErrors.push(err49);
+              vErrors.push(err50);
             }
             errors++;
           }
         }
       } else {
-        const err50 = {
+        const err51 = {
           instancePath: instancePath + "/tail_consumers",
           schemaPath: "#/properties/tail_consumers/allOf/1/type",
           keyword: "type",
           params: { type: "array" },
           message: "must be array",
-        };
-        if (vErrors === null) {
-          vErrors = [err50];
-        } else {
-          vErrors.push(err50);
-        }
-        errors++;
-      }
-    }
-    if (data.usage_model !== undefined) {
-      let data44 = data.usage_model;
-      if (typeof data44 !== "string") {
-        const err51 = {
-          instancePath: instancePath + "/usage_model",
-          schemaPath: "#/components/schemas/workers_usage_model/type",
-          keyword: "type",
-          params: { type: "string" },
-          message: "must be string",
         };
         if (vErrors === null) {
           vErrors = [err51];
@@ -65395,13 +65565,16 @@ function validate598(
         }
         errors++;
       }
-      if (!(data44 === "standard" || data44 === "bundled" || data44 === "unbound")) {
+    }
+    if (data.usage_model !== undefined) {
+      let data45 = data.usage_model;
+      if (typeof data45 !== "string") {
         const err52 = {
           instancePath: instancePath + "/usage_model",
-          schemaPath: "#/components/schemas/workers_usage_model/enum",
-          keyword: "enum",
-          params: { allowedValues: schema264.enum },
-          message: "must be equal to one of the allowed values",
+          schemaPath: "#/components/schemas/workers_usage_model/type",
+          keyword: "type",
+          params: { type: "string" },
+          message: "must be string",
         };
         if (vErrors === null) {
           vErrors = [err52];
@@ -65410,9 +65583,24 @@ function validate598(
         }
         errors++;
       }
+      if (!(data45 === "standard" || data45 === "bundled" || data45 === "unbound")) {
+        const err53 = {
+          instancePath: instancePath + "/usage_model",
+          schemaPath: "#/components/schemas/workers_usage_model/enum",
+          keyword: "enum",
+          params: { allowedValues: schema264.enum },
+          message: "must be equal to one of the allowed values",
+        };
+        if (vErrors === null) {
+          vErrors = [err53];
+        } else {
+          vErrors.push(err53);
+        }
+        errors++;
+      }
     }
   } else {
-    const err53 = {
+    const err54 = {
       instancePath,
       schemaPath: "#/type",
       keyword: "type",
@@ -65420,9 +65608,9 @@ function validate598(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err53];
+      vErrors = [err54];
     } else {
-      vErrors.push(err53);
+      vErrors.push(err54);
     }
     errors++;
   }
@@ -68185,7 +68373,7 @@ const schema579 = {
                   description:
                     "Date indicating targeted support in the Workers runtime. Backwards incompatible fixes to the runtime following this date will not affect this Worker.",
                   type: "string",
-                  example: "2022-11-08",
+                  example: "2022-11-08T00:00:00Z",
                   readOnly: true,
                   "x-auditable": true,
                 },
@@ -69958,6 +70146,12 @@ const schema597 = {
             },
           },
         },
+        redact_query_string: {
+          description: "Whether query strings are removed from request URLs in logs and traces.",
+          type: "boolean",
+          default: false,
+          "x-auditable": true,
+        },
         traces: {
           description: "Trace settings for the Worker.",
           type: "object",
@@ -69990,10 +70184,10 @@ const schema597 = {
             },
             propagation_policy: {
               description:
-                'Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. "authenticated" (default) honors inbound trace context only when accompanied by a valid trace auth token. "accept" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled.',
+                'Controls how inbound trace context (traceparent/tracestate) headers on incoming requests are handled. "authenticated" honors inbound trace context only when accompanied by a valid trace auth token. "accept" unconditionally accepts inbound trace context. Requires the trace propagation feature to be enabled. Returns null when the trace propagation feature is not enabled for the account.',
               type: "string",
-              default: "authenticated",
-              enum: ["authenticated", "accept"],
+              enum: ["authenticated", "accept", null],
+              nullable: true,
               "x-auditable": true,
             },
           },
@@ -70711,16 +70905,35 @@ function validate694(
                     errors++;
                   }
                 }
+                if (data7.redact_query_string !== undefined) {
+                  if (typeof data7.redact_query_string !== "boolean") {
+                    const err26 = {
+                      instancePath:
+                        instancePath + "/result/" + i0 + "/observability/redact_query_string",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/redact_query_string/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err26];
+                    } else {
+                      vErrors.push(err26);
+                    }
+                    errors++;
+                  }
+                }
                 if (data7.traces !== undefined) {
-                  let data17 = data7.traces;
-                  if (data17 && typeof data17 == "object" && !Array.isArray(data17)) {
-                    if (data17.destinations !== undefined) {
-                      let data18 = data17.destinations;
-                      if (Array.isArray(data18)) {
-                        const len2 = data18.length;
+                  let data18 = data7.traces;
+                  if (data18 && typeof data18 == "object" && !Array.isArray(data18)) {
+                    if (data18.destinations !== undefined) {
+                      let data19 = data18.destinations;
+                      if (Array.isArray(data19)) {
+                        const len2 = data19.length;
                         for (let i2 = 0; i2 < len2; i2++) {
-                          if (typeof data18[i2] !== "string") {
-                            const err26 = {
+                          if (typeof data19[i2] !== "string") {
+                            const err27 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -70734,15 +70947,15 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err26];
+                              vErrors = [err27];
                             } else {
-                              vErrors.push(err26);
+                              vErrors.push(err27);
                             }
                             errors++;
                           }
                         }
                       } else {
-                        const err27 = {
+                        const err28 = {
                           instancePath:
                             instancePath + "/result/" + i0 + "/observability/traces/destinations",
                           schemaPath:
@@ -70752,16 +70965,16 @@ function validate694(
                           message: "must be array",
                         };
                         if (vErrors === null) {
-                          vErrors = [err27];
+                          vErrors = [err28];
                         } else {
-                          vErrors.push(err27);
+                          vErrors.push(err28);
                         }
                         errors++;
                       }
                     }
-                    if (data17.enabled !== undefined) {
-                      if (typeof data17.enabled !== "boolean") {
-                        const err28 = {
+                    if (data18.enabled !== undefined) {
+                      if (typeof data18.enabled !== "boolean") {
+                        const err29 = {
                           instancePath:
                             instancePath + "/result/" + i0 + "/observability/traces/enabled",
                           schemaPath:
@@ -70771,16 +70984,16 @@ function validate694(
                           message: "must be boolean",
                         };
                         if (vErrors === null) {
-                          vErrors = [err28];
+                          vErrors = [err29];
                         } else {
-                          vErrors.push(err28);
+                          vErrors.push(err29);
                         }
                         errors++;
                       }
                     }
-                    if (data17.head_sampling_rate !== undefined) {
-                      if (!(typeof data17.head_sampling_rate == "number")) {
-                        const err29 = {
+                    if (data18.head_sampling_rate !== undefined) {
+                      if (!(typeof data18.head_sampling_rate == "number")) {
+                        const err30 = {
                           instancePath:
                             instancePath +
                             "/result/" +
@@ -70793,16 +71006,16 @@ function validate694(
                           message: "must be number",
                         };
                         if (vErrors === null) {
-                          vErrors = [err29];
+                          vErrors = [err30];
                         } else {
-                          vErrors.push(err29);
+                          vErrors.push(err30);
                         }
                         errors++;
                       }
                     }
-                    if (data17.persist !== undefined) {
-                      if (typeof data17.persist !== "boolean") {
-                        const err30 = {
+                    if (data18.persist !== undefined) {
+                      if (typeof data18.persist !== "boolean") {
+                        const err31 = {
                           instancePath:
                             instancePath + "/result/" + i0 + "/observability/traces/persist",
                           schemaPath:
@@ -70812,17 +71025,17 @@ function validate694(
                           message: "must be boolean",
                         };
                         if (vErrors === null) {
-                          vErrors = [err30];
+                          vErrors = [err31];
                         } else {
-                          vErrors.push(err30);
+                          vErrors.push(err31);
                         }
                         errors++;
                       }
                     }
-                    if (data17.propagation_policy !== undefined) {
-                      let data23 = data17.propagation_policy;
-                      if (typeof data23 !== "string") {
-                        const err31 = {
+                    if (data18.propagation_policy !== undefined) {
+                      let data24 = data18.propagation_policy;
+                      if (typeof data24 !== "string" && data24 !== null) {
+                        const err32 = {
                           instancePath:
                             instancePath +
                             "/result/" +
@@ -70835,14 +71048,14 @@ function validate694(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err31];
+                          vErrors = [err32];
                         } else {
-                          vErrors.push(err31);
+                          vErrors.push(err32);
                         }
                         errors++;
                       }
-                      if (!(data23 === "authenticated" || data23 === "accept")) {
-                        const err32 = {
+                      if (!(data24 === "authenticated" || data24 === "accept" || data24 === null)) {
+                        const err33 = {
                           instancePath:
                             instancePath +
                             "/result/" +
@@ -70859,15 +71072,15 @@ function validate694(
                           message: "must be equal to one of the allowed values",
                         };
                         if (vErrors === null) {
-                          vErrors = [err32];
+                          vErrors = [err33];
                         } else {
-                          vErrors.push(err32);
+                          vErrors.push(err33);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err33 = {
+                    const err34 = {
                       instancePath: instancePath + "/result/" + i0 + "/observability/traces",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/observability/properties/traces/type",
@@ -70876,15 +71089,15 @@ function validate694(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err33];
+                      vErrors = [err34];
                     } else {
-                      vErrors.push(err33);
+                      vErrors.push(err34);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err34 = {
+                const err35 = {
                   instancePath: instancePath + "/result/" + i0 + "/observability",
                   schemaPath: "#/components/schemas/workers_Worker/properties/observability/type",
                   keyword: "type",
@@ -70892,18 +71105,18 @@ function validate694(
                   message: "must be object",
                 };
                 if (vErrors === null) {
-                  vErrors = [err34];
+                  vErrors = [err35];
                 } else {
-                  vErrors.push(err34);
+                  vErrors.push(err35);
                 }
                 errors++;
               }
             }
             if (data1.references !== undefined) {
-              let data24 = data1.references;
-              if (data24 && typeof data24 == "object" && !Array.isArray(data24)) {
-                if (data24.workers === undefined) {
-                  const err35 = {
+              let data25 = data1.references;
+              if (data25 && typeof data25 == "object" && !Array.isArray(data25)) {
+                if (data25.workers === undefined) {
+                  const err36 = {
                     instancePath: instancePath + "/result/" + i0 + "/references",
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/references/required",
@@ -70912,14 +71125,14 @@ function validate694(
                     message: "must have required property '" + "workers" + "'",
                   };
                   if (vErrors === null) {
-                    vErrors = [err35];
+                    vErrors = [err36];
                   } else {
-                    vErrors.push(err35);
+                    vErrors.push(err36);
                   }
                   errors++;
                 }
-                if (data24.domains === undefined) {
-                  const err36 = {
+                if (data25.domains === undefined) {
+                  const err37 = {
                     instancePath: instancePath + "/result/" + i0 + "/references",
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/references/required",
@@ -70928,14 +71141,14 @@ function validate694(
                     message: "must have required property '" + "domains" + "'",
                   };
                   if (vErrors === null) {
-                    vErrors = [err36];
+                    vErrors = [err37];
                   } else {
-                    vErrors.push(err36);
+                    vErrors.push(err37);
                   }
                   errors++;
                 }
-                if (data24.dispatch_namespace_outbounds === undefined) {
-                  const err37 = {
+                if (data25.dispatch_namespace_outbounds === undefined) {
+                  const err38 = {
                     instancePath: instancePath + "/result/" + i0 + "/references",
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/references/required",
@@ -70944,14 +71157,14 @@ function validate694(
                     message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
                   };
                   if (vErrors === null) {
-                    vErrors = [err37];
+                    vErrors = [err38];
                   } else {
-                    vErrors.push(err37);
+                    vErrors.push(err38);
                   }
                   errors++;
                 }
-                if (data24.durable_objects === undefined) {
-                  const err38 = {
+                if (data25.durable_objects === undefined) {
+                  const err39 = {
                     instancePath: instancePath + "/result/" + i0 + "/references",
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/references/required",
@@ -70960,14 +71173,14 @@ function validate694(
                     message: "must have required property '" + "durable_objects" + "'",
                   };
                   if (vErrors === null) {
-                    vErrors = [err38];
+                    vErrors = [err39];
                   } else {
-                    vErrors.push(err38);
+                    vErrors.push(err39);
                   }
                   errors++;
                 }
-                if (data24.queues === undefined) {
-                  const err39 = {
+                if (data25.queues === undefined) {
+                  const err40 = {
                     instancePath: instancePath + "/result/" + i0 + "/references",
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/references/required",
@@ -70976,21 +71189,21 @@ function validate694(
                     message: "must have required property '" + "queues" + "'",
                   };
                   if (vErrors === null) {
-                    vErrors = [err39];
+                    vErrors = [err40];
                   } else {
-                    vErrors.push(err39);
+                    vErrors.push(err40);
                   }
                   errors++;
                 }
-                if (data24.dispatch_namespace_outbounds !== undefined) {
-                  let data25 = data24.dispatch_namespace_outbounds;
-                  if (Array.isArray(data25)) {
-                    const len3 = data25.length;
+                if (data25.dispatch_namespace_outbounds !== undefined) {
+                  let data26 = data25.dispatch_namespace_outbounds;
+                  if (Array.isArray(data26)) {
+                    const len3 = data26.length;
                     for (let i3 = 0; i3 < len3; i3++) {
-                      let data26 = data25[i3];
-                      if (data26 && typeof data26 == "object" && !Array.isArray(data26)) {
-                        if (data26.worker_id === undefined) {
-                          const err40 = {
+                      let data27 = data26[i3];
+                      if (data27 && typeof data27 == "object" && !Array.isArray(data27)) {
+                        if (data27.worker_id === undefined) {
+                          const err41 = {
                             instancePath:
                               instancePath +
                               "/result/" +
@@ -71004,14 +71217,14 @@ function validate694(
                             message: "must have required property '" + "worker_id" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err40];
+                            vErrors = [err41];
                           } else {
-                            vErrors.push(err40);
+                            vErrors.push(err41);
                           }
                           errors++;
                         }
-                        if (data26.worker_name === undefined) {
-                          const err41 = {
+                        if (data27.worker_name === undefined) {
+                          const err42 = {
                             instancePath:
                               instancePath +
                               "/result/" +
@@ -71025,14 +71238,14 @@ function validate694(
                             message: "must have required property '" + "worker_name" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err41];
+                            vErrors = [err42];
                           } else {
-                            vErrors.push(err41);
+                            vErrors.push(err42);
                           }
                           errors++;
                         }
-                        if (data26.namespace_id === undefined) {
-                          const err42 = {
+                        if (data27.namespace_id === undefined) {
+                          const err43 = {
                             instancePath:
                               instancePath +
                               "/result/" +
@@ -71046,14 +71259,14 @@ function validate694(
                             message: "must have required property '" + "namespace_id" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err42];
+                            vErrors = [err43];
                           } else {
-                            vErrors.push(err42);
+                            vErrors.push(err43);
                           }
                           errors++;
                         }
-                        if (data26.namespace_name === undefined) {
-                          const err43 = {
+                        if (data27.namespace_name === undefined) {
+                          const err44 = {
                             instancePath:
                               instancePath +
                               "/result/" +
@@ -71067,15 +71280,15 @@ function validate694(
                             message: "must have required property '" + "namespace_name" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err43];
+                            vErrors = [err44];
                           } else {
-                            vErrors.push(err43);
+                            vErrors.push(err44);
                           }
                           errors++;
                         }
-                        if (data26.namespace_id !== undefined) {
-                          if (typeof data26.namespace_id !== "string") {
-                            const err44 = {
+                        if (data27.namespace_id !== undefined) {
+                          if (typeof data27.namespace_id !== "string") {
+                            const err45 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71090,16 +71303,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err44];
+                              vErrors = [err45];
                             } else {
-                              vErrors.push(err44);
+                              vErrors.push(err45);
                             }
                             errors++;
                           }
                         }
-                        if (data26.namespace_name !== undefined) {
-                          if (typeof data26.namespace_name !== "string") {
-                            const err45 = {
+                        if (data27.namespace_name !== undefined) {
+                          if (typeof data27.namespace_name !== "string") {
+                            const err46 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71114,16 +71327,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err45];
+                              vErrors = [err46];
                             } else {
-                              vErrors.push(err45);
+                              vErrors.push(err46);
                             }
                             errors++;
                           }
                         }
-                        if (data26.worker_id !== undefined) {
-                          if (typeof data26.worker_id !== "string") {
-                            const err46 = {
+                        if (data27.worker_id !== undefined) {
+                          if (typeof data27.worker_id !== "string") {
+                            const err47 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71138,16 +71351,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err46];
+                              vErrors = [err47];
                             } else {
-                              vErrors.push(err46);
+                              vErrors.push(err47);
                             }
                             errors++;
                           }
                         }
-                        if (data26.worker_name !== undefined) {
-                          if (typeof data26.worker_name !== "string") {
-                            const err47 = {
+                        if (data27.worker_name !== undefined) {
+                          if (typeof data27.worker_name !== "string") {
+                            const err48 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71162,15 +71375,15 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err47];
+                              vErrors = [err48];
                             } else {
-                              vErrors.push(err47);
+                              vErrors.push(err48);
                             }
                             errors++;
                           }
                         }
                       } else {
-                        const err48 = {
+                        const err49 = {
                           instancePath:
                             instancePath +
                             "/result/" +
@@ -71184,15 +71397,15 @@ function validate694(
                           message: "must be object",
                         };
                         if (vErrors === null) {
-                          vErrors = [err48];
+                          vErrors = [err49];
                         } else {
-                          vErrors.push(err48);
+                          vErrors.push(err49);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err49 = {
+                    const err50 = {
                       instancePath:
                         instancePath + "/result/" + i0 + "/references/dispatch_namespace_outbounds",
                       schemaPath:
@@ -71202,22 +71415,22 @@ function validate694(
                       message: "must be array",
                     };
                     if (vErrors === null) {
-                      vErrors = [err49];
+                      vErrors = [err50];
                     } else {
-                      vErrors.push(err49);
+                      vErrors.push(err50);
                     }
                     errors++;
                   }
                 }
-                if (data24.domains !== undefined) {
-                  let data31 = data24.domains;
-                  if (Array.isArray(data31)) {
-                    const len4 = data31.length;
+                if (data25.domains !== undefined) {
+                  let data32 = data25.domains;
+                  if (Array.isArray(data32)) {
+                    const len4 = data32.length;
                     for (let i4 = 0; i4 < len4; i4++) {
-                      let data32 = data31[i4];
-                      if (data32 && typeof data32 == "object" && !Array.isArray(data32)) {
-                        if (data32.id === undefined) {
-                          const err50 = {
+                      let data33 = data32[i4];
+                      if (data33 && typeof data33 == "object" && !Array.isArray(data33)) {
+                        if (data33.id === undefined) {
+                          const err51 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/domains/" + i4,
                             schemaPath:
@@ -71227,14 +71440,14 @@ function validate694(
                             message: "must have required property '" + "id" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err50];
+                            vErrors = [err51];
                           } else {
-                            vErrors.push(err50);
+                            vErrors.push(err51);
                           }
                           errors++;
                         }
-                        if (data32.hostname === undefined) {
-                          const err51 = {
+                        if (data33.hostname === undefined) {
+                          const err52 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/domains/" + i4,
                             schemaPath:
@@ -71244,14 +71457,14 @@ function validate694(
                             message: "must have required property '" + "hostname" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err51];
+                            vErrors = [err52];
                           } else {
-                            vErrors.push(err51);
+                            vErrors.push(err52);
                           }
                           errors++;
                         }
-                        if (data32.zone_id === undefined) {
-                          const err52 = {
+                        if (data33.zone_id === undefined) {
+                          const err53 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/domains/" + i4,
                             schemaPath:
@@ -71261,14 +71474,14 @@ function validate694(
                             message: "must have required property '" + "zone_id" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err52];
+                            vErrors = [err53];
                           } else {
-                            vErrors.push(err52);
+                            vErrors.push(err53);
                           }
                           errors++;
                         }
-                        if (data32.zone_name === undefined) {
-                          const err53 = {
+                        if (data33.zone_name === undefined) {
+                          const err54 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/domains/" + i4,
                             schemaPath:
@@ -71278,15 +71491,15 @@ function validate694(
                             message: "must have required property '" + "zone_name" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err53];
+                            vErrors = [err54];
                           } else {
-                            vErrors.push(err53);
+                            vErrors.push(err54);
                           }
                           errors++;
                         }
-                        if (data32.certificate_id !== undefined) {
-                          if (typeof data32.certificate_id !== "string") {
-                            const err54 = {
+                        if (data33.certificate_id !== undefined) {
+                          if (typeof data33.certificate_id !== "string") {
+                            const err55 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71301,16 +71514,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err54];
+                              vErrors = [err55];
                             } else {
-                              vErrors.push(err54);
+                              vErrors.push(err55);
                             }
                             errors++;
                           }
                         }
-                        if (data32.hostname !== undefined) {
-                          if (typeof data32.hostname !== "string") {
-                            const err55 = {
+                        if (data33.hostname !== undefined) {
+                          if (typeof data33.hostname !== "string") {
+                            const err56 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71325,16 +71538,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err55];
+                              vErrors = [err56];
                             } else {
-                              vErrors.push(err55);
+                              vErrors.push(err56);
                             }
                             errors++;
                           }
                         }
-                        if (data32.id !== undefined) {
-                          if (typeof data32.id !== "string") {
-                            const err56 = {
+                        if (data33.id !== undefined) {
+                          if (typeof data33.id !== "string") {
+                            const err57 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71349,16 +71562,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err56];
+                              vErrors = [err57];
                             } else {
-                              vErrors.push(err56);
+                              vErrors.push(err57);
                             }
                             errors++;
                           }
                         }
-                        if (data32.zone_id !== undefined) {
-                          if (typeof data32.zone_id !== "string") {
-                            const err57 = {
+                        if (data33.zone_id !== undefined) {
+                          if (typeof data33.zone_id !== "string") {
+                            const err58 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71373,16 +71586,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err57];
+                              vErrors = [err58];
                             } else {
-                              vErrors.push(err57);
+                              vErrors.push(err58);
                             }
                             errors++;
                           }
                         }
-                        if (data32.zone_name !== undefined) {
-                          if (typeof data32.zone_name !== "string") {
-                            const err58 = {
+                        if (data33.zone_name !== undefined) {
+                          if (typeof data33.zone_name !== "string") {
+                            const err59 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71397,15 +71610,15 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err58];
+                              vErrors = [err59];
                             } else {
-                              vErrors.push(err58);
+                              vErrors.push(err59);
                             }
                             errors++;
                           }
                         }
                       } else {
-                        const err59 = {
+                        const err60 = {
                           instancePath:
                             instancePath + "/result/" + i0 + "/references/domains/" + i4,
                           schemaPath:
@@ -71415,15 +71628,15 @@ function validate694(
                           message: "must be object",
                         };
                         if (vErrors === null) {
-                          vErrors = [err59];
+                          vErrors = [err60];
                         } else {
-                          vErrors.push(err59);
+                          vErrors.push(err60);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err60 = {
+                    const err61 = {
                       instancePath: instancePath + "/result/" + i0 + "/references/domains",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/domains/type",
@@ -71432,22 +71645,22 @@ function validate694(
                       message: "must be array",
                     };
                     if (vErrors === null) {
-                      vErrors = [err60];
+                      vErrors = [err61];
                     } else {
-                      vErrors.push(err60);
+                      vErrors.push(err61);
                     }
                     errors++;
                   }
                 }
-                if (data24.durable_objects !== undefined) {
-                  let data38 = data24.durable_objects;
-                  if (Array.isArray(data38)) {
-                    const len5 = data38.length;
+                if (data25.durable_objects !== undefined) {
+                  let data39 = data25.durable_objects;
+                  if (Array.isArray(data39)) {
+                    const len5 = data39.length;
                     for (let i5 = 0; i5 < len5; i5++) {
-                      let data39 = data38[i5];
-                      if (data39 && typeof data39 == "object" && !Array.isArray(data39)) {
-                        if (data39.worker_id === undefined) {
-                          const err61 = {
+                      let data40 = data39[i5];
+                      if (data40 && typeof data40 == "object" && !Array.isArray(data40)) {
+                        if (data40.worker_id === undefined) {
+                          const err62 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/durable_objects/" + i5,
                             schemaPath:
@@ -71457,14 +71670,14 @@ function validate694(
                             message: "must have required property '" + "worker_id" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err61];
+                            vErrors = [err62];
                           } else {
-                            vErrors.push(err61);
+                            vErrors.push(err62);
                           }
                           errors++;
                         }
-                        if (data39.worker_name === undefined) {
-                          const err62 = {
+                        if (data40.worker_name === undefined) {
+                          const err63 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/durable_objects/" + i5,
                             schemaPath:
@@ -71474,14 +71687,14 @@ function validate694(
                             message: "must have required property '" + "worker_name" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err62];
+                            vErrors = [err63];
                           } else {
-                            vErrors.push(err62);
+                            vErrors.push(err63);
                           }
                           errors++;
                         }
-                        if (data39.namespace_id === undefined) {
-                          const err63 = {
+                        if (data40.namespace_id === undefined) {
+                          const err64 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/durable_objects/" + i5,
                             schemaPath:
@@ -71491,14 +71704,14 @@ function validate694(
                             message: "must have required property '" + "namespace_id" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err63];
+                            vErrors = [err64];
                           } else {
-                            vErrors.push(err63);
+                            vErrors.push(err64);
                           }
                           errors++;
                         }
-                        if (data39.namespace_name === undefined) {
-                          const err64 = {
+                        if (data40.namespace_name === undefined) {
+                          const err65 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/durable_objects/" + i5,
                             schemaPath:
@@ -71508,15 +71721,15 @@ function validate694(
                             message: "must have required property '" + "namespace_name" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err64];
+                            vErrors = [err65];
                           } else {
-                            vErrors.push(err64);
+                            vErrors.push(err65);
                           }
                           errors++;
                         }
-                        if (data39.namespace_id !== undefined) {
-                          if (typeof data39.namespace_id !== "string") {
-                            const err65 = {
+                        if (data40.namespace_id !== undefined) {
+                          if (typeof data40.namespace_id !== "string") {
+                            const err66 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71531,16 +71744,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err65];
+                              vErrors = [err66];
                             } else {
-                              vErrors.push(err65);
+                              vErrors.push(err66);
                             }
                             errors++;
                           }
                         }
-                        if (data39.namespace_name !== undefined) {
-                          if (typeof data39.namespace_name !== "string") {
-                            const err66 = {
+                        if (data40.namespace_name !== undefined) {
+                          if (typeof data40.namespace_name !== "string") {
+                            const err67 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71555,16 +71768,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err66];
+                              vErrors = [err67];
                             } else {
-                              vErrors.push(err66);
+                              vErrors.push(err67);
                             }
                             errors++;
                           }
                         }
-                        if (data39.worker_id !== undefined) {
-                          if (typeof data39.worker_id !== "string") {
-                            const err67 = {
+                        if (data40.worker_id !== undefined) {
+                          if (typeof data40.worker_id !== "string") {
+                            const err68 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71579,16 +71792,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err67];
+                              vErrors = [err68];
                             } else {
-                              vErrors.push(err67);
+                              vErrors.push(err68);
                             }
                             errors++;
                           }
                         }
-                        if (data39.worker_name !== undefined) {
-                          if (typeof data39.worker_name !== "string") {
-                            const err68 = {
+                        if (data40.worker_name !== undefined) {
+                          if (typeof data40.worker_name !== "string") {
+                            const err69 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71603,15 +71816,15 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err68];
+                              vErrors = [err69];
                             } else {
-                              vErrors.push(err68);
+                              vErrors.push(err69);
                             }
                             errors++;
                           }
                         }
                       } else {
-                        const err69 = {
+                        const err70 = {
                           instancePath:
                             instancePath + "/result/" + i0 + "/references/durable_objects/" + i5,
                           schemaPath:
@@ -71621,15 +71834,15 @@ function validate694(
                           message: "must be object",
                         };
                         if (vErrors === null) {
-                          vErrors = [err69];
+                          vErrors = [err70];
                         } else {
-                          vErrors.push(err69);
+                          vErrors.push(err70);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err70 = {
+                    const err71 = {
                       instancePath: instancePath + "/result/" + i0 + "/references/durable_objects",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/type",
@@ -71638,22 +71851,22 @@ function validate694(
                       message: "must be array",
                     };
                     if (vErrors === null) {
-                      vErrors = [err70];
+                      vErrors = [err71];
                     } else {
-                      vErrors.push(err70);
+                      vErrors.push(err71);
                     }
                     errors++;
                   }
                 }
-                if (data24.queues !== undefined) {
-                  let data44 = data24.queues;
-                  if (Array.isArray(data44)) {
-                    const len6 = data44.length;
+                if (data25.queues !== undefined) {
+                  let data45 = data25.queues;
+                  if (Array.isArray(data45)) {
+                    const len6 = data45.length;
                     for (let i6 = 0; i6 < len6; i6++) {
-                      let data45 = data44[i6];
-                      if (data45 && typeof data45 == "object" && !Array.isArray(data45)) {
-                        if (data45.queue_id === undefined) {
-                          const err71 = {
+                      let data46 = data45[i6];
+                      if (data46 && typeof data46 == "object" && !Array.isArray(data46)) {
+                        if (data46.queue_id === undefined) {
+                          const err72 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/queues/" + i6,
                             schemaPath:
@@ -71663,14 +71876,14 @@ function validate694(
                             message: "must have required property '" + "queue_id" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err71];
+                            vErrors = [err72];
                           } else {
-                            vErrors.push(err71);
+                            vErrors.push(err72);
                           }
                           errors++;
                         }
-                        if (data45.queue_name === undefined) {
-                          const err72 = {
+                        if (data46.queue_name === undefined) {
+                          const err73 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/queues/" + i6,
                             schemaPath:
@@ -71680,14 +71893,14 @@ function validate694(
                             message: "must have required property '" + "queue_name" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err72];
+                            vErrors = [err73];
                           } else {
-                            vErrors.push(err72);
+                            vErrors.push(err73);
                           }
                           errors++;
                         }
-                        if (data45.queue_consumer_id === undefined) {
-                          const err73 = {
+                        if (data46.queue_consumer_id === undefined) {
+                          const err74 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/queues/" + i6,
                             schemaPath:
@@ -71697,15 +71910,15 @@ function validate694(
                             message: "must have required property '" + "queue_consumer_id" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err73];
+                            vErrors = [err74];
                           } else {
-                            vErrors.push(err73);
+                            vErrors.push(err74);
                           }
                           errors++;
                         }
-                        if (data45.queue_consumer_id !== undefined) {
-                          if (typeof data45.queue_consumer_id !== "string") {
-                            const err74 = {
+                        if (data46.queue_consumer_id !== undefined) {
+                          if (typeof data46.queue_consumer_id !== "string") {
+                            const err75 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71720,16 +71933,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err74];
+                              vErrors = [err75];
                             } else {
-                              vErrors.push(err74);
+                              vErrors.push(err75);
                             }
                             errors++;
                           }
                         }
-                        if (data45.queue_id !== undefined) {
-                          if (typeof data45.queue_id !== "string") {
-                            const err75 = {
+                        if (data46.queue_id !== undefined) {
+                          if (typeof data46.queue_id !== "string") {
+                            const err76 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71744,16 +71957,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err75];
+                              vErrors = [err76];
                             } else {
-                              vErrors.push(err75);
+                              vErrors.push(err76);
                             }
                             errors++;
                           }
                         }
-                        if (data45.queue_name !== undefined) {
-                          if (typeof data45.queue_name !== "string") {
-                            const err76 = {
+                        if (data46.queue_name !== undefined) {
+                          if (typeof data46.queue_name !== "string") {
+                            const err77 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71768,15 +71981,15 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err76];
+                              vErrors = [err77];
                             } else {
-                              vErrors.push(err76);
+                              vErrors.push(err77);
                             }
                             errors++;
                           }
                         }
                       } else {
-                        const err77 = {
+                        const err78 = {
                           instancePath: instancePath + "/result/" + i0 + "/references/queues/" + i6,
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/queues/items/type",
@@ -71785,15 +71998,15 @@ function validate694(
                           message: "must be object",
                         };
                         if (vErrors === null) {
-                          vErrors = [err77];
+                          vErrors = [err78];
                         } else {
-                          vErrors.push(err77);
+                          vErrors.push(err78);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err78 = {
+                    const err79 = {
                       instancePath: instancePath + "/result/" + i0 + "/references/queues",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/queues/type",
@@ -71802,22 +72015,22 @@ function validate694(
                       message: "must be array",
                     };
                     if (vErrors === null) {
-                      vErrors = [err78];
+                      vErrors = [err79];
                     } else {
-                      vErrors.push(err78);
+                      vErrors.push(err79);
                     }
                     errors++;
                   }
                 }
-                if (data24.workers !== undefined) {
-                  let data49 = data24.workers;
-                  if (Array.isArray(data49)) {
-                    const len7 = data49.length;
+                if (data25.workers !== undefined) {
+                  let data50 = data25.workers;
+                  if (Array.isArray(data50)) {
+                    const len7 = data50.length;
                     for (let i7 = 0; i7 < len7; i7++) {
-                      let data50 = data49[i7];
-                      if (data50 && typeof data50 == "object" && !Array.isArray(data50)) {
-                        if (data50.id === undefined) {
-                          const err79 = {
+                      let data51 = data50[i7];
+                      if (data51 && typeof data51 == "object" && !Array.isArray(data51)) {
+                        if (data51.id === undefined) {
+                          const err80 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/workers/" + i7,
                             schemaPath:
@@ -71827,14 +72040,14 @@ function validate694(
                             message: "must have required property '" + "id" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err79];
+                            vErrors = [err80];
                           } else {
-                            vErrors.push(err79);
+                            vErrors.push(err80);
                           }
                           errors++;
                         }
-                        if (data50.name === undefined) {
-                          const err80 = {
+                        if (data51.name === undefined) {
+                          const err81 = {
                             instancePath:
                               instancePath + "/result/" + i0 + "/references/workers/" + i7,
                             schemaPath:
@@ -71844,15 +72057,15 @@ function validate694(
                             message: "must have required property '" + "name" + "'",
                           };
                           if (vErrors === null) {
-                            vErrors = [err80];
+                            vErrors = [err81];
                           } else {
-                            vErrors.push(err80);
+                            vErrors.push(err81);
                           }
                           errors++;
                         }
-                        if (data50.id !== undefined) {
-                          if (typeof data50.id !== "string") {
-                            const err81 = {
+                        if (data51.id !== undefined) {
+                          if (typeof data51.id !== "string") {
+                            const err82 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71867,16 +72080,16 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err81];
+                              vErrors = [err82];
                             } else {
-                              vErrors.push(err81);
+                              vErrors.push(err82);
                             }
                             errors++;
                           }
                         }
-                        if (data50.name !== undefined) {
-                          if (typeof data50.name !== "string") {
-                            const err82 = {
+                        if (data51.name !== undefined) {
+                          if (typeof data51.name !== "string") {
+                            const err83 = {
                               instancePath:
                                 instancePath +
                                 "/result/" +
@@ -71891,15 +72104,15 @@ function validate694(
                               message: "must be string",
                             };
                             if (vErrors === null) {
-                              vErrors = [err82];
+                              vErrors = [err83];
                             } else {
-                              vErrors.push(err82);
+                              vErrors.push(err83);
                             }
                             errors++;
                           }
                         }
                       } else {
-                        const err83 = {
+                        const err84 = {
                           instancePath:
                             instancePath + "/result/" + i0 + "/references/workers/" + i7,
                           schemaPath:
@@ -71909,15 +72122,15 @@ function validate694(
                           message: "must be object",
                         };
                         if (vErrors === null) {
-                          vErrors = [err83];
+                          vErrors = [err84];
                         } else {
-                          vErrors.push(err83);
+                          vErrors.push(err84);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err84 = {
+                    const err85 = {
                       instancePath: instancePath + "/result/" + i0 + "/references/workers",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/workers/type",
@@ -71926,15 +72139,15 @@ function validate694(
                       message: "must be array",
                     };
                     if (vErrors === null) {
-                      vErrors = [err84];
+                      vErrors = [err85];
                     } else {
-                      vErrors.push(err84);
+                      vErrors.push(err85);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err85 = {
+                const err86 = {
                   instancePath: instancePath + "/result/" + i0 + "/references",
                   schemaPath: "#/components/schemas/workers_Worker/properties/references/type",
                   keyword: "type",
@@ -71942,44 +72155,25 @@ function validate694(
                   message: "must be object",
                 };
                 if (vErrors === null) {
-                  vErrors = [err85];
+                  vErrors = [err86];
                 } else {
-                  vErrors.push(err85);
+                  vErrors.push(err86);
                 }
                 errors++;
               }
             }
             if (data1.subdomain !== undefined) {
-              let data53 = data1.subdomain;
-              if (data53 && typeof data53 == "object" && !Array.isArray(data53)) {
-                if (data53.enabled !== undefined) {
-                  if (typeof data53.enabled !== "boolean") {
-                    const err86 = {
+              let data54 = data1.subdomain;
+              if (data54 && typeof data54 == "object" && !Array.isArray(data54)) {
+                if (data54.enabled !== undefined) {
+                  if (typeof data54.enabled !== "boolean") {
+                    const err87 = {
                       instancePath: instancePath + "/result/" + i0 + "/subdomain/enabled",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/subdomain/properties/enabled/type",
                       keyword: "type",
                       params: { type: "boolean" },
                       message: "must be boolean",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err86];
-                    } else {
-                      vErrors.push(err86);
-                    }
-                    errors++;
-                  }
-                }
-                if (data53.preview_url_suffix !== undefined) {
-                  if (typeof data53.preview_url_suffix !== "string") {
-                    const err87 = {
-                      instancePath:
-                        instancePath + "/result/" + i0 + "/subdomain/preview_url_suffix",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/subdomain/properties/preview_url_suffix/type",
-                      keyword: "type",
-                      params: { type: "string" },
-                      message: "must be string",
                     };
                     if (vErrors === null) {
                       vErrors = [err87];
@@ -71989,15 +72183,16 @@ function validate694(
                     errors++;
                   }
                 }
-                if (data53.previews_enabled !== undefined) {
-                  if (typeof data53.previews_enabled !== "boolean") {
+                if (data54.preview_url_suffix !== undefined) {
+                  if (typeof data54.preview_url_suffix !== "string") {
                     const err88 = {
-                      instancePath: instancePath + "/result/" + i0 + "/subdomain/previews_enabled",
+                      instancePath:
+                        instancePath + "/result/" + i0 + "/subdomain/preview_url_suffix",
                       schemaPath:
-                        "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
+                        "#/components/schemas/workers_Worker/properties/subdomain/properties/preview_url_suffix/type",
                       keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
+                      params: { type: "string" },
+                      message: "must be string",
                     };
                     if (vErrors === null) {
                       vErrors = [err88];
@@ -72007,15 +72202,15 @@ function validate694(
                     errors++;
                   }
                 }
-                if (data53.url !== undefined) {
-                  if (!(typeof data53.url === "string")) {
+                if (data54.previews_enabled !== undefined) {
+                  if (typeof data54.previews_enabled !== "boolean") {
                     const err89 = {
-                      instancePath: instancePath + "/result/" + i0 + "/subdomain/url",
+                      instancePath: instancePath + "/result/" + i0 + "/subdomain/previews_enabled",
                       schemaPath:
-                        "#/components/schemas/workers_Worker/properties/subdomain/properties/url/type",
+                        "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
                       keyword: "type",
-                      params: { type: "string" },
-                      message: "must be string",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
                     };
                     if (vErrors === null) {
                       vErrors = [err89];
@@ -72025,8 +72220,26 @@ function validate694(
                     errors++;
                   }
                 }
+                if (data54.url !== undefined) {
+                  if (!(typeof data54.url === "string")) {
+                    const err90 = {
+                      instancePath: instancePath + "/result/" + i0 + "/subdomain/url",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/subdomain/properties/url/type",
+                      keyword: "type",
+                      params: { type: "string" },
+                      message: "must be string",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err90];
+                    } else {
+                      vErrors.push(err90);
+                    }
+                    errors++;
+                  }
+                }
               } else {
-                const err90 = {
+                const err91 = {
                   instancePath: instancePath + "/result/" + i0 + "/subdomain",
                   schemaPath: "#/components/schemas/workers_Worker/properties/subdomain/type",
                   keyword: "type",
@@ -72034,18 +72247,18 @@ function validate694(
                   message: "must be object",
                 };
                 if (vErrors === null) {
-                  vErrors = [err90];
+                  vErrors = [err91];
                 } else {
-                  vErrors.push(err90);
+                  vErrors.push(err91);
                 }
                 errors++;
               }
             }
             if (data1.tags !== undefined) {
-              let data58 = data1.tags;
-              if (Array.isArray(data58)) {
-                if (data58.length > 8) {
-                  const err91 = {
+              let data59 = data1.tags;
+              if (Array.isArray(data59)) {
+                if (data59.length > 8) {
+                  const err92 = {
                     instancePath: instancePath + "/result/" + i0 + "/tags",
                     schemaPath: "#/components/schemas/workers_Worker/properties/tags/maxItems",
                     keyword: "maxItems",
@@ -72053,18 +72266,18 @@ function validate694(
                     message: "must NOT have more than 8 items",
                   };
                   if (vErrors === null) {
-                    vErrors = [err91];
+                    vErrors = [err92];
                   } else {
-                    vErrors.push(err91);
+                    vErrors.push(err92);
                   }
                   errors++;
                 }
-                const len8 = data58.length;
+                const len8 = data59.length;
                 for (let i8 = 0; i8 < len8; i8++) {
-                  let data59 = data58[i8];
-                  if (typeof data59 === "string") {
-                    if (func2(data59) > 1024) {
-                      const err92 = {
+                  let data60 = data59[i8];
+                  if (typeof data60 === "string") {
+                    if (func2(data60) > 1024) {
+                      const err93 = {
                         instancePath: instancePath + "/result/" + i0 + "/tags/" + i8,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/tags/items/maxLength",
@@ -72073,14 +72286,14 @@ function validate694(
                         message: "must NOT have more than 1024 characters",
                       };
                       if (vErrors === null) {
-                        vErrors = [err92];
+                        vErrors = [err93];
                       } else {
-                        vErrors.push(err92);
+                        vErrors.push(err93);
                       }
                       errors++;
                     }
-                    if (!pattern2.test(data59)) {
-                      const err93 = {
+                    if (!pattern2.test(data60)) {
+                      const err94 = {
                         instancePath: instancePath + "/result/" + i0 + "/tags/" + i8,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/tags/items/pattern",
@@ -72089,14 +72302,14 @@ function validate694(
                         message: 'must match pattern "' + "^[^,&]*$" + '"',
                       };
                       if (vErrors === null) {
-                        vErrors = [err93];
+                        vErrors = [err94];
                       } else {
-                        vErrors.push(err93);
+                        vErrors.push(err94);
                       }
                       errors++;
                     }
                   } else {
-                    const err94 = {
+                    const err95 = {
                       instancePath: instancePath + "/result/" + i0 + "/tags/" + i8,
                       schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/type",
                       keyword: "type",
@@ -72104,15 +72317,15 @@ function validate694(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err94];
+                      vErrors = [err95];
                     } else {
-                      vErrors.push(err94);
+                      vErrors.push(err95);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err95 = {
+                const err96 = {
                   instancePath: instancePath + "/result/" + i0 + "/tags",
                   schemaPath: "#/components/schemas/workers_Worker/properties/tags/type",
                   keyword: "type",
@@ -72120,22 +72333,22 @@ function validate694(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err95];
+                  vErrors = [err96];
                 } else {
-                  vErrors.push(err95);
+                  vErrors.push(err96);
                 }
                 errors++;
               }
             }
             if (data1.tail_consumers !== undefined) {
-              let data60 = data1.tail_consumers;
-              if (Array.isArray(data60)) {
-                const len9 = data60.length;
+              let data61 = data1.tail_consumers;
+              if (Array.isArray(data61)) {
+                const len9 = data61.length;
                 for (let i9 = 0; i9 < len9; i9++) {
-                  let data61 = data60[i9];
-                  if (data61 && typeof data61 == "object" && !Array.isArray(data61)) {
-                    if (data61.name === undefined) {
-                      const err96 = {
+                  let data62 = data61[i9];
+                  if (data62 && typeof data62 == "object" && !Array.isArray(data62)) {
+                    if (data62.name === undefined) {
+                      const err97 = {
                         instancePath: instancePath + "/result/" + i0 + "/tail_consumers/" + i9,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/tail_consumers/items/required",
@@ -72144,15 +72357,15 @@ function validate694(
                         message: "must have required property '" + "name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err96];
+                        vErrors = [err97];
                       } else {
-                        vErrors.push(err96);
+                        vErrors.push(err97);
                       }
                       errors++;
                     }
-                    if (data61.name !== undefined) {
-                      if (typeof data61.name !== "string") {
-                        const err97 = {
+                    if (data62.name !== undefined) {
+                      if (typeof data62.name !== "string") {
+                        const err98 = {
                           instancePath:
                             instancePath + "/result/" + i0 + "/tail_consumers/" + i9 + "/name",
                           schemaPath:
@@ -72162,15 +72375,15 @@ function validate694(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err97];
+                          vErrors = [err98];
                         } else {
-                          vErrors.push(err97);
+                          vErrors.push(err98);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err98 = {
+                    const err99 = {
                       instancePath: instancePath + "/result/" + i0 + "/tail_consumers/" + i9,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/tail_consumers/items/type",
@@ -72179,37 +72392,20 @@ function validate694(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err98];
+                      vErrors = [err99];
                     } else {
-                      vErrors.push(err98);
+                      vErrors.push(err99);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err99 = {
+                const err100 = {
                   instancePath: instancePath + "/result/" + i0 + "/tail_consumers",
                   schemaPath: "#/components/schemas/workers_Worker/properties/tail_consumers/type",
                   keyword: "type",
                   params: { type: "array" },
                   message: "must be array",
-                };
-                if (vErrors === null) {
-                  vErrors = [err99];
-                } else {
-                  vErrors.push(err99);
-                }
-                errors++;
-              }
-            }
-            if (data1.updated_on !== undefined) {
-              if (!(typeof data1.updated_on === "string")) {
-                const err100 = {
-                  instancePath: instancePath + "/result/" + i0 + "/updated_on",
-                  schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
                 };
                 if (vErrors === null) {
                   vErrors = [err100];
@@ -72219,8 +72415,25 @@ function validate694(
                 errors++;
               }
             }
+            if (data1.updated_on !== undefined) {
+              if (!(typeof data1.updated_on === "string")) {
+                const err101 = {
+                  instancePath: instancePath + "/result/" + i0 + "/updated_on",
+                  schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err101];
+                } else {
+                  vErrors.push(err101);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err101 = {
+            const err102 = {
               instancePath: instancePath + "/result/" + i0,
               schemaPath: "#/components/schemas/workers_Worker/type",
               keyword: "type",
@@ -72228,15 +72441,15 @@ function validate694(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err101];
+              vErrors = [err102];
             } else {
-              vErrors.push(err101);
+              vErrors.push(err102);
             }
             errors++;
           }
         }
       } else {
-        const err102 = {
+        const err103 = {
           instancePath: instancePath + "/result",
           schemaPath: "#/allOf/1/properties/result/type",
           keyword: "type",
@@ -72244,15 +72457,15 @@ function validate694(
           message: "must be array",
         };
         if (vErrors === null) {
-          vErrors = [err102];
+          vErrors = [err103];
         } else {
-          vErrors.push(err102);
+          vErrors.push(err103);
         }
         errors++;
       }
     }
   } else {
-    const err103 = {
+    const err104 = {
       instancePath,
       schemaPath: "#/allOf/1/type",
       keyword: "type",
@@ -72260,9 +72473,9 @@ function validate694(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err103];
+      vErrors = [err104];
     } else {
-      vErrors.push(err103);
+      vErrors.push(err104);
     }
     errors++;
   }
@@ -72777,16 +72990,34 @@ function validate698(
                 errors++;
               }
             }
+            if (data6.redact_query_string !== undefined) {
+              if (typeof data6.redact_query_string !== "boolean") {
+                const err26 = {
+                  instancePath: instancePath + "/result/observability/redact_query_string",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/observability/properties/redact_query_string/type",
+                  keyword: "type",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
+                };
+                if (vErrors === null) {
+                  vErrors = [err26];
+                } else {
+                  vErrors.push(err26);
+                }
+                errors++;
+              }
+            }
             if (data6.traces !== undefined) {
-              let data16 = data6.traces;
-              if (data16 && typeof data16 == "object" && !Array.isArray(data16)) {
-                if (data16.destinations !== undefined) {
-                  let data17 = data16.destinations;
-                  if (Array.isArray(data17)) {
-                    const len1 = data17.length;
+              let data17 = data6.traces;
+              if (data17 && typeof data17 == "object" && !Array.isArray(data17)) {
+                if (data17.destinations !== undefined) {
+                  let data18 = data17.destinations;
+                  if (Array.isArray(data18)) {
+                    const len1 = data18.length;
                     for (let i1 = 0; i1 < len1; i1++) {
-                      if (typeof data17[i1] !== "string") {
-                        const err26 = {
+                      if (typeof data18[i1] !== "string") {
+                        const err27 = {
                           instancePath:
                             instancePath + "/result/observability/traces/destinations/" + i1,
                           schemaPath:
@@ -72796,39 +73027,21 @@ function validate698(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err26];
+                          vErrors = [err27];
                         } else {
-                          vErrors.push(err26);
+                          vErrors.push(err27);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err27 = {
+                    const err28 = {
                       instancePath: instancePath + "/result/observability/traces/destinations",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/destinations/type",
                       keyword: "type",
                       params: { type: "array" },
                       message: "must be array",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err27];
-                    } else {
-                      vErrors.push(err27);
-                    }
-                    errors++;
-                  }
-                }
-                if (data16.enabled !== undefined) {
-                  if (typeof data16.enabled !== "boolean") {
-                    const err28 = {
-                      instancePath: instancePath + "/result/observability/traces/enabled",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/enabled/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
                     };
                     if (vErrors === null) {
                       vErrors = [err28];
@@ -72838,16 +73051,15 @@ function validate698(
                     errors++;
                   }
                 }
-                if (data16.head_sampling_rate !== undefined) {
-                  if (!(typeof data16.head_sampling_rate == "number")) {
+                if (data17.enabled !== undefined) {
+                  if (typeof data17.enabled !== "boolean") {
                     const err29 = {
-                      instancePath:
-                        instancePath + "/result/observability/traces/head_sampling_rate",
+                      instancePath: instancePath + "/result/observability/traces/enabled",
                       schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/head_sampling_rate/type",
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/enabled/type",
                       keyword: "type",
-                      params: { type: "number" },
-                      message: "must be number",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
                     };
                     if (vErrors === null) {
                       vErrors = [err29];
@@ -72857,15 +73069,16 @@ function validate698(
                     errors++;
                   }
                 }
-                if (data16.persist !== undefined) {
-                  if (typeof data16.persist !== "boolean") {
+                if (data17.head_sampling_rate !== undefined) {
+                  if (!(typeof data17.head_sampling_rate == "number")) {
                     const err30 = {
-                      instancePath: instancePath + "/result/observability/traces/persist",
+                      instancePath:
+                        instancePath + "/result/observability/traces/head_sampling_rate",
                       schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/persist/type",
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/head_sampling_rate/type",
                       keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
+                      params: { type: "number" },
+                      message: "must be number",
                     };
                     if (vErrors === null) {
                       vErrors = [err30];
@@ -72875,10 +73088,28 @@ function validate698(
                     errors++;
                   }
                 }
-                if (data16.propagation_policy !== undefined) {
-                  let data22 = data16.propagation_policy;
-                  if (typeof data22 !== "string") {
+                if (data17.persist !== undefined) {
+                  if (typeof data17.persist !== "boolean") {
                     const err31 = {
+                      instancePath: instancePath + "/result/observability/traces/persist",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/persist/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err31];
+                    } else {
+                      vErrors.push(err31);
+                    }
+                    errors++;
+                  }
+                }
+                if (data17.propagation_policy !== undefined) {
+                  let data23 = data17.propagation_policy;
+                  if (typeof data23 !== "string" && data23 !== null) {
+                    const err32 = {
                       instancePath:
                         instancePath + "/result/observability/traces/propagation_policy",
                       schemaPath:
@@ -72888,14 +73119,14 @@ function validate698(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err31];
+                      vErrors = [err32];
                     } else {
-                      vErrors.push(err31);
+                      vErrors.push(err32);
                     }
                     errors++;
                   }
-                  if (!(data22 === "authenticated" || data22 === "accept")) {
-                    const err32 = {
+                  if (!(data23 === "authenticated" || data23 === "accept" || data23 === null)) {
+                    const err33 = {
                       instancePath:
                         instancePath + "/result/observability/traces/propagation_policy",
                       schemaPath:
@@ -72909,15 +73140,15 @@ function validate698(
                       message: "must be equal to one of the allowed values",
                     };
                     if (vErrors === null) {
-                      vErrors = [err32];
+                      vErrors = [err33];
                     } else {
-                      vErrors.push(err32);
+                      vErrors.push(err33);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err33 = {
+                const err34 = {
                   instancePath: instancePath + "/result/observability/traces",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/observability/properties/traces/type",
@@ -72926,15 +73157,15 @@ function validate698(
                   message: "must be object",
                 };
                 if (vErrors === null) {
-                  vErrors = [err33];
+                  vErrors = [err34];
                 } else {
-                  vErrors.push(err33);
+                  vErrors.push(err34);
                 }
                 errors++;
               }
             }
           } else {
-            const err34 = {
+            const err35 = {
               instancePath: instancePath + "/result/observability",
               schemaPath: "#/components/schemas/workers_Worker/properties/observability/type",
               keyword: "type",
@@ -72942,38 +73173,23 @@ function validate698(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err34];
+              vErrors = [err35];
             } else {
-              vErrors.push(err34);
+              vErrors.push(err35);
             }
             errors++;
           }
         }
         if (data0.references !== undefined) {
-          let data23 = data0.references;
-          if (data23 && typeof data23 == "object" && !Array.isArray(data23)) {
-            if (data23.workers === undefined) {
-              const err35 = {
+          let data24 = data0.references;
+          if (data24 && typeof data24 == "object" && !Array.isArray(data24)) {
+            if (data24.workers === undefined) {
+              const err36 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
                 params: { missingProperty: "workers" },
                 message: "must have required property '" + "workers" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err35];
-              } else {
-                vErrors.push(err35);
-              }
-              errors++;
-            }
-            if (data23.domains === undefined) {
-              const err36 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "domains" },
-                message: "must have required property '" + "domains" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err36];
@@ -72982,13 +73198,13 @@ function validate698(
               }
               errors++;
             }
-            if (data23.dispatch_namespace_outbounds === undefined) {
+            if (data24.domains === undefined) {
               const err37 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
-                params: { missingProperty: "dispatch_namespace_outbounds" },
-                message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
+                params: { missingProperty: "domains" },
+                message: "must have required property '" + "domains" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err37];
@@ -72997,13 +73213,13 @@ function validate698(
               }
               errors++;
             }
-            if (data23.durable_objects === undefined) {
+            if (data24.dispatch_namespace_outbounds === undefined) {
               const err38 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
-                params: { missingProperty: "durable_objects" },
-                message: "must have required property '" + "durable_objects" + "'",
+                params: { missingProperty: "dispatch_namespace_outbounds" },
+                message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err38];
@@ -73012,13 +73228,13 @@ function validate698(
               }
               errors++;
             }
-            if (data23.queues === undefined) {
+            if (data24.durable_objects === undefined) {
               const err39 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
-                params: { missingProperty: "queues" },
-                message: "must have required property '" + "queues" + "'",
+                params: { missingProperty: "durable_objects" },
+                message: "must have required property '" + "durable_objects" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err39];
@@ -73027,15 +73243,30 @@ function validate698(
               }
               errors++;
             }
-            if (data23.dispatch_namespace_outbounds !== undefined) {
-              let data24 = data23.dispatch_namespace_outbounds;
-              if (Array.isArray(data24)) {
-                const len2 = data24.length;
+            if (data24.queues === undefined) {
+              const err40 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "queues" },
+                message: "must have required property '" + "queues" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err40];
+              } else {
+                vErrors.push(err40);
+              }
+              errors++;
+            }
+            if (data24.dispatch_namespace_outbounds !== undefined) {
+              let data25 = data24.dispatch_namespace_outbounds;
+              if (Array.isArray(data25)) {
+                const len2 = data25.length;
                 for (let i2 = 0; i2 < len2; i2++) {
-                  let data25 = data24[i2];
-                  if (data25 && typeof data25 == "object" && !Array.isArray(data25)) {
-                    if (data25.worker_id === undefined) {
-                      const err40 = {
+                  let data26 = data25[i2];
+                  if (data26 && typeof data26 == "object" && !Array.isArray(data26)) {
+                    if (data26.worker_id === undefined) {
+                      const err41 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -73045,14 +73276,14 @@ function validate698(
                         message: "must have required property '" + "worker_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err40];
+                        vErrors = [err41];
                       } else {
-                        vErrors.push(err40);
+                        vErrors.push(err41);
                       }
                       errors++;
                     }
-                    if (data25.worker_name === undefined) {
-                      const err41 = {
+                    if (data26.worker_name === undefined) {
+                      const err42 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -73062,14 +73293,14 @@ function validate698(
                         message: "must have required property '" + "worker_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err41];
+                        vErrors = [err42];
                       } else {
-                        vErrors.push(err41);
+                        vErrors.push(err42);
                       }
                       errors++;
                     }
-                    if (data25.namespace_id === undefined) {
-                      const err42 = {
+                    if (data26.namespace_id === undefined) {
+                      const err43 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -73079,14 +73310,14 @@ function validate698(
                         message: "must have required property '" + "namespace_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err42];
+                        vErrors = [err43];
                       } else {
-                        vErrors.push(err42);
+                        vErrors.push(err43);
                       }
                       errors++;
                     }
-                    if (data25.namespace_name === undefined) {
-                      const err43 = {
+                    if (data26.namespace_name === undefined) {
+                      const err44 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -73096,15 +73327,15 @@ function validate698(
                         message: "must have required property '" + "namespace_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err43];
+                        vErrors = [err44];
                       } else {
-                        vErrors.push(err43);
+                        vErrors.push(err44);
                       }
                       errors++;
                     }
-                    if (data25.namespace_id !== undefined) {
-                      if (typeof data25.namespace_id !== "string") {
-                        const err44 = {
+                    if (data26.namespace_id !== undefined) {
+                      if (typeof data26.namespace_id !== "string") {
+                        const err45 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -73117,16 +73348,16 @@ function validate698(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err44];
+                          vErrors = [err45];
                         } else {
-                          vErrors.push(err44);
+                          vErrors.push(err45);
                         }
                         errors++;
                       }
                     }
-                    if (data25.namespace_name !== undefined) {
-                      if (typeof data25.namespace_name !== "string") {
-                        const err45 = {
+                    if (data26.namespace_name !== undefined) {
+                      if (typeof data26.namespace_name !== "string") {
+                        const err46 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -73139,16 +73370,16 @@ function validate698(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err45];
+                          vErrors = [err46];
                         } else {
-                          vErrors.push(err45);
+                          vErrors.push(err46);
                         }
                         errors++;
                       }
                     }
-                    if (data25.worker_id !== undefined) {
-                      if (typeof data25.worker_id !== "string") {
-                        const err46 = {
+                    if (data26.worker_id !== undefined) {
+                      if (typeof data26.worker_id !== "string") {
+                        const err47 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -73161,16 +73392,16 @@ function validate698(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err46];
+                          vErrors = [err47];
                         } else {
-                          vErrors.push(err46);
+                          vErrors.push(err47);
                         }
                         errors++;
                       }
                     }
-                    if (data25.worker_name !== undefined) {
-                      if (typeof data25.worker_name !== "string") {
-                        const err47 = {
+                    if (data26.worker_name !== undefined) {
+                      if (typeof data26.worker_name !== "string") {
+                        const err48 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -73183,15 +73414,15 @@ function validate698(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err47];
+                          vErrors = [err48];
                         } else {
-                          vErrors.push(err47);
+                          vErrors.push(err48);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err48 = {
+                    const err49 = {
                       instancePath:
                         instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                       schemaPath:
@@ -73201,15 +73432,15 @@ function validate698(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err48];
+                      vErrors = [err49];
                     } else {
-                      vErrors.push(err48);
+                      vErrors.push(err49);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err49 = {
+                const err50 = {
                   instancePath: instancePath + "/result/references/dispatch_namespace_outbounds",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/type",
@@ -73218,22 +73449,22 @@ function validate698(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err49];
+                  vErrors = [err50];
                 } else {
-                  vErrors.push(err49);
+                  vErrors.push(err50);
                 }
                 errors++;
               }
             }
-            if (data23.domains !== undefined) {
-              let data30 = data23.domains;
-              if (Array.isArray(data30)) {
-                const len3 = data30.length;
+            if (data24.domains !== undefined) {
+              let data31 = data24.domains;
+              if (Array.isArray(data31)) {
+                const len3 = data31.length;
                 for (let i3 = 0; i3 < len3; i3++) {
-                  let data31 = data30[i3];
-                  if (data31 && typeof data31 == "object" && !Array.isArray(data31)) {
-                    if (data31.id === undefined) {
-                      const err50 = {
+                  let data32 = data31[i3];
+                  if (data32 && typeof data32 == "object" && !Array.isArray(data32)) {
+                    if (data32.id === undefined) {
+                      const err51 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -73242,14 +73473,14 @@ function validate698(
                         message: "must have required property '" + "id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err50];
+                        vErrors = [err51];
                       } else {
-                        vErrors.push(err50);
+                        vErrors.push(err51);
                       }
                       errors++;
                     }
-                    if (data31.hostname === undefined) {
-                      const err51 = {
+                    if (data32.hostname === undefined) {
+                      const err52 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -73258,14 +73489,14 @@ function validate698(
                         message: "must have required property '" + "hostname" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err51];
+                        vErrors = [err52];
                       } else {
-                        vErrors.push(err51);
+                        vErrors.push(err52);
                       }
                       errors++;
                     }
-                    if (data31.zone_id === undefined) {
-                      const err52 = {
+                    if (data32.zone_id === undefined) {
+                      const err53 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -73274,14 +73505,14 @@ function validate698(
                         message: "must have required property '" + "zone_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err52];
+                        vErrors = [err53];
                       } else {
-                        vErrors.push(err52);
+                        vErrors.push(err53);
                       }
                       errors++;
                     }
-                    if (data31.zone_name === undefined) {
-                      const err53 = {
+                    if (data32.zone_name === undefined) {
+                      const err54 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -73290,38 +73521,19 @@ function validate698(
                         message: "must have required property '" + "zone_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err53];
+                        vErrors = [err54];
                       } else {
-                        vErrors.push(err53);
+                        vErrors.push(err54);
                       }
                       errors++;
                     }
-                    if (data31.certificate_id !== undefined) {
-                      if (typeof data31.certificate_id !== "string") {
-                        const err54 = {
+                    if (data32.certificate_id !== undefined) {
+                      if (typeof data32.certificate_id !== "string") {
+                        const err55 = {
                           instancePath:
                             instancePath + "/result/references/domains/" + i3 + "/certificate_id",
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/certificate_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err54];
-                        } else {
-                          vErrors.push(err54);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data31.hostname !== undefined) {
-                      if (typeof data31.hostname !== "string") {
-                        const err55 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/hostname",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/hostname/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -73334,12 +73546,13 @@ function validate698(
                         errors++;
                       }
                     }
-                    if (data31.id !== undefined) {
-                      if (typeof data31.id !== "string") {
+                    if (data32.hostname !== undefined) {
+                      if (typeof data32.hostname !== "string") {
                         const err56 = {
-                          instancePath: instancePath + "/result/references/domains/" + i3 + "/id",
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/hostname",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/id/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/hostname/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -73352,13 +73565,12 @@ function validate698(
                         errors++;
                       }
                     }
-                    if (data31.zone_id !== undefined) {
-                      if (typeof data31.zone_id !== "string") {
+                    if (data32.id !== undefined) {
+                      if (typeof data32.id !== "string") {
                         const err57 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/zone_id",
+                          instancePath: instancePath + "/result/references/domains/" + i3 + "/id",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_id/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -73371,13 +73583,13 @@ function validate698(
                         errors++;
                       }
                     }
-                    if (data31.zone_name !== undefined) {
-                      if (typeof data31.zone_name !== "string") {
+                    if (data32.zone_id !== undefined) {
+                      if (typeof data32.zone_id !== "string") {
                         const err58 = {
                           instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/zone_name",
+                            instancePath + "/result/references/domains/" + i3 + "/zone_id",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_name/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -73390,8 +73602,27 @@ function validate698(
                         errors++;
                       }
                     }
+                    if (data32.zone_name !== undefined) {
+                      if (typeof data32.zone_name !== "string") {
+                        const err59 = {
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/zone_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err59];
+                        } else {
+                          vErrors.push(err59);
+                        }
+                        errors++;
+                      }
+                    }
                   } else {
-                    const err59 = {
+                    const err60 = {
                       instancePath: instancePath + "/result/references/domains/" + i3,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/domains/items/type",
@@ -73400,15 +73631,15 @@ function validate698(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err59];
+                      vErrors = [err60];
                     } else {
-                      vErrors.push(err59);
+                      vErrors.push(err60);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err60 = {
+                const err61 = {
                   instancePath: instancePath + "/result/references/domains",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/domains/type",
@@ -73417,22 +73648,22 @@ function validate698(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err60];
+                  vErrors = [err61];
                 } else {
-                  vErrors.push(err60);
+                  vErrors.push(err61);
                 }
                 errors++;
               }
             }
-            if (data23.durable_objects !== undefined) {
-              let data37 = data23.durable_objects;
-              if (Array.isArray(data37)) {
-                const len4 = data37.length;
+            if (data24.durable_objects !== undefined) {
+              let data38 = data24.durable_objects;
+              if (Array.isArray(data38)) {
+                const len4 = data38.length;
                 for (let i4 = 0; i4 < len4; i4++) {
-                  let data38 = data37[i4];
-                  if (data38 && typeof data38 == "object" && !Array.isArray(data38)) {
-                    if (data38.worker_id === undefined) {
-                      const err61 = {
+                  let data39 = data38[i4];
+                  if (data39 && typeof data39 == "object" && !Array.isArray(data39)) {
+                    if (data39.worker_id === undefined) {
+                      const err62 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -73441,14 +73672,14 @@ function validate698(
                         message: "must have required property '" + "worker_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err61];
+                        vErrors = [err62];
                       } else {
-                        vErrors.push(err61);
+                        vErrors.push(err62);
                       }
                       errors++;
                     }
-                    if (data38.worker_name === undefined) {
-                      const err62 = {
+                    if (data39.worker_name === undefined) {
+                      const err63 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -73457,14 +73688,14 @@ function validate698(
                         message: "must have required property '" + "worker_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err62];
+                        vErrors = [err63];
                       } else {
-                        vErrors.push(err62);
+                        vErrors.push(err63);
                       }
                       errors++;
                     }
-                    if (data38.namespace_id === undefined) {
-                      const err63 = {
+                    if (data39.namespace_id === undefined) {
+                      const err64 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -73473,14 +73704,14 @@ function validate698(
                         message: "must have required property '" + "namespace_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err63];
+                        vErrors = [err64];
                       } else {
-                        vErrors.push(err63);
+                        vErrors.push(err64);
                       }
                       errors++;
                     }
-                    if (data38.namespace_name === undefined) {
-                      const err64 = {
+                    if (data39.namespace_name === undefined) {
+                      const err65 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -73489,15 +73720,15 @@ function validate698(
                         message: "must have required property '" + "namespace_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err64];
+                        vErrors = [err65];
                       } else {
-                        vErrors.push(err64);
+                        vErrors.push(err65);
                       }
                       errors++;
                     }
-                    if (data38.namespace_id !== undefined) {
-                      if (typeof data38.namespace_id !== "string") {
-                        const err65 = {
+                    if (data39.namespace_id !== undefined) {
+                      if (typeof data39.namespace_id !== "string") {
+                        const err66 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -73510,16 +73741,16 @@ function validate698(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err65];
+                          vErrors = [err66];
                         } else {
-                          vErrors.push(err65);
+                          vErrors.push(err66);
                         }
                         errors++;
                       }
                     }
-                    if (data38.namespace_name !== undefined) {
-                      if (typeof data38.namespace_name !== "string") {
-                        const err66 = {
+                    if (data39.namespace_name !== undefined) {
+                      if (typeof data39.namespace_name !== "string") {
+                        const err67 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -73532,16 +73763,16 @@ function validate698(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err66];
+                          vErrors = [err67];
                         } else {
-                          vErrors.push(err66);
+                          vErrors.push(err67);
                         }
                         errors++;
                       }
                     }
-                    if (data38.worker_id !== undefined) {
-                      if (typeof data38.worker_id !== "string") {
-                        const err67 = {
+                    if (data39.worker_id !== undefined) {
+                      if (typeof data39.worker_id !== "string") {
+                        const err68 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -73554,16 +73785,16 @@ function validate698(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err67];
+                          vErrors = [err68];
                         } else {
-                          vErrors.push(err67);
+                          vErrors.push(err68);
                         }
                         errors++;
                       }
                     }
-                    if (data38.worker_name !== undefined) {
-                      if (typeof data38.worker_name !== "string") {
-                        const err68 = {
+                    if (data39.worker_name !== undefined) {
+                      if (typeof data39.worker_name !== "string") {
+                        const err69 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -73576,15 +73807,15 @@ function validate698(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err68];
+                          vErrors = [err69];
                         } else {
-                          vErrors.push(err68);
+                          vErrors.push(err69);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err69 = {
+                    const err70 = {
                       instancePath: instancePath + "/result/references/durable_objects/" + i4,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/type",
@@ -73593,15 +73824,15 @@ function validate698(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err69];
+                      vErrors = [err70];
                     } else {
-                      vErrors.push(err69);
+                      vErrors.push(err70);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err70 = {
+                const err71 = {
                   instancePath: instancePath + "/result/references/durable_objects",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/type",
@@ -73610,22 +73841,22 @@ function validate698(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err70];
+                  vErrors = [err71];
                 } else {
-                  vErrors.push(err70);
+                  vErrors.push(err71);
                 }
                 errors++;
               }
             }
-            if (data23.queues !== undefined) {
-              let data43 = data23.queues;
-              if (Array.isArray(data43)) {
-                const len5 = data43.length;
+            if (data24.queues !== undefined) {
+              let data44 = data24.queues;
+              if (Array.isArray(data44)) {
+                const len5 = data44.length;
                 for (let i5 = 0; i5 < len5; i5++) {
-                  let data44 = data43[i5];
-                  if (data44 && typeof data44 == "object" && !Array.isArray(data44)) {
-                    if (data44.queue_id === undefined) {
-                      const err71 = {
+                  let data45 = data44[i5];
+                  if (data45 && typeof data45 == "object" && !Array.isArray(data45)) {
+                    if (data45.queue_id === undefined) {
+                      const err72 = {
                         instancePath: instancePath + "/result/references/queues/" + i5,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
@@ -73634,14 +73865,14 @@ function validate698(
                         message: "must have required property '" + "queue_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err71];
+                        vErrors = [err72];
                       } else {
-                        vErrors.push(err71);
+                        vErrors.push(err72);
                       }
                       errors++;
                     }
-                    if (data44.queue_name === undefined) {
-                      const err72 = {
+                    if (data45.queue_name === undefined) {
+                      const err73 = {
                         instancePath: instancePath + "/result/references/queues/" + i5,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
@@ -73650,14 +73881,14 @@ function validate698(
                         message: "must have required property '" + "queue_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err72];
+                        vErrors = [err73];
                       } else {
-                        vErrors.push(err72);
+                        vErrors.push(err73);
                       }
                       errors++;
                     }
-                    if (data44.queue_consumer_id === undefined) {
-                      const err73 = {
+                    if (data45.queue_consumer_id === undefined) {
+                      const err74 = {
                         instancePath: instancePath + "/result/references/queues/" + i5,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
@@ -73666,38 +73897,19 @@ function validate698(
                         message: "must have required property '" + "queue_consumer_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err73];
+                        vErrors = [err74];
                       } else {
-                        vErrors.push(err73);
+                        vErrors.push(err74);
                       }
                       errors++;
                     }
-                    if (data44.queue_consumer_id !== undefined) {
-                      if (typeof data44.queue_consumer_id !== "string") {
-                        const err74 = {
+                    if (data45.queue_consumer_id !== undefined) {
+                      if (typeof data45.queue_consumer_id !== "string") {
+                        const err75 = {
                           instancePath:
                             instancePath + "/result/references/queues/" + i5 + "/queue_consumer_id",
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_consumer_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err74];
-                        } else {
-                          vErrors.push(err74);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data44.queue_id !== undefined) {
-                      if (typeof data44.queue_id !== "string") {
-                        const err75 = {
-                          instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -73710,13 +73922,13 @@ function validate698(
                         errors++;
                       }
                     }
-                    if (data44.queue_name !== undefined) {
-                      if (typeof data44.queue_name !== "string") {
+                    if (data45.queue_id !== undefined) {
+                      if (typeof data45.queue_id !== "string") {
                         const err76 = {
                           instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_name",
+                            instancePath + "/result/references/queues/" + i5 + "/queue_id",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_name/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -73729,8 +73941,27 @@ function validate698(
                         errors++;
                       }
                     }
+                    if (data45.queue_name !== undefined) {
+                      if (typeof data45.queue_name !== "string") {
+                        const err77 = {
+                          instancePath:
+                            instancePath + "/result/references/queues/" + i5 + "/queue_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err77];
+                        } else {
+                          vErrors.push(err77);
+                        }
+                        errors++;
+                      }
+                    }
                   } else {
-                    const err77 = {
+                    const err78 = {
                       instancePath: instancePath + "/result/references/queues/" + i5,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/queues/items/type",
@@ -73739,15 +73970,15 @@ function validate698(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err77];
+                      vErrors = [err78];
                     } else {
-                      vErrors.push(err77);
+                      vErrors.push(err78);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err78 = {
+                const err79 = {
                   instancePath: instancePath + "/result/references/queues",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/queues/type",
@@ -73756,22 +73987,22 @@ function validate698(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err78];
+                  vErrors = [err79];
                 } else {
-                  vErrors.push(err78);
+                  vErrors.push(err79);
                 }
                 errors++;
               }
             }
-            if (data23.workers !== undefined) {
-              let data48 = data23.workers;
-              if (Array.isArray(data48)) {
-                const len6 = data48.length;
+            if (data24.workers !== undefined) {
+              let data49 = data24.workers;
+              if (Array.isArray(data49)) {
+                const len6 = data49.length;
                 for (let i6 = 0; i6 < len6; i6++) {
-                  let data49 = data48[i6];
-                  if (data49 && typeof data49 == "object" && !Array.isArray(data49)) {
-                    if (data49.id === undefined) {
-                      const err79 = {
+                  let data50 = data49[i6];
+                  if (data50 && typeof data50 == "object" && !Array.isArray(data50)) {
+                    if (data50.id === undefined) {
+                      const err80 = {
                         instancePath: instancePath + "/result/references/workers/" + i6,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
@@ -73780,14 +74011,14 @@ function validate698(
                         message: "must have required property '" + "id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err79];
+                        vErrors = [err80];
                       } else {
-                        vErrors.push(err79);
+                        vErrors.push(err80);
                       }
                       errors++;
                     }
-                    if (data49.name === undefined) {
-                      const err80 = {
+                    if (data50.name === undefined) {
+                      const err81 = {
                         instancePath: instancePath + "/result/references/workers/" + i6,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
@@ -73796,36 +74027,18 @@ function validate698(
                         message: "must have required property '" + "name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err80];
+                        vErrors = [err81];
                       } else {
-                        vErrors.push(err80);
+                        vErrors.push(err81);
                       }
                       errors++;
                     }
-                    if (data49.id !== undefined) {
-                      if (typeof data49.id !== "string") {
-                        const err81 = {
+                    if (data50.id !== undefined) {
+                      if (typeof data50.id !== "string") {
+                        const err82 = {
                           instancePath: instancePath + "/result/references/workers/" + i6 + "/id",
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err81];
-                        } else {
-                          vErrors.push(err81);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data49.name !== undefined) {
-                      if (typeof data49.name !== "string") {
-                        const err82 = {
-                          instancePath: instancePath + "/result/references/workers/" + i6 + "/name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/name/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -73838,8 +74051,26 @@ function validate698(
                         errors++;
                       }
                     }
+                    if (data50.name !== undefined) {
+                      if (typeof data50.name !== "string") {
+                        const err83 = {
+                          instancePath: instancePath + "/result/references/workers/" + i6 + "/name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err83];
+                        } else {
+                          vErrors.push(err83);
+                        }
+                        errors++;
+                      }
+                    }
                   } else {
-                    const err83 = {
+                    const err84 = {
                       instancePath: instancePath + "/result/references/workers/" + i6,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/workers/items/type",
@@ -73848,15 +74079,15 @@ function validate698(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err83];
+                      vErrors = [err84];
                     } else {
-                      vErrors.push(err83);
+                      vErrors.push(err84);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err84 = {
+                const err85 = {
                   instancePath: instancePath + "/result/references/workers",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/workers/type",
@@ -73865,15 +74096,15 @@ function validate698(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err84];
+                  vErrors = [err85];
                 } else {
-                  vErrors.push(err84);
+                  vErrors.push(err85);
                 }
                 errors++;
               }
             }
           } else {
-            const err85 = {
+            const err86 = {
               instancePath: instancePath + "/result/references",
               schemaPath: "#/components/schemas/workers_Worker/properties/references/type",
               keyword: "type",
@@ -73881,43 +74112,25 @@ function validate698(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err85];
+              vErrors = [err86];
             } else {
-              vErrors.push(err85);
+              vErrors.push(err86);
             }
             errors++;
           }
         }
         if (data0.subdomain !== undefined) {
-          let data52 = data0.subdomain;
-          if (data52 && typeof data52 == "object" && !Array.isArray(data52)) {
-            if (data52.enabled !== undefined) {
-              if (typeof data52.enabled !== "boolean") {
-                const err86 = {
+          let data53 = data0.subdomain;
+          if (data53 && typeof data53 == "object" && !Array.isArray(data53)) {
+            if (data53.enabled !== undefined) {
+              if (typeof data53.enabled !== "boolean") {
+                const err87 = {
                   instancePath: instancePath + "/result/subdomain/enabled",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/subdomain/properties/enabled/type",
                   keyword: "type",
                   params: { type: "boolean" },
                   message: "must be boolean",
-                };
-                if (vErrors === null) {
-                  vErrors = [err86];
-                } else {
-                  vErrors.push(err86);
-                }
-                errors++;
-              }
-            }
-            if (data52.preview_url_suffix !== undefined) {
-              if (typeof data52.preview_url_suffix !== "string") {
-                const err87 = {
-                  instancePath: instancePath + "/result/subdomain/preview_url_suffix",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/preview_url_suffix/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
                 };
                 if (vErrors === null) {
                   vErrors = [err87];
@@ -73927,15 +74140,15 @@ function validate698(
                 errors++;
               }
             }
-            if (data52.previews_enabled !== undefined) {
-              if (typeof data52.previews_enabled !== "boolean") {
+            if (data53.preview_url_suffix !== undefined) {
+              if (typeof data53.preview_url_suffix !== "string") {
                 const err88 = {
-                  instancePath: instancePath + "/result/subdomain/previews_enabled",
+                  instancePath: instancePath + "/result/subdomain/preview_url_suffix",
                   schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/preview_url_suffix/type",
                   keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
+                  params: { type: "string" },
+                  message: "must be string",
                 };
                 if (vErrors === null) {
                   vErrors = [err88];
@@ -73945,15 +74158,15 @@ function validate698(
                 errors++;
               }
             }
-            if (data52.url !== undefined) {
-              if (!(typeof data52.url === "string")) {
+            if (data53.previews_enabled !== undefined) {
+              if (typeof data53.previews_enabled !== "boolean") {
                 const err89 = {
-                  instancePath: instancePath + "/result/subdomain/url",
+                  instancePath: instancePath + "/result/subdomain/previews_enabled",
                   schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/url/type",
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
                   keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err89];
@@ -73963,8 +74176,26 @@ function validate698(
                 errors++;
               }
             }
+            if (data53.url !== undefined) {
+              if (!(typeof data53.url === "string")) {
+                const err90 = {
+                  instancePath: instancePath + "/result/subdomain/url",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/url/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err90];
+                } else {
+                  vErrors.push(err90);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err90 = {
+            const err91 = {
               instancePath: instancePath + "/result/subdomain",
               schemaPath: "#/components/schemas/workers_Worker/properties/subdomain/type",
               keyword: "type",
@@ -73972,18 +74203,18 @@ function validate698(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err90];
+              vErrors = [err91];
             } else {
-              vErrors.push(err90);
+              vErrors.push(err91);
             }
             errors++;
           }
         }
         if (data0.tags !== undefined) {
-          let data57 = data0.tags;
-          if (Array.isArray(data57)) {
-            if (data57.length > 8) {
-              const err91 = {
+          let data58 = data0.tags;
+          if (Array.isArray(data58)) {
+            if (data58.length > 8) {
+              const err92 = {
                 instancePath: instancePath + "/result/tags",
                 schemaPath: "#/components/schemas/workers_Worker/properties/tags/maxItems",
                 keyword: "maxItems",
@@ -73991,18 +74222,18 @@ function validate698(
                 message: "must NOT have more than 8 items",
               };
               if (vErrors === null) {
-                vErrors = [err91];
+                vErrors = [err92];
               } else {
-                vErrors.push(err91);
+                vErrors.push(err92);
               }
               errors++;
             }
-            const len7 = data57.length;
+            const len7 = data58.length;
             for (let i7 = 0; i7 < len7; i7++) {
-              let data58 = data57[i7];
-              if (typeof data58 === "string") {
-                if (func2(data58) > 1024) {
-                  const err92 = {
+              let data59 = data58[i7];
+              if (typeof data59 === "string") {
+                if (func2(data59) > 1024) {
+                  const err93 = {
                     instancePath: instancePath + "/result/tags/" + i7,
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/tags/items/maxLength",
@@ -74011,14 +74242,14 @@ function validate698(
                     message: "must NOT have more than 1024 characters",
                   };
                   if (vErrors === null) {
-                    vErrors = [err92];
+                    vErrors = [err93];
                   } else {
-                    vErrors.push(err92);
+                    vErrors.push(err93);
                   }
                   errors++;
                 }
-                if (!pattern2.test(data58)) {
-                  const err93 = {
+                if (!pattern2.test(data59)) {
+                  const err94 = {
                     instancePath: instancePath + "/result/tags/" + i7,
                     schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/pattern",
                     keyword: "pattern",
@@ -74026,14 +74257,14 @@ function validate698(
                     message: 'must match pattern "' + "^[^,&]*$" + '"',
                   };
                   if (vErrors === null) {
-                    vErrors = [err93];
+                    vErrors = [err94];
                   } else {
-                    vErrors.push(err93);
+                    vErrors.push(err94);
                   }
                   errors++;
                 }
               } else {
-                const err94 = {
+                const err95 = {
                   instancePath: instancePath + "/result/tags/" + i7,
                   schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/type",
                   keyword: "type",
@@ -74041,15 +74272,15 @@ function validate698(
                   message: "must be string",
                 };
                 if (vErrors === null) {
-                  vErrors = [err94];
+                  vErrors = [err95];
                 } else {
-                  vErrors.push(err94);
+                  vErrors.push(err95);
                 }
                 errors++;
               }
             }
           } else {
-            const err95 = {
+            const err96 = {
               instancePath: instancePath + "/result/tags",
               schemaPath: "#/components/schemas/workers_Worker/properties/tags/type",
               keyword: "type",
@@ -74057,22 +74288,22 @@ function validate698(
               message: "must be array",
             };
             if (vErrors === null) {
-              vErrors = [err95];
+              vErrors = [err96];
             } else {
-              vErrors.push(err95);
+              vErrors.push(err96);
             }
             errors++;
           }
         }
         if (data0.tail_consumers !== undefined) {
-          let data59 = data0.tail_consumers;
-          if (Array.isArray(data59)) {
-            const len8 = data59.length;
+          let data60 = data0.tail_consumers;
+          if (Array.isArray(data60)) {
+            const len8 = data60.length;
             for (let i8 = 0; i8 < len8; i8++) {
-              let data60 = data59[i8];
-              if (data60 && typeof data60 == "object" && !Array.isArray(data60)) {
-                if (data60.name === undefined) {
-                  const err96 = {
+              let data61 = data60[i8];
+              if (data61 && typeof data61 == "object" && !Array.isArray(data61)) {
+                if (data61.name === undefined) {
+                  const err97 = {
                     instancePath: instancePath + "/result/tail_consumers/" + i8,
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/tail_consumers/items/required",
@@ -74081,15 +74312,15 @@ function validate698(
                     message: "must have required property '" + "name" + "'",
                   };
                   if (vErrors === null) {
-                    vErrors = [err96];
+                    vErrors = [err97];
                   } else {
-                    vErrors.push(err96);
+                    vErrors.push(err97);
                   }
                   errors++;
                 }
-                if (data60.name !== undefined) {
-                  if (typeof data60.name !== "string") {
-                    const err97 = {
+                if (data61.name !== undefined) {
+                  if (typeof data61.name !== "string") {
+                    const err98 = {
                       instancePath: instancePath + "/result/tail_consumers/" + i8 + "/name",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/tail_consumers/items/properties/name/type",
@@ -74098,15 +74329,15 @@ function validate698(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err97];
+                      vErrors = [err98];
                     } else {
-                      vErrors.push(err97);
+                      vErrors.push(err98);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err98 = {
+                const err99 = {
                   instancePath: instancePath + "/result/tail_consumers/" + i8,
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/tail_consumers/items/type",
@@ -74115,37 +74346,20 @@ function validate698(
                   message: "must be object",
                 };
                 if (vErrors === null) {
-                  vErrors = [err98];
+                  vErrors = [err99];
                 } else {
-                  vErrors.push(err98);
+                  vErrors.push(err99);
                 }
                 errors++;
               }
             }
           } else {
-            const err99 = {
+            const err100 = {
               instancePath: instancePath + "/result/tail_consumers",
               schemaPath: "#/components/schemas/workers_Worker/properties/tail_consumers/type",
               keyword: "type",
               params: { type: "array" },
               message: "must be array",
-            };
-            if (vErrors === null) {
-              vErrors = [err99];
-            } else {
-              vErrors.push(err99);
-            }
-            errors++;
-          }
-        }
-        if (data0.updated_on !== undefined) {
-          if (!(typeof data0.updated_on === "string")) {
-            const err100 = {
-              instancePath: instancePath + "/result/updated_on",
-              schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
             };
             if (vErrors === null) {
               vErrors = [err100];
@@ -74155,8 +74369,25 @@ function validate698(
             errors++;
           }
         }
+        if (data0.updated_on !== undefined) {
+          if (!(typeof data0.updated_on === "string")) {
+            const err101 = {
+              instancePath: instancePath + "/result/updated_on",
+              schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err101];
+            } else {
+              vErrors.push(err101);
+            }
+            errors++;
+          }
+        }
       } else {
-        const err101 = {
+        const err102 = {
           instancePath: instancePath + "/result",
           schemaPath: "#/components/schemas/workers_Worker/type",
           keyword: "type",
@@ -74164,15 +74395,15 @@ function validate698(
           message: "must be object",
         };
         if (vErrors === null) {
-          vErrors = [err101];
+          vErrors = [err102];
         } else {
-          vErrors.push(err101);
+          vErrors.push(err102);
         }
         errors++;
       }
     }
   } else {
-    const err102 = {
+    const err103 = {
       instancePath,
       schemaPath: "#/allOf/1/type",
       keyword: "type",
@@ -74180,9 +74411,9 @@ function validate698(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err102];
+      vErrors = [err103];
     } else {
-      vErrors.push(err102);
+      vErrors.push(err103);
     }
     errors++;
   }
@@ -75261,16 +75492,34 @@ function validate705(
                 errors++;
               }
             }
+            if (data6.redact_query_string !== undefined) {
+              if (typeof data6.redact_query_string !== "boolean") {
+                const err26 = {
+                  instancePath: instancePath + "/result/observability/redact_query_string",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/observability/properties/redact_query_string/type",
+                  keyword: "type",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
+                };
+                if (vErrors === null) {
+                  vErrors = [err26];
+                } else {
+                  vErrors.push(err26);
+                }
+                errors++;
+              }
+            }
             if (data6.traces !== undefined) {
-              let data16 = data6.traces;
-              if (data16 && typeof data16 == "object" && !Array.isArray(data16)) {
-                if (data16.destinations !== undefined) {
-                  let data17 = data16.destinations;
-                  if (Array.isArray(data17)) {
-                    const len1 = data17.length;
+              let data17 = data6.traces;
+              if (data17 && typeof data17 == "object" && !Array.isArray(data17)) {
+                if (data17.destinations !== undefined) {
+                  let data18 = data17.destinations;
+                  if (Array.isArray(data18)) {
+                    const len1 = data18.length;
                     for (let i1 = 0; i1 < len1; i1++) {
-                      if (typeof data17[i1] !== "string") {
-                        const err26 = {
+                      if (typeof data18[i1] !== "string") {
+                        const err27 = {
                           instancePath:
                             instancePath + "/result/observability/traces/destinations/" + i1,
                           schemaPath:
@@ -75280,39 +75529,21 @@ function validate705(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err26];
+                          vErrors = [err27];
                         } else {
-                          vErrors.push(err26);
+                          vErrors.push(err27);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err27 = {
+                    const err28 = {
                       instancePath: instancePath + "/result/observability/traces/destinations",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/destinations/type",
                       keyword: "type",
                       params: { type: "array" },
                       message: "must be array",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err27];
-                    } else {
-                      vErrors.push(err27);
-                    }
-                    errors++;
-                  }
-                }
-                if (data16.enabled !== undefined) {
-                  if (typeof data16.enabled !== "boolean") {
-                    const err28 = {
-                      instancePath: instancePath + "/result/observability/traces/enabled",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/enabled/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
                     };
                     if (vErrors === null) {
                       vErrors = [err28];
@@ -75322,16 +75553,15 @@ function validate705(
                     errors++;
                   }
                 }
-                if (data16.head_sampling_rate !== undefined) {
-                  if (!(typeof data16.head_sampling_rate == "number")) {
+                if (data17.enabled !== undefined) {
+                  if (typeof data17.enabled !== "boolean") {
                     const err29 = {
-                      instancePath:
-                        instancePath + "/result/observability/traces/head_sampling_rate",
+                      instancePath: instancePath + "/result/observability/traces/enabled",
                       schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/head_sampling_rate/type",
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/enabled/type",
                       keyword: "type",
-                      params: { type: "number" },
-                      message: "must be number",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
                     };
                     if (vErrors === null) {
                       vErrors = [err29];
@@ -75341,15 +75571,16 @@ function validate705(
                     errors++;
                   }
                 }
-                if (data16.persist !== undefined) {
-                  if (typeof data16.persist !== "boolean") {
+                if (data17.head_sampling_rate !== undefined) {
+                  if (!(typeof data17.head_sampling_rate == "number")) {
                     const err30 = {
-                      instancePath: instancePath + "/result/observability/traces/persist",
+                      instancePath:
+                        instancePath + "/result/observability/traces/head_sampling_rate",
                       schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/persist/type",
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/head_sampling_rate/type",
                       keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
+                      params: { type: "number" },
+                      message: "must be number",
                     };
                     if (vErrors === null) {
                       vErrors = [err30];
@@ -75359,10 +75590,28 @@ function validate705(
                     errors++;
                   }
                 }
-                if (data16.propagation_policy !== undefined) {
-                  let data22 = data16.propagation_policy;
-                  if (typeof data22 !== "string") {
+                if (data17.persist !== undefined) {
+                  if (typeof data17.persist !== "boolean") {
                     const err31 = {
+                      instancePath: instancePath + "/result/observability/traces/persist",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/persist/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err31];
+                    } else {
+                      vErrors.push(err31);
+                    }
+                    errors++;
+                  }
+                }
+                if (data17.propagation_policy !== undefined) {
+                  let data23 = data17.propagation_policy;
+                  if (typeof data23 !== "string" && data23 !== null) {
+                    const err32 = {
                       instancePath:
                         instancePath + "/result/observability/traces/propagation_policy",
                       schemaPath:
@@ -75372,14 +75621,14 @@ function validate705(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err31];
+                      vErrors = [err32];
                     } else {
-                      vErrors.push(err31);
+                      vErrors.push(err32);
                     }
                     errors++;
                   }
-                  if (!(data22 === "authenticated" || data22 === "accept")) {
-                    const err32 = {
+                  if (!(data23 === "authenticated" || data23 === "accept" || data23 === null)) {
+                    const err33 = {
                       instancePath:
                         instancePath + "/result/observability/traces/propagation_policy",
                       schemaPath:
@@ -75393,15 +75642,15 @@ function validate705(
                       message: "must be equal to one of the allowed values",
                     };
                     if (vErrors === null) {
-                      vErrors = [err32];
+                      vErrors = [err33];
                     } else {
-                      vErrors.push(err32);
+                      vErrors.push(err33);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err33 = {
+                const err34 = {
                   instancePath: instancePath + "/result/observability/traces",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/observability/properties/traces/type",
@@ -75410,15 +75659,15 @@ function validate705(
                   message: "must be object",
                 };
                 if (vErrors === null) {
-                  vErrors = [err33];
+                  vErrors = [err34];
                 } else {
-                  vErrors.push(err33);
+                  vErrors.push(err34);
                 }
                 errors++;
               }
             }
           } else {
-            const err34 = {
+            const err35 = {
               instancePath: instancePath + "/result/observability",
               schemaPath: "#/components/schemas/workers_Worker/properties/observability/type",
               keyword: "type",
@@ -75426,38 +75675,23 @@ function validate705(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err34];
+              vErrors = [err35];
             } else {
-              vErrors.push(err34);
+              vErrors.push(err35);
             }
             errors++;
           }
         }
         if (data0.references !== undefined) {
-          let data23 = data0.references;
-          if (data23 && typeof data23 == "object" && !Array.isArray(data23)) {
-            if (data23.workers === undefined) {
-              const err35 = {
+          let data24 = data0.references;
+          if (data24 && typeof data24 == "object" && !Array.isArray(data24)) {
+            if (data24.workers === undefined) {
+              const err36 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
                 params: { missingProperty: "workers" },
                 message: "must have required property '" + "workers" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err35];
-              } else {
-                vErrors.push(err35);
-              }
-              errors++;
-            }
-            if (data23.domains === undefined) {
-              const err36 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "domains" },
-                message: "must have required property '" + "domains" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err36];
@@ -75466,13 +75700,13 @@ function validate705(
               }
               errors++;
             }
-            if (data23.dispatch_namespace_outbounds === undefined) {
+            if (data24.domains === undefined) {
               const err37 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
-                params: { missingProperty: "dispatch_namespace_outbounds" },
-                message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
+                params: { missingProperty: "domains" },
+                message: "must have required property '" + "domains" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err37];
@@ -75481,13 +75715,13 @@ function validate705(
               }
               errors++;
             }
-            if (data23.durable_objects === undefined) {
+            if (data24.dispatch_namespace_outbounds === undefined) {
               const err38 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
-                params: { missingProperty: "durable_objects" },
-                message: "must have required property '" + "durable_objects" + "'",
+                params: { missingProperty: "dispatch_namespace_outbounds" },
+                message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err38];
@@ -75496,13 +75730,13 @@ function validate705(
               }
               errors++;
             }
-            if (data23.queues === undefined) {
+            if (data24.durable_objects === undefined) {
               const err39 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
-                params: { missingProperty: "queues" },
-                message: "must have required property '" + "queues" + "'",
+                params: { missingProperty: "durable_objects" },
+                message: "must have required property '" + "durable_objects" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err39];
@@ -75511,15 +75745,30 @@ function validate705(
               }
               errors++;
             }
-            if (data23.dispatch_namespace_outbounds !== undefined) {
-              let data24 = data23.dispatch_namespace_outbounds;
-              if (Array.isArray(data24)) {
-                const len2 = data24.length;
+            if (data24.queues === undefined) {
+              const err40 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "queues" },
+                message: "must have required property '" + "queues" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err40];
+              } else {
+                vErrors.push(err40);
+              }
+              errors++;
+            }
+            if (data24.dispatch_namespace_outbounds !== undefined) {
+              let data25 = data24.dispatch_namespace_outbounds;
+              if (Array.isArray(data25)) {
+                const len2 = data25.length;
                 for (let i2 = 0; i2 < len2; i2++) {
-                  let data25 = data24[i2];
-                  if (data25 && typeof data25 == "object" && !Array.isArray(data25)) {
-                    if (data25.worker_id === undefined) {
-                      const err40 = {
+                  let data26 = data25[i2];
+                  if (data26 && typeof data26 == "object" && !Array.isArray(data26)) {
+                    if (data26.worker_id === undefined) {
+                      const err41 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -75529,14 +75778,14 @@ function validate705(
                         message: "must have required property '" + "worker_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err40];
+                        vErrors = [err41];
                       } else {
-                        vErrors.push(err40);
+                        vErrors.push(err41);
                       }
                       errors++;
                     }
-                    if (data25.worker_name === undefined) {
-                      const err41 = {
+                    if (data26.worker_name === undefined) {
+                      const err42 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -75546,14 +75795,14 @@ function validate705(
                         message: "must have required property '" + "worker_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err41];
+                        vErrors = [err42];
                       } else {
-                        vErrors.push(err41);
+                        vErrors.push(err42);
                       }
                       errors++;
                     }
-                    if (data25.namespace_id === undefined) {
-                      const err42 = {
+                    if (data26.namespace_id === undefined) {
+                      const err43 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -75563,14 +75812,14 @@ function validate705(
                         message: "must have required property '" + "namespace_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err42];
+                        vErrors = [err43];
                       } else {
-                        vErrors.push(err42);
+                        vErrors.push(err43);
                       }
                       errors++;
                     }
-                    if (data25.namespace_name === undefined) {
-                      const err43 = {
+                    if (data26.namespace_name === undefined) {
+                      const err44 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -75580,15 +75829,15 @@ function validate705(
                         message: "must have required property '" + "namespace_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err43];
+                        vErrors = [err44];
                       } else {
-                        vErrors.push(err43);
+                        vErrors.push(err44);
                       }
                       errors++;
                     }
-                    if (data25.namespace_id !== undefined) {
-                      if (typeof data25.namespace_id !== "string") {
-                        const err44 = {
+                    if (data26.namespace_id !== undefined) {
+                      if (typeof data26.namespace_id !== "string") {
+                        const err45 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -75601,16 +75850,16 @@ function validate705(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err44];
+                          vErrors = [err45];
                         } else {
-                          vErrors.push(err44);
+                          vErrors.push(err45);
                         }
                         errors++;
                       }
                     }
-                    if (data25.namespace_name !== undefined) {
-                      if (typeof data25.namespace_name !== "string") {
-                        const err45 = {
+                    if (data26.namespace_name !== undefined) {
+                      if (typeof data26.namespace_name !== "string") {
+                        const err46 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -75623,16 +75872,16 @@ function validate705(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err45];
+                          vErrors = [err46];
                         } else {
-                          vErrors.push(err45);
+                          vErrors.push(err46);
                         }
                         errors++;
                       }
                     }
-                    if (data25.worker_id !== undefined) {
-                      if (typeof data25.worker_id !== "string") {
-                        const err46 = {
+                    if (data26.worker_id !== undefined) {
+                      if (typeof data26.worker_id !== "string") {
+                        const err47 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -75645,16 +75894,16 @@ function validate705(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err46];
+                          vErrors = [err47];
                         } else {
-                          vErrors.push(err46);
+                          vErrors.push(err47);
                         }
                         errors++;
                       }
                     }
-                    if (data25.worker_name !== undefined) {
-                      if (typeof data25.worker_name !== "string") {
-                        const err47 = {
+                    if (data26.worker_name !== undefined) {
+                      if (typeof data26.worker_name !== "string") {
+                        const err48 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -75667,15 +75916,15 @@ function validate705(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err47];
+                          vErrors = [err48];
                         } else {
-                          vErrors.push(err47);
+                          vErrors.push(err48);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err48 = {
+                    const err49 = {
                       instancePath:
                         instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                       schemaPath:
@@ -75685,15 +75934,15 @@ function validate705(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err48];
+                      vErrors = [err49];
                     } else {
-                      vErrors.push(err48);
+                      vErrors.push(err49);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err49 = {
+                const err50 = {
                   instancePath: instancePath + "/result/references/dispatch_namespace_outbounds",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/type",
@@ -75702,22 +75951,22 @@ function validate705(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err49];
+                  vErrors = [err50];
                 } else {
-                  vErrors.push(err49);
+                  vErrors.push(err50);
                 }
                 errors++;
               }
             }
-            if (data23.domains !== undefined) {
-              let data30 = data23.domains;
-              if (Array.isArray(data30)) {
-                const len3 = data30.length;
+            if (data24.domains !== undefined) {
+              let data31 = data24.domains;
+              if (Array.isArray(data31)) {
+                const len3 = data31.length;
                 for (let i3 = 0; i3 < len3; i3++) {
-                  let data31 = data30[i3];
-                  if (data31 && typeof data31 == "object" && !Array.isArray(data31)) {
-                    if (data31.id === undefined) {
-                      const err50 = {
+                  let data32 = data31[i3];
+                  if (data32 && typeof data32 == "object" && !Array.isArray(data32)) {
+                    if (data32.id === undefined) {
+                      const err51 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -75726,14 +75975,14 @@ function validate705(
                         message: "must have required property '" + "id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err50];
+                        vErrors = [err51];
                       } else {
-                        vErrors.push(err50);
+                        vErrors.push(err51);
                       }
                       errors++;
                     }
-                    if (data31.hostname === undefined) {
-                      const err51 = {
+                    if (data32.hostname === undefined) {
+                      const err52 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -75742,14 +75991,14 @@ function validate705(
                         message: "must have required property '" + "hostname" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err51];
+                        vErrors = [err52];
                       } else {
-                        vErrors.push(err51);
+                        vErrors.push(err52);
                       }
                       errors++;
                     }
-                    if (data31.zone_id === undefined) {
-                      const err52 = {
+                    if (data32.zone_id === undefined) {
+                      const err53 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -75758,14 +76007,14 @@ function validate705(
                         message: "must have required property '" + "zone_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err52];
+                        vErrors = [err53];
                       } else {
-                        vErrors.push(err52);
+                        vErrors.push(err53);
                       }
                       errors++;
                     }
-                    if (data31.zone_name === undefined) {
-                      const err53 = {
+                    if (data32.zone_name === undefined) {
+                      const err54 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -75774,38 +76023,19 @@ function validate705(
                         message: "must have required property '" + "zone_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err53];
+                        vErrors = [err54];
                       } else {
-                        vErrors.push(err53);
+                        vErrors.push(err54);
                       }
                       errors++;
                     }
-                    if (data31.certificate_id !== undefined) {
-                      if (typeof data31.certificate_id !== "string") {
-                        const err54 = {
+                    if (data32.certificate_id !== undefined) {
+                      if (typeof data32.certificate_id !== "string") {
+                        const err55 = {
                           instancePath:
                             instancePath + "/result/references/domains/" + i3 + "/certificate_id",
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/certificate_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err54];
-                        } else {
-                          vErrors.push(err54);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data31.hostname !== undefined) {
-                      if (typeof data31.hostname !== "string") {
-                        const err55 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/hostname",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/hostname/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -75818,12 +76048,13 @@ function validate705(
                         errors++;
                       }
                     }
-                    if (data31.id !== undefined) {
-                      if (typeof data31.id !== "string") {
+                    if (data32.hostname !== undefined) {
+                      if (typeof data32.hostname !== "string") {
                         const err56 = {
-                          instancePath: instancePath + "/result/references/domains/" + i3 + "/id",
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/hostname",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/id/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/hostname/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -75836,13 +76067,12 @@ function validate705(
                         errors++;
                       }
                     }
-                    if (data31.zone_id !== undefined) {
-                      if (typeof data31.zone_id !== "string") {
+                    if (data32.id !== undefined) {
+                      if (typeof data32.id !== "string") {
                         const err57 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/zone_id",
+                          instancePath: instancePath + "/result/references/domains/" + i3 + "/id",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_id/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -75855,13 +76085,13 @@ function validate705(
                         errors++;
                       }
                     }
-                    if (data31.zone_name !== undefined) {
-                      if (typeof data31.zone_name !== "string") {
+                    if (data32.zone_id !== undefined) {
+                      if (typeof data32.zone_id !== "string") {
                         const err58 = {
                           instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/zone_name",
+                            instancePath + "/result/references/domains/" + i3 + "/zone_id",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_name/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -75874,8 +76104,27 @@ function validate705(
                         errors++;
                       }
                     }
+                    if (data32.zone_name !== undefined) {
+                      if (typeof data32.zone_name !== "string") {
+                        const err59 = {
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/zone_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err59];
+                        } else {
+                          vErrors.push(err59);
+                        }
+                        errors++;
+                      }
+                    }
                   } else {
-                    const err59 = {
+                    const err60 = {
                       instancePath: instancePath + "/result/references/domains/" + i3,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/domains/items/type",
@@ -75884,15 +76133,15 @@ function validate705(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err59];
+                      vErrors = [err60];
                     } else {
-                      vErrors.push(err59);
+                      vErrors.push(err60);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err60 = {
+                const err61 = {
                   instancePath: instancePath + "/result/references/domains",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/domains/type",
@@ -75901,22 +76150,22 @@ function validate705(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err60];
+                  vErrors = [err61];
                 } else {
-                  vErrors.push(err60);
+                  vErrors.push(err61);
                 }
                 errors++;
               }
             }
-            if (data23.durable_objects !== undefined) {
-              let data37 = data23.durable_objects;
-              if (Array.isArray(data37)) {
-                const len4 = data37.length;
+            if (data24.durable_objects !== undefined) {
+              let data38 = data24.durable_objects;
+              if (Array.isArray(data38)) {
+                const len4 = data38.length;
                 for (let i4 = 0; i4 < len4; i4++) {
-                  let data38 = data37[i4];
-                  if (data38 && typeof data38 == "object" && !Array.isArray(data38)) {
-                    if (data38.worker_id === undefined) {
-                      const err61 = {
+                  let data39 = data38[i4];
+                  if (data39 && typeof data39 == "object" && !Array.isArray(data39)) {
+                    if (data39.worker_id === undefined) {
+                      const err62 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -75925,14 +76174,14 @@ function validate705(
                         message: "must have required property '" + "worker_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err61];
+                        vErrors = [err62];
                       } else {
-                        vErrors.push(err61);
+                        vErrors.push(err62);
                       }
                       errors++;
                     }
-                    if (data38.worker_name === undefined) {
-                      const err62 = {
+                    if (data39.worker_name === undefined) {
+                      const err63 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -75941,14 +76190,14 @@ function validate705(
                         message: "must have required property '" + "worker_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err62];
+                        vErrors = [err63];
                       } else {
-                        vErrors.push(err62);
+                        vErrors.push(err63);
                       }
                       errors++;
                     }
-                    if (data38.namespace_id === undefined) {
-                      const err63 = {
+                    if (data39.namespace_id === undefined) {
+                      const err64 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -75957,14 +76206,14 @@ function validate705(
                         message: "must have required property '" + "namespace_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err63];
+                        vErrors = [err64];
                       } else {
-                        vErrors.push(err63);
+                        vErrors.push(err64);
                       }
                       errors++;
                     }
-                    if (data38.namespace_name === undefined) {
-                      const err64 = {
+                    if (data39.namespace_name === undefined) {
+                      const err65 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -75973,15 +76222,15 @@ function validate705(
                         message: "must have required property '" + "namespace_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err64];
+                        vErrors = [err65];
                       } else {
-                        vErrors.push(err64);
+                        vErrors.push(err65);
                       }
                       errors++;
                     }
-                    if (data38.namespace_id !== undefined) {
-                      if (typeof data38.namespace_id !== "string") {
-                        const err65 = {
+                    if (data39.namespace_id !== undefined) {
+                      if (typeof data39.namespace_id !== "string") {
+                        const err66 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -75994,16 +76243,16 @@ function validate705(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err65];
+                          vErrors = [err66];
                         } else {
-                          vErrors.push(err65);
+                          vErrors.push(err66);
                         }
                         errors++;
                       }
                     }
-                    if (data38.namespace_name !== undefined) {
-                      if (typeof data38.namespace_name !== "string") {
-                        const err66 = {
+                    if (data39.namespace_name !== undefined) {
+                      if (typeof data39.namespace_name !== "string") {
+                        const err67 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -76016,16 +76265,16 @@ function validate705(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err66];
+                          vErrors = [err67];
                         } else {
-                          vErrors.push(err66);
+                          vErrors.push(err67);
                         }
                         errors++;
                       }
                     }
-                    if (data38.worker_id !== undefined) {
-                      if (typeof data38.worker_id !== "string") {
-                        const err67 = {
+                    if (data39.worker_id !== undefined) {
+                      if (typeof data39.worker_id !== "string") {
+                        const err68 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -76038,16 +76287,16 @@ function validate705(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err67];
+                          vErrors = [err68];
                         } else {
-                          vErrors.push(err67);
+                          vErrors.push(err68);
                         }
                         errors++;
                       }
                     }
-                    if (data38.worker_name !== undefined) {
-                      if (typeof data38.worker_name !== "string") {
-                        const err68 = {
+                    if (data39.worker_name !== undefined) {
+                      if (typeof data39.worker_name !== "string") {
+                        const err69 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -76060,15 +76309,15 @@ function validate705(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err68];
+                          vErrors = [err69];
                         } else {
-                          vErrors.push(err68);
+                          vErrors.push(err69);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err69 = {
+                    const err70 = {
                       instancePath: instancePath + "/result/references/durable_objects/" + i4,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/type",
@@ -76077,15 +76326,15 @@ function validate705(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err69];
+                      vErrors = [err70];
                     } else {
-                      vErrors.push(err69);
+                      vErrors.push(err70);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err70 = {
+                const err71 = {
                   instancePath: instancePath + "/result/references/durable_objects",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/type",
@@ -76094,22 +76343,22 @@ function validate705(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err70];
+                  vErrors = [err71];
                 } else {
-                  vErrors.push(err70);
+                  vErrors.push(err71);
                 }
                 errors++;
               }
             }
-            if (data23.queues !== undefined) {
-              let data43 = data23.queues;
-              if (Array.isArray(data43)) {
-                const len5 = data43.length;
+            if (data24.queues !== undefined) {
+              let data44 = data24.queues;
+              if (Array.isArray(data44)) {
+                const len5 = data44.length;
                 for (let i5 = 0; i5 < len5; i5++) {
-                  let data44 = data43[i5];
-                  if (data44 && typeof data44 == "object" && !Array.isArray(data44)) {
-                    if (data44.queue_id === undefined) {
-                      const err71 = {
+                  let data45 = data44[i5];
+                  if (data45 && typeof data45 == "object" && !Array.isArray(data45)) {
+                    if (data45.queue_id === undefined) {
+                      const err72 = {
                         instancePath: instancePath + "/result/references/queues/" + i5,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
@@ -76118,14 +76367,14 @@ function validate705(
                         message: "must have required property '" + "queue_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err71];
+                        vErrors = [err72];
                       } else {
-                        vErrors.push(err71);
+                        vErrors.push(err72);
                       }
                       errors++;
                     }
-                    if (data44.queue_name === undefined) {
-                      const err72 = {
+                    if (data45.queue_name === undefined) {
+                      const err73 = {
                         instancePath: instancePath + "/result/references/queues/" + i5,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
@@ -76134,14 +76383,14 @@ function validate705(
                         message: "must have required property '" + "queue_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err72];
+                        vErrors = [err73];
                       } else {
-                        vErrors.push(err72);
+                        vErrors.push(err73);
                       }
                       errors++;
                     }
-                    if (data44.queue_consumer_id === undefined) {
-                      const err73 = {
+                    if (data45.queue_consumer_id === undefined) {
+                      const err74 = {
                         instancePath: instancePath + "/result/references/queues/" + i5,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
@@ -76150,38 +76399,19 @@ function validate705(
                         message: "must have required property '" + "queue_consumer_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err73];
+                        vErrors = [err74];
                       } else {
-                        vErrors.push(err73);
+                        vErrors.push(err74);
                       }
                       errors++;
                     }
-                    if (data44.queue_consumer_id !== undefined) {
-                      if (typeof data44.queue_consumer_id !== "string") {
-                        const err74 = {
+                    if (data45.queue_consumer_id !== undefined) {
+                      if (typeof data45.queue_consumer_id !== "string") {
+                        const err75 = {
                           instancePath:
                             instancePath + "/result/references/queues/" + i5 + "/queue_consumer_id",
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_consumer_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err74];
-                        } else {
-                          vErrors.push(err74);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data44.queue_id !== undefined) {
-                      if (typeof data44.queue_id !== "string") {
-                        const err75 = {
-                          instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -76194,13 +76424,13 @@ function validate705(
                         errors++;
                       }
                     }
-                    if (data44.queue_name !== undefined) {
-                      if (typeof data44.queue_name !== "string") {
+                    if (data45.queue_id !== undefined) {
+                      if (typeof data45.queue_id !== "string") {
                         const err76 = {
                           instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_name",
+                            instancePath + "/result/references/queues/" + i5 + "/queue_id",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_name/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -76213,8 +76443,27 @@ function validate705(
                         errors++;
                       }
                     }
+                    if (data45.queue_name !== undefined) {
+                      if (typeof data45.queue_name !== "string") {
+                        const err77 = {
+                          instancePath:
+                            instancePath + "/result/references/queues/" + i5 + "/queue_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err77];
+                        } else {
+                          vErrors.push(err77);
+                        }
+                        errors++;
+                      }
+                    }
                   } else {
-                    const err77 = {
+                    const err78 = {
                       instancePath: instancePath + "/result/references/queues/" + i5,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/queues/items/type",
@@ -76223,15 +76472,15 @@ function validate705(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err77];
+                      vErrors = [err78];
                     } else {
-                      vErrors.push(err77);
+                      vErrors.push(err78);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err78 = {
+                const err79 = {
                   instancePath: instancePath + "/result/references/queues",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/queues/type",
@@ -76240,22 +76489,22 @@ function validate705(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err78];
+                  vErrors = [err79];
                 } else {
-                  vErrors.push(err78);
+                  vErrors.push(err79);
                 }
                 errors++;
               }
             }
-            if (data23.workers !== undefined) {
-              let data48 = data23.workers;
-              if (Array.isArray(data48)) {
-                const len6 = data48.length;
+            if (data24.workers !== undefined) {
+              let data49 = data24.workers;
+              if (Array.isArray(data49)) {
+                const len6 = data49.length;
                 for (let i6 = 0; i6 < len6; i6++) {
-                  let data49 = data48[i6];
-                  if (data49 && typeof data49 == "object" && !Array.isArray(data49)) {
-                    if (data49.id === undefined) {
-                      const err79 = {
+                  let data50 = data49[i6];
+                  if (data50 && typeof data50 == "object" && !Array.isArray(data50)) {
+                    if (data50.id === undefined) {
+                      const err80 = {
                         instancePath: instancePath + "/result/references/workers/" + i6,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
@@ -76264,14 +76513,14 @@ function validate705(
                         message: "must have required property '" + "id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err79];
+                        vErrors = [err80];
                       } else {
-                        vErrors.push(err79);
+                        vErrors.push(err80);
                       }
                       errors++;
                     }
-                    if (data49.name === undefined) {
-                      const err80 = {
+                    if (data50.name === undefined) {
+                      const err81 = {
                         instancePath: instancePath + "/result/references/workers/" + i6,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
@@ -76280,36 +76529,18 @@ function validate705(
                         message: "must have required property '" + "name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err80];
+                        vErrors = [err81];
                       } else {
-                        vErrors.push(err80);
+                        vErrors.push(err81);
                       }
                       errors++;
                     }
-                    if (data49.id !== undefined) {
-                      if (typeof data49.id !== "string") {
-                        const err81 = {
+                    if (data50.id !== undefined) {
+                      if (typeof data50.id !== "string") {
+                        const err82 = {
                           instancePath: instancePath + "/result/references/workers/" + i6 + "/id",
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err81];
-                        } else {
-                          vErrors.push(err81);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data49.name !== undefined) {
-                      if (typeof data49.name !== "string") {
-                        const err82 = {
-                          instancePath: instancePath + "/result/references/workers/" + i6 + "/name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/name/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -76322,8 +76553,26 @@ function validate705(
                         errors++;
                       }
                     }
+                    if (data50.name !== undefined) {
+                      if (typeof data50.name !== "string") {
+                        const err83 = {
+                          instancePath: instancePath + "/result/references/workers/" + i6 + "/name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err83];
+                        } else {
+                          vErrors.push(err83);
+                        }
+                        errors++;
+                      }
+                    }
                   } else {
-                    const err83 = {
+                    const err84 = {
                       instancePath: instancePath + "/result/references/workers/" + i6,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/workers/items/type",
@@ -76332,15 +76581,15 @@ function validate705(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err83];
+                      vErrors = [err84];
                     } else {
-                      vErrors.push(err83);
+                      vErrors.push(err84);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err84 = {
+                const err85 = {
                   instancePath: instancePath + "/result/references/workers",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/workers/type",
@@ -76349,15 +76598,15 @@ function validate705(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err84];
+                  vErrors = [err85];
                 } else {
-                  vErrors.push(err84);
+                  vErrors.push(err85);
                 }
                 errors++;
               }
             }
           } else {
-            const err85 = {
+            const err86 = {
               instancePath: instancePath + "/result/references",
               schemaPath: "#/components/schemas/workers_Worker/properties/references/type",
               keyword: "type",
@@ -76365,43 +76614,25 @@ function validate705(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err85];
+              vErrors = [err86];
             } else {
-              vErrors.push(err85);
+              vErrors.push(err86);
             }
             errors++;
           }
         }
         if (data0.subdomain !== undefined) {
-          let data52 = data0.subdomain;
-          if (data52 && typeof data52 == "object" && !Array.isArray(data52)) {
-            if (data52.enabled !== undefined) {
-              if (typeof data52.enabled !== "boolean") {
-                const err86 = {
+          let data53 = data0.subdomain;
+          if (data53 && typeof data53 == "object" && !Array.isArray(data53)) {
+            if (data53.enabled !== undefined) {
+              if (typeof data53.enabled !== "boolean") {
+                const err87 = {
                   instancePath: instancePath + "/result/subdomain/enabled",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/subdomain/properties/enabled/type",
                   keyword: "type",
                   params: { type: "boolean" },
                   message: "must be boolean",
-                };
-                if (vErrors === null) {
-                  vErrors = [err86];
-                } else {
-                  vErrors.push(err86);
-                }
-                errors++;
-              }
-            }
-            if (data52.preview_url_suffix !== undefined) {
-              if (typeof data52.preview_url_suffix !== "string") {
-                const err87 = {
-                  instancePath: instancePath + "/result/subdomain/preview_url_suffix",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/preview_url_suffix/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
                 };
                 if (vErrors === null) {
                   vErrors = [err87];
@@ -76411,15 +76642,15 @@ function validate705(
                 errors++;
               }
             }
-            if (data52.previews_enabled !== undefined) {
-              if (typeof data52.previews_enabled !== "boolean") {
+            if (data53.preview_url_suffix !== undefined) {
+              if (typeof data53.preview_url_suffix !== "string") {
                 const err88 = {
-                  instancePath: instancePath + "/result/subdomain/previews_enabled",
+                  instancePath: instancePath + "/result/subdomain/preview_url_suffix",
                   schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/preview_url_suffix/type",
                   keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
+                  params: { type: "string" },
+                  message: "must be string",
                 };
                 if (vErrors === null) {
                   vErrors = [err88];
@@ -76429,15 +76660,15 @@ function validate705(
                 errors++;
               }
             }
-            if (data52.url !== undefined) {
-              if (!(typeof data52.url === "string")) {
+            if (data53.previews_enabled !== undefined) {
+              if (typeof data53.previews_enabled !== "boolean") {
                 const err89 = {
-                  instancePath: instancePath + "/result/subdomain/url",
+                  instancePath: instancePath + "/result/subdomain/previews_enabled",
                   schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/url/type",
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
                   keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err89];
@@ -76447,8 +76678,26 @@ function validate705(
                 errors++;
               }
             }
+            if (data53.url !== undefined) {
+              if (!(typeof data53.url === "string")) {
+                const err90 = {
+                  instancePath: instancePath + "/result/subdomain/url",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/url/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err90];
+                } else {
+                  vErrors.push(err90);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err90 = {
+            const err91 = {
               instancePath: instancePath + "/result/subdomain",
               schemaPath: "#/components/schemas/workers_Worker/properties/subdomain/type",
               keyword: "type",
@@ -76456,18 +76705,18 @@ function validate705(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err90];
+              vErrors = [err91];
             } else {
-              vErrors.push(err90);
+              vErrors.push(err91);
             }
             errors++;
           }
         }
         if (data0.tags !== undefined) {
-          let data57 = data0.tags;
-          if (Array.isArray(data57)) {
-            if (data57.length > 8) {
-              const err91 = {
+          let data58 = data0.tags;
+          if (Array.isArray(data58)) {
+            if (data58.length > 8) {
+              const err92 = {
                 instancePath: instancePath + "/result/tags",
                 schemaPath: "#/components/schemas/workers_Worker/properties/tags/maxItems",
                 keyword: "maxItems",
@@ -76475,18 +76724,18 @@ function validate705(
                 message: "must NOT have more than 8 items",
               };
               if (vErrors === null) {
-                vErrors = [err91];
+                vErrors = [err92];
               } else {
-                vErrors.push(err91);
+                vErrors.push(err92);
               }
               errors++;
             }
-            const len7 = data57.length;
+            const len7 = data58.length;
             for (let i7 = 0; i7 < len7; i7++) {
-              let data58 = data57[i7];
-              if (typeof data58 === "string") {
-                if (func2(data58) > 1024) {
-                  const err92 = {
+              let data59 = data58[i7];
+              if (typeof data59 === "string") {
+                if (func2(data59) > 1024) {
+                  const err93 = {
                     instancePath: instancePath + "/result/tags/" + i7,
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/tags/items/maxLength",
@@ -76495,14 +76744,14 @@ function validate705(
                     message: "must NOT have more than 1024 characters",
                   };
                   if (vErrors === null) {
-                    vErrors = [err92];
+                    vErrors = [err93];
                   } else {
-                    vErrors.push(err92);
+                    vErrors.push(err93);
                   }
                   errors++;
                 }
-                if (!pattern2.test(data58)) {
-                  const err93 = {
+                if (!pattern2.test(data59)) {
+                  const err94 = {
                     instancePath: instancePath + "/result/tags/" + i7,
                     schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/pattern",
                     keyword: "pattern",
@@ -76510,14 +76759,14 @@ function validate705(
                     message: 'must match pattern "' + "^[^,&]*$" + '"',
                   };
                   if (vErrors === null) {
-                    vErrors = [err93];
+                    vErrors = [err94];
                   } else {
-                    vErrors.push(err93);
+                    vErrors.push(err94);
                   }
                   errors++;
                 }
               } else {
-                const err94 = {
+                const err95 = {
                   instancePath: instancePath + "/result/tags/" + i7,
                   schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/type",
                   keyword: "type",
@@ -76525,15 +76774,15 @@ function validate705(
                   message: "must be string",
                 };
                 if (vErrors === null) {
-                  vErrors = [err94];
+                  vErrors = [err95];
                 } else {
-                  vErrors.push(err94);
+                  vErrors.push(err95);
                 }
                 errors++;
               }
             }
           } else {
-            const err95 = {
+            const err96 = {
               instancePath: instancePath + "/result/tags",
               schemaPath: "#/components/schemas/workers_Worker/properties/tags/type",
               keyword: "type",
@@ -76541,22 +76790,22 @@ function validate705(
               message: "must be array",
             };
             if (vErrors === null) {
-              vErrors = [err95];
+              vErrors = [err96];
             } else {
-              vErrors.push(err95);
+              vErrors.push(err96);
             }
             errors++;
           }
         }
         if (data0.tail_consumers !== undefined) {
-          let data59 = data0.tail_consumers;
-          if (Array.isArray(data59)) {
-            const len8 = data59.length;
+          let data60 = data0.tail_consumers;
+          if (Array.isArray(data60)) {
+            const len8 = data60.length;
             for (let i8 = 0; i8 < len8; i8++) {
-              let data60 = data59[i8];
-              if (data60 && typeof data60 == "object" && !Array.isArray(data60)) {
-                if (data60.name === undefined) {
-                  const err96 = {
+              let data61 = data60[i8];
+              if (data61 && typeof data61 == "object" && !Array.isArray(data61)) {
+                if (data61.name === undefined) {
+                  const err97 = {
                     instancePath: instancePath + "/result/tail_consumers/" + i8,
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/tail_consumers/items/required",
@@ -76565,15 +76814,15 @@ function validate705(
                     message: "must have required property '" + "name" + "'",
                   };
                   if (vErrors === null) {
-                    vErrors = [err96];
+                    vErrors = [err97];
                   } else {
-                    vErrors.push(err96);
+                    vErrors.push(err97);
                   }
                   errors++;
                 }
-                if (data60.name !== undefined) {
-                  if (typeof data60.name !== "string") {
-                    const err97 = {
+                if (data61.name !== undefined) {
+                  if (typeof data61.name !== "string") {
+                    const err98 = {
                       instancePath: instancePath + "/result/tail_consumers/" + i8 + "/name",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/tail_consumers/items/properties/name/type",
@@ -76582,15 +76831,15 @@ function validate705(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err97];
+                      vErrors = [err98];
                     } else {
-                      vErrors.push(err97);
+                      vErrors.push(err98);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err98 = {
+                const err99 = {
                   instancePath: instancePath + "/result/tail_consumers/" + i8,
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/tail_consumers/items/type",
@@ -76599,37 +76848,20 @@ function validate705(
                   message: "must be object",
                 };
                 if (vErrors === null) {
-                  vErrors = [err98];
+                  vErrors = [err99];
                 } else {
-                  vErrors.push(err98);
+                  vErrors.push(err99);
                 }
                 errors++;
               }
             }
           } else {
-            const err99 = {
+            const err100 = {
               instancePath: instancePath + "/result/tail_consumers",
               schemaPath: "#/components/schemas/workers_Worker/properties/tail_consumers/type",
               keyword: "type",
               params: { type: "array" },
               message: "must be array",
-            };
-            if (vErrors === null) {
-              vErrors = [err99];
-            } else {
-              vErrors.push(err99);
-            }
-            errors++;
-          }
-        }
-        if (data0.updated_on !== undefined) {
-          if (!(typeof data0.updated_on === "string")) {
-            const err100 = {
-              instancePath: instancePath + "/result/updated_on",
-              schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
             };
             if (vErrors === null) {
               vErrors = [err100];
@@ -76639,8 +76871,25 @@ function validate705(
             errors++;
           }
         }
+        if (data0.updated_on !== undefined) {
+          if (!(typeof data0.updated_on === "string")) {
+            const err101 = {
+              instancePath: instancePath + "/result/updated_on",
+              schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err101];
+            } else {
+              vErrors.push(err101);
+            }
+            errors++;
+          }
+        }
       } else {
-        const err101 = {
+        const err102 = {
           instancePath: instancePath + "/result",
           schemaPath: "#/components/schemas/workers_Worker/type",
           keyword: "type",
@@ -76648,15 +76897,15 @@ function validate705(
           message: "must be object",
         };
         if (vErrors === null) {
-          vErrors = [err101];
+          vErrors = [err102];
         } else {
-          vErrors.push(err101);
+          vErrors.push(err102);
         }
         errors++;
       }
     }
   } else {
-    const err102 = {
+    const err103 = {
       instancePath,
       schemaPath: "#/allOf/1/type",
       keyword: "type",
@@ -76664,9 +76913,9 @@ function validate705(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err102];
+      vErrors = [err103];
     } else {
-      vErrors.push(err102);
+      vErrors.push(err103);
     }
     errors++;
   }
@@ -77181,16 +77430,34 @@ function validate709(
                 errors++;
               }
             }
+            if (data6.redact_query_string !== undefined) {
+              if (typeof data6.redact_query_string !== "boolean") {
+                const err26 = {
+                  instancePath: instancePath + "/result/observability/redact_query_string",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/observability/properties/redact_query_string/type",
+                  keyword: "type",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
+                };
+                if (vErrors === null) {
+                  vErrors = [err26];
+                } else {
+                  vErrors.push(err26);
+                }
+                errors++;
+              }
+            }
             if (data6.traces !== undefined) {
-              let data16 = data6.traces;
-              if (data16 && typeof data16 == "object" && !Array.isArray(data16)) {
-                if (data16.destinations !== undefined) {
-                  let data17 = data16.destinations;
-                  if (Array.isArray(data17)) {
-                    const len1 = data17.length;
+              let data17 = data6.traces;
+              if (data17 && typeof data17 == "object" && !Array.isArray(data17)) {
+                if (data17.destinations !== undefined) {
+                  let data18 = data17.destinations;
+                  if (Array.isArray(data18)) {
+                    const len1 = data18.length;
                     for (let i1 = 0; i1 < len1; i1++) {
-                      if (typeof data17[i1] !== "string") {
-                        const err26 = {
+                      if (typeof data18[i1] !== "string") {
+                        const err27 = {
                           instancePath:
                             instancePath + "/result/observability/traces/destinations/" + i1,
                           schemaPath:
@@ -77200,39 +77467,21 @@ function validate709(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err26];
+                          vErrors = [err27];
                         } else {
-                          vErrors.push(err26);
+                          vErrors.push(err27);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err27 = {
+                    const err28 = {
                       instancePath: instancePath + "/result/observability/traces/destinations",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/destinations/type",
                       keyword: "type",
                       params: { type: "array" },
                       message: "must be array",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err27];
-                    } else {
-                      vErrors.push(err27);
-                    }
-                    errors++;
-                  }
-                }
-                if (data16.enabled !== undefined) {
-                  if (typeof data16.enabled !== "boolean") {
-                    const err28 = {
-                      instancePath: instancePath + "/result/observability/traces/enabled",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/enabled/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
                     };
                     if (vErrors === null) {
                       vErrors = [err28];
@@ -77242,16 +77491,15 @@ function validate709(
                     errors++;
                   }
                 }
-                if (data16.head_sampling_rate !== undefined) {
-                  if (!(typeof data16.head_sampling_rate == "number")) {
+                if (data17.enabled !== undefined) {
+                  if (typeof data17.enabled !== "boolean") {
                     const err29 = {
-                      instancePath:
-                        instancePath + "/result/observability/traces/head_sampling_rate",
+                      instancePath: instancePath + "/result/observability/traces/enabled",
                       schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/head_sampling_rate/type",
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/enabled/type",
                       keyword: "type",
-                      params: { type: "number" },
-                      message: "must be number",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
                     };
                     if (vErrors === null) {
                       vErrors = [err29];
@@ -77261,15 +77509,16 @@ function validate709(
                     errors++;
                   }
                 }
-                if (data16.persist !== undefined) {
-                  if (typeof data16.persist !== "boolean") {
+                if (data17.head_sampling_rate !== undefined) {
+                  if (!(typeof data17.head_sampling_rate == "number")) {
                     const err30 = {
-                      instancePath: instancePath + "/result/observability/traces/persist",
+                      instancePath:
+                        instancePath + "/result/observability/traces/head_sampling_rate",
                       schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/persist/type",
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/head_sampling_rate/type",
                       keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
+                      params: { type: "number" },
+                      message: "must be number",
                     };
                     if (vErrors === null) {
                       vErrors = [err30];
@@ -77279,10 +77528,28 @@ function validate709(
                     errors++;
                   }
                 }
-                if (data16.propagation_policy !== undefined) {
-                  let data22 = data16.propagation_policy;
-                  if (typeof data22 !== "string") {
+                if (data17.persist !== undefined) {
+                  if (typeof data17.persist !== "boolean") {
                     const err31 = {
+                      instancePath: instancePath + "/result/observability/traces/persist",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/persist/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err31];
+                    } else {
+                      vErrors.push(err31);
+                    }
+                    errors++;
+                  }
+                }
+                if (data17.propagation_policy !== undefined) {
+                  let data23 = data17.propagation_policy;
+                  if (typeof data23 !== "string" && data23 !== null) {
+                    const err32 = {
                       instancePath:
                         instancePath + "/result/observability/traces/propagation_policy",
                       schemaPath:
@@ -77292,14 +77559,14 @@ function validate709(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err31];
+                      vErrors = [err32];
                     } else {
-                      vErrors.push(err31);
+                      vErrors.push(err32);
                     }
                     errors++;
                   }
-                  if (!(data22 === "authenticated" || data22 === "accept")) {
-                    const err32 = {
+                  if (!(data23 === "authenticated" || data23 === "accept" || data23 === null)) {
+                    const err33 = {
                       instancePath:
                         instancePath + "/result/observability/traces/propagation_policy",
                       schemaPath:
@@ -77313,15 +77580,15 @@ function validate709(
                       message: "must be equal to one of the allowed values",
                     };
                     if (vErrors === null) {
-                      vErrors = [err32];
+                      vErrors = [err33];
                     } else {
-                      vErrors.push(err32);
+                      vErrors.push(err33);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err33 = {
+                const err34 = {
                   instancePath: instancePath + "/result/observability/traces",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/observability/properties/traces/type",
@@ -77330,15 +77597,15 @@ function validate709(
                   message: "must be object",
                 };
                 if (vErrors === null) {
-                  vErrors = [err33];
+                  vErrors = [err34];
                 } else {
-                  vErrors.push(err33);
+                  vErrors.push(err34);
                 }
                 errors++;
               }
             }
           } else {
-            const err34 = {
+            const err35 = {
               instancePath: instancePath + "/result/observability",
               schemaPath: "#/components/schemas/workers_Worker/properties/observability/type",
               keyword: "type",
@@ -77346,38 +77613,23 @@ function validate709(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err34];
+              vErrors = [err35];
             } else {
-              vErrors.push(err34);
+              vErrors.push(err35);
             }
             errors++;
           }
         }
         if (data0.references !== undefined) {
-          let data23 = data0.references;
-          if (data23 && typeof data23 == "object" && !Array.isArray(data23)) {
-            if (data23.workers === undefined) {
-              const err35 = {
+          let data24 = data0.references;
+          if (data24 && typeof data24 == "object" && !Array.isArray(data24)) {
+            if (data24.workers === undefined) {
+              const err36 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
                 params: { missingProperty: "workers" },
                 message: "must have required property '" + "workers" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err35];
-              } else {
-                vErrors.push(err35);
-              }
-              errors++;
-            }
-            if (data23.domains === undefined) {
-              const err36 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "domains" },
-                message: "must have required property '" + "domains" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err36];
@@ -77386,13 +77638,13 @@ function validate709(
               }
               errors++;
             }
-            if (data23.dispatch_namespace_outbounds === undefined) {
+            if (data24.domains === undefined) {
               const err37 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
-                params: { missingProperty: "dispatch_namespace_outbounds" },
-                message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
+                params: { missingProperty: "domains" },
+                message: "must have required property '" + "domains" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err37];
@@ -77401,13 +77653,13 @@ function validate709(
               }
               errors++;
             }
-            if (data23.durable_objects === undefined) {
+            if (data24.dispatch_namespace_outbounds === undefined) {
               const err38 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
-                params: { missingProperty: "durable_objects" },
-                message: "must have required property '" + "durable_objects" + "'",
+                params: { missingProperty: "dispatch_namespace_outbounds" },
+                message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err38];
@@ -77416,13 +77668,13 @@ function validate709(
               }
               errors++;
             }
-            if (data23.queues === undefined) {
+            if (data24.durable_objects === undefined) {
               const err39 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
-                params: { missingProperty: "queues" },
-                message: "must have required property '" + "queues" + "'",
+                params: { missingProperty: "durable_objects" },
+                message: "must have required property '" + "durable_objects" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err39];
@@ -77431,15 +77683,30 @@ function validate709(
               }
               errors++;
             }
-            if (data23.dispatch_namespace_outbounds !== undefined) {
-              let data24 = data23.dispatch_namespace_outbounds;
-              if (Array.isArray(data24)) {
-                const len2 = data24.length;
+            if (data24.queues === undefined) {
+              const err40 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "queues" },
+                message: "must have required property '" + "queues" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err40];
+              } else {
+                vErrors.push(err40);
+              }
+              errors++;
+            }
+            if (data24.dispatch_namespace_outbounds !== undefined) {
+              let data25 = data24.dispatch_namespace_outbounds;
+              if (Array.isArray(data25)) {
+                const len2 = data25.length;
                 for (let i2 = 0; i2 < len2; i2++) {
-                  let data25 = data24[i2];
-                  if (data25 && typeof data25 == "object" && !Array.isArray(data25)) {
-                    if (data25.worker_id === undefined) {
-                      const err40 = {
+                  let data26 = data25[i2];
+                  if (data26 && typeof data26 == "object" && !Array.isArray(data26)) {
+                    if (data26.worker_id === undefined) {
+                      const err41 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -77449,14 +77716,14 @@ function validate709(
                         message: "must have required property '" + "worker_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err40];
+                        vErrors = [err41];
                       } else {
-                        vErrors.push(err40);
+                        vErrors.push(err41);
                       }
                       errors++;
                     }
-                    if (data25.worker_name === undefined) {
-                      const err41 = {
+                    if (data26.worker_name === undefined) {
+                      const err42 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -77466,14 +77733,14 @@ function validate709(
                         message: "must have required property '" + "worker_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err41];
+                        vErrors = [err42];
                       } else {
-                        vErrors.push(err41);
+                        vErrors.push(err42);
                       }
                       errors++;
                     }
-                    if (data25.namespace_id === undefined) {
-                      const err42 = {
+                    if (data26.namespace_id === undefined) {
+                      const err43 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -77483,14 +77750,14 @@ function validate709(
                         message: "must have required property '" + "namespace_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err42];
+                        vErrors = [err43];
                       } else {
-                        vErrors.push(err42);
+                        vErrors.push(err43);
                       }
                       errors++;
                     }
-                    if (data25.namespace_name === undefined) {
-                      const err43 = {
+                    if (data26.namespace_name === undefined) {
+                      const err44 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -77500,15 +77767,15 @@ function validate709(
                         message: "must have required property '" + "namespace_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err43];
+                        vErrors = [err44];
                       } else {
-                        vErrors.push(err43);
+                        vErrors.push(err44);
                       }
                       errors++;
                     }
-                    if (data25.namespace_id !== undefined) {
-                      if (typeof data25.namespace_id !== "string") {
-                        const err44 = {
+                    if (data26.namespace_id !== undefined) {
+                      if (typeof data26.namespace_id !== "string") {
+                        const err45 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -77521,16 +77788,16 @@ function validate709(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err44];
+                          vErrors = [err45];
                         } else {
-                          vErrors.push(err44);
+                          vErrors.push(err45);
                         }
                         errors++;
                       }
                     }
-                    if (data25.namespace_name !== undefined) {
-                      if (typeof data25.namespace_name !== "string") {
-                        const err45 = {
+                    if (data26.namespace_name !== undefined) {
+                      if (typeof data26.namespace_name !== "string") {
+                        const err46 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -77543,16 +77810,16 @@ function validate709(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err45];
+                          vErrors = [err46];
                         } else {
-                          vErrors.push(err45);
+                          vErrors.push(err46);
                         }
                         errors++;
                       }
                     }
-                    if (data25.worker_id !== undefined) {
-                      if (typeof data25.worker_id !== "string") {
-                        const err46 = {
+                    if (data26.worker_id !== undefined) {
+                      if (typeof data26.worker_id !== "string") {
+                        const err47 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -77565,16 +77832,16 @@ function validate709(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err46];
+                          vErrors = [err47];
                         } else {
-                          vErrors.push(err46);
+                          vErrors.push(err47);
                         }
                         errors++;
                       }
                     }
-                    if (data25.worker_name !== undefined) {
-                      if (typeof data25.worker_name !== "string") {
-                        const err47 = {
+                    if (data26.worker_name !== undefined) {
+                      if (typeof data26.worker_name !== "string") {
+                        const err48 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -77587,15 +77854,15 @@ function validate709(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err47];
+                          vErrors = [err48];
                         } else {
-                          vErrors.push(err47);
+                          vErrors.push(err48);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err48 = {
+                    const err49 = {
                       instancePath:
                         instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                       schemaPath:
@@ -77605,15 +77872,15 @@ function validate709(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err48];
+                      vErrors = [err49];
                     } else {
-                      vErrors.push(err48);
+                      vErrors.push(err49);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err49 = {
+                const err50 = {
                   instancePath: instancePath + "/result/references/dispatch_namespace_outbounds",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/type",
@@ -77622,22 +77889,22 @@ function validate709(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err49];
+                  vErrors = [err50];
                 } else {
-                  vErrors.push(err49);
+                  vErrors.push(err50);
                 }
                 errors++;
               }
             }
-            if (data23.domains !== undefined) {
-              let data30 = data23.domains;
-              if (Array.isArray(data30)) {
-                const len3 = data30.length;
+            if (data24.domains !== undefined) {
+              let data31 = data24.domains;
+              if (Array.isArray(data31)) {
+                const len3 = data31.length;
                 for (let i3 = 0; i3 < len3; i3++) {
-                  let data31 = data30[i3];
-                  if (data31 && typeof data31 == "object" && !Array.isArray(data31)) {
-                    if (data31.id === undefined) {
-                      const err50 = {
+                  let data32 = data31[i3];
+                  if (data32 && typeof data32 == "object" && !Array.isArray(data32)) {
+                    if (data32.id === undefined) {
+                      const err51 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -77646,14 +77913,14 @@ function validate709(
                         message: "must have required property '" + "id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err50];
+                        vErrors = [err51];
                       } else {
-                        vErrors.push(err50);
+                        vErrors.push(err51);
                       }
                       errors++;
                     }
-                    if (data31.hostname === undefined) {
-                      const err51 = {
+                    if (data32.hostname === undefined) {
+                      const err52 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -77662,14 +77929,14 @@ function validate709(
                         message: "must have required property '" + "hostname" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err51];
+                        vErrors = [err52];
                       } else {
-                        vErrors.push(err51);
+                        vErrors.push(err52);
                       }
                       errors++;
                     }
-                    if (data31.zone_id === undefined) {
-                      const err52 = {
+                    if (data32.zone_id === undefined) {
+                      const err53 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -77678,14 +77945,14 @@ function validate709(
                         message: "must have required property '" + "zone_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err52];
+                        vErrors = [err53];
                       } else {
-                        vErrors.push(err52);
+                        vErrors.push(err53);
                       }
                       errors++;
                     }
-                    if (data31.zone_name === undefined) {
-                      const err53 = {
+                    if (data32.zone_name === undefined) {
+                      const err54 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -77694,38 +77961,19 @@ function validate709(
                         message: "must have required property '" + "zone_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err53];
+                        vErrors = [err54];
                       } else {
-                        vErrors.push(err53);
+                        vErrors.push(err54);
                       }
                       errors++;
                     }
-                    if (data31.certificate_id !== undefined) {
-                      if (typeof data31.certificate_id !== "string") {
-                        const err54 = {
+                    if (data32.certificate_id !== undefined) {
+                      if (typeof data32.certificate_id !== "string") {
+                        const err55 = {
                           instancePath:
                             instancePath + "/result/references/domains/" + i3 + "/certificate_id",
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/certificate_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err54];
-                        } else {
-                          vErrors.push(err54);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data31.hostname !== undefined) {
-                      if (typeof data31.hostname !== "string") {
-                        const err55 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/hostname",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/hostname/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -77738,12 +77986,13 @@ function validate709(
                         errors++;
                       }
                     }
-                    if (data31.id !== undefined) {
-                      if (typeof data31.id !== "string") {
+                    if (data32.hostname !== undefined) {
+                      if (typeof data32.hostname !== "string") {
                         const err56 = {
-                          instancePath: instancePath + "/result/references/domains/" + i3 + "/id",
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/hostname",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/id/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/hostname/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -77756,13 +78005,12 @@ function validate709(
                         errors++;
                       }
                     }
-                    if (data31.zone_id !== undefined) {
-                      if (typeof data31.zone_id !== "string") {
+                    if (data32.id !== undefined) {
+                      if (typeof data32.id !== "string") {
                         const err57 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/zone_id",
+                          instancePath: instancePath + "/result/references/domains/" + i3 + "/id",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_id/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -77775,13 +78023,13 @@ function validate709(
                         errors++;
                       }
                     }
-                    if (data31.zone_name !== undefined) {
-                      if (typeof data31.zone_name !== "string") {
+                    if (data32.zone_id !== undefined) {
+                      if (typeof data32.zone_id !== "string") {
                         const err58 = {
                           instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/zone_name",
+                            instancePath + "/result/references/domains/" + i3 + "/zone_id",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_name/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -77794,8 +78042,27 @@ function validate709(
                         errors++;
                       }
                     }
+                    if (data32.zone_name !== undefined) {
+                      if (typeof data32.zone_name !== "string") {
+                        const err59 = {
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/zone_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err59];
+                        } else {
+                          vErrors.push(err59);
+                        }
+                        errors++;
+                      }
+                    }
                   } else {
-                    const err59 = {
+                    const err60 = {
                       instancePath: instancePath + "/result/references/domains/" + i3,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/domains/items/type",
@@ -77804,15 +78071,15 @@ function validate709(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err59];
+                      vErrors = [err60];
                     } else {
-                      vErrors.push(err59);
+                      vErrors.push(err60);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err60 = {
+                const err61 = {
                   instancePath: instancePath + "/result/references/domains",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/domains/type",
@@ -77821,22 +78088,22 @@ function validate709(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err60];
+                  vErrors = [err61];
                 } else {
-                  vErrors.push(err60);
+                  vErrors.push(err61);
                 }
                 errors++;
               }
             }
-            if (data23.durable_objects !== undefined) {
-              let data37 = data23.durable_objects;
-              if (Array.isArray(data37)) {
-                const len4 = data37.length;
+            if (data24.durable_objects !== undefined) {
+              let data38 = data24.durable_objects;
+              if (Array.isArray(data38)) {
+                const len4 = data38.length;
                 for (let i4 = 0; i4 < len4; i4++) {
-                  let data38 = data37[i4];
-                  if (data38 && typeof data38 == "object" && !Array.isArray(data38)) {
-                    if (data38.worker_id === undefined) {
-                      const err61 = {
+                  let data39 = data38[i4];
+                  if (data39 && typeof data39 == "object" && !Array.isArray(data39)) {
+                    if (data39.worker_id === undefined) {
+                      const err62 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -77845,14 +78112,14 @@ function validate709(
                         message: "must have required property '" + "worker_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err61];
+                        vErrors = [err62];
                       } else {
-                        vErrors.push(err61);
+                        vErrors.push(err62);
                       }
                       errors++;
                     }
-                    if (data38.worker_name === undefined) {
-                      const err62 = {
+                    if (data39.worker_name === undefined) {
+                      const err63 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -77861,14 +78128,14 @@ function validate709(
                         message: "must have required property '" + "worker_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err62];
+                        vErrors = [err63];
                       } else {
-                        vErrors.push(err62);
+                        vErrors.push(err63);
                       }
                       errors++;
                     }
-                    if (data38.namespace_id === undefined) {
-                      const err63 = {
+                    if (data39.namespace_id === undefined) {
+                      const err64 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -77877,14 +78144,14 @@ function validate709(
                         message: "must have required property '" + "namespace_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err63];
+                        vErrors = [err64];
                       } else {
-                        vErrors.push(err63);
+                        vErrors.push(err64);
                       }
                       errors++;
                     }
-                    if (data38.namespace_name === undefined) {
-                      const err64 = {
+                    if (data39.namespace_name === undefined) {
+                      const err65 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -77893,15 +78160,15 @@ function validate709(
                         message: "must have required property '" + "namespace_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err64];
+                        vErrors = [err65];
                       } else {
-                        vErrors.push(err64);
+                        vErrors.push(err65);
                       }
                       errors++;
                     }
-                    if (data38.namespace_id !== undefined) {
-                      if (typeof data38.namespace_id !== "string") {
-                        const err65 = {
+                    if (data39.namespace_id !== undefined) {
+                      if (typeof data39.namespace_id !== "string") {
+                        const err66 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -77914,16 +78181,16 @@ function validate709(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err65];
+                          vErrors = [err66];
                         } else {
-                          vErrors.push(err65);
+                          vErrors.push(err66);
                         }
                         errors++;
                       }
                     }
-                    if (data38.namespace_name !== undefined) {
-                      if (typeof data38.namespace_name !== "string") {
-                        const err66 = {
+                    if (data39.namespace_name !== undefined) {
+                      if (typeof data39.namespace_name !== "string") {
+                        const err67 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -77936,16 +78203,16 @@ function validate709(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err66];
+                          vErrors = [err67];
                         } else {
-                          vErrors.push(err66);
+                          vErrors.push(err67);
                         }
                         errors++;
                       }
                     }
-                    if (data38.worker_id !== undefined) {
-                      if (typeof data38.worker_id !== "string") {
-                        const err67 = {
+                    if (data39.worker_id !== undefined) {
+                      if (typeof data39.worker_id !== "string") {
+                        const err68 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -77958,16 +78225,16 @@ function validate709(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err67];
+                          vErrors = [err68];
                         } else {
-                          vErrors.push(err67);
+                          vErrors.push(err68);
                         }
                         errors++;
                       }
                     }
-                    if (data38.worker_name !== undefined) {
-                      if (typeof data38.worker_name !== "string") {
-                        const err68 = {
+                    if (data39.worker_name !== undefined) {
+                      if (typeof data39.worker_name !== "string") {
+                        const err69 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -77980,15 +78247,15 @@ function validate709(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err68];
+                          vErrors = [err69];
                         } else {
-                          vErrors.push(err68);
+                          vErrors.push(err69);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err69 = {
+                    const err70 = {
                       instancePath: instancePath + "/result/references/durable_objects/" + i4,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/type",
@@ -77997,15 +78264,15 @@ function validate709(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err69];
+                      vErrors = [err70];
                     } else {
-                      vErrors.push(err69);
+                      vErrors.push(err70);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err70 = {
+                const err71 = {
                   instancePath: instancePath + "/result/references/durable_objects",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/type",
@@ -78014,22 +78281,22 @@ function validate709(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err70];
+                  vErrors = [err71];
                 } else {
-                  vErrors.push(err70);
+                  vErrors.push(err71);
                 }
                 errors++;
               }
             }
-            if (data23.queues !== undefined) {
-              let data43 = data23.queues;
-              if (Array.isArray(data43)) {
-                const len5 = data43.length;
+            if (data24.queues !== undefined) {
+              let data44 = data24.queues;
+              if (Array.isArray(data44)) {
+                const len5 = data44.length;
                 for (let i5 = 0; i5 < len5; i5++) {
-                  let data44 = data43[i5];
-                  if (data44 && typeof data44 == "object" && !Array.isArray(data44)) {
-                    if (data44.queue_id === undefined) {
-                      const err71 = {
+                  let data45 = data44[i5];
+                  if (data45 && typeof data45 == "object" && !Array.isArray(data45)) {
+                    if (data45.queue_id === undefined) {
+                      const err72 = {
                         instancePath: instancePath + "/result/references/queues/" + i5,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
@@ -78038,14 +78305,14 @@ function validate709(
                         message: "must have required property '" + "queue_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err71];
+                        vErrors = [err72];
                       } else {
-                        vErrors.push(err71);
+                        vErrors.push(err72);
                       }
                       errors++;
                     }
-                    if (data44.queue_name === undefined) {
-                      const err72 = {
+                    if (data45.queue_name === undefined) {
+                      const err73 = {
                         instancePath: instancePath + "/result/references/queues/" + i5,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
@@ -78054,14 +78321,14 @@ function validate709(
                         message: "must have required property '" + "queue_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err72];
+                        vErrors = [err73];
                       } else {
-                        vErrors.push(err72);
+                        vErrors.push(err73);
                       }
                       errors++;
                     }
-                    if (data44.queue_consumer_id === undefined) {
-                      const err73 = {
+                    if (data45.queue_consumer_id === undefined) {
+                      const err74 = {
                         instancePath: instancePath + "/result/references/queues/" + i5,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
@@ -78070,38 +78337,19 @@ function validate709(
                         message: "must have required property '" + "queue_consumer_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err73];
+                        vErrors = [err74];
                       } else {
-                        vErrors.push(err73);
+                        vErrors.push(err74);
                       }
                       errors++;
                     }
-                    if (data44.queue_consumer_id !== undefined) {
-                      if (typeof data44.queue_consumer_id !== "string") {
-                        const err74 = {
+                    if (data45.queue_consumer_id !== undefined) {
+                      if (typeof data45.queue_consumer_id !== "string") {
+                        const err75 = {
                           instancePath:
                             instancePath + "/result/references/queues/" + i5 + "/queue_consumer_id",
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_consumer_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err74];
-                        } else {
-                          vErrors.push(err74);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data44.queue_id !== undefined) {
-                      if (typeof data44.queue_id !== "string") {
-                        const err75 = {
-                          instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -78114,13 +78362,13 @@ function validate709(
                         errors++;
                       }
                     }
-                    if (data44.queue_name !== undefined) {
-                      if (typeof data44.queue_name !== "string") {
+                    if (data45.queue_id !== undefined) {
+                      if (typeof data45.queue_id !== "string") {
                         const err76 = {
                           instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_name",
+                            instancePath + "/result/references/queues/" + i5 + "/queue_id",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_name/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -78133,8 +78381,27 @@ function validate709(
                         errors++;
                       }
                     }
+                    if (data45.queue_name !== undefined) {
+                      if (typeof data45.queue_name !== "string") {
+                        const err77 = {
+                          instancePath:
+                            instancePath + "/result/references/queues/" + i5 + "/queue_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err77];
+                        } else {
+                          vErrors.push(err77);
+                        }
+                        errors++;
+                      }
+                    }
                   } else {
-                    const err77 = {
+                    const err78 = {
                       instancePath: instancePath + "/result/references/queues/" + i5,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/queues/items/type",
@@ -78143,15 +78410,15 @@ function validate709(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err77];
+                      vErrors = [err78];
                     } else {
-                      vErrors.push(err77);
+                      vErrors.push(err78);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err78 = {
+                const err79 = {
                   instancePath: instancePath + "/result/references/queues",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/queues/type",
@@ -78160,22 +78427,22 @@ function validate709(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err78];
+                  vErrors = [err79];
                 } else {
-                  vErrors.push(err78);
+                  vErrors.push(err79);
                 }
                 errors++;
               }
             }
-            if (data23.workers !== undefined) {
-              let data48 = data23.workers;
-              if (Array.isArray(data48)) {
-                const len6 = data48.length;
+            if (data24.workers !== undefined) {
+              let data49 = data24.workers;
+              if (Array.isArray(data49)) {
+                const len6 = data49.length;
                 for (let i6 = 0; i6 < len6; i6++) {
-                  let data49 = data48[i6];
-                  if (data49 && typeof data49 == "object" && !Array.isArray(data49)) {
-                    if (data49.id === undefined) {
-                      const err79 = {
+                  let data50 = data49[i6];
+                  if (data50 && typeof data50 == "object" && !Array.isArray(data50)) {
+                    if (data50.id === undefined) {
+                      const err80 = {
                         instancePath: instancePath + "/result/references/workers/" + i6,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
@@ -78184,14 +78451,14 @@ function validate709(
                         message: "must have required property '" + "id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err79];
+                        vErrors = [err80];
                       } else {
-                        vErrors.push(err79);
+                        vErrors.push(err80);
                       }
                       errors++;
                     }
-                    if (data49.name === undefined) {
-                      const err80 = {
+                    if (data50.name === undefined) {
+                      const err81 = {
                         instancePath: instancePath + "/result/references/workers/" + i6,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
@@ -78200,36 +78467,18 @@ function validate709(
                         message: "must have required property '" + "name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err80];
+                        vErrors = [err81];
                       } else {
-                        vErrors.push(err80);
+                        vErrors.push(err81);
                       }
                       errors++;
                     }
-                    if (data49.id !== undefined) {
-                      if (typeof data49.id !== "string") {
-                        const err81 = {
+                    if (data50.id !== undefined) {
+                      if (typeof data50.id !== "string") {
+                        const err82 = {
                           instancePath: instancePath + "/result/references/workers/" + i6 + "/id",
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err81];
-                        } else {
-                          vErrors.push(err81);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data49.name !== undefined) {
-                      if (typeof data49.name !== "string") {
-                        const err82 = {
-                          instancePath: instancePath + "/result/references/workers/" + i6 + "/name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/name/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -78242,8 +78491,26 @@ function validate709(
                         errors++;
                       }
                     }
+                    if (data50.name !== undefined) {
+                      if (typeof data50.name !== "string") {
+                        const err83 = {
+                          instancePath: instancePath + "/result/references/workers/" + i6 + "/name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err83];
+                        } else {
+                          vErrors.push(err83);
+                        }
+                        errors++;
+                      }
+                    }
                   } else {
-                    const err83 = {
+                    const err84 = {
                       instancePath: instancePath + "/result/references/workers/" + i6,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/workers/items/type",
@@ -78252,15 +78519,15 @@ function validate709(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err83];
+                      vErrors = [err84];
                     } else {
-                      vErrors.push(err83);
+                      vErrors.push(err84);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err84 = {
+                const err85 = {
                   instancePath: instancePath + "/result/references/workers",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/workers/type",
@@ -78269,15 +78536,15 @@ function validate709(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err84];
+                  vErrors = [err85];
                 } else {
-                  vErrors.push(err84);
+                  vErrors.push(err85);
                 }
                 errors++;
               }
             }
           } else {
-            const err85 = {
+            const err86 = {
               instancePath: instancePath + "/result/references",
               schemaPath: "#/components/schemas/workers_Worker/properties/references/type",
               keyword: "type",
@@ -78285,43 +78552,25 @@ function validate709(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err85];
+              vErrors = [err86];
             } else {
-              vErrors.push(err85);
+              vErrors.push(err86);
             }
             errors++;
           }
         }
         if (data0.subdomain !== undefined) {
-          let data52 = data0.subdomain;
-          if (data52 && typeof data52 == "object" && !Array.isArray(data52)) {
-            if (data52.enabled !== undefined) {
-              if (typeof data52.enabled !== "boolean") {
-                const err86 = {
+          let data53 = data0.subdomain;
+          if (data53 && typeof data53 == "object" && !Array.isArray(data53)) {
+            if (data53.enabled !== undefined) {
+              if (typeof data53.enabled !== "boolean") {
+                const err87 = {
                   instancePath: instancePath + "/result/subdomain/enabled",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/subdomain/properties/enabled/type",
                   keyword: "type",
                   params: { type: "boolean" },
                   message: "must be boolean",
-                };
-                if (vErrors === null) {
-                  vErrors = [err86];
-                } else {
-                  vErrors.push(err86);
-                }
-                errors++;
-              }
-            }
-            if (data52.preview_url_suffix !== undefined) {
-              if (typeof data52.preview_url_suffix !== "string") {
-                const err87 = {
-                  instancePath: instancePath + "/result/subdomain/preview_url_suffix",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/preview_url_suffix/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
                 };
                 if (vErrors === null) {
                   vErrors = [err87];
@@ -78331,15 +78580,15 @@ function validate709(
                 errors++;
               }
             }
-            if (data52.previews_enabled !== undefined) {
-              if (typeof data52.previews_enabled !== "boolean") {
+            if (data53.preview_url_suffix !== undefined) {
+              if (typeof data53.preview_url_suffix !== "string") {
                 const err88 = {
-                  instancePath: instancePath + "/result/subdomain/previews_enabled",
+                  instancePath: instancePath + "/result/subdomain/preview_url_suffix",
                   schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/preview_url_suffix/type",
                   keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
+                  params: { type: "string" },
+                  message: "must be string",
                 };
                 if (vErrors === null) {
                   vErrors = [err88];
@@ -78349,15 +78598,15 @@ function validate709(
                 errors++;
               }
             }
-            if (data52.url !== undefined) {
-              if (!(typeof data52.url === "string")) {
+            if (data53.previews_enabled !== undefined) {
+              if (typeof data53.previews_enabled !== "boolean") {
                 const err89 = {
-                  instancePath: instancePath + "/result/subdomain/url",
+                  instancePath: instancePath + "/result/subdomain/previews_enabled",
                   schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/url/type",
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
                   keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err89];
@@ -78367,8 +78616,26 @@ function validate709(
                 errors++;
               }
             }
+            if (data53.url !== undefined) {
+              if (!(typeof data53.url === "string")) {
+                const err90 = {
+                  instancePath: instancePath + "/result/subdomain/url",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/url/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err90];
+                } else {
+                  vErrors.push(err90);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err90 = {
+            const err91 = {
               instancePath: instancePath + "/result/subdomain",
               schemaPath: "#/components/schemas/workers_Worker/properties/subdomain/type",
               keyword: "type",
@@ -78376,18 +78643,18 @@ function validate709(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err90];
+              vErrors = [err91];
             } else {
-              vErrors.push(err90);
+              vErrors.push(err91);
             }
             errors++;
           }
         }
         if (data0.tags !== undefined) {
-          let data57 = data0.tags;
-          if (Array.isArray(data57)) {
-            if (data57.length > 8) {
-              const err91 = {
+          let data58 = data0.tags;
+          if (Array.isArray(data58)) {
+            if (data58.length > 8) {
+              const err92 = {
                 instancePath: instancePath + "/result/tags",
                 schemaPath: "#/components/schemas/workers_Worker/properties/tags/maxItems",
                 keyword: "maxItems",
@@ -78395,18 +78662,18 @@ function validate709(
                 message: "must NOT have more than 8 items",
               };
               if (vErrors === null) {
-                vErrors = [err91];
+                vErrors = [err92];
               } else {
-                vErrors.push(err91);
+                vErrors.push(err92);
               }
               errors++;
             }
-            const len7 = data57.length;
+            const len7 = data58.length;
             for (let i7 = 0; i7 < len7; i7++) {
-              let data58 = data57[i7];
-              if (typeof data58 === "string") {
-                if (func2(data58) > 1024) {
-                  const err92 = {
+              let data59 = data58[i7];
+              if (typeof data59 === "string") {
+                if (func2(data59) > 1024) {
+                  const err93 = {
                     instancePath: instancePath + "/result/tags/" + i7,
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/tags/items/maxLength",
@@ -78415,14 +78682,14 @@ function validate709(
                     message: "must NOT have more than 1024 characters",
                   };
                   if (vErrors === null) {
-                    vErrors = [err92];
+                    vErrors = [err93];
                   } else {
-                    vErrors.push(err92);
+                    vErrors.push(err93);
                   }
                   errors++;
                 }
-                if (!pattern2.test(data58)) {
-                  const err93 = {
+                if (!pattern2.test(data59)) {
+                  const err94 = {
                     instancePath: instancePath + "/result/tags/" + i7,
                     schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/pattern",
                     keyword: "pattern",
@@ -78430,14 +78697,14 @@ function validate709(
                     message: 'must match pattern "' + "^[^,&]*$" + '"',
                   };
                   if (vErrors === null) {
-                    vErrors = [err93];
+                    vErrors = [err94];
                   } else {
-                    vErrors.push(err93);
+                    vErrors.push(err94);
                   }
                   errors++;
                 }
               } else {
-                const err94 = {
+                const err95 = {
                   instancePath: instancePath + "/result/tags/" + i7,
                   schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/type",
                   keyword: "type",
@@ -78445,15 +78712,15 @@ function validate709(
                   message: "must be string",
                 };
                 if (vErrors === null) {
-                  vErrors = [err94];
+                  vErrors = [err95];
                 } else {
-                  vErrors.push(err94);
+                  vErrors.push(err95);
                 }
                 errors++;
               }
             }
           } else {
-            const err95 = {
+            const err96 = {
               instancePath: instancePath + "/result/tags",
               schemaPath: "#/components/schemas/workers_Worker/properties/tags/type",
               keyword: "type",
@@ -78461,22 +78728,22 @@ function validate709(
               message: "must be array",
             };
             if (vErrors === null) {
-              vErrors = [err95];
+              vErrors = [err96];
             } else {
-              vErrors.push(err95);
+              vErrors.push(err96);
             }
             errors++;
           }
         }
         if (data0.tail_consumers !== undefined) {
-          let data59 = data0.tail_consumers;
-          if (Array.isArray(data59)) {
-            const len8 = data59.length;
+          let data60 = data0.tail_consumers;
+          if (Array.isArray(data60)) {
+            const len8 = data60.length;
             for (let i8 = 0; i8 < len8; i8++) {
-              let data60 = data59[i8];
-              if (data60 && typeof data60 == "object" && !Array.isArray(data60)) {
-                if (data60.name === undefined) {
-                  const err96 = {
+              let data61 = data60[i8];
+              if (data61 && typeof data61 == "object" && !Array.isArray(data61)) {
+                if (data61.name === undefined) {
+                  const err97 = {
                     instancePath: instancePath + "/result/tail_consumers/" + i8,
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/tail_consumers/items/required",
@@ -78485,15 +78752,15 @@ function validate709(
                     message: "must have required property '" + "name" + "'",
                   };
                   if (vErrors === null) {
-                    vErrors = [err96];
+                    vErrors = [err97];
                   } else {
-                    vErrors.push(err96);
+                    vErrors.push(err97);
                   }
                   errors++;
                 }
-                if (data60.name !== undefined) {
-                  if (typeof data60.name !== "string") {
-                    const err97 = {
+                if (data61.name !== undefined) {
+                  if (typeof data61.name !== "string") {
+                    const err98 = {
                       instancePath: instancePath + "/result/tail_consumers/" + i8 + "/name",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/tail_consumers/items/properties/name/type",
@@ -78502,15 +78769,15 @@ function validate709(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err97];
+                      vErrors = [err98];
                     } else {
-                      vErrors.push(err97);
+                      vErrors.push(err98);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err98 = {
+                const err99 = {
                   instancePath: instancePath + "/result/tail_consumers/" + i8,
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/tail_consumers/items/type",
@@ -78519,37 +78786,20 @@ function validate709(
                   message: "must be object",
                 };
                 if (vErrors === null) {
-                  vErrors = [err98];
+                  vErrors = [err99];
                 } else {
-                  vErrors.push(err98);
+                  vErrors.push(err99);
                 }
                 errors++;
               }
             }
           } else {
-            const err99 = {
+            const err100 = {
               instancePath: instancePath + "/result/tail_consumers",
               schemaPath: "#/components/schemas/workers_Worker/properties/tail_consumers/type",
               keyword: "type",
               params: { type: "array" },
               message: "must be array",
-            };
-            if (vErrors === null) {
-              vErrors = [err99];
-            } else {
-              vErrors.push(err99);
-            }
-            errors++;
-          }
-        }
-        if (data0.updated_on !== undefined) {
-          if (!(typeof data0.updated_on === "string")) {
-            const err100 = {
-              instancePath: instancePath + "/result/updated_on",
-              schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
             };
             if (vErrors === null) {
               vErrors = [err100];
@@ -78559,8 +78809,25 @@ function validate709(
             errors++;
           }
         }
+        if (data0.updated_on !== undefined) {
+          if (!(typeof data0.updated_on === "string")) {
+            const err101 = {
+              instancePath: instancePath + "/result/updated_on",
+              schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err101];
+            } else {
+              vErrors.push(err101);
+            }
+            errors++;
+          }
+        }
       } else {
-        const err101 = {
+        const err102 = {
           instancePath: instancePath + "/result",
           schemaPath: "#/components/schemas/workers_Worker/type",
           keyword: "type",
@@ -78568,15 +78835,15 @@ function validate709(
           message: "must be object",
         };
         if (vErrors === null) {
-          vErrors = [err101];
+          vErrors = [err102];
         } else {
-          vErrors.push(err101);
+          vErrors.push(err102);
         }
         errors++;
       }
     }
   } else {
-    const err102 = {
+    const err103 = {
       instancePath,
       schemaPath: "#/allOf/1/type",
       keyword: "type",
@@ -78584,9 +78851,9 @@ function validate709(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err102];
+      vErrors = [err103];
     } else {
-      vErrors.push(err102);
+      vErrors.push(err103);
     }
     errors++;
   }
@@ -79101,16 +79368,34 @@ function validate713(
                 errors++;
               }
             }
+            if (data6.redact_query_string !== undefined) {
+              if (typeof data6.redact_query_string !== "boolean") {
+                const err26 = {
+                  instancePath: instancePath + "/result/observability/redact_query_string",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/observability/properties/redact_query_string/type",
+                  keyword: "type",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
+                };
+                if (vErrors === null) {
+                  vErrors = [err26];
+                } else {
+                  vErrors.push(err26);
+                }
+                errors++;
+              }
+            }
             if (data6.traces !== undefined) {
-              let data16 = data6.traces;
-              if (data16 && typeof data16 == "object" && !Array.isArray(data16)) {
-                if (data16.destinations !== undefined) {
-                  let data17 = data16.destinations;
-                  if (Array.isArray(data17)) {
-                    const len1 = data17.length;
+              let data17 = data6.traces;
+              if (data17 && typeof data17 == "object" && !Array.isArray(data17)) {
+                if (data17.destinations !== undefined) {
+                  let data18 = data17.destinations;
+                  if (Array.isArray(data18)) {
+                    const len1 = data18.length;
                     for (let i1 = 0; i1 < len1; i1++) {
-                      if (typeof data17[i1] !== "string") {
-                        const err26 = {
+                      if (typeof data18[i1] !== "string") {
+                        const err27 = {
                           instancePath:
                             instancePath + "/result/observability/traces/destinations/" + i1,
                           schemaPath:
@@ -79120,39 +79405,21 @@ function validate713(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err26];
+                          vErrors = [err27];
                         } else {
-                          vErrors.push(err26);
+                          vErrors.push(err27);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err27 = {
+                    const err28 = {
                       instancePath: instancePath + "/result/observability/traces/destinations",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/destinations/type",
                       keyword: "type",
                       params: { type: "array" },
                       message: "must be array",
-                    };
-                    if (vErrors === null) {
-                      vErrors = [err27];
-                    } else {
-                      vErrors.push(err27);
-                    }
-                    errors++;
-                  }
-                }
-                if (data16.enabled !== undefined) {
-                  if (typeof data16.enabled !== "boolean") {
-                    const err28 = {
-                      instancePath: instancePath + "/result/observability/traces/enabled",
-                      schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/enabled/type",
-                      keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
                     };
                     if (vErrors === null) {
                       vErrors = [err28];
@@ -79162,16 +79429,15 @@ function validate713(
                     errors++;
                   }
                 }
-                if (data16.head_sampling_rate !== undefined) {
-                  if (!(typeof data16.head_sampling_rate == "number")) {
+                if (data17.enabled !== undefined) {
+                  if (typeof data17.enabled !== "boolean") {
                     const err29 = {
-                      instancePath:
-                        instancePath + "/result/observability/traces/head_sampling_rate",
+                      instancePath: instancePath + "/result/observability/traces/enabled",
                       schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/head_sampling_rate/type",
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/enabled/type",
                       keyword: "type",
-                      params: { type: "number" },
-                      message: "must be number",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
                     };
                     if (vErrors === null) {
                       vErrors = [err29];
@@ -79181,15 +79447,16 @@ function validate713(
                     errors++;
                   }
                 }
-                if (data16.persist !== undefined) {
-                  if (typeof data16.persist !== "boolean") {
+                if (data17.head_sampling_rate !== undefined) {
+                  if (!(typeof data17.head_sampling_rate == "number")) {
                     const err30 = {
-                      instancePath: instancePath + "/result/observability/traces/persist",
+                      instancePath:
+                        instancePath + "/result/observability/traces/head_sampling_rate",
                       schemaPath:
-                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/persist/type",
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/head_sampling_rate/type",
                       keyword: "type",
-                      params: { type: "boolean" },
-                      message: "must be boolean",
+                      params: { type: "number" },
+                      message: "must be number",
                     };
                     if (vErrors === null) {
                       vErrors = [err30];
@@ -79199,10 +79466,28 @@ function validate713(
                     errors++;
                   }
                 }
-                if (data16.propagation_policy !== undefined) {
-                  let data22 = data16.propagation_policy;
-                  if (typeof data22 !== "string") {
+                if (data17.persist !== undefined) {
+                  if (typeof data17.persist !== "boolean") {
                     const err31 = {
+                      instancePath: instancePath + "/result/observability/traces/persist",
+                      schemaPath:
+                        "#/components/schemas/workers_Worker/properties/observability/properties/traces/properties/persist/type",
+                      keyword: "type",
+                      params: { type: "boolean" },
+                      message: "must be boolean",
+                    };
+                    if (vErrors === null) {
+                      vErrors = [err31];
+                    } else {
+                      vErrors.push(err31);
+                    }
+                    errors++;
+                  }
+                }
+                if (data17.propagation_policy !== undefined) {
+                  let data23 = data17.propagation_policy;
+                  if (typeof data23 !== "string" && data23 !== null) {
+                    const err32 = {
                       instancePath:
                         instancePath + "/result/observability/traces/propagation_policy",
                       schemaPath:
@@ -79212,14 +79497,14 @@ function validate713(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err31];
+                      vErrors = [err32];
                     } else {
-                      vErrors.push(err31);
+                      vErrors.push(err32);
                     }
                     errors++;
                   }
-                  if (!(data22 === "authenticated" || data22 === "accept")) {
-                    const err32 = {
+                  if (!(data23 === "authenticated" || data23 === "accept" || data23 === null)) {
+                    const err33 = {
                       instancePath:
                         instancePath + "/result/observability/traces/propagation_policy",
                       schemaPath:
@@ -79233,15 +79518,15 @@ function validate713(
                       message: "must be equal to one of the allowed values",
                     };
                     if (vErrors === null) {
-                      vErrors = [err32];
+                      vErrors = [err33];
                     } else {
-                      vErrors.push(err32);
+                      vErrors.push(err33);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err33 = {
+                const err34 = {
                   instancePath: instancePath + "/result/observability/traces",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/observability/properties/traces/type",
@@ -79250,15 +79535,15 @@ function validate713(
                   message: "must be object",
                 };
                 if (vErrors === null) {
-                  vErrors = [err33];
+                  vErrors = [err34];
                 } else {
-                  vErrors.push(err33);
+                  vErrors.push(err34);
                 }
                 errors++;
               }
             }
           } else {
-            const err34 = {
+            const err35 = {
               instancePath: instancePath + "/result/observability",
               schemaPath: "#/components/schemas/workers_Worker/properties/observability/type",
               keyword: "type",
@@ -79266,38 +79551,23 @@ function validate713(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err34];
+              vErrors = [err35];
             } else {
-              vErrors.push(err34);
+              vErrors.push(err35);
             }
             errors++;
           }
         }
         if (data0.references !== undefined) {
-          let data23 = data0.references;
-          if (data23 && typeof data23 == "object" && !Array.isArray(data23)) {
-            if (data23.workers === undefined) {
-              const err35 = {
+          let data24 = data0.references;
+          if (data24 && typeof data24 == "object" && !Array.isArray(data24)) {
+            if (data24.workers === undefined) {
+              const err36 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
                 params: { missingProperty: "workers" },
                 message: "must have required property '" + "workers" + "'",
-              };
-              if (vErrors === null) {
-                vErrors = [err35];
-              } else {
-                vErrors.push(err35);
-              }
-              errors++;
-            }
-            if (data23.domains === undefined) {
-              const err36 = {
-                instancePath: instancePath + "/result/references",
-                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
-                keyword: "required",
-                params: { missingProperty: "domains" },
-                message: "must have required property '" + "domains" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err36];
@@ -79306,13 +79576,13 @@ function validate713(
               }
               errors++;
             }
-            if (data23.dispatch_namespace_outbounds === undefined) {
+            if (data24.domains === undefined) {
               const err37 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
-                params: { missingProperty: "dispatch_namespace_outbounds" },
-                message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
+                params: { missingProperty: "domains" },
+                message: "must have required property '" + "domains" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err37];
@@ -79321,13 +79591,13 @@ function validate713(
               }
               errors++;
             }
-            if (data23.durable_objects === undefined) {
+            if (data24.dispatch_namespace_outbounds === undefined) {
               const err38 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
-                params: { missingProperty: "durable_objects" },
-                message: "must have required property '" + "durable_objects" + "'",
+                params: { missingProperty: "dispatch_namespace_outbounds" },
+                message: "must have required property '" + "dispatch_namespace_outbounds" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err38];
@@ -79336,13 +79606,13 @@ function validate713(
               }
               errors++;
             }
-            if (data23.queues === undefined) {
+            if (data24.durable_objects === undefined) {
               const err39 = {
                 instancePath: instancePath + "/result/references",
                 schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
                 keyword: "required",
-                params: { missingProperty: "queues" },
-                message: "must have required property '" + "queues" + "'",
+                params: { missingProperty: "durable_objects" },
+                message: "must have required property '" + "durable_objects" + "'",
               };
               if (vErrors === null) {
                 vErrors = [err39];
@@ -79351,15 +79621,30 @@ function validate713(
               }
               errors++;
             }
-            if (data23.dispatch_namespace_outbounds !== undefined) {
-              let data24 = data23.dispatch_namespace_outbounds;
-              if (Array.isArray(data24)) {
-                const len2 = data24.length;
+            if (data24.queues === undefined) {
+              const err40 = {
+                instancePath: instancePath + "/result/references",
+                schemaPath: "#/components/schemas/workers_Worker/properties/references/required",
+                keyword: "required",
+                params: { missingProperty: "queues" },
+                message: "must have required property '" + "queues" + "'",
+              };
+              if (vErrors === null) {
+                vErrors = [err40];
+              } else {
+                vErrors.push(err40);
+              }
+              errors++;
+            }
+            if (data24.dispatch_namespace_outbounds !== undefined) {
+              let data25 = data24.dispatch_namespace_outbounds;
+              if (Array.isArray(data25)) {
+                const len2 = data25.length;
                 for (let i2 = 0; i2 < len2; i2++) {
-                  let data25 = data24[i2];
-                  if (data25 && typeof data25 == "object" && !Array.isArray(data25)) {
-                    if (data25.worker_id === undefined) {
-                      const err40 = {
+                  let data26 = data25[i2];
+                  if (data26 && typeof data26 == "object" && !Array.isArray(data26)) {
+                    if (data26.worker_id === undefined) {
+                      const err41 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -79369,14 +79654,14 @@ function validate713(
                         message: "must have required property '" + "worker_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err40];
+                        vErrors = [err41];
                       } else {
-                        vErrors.push(err40);
+                        vErrors.push(err41);
                       }
                       errors++;
                     }
-                    if (data25.worker_name === undefined) {
-                      const err41 = {
+                    if (data26.worker_name === undefined) {
+                      const err42 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -79386,14 +79671,14 @@ function validate713(
                         message: "must have required property '" + "worker_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err41];
+                        vErrors = [err42];
                       } else {
-                        vErrors.push(err41);
+                        vErrors.push(err42);
                       }
                       errors++;
                     }
-                    if (data25.namespace_id === undefined) {
-                      const err42 = {
+                    if (data26.namespace_id === undefined) {
+                      const err43 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -79403,14 +79688,14 @@ function validate713(
                         message: "must have required property '" + "namespace_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err42];
+                        vErrors = [err43];
                       } else {
-                        vErrors.push(err42);
+                        vErrors.push(err43);
                       }
                       errors++;
                     }
-                    if (data25.namespace_name === undefined) {
-                      const err43 = {
+                    if (data26.namespace_name === undefined) {
+                      const err44 = {
                         instancePath:
                           instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                         schemaPath:
@@ -79420,15 +79705,15 @@ function validate713(
                         message: "must have required property '" + "namespace_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err43];
+                        vErrors = [err44];
                       } else {
-                        vErrors.push(err43);
+                        vErrors.push(err44);
                       }
                       errors++;
                     }
-                    if (data25.namespace_id !== undefined) {
-                      if (typeof data25.namespace_id !== "string") {
-                        const err44 = {
+                    if (data26.namespace_id !== undefined) {
+                      if (typeof data26.namespace_id !== "string") {
+                        const err45 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -79441,16 +79726,16 @@ function validate713(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err44];
+                          vErrors = [err45];
                         } else {
-                          vErrors.push(err44);
+                          vErrors.push(err45);
                         }
                         errors++;
                       }
                     }
-                    if (data25.namespace_name !== undefined) {
-                      if (typeof data25.namespace_name !== "string") {
-                        const err45 = {
+                    if (data26.namespace_name !== undefined) {
+                      if (typeof data26.namespace_name !== "string") {
+                        const err46 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -79463,16 +79748,16 @@ function validate713(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err45];
+                          vErrors = [err46];
                         } else {
-                          vErrors.push(err45);
+                          vErrors.push(err46);
                         }
                         errors++;
                       }
                     }
-                    if (data25.worker_id !== undefined) {
-                      if (typeof data25.worker_id !== "string") {
-                        const err46 = {
+                    if (data26.worker_id !== undefined) {
+                      if (typeof data26.worker_id !== "string") {
+                        const err47 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -79485,16 +79770,16 @@ function validate713(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err46];
+                          vErrors = [err47];
                         } else {
-                          vErrors.push(err46);
+                          vErrors.push(err47);
                         }
                         errors++;
                       }
                     }
-                    if (data25.worker_name !== undefined) {
-                      if (typeof data25.worker_name !== "string") {
-                        const err47 = {
+                    if (data26.worker_name !== undefined) {
+                      if (typeof data26.worker_name !== "string") {
+                        const err48 = {
                           instancePath:
                             instancePath +
                             "/result/references/dispatch_namespace_outbounds/" +
@@ -79507,15 +79792,15 @@ function validate713(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err47];
+                          vErrors = [err48];
                         } else {
-                          vErrors.push(err47);
+                          vErrors.push(err48);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err48 = {
+                    const err49 = {
                       instancePath:
                         instancePath + "/result/references/dispatch_namespace_outbounds/" + i2,
                       schemaPath:
@@ -79525,15 +79810,15 @@ function validate713(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err48];
+                      vErrors = [err49];
                     } else {
-                      vErrors.push(err48);
+                      vErrors.push(err49);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err49 = {
+                const err50 = {
                   instancePath: instancePath + "/result/references/dispatch_namespace_outbounds",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/dispatch_namespace_outbounds/type",
@@ -79542,22 +79827,22 @@ function validate713(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err49];
+                  vErrors = [err50];
                 } else {
-                  vErrors.push(err49);
+                  vErrors.push(err50);
                 }
                 errors++;
               }
             }
-            if (data23.domains !== undefined) {
-              let data30 = data23.domains;
-              if (Array.isArray(data30)) {
-                const len3 = data30.length;
+            if (data24.domains !== undefined) {
+              let data31 = data24.domains;
+              if (Array.isArray(data31)) {
+                const len3 = data31.length;
                 for (let i3 = 0; i3 < len3; i3++) {
-                  let data31 = data30[i3];
-                  if (data31 && typeof data31 == "object" && !Array.isArray(data31)) {
-                    if (data31.id === undefined) {
-                      const err50 = {
+                  let data32 = data31[i3];
+                  if (data32 && typeof data32 == "object" && !Array.isArray(data32)) {
+                    if (data32.id === undefined) {
+                      const err51 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -79566,14 +79851,14 @@ function validate713(
                         message: "must have required property '" + "id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err50];
+                        vErrors = [err51];
                       } else {
-                        vErrors.push(err50);
+                        vErrors.push(err51);
                       }
                       errors++;
                     }
-                    if (data31.hostname === undefined) {
-                      const err51 = {
+                    if (data32.hostname === undefined) {
+                      const err52 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -79582,14 +79867,14 @@ function validate713(
                         message: "must have required property '" + "hostname" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err51];
+                        vErrors = [err52];
                       } else {
-                        vErrors.push(err51);
+                        vErrors.push(err52);
                       }
                       errors++;
                     }
-                    if (data31.zone_id === undefined) {
-                      const err52 = {
+                    if (data32.zone_id === undefined) {
+                      const err53 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -79598,14 +79883,14 @@ function validate713(
                         message: "must have required property '" + "zone_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err52];
+                        vErrors = [err53];
                       } else {
-                        vErrors.push(err52);
+                        vErrors.push(err53);
                       }
                       errors++;
                     }
-                    if (data31.zone_name === undefined) {
-                      const err53 = {
+                    if (data32.zone_name === undefined) {
+                      const err54 = {
                         instancePath: instancePath + "/result/references/domains/" + i3,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/domains/items/required",
@@ -79614,38 +79899,19 @@ function validate713(
                         message: "must have required property '" + "zone_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err53];
+                        vErrors = [err54];
                       } else {
-                        vErrors.push(err53);
+                        vErrors.push(err54);
                       }
                       errors++;
                     }
-                    if (data31.certificate_id !== undefined) {
-                      if (typeof data31.certificate_id !== "string") {
-                        const err54 = {
+                    if (data32.certificate_id !== undefined) {
+                      if (typeof data32.certificate_id !== "string") {
+                        const err55 = {
                           instancePath:
                             instancePath + "/result/references/domains/" + i3 + "/certificate_id",
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/certificate_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err54];
-                        } else {
-                          vErrors.push(err54);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data31.hostname !== undefined) {
-                      if (typeof data31.hostname !== "string") {
-                        const err55 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/hostname",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/hostname/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -79658,12 +79924,13 @@ function validate713(
                         errors++;
                       }
                     }
-                    if (data31.id !== undefined) {
-                      if (typeof data31.id !== "string") {
+                    if (data32.hostname !== undefined) {
+                      if (typeof data32.hostname !== "string") {
                         const err56 = {
-                          instancePath: instancePath + "/result/references/domains/" + i3 + "/id",
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/hostname",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/id/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/hostname/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -79676,13 +79943,12 @@ function validate713(
                         errors++;
                       }
                     }
-                    if (data31.zone_id !== undefined) {
-                      if (typeof data31.zone_id !== "string") {
+                    if (data32.id !== undefined) {
+                      if (typeof data32.id !== "string") {
                         const err57 = {
-                          instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/zone_id",
+                          instancePath: instancePath + "/result/references/domains/" + i3 + "/id",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_id/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -79695,13 +79961,13 @@ function validate713(
                         errors++;
                       }
                     }
-                    if (data31.zone_name !== undefined) {
-                      if (typeof data31.zone_name !== "string") {
+                    if (data32.zone_id !== undefined) {
+                      if (typeof data32.zone_id !== "string") {
                         const err58 = {
                           instancePath:
-                            instancePath + "/result/references/domains/" + i3 + "/zone_name",
+                            instancePath + "/result/references/domains/" + i3 + "/zone_id",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_name/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -79714,8 +79980,27 @@ function validate713(
                         errors++;
                       }
                     }
+                    if (data32.zone_name !== undefined) {
+                      if (typeof data32.zone_name !== "string") {
+                        const err59 = {
+                          instancePath:
+                            instancePath + "/result/references/domains/" + i3 + "/zone_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/domains/items/properties/zone_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err59];
+                        } else {
+                          vErrors.push(err59);
+                        }
+                        errors++;
+                      }
+                    }
                   } else {
-                    const err59 = {
+                    const err60 = {
                       instancePath: instancePath + "/result/references/domains/" + i3,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/domains/items/type",
@@ -79724,15 +80009,15 @@ function validate713(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err59];
+                      vErrors = [err60];
                     } else {
-                      vErrors.push(err59);
+                      vErrors.push(err60);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err60 = {
+                const err61 = {
                   instancePath: instancePath + "/result/references/domains",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/domains/type",
@@ -79741,22 +80026,22 @@ function validate713(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err60];
+                  vErrors = [err61];
                 } else {
-                  vErrors.push(err60);
+                  vErrors.push(err61);
                 }
                 errors++;
               }
             }
-            if (data23.durable_objects !== undefined) {
-              let data37 = data23.durable_objects;
-              if (Array.isArray(data37)) {
-                const len4 = data37.length;
+            if (data24.durable_objects !== undefined) {
+              let data38 = data24.durable_objects;
+              if (Array.isArray(data38)) {
+                const len4 = data38.length;
                 for (let i4 = 0; i4 < len4; i4++) {
-                  let data38 = data37[i4];
-                  if (data38 && typeof data38 == "object" && !Array.isArray(data38)) {
-                    if (data38.worker_id === undefined) {
-                      const err61 = {
+                  let data39 = data38[i4];
+                  if (data39 && typeof data39 == "object" && !Array.isArray(data39)) {
+                    if (data39.worker_id === undefined) {
+                      const err62 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -79765,14 +80050,14 @@ function validate713(
                         message: "must have required property '" + "worker_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err61];
+                        vErrors = [err62];
                       } else {
-                        vErrors.push(err61);
+                        vErrors.push(err62);
                       }
                       errors++;
                     }
-                    if (data38.worker_name === undefined) {
-                      const err62 = {
+                    if (data39.worker_name === undefined) {
+                      const err63 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -79781,14 +80066,14 @@ function validate713(
                         message: "must have required property '" + "worker_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err62];
+                        vErrors = [err63];
                       } else {
-                        vErrors.push(err62);
+                        vErrors.push(err63);
                       }
                       errors++;
                     }
-                    if (data38.namespace_id === undefined) {
-                      const err63 = {
+                    if (data39.namespace_id === undefined) {
+                      const err64 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -79797,14 +80082,14 @@ function validate713(
                         message: "must have required property '" + "namespace_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err63];
+                        vErrors = [err64];
                       } else {
-                        vErrors.push(err63);
+                        vErrors.push(err64);
                       }
                       errors++;
                     }
-                    if (data38.namespace_name === undefined) {
-                      const err64 = {
+                    if (data39.namespace_name === undefined) {
+                      const err65 = {
                         instancePath: instancePath + "/result/references/durable_objects/" + i4,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/required",
@@ -79813,15 +80098,15 @@ function validate713(
                         message: "must have required property '" + "namespace_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err64];
+                        vErrors = [err65];
                       } else {
-                        vErrors.push(err64);
+                        vErrors.push(err65);
                       }
                       errors++;
                     }
-                    if (data38.namespace_id !== undefined) {
-                      if (typeof data38.namespace_id !== "string") {
-                        const err65 = {
+                    if (data39.namespace_id !== undefined) {
+                      if (typeof data39.namespace_id !== "string") {
+                        const err66 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -79834,16 +80119,16 @@ function validate713(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err65];
+                          vErrors = [err66];
                         } else {
-                          vErrors.push(err65);
+                          vErrors.push(err66);
                         }
                         errors++;
                       }
                     }
-                    if (data38.namespace_name !== undefined) {
-                      if (typeof data38.namespace_name !== "string") {
-                        const err66 = {
+                    if (data39.namespace_name !== undefined) {
+                      if (typeof data39.namespace_name !== "string") {
+                        const err67 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -79856,16 +80141,16 @@ function validate713(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err66];
+                          vErrors = [err67];
                         } else {
-                          vErrors.push(err66);
+                          vErrors.push(err67);
                         }
                         errors++;
                       }
                     }
-                    if (data38.worker_id !== undefined) {
-                      if (typeof data38.worker_id !== "string") {
-                        const err67 = {
+                    if (data39.worker_id !== undefined) {
+                      if (typeof data39.worker_id !== "string") {
+                        const err68 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -79878,16 +80163,16 @@ function validate713(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err67];
+                          vErrors = [err68];
                         } else {
-                          vErrors.push(err67);
+                          vErrors.push(err68);
                         }
                         errors++;
                       }
                     }
-                    if (data38.worker_name !== undefined) {
-                      if (typeof data38.worker_name !== "string") {
-                        const err68 = {
+                    if (data39.worker_name !== undefined) {
+                      if (typeof data39.worker_name !== "string") {
+                        const err69 = {
                           instancePath:
                             instancePath +
                             "/result/references/durable_objects/" +
@@ -79900,15 +80185,15 @@ function validate713(
                           message: "must be string",
                         };
                         if (vErrors === null) {
-                          vErrors = [err68];
+                          vErrors = [err69];
                         } else {
-                          vErrors.push(err68);
+                          vErrors.push(err69);
                         }
                         errors++;
                       }
                     }
                   } else {
-                    const err69 = {
+                    const err70 = {
                       instancePath: instancePath + "/result/references/durable_objects/" + i4,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/items/type",
@@ -79917,15 +80202,15 @@ function validate713(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err69];
+                      vErrors = [err70];
                     } else {
-                      vErrors.push(err69);
+                      vErrors.push(err70);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err70 = {
+                const err71 = {
                   instancePath: instancePath + "/result/references/durable_objects",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/durable_objects/type",
@@ -79934,22 +80219,22 @@ function validate713(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err70];
+                  vErrors = [err71];
                 } else {
-                  vErrors.push(err70);
+                  vErrors.push(err71);
                 }
                 errors++;
               }
             }
-            if (data23.queues !== undefined) {
-              let data43 = data23.queues;
-              if (Array.isArray(data43)) {
-                const len5 = data43.length;
+            if (data24.queues !== undefined) {
+              let data44 = data24.queues;
+              if (Array.isArray(data44)) {
+                const len5 = data44.length;
                 for (let i5 = 0; i5 < len5; i5++) {
-                  let data44 = data43[i5];
-                  if (data44 && typeof data44 == "object" && !Array.isArray(data44)) {
-                    if (data44.queue_id === undefined) {
-                      const err71 = {
+                  let data45 = data44[i5];
+                  if (data45 && typeof data45 == "object" && !Array.isArray(data45)) {
+                    if (data45.queue_id === undefined) {
+                      const err72 = {
                         instancePath: instancePath + "/result/references/queues/" + i5,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
@@ -79958,14 +80243,14 @@ function validate713(
                         message: "must have required property '" + "queue_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err71];
+                        vErrors = [err72];
                       } else {
-                        vErrors.push(err71);
+                        vErrors.push(err72);
                       }
                       errors++;
                     }
-                    if (data44.queue_name === undefined) {
-                      const err72 = {
+                    if (data45.queue_name === undefined) {
+                      const err73 = {
                         instancePath: instancePath + "/result/references/queues/" + i5,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
@@ -79974,14 +80259,14 @@ function validate713(
                         message: "must have required property '" + "queue_name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err72];
+                        vErrors = [err73];
                       } else {
-                        vErrors.push(err72);
+                        vErrors.push(err73);
                       }
                       errors++;
                     }
-                    if (data44.queue_consumer_id === undefined) {
-                      const err73 = {
+                    if (data45.queue_consumer_id === undefined) {
+                      const err74 = {
                         instancePath: instancePath + "/result/references/queues/" + i5,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/queues/items/required",
@@ -79990,38 +80275,19 @@ function validate713(
                         message: "must have required property '" + "queue_consumer_id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err73];
+                        vErrors = [err74];
                       } else {
-                        vErrors.push(err73);
+                        vErrors.push(err74);
                       }
                       errors++;
                     }
-                    if (data44.queue_consumer_id !== undefined) {
-                      if (typeof data44.queue_consumer_id !== "string") {
-                        const err74 = {
+                    if (data45.queue_consumer_id !== undefined) {
+                      if (typeof data45.queue_consumer_id !== "string") {
+                        const err75 = {
                           instancePath:
                             instancePath + "/result/references/queues/" + i5 + "/queue_consumer_id",
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_consumer_id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err74];
-                        } else {
-                          vErrors.push(err74);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data44.queue_id !== undefined) {
-                      if (typeof data44.queue_id !== "string") {
-                        const err75 = {
-                          instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_id",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -80034,13 +80300,13 @@ function validate713(
                         errors++;
                       }
                     }
-                    if (data44.queue_name !== undefined) {
-                      if (typeof data44.queue_name !== "string") {
+                    if (data45.queue_id !== undefined) {
+                      if (typeof data45.queue_id !== "string") {
                         const err76 = {
                           instancePath:
-                            instancePath + "/result/references/queues/" + i5 + "/queue_name",
+                            instancePath + "/result/references/queues/" + i5 + "/queue_id",
                           schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_name/type",
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_id/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -80053,8 +80319,27 @@ function validate713(
                         errors++;
                       }
                     }
+                    if (data45.queue_name !== undefined) {
+                      if (typeof data45.queue_name !== "string") {
+                        const err77 = {
+                          instancePath:
+                            instancePath + "/result/references/queues/" + i5 + "/queue_name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/queues/items/properties/queue_name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err77];
+                        } else {
+                          vErrors.push(err77);
+                        }
+                        errors++;
+                      }
+                    }
                   } else {
-                    const err77 = {
+                    const err78 = {
                       instancePath: instancePath + "/result/references/queues/" + i5,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/queues/items/type",
@@ -80063,15 +80348,15 @@ function validate713(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err77];
+                      vErrors = [err78];
                     } else {
-                      vErrors.push(err77);
+                      vErrors.push(err78);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err78 = {
+                const err79 = {
                   instancePath: instancePath + "/result/references/queues",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/queues/type",
@@ -80080,22 +80365,22 @@ function validate713(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err78];
+                  vErrors = [err79];
                 } else {
-                  vErrors.push(err78);
+                  vErrors.push(err79);
                 }
                 errors++;
               }
             }
-            if (data23.workers !== undefined) {
-              let data48 = data23.workers;
-              if (Array.isArray(data48)) {
-                const len6 = data48.length;
+            if (data24.workers !== undefined) {
+              let data49 = data24.workers;
+              if (Array.isArray(data49)) {
+                const len6 = data49.length;
                 for (let i6 = 0; i6 < len6; i6++) {
-                  let data49 = data48[i6];
-                  if (data49 && typeof data49 == "object" && !Array.isArray(data49)) {
-                    if (data49.id === undefined) {
-                      const err79 = {
+                  let data50 = data49[i6];
+                  if (data50 && typeof data50 == "object" && !Array.isArray(data50)) {
+                    if (data50.id === undefined) {
+                      const err80 = {
                         instancePath: instancePath + "/result/references/workers/" + i6,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
@@ -80104,14 +80389,14 @@ function validate713(
                         message: "must have required property '" + "id" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err79];
+                        vErrors = [err80];
                       } else {
-                        vErrors.push(err79);
+                        vErrors.push(err80);
                       }
                       errors++;
                     }
-                    if (data49.name === undefined) {
-                      const err80 = {
+                    if (data50.name === undefined) {
+                      const err81 = {
                         instancePath: instancePath + "/result/references/workers/" + i6,
                         schemaPath:
                           "#/components/schemas/workers_Worker/properties/references/properties/workers/items/required",
@@ -80120,36 +80405,18 @@ function validate713(
                         message: "must have required property '" + "name" + "'",
                       };
                       if (vErrors === null) {
-                        vErrors = [err80];
+                        vErrors = [err81];
                       } else {
-                        vErrors.push(err80);
+                        vErrors.push(err81);
                       }
                       errors++;
                     }
-                    if (data49.id !== undefined) {
-                      if (typeof data49.id !== "string") {
-                        const err81 = {
+                    if (data50.id !== undefined) {
+                      if (typeof data50.id !== "string") {
+                        const err82 = {
                           instancePath: instancePath + "/result/references/workers/" + i6 + "/id",
                           schemaPath:
                             "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/id/type",
-                          keyword: "type",
-                          params: { type: "string" },
-                          message: "must be string",
-                        };
-                        if (vErrors === null) {
-                          vErrors = [err81];
-                        } else {
-                          vErrors.push(err81);
-                        }
-                        errors++;
-                      }
-                    }
-                    if (data49.name !== undefined) {
-                      if (typeof data49.name !== "string") {
-                        const err82 = {
-                          instancePath: instancePath + "/result/references/workers/" + i6 + "/name",
-                          schemaPath:
-                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/name/type",
                           keyword: "type",
                           params: { type: "string" },
                           message: "must be string",
@@ -80162,8 +80429,26 @@ function validate713(
                         errors++;
                       }
                     }
+                    if (data50.name !== undefined) {
+                      if (typeof data50.name !== "string") {
+                        const err83 = {
+                          instancePath: instancePath + "/result/references/workers/" + i6 + "/name",
+                          schemaPath:
+                            "#/components/schemas/workers_Worker/properties/references/properties/workers/items/properties/name/type",
+                          keyword: "type",
+                          params: { type: "string" },
+                          message: "must be string",
+                        };
+                        if (vErrors === null) {
+                          vErrors = [err83];
+                        } else {
+                          vErrors.push(err83);
+                        }
+                        errors++;
+                      }
+                    }
                   } else {
-                    const err83 = {
+                    const err84 = {
                       instancePath: instancePath + "/result/references/workers/" + i6,
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/references/properties/workers/items/type",
@@ -80172,15 +80457,15 @@ function validate713(
                       message: "must be object",
                     };
                     if (vErrors === null) {
-                      vErrors = [err83];
+                      vErrors = [err84];
                     } else {
-                      vErrors.push(err83);
+                      vErrors.push(err84);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err84 = {
+                const err85 = {
                   instancePath: instancePath + "/result/references/workers",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/references/properties/workers/type",
@@ -80189,15 +80474,15 @@ function validate713(
                   message: "must be array",
                 };
                 if (vErrors === null) {
-                  vErrors = [err84];
+                  vErrors = [err85];
                 } else {
-                  vErrors.push(err84);
+                  vErrors.push(err85);
                 }
                 errors++;
               }
             }
           } else {
-            const err85 = {
+            const err86 = {
               instancePath: instancePath + "/result/references",
               schemaPath: "#/components/schemas/workers_Worker/properties/references/type",
               keyword: "type",
@@ -80205,43 +80490,25 @@ function validate713(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err85];
+              vErrors = [err86];
             } else {
-              vErrors.push(err85);
+              vErrors.push(err86);
             }
             errors++;
           }
         }
         if (data0.subdomain !== undefined) {
-          let data52 = data0.subdomain;
-          if (data52 && typeof data52 == "object" && !Array.isArray(data52)) {
-            if (data52.enabled !== undefined) {
-              if (typeof data52.enabled !== "boolean") {
-                const err86 = {
+          let data53 = data0.subdomain;
+          if (data53 && typeof data53 == "object" && !Array.isArray(data53)) {
+            if (data53.enabled !== undefined) {
+              if (typeof data53.enabled !== "boolean") {
+                const err87 = {
                   instancePath: instancePath + "/result/subdomain/enabled",
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/subdomain/properties/enabled/type",
                   keyword: "type",
                   params: { type: "boolean" },
                   message: "must be boolean",
-                };
-                if (vErrors === null) {
-                  vErrors = [err86];
-                } else {
-                  vErrors.push(err86);
-                }
-                errors++;
-              }
-            }
-            if (data52.preview_url_suffix !== undefined) {
-              if (typeof data52.preview_url_suffix !== "string") {
-                const err87 = {
-                  instancePath: instancePath + "/result/subdomain/preview_url_suffix",
-                  schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/preview_url_suffix/type",
-                  keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
                 };
                 if (vErrors === null) {
                   vErrors = [err87];
@@ -80251,15 +80518,15 @@ function validate713(
                 errors++;
               }
             }
-            if (data52.previews_enabled !== undefined) {
-              if (typeof data52.previews_enabled !== "boolean") {
+            if (data53.preview_url_suffix !== undefined) {
+              if (typeof data53.preview_url_suffix !== "string") {
                 const err88 = {
-                  instancePath: instancePath + "/result/subdomain/previews_enabled",
+                  instancePath: instancePath + "/result/subdomain/preview_url_suffix",
                   schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/preview_url_suffix/type",
                   keyword: "type",
-                  params: { type: "boolean" },
-                  message: "must be boolean",
+                  params: { type: "string" },
+                  message: "must be string",
                 };
                 if (vErrors === null) {
                   vErrors = [err88];
@@ -80269,15 +80536,15 @@ function validate713(
                 errors++;
               }
             }
-            if (data52.url !== undefined) {
-              if (!(typeof data52.url === "string")) {
+            if (data53.previews_enabled !== undefined) {
+              if (typeof data53.previews_enabled !== "boolean") {
                 const err89 = {
-                  instancePath: instancePath + "/result/subdomain/url",
+                  instancePath: instancePath + "/result/subdomain/previews_enabled",
                   schemaPath:
-                    "#/components/schemas/workers_Worker/properties/subdomain/properties/url/type",
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/previews_enabled/type",
                   keyword: "type",
-                  params: { type: "string" },
-                  message: "must be string",
+                  params: { type: "boolean" },
+                  message: "must be boolean",
                 };
                 if (vErrors === null) {
                   vErrors = [err89];
@@ -80287,8 +80554,26 @@ function validate713(
                 errors++;
               }
             }
+            if (data53.url !== undefined) {
+              if (!(typeof data53.url === "string")) {
+                const err90 = {
+                  instancePath: instancePath + "/result/subdomain/url",
+                  schemaPath:
+                    "#/components/schemas/workers_Worker/properties/subdomain/properties/url/type",
+                  keyword: "type",
+                  params: { type: "string" },
+                  message: "must be string",
+                };
+                if (vErrors === null) {
+                  vErrors = [err90];
+                } else {
+                  vErrors.push(err90);
+                }
+                errors++;
+              }
+            }
           } else {
-            const err90 = {
+            const err91 = {
               instancePath: instancePath + "/result/subdomain",
               schemaPath: "#/components/schemas/workers_Worker/properties/subdomain/type",
               keyword: "type",
@@ -80296,18 +80581,18 @@ function validate713(
               message: "must be object",
             };
             if (vErrors === null) {
-              vErrors = [err90];
+              vErrors = [err91];
             } else {
-              vErrors.push(err90);
+              vErrors.push(err91);
             }
             errors++;
           }
         }
         if (data0.tags !== undefined) {
-          let data57 = data0.tags;
-          if (Array.isArray(data57)) {
-            if (data57.length > 8) {
-              const err91 = {
+          let data58 = data0.tags;
+          if (Array.isArray(data58)) {
+            if (data58.length > 8) {
+              const err92 = {
                 instancePath: instancePath + "/result/tags",
                 schemaPath: "#/components/schemas/workers_Worker/properties/tags/maxItems",
                 keyword: "maxItems",
@@ -80315,18 +80600,18 @@ function validate713(
                 message: "must NOT have more than 8 items",
               };
               if (vErrors === null) {
-                vErrors = [err91];
+                vErrors = [err92];
               } else {
-                vErrors.push(err91);
+                vErrors.push(err92);
               }
               errors++;
             }
-            const len7 = data57.length;
+            const len7 = data58.length;
             for (let i7 = 0; i7 < len7; i7++) {
-              let data58 = data57[i7];
-              if (typeof data58 === "string") {
-                if (func2(data58) > 1024) {
-                  const err92 = {
+              let data59 = data58[i7];
+              if (typeof data59 === "string") {
+                if (func2(data59) > 1024) {
+                  const err93 = {
                     instancePath: instancePath + "/result/tags/" + i7,
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/tags/items/maxLength",
@@ -80335,14 +80620,14 @@ function validate713(
                     message: "must NOT have more than 1024 characters",
                   };
                   if (vErrors === null) {
-                    vErrors = [err92];
+                    vErrors = [err93];
                   } else {
-                    vErrors.push(err92);
+                    vErrors.push(err93);
                   }
                   errors++;
                 }
-                if (!pattern2.test(data58)) {
-                  const err93 = {
+                if (!pattern2.test(data59)) {
+                  const err94 = {
                     instancePath: instancePath + "/result/tags/" + i7,
                     schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/pattern",
                     keyword: "pattern",
@@ -80350,14 +80635,14 @@ function validate713(
                     message: 'must match pattern "' + "^[^,&]*$" + '"',
                   };
                   if (vErrors === null) {
-                    vErrors = [err93];
+                    vErrors = [err94];
                   } else {
-                    vErrors.push(err93);
+                    vErrors.push(err94);
                   }
                   errors++;
                 }
               } else {
-                const err94 = {
+                const err95 = {
                   instancePath: instancePath + "/result/tags/" + i7,
                   schemaPath: "#/components/schemas/workers_Worker/properties/tags/items/type",
                   keyword: "type",
@@ -80365,15 +80650,15 @@ function validate713(
                   message: "must be string",
                 };
                 if (vErrors === null) {
-                  vErrors = [err94];
+                  vErrors = [err95];
                 } else {
-                  vErrors.push(err94);
+                  vErrors.push(err95);
                 }
                 errors++;
               }
             }
           } else {
-            const err95 = {
+            const err96 = {
               instancePath: instancePath + "/result/tags",
               schemaPath: "#/components/schemas/workers_Worker/properties/tags/type",
               keyword: "type",
@@ -80381,22 +80666,22 @@ function validate713(
               message: "must be array",
             };
             if (vErrors === null) {
-              vErrors = [err95];
+              vErrors = [err96];
             } else {
-              vErrors.push(err95);
+              vErrors.push(err96);
             }
             errors++;
           }
         }
         if (data0.tail_consumers !== undefined) {
-          let data59 = data0.tail_consumers;
-          if (Array.isArray(data59)) {
-            const len8 = data59.length;
+          let data60 = data0.tail_consumers;
+          if (Array.isArray(data60)) {
+            const len8 = data60.length;
             for (let i8 = 0; i8 < len8; i8++) {
-              let data60 = data59[i8];
-              if (data60 && typeof data60 == "object" && !Array.isArray(data60)) {
-                if (data60.name === undefined) {
-                  const err96 = {
+              let data61 = data60[i8];
+              if (data61 && typeof data61 == "object" && !Array.isArray(data61)) {
+                if (data61.name === undefined) {
+                  const err97 = {
                     instancePath: instancePath + "/result/tail_consumers/" + i8,
                     schemaPath:
                       "#/components/schemas/workers_Worker/properties/tail_consumers/items/required",
@@ -80405,15 +80690,15 @@ function validate713(
                     message: "must have required property '" + "name" + "'",
                   };
                   if (vErrors === null) {
-                    vErrors = [err96];
+                    vErrors = [err97];
                   } else {
-                    vErrors.push(err96);
+                    vErrors.push(err97);
                   }
                   errors++;
                 }
-                if (data60.name !== undefined) {
-                  if (typeof data60.name !== "string") {
-                    const err97 = {
+                if (data61.name !== undefined) {
+                  if (typeof data61.name !== "string") {
+                    const err98 = {
                       instancePath: instancePath + "/result/tail_consumers/" + i8 + "/name",
                       schemaPath:
                         "#/components/schemas/workers_Worker/properties/tail_consumers/items/properties/name/type",
@@ -80422,15 +80707,15 @@ function validate713(
                       message: "must be string",
                     };
                     if (vErrors === null) {
-                      vErrors = [err97];
+                      vErrors = [err98];
                     } else {
-                      vErrors.push(err97);
+                      vErrors.push(err98);
                     }
                     errors++;
                   }
                 }
               } else {
-                const err98 = {
+                const err99 = {
                   instancePath: instancePath + "/result/tail_consumers/" + i8,
                   schemaPath:
                     "#/components/schemas/workers_Worker/properties/tail_consumers/items/type",
@@ -80439,37 +80724,20 @@ function validate713(
                   message: "must be object",
                 };
                 if (vErrors === null) {
-                  vErrors = [err98];
+                  vErrors = [err99];
                 } else {
-                  vErrors.push(err98);
+                  vErrors.push(err99);
                 }
                 errors++;
               }
             }
           } else {
-            const err99 = {
+            const err100 = {
               instancePath: instancePath + "/result/tail_consumers",
               schemaPath: "#/components/schemas/workers_Worker/properties/tail_consumers/type",
               keyword: "type",
               params: { type: "array" },
               message: "must be array",
-            };
-            if (vErrors === null) {
-              vErrors = [err99];
-            } else {
-              vErrors.push(err99);
-            }
-            errors++;
-          }
-        }
-        if (data0.updated_on !== undefined) {
-          if (!(typeof data0.updated_on === "string")) {
-            const err100 = {
-              instancePath: instancePath + "/result/updated_on",
-              schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
-              keyword: "type",
-              params: { type: "string" },
-              message: "must be string",
             };
             if (vErrors === null) {
               vErrors = [err100];
@@ -80479,8 +80747,25 @@ function validate713(
             errors++;
           }
         }
+        if (data0.updated_on !== undefined) {
+          if (!(typeof data0.updated_on === "string")) {
+            const err101 = {
+              instancePath: instancePath + "/result/updated_on",
+              schemaPath: "#/components/schemas/workers_Worker/properties/updated_on/type",
+              keyword: "type",
+              params: { type: "string" },
+              message: "must be string",
+            };
+            if (vErrors === null) {
+              vErrors = [err101];
+            } else {
+              vErrors.push(err101);
+            }
+            errors++;
+          }
+        }
       } else {
-        const err101 = {
+        const err102 = {
           instancePath: instancePath + "/result",
           schemaPath: "#/components/schemas/workers_Worker/type",
           keyword: "type",
@@ -80488,15 +80773,15 @@ function validate713(
           message: "must be object",
         };
         if (vErrors === null) {
-          vErrors = [err101];
+          vErrors = [err102];
         } else {
-          vErrors.push(err101);
+          vErrors.push(err102);
         }
         errors++;
       }
     }
   } else {
-    const err102 = {
+    const err103 = {
       instancePath,
       schemaPath: "#/allOf/1/type",
       keyword: "type",
@@ -80504,9 +80789,9 @@ function validate713(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err102];
+      vErrors = [err103];
     } else {
-      vErrors.push(err102);
+      vErrors.push(err103);
     }
     errors++;
   }

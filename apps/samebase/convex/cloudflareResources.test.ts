@@ -455,8 +455,11 @@ describe("cloudflare resources", () => {
     expect(isCloudflareBuildTriggerNotFoundError(workerError)).toBe(false);
   });
 
-  it("omits trace propagation policy when creating Workers with traces disabled", () => {
-    expect(buildCloudflareWorkerCreateBody("samebase-app").observability.traces).toBe(undefined);
+  it("sets explicit Worker observability defaults without trace propagation", () => {
+    const observability = buildCloudflareWorkerCreateBody("samebase-app").observability;
+
+    expect(observability.redact_query_string).toBe(false);
+    expect(observability.traces).toBe(undefined);
   });
 
   it("reads the production URL and normalized custom domains from the Worker identity response", async () => {

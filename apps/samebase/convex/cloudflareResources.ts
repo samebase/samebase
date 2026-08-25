@@ -275,6 +275,7 @@ export function buildCloudflareWorkerCreateBody(workerName: string): CloudflareW
     observability: {
       enabled: false,
       head_sampling_rate: 1,
+      redact_query_string: false,
       logs: {
         destinations: [],
         enabled: true,
