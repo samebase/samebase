@@ -68,6 +68,11 @@ description:
 ## Protect app identity
 
 - Read app inventory before a Samebase write when a repository can already be connected.
+- For managed app creation, read inventory first, then list the selected organization's current
+  Workers Builds tokens. Follow the token action's selection rule, call the create action once, and
+  poll only inventory until source and provider setup reach `ready` or `failed`. Stop and report a
+  failed state. When creation used a null token, report Cloudflare setup as pending after the other
+  setup reaches `ready`.
 - Reuse returned app, repository, provider account, and attachment identifiers without changing
   them. Treat identifiers as opaque.
 - Source setup and provider setup are separate states. Source work can continue while provider setup
