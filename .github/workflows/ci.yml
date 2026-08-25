@@ -264,6 +264,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Install starter template dependencies
+        working-directory: templates/app
+        run: pnpm install --frozen-lockfile
+
       - name: Bootstrap Convex for Windows predev
         run: node ./scripts/ci-bootstrap-convex.ts
 
@@ -278,6 +282,21 @@ jobs:
       - name: Verify Vite+ launcher on Windows
         working-directory: apps/samebase
         run: node ./scripts/run-vite-dev.ts --help
+
+      # `--help` keeps the process finite while Convex still parses the full
+      # `--start` value that launches auth setup and the frontend together.
+      - name: Verify starter template launcher on Windows
+        working-directory: templates/app
+        run: pnpm run dev --help
+
+      - name: Verify starter template worktree detection on Windows
+        working-directory: templates/app
+        run: pnpm exec vp test scripts/run-context-dev.test.ts
+
+      # Worktree mode sets anonymous Convex mode before it enters the same launcher.
+      - name: Verify starter template worktree launcher on Windows
+        working-directory: templates/app
+        run: pnpm run dev:worktree --help
 
   ci:
     name: ci (24.x)

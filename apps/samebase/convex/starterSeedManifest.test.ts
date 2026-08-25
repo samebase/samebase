@@ -59,7 +59,8 @@ describe("starterSeedManifest", () => {
       expect.objectContaining({
         type: "module",
         scripts: expect.objectContaining({
-          check: "vp check && vp run typecheck && vp test && vp run verify:cloudflare-redirects",
+          check:
+            "vp check && vp run typecheck && vp test && vp run verify:cloudflare-redirects && vp run verify:dev-launcher-version",
           build: "vp run build:cloudflare",
           "build:app": "vp run check && vp build",
           "build:cloudflare": "node ./scripts/build-cloudflare.ts",
