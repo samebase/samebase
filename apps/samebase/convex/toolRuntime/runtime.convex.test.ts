@@ -206,7 +206,7 @@ describe("MCP tool runtime boundaries", () => {
 
   it("emails an approved 5,235-character report without account metadata", async () => {
     const { t, userId } = await seedToolRuntimeOwner();
-    const report = "Samebase incident report. ".padEnd(5_235, "x");
+    const report = `  Samebase incident report.\n`.padEnd(5_233, "x") + "  ";
     expect(report).toHaveLength(5_235);
     vi.stubEnv("CLOUDFLARE_EMAIL_ACCOUNT_ID", "account-id");
     vi.stubEnv("CLOUDFLARE_EMAIL_API_TOKEN", "email-token");
