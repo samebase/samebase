@@ -11,12 +11,13 @@ description:
 ## Choose the control surface
 
 - Use Samebase actions to list apps, create or connect an app repository, attach or repair provider
-  resources, and open the Samebase dashboard.
-- Use GitHub, Convex, or Cloudflare tools for direct work in those systems. A provider action does
-  not change the Samebase app unless the action says that it does.
+  resources for a Samebase app, and open the Samebase dashboard.
+- Use GitHub, Convex, or Cloudflare tools for direct work in those systems. For a standalone
+  provider resource, use only provider tools and do not propose a Samebase workflow. A provider
+  action does not change the Samebase app unless the action says that it does.
 - When Samebase actions are registered but no action supports the requested operation, explain where
-  the user can do it and offer to open the dashboard through `create_browser_handoff`. Do not claim
-  that the operation finished.
+  the user can do it and offer to open the dashboard. Call `create_browser_handoff` only after the
+  user accepts. Do not claim that the operation finished.
 - Choose the action from the user's request. Follow the live MCP server and tool instructions for
   the current actions, arguments, effects, and required order.
 - Call only the actions needed for that route. Do not read app or authentication state as a generic
