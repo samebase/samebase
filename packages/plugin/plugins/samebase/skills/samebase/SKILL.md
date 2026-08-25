@@ -39,19 +39,24 @@ description:
   missing authorization.
 - Do not use another client's state, the public site, a browser, curl, manual MCP setup, Full
   Access, executable hunting or copying, or repeated OAuth as a fallback.
+- If a callable Samebase action reports missing authorization or scope, ask,
+  `Would you like me to start authorization with Samebase?` Start current-client authorization only
+  after the user agrees.
 - In Codex:
   1. If version 0.2.26 is verified as installed and direct-entry reinstall, installation OAuth, full
      restart, and a new task are complete, report that MCP did not register and stop.
-  2. Otherwise, run `codex plugin marketplace upgrade samebase`, then
+  2. Before any install or reinstall, always run `codex plugin marketplace upgrade samebase`, then
      `codex plugin list --available --json`, and verify that 0.2.26 is available. If the CLI does
-     not work, refresh the Samebase marketplace and verify 0.2.26 in Codex Plugins.
+     not work, refresh the Samebase marketplace and verify 0.2.26 in Codex Plugins. Do not continue
+     until the version is verified.
   3. Install or enable an absent or disabled `samebase@samebase` entry. Otherwise, uninstall only
      that direct entry, install it again, complete installation OAuth, fully restart Codex, start a
      new task, and verify installed version 0.2.26. Do not remove another Samebase entry.
   4. If other actions work but handoff is absent, offer Codex connection authorization. Do not
      reinstall.
-- In Claude Code, use `/plugin` to update Samebase and `/reload-plugins`. Use `/mcp` only after a
-  connection authorization error. If actions remain absent after reload, report failure and stop.
+- In Claude Code, run `/plugin marketplace update samebase`, `/plugin update samebase@samebase`, and
+  `/reload-plugins`. Use `/mcp` only after a connection authorization error. If actions remain
+  absent after reload, report failure and stop.
 - In ChatGPT, use ChatGPT Plugins to update or reconnect Samebase, then start a new chat. Authorize
   only after a reported authorization error. If actions remain absent, report failure and stop.
 
