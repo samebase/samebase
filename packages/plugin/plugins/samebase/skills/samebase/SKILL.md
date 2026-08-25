@@ -20,6 +20,8 @@ description:
   user accepts. Do not claim that the operation finished.
 - Choose the action from the user's request. Follow the live MCP server and tool instructions for
   the current actions, arguments, effects, and required order.
+- For a request about Samebase connection or authentication status, call the authentication-status
+  action directly. Do not read app inventory.
 - Call only the actions needed for that route. Do not read app or authentication state as a generic
   preflight.
 - Never offer feedback for a standalone GitHub, Convex, Cloudflare, or agent problem.
@@ -62,8 +64,6 @@ description:
   5. Select the in-app Browser. Do not select Chrome or another external browser.
   6. Open only the URL returned by `create_browser_handoff`, before it expires.
 - If the in-app Browser is unavailable, say so. Do not open Chrome.
-- Use authentication status only when the user asks about authentication or a tool reports missing
-  authentication.
 
 ## Protect app identity
 
