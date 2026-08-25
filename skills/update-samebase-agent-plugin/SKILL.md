@@ -43,7 +43,7 @@ not copy tool schemas or general coding instructions into the skill.
 ## Last full run
 
 - Date: 2026-08-25
-- Artifact commit: `36a05cde0`
+- Artifact commit: `0f0d81b88`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
 - Result: both models passed all eight cases. Each model selected the declared Samebase actions in
   the required order for connection status, app inventory, Worker discovery, managed app creation,
@@ -67,8 +67,8 @@ not copy tool schemas or general coding instructions into the skill.
 ## Last focused missing-action recovery run
 
 - Date: 2026-08-25
-- Final artifact commit: `36a05cde0`
-- Preceding recovery artifact commit: `ba8aec630`
+- Final artifact commit: `0f0d81b88`
+- Preceding recovery artifact commit: `4f858d0ac`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
 - Result: on the preceding artifact, both models passed six unchanged cases: unverified Codex
   version, absent handoff with other actions registered, callable authorization error, first Codex
