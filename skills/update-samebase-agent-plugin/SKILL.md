@@ -67,12 +67,13 @@ not copy tool schemas or general coding instructions into the skill.
 ## Last focused missing-action recovery run
 
 - Date: 2026-08-25
-- Artifact commit: `1a68e0a27`
+- Artifact commit: `e26b8323f`
 - Models: GPT-5.6 Luna low and GPT-5.6 Sol low
-- Result: both models passed five cases covering a missing Codex action, a callable authorization
-  error, terminal Codex recovery, Claude Code, and ChatGPT. Missing actions caused one repair
-  attempt through the current client. Only the callable authorization error caused an authorization
-  offer. No model used another client's state or the public Samebase site.
+- Result: both models loaded the recovery reference and passed five cases covering a missing Codex
+  action, a callable authorization error, terminal Codex recovery, Claude Code, and ChatGPT. Missing
+  actions caused one repair attempt through the current client. Only the callable authorization
+  error caused an authorization offer. No model used another client's state or the public Samebase
+  site.
 
 ## Last focused stack-alignment run
 
