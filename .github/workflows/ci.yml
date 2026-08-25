@@ -289,6 +289,11 @@ jobs:
         working-directory: templates/app
         run: pnpm run dev --help
 
+      # Worktree mode sets anonymous Convex mode before it enters the same launcher.
+      - name: Verify starter template worktree launcher on Windows
+        working-directory: templates/app
+        run: pnpm run dev:worktree --help
+
   ci:
     name: ci (24.x)
     runs-on: blacksmith-4vcpu-ubuntu-2404

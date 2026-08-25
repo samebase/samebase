@@ -12,10 +12,10 @@ export type StarterTemplateManifest = {
 };
 
 export const starterTemplateManifest: StarterTemplateManifest = {
-  version: "samebase-app-8653abdf33db",
+  version: "samebase-app-dbd4daa93afa",
   sourcePath: "templates/app",
   publishedRepo: "https://github.com/samebase/app.git",
-  contentHash: "8653abdf33db28bfb30cf7abfc84e5306edbf02f4ca4c69d5262ccd6e00ad37f",
+  contentHash: "dbd4daa93afa032bc20a08b3ee56b95c366f85ca16099563796cf7972ed750af",
   commitMessage: "chore: seed starter template",
   files: {
     ".agents/skills/convex-create-component/SKILL.md":
@@ -164,7 +164,7 @@ export const starterTemplateManifest: StarterTemplateManifest = {
     "scripts/run-dev.ts":
       '/// <reference types="node" />\nimport { spawn } from "node:child_process";\nimport process from "node:process";\nimport { fileURLToPath } from "node:url";\n\nconst vitePlusEntrypoint = fileURLToPath(import.meta.resolve("vite-plus/bin"));\n\nconst child = spawn(\n  process.execPath,\n  [\n    vitePlusEntrypoint,\n    "exec",\n    "convex",\n    "dev",\n    ...process.argv.slice(2),\n    "--start",\n    "node ./scripts/ensure-convex-auth.ts && vp run dev:frontend",\n  ],\n  {\n    stdio: "inherit",\n  },\n);\n\nchild.on("error", (error) => {\n  console.error(`Failed to start dev mode: ${error.message}`);\n  process.exit(1);\n});\n\nchild.on("close", (code) => {\n  process.exit(code ?? 1);\n});\n',
     "scripts/run-worktree-dev.ts":
-      '/// <reference types="node" />\nimport { spawn } from "node:child_process";\nimport process from "node:process";\n\nconst child = spawn("vp", ["run", "dev"], {\n  env: {\n    ...process.env,\n    CONVEX_AGENT_MODE: "anonymous",\n  },\n  shell: process.platform === "win32",\n  stdio: "inherit",\n});\n\nchild.on("error", (error) => {\n  console.error(`Failed to start worktree dev mode: ${error.message}`);\n  process.exit(1);\n});\n\nchild.on("close", (code) => {\n  process.exit(code ?? 1);\n});\n',
+      '/// <reference types="node" />\nimport process from "node:process";\n\nprocess.env["CONVEX_AGENT_MODE"] = "anonymous";\nawait import("./run-dev.ts");\n',
     "scripts/verify-current-branch-head.test.ts":
       'import { describe, expect, it } from "vite-plus/test";\n\nimport { verifyCurrentBranchHead } from "./verify-current-branch-head.ts";\n\ndescribe("verify-current-branch-head", () => {\n  it("accepts a manual build while its checkout is the branch head", () => {\n    verifyCurrentBranchHead(\n      {\n        WORKERS_CI: "1",\n        WORKERS_CI_BRANCH: "feature",\n        WORKERS_CI_COMMIT_SHA: "feature",\n      },\n      (branch) => {\n        expect(branch).toBe("feature");\n        return "new";\n      },\n      () => "new",\n    );\n  });\n\n  it("rejects a build after a newer commit reaches its branch", () => {\n    expect(() =>\n      verifyCurrentBranchHead(\n        {\n          WORKERS_CI: "1",\n          WORKERS_CI_BRANCH: "feature",\n        },\n        () => "new",\n        () => "old",\n      ),\n    ).toThrow("Convex was not deployed");\n  });\n\n  it("fails closed without Workers Builds branch identity", () => {\n    expect(() =>\n      verifyCurrentBranchHead(\n        { WORKERS_CI: "1" },\n        () => "new",\n        () => "new",\n      ),\n    ).toThrow("WORKERS_CI_BRANCH");\n  });\n\n  it("fails closed without a checked-out commit", () => {\n    expect(() =>\n      verifyCurrentBranchHead(\n        { WORKERS_CI: "1", WORKERS_CI_BRANCH: "feature" },\n        () => "new",\n        () => "",\n      ),\n    ).toThrow("checked-out commit");\n  });\n\n  it("skips the provider check during local deploy validation", () => {\n    expect(() =>\n      verifyCurrentBranchHead(\n        {},\n        () => "unused",\n        () => "unused",\n      ),\n    ).not.toThrow();\n  });\n});\n',
     "scripts/verify-current-branch-head.ts":
