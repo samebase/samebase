@@ -34,14 +34,15 @@ vp run dev
 `vp run dev` starts Convex and TanStack Start together. On the first run,
 Convex may ask you to sign in and choose or create a development deployment.
 The dev script also creates Convex Auth JWT keys in that development deployment
-if they are missing.
+if they are missing. In a linked Git worktree, it automatically uses an isolated
+local backend.
 
 Open the local URL printed by Vite.
 
-## Run worktree mode
+## Force worktree mode
 
-Use worktree mode for Codex, Conductor, or a separate git worktree where you
-want an isolated local backend.
+Use the normal `vp run dev` command in a linked Git worktree. Use the explicit
+worktree command to force an isolated local backend in another checkout.
 
 ```sh
 vp run dev:worktree
