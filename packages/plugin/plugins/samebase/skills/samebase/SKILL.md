@@ -117,5 +117,6 @@ route.
 - In Claude Code, run `/plugin marketplace update samebase`, `/plugin update samebase@samebase`, and
   `/reload-plugins`. Use `/mcp` only after a connection authorization error. If actions remain
   absent after reload, report failure and stop.
-- In ChatGPT, use ChatGPT Plugins to update or reconnect Samebase, then start a new chat. Authorize
+- In ChatGPT, do not check a Codex plugin version or use Codex controls. In ChatGPT Plugins, update
+  Samebase when an update is available. Otherwise, reconnect it. Then start one new chat. Authorize
   only after a reported authorization error. If actions remain absent, report failure and stop.
