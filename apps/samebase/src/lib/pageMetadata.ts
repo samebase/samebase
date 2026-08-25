@@ -55,14 +55,6 @@ export const TERMS_PAGE_METADATA: PageMetadata = {
   openGraphType: "website",
 };
 
-export const LINKS_PAGE_METADATA: PageMetadata = {
-  title: "Links | Samebase",
-  description: "Official Samebase links for YouTube, Discord, the GitHub plugin, and X.",
-  canonicalPath: "/links",
-  robots: "index,follow",
-  openGraphType: "website",
-};
-
 export const PITCH_DECK_PAGE_METADATA: PageMetadata = {
   title: "Pitch Deck | Samebase",
   description: "Pitch deck surface for Samebase. Public route used for deck review and PDF export.",
@@ -212,10 +204,6 @@ export function resolveAppPageTitle(pathname: string): string {
     return "Terms of Service | Samebase";
   }
 
-  if (pathname === "/links") {
-    return LINKS_PAGE_METADATA.title;
-  }
-
   if (pathname === "/pitch") {
     return PITCH_DECK_PAGE_METADATA.title;
   }
@@ -273,10 +261,6 @@ export function resolvePageMetadata(args: {
 
   if (args.pathname === "/terms") {
     return TERMS_PAGE_METADATA;
-  }
-
-  if (args.pathname === "/links") {
-    return LINKS_PAGE_METADATA;
   }
 
   if (args.pathname === "/pitch") {

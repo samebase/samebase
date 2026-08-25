@@ -105,7 +105,6 @@ export function AppSidebarMetaSection({
           /discord
         </a>
       </div>
-      <Link to="/links">/links</Link>
       <Link to="/terms">/terms</Link>
       <Link to="/privacy">/privacy</Link>
       <Link to="/pricing">/pricing</Link>

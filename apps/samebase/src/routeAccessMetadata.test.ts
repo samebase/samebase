@@ -50,13 +50,8 @@ describe("route access metadata", () => {
     });
   });
 
-  it("keeps public links available without suggesting redirect-only paths", () => {
-    expect(ROUTE_ACCESS_METADATA_BY_PATH["/links"]).toEqual({
-      access: "access_public",
-      appWorkspaceRouteChrome: { leftPane: "none" },
-    });
-
-    for (const path of ["/youtube", "/discord", "/plugin", "/x"] as const) {
+  it("keeps public link redirects out of route suggestions and prerendering", () => {
+    for (const path of ["/youtube", "/discord"] as const) {
       expect(ROUTE_ACCESS_METADATA_BY_PATH[path]).toEqual({
         access: "access_public",
         pathSuggestion: "redirect",

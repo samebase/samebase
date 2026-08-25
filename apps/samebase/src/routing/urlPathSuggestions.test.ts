@@ -43,7 +43,6 @@ describe("readRouteUrlPathSuggestions", () => {
 
     expect(suggestions).toContain("/");
     expect(suggestions).toContain("/pricing");
-    expect(suggestions).toContain("/links");
     for (const path of publicDocsPaths) {
       expect(suggestions).toContain(path);
     }
@@ -60,8 +59,6 @@ describe("readRouteUrlPathSuggestions", () => {
     expect(suggestions).not.toContain("/landing-preview");
     expect(suggestions).not.toContain("/youtube");
     expect(suggestions).not.toContain("/discord");
-    expect(suggestions).not.toContain("/plugin");
-    expect(suggestions).not.toContain("/x");
     expect(suggestions).not.toContain("/oauth/mcp/consent");
     expect(new Set(suggestions).size).toBe(suggestions.length);
     expect(suggestions).toEqual(

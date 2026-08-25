@@ -144,7 +144,6 @@ describe("AppSidebarMetaSection", () => {
     expect(readSidebarLinkLabels(prerenderedElement)).toEqual([
       "/youtube",
       "/discord",
-      "/links",
       "/terms",
       "/privacy",
       "/pricing",
@@ -156,7 +155,6 @@ describe("AppSidebarMetaSection", () => {
     expect(readSidebarLinkLabels(browserElement)).toEqual([
       "/youtube",
       "/discord",
-      "/links",
       "/terms",
       "/privacy",
       "/pricing",
@@ -195,7 +193,6 @@ describe("AppSidebarMetaSection", () => {
         "?reset",
         "/youtube",
         "/discord",
-        "/links",
         "/terms",
         "/privacy",
         "/pricing",
@@ -218,7 +215,6 @@ describe("AppSidebarMetaSection", () => {
       "?reset",
       "/youtube",
       "/discord",
-      "/links",
       "/terms",
       "/privacy",
       "/pricing",

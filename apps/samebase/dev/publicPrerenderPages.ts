@@ -99,11 +99,6 @@ const expectedPublicPrerenderMetadataByPath = {
     description: "Developer preview for exploring Samebase logo rendering.",
     robots: "noindex,nofollow",
   },
-  "/links": {
-    title: "Links | Samebase",
-    description: "Official Samebase links for YouTube, Discord, the GitHub plugin, and X.",
-    robots: "index,follow",
-  },
   "/oauth/mcp/consent": {
     title: "Authorize MCP client | Samebase",
     description: "Authorization route for a Samebase MCP client.",

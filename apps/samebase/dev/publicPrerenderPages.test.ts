@@ -12,7 +12,6 @@ describe("readPublicPrerenderPages", () => {
     expect(paths).toContain("/docs/do-it-yourself");
     expect(paths).toContain("/docs/receipts");
     expect(paths).toContain("/docs/the-stack");
-    expect(paths).toContain("/links");
     expect(paths).not.toContain("/landing-preview");
     expect(paths).toContain("/logo/hover/menger");
     expect(paths).toContain("/logo/iso");
@@ -32,8 +31,6 @@ describe("readPublicPrerenderPages", () => {
     expect(paths).not.toContain("/localStorage");
     expect(paths).not.toContain("/youtube");
     expect(paths).not.toContain("/discord");
-    expect(paths).not.toContain("/plugin");
-    expect(paths).not.toContain("/x");
     expect(paths).not.toContain("/visual-fixture");
     expect(paths).not.toContain("/vault/$");
   });
