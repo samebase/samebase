@@ -8,7 +8,7 @@ description:
 
 # Samebase
 
-If all Samebase actions are absent, use Recover missing actions before any normal route.
+If a requested Samebase action is absent, use Recover missing actions before any normal route.
 
 ## Choose the control surface
 
@@ -93,11 +93,12 @@ If all Samebase actions are absent, use Recover missing actions before any norma
 
 ## Recover missing actions
 
-- If any Samebase action works, do not use install recovery. If handoff is absent or a callable
-  action reports missing authorization or scope, offer current-client connection authorization. Do
-  not only report the blocker. Start authorization only after the user agrees.
-- If the skill loads but Samebase actions are absent, the current client's plugin or MCP connection
-  is not ready. Absence does not prove missing authorization.
+- If a requested Samebase action is absent, the current client's MCP action inventory is not ready.
+  This is true when all actions are absent and when only some actions are registered. Absence does
+  not prove missing authorization. Use this section, not authorization.
+- Only a callable Samebase action or connection that reports missing authorization or scope can
+  start authorization. Offer current-client connection authorization, and start it only after the
+  user agrees.
 - Do not use another client's state, the public site, a browser, curl, manual MCP setup, Full
   Access, executable hunting or copying, or repeated OAuth as a fallback.
 - Every nonterminal Codex recovery starts with marketplace refresh and verification that version
