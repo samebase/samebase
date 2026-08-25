@@ -14,8 +14,9 @@ description:
   resources, and open the Samebase dashboard.
 - Use GitHub, Convex, or Cloudflare tools for direct work in those systems. A provider action does
   not change the Samebase app unless the action says that it does.
-- When a requested Samebase operation is not available through MCP, explain where the user can do it
-  and offer to open the Samebase dashboard. Do not claim that the operation finished.
+- When Samebase actions are registered but no action supports the requested operation, explain where
+  the user can do it and offer to open the dashboard through `create_browser_handoff`. Do not claim
+  that the operation finished.
 - Choose the action from the user's request. Follow the live MCP server and tool instructions for
   the current actions, arguments, effects, and required order.
 - Call only the actions needed for that route. Do not read app or authentication state as a generic
@@ -27,17 +28,38 @@ description:
   report, then say,
   `I can automatically send this exact report to Samebase. No form is needed, and nothing is sent unless you approve. Send it?`
 
+## Recover missing actions
+
+- If the Samebase skill loads but Samebase actions are not registered, report that the local Codex
+  plugin or MCP connection is not ready. Absent actions do not prove missing authorization.
+- Open a Samebase URL only when Codex starts plugin OAuth or `create_browser_handoff` returns it.
+  Never open the public Samebase site, Chrome, or the in-app Browser as a fallback.
+- In Codex, run `codex plugin list --json` when the local CLI works. Do not use ChatGPT plugin
+  state, search for another Codex executable, copy an executable, or use browser, curl, or manual
+  MCP requests to replace missing actions.
+- If `samebase@samebase` is not installed or enabled, ask the user to install or enable that entry.
+  If it is installed and enabled but actions remain absent in a fresh task, ask the user to open
+  Codex Plugins, uninstall that direct-marketplace entry, install it again, complete the OAuth flow
+  started by installation, fully restart Codex, and start a new task. Do not remove another Samebase
+  entry.
+- If other Samebase actions are registered but `create_browser_handoff` is absent, explain that the
+  current connection does not grant the handoff action. Ask before starting authorization through
+  the Codex plugin or connection flow. Do not reinstall the plugin when its other actions work.
+- If actions are still absent after that recovery, report that the MCP connection did not register
+  and stop. Do not recommend Full Access or repeated OAuth.
+
 ## Open Samebase
 
 - Treat `open @samebase` and another request to open the Samebase dashboard as a request to use the
   in-app Browser.
-  1. Select the in-app Browser. Do not select Chrome or another external browser.
+  1. If `create_browser_handoff` is absent, follow Recover missing actions.
   2. Call `create_browser_handoff` directly. Do not call authentication status first.
-  3. If browser handoff is unavailable or reports missing authorization, explain that Samebase
-     authorization is required. Ask, `Would you like me to start authorization with Samebase?`
-  4. Start authorization only after the user agrees. Wait for it to finish, then call
-     `create_browser_handoff` again.
-  5. Open the returned URL in the selected Browser before it expires.
+  3. If the callable action reports missing authorization or scope, explain the requirement. Ask,
+     `Would you like me to start authorization with Samebase?`
+  4. Start authorization only through the Codex plugin or connection flow after the user agrees.
+     Wait for it to finish, then call `create_browser_handoff` again.
+  5. Select the in-app Browser. Do not select Chrome or another external browser.
+  6. Open only the URL returned by `create_browser_handoff`, before it expires.
 - If the in-app Browser is unavailable, say so. Do not open Chrome.
 - Use authentication status only when the user asks about authentication or a tool reports missing
   authentication.

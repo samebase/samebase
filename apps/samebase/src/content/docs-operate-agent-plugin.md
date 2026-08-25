@@ -23,6 +23,13 @@ codex plugin add samebase@samebase
 Start a new Codex task after installation so the workflow skill and the MCP server load. Complete
 Samebase OAuth when Codex prompts for access.
 
+If the skill loads but no Samebase actions appear, run `codex plugin list --json`. If the direct
+`samebase@samebase` entry is installed and enabled, open Codex Plugins, uninstall only that entry,
+and install it again. Complete the OAuth flow started by installation, fully restart Codex, and
+start a new task. Do not open the public Samebase site as an authorization or dashboard fallback.
+The agent can open the dashboard only with the one-time URL returned by the Samebase browser-handoff
+action.
+
 ## Claude Code
 
 Add the same public marketplace, install, and reload:

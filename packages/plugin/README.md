@@ -12,10 +12,14 @@ This repository is generated. Do not edit it directly. Use
 The plugin installs one MCP server named `samebase`. Authorize it when the client asks for access.
 Do not add `https://api.samebase.com/mcp` as a second manual server.
 
-`open @samebase` works only after Samebase is authorized. If authorization is missing, the agent
-should explain the requirement and ask, "Would you like me to start authorization with Samebase?"
-After authorization finishes, the agent creates a secure browser handoff and opens the Samebase
-dashboard in the in-app Browser.
+`open @samebase` works only after Samebase is authorized. The agent opens the dashboard only with a
+one-time URL returned by the Samebase browser-handoff action. The public Samebase site is not an
+authorization or dashboard fallback.
+
+If the Samebase skill loads but no Samebase actions appear, check `codex plugin list --json`. If the
+direct `samebase@samebase` entry is installed and enabled, open Codex Plugins, uninstall only that
+entry, and install it again. Complete the OAuth flow started by installation, fully restart Codex,
+and start a new task. Do not remove another Samebase entry when more than one appears.
 
 Start a new chat or task after installation or an update. To confirm the connection, ask:
 
