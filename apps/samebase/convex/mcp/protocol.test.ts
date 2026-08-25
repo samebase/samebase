@@ -3,12 +3,14 @@ import {
   buildMcpAuthorizationServerMetadata,
   buildMcpProtectedResourceMetadata,
   MCP_PROTOCOL_VERSION,
+  parseMcpToolCallParams,
   readBearerTokenFromAuthorizationHeader,
   redirectUriMatchesRegistered,
   validateAuthorizeRequestFromUrl,
   validateDynamicClientRegistrationPayload,
   validateJsonRpcRequestPayload,
-  validateMcpHttpRequest,
+  validateMcpProtocolVersionHeader,
+  validateMcpRequestParams,
   validateTokenRequestFromSearchParams,
 } from "./protocol";
 
@@ -492,12 +494,7 @@ describe("validateJsonRpcRequestPayload", () => {
       jsonrpc: "2.0",
       id: 1,
       method: "tools/list",
-      params: {
-        _meta: {
-          "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
-          "io.modelcontextprotocol/clientCapabilities": {},
-        },
-      },
+      params: {},
     });
 
     expect(result.ok).toBe(true);
@@ -524,12 +521,7 @@ describe("validateJsonRpcRequestPayload", () => {
     const result = validateJsonRpcRequestPayload({
       jsonrpc: "2.0",
       method: "tools/list",
-      params: {
-        _meta: {
-          "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
-          "io.modelcontextprotocol/clientCapabilities": {},
-        },
-      },
+      params: {},
     });
     expect(result.ok).toBe(true);
     if (result.ok) {
@@ -567,19 +559,13 @@ describe("validateJsonRpcRequestPayload", () => {
   });
 });
 
-describe("validateMcpHttpRequest", () => {
-  const metadata = {
-    "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
-    "io.modelcontextprotocol/clientInfo": { name: "test-client", version: "1.0.0" },
-    "io.modelcontextprotocol/clientCapabilities": {},
-  };
-
-  function request(method: string, params: Record<string, unknown> = {}) {
+describe("validateMcpRequestParams", () => {
+  function request(method: string, params?: unknown) {
     const result = validateJsonRpcRequestPayload({
       jsonrpc: "2.0",
       id: 1,
       method,
-      params: { _meta: metadata, ...params },
+      ...(params !== undefined ? { params } : {}),
     });
     if (!result.ok) {
       throw new Error(result.error);
@@ -587,217 +573,116 @@ describe("validateMcpHttpRequest", () => {
     return result.value;
   }
 
-  function headers(method: string, name?: string, version = MCP_PROTOCOL_VERSION) {
-    const result = new Headers({
-      "MCP-Protocol-Version": version,
-      "Mcp-Method": method,
-    });
-    if (name !== undefined) {
-      result.set("Mcp-Name", name);
-    }
-    return result;
-  }
-
-  it("accepts a self-contained modern request", () => {
-    expect(validateMcpHttpRequest(request("tools/list"), headers("tools/list"))).toEqual({
-      ok: true,
-    });
+  it("accepts legacy requests without 2026 headers or metadata", () => {
+    expect(validateMcpRequestParams(request("tools/list"))).toEqual({ ok: true });
+    expect(
+      validateMcpRequestParams(
+        request("initialize", {
+          protocolVersion: MCP_PROTOCOL_VERSION,
+          capabilities: { elicitation: {} },
+          clientInfo: {
+            name: "codex-mcp-client",
+            title: "Codex",
+            version: "0.53.0",
+          },
+        }),
+      ),
+    ).toEqual({ ok: true });
   });
 
-  it("rejects missing client capabilities", () => {
-    const rpcRequest = request("tools/list");
-    rpcRequest.params = {
-      _meta: {
-        "io.modelcontextprotocol/protocolVersion": MCP_PROTOCOL_VERSION,
-      },
-    };
-
-    expect(validateMcpHttpRequest(rpcRequest, headers("tools/list"))).toMatchObject({
-      ok: false,
-      kind: "invalid_params",
-      error: expect.stringContaining("clientCapabilities"),
-    });
+  it("accepts omitted or object ping params", () => {
+    expect(validateMcpRequestParams(request("ping"))).toEqual({ ok: true });
+    expect(validateMcpRequestParams(request("ping", {}))).toEqual({ ok: true });
   });
 
-  it("rejects missing and mismatched standard headers", () => {
-    const missingMethod = headers("tools/list");
-    missingMethod.delete("Mcp-Method");
-    expect(validateMcpHttpRequest(request("tools/list"), missingMethod)).toMatchObject({
-      ok: false,
-      kind: "header_mismatch",
-      error: expect.stringContaining("Mcp-Method"),
-    });
-    expect(validateMcpHttpRequest(request("tools/list"), headers("server/discover"))).toMatchObject(
-      {
+  it("rejects malformed ping params", () => {
+    for (const params of [null, [], "invalid", 1]) {
+      expect(validateMcpRequestParams(request("ping", params))).toEqual({
         ok: false,
-        kind: "header_mismatch",
-        error: expect.stringContaining("does not match"),
+        kind: "invalid_params",
+        error: "ping params must be an object when provided.",
+      });
+    }
+  });
+
+  it("rejects malformed initialize params", () => {
+    const validClientInfo = { name: "codex-mcp-client", version: "0.53.0" };
+    const cases = [
+      undefined,
+      null,
+      { protocolVersion: "", capabilities: {}, clientInfo: validClientInfo },
+      {
+        protocolVersion: MCP_PROTOCOL_VERSION,
+        capabilities: [],
+        clientInfo: validClientInfo,
       },
-    );
-  });
-
-  it("returns the requested unsupported protocol version", () => {
-    const unsupportedVersion = "2025-03-26";
-    const rpcRequest = request("tools/list");
-    rpcRequest.params = {
-      _meta: {
-        ...metadata,
-        "io.modelcontextprotocol/protocolVersion": unsupportedVersion,
+      {
+        protocolVersion: MCP_PROTOCOL_VERSION,
+        capabilities: {},
+        clientInfo: { name: "codex-mcp-client", version: "" },
       },
-    };
+    ];
 
-    expect(
-      validateMcpHttpRequest(rpcRequest, headers("tools/list", undefined, unsupportedVersion)),
-    ).toEqual({
-      ok: false,
-      kind: "unsupported_protocol_version",
-      requested: unsupportedVersion,
-    });
-  });
-
-  it("validates plain and Base64-encoded tool names", () => {
-    expect(
-      validateMcpHttpRequest(
-        request("tools/call", { name: "get_weather", arguments: {} }),
-        headers("tools/call", "get_weather"),
-      ),
-    ).toEqual({ ok: true });
-    expect(
-      validateMcpHttpRequest(
-        request("tools/call", { name: "名前", arguments: {} }),
-        headers("tools/call", "=?base64?5ZCN5YmN?="),
-      ),
-    ).toEqual({ ok: true });
-    expect(
-      validateMcpHttpRequest(
-        request("tools/call", { name: "=?BASE64?literal?=", arguments: {} }),
-        headers("tools/call", "=?BASE64?literal?="),
-      ),
-    ).toEqual({ ok: true });
-  });
-
-  it("validates mirrored prompt names and resource URIs", () => {
-    expect(
-      validateMcpHttpRequest(
-        request("prompts/get", { name: "review_code" }),
-        headers("prompts/get", "review_code"),
-      ),
-    ).toEqual({ ok: true });
-    expect(
-      validateMcpHttpRequest(
-        request("resources/read", { uri: "file:///project/readme.md" }),
-        headers("resources/read", "file:///project/readme.md"),
-      ),
-    ).toEqual({ ok: true });
-
-    expect(
-      validateMcpHttpRequest(
-        request("resources/read", { uri: "file:///project/readme.md" }),
-        headers("resources/read"),
-      ),
-    ).toMatchObject({
-      ok: false,
-      kind: "header_mismatch",
-      error: expect.stringContaining("Mcp-Name"),
-    });
-  });
-
-  it("rejects malformed tools/call params", () => {
-    expect(
-      validateMcpHttpRequest(
-        request("tools/call", { name: "", arguments: {} }),
-        headers("tools/call", "named-tool"),
-      ),
-    ).toMatchObject({
-      ok: false,
-      kind: "invalid_params",
-      error: expect.stringContaining("non-empty"),
-    });
-    expect(
-      validateMcpHttpRequest(
-        request("tools/call", { name: "named-tool", arguments: "not-an-object" }),
-        headers("tools/call", "named-tool"),
-      ),
-    ).toMatchObject({
-      ok: false,
-      kind: "invalid_params",
-      error: expect.stringContaining("arguments"),
-    });
+    for (const params of cases) {
+      expect(validateMcpRequestParams(request("initialize", params))).toMatchObject({
+        ok: false,
+        kind: "invalid_params",
+      });
+    }
   });
 
   it("rejects every supplied tools/list cursor", () => {
-    expect(
-      validateMcpHttpRequest(request("tools/list", { cursor: 123 }), headers("tools/list")),
-    ).toMatchObject({
+    expect(validateMcpRequestParams(request("tools/list", { cursor: 123 }))).toMatchObject({
       ok: false,
       kind: "invalid_params",
       error: expect.stringContaining("must be a string"),
     });
-    expect(
-      validateMcpHttpRequest(request("tools/list", { cursor: "next-page" }), headers("tools/list")),
-    ).toMatchObject({
+    expect(validateMcpRequestParams(request("tools/list", { cursor: "next-page" }))).toMatchObject({
       ok: false,
       kind: "invalid_params",
       error: expect.stringContaining("must be omitted"),
     });
   });
+});
 
-  it("rejects malformed encoded names and unsafe plain names", () => {
-    for (const nameHeader of ["=?base64?%%%?=", "=?base64?/w==?="]) {
-      expect(
-        validateMcpHttpRequest(
-          request("tools/call", { name: "名前", arguments: {} }),
-          headers("tools/call", nameHeader),
-        ),
-      ).toMatchObject({
-        ok: false,
-        kind: "header_mismatch",
-        error: expect.stringContaining("Mcp-Name"),
-      });
-    }
-
-    class RawMcpNameHeaders extends Headers {
-      readonly rawName: string;
-
-      constructor(rawName: string) {
-        super(headers("tools/call", "placeholder"));
-        this.rawName = rawName;
-      }
-
-      override get(name: string): string | null {
-        if (name.toLowerCase() === "mcp-name") {
-          return this.rawName;
-        }
-        return super.get(name);
-      }
-    }
-
-    for (const rawHeaders of [" padded", "padded\t", "名前"].map(
-      (rawName) => new RawMcpNameHeaders(rawName),
-    )) {
-      expect(
-        validateMcpHttpRequest(
-          request("tools/call", { name: "padded", arguments: {} }),
-          rawHeaders,
-        ),
-      ).toMatchObject({
-        ok: false,
-        kind: "header_mismatch",
-        error: expect.stringContaining("malformed"),
-      });
-    }
-  });
-
-  it("rejects a mismatched tool name", () => {
+describe("validateMcpProtocolVersionHeader", () => {
+  it("accepts only the 2025-06-18 protocol version", () => {
     expect(
-      validateMcpHttpRequest(
-        request("tools/call", { name: "get_weather", arguments: {} }),
-        headers("tools/call", "other_tool"),
+      validateMcpProtocolVersionHeader(
+        new Headers({ "MCP-Protocol-Version": MCP_PROTOCOL_VERSION }),
       ),
-    ).toMatchObject({
+    ).toEqual({ ok: true });
+    expect(validateMcpProtocolVersionHeader(new Headers())).toEqual({
       ok: false,
-      kind: "header_mismatch",
-      error: expect.stringContaining("Mcp-Name"),
+      kind: "missing",
+    });
+    expect(
+      validateMcpProtocolVersionHeader(new Headers({ "MCP-Protocol-Version": "2025-03-26" })),
+    ).toEqual({
+      ok: false,
+      kind: "unsupported",
+      requested: "2025-03-26",
+    });
+  });
+});
+
+describe("parseMcpToolCallParams", () => {
+  it("returns one validated tool-call shape", () => {
+    expect(parseMcpToolCallParams({ name: "tool" })).toEqual({
+      ok: true,
+      value: { name: "tool", arguments: {} },
+    });
+    expect(parseMcpToolCallParams({ name: "", arguments: {} })).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("non-empty"),
+    });
+    expect(parseMcpToolCallParams({ name: "tool", arguments: "invalid" })).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("arguments"),
+    });
+    expect(parseMcpToolCallParams(undefined)).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("object"),
     });
   });
 });

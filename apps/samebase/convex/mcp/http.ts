@@ -1,8 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { object, optional, string, unknown as unknownValue } from "@samebase/sure";
 import type { FunctionReference } from "convex/server";
 import type { Value } from "convex/values";
-import { asRecord, type JsonRecord } from "../jsonUtils";
+import type { JsonRecord } from "../jsonUtils";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
 import {
@@ -64,14 +63,16 @@ import {
   buildMcpAuthorizationServerMetadata,
   buildMcpProtectedResourceMetadata,
   getDefaultMcpProtocolValidationOptions,
-  MCP_SUPPORTED_PROTOCOL_VERSIONS,
+  MCP_PROTOCOL_VERSION,
   MCP_V1_SUPPORTED_SCOPES,
+  parseMcpToolCallParams,
   readBearerTokenFromAuthorizationHeader,
   redirectUriMatchesRegistered,
   validateAuthorizeRequestFromUrl,
   validateDynamicClientRegistrationPayload,
   validateJsonRpcRequestPayload,
-  validateMcpHttpRequest,
+  validateMcpProtocolVersionHeader,
+  validateMcpRequestParams,
   validateTokenRequestFromSearchParams,
 } from "./protocol";
 import { isMcpOauthClientInactive } from "./client";
@@ -80,7 +81,6 @@ import codexPluginManifest from "../../../../packages/plugin/plugins/samebase/.c
 
 const MCP_PROVISIONAL_CLIENT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const MCP_AUTH_REQUEST_TTL_MS = 10 * 60 * 1000;
-const MCP_CACHE_TTL_MS = 0;
 const MCP_SERVER_INFO = {
   name: "Samebase",
   version: "0.1.0",
@@ -98,11 +98,6 @@ For other writes, read ${getUserVaultsContract.mcp.name} whenever a repository m
 Inventory reports Samebase-owned workflow state and stable resource IDs. Read current provider existence, configuration, deployment state, and logs from provider-native tools unless an explicit Samebase action exposes that live read. Match the required IDs to an explicit action contract, call that action, then reread inventory.
 
 Make code changes, run setup and validation, and commit or push in the returned GitHub repository. Use provider-native tools for logs, general environment values, migrations, custom domains, and terminal build state when Samebase does not expose that read. The current action and provider-boundary docs are indexed at https://samebase.com/llms.txt.`;
-const mcpToolCallParams = object({
-  name: string,
-  arguments: optional(unknownValue),
-});
-
 async function readMcpViewer(ctx: ActionCtx, userId: Id<"users">) {
   return await ctx.runQuery(internal.functions.resolveViewerForUserId, { userId });
 }
@@ -419,13 +414,7 @@ function jsonRpcSuccessResponse(args: { id: string | number; result: JsonRecord 
   return jsonResponse({
     jsonrpc: "2.0",
     id: args.id,
-    result: {
-      ...args.result,
-      resultType: "complete",
-      _meta: {
-        "io.modelcontextprotocol/serverInfo": MCP_SERVER_INFO,
-      },
-    },
+    result: args.result,
   });
 }
 
@@ -433,7 +422,6 @@ function jsonRpcErrorResponse(args: {
   id?: string | number;
   code: number;
   message: string;
-  data?: JsonRecord;
   status?: number;
 }): Response {
   return jsonResponse(
@@ -443,7 +431,6 @@ function jsonRpcErrorResponse(args: {
       error: {
         code: args.code,
         message: args.message,
-        ...(args.data ? { data: args.data } : {}),
       },
     },
     args.status ?? 400,
@@ -451,7 +438,12 @@ function jsonRpcErrorResponse(args: {
 }
 
 export function readMcpMethodForUsage(method: string): SamebaseUsageMcpMethod {
-  if (method === "server/discover" || method === "tools/list" || method === "tools/call") {
+  if (
+    method === "initialize" ||
+    method === "notifications/initialized" ||
+    method === "tools/list" ||
+    method === "tools/call"
+  ) {
     return method;
   }
 
@@ -459,12 +451,12 @@ export function readMcpMethodForUsage(method: string): SamebaseUsageMcpMethod {
 }
 
 export function readMcpToolNameForUsage(params: unknown): SamebaseUsageMcpToolName {
-  const [hasParams, toolCallParams] = mcpToolCallParams(params);
-  if (!hasParams) {
+  const toolCallParams = parseMcpToolCallParams(params);
+  if (!toolCallParams.ok) {
     return "unknown";
   }
 
-  const toolName = toolCallParams.name;
+  const toolName = toolCallParams.value.name;
   return mcpToolCatalog.find((tool) => tool.name === toolName)?.name ?? "unknown";
 }
 
@@ -840,31 +832,28 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
   }
 
   const rpcRequest = jsonRpcValidation.value;
-  const mcpRequestValidation = validateMcpHttpRequest(rpcRequest, request.headers);
-  if (!mcpRequestValidation.ok) {
-    if (mcpRequestValidation.kind === "invalid_params") {
-      return jsonRpcErrorResponse({
-        id: rpcRequest.id,
-        code: -32602,
-        message: mcpRequestValidation.error,
-      });
-    }
-    if (mcpRequestValidation.kind === "header_mismatch") {
-      return jsonRpcErrorResponse({
-        id: rpcRequest.id,
-        code: -32020,
-        message: `Header mismatch: ${mcpRequestValidation.error}`,
-      });
-    }
+  if (rpcRequest.method === "server/discover" && rpcRequest.id !== undefined) {
     return jsonRpcErrorResponse({
       id: rpcRequest.id,
-      code: -32022,
-      message: "Unsupported protocol version",
-      data: {
-        supported: [...MCP_SUPPORTED_PROTOCOL_VERSIONS],
-        requested: mcpRequestValidation.requested,
-      },
+      code: -32601,
+      message: "Method not found: server/discover",
+      status: 200,
     });
+  }
+
+  if (rpcRequest.method !== "initialize") {
+    const protocolVersionValidation = validateMcpProtocolVersionHeader(request.headers);
+    if (!protocolVersionValidation.ok) {
+      return jsonRpcErrorResponse({
+        id: rpcRequest.id,
+        code: protocolVersionValidation.kind === "missing" ? -32020 : -32022,
+        message:
+          protocolVersionValidation.kind === "missing"
+            ? "MCP-Protocol-Version header is required."
+            : `Unsupported MCP-Protocol-Version: ${protocolVersionValidation.requested}`,
+        status: 400,
+      });
+    }
   }
 
   const bearerValidation = readBearerTokenFromAuthorizationHeader(
@@ -940,26 +929,38 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
   });
 
   if (rpcRequest.id === undefined) {
-    return jsonRpcErrorResponse({
-      code: -32601,
-      message: `Method not found: ${rpcRequest.method}`,
-      status: 404,
-    });
+    return new Response(null, { status: 202 });
   }
   const requestId = rpcRequest.id;
 
-  if (rpcRequest.method === "server/discover") {
+  const mcpRequestValidation = validateMcpRequestParams(rpcRequest);
+  if (!mcpRequestValidation.ok) {
+    return jsonRpcErrorResponse({
+      id: requestId,
+      code: -32602,
+      message: mcpRequestValidation.error,
+      status: 200,
+    });
+  }
+
+  if (rpcRequest.method === "initialize") {
     return jsonRpcSuccessResponse({
       id: requestId,
       result: {
-        supportedVersions: [...MCP_SUPPORTED_PROTOCOL_VERSIONS],
+        protocolVersion: MCP_PROTOCOL_VERSION,
         capabilities: {
           tools: {},
         },
+        serverInfo: MCP_SERVER_INFO,
         instructions: MCP_SERVER_INSTRUCTIONS,
-        ttlMs: MCP_CACHE_TTL_MS,
-        cacheScope: "private",
       },
+    });
+  }
+
+  if (rpcRequest.method === "ping") {
+    return jsonRpcSuccessResponse({
+      id: requestId,
+      result: {},
     });
   }
 
@@ -973,31 +974,30 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
           grantedScopes,
           currentAccessKeys: currentViewer.accessKeys,
         }),
-        ttlMs: MCP_CACHE_TTL_MS,
-        cacheScope: "private",
       },
     });
   }
 
   if (rpcRequest.method === "tools/call") {
     const grantedScopes = parseScopeTokens(tokenValidation.scope);
-    const [hasParams, params] = mcpToolCallParams(rpcRequest.params);
-    if (!hasParams) {
+    const toolCallParams = parseMcpToolCallParams(rpcRequest.params);
+    if (!toolCallParams.ok) {
       return jsonRpcErrorResponse({
         id: requestId,
         code: -32602,
-        message: "Invalid tools/call params.",
+        message: toolCallParams.error,
+        status: 200,
       });
     }
 
-    const toolName = params.name;
-    const input = asRecord(params.arguments);
+    const { arguments: input, name: toolName } = toolCallParams.value;
     const tool = mcpToolCatalog.find((entry) => entry.name === toolName);
     if (!tool) {
       return jsonRpcErrorResponse({
         id: requestId,
         code: -32602,
         message: `Unknown tool: ${toolName}`,
+        status: 200,
       });
     }
 
@@ -1066,11 +1066,11 @@ export const handleMcpRequest = httpAction(async (ctx, request) => {
     id: requestId,
     code: -32601,
     message: `Method not found: ${rpcRequest.method}`,
-    status: 404,
+    status: 200,
   });
 });
 
-export const rejectMcpLegacyTransportMethod = httpAction(async (_ctx, request) => {
+export const rejectMcpUnsupportedTransportMethod = httpAction(async (_ctx, request) => {
   if (!hasAllowedMcpOrigin(request)) {
     return jsonRpcErrorResponse({
       code: -32600,

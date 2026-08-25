@@ -5,7 +5,12 @@ const SAMEBASE_USAGE_CONTEXT_LOG_TOPIC = "samebase_usage_context";
 const SAMEBASE_USAGE_CONTEXT_LOG_VERSION = 1;
 
 export type SamebaseUsageFunctionKind = "query" | "mutation" | "action" | "http_action";
-export type SamebaseUsageMcpMethod = "server/discover" | "tools/list" | "tools/call" | "other";
+export type SamebaseUsageMcpMethod =
+  | "initialize"
+  | "notifications/initialized"
+  | "tools/list"
+  | "tools/call"
+  | "other";
 export type SamebaseUsageMcpToolName = ActionContractMcpName | "unknown";
 
 type SamebaseUsageContextLog = {
