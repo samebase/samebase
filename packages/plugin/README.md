@@ -45,11 +45,13 @@ codex plugin marketplace upgrade samebase
 codex plugin add samebase@samebase
 ```
 
-If a requested action is absent, refresh the marketplace and compare the installed
-`samebase@samebase` version with the latest available version. Install or enable the direct entry if
-it is absent or disabled. Otherwise, reinstall only that entry. Complete the OAuth flow started by
-installation, restart Codex, and start a new task. If the action is still absent, report that the
-plugin did not register and stop.
+If a requested action is absent, use Codex Plugins if the CLI is unavailable. Refresh the
+marketplace. Read the latest available version and the direct entry's installed state and version.
+If the user states in a new task that this version was already repaired, report that the plugin did
+not register and stop. Otherwise, install or enable `samebase@samebase` if it is absent or disabled,
+update it if it is older, or reinstall only that entry if the versions match. Complete the OAuth
+flow started by installation. Before restart, tell the user to state the repaired version in the new
+task.
 
 ## Install with Claude Code
 

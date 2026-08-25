@@ -13,7 +13,7 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageRoot = resolve(repoRoot, "packages/plugin");
 const pluginRoot = resolve(packageRoot, "plugins/samebase");
 const repositoryUrl = "https://github.com/samebase/plugin";
-const semanticVersionPattern = /\b(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\b/;
+const semanticVersionPattern = /\bv?(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\b/i;
 
 function check(condition: boolean, message: string): void {
   if (!condition) {

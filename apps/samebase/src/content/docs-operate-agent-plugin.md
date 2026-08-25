@@ -24,12 +24,13 @@ Start a new Codex task after installation so the workflow skill and the MCP serv
 Samebase OAuth when Codex prompts for access.
 
 If a requested Samebase action is absent, Codex did not register it. This does not prove an
-authorization failure. Refresh the marketplace and compare the installed `samebase@samebase` version
-with the latest available version. Install or enable the direct entry if it is absent or disabled.
-Otherwise, reinstall only that entry. Complete the OAuth flow started by installation, restart
-Codex, and start a new task. If the action is still absent, report that the plugin did not register
-and stop. The agent can open the dashboard only with the one-time URL returned by the Samebase
-browser-handoff action.
+authorization failure. Use Codex Plugins if the CLI is unavailable. Refresh the marketplace. Read
+the latest available version and the direct entry's installed state and version. If the user states
+in a new task that this version was already repaired, report that the plugin did not register and
+stop. Otherwise, install or enable `samebase@samebase` if it is absent or disabled, update it if it
+is older, or reinstall only that entry if the versions match. Complete the OAuth flow started by
+installation. Before restart, tell the user to state the repaired version in the new task. The agent
+can open the dashboard only with the one-time URL returned by the Samebase browser-handoff action.
 
 ## Claude Code
 
