@@ -8,7 +8,8 @@ description:
 
 # Samebase
 
-If a requested Samebase action is absent, use Recover missing actions before any normal route.
+If a Samebase route requires an action that is absent, use Recover missing actions before that
+route.
 
 ## Choose the control surface
 
@@ -93,9 +94,9 @@ If a requested Samebase action is absent, use Recover missing actions before any
 
 ## Recover missing actions
 
-- If a requested Samebase action is absent, the current client's MCP action inventory is not ready.
-  This is true when all actions are absent and when only some actions are registered. Absence does
-  not prove missing authorization. Use this section, not authorization.
+- If a Samebase route requires an action that is absent, the current client's MCP action inventory
+  is not ready. This is true when all actions are absent and when only some actions are registered.
+  Absence does not prove missing authorization. Use this section, not authorization.
 - Only a callable Samebase action or connection that reports missing authorization or scope can
   start authorization. Offer current-client connection authorization, and start it only after the
   user agrees.
