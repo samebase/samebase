@@ -51,9 +51,11 @@ description:
 - Read app inventory before a Samebase write when a repository can already be connected.
 - Managed app creation always uses all four steps:
   1. Read inventory.
-  2. List the selected organization's current Workers Builds tokens. Use the last-used token when
-     available, the sole token when only one exists, user choice when several exist, or null only
-     when the list is empty.
+  2. List the selected organization's current Workers Builds tokens, then select exactly:
+     - If the last-used token is current, use it.
+     - Otherwise, if one token exists, use it.
+     - Otherwise, if several tokens exist, stop and ask the user to choose by name and UUID.
+     - Otherwise, the list is empty, so pass null.
   3. Call the create action once.
   4. Poll only inventory until both source and provider setup reach `ready` or `failed`. Stop and
      report a failed state. With a null token, report Cloudflare setup as pending after the other
