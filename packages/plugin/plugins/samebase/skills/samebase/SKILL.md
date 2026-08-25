@@ -33,6 +33,10 @@ description:
 
 ## Recover missing actions
 
+- First check whether the user already completed direct-entry reinstall, installation OAuth, a full
+  Codex restart, and a new task. If actions remain absent after all four steps, report that the MCP
+  connection did not register and stop. Do not run more diagnostics or repeat a recovery step in the
+  same incident.
 - If the Samebase skill loads but Samebase actions are not registered, report that the local Codex
   plugin or MCP connection is not ready. Absent actions do not prove missing authorization.
 - Open a Samebase URL only when Codex starts plugin OAuth or `create_browser_handoff` returns it.
@@ -48,9 +52,7 @@ description:
 - If other Samebase actions are registered but `create_browser_handoff` is absent, explain that the
   current connection does not grant the handoff action. Ask before starting authorization through
   the Codex plugin or connection flow. Do not reinstall the plugin when its other actions work.
-- If actions are still absent after that exact reinstall, installation OAuth, full restart, and new
-  task, report that the MCP connection did not register and stop. Do not repeat a recovery step in
-  the same incident. Do not recommend Full Access or repeated OAuth.
+- Do not recommend Full Access or repeated OAuth.
 
 ## Open Samebase
 
@@ -70,10 +72,11 @@ description:
 
 - Read app inventory before a Samebase write when a repository can already be connected.
 - For managed app creation, read inventory first, then list the selected organization's current
-  Workers Builds tokens. Follow the token action's selection rule, call the create action once, and
-  poll only inventory until source and provider setup reach `ready` or `failed`. Stop and report a
-  failed state. When creation used a null token, report Cloudflare setup as pending after the other
-  setup reaches `ready`.
+  Workers Builds tokens. Use the last-used token when available, use the sole token, ask the user to
+  choose when several tokens exist, or pass null only when the list is empty. Call the create action
+  once, then poll only inventory until source and provider setup reach `ready` or `failed`. Stop and
+  report a failed state. When creation used a null token, report Cloudflare setup as pending after
+  the other setup reaches `ready`.
 - Reuse returned app, repository, provider account, and attachment identifiers without changing
   them. Treat identifiers as opaque.
 - Source setup and provider setup are separate states. Source work can continue while provider setup
