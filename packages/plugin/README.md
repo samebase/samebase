@@ -45,13 +45,11 @@ codex plugin marketplace upgrade samebase
 codex plugin add samebase@samebase
 ```
 
-If a requested action is absent, run `codex plugin marketplace upgrade samebase`, then check
-`codex plugin list --available --json`. Verify that version 0.2.26 is available. If the direct
-`samebase@samebase` entry is installed and enabled but actions remain absent in a fresh task, open
-Codex Plugins, uninstall only that entry, and install it again. Complete the OAuth flow started by
-installation, fully restart Codex, start a new task, and verify that version 0.2.26 is installed. If
-the CLI does not work, refresh the Samebase marketplace and verify version 0.2.26 in Codex Plugins
-before reinstall. Do not remove another Samebase entry when more than one appears.
+If a requested action is absent, refresh the marketplace and compare the installed
+`samebase@samebase` version with the latest available version. Install or enable the direct entry if
+it is absent or disabled. Otherwise, reinstall only that entry. Complete the OAuth flow started by
+installation, restart Codex, and start a new task. If the action is still absent, report that the
+plugin did not register and stop.
 
 ## Install with Claude Code
 

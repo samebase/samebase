@@ -23,16 +23,13 @@ codex plugin add samebase@samebase
 Start a new Codex task after installation so the workflow skill and the MCP server load. Complete
 Samebase OAuth when Codex prompts for access.
 
-If a requested Samebase action is absent, including when no Samebase actions appear, do not infer an
-authorization failure. Start authorization only when a callable connection or action reports an
-authorization or scope error. Run `codex plugin marketplace upgrade samebase`, then
-`codex plugin list --available --json`. Verify that version 0.2.26 is available. If the direct
-`samebase@samebase` entry is installed and enabled, open Codex Plugins, uninstall only that entry,
-and install it again. Complete the OAuth flow started by installation, fully restart Codex, start a
-new task, and verify that version 0.2.26 is installed. If the CLI does not work, refresh the
-Samebase marketplace and verify version 0.2.26 in Codex Plugins before reinstall. Do not open the
-public Samebase site as an authorization or dashboard fallback. The agent can open the dashboard
-only with the one-time URL returned by the Samebase browser-handoff action.
+If a requested Samebase action is absent, Codex did not register it. This does not prove an
+authorization failure. Refresh the marketplace and compare the installed `samebase@samebase` version
+with the latest available version. Install or enable the direct entry if it is absent or disabled.
+Otherwise, reinstall only that entry. Complete the OAuth flow started by installation, restart
+Codex, and start a new task. If the action is still absent, report that the plugin did not register
+and stop. The agent can open the dashboard only with the one-time URL returned by the Samebase
+browser-handoff action.
 
 ## Claude Code
 
