@@ -8,6 +8,8 @@ description:
 
 # Samebase
 
+If all Samebase actions are absent, use Recover missing actions before any normal route.
+
 ## Choose the control surface
 
 - Use Samebase actions to list apps, create or connect an app repository, attach or repair provider
@@ -31,34 +33,6 @@ description:
   report that states what the user tried, what happened, and what should improve. Show the exact
   report, then say,
   `I can automatically send this exact report to Samebase. No form is needed, and nothing is sent unless you approve. Send it?`
-
-## Recover missing actions
-
-- If any Samebase action works, do not use install recovery. If handoff is absent or a callable
-  action reports missing authorization or scope, offer current-client connection authorization. Do
-  not only report the blocker. Start authorization only after the user agrees.
-- If the skill loads but Samebase actions are absent, use this section before authorization or
-  browser work. The current client's plugin or MCP connection is not ready. Absence does not prove
-  missing authorization.
-- Do not use another client's state, the public site, a browser, curl, manual MCP setup, Full
-  Access, executable hunting or copying, or repeated OAuth as a fallback.
-- Every nonterminal Codex recovery starts with marketplace refresh and verification that version
-  0.2.26 is available. Never install, enable, or reinstall before this verification.
-- In Codex:
-  1. If version 0.2.26 is verified as installed and direct-entry reinstall, installation OAuth, full
-     restart, and a new task are complete, report that MCP did not register and stop.
-  2. Before any install or reinstall, always run `codex plugin marketplace upgrade samebase`, then
-     `codex plugin list --available --json`, and verify that 0.2.26 is available. If the CLI does
-     not work, refresh the Samebase marketplace and verify 0.2.26 in Codex Plugins. Do not continue
-     until the version is verified.
-  3. Install or enable an absent or disabled `samebase@samebase` entry. Otherwise, uninstall only
-     that direct entry, install it again, complete installation OAuth, fully restart Codex, start a
-     new task, and verify installed version 0.2.26. Do not remove another Samebase entry.
-- In Claude Code, run `/plugin marketplace update samebase`, `/plugin update samebase@samebase`, and
-  `/reload-plugins`. Use `/mcp` only after a connection authorization error. If actions remain
-  absent after reload, report failure and stop.
-- In ChatGPT, use ChatGPT Plugins to update or reconnect Samebase, then start a new chat. Authorize
-  only after a reported authorization error. If actions remain absent, report failure and stop.
 
 ## Open Samebase
 
@@ -116,3 +90,30 @@ description:
   has no matching read.
 - A started run, build request, commit, or push does not prove that a deployment is live.
 - Never put credentials in Git, logs, screenshots, or responses. Report only verified state.
+
+## Recover missing actions
+
+- If any Samebase action works, do not use install recovery. If handoff is absent or a callable
+  action reports missing authorization or scope, offer current-client connection authorization. Do
+  not only report the blocker. Start authorization only after the user agrees.
+- If the skill loads but Samebase actions are absent, the current client's plugin or MCP connection
+  is not ready. Absence does not prove missing authorization.
+- Do not use another client's state, the public site, a browser, curl, manual MCP setup, Full
+  Access, executable hunting or copying, or repeated OAuth as a fallback.
+- Every nonterminal Codex recovery starts with marketplace refresh and verification that version
+  0.2.26 is available. Never install, enable, or reinstall before this verification.
+- In Codex:
+  1. If version 0.2.26 is verified as installed and direct-entry reinstall, installation OAuth, full
+     restart, and a new task are complete, report that MCP did not register and stop.
+  2. Before any install or reinstall, always run `codex plugin marketplace upgrade samebase`, then
+     `codex plugin list --available --json`, and verify that 0.2.26 is available. If the CLI does
+     not work, refresh the Samebase marketplace and verify 0.2.26 in Codex Plugins. Do not continue
+     until the version is verified.
+  3. Install or enable an absent or disabled `samebase@samebase` entry. Otherwise, uninstall only
+     that direct entry, install it again, complete installation OAuth, fully restart Codex, start a
+     new task, and verify installed version 0.2.26. Do not remove another Samebase entry.
+- In Claude Code, run `/plugin marketplace update samebase`, `/plugin update samebase@samebase`, and
+  `/reload-plugins`. Use `/mcp` only after a connection authorization error. If actions remain
+  absent after reload, report failure and stop.
+- In ChatGPT, use ChatGPT Plugins to update or reconnect Samebase, then start a new chat. Authorize
+  only after a reported authorization error. If actions remain absent, report failure and stop.
