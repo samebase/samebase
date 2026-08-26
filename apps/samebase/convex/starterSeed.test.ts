@@ -141,7 +141,7 @@ describe("seedRepositoryWithStarter", () => {
     sourcePath: "templates/app",
     publishedRepo: "https://github.com/samebase/app.git",
     contentHash: "starter-template-test",
-    commitMessage: "chore: seed starter template",
+    commitMessage: "Initialize Samebase app",
     files: {
       "README.md": "starter",
       "src/App.tsx": "export default function App() { return null; }",

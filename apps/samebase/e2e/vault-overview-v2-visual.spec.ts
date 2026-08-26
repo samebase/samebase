@@ -664,7 +664,7 @@ test("reproduces the observed new repository provisioning states", async ({ page
   await expect(staleEmptyFixture.getByText(/^No open pull requests\.?$/)).toHaveCount(1);
 
   const commitFixture = await openVaultOverviewV2(page, "vault-overview-v2-provisioning-commit");
-  await expect(commitFixture.getByText("chore: seed starter template")).toBeVisible();
+  await expect(commitFixture.getByText("Initialize Samebase app")).toBeVisible();
   await expect(commitFixture.getByLabel("Loading Convex deployment")).toBeVisible();
 
   const workerFixture = await openVaultOverviewV2(page, "vault-overview-v2-provisioning-worker");
