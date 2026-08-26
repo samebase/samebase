@@ -58,6 +58,7 @@ export default defineConfig({
       },
     ],
     rules: {
+      complexity: ["warn", { max: 20, variant: "modified" }],
       "samebase/no-hand-written-type-predicate": "error",
       "samebase/no-ios-small-text-entry-control": "error",
       "samebase/no-raw-public-convex-function-builders": "error",

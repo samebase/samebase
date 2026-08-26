@@ -93,10 +93,12 @@ export function WorkspaceLayoutV2FullPage({
   leftToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
   rightToggleVisibility?: WorkspaceLayoutV2ToggleVisibility;
 }) {
+  const effectiveLeftToggleVisibility = left ? leftToggleVisibility : "hidden";
+  const effectiveRightToggleVisibility = right ? rightToggleVisibility : "hidden";
   const hasDesktopHeaderToggle =
-    (left && leftToggleVisibility !== "hidden") || (right && rightToggleVisibility !== "hidden");
+    effectiveLeftToggleVisibility !== "hidden" || effectiveRightToggleVisibility !== "hidden";
   const hasMobileHeaderToggle =
-    (left && leftToggleVisibility === "all") || (right && rightToggleVisibility === "all");
+    effectiveLeftToggleVisibility === "all" || effectiveRightToggleVisibility === "all";
   const shouldRenderMainHeader = !!main.header || hasDesktopHeaderToggle || hasMobileHeaderToggle;
   const mainHeaderVisibility =
     !main.header && !hasMobileHeaderToggle && hasDesktopHeaderToggle ? "desktop" : "all";
@@ -114,8 +116,8 @@ export function WorkspaceLayoutV2FullPage({
           header={
             shouldRenderMainHeader ? (
               <WorkspaceLayoutV2MainPaneHeader
-                leftToggleVisibility={left ? leftToggleVisibility : "hidden"}
-                rightToggleVisibility={right ? rightToggleVisibility : "hidden"}
+                leftToggleVisibility={effectiveLeftToggleVisibility}
+                rightToggleVisibility={effectiveRightToggleVisibility}
               >
                 {main.header}
               </WorkspaceLayoutV2MainPaneHeader>

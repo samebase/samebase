@@ -667,10 +667,7 @@ function isAncestor(ancestor: string, descendant: string, cwd: string): boolean 
   return result.status === 0;
 }
 
-function runClean(options: CleanOptions): void {
-  const { apply, base: baseOption } = options;
-
-  const repoRoot = git(["rev-parse", "--show-toplevel"]).trim();
+function resolveVerifiedCleanupBase(repoRoot: string, baseOption: string | undefined) {
   const requestedBase = baseOption?.trim();
   const base =
     requestedBase && requestedBase.length > 0
@@ -688,6 +685,15 @@ function runClean(options: CleanOptions): void {
     console.error(`base ref not found: ${baseRef}`);
     process.exit(1);
   }
+
+  return { base, baseRef };
+}
+
+function runClean(options: CleanOptions): void {
+  const { apply, base: baseOption } = options;
+
+  const repoRoot = git(["rev-parse", "--show-toplevel"]).trim();
+  const { base, baseRef } = resolveVerifiedCleanupBase(repoRoot, baseOption);
 
   const worktrees = getWorktrees();
   const toRemove: WorktreeRemovalCandidate[] = [];
@@ -796,23 +802,7 @@ function runBranchClean(options: CleanOptions): void {
   const { apply, base: baseOption } = options;
 
   const repoRoot = git(["rev-parse", "--show-toplevel"]).trim();
-  const requestedBase = baseOption?.trim();
-  const base =
-    requestedBase && requestedBase.length > 0
-      ? normalizeBaseName(requestedBase)
-      : resolveDefaultBranchName(repoRoot);
-  const baseRef = resolveBaseRef(
-    repoRoot,
-    requestedBase && requestedBase.length > 0 ? requestedBase : base,
-  );
-
-  const baseCheck = gitStatus(["rev-parse", "--verify", baseRef], {
-    cwd: repoRoot,
-  });
-  if (baseCheck.status !== 0) {
-    console.error(`base ref not found: ${baseRef}`);
-    process.exit(1);
-  }
+  const { base, baseRef } = resolveVerifiedCleanupBase(repoRoot, baseOption);
 
   const worktrees = getWorktrees();
   const activeBranches = new Map<string, string[]>();
