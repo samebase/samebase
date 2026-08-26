@@ -9,7 +9,7 @@ describe("starterSeedManifest", () => {
     );
     expect(starterTemplateManifest.sourcePath).toBe("templates/app");
     expect(starterTemplateManifest.publishedRepo).toBe("https://github.com/samebase/app.git");
-    expect(starterTemplateManifest.commitMessage).toBe("chore: seed starter template");
+    expect(starterTemplateManifest.commitMessage).toBe("Initialize Samebase app");
   });
 
   it("includes required runnable starter files", () => {

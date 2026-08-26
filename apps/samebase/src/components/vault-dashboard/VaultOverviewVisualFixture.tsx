@@ -688,7 +688,7 @@ const PROVISIONING_CONVEX_OBSERVATIONS = {
 
 const PROVISIONING_DEFAULT_BRANCH = {
   headCommitOid: "e027945fddf37a983c3b44e88dcdb7d55ebe2109",
-  headCommitTitle: "chore: seed starter template",
+  headCommitTitle: "Initialize Samebase app",
   headCommitCommittedAt: "2026-07-25T15:40:42Z",
   headCommitUrl:
     "https://github.com/nicu-chiciuc/tmp-f149-vault-loading-states/commit/e027945fddf37a983c3b44e88dcdb7d55ebe2109",
