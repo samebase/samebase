@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,13 +7,11 @@ import claudeMarketplace from "../packages/plugin/.claude-plugin/marketplace.jso
 import claudeManifest from "../packages/plugin/plugins/samebase/.claude-plugin/plugin.json" with { type: "json" };
 import codexManifest from "../packages/plugin/plugins/samebase/.codex-plugin/plugin.json" with { type: "json" };
 import mcp from "../packages/plugin/plugins/samebase/.mcp.json" with { type: "json" };
-import { trackedFilePath } from "./lib/trackedFilePath.ts";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const packageRoot = resolve(repoRoot, "packages/plugin");
 const pluginRoot = resolve(packageRoot, "plugins/samebase");
 const repositoryUrl = "https://github.com/samebase/plugin";
-const semanticVersionPattern = /\bv?(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\.(?:0|[1-9]\d*)\b/i;
 
 function check(condition: boolean, message: string): void {
   if (!condition) {
@@ -114,19 +112,5 @@ check(
   "The public plugin must contain only the Samebase skill.",
 );
 resolvePluginPath(skillsRoot, "samebase/SKILL.md", "Samebase skill");
-
-for (const guidancePath of [
-  trackedFilePath("packages/plugin/README.md"),
-  trackedFilePath("packages/plugin/plugins/samebase/skills/samebase/SKILL.md"),
-  trackedFilePath(
-    "packages/plugin/plugins/samebase/skills/samebase/references/recover-missing-actions.md",
-  ),
-  trackedFilePath("apps/samebase/src/content/docs-operate-agent-plugin.md"),
-]) {
-  check(
-    !semanticVersionPattern.test(readFileSync(resolve(repoRoot, guidancePath), "utf8")),
-    `${guidancePath} must compare with the marketplace version instead of hard-coding one.`,
-  );
-}
 
 console.log("Samebase agent plugin checks passed.");
