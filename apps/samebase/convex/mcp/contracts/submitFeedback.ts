@@ -5,6 +5,8 @@ import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolic
 
 const { string } = v;
 
+export const MAX_FEEDBACK_REPORT_LENGTH = 6_000;
+
 export const submitFeedbackContract = {
   id: "submit_feedback",
   access: ACCESS_FEEDBACK_SUBMIT,
@@ -24,7 +26,7 @@ export const submitFeedbackContract = {
       destructiveHint: false,
     },
     inputDescriptions: {
-      report: "The exact user-approved feedback report. Maximum 2,000 characters.",
+      report: `The exact user-approved feedback report. Maximum ${MAX_FEEDBACK_REPORT_LENGTH} characters.`,
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Emails one feedback report to Samebase staff. The agent must show the complete report
