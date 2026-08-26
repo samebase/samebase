@@ -293,18 +293,14 @@ export function DefaultBranchSection({
     repoName: workspace.vault.ghRepoName,
     branch: defaultBranch,
   });
-  const productionLoading =
-    workspace.cloudflareObservations.workers.state === "loading" ||
-    workspace.cloudflareObservations.workers.state === "checking" ||
-    workspace.cloudflareObservations.builds.state === "loading" ||
-    workspace.cloudflareObservations.builds.state === "checking" ||
-    workspace.convexObservations.state === "loading" ||
-    workspace.convexObservations.state === "checking";
   const productionObservationStates = [
     workspace.cloudflareObservations.workers,
     workspace.cloudflareObservations.builds,
     workspace.convexObservations,
   ];
+  const productionLoading = productionObservationStates.some(
+    (state) => state.state === "loading" || state.state === "checking",
+  );
   const productionStatusUnavailable = productionObservationStates.some(
     (state) => state.state === "failed",
   );
