@@ -7,7 +7,7 @@
 - Last updated: 2026-06-06
 - Supersedes:
   - framework-readiness direction in
-    `specs/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
+    `archive/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
 - Depends on:
   - `apps/samebase/package.json`
   - `apps/samebase/public/_redirects`
@@ -19,14 +19,14 @@
   - `apps/samebase/src/entry.tsx`
   - `apps/samebase/src/main.tsx`
   - `apps/samebase/vite.config.ts`
-  - `specs/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
+  - `archive/080_WORKSPACE_LAYOUT_V2_ROUTE_MIGRATION_AND_FRAMEWORK_READINESS_SPEC.md`
   - `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md`
 
 ## Summary
 
 Samebase should migrate to TanStack Router, not React Router framework mode.
 
-The accepted shell seams from `specs/080` still stand:
+The accepted shell seams from archived Spec 080 still stand:
 
 - `Layout.tsx`
 - `RepositoryWorkspaceFrame`
@@ -45,7 +45,7 @@ problems, attempted fixes, and outcomes.
 
 1. Adopt TanStack Router without widening scope into a separate framework boot migration first.
 2. Preserve the current `pnpm dev:worktree` and Vite-based local workflows while the router changes.
-3. Keep the route-layout seams from `specs/080` so shell work and router work stay decoupled.
+3. Keep the route-layout seams from archived Spec 080 so shell work and router work stay decoupled.
 4. Replace the landing/bootstrap split-brain with normal routed rendering.
 5. Keep a running migration log of real blockers and attempted fixes.
 
@@ -83,17 +83,17 @@ problems, attempted fixes, and outcomes.
   rather than finishing search ownership.
 - Post-migration cleanup now lives in `specs/082_TANSTACK_ROUTER_CLEANUP_SPEC.md` so this document
   can stay focused on the migration itself.
-- The shared workspace wrapper migration in `specs/080` is a separate track. Router and bootstrap
-  cleanup should not be coupled to `RepositoryWorkspaceFrame` / `DashboardWorkspaceLayout` rewrites
-  or the `FileView` mobile drag-contract migration unless a step truly needs both.
+- The shared workspace wrapper migration from archived Spec 080 is a separate track. Router and
+  bootstrap cleanup should not be coupled to `RepositoryWorkspaceFrame` / `DashboardWorkspaceLayout`
+  rewrites or the `FileView` mobile drag-contract migration unless a step truly needs both.
 
 ## Working Log
 
 ### 2026-04-08
 
-- Problem: `specs/080` assumes future React Router framework readiness. Tried: inspected the
+- Problem: archived Spec 080 assumes future React Router framework readiness. Tried: inspected the
   accepted spec plus the repo history around commit `57fd46e5` and revert `2f7c7224`. Result: keep
-  the shell seams from `specs/080`, but replace the future-router direction with TanStack Router.
+  its shell seams, but replace the future-router direction with TanStack Router.
 
 - Problem: the repo already tried a framework bootstrap that deleted `index.html` and
   `bootstrap.ts`, then reverted it. Tried: inspected the reverted change summary and its deleted
@@ -185,11 +185,11 @@ problems, attempted fixes, and outcomes.
   during the migration.
 
 - Problem: after phases 1 through 3 landed on `origin/main`, the original sequence in this spec was
-  too coarse and the constraint list had gone stale. Tried: reread `specs/080`, audited the merged
-  `origin/main` router state, and compared that state to the remaining bootstrap and auth-gated
-  route work. Result: split the remaining plan into explicit route-ownership work, search-param
-  migration, and bootstrap deletion, and keep the workspace-shell migration from `specs/080` as a
-  separate track.
+  too coarse and the constraint list had gone stale. Tried: reread archived Spec 080, audited the
+  merged `origin/main` router state, and compared that state to the remaining bootstrap and
+  auth-gated route work. Result: split the remaining plan into explicit route-ownership work,
+  search-param migration, and bootstrap deletion, and keep the workspace-shell migration from
+  archived Spec 080 as a separate track.
 
 - Problem: deleting `bootstrap.ts` immediately after the standalone public routes moved looked
   tempting, but bootstrap still owns real runtime behavior. Tried: audited `bootstrap.ts`,
@@ -378,5 +378,5 @@ problems, attempted fixes, and outcomes.
    `FastPublicLandingShell.tsx`, and the related parity-only tests or fixtures.
 2. Delete the remaining unresolved fallback route bridge in `App.tsx` and the router compat seam in
    `apps/samebase/src/lib/router.ts` once those callers have a deliberate TanStack-native path.
-3. Keep the shared workspace wrapper and drag-contract migration from `specs/080` on a separate
-   rollout track, and reconnect it only where routed ownership genuinely needs those seams.
+3. Keep the shared workspace wrapper and drag-contract migration from archived Spec 080 on a
+   separate rollout track, and reconnect it only where routed ownership genuinely needs those seams.

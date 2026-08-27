@@ -2,9 +2,12 @@
 
 ## Document Control
 
-- Status: Accepted
+- Status: Superseded
 - Owner: Samebase frontend/workspace shell
-- Last updated: 2026-06-27
+- Last updated: 2026-08-28
+- Superseded by:
+  - `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
+  - `specs/094_WORKSPACE_LAYOUT_PANE_RUNTIME_SPEC.md`
 - Related files:
   - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
   - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2Geometry.ts`

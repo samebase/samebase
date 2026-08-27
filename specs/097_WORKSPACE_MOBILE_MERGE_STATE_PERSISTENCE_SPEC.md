@@ -8,20 +8,20 @@
 - Last updated: 2026-08-28
 - Related specs:
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
-  - `specs/094_WORKSPACE_LAYOUT_SIDEBAR_STATE_CONVERGENCE_SPEC.md`
+  - `specs/094_WORKSPACE_LAYOUT_PANE_RUNTIME_SPEC.md`
 - Decision history:
   - [PR #734](https://github.com/samebase/samebase/pull/734) added durable mobile merge state.
   - [PR #1289](https://github.com/samebase/samebase/pull/1289) replaced route and viewport state
     repair with a local display fallback.
 - Main code and tests:
   - `apps/samebase/convex/workspaceSidebarStateModel.ts`
-  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`
-  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2Prehydration.ts`
-  - `apps/samebase/src/components/workspace-layout-v2/WorkspacePaneRuntime.tsx`
-  - `apps/samebase/src/components/workspace-layout-v2/useWorkspaceLayoutV2MobileResize.ts`
+  - `packages/workspace-layout/src/WorkspaceLayoutV2.tsx`
+  - `packages/workspace-layout/src/WorkspaceLayoutV2Prehydration.ts`
+  - `packages/workspace-layout/src/WorkspacePaneRuntime.tsx`
+  - `packages/workspace-layout/src/useWorkspaceLayoutV2MobileResize.ts`
+  - `packages/workspace-layout/src/WorkspaceLayoutV2.mobile.test.tsx`
   - `apps/samebase/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
   - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`
-  - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.mobile.test.tsx`
   - `apps/samebase/e2e/workspace-layout-v2.live.spec.ts`
   - `apps/samebase/e2e/workspace-sidebar-drag.spec.ts`
 

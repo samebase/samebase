@@ -2,9 +2,12 @@
 
 ## Document Control
 
-- Status: Accepted
+- Status: Superseded
 - Owner: Samebase frontend/workspace shell
-- Last updated: 2026-06-27
+- Last updated: 2026-08-28
+- Superseded by:
+  - `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
+  - `specs/081_TANSTACK_ROUTER_MIGRATION_SPEC.md`
 - Depends on:
   - `apps/samebase/index.html`
   - `apps/samebase/package.json`
