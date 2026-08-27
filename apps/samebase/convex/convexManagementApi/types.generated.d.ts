@@ -1062,6 +1062,10 @@ export interface components {
         | "sso:enable"
         | "sso:disable"
         | "sso:update"
+        | "directorySync:enable"
+        | "directorySync:disable"
+        | "directorySync:updateGroupMapping"
+        | "directorySync:deleteGroupMapping"
         | "deployment:transfer"
         | "deployment:receive"
         | "deployment:update"
@@ -1830,6 +1834,11 @@ export interface components {
       | "sso:disable"
       | "sso:update"
       | "sso:view"
+      | "directorySync:enable"
+      | "directorySync:disable"
+      | "directorySync:updateGroupMapping"
+      | "directorySync:deleteGroupMapping"
+      | "directorySync:view"
       | "customRole:view"
       | "integration:view"
       | "integration:create"
@@ -1853,7 +1862,8 @@ export interface components {
       | "deployment:auditLog:view"
       | "deployment:usageLimits:view"
       | "deployment:usageLimits:write"
-      | "deployment:usage:view";
+      | "deployment:usage:view"
+      | "deployment:aiGateway:use";
     RoleStatementActions:
       | components["schemas"]["RoleStatementWildcardAction"]
       | components["schemas"]["RoleStatementAction"][];
@@ -1904,6 +1914,11 @@ export interface components {
        *     `role` is `custom`.
        */
       customRoles?: components["schemas"]["TeamMemberCustomRole"][] | null;
+      /**
+       * @description Present only on directory-sync teams. `true` means the member's IdP
+       *     account is suspended.
+       */
+      dsyncSuspended?: boolean | null;
     };
     /**
      * @description A custom role attached to a team member, denormalized with the
@@ -3049,6 +3064,10 @@ export interface operations {
           | "sso:enable"
           | "sso:disable"
           | "sso:update"
+          | "directorySync:enable"
+          | "directorySync:disable"
+          | "directorySync:updateGroupMapping"
+          | "directorySync:deleteGroupMapping"
           | "deployment:transfer"
           | "deployment:receive"
           | "deployment:update"

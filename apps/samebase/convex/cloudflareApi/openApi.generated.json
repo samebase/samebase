@@ -6594,6 +6594,8 @@
         "tags": ["Metrics Export"],
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-ignore": true,
+        "x-fern-sdk-group-name": "observability.metrics-export",
+        "x-fern-sdk-method-name": "delete",
         "x-forge-hidden": true
       },
       "get": {
@@ -6775,6 +6777,8 @@
         "tags": ["Metrics Export"],
         "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
         "x-fern-ignore": true,
+        "x-fern-sdk-group-name": "observability.metrics-export",
+        "x-fern-sdk-method-name": "list",
         "x-forge-hidden": true
       },
       "parameters": [
@@ -7172,6 +7176,8 @@
         "tags": ["Metrics Export"],
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-ignore": true,
+        "x-fern-sdk-group-name": "observability.metrics-export",
+        "x-fern-sdk-method-name": "upsert",
         "x-forge-hidden": true
       }
     },
@@ -10327,6 +10333,8 @@
         "tags": ["Live Tail"],
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-ignore": true,
+        "x-fern-sdk-group-name": "observability.telemetry",
+        "x-fern-sdk-method-name": "liveTail",
         "x-forge-hidden": true
       }
     },
@@ -10502,6 +10510,8 @@
         "tags": ["Live Tail"],
         "x-api-token-group": ["Workers Observability Write"],
         "x-fern-ignore": true,
+        "x-fern-sdk-group-name": "observability.telemetry",
+        "x-fern-sdk-method-name": "heartbeat",
         "x-forge-hidden": true
       }
     },
@@ -11948,6 +11958,8 @@
         "tags": ["Usage"],
         "x-api-token-group": ["Workers Observability Write", "Workers Observability Read"],
         "x-fern-ignore": true,
+        "x-fern-sdk-group-name": "observability",
+        "x-fern-sdk-method-name": "usage",
         "x-forge-hidden": true
       },
       "parameters": [
