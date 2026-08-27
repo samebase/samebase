@@ -15,16 +15,21 @@ import { isRecord } from "../jsonUtils";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
 import { vCloudflareBuildState } from "./cloudflareBuildMatching";
 import {
-  detectHostingCommentParseFailures,
-  resolveCloudflarePagesPreviews,
+  detectCloudflareWorkerCommentParseFailures,
+  resolveCloudflareWorkerComments,
+} from "./pullRequestCloudflareWorkerComments";
+import { readGitHubCloudflareWorkerChecks } from "./pullRequestCloudflareWorkerChecks";
+import {
+  CLOUDFLARE_WORKER_PROOF_SOURCE,
   resolveCloudflareWorkerBranchPreviewUrl,
   resolveCloudflareWorkerBuild,
-  resolveCloudflareWorkerCheckRuns,
+  type CloudflareWorkerProofRead,
+} from "./pullRequestCloudflareWorkerProof";
+import {
+  detectHostingCommentParseFailures,
+  resolveCloudflarePagesPreviews,
   resolveNetlifyHostingPreviews,
-  type CloudflareCommitCheckRuns,
   type CloudflarePagesRead,
-  type CloudflareWorkerCheckRead,
-  type CloudflareWorkerCheckRunInput,
   type HostingCommentBodies,
   type HostingCommentParseFailure,
   type HostingPreviewRead,
@@ -37,11 +42,8 @@ const { array, id, literal, object, string, union } = v;
 
 const CLOUDFLARE_GITHUB_BOT_NODE_ID = "MDM6Qm90NzMxMzk0MDI=";
 const NETLIFY_GITHUB_BOT_NODE_ID = "MDM6Qm90NDAyMDkzMjY=";
-const CLOUDFLARE_GITHUB_APP_DATABASE_ID = 85455;
-const CLOUDFLARE_GITHUB_APP_SLUG = "cloudflare-workers-and-pages";
 const GITHUB_PULL_REQUEST_COMMENT_PAGE_SIZE = 100;
 const GITHUB_PULL_REQUEST_COMMIT_PAGE_SIZE = 100;
-const GITHUB_CHECK_RUN_PAGE_SIZE = 100;
 const GITHUB_PULL_REQUEST_RESOURCE_LIMIT = 100;
 
 const vPullRequestConvexResource = union(
@@ -221,52 +223,6 @@ const providerIssueCommentBodySchema = z.object({
   }),
 });
 const providerIssueCommentBodiesSchema = z.object({ nodes: z.array(z.unknown()) });
-const providerCloudflareCheckRunSchema = z.object({
-  __typename: z.literal("CheckRun"),
-  id: z.string().min(1),
-  name: z.string().min(1),
-  status: z.string().min(1),
-  conclusion: z.string().min(1).nullable(),
-  detailsUrl: z.string().min(1).nullable(),
-  externalId: z.string().min(1).nullable(),
-  title: z.string().min(1).nullable(),
-  summary: z.string().nullable(),
-});
-const providerCloudflareCheckRunConnectionSchema = z.object({
-  totalCount: z.number().int().nonnegative(),
-  pageInfo: z.object({
-    hasNextPage: z.boolean(),
-    endCursor: z.string().min(1).nullable(),
-  }),
-  nodes: z.array(providerCloudflareCheckRunSchema).max(GITHUB_CHECK_RUN_PAGE_SIZE),
-});
-const providerCloudflareCheckSuiteSchema = z.object({
-  __typename: z.literal("CheckSuite"),
-  id: z.string().min(1),
-  app: z.object({
-    databaseId: z.number().int().positive(),
-    slug: z.string().min(1),
-  }),
-  checkRuns: providerCloudflareCheckRunConnectionSchema,
-});
-const providerCloudflareCheckSuiteConnectionSchema = z.object({
-  totalCount: z.number().int().nonnegative(),
-  nodes: z.array(providerCloudflareCheckSuiteSchema).max(1),
-});
-const providerCloudflareCommitCheckSchema = z.object({
-  __typename: z.literal("Commit"),
-  id: z.string().min(1),
-  oid: providerGitObjectIdSchema,
-  checkSuites: providerCloudflareCheckSuiteConnectionSchema,
-});
-const providerCloudflareCheckBatchSchema = z.object({
-  commits: z.array(z.unknown()),
-  pullRequests: z.array(z.unknown()),
-});
-const providerCloudflareCheckRunPageSchema = z.object({
-  pullRequest: z.unknown(),
-  suite: z.unknown(),
-});
 const providerRecoverablePullRequestErrorsSchema = z
   .array(
     z.object({
@@ -318,7 +274,7 @@ type PullRequestResourceHeadSeed = PullRequestResourceHeadBase & {
   commitScan: PullRequestCommitScan;
 };
 export type PullRequestResourceHead = PullRequestResourceHeadBase & {
-  cloudflareWorkerChecks: CloudflareWorkerCheckRead;
+  cloudflareWorkerProof: CloudflareWorkerProofRead;
   hostingPreviews: {
     cloudflare: CloudflarePagesRead;
     netlify: HostingPreviewRead<NetlifyHostingPreview>;
@@ -438,102 +394,6 @@ const PULL_REQUEST_COMMENT_BODIES_QUERY = `
           state
           repository { databaseId }
         }
-      }
-    }
-  }
-`;
-
-const PULL_REQUEST_CLOUDFLARE_CHECKS_QUERY = `
-  query PullRequestCloudflareChecks($commitIds: [ID!]!, $pullRequestIds: [ID!]!) {
-    commits: nodes(ids: $commitIds) {
-      __typename
-      ... on Commit {
-        id
-        oid
-        checkSuites(
-          first: 1
-          filterBy: { appId: ${CLOUDFLARE_GITHUB_APP_DATABASE_ID} }
-        ) {
-          totalCount
-          nodes {
-            __typename
-            id
-            app { databaseId slug }
-            checkRuns(
-              first: ${GITHUB_CHECK_RUN_PAGE_SIZE}
-              filterBy: { checkType: LATEST }
-            ) {
-              totalCount
-              pageInfo { hasNextPage endCursor }
-              nodes {
-                __typename
-                id
-                name
-                status
-                conclusion
-                detailsUrl
-                externalId
-                title
-                summary
-              }
-            }
-          }
-        }
-      }
-    }
-    pullRequests: nodes(ids: $pullRequestIds) {
-      __typename
-      ... on PullRequest {
-        id
-        state
-        repository { databaseId }
-        baseRefOid
-        headRefOid
-      }
-    }
-  }
-`;
-
-const PULL_REQUEST_CLOUDFLARE_CHECK_RUN_PAGE_QUERY = `
-  query PullRequestCloudflareCheckRunPage(
-    $suiteId: ID!
-    $pullRequestId: ID!
-    $after: String
-  ) {
-    suite: node(id: $suiteId) {
-      __typename
-      ... on CheckSuite {
-        id
-        app { databaseId slug }
-        checkRuns(
-          first: ${GITHUB_CHECK_RUN_PAGE_SIZE}
-          after: $after
-          filterBy: { checkType: LATEST }
-        ) {
-          totalCount
-          pageInfo { hasNextPage endCursor }
-          nodes {
-            __typename
-            id
-            name
-            status
-            conclusion
-            detailsUrl
-            externalId
-            title
-            summary
-          }
-        }
-      }
-    }
-    pullRequest: node(id: $pullRequestId) {
-      __typename
-      ... on PullRequest {
-        id
-        state
-        repository { databaseId }
-        baseRefOid
-        headRefOid
       }
     }
   }
@@ -886,7 +746,7 @@ export function buildPullRequestHostingPreviews(args: {
   configuredWorkers: readonly { accountId: string; workerName: string }[];
 }): PullRequestHostingPreviews {
   const cloudflarePages = args.head.hostingPreviews.cloudflare;
-  const cloudflareWorkers = args.head.cloudflareWorkerChecks;
+  const cloudflareWorkers = args.head.cloudflareWorkerProof;
   const cloudflareResult: PullRequestHostingPreviews["cloudflare"] =
     cloudflarePages.state === "unavailable" || cloudflareWorkers.state === "unavailable"
       ? { state: "unavailable" }
@@ -939,7 +799,7 @@ export function resolveConvexPreviewDeployment(args: {
 }
 
 export function buildPullRequestCloudflareWorkerResources(args: {
-  cloudflare: CloudflareWorkerCheckRead;
+  cloudflare: CloudflareWorkerProofRead;
   workers: readonly StableWorker[];
 }): { state: "available"; workers: PullRequestWorkerResource[] } | { state: "unavailable" } {
   if (args.cloudflare.state === "unavailable") {
@@ -950,12 +810,12 @@ export function buildPullRequestCloudflareWorkerResources(args: {
   for (const worker of args.workers) {
     const build = resolveCloudflareWorkerBuild({
       accountId: worker.accountId,
-      resources: args.cloudflare,
+      proof: args.cloudflare,
       workerName: worker.workerName,
     });
     const preview = resolveCloudflareWorkerBranchPreviewUrl({
       accountId: worker.accountId,
-      previews: args.cloudflare,
+      proof: args.cloudflare,
       workerName: worker.workerName,
     });
     if (build.state === "unavailable" || preview.state === "unavailable") {
@@ -1314,318 +1174,6 @@ export async function readGitHubHostingCommentBodies(args: {
   return result;
 }
 
-type CloudflareCheckRunScan = {
-  pullRequestId: string;
-  commitId: string;
-  suiteId: string;
-  checkRuns: CloudflareWorkerCheckRunInput[];
-  totalCount: number;
-  after: string | null;
-};
-
-function normalizeGitHubCloudflareCheckRunPage(
-  value: unknown,
-  identity: Pick<CloudflareCheckRunScan, "pullRequestId" | "commitId" | "suiteId">,
-  previous?: CloudflareCheckRunScan,
-): CloudflareCheckRunScan | null {
-  const parsed = providerCloudflareCheckRunConnectionSchema.safeParse(value);
-  if (!parsed.success || (previous && parsed.data.totalCount !== previous.totalCount)) {
-    return null;
-  }
-  const checkRuns = [...(previous?.checkRuns ?? [])];
-  const seen = new Set(checkRuns.map((checkRun) => checkRun.id));
-  for (const checkRun of parsed.data.nodes) {
-    if (seen.has(checkRun.id)) {
-      return null;
-    }
-    seen.add(checkRun.id);
-    checkRuns.push(checkRun);
-  }
-
-  const { endCursor, hasNextPage } = parsed.data.pageInfo;
-  if (
-    checkRuns.length > parsed.data.totalCount ||
-    (hasNextPage &&
-      (endCursor === null ||
-        endCursor === previous?.after ||
-        parsed.data.nodes.length === 0 ||
-        checkRuns.length === parsed.data.totalCount)) ||
-    (!hasNextPage && checkRuns.length !== parsed.data.totalCount)
-  ) {
-    return null;
-  }
-
-  return {
-    ...identity,
-    checkRuns,
-    totalCount: parsed.data.totalCount,
-    after: hasNextPage ? endCursor : null,
-  };
-}
-
-function recoverGitHubCloudflareCheckData(error: unknown): unknown {
-  const parsed = providerRecoverablePullRequestErrorSchema.safeParse(error);
-  if (
-    !parsed.success ||
-    !parsed.data.errors.every(
-      (providerError) =>
-        providerError.type === "NOT_FOUND" &&
-        (providerError.path[0] === "commits" ||
-          providerError.path[0] === "pullRequests" ||
-          providerError.path[0] === "suite" ||
-          providerError.path[0] === "pullRequest"),
-    )
-  ) {
-    throw error;
-  }
-  return parsed.data.data;
-}
-
-function matchesCloudflareCheckPullRequest(args: {
-  value: unknown;
-  head: PullRequestResourceHeadSeed;
-  ghRepoId: string;
-}): boolean {
-  const identity = providerPullRequestResourceIdentitySchema.safeParse(args.value);
-  const pullRequest = z
-    .object({
-      baseRefOid: providerGitObjectIdSchema,
-      headRefOid: providerGitObjectIdSchema,
-    })
-    .safeParse(args.value);
-  return (
-    identity.success &&
-    pullRequest.success &&
-    identity.data.id === args.head.id &&
-    identity.data.state === "OPEN" &&
-    String(identity.data.repository.databaseId) === args.ghRepoId &&
-    pullRequest.data.baseRefOid === args.head.baseRefOid &&
-    pullRequest.data.headRefOid === args.head.headRefOid
-  );
-}
-
-async function completeGitHubCloudflareCheckRunScan(args: {
-  octokit: Octokit;
-  signal: AbortSignal;
-  ghRepoId: string;
-  head: PullRequestResourceHeadSeed;
-  scan: CloudflareCheckRunScan;
-}): Promise<CloudflareCheckRunScan | null> {
-  let scan = args.scan;
-  while (scan.after !== null) {
-    let response: unknown;
-    try {
-      response = await args.octokit.graphql(PULL_REQUEST_CLOUDFLARE_CHECK_RUN_PAGE_QUERY, {
-        suiteId: scan.suiteId,
-        pullRequestId: scan.pullRequestId,
-        after: scan.after,
-        request: { signal: args.signal },
-      });
-    } catch (error) {
-      try {
-        response = recoverGitHubCloudflareCheckData(error);
-      } catch {
-        return null;
-      }
-    }
-    const page = providerCloudflareCheckRunPageSchema.safeParse(response);
-    if (
-      !page.success ||
-      !matchesCloudflareCheckPullRequest({
-        value: page.data.pullRequest,
-        head: args.head,
-        ghRepoId: args.ghRepoId,
-      })
-    ) {
-      return null;
-    }
-    const suite = providerCloudflareCheckSuiteSchema.safeParse(page.data.suite);
-    if (
-      !suite.success ||
-      suite.data.id !== scan.suiteId ||
-      suite.data.app.databaseId !== CLOUDFLARE_GITHUB_APP_DATABASE_ID ||
-      suite.data.app.slug !== CLOUDFLARE_GITHUB_APP_SLUG
-    ) {
-      return null;
-    }
-    const next = normalizeGitHubCloudflareCheckRunPage(suite.data.checkRuns, scan, scan);
-    if (next === null) {
-      return null;
-    }
-    scan = next;
-  }
-  return scan;
-}
-
-export async function readGitHubCloudflareWorkerChecks(args: {
-  octokit: Octokit;
-  signal: AbortSignal;
-  ghRepoId: string;
-  heads: readonly PullRequestResourceHeadSeed[];
-}): Promise<Map<string, CloudflareWorkerCheckRead>> {
-  const reads = new Map<string, CloudflareWorkerCheckRead>();
-  const headsById = new Map(args.heads.map((head) => [head.id, head]));
-  const commitsById = new Map<string, { pullRequestIds: Set<string>; commit: PullRequestCommit }>();
-  const checkRunsByCommitId = new Map<string, CloudflareWorkerCheckRunInput[]>();
-  for (const head of args.heads) {
-    if (head.commitScan.state === "unavailable") {
-      reads.set(head.id, { state: "unavailable" });
-      continue;
-    }
-    for (const commit of head.commitScan.commits) {
-      const previous = commitsById.get(commit.id);
-      if (previous) {
-        if (previous.commit.oid !== commit.oid) {
-          reads.set(head.id, { state: "unavailable" });
-          for (const pullRequestId of previous.pullRequestIds) {
-            reads.set(pullRequestId, { state: "unavailable" });
-          }
-        } else {
-          previous.pullRequestIds.add(head.id);
-        }
-        continue;
-      }
-      commitsById.set(commit.id, { pullRequestIds: new Set([head.id]), commit });
-      checkRunsByCommitId.set(commit.id, []);
-    }
-  }
-
-  const continuations: CloudflareCheckRunScan[] = [];
-  const commitRequests = [...commitsById.values()];
-  for (let offset = 0; offset < commitRequests.length; offset += GITHUB_CHECK_RUN_PAGE_SIZE) {
-    const chunk = commitRequests.slice(offset, offset + GITHUB_CHECK_RUN_PAGE_SIZE);
-    const pullRequestIds = [...new Set(chunk.flatMap((request) => [...request.pullRequestIds]))];
-    let response: unknown;
-    try {
-      response = await args.octokit.graphql(PULL_REQUEST_CLOUDFLARE_CHECKS_QUERY, {
-        commitIds: chunk.map(({ commit }) => commit.id),
-        pullRequestIds,
-        request: { signal: args.signal },
-      });
-    } catch (error) {
-      try {
-        response = recoverGitHubCloudflareCheckData(error);
-      } catch {
-        for (const pullRequestId of pullRequestIds) {
-          reads.set(pullRequestId, { state: "unavailable" });
-        }
-        continue;
-      }
-    }
-    const batch = providerCloudflareCheckBatchSchema.safeParse(response);
-    if (
-      !batch.success ||
-      batch.data.commits.length !== chunk.length ||
-      batch.data.pullRequests.length !== pullRequestIds.length
-    ) {
-      for (const pullRequestId of pullRequestIds) {
-        reads.set(pullRequestId, { state: "unavailable" });
-      }
-      continue;
-    }
-
-    batch.data.pullRequests.forEach((value, index) => {
-      const pullRequestId = pullRequestIds[index];
-      const head = headsById.get(pullRequestId);
-      if (!head || !matchesCloudflareCheckPullRequest({ value, head, ghRepoId: args.ghRepoId })) {
-        reads.set(pullRequestId, { state: "unavailable" });
-      }
-    });
-    batch.data.commits.forEach((value, index) => {
-      const request = chunk[index];
-      const availablePullRequestIds = [...request.pullRequestIds].filter(
-        (pullRequestId) => reads.get(pullRequestId)?.state !== "unavailable",
-      );
-      const primaryPullRequestId = availablePullRequestIds.at(0);
-      if (primaryPullRequestId === undefined) {
-        return;
-      }
-      const commit = providerCloudflareCommitCheckSchema.safeParse(value);
-      if (
-        !commit.success ||
-        commit.data.id !== request.commit.id ||
-        commit.data.oid !== request.commit.oid ||
-        commit.data.checkSuites.totalCount !== commit.data.checkSuites.nodes.length ||
-        commit.data.checkSuites.totalCount > 1
-      ) {
-        for (const pullRequestId of availablePullRequestIds) {
-          reads.set(pullRequestId, { state: "unavailable" });
-        }
-        return;
-      }
-      const suite = commit.data.checkSuites.nodes.at(0);
-      if (!suite) {
-        return;
-      }
-      if (
-        suite.app.databaseId !== CLOUDFLARE_GITHUB_APP_DATABASE_ID ||
-        suite.app.slug !== CLOUDFLARE_GITHUB_APP_SLUG
-      ) {
-        for (const pullRequestId of availablePullRequestIds) {
-          reads.set(pullRequestId, { state: "unavailable" });
-        }
-        return;
-      }
-      const scan = normalizeGitHubCloudflareCheckRunPage(suite.checkRuns, {
-        pullRequestId: primaryPullRequestId,
-        commitId: request.commit.id,
-        suiteId: suite.id,
-      });
-      if (scan === null) {
-        for (const pullRequestId of availablePullRequestIds) {
-          reads.set(pullRequestId, { state: "unavailable" });
-        }
-        return;
-      }
-      checkRunsByCommitId.set(request.commit.id, scan.checkRuns);
-      if (scan.after !== null) {
-        continuations.push(
-          ...availablePullRequestIds.map((pullRequestId) => ({ ...scan, pullRequestId })),
-        );
-      }
-    });
-  }
-
-  const completedScans =
-    continuations.length === 0
-      ? []
-      : await allLimited(
-          continuations.map((scan) => async () => {
-            const head = headsById.get(scan.pullRequestId);
-            return head
-              ? await completeGitHubCloudflareCheckRunScan({
-                  octokit: args.octokit,
-                  signal: args.signal,
-                  ghRepoId: args.ghRepoId,
-                  head,
-                  scan,
-                })
-              : null;
-          }),
-          6,
-        );
-  completedScans.forEach((scan, index) => {
-    const initial = continuations[index];
-    if (scan === null) {
-      reads.set(initial.pullRequestId, { state: "unavailable" });
-    } else {
-      checkRunsByCommitId.set(scan.commitId, scan.checkRuns);
-    }
-  });
-
-  for (const head of args.heads) {
-    if (reads.get(head.id)?.state === "unavailable" || head.commitScan.state === "unavailable") {
-      reads.set(head.id, { state: "unavailable" });
-      continue;
-    }
-    const commits: CloudflareCommitCheckRuns[] = head.commitScan.commits.map((commit) => ({
-      checkRuns: checkRunsByCommitId.get(commit.id) ?? [],
-    }));
-    reads.set(head.id, resolveCloudflareWorkerCheckRuns(commits));
-  }
-  return reads;
-}
-
 async function readGitHubPullRequestResourceHeadReads(args: {
   octokit: Octokit;
   signal: AbortSignal;
@@ -1655,19 +1203,21 @@ async function readGitHubPullRequestResourceHeadReads(args: {
           ghRepoId: args.ghRepoId,
           head,
         }),
-        completeGitHubPullRequestCommitScan({
-          octokit: args.octokit,
-          signal: args.signal,
-          ghRepoId: args.ghRepoId,
-          head,
-        }),
+        CLOUDFLARE_WORKER_PROOF_SOURCE === "checks"
+          ? completeGitHubPullRequestCommitScan({
+              octokit: args.octokit,
+              signal: args.signal,
+              ghRepoId: args.ghRepoId,
+              head,
+            })
+          : Promise.resolve(head.commitScan),
       ]);
       return { ...head, hostingCommentScan, commitScan };
     }),
     6,
   );
   const completedSeedsById = new Map(completedSeeds.map((head) => [head.id, head]));
-  const [commentsByPullRequestId, checksByPullRequestId] = await Promise.all([
+  const [commentsByPullRequestId, checkProofsByPullRequestId] = await Promise.all([
     readGitHubHostingCommentBodies({
       octokit: args.octokit,
       signal: args.signal,
@@ -1677,13 +1227,26 @@ async function readGitHubPullRequestResourceHeadReads(args: {
         scan: head.hostingCommentScan,
       })),
     }),
-    readGitHubCloudflareWorkerChecks({
-      octokit: args.octokit,
-      signal: args.signal,
-      ghRepoId: args.ghRepoId,
-      heads: completedSeeds,
-    }),
+    CLOUDFLARE_WORKER_PROOF_SOURCE === "checks"
+      ? readGitHubCloudflareWorkerChecks({
+          octokit: args.octokit,
+          signal: args.signal,
+          ghRepoId: args.ghRepoId,
+          heads: completedSeeds,
+        })
+      : Promise.resolve(null),
   ]);
+  const workerProofsByPullRequestId =
+    checkProofsByPullRequestId ??
+    new Map(
+      completedSeeds.map((head) => {
+        const comments = commentsByPullRequestId.get(head.id);
+        if (!comments) {
+          throw new Error("GitHub pull request comments lost requested identity.");
+        }
+        return [head.id, resolveCloudflareWorkerComments(comments.cloudflare)];
+      }),
+    );
   const parseFailures: HostingCommentParseFailure[] = [];
   const reads = seedReads.map((read): PullRequestResourceHeadRead => {
     if (read.state === "unavailable") {
@@ -1691,8 +1254,8 @@ async function readGitHubPullRequestResourceHeadReads(args: {
     }
     const completedHead = completedSeedsById.get(read.head.id);
     const comments = commentsByPullRequestId.get(read.head.id);
-    const cloudflareWorkerChecks = checksByPullRequestId.get(read.head.id);
-    if (!completedHead || !comments || !cloudflareWorkerChecks) {
+    const cloudflareWorkerProof = workerProofsByPullRequestId.get(read.head.id);
+    if (!completedHead || !comments || !cloudflareWorkerProof) {
       throw new Error("GitHub pull request resources lost requested identity.");
     }
     const cloudflarePreviews = resolveCloudflarePagesPreviews(comments.cloudflare);
@@ -1700,16 +1263,25 @@ async function readGitHubPullRequestResourceHeadReads(args: {
       comments: comments.netlify,
       pullRequestNumber: read.head.number,
     });
-    const commentParseFailures = detectHostingCommentParseFailures({
+    const hostingCommentParseFailures = detectHostingCommentParseFailures({
       cloudflareComments: comments.cloudflare,
       cloudflareRead: cloudflarePreviews,
       netlifyComments: comments.netlify,
       netlifyRead: netlifyPreviews,
     });
+    const workerCommentParseFailures =
+      CLOUDFLARE_WORKER_PROOF_SOURCE === "comments"
+        ? detectCloudflareWorkerCommentParseFailures({
+            comments: comments.cloudflare,
+            proof: cloudflareWorkerProof,
+          })
+        : [];
+    const commentParseFailures = [...hostingCommentParseFailures, ...workerCommentParseFailures];
     parseFailures.push(...commentParseFailures);
-    const cloudflareRead = commentParseFailures.some((failure) =>
+    const cloudflareCommentFailed = commentParseFailures.some((failure) =>
       failure.providerFormat.startsWith("cloudflare_"),
-    )
+    );
+    const cloudflareRead = cloudflareCommentFailed
       ? ({ state: "unavailable" } as const)
       : cloudflarePreviews;
     return {
@@ -1722,7 +1294,10 @@ async function readGitHubPullRequestResourceHeadReads(args: {
         headRefOid: read.head.headRefOid,
         headRepositoryId: read.head.headRepositoryId,
         headRefName: read.head.headRefName,
-        cloudflareWorkerChecks,
+        cloudflareWorkerProof:
+          CLOUDFLARE_WORKER_PROOF_SOURCE === "comments" && cloudflareCommentFailed
+            ? { state: "unavailable" }
+            : cloudflareWorkerProof,
         hostingPreviews: {
           cloudflare: cloudflareRead,
           netlify: netlifyPreviews,
@@ -1769,7 +1344,7 @@ export const getPullRequestResources = action({
         configuredWorkers: context.cloudflareWorkers,
       });
       const cloudflareWorkers = buildPullRequestCloudflareWorkerResources({
-        cloudflare: head.cloudflareWorkerChecks,
+        cloudflare: head.cloudflareWorkerProof,
         workers: context.cloudflareWorkers,
       });
       resourcesByPullRequest.set(head.id, {

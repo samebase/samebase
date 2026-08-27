@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase dashboard and provider boundaries
-- Last updated: 2026-08-19
+- Last updated: 2026-08-27
 - Related work:
   - [PR #1243: Simplify vault provider resource truth](https://github.com/samebase/samebase/pull/1243)
   - [PR #1234: Replace dashboard branch mirrors with live pull requests](https://github.com/samebase/samebase/pull/1234)
@@ -78,11 +78,12 @@ re-reads those open pull requests from GitHub, verifies their repository identit
 and derives fork, head repository, and branch identity from that response. Client data never proves
 resource ownership.
 
-The request joins live GitHub pull request commits, Cloudflare check runs, hosting comments, and
-Convex responses against the direct Worker and Convex project attachments. It does not persist a
-pull request resource model. The browser caches one resource request for each loaded GitHub page
-under the common vault-provider observation namespace, keyed by the exact attachment coordinates and
-pull request node ids. Loading another page does not re-read resource data for earlier pages.
+The request joins live GitHub pull request data, the selected Cloudflare Worker proof source,
+hosting comments, and Convex responses against the direct Worker and Convex project attachments. It
+does not persist a pull request resource model. The browser caches one resource request for each
+loaded GitHub page under the common vault-provider observation namespace, keyed by the exact
+attachment coordinates and pull request node ids. Loading another page does not re-read resource
+data for earlier pages.
 
 The stable GitHub repository id proves repository identity. A repository coordinate rename does not
 invalidate that identity. If one requested pull request closes, merges, or disappears between the
@@ -90,19 +91,25 @@ page read and the resource read, only that resource row becomes unavailable; the
 still resolves. It has no provider rows, Cloudflare build status error, or per-Worker `Unavailable`
 state.
 
-The pull request Worker status and links are a direct view of Cloudflare check runs on commits that
-GitHub reports as part of the current pull request. Samebase does not read the Cloudflare Worker API
-or Cloudflare Builds API for these facts. The browser uses the stored Worker root to place an
-attached Worker in the repository tree. Live Cloudflare observations do not move the pull request
-row automatically.
+One source-control constant selects Cloudflare Worker proof from `checks` or `comments`. Its shipped
+value is `checks`. Changing it requires a Samebase deployment. Both source modules return the same
+Worker build and branch-preview result. The resource assembly code reads only the selected result.
+It does not fall back, merge, compare, or reconcile the two sources. Samebase does not read the
+Cloudflare Worker API or Cloudflare Builds API for these facts. The browser uses the stored Worker
+root to place an attached Worker in the repository tree. Live Cloudflare observations do not move
+the pull request row automatically.
 
-The initial batched pull request query reads the newest 100 current pull request commits. Samebase
-follows older commit pages until it has the complete current commit connection. Each page must keep
-the same open pull request id, repository id, base commit, head commit, total count, and advancing
-cursor. Commit node ids and commit object ids cannot repeat. Before Samebase accepts check runs, the
-batched check query verifies the open pull request, repository, base commit, and head commit again.
-Any disagreement fails that pull request result closed. This validation prevents a force-push or
-base change from mixing commit generations in one result.
+With `checks` selected, the pull request Worker status and links are a direct view of Cloudflare
+check runs on commits that GitHub reports as part of the current pull request.
+
+The initial batched pull request query reads the newest 100 current pull request commits. With
+`checks` selected, Samebase follows older commit pages until it has the complete current commit
+connection. Each page must keep the same open pull request id, repository id, base commit, head
+commit, total count, and advancing cursor. Commit node ids and commit object ids cannot repeat.
+Before Samebase accepts check runs, the batched check query verifies the open pull request,
+repository, base commit, and head commit again. Any disagreement fails that pull request result
+closed. This validation prevents a force-push or base change from mixing commit generations in one
+result.
 
 For each current commit, Samebase reads the one check suite from the exact Cloudflare GitHub App,
 database id `85455` and slug `cloudflare-workers-and-pages`. The check-run connection uses GitHub's
@@ -125,22 +132,35 @@ commit with no check does not remove an older valid result because Cloudflare wa
 Worker build. A check from a commit that is no longer in the current pull request cannot count.
 Multiple Workers connected to one repository can therefore resolve from different commits.
 
-The batched pull request query also reads comment node ids and author types for Cloudflare Pages and
-Netlify previews. It follows all metadata pages under the existing GitHub request deadline, selects
+With `comments` selected, Samebase uses the existing Cloudflare Worker comment parser without a
+current-commit membership check. It validates the `Latest Commit` cell as a 7-to-64 character
+hexadecimal commit prefix, but does not compare that value with the current pull request commits. It
+keeps the comment's stable `Branch Preview URL`, build UUID, build state, logs URL, account, and
+Worker name. Equal rows are deduplicated and conflicting rows fail closed. This mode preserves the
+existing comment behavior. It does not add force-push filtering to comments.
+
+The legacy comment read treats Cloudflare Worker and Pages comment parsing as one Cloudflare
+boundary. In `comments` mode, any Cloudflare comment parse failure also makes Worker proof
+unavailable. Check proof stays independent from Cloudflare comment parsing in `checks` mode.
+
+The batched pull request query also reads comment node ids and author types for Cloudflare and
+Netlify comments. It follows all metadata pages under the existing GitHub request deadline, selects
 only the exact Cloudflare and Netlify Bot node ids, and then reads bodies only for those selected
 comment ids. Every returned body must still belong to the same open pull request, repository, and
-Bot identity. Samebase ignores Cloudflare Workers comments for Worker proof and parsing diagnostics.
+Bot identity. With `checks` selected, Samebase ignores Cloudflare Workers comments for Worker proof
+and parsing diagnostics. With `comments` selected, the Worker comment module owns that proof and its
+existing strict format diagnostics.
 
 Cloudflare Pages reads the exact Pages deployment heading, dashboard log target, and
 `Branch Preview URL` table row. Its URL must be a strict HTTPS `pages.dev` origin for that project.
 Equal normalized URLs are one result. Distinct valid URLs for one provider resource are ambiguous
 and fail closed. Samebase does not guess Cloudflare alias normalization from a branch name.
 
-If the complete current commit set has no matching Cloudflare Worker check, that attached Worker
-shows `Unavailable`. If the current commit set or Cloudflare check read is incomplete, unsafe, or
-conflicting, the pull request shows one message: `Could not load Cloudflare build status`. It does
-not show per-Worker `Unavailable` rows for that failure. A Cloudflare Worker check failure does not
-hide valid Convex or Netlify resources.
+If the selected proof source has no matching Cloudflare Worker result, that attached Worker shows
+`Unavailable`. If the selected proof read is incomplete, unsafe, or conflicting, the pull request
+shows one message: `Could not load Cloudflare build status`. It does not show per-Worker
+`Unavailable` rows for that failure. A Cloudflare Worker build failure does not hide valid Convex or
+Netlify resources.
 
 Netlify recovery reads an exact `Name` and `Link` table. The `Latest deploy log` row must identify
 one Netlify site. The `Deploy Preview` row must contain one strict HTTPS link for the requested pull
@@ -158,23 +178,31 @@ the comment body, URL, repository, resource name, or provider account identity. 
 count these failed parse observations without persisting provider state in the Samebase database.
 One action read emits at most one marker for each provider-format and failure-kind pair.
 
-An attached Cloudflare Worker consumes its matching current-commit check for build status and links.
-The UI uses the stored `rootDirectory` and `workerName` from spec 115. Other parsed Cloudflare
-Workers, Cloudflare Pages projects, and Netlify sites have no approved repository root. The UI lists
-them in an `Other previews` group and never invents a root. An unattached Worker row links to the
-repository Settings page with a `Connect` action. Cloudflare Pages and Netlify rows have no setup
-action because Samebase does not support attaching those resources. Each row exposes the provider
-resource name and its branch or deploy preview link. The comment text and provider result are not
-saved in the Samebase database.
+An attached Cloudflare Worker consumes its exact account-and-name match from the selected proof
+source for build status and links. The UI uses the stored `rootDirectory` and `workerName` from
+spec 115. Other parsed Cloudflare Workers, Cloudflare Pages projects, and Netlify sites have no
+approved repository root. The UI lists them in an `Other previews` group and never invents a root.
+An unattached Worker row links to the repository Settings page with a `Connect` action. Cloudflare
+Pages and Netlify rows have no setup action because Samebase does not support attaching those
+resources. Each row exposes the provider resource name and its branch or deploy preview link. The
+comment text and provider result are not saved in the Samebase database.
 
 For up to 100 pull requests, the first GitHub request batches pull request identity, the newest 100
-current commits, and comment metadata. The normal six-pull-request page adds one check query for
-each 100 distinct current commit nodes. Each pull request with more than 100 current commits adds
-one commit pagination query for each older 100-commit page. A check suite with more than 100 latest
-runs adds one query for each later run page. Therefore check request count grows by commit pages,
-not by one request for each commit. A live two-commit check batch cost one GraphQL point. A nested
-probe with 100 commits cost two points. GitHub computes point cost from the actual query, so these
-measurements are evidence, not a fixed billing contract.
+current commits, and comment metadata. With `checks` selected, the normal six-pull-request page adds
+one check query for each 100 distinct current commit nodes. Each pull request with more than 100
+current commits adds one commit pagination query for each older 100-commit page. A check suite with
+more than 100 latest runs adds one query for each later run page. Therefore check request count
+grows by commit pages, not by one request for each commit. A live two-commit check batch cost one
+GraphQL point. A nested probe with 100 commits cost two points. GitHub computes point cost from the
+actual query, so these measurements are evidence, not a fixed billing contract.
+
+When requested pull requests share one commit, Samebase reads that commit and its later check-run
+pages once. Each later page request batches the current pull request ids that share the commit, so
+Samebase can revalidate their base and head commits without reading the same check page again.
+
+With `comments` selected, Samebase does not paginate the commit connection and does not request
+check suites or check runs. It uses the Cloudflare comment bodies that the hosting-comment read
+already needs.
 
 Comment discovery adds no body request when there are no recognized bot comments. If recognized bot
 comments exist, Samebase adds one batched body query for each provider that has selected comments,
@@ -183,11 +211,11 @@ total comments adds metadata pagination queries until the scan is complete. Comm
 pagination run for at most six pull requests at one time. Check body queries batch up to 100
 distinct commits.
 
-Worker identity, build state, build navigation, and branch preview use one trusted Cloudflare check
-from the newest matching current pull request commit. Samebase keeps no recovery state and does not
-reconcile comments with check runs. GitHub archives check data after 400 days and deletes it 10 days
-later. An open pull request older than that retention window needs a new Worker build before
-Samebase can show Worker proof.
+Worker identity, build state, build navigation, and branch preview use only the selected proof
+source. Samebase keeps no recovery state and does not reconcile comments with check runs. In
+`checks` mode, GitHub archives check data after 400 days and deletes it 10 days later. An open pull
+request older than that retention window needs a new Worker build before Samebase can show Worker
+proof.
 
 A Convex branch deployment belongs to a row only when the pull request head is in the vault
 repository, the project is directly attached to the vault, the current Convex credential can read
@@ -260,7 +288,12 @@ Tests must prove:
 - same-repository and fork heads stay distinct;
 - resource enrichment derives head identity from a server-side GitHub read, never browser fields;
 - a pull request that leaves the open set during resource enrichment does not fail sibling rows;
-- attached Worker resource state uses an exact Cloudflare check account-and-name match;
+- the source-control constant selects exactly one Worker proof implementation, with no fallback,
+  merge, or reconciliation;
+- both Worker proof modules return the same resource shape and attached Worker resource state uses
+  an exact Cloudflare account-and-name match;
+- comment mode preserves the existing stable alias, validates `Latest Commit` syntax without a
+  current-commit membership check, and preserves existing conflict and format-drift failures;
 - all commits in the current pull request can provide Worker proof, while a later commit without a
   path-watched Worker check does not revoke an earlier current-commit result;
 - a newer check result for one Worker replaces its older result, including failure after success and

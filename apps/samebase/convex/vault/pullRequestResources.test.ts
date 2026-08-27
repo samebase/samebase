@@ -10,7 +10,6 @@ import {
   normalizeGitHubHostingCommentPage,
   normalizeGitHubPullRequestCommitPage,
   normalizeGitHubPullRequestResourceHeadReads,
-  readGitHubCloudflareWorkerChecks,
   readGitHubHostingCommentBodies,
   recoverGitHubPullRequestGraphqlData,
   reportPullRequestHostingCommentParseFailures,
@@ -19,7 +18,7 @@ import {
   type PullRequestResourceHead,
 } from "./pullRequestResources";
 
-const headBase: Omit<PullRequestResourceHead, "cloudflareWorkerChecks" | "hostingPreviews"> = {
+const headBase: Omit<PullRequestResourceHead, "cloudflareWorkerProof" | "hostingPreviews"> = {
   id: "PR_17",
   number: 17,
   isCrossRepository: false,
@@ -53,7 +52,7 @@ describe("hosting comment parse observability", () => {
 });
 const head: PullRequestResourceHead = {
   ...headBase,
-  cloudflareWorkerChecks: { state: "available", previews: [], workerBuilds: [] },
+  cloudflareWorkerProof: { state: "available", previews: [], workerBuilds: [] },
   hostingPreviews: {
     cloudflare: { state: "available", previews: [] },
     netlify: { state: "available", previews: [] },
@@ -565,7 +564,7 @@ describe("buildPullRequestHostingPreviews", () => {
       buildPullRequestHostingPreviews({
         head: {
           ...head,
-          cloudflareWorkerChecks: {
+          cloudflareWorkerProof: {
             state: "available",
             previews: [
               {
@@ -941,197 +940,6 @@ describe("normalizeGitHubPullRequestResourceHeadReads", () => {
     expect(() => recoverGitHubPullRequestGraphqlData(error)).toThrow(
       "Request failed due to following response errors",
     );
-  });
-});
-
-describe("Cloudflare Worker check transport", () => {
-  const commits = [
-    { id: "C_1", oid: "1".repeat(40) },
-    { id: "C_2", oid: "2".repeat(40) },
-  ];
-  const seed = {
-    ...headBase,
-    hostingCommentScan: {
-      state: "available" as const,
-      allCommentIds: [],
-      hostingComments: [],
-      totalCount: 0,
-      after: null,
-    },
-    commitScan: {
-      state: "available" as const,
-      commits,
-      totalCount: commits.length,
-      before: null,
-    },
-  };
-
-  function response(headRefOid: string) {
-    return {
-      data: {
-        commits: commits.map((commit) => ({
-          __typename: "Commit",
-          ...commit,
-          checkSuites: { totalCount: 0, nodes: [] },
-        })),
-        pullRequests: [
-          {
-            __typename: "PullRequest",
-            id: headBase.id,
-            state: "OPEN",
-            repository: { databaseId: 42 },
-            baseRefOid: headBase.baseRefOid,
-            headRefOid,
-          },
-        ],
-      },
-    };
-  }
-
-  it("batches commits and asks GitHub for only the latest Cloudflare check attempt", async () => {
-    const requestBodies: string[] = [];
-    const octokit = new Octokit({
-      request: {
-        fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
-          requestBodies.push(typeof init?.body === "string" ? init.body : "");
-          return new Response(JSON.stringify(response(headBase.headRefOid)), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          });
-        },
-      },
-    });
-
-    const reads = await readGitHubCloudflareWorkerChecks({
-      octokit,
-      signal: new AbortController().signal,
-      ghRepoId: "42",
-      heads: [seed],
-    });
-
-    expect(reads.get(headBase.id)).toEqual({
-      state: "available",
-      previews: [],
-      workerBuilds: [],
-    });
-    expect(requestBodies).toHaveLength(1);
-    expect(requestBodies[0]).toContain("checkType: LATEST");
-    expect(requestBodies[0]).toContain('"commitIds":["C_1","C_2"]');
-  });
-
-  it("rejects the check batch when the pull request head changes", async () => {
-    const octokit = new Octokit({
-      request: {
-        fetch: async () =>
-          new Response(JSON.stringify(response("c".repeat(40))), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          }),
-      },
-    });
-
-    const reads = await readGitHubCloudflareWorkerChecks({
-      octokit,
-      signal: new AbortController().signal,
-      ghRepoId: "42",
-      heads: [seed],
-    });
-
-    expect(reads.get(headBase.id)).toEqual({ state: "unavailable" });
-  });
-
-  it("follows a stable check-run page beyond 100 latest runs", async () => {
-    const commit = commits[0];
-    const oneCommitSeed = {
-      ...seed,
-      commitScan: {
-        state: "available" as const,
-        commits: [commit],
-        totalCount: 1,
-        before: null,
-      },
-    };
-    const checkRun = (index: number) => ({
-      __typename: "CheckRun",
-      id: `CR_${index}`,
-      name: `Pages: project-${index}`,
-      status: "COMPLETED",
-      conclusion: "SUCCESS",
-      detailsUrl: null,
-      externalId: null,
-      title: null,
-      summary: null,
-    });
-    const requestBodies: string[] = [];
-    const octokit = new Octokit({
-      request: {
-        fetch: async (_input: RequestInfo | URL, init?: RequestInit) => {
-          const requestBody = typeof init?.body === "string" ? init.body : "";
-          requestBodies.push(requestBody);
-          const pullRequest = {
-            __typename: "PullRequest",
-            id: headBase.id,
-            state: "OPEN",
-            repository: { databaseId: 42 },
-            baseRefOid: headBase.baseRefOid,
-            headRefOid: headBase.headRefOid,
-          };
-          const checkRuns = requestBody.includes("PullRequestCloudflareCheckRunPage")
-            ? {
-                totalCount: 101,
-                pageInfo: { hasNextPage: false, endCursor: "check-cursor-101" },
-                nodes: [checkRun(101)],
-              }
-            : {
-                totalCount: 101,
-                pageInfo: { hasNextPage: true, endCursor: "check-cursor-100" },
-                nodes: Array.from({ length: 100 }, (_value, index) => checkRun(index + 1)),
-              };
-          const suite = {
-            __typename: "CheckSuite",
-            id: "CS_kwDOPOZOdc8AAAAUT6KHug",
-            app: {
-              databaseId: 85455,
-              slug: "cloudflare-workers-and-pages",
-            },
-            checkRuns,
-          };
-          const body = requestBody.includes("PullRequestCloudflareCheckRunPage")
-            ? { data: { pullRequest, suite } }
-            : {
-                data: {
-                  commits: [
-                    {
-                      __typename: "Commit",
-                      ...commit,
-                      checkSuites: { totalCount: 1, nodes: [suite] },
-                    },
-                  ],
-                  pullRequests: [pullRequest],
-                },
-              };
-          return new Response(JSON.stringify(body), {
-            status: 200,
-            headers: { "content-type": "application/json" },
-          });
-        },
-      },
-    });
-
-    const reads = await readGitHubCloudflareWorkerChecks({
-      octokit,
-      signal: new AbortController().signal,
-      ghRepoId: "42",
-      heads: [oneCommitSeed],
-    });
-
-    expect(reads.get(headBase.id)).toEqual({
-      state: "available",
-      previews: [],
-      workerBuilds: [],
-    });
-    expect(requestBodies).toHaveLength(2);
-    expect(requestBodies[1]).toContain('"after":"check-cursor-100"');
   });
 });
 
