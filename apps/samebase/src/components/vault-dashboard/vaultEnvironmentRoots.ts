@@ -410,31 +410,27 @@ export function buildPullRequestOtherPreviews({
   const netlify = resources.hostingPreviews.netlify;
   return [
     ...(cloudflare.state === "available"
-      ? cloudflare.previews.map(
-          (preview): VaultOtherPreview => ({
-            id: `cloudflare:${preview.kind}:${preview.name}:${preview.url}`,
-            destinationLabel: "Branch preview",
-            href: preview.url,
-            name: preview.name,
-            provider: preview.kind === "worker" ? "cloudflare_worker" : "cloudflare_pages",
-            setup:
-              preview.kind === "worker"
-                ? { state: "connect", href: settingsHref }
-                : { state: "none" },
-          }),
-        )
+      ? cloudflare.previews.map((preview): VaultOtherPreview => ({
+          id: `cloudflare:${preview.kind}:${preview.name}:${preview.url}`,
+          destinationLabel: "Branch preview",
+          href: preview.url,
+          name: preview.name,
+          provider: preview.kind === "worker" ? "cloudflare_worker" : "cloudflare_pages",
+          setup:
+            preview.kind === "worker"
+              ? { state: "connect", href: settingsHref }
+              : { state: "none" },
+        }))
       : []),
     ...(netlify.state === "available"
-      ? netlify.previews.map(
-          (preview): VaultOtherPreview => ({
-            id: `netlify:${preview.name}:${preview.url}`,
-            destinationLabel: "Deploy preview",
-            href: preview.url,
-            name: preview.name,
-            provider: "netlify",
-            setup: { state: "none" },
-          }),
-        )
+      ? netlify.previews.map((preview): VaultOtherPreview => ({
+          id: `netlify:${preview.name}:${preview.url}`,
+          destinationLabel: "Deploy preview",
+          href: preview.url,
+          name: preview.name,
+          provider: "netlify",
+          setup: { state: "none" },
+        }))
       : []),
   ].sort(
     (left, right) =>

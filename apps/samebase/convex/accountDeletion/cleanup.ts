@@ -71,9 +71,9 @@ export const ACCOUNT_DELETION_TABLE_REGISTRY = {
 } satisfies Record<TableNames, AccountDeletionTablePolicy>;
 
 type AccountDataTableName = {
-  [TableName in TableNames]: (typeof ACCOUNT_DELETION_TABLE_REGISTRY)[TableName] extends "account_data"
-    ? TableName
-    : never;
+  [
+    TableName in TableNames
+  ]: (typeof ACCOUNT_DELETION_TABLE_REGISTRY)[TableName] extends "account_data" ? TableName : never;
 }[TableNames];
 
 const ACCOUNT_DATA_BATCH_SIZE = 25;
