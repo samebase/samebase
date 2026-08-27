@@ -12170,6 +12170,11 @@ const schema161 = {
       description:
         "The custom roles attached to this team member. Present iff\n`role` is `custom`.",
     },
+    dsyncSuspended: {
+      type: ["boolean", "null"],
+      description:
+        "Present only on directory-sync teams. `true` means the member's IdP\naccount is suspended.",
+    },
   },
 };
 const schema163 = { type: "string", enum: ["admin", "developer", "custom"] };
@@ -12495,8 +12500,26 @@ function validate86(
         }
       }
     }
+    if (data.dsyncSuspended !== undefined) {
+      let data6 = data.dsyncSuspended;
+      if (typeof data6 !== "boolean" && data6 !== null) {
+        const err10 = {
+          instancePath: instancePath + "/dsyncSuspended",
+          schemaPath: "#/properties/dsyncSuspended/type",
+          keyword: "type",
+          params: { type: schema161.properties.dsyncSuspended.type },
+          message: "must be boolean,null",
+        };
+        if (vErrors === null) {
+          vErrors = [err10];
+        } else {
+          vErrors.push(err10);
+        }
+        errors++;
+      }
+    }
   } else {
-    const err10 = {
+    const err11 = {
       instancePath,
       schemaPath: "#/type",
       keyword: "type",
@@ -12504,9 +12527,9 @@ function validate86(
       message: "must be object",
     };
     if (vErrors === null) {
-      vErrors = [err10];
+      vErrors = [err11];
     } else {
-      vErrors.push(err10);
+      vErrors.push(err11);
     }
     errors++;
   }
@@ -12514,7 +12537,7 @@ function validate86(
   return errors === 0;
 }
 validate86.evaluated = {
-  props: { id: true, name: true, email: true, role: true, customRoles: true },
+  props: { id: true, name: true, email: true, role: true, customRoles: true, dsyncSuspended: true },
   dynamicProps: false,
   dynamicItems: false,
 };
@@ -13615,6 +13638,10 @@ const schema180 = {
         "sso:enable",
         "sso:disable",
         "sso:update",
+        "directorySync:enable",
+        "directorySync:disable",
+        "directorySync:updateGroupMapping",
+        "directorySync:deleteGroupMapping",
         "deployment:transfer",
         "deployment:receive",
         "deployment:update",
@@ -14521,6 +14548,10 @@ function validate97(
           data2 === "sso:enable" ||
           data2 === "sso:disable" ||
           data2 === "sso:update" ||
+          data2 === "directorySync:enable" ||
+          data2 === "directorySync:disable" ||
+          data2 === "directorySync:updateGroupMapping" ||
+          data2 === "directorySync:deleteGroupMapping" ||
           data2 === "deployment:transfer" ||
           data2 === "deployment:receive" ||
           data2 === "deployment:update" ||
@@ -15655,6 +15686,11 @@ const schema205 = {
     "sso:disable",
     "sso:update",
     "sso:view",
+    "directorySync:enable",
+    "directorySync:disable",
+    "directorySync:updateGroupMapping",
+    "directorySync:deleteGroupMapping",
+    "directorySync:view",
     "customRole:view",
     "integration:view",
     "integration:create",
@@ -15679,6 +15715,7 @@ const schema205 = {
     "deployment:usageLimits:view",
     "deployment:usageLimits:write",
     "deployment:usage:view",
+    "deployment:aiGateway:use",
   ],
 };
 function validate116(
@@ -15827,6 +15864,11 @@ function validate116(
           data0 === "sso:disable" ||
           data0 === "sso:update" ||
           data0 === "sso:view" ||
+          data0 === "directorySync:enable" ||
+          data0 === "directorySync:disable" ||
+          data0 === "directorySync:updateGroupMapping" ||
+          data0 === "directorySync:deleteGroupMapping" ||
+          data0 === "directorySync:view" ||
           data0 === "customRole:view" ||
           data0 === "integration:view" ||
           data0 === "integration:create" ||
@@ -15850,7 +15892,8 @@ function validate116(
           data0 === "deployment:auditLog:view" ||
           data0 === "deployment:usageLimits:view" ||
           data0 === "deployment:usageLimits:write" ||
-          data0 === "deployment:usage:view"
+          data0 === "deployment:usage:view" ||
+          data0 === "deployment:aiGateway:use"
         )
       ) {
         const err3 = {
