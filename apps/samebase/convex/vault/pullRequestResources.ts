@@ -11,16 +11,22 @@ import type { ConvexCloudDeployment } from "../convexManagementApi/client";
 import { action } from "../functions";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { createGitHubRequestDeadlineSignal } from "../githubRepoApi";
-import { isRecord } from "../jsonUtils";
 import { readConvexPreviewDeployments, readConvexProjectResource } from "./convexProjectResources";
 import { vCloudflareBuildState } from "./cloudflareBuildMatching";
 import {
+  detectCloudflareWorkerCommentParseFailures,
+  resolveCloudflareWorkerComments,
+} from "./pullRequestCloudflareWorkerComments";
+import { readGitHubCloudflareWorkerChecks } from "./pullRequestCloudflareWorkerChecks";
+import {
+  CLOUDFLARE_WORKER_PROOF_SOURCE,
+  type CloudflareWorkerProofRead,
+} from "./pullRequestCloudflareWorkerProof";
+import {
   detectHostingCommentParseFailures,
-  resolveCloudflareCommentBranchPreviewUrl,
-  resolveCloudflareCommentWorkerBuild,
-  resolveCloudflareHostingPreviews,
+  resolveCloudflarePagesPreviews,
   resolveNetlifyHostingPreviews,
-  type CloudflareHostingRead,
+  type CloudflarePagesRead,
   type HostingCommentBodies,
   type HostingCommentParseFailure,
   type HostingPreviewRead,
@@ -34,6 +40,7 @@ const { array, id, literal, object, string, union } = v;
 const CLOUDFLARE_GITHUB_BOT_NODE_ID = "MDM6Qm90NzMxMzk0MDI=";
 const NETLIFY_GITHUB_BOT_NODE_ID = "MDM6Qm90NDAyMDkzMjY=";
 const GITHUB_PULL_REQUEST_COMMENT_PAGE_SIZE = 100;
+const GITHUB_PULL_REQUEST_COMMIT_PAGE_SIZE = 100;
 const GITHUB_PULL_REQUEST_RESOURCE_LIMIT = 100;
 
 const vPullRequestConvexResource = union(
@@ -166,16 +173,34 @@ const providerPullRequestCommentConnectionSchema = z.object({
     .array(providerPullRequestCommentMetadataSchema)
     .max(GITHUB_PULL_REQUEST_COMMENT_PAGE_SIZE),
 });
+const providerGitObjectIdSchema = z.string().regex(/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/);
+const providerPullRequestCommitSchema = z.object({
+  commit: z.object({
+    id: z.string().min(1),
+    oid: providerGitObjectIdSchema,
+  }),
+});
+const providerPullRequestCommitConnectionSchema = z.object({
+  totalCount: z.number().int().nonnegative(),
+  pageInfo: z.object({
+    hasPreviousPage: z.boolean(),
+    startCursor: z.string().min(1).nullable(),
+  }),
+  nodes: z.array(providerPullRequestCommitSchema).max(GITHUB_PULL_REQUEST_COMMIT_PAGE_SIZE),
+});
 const providerPullRequestResourceHeadSchema = providerPullRequestResourceIdentitySchema.extend({
   number: z.number().int().positive(),
   isCrossRepository: z.boolean(),
   state: z.literal("OPEN"),
+  baseRefOid: providerGitObjectIdSchema,
+  headRefOid: providerGitObjectIdSchema,
   headRepository: z.object({ id: z.string().min(1) }).nullable(),
   headRefName: z.string().min(1),
   comments: z.unknown().optional(),
+  commits: z.unknown().optional(),
 });
 const providerPullRequestResourceHeadsSchema = z.object({ nodes: z.array(z.unknown()) });
-const providerPullRequestCommentPageSchema = z.object({ node: z.unknown() });
+const providerPullRequestNodePageSchema = z.object({ node: z.unknown() });
 const providerIssueCommentIdentitySchema = z.object({
   __typename: z.string().min(1),
   id: z.string().min(1),
@@ -195,23 +220,10 @@ const providerIssueCommentBodySchema = z.object({
   }),
 });
 const providerIssueCommentBodiesSchema = z.object({ nodes: z.array(z.unknown()) });
-const providerRecoverablePullRequestErrorsSchema = z
-  .array(
-    z.object({
-      type: z.string().min(1),
-      path: z.array(z.union([z.string(), z.number()])).nonempty(),
-    }),
-  )
-  .nonempty();
-const providerRecoverablePullRequestErrorSchema = z.object({
-  name: z.literal("GraphqlResponseError"),
-  errors: providerRecoverablePullRequestErrorsSchema,
-  data: z.unknown(),
-});
 type ProviderPullRequestResourceHead = z.infer<typeof providerPullRequestResourceHeadSchema>;
 type PullRequestResourceHeadBase = Pick<
   ProviderPullRequestResourceHead,
-  "id" | "number" | "isCrossRepository" | "headRefName"
+  "id" | "number" | "isCrossRepository" | "baseRefOid" | "headRefName" | "headRefOid"
 > & {
   headRepositoryId: string | null;
 };
@@ -229,12 +241,26 @@ type HostingCommentScan =
       after: string | null;
     }
   | { state: "unavailable" };
+type PullRequestCommit = {
+  id: string;
+  oid: string;
+};
+type PullRequestCommitScan =
+  | {
+      state: "available";
+      commits: PullRequestCommit[];
+      totalCount: number;
+      before: string | null;
+    }
+  | { state: "unavailable" };
 type PullRequestResourceHeadSeed = PullRequestResourceHeadBase & {
   hostingCommentScan: HostingCommentScan;
+  commitScan: PullRequestCommitScan;
 };
 export type PullRequestResourceHead = PullRequestResourceHeadBase & {
+  cloudflareWorkerProof: CloudflareWorkerProofRead;
   hostingPreviews: {
-    cloudflare: CloudflareHostingRead;
+    cloudflare: CloudflarePagesRead;
     netlify: HostingPreviewRead<NetlifyHostingPreview>;
   };
 };
@@ -246,7 +272,7 @@ type PullRequestResourceHeadSeedRead =
   | { state: "unavailable"; pullRequestId: string };
 
 const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
-  query PullRequestResourceHeads($ids: [ID!]!) {
+  query PullRequestResourceHeads($ids: [ID!]!, $includeWorkerChecks: Boolean!) {
     nodes(ids: $ids) {
       __typename
       ... on PullRequest {
@@ -255,6 +281,8 @@ const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
         isCrossRepository
         state
         repository { databaseId }
+        baseRefOid
+        headRefOid
         headRepository { id }
         headRefName
         comments(
@@ -271,6 +299,34 @@ const PULL_REQUEST_RESOURCE_HEADS_QUERY = `
               ... on Bot { id }
             }
           }
+        }
+        commits(last: ${GITHUB_PULL_REQUEST_COMMIT_PAGE_SIZE}) @include(if: $includeWorkerChecks) {
+          totalCount
+          pageInfo { hasPreviousPage startCursor }
+          nodes { commit { id oid } }
+        }
+      }
+    }
+  }
+`;
+
+const PULL_REQUEST_COMMIT_PAGE_QUERY = `
+  query PullRequestCommitPage($id: ID!, $before: String) {
+    node(id: $id) {
+      __typename
+      ... on PullRequest {
+        id
+        state
+        repository { databaseId }
+        baseRefOid
+        headRefOid
+        commits(
+          last: ${GITHUB_PULL_REQUEST_COMMIT_PAGE_SIZE}
+          before: $before
+        ) {
+          totalCount
+          pageInfo { hasPreviousPage startCursor }
+          nodes { commit { id oid } }
         }
       }
     }
@@ -394,6 +450,48 @@ export function normalizeGitHubHostingCommentPage(
   };
 }
 
+export function normalizeGitHubPullRequestCommitPage(
+  value: unknown,
+  previous?: Extract<PullRequestCommitScan, { state: "available" }>,
+): PullRequestCommitScan {
+  const parsed = providerPullRequestCommitConnectionSchema.safeParse(value);
+  if (!parsed.success || (previous && parsed.data.totalCount !== previous.totalCount)) {
+    return { state: "unavailable" };
+  }
+
+  const pageCommits = parsed.data.nodes.map(({ commit }) => commit);
+  const commits = [...pageCommits, ...(previous?.commits ?? [])];
+  const ids = new Set<string>();
+  const oids = new Set<string>();
+  for (const commit of commits) {
+    if (ids.has(commit.id) || oids.has(commit.oid)) {
+      return { state: "unavailable" };
+    }
+    ids.add(commit.id);
+    oids.add(commit.oid);
+  }
+
+  const { hasPreviousPage, startCursor } = parsed.data.pageInfo;
+  if (
+    commits.length > parsed.data.totalCount ||
+    (hasPreviousPage &&
+      (startCursor === null ||
+        startCursor === previous?.before ||
+        pageCommits.length === 0 ||
+        commits.length === parsed.data.totalCount)) ||
+    (!hasPreviousPage && commits.length !== parsed.data.totalCount)
+  ) {
+    return { state: "unavailable" };
+  }
+
+  return {
+    state: "available",
+    commits,
+    totalCount: parsed.data.totalCount,
+    before: hasPreviousPage ? startCursor : null,
+  };
+}
+
 type HostingCommentBodyRequest = {
   commentId: string;
   provider: HostingCommentProvider;
@@ -500,56 +598,18 @@ export function normalizeGitHubPullRequestResourceHeadReads(
         id: head.id,
         number: head.number,
         isCrossRepository: head.isCrossRepository,
+        baseRefOid: head.baseRefOid,
+        headRefOid: head.headRefOid,
         headRepositoryId: head.headRepository?.id ?? null,
         headRefName: head.headRefName,
         hostingCommentScan: normalizeGitHubHostingCommentPage(head.comments),
+        commitScan:
+          CLOUDFLARE_WORKER_PROOF_SOURCE === "checks"
+            ? normalizeGitHubPullRequestCommitPage(head.commits)
+            : { state: "available", commits: [], totalCount: 0, before: null },
       },
     };
   });
-}
-
-export function recoverGitHubPullRequestGraphqlData(error: unknown): unknown {
-  const parsed = providerRecoverablePullRequestErrorSchema.safeParse(error);
-  if (
-    !parsed.success ||
-    !parsed.data.errors.every(
-      (providerError) =>
-        (providerError.type === "NOT_FOUND" && providerError.path[0] === "nodes") ||
-        (providerError.path[0] === "nodes" &&
-          typeof providerError.path[1] === "number" &&
-          providerError.path[2] === "comments"),
-    )
-  ) {
-    throw error;
-  }
-
-  const commentErrorIndexes = parsed.data.errors.flatMap((providerError) =>
-    providerError.path[0] === "nodes" &&
-    typeof providerError.path[1] === "number" &&
-    providerError.path[2] === "comments"
-      ? [providerError.path[1]]
-      : [],
-  );
-  if (commentErrorIndexes.length === 0) {
-    return parsed.data.data;
-  }
-
-  const response = providerPullRequestResourceHeadsSchema.safeParse(parsed.data.data);
-  if (
-    !response.success ||
-    commentErrorIndexes.some(
-      (index) => !Number.isInteger(index) || index < 0 || index >= response.data.nodes.length,
-    )
-  ) {
-    throw error;
-  }
-
-  const unavailableCommentIndexes = new Set(commentErrorIndexes);
-  return {
-    nodes: response.data.nodes.map((node, index) =>
-      unavailableCommentIndexes.has(index) && isRecord(node) ? { ...node, comments: null } : node,
-    ),
-  };
 }
 
 type StableWorker = VaultProviderObservationContext["cloudflareWorkers"][number];
@@ -613,22 +673,28 @@ export function buildPullRequestHostingPreviews(args: {
   head: PullRequestResourceHead;
   configuredWorkers: readonly { accountId: string; workerName: string }[];
 }): PullRequestHostingPreviews {
-  const cloudflare = args.head.hostingPreviews.cloudflare;
+  const cloudflarePages = args.head.hostingPreviews.cloudflare;
+  const cloudflareWorkers = args.head.cloudflareWorkerProof;
   const cloudflareResult: PullRequestHostingPreviews["cloudflare"] =
-    cloudflare.state === "unavailable"
+    cloudflarePages.state === "unavailable"
       ? { state: "unavailable" }
       : {
           state: "available",
-          previews: cloudflare.previews
-            .filter(
-              (preview) =>
-                preview.kind === "pages" ||
-                !args.configuredWorkers.some(
-                  (worker) =>
-                    worker.accountId === preview.accountId && worker.workerName === preview.name,
-                ),
-            )
-            .map((preview) => ({ kind: preview.kind, name: preview.name, url: preview.url })),
+          previews: [
+            ...(cloudflareWorkers.state === "available"
+              ? cloudflareWorkers.workers.flatMap((worker) =>
+                  worker.previewUrl !== null &&
+                  !args.configuredWorkers.some(
+                    (configured) =>
+                      configured.accountId === worker.accountId &&
+                      configured.workerName === worker.name,
+                  )
+                    ? [{ kind: "worker" as const, name: worker.name, url: worker.previewUrl }]
+                    : [],
+                )
+              : []),
+            ...cloudflarePages.previews,
+          ].map((preview) => ({ kind: preview.kind, name: preview.name, url: preview.url })),
         };
   const netlify = args.head.hostingPreviews.netlify;
   const netlifyResult: PullRequestHostingPreviews["netlify"] =
@@ -666,7 +732,7 @@ export function resolveConvexPreviewDeployment(args: {
 }
 
 export function buildPullRequestCloudflareWorkerResources(args: {
-  cloudflare: CloudflareHostingRead;
+  cloudflare: CloudflareWorkerProofRead;
   workers: readonly StableWorker[];
 }): { state: "available"; workers: PullRequestWorkerResource[] } | { state: "unavailable" } {
   if (args.cloudflare.state === "unavailable") {
@@ -675,34 +741,28 @@ export function buildPullRequestCloudflareWorkerResources(args: {
 
   const workers: PullRequestWorkerResource[] = [];
   for (const worker of args.workers) {
-    const build = resolveCloudflareCommentWorkerBuild({
-      accountId: worker.accountId,
-      resources: args.cloudflare,
-      workerName: worker.workerName,
-    });
-    const preview = resolveCloudflareCommentBranchPreviewUrl({
-      accountId: worker.accountId,
-      previews: args.cloudflare,
-      workerName: worker.workerName,
-    });
-    if (build.state === "unavailable" || preview.state === "unavailable") {
+    const matches = args.cloudflare.workers.filter(
+      (proof) => proof.accountId === worker.accountId && proof.name === worker.workerName,
+    );
+    if (matches.length > 1) {
       return { state: "unavailable" };
     }
+    const proof = matches.at(0);
     workers.push({
       ...workerResourceIdentity(worker),
       cloudflareBuild:
-        build.state === "available"
-          ? {
+        proof === undefined
+          ? { state: "unavailable" }
+          : {
               state: "available",
-              uuid: build.buildUuid,
-              buildState: build.buildState,
-              logsUrl: build.logsUrl,
-            }
-          : { state: "unavailable" },
+              uuid: proof.buildUuid,
+              buildState: proof.buildState,
+              logsUrl: proof.logsUrl,
+            },
       cloudflareBranchPreview:
-        preview.state === "available"
-          ? { state: "available", url: preview.url }
-          : { state: "absent" },
+        proof === undefined || proof.previewUrl === null
+          ? { state: "absent" }
+          : { state: "available", url: proof.previewUrl },
     });
   }
   return { state: "available", workers };
@@ -829,7 +889,7 @@ async function completeGitHubHostingCommentScan(args: {
     } catch {
       return { state: "unavailable" };
     }
-    const page = providerPullRequestCommentPageSchema.safeParse(response);
+    const page = providerPullRequestNodePageSchema.safeParse(response);
     if (!page.success || page.data.node === null) {
       return { state: "unavailable" };
     }
@@ -851,6 +911,60 @@ async function completeGitHubHostingCommentScan(args: {
     scan = next;
   }
   return scan;
+}
+
+export async function completeGitHubPullRequestCommitScan(args: {
+  octokit: Octokit;
+  signal: AbortSignal;
+  ghRepoId: string;
+  head: PullRequestResourceHeadSeed;
+}): Promise<PullRequestCommitScan> {
+  if (args.head.commitScan.state === "unavailable") {
+    return args.head.commitScan;
+  }
+
+  let scan = args.head.commitScan;
+  while (scan.before !== null) {
+    let response: unknown;
+    try {
+      response = await args.octokit.graphql(PULL_REQUEST_COMMIT_PAGE_QUERY, {
+        id: args.head.id,
+        before: scan.before,
+        request: { signal: args.signal },
+      });
+    } catch {
+      return { state: "unavailable" };
+    }
+    const page = providerPullRequestNodePageSchema.safeParse(response);
+    if (!page.success || page.data.node === null) {
+      return { state: "unavailable" };
+    }
+    const identity = providerPullRequestResourceIdentitySchema.safeParse(page.data.node);
+    const pullRequest = z
+      .object({
+        baseRefOid: providerGitObjectIdSchema,
+        headRefOid: providerGitObjectIdSchema,
+        commits: z.unknown(),
+      })
+      .safeParse(page.data.node);
+    if (
+      !identity.success ||
+      !pullRequest.success ||
+      identity.data.id !== args.head.id ||
+      String(identity.data.repository.databaseId) !== args.ghRepoId ||
+      identity.data.state !== "OPEN" ||
+      pullRequest.data.baseRefOid !== args.head.baseRefOid ||
+      pullRequest.data.headRefOid !== args.head.headRefOid
+    ) {
+      return { state: "unavailable" };
+    }
+    const next = normalizeGitHubPullRequestCommitPage(pullRequest.data.commits, scan);
+    if (next.state === "unavailable") {
+      return next;
+    }
+    scan = next;
+  }
+  return scan.commits.at(-1)?.oid === args.head.headRefOid ? scan : { state: "unavailable" };
 }
 
 type HostingCommentBodiesByProvider = {
@@ -927,19 +1041,15 @@ export async function readGitHubHostingCommentBodies(args: {
           ids: chunk.map((request) => request.commentId),
           request: { signal: args.signal },
         });
-      } catch (error) {
-        try {
-          response = recoverGitHubPullRequestGraphqlData(error);
-        } catch {
-          for (const request of chunk) {
-            const providerResult = result.get(request.pullRequestId);
-            if (!providerResult) {
-              throw new Error("GitHub pull request comments lost requested identity.");
-            }
-            providerResult[request.provider] = { state: "unavailable" };
+      } catch {
+        for (const request of chunk) {
+          const providerResult = result.get(request.pullRequestId);
+          if (!providerResult) {
+            throw new Error("GitHub pull request comments lost requested identity.");
           }
-          continue;
+          providerResult[request.provider] = { state: "unavailable" };
         }
+        continue;
       }
 
       for (const read of normalizeGitHubHostingCommentBodyReads(response, {
@@ -997,58 +1107,146 @@ async function readGitHubPullRequestResourceHeadReads(args: {
   try {
     response = await args.octokit.graphql(PULL_REQUEST_RESOURCE_HEADS_QUERY, {
       ids: args.pullRequestIds,
+      includeWorkerChecks: CLOUDFLARE_WORKER_PROOF_SOURCE === "checks",
       request: { signal: args.signal },
     });
-  } catch (error) {
-    response = recoverGitHubPullRequestGraphqlData(error);
+  } catch {
+    return args.pullRequestIds.map((pullRequestId) => ({ state: "unavailable", pullRequestId }));
   }
-  const seedReads = normalizeGitHubPullRequestResourceHeadReads(response, {
-    ghRepoId: args.ghRepoId,
-    pullRequestIds: args.pullRequestIds,
-  });
+  let seedReads: PullRequestResourceHeadSeedRead[];
+  try {
+    seedReads = normalizeGitHubPullRequestResourceHeadReads(response, {
+      ghRepoId: args.ghRepoId,
+      pullRequestIds: args.pullRequestIds,
+    });
+  } catch {
+    return args.pullRequestIds.map((pullRequestId) => ({ state: "unavailable", pullRequestId }));
+  }
   const seeds = seedReads.flatMap((read) => (read.state === "available" ? [read.head] : []));
-  const scans = await allLimited(
-    seeds.map((head) => async () => ({
-      pullRequestId: head.id,
-      scan: await completeGitHubHostingCommentScan({
+  const completedSeedsPromise =
+    seeds.length === 0
+      ? Promise.resolve([])
+      : allLimited(
+          seeds.map((head) => async () => ({
+            ...head,
+            hostingCommentScan: await completeGitHubHostingCommentScan({
+              octokit: args.octokit,
+              signal: args.signal,
+              ghRepoId: args.ghRepoId,
+              head,
+            }),
+          })),
+          6,
+        );
+  const commentsByPullRequestIdPromise = completedSeedsPromise.then(
+    async (completedSeeds) =>
+      await readGitHubHostingCommentBodies({
         octokit: args.octokit,
         signal: args.signal,
         ghRepoId: args.ghRepoId,
-        head,
+        scans: completedSeeds.map((head) => ({
+          pullRequestId: head.id,
+          scan: head.hostingCommentScan,
+        })),
       }),
-    })),
-    6,
   );
-  const commentsByPullRequestId = await readGitHubHostingCommentBodies({
-    octokit: args.octokit,
-    signal: args.signal,
-    ghRepoId: args.ghRepoId,
-    scans,
-  });
+  const checkProofsByPullRequestIdPromise =
+    CLOUDFLARE_WORKER_PROOF_SOURCE === "checks"
+      ? (seeds.length === 0
+          ? Promise.resolve([])
+          : allLimited(
+              seeds.map((head) => async () => ({
+                ...head,
+                commitScan: await completeGitHubPullRequestCommitScan({
+                  octokit: args.octokit,
+                  signal: args.signal,
+                  ghRepoId: args.ghRepoId,
+                  head,
+                }),
+              })),
+              6,
+            )
+        ).then(async (completedCommitSeeds) => {
+          const checkProofs = await readGitHubCloudflareWorkerChecks({
+            octokit: args.octokit,
+            signal: args.signal,
+            ghRepoId: args.ghRepoId,
+            heads: completedCommitSeeds.flatMap((head) =>
+              head.commitScan.state === "available"
+                ? [
+                    {
+                      id: head.id,
+                      baseRefOid: head.baseRefOid,
+                      headRefOid: head.headRefOid,
+                      commits: head.commitScan.commits,
+                    },
+                  ]
+                : [],
+            ),
+          });
+          return new Map<string, CloudflareWorkerProofRead>(
+            completedCommitSeeds.map((head) => [
+              head.id,
+              head.commitScan.state === "unavailable"
+                ? { state: "unavailable" }
+                : (checkProofs.get(head.id) ?? { state: "unavailable" }),
+            ]),
+          );
+        })
+      : Promise.resolve(null);
+  const [completedSeeds, commentsByPullRequestId, checkProofsByPullRequestId] = await Promise.all([
+    completedSeedsPromise,
+    commentsByPullRequestIdPromise,
+    checkProofsByPullRequestIdPromise,
+  ]);
+  const completedSeedsById = new Map(completedSeeds.map((head) => [head.id, head]));
+  const workerProofsByPullRequestId =
+    checkProofsByPullRequestId === null
+      ? new Map(
+          completedSeeds.map((head) => {
+            const comments = commentsByPullRequestId.get(head.id);
+            if (!comments) {
+              throw new Error("GitHub pull request comments lost requested identity.");
+            }
+            return [head.id, resolveCloudflareWorkerComments(comments.cloudflare)];
+          }),
+        )
+      : checkProofsByPullRequestId;
   const parseFailures: HostingCommentParseFailure[] = [];
   const reads = seedReads.map((read): PullRequestResourceHeadRead => {
     if (read.state === "unavailable") {
       return read;
     }
+    const completedHead = completedSeedsById.get(read.head.id);
     const comments = commentsByPullRequestId.get(read.head.id);
-    if (!comments) {
-      throw new Error("GitHub pull request comments lost requested identity.");
+    const cloudflareWorkerProof = workerProofsByPullRequestId.get(read.head.id);
+    if (!completedHead || !comments || !cloudflareWorkerProof) {
+      throw new Error("GitHub pull request resources lost requested identity.");
     }
-    const cloudflarePreviews = resolveCloudflareHostingPreviews(comments.cloudflare);
+    const cloudflarePreviews = resolveCloudflarePagesPreviews(comments.cloudflare);
     const netlifyPreviews = resolveNetlifyHostingPreviews({
       comments: comments.netlify,
       pullRequestNumber: read.head.number,
     });
-    const commentParseFailures = detectHostingCommentParseFailures({
+    const hostingCommentParseFailures = detectHostingCommentParseFailures({
       cloudflareComments: comments.cloudflare,
       cloudflareRead: cloudflarePreviews,
       netlifyComments: comments.netlify,
       netlifyRead: netlifyPreviews,
     });
+    const workerCommentParseFailures =
+      CLOUDFLARE_WORKER_PROOF_SOURCE === "comments"
+        ? detectCloudflareWorkerCommentParseFailures({
+            comments: comments.cloudflare,
+            proof: cloudflareWorkerProof,
+          })
+        : [];
+    const commentParseFailures = [...hostingCommentParseFailures, ...workerCommentParseFailures];
     parseFailures.push(...commentParseFailures);
-    const cloudflareRead = commentParseFailures.some((failure) =>
+    const cloudflareCommentFailed = commentParseFailures.some((failure) =>
       failure.providerFormat.startsWith("cloudflare_"),
-    )
+    );
+    const cloudflareRead = cloudflareCommentFailed
       ? ({ state: "unavailable" } as const)
       : cloudflarePreviews;
     return {
@@ -1057,8 +1255,14 @@ async function readGitHubPullRequestResourceHeadReads(args: {
         id: read.head.id,
         number: read.head.number,
         isCrossRepository: read.head.isCrossRepository,
+        baseRefOid: read.head.baseRefOid,
+        headRefOid: read.head.headRefOid,
         headRepositoryId: read.head.headRepositoryId,
         headRefName: read.head.headRefName,
+        cloudflareWorkerProof:
+          CLOUDFLARE_WORKER_PROOF_SOURCE === "comments" && cloudflareCommentFailed
+            ? { state: "unavailable" }
+            : cloudflareWorkerProof,
         hostingPreviews: {
           cloudflare: cloudflareRead,
           netlify: netlifyPreviews,
@@ -1105,7 +1309,7 @@ export const getPullRequestResources = action({
         configuredWorkers: context.cloudflareWorkers,
       });
       const cloudflareWorkers = buildPullRequestCloudflareWorkerResources({
-        cloudflare: head.hostingPreviews.cloudflare,
+        cloudflare: head.cloudflareWorkerProof,
         workers: context.cloudflareWorkers,
       });
       resourcesByPullRequest.set(head.id, {

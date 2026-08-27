@@ -165,6 +165,9 @@ import type * as vault_organizationTreeModel from "../vault/organizationTreeMode
 import type * as vault_providerDashboardUrls from "../vault/providerDashboardUrls.js";
 import type * as vault_providerObservationQueries from "../vault/providerObservationQueries.js";
 import type * as vault_providerObservations from "../vault/providerObservations.js";
+import type * as vault_pullRequestCloudflareWorkerChecks from "../vault/pullRequestCloudflareWorkerChecks.js";
+import type * as vault_pullRequestCloudflareWorkerComments from "../vault/pullRequestCloudflareWorkerComments.js";
+import type * as vault_pullRequestCloudflareWorkerProof from "../vault/pullRequestCloudflareWorkerProof.js";
 import type * as vault_pullRequestHostingPreviews from "../vault/pullRequestHostingPreviews.js";
 import type * as vault_pullRequestResources from "../vault/pullRequestResources.js";
 import type * as vault_records from "../vault/records.js";
@@ -338,6 +341,9 @@ declare const fullApi: ApiFromModules<{
   "vault/providerDashboardUrls": typeof vault_providerDashboardUrls;
   "vault/providerObservationQueries": typeof vault_providerObservationQueries;
   "vault/providerObservations": typeof vault_providerObservations;
+  "vault/pullRequestCloudflareWorkerChecks": typeof vault_pullRequestCloudflareWorkerChecks;
+  "vault/pullRequestCloudflareWorkerComments": typeof vault_pullRequestCloudflareWorkerComments;
+  "vault/pullRequestCloudflareWorkerProof": typeof vault_pullRequestCloudflareWorkerProof;
   "vault/pullRequestHostingPreviews": typeof vault_pullRequestHostingPreviews;
   "vault/pullRequestResources": typeof vault_pullRequestResources;
   "vault/records": typeof vault_records;

@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase dashboard and provider boundaries
-- Last updated: 2026-08-15
+- Last updated: 2026-08-27
 - Related work:
   - [PR #1243: Simplify vault provider resource truth](https://github.com/samebase/samebase/pull/1243)
   - [PR #1234: Replace dashboard branch mirrors with live pull requests](https://github.com/samebase/samebase/pull/1234)
@@ -72,11 +72,11 @@ re-reads those open pull requests from GitHub, verifies their repository identit
 and derives fork, head repository, and branch identity from that response. Client data never proves
 resource ownership.
 
-The request joins live GitHub comments and Convex responses against the direct Worker and Convex
-project attachments. It does not persist a pull request resource model. The browser caches one
-resource request for each loaded GitHub page under the common vault-provider observation namespace,
-keyed by the exact attachment coordinates and pull request node ids. Loading another page does not
-re-read resource data for earlier pages.
+The request joins live GitHub data and Convex responses against the direct Worker and Convex project
+attachments. It does not persist a pull request resource model. The browser caches one resource
+request for each loaded GitHub page under the common vault-provider observation namespace, keyed by
+the exact attachment coordinates and pull request node ids. Loading another page does not re-read
+resource data for earlier pages.
 
 The stable GitHub repository id proves repository identity. A repository coordinate rename does not
 invalidate that identity. If one requested pull request closes, merges, or disappears between the
@@ -84,11 +84,33 @@ page read and the resource read, only that resource row becomes unavailable; the
 still resolves. It has no provider rows, Cloudflare build status error, or per-Worker `Unavailable`
 state.
 
-The pull request Worker status and links are a direct view of a Cloudflare Bot comment on that pull
-request. Samebase does not read the Cloudflare Worker API, Cloudflare Builds API, GitHub check runs,
-or the pull request head commit to determine those facts. The browser uses the stored Worker root to
-place an attached Worker in the repository tree. Live Cloudflare observations do not move the pull
-request row automatically.
+One source-control constant selects Cloudflare Worker proof from GitHub checks or pull request
+comments. Its shipped value is `checks`. Changing the value requires a Samebase deployment. The two
+sources use separate modules and return the same Worker proof shape. Samebase reads only the
+selected source. It does not merge the sources or fall back from one source to the other.
+
+With checks selected, Samebase reads Cloudflare Worker checks from every commit that is still part
+of the current pull request. It accepts only the exact Cloudflare GitHub App. Workers resolve
+independently by exact Cloudflare account and Worker name. The newest matching check for each Worker
+is the visible result. A later commit with no matching check does not revoke an earlier result from
+the current pull request because Cloudflare path filters can skip that Worker. A check from a commit
+removed by a force-push cannot count.
+
+Before Samebase accepts the result, it verifies that the pull request is still open and that its
+repository, base commit, and head commit are unchanged. A failed read or changed identity fails the
+Worker proof closed.
+
+The check name, build link, external build id, Cloudflare account, Worker name, and build UUID must
+agree. Samebase keeps the exact provider logs link. A preview alias is optional. When present, it
+must be a strict HTTPS `workers.dev` origin for the same Worker and preview zone.
+
+With comments selected, Samebase keeps the existing Cloudflare Worker comment behavior. It does not
+add current-commit membership checks to comments. Samebase validates the abbreviated commit syntax,
+but it keeps the stable branch alias and deployment history that the comment presents.
+
+The browser uses the stored Worker root to place an attached Worker in the repository tree. Live
+Cloudflare observations do not move the pull request row automatically. Samebase does not read the
+Cloudflare Worker API or Cloudflare Builds API for pull request Worker proof.
 
 The batched pull request query reads only comment node ids and author types. It follows all metadata
 pages under the existing GitHub request deadline, selects only the exact Cloudflare and Netlify Bot
@@ -102,19 +124,17 @@ the visible logs link. The status cell maps successful deployment to Built, fail
 and building to Building. An unknown safe status remains Unknown. Samebase validates the comment row
 shape but does not compare its abbreviated commit with the current pull request head.
 
-An attached Worker uses a comment row only when the Cloudflare account and Worker name exactly match
-its attachment. Its branch preview comes from the exact `Branch Preview URL` anchor in that same
-comment row. The URL must be a strict HTTPS `workers.dev` origin for that Worker. Cloudflare Pages
-reads the exact Pages deployment heading, dashboard log target, and `Branch Preview URL` table row.
-Its URL must be a strict HTTPS `pages.dev` origin for that project. Equal normalized URLs are one
-result. Distinct valid URLs for one provider resource are ambiguous and fail closed. Samebase does
-not guess Cloudflare alias normalization from a branch name.
+An attached Worker uses proof only when the Cloudflare account and Worker name exactly match its
+attachment. Cloudflare Pages reads the exact Pages deployment heading, dashboard log target, and
+`Branch Preview URL` table row. Its URL must be a strict HTTPS `pages.dev` origin for that project.
+Equal normalized URLs are one result. Distinct valid URLs for one provider resource are ambiguous
+and fail closed. Samebase does not guess Cloudflare alias normalization from a branch name.
 
-If GitHub comments are read and parsed successfully but no matching Cloudflare Workers row exists,
-that attached Worker shows `Unavailable`. If the GitHub comment read fails, a Cloudflare comment is
-unsafe to parse, or Cloudflare rows conflict, the pull request shows one message:
-`Could not load Cloudflare build status`. It does not show per-Worker `Unavailable` rows for that
-failure. A Cloudflare failure does not hide valid Convex or Netlify resources.
+If the selected proof source is available but has no matching Worker, that attached Worker shows
+`Unavailable`. If the selected proof read fails or contains conflicting identity, the pull request
+shows one message: `Could not load Cloudflare build status`. It does not show per-Worker
+`Unavailable` rows for that failure. A Worker proof failure does not hide valid Cloudflare Pages,
+Convex, or Netlify resources.
 
 Netlify recovery reads an exact `Name` and `Link` table. The `Latest deploy log` row must identify
 one Netlify site. The `Deploy Preview` row must contain one strict HTTPS link for the requested pull
@@ -132,8 +152,8 @@ comment body, URL, repository, resource name, or provider account identity. Post
 these failed parse observations without persisting provider state in the Samebase database. One
 action read emits at most one marker for each provider-format and failure-kind pair.
 
-An attached Cloudflare Worker consumes its matching comment row for build status and links. The UI
-uses the stored `rootDirectory` and `workerName` from spec 115. Other parsed Cloudflare Workers,
+An attached Cloudflare Worker consumes its matching proof for build status and links. The UI uses
+the stored `rootDirectory` and `workerName` from spec 115. Other parsed Cloudflare Workers,
 Cloudflare Pages projects, and Netlify sites have no approved repository root. The UI lists them in
 an `Other previews` group and never invents a root. An unattached Worker row links to the repository
 Settings page with a `Connect` action. Cloudflare Pages and Netlify rows have no setup action
@@ -141,16 +161,11 @@ because Samebase does not support attaching those resources. Each row exposes th
 name and its branch or deploy preview link. The comment text and provider result are not saved in
 the Samebase database.
 
-For up to 100 pull requests, the normal GitHub cost is one batched GraphQL head and comment-metadata
-query. Comment discovery adds no request when there are no recognized bot comments. If recognized
-bot comments exist, Samebase adds one batched body query for each provider that has selected
-comments, with another query for each additional 100 selected comments. A pull request with more
-than 100 total comments adds metadata pagination queries until the scan is complete. Metadata
-pagination runs for at most six pull requests at one time.
-
-Worker identity, build state, build navigation, and branch preview use one Cloudflare comment row.
-The comment build link and status are the visible Worker state for an open pull request. No stronger
-pull request Worker API observation exists.
+Comment discovery adds no request when there are no recognized bot comments. If recognized bot
+comments exist, Samebase adds one batched body query for each provider that has selected comments,
+with another query for each additional 100 selected comments. A pull request with more than 100
+total comments adds metadata pagination queries until the scan is complete. Metadata pagination runs
+for at most six pull requests at one time.
 
 A Convex branch deployment belongs to a row only when the pull request head is in the vault
 repository, the project is directly attached to the vault, the current Convex credential can read
@@ -223,23 +238,29 @@ Tests must prove:
 - same-repository and fork heads stay distinct;
 - resource enrichment derives head identity from a server-side GitHub read, never browser fields;
 - a pull request that leaves the open set during resource enrichment does not fail sibling rows;
-- attached Worker resource state uses an exact Cloudflare comment account-and-name match;
+- the source constant selects one Worker proof module without merge or fallback;
+- Worker checks from any current pull request commit can count, but checks from removed commits do
+  not count;
+- a later commit without a Worker check keeps the newest matching check from an earlier current
+  commit;
+- multiple Workers resolve independently by exact Cloudflare account and Worker name;
+- a changed pull request base or head fails Worker check proof closed;
+- the comment source keeps its existing stable alias and does not add commit membership logic;
 - one attached-project Convex branch deployment with a provider-normalized reference remains
   reachable independently of Worker state and is visibly branch-scoped;
-- a matching Cloudflare comment row exposes its exact provider logs link and its visible status;
-- a matching Cloudflare comment row exposes its branch preview from that same comment;
-- a parsed Cloudflare comment set with no matching Worker row shows only that Worker as unavailable;
-- an unreadable or unsafe Cloudflare comment shows one pull request Cloudflare build status error;
+- matching Worker proof exposes its exact provider logs link, visible status, and optional preview;
+- available Worker proof with no matching Worker shows only that Worker as unavailable;
+- unreadable or unsafe Worker proof shows one pull request Cloudflare build status error;
 - comment metadata selects only the exact Cloudflare and Netlify Bots before any body is read;
 - attached Workers stay grouped by their stored roots independently of Builds observations and
   comment build states;
 - attached Workers consume exact account-and-name matches while other hosting previews remain
   rootless;
 - the `Other previews` group offers setup only for unattached Cloudflare Workers;
-- live Cloudflare Workers, Cloudflare Pages, and Netlify comment formats produce strict preview
+- live Cloudflare Worker checks and Cloudflare Pages and Netlify comments produce strict preview
   links;
 - provider failures are isolated, while comment pagination, body identity, malformed URLs, unsafe
-  Cloudflare status rows, and distinct URL ambiguity fail closed;
+  Worker proof, and distinct URL ambiguity fail closed;
 - an exact branch tree uses the immutable tree SHA returned for that branch commit;
 - no deleted table or action remains in generated Convex bindings, cleanup registries, or tests.
 
