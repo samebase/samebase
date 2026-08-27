@@ -1,7 +1,10 @@
 import type { CloudflareBuildState } from "./cloudflareBuildMatching";
+import {
+  normalizeCloudflareWorkerPreviewUrl,
+  parseCloudflareWorkerBuildLogsUrl,
+} from "../../shared/cloudflareResourceUrls";
 import type {
-  CloudflareWorkerBuildRead,
-  CloudflareWorkerPreview,
+  CloudflareWorkerProof,
   CloudflareWorkerProofRead,
 } from "./pullRequestCloudflareWorkerProof";
 
@@ -25,80 +28,6 @@ function markdownTableCells(line: string): string[] | null {
     .map((cell) => cell.trim());
 }
 
-function cloudflareDashboardTarget(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    if (
-      parsed.protocol !== "https:" ||
-      parsed.hostname !== "dash.cloudflare.com" ||
-      parsed.username !== "" ||
-      parsed.password !== "" ||
-      parsed.port !== "" ||
-      parsed.hash !== ""
-    ) {
-      return null;
-    }
-
-    if (parsed.pathname === "/") {
-      const entries = [...parsed.searchParams.entries()];
-      if (
-        entries.length !== 1 ||
-        entries[0][0] !== "to" ||
-        /%(?:2f|5c)/i.test(parsed.search) ||
-        /%(?:2f|5c)/i.test(entries[0][1])
-      ) {
-        return null;
-      }
-      return entries[0][1];
-    }
-
-    return parsed.search === "" && !/%(?:2f|5c)/i.test(parsed.pathname) ? parsed.pathname : null;
-  } catch {
-    return null;
-  }
-}
-
-function parseCloudflareWorkerBuildLogsUrl(
-  url: string,
-): { accountId: string; buildUuid: string; workerName: string } | null {
-  const target = cloudflareDashboardTarget(url);
-  if (target === null) {
-    return null;
-  }
-  const segments = target.split("/").filter((segment) => segment.length > 0);
-  if (
-    segments.length !== 8 ||
-    segments[1] !== "workers" ||
-    segments[2] !== "services" ||
-    segments[3] !== "view" ||
-    segments[5] !== "production" ||
-    segments[6] !== "builds" ||
-    !segments.every((segment) => /^[A-Za-z0-9._-]+$/.test(segment))
-  ) {
-    return null;
-  }
-  return { accountId: segments[0], buildUuid: segments[7], workerName: segments[4] };
-}
-
-function normalizeCloudflareWorkerPreviewUrl(url: string, workerName: string): string | null {
-  try {
-    const parsed = new URL(url);
-    return parsed.protocol === "https:" &&
-      parsed.username === "" &&
-      parsed.password === "" &&
-      parsed.port === "" &&
-      parsed.pathname === "/" &&
-      parsed.search === "" &&
-      parsed.hash === "" &&
-      parsed.hostname.endsWith(".workers.dev") &&
-      parsed.hostname.includes(`-${workerName.toLowerCase()}.`)
-      ? parsed.origin
-      : null;
-  } catch {
-    return null;
-  }
-}
-
 function parseCloudflareWorkerBuildState(statusCell: string): CloudflareBuildState | null {
   const match = statusCell.match(/^(.+?)\s*<br>\s*\[View logs\]\([^\s)]+\)\s*$/);
   if (match === null) {
@@ -118,8 +47,7 @@ function parseCloudflareWorkerBuildState(statusCell: string): CloudflareBuildSta
 }
 
 function parseCloudflareWorkerComment(body: string): CloudflareWorkerProofRead {
-  const previews: CloudflareWorkerPreview[] = [];
-  const workerBuilds: CloudflareWorkerBuildRead[] = [];
+  const workers: CloudflareWorkerProof[] = [];
   const lines = body.split(/\r?\n/);
   for (let headerIndex = 0; headerIndex + 2 < lines.length; headerIndex += 1) {
     const header = markdownTableCells(lines[headerIndex]);
@@ -174,47 +102,47 @@ function parseCloudflareWorkerComment(body: string): CloudflareWorkerProofRead {
       ) {
         return { state: "unavailable" };
       }
-      workerBuilds.push({
+      let previewUrl: string | null = null;
+      if (previewColumns.length > 0) {
+        const previewCell = row[previewColumns[0]];
+        if (previewCell.includes("Branch Preview URL")) {
+          const branchPreviewAnchors = [
+            ...previewCell.matchAll(/<a href=(['"])([^'"]+)\1>Branch Preview URL<\/a>/g),
+          ];
+          const branchPreviewLabelCount = [...previewCell.matchAll(/Branch Preview URL/g)].length;
+          if (
+            branchPreviewAnchors.length !== branchPreviewLabelCount ||
+            branchPreviewAnchors.length === 0
+          ) {
+            return { state: "unavailable" };
+          }
+          const previewUrls = new Set<string>();
+          for (const anchor of branchPreviewAnchors) {
+            const normalized = normalizeCloudflareWorkerPreviewUrl(anchor[2], workerName);
+            if (normalized === null) {
+              return { state: "unavailable" };
+            }
+            previewUrls.add(normalized.url);
+          }
+          if (previewUrls.size !== 1) {
+            return { state: "unavailable" };
+          }
+          const [url] = previewUrls;
+          previewUrl = url;
+        }
+      }
+
+      workers.push({
         accountId: logsIdentity.accountId,
         buildUuid: logsIdentity.buildUuid,
         buildState,
         logsUrl: buildLogsAnchors[0][2],
         name: workerName,
+        previewUrl,
       });
-
-      if (previewColumns.length === 0) {
-        continue;
-      }
-      const previewCell = row[previewColumns[0]];
-      if (!previewCell.includes("Branch Preview URL")) {
-        continue;
-      }
-
-      const branchPreviewAnchors = [
-        ...previewCell.matchAll(/<a href=(['"])([^'"]+)\1>Branch Preview URL<\/a>/g),
-      ];
-      const branchPreviewLabelCount = [...previewCell.matchAll(/Branch Preview URL/g)].length;
-      if (
-        branchPreviewAnchors.length !== branchPreviewLabelCount ||
-        branchPreviewAnchors.length === 0
-      ) {
-        return { state: "unavailable" };
-      }
-      for (const match of branchPreviewAnchors) {
-        const url = normalizeCloudflareWorkerPreviewUrl(match[2], workerName);
-        if (url === null) {
-          return { state: "unavailable" };
-        }
-        previews.push({
-          kind: "worker",
-          accountId: logsIdentity.accountId,
-          name: workerName,
-          url,
-        });
-      }
     }
   }
-  return { state: "available", previews, workerBuilds };
+  return { state: "available", workers };
 }
 
 function hasKnownCloudflareWorkerTable(body: string): boolean {
@@ -277,45 +205,31 @@ export function resolveCloudflareWorkerComments(
     return comments;
   }
 
-  const previewsByIdentity = new Map<string, CloudflareWorkerPreview>();
-  const workerBuildsByIdentity = new Map<string, CloudflareWorkerBuildRead>();
+  const workersByIdentity = new Map<string, CloudflareWorkerProof>();
   for (const body of comments.bodies) {
     const comment = parseCloudflareWorkerComment(body);
     if (comment.state === "unavailable") {
       return comment;
     }
-    for (const preview of comment.previews) {
-      const identity = `${preview.accountId}:${preview.name}`;
-      const previous = previewsByIdentity.get(identity);
-      if (previous && previous.url !== preview.url) {
-        return { state: "unavailable" };
-      }
-      previewsByIdentity.set(identity, preview);
-    }
-    for (const build of comment.workerBuilds) {
-      const identity = `${build.accountId}:${build.name}`;
-      const previous = workerBuildsByIdentity.get(identity);
+    for (const worker of comment.workers) {
+      const identity = `${worker.accountId}:${worker.name}`;
+      const previous = workersByIdentity.get(identity);
       if (
         previous &&
-        (previous.buildUuid !== build.buildUuid ||
-          previous.buildState !== build.buildState ||
-          previous.logsUrl !== build.logsUrl)
+        (previous.buildUuid !== worker.buildUuid ||
+          previous.buildState !== worker.buildState ||
+          previous.logsUrl !== worker.logsUrl ||
+          previous.previewUrl !== worker.previewUrl)
       ) {
         return { state: "unavailable" };
       }
-      workerBuildsByIdentity.set(identity, build);
+      workersByIdentity.set(identity, worker);
     }
   }
 
   return {
     state: "available",
-    previews: [...previewsByIdentity.values()].sort(
-      (left, right) =>
-        left.name.localeCompare(right.name) ||
-        left.accountId.localeCompare(right.accountId) ||
-        left.url.localeCompare(right.url),
-    ),
-    workerBuilds: [...workerBuildsByIdentity.values()].sort(
+    workers: [...workersByIdentity.values()].sort(
       (left, right) =>
         left.name.localeCompare(right.name) ||
         left.accountId.localeCompare(right.accountId) ||

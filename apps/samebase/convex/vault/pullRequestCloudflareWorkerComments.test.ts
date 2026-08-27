@@ -4,7 +4,6 @@ import {
   detectCloudflareWorkerCommentParseFailures,
   resolveCloudflareWorkerComments,
 } from "./pullRequestCloudflareWorkerComments";
-import { resolveCloudflareWorkerBuild } from "./pullRequestCloudflareWorkerProof";
 
 // Captured from https://github.com/samebase/samebase/pull/1343#issuecomment-5158532152.
 const successWithoutPreviewComment = `## Deploying with &nbsp;<a href="https://workers.dev"><img alt="Cloudflare Workers" src="https://workers.cloudflare.com/logo.svg" width="16"></a> &nbsp;Cloudflare Workers
@@ -40,15 +39,7 @@ describe("resolveCloudflareWorkerComments", () => {
       }),
     ).toEqual({
       state: "available",
-      previews: [
-        {
-          kind: "worker",
-          accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
-          name: "samebase",
-          url: "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
-        },
-      ],
-      workerBuilds: [
+      workers: [
         {
           accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
           buildState: "success",
@@ -56,6 +47,7 @@ describe("resolveCloudflareWorkerComments", () => {
           logsUrl:
             "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase/production/builds/293779de-52eb-4232-9ddd-52937ac4a575",
           name: "samebase",
+          previewUrl: "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
         },
         {
           accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
@@ -64,6 +56,7 @@ describe("resolveCloudflareWorkerComments", () => {
           logsUrl:
             "https://dash.cloudflare.com/?to=/fe57d01d7ab41f60d00ba1aade20eb33/workers/services/view/samebase-posthog-proxy/production/builds/4b9d6a6f-d4d4-4f9d-8c73-da8a5b1525c8",
           name: "samebase-posthog-proxy",
+          previewUrl: null,
         },
       ],
     });
@@ -75,13 +68,10 @@ describe("resolveCloudflareWorkerComments", () => {
       bodies: [successWithPreviewComment.replace("0a7c7e5d", "deadbee")],
     });
 
-    expect(
-      resolveCloudflareWorkerBuild({
-        accountId: "fe57d01d7ab41f60d00ba1aade20eb33",
-        proof,
-        workerName: "samebase",
-      }),
-    ).toMatchObject({ state: "available", buildState: "success" });
+    expect(proof).toMatchObject({
+      state: "available",
+      workers: [{ name: "samebase", buildState: "success" }],
+    });
   });
 
   it("retains an in-progress build without a preview", () => {
@@ -89,8 +79,26 @@ describe("resolveCloudflareWorkerComments", () => {
       resolveCloudflareWorkerComments({ state: "available", bodies: [inProgressComment] }),
     ).toMatchObject({
       state: "available",
-      previews: [],
-      workerBuilds: [{ name: "samebase", buildState: "running" }],
+      workers: [{ name: "samebase", buildState: "running", previewUrl: null }],
+    });
+  });
+
+  it("deduplicates equal branch preview anchors in one comment row", () => {
+    const anchor =
+      "<a href='https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev'>Branch Preview URL</a>";
+    expect(
+      resolveCloudflareWorkerComments({
+        state: "available",
+        bodies: [successWithPreviewComment.replace(anchor, `${anchor}<br>${anchor}`)],
+      }),
+    ).toMatchObject({
+      state: "available",
+      workers: [
+        {
+          name: "samebase",
+          previewUrl: "https://codex-preserve-pr-worker-root-groups-samebase.pfp.workers.dev",
+        },
+      ],
     });
   });
 

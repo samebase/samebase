@@ -1,3 +1,8 @@
+import {
+  normalizeCloudflarePagesPreviewUrl,
+  parseCloudflarePagesLogsUrl,
+} from "../../shared/cloudflareResourceUrls";
+
 export type HostingCommentBodies =
   | { state: "available"; bodies: string[] }
   | { state: "unavailable" };
@@ -34,78 +39,6 @@ function markdownTableCells(line: string): string[] | null {
     .slice(1, -1)
     .split("|")
     .map((cell) => cell.trim());
-}
-
-function cloudflareDashboardTarget(url: string): string | null {
-  try {
-    const parsed = new URL(url);
-    if (
-      parsed.protocol !== "https:" ||
-      parsed.hostname !== "dash.cloudflare.com" ||
-      parsed.username !== "" ||
-      parsed.password !== "" ||
-      parsed.port !== "" ||
-      parsed.hash !== ""
-    ) {
-      return null;
-    }
-
-    if (parsed.pathname === "/") {
-      const entries = [...parsed.searchParams.entries()];
-      if (
-        entries.length !== 1 ||
-        entries[0][0] !== "to" ||
-        /%(?:2f|5c)/i.test(parsed.search) ||
-        /%(?:2f|5c)/i.test(entries[0][1])
-      ) {
-        return null;
-      }
-      return entries[0][1];
-    }
-
-    return parsed.search === "" && !/%(?:2f|5c)/i.test(parsed.pathname) ? parsed.pathname : null;
-  } catch {
-    return null;
-  }
-}
-
-function parseCloudflarePagesLogsUrl(
-  url: string,
-): { accountId: string; projectName: string } | null {
-  const target = cloudflareDashboardTarget(url);
-  if (target === null) {
-    return null;
-  }
-  const segments = target.split("/").filter((segment) => segment.length > 0);
-  if (
-    segments.length !== 5 ||
-    segments[1] !== "pages" ||
-    segments[2] !== "view" ||
-    !segments.every((segment) => /^[A-Za-z0-9._-]+$/.test(segment))
-  ) {
-    return null;
-  }
-  return { accountId: segments[0], projectName: segments[3] };
-}
-
-function normalizeCloudflarePagesPreviewUrl(url: string, projectName: string): string | null {
-  try {
-    const parsed = new URL(url);
-    const projectSuffix = `.${projectName.toLowerCase()}.pages.dev`;
-    return parsed.protocol === "https:" &&
-      parsed.username === "" &&
-      parsed.password === "" &&
-      parsed.port === "" &&
-      parsed.pathname === "/" &&
-      parsed.search === "" &&
-      parsed.hash === "" &&
-      parsed.hostname.endsWith(projectSuffix) &&
-      parsed.hostname.length > projectSuffix.length
-      ? parsed.origin
-      : null;
-  } catch {
-    return null;
-  }
 }
 
 function parseCloudflarePagesPreviewFromBody(
