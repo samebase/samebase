@@ -77,7 +77,10 @@ export function good<TGood>(val: TGood): Good<TGood> {
   return [true, val];
 }
 
-export type Unsure<TBad, TGood> = //
+export type Unsure<
+  TBad,
+  TGood,
+> = //
   Good<TGood> | Bad<TBad>;
 
 export type Good<T> = readonly [true, T];
@@ -136,7 +139,9 @@ export type InferInput<
       CFrom
     : never;
 
-export type InferMeta<T extends Sure<unknown, unknown, any, {}>> = //
+export type InferMeta<
+  T extends Sure<unknown, unknown, any, {}>,
+> = //
   T extends Sure<unknown, unknown, any, infer CMeta> //
     ? CMeta
     : {};

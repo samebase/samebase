@@ -10,7 +10,9 @@ import {
 } from "../../index.ts";
 
 // Doesn't work
-export type TupleInferGoods01<T> = //
+export type TupleInferGoods01<
+  T,
+> = //
   T extends readonly [infer First, ...infer InferRest]
     ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- learning scratch
       First extends Sure<unknown, infer Good, any, infer Meta>
@@ -37,7 +39,9 @@ type Sample = typeof sample;
 type Check01 = TupleInferGoods01<Sample>;
 
 // ## Try fixing
-export type TupleInferGoods_02<T> = //
+export type TupleInferGoods_02<
+  T,
+> = //
   T extends readonly [infer First, ...infer InferRest]
     ? // eslint-disable-next-line @typescript-eslint/no-explicit-any -- learning scratch
       First extends Sure<unknown, infer Good, any, infer Meta>

@@ -81,9 +81,9 @@ describe("starterSeedManifest", () => {
         packageManager: "pnpm@11.1.1",
       }),
     );
-    expect(pnpmWorkspace).toContain("vite: npm:@voidzero-dev/vite-plus-core@0.2.7");
-    expect(pnpmWorkspace).toContain("vitest: 4.1.10");
-    expect(pnpmWorkspace).toContain("vite-plus: 0.2.7");
+    expect(pnpmWorkspace).toContain("vite: npm:@voidzero-dev/vite-plus-core@0.3.0");
+    expect(pnpmWorkspace).toContain("vitest: 4.1.11");
+    expect(pnpmWorkspace).toContain("vite-plus: 0.3.0");
     expect(starterTemplateManifest.files["package.json"]).not.toContain('"eslint"');
     expect(starterTemplateManifest.files["package.json"]).not.toContain('"prettier"');
     expect(buildCloudflareScript).toContain(

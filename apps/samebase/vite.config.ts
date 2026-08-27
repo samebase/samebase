@@ -458,6 +458,20 @@ export default defineConfig({
   preview: {
     host: "127.0.0.1",
   },
+  environments: {
+    ssr: {
+      build: {
+        rolldownOptions: {
+          output: {
+            // Vite+ 0.3.0 contains Rolldown 1.2.5, which can emit an undefined
+            // namespace export when it splits TanStack Start server chunks.
+            // https://github.com/rolldown/rolldown/issues/10734
+            codeSplitting: false,
+          },
+        },
+      },
+    },
+  },
   build: {
     rollupOptions: {
       onwarn(warning, warn) {

@@ -13,6 +13,18 @@ minimumReleaseAgeExclude:
   # TODO(2026-08-14): Remove after this security patch completes the normal
   # 7-day cooling period.
   - nanoid@3.3.18
+  # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
+  # 7-day cooling period.
+  - "@voidzero-dev/vite-plus-core@0.3.0"
+  - "@voidzero-dev/vite-plus-darwin-arm64@0.3.0"
+  - "@voidzero-dev/vite-plus-darwin-x64@0.3.0"
+  - "@voidzero-dev/vite-plus-linux-arm64-gnu@0.3.0"
+  - "@voidzero-dev/vite-plus-linux-arm64-musl@0.3.0"
+  - "@voidzero-dev/vite-plus-linux-x64-gnu@0.3.0"
+  - "@voidzero-dev/vite-plus-linux-x64-musl@0.3.0"
+  - "@voidzero-dev/vite-plus-win32-arm64-msvc@0.3.0"
+  - "@voidzero-dev/vite-plus-win32-x64-msvc@0.3.0"
+  - vite-plus@0.3.0
 minimumReleaseAgeStrict: true
 minimumReleaseAgeIgnoreMissingTime: false
 # Blocks transitive git/tarball dependencies, including the remote GitHub
@@ -70,9 +82,9 @@ patchedDependencies:
   "@convex-dev/auth@0.0.94": patches/@convex-dev__auth@0.0.94.patch
   ajv@8.18.0: patches/ajv@8.18.0.patch
 catalog:
-  vite: npm:@voidzero-dev/vite-plus-core@0.2.7
-  vitest: 4.1.10
-  vite-plus: 0.2.7
+  vite: npm:@voidzero-dev/vite-plus-core@0.3.0
+  vitest: 4.1.11
+  vite-plus: 0.3.0
 peerDependencyRules:
   allowAny:
     - vite
