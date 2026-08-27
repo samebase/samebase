@@ -10,9 +10,6 @@ minimumReleaseAge: 10080
 # Keep release-age exceptions exact so future package releases do not bypass
 # the cooling period automatically.
 minimumReleaseAgeExclude:
-  # TODO(2026-08-14): Remove after this security patch completes the normal
-  # 7-day cooling period.
-  - nanoid@3.3.18
   # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
   # 7-day cooling period.
   - "@voidzero-dev/vite-plus-core@0.3.0"
