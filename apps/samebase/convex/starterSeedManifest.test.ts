@@ -7,18 +7,9 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.version).toBe(
       `samebase-app-${starterTemplateManifest.contentHash.slice(0, 12)}`,
     );
-    expect(starterTemplateManifest.baseline).toMatch(/^v[1-9]\d*$/);
     expect(starterTemplateManifest.sourcePath).toBe("templates/app");
-    expect(starterTemplateManifest.sourceRepository).toBe("https://github.com/samebase/samebase");
     expect(starterTemplateManifest.publishedRepo).toBe("https://github.com/samebase/app.git");
     expect(starterTemplateManifest.commitMessage).toBe("Initialize Samebase app");
-    expect(JSON.parse(starterTemplateManifest.files[".samebase/template.json"])).toEqual(
-      expect.objectContaining({
-        baseline: starterTemplateManifest.baseline,
-        schemaVersion: 1,
-        sourceRepository: starterTemplateManifest.sourceRepository,
-      }),
-    );
   });
 
   it("includes required runnable starter files", () => {
@@ -27,7 +18,6 @@ describe("starterSeedManifest", () => {
     const allFilePaths = [...filePaths, ...binaryFilePaths];
 
     expect(filePaths).toContain("package.json");
-    expect(filePaths).toContain(".samebase/template.json");
     expect(filePaths).toContain("pnpm-lock.yaml");
     expect(filePaths).toContain("pnpm-workspace.yaml");
     expect(filePaths).toContain(".github/workflows/ci.yml");

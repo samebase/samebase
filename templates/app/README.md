@@ -116,18 +116,6 @@ Do not hand-edit generated files when their source tool can update them.
 When a Convex AI-file update changes the installed source snapshot, confirm its distribution license
 and update `THIRD_PARTY_NOTICES.md` when its third-party material changes.
 
-## Template updates
-
-`.samebase/template.json` records the Samebase template source and the last upstream build applied
-to the complete repository. `.samebase/CHANGELOG.md` lists the files that an update must apply
-together, required migration work, and the verification command.
-
-The first line of each TypeScript file in `scripts/` records the last Samebase build that changed
-that file. Keep this marker unchanged for local edits. When you apply a later upstream release,
-compare the old upstream build, the local file, and the new upstream build. Preserve local changes,
-apply the related changelog entry, and update the marker only after the new script change is fully
-merged. Update the baseline in `template.json` after the complete release is applied and verified.
-
 ## License
 
 Licensed under the [Apache License 2.0](./LICENSE). See

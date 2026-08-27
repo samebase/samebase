@@ -49,16 +49,6 @@ Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.de
 - Run `pnpm run build` before a deploy. The real Cloudflare build path runs the complete check before
   it builds the app.
 
-## Samebase template updates
-
-- Read `.samebase/template.json` for the applied upstream baseline and apply later entries from
-  `.samebase/CHANGELOG.md` in order.
-- The first line of each TypeScript file in `scripts/` records the Samebase build that last changed
-  the upstream file. Do not change it for local edits.
-- When an upstream release changes a script, merge the upstream and local changes before you update
-  its source-build marker. Apply each changelog file group together, run its verification command,
-  and update the template baseline only after the complete release passes.
-
 <!-- convex-ai-start -->
 
 This project uses [Convex](https://convex.dev) as its backend.

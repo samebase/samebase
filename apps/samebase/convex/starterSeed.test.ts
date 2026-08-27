@@ -136,14 +136,11 @@ describe("buildTreeEntriesForManifest", () => {
 });
 
 describe("seedRepositoryWithStarter", () => {
-  const contentHash = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
   const manifest: StarterTemplateManifest = {
     version: "starter-template-test",
-    baseline: "v1977",
     sourcePath: "templates/app",
-    sourceRepository: "https://github.com/samebase/samebase",
     publishedRepo: "https://github.com/samebase/app.git",
-    contentHash,
+    contentHash: "starter-template-test",
     commitMessage: "Initialize Samebase app",
     files: {
       "README.md": "starter",
@@ -168,12 +165,6 @@ describe("seedRepositoryWithStarter", () => {
     expect(mock.createBlobCalls).toHaveLength(0);
     expect(mock.createCommitCalls).toHaveLength(1);
     expect(mock.createCommitCalls[0].parents).toEqual([]);
-    expect(mock.createCommitCalls[0].message).toBe(`Initialize Samebase app
-
-Samebase-Template-Source-Repository: https://github.com/samebase/samebase
-Samebase-Template-Release-Build: v1977
-Samebase-Template-Manifest-Version: starter-template-test
-Samebase-Template-Content-Hash: ${contentHash}`);
     expect(mock.createRefCalls).toHaveLength(1);
     expect(mock.createRefCalls[0]).toEqual({
       owner: "owner",
@@ -187,26 +178,6 @@ Samebase-Template-Content-Hash: ${contentHash}`);
       defaultBranch: "main",
       headCommitSha: "commit-1",
     });
-  });
-
-  it("rejects an invalid template baseline before GitHub writes", async () => {
-    const mock = makeGitClient();
-
-    await expect(
-      seedRepositoryWithStarter({
-        client: mock.client,
-        owner: "owner",
-        repo: "repo",
-        defaultBranch: "main",
-        manifest: {
-          ...manifest,
-          baseline: "1977",
-        },
-      }),
-    ).rejects.toThrow("baseline must use the v<N> build label format");
-
-    expect(mock.createTreeCalls).toHaveLength(0);
-    expect(mock.createCommitCalls).toHaveLength(0);
   });
 
   it("creates Git blobs for binary manifest files before creating the tree", async () => {

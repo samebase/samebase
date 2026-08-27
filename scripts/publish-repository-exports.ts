@@ -9,7 +9,6 @@ export type RepositoryExport = {
   sourceRoot: string;
   targetBranch: string;
   targetRepository: string;
-  versionTags: "none" | "source-build-version";
 };
 
 export const appTemplateSourceRoot = "templates/app";
@@ -19,13 +18,11 @@ export const repositoryExports = [
     sourceRoot: "packages/plugin",
     targetBranch: "main",
     targetRepository: "plugin",
-    versionTags: "none",
   },
   {
     sourceRoot: appTemplateSourceRoot,
     targetBranch: "main",
     targetRepository: "app",
-    versionTags: "source-build-version",
   },
 ] satisfies readonly RepositoryExport[];
 
@@ -126,19 +123,13 @@ export function formatPublishedCommitSubject(
   sourceSubject: string,
   sourceRepository: string,
 ): string {
-  sourceBuildVersion(sourceSubject);
+  if (!/^v\d+:/.test(sourceSubject)) {
+    throw new Error(`Source commit subject has no build version: ${sourceSubject}`);
+  }
   if (!/^[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+$/.test(sourceRepository)) {
     throw new Error(`Invalid source repository: ${sourceRepository}`);
   }
   return sourceSubject.replace(/ \(#(\d+)\)$/, ` (${sourceRepository}#$1)`);
-}
-
-function sourceBuildVersion(sourceSubject: string): string {
-  const buildVersion = /^v\d+(?=:)/.exec(sourceSubject)?.[0];
-  if (!buildVersion) {
-    throw new Error(`Source commit subject has no build version: ${sourceSubject}`);
-  }
-  return buildVersion;
 }
 
 export function readCurrentSourceBranchHead({
@@ -240,24 +231,16 @@ export function publishRepositoryExport(
     commitEnvironment,
   );
 
-  const pushArguments = [
-    "push",
-    "--atomic",
-    `--force-with-lease=refs/heads/${definition.targetBranch}:${target.commit}`,
-    targetRemoteUrl,
-    `${publishedCommit}:refs/heads/${definition.targetBranch}`,
-  ];
-  const versionTags = definition.versionTags;
-  switch (versionTags) {
-    case "none":
-      break;
-    case "source-build-version":
-      pushArguments.push(`${publishedCommit}:refs/tags/${sourceBuildVersion(sourceSubject)}`);
-      break;
-    default:
-      versionTags satisfies never;
-  }
-  gitOutput(repoRoot, pushArguments, gitEnvironment);
+  gitOutput(
+    repoRoot,
+    [
+      "push",
+      `--force-with-lease=refs/heads/${definition.targetBranch}:${target.commit}`,
+      targetRemoteUrl,
+      `${publishedCommit}:refs/heads/${definition.targetBranch}`,
+    ],
+    gitEnvironment,
+  );
   return {
     status: "published",
     publishedCommit,

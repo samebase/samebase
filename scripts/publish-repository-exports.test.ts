@@ -34,7 +34,7 @@ function configureCommitter(repoRoot: string): void {
   git(repoRoot, ["config", "user.email", "repository-export-test@example.com"]);
 }
 
-function createRepositoryExportFixture(definition = repositoryExports[0]): {
+function createRepositoryExportFixture(): {
   sourceCommit: string;
   sourceRepo: string;
   targetHead: string;
@@ -50,7 +50,7 @@ function createRepositoryExportFixture(definition = repositoryExports[0]): {
   mkdirSync(sourceRepo);
   git(sourceRepo, ["init", "-b", "main"]);
   configureCommitter(sourceRepo);
-  const sourceRoot = path.join(sourceRepo, definition.sourceRoot);
+  const sourceRoot = path.join(sourceRepo, repositoryExports[0].sourceRoot);
   mkdirSync(sourceRoot, { recursive: true });
   writeFileSync(path.join(sourceRoot, "README.md"), "published\n", "utf8");
   writeFileSync(path.join(sourceRoot, "run.sh"), "#!/bin/sh\nexit 0\n", "utf8");
@@ -90,7 +90,6 @@ describe("repository exports", () => {
       sourceRoot: "templates/app",
       targetBranch: "main",
       targetRepository: "app",
-      versionTags: "source-build-version",
     });
   });
 
@@ -134,7 +133,6 @@ describe("repository exports", () => {
       expect(git(fixture.targetRepo, ["ls-tree", publishedHead, "readme-link"])).toMatch(
         /^120000 /,
       );
-      expect(git(fixture.targetRepo, ["tag", "--list"])).toBe("");
 
       const unchanged = publishRepositoryExport({
         definition: repositoryExports[0],
@@ -146,72 +144,6 @@ describe("repository exports", () => {
       });
       expect(unchanged.status).toBe("unchanged");
       expect(git(fixture.targetRepo, ["rev-parse", "refs/heads/main"])).toBe(publishedHead);
-    } finally {
-      rmSync(fixture.temporaryRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("tags a changed app export and leaves an unchanged rerun alone", () => {
-    const appExport = repositoryExports[1];
-    const fixture = createRepositoryExportFixture(appExport);
-    const gitEnvironment = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
-
-    try {
-      const result = publishRepositoryExport({
-        definition: appExport,
-        gitEnvironment,
-        repoRoot: fixture.sourceRepo,
-        sourceCommit: fixture.sourceCommit,
-        sourceRepository: "samebase/samebase",
-        targetRemoteUrl: fixture.targetRepo,
-      });
-      if (result.status !== "published") {
-        throw new Error("Expected the app export to publish a commit.");
-      }
-
-      expect(git(fixture.targetRepo, ["rev-parse", "refs/heads/main"])).toBe(
-        result.publishedCommit,
-      );
-      expect(git(fixture.targetRepo, ["rev-parse", "refs/tags/v42"])).toBe(result.publishedCommit);
-
-      const unchanged = publishRepositoryExport({
-        definition: appExport,
-        gitEnvironment,
-        repoRoot: fixture.sourceRepo,
-        sourceCommit: fixture.sourceCommit,
-        sourceRepository: "samebase/samebase",
-        targetRemoteUrl: fixture.targetRepo,
-      });
-      expect(unchanged.status).toBe("unchanged");
-      expect(git(fixture.targetRepo, ["rev-parse", "refs/heads/main"])).toBe(
-        result.publishedCommit,
-      );
-      expect(git(fixture.targetRepo, ["rev-parse", "refs/tags/v42"])).toBe(result.publishedCommit);
-    } finally {
-      rmSync(fixture.temporaryRoot, { recursive: true, force: true });
-    }
-  });
-
-  it("does not publish the app branch when its build-version tag already exists", () => {
-    const appExport = repositoryExports[1];
-    const fixture = createRepositoryExportFixture(appExport);
-    const gitEnvironment = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
-
-    try {
-      git(fixture.targetRepo, ["tag", "v42", fixture.targetHead]);
-
-      expect(() =>
-        publishRepositoryExport({
-          definition: appExport,
-          gitEnvironment,
-          repoRoot: fixture.sourceRepo,
-          sourceCommit: fixture.sourceCommit,
-          sourceRepository: "samebase/samebase",
-          targetRemoteUrl: fixture.targetRepo,
-        }),
-      ).toThrow("git push failed");
-      expect(git(fixture.targetRepo, ["rev-parse", "refs/heads/main"])).toBe(fixture.targetHead);
-      expect(git(fixture.targetRepo, ["rev-parse", "refs/tags/v42"])).toBe(fixture.targetHead);
     } finally {
       rmSync(fixture.temporaryRoot, { recursive: true, force: true });
     }

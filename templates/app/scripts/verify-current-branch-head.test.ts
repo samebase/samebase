@@ -1,4 +1,3 @@
-// Samebase source build: v1977
 import { describe, expect, it } from "vite-plus/test";
 
 import { verifyCurrentBranchHead } from "./verify-current-branch-head.ts";
