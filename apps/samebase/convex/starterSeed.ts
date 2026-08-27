@@ -58,6 +58,7 @@ type StarterSeedGitClientOptions = {
 };
 
 const RETRYABLE_STATUSES = new Set([409, 422]);
+const templateBaselinePattern = /^v[1-9]\d*$/;
 
 function getErrorStatus(error: unknown): number | undefined {
   if (typeof error !== "object" || error === null) {
@@ -337,6 +338,14 @@ function validateManifest(manifest: StarterTemplateManifest): void {
     throw new Error("starter template manifest version is required");
   }
 
+  if (!templateBaselinePattern.test(manifest.baseline)) {
+    throw new Error("starter template manifest baseline must use the v<N> build label format");
+  }
+
+  if (manifest.sourceRepository.length === 0) {
+    throw new Error("starter template manifest sourceRepository is required");
+  }
+
   if (manifest.commitMessage.length === 0) {
     throw new Error("starter template manifest commitMessage is required");
   }
@@ -511,7 +520,12 @@ export async function seedRepositoryWithStarter(args: {
       await args.client.createCommit({
         owner: args.owner,
         repo: args.repo,
-        message: manifest.commitMessage,
+        message: `${manifest.commitMessage}
+
+Samebase-Template-Source-Repository: ${manifest.sourceRepository}
+Samebase-Template-Release-Build: ${manifest.baseline}
+Samebase-Template-Manifest-Version: ${manifest.version}
+Samebase-Template-Content-Hash: ${manifest.contentHash}`,
         tree: tree.sha,
         parents: [],
       }),

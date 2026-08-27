@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import type { PublicPrerenderPage } from "./generate-cloudflare-redirects.js";
+import type { PublicPrerenderPage } from "../prerenderPaths.js";
 import {
   stripModulePreloadLinks,
   verifyPublicPrerenderMetadata,

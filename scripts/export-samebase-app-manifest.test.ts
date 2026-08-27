@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import { collectTemplateFiles } from "./export-samebase-app-manifest.ts";
+import { collectTemplateFiles, readTemplateProvenance } from "./export-samebase-app-manifest.ts";
 
 function git(cwd: string, args: readonly string[]): void {
   execFileSync("git", args, {
@@ -26,6 +26,12 @@ describe("samebase app manifest export", () => {
         "templates/app/crlf.txt text eol=crlf\n",
         "utf8",
       );
+      mkdirSync(path.join(templateRoot, ".samebase"));
+      writeFileSync(
+        path.join(templateRoot, ".samebase", "template.json"),
+        '{"schemaVersion":1,"sourceRepository":"https://github.com/samebase/samebase","baseline":"v1977"}\n',
+        "utf8",
+      );
       writeFileSync(path.join(templateRoot, ".gitignore"), ".env*\nnode_modules\n", "utf8");
       writeFileSync(path.join(templateRoot, "README.md"), "starter\n", "utf8");
       writeFileSync(path.join(templateRoot, "binary.bin"), Buffer.from([0, 255]));
@@ -44,6 +50,7 @@ describe("samebase app manifest export", () => {
 
       expect(files.map((file) => file.relativePath)).toEqual([
         ".gitignore",
+        ".samebase/template.json",
         "README.md",
         "binary.bin",
         "crlf.txt",
@@ -71,6 +78,30 @@ describe("samebase app manifest export", () => {
           mode: "100644",
         }),
       );
+      expect(readTemplateProvenance(files)).toEqual({
+        baseline: "v1977",
+        sourceRepository: "https://github.com/samebase/samebase",
+      });
+
+      writeFileSync(
+        path.join(templateRoot, ".samebase", "template.json"),
+        '{"schemaVersion":1,"sourceRepository":"https://github.com/not-samebase/app","baseline":"v1977"}\n',
+        "utf8",
+      );
+      git(temporaryRoot, ["add", "templates/app/.samebase/template.json"]);
+      await expect(
+        collectTemplateFiles(temporaryRoot).then(readTemplateProvenance),
+      ).rejects.toThrow("sourceRepository must be https://github.com/samebase/samebase");
+
+      writeFileSync(
+        path.join(templateRoot, ".samebase", "template.json"),
+        '{"schemaVersion":1,"sourceRepository":"https://github.com/samebase/samebase","baseline":"1977"}\n',
+        "utf8",
+      );
+      git(temporaryRoot, ["add", "templates/app/.samebase/template.json"]);
+      await expect(
+        collectTemplateFiles(temporaryRoot).then(readTemplateProvenance),
+      ).rejects.toThrow("baseline must use the v<N> build label format");
 
       writeFileSync(path.join(templateRoot, "new.ts"), "export {};\n", "utf8");
       await expect(collectTemplateFiles(temporaryRoot)).rejects.toThrow(

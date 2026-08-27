@@ -1,3 +1,4 @@
+// Samebase source build: v1977
 /// <reference types="node" />
 import { execFileSync } from "node:child_process";
 import process from "node:process";

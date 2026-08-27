@@ -1,3 +1,4 @@
+// Samebase source build: v1977
 import process from "node:process";
 
 import { describe, expect, it } from "vite-plus/test";

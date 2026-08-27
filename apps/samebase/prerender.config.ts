@@ -2,8 +2,8 @@ import { entries } from "@samebase/dependent/object";
 import {
   ROUTE_ACCESS_METADATA_BY_PATH,
   type PublicPrerenderRoutePath,
-  type RoutePath,
-} from "../src/routeAccessMetadata";
+} from "./src/routeAccessMetadata.ts";
+import { createPrerenderPathRewrites, type PublicPrerenderPage } from "./prerenderPaths.ts";
 
 type ExpectedPublicPrerenderMetadata = {
   title: string;
@@ -123,15 +123,6 @@ const expectedPublicPrerenderMetadataByPath = {
   },
 } as const satisfies Record<PublicPrerenderRoutePath, ExpectedPublicPrerenderMetadata>;
 
-type PrerenderPage = {
-  path: RoutePath;
-  expectedMetadata: ExpectedPublicPrerenderMetadata;
-  prerender: {
-    enabled: true;
-    outputPath?: string;
-  };
-};
-
 function isConcreteRoutePath(routePath: string): boolean {
   return !routePath.includes("$");
 }
@@ -158,7 +149,7 @@ function compareRoutePaths(left: string, right: string): number {
   return left.localeCompare(right);
 }
 
-export function readPublicPrerenderPages() {
+function readPublicPrerenderPages() {
   // Keep Vite config on metadata-only imports. Importing the router here pulls
   // route components before app aliases are active during config loading.
   const routePaths = entries(ROUTE_ACCESS_METADATA_BY_PATH)
@@ -206,5 +197,19 @@ export function readPublicPrerenderPages() {
         ...(routePath === "/" ? { outputPath: "/_landing.html" } : {}),
       },
     };
-  }) satisfies PrerenderPage[];
+  }) satisfies PublicPrerenderPage[];
+}
+
+/**
+ * Public pages and exact route aliases are host-neutral here. Vite consumes
+ * the pages, Cloudflare consumes the alias map, and another static host can
+ * consume rewritePrerenderPath without duplicating route rules.
+ */
+export const publicPrerenderPages = readPublicPrerenderPages();
+export const prerenderPathRewrites = createPrerenderPathRewrites(publicPrerenderPages);
+
+export function rewritePrerenderPath(path: string) {
+  return Object.prototype.hasOwnProperty.call(prerenderPathRewrites, path)
+    ? prerenderPathRewrites[path]
+    : path;
 }

@@ -1,9 +1,6 @@
 import { writeFileSync } from "node:fs";
 import path from "node:path";
-import {
-  readPrerenderHtmlOutputPath,
-  type PublicPrerenderPage,
-} from "./generate-cloudflare-redirects.ts";
+import { readPrerenderHtmlOutputPath, type PublicPrerenderPage } from "../prerenderPaths.ts";
 
 const linkTagPattern = /<link\b[^>]*>/gi;
 const relAttributePattern = /\srel\s*=\s*("[^"]*"|'[^']*'|[^\s"'=<>`]+)/i;

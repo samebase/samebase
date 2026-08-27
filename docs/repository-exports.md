@@ -33,7 +33,8 @@ For each configured export, it:
 3. fetches the current external target branch
 4. stops without a new commit when both trees are equal
 5. creates a commit whose tree is the source directory and whose parent is the external target head
-6. pushes with an explicit lease for the target head
+6. creates a lightweight build-version tag for a changed `samebase/app` export
+7. pushes the branch and app tag atomically, with an explicit lease for the target head
 
 The tree operation preserves file bytes, executable modes, symbolic links, and deletions. Empty
 directories are not Git objects and are not exported.
@@ -46,6 +47,11 @@ v1753: Publish repository exports after CI (samebase/samebase#1293)
 ```
 
 Its body records the source repository, source commit, and source directory.
+
+A changed `samebase/app` export uses the `v<N>` prefix from the source commit subject as its tag.
+The tag points to the new external commit. The plugin export does not create version tags. If the
+app tag already exists, the atomic push rejects both updates and leaves the target branch unchanged.
+An unchanged rerun does not create a commit or tag.
 
 The subject identifies the current `main` snapshot that publishes the files. If a newer `main`
 commit replaces an older successful run, the older run stops. The newer snapshot then publishes with
@@ -113,6 +119,7 @@ Add one entry to `repositoryExports` in `scripts/publish-repository-exports.ts`.
 - the monorepo source directory
 - the external repository name under the Samebase organization
 - the target branch
+- whether the export creates source build-version tags
 
 Make the source directory satisfy the source directory contract above. Add its checks to the normal
 monorepo validation path.

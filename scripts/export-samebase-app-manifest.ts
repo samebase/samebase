@@ -10,6 +10,9 @@ import { appTemplateSourceRoot } from "./publish-repository-exports.ts";
 
 const publishedRepo = "https://github.com/samebase/app.git";
 const PNPM_COMMAND = process.platform === "win32" ? "pnpm.cmd" : "pnpm";
+const templateMetadataPath = ".samebase/template.json";
+const templateSourceRepository = "https://github.com/samebase/samebase";
+const templateBaselinePattern = /^v[1-9]\d*$/;
 
 // rawContent and mode are the source of truth for hashing; content is only the
 // deterministic UTF-8/base64 manifest representation derived from those bytes.
@@ -226,6 +229,58 @@ export async function collectTemplateFiles(repoRoot: string): Promise<CollectedT
   return files;
 }
 
+export function readTemplateProvenance(files: readonly CollectedTemplateFile[]): {
+  baseline: string;
+  sourceRepository: string;
+} {
+  const metadataFile = files.find((file) => file.relativePath === templateMetadataPath);
+  if (metadataFile === undefined) {
+    throw new Error(`Starter template metadata is required at ${templateMetadataPath}`);
+  }
+  if (metadataFile.encoding !== "utf-8") {
+    throw new Error(`Starter template metadata must be UTF-8: ${templateMetadataPath}`);
+  }
+
+  let metadata: unknown;
+  try {
+    metadata = JSON.parse(metadataFile.content);
+  } catch (error) {
+    throw new Error(`Starter template metadata must be valid JSON: ${templateMetadataPath}`, {
+      cause: error,
+    });
+  }
+
+  if (
+    typeof metadata !== "object" ||
+    metadata === null ||
+    !("schemaVersion" in metadata) ||
+    metadata.schemaVersion !== 1 ||
+    !("sourceRepository" in metadata) ||
+    typeof metadata.sourceRepository !== "string" ||
+    !("baseline" in metadata) ||
+    typeof metadata.baseline !== "string"
+  ) {
+    throw new Error(
+      `Starter template metadata must contain schemaVersion 1, a string sourceRepository, and a string baseline`,
+    );
+  }
+  if (metadata.sourceRepository !== templateSourceRepository) {
+    throw new Error(
+      `Starter template sourceRepository must be ${templateSourceRepository}: ${metadata.sourceRepository}`,
+    );
+  }
+  if (!templateBaselinePattern.test(metadata.baseline)) {
+    throw new Error(
+      `Starter template baseline must use the v<N> build label format: ${metadata.baseline}`,
+    );
+  }
+
+  return {
+    baseline: metadata.baseline,
+    sourceRepository: metadata.sourceRepository,
+  };
+}
+
 function computeContentHash(files: readonly CollectedTemplateFile[]): string {
   const hash = createHash("sha256");
   for (const file of files) {
@@ -265,6 +320,7 @@ export async function writeStarterSeedManifest(repoRoot: string): Promise<void> 
     throw new Error(`${appTemplateSourceRoot} contained no files`);
   }
 
+  const { baseline, sourceRepository } = readTemplateProvenance(files);
   const contentHash = computeContentHash(files);
   const textFiles = Object.fromEntries(
     files
@@ -283,7 +339,9 @@ export async function writeStarterSeedManifest(repoRoot: string): Promise<void> 
   );
   const manifest = {
     version: `samebase-app-${contentHash.slice(0, 12)}`,
+    baseline,
     sourcePath: appTemplateSourceRoot,
+    sourceRepository,
     publishedRepo,
     contentHash,
     commitMessage: "Initialize Samebase app",
@@ -296,7 +354,9 @@ export async function writeStarterSeedManifest(repoRoot: string): Promise<void> 
 
 export type StarterTemplateManifest = {
   version: string;
+  baseline: string;
   sourcePath: string;
+  sourceRepository: string;
   publishedRepo: string;
   contentHash: string;
   commitMessage: string;

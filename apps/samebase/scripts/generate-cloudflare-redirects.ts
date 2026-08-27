@@ -2,22 +2,15 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import {
-  array,
-  isObject,
-  literal,
-  object,
-  optional,
-  string,
-  union,
-  type InferGood,
-} from "@samebase/sure";
+import { isObject } from "@samebase/sure";
 import { createServer } from "vite";
 
 import { samebaseAppFilePath } from "../../../scripts/lib/trackedFilePath.ts";
 
 export const GENERATED_REDIRECTS_START_TAG = "# @samebase/cloudflare-prerender-redirects:start";
 export const GENERATED_REDIRECTS_END_TAG = "# @samebase/cloudflare-prerender-redirects:end";
+
+type PrerenderPathRewrites = Readonly<Record<string, string>>;
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const appDir = path.resolve(currentDir, "..");
@@ -26,37 +19,7 @@ const defaultRedirectsFilePath = path.resolve(
   `../${samebaseAppFilePath("public/_redirects")}`,
 );
 
-const publicPrerenderPageSchema = object({
-  path: string,
-  expectedMetadata: object({
-    title: string,
-    description: string,
-    robots: union(literal("index,follow"), literal("noindex,nofollow")),
-  }),
-  prerender: object({
-    enabled: literal(true),
-    outputPath: optional(string),
-  }),
-});
-
-const publicPrerenderPagesSchema = array(publicPrerenderPageSchema);
-
-export type PublicPrerenderPage = InferGood<typeof publicPrerenderPageSchema>;
-
-type PublicPrerenderPagesModule = {
-  readPublicPrerenderPages: () => unknown;
-};
-
-// eslint-disable-next-line samebase/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses readPublicPrerenderPages only as Function, never its call signature
-function isPublicPrerenderPagesModule(value: unknown): value is PublicPrerenderPagesModule {
-  if (!isObject(value)) {
-    return false;
-  }
-
-  return typeof value["readPublicPrerenderPages"] === "function";
-}
-
-export async function loadPublicPrerenderPages() {
+export async function loadPrerenderPathRewrites(): Promise<PrerenderPathRewrites> {
   const server = await createServer({
     appType: "custom",
     configFile: false,
@@ -68,72 +31,36 @@ export async function loadPublicPrerenderPages() {
   });
 
   try {
-    const module = await server.ssrLoadModule(
-      `/${samebaseAppFilePath("dev/publicPrerenderPages.ts")}`,
+    const module: unknown = await server.ssrLoadModule(
+      `/${samebaseAppFilePath("prerender.config.ts")}`,
     );
-    if (!isPublicPrerenderPagesModule(module)) {
-      throw new Error("Expected dev/publicPrerenderPages.ts to export readPublicPrerenderPages.");
+    if (!isObject(module) || !isObject(module["prerenderPathRewrites"])) {
+      throw new Error("Expected prerender.config.ts to export prerenderPathRewrites.");
     }
 
-    const [pagesAreValid, pages] = publicPrerenderPagesSchema(module.readPublicPrerenderPages());
-    if (!pagesAreValid) {
-      throw new Error("Expected readPublicPrerenderPages to return public prerender pages.");
+    const rewrites: Record<string, string> = {};
+    for (const [alias, outputPath] of Object.entries(module["prerenderPathRewrites"])) {
+      if (!alias.startsWith("/") || typeof outputPath !== "string" || !outputPath.startsWith("/")) {
+        throw new Error("Expected prerenderPathRewrites to contain root-relative paths.");
+      }
+      rewrites[alias] = outputPath;
     }
-
-    return pages;
+    return Object.freeze(rewrites);
   } finally {
     await server.close();
   }
 }
 
-function assertRedirectPath(label: string, value: string) {
-  if (!value.startsWith("/")) {
-    throw new Error(`${label} must be root-relative: ${value}`);
+export function createCloudflarePrerenderRedirectsBlock(rewrites: PrerenderPathRewrites) {
+  const aliasesByOutputPath = new Map<string, string[]>();
+  for (const [alias, outputPath] of Object.entries(rewrites)) {
+    const aliases = aliasesByOutputPath.get(outputPath) ?? [];
+    aliases.push(alias);
+    aliasesByOutputPath.set(outputPath, aliases);
   }
-}
-
-export function readPrerenderHtmlOutputPath(page: PublicPrerenderPage) {
-  const outputPath = page.prerender.outputPath ?? `${page.path}/index.html`;
-  const htmlOutputPath = outputPath.endsWith(".html") ? outputPath : `${outputPath}.html`;
-
-  assertRedirectPath("Prerender output path", htmlOutputPath);
-
-  return htmlOutputPath;
-}
-
-export function readCloudflarePrerenderHtmlOutputPath(page: PublicPrerenderPage) {
-  if (page.path === "/" && !page.prerender.outputPath) {
-    throw new Error(
-      "The root prerender page must set outputPath because Cloudflare SPA mode owns /index.html.",
-    );
-  }
-
-  const htmlOutputPath = readPrerenderHtmlOutputPath(page);
-  if (htmlOutputPath === "/index.html") {
-    throw new Error(
-      "Prerender pages must not output /index.html because Cloudflare SPA mode serves that file for unknown app routes.",
-    );
-  }
-
-  return htmlOutputPath;
-}
-
-function createRedirectAliases(routePath: string) {
-  assertRedirectPath("Prerender route path", routePath);
-  if (routePath === "/") {
-    return ["/"];
-  }
-
-  return [routePath, `${routePath}/`, `${routePath}/index.html`];
-}
-
-export function createCloudflarePrerenderRedirectsBlock(pages: readonly PublicPrerenderPage[]) {
-  const redirectGroups = pages.map((page) => {
-    const outputPath = readCloudflarePrerenderHtmlOutputPath(page);
-    return createRedirectAliases(page.path)
-      .map((alias) => `${alias} ${outputPath} 200`)
-      .join("\n");
-  });
+  const redirectGroups = [...aliasesByOutputPath.entries()].map(([outputPath, aliases]) =>
+    aliases.map((alias) => `${alias} ${outputPath} 200`).join("\n"),
+  );
 
   return [
     "# Generated by pnpm run generate:cloudflare-redirects.",
@@ -189,11 +116,11 @@ export function replaceGeneratedCloudflareRedirectsBlock(args: {
 }
 
 export function generateCloudflareRedirectsFile(args: {
-  pages: readonly PublicPrerenderPage[];
+  rewrites: PrerenderPathRewrites;
   redirectsFilePath: string;
 }) {
   const currentContents = readFileSync(args.redirectsFilePath, "utf8");
-  const generatedBlock = createCloudflarePrerenderRedirectsBlock(args.pages);
+  const generatedBlock = createCloudflarePrerenderRedirectsBlock(args.rewrites);
   const nextContents = replaceGeneratedCloudflareRedirectsBlock({
     contents: currentContents,
     generatedBlock,
@@ -209,7 +136,7 @@ export function generateCloudflareRedirectsFile(args: {
 const entrypoint = process.argv[1];
 if (entrypoint && import.meta.url === pathToFileURL(entrypoint).href) {
   generateCloudflareRedirectsFile({
-    pages: await loadPublicPrerenderPages(),
+    rewrites: await loadPrerenderPathRewrites(),
     redirectsFilePath: defaultRedirectsFilePath,
   });
 }

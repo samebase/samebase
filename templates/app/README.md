@@ -90,12 +90,17 @@ and deploy behavior. Use the
 ## Important files
 
 - `package.json` defines the supported development, check, build, and deploy commands.
+- `prerender.config.ts` defines public prerender pages and host-neutral route aliases.
 - `vite.config.ts` defines the TanStack Start SPA and prerender behavior.
 - `wrangler.jsonc` defines Cloudflare static assets, SPA fallback, and preview URLs.
 - `scripts/build-cloudflare.ts` owns the Cloudflare build and Convex deployment selection.
 - `scripts/deploy-cloudflare.ts` owns production, preview, and dry-run uploads.
 - `convex/` contains the backend, schema, authentication, and generated Convex bindings.
 - `src/` contains the React application and routes.
+
+`prerender.config.ts` also exports `rewritePrerenderPath`. Pass it to a static hosting adapter's
+`rewritePath` option, including Convex static hosting, to expose the same prerendered aliases without
+copying route rules.
 
 ## Generated and managed files
 
@@ -110,6 +115,18 @@ and deploy behavior. Use the
 Do not hand-edit generated files when their source tool can update them.
 When a Convex AI-file update changes the installed source snapshot, confirm its distribution license
 and update `THIRD_PARTY_NOTICES.md` when its third-party material changes.
+
+## Template updates
+
+`.samebase/template.json` records the Samebase template source and the last upstream build applied
+to the complete repository. `.samebase/CHANGELOG.md` lists the files that an update must apply
+together, required migration work, and the verification command.
+
+The first line of each TypeScript file in `scripts/` records the last Samebase build that changed
+that file. Keep this marker unchanged for local edits. When you apply a later upstream release,
+compare the old upstream build, the local file, and the new upstream build. Preserve local changes,
+apply the related changelog entry, and update the marker only after the new script change is fully
+merged. Update the baseline in `template.json` after the complete release is applied and verified.
 
 ## License
 

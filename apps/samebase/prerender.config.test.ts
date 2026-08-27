@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vite-plus/test";
-import { readPublicPrerenderPages } from "./publicPrerenderPages";
+import {
+  prerenderPathRewrites,
+  publicPrerenderPages,
+  rewritePrerenderPath,
+} from "./prerender.config";
 
-describe("readPublicPrerenderPages", () => {
+describe("prerender config", () => {
   it("derives production prerender pages from route staticData", () => {
-    const pages = readPublicPrerenderPages();
-    const paths = pages.map((page) => page.path);
+    const paths = publicPrerenderPages.map((page) => page.path);
 
     expect(paths).toContain("/");
     expect(paths).toContain("/docs");
@@ -36,12 +39,22 @@ describe("readPublicPrerenderPages", () => {
   });
 
   it("keeps the public landing route at the non-shell landing output path", () => {
-    const pages = readPublicPrerenderPages();
-    const rootPage = pages.find((page) => page.path === "/");
+    const rootPage = publicPrerenderPages.find((page) => page.path === "/");
 
     expect(rootPage?.prerender).toEqual({
       enabled: true,
       outputPath: "/_landing.html",
     });
+  });
+
+  it("maps every route alias to its prerendered HTML file", () => {
+    expect(prerenderPathRewrites).toMatchObject({
+      "/": "/_landing.html",
+      "/terms": "/terms/index.html",
+      "/terms/": "/terms/index.html",
+      "/terms/index.html": "/terms/index.html",
+    });
+    expect(rewritePrerenderPath("/terms/")).toBe("/terms/index.html");
+    expect(rewritePrerenderPath("/vault/acme/app")).toBe("/vault/acme/app");
   });
 });
