@@ -80,8 +80,10 @@ owns a nested workspace and lockfile. The `sidebars package check` job starts fr
 does not install root workspace dependencies, and runs the package build, checks, and packed-package
 consumer test before publication.
 
-The exported private repository remains registry-neutral in this pull request. The export does not
-select a package registry, add registry credentials, or add automatic registry publication.
+The exported private repository remains registry-neutral in this pull request. The planned first npm
+release is public. This pull request does not select a registry version, add registry credentials,
+or add automatic registry publication. The package keeps `private: true` and version `0.0.0` only to
+block an accidental publish before the release pull request.
 
 ## Agent plugin versions
 

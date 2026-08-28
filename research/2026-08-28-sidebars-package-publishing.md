@@ -25,19 +25,23 @@ type-check and build through the public package subpaths. It must not read the m
 npm documents that a registry package resolves to a
 [package tarball](https://docs.npmjs.com/cli/v11/using-npm/package-spec/).
 
-## Publish one private npm package later
+## Publish one public npm package later
 
 This machine is not authenticated to npm. Its unauthenticated lookup for `@samebase/sidebars`
 returns 404. That response does not prove that the name is available. Before the first publish, an
-authenticated Samebase maintainer must confirm the package name and paid private-package access for
-the `@samebase` npm organization.
+authenticated Samebase maintainer must confirm the package name and access to the `@samebase` npm
+organization. Public organization-scoped packages do not require a paid private-package plan. npm
+requires an npm account and organization for an organization-scoped public package. See
+[Creating and publishing scoped public packages](https://docs.npmjs.com/creating-and-publishing-scoped-public-packages/).
 
-The next distribution step is a private `@samebase/sidebars` package on npmjs.com. Publish the first
-verified tarball manually with `npm publish <tarball> --access restricted` and a maintainer's
-two-factor authentication. Scoped packages use restricted access by default, as described in the
-[npm organization package guide](https://docs.npmjs.com/creating-and-publishing-an-organization-scoped-package/).
-Remove the package manifest's workspace-only `private: true` guard only when this registry phase
-starts.
+The first `@samebase/sidebars` release on npmjs.com will be public. Keep `private: true` and version
+`0.0.0` during this repository-export pull request so npm refuses an accidental publish. A separate
+release pull request must select the first real version, remove `private: true`, and set npmjs.com
+plus public access in `publishConfig`. Publish the verified tarball with
+`npm publish <tarball> --access public` and a maintainer's two-factor authentication. npm requires
+explicit public access when publishing a scoped public package. The release pull request must also
+replace or remove the README link to the example in the private monorepo so every published link is
+available to public npm users.
 
 This first publish is the only manual bootstrap publish. npm requires the package to exist before a
 maintainer can configure a trusted publisher. After the bootstrap publish, configure npm trusted
@@ -46,25 +50,36 @@ and no long-lived write token. See the
 [`npm trust` prerequisites](https://docs.npmjs.com/cli/v11/commands/npm-trust/) and the
 [trusted publishing guide](https://docs.npmjs.com/trusted-publishers/).
 
-While the package is private, Scout gets a granular npm token with read-only access to
-`@samebase/sidebars`. The token must not have write access or the option to bypass two-factor
-authentication. npm recommends a read-only granular token for a CI system that only installs private
-packages. See
-[Using private packages in a CI workflow](https://docs.npmjs.com/using-private-packages-in-a-ci-cd-workflow/).
+Trusted publishing works while the GitHub repository is private. npm will not create provenance for
+a package published from a private source repository, even when the package is public. Trusted
+publishing still provides short-lived workflow authentication. It needs npm 11.5.1 or later, Node
+22.14.0 or later, a GitHub-hosted runner, and `id-token: write` permission.
 
-## Make both outputs public together
+Scout installs an exact public npm version without an npm token or private registry configuration.
 
-Before the public release, audit every branch, tag, commit, pull request, comment, workflow log, and
-artifact in `samebase/sidebars`. GitHub states that the code and Actions history become visible when
-a private repository becomes public. See
+## Keep the source repository private at first
+
+The public npm package and private GitHub repository have independent visibility. The public npm
+tarball exposes every packed file. The current package includes compiled output, declarations,
+source files, the README, and the proprietary license. The private repository still hides unreleased
+commits, branches, pull requests, comments, workflows, logs, and other repository data.
+
+Before making the repository public, audit every branch, tag, commit, pull request, comment,
+workflow log, and artifact in `samebase/sidebars`. GitHub states that the code and Actions history
+become visible when a private repository becomes public. See
 [Setting repository visibility](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility).
 
-After the audit, make `samebase/sidebars` public. Then run
-`npm access set status=public @samebase/sidebars` and remove Scout's install token and private npm
-configuration. The package name and registry do not change. The
-[`npm access` reference](https://docs.npmjs.com/cli/v12/commands/npm-access/) defines the visibility
-change. Future trusted publishes can include npm provenance after both the repository and the
-package are public. Private repositories do not meet npm's provenance requirements.
+After the audit, make `samebase/sidebars` public. The npm package remains public and Scout's install
+configuration does not change. Future trusted publishes can include npm provenance after the source
+repository is public.
+
+## Keep licensing explicit
+
+Public npm visibility does not grant a software license. The current package uses `UNLICENSED` in
+its manifest and includes the repository's proprietary license. Anyone can download the public
+tarball, but the license does not grant general permission to use, copy, modify, or distribute it.
+Changing those rights requires a separate explicit licensing decision before the first npm release
+if the package should support public reuse outside Samebase projects.
 
 ## Do not use GitHub Packages
 
@@ -75,8 +90,8 @@ authentication requirement applies to public packages. See
 [Working with the npm registry on GitHub Packages](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-npm-registry).
 
 That choice would make Scout keep GitHub package credentials and scope-specific registry
-configuration. A later move to npmjs.com would also change the install source. The private npmjs.com
-package reaches the intended public registry without that extra move.
+configuration. The public npmjs.com package needs no consumer credential and is already the intended
+long-term install source.
 
 ## Do not use a Git dependency
 
@@ -99,10 +114,12 @@ transition decision.
 
 ## Risks and controls
 
-- A private npm install token is still a secret. Give Scout the shortest practical token lifetime
-  and only read access to the package.
-- npm does not generate provenance for a package from a private repository. Accept that limit only
-  during the private phase.
+- A public npm package exposes every packed file. Inspect the exact tarball before the first
+  publish.
+- A published name and version cannot be reused. Keep version `0.0.0` blocked until the release pull
+  request selects the first real version.
+- npm does not generate provenance for a package from a private repository. Accept that limit while
+  the source repository remains private.
 - The Git mirror and the npm tarball can drift. Build and check the tarball from the exact mirror
   commit selected for release.
 - A public repository exposes its complete reachable history and its Actions logs. Complete the
