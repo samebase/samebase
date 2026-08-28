@@ -14,7 +14,6 @@ jobs:
     name: publish
     if: >-
       github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
-      && github.event.workflow_run.head_branch == 'main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -25,141 +24,45 @@ jobs:
       id-token: write
 
     steps:
-      - name: Select current verified commit
-        id: source
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          current_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
-          if [ "${current_sha}" != "${VERIFIED_SHA}" ]; then
-            echo "current=false" >> "${GITHUB_OUTPUT}"
-            exit 0
-          fi
-
-          echo "current=true" >> "${GITHUB_OUTPUT}"
-
       - name: Checkout verified commit
-        if: steps.source.outputs.current == 'true'
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           persist-credentials: false
 
       - name: Setup Node.js
-        if: steps.source.outputs.current == 'true'
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version-file: .node-version
           package-manager-cache: false
 
-      - name: Select unpublished stable version
-        id: version
-        if: steps.source.outputs.current == 'true'
-        shell: bash
+      - name: Select stable release
+        id: release
         run: |
-          package_name="$(node -p "require('./package.json').name")"
-          package_version="$(node -p "require('./package.json').version")"
-
-          if [ "${package_name}" != "@samebase/sidebars" ]; then
-            echo "Unexpected package name: ${package_name}" >&2
-            exit 1
-          fi
-
-          if [[ ! "${package_version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+          version="$(node -p "require('./package.json').version")"
+          if [[ "${version}" == *-* ]]; then
             echo "publish=false" >> "${GITHUB_OUTPUT}"
-            echo "Skip non-stable version ${package_version}."
+            echo "Skip prerelease version ${version}."
             exit 0
-          fi
-
-          candidate_major="${BASH_REMATCH[1]}"
-          candidate_minor="${BASH_REMATCH[2]}"
-          candidate_patch="${BASH_REMATCH[3]}"
-
-          lookup_log="${RUNNER_TEMP}/npm-view.log"
-          if npm view "${package_name}@${package_version}" version \
-            --registry https://registry.npmjs.org/ >"${lookup_log}" 2>&1; then
-            echo "publish=false" >> "${GITHUB_OUTPUT}"
-            echo "Skip existing version ${package_version}."
-            exit 0
-          fi
-
-          if ! grep -q "E404" "${lookup_log}"; then
-            cat "${lookup_log}" >&2
-            exit 1
-          fi
-
-          range_log="${RUNNER_TEMP}/npm-range.log"
-          if npm view "${package_name}@>=${package_version}" version \
-            --registry https://registry.npmjs.org/ >"${range_log}" 2>&1; then
-            echo "Refuse to publish ${package_version}; a stable version at or above it exists:" >&2
-            cat "${range_log}" >&2
-            exit 1
-          fi
-
-          if ! grep -q "E404" "${range_log}"; then
-            cat "${range_log}" >&2
-            exit 1
-          fi
-
-          latest_log="${RUNNER_TEMP}/npm-latest.log"
-          if latest_version="$(npm view "${package_name}" dist-tags.latest \
-            --registry https://registry.npmjs.org/ 2>"${latest_log}")"; then
-            if [[ -n "${latest_version}" ]]; then
-              if [[ ! "${latest_version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[^+]+)?(\+.+)?$ ]]; then
-                echo "Unexpected latest version: ${latest_version}" >&2
-                exit 1
-              fi
-
-              latest_major="${BASH_REMATCH[1]}"
-              latest_minor="${BASH_REMATCH[2]}"
-              latest_patch="${BASH_REMATCH[3]}"
-              latest_prerelease="${BASH_REMATCH[4]}"
-
-              if ((
-                candidate_major < latest_major
-                  || (candidate_major == latest_major && candidate_minor < latest_minor)
-                  || (candidate_major == latest_major && candidate_minor == latest_minor
-                    && candidate_patch < latest_patch)
-              )); then
-                echo "Refuse to move latest from ${latest_version} back to ${package_version}." >&2
-                exit 1
-              fi
-
-              if (( candidate_major == latest_major && candidate_minor == latest_minor \
-                && candidate_patch == latest_patch )) && [[ -z "${latest_prerelease}" ]]; then
-                echo "Refuse to move latest from ${latest_version} back to ${package_version}." >&2
-                exit 1
-              fi
-            fi
-          elif ! grep -q "E404" "${latest_log}"; then
-            cat "${latest_log}" >&2
-            exit 1
           fi
 
           echo "publish=true" >> "${GITHUB_OUTPUT}"
 
       - name: Setup pnpm
-        if: steps.version.outputs.publish == 'true'
+        if: steps.release.outputs.publish == 'true'
         uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
-        with:
-          package_json_file: package.json
-          version: 11.18.0
 
       - name: Install dependencies
-        if: steps.version.outputs.publish == 'true'
+        if: steps.release.outputs.publish == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Publish current stable package
-        if: steps.version.outputs.publish == 'true'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          current_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
-          if [ "${current_sha}" != "${VERIFIED_SHA}" ]; then
-            echo "Skip ${VERIFIED_SHA}; target main is now ${current_sha}."
-            exit 0
-          fi
+      - name: Build package
+        if: steps.release.outputs.publish == 'true'
+        run: pnpm build
 
-          npm publish --access public --tag latest --registry https://registry.npmjs.org/
+      - name: Publish newer stable version
+        if: steps.release.outputs.publish == 'true'
+        uses: JS-DevTools/npm-publish@0fd2f4369c5d6bcfcde6091a7c527d810b9b5c3f # v4.1.5
+        with:
+          strategy: upgrade
+          tag: latest
