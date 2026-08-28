@@ -164,6 +164,7 @@ describe("seedRepositoryWithStarter", () => {
     expect(mock.createTreeCalls).toHaveLength(1);
     expect(mock.createBlobCalls).toHaveLength(0);
     expect(mock.createCommitCalls).toHaveLength(1);
+    expect(mock.createCommitCalls[0].message).toBe(manifest.commitMessage);
     expect(mock.createCommitCalls[0].parents).toEqual([]);
     expect(mock.createRefCalls).toHaveLength(1);
     expect(mock.createRefCalls[0]).toEqual({
