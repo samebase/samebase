@@ -347,19 +347,30 @@ function AppWorkspaceShellFrame({
   );
 }
 
-export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
+/**
+Cloudflare can serve the `/`-based `index.html` for another route. TanStack marks the build render
+with `isShell()` and the browser fallback render with `ssr === false` or `globalNotFound`. Keep both
+renders on `/`. The effect enables the requested route after hydration.
+*/
+function useAppWorkspaceSpaShellFirstRender() {
   const router = useRouter();
   const [hasHydrated, setHasHydrated] = useState(false);
-  const routePathname = useLocation({ select: (location) => location.pathname });
-  const isSpaShellFirstRender =
-    !hasHydrated &&
-    (router.isShell() ||
-      router.state.matches.some((match) => match.ssr === false || match.globalNotFound));
-  const workspacePathname = isSpaShellFirstRender ? "/" : routePathname;
 
   useEffect(() => {
     setHasHydrated(true);
   }, []);
+
+  return (
+    !hasHydrated &&
+    (router.isShell() ||
+      router.state.matches.some((match) => match.ssr === false || match.globalNotFound))
+  );
+}
+
+export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
+  const routePathname = useLocation({ select: (location) => location.pathname });
+  const isSpaShellFirstRender = useAppWorkspaceSpaShellFirstRender();
+  const workspacePathname = isSpaShellFirstRender ? "/" : routePathname;
 
   const chromeStore = useMemo(createAppWorkspaceRouteChromeStore, []);
   const chromeContextValue = useMemo(
