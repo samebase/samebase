@@ -7,6 +7,12 @@ prehydration. The consumer owns visible styling, text, and durable state storage
 The public API follows Base UI conventions. Components render canonical DOM with stable part and
 state attributes. The package does not depend on Base UI.
 
+## Complete example
+
+The [sidebars example app](../../apps/sidebars-example/README.md) uses only public production
+entrypoints from this package. It shows app-owned styling, localStorage state, prehydration, and
+routes with zero, one, and two sidebars.
+
 ## Use the layout
 
 ```tsx

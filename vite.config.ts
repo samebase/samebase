@@ -24,6 +24,7 @@ export default defineConfig({
       "apps/samebase/AGENTS.md",
       "apps/samebase/CLAUDE.md",
       "apps/samebase/src/routeTree.gen.ts",
+      "apps/sidebars-example/src/routeTree.gen.ts",
       "templates/app/**",
     ],
     printWidth: 100,
@@ -38,7 +39,13 @@ export default defineConfig({
       builtin: true,
       browser: true,
     },
-    ignorePatterns: ["**/dist", "**/convex/_generated", "**/src/components/ui", "templates/app/**"],
+    ignorePatterns: [
+      "**/dist",
+      "**/convex/_generated",
+      "**/src/components/ui",
+      "apps/sidebars-example/src/routeTree.gen.ts",
+      "templates/app/**",
+    ],
     jsPlugins: [
       {
         name: "@convex-dev",
