@@ -391,7 +391,7 @@ they are.
   `rootRouteSearch.ts:164-170` become access-list checks
   (`canAccessNoterRouteAccess(suggestion.access, viewer)`), removing the silent-drop hazard. Test
   fixtures `adminViewer`/`publicViewer` become `staffViewer`/`memberViewer`/`anonymousViewer`.
-- Prerender: `publicPrerenderPages.ts` filter becomes `access === "access_public"`; behavior for
+- Prerender: `prerender.config.ts` filter becomes `access === "access_public"`; behavior for
   non-public keys is unchanged (not prerendered).
 
 ### Route assignments (MVP)
