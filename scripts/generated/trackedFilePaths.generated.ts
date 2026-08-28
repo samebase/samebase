@@ -1703,7 +1703,7 @@ export const trackedFilePaths = [
   "packages/plugin/plugins/samebase/assets/icon.png",
   "packages/plugin/plugins/samebase/skills/samebase/SKILL.md",
   "packages/plugin/plugins/samebase/skills/samebase/references/recover-missing-actions.md",
-  "packages/plugin/plugins/samebase/skills/samebase/references/starter-improvements.md",
+  "packages/plugin/plugins/samebase/skills/samebase/references/starter-changelog.md",
   "packages/sidebars/.github/workflows/ci.yml",
   "packages/sidebars/.gitignore",
   "packages/sidebars/.node-version",

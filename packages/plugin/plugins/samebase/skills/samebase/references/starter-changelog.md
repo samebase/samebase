@@ -1,11 +1,14 @@
-# Review starter improvements
+# Samebase starter changelog
 
 Read this only when the user asks to review or apply improvements from a newer Samebase starter.
 
+This changelog lists starter changes that can be useful to existing apps. It is not a complete
+history and does not define update state.
+
 A Samebase starter build identifies the Samebase change that produced a starter snapshot. It is an
-origin hint, not the version or update state of the user's app. New apps record this build in the
-first Git commit message. Inspect only entries with a higher build number. If that message has no
-starter build, inspect all entries.
+origin hint, not the version of the user's app. New apps record this build in the first Git commit
+message. Inspect only entries with a higher build number. If that message has no starter build,
+inspect all entries.
 
 The user owns all app code. Inspect the current app before you use this list. The app code is the
 source of truth. Skip an entry when the app already has its result. Apply only changes that are
