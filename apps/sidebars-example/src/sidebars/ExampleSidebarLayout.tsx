@@ -2,9 +2,9 @@ import {
   SidebarLayout,
   type SidebarLayoutResizeHandleLabels,
   type SidebarLayoutResizeHandleValueTextFormatter,
-} from "@samebase/sidebars";
-import { PaneFrame, type PaneFrameProps } from "@samebase/sidebars/pane-frame";
-import { useSidebarActions, useSidebarLayoutPresentation } from "@samebase/sidebars/runtime";
+} from "@samebase/sidebars/SidebarLayout";
+import { PaneFrame, type PaneFrameProps } from "@samebase/sidebars/PaneFrame";
+import { useSidebarActions, useSidebarLayoutPresentation } from "@samebase/sidebars/SidebarRuntime";
 import { Link } from "@tanstack/react-router";
 import { PanelLeft, PanelRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

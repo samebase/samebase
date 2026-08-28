@@ -16,7 +16,7 @@ import {
   SIDEBAR_LAYOUT_UNMERGED_MOBILE_SURFACE,
   type SidebarLayoutActiveResizeSide,
   type SidebarLayoutMobileGrip,
-} from "./SidebarLayoutGeometry.ts";
+} from "./SidebarLayoutGeometryInternal.ts";
 import type {
   MobilePane,
   SidebarSide,

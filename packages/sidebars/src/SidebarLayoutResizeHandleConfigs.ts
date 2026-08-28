@@ -2,7 +2,7 @@ import {
   SIDEBAR_LAYOUT_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   clampNumber,
   type MobilePane,
-} from "./SidebarLayoutGeometry.ts";
+} from "./SidebarLayoutGeometryInternal.ts";
 
 export type SidebarLayoutResizeHandleConfig = {
   currentWidthPx: number;

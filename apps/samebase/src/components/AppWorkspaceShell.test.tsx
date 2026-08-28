@@ -5,8 +5,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import * as React from "react";
 import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
-import type { SidebarLayoutMobileMinResizeBehavior } from "@samebase/sidebars/geometry";
-import type { SidebarLayoutState } from "@samebase/sidebars/state";
+import type { SidebarLayoutMobileMinResizeBehavior } from "@samebase/sidebars/SidebarLayoutGeometry";
+import type { SidebarLayoutState } from "@samebase/sidebars/SidebarLayoutState";
 import { AppWorkspaceRouteChrome, AppWorkspaceShell } from "./AppWorkspaceShell";
 import {
   appWorkspaceMobilePanePrehydrationScript,
@@ -26,8 +26,8 @@ const { toggleLeftPaneMock, toggleRightPaneMock, useConvexAuthMock, useQueryMock
   }),
 );
 
-vi.mock("@samebase/sidebars/runtime", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@samebase/sidebars/runtime")>();
+vi.mock("@samebase/sidebars/SidebarRuntime", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@samebase/sidebars/SidebarRuntime")>();
 
   return {
     ...actual,

@@ -19,13 +19,13 @@ prehydration when it can render the initial sidebar state on the server.
 ## Use the layout
 
 ```tsx
-import { SidebarLayout } from "@samebase/sidebars";
-import { PaneFrame } from "@samebase/sidebars/pane-frame";
+import { SidebarLayout } from "@samebase/sidebars/SidebarLayout";
+import { PaneFrame } from "@samebase/sidebars/PaneFrame";
 import {
   SidebarRuntimeProvider,
   useSidebarLayoutPresentation,
   useSidebarActions,
-} from "@samebase/sidebars/runtime";
+} from "@samebase/sidebars/SidebarRuntime";
 
 function MobilePaneEscape() {
   const { isMobile, mobilePane } = useSidebarLayoutPresentation();

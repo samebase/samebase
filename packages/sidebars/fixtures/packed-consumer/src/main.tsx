@@ -1,28 +1,28 @@
-import { SidebarLayout, type SidebarLayoutProps } from "@samebase/sidebars";
+import { SidebarLayout, type SidebarLayoutProps } from "@samebase/sidebars/SidebarLayout";
 import {
   SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
   type SidebarLayoutMobileMinResizeBehavior,
-} from "@samebase/sidebars/geometry";
-import { PaneFrame, type PaneFrameProps } from "@samebase/sidebars/pane-frame";
+} from "@samebase/sidebars/SidebarLayoutGeometry";
+import { PaneFrame, type PaneFrameProps } from "@samebase/sidebars/PaneFrame";
 import {
   buildSidebarLayoutDesktopPrehydrationScript,
   buildSidebarLayoutMobilePanePrehydrationScript,
   clearSidebarLayoutDesktopPrehydrationStyle,
   type SidebarLayoutPrehydrationState,
-} from "@samebase/sidebars/prehydration";
+} from "@samebase/sidebars/SidebarLayoutPrehydration";
 import {
   SidebarRuntimeProvider,
   useSidebarActions,
   useSidebarLayoutPresentation,
   type SidebarActions,
-} from "@samebase/sidebars/runtime";
-import * as sidebarStateModule from "@samebase/sidebars/state";
-import type { SidebarLayoutState } from "@samebase/sidebars/state";
+} from "@samebase/sidebars/SidebarRuntime";
+import * as sidebarStateModule from "@samebase/sidebars/SidebarLayoutState";
+import type { SidebarLayoutState } from "@samebase/sidebars/SidebarLayoutState";
 import "@samebase/sidebars/structure.css";
 import {
   SidebarLayoutMemoryProvider,
   useSidebarLayoutMemoryController,
-} from "@samebase/sidebars/testing";
+} from "@samebase/sidebars/SidebarLayoutTesting";
 import { createRoot } from "react-dom/client";
 
 const initialState = {

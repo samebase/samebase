@@ -2,8 +2,11 @@
 
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/sidebars/geometry";
-import type { SidebarLayoutState, SidebarLayoutStateController } from "@samebase/sidebars/state";
+import { SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/sidebars/SidebarLayoutGeometry";
+import type {
+  SidebarLayoutState,
+  SidebarLayoutStateController,
+} from "@samebase/sidebars/SidebarLayoutState";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { useExampleSidebarController } from "./exampleSidebarState";
 

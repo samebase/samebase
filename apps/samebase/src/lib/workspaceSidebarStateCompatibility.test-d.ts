@@ -1,7 +1,7 @@
 import type {
   SidebarLayoutState as PackageSidebarLayoutState,
   SidebarLayoutStateController as PackageSidebarLayoutStateController,
-} from "@samebase/sidebars/state";
+} from "@samebase/sidebars/SidebarLayoutState";
 import type { WorkspaceSidebarState as ConvexWorkspaceSidebarState } from "../../convex/userPreferenceModel";
 import type { usePersistedWorkspaceSidebarState } from "../hooks/usePersistedWorkspaceSidebarState";
 

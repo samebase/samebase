@@ -1,8 +1,8 @@
 import { type ReactNode } from "react";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
-import type { SidebarLayoutMobileMinResizeBehavior } from "@samebase/sidebars/geometry";
-import type { PaneFrameProps } from "@samebase/sidebars/pane-frame";
-import { type SidebarSide } from "@samebase/sidebars/runtime";
+import type { SidebarLayoutMobileMinResizeBehavior } from "@samebase/sidebars/SidebarLayoutGeometry";
+import type { PaneFrameProps } from "@samebase/sidebars/PaneFrame";
+import { type SidebarSide } from "@samebase/sidebars/SidebarRuntime";
 
 type SidebarLayoutFixtureFrameProps = {
   children?: ReactNode;

@@ -6,7 +6,7 @@ import type {
   SidebarLayoutStateController,
   SidebarLayoutStatePersistenceMode,
   SidebarLayoutStateUpdate,
-} from "@samebase/sidebars/state";
+} from "@samebase/sidebars/SidebarLayoutState";
 import type { WorkspaceSidebarStateKey } from "../../convex/userPreferenceModel";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;

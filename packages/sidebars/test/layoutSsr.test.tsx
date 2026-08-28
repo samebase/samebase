@@ -2,7 +2,7 @@ import { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 import { SidebarLayout } from "../src/SidebarLayout.tsx";
-import type { SidebarLayoutMobileMinResizeBehavior } from "../src/SidebarLayoutGeometry.ts";
+import type { SidebarLayoutMobileMinResizeBehavior } from "../src/SidebarLayoutGeometryInternal.ts";
 import { PaneFrame } from "../src/PaneFrame.tsx";
 import type { SidebarLayoutState } from "../src/SidebarLayoutState.ts";
 import { SidebarLayoutMemoryProvider } from "../src/SidebarLayoutTesting.tsx";

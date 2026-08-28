@@ -1,4 +1,4 @@
-import { SidebarRuntimeProvider } from "@samebase/sidebars/runtime";
+import { SidebarRuntimeProvider } from "@samebase/sidebars/SidebarRuntime";
 import { type ReactNode } from "react";
 import { useExampleSidebarController } from "./exampleSidebarState";
 

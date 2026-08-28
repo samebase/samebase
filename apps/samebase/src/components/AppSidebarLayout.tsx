@@ -2,10 +2,10 @@ import {
   SidebarLayout,
   type SidebarLayoutResizeHandleLabels,
   type SidebarLayoutResizeHandleValueTextFormatter,
-} from "@samebase/sidebars";
-import type { SidebarLayoutMobileMinResizeBehavior } from "@samebase/sidebars/geometry";
-import { PaneFrame, type PaneFrameProps } from "@samebase/sidebars/pane-frame";
-import { useSidebarActions } from "@samebase/sidebars/runtime";
+} from "@samebase/sidebars/SidebarLayout";
+import type { SidebarLayoutMobileMinResizeBehavior } from "@samebase/sidebars/SidebarLayoutGeometry";
+import { PaneFrame, type PaneFrameProps } from "@samebase/sidebars/PaneFrame";
+import { useSidebarActions } from "@samebase/sidebars/SidebarRuntime";
 import { PanelLeft, PanelRight } from "lucide-react";
 import { type ReactNode } from "react";
 import { Button } from "@/components/ui/button";

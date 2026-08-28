@@ -17,7 +17,7 @@
   - `apps/samebase/convex/workspaceSidebarState.ts`
   - `packages/sidebars/src/SidebarLayout.tsx`
   - `packages/sidebars/src/SidebarLayoutPrehydration.ts`
-  - `packages/sidebars/src/SidebarRuntime.tsx`
+  - `packages/sidebars/src/SidebarRuntimeInternal.tsx`
   - `packages/sidebars/src/useSidebarLayoutMobileResize.ts`
   - `packages/sidebars/test/layoutMobile.test.tsx`
   - `apps/samebase/src/hooks/useLocalStorageWorkspaceSidebarState.ts`

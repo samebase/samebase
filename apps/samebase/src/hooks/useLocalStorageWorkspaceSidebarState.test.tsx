@@ -4,7 +4,7 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
-import type { SidebarLayoutStateController } from "@samebase/sidebars/state";
+import type { SidebarLayoutStateController } from "@samebase/sidebars/SidebarLayoutState";
 import { useLocalStorageWorkspaceSidebarState } from "./useLocalStorageWorkspaceSidebarState";
 
 const { act } = React;

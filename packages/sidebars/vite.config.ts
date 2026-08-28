@@ -34,11 +34,11 @@ export default defineConfig({
     entry: {
       PaneFrame: "src/PaneFrame.tsx",
       SidebarLayout: "src/SidebarLayout.tsx",
-      SidebarLayoutGeometryPublic: "src/SidebarLayoutGeometryPublic.ts",
+      SidebarLayoutGeometry: "src/SidebarLayoutGeometry.ts",
       SidebarLayoutPrehydration: "src/SidebarLayoutPrehydration.ts",
       SidebarLayoutState: "src/SidebarLayoutState.ts",
       SidebarLayoutTesting: "src/SidebarLayoutTesting.tsx",
-      SidebarRuntimePublic: "src/SidebarRuntimePublic.ts",
+      SidebarRuntime: "src/SidebarRuntime.ts",
     },
     failOnWarn: true,
     format: "esm",

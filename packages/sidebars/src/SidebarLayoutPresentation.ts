@@ -5,8 +5,11 @@ import {
   clampNumber,
   getMobileSidebarMaxWidthPx,
   getMobileSidebarMinWidthPx,
-} from "./SidebarLayoutGeometry.ts";
-import type { SidebarLayoutLocalStoreState, SidebarRuntimeState } from "./SidebarRuntime.tsx";
+} from "./SidebarLayoutGeometryInternal.ts";
+import type {
+  SidebarLayoutLocalStoreState,
+  SidebarRuntimeState,
+} from "./SidebarRuntimeInternal.tsx";
 import type { MobilePane, MobileSurface, SidebarSide } from "./SidebarLayoutState.ts";
 
 export type SidebarLayoutMobileMergeProgress = {

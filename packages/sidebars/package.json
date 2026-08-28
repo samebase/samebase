@@ -20,52 +20,45 @@
     "./src/structure.css"
   ],
   "exports": {
-    ".": {
-      "samebase-source": "./src/SidebarLayout.tsx",
-      "types": "./dist/SidebarLayout.d.ts",
-      "import": "./dist/SidebarLayout.js",
-      "default": "./dist/SidebarLayout.js"
-    },
-    "./geometry": {
-      "samebase-source": "./src/SidebarLayoutGeometryPublic.ts",
-      "types": "./dist/SidebarLayoutGeometryPublic.d.ts",
-      "import": "./dist/SidebarLayoutGeometryPublic.js",
-      "default": "./dist/SidebarLayoutGeometryPublic.js"
-    },
-    "./pane-frame": {
+    "./PaneFrame": {
       "samebase-source": "./src/PaneFrame.tsx",
       "types": "./dist/PaneFrame.d.ts",
-      "import": "./dist/PaneFrame.js",
       "default": "./dist/PaneFrame.js"
     },
-    "./prehydration": {
+    "./SidebarLayout": {
+      "samebase-source": "./src/SidebarLayout.tsx",
+      "types": "./dist/SidebarLayout.d.ts",
+      "default": "./dist/SidebarLayout.js"
+    },
+    "./SidebarLayoutGeometry": {
+      "samebase-source": "./src/SidebarLayoutGeometry.ts",
+      "types": "./dist/SidebarLayoutGeometry.d.ts",
+      "default": "./dist/SidebarLayoutGeometry.js"
+    },
+    "./SidebarLayoutPrehydration": {
       "samebase-source": "./src/SidebarLayoutPrehydration.ts",
       "types": "./dist/SidebarLayoutPrehydration.d.ts",
-      "import": "./dist/SidebarLayoutPrehydration.js",
       "default": "./dist/SidebarLayoutPrehydration.js"
     },
-    "./runtime": {
-      "samebase-source": "./src/SidebarRuntimePublic.ts",
-      "types": "./dist/SidebarRuntimePublic.d.ts",
-      "import": "./dist/SidebarRuntimePublic.js",
-      "default": "./dist/SidebarRuntimePublic.js"
-    },
-    "./state": {
+    "./SidebarLayoutState": {
       "samebase-source": "./src/SidebarLayoutState.ts",
       "types": "./dist/SidebarLayoutState.d.ts",
-      "import": "./dist/SidebarLayoutState.js",
       "default": "./dist/SidebarLayoutState.js"
+    },
+    "./SidebarLayoutTesting": {
+      "samebase-source": "./src/SidebarLayoutTesting.tsx",
+      "types": "./dist/SidebarLayoutTesting.d.ts",
+      "default": "./dist/SidebarLayoutTesting.js"
+    },
+    "./SidebarRuntime": {
+      "samebase-source": "./src/SidebarRuntime.ts",
+      "types": "./dist/SidebarRuntime.d.ts",
+      "default": "./dist/SidebarRuntime.js"
     },
     "./structure.css": {
       "types": "./src/structure.css.d.ts",
       "samebase-source": "./src/structure.css",
       "default": "./dist/structure.css"
-    },
-    "./testing": {
-      "samebase-source": "./src/SidebarLayoutTesting.tsx",
-      "types": "./dist/SidebarLayoutTesting.d.ts",
-      "import": "./dist/SidebarLayoutTesting.js",
-      "default": "./dist/SidebarLayoutTesting.js"
     }
   },
   "scripts": {

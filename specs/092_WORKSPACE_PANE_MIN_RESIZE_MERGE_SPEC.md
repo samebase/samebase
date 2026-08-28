@@ -7,7 +7,7 @@
 - Last updated: 2026-08-28
 - Related files:
   - `packages/sidebars/src/SidebarLayout.tsx`
-  - `packages/sidebars/src/SidebarLayoutGeometry.ts`
+  - `packages/sidebars/src/SidebarLayoutGeometryInternal.ts`
   - `packages/sidebars/src/SidebarLayoutResizeHandle.tsx`
   - `packages/sidebars/src/useSidebarLayoutMobileResize.ts`
   - `packages/sidebars/test/layoutMobile.test.tsx`

@@ -9,7 +9,7 @@ import {
   getMobilePaneScrollLeftPx,
   getMobileSidebarMaxWidthPx,
   getMobileSidebarMinWidthPx,
-} from "../src/SidebarLayoutGeometry.ts";
+} from "../src/SidebarLayoutGeometryInternal.ts";
 
 describe("sidebar layout geometry", () => {
   it("keeps a valid stored desktop width and closes an absent pane", () => {

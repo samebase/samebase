@@ -12,11 +12,11 @@ repository exporter copies the committed `packages/sidebars` tree after the requ
 pass. The mirror is generated source output. It is not the package install source.
 
 Each Sidebars public subpath export has a `samebase-source` condition that points to its file under
-`src`. The JavaScript entry points use compiled files under `dist` for their normal `types`,
-`import`, and `default` conditions. The stylesheet uses `dist/structure.css` for its normal
-`default` condition. Monorepo TypeScript and Vite configurations enable `samebase-source`, so local
-work does not require a prior package build. A consumer outside the monorepo does not enable that
-condition and receives compiled files.
+`src`. The JavaScript entry points use declarations and compiled files under `dist` for their normal
+`types` and `default` conditions. The stylesheet uses `dist/structure.css` for its normal `default`
+condition. Monorepo TypeScript and Vite configurations enable `samebase-source`, so local work does
+not require a prior package build. A consumer outside the monorepo does not enable that condition
+and receives compiled files.
 
 `pnpm run test:package` is the release proof. It builds the package, then runs
 `packages/sidebars/scripts/check-packed-consumer.ts`. The script creates the same tarball format

@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import {
   getDesktopSidebarWidthPx,
   type SidebarLayoutMobileMinResizeBehavior,
-} from "../src/SidebarLayoutGeometry.ts";
+} from "../src/SidebarLayoutGeometryInternal.ts";
 import {
   buildSidebarLayoutDesktopPrehydrationScript,
   buildSidebarLayoutMobilePanePrehydrationScript,

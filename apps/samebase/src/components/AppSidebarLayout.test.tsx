@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
-import { SidebarLayoutMemoryProvider } from "@samebase/sidebars/testing";
+import { SidebarLayoutMemoryProvider } from "@samebase/sidebars/SidebarLayoutTesting";
 import { AppSidebarLayout } from "./AppSidebarLayout";
 
 const TEST_SIDEBAR_WIDTH_PX = 256;

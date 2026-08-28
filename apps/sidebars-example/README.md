@@ -60,15 +60,16 @@ for color, borders, spacing, and resize-grip appearance.
 The app uses these public package entrypoints:
 
 ```text
-@samebase/sidebars
-@samebase/sidebars/geometry
-@samebase/sidebars/pane-frame
-@samebase/sidebars/prehydration
-@samebase/sidebars/runtime
-@samebase/sidebars/state
+@samebase/sidebars/SidebarLayout
+@samebase/sidebars/SidebarLayoutGeometry
+@samebase/sidebars/PaneFrame
+@samebase/sidebars/SidebarLayoutPrehydration
+@samebase/sidebars/SidebarRuntime
+@samebase/sidebars/SidebarLayoutState
 ```
 
-It does not import `@samebase/sidebars/testing`, package source files, or Samebase application code.
+It does not import `@samebase/sidebars/SidebarLayoutTesting`, package source files, or Samebase
+application code.
 
 ## Manual flow
 

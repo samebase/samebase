@@ -11,16 +11,16 @@ import {
   getMobileSidebarMinWidthPx,
   getMobilePaneScrollProgress,
   type SidebarLayoutMobileMinResizeBehavior,
-} from "../src/SidebarLayoutGeometry.ts";
+} from "../src/SidebarLayoutGeometryInternal.ts";
 import {
   SidebarRuntimeProvider,
   useSidebarRuntimeState,
   type SidebarRuntimeState,
-} from "../src/SidebarRuntime.tsx";
+} from "../src/SidebarRuntimeInternal.tsx";
 import {
   useSidebarLayoutPresentation,
   type SidebarLayoutPresentation,
-} from "../src/SidebarRuntimePublic.ts";
+} from "../src/SidebarRuntime.ts";
 import type {
   SidebarLayoutState,
   SidebarLayoutStateController,
