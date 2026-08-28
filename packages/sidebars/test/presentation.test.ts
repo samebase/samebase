@@ -64,9 +64,11 @@ describe("sidebar layout presentation", () => {
       }),
     ).toEqual({
       isMobile: true,
+      leftDesktopOpen: true,
       mobileMergeProgress: { progress: 0.5, side: "right" },
       mobilePane: "right",
       mobilePaneScrollProgress: 0.25,
+      rightDesktopOpen: true,
     });
   });
 

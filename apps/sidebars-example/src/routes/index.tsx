@@ -52,7 +52,7 @@ function OverviewPage() {
                 <h2>Start with the one-sidebar case</h2>
                 <p>Resize it on desktop, or swipe to it and resize it on mobile.</p>
               </div>
-              <Button render={<Link to="/docs" />}>
+              <Button nativeButton={false} render={<Link to="/docs" />}>
                 Open docs
                 <ArrowRight data-icon="inline-end" />
               </Button>

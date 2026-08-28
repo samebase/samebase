@@ -24,7 +24,13 @@ export const Route = createRootRoute({
     </RootDocument>
   ),
   head: () => ({
-    links: [{ href: appCss, rel: "stylesheet" }],
+    links: [
+      {
+        href: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='%232563eb' d='M1 2h4v12H1zM6 2h4v12H6zM11 2h4v12h-4z'/%3E%3C/svg%3E",
+        rel: "icon",
+      },
+      { href: appCss, rel: "stylesheet" },
+    ],
     meta: [
       { charSet: "utf-8" },
       { content: "width=device-width, initial-scale=1", name: "viewport" },

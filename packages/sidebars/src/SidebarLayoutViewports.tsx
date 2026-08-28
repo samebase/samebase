@@ -19,6 +19,7 @@ type SidebarLayoutViewportProps = SidebarLayoutResolvedPaneContent & {
   desktopRightWidthPx: number;
   enableDesktopPaneTransitions: boolean;
   hasMeasuredViewport: boolean;
+  inertClosedDesktopPanes: boolean;
   leftPaneId: string;
   leftWidthPx: number;
   lockCarouselScroll: boolean;
@@ -36,6 +37,7 @@ export function SidebarLayoutViewport({
   desktopRightWidthPx,
   enableDesktopPaneTransitions,
   hasMeasuredViewport,
+  inertClosedDesktopPanes,
   leftContent,
   leftPaneId,
   leftWidthPx,
@@ -79,6 +81,7 @@ export function SidebarLayoutViewport({
           data-transition-enabled={enableDesktopPaneTransitions ? "" : undefined}
           data-sidebar-layout-part="pane"
           id={leftPaneId}
+          inert={inertClosedDesktopPanes && desktopLeftWidthPx === 0 ? true : undefined}
           style={{ width: leftPaneWidth }}
         >
           {leftContent}
@@ -97,6 +100,7 @@ export function SidebarLayoutViewport({
           data-transition-enabled={enableDesktopPaneTransitions ? "" : undefined}
           data-sidebar-layout-part="pane"
           id={rightPaneId}
+          inert={inertClosedDesktopPanes && desktopRightWidthPx === 0 ? true : undefined}
           style={{ width: rightPaneWidth }}
         >
           {rightContent}

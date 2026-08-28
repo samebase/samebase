@@ -18,9 +18,11 @@ vi.mock("@/components/logo/PublicLandingLogo", () => ({
 vi.mock("@samebase/sidebars/runtime", () => ({
   useSidebarLayoutPresentation: (): SidebarLayoutPresentation => ({
     isMobile: false,
+    leftDesktopOpen: true,
     mobileMergeProgress: null,
     mobilePane: "main",
     mobilePaneScrollProgress: 0,
+    rightDesktopOpen: true,
   }),
 }));
 

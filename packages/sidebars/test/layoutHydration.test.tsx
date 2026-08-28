@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import * as React from "react";
-import { hydrateRoot, type Root } from "react-dom/client";
+import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { SidebarLayout } from "../src/SidebarLayout.tsx";
@@ -21,6 +21,11 @@ const SIDEBAR_LAYOUT_HYDRATION_STATE = {
   rightDesktopOpen: true,
   rightDesktopWidthPx: TEST_SIDEBAR_WIDTH_PX,
   rightMobileWidthPx: TEST_SIDEBAR_WIDTH_PX,
+} satisfies SidebarLayoutState;
+const SIDEBAR_LAYOUT_CLOSED_DESKTOP_STATE = {
+  ...SIDEBAR_LAYOUT_HYDRATION_STATE,
+  leftDesktopOpen: false,
+  rightDesktopOpen: false,
 } satisfies SidebarLayoutState;
 
 const originalInnerWidthDescriptor = Object.getOwnPropertyDescriptor(window, "innerWidth");
@@ -53,6 +58,23 @@ function MultipleSidebarLayoutHydrationSubject() {
       <SidebarLayoutHydrationSubject />
       <SidebarLayoutHydrationSubject />
     </div>
+  );
+}
+
+function ClosedDesktopPanesSubject() {
+  return (
+    <SidebarLayoutMemoryProvider initialState={SIDEBAR_LAYOUT_CLOSED_DESKTOP_STATE}>
+      <SidebarLayout
+        addressChrome={<div>/test</div>}
+        left={<button type="button">left action</button>}
+        main={<button type="button">main action</button>}
+        resizeHandleLabels={{
+          left: "Resize left pane",
+          right: "Resize right pane",
+        }}
+        right={<button type="button">right action</button>}
+      />
+    </SidebarLayoutMemoryProvider>
   );
 }
 
@@ -259,5 +281,33 @@ describe("SidebarLayout hydration", () => {
     for (const relationship of hydratedRelationships) {
       expect(relationship.paneSide).toBe(relationship.resizeSide);
     }
+  });
+
+  it.each([
+    ["desktop", 1280, true],
+    ["mobile", 390, false],
+  ])("marks closed desktop panes inert on %s", (_viewportName, widthPx, expectedInert) => {
+    installViewport(widthPx);
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(
+      DOMRect.fromRect({ height: VIEWPORT_HEIGHT_PX, width: widthPx }),
+    );
+    const container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    act(() => {
+      root?.render(<ClosedDesktopPanesSubject />);
+    });
+
+    const leftPane = getRequiredElement(
+      container,
+      '[data-sidebar-layout-part="pane"][data-pane-side="left"]',
+    );
+    const rightPane = getRequiredElement(
+      container,
+      '[data-sidebar-layout-part="pane"][data-pane-side="right"]',
+    );
+    expect(leftPane.hasAttribute("inert")).toBe(expectedInert);
+    expect(rightPane.hasAttribute("inert")).toBe(expectedInert);
   });
 });

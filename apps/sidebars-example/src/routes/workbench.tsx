@@ -17,6 +17,15 @@ import { Switch } from "@/components/ui/switch";
 import { ExampleSidebarLayout } from "@/sidebars/ExampleSidebarLayout";
 
 const WORKBENCH_FILES = ["ExampleSidebarLayout.tsx", "exampleSidebarState.ts", "workbench.tsx"];
+type WorkbenchDensity = "compact" | "comfortable" | "spacious";
+
+function readWorkbenchDensity(value: string | null): WorkbenchDensity {
+  if (value === "compact" || value === "spacious") {
+    return value;
+  }
+
+  return "comfortable";
+}
 
 function FileNavigation() {
   const [query, setQuery] = useState("");
@@ -34,8 +43,8 @@ function FileNavigation() {
         value={query}
       />
       <ul className="example-file-list">
-        {visibleFiles.map((file, index) => (
-          <li data-selected={index === 0 ? "" : undefined} key={file}>
+        {visibleFiles.map((file) => (
+          <li key={file}>
             <FileCode2 />
             <span>{file}</span>
           </li>
@@ -45,7 +54,7 @@ function FileNavigation() {
   );
 }
 
-function WorkbenchMain() {
+function WorkbenchMain({ density }: { density: WorkbenchDensity }) {
   const [completed, setCompleted] = useState([true, true, false]);
   const tasks = [
     "Render route-owned pane frames",
@@ -54,7 +63,7 @@ function WorkbenchMain() {
   ];
 
   return (
-    <main className="example-main-content">
+    <main className="example-main-content" data-density={density}>
       <div className="example-eyebrow">
         <Badge variant="secondary">two sidebars</Badge>
         <span>Route /workbench</span>
@@ -101,15 +110,20 @@ function WorkbenchMain() {
   );
 }
 
-function Inspector() {
-  const [density, setDensity] = useState("comfortable");
+function Inspector({
+  density,
+  setDensity,
+}: {
+  density: WorkbenchDensity;
+  setDensity: (density: WorkbenchDensity) => void;
+}) {
   const [showApiNote, setShowApiNote] = useState(true);
 
   return (
     <div className="example-inspector-content">
       <div className="example-field">
         <Label htmlFor="density">Content density</Label>
-        <Select onValueChange={(value) => setDensity(value ?? "comfortable")} value={density}>
+        <Select onValueChange={(value) => setDensity(readWorkbenchDensity(value))} value={density}>
           <SelectTrigger id="density">
             <SelectValue />
           </SelectTrigger>
@@ -159,6 +173,8 @@ function Inspector() {
 }
 
 function WorkbenchPage() {
+  const [density, setDensity] = useState<WorkbenchDensity>("comfortable");
+
   return (
     <ExampleSidebarLayout
       left={{
@@ -168,11 +184,11 @@ function WorkbenchPage() {
         scrollRestorationId: "workbench-files",
       }}
       main={{
-        content: <WorkbenchMain />,
+        content: <WorkbenchMain density={density} />,
         scrollRestorationId: "workbench-main",
       }}
       right={{
-        content: <Inspector />,
+        content: <Inspector density={density} setDensity={setDensity} />,
         footer: (
           <div className="example-pane-footer">
             <Badge variant="outline">route state</Badge>

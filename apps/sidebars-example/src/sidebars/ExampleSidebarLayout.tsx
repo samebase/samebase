@@ -25,10 +25,21 @@ const formatResizeHandleValueText: SidebarLayoutResizeHandleValueTextFormatter =
 
 function ExampleAddressChrome({ hasLeft, hasRight }: { hasLeft: boolean; hasRight: boolean }) {
   const { setMobilePane, toggleLeftPane, toggleRightPane } = useSidebarActions();
-  const { isMobile, mobileMergeProgress, mobilePane, mobilePaneScrollProgress } =
-    useSidebarLayoutPresentation();
+  const {
+    isMobile,
+    leftDesktopOpen,
+    mobileMergeProgress,
+    mobilePane,
+    mobilePaneScrollProgress,
+    rightDesktopOpen,
+  } = useSidebarLayoutPresentation();
   const mergePercent = Math.round((mobileMergeProgress?.progress ?? 0) * 100);
   const scrollPercent = Math.round(mobilePaneScrollProgress * 100);
+  const mobileStatus = mobileMergeProgress
+    ? `${mobileMergeProgress.side} ${mergePercent}%`
+    : mobilePane;
+  const leftShown = isMobile ? mobilePane === "left" : leftDesktopOpen;
+  const rightShown = isMobile ? mobilePane === "right" : rightDesktopOpen;
 
   return (
     <div className="example-address-chrome">
@@ -49,31 +60,24 @@ function ExampleAddressChrome({ hasLeft, hasRight }: { hasLeft: boolean; hasRigh
       </nav>
 
       <div aria-label="Live sidebar state" className="example-layout-status">
-        <Badge variant="outline">{isMobile ? "mobile" : "desktop"}</Badge>
-        {isMobile ? <Badge variant="secondary">pane: {mobilePane}</Badge> : null}
+        <Badge variant="outline">{isMobile ? mobileStatus : "desktop"}</Badge>
         {isMobile ? (
           <Progress
-            aria-label="Mobile pane scroll progress"
+            aria-label={
+              mobileMergeProgress ? "Mobile merge progress" : "Mobile pane scroll progress"
+            }
             className="example-state-progress"
-            value={scrollPercent}
+            value={mobileMergeProgress ? mergePercent : scrollPercent}
           />
-        ) : null}
-        {mobileMergeProgress ? (
-          <Badge variant="outline">
-            merge: {mobileMergeProgress.side} {mergePercent}%
-          </Badge>
         ) : null}
       </div>
 
       <div className="example-sidebar-actions">
         {hasLeft ? (
           <Button
-            aria-label={
-              isMobile && mobilePane === "left" ? "Show main content" : "Toggle navigation sidebar"
-            }
-            onClick={
-              isMobile && mobilePane === "left" ? () => setMobilePane("main") : toggleLeftPane
-            }
+            aria-label="Navigation sidebar"
+            aria-pressed={leftShown}
+            onClick={isMobile && leftShown ? () => setMobilePane("main") : toggleLeftPane}
             size="icon-sm"
             type="button"
             variant="ghost"
@@ -83,12 +87,9 @@ function ExampleAddressChrome({ hasLeft, hasRight }: { hasLeft: boolean; hasRigh
         ) : null}
         {hasRight ? (
           <Button
-            aria-label={
-              isMobile && mobilePane === "right" ? "Show main content" : "Toggle inspector sidebar"
-            }
-            onClick={
-              isMobile && mobilePane === "right" ? () => setMobilePane("main") : toggleRightPane
-            }
+            aria-label="Inspector sidebar"
+            aria-pressed={rightShown}
+            onClick={isMobile && rightShown ? () => setMobilePane("main") : toggleRightPane}
             size="icon-sm"
             type="button"
             variant="ghost"

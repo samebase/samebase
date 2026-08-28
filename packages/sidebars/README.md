@@ -66,8 +66,9 @@ each side pane so it stays reachable when a side pane covers the main pane.
 
 `useSidebarActions` exposes only `setMobilePane`, `toggleLeftPane`, and `toggleRightPane`.
 `useSidebarLayoutPresentation` provides read-only presentation state: `isMobile`, `mobilePane`,
-`mobilePaneScrollProgress`, and `mobileMergeProgress`. Merge progress is available during a resize
-and after a merge settles.
+`leftDesktopOpen`, `rightDesktopOpen`, `mobilePaneScrollProgress`, and `mobileMergeProgress`. Merge
+progress is available during a resize and after a merge settles. The desktop open fields let
+consumer-owned toggle buttons expose their current state.
 
 ## Load the structural CSS
 
