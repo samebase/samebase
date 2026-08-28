@@ -93,6 +93,14 @@ describe("repository exports", () => {
     });
   });
 
+  it("publishes the Sidebars package to samebase/sidebars", () => {
+    expect(repositoryExports).toContainEqual({
+      sourceRoot: "packages/sidebars",
+      targetBranch: "main",
+      targetRepository: "sidebars",
+    });
+  });
+
   it("publishes the exact source tree as a direct external child and then becomes a no-op", () => {
     const fixture = createRepositoryExportFixture();
     const gitEnvironment = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
@@ -213,7 +221,7 @@ describe("repository exports", () => {
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
-      expect(readFileSync(outputPath, "utf8")).toBe("repositories=plugin,app\n");
+      expect(readFileSync(outputPath, "utf8")).toBe("repositories=plugin,app,sidebars\n");
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
     }

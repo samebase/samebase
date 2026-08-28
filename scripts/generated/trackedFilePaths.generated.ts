@@ -1887,6 +1887,7 @@ export const trackedFilePaths = [
   "research/2026-08-03-agent-context-removal-audit.md",
   "research/2026-08-06-provider-connection-authorization-audit.md",
   "research/2026-08-09-carpet-shuffle-hover-study.md",
+  "research/2026-08-28-sidebars-package-publishing.md",
   "research/README.md",
   "research/agent-context-draft-bundle/noter-manifest.md",
   "research/agent-context-draft-overlays/noter-app-template.md",
