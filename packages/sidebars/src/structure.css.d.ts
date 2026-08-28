@@ -1,3 +1,1 @@
-declare const sidebarLayoutStructureCss: string;
-
-export default sidebarLayoutStructureCss;
+export {};

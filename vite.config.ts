@@ -1,6 +1,7 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import remotionEslintPlugin from "@remotion/eslint-plugin";
+import { defaultClientConditions } from "vite";
 import { defineConfig } from "vite-plus";
 import type { AppBuildConfig } from "./apps/samebase/src/lib/appBuildConfig";
 
@@ -44,6 +45,8 @@ export default defineConfig({
       "**/convex/_generated",
       "**/src/components/ui",
       "apps/sidebars-example/src/routeTree.gen.ts",
+      // This fixture is linted after its packed Sidebars dependency is installed.
+      "packages/sidebars/fixtures/packed-consumer/**",
       "templates/app/**",
     ],
     jsPlugins: [
@@ -187,6 +190,7 @@ export default defineConfig({
     ],
   },
   resolve: {
+    conditions: ["samebase-source", ...defaultClientConditions],
     alias: {
       "@": path.resolve(rootDir, "./apps/samebase/src"),
     },

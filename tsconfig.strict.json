@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "strict": true,
+    "customConditions": ["samebase-source"],
     // TODO: Enable this after Convex component schemas keep exact optional field types.
     // @convex-dev/auth currently emits optional table fields as `T | undefined`,
     // which is not assignable to Convex's stored document type.

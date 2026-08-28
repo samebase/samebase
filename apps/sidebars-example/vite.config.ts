@@ -1,6 +1,7 @@
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
+import { defaultClientConditions, defaultServerConditions } from "vite";
 import { defineConfig } from "vite-plus";
 
 const prerenderPages = [
@@ -26,6 +27,13 @@ const prerenderPages = [
 ];
 
 export default defineConfig({
+  environments: {
+    ssr: {
+      resolve: {
+        conditions: ["samebase-source", ...defaultServerConditions],
+      },
+    },
+  },
   fmt: {
     ignorePatterns: ["src/routeTree.gen.ts"],
   },
@@ -63,6 +71,7 @@ export default defineConfig({
     strictPort: true,
   },
   resolve: {
+    conditions: ["samebase-source", ...defaultClientConditions],
     tsconfigPaths: true,
   },
   staged: {

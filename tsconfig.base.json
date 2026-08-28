@@ -15,6 +15,7 @@
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
+    "customConditions": ["samebase-source"],
     "noEmit": true,
     "sourceMap": true,
     "inlineSources": true
