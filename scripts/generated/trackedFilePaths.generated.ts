@@ -666,6 +666,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/sidebar-media-upload-visual.spec.ts",
   "apps/samebase/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-desktop.png",
   "apps/samebase/e2e/sidebar-media-upload-visual.spec.ts-snapshots/sidebar-media-upload-mobile.png",
+  "apps/samebase/e2e/spa-shell-hydration.spec.ts",
   "apps/samebase/e2e/terms-acceptance-visual.spec.ts",
   "apps/samebase/e2e/terms-acceptance-visual.spec.ts-snapshots/terms-acceptance-desktop.png",
   "apps/samebase/e2e/terms-acceptance-visual.spec.ts-snapshots/terms-acceptance-mobile.png",

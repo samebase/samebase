@@ -84,7 +84,7 @@ function renderRouteUrlEditorNextSuggestionValue(suggestion: {
   );
 }
 
-export function RouteUrlEditorNext() {
+export function RouteUrlEditorNext({ routeAddressOverride }: { routeAddressOverride?: string }) {
   const pageHashKeys = useRouteUrlEditorPageHashSuggestions();
   const vm = useRouteEditorVm({ pageHashKeys });
   const { canGoBack, canGoForward } = useNavigationControls();
@@ -103,6 +103,7 @@ export function RouteUrlEditorNext() {
   });
   const resetTouchScrollPosition = touchScrollPicker.resetScrollPosition;
   const inputFocused = vm.state.kind === "focused";
+  const inputProps = inputFocused ? vm.inputProps : vm.displayInputProps;
   const editingDraftRouteAddress =
     vm.state.kind === "focused" && vm.state.focusMode === "editing"
       ? vm.state.draftRouteAddress
@@ -234,7 +235,7 @@ export function RouteUrlEditorNext() {
       mode reuses this input with the runtime-origin URL so iOS opens the keyboard for the tapped
       field. */}
       <input
-        {...(inputFocused ? vm.inputProps : vm.displayInputProps)}
+        {...inputProps}
         autoComplete="off"
         className={
           inputFocused ? routeUrlEditorNextInputClassName : routeUrlEditorNextBlurredInputClassName
@@ -248,6 +249,8 @@ export function RouteUrlEditorNext() {
         inputMode="url"
         spellCheck={false}
         style={inputFocused ? { textIndent: `-${vm.state.prefix.length - 1}ch` } : undefined}
+        title={routeAddressOverride === undefined ? inputProps.title : vm.state.prefix}
+        value={routeAddressOverride ?? inputProps.value}
       />
       {vm.suggestionsVisible ? (
         <div
