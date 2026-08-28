@@ -24,6 +24,11 @@ export const repositoryExports = [
     targetBranch: "main",
     targetRepository: "app",
   },
+  {
+    sourceRoot: "packages/sidebars",
+    targetBranch: "main",
+    targetRepository: "sidebars",
+  },
 ] satisfies readonly RepositoryExport[];
 
 export type RepositoryExportResult =

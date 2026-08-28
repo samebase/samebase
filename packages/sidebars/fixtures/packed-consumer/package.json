@@ -1,0 +1,27 @@
+{
+  "name": "@samebase/sidebars-packed-consumer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "vp build",
+    "lint": "vp lint --tsconfig tsconfig.json --report-unused-disable-directives src",
+    "typecheck": "tsgo -p tsconfig.json --pretty false"
+  },
+  "dependencies": {
+    "@samebase/sidebars": "__SIDEBARS_TARBALL__",
+    "react": "19.2.6",
+    "react-dom": "19.2.6"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.15",
+    "@types/react-dom": "19.2.3",
+    "@typescript/native-preview": "7.0.0-dev.20260413.1",
+    "vite-plus": "0.3.0"
+  },
+  "engines": {
+    "node": ">=24.11.0",
+    "pnpm": ">=11.18.0"
+  },
+  "packageManager": "pnpm@11.18.0"
+}

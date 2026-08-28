@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FileViewMainHeader } from "@/components/FileView/FileViewMainHeader";
 import { Button } from "@/components/ui/button";
 import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
-import type { PaneFrameProps } from "@samebase/sidebars/pane-frame";
+import type { PaneFrameProps } from "@samebase/sidebars/PaneFrame";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 export type FileViewLayoutVisualMode =

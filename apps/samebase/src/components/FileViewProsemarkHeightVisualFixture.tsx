@@ -9,7 +9,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { VaultSyncStatusContent } from "@/components/VaultSyncStatus";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { linkStyle } from "@/components/styles";
-import type { PaneFrameProps } from "@samebase/sidebars/pane-frame";
+import type { PaneFrameProps } from "@samebase/sidebars/PaneFrame";
 import type { FolderExpansionState } from "@/lib/fileTreeState";
 import { isKeyOf } from "@samebase/dependent";
 

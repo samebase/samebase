@@ -92,7 +92,7 @@ vi.mock("@tanstack/react-router", () => ({
   }),
 }));
 
-vi.mock("@samebase/sidebars/runtime", () => ({
+vi.mock("@samebase/sidebars/SidebarRuntime", () => ({
   useSidebarLayoutPresentation: () => ({
     isMobile: false,
     mobileMergeProgress: null,

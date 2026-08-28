@@ -14,13 +14,13 @@ import {
   type SidebarLayoutMobileMergedSide,
   type SidebarLayoutMobileMinResizeBehavior,
   type SidebarLayoutMobileSurface,
-} from "./SidebarLayoutGeometry.ts";
+} from "./SidebarLayoutGeometryInternal.ts";
 import {
   useSidebarLayoutActions,
   useSidebarLayoutSelector,
   useSidebarRuntimeActions,
   useSidebarRuntimeState,
-} from "./SidebarRuntime.tsx";
+} from "./SidebarRuntimeInternal.tsx";
 import { type SidebarLayoutResizeHandleConfig } from "./SidebarLayoutResizeHandleConfigs.ts";
 
 /**

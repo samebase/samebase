@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { type ViewerOrganization } from "@/lib/organizationContext";
-import { type PaneFrameProps } from "@samebase/sidebars/pane-frame";
+import { type PaneFrameProps } from "@samebase/sidebars/PaneFrame";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { ConvexError } from "convex/values";
 import { createRoot, type Root } from "react-dom/client";

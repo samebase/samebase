@@ -1,11 +1,11 @@
 import { guard, isRecord } from "@samebase/dependent";
-import { SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/sidebars/geometry";
+import { SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/sidebars/SidebarLayoutGeometry";
 import type {
   SidebarLayoutState,
   SidebarLayoutStateController,
   SidebarLayoutStatePersistenceMode,
   SidebarLayoutStateUpdate,
-} from "@samebase/sidebars/state";
+} from "@samebase/sidebars/SidebarLayoutState";
 import * as React from "react";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_VERSION } from "@/lib/appWorkspaceSidebarPreferences";
 import { notifyBrowserLocalStorageChanged } from "@/lib/localStorageSnapshot";

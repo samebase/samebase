@@ -1,5 +1,5 @@
 import { type CSSProperties, type ReactElement, type RefObject } from "react";
-import { type SidebarLayoutActiveResizeSide } from "./SidebarLayoutGeometry.ts";
+import { type SidebarLayoutActiveResizeSide } from "./SidebarLayoutGeometryInternal.ts";
 
 type SidebarLayoutResolvedPaneContent = {
   leftContent: ReactElement | undefined;

@@ -22,9 +22,9 @@ checks in a fresh job so root dependencies cannot hide an undeclared dependency.
 ## Automatic workflow
 
 The publisher runs only for a push to `main`, after the standard checks and unit tests succeed.
-Supply-chain validation runs before those checks. The app export also requires its isolated
-supply-chain and build checks. Playwright and Windows smoke tests continue in parallel, but they do
-not block repository exports because exported packages do not depend on Samebase browser behavior.
+Supply-chain validation runs before those checks. The app and Sidebars exports also require their
+isolated checks. Playwright and Windows smoke tests continue in parallel, but they do not block
+repository exports because exported packages do not depend on Samebase browser behavior.
 
 For each configured export, it:
 
@@ -72,6 +72,18 @@ app from the last accepted snapshot.
 
 Root CI installs and audits the template through its nested lockfile, then builds it in a separate
 fresh job.
+
+## Sidebars package export
+
+`packages/sidebars` publishes to the private `samebase/sidebars` repository on `main`. The package
+owns a nested workspace and lockfile. The `sidebars package check` job starts from a fresh checkout,
+does not install root workspace dependencies, and runs the package build, checks, and packed-package
+consumer test before publication.
+
+The exported private repository remains registry-neutral in this pull request. The planned first npm
+release is public. This pull request does not select a registry version, add registry credentials,
+or add automatic registry publication. The package keeps `private: true` and version `0.0.0` only to
+block an accidental publish before the release pull request.
 
 ## Agent plugin versions
 

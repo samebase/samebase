@@ -7,7 +7,7 @@ import {
   SIDEBAR_LAYOUT_MOBILE_MAIN_PEEK_WIDTH_PX,
   SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_RATIO,
-} from "./SidebarLayoutGeometry.ts";
+} from "./SidebarLayoutGeometryInternal.ts";
 
 export type SidebarLayoutPrehydrationState = Pick<
   SidebarLayoutState,

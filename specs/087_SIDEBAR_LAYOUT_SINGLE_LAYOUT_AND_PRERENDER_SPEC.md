@@ -10,7 +10,7 @@
 - Related files:
   - `packages/sidebars/package.json`
   - `packages/sidebars/src/SidebarLayout.tsx`
-  - `packages/sidebars/src/SidebarLayoutGeometry.ts`
+  - `packages/sidebars/src/SidebarLayoutGeometryInternal.ts`
   - `packages/sidebars/src/SidebarLayoutViewports.tsx`
   - `packages/sidebars/src/structure.css`
   - `apps/samebase/src/components/AppWorkspaceShell.tsx`

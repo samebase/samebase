@@ -24,7 +24,7 @@ import {
   useSidebarLayoutPresentation,
   useSidebarActions,
   type MobilePane,
-} from "@samebase/sidebars/runtime";
+} from "@samebase/sidebars/SidebarRuntime";
 import {
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,

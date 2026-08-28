@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import * as geometry from "../src/SidebarLayoutGeometryPublic.ts";
-import * as runtime from "../src/SidebarRuntimePublic.ts";
+import * as geometry from "../src/SidebarLayoutGeometry.ts";
+import * as runtime from "../src/SidebarRuntime.ts";
 
 describe("sidebar layout public facades", () => {
   it("keeps geometry limited to the consumer constant", () => {

@@ -7,12 +7,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ExampleSidebarLayout } from "@/sidebars/ExampleSidebarLayout";
 
 const PACKAGE_SECTIONS = [
-  { entrypoint: "@samebase/sidebars", label: "Layout" },
-  { entrypoint: "@samebase/sidebars/pane-frame", label: "Pane frame" },
-  { entrypoint: "@samebase/sidebars/runtime", label: "Runtime" },
-  { entrypoint: "@samebase/sidebars/state", label: "State" },
-  { entrypoint: "@samebase/sidebars/prehydration", label: "Prehydration" },
-  { entrypoint: "@samebase/sidebars/geometry", label: "Geometry" },
+  { entrypoint: "@samebase/sidebars/SidebarLayout", label: "Layout" },
+  { entrypoint: "@samebase/sidebars/PaneFrame", label: "Pane frame" },
+  { entrypoint: "@samebase/sidebars/SidebarRuntime", label: "Runtime" },
+  { entrypoint: "@samebase/sidebars/SidebarLayoutState", label: "State" },
+  { entrypoint: "@samebase/sidebars/SidebarLayoutPrehydration", label: "Prehydration" },
+  { entrypoint: "@samebase/sidebars/SidebarLayoutGeometry", label: "Geometry" },
 ] as const;
 
 function DocsNavigation() {

@@ -1,5 +1,5 @@
+import { defaultClientConditions, defaultServerConditions, type ViteDevServer } from "vite";
 import { defineConfig } from "vite-plus";
-import type { ViteDevServer } from "vite";
 import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
@@ -448,6 +448,7 @@ export default defineConfig({
     react(),
   ],
   resolve: {
+    conditions: ["samebase-source", ...defaultClientConditions],
     tsconfigPaths: true,
     alias: {
       "@": path.resolve(currentDir, "./src"),
@@ -459,6 +460,9 @@ export default defineConfig({
   },
   environments: {
     ssr: {
+      resolve: {
+        conditions: ["samebase-source", ...defaultServerConditions],
+      },
       build: {
         rolldownOptions: {
           output: {

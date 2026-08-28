@@ -9,10 +9,10 @@
   - `archive/093_WORKSPACE_LAYOUT_V2_MODULE_SPLIT_SPEC.md`
 - Related files:
   - `packages/sidebars/src/SidebarLayout.tsx`
-  - `packages/sidebars/src/SidebarLayoutGeometry.ts`
+  - `packages/sidebars/src/SidebarLayoutGeometryInternal.ts`
   - `packages/sidebars/src/SidebarLayoutPrehydration.ts`
   - `packages/sidebars/src/SidebarLayoutViewports.tsx`
-  - `packages/sidebars/src/SidebarRuntime.tsx`
+  - `packages/sidebars/src/SidebarRuntimeInternal.tsx`
   - `apps/samebase/src/components/AppWorkspaceShell.tsx`
   - `apps/samebase/src/lib/appWorkspaceSidebarPrehydration.ts`
   - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`

@@ -3,8 +3,8 @@ import {
   getSidebarLayoutPresentation,
   type SidebarLayoutDisplayedMobileState,
 } from "../src/SidebarLayoutPresentation.ts";
-import type { SidebarLayoutLocalStoreState } from "../src/SidebarRuntime.tsx";
-import type { SidebarRuntimeState } from "../src/SidebarRuntime.tsx";
+import type { SidebarLayoutLocalStoreState } from "../src/SidebarRuntimeInternal.tsx";
+import type { SidebarRuntimeState } from "../src/SidebarRuntimeInternal.tsx";
 
 const localState = {
   activeResizeSide: null,

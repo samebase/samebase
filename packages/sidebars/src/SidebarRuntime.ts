@@ -4,7 +4,7 @@ import {
   useSidebarLayoutSelector,
   useSidebarRuntimeActions as useSidebarRuntimeActionsInternal,
   useSidebarRuntimeState,
-} from "./SidebarRuntime.tsx";
+} from "./SidebarRuntimeInternal.tsx";
 import {
   getSidebarLayoutPresentation,
   useSidebarLayoutDisplayedMobileState,
@@ -13,7 +13,7 @@ import {
 import type { MobilePane } from "./SidebarLayoutState.ts";
 
 export { SidebarRuntimeProvider };
-export type { SidebarRuntimeProviderProps } from "./SidebarRuntime.tsx";
+export type { SidebarRuntimeProviderProps } from "./SidebarRuntimeInternal.tsx";
 export type {
   SidebarLayoutPresentation,
   SidebarLayoutMobileMergeProgress,

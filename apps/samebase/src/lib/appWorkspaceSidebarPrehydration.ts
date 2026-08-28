@@ -4,7 +4,7 @@ import {
   clearSidebarLayoutDesktopPrehydrationStyle,
   type SidebarLayoutPrehydrationArgs,
   type SidebarLayoutPrehydrationState,
-} from "@samebase/sidebars/prehydration";
+} from "@samebase/sidebars/SidebarLayoutPrehydration";
 
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID =
   "samebase-app-workspace-sidebar-prehydration";

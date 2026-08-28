@@ -3,42 +3,97 @@
   "version": "0.0.0",
   "private": true,
   "description": "Unstyled responsive sidebar layout for React",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samebase/sidebars.git"
+  },
   "files": [
+    "dist",
     "src",
-    "README.md"
+    "README.md",
+    "LICENSE.md"
   ],
   "type": "module",
+  "sideEffects": [
+    "./dist/structure.css",
+    "./src/structure.css"
+  ],
   "exports": {
-    ".": "./src/SidebarLayout.tsx",
-    "./geometry": "./src/SidebarLayoutGeometryPublic.ts",
-    "./pane-frame": "./src/PaneFrame.tsx",
-    "./prehydration": "./src/SidebarLayoutPrehydration.ts",
-    "./runtime": "./src/SidebarRuntimePublic.ts",
-    "./state": "./src/SidebarLayoutState.ts",
-    "./structure.css": "./src/structure.css",
-    "./testing": "./src/SidebarLayoutTesting.tsx"
+    "./PaneFrame": {
+      "samebase-source": "./src/PaneFrame.tsx",
+      "types": "./dist/PaneFrame.d.ts",
+      "default": "./dist/PaneFrame.js"
+    },
+    "./SidebarLayout": {
+      "samebase-source": "./src/SidebarLayout.tsx",
+      "types": "./dist/SidebarLayout.d.ts",
+      "default": "./dist/SidebarLayout.js"
+    },
+    "./SidebarLayoutGeometry": {
+      "samebase-source": "./src/SidebarLayoutGeometry.ts",
+      "types": "./dist/SidebarLayoutGeometry.d.ts",
+      "default": "./dist/SidebarLayoutGeometry.js"
+    },
+    "./SidebarLayoutPrehydration": {
+      "samebase-source": "./src/SidebarLayoutPrehydration.ts",
+      "types": "./dist/SidebarLayoutPrehydration.d.ts",
+      "default": "./dist/SidebarLayoutPrehydration.js"
+    },
+    "./SidebarLayoutState": {
+      "samebase-source": "./src/SidebarLayoutState.ts",
+      "types": "./dist/SidebarLayoutState.d.ts",
+      "default": "./dist/SidebarLayoutState.js"
+    },
+    "./SidebarLayoutTesting": {
+      "samebase-source": "./src/SidebarLayoutTesting.tsx",
+      "types": "./dist/SidebarLayoutTesting.d.ts",
+      "default": "./dist/SidebarLayoutTesting.js"
+    },
+    "./SidebarRuntime": {
+      "samebase-source": "./src/SidebarRuntime.ts",
+      "types": "./dist/SidebarRuntime.d.ts",
+      "default": "./dist/SidebarRuntime.js"
+    },
+    "./structure.css": {
+      "types": "./src/structure.css.d.ts",
+      "samebase-source": "./src/structure.css",
+      "default": "./dist/structure.css"
+    }
   },
   "scripts": {
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run test",
-    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/sidebars/tsconfig.json --report-unused-disable-directives packages/sidebars/src packages/sidebars/test",
-    "test": "pnpm --dir ../.. exec vp test packages/sidebars/test",
-    "typecheck": "pnpm --dir ../.. exec tsgo -p packages/sidebars/tsconfig.json --pretty false"
+    "build": "vp pack",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:package",
+    "format": "vp fmt .",
+    "format:check": "vp fmt . --check",
+    "lint": "vp lint --tsconfig tsconfig.json --report-unused-disable-directives src test scripts vite.config.ts",
+    "prepack": "pnpm run build",
+    "test": "vp test run test",
+    "test:package": "pnpm run build && node ./scripts/check-packed-consumer.ts",
+    "typecheck": "tsgo -p tsconfig.json --pretty false"
   },
   "dependencies": {
-    "@tanstack/react-store": "^0.11.0"
+    "@tanstack/react-store": "0.11.0"
   },
   "devDependencies": {
-    "@types/node": "^20.19.32",
-    "@types/react": "^19.2.15",
-    "@types/react-dom": "^19.2.3",
-    "react": "^19.2.6",
-    "react-dom": "^19.2.6"
+    "@arethetypeswrong/core": "0.18.5",
+    "@types/node": "20.19.32",
+    "@types/react": "19.2.15",
+    "@types/react-dom": "19.2.3",
+    "@typescript/native-preview": "7.0.0-dev.20260413.1",
+    "jsdom": "29.0.1",
+    "publint": "0.3.24",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "vite-plus": "0.3.0"
   },
   "peerDependencies": {
     "react": ">=19.2.0 <20",
     "react-dom": ">=19.2.0 <20"
   },
   "engines": {
-    "node": ">=24.11.0"
-  }
+    "node": ">=24.11.0",
+    "pnpm": ">=11.18.0"
+  },
+  "packageManager": "pnpm@11.18.0"
 }

@@ -22,10 +22,10 @@ import {
   SidebarRuntimeProvider,
   type SidebarSide,
   useSidebarActions,
-} from "@samebase/sidebars/runtime";
-import { type SidebarLayoutMobileMinResizeBehavior } from "@samebase/sidebars/geometry";
-import { type PaneFrameProps } from "@samebase/sidebars/pane-frame";
-import type { SidebarLayoutState } from "@samebase/sidebars/state";
+} from "@samebase/sidebars/SidebarRuntime";
+import { type SidebarLayoutMobileMinResizeBehavior } from "@samebase/sidebars/SidebarLayoutGeometry";
+import { type PaneFrameProps } from "@samebase/sidebars/PaneFrame";
+import type { SidebarLayoutState } from "@samebase/sidebars/SidebarLayoutState";
 import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
 import {

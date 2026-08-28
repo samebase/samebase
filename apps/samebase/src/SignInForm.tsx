@@ -3,7 +3,7 @@ import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControl
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LOGO_IDENTITY_VIEW_CONTRACTS } from "@/components/logo/logoStaticSvgContract";
-import { useSidebarLayoutPresentation } from "@samebase/sidebars/runtime";
+import { useSidebarLayoutPresentation } from "@samebase/sidebars/SidebarRuntime";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,

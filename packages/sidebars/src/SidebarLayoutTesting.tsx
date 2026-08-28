@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState, type ReactNode } from "react";
-import { SidebarRuntimeProvider } from "./SidebarRuntime.tsx";
+import { SidebarRuntimeProvider } from "./SidebarRuntimeInternal.tsx";
 import type { SidebarLayoutState, SidebarLayoutStateController } from "./SidebarLayoutState.ts";
 
 export function useSidebarLayoutMemoryController(

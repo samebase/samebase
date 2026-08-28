@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/sidebars/geometry";
+import { SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/sidebars/SidebarLayoutGeometry";
 import {
   buildSidebarLayoutDesktopPrehydrationScript,
   buildSidebarLayoutMobilePanePrehydrationScript,
   clearSidebarLayoutDesktopPrehydrationStyle,
   type SidebarLayoutPrehydrationArgs,
   type SidebarLayoutPrehydrationState,
-} from "@samebase/sidebars/prehydration";
+} from "@samebase/sidebars/SidebarLayoutPrehydration";
 import type {
   SidebarLayoutState,
   SidebarLayoutStateController,
   SidebarLayoutStatePersistenceMode,
   SidebarLayoutStateUpdate,
-} from "@samebase/sidebars/state";
+} from "@samebase/sidebars/SidebarLayoutState";
 
 const EXAMPLE_SIDEBAR_STORAGE_KEY = "samebase_sidebars_example_state";
 const EXAMPLE_SIDEBAR_STORAGE_VERSION = 1;

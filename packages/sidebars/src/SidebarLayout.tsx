@@ -15,7 +15,7 @@ import {
   useSidebarRuntimeActions,
   useSidebarRuntimeState,
   type SidebarRuntimeState,
-} from "./SidebarRuntime.tsx";
+} from "./SidebarRuntimeInternal.tsx";
 import {
   SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX,
   SIDEBAR_LAYOUT_MOBILE_SIDEBAR_MIN_WIDTH_PX,
@@ -27,7 +27,7 @@ import {
   getMobileSidebarMinWidthPx,
   getMobileSidebarWidthPx,
   type SidebarLayoutMobileMinResizeBehavior,
-} from "./SidebarLayoutGeometry.ts";
+} from "./SidebarLayoutGeometryInternal.ts";
 import { SidebarLayoutDisplayedMobileStateContext } from "./SidebarLayoutPresentation.ts";
 import type { SidebarSide } from "./SidebarLayoutState.ts";
 import { SidebarLayoutResizeHandle } from "./SidebarLayoutResizeHandle.tsx";

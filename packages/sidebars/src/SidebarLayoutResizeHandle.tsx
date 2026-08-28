@@ -6,7 +6,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
-import { clampNumber } from "./SidebarLayoutGeometry.ts";
+import { clampNumber } from "./SidebarLayoutGeometryInternal.ts";
 import { acquireSidebarResizeBodyStyleLock } from "./sidebarResizeBodyStyleLock.ts";
 
 const KEYBOARD_RESIZE_TIMEOUT_MS = 120;

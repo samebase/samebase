@@ -9,9 +9,9 @@ state attributes. The package does not depend on Base UI.
 
 ## Integration example
 
-The [sidebars example app](../../apps/sidebars-example/README.md) uses only public production
-entrypoints from this package. It shows app-owned styling, localStorage state, prehydration, and
-routes with zero, one, and two sidebars.
+The [sidebars example app](https://github.com/samebase/samebase/tree/main/apps/sidebars-example)
+uses only public production entrypoints from this package. It shows app-owned styling, localStorage
+state, prehydration, and routes with zero, one, and two sidebars.
 
 The example intentionally exercises optional localStorage prehydration. An SSR app does not need
 prehydration when it can render the initial sidebar state on the server.
@@ -19,13 +19,13 @@ prehydration when it can render the initial sidebar state on the server.
 ## Use the layout
 
 ```tsx
-import { SidebarLayout } from "@samebase/sidebars";
-import { PaneFrame } from "@samebase/sidebars/pane-frame";
+import { SidebarLayout } from "@samebase/sidebars/SidebarLayout";
+import { PaneFrame } from "@samebase/sidebars/PaneFrame";
 import {
   SidebarRuntimeProvider,
   useSidebarLayoutPresentation,
   useSidebarActions,
-} from "@samebase/sidebars/runtime";
+} from "@samebase/sidebars/SidebarRuntime";
 
 function MobilePaneEscape() {
   const { isMobile, mobilePane } = useSidebarLayoutPresentation();
@@ -166,3 +166,15 @@ Render the desktop script and then the mobile script immediately after the match
 Give each concurrently rendered layout a unique `desktopStyleElementId`. The desktop script measures
 and scopes that layout only. Call `clearSidebarLayoutDesktopPrehydrationStyle` after the client
 state takes ownership.
+
+## Development
+
+Use Node 24.11.0 or later and pnpm 11.18.0 or later.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm check
+```
+
+The package check formats and lints the source, checks TypeScript, runs the package tests, builds
+the ESM and declaration outputs, and installs the packed tarball in a temporary consumer.

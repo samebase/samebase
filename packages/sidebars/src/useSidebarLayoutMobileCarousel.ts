@@ -14,8 +14,8 @@ import {
   isMobilePaneScrollSettled,
   type MobilePane,
   type SidebarLayoutMobileMergedSide,
-} from "./SidebarLayoutGeometry.ts";
-import { useSidebarLayoutActions } from "./SidebarRuntime.tsx";
+} from "./SidebarLayoutGeometryInternal.ts";
+import { useSidebarLayoutActions } from "./SidebarRuntimeInternal.tsx";
 
 export function useSidebarLayoutMobileCarouselController({
   activeGripResizeSideRef,
