@@ -1705,6 +1705,7 @@ export const trackedFilePaths = [
   "packages/plugin/plugins/samebase/skills/samebase/references/recover-missing-actions.md",
   "packages/plugin/plugins/samebase/skills/samebase/references/starter-changelog.md",
   "packages/sidebars/.github/workflows/ci.yml",
+  "packages/sidebars/.github/workflows/publish.yml",
   "packages/sidebars/.gitignore",
   "packages/sidebars/.node-version",
   "packages/sidebars/LICENSE.md",

@@ -1,0 +1,68 @@
+name: Publish
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: publish
+    if: >-
+      github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: npm-publish
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout verified commit
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+
+      - name: Select stable release
+        id: release
+        run: |
+          version="$(node -p "require('./package.json').version")"
+          if [[ "${version}" == *-* ]]; then
+            echo "publish=false" >> "${GITHUB_OUTPUT}"
+            echo "Skip prerelease version ${version}."
+            exit 0
+          fi
+
+          echo "publish=true" >> "${GITHUB_OUTPUT}"
+
+      - name: Setup pnpm
+        if: steps.release.outputs.publish == 'true'
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+
+      - name: Install dependencies
+        if: steps.release.outputs.publish == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build package
+        if: steps.release.outputs.publish == 'true'
+        run: pnpm build
+
+      - name: Publish newer stable version
+        if: steps.release.outputs.publish == 'true'
+        uses: JS-DevTools/npm-publish@0fd2f4369c5d6bcfcde6091a7c527d810b9b5c3f # v4.1.5
+        with:
+          strategy: upgrade
+          tag: latest
