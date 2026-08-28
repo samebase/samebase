@@ -24,7 +24,7 @@ describe("starterSeedManifest", () => {
     expect(filePaths).toContain(".node-version");
     expect(filePaths).toContain("wrangler.jsonc");
     expect(filePaths).toContain("scripts/build-cloudflare.ts");
-    expect(filePaths).toContain("scripts/cloudflare-prerender-pages.ts");
+    expect(filePaths).toContain("prerender.config.ts");
     expect(filePaths).toContain("scripts/deploy-cloudflare.ts");
     expect(filePaths).toContain("scripts/ensure-convex-auth.ts");
     expect(filePaths).toContain("scripts/generate-cloudflare-redirects.ts");
@@ -128,7 +128,7 @@ describe("starterSeedManifest", () => {
       "# @samebase/app-prerender-redirects:start",
     );
     expect(starterTemplateManifest.files["public/_redirects"]).toContain("/ /_landing.html 200");
-    expect(starterTemplateManifest.files["scripts/cloudflare-prerender-pages.ts"]).toContain(
+    expect(starterTemplateManifest.files["prerender.config.ts"]).toContain(
       'outputPath: "/_landing.html"',
     );
     expect(starterTemplateManifest.files["vite.config.ts"]).toContain('maskPath: "/#__spa-shell"');
