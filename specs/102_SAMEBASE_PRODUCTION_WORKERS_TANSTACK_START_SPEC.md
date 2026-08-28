@@ -5,7 +5,7 @@
 - Status: Accepted implementation plan
 - Owner: Samebase production hosting
 - Created: 2026-05-16
-- Last updated: 2026-08-01
+- Last updated: 2026-08-28
 - Related:
   - `specs/101_CLOUDFLARE_WORKERS_SINGLE_STACK_MIGRATION_SPEC.md`
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
@@ -109,6 +109,26 @@ Workers Static Assets deploys only `dist/client`, and the tagged generated block
 `apps/samebase/public/_redirects` owns the exact prerender aliases. User-owned exact redirects may
 live outside that block. Unknown app-route navigations use Workers' `single-page-application`
 fallback to the SPA shell at `/index.html`.
+
+For a fallback request such as `/vault/samebase/samebase`, Cloudflare sends `dist/client/index.html`
+without changing the URL in the browser. TanStack built this file from `/`, so it contains the
+workspace shell for `/` and no route page. React's first browser render must create that same
+content. If the first render immediately uses `/vault/samebase/samebase`, the URL field, workspace
+data, and route page differ from the built HTML. React then reports a hydration error and replaces
+the page.
+
+Samebase therefore uses `/` for the URL field and route-dependent workspace data during the first
+browser render of the SPA shell. It also omits the requested route page. After React attaches to the
+existing HTML, Samebase uses the real browser URL and renders the requested route page. A public
+route with its own prerendered HTML does not use this fallback sequence.
+
+Generated prerender file names are not page URLs. Each direct file URL redirects to the canonical
+route before a `200` alias serves the file. For example, `/terms/index.html` redirects to `/terms`,
+and `/_landing.html` redirects to `/`. This keeps the browser route equal to the route that produced
+the HTML.
+
+`apps/samebase/e2e/spa-shell-hydration.spec.ts` serves the built shell at a real fallback route and
+fails when React reports hydration recovery.
 
 As TanStack Start writes each configured public prerender, its success hook removes
 `<link rel="modulepreload">` hints. Cold public visits should let HTML and CSS reach first paint

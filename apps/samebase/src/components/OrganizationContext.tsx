@@ -4,8 +4,15 @@ import { useConvexAuth, useQuery } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { OrganizationContext, readAppOrganizationSurface } from "@/lib/organizationContext";
 
-export function OrganizationContextProvider({ children }: { children: ReactNode }) {
-  const pathname = useLocation({ select: (location) => location.pathname });
+export function OrganizationContextProvider({
+  children,
+  pathnameOverride,
+}: {
+  children: ReactNode;
+  pathnameOverride?: string;
+}) {
+  const routePathname = useLocation({ select: (location) => location.pathname });
+  const pathname = pathnameOverride ?? routePathname;
   const { isAuthenticated } = useConvexAuth();
   const surface = readAppOrganizationSurface(pathname);
   const organizationContextRequired =
