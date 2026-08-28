@@ -1,7 +1,7 @@
 import type {
-  WorkspaceSidebarState as PackageWorkspaceSidebarState,
-  WorkspaceSidebarStateController as PackageWorkspaceSidebarStateController,
-} from "@samebase/workspace-layout/state";
+  SidebarLayoutState as PackageSidebarLayoutState,
+  SidebarLayoutStateController as PackageSidebarLayoutStateController,
+} from "@samebase/sidebars/state";
 import type { WorkspaceSidebarState as ConvexWorkspaceSidebarState } from "../../convex/userPreferenceModel";
 import type { usePersistedWorkspaceSidebarState } from "../hooks/usePersistedWorkspaceSidebarState";
 
@@ -11,12 +11,12 @@ type IsAssignable<Source, Target> = [Source] extends [Target] ? true : false;
 type ExpectTrue<Value extends true> = Value;
 
 export type WorkspaceSidebarStateCompatibility = [
-  ExpectTrue<IsAssignable<ConvexWorkspaceSidebarState, PackageWorkspaceSidebarState>>,
-  ExpectTrue<IsAssignable<PackageWorkspaceSidebarState, ConvexWorkspaceSidebarState>>,
+  ExpectTrue<IsAssignable<ConvexWorkspaceSidebarState, PackageSidebarLayoutState>>,
+  ExpectTrue<IsAssignable<PackageSidebarLayoutState, ConvexWorkspaceSidebarState>>,
   ExpectTrue<
-    IsAssignable<ConvexWorkspaceSidebarStateController, PackageWorkspaceSidebarStateController>
+    IsAssignable<ConvexWorkspaceSidebarStateController, PackageSidebarLayoutStateController>
   >,
   ExpectTrue<
-    IsAssignable<PackageWorkspaceSidebarStateController, ConvexWorkspaceSidebarStateController>
+    IsAssignable<PackageSidebarLayoutStateController, ConvexWorkspaceSidebarStateController>
   >,
 ];

@@ -3,13 +3,13 @@ import { FilePlusIcon, GitHubLogoIcon, PlusIcon } from "@/lib/radixIcons";
 import { FileTree } from "@/components/FileTree";
 import { FileViewPushActions } from "@/components/FileViewPushActions";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { VaultSyncStatusContent } from "@/components/VaultSyncStatus";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { linkStyle } from "@/components/styles";
-import type { WorkspaceLayoutV2PaneFrameProps } from "@samebase/workspace-layout/pane-frame";
+import type { PaneFrameProps } from "@samebase/sidebars/pane-frame";
 import type { FolderExpansionState } from "@/lib/fileTreeState";
 import { isKeyOf } from "@samebase/dependent";
 
@@ -310,14 +310,14 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
       </button>
     </div>
   );
-  const activeSidebar: WorkspaceLayoutV2PaneFrameProps = {
+  const activeSidebar: PaneFrameProps = {
     header: null,
     content: sidebarContent,
     footer: sidebarFooter,
   };
 
   return (
-    <WorkspaceLayoutV2FixtureFrame
+    <SidebarLayoutFixtureFrame
       shortcutPaneSide="left"
       left={activeSidebar}
       main={{

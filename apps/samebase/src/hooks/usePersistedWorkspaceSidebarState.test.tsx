@@ -3,12 +3,12 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import type { WorkspaceSidebarStateController } from "@samebase/workspace-layout/state";
+import type { SidebarLayoutStateController } from "@samebase/sidebars/state";
 import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
 
 let mockedQueryState: WorkspaceSidebarState | null | undefined = undefined;
 const mockedMutation = vi.fn(async () => null);
-let latestSidebarStateController: WorkspaceSidebarStateController | null = null;
+let latestSidebarStateController: SidebarLayoutStateController | null = null;
 
 vi.mock("convex/react", () => ({
   useMutation: () => mockedMutation,

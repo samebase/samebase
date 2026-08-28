@@ -250,12 +250,12 @@ importers:
       '@samebase/logo-model':
         specifier: workspace:*
         version: link:../../packages/logo-model
+      '@samebase/sidebars':
+        specifier: workspace:*
+        version: link:../../packages/sidebars
       '@samebase/sure':
         specifier: workspace:*
         version: link:../../packages/sure
-      '@samebase/workspace-layout':
-        specifier: workspace:*
-        version: link:../../packages/workspace-layout
       '@tanstack/react-pacer':
         specifier: ^0.22.1
         version: 0.22.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -525,19 +525,7 @@ importers:
         specifier: workspace:*
         version: link:../dependent
 
-  packages/sure:
-    devDependencies:
-      ajv:
-        specifier: 8.18.0
-        version: 8.18.0(patch_hash=1520dfda3a91b505a18bc6c6f1af247d934fb0350173bef2ebc8cccf7354f529)
-      vite:
-        specifier: npm:@voidzero-dev/vite-plus-core@0.3.0
-        version: '@voidzero-dev/vite-plus-core@0.3.0(@types/node@20.19.32)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(typescript@5.9.2)(yaml@2.8.3)'
-      vite-plus:
-        specifier: 'catalog:'
-        version: 0.3.0(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@20.19.32)(@voidzero-dev/vite-plus-core@0.3.0(@types/node@20.19.32)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(typescript@5.9.2)(yaml@2.8.3))(esbuild@0.28.1)(jiti@2.7.0)(jsdom@29.0.1(@noble/hashes@1.8.0))(msw@2.13.4(@types/node@20.19.32)(typescript@5.9.2))(terser@5.49.0)(typescript@5.9.2)(yaml@2.8.3)
-
-  packages/workspace-layout:
+  packages/sidebars:
     dependencies:
       '@tanstack/react-store':
         specifier: ^0.11.0
@@ -558,6 +546,18 @@ importers:
       react-dom:
         specifier: ^19.2.6
         version: 19.2.6(react@19.2.6)
+
+  packages/sure:
+    devDependencies:
+      ajv:
+        specifier: 8.18.0
+        version: 8.18.0(patch_hash=1520dfda3a91b505a18bc6c6f1af247d934fb0350173bef2ebc8cccf7354f529)
+      vite:
+        specifier: npm:@voidzero-dev/vite-plus-core@0.3.0
+        version: '@voidzero-dev/vite-plus-core@0.3.0(@types/node@20.19.32)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(typescript@5.9.2)(yaml@2.8.3)'
+      vite-plus:
+        specifier: 'catalog:'
+        version: 0.3.0(@edge-runtime/vm@5.0.0)(@opentelemetry/api@1.9.1)(@types/node@20.19.32)(@voidzero-dev/vite-plus-core@0.3.0(@types/node@20.19.32)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.49.0)(typescript@5.9.2)(yaml@2.8.3))(esbuild@0.28.1)(jiti@2.7.0)(jsdom@29.0.1(@noble/hashes@1.8.0))(msw@2.13.4(@types/node@20.19.32)(typescript@5.9.2))(terser@5.49.0)(typescript@5.9.2)(yaml@2.8.3)
 
 packages:
 

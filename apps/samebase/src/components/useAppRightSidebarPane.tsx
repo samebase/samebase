@@ -1,7 +1,7 @@
 import { AppRightSidebarContent } from "@/components/AppRightSidebar";
-import { type WorkspaceLayoutV2PaneFrameProps } from "@samebase/workspace-layout/pane-frame";
+import { type PaneFrameProps } from "@samebase/sidebars/pane-frame";
 
-export function useAppRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
+export function useAppRightSidebarPane(): PaneFrameProps {
   return {
     content: <AppRightSidebarContent />,
   };

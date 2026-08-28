@@ -168,20 +168,20 @@ test("Pending-approval Settings shows only account exit actions on mobile", asyn
   try {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await createPendingAccount(page, email);
-    await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
+    await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",
     );
 
     await page.getByRole("link", { name: "Account settings", exact: true }).click();
     await expect(page).toHaveURL(/\/settings$/u);
-    await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
+    await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",
     );
-    await page.locator('[data-workspace-layout-part="carousel"]').evaluate((element) => {
+    await page.locator('[data-sidebar-layout-part="carousel"]').evaluate((element) => {
       const mainPane = element.querySelector(
-        '[data-workspace-layout-part="pane"][data-pane-side="main"]',
+        '[data-sidebar-layout-part="pane"][data-pane-side="main"]',
       );
       if (!(mainPane instanceof HTMLElement)) {
         throw new Error("Expected mobile carousel main pane.");
@@ -191,7 +191,7 @@ test("Pending-approval Settings shows only account exit actions on mobile", asyn
       element.scrollLeft = mainPane.offsetLeft - panePeekPx;
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
     });
-    await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
+    await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "main",
     );
@@ -251,7 +251,7 @@ test("prehydrated mobile Settings reload preserves the selected sidebar", async 
   try {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await createPendingAccount(page, email);
-    await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
+    await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",
     );
@@ -261,7 +261,7 @@ test("prehydrated mobile Settings reload preserves the selected sidebar", async 
       "data-app-auth-presentation-prehydrated",
       "signed-in",
     );
-    await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
+    await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",
     );
@@ -272,23 +272,23 @@ test("prehydrated mobile Settings reload preserves the selected sidebar", async 
     await expect(prehydratedSettingsLink).toBeVisible();
     await prehydratedSettingsLink.click();
     await expect(page).toHaveURL(/\/settings$/u);
-    await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
+    await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",
     );
 
     await page.unroute("**/*");
     await page.reload({ waitUntil: "domcontentloaded" });
-    await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
+    await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",
     );
     const rightResizeGrip = page.locator(
-      '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
+      '[data-sidebar-layout-part="resize-handle"][data-resize-side="right"]',
     );
     await expect(rightResizeGrip).toBeVisible();
     await expect(
-      rightResizeGrip.locator('[data-workspace-layout-part="resize-grip-indicator"]'),
+      rightResizeGrip.locator('[data-sidebar-layout-part="resize-grip-indicator"]'),
     ).toBeVisible();
     await expect(rightResizeGrip).toHaveScreenshot(
       "settings-sidebar-resize-grip-mobile.png",

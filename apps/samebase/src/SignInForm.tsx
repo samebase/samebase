@@ -3,7 +3,7 @@ import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControl
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LOGO_IDENTITY_VIEW_CONTRACTS } from "@/components/logo/logoStaticSvgContract";
-import { useWorkspaceLayoutPresentation } from "@samebase/workspace-layout/runtime";
+import { useSidebarLayoutPresentation } from "@samebase/sidebars/runtime";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
@@ -32,7 +32,7 @@ function LandingPageLogo({
 }) {
   const navigate = useNavigate();
   const { isMobile, mobileMergeProgress, mobilePaneScrollProgress } =
-    useWorkspaceLayoutPresentation();
+    useSidebarLayoutPresentation();
   const presentationTiltNeutralProgress =
     mobileMergeProgress?.side === "right" ? mobileMergeProgress.progress : undefined;
 

@@ -1,11 +1,11 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
-function getWorkspaceLayoutPane(page: Page, side: "left" | "right") {
-  return page.locator(`[data-workspace-layout-part="pane"][data-pane-side="${side}"]`);
+function getSidebarLayoutPane(page: Page, side: "left" | "right") {
+  return page.locator(`[data-sidebar-layout-part="pane"][data-pane-side="${side}"]`);
 }
 
-function getWorkspaceLayoutResizeHandle(page: Page, side: "left" | "right") {
-  return page.locator(`[data-workspace-layout-part="resize-handle"][data-resize-side="${side}"]`);
+function getSidebarLayoutResizeHandle(page: Page, side: "left" | "right") {
+  return page.locator(`[data-sidebar-layout-part="resize-handle"][data-resize-side="${side}"]`);
 }
 
 async function getBox(locator: Locator) {
@@ -39,7 +39,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page
-    .locator('[data-workspace-layout-part="root"]')
+    .locator('[data-sidebar-layout-part="root"]')
     .filter({ has: page.getByTestId("fileview-layout-header") });
   const header = page.getByTestId("fileview-layout-header");
   const counterButton = page.getByTestId("fileview-layout-counter-button");
@@ -56,7 +56,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
 
   await page.getByRole("button", { name: "Toggle Left Sidebar" }).press("Enter");
   await expect
-    .poll(async () => Math.round((await getBox(getWorkspaceLayoutPane(page, "left"))).width))
+    .poll(async () => Math.round((await getBox(getSidebarLayoutPane(page, "left"))).width))
     .toBe(0);
 
   await page.getByRole("button", { name: "Toggle Left Sidebar" }).press("Enter");
@@ -75,7 +75,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
   await expect(counterButton).toBeVisible();
 
   await expect
-    .poll(async () => Math.round((await getBox(getWorkspaceLayoutPane(page, "left"))).width))
+    .poll(async () => Math.round((await getBox(getSidebarLayoutPane(page, "left"))).width))
     .toBeGreaterThan(100);
 
   await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText("1");
@@ -91,25 +91,25 @@ test("fileview desktop left sidebar resize persists across collapse", async ({ p
   });
   await page.waitForLoadState("networkidle");
 
-  const leftSidebar = getWorkspaceLayoutPane(page, "left");
-  const handle = getWorkspaceLayoutResizeHandle(page, "left");
-  const initialWidthPx = (await getBox(getWorkspaceLayoutPane(page, "left"))).width;
+  const leftSidebar = getSidebarLayoutPane(page, "left");
+  const handle = getSidebarLayoutResizeHandle(page, "left");
+  const initialWidthPx = (await getBox(getSidebarLayoutPane(page, "left"))).width;
 
   await expect(handle).toBeVisible();
-  await dragHorizontalHandle(page, getWorkspaceLayoutResizeHandle(page, "left"), 96);
+  await dragHorizontalHandle(page, getSidebarLayoutResizeHandle(page, "left"), 96);
   await expect
-    .poll(async () => (await getBox(getWorkspaceLayoutPane(page, "left"))).width)
+    .poll(async () => (await getBox(getSidebarLayoutPane(page, "left"))).width)
     .toBeGreaterThan(initialWidthPx + 48);
 
-  const resizedWidthPx = (await getBox(getWorkspaceLayoutPane(page, "left"))).width;
+  const resizedWidthPx = (await getBox(getSidebarLayoutPane(page, "left"))).width;
   await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
   await expect
-    .poll(async () => Math.round((await getBox(getWorkspaceLayoutPane(page, "left"))).width))
+    .poll(async () => Math.round((await getBox(getSidebarLayoutPane(page, "left"))).width))
     .toBe(0);
 
   await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
   await expect(leftSidebar).toBeVisible();
   await expect
-    .poll(async () => (await getBox(getWorkspaceLayoutPane(page, "left"))).width)
+    .poll(async () => (await getBox(getSidebarLayoutPane(page, "left"))).width)
     .toBeGreaterThanOrEqual(resizedWidthPx - 1);
 });

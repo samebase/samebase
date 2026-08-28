@@ -4,7 +4,7 @@ import {
   FileViewDeveloperTools,
   type FileViewEditorOverride,
 } from "@/components/FileViewDeveloperTools";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
 
 export type FileViewDeveloperToolsVisualMode =
   | "file-view-developer-tools-collapsed"
@@ -34,7 +34,7 @@ export function FileViewDeveloperToolsVisualFixture({
     </div>
   );
   return (
-    <WorkspaceLayoutV2FixtureFrame
+    <SidebarLayoutFixtureFrame
       shortcutPaneSide="left"
       left={{
         header: null,

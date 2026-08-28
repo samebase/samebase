@@ -16,15 +16,15 @@ import { useAppRightSidebarPane } from "@/components/useAppRightSidebarPane";
 import { OrganizationContextProvider } from "@/components/OrganizationContext";
 import { useOrganizationContext } from "@/lib/organizationContext";
 import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
-import { WorkspaceLayoutV2FullPage } from "@/components/WorkspaceLayoutV2FullPage";
+import { AppSidebarLayout } from "@/components/AppSidebarLayout";
 import {
-  WorkspacePaneRuntimeProvider,
-  type WorkspacePaneSide,
-  useWorkspacePaneActions,
-} from "@samebase/workspace-layout/runtime";
-import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "@samebase/workspace-layout/geometry";
-import { type WorkspaceLayoutV2PaneFrameProps } from "@samebase/workspace-layout/pane-frame";
-import type { WorkspaceSidebarState } from "@samebase/workspace-layout/state";
+  SidebarRuntimeProvider,
+  type SidebarSide,
+  useSidebarActions,
+} from "@samebase/sidebars/runtime";
+import { type SidebarLayoutMobileMinResizeBehavior } from "@samebase/sidebars/geometry";
+import { type PaneFrameProps } from "@samebase/sidebars/pane-frame";
+import type { SidebarLayoutState } from "@samebase/sidebars/state";
 import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
 import {
@@ -40,16 +40,16 @@ import {
 import type { AppWorkspaceRouteChromeStaticData } from "@/routing/permissions";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
-type AppWorkspaceRouteChromePane = WorkspaceLayoutV2PaneFrameProps | null;
+type AppWorkspaceRouteChromePane = PaneFrameProps | null;
 
 type AppWorkspaceRouteChromeConfig = {
   headerAccessory?: ReactNode;
   left?: AppWorkspaceRouteChromePane;
   leftToggleVisibility?: AppWorkspaceShellToggleVisibility;
-  mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
+  mobileMinResizeBehavior?: SidebarLayoutMobileMinResizeBehavior;
   right?: AppWorkspaceRouteChromePane;
   rightToggleVisibility?: AppWorkspaceShellToggleVisibility;
-  shortcutPaneSide?: WorkspacePaneSide;
+  shortcutPaneSide?: SidebarSide;
 };
 
 type AppWorkspaceRouteChromeSnapshot = AppWorkspaceRouteChromeConfig & {
@@ -94,7 +94,7 @@ const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
   rightDesktopOpen: true,
   rightDesktopWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
   rightMobileWidthPx: APP_WORKSPACE_RIGHT_SIDEBAR_DEFAULT_WIDTH_PX,
-} satisfies WorkspaceSidebarState;
+} satisfies SidebarLayoutState;
 
 const AppWorkspaceRouteChromeContext = createContext<AppWorkspaceRouteChromeContextValue | null>(
   null,
@@ -219,8 +219,8 @@ function isAppWorkspacePaneShortcutEditableTarget(target: EventTarget | null) {
   );
 }
 
-function AppWorkspacePaneShortcut({ side }: { side: WorkspacePaneSide }) {
-  const { toggleLeftPane, toggleRightPane } = useWorkspacePaneActions();
+function AppWorkspacePaneShortcut({ side }: { side: SidebarSide }) {
+  const { toggleLeftPane, toggleRightPane } = useSidebarActions();
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -267,7 +267,7 @@ function useAppWorkspaceSidebarState() {
   }, []);
   const setLocalSidebarState = localSidebarState.setState;
   const mirrorPersistedSidebarState = useCallback(
-    (state: WorkspaceSidebarState) => {
+    (state: SidebarLayoutState) => {
       setLocalSidebarState(() => state, "immediate");
     },
     [setLocalSidebarState],
@@ -309,7 +309,7 @@ function AppWorkspaceShellFrame({
   const mainPane = {
     header: mainHeader,
     content: <AppWorkspaceMainContent>{children}</AppWorkspaceMainContent>,
-  } satisfies WorkspaceLayoutV2PaneFrameProps;
+  } satisfies PaneFrameProps;
   const leftPane = staticLeftPaneAbsent
     ? undefined
     : chrome?.left === null
@@ -324,9 +324,9 @@ function AppWorkspaceShellFrame({
     (surface.kind === "allVaults" || surface.kind === "organization" ? "all" : "desktop");
 
   return (
-    <WorkspacePaneRuntimeProvider controller={sidebarState}>
+    <SidebarRuntimeProvider controller={sidebarState}>
       <AppWorkspacePaneShortcut side={chrome?.shortcutPaneSide ?? "right"} />
-      <WorkspaceLayoutV2FullPage
+      <AppSidebarLayout
         addressChrome={<RouteUrlEditorNext />}
         left={leftPane}
         leftToggleVisibility={leftToggleVisibility}
@@ -343,7 +343,7 @@ function AppWorkspaceShellFrame({
         suppressHydrationWarning
         dangerouslySetInnerHTML={{ __html: appWorkspaceMobilePanePrehydrationScript }}
       />
-    </WorkspacePaneRuntimeProvider>
+    </SidebarRuntimeProvider>
   );
 }
 

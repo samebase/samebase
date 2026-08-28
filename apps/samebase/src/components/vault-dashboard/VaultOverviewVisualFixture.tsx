@@ -21,7 +21,7 @@ import {
   VaultOverviewVaultListHeader,
   VaultOverviewVaultPickerPane,
 } from "@/components/vault-dashboard/VaultOverviewVaultPickerPane";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import type {
   VaultDefaultBranchObservation,
@@ -1121,7 +1121,7 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
   } satisfies VaultSidebarSummariesState;
   return (
     <TestRouterProvider initialEntries={[`/vault/${vault.repositoryFullName}`]}>
-      <WorkspaceLayoutV2FixtureFrame
+      <SidebarLayoutFixtureFrame
         left={{
           header: <VaultOverviewVaultListHeader />,
           content: (
@@ -1287,7 +1287,7 @@ function VaultOverviewProviderSettingsFixture({
     <TestRouterProvider
       initialEntries={["/vault/nicu-chiciuc/tmp-f149-vault-loading-states/settings"]}
     >
-      <WorkspaceLayoutV2FixtureFrame
+      <SidebarLayoutFixtureFrame
         left={{
           header: <VaultOverviewVaultListHeader />,
           content: (
@@ -1373,7 +1373,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
   if (mode === "vault-overview-v2-root") {
     return (
       <TestRouterProvider initialEntries={["/vault"]}>
-        <WorkspaceLayoutV2FixtureFrame
+        <SidebarLayoutFixtureFrame
           main={{
             content: (
               <VaultOverviewVaultPickerPane
@@ -1405,7 +1405,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
   if (mode === "vault-overview-v2-loading" || mode === "vault-overview-v2-settings-loading") {
     return (
       <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
-        <WorkspaceLayoutV2FixtureFrame
+        <SidebarLayoutFixtureFrame
           left={{
             header: <VaultOverviewVaultListHeader />,
             content: <VaultOverviewSidebarLoading />,
@@ -1461,7 +1461,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
   });
 
   return (
-    <WorkspaceLayoutV2FixtureFrame
+    <SidebarLayoutFixtureFrame
       left={{
         header: <VaultOverviewVaultListHeader />,
         content: (

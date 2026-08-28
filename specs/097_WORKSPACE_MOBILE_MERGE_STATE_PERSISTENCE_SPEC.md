@@ -8,21 +8,21 @@
 - Last updated: 2026-08-28
 - Related specs:
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
-  - `specs/094_WORKSPACE_LAYOUT_PANE_RUNTIME_SPEC.md`
+  - `specs/094_SIDEBAR_LAYOUT_PANE_RUNTIME_SPEC.md`
 - Decision history:
   - [PR #734](https://github.com/samebase/samebase/pull/734) added durable mobile merge state.
   - [PR #1289](https://github.com/samebase/samebase/pull/1289) replaced route and viewport state
     repair with a local display fallback.
 - Main code and tests:
-  - `apps/samebase/convex/workspaceSidebarStateModel.ts`
-  - `packages/workspace-layout/src/WorkspaceLayoutV2.tsx`
-  - `packages/workspace-layout/src/WorkspaceLayoutV2Prehydration.ts`
-  - `packages/workspace-layout/src/WorkspacePaneRuntime.tsx`
-  - `packages/workspace-layout/src/useWorkspaceLayoutV2MobileResize.ts`
-  - `packages/workspace-layout/test/layoutMobile.test.tsx`
+  - `apps/samebase/convex/workspaceSidebarState.ts`
+  - `packages/sidebars/src/SidebarLayout.tsx`
+  - `packages/sidebars/src/SidebarLayoutPrehydration.ts`
+  - `packages/sidebars/src/SidebarRuntime.tsx`
+  - `packages/sidebars/src/useSidebarLayoutMobileResize.ts`
+  - `packages/sidebars/test/layoutMobile.test.tsx`
   - `apps/samebase/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
   - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`
-  - `apps/samebase/e2e/workspace-layout-v2.live.spec.ts`
+  - `apps/samebase/e2e/sidebar-layout.live.spec.ts`
   - `apps/samebase/e2e/workspace-sidebar-drag.spec.ts`
 
 ## Current contract
@@ -110,7 +110,7 @@ The current contract has these test owners:
   and does not change the saved pane or merge state.
 - `layoutMobile.test.tsx` verifies that a saved merge uses the current mobile viewport without
   changing the saved merge.
-- `workspace-layout-v2.live.spec.ts` verifies that a signed-in merge stays active across different
-  mobile viewport widths and is not cleared by a route without the saved pane.
+- `sidebar-layout.live.spec.ts` verifies that a signed-in merge stays active across different mobile
+  viewport widths and is not cleared by a route without the saved pane.
 - `workspace-sidebar-drag.spec.ts` verifies that a mobile merge survives a local storage reload.
 - The local storage and persisted sidebar hook tests verify parser rules and merge-only writes.

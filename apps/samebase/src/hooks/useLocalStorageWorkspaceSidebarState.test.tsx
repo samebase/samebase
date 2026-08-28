@@ -4,7 +4,7 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
-import type { WorkspaceSidebarStateController } from "@samebase/workspace-layout/state";
+import type { SidebarLayoutStateController } from "@samebase/sidebars/state";
 import { useLocalStorageWorkspaceSidebarState } from "./useLocalStorageWorkspaceSidebarState";
 
 const { act } = React;
@@ -27,7 +27,7 @@ const STORED_SIDEBAR_STATE = {
   rightDesktopWidthPx: 360,
 } satisfies WorkspaceSidebarState;
 
-let latestSidebarStateController: WorkspaceSidebarStateController | null = null;
+let latestSidebarStateController: SidebarLayoutStateController | null = null;
 
 function createTestStorage() {
   const entries = new Map<string, string>();

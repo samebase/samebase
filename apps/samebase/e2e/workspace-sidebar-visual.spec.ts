@@ -10,7 +10,7 @@ async function gotoFileViewFixture(page: Page) {
 }
 
 async function scrollFileViewCarouselToPane(page: Page, pane: "left" | "main" | "right") {
-  await page.locator('[data-workspace-layout-part="carousel"]').evaluate((element, nextPane) => {
+  await page.locator('[data-sidebar-layout-part="carousel"]').evaluate((element, nextPane) => {
     const paneIndex = nextPane === "left" ? 0 : nextPane === "main" ? 1 : 2;
     element.scrollLeft = element.clientWidth * paneIndex;
     element.dispatchEvent(new Event("scroll", { bubbles: true }));
@@ -24,7 +24,7 @@ async function scrollFileViewCarouselToPane(page: Page, pane: "left" | "main" | 
 
 async function getFixtureViewportClip(page: Page) {
   const fixture = page
-    .locator('[data-workspace-layout-part="root"]')
+    .locator('[data-sidebar-layout-part="root"]')
     .filter({ has: page.getByTestId("fileview-layout-header") });
   const bounds = await fixture.boundingBox();
 
@@ -49,7 +49,7 @@ test("fileview desktop shell with left tree", async ({ page }) => {
   await page.waitForLoadState("networkidle");
 
   const fixture = page
-    .locator('[data-workspace-layout-part="root"]')
+    .locator('[data-sidebar-layout-part="root"]')
     .filter({ has: page.getByTestId("fileview-layout-header") });
   const pathTitle = page.getByTestId("fileview-layout-header").getByText("/", { exact: true });
   await expect(pathTitle).toBeVisible();
@@ -77,16 +77,16 @@ test("fileview narrow fine-pointer shell uses an edge resize handle", async ({ p
 
   await scrollFileViewCarouselToPane(page, "left");
 
-  const layout = page.locator('[data-workspace-layout-part="viewport"]');
-  const carousel = page.locator('[data-workspace-layout-part="carousel"]');
+  const layout = page.locator('[data-sidebar-layout-part="viewport"]');
+  const carousel = page.locator('[data-sidebar-layout-part="carousel"]');
   const leftHandle = page.locator(
-    '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
+    '[data-sidebar-layout-part="resize-handle"][data-resize-side="left"]',
   );
 
   await expect(carousel).toHaveCSS("scroll-snap-type", "x mandatory");
   await expect(leftHandle).toHaveCSS("cursor", "col-resize");
   await expect(
-    leftHandle.locator('[data-workspace-layout-part="resize-grip-indicator"]'),
+    leftHandle.locator('[data-sidebar-layout-part="resize-grip-indicator"]'),
   ).toHaveCount(0);
 
   await expect(page).toHaveScreenshot("fileview-layout-narrow-fine-pointer-sidebar-open.png", {
@@ -110,7 +110,7 @@ test("fileview narrow fine-pointer shell uses an edge resize handle", async ({ p
   await page.mouse.move(8, handleCenterY, { steps: 8 });
   await page.mouse.up();
 
-  await expect(layout).toHaveAttribute("data-workspace-layout-v2-mobile-merged-side", "left");
+  await expect(layout).toHaveAttribute("data-sidebar-layout-mobile-merged-side", "left");
 });
 
 test.describe("fileview mobile", () => {

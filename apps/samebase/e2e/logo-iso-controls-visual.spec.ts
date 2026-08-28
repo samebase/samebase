@@ -102,9 +102,7 @@ test("logo iso controls sidebar", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo/iso?isoSide=6");
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   await expect(controlsSidebar).toBeVisible();
   await page.evaluate(async () => {
     await document.fonts.ready;
@@ -132,11 +130,9 @@ test("logo right sidebar keeps public links visible", async ({ page }) => {
     waitUntil: "domcontentloaded",
   });
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
-  const addressChrome = page.locator('[data-workspace-layout-part="address-chrome"]');
-  const linksSidebar = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
+  const addressChrome = page.locator('[data-sidebar-layout-part="address-chrome"]');
+  const linksSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   const pageUrl = new URL(page.url());
   const origin = pageUrl.origin;
   const routeUrlDisplay = addressChrome.getByTestId("route-url-editor-display");
@@ -189,9 +185,7 @@ test("logo routes share the public account right sidebar", async ({ page }) => {
   for (const pathname of logoPublicRouteUrls) {
     await page.goto(pathname, { waitUntil: "domcontentloaded" });
 
-    const linksSidebar = page.locator(
-      '[data-workspace-layout-part="pane"][data-pane-side="right"]',
-    );
+    const linksSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
     const accountSection = linksSidebar.getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
     await expect(accountSection).toBeVisible();
     await expect(
@@ -206,7 +200,7 @@ test("logo right sidebar public path links navigate on click", async ({ page }) 
     waitUntil: "domcontentloaded",
   });
 
-  const linksSidebar = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
+  const linksSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   const publicLinks = linksSidebar.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
   const termsLink = publicLinks.getByRole("link", { name: "/terms", exact: true });
 
@@ -252,7 +246,7 @@ test("logo dark refresh paints the wide scene gutters dark", async ({ page }) =>
   await page.reload({ waitUntil: "domcontentloaded" });
 
   const scene = page.getByTestId("logo-preview-scene");
-  const mainPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="main"]');
+  const mainPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="main"]');
 
   await expect(page.locator("canvas").first()).toBeVisible();
   await waitForPaint(page);
@@ -297,9 +291,7 @@ test("logo recursive depth renders a rotatable shuffleable Three scene", async (
     waitUntil: "domcontentloaded",
   });
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   const canvas = page.locator("canvas").first();
 
   await expect(canvas).toBeVisible();
@@ -383,9 +375,7 @@ test("logo recursive depth keeps opacity visually ordered", async ({ page }) => 
     waitUntil: "domcontentloaded",
   });
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   const canvas = page.locator("canvas").first();
 
   await expect(canvas).toBeVisible();
@@ -408,9 +398,7 @@ test("logo depth 5 keeps the tiled Three preview responsive", async ({ page }) =
     waitUntil: "domcontentloaded",
   });
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
 
   await expect(page.locator("canvas").first()).toBeVisible();
   await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue("5");
@@ -438,9 +426,7 @@ test("logo iso depth 5 keeps recursive preview responsive", async ({ page }) => 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo/iso?depth=5&vox=xxx_xox_xxx-xox_ooo_xox-xxx_xox_xxx");
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   const canvas = page.locator('canvas[data-logo-renderer="iso"]').first();
 
   await expect(canvas).toBeVisible();
@@ -463,9 +449,7 @@ test("logo raster depth 6 keeps recursive preview responsive", async ({ page }) 
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo/raster?depth=6&top=red-500&elev=359.9&freeView");
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   const canvas = page.locator('canvas[data-logo-renderer="raster"]').first();
 
   await expect(canvas).toBeVisible();
@@ -667,9 +651,7 @@ test("logo shape presets include seam stress models", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoLogoAdminRoute(page, "/logo/raster?top=red-500");
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   const shapeSelect = controlsSidebar.getByRole("combobox").filter({ hasText: "Checker 3" });
 
   await expect(shapeSelect).toBeVisible();
@@ -698,9 +680,7 @@ test("logo depth slider clears default depth from the URL", async ({ page }) => 
     waitUntil: "domcontentloaded",
   });
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   const depthSlider = controlsSidebar.getByLabel("Depth slider");
   const depthValue = controlsSidebar.getByLabel("Depth value");
 
@@ -724,9 +704,7 @@ test("lightweight logo pages cap URL-edited recursive depth before rendering", a
     waitUntil: "domcontentloaded",
   });
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   await expect(controlsSidebar.getByLabel("Depth value")).toHaveValue(
     `${EXPECTED_LOGO_DEPTH_HARD_MAX.three}`,
   );
@@ -753,9 +731,7 @@ test("logo distance scale controls Three and raster previews", async ({ page }) 
     waitUntil: "domcontentloaded",
   });
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   const distanceSlider = controlsSidebar.getByLabel("Distance slider");
   const distanceInput = controlsSidebar.getByLabel("Distance scale");
 
@@ -782,7 +758,7 @@ test("logo distance scale controls Three and raster previews", async ({ page }) 
   await expect(page.locator('canvas[data-logo-renderer="raster"]').first()).toBeVisible();
   await expect(
     page
-      .locator('[data-workspace-layout-part="pane"][data-pane-side="left"]')
+      .locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]')
       .getByLabel("Distance scale"),
   ).toHaveValue("0.500");
 });
@@ -808,9 +784,7 @@ test("logo zoom controls shrink the Three preview", async ({ page }) => {
     waitUntil: "domcontentloaded",
   });
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   const viewSection = controlsSidebar.getByTestId("logo-preview-view-section");
   const zoomSlider = controlsSidebar.getByLabel("Zoom slider");
   const zoomInput = controlsSidebar.getByLabel("Zoom value");
@@ -876,10 +850,8 @@ test("logo iso controls mobile boot", async ({ page }) => {
     waitUntil: "domcontentloaded",
   });
 
-  const workspace = page.locator('[data-workspace-layout-part="viewport"]');
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const workspace = page.locator('[data-sidebar-layout-part="viewport"]');
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
   await expect(controlsSidebar).toContainText("Cube side");
   await expect(controlsSidebar).toContainText("6px");
@@ -893,12 +865,10 @@ test("logo view mobile header omits the controls sidebar button", async ({ page 
     waitUntil: "domcontentloaded",
   });
 
-  const workspace = page.locator('[data-workspace-layout-part="viewport"]');
-  const carousel = page.locator('[data-workspace-layout-part="carousel"]');
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
-  const addressChrome = page.locator('[data-workspace-layout-part="address-chrome"]');
+  const workspace = page.locator('[data-sidebar-layout-part="viewport"]');
+  const carousel = page.locator('[data-sidebar-layout-part="carousel"]');
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
+  const addressChrome = page.locator('[data-sidebar-layout-part="address-chrome"]');
 
   await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
   await expect(controlsSidebar).toContainText("Shape");
@@ -920,9 +890,7 @@ test("logo view angle input stacks below the slider", async ({ page }) => {
     waitUntil: "domcontentloaded",
   });
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   const rotationSlider = controlsSidebar.getByLabel("Yaw slider");
   const rotationInput = controlsSidebar.getByLabel("Yaw value");
 
@@ -950,9 +918,7 @@ test("logo view button groups wrap to one per row in the default rail", async ({
     waitUntil: "domcontentloaded",
   });
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   const viewSection = controlsSidebar.getByTestId("logo-preview-view-section");
   const addButton = controlsSidebar.getByRole("button", { name: "Add" });
   const removeButton = controlsSidebar.getByRole("button", { name: "Remove" });
@@ -1053,9 +1019,7 @@ test("logo view color selection applies Tailwind colors to the Three scene", asy
     waitUntil: "domcontentloaded",
   });
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   const colorsSection = page.getByTestId("logo-preview-colors-section");
   const primaryColorPicker = controlsSidebar.getByRole("button", {
     name: "Primary color picker",
@@ -1111,9 +1075,7 @@ test("logo view desktop header toggle collapses and reopens the sidebar", async 
     waitUntil: "domcontentloaded",
   });
 
-  const controlsSidebar = page.locator(
-    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
-  );
+  const controlsSidebar = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]');
   const leftToggle = page.getByRole("button", {
     name: "Toggle Left Sidebar",
   });

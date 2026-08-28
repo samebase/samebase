@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { type ViewerOrganization } from "@/lib/organizationContext";
-import { type WorkspaceLayoutV2PaneFrameProps } from "@samebase/workspace-layout/pane-frame";
+import { type PaneFrameProps } from "@samebase/sidebars/pane-frame";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { ConvexError } from "convex/values";
 import { createRoot, type Root } from "react-dom/client";
@@ -47,7 +47,7 @@ vi.mock("@/components/NotFoundRoutePage", () => ({
 
 vi.mock("@/components/AppWorkspaceShell", async () => {
   const ReactModule = await import("react");
-  type MockPaneProps = Pick<WorkspaceLayoutV2PaneFrameProps, "content" | "footer" | "header">;
+  type MockPaneProps = Pick<PaneFrameProps, "content" | "footer" | "header">;
 
   return {
     AppWorkspaceShell: ({ children }: { children?: React.ReactNode }) => {

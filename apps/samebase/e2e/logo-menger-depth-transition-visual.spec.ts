@@ -23,7 +23,7 @@ test("Menger sponge moves from depth one through depth two to depth three", asyn
   const transitionPage = page.getByTestId("logo-menger-depth-transition-page");
   const controls = page.getByTestId("logo-menger-depth-transition-controls");
   const scene = page.getByTestId("logo-menger-depth-transition-scene");
-  const workspace = page.locator('[data-workspace-layout-part="root"]');
+  const workspace = page.locator('[data-sidebar-layout-part="root"]');
   const progress = page.getByLabel("Transition progress");
 
   await expect(controls).toBeVisible();

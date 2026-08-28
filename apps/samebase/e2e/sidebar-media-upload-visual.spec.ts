@@ -26,7 +26,7 @@ for (const scenario of SCENARIOS) {
 
     const fixture = page
       .locator("[data-sidebar-media-upload-visual-fixture-font]")
-      .locator('[data-workspace-layout-part="root"]');
+      .locator('[data-sidebar-layout-part="root"]');
     const footerTrigger = page.getByText("Drop file or click");
 
     await expect(fixture).toBeVisible();

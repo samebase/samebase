@@ -21,10 +21,10 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import {
-  useWorkspaceLayoutPresentation,
-  useWorkspacePaneActions,
-  type WorkspaceMobilePane,
-} from "@samebase/workspace-layout/runtime";
+  useSidebarLayoutPresentation,
+  useSidebarActions,
+  type MobilePane,
+} from "@samebase/sidebars/runtime";
 import {
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
@@ -67,7 +67,7 @@ const DOCS_SIDEBAR_LINKS = [
   { label: "Pricing", to: DOCS_PRICING_ROUTE },
 ] as const;
 
-function getLandingPreviewUrlMobilePane(search: string): WorkspaceMobilePane | null {
+function getLandingPreviewUrlMobilePane(search: string): MobilePane | null {
   const searchParams = parseTanStackSearch(search);
   const hasLeftPane = "left" in searchParams;
   const hasRightPane = "right" in searchParams;
@@ -87,8 +87,8 @@ function LandingPreviewPaneUrlSync() {
   const routeSearch = useLocation({
     select: (location) => location.searchStr,
   });
-  const { setMobilePane } = useWorkspacePaneActions();
-  const { mobilePane } = useWorkspaceLayoutPresentation();
+  const { setMobilePane } = useSidebarActions();
+  const { mobilePane } = useSidebarLayoutPresentation();
 
   useLayoutEffect(() => {
     const nextMobilePane = getLandingPreviewUrlMobilePane(window.location.search);

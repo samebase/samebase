@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { WorkspaceLayoutPresentation } from "@samebase/workspace-layout/runtime";
+import type { SidebarLayoutPresentation } from "@samebase/sidebars/runtime";
 
 vi.mock("@/components/LandingCopy", () => ({
   LandingCopy: () => <div>Landing copy</div>,
@@ -15,8 +15,8 @@ vi.mock("@/components/logo/PublicLandingLogo", () => ({
   PublicLandingLogo: () => <div>Logo</div>,
 }));
 
-vi.mock("@samebase/workspace-layout/runtime", () => ({
-  useWorkspaceLayoutPresentation: (): WorkspaceLayoutPresentation => ({
+vi.mock("@samebase/sidebars/runtime", () => ({
+  useSidebarLayoutPresentation: (): SidebarLayoutPresentation => ({
     isMobile: false,
     mobileMergeProgress: null,
     mobilePane: "main",

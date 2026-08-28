@@ -1,0 +1,44 @@
+{
+  "name": "@samebase/sidebars",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Unstyled responsive sidebar layout for React",
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/SidebarLayout.tsx",
+    "./geometry": "./src/SidebarLayoutGeometryPublic.ts",
+    "./pane-frame": "./src/PaneFrame.tsx",
+    "./prehydration": "./src/SidebarLayoutPrehydration.ts",
+    "./runtime": "./src/SidebarRuntimePublic.ts",
+    "./state": "./src/SidebarLayoutState.ts",
+    "./structure.css": "./src/structure.css",
+    "./testing": "./src/SidebarLayoutTesting.tsx"
+  },
+  "scripts": {
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/sidebars/tsconfig.json --report-unused-disable-directives packages/sidebars/src packages/sidebars/test",
+    "test": "pnpm --dir ../.. exec vp test packages/sidebars/test",
+    "typecheck": "pnpm --dir ../.. exec tsgo -p packages/sidebars/tsconfig.json --pretty false"
+  },
+  "dependencies": {
+    "@tanstack/react-store": "^0.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.32",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "peerDependencies": {
+    "react": ">=19.2.0 <20",
+    "react-dom": ">=19.2.0 <20"
+  },
+  "engines": {
+    "node": ">=24.11.0"
+  }
+}

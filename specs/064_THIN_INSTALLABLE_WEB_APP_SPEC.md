@@ -12,8 +12,7 @@
   `apps/samebase/public/install-icon.svg`, `apps/samebase/public/logo-static.svg`,
   `apps/samebase/scripts/generate-install-icon-assets.ts`, `apps/samebase/src/entry.tsx`,
   `apps/samebase/src/main.tsx`, `apps/samebase/src/components/compactIdentitySvgAsset.ts`,
-  `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`,
-  `apps/samebase/vite.config.ts`
+  `specs/087_SIDEBAR_LAYOUT_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`, `apps/samebase/vite.config.ts`
 
 ## Summary
 

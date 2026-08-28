@@ -141,10 +141,10 @@ describe("McpConsentRoutePage workspace shell", () => {
     });
 
     expect(
-      rootElement.querySelector('[data-workspace-layout-part="pane"][data-pane-side="right"]'),
+      rootElement.querySelector('[data-sidebar-layout-part="pane"][data-pane-side="right"]'),
     ).not.toBeNull();
     expect(
-      rootElement.querySelector('[data-workspace-layout-part="pane"][data-pane-side="left"]'),
+      rootElement.querySelector('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),
     ).toBeNull();
     expect(rootElement.querySelector('[data-testid="default-right-sidebar"]')).not.toBeNull();
     expect(rootElement.textContent).toContain("Sign in to continue");

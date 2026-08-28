@@ -1,6 +1,6 @@
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
 
 export type FileViewMonacoDragVisualMode = "fileview-monaco-drag" | "fileview-monaco-flex-height";
 
@@ -36,7 +36,7 @@ export default defineConfig({
 export function FileViewMonacoDragVisualFixture({ mode }: { mode: FileViewMonacoDragVisualMode }) {
   if (mode === "fileview-monaco-flex-height") {
     return (
-      <WorkspaceLayoutV2FixtureFrame
+      <SidebarLayoutFixtureFrame
         left={{
           header: null,
           content: (
@@ -111,7 +111,7 @@ export function FileViewMonacoDragVisualFixture({ mode }: { mode: FileViewMonaco
   }
 
   return (
-    <WorkspaceLayoutV2FixtureFrame
+    <SidebarLayoutFixtureFrame
       left={{
         header: null,
         content: (

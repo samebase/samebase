@@ -171,7 +171,7 @@ test("public landing keeps the mobile sidebar header hidden", async ({ page }, t
   );
 
   await page.goto("/?dev", { waitUntil: "networkidle" });
-  const shell = page.locator('[data-workspace-layout-part="viewport"]');
+  const shell = page.locator('[data-sidebar-layout-part="viewport"]');
 
   await expect(page.getByRole("button", { name: "Toggle sidebar" })).toHaveCount(0);
   await expect(shell).toHaveAttribute("data-mobile-pane", "main");

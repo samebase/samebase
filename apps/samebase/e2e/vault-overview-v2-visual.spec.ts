@@ -49,7 +49,7 @@ async function openVaultOverviewV2(
       ? page.getByTestId(mode)
       : mode.includes("-dialog") || mode === "vault-overview-v2-cloudflare-builds-repair"
         ? page.getByRole("dialog")
-        : page.locator('[data-workspace-layout-part="root"]');
+        : page.locator('[data-sidebar-layout-part="root"]');
   await expect(fixture).toBeVisible();
   return fixture;
 }
