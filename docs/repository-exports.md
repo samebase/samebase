@@ -90,9 +90,9 @@ the package existed.
 
 The exported `publish.yml` workflow runs after the external repository CI accepts a `main` push. It
 publishes through npm trusted publishing with no long-lived write token. It accepts only a stable
-committed version, skips a version that already exists, and publishes a new version under `latest`.
-Release pull requests increase the committed version in the monorepo before the exporter sends the
-verified tree to `samebase/sidebars`.
+committed version, skips a version that already exists, and refuses to move `latest` to an older
+version. It publishes a new version under `latest`. Release pull requests increase the committed
+version in the monorepo before the exporter sends the verified tree to `samebase/sidebars`.
 
 ## Agent plugin versions
 

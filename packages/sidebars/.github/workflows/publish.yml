@@ -66,11 +66,15 @@ jobs:
             exit 1
           fi
 
-          if [[ ! "${package_version}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          if [[ ! "${package_version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
             echo "publish=false" >> "${GITHUB_OUTPUT}"
             echo "Skip non-stable version ${package_version}."
             exit 0
           fi
+
+          candidate_major="${BASH_REMATCH[1]}"
+          candidate_minor="${BASH_REMATCH[2]}"
+          candidate_patch="${BASH_REMATCH[3]}"
 
           lookup_log="${RUNNER_TEMP}/npm-view.log"
           if npm view "${package_name}@${package_version}" version \
@@ -82,6 +86,54 @@ jobs:
 
           if ! grep -q "E404" "${lookup_log}"; then
             cat "${lookup_log}" >&2
+            exit 1
+          fi
+
+          range_log="${RUNNER_TEMP}/npm-range.log"
+          if npm view "${package_name}@>=${package_version}" version \
+            --registry https://registry.npmjs.org/ >"${range_log}" 2>&1; then
+            echo "Refuse to publish ${package_version}; a stable version at or above it exists:" >&2
+            cat "${range_log}" >&2
+            exit 1
+          fi
+
+          if ! grep -q "E404" "${range_log}"; then
+            cat "${range_log}" >&2
+            exit 1
+          fi
+
+          latest_log="${RUNNER_TEMP}/npm-latest.log"
+          if latest_version="$(npm view "${package_name}" dist-tags.latest \
+            --registry https://registry.npmjs.org/ 2>"${latest_log}")"; then
+            if [[ -n "${latest_version}" ]]; then
+              if [[ ! "${latest_version}" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[^+]+)?(\+.+)?$ ]]; then
+                echo "Unexpected latest version: ${latest_version}" >&2
+                exit 1
+              fi
+
+              latest_major="${BASH_REMATCH[1]}"
+              latest_minor="${BASH_REMATCH[2]}"
+              latest_patch="${BASH_REMATCH[3]}"
+              latest_prerelease="${BASH_REMATCH[4]}"
+
+              if ((
+                candidate_major < latest_major
+                  || (candidate_major == latest_major && candidate_minor < latest_minor)
+                  || (candidate_major == latest_major && candidate_minor == latest_minor
+                    && candidate_patch < latest_patch)
+              )); then
+                echo "Refuse to move latest from ${latest_version} back to ${package_version}." >&2
+                exit 1
+              fi
+
+              if (( candidate_major == latest_major && candidate_minor == latest_minor \
+                && candidate_patch == latest_patch )) && [[ -z "${latest_prerelease}" ]]; then
+                echo "Refuse to move latest from ${latest_version} back to ${package_version}." >&2
+                exit 1
+              fi
+            fi
+          elif ! grep -q "E404" "${latest_log}"; then
+            cat "${latest_log}" >&2
             exit 1
           fi
 
@@ -98,6 +150,16 @@ jobs:
         if: steps.version.outputs.publish == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Publish stable package
+      - name: Publish current stable package
         if: steps.version.outputs.publish == 'true'
-        run: npm publish --access public --tag latest --registry https://registry.npmjs.org/
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERIFIED_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          current_sha="$(gh api "repos/${GITHUB_REPOSITORY}/git/ref/heads/main" --jq .object.sha)"
+          if [ "${current_sha}" != "${VERIFIED_SHA}" ]; then
+            echo "Skip ${VERIFIED_SHA}; target main is now ${current_sha}."
+            exit 0
+          fi
+
+          npm publish --access public --tag latest --registry https://registry.npmjs.org/
