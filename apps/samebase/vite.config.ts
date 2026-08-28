@@ -16,7 +16,7 @@ import {
 import { readEnvFileValue, resolveBrowserConvexProxyTarget } from "./browserConvexProxy";
 import { resolveAppCommitNumber } from "./dev/appBuildMetadata";
 import { readBuildLandingSlogan } from "./dev/landingSlogan";
-import { readPublicPrerenderPages } from "./dev/publicPrerenderPages";
+import { prerenderPages } from "./prerender.config";
 import { writePublicPrerenderWithoutModulePreloads } from "./scripts/strip-public-prerender-modulepreloads";
 import type { AppBuildConfig } from "./src/lib/appBuildConfig";
 
@@ -120,7 +120,6 @@ const staticCompactIdentitySvgAssetPaths = [
 ];
 const spaShellOutputPath = "/index";
 const spaShellMaskPath = "/#__samebase-spa-shell";
-const publicPrerenderPages = readPublicPrerenderPages();
 const prerenderHeaders = readPrerenderHeaders(process.env["SAMEBASE_PRERENDER_ORIGIN"]);
 
 function readPrerenderHeaders(originValue: string | undefined) {
@@ -412,14 +411,14 @@ export default defineConfig({
         semicolons: true,
         virtualRouteConfig: "./src/routes.ts",
       },
-      pages: publicPrerenderPages,
+      pages: prerenderPages,
       prerender: {
         autoStaticPathsDiscovery: false,
         crawlLinks: false,
         enabled: true,
         ...(prerenderHeaders ? { headers: prerenderHeaders } : {}),
         onSuccess({ page, html }) {
-          const publicPrerenderPage = publicPrerenderPages.find(
+          const publicPrerenderPage = prerenderPages.find(
             (candidate) => candidate.path === page.path,
           );
           if (!publicPrerenderPage) {

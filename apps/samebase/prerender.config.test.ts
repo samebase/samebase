@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vite-plus/test";
-import { readPublicPrerenderPages } from "./publicPrerenderPages";
+import { prerenderPages } from "./prerender.config";
 
-describe("readPublicPrerenderPages", () => {
+describe("prerenderPages", () => {
   it("derives production prerender pages from route staticData", () => {
-    const pages = readPublicPrerenderPages();
-    const paths = pages.map((page) => page.path);
+    const paths = prerenderPages.map((page) => page.path);
 
     expect(paths).toContain("/");
     expect(paths).toContain("/docs");
@@ -36,8 +35,7 @@ describe("readPublicPrerenderPages", () => {
   });
 
   it("keeps the public landing route at the non-shell landing output path", () => {
-    const pages = readPublicPrerenderPages();
-    const rootPage = pages.find((page) => page.path === "/");
+    const rootPage = prerenderPages.find((page) => page.path === "/");
 
     expect(rootPage?.prerender).toEqual({
       enabled: true,

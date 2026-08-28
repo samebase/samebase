@@ -204,10 +204,10 @@ no JavaScript execution, and read clean after text extraction.
 
 1. **Prerendered semantic HTML is the foundation, and it already exists.** All `access_public`
    concrete routes are prerendered to static HTML at build time
-   (`apps/samebase/dev/publicPrerenderPages.ts`); the corpus lives on `/`, `/landing-preview`,
-   `/pricing`, and `/docs/*` among them. Agent fetchers convert HTML to text, and the app's plain
-   markup extracts cleanly. This is why the hero prompt points at `samebase.com` itself rather than
-   a machine-only file, and why the remaining work is content, not plumbing.
+   (`apps/samebase/prerender.config.ts`); the corpus includes `/`, `/pricing`, `/privacy`, and
+   `/docs/*`. Agent fetchers convert HTML to text, and the app's plain markup extracts cleanly. This
+   is why the hero prompt points at `samebase.com` itself rather than a machine-only file, and why
+   the remaining work is content, not plumbing.
 2. **Raw markdown as a near-free add-on.** Corpus pages authored as markdown also ship as static
    `.md` assets. The overview is JSX and has no `.md` variant. These are token-cheap fetches and
    byte-deterministic content for the eval harness and demo video. `Accept: text/markdown` content
