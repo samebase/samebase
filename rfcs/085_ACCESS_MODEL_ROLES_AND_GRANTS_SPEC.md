@@ -113,7 +113,7 @@ became structural via access-key function wrappers.
   (`apps/noter/convex/mcp/http.ts:676-685`). Consent is all-or-nothing
   (`apps/noter/src/components/McpConsentRoutePage.tsx:89-145`); grants/tokens store one flat scope
   string (`schema.ts:889`, `schema.ts:910`). No scope is intersected with the user's own access.
-- Build-time: `dev/publicPrerenderPages.ts:40` now filters `access === "access_public"`.
+- Build-time: `apps/samebase/prerender.config.ts:167` filters `access === "access_public"`.
 
 ## Design
 

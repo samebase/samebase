@@ -3,7 +3,7 @@ import {
   ROUTE_ACCESS_METADATA_BY_PATH,
   type PublicPrerenderRoutePath,
   type RoutePath,
-} from "../src/routeAccessMetadata";
+} from "./src/routeAccessMetadata";
 
 type ExpectedPublicPrerenderMetadata = {
   title: string;
@@ -158,53 +158,51 @@ function compareRoutePaths(left: string, right: string): number {
   return left.localeCompare(right);
 }
 
-export function readPublicPrerenderPages() {
-  // Keep Vite config on metadata-only imports. Importing the router here pulls
-  // route components before app aliases are active during config loading.
-  const routePaths = entries(ROUTE_ACCESS_METADATA_BY_PATH)
-    .filter(
-      ([routePath, routeAccessMetadata]) =>
-        routeAccessMetadata.access === "access_public" &&
-        isPrerenderEnabled(
-          "prerender" in routeAccessMetadata ? routeAccessMetadata.prerender : undefined,
-        ) &&
-        isConcreteRoutePath(routePath) &&
-        isProductionAvailable(
-          "availableEnvironments" in routeAccessMetadata
-            ? routeAccessMetadata.availableEnvironments
-            : undefined,
-        ),
-    )
-    .map(([routePath]) => routePath)
-    .sort(compareRoutePaths);
-  const expectedRoutePaths = entries(expectedPublicPrerenderMetadataByPath)
-    .map(([routePath]) => routePath)
-    .sort(compareRoutePaths);
+// Keep Vite config on metadata-only imports. Importing the router here pulls
+// route components before app aliases are active during config loading.
+const routePaths = entries(ROUTE_ACCESS_METADATA_BY_PATH)
+  .filter(
+    ([routePath, routeAccessMetadata]) =>
+      routeAccessMetadata.access === "access_public" &&
+      isPrerenderEnabled(
+        "prerender" in routeAccessMetadata ? routeAccessMetadata.prerender : undefined,
+      ) &&
+      isConcreteRoutePath(routePath) &&
+      isProductionAvailable(
+        "availableEnvironments" in routeAccessMetadata
+          ? routeAccessMetadata.availableEnvironments
+          : undefined,
+      ),
+  )
+  .map(([routePath]) => routePath)
+  .sort(compareRoutePaths);
+const expectedRoutePaths = entries(expectedPublicPrerenderMetadataByPath)
+  .map(([routePath]) => routePath)
+  .sort(compareRoutePaths);
 
-  if (
-    routePaths.length !== expectedRoutePaths.length ||
-    routePaths.some((routePath, index) => routePath !== expectedRoutePaths[index])
-  ) {
-    throw new Error(
-      `Public prerender routes (${routePaths.join(", ")}) do not match expected metadata routes (${expectedRoutePaths.join(", ")}).`,
-    );
+if (
+  routePaths.length !== expectedRoutePaths.length ||
+  routePaths.some((routePath, index) => routePath !== expectedRoutePaths[index])
+) {
+  throw new Error(
+    `Public prerender routes (${routePaths.join(", ")}) do not match expected metadata routes (${expectedRoutePaths.join(", ")}).`,
+  );
+}
+
+export const prerenderPages = routePaths.map((routePath) => {
+  const expectedMetadata = entries(expectedPublicPrerenderMetadataByPath).find(
+    ([expectedPath]) => expectedPath === routePath,
+  )?.[1];
+  if (!expectedMetadata) {
+    throw new Error(`Public prerender metadata is not configured for ${routePath}.`);
   }
 
-  return routePaths.map((routePath) => {
-    const expectedMetadata = entries(expectedPublicPrerenderMetadataByPath).find(
-      ([expectedPath]) => expectedPath === routePath,
-    )?.[1];
-    if (!expectedMetadata) {
-      throw new Error(`Public prerender metadata is not configured for ${routePath}.`);
-    }
-
-    return {
-      path: routePath,
-      expectedMetadata,
-      prerender: {
-        enabled: true,
-        ...(routePath === "/" ? { outputPath: "/_landing.html" } : {}),
-      },
-    };
-  }) satisfies PrerenderPage[];
-}
+  return {
+    path: routePath,
+    expectedMetadata,
+    prerender: {
+      enabled: true,
+      ...(routePath === "/" ? { outputPath: "/_landing.html" } : {}),
+    },
+  };
+}) satisfies PrerenderPage[];

@@ -43,19 +43,6 @@ const publicPrerenderPagesSchema = array(publicPrerenderPageSchema);
 
 export type PublicPrerenderPage = InferGood<typeof publicPrerenderPageSchema>;
 
-type PublicPrerenderPagesModule = {
-  readPublicPrerenderPages: () => unknown;
-};
-
-// eslint-disable-next-line samebase/no-hand-written-type-predicate -- dynamic-import module shape over unknown: the body witnesses readPublicPrerenderPages only as Function, never its call signature
-function isPublicPrerenderPagesModule(value: unknown): value is PublicPrerenderPagesModule {
-  if (!isObject(value)) {
-    return false;
-  }
-
-  return typeof value["readPublicPrerenderPages"] === "function";
-}
-
 export async function loadPublicPrerenderPages() {
   const server = await createServer({
     appType: "custom",
@@ -68,16 +55,16 @@ export async function loadPublicPrerenderPages() {
   });
 
   try {
-    const module = await server.ssrLoadModule(
-      `/${samebaseAppFilePath("dev/publicPrerenderPages.ts")}`,
+    const loadedModule: unknown = await server.ssrLoadModule(
+      `/${samebaseAppFilePath("prerender.config.ts")}`,
     );
-    if (!isPublicPrerenderPagesModule(module)) {
-      throw new Error("Expected dev/publicPrerenderPages.ts to export readPublicPrerenderPages.");
+    if (!isObject(loadedModule)) {
+      throw new Error("Expected prerender.config.ts to export prerenderPages.");
     }
 
-    const [pagesAreValid, pages] = publicPrerenderPagesSchema(module.readPublicPrerenderPages());
+    const [pagesAreValid, pages] = publicPrerenderPagesSchema(loadedModule["prerenderPages"]);
     if (!pagesAreValid) {
-      throw new Error("Expected readPublicPrerenderPages to return public prerender pages.");
+      throw new Error("Expected prerenderPages to contain public prerender pages.");
     }
 
     return pages;
