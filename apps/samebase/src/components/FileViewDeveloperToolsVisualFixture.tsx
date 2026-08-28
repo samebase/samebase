@@ -35,7 +35,6 @@ export function FileViewDeveloperToolsVisualFixture({
   );
   return (
     <WorkspaceLayoutV2FixtureFrame
-      dataTestId="file-view-developer-tools-visual-fixture"
       shortcutPaneSide="left"
       left={{
         header: null,

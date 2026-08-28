@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
-import { getWorkspaceLayoutPresentation } from "../src/WorkspaceLayoutPresentation.ts";
+import {
+  getWorkspaceLayoutPresentation,
+  type WorkspaceLayoutDisplayedMobileState,
+} from "../src/WorkspaceLayoutPresentation.ts";
 import type { WorkspaceLayoutV2LocalStoreState } from "../src/WorkspacePaneRuntime.tsx";
 import type { WorkspacePaneState } from "../src/WorkspacePaneRuntime.tsx";
 
@@ -8,7 +11,6 @@ const localState = {
   mobile: {
     grip: { kind: "idle" },
     isPaneSettled: true,
-    paneNavigationRequest: null,
     paneScrollProgress: 0.25,
   },
   viewportSize: {
@@ -29,10 +31,20 @@ const paneState = {
   rightMobileWidthPx: 170,
 } satisfies WorkspacePaneState;
 
+const displayedMergedRightState = {
+  mobileMergeAvailableSides: { left: true, right: true },
+  mobilePane: "right",
+  mobileSurface: { kind: "merged", mainWidthPx: 260, side: "right" },
+} satisfies WorkspaceLayoutDisplayedMobileState;
+
 describe("workspace layout presentation", () => {
   it("reports merge progress while a mobile pane is resized", () => {
     expect(
       getWorkspaceLayoutPresentation({
+        displayedMobileState: {
+          ...displayedMergedRightState,
+          mobileSurface: { kind: "unmerged" },
+        },
         localState: {
           ...localState,
           mobile: {
@@ -40,7 +52,7 @@ describe("workspace layout presentation", () => {
             grip: {
               kind: "dragging",
               mergeTargetSide: "right",
-              previewSurface: { kind: "unmerged" },
+              previewSurface: displayedMergedRightState.mobileSurface,
               shouldSettleMergedOnEnd: false,
               side: "right",
               slideOffsetPx: 0,
@@ -58,9 +70,38 @@ describe("workspace layout presentation", () => {
     });
   });
 
+  it("omits drag merge progress when the displayed viewport cannot merge", () => {
+    expect(
+      getWorkspaceLayoutPresentation({
+        displayedMobileState: {
+          mobileMergeAvailableSides: { left: false, right: false },
+          mobilePane: "right",
+          mobileSurface: { kind: "unmerged" },
+        },
+        localState: {
+          ...localState,
+          mobile: {
+            ...localState.mobile,
+            grip: {
+              kind: "dragging",
+              mergeTargetSide: "right",
+              previewSurface: { kind: "unmerged" },
+              shouldSettleMergedOnEnd: false,
+              side: "right",
+              slideOffsetPx: 0,
+              startSideWidthPx: 200,
+            },
+          },
+        },
+        paneState,
+      }).mobileMergeProgress,
+    ).toBeNull();
+  });
+
   it("reports a completed merge after the grip settles", () => {
     expect(
       getWorkspaceLayoutPresentation({
+        displayedMobileState: displayedMergedRightState,
         localState,
         paneState: {
           ...paneState,
@@ -74,6 +115,7 @@ describe("workspace layout presentation", () => {
   it("does not expose mobile merge progress on desktop", () => {
     expect(
       getWorkspaceLayoutPresentation({
+        displayedMobileState: displayedMergedRightState,
         localState,
         paneState: {
           ...paneState,

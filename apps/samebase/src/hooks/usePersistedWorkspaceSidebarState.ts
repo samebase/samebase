@@ -2,14 +2,12 @@ import { useMutation, useQuery } from "convex/react";
 import * as React from "react";
 import { api } from "../../convex/_generated/api";
 import type {
+  WorkspaceSidebarState,
   WorkspaceSidebarStateController,
   WorkspaceSidebarStatePersistenceMode,
   WorkspaceSidebarStateUpdate,
-} from "@/lib/workspaceSidebarStateController";
-import type {
-  WorkspaceSidebarState,
-  WorkspaceSidebarStateKey,
-} from "../../convex/userPreferenceModel";
+} from "@samebase/workspace-layout/state";
+import type { WorkspaceSidebarStateKey } from "../../convex/userPreferenceModel";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 

@@ -3,27 +3,32 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { WorkspaceLayoutV2 } from "../src/WorkspaceLayoutV2.tsx";
 import {
-  DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-  MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX,
-} from "@/lib/workspacePaneSizes";
-import type { WorkspaceSidebarState } from "../../../convex/userPreferenceModel";
-import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
-import {
+  WORKSPACE_LAYOUT_V2_MOBILE_MAIN_PEEK_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
   getMobileSidebarMaxWidthPx,
   getMobileSidebarMinWidthPx,
   getMobilePaneScrollProgress,
   type WorkspaceLayoutV2MobileMinResizeBehavior,
-} from "./WorkspaceLayoutV2Geometry";
+} from "../src/WorkspaceLayoutV2Geometry.ts";
 import {
   WorkspacePaneRuntimeProvider,
-  useWorkspacePaneActions,
   useWorkspacePaneState,
   type WorkspacePaneState,
-} from "./WorkspacePaneRuntime";
-import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
-import { useWorkspaceLayoutV2MemorySidebarController } from "./useWorkspaceLayoutV2MemorySidebarController";
+} from "../src/WorkspacePaneRuntime.tsx";
+import {
+  useWorkspaceLayoutPresentation,
+  type WorkspaceLayoutPresentation,
+} from "../src/WorkspacePaneRuntimePublic.ts";
+import type {
+  WorkspaceSidebarState,
+  WorkspaceSidebarStateController,
+} from "../src/WorkspaceLayoutV2State.ts";
+import {
+  WorkspaceLayoutV2MemorySidebarProvider,
+  useWorkspaceLayoutV2MemorySidebarController,
+} from "../src/WorkspaceLayoutV2Testing.tsx";
 
 const { act } = React;
 
@@ -33,7 +38,7 @@ const MOBILE_SIDEBAR_MIN_WIDTH_PX = 130;
 const NARROW_VIEWPORT_WIDTH_PX = 320;
 const NARROW_MOBILE_SIDEBAR_MIN_WIDTH_PX = 106;
 const NARROW_MOBILE_MAIN_WIDTH_PX = 214;
-const OMIT_HEADER = Symbol("omit-header");
+const TEST_SIDEBAR_WIDTH_PX = 256;
 
 const originalGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
   HTMLElement.prototype,
@@ -41,12 +46,11 @@ const originalGetBoundingClientRectDescriptor = Object.getOwnPropertyDescriptor(
 );
 let latestSetRenderedMobilePane: ((nextPane: WorkspaceSidebarState["mobilePane"]) => void) | null =
   null;
-let latestOpenRightPane: (() => void) | null = null;
+let latestLayoutPresentation: WorkspaceLayoutPresentation | null = null;
 let latestRenderedPaneState: WorkspacePaneState | null = null;
 let testViewportWidthPx = VIEWPORT_WIDTH_PX;
 let testViewportHeightPx = VIEWPORT_HEIGHT_PX;
 let testHasAnyFineHoverPointer = false;
-let testPrefersReducedMotion = false;
 
 Object.defineProperty(window, "matchMedia", {
   configurable: true,
@@ -54,10 +58,7 @@ Object.defineProperty(window, "matchMedia", {
     addEventListener: vi.fn(),
     addListener: vi.fn(),
     dispatchEvent: vi.fn(),
-    matches:
-      query === "(prefers-reduced-motion: reduce)"
-        ? testPrefersReducedMotion
-        : query === "(any-hover: hover) and (any-pointer: fine)" && testHasAnyFineHoverPointer,
+    matches: query === "(any-hover: hover) and (any-pointer: fine)" && testHasAnyFineHoverPointer,
     media: query,
     onchange: null,
     removeEventListener: vi.fn(),
@@ -88,32 +89,29 @@ type RenderMobileLayoutArgs = {
   includeLeftPane?: boolean;
   includeRightPane?: boolean;
   leftMobileWidthPx?: number;
-  leftToggleVisibility?: "all" | "desktop" | "hidden";
-  mainHeader?: React.ReactNode | typeof OMIT_HEADER;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   mobilePane?: WorkspaceSidebarState["mobilePane"];
   mobileSurface?: WorkspaceSidebarState["mobileSurface"];
   rightMobileWidthPx?: number;
-  rightToggleVisibility?: "all" | "desktop" | "hidden";
 };
 
 function createMobileSidebarState({
-  leftMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  leftMobileWidthPx = TEST_SIDEBAR_WIDTH_PX,
   mobilePane = "main",
   mobileSurface = { kind: "unmerged" },
-  rightMobileWidthPx = DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+  rightMobileWidthPx = TEST_SIDEBAR_WIDTH_PX,
 }: Pick<
   RenderMobileLayoutArgs,
   "leftMobileWidthPx" | "mobilePane" | "mobileSurface" | "rightMobileWidthPx"
 >): WorkspaceSidebarState {
   return {
     leftDesktopOpen: true,
-    leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+    leftDesktopWidthPx: TEST_SIDEBAR_WIDTH_PX,
     leftMobileWidthPx,
     mobilePane,
     mobileSurface,
     rightDesktopOpen: false,
-    rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+    rightDesktopWidthPx: TEST_SIDEBAR_WIDTH_PX,
     rightMobileWidthPx,
   };
 }
@@ -121,47 +119,27 @@ function createMobileSidebarState({
 function renderMobileLayoutContent({
   includeLeftPane = true,
   includeRightPane = true,
-  leftToggleVisibility,
-  mainHeader = OMIT_HEADER,
   mobileMinResizeBehavior,
-  rightToggleVisibility,
 }: Omit<
   RenderMobileLayoutArgs,
   "leftMobileWidthPx" | "mobilePane" | "mobileSurface" | "rightMobileWidthPx"
 >) {
-  const mainProps =
-    mainHeader === OMIT_HEADER
-      ? {
-          headerTestId: "workspace-layout-v2-main-header-row",
-          content: <div>main pane</div>,
-        }
-      : {
-          header: mainHeader,
-          headerTestId: "workspace-layout-v2-main-header-row",
-          content: <div>main pane</div>,
-        };
-
   return (
-    <WorkspaceLayoutV2FullPage
+    <WorkspaceLayoutV2
       addressChrome={<div data-testid="test-address-chrome">/test</div>}
-      left={
-        includeLeftPane
-          ? {
-              content: <div>left pane</div>,
-            }
-          : undefined
+      left={includeLeftPane ? <div>left pane</div> : undefined}
+      main={
+        <>
+          <WorkspaceLayoutPresentationProbe />
+          <div>main pane</div>
+        </>
       }
-      main={mainProps}
       mobileMinResizeBehavior={mobileMinResizeBehavior}
-      right={
-        includeRightPane
-          ? {
-              content: <div>right pane</div>,
-            }
-          : undefined
-      }
-      leftToggleVisibility={leftToggleVisibility}
-      rightToggleVisibility={rightToggleVisibility}
+      resizeHandleLabels={{
+        left: "Resize left pane",
+        right: "Resize right pane",
+      }}
+      right={includeRightPane ? <div>right pane</div> : undefined}
     />
   );
 }
@@ -189,13 +167,34 @@ function renderMobileLayout({
   );
 }
 
+function renderMobileLayoutWithController(
+  controller: WorkspaceSidebarStateController,
+  contentProps: Omit<
+    RenderMobileLayoutArgs,
+    "leftMobileWidthPx" | "mobilePane" | "mobileSurface" | "rightMobileWidthPx"
+  >,
+) {
+  return (
+    <WorkspacePaneRuntimeProvider controller={controller}>
+      <WorkspacePaneStateProbe />
+      {renderMobileLayoutContent(contentProps)}
+    </WorkspacePaneRuntimeProvider>
+  );
+}
+
 function WorkspacePaneStateProbe() {
-  latestRenderedPaneState = useWorkspacePaneState();
+  const paneState = useWorkspacePaneState();
+  React.useEffect(() => {
+    latestRenderedPaneState = paneState;
+  }, [paneState]);
   return null;
 }
 
-function WorkspacePaneActionsProbe() {
-  latestOpenRightPane = useWorkspacePaneActions().openRightPane;
+function WorkspaceLayoutPresentationProbe() {
+  const presentation = useWorkspaceLayoutPresentation();
+  React.useEffect(() => {
+    latestLayoutPresentation = presentation;
+  }, [presentation]);
   return null;
 }
 
@@ -203,13 +202,14 @@ function ControlledMobileLayout() {
   const controller = useWorkspaceLayoutV2MemorySidebarController(
     createMobileSidebarState({ mobilePane: "main" }),
   );
-  latestSetRenderedMobilePane = (nextPane) => {
-    controller.setState((state) => ({ ...state, mobilePane: nextPane }), "immediate");
-  };
+  React.useEffect(() => {
+    latestSetRenderedMobilePane = (nextPane) => {
+      controller.setState((state) => ({ ...state, mobilePane: nextPane }), "immediate");
+    };
+  }, [controller]);
 
   return (
     <WorkspacePaneRuntimeProvider controller={controller}>
-      <WorkspacePaneActionsProbe />
       {renderMobileLayoutContent({})}
     </WorkspacePaneRuntimeProvider>
   );
@@ -222,9 +222,11 @@ function ControlledMergedLeftMobileLayout() {
       mobilePane: "left",
     }),
   );
-  latestSetRenderedMobilePane = (nextPane) => {
-    controller.setState((state) => ({ ...state, mobilePane: nextPane }), "immediate");
-  };
+  React.useEffect(() => {
+    latestSetRenderedMobilePane = (nextPane) => {
+      controller.setState((state) => ({ ...state, mobilePane: nextPane }), "immediate");
+    };
+  }, [controller]);
 
   return (
     <WorkspacePaneRuntimeProvider controller={controller}>
@@ -245,7 +247,7 @@ function getRequiredElement(root: ParentNode, selector: string): HTMLElement {
 function expectWorkspaceMobileMergedSide(root: ParentNode, side: "left" | "right" | null) {
   expect(
     root
-      .querySelector("[data-workspace-layout-v2]")
+      .querySelector('[data-workspace-layout-part="viewport"]')
       ?.getAttribute("data-workspace-layout-v2-mobile-merged-side"),
   ).toBe(side);
 }
@@ -254,12 +256,21 @@ function expectMobilePaneSeparatorOwnership(
   root: ParentNode,
   activePane: "left" | "main" | "right",
 ) {
-  expect(root.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane")).toBe(
-    activePane,
+  expect(
+    root.querySelector('[data-workspace-layout-part="viewport"]')?.getAttribute("data-mobile-pane"),
+  ).toBe(activePane);
+  const leftPane = getRequiredElement(
+    root,
+    '[data-workspace-layout-part="pane"][data-pane-side="left"]',
   );
-  const leftPane = getRequiredElement(root, '[data-testid="workspace-layout-v2-pane-left"]');
-  const mainPane = getRequiredElement(root, "[data-workspace-layout-v2-mobile-main-pane] > div");
-  const rightPane = getRequiredElement(root, '[data-testid="workspace-layout-v2-pane-right"]');
+  const mainPane = getRequiredElement(
+    root,
+    '[data-workspace-layout-part="pane"][data-pane-side="main"]',
+  );
+  const rightPane = getRequiredElement(
+    root,
+    '[data-workspace-layout-part="pane"][data-pane-side="right"]',
+  );
   const paneEntries = [
     ["left", leftPane],
     ["main", mainPane],
@@ -267,10 +278,8 @@ function expectMobilePaneSeparatorOwnership(
   ] as const;
 
   for (const [paneName, paneNode] of paneEntries) {
-    expect(paneNode.classList.contains("border-x")).toBe(false);
-    expect(paneNode.classList.contains("border-x-0")).toBe(false);
-    expect(paneNode.classList.contains("border-border")).toBe(false);
-    expect(paneNode.getAttribute("data-workspace-layout-v2-mobile-separator-pane")).toBe(paneName);
+    expect(paneNode.getAttribute("data-workspace-layout-part")).toBe("pane");
+    expect(paneNode.getAttribute("data-pane-side")).toBe(paneName);
   }
 }
 
@@ -376,8 +385,7 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     testViewportWidthPx = VIEWPORT_WIDTH_PX;
     testViewportHeightPx = VIEWPORT_HEIGHT_PX;
     testHasAnyFineHoverPointer = false;
-    testPrefersReducedMotion = false;
-    latestOpenRightPane = null;
+    latestLayoutPresentation = null;
     latestRenderedPaneState = null;
     latestSetRenderedMobilePane = null;
     if (root !== null) {
@@ -401,16 +409,24 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({}));
     });
 
-    const carouselNode = rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]');
+    const carouselNode = rootElement.querySelector('[data-workspace-layout-part="carousel"]');
 
     expect(carouselNode).not.toBeNull();
-    expect(carouselNode?.scrollLeft).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX);
+    expect(carouselNode?.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX);
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement
+        .querySelector('[data-workspace-layout-part="viewport"]')
+        ?.getAttribute("data-mobile-pane"),
     ).toBe("main");
-    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]')).toBeNull();
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
+      rootElement.querySelector(
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
+      ),
+    ).toBeNull();
+    expect(
+      rootElement.querySelector(
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
+      ),
     ).toBeNull();
   });
 
@@ -424,71 +440,14 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(renderMobileLayout({ mobilePane: "right" }));
     });
 
-    const carouselNode = rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]');
+    const carouselNode = rootElement.querySelector('[data-workspace-layout-part="carousel"]');
 
     expect(carouselNode).not.toBeNull();
-    expect(carouselNode?.scrollLeft).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2);
+    expect(carouselNode?.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX * 2);
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
-    ).toBe("right");
-  });
-
-  it("keeps the all-viewport sidebar toggle opt-in", () => {
-    const mountedRoot = root;
-    if (mountedRoot === null || rootElement === null) {
-      throw new Error("Expected mounted root");
-    }
-
-    act(() => {
-      mountedRoot.render(renderMobileLayout({}));
-    });
-
-    expect(rootElement.querySelector('button[aria-label="Toggle sidebar"]')).toBeNull();
-    expect(
-      getRequiredElement(rootElement, '[aria-label="Toggle Right Sidebar"]').classList.contains(
-        "hidden",
-      ),
-    ).toBe(true);
-
-    act(() => {
-      mountedRoot.render(renderMobileLayout({ leftToggleVisibility: "all" }));
-    });
-
-    const toggle = getRequiredElement(rootElement, 'button[aria-label="Toggle sidebar"]');
-    expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
-    ).toBe("main");
-
-    act(() => {
-      toggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
-    ).toBe("left");
-  });
-
-  it("keeps the right all-viewport sidebar toggle opt-in", () => {
-    const mountedRoot = root;
-    if (mountedRoot === null || rootElement === null) {
-      throw new Error("Expected mounted root");
-    }
-
-    act(() => {
-      mountedRoot.render(renderMobileLayout({ rightToggleVisibility: "all" }));
-    });
-
-    const rightToggle = getRequiredElement(rootElement, '[aria-label="Toggle Right Sidebar"]');
-    expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
-    ).toBe("main");
-
-    act(() => {
-      rightToggle.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    });
-
-    expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement
+        .querySelector('[data-workspace-layout-part="viewport"]')
+        ?.getAttribute("data-mobile-pane"),
     ).toBe("right");
   });
 
@@ -502,117 +461,36 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mountedRoot.render(<ControlledMobileLayout />);
     });
 
-    expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]'),
-    ).not.toBeNull();
-    expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
-    ).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX);
+    expect(rootElement.querySelector('[data-workspace-layout-part="carousel"]')).not.toBeNull();
+    expect(rootElement.querySelector('[data-workspace-layout-part="carousel"]')?.scrollLeft).toBe(
+      TEST_SIDEBAR_WIDTH_PX,
+    );
 
     act(() => {
       latestSetRenderedMobilePane?.("right");
     });
 
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement
+        .querySelector('[data-workspace-layout-part="viewport"]')
+        ?.getAttribute("data-mobile-pane"),
     ).toBe("right");
-    expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
-    ).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2);
+    expect(rootElement.querySelector('[data-workspace-layout-part="carousel"]')?.scrollLeft).toBe(
+      TEST_SIDEBAR_WIDTH_PX * 2,
+    );
 
     act(() => {
       latestSetRenderedMobilePane?.("main");
     });
 
-    expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
-    ).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX);
-    expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
-    ).toBe("main");
-  });
-
-  it("smoothly opens the right pane for an explicit user action", () => {
-    const mountedRoot = root;
-    if (mountedRoot === null || rootElement === null) {
-      throw new Error("Expected mounted root");
-    }
-
-    act(() => {
-      mountedRoot.render(<ControlledMobileLayout />);
-    });
-
-    const carouselNode = getRequiredElement(
-      rootElement,
-      '[data-testid="workspace-layout-v2-pane-main"]',
+    expect(rootElement.querySelector('[data-workspace-layout-part="carousel"]')?.scrollLeft).toBe(
+      TEST_SIDEBAR_WIDTH_PX,
     );
-    const scrollToCalls: ScrollToOptions[] = [];
-    carouselNode.scrollTo = (first?: ScrollToOptions | number, y?: number) => {
-      if (typeof first === "number") {
-        carouselNode.scrollLeft = first;
-        carouselNode.scrollTop = y ?? carouselNode.scrollTop;
-        return;
-      }
-
-      const options = first ?? {};
-      scrollToCalls.push(options);
-      carouselNode.scrollLeft = options.left ?? carouselNode.scrollLeft;
-    };
-
-    act(() => {
-      latestOpenRightPane?.();
-    });
-
-    expect(scrollToCalls).toEqual([
-      {
-        behavior: "smooth",
-        left: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2,
-      },
-    ]);
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement
+        .querySelector('[data-workspace-layout-part="viewport"]')
+        ?.getAttribute("data-mobile-pane"),
     ).toBe("main");
-
-    act(() => {
-      carouselNode.dispatchEvent(new Event("scroll", { bubbles: true }));
-    });
-
-    expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
-    ).toBe("right");
-  });
-
-  it("opens the right pane without motion when reduced motion is requested", () => {
-    testPrefersReducedMotion = true;
-    const mountedRoot = root;
-    if (mountedRoot === null || rootElement === null) {
-      throw new Error("Expected mounted root");
-    }
-
-    act(() => {
-      mountedRoot.render(<ControlledMobileLayout />);
-    });
-
-    const carouselNode = getRequiredElement(
-      rootElement,
-      '[data-testid="workspace-layout-v2-pane-main"]',
-    );
-    const scrollToCalls: ScrollToOptions[] = [];
-    carouselNode.scrollTo = (first?: ScrollToOptions | number) => {
-      if (typeof first !== "number") {
-        scrollToCalls.push(first ?? {});
-      }
-    };
-
-    act(() => {
-      latestOpenRightPane?.();
-    });
-
-    expect(scrollToCalls).toEqual([]);
-    expect(carouselNode.scrollLeft).toBe(DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX * 2);
-    expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
-    ).toBe("right");
   });
 
   it("keeps the resize grip reachable when a mobile sidebar fills the viewport", () => {
@@ -630,30 +508,29 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       );
     });
 
-    const maxReachableSidebarWidthPx = VIEWPORT_WIDTH_PX - MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX;
-    const carouselNode = getRequiredElement(
+    const maxReachableSidebarWidthPx =
+      VIEWPORT_WIDTH_PX - WORKSPACE_LAYOUT_V2_MOBILE_MAIN_PEEK_WIDTH_PX;
+    const carouselNode = getRequiredElement(rootElement, '[data-workspace-layout-part="carousel"]');
+    const mainPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-main"]',
+      '[data-workspace-layout-part="pane"][data-pane-side="main"]',
     );
-    const mainPane = getRequiredElement(rootElement, "[data-workspace-layout-v2-mobile-main-pane]");
     const rightPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-right"]',
+      '[data-workspace-layout-part="pane"][data-pane-side="right"]',
     );
     const rightHandle = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-right-resize"]',
+      '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
     );
 
-    expect(carouselNode.scrollLeft).toBe(
-      DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX + maxReachableSidebarWidthPx,
-    );
+    expect(carouselNode.scrollLeft).toBe(TEST_SIDEBAR_WIDTH_PX + maxReachableSidebarWidthPx);
     expect(mainPane.style.width).toBe(`${VIEWPORT_WIDTH_PX}px`);
     expect(rightPane.style.width).toBe(`${maxReachableSidebarWidthPx}px`);
     expect(rightHandle.getAttribute("aria-valuemax")).toBe(`${maxReachableSidebarWidthPx}`);
     expect(rightHandle.getAttribute("aria-valuenow")).toBe(`${maxReachableSidebarWidthPx}`);
     expect(rightHandle.parentElement?.style.left).toBe(
-      `${MIN_WORKSPACE_MOBILE_MAIN_PEEK_WIDTH_PX}px`,
+      `${WORKSPACE_LAYOUT_V2_MOBILE_MAIN_PEEK_WIDTH_PX}px`,
     );
   });
 
@@ -699,44 +576,62 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     });
 
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement
+        .querySelector('[data-workspace-layout-part="viewport"]')
+        ?.getAttribute("data-mobile-pane"),
     ).toBe("left");
-    expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
-    ).toBe(0);
+    expect(rootElement.querySelector('[data-workspace-layout-part="carousel"]')?.scrollLeft).toBe(
+      0,
+    );
   });
 
-  it("omits a stale left mobile pane when a route does not provide a left pane", () => {
+  it("restores a saved left merge when the missing pane returns without writing state", () => {
     const mountedRoot = root;
     if (mountedRoot === null || rootElement === null) {
       throw new Error("Expected mounted root");
     }
+    const savedState = createMobileSidebarState({
+      leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
+      mobilePane: "left",
+      mobileSurface: {
+        kind: "merged",
+        mainWidthPx: VIEWPORT_WIDTH_PX - MOBILE_SIDEBAR_MIN_WIDTH_PX,
+        side: "left",
+      },
+    });
+    const setState = vi.fn<WorkspaceSidebarStateController["setState"]>();
+    const controller = {
+      isHydrated: true,
+      setState,
+      state: savedState,
+    } satisfies WorkspaceSidebarStateController;
 
     act(() => {
       mountedRoot.render(
-        renderMobileLayout({
+        renderMobileLayoutWithController(controller, {
           includeLeftPane: false,
-          leftMobileWidthPx: MOBILE_SIDEBAR_MIN_WIDTH_PX,
-          mobilePane: "left",
-          mobileSurface: {
-            kind: "merged",
-            mainWidthPx: VIEWPORT_WIDTH_PX - MOBILE_SIDEBAR_MIN_WIDTH_PX,
-            side: "left",
-          },
         }),
       );
     });
 
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement
+        .querySelector('[data-workspace-layout-part="viewport"]')
+        ?.getAttribute("data-mobile-pane"),
     ).toBe("main");
+    expect(rootElement.querySelector('[data-workspace-layout-part="carousel"]')?.scrollLeft).toBe(
+      0,
+    );
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-main"]')?.scrollLeft,
-    ).toBe(0);
-    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-pane-left"]')).toBeNull();
-    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]')).toBeNull();
+      rootElement.querySelector('[data-workspace-layout-part="pane"][data-pane-side="left"]'),
+    ).toBeNull();
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-pane-right"]'),
+      rootElement.querySelector(
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
+      ),
+    ).toBeNull();
+    expect(
+      rootElement.querySelector('[data-workspace-layout-part="pane"][data-pane-side="right"]'),
     ).not.toBeNull();
     expect(latestRenderedPaneState?.mobilePane).toBe("left");
     expect(latestRenderedPaneState?.mobileSurface).toEqual({
@@ -744,6 +639,29 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       mainWidthPx: VIEWPORT_WIDTH_PX - MOBILE_SIDEBAR_MIN_WIDTH_PX,
       side: "left",
     });
+    expect(latestLayoutPresentation?.mobilePane).toBe("main");
+    expect(latestLayoutPresentation?.mobileMergeProgress).toBeNull();
+
+    act(() => {
+      mountedRoot.render(renderMobileLayoutWithController(controller, {}));
+    });
+
+    expectWorkspaceMobileMergedSide(rootElement, "left");
+    expect(
+      getRequiredElement(rootElement, '[data-workspace-layout-part="pane"][data-pane-side="main"]')
+        .style.width,
+    ).toBe(`${VIEWPORT_WIDTH_PX - MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+    expect(
+      rootElement
+        .querySelector('[data-workspace-layout-part="viewport"]')
+        ?.getAttribute("data-mobile-pane"),
+    ).toBe("left");
+    expect(latestLayoutPresentation?.mobileMergeProgress).toEqual({
+      progress: 1,
+      side: "left",
+    });
+    expect(latestRenderedPaneState?.mobileSurface).toEqual(savedState.mobileSurface);
+    expect(setState).not.toHaveBeenCalled();
   });
 
   it("fits a persisted merged surface to the current mobile viewport", () => {
@@ -768,13 +686,77 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     expectWorkspaceMobileMergedSide(rootElement, "left");
     expect(
-      getRequiredElement(rootElement, "[data-workspace-layout-v2-mobile-main-pane]").style.width,
+      getRequiredElement(rootElement, '[data-workspace-layout-part="pane"][data-pane-side="main"]')
+        .style.width,
     ).toBe(`${VIEWPORT_WIDTH_PX - MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
     expect(latestRenderedPaneState?.mobileSurface).toEqual({
       kind: "merged",
       mainWidthPx: 302,
       side: "left",
     });
+    expect(latestLayoutPresentation?.mobilePane).toBe("left");
+    expect(latestLayoutPresentation?.mobileMergeProgress).toEqual({
+      progress: 1,
+      side: "left",
+    });
+  });
+
+  it("restores a saved merge when the viewport can fit it without writing state", () => {
+    const mountedRoot = root;
+    if (mountedRoot === null || rootElement === null) {
+      throw new Error("Expected mounted root");
+    }
+    testViewportWidthPx = 300;
+    const savedState = createMobileSidebarState({
+      leftMobileWidthPx: 100,
+      mobilePane: "left",
+      mobileSurface: {
+        kind: "merged",
+        mainWidthPx: 260,
+        side: "left",
+      },
+    });
+    const setState = vi.fn<WorkspaceSidebarStateController["setState"]>();
+    const controller = {
+      isHydrated: true,
+      setState,
+      state: savedState,
+    } satisfies WorkspaceSidebarStateController;
+
+    act(() => {
+      mountedRoot.render(renderMobileLayoutWithController(controller, {}));
+    });
+
+    expectWorkspaceMobileMergedSide(rootElement, null);
+    expect(
+      getRequiredElement(rootElement, '[data-workspace-layout-part="pane"][data-pane-side="main"]')
+        .style.width,
+    ).toBe("300px");
+    expect(latestLayoutPresentation?.mobilePane).toBe("left");
+    expect(latestLayoutPresentation?.mobileMergeProgress).toBeNull();
+    expect(latestRenderedPaneState?.mobileSurface).toEqual({
+      kind: "merged",
+      mainWidthPx: 260,
+      side: "left",
+    });
+
+    testViewportWidthPx = VIEWPORT_WIDTH_PX;
+    act(() => {
+      mountedRoot.render(renderMobileLayoutWithController(controller, {}));
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    expectWorkspaceMobileMergedSide(rootElement, "left");
+    expect(
+      getRequiredElement(rootElement, '[data-workspace-layout-part="pane"][data-pane-side="main"]')
+        .style.width,
+    ).toBe(`${VIEWPORT_WIDTH_PX - MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
+    expect(latestLayoutPresentation?.mobileMergeProgress).toEqual({
+      progress: 1,
+      side: "left",
+    });
+    expect(latestRenderedPaneState?.mobileSurface).toEqual(savedState.mobileSurface);
+    expect(setState).not.toHaveBeenCalled();
   });
 
   it("lets the right sidebar stay borderless while the main pane owns the separator", () => {
@@ -804,9 +786,15 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       );
     });
 
-    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]')).toBeNull();
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
+      rootElement.querySelector(
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
+      ),
+    ).toBeNull();
+    expect(
+      rootElement.querySelector(
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
+      ),
     ).toBeNull();
   });
 
@@ -828,11 +816,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const leftPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-left"]',
+      '[data-workspace-layout-part="pane"][data-pane-side="left"]',
     );
     const leftHandle = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-left-resize"]',
+      '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
     );
 
     expect(leftPane.style.width).toBe("220px");
@@ -840,9 +828,13 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(leftHandle.getAttribute("aria-valuemax")).toBe("350");
     expect(leftHandle.getAttribute("aria-valuenow")).toBe("220");
     expect(leftHandle.parentElement?.style.left).toBe("220px");
-    expect(leftHandle.querySelector("[data-workspace-layout-v2-resize-grip-dots]")).not.toBeNull();
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
+      leftHandle.querySelector('[data-workspace-layout-part="resize-grip-indicator"]'),
+    ).not.toBeNull();
+    expect(
+      rootElement.querySelector(
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
+      ),
     ).toBeNull();
   });
 
@@ -864,21 +856,25 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const leftPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-left"]',
+      '[data-workspace-layout-part="pane"][data-pane-side="left"]',
     );
     const leftHandle = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-left-resize"]',
+      '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
     );
 
     expect(
-      rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+      rootElement
+        .querySelector('[data-workspace-layout-part="viewport"]')
+        ?.getAttribute("data-mobile-pane"),
     ).toBe("left");
     expect(leftPane.style.width).toBe("220px");
     expect(leftHandle.getAttribute("aria-valuenow")).toBe("220");
     expect(leftHandle.parentElement?.style.left).toBe("220px");
     expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
+      rootElement.querySelector(
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
+      ),
     ).toBeNull();
   });
 
@@ -900,11 +896,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const rightPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-right"]',
+      '[data-workspace-layout-part="pane"][data-pane-side="right"]',
     );
     const rightHandle = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-right-resize"]',
+      '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
     );
 
     expect(rightPane.style.width).toBe("300px");
@@ -912,7 +908,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
     expect(rightHandle.getAttribute("aria-valuemax")).toBe("350");
     expect(rightHandle.getAttribute("aria-valuenow")).toBe("300");
     expect(rightHandle.parentElement?.style.left).toBe("90px");
-    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]')).toBeNull();
+    expect(
+      rootElement.querySelector(
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
+      ),
+    ).toBeNull();
   });
 
   it("clamps mobile sidebar widths to the responsive mobile minimum", () => {
@@ -933,11 +933,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const leftPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-left"]',
+      '[data-workspace-layout-part="pane"][data-pane-side="left"]',
     );
     const leftHandle = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-left-resize"]',
+      '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
     );
 
     expect(leftPane.style.width).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
@@ -957,11 +957,11 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
     const rightPane = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-pane-right"]',
+      '[data-workspace-layout-part="pane"][data-pane-side="right"]',
     );
     const rightHandle = getRequiredElement(
       rootElement,
-      '[data-testid="workspace-layout-v2-right-resize"]',
+      '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
     );
 
     expect(rightPane.style.width).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
@@ -990,10 +990,13 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       const leftHandle = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-left-resize"]',
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
       );
       const getMainPane = () =>
-        getRequiredElement(rootElementNode, "[data-workspace-layout-v2-mobile-main-pane]");
+        getRequiredElement(
+          rootElementNode,
+          '[data-workspace-layout-part="pane"][data-pane-side="main"]',
+        );
 
       expect(getMainPane().style.width).toBe("390px");
 
@@ -1018,7 +1021,9 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       expect(getMainPane().style.width).toBe("260px");
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement
+          .querySelector('[data-workspace-layout-part="viewport"]')
+          ?.getAttribute("data-mobile-pane"),
       ).toBe("left");
 
       act(() => {
@@ -1028,7 +1033,9 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       expect(getMainPane().style.width).toBe("260px");
       expect(leftHandle.getAttribute("aria-valuenow")).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX}`);
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement
+          .querySelector('[data-workspace-layout-part="viewport"]')
+          ?.getAttribute("data-mobile-pane"),
       ).toBe("left");
 
       act(() => {
@@ -1042,8 +1049,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       expect(getMainPane().style.width).toBe("390px");
       expect(
-        getRequiredElement(rootElement, '[data-testid="workspace-layout-v2-pane-left"]').style
-          .width,
+        getRequiredElement(
+          rootElement,
+          '[data-workspace-layout-part="pane"][data-pane-side="left"]',
+        ).style.width,
       ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 24}px`);
       expect(leftHandle.parentElement?.style.left).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 24}px`);
 
@@ -1054,8 +1063,10 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       expect(latestRenderedPaneState?.mobileSurface).toEqual({ kind: "unmerged" });
       expect(getMainPane().style.width).toBe("390px");
       expect(
-        getRequiredElement(rootElement, '[data-testid="workspace-layout-v2-pane-left"]').style
-          .width,
+        getRequiredElement(
+          rootElement,
+          '[data-workspace-layout-part="pane"][data-pane-side="left"]',
+        ).style.width,
       ).toBe(`${MOBILE_SIDEBAR_MIN_WIDTH_PX + 24}px`);
     } finally {
       vi.useRealTimers();
@@ -1082,14 +1093,17 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       const leftHandle = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-left-resize"]',
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
       );
       const leftPane = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-pane-left"]',
+        '[data-workspace-layout-part="pane"][data-pane-side="left"]',
       );
       const getMainPane = () =>
-        getRequiredElement(rootElementNode, "[data-workspace-layout-v2-mobile-main-pane]");
+        getRequiredElement(
+          rootElementNode,
+          '[data-workspace-layout-part="pane"][data-pane-side="main"]',
+        );
 
       for (let index = 0; index < 2; index += 1) {
         act(() => {
@@ -1176,25 +1190,29 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       const rightHandle = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-right-resize"]',
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
       );
       const rightPane = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-pane-right"]',
+        '[data-workspace-layout-part="pane"][data-pane-side="right"]',
       );
       const carouselNode = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-pane-main"]',
+        '[data-workspace-layout-part="carousel"]',
       );
       const getMainPane = () =>
-        getRequiredElement(rootElementNode, "[data-workspace-layout-v2-mobile-main-pane]");
+        getRequiredElement(
+          rootElementNode,
+          '[data-workspace-layout-part="pane"][data-pane-side="main"]',
+        );
 
       expect(getMainPane().style.width).toBe("320px");
-      expect(carouselNode.classList.contains("snap-x")).toBe(true);
-      expect(carouselNode.classList.contains("overflow-x-auto")).toBe(true);
-      expect(rightHandle.classList.contains("cursor-col-resize")).toBe(true);
-      expect(rightHandle.classList.contains("w-4")).toBe(true);
-      expect(rightHandle.querySelector("[data-workspace-layout-v2-resize-grip-dots]")).toBeNull();
+      expect(carouselNode.getAttribute("data-workspace-layout-part")).toBe("carousel");
+      expect(rightHandle.getAttribute("data-resize-mode")).toBe("edge");
+      expect(rightHandle.getAttribute("data-workspace-layout-part")).toBe("resize-handle");
+      expect(
+        rightHandle.querySelector('[data-workspace-layout-part="resize-grip-indicator"]'),
+      ).toBeNull();
 
       for (let index = 0; index < 5; index += 1) {
         act(() => {
@@ -1235,11 +1253,15 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       expectWorkspaceMobileMergedSide(rootElement, "right");
       expect(getMainPane().style.width).toBe(`${NARROW_MOBILE_MAIN_WIDTH_PX}px`);
       expect(
-        getRequiredElement(rootElement, '[data-testid="workspace-layout-v2-pane-right"]').style
-          .width,
+        getRequiredElement(
+          rootElement,
+          '[data-workspace-layout-part="pane"][data-pane-side="right"]',
+        ).style.width,
       ).toBe(`${NARROW_MOBILE_SIDEBAR_MIN_WIDTH_PX}px`);
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement
+          .querySelector('[data-workspace-layout-part="viewport"]')
+          ?.getAttribute("data-mobile-pane"),
       ).toBe("right");
     } finally {
       vi.useRealTimers();
@@ -1261,14 +1283,17 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       const carouselNode = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-pane-main"]',
+        '[data-workspace-layout-part="carousel"]',
       );
       const leftHandle = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-left-resize"]',
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
       );
       const getMainPane = () =>
-        getRequiredElement(rootElementNode, "[data-workspace-layout-v2-mobile-main-pane]");
+        getRequiredElement(
+          rootElementNode,
+          '[data-workspace-layout-part="pane"][data-pane-side="main"]',
+        );
 
       act(() => {
         leftHandle.dispatchEvent(
@@ -1292,15 +1317,16 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
 
       expect(getMainPane().style.width).toBe("260px");
       expectWorkspaceMobileMergedSide(rootElement, "left");
-      expect(carouselNode.classList.contains("overflow-x-auto")).toBe(true);
-      expect(carouselNode.classList.contains("overflow-x-hidden")).toBe(false);
+      expect(carouselNode.getAttribute("data-workspace-layout-part")).toBe("carousel");
       act(() => {
         carouselNode.scrollLeft = 180;
         carouselNode.dispatchEvent(new Event("scroll", { bubbles: true }));
       });
 
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement
+          .querySelector('[data-workspace-layout-part="viewport"]')
+          ?.getAttribute("data-mobile-pane"),
       ).toBe("left");
       expectWorkspaceMobileMergedSide(rootElement, "left");
 
@@ -1309,16 +1335,20 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       });
 
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement
+          .querySelector('[data-workspace-layout-part="viewport"]')
+          ?.getAttribute("data-mobile-pane"),
       ).toBe("right");
       expect(getMainPane().style.width).toBe("260px");
       expectWorkspaceMobileMergedSide(rootElement, "left");
       expect(
-        rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
+        rootElement.querySelector(
+          '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
+        ),
       ).not.toBeNull();
       const rightHandle = getRequiredElement(
         rootElement,
-        '[data-testid="workspace-layout-v2-right-resize"]',
+        '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
       );
 
       act(() => {
@@ -1327,7 +1357,9 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       });
 
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement
+          .querySelector('[data-workspace-layout-part="viewport"]')
+          ?.getAttribute("data-mobile-pane"),
       ).toBe("right");
       expect(getMainPane().style.width).toBe("260px");
 
@@ -1351,96 +1383,24 @@ describe("WorkspaceLayoutV2 mobile boot alignment", () => {
       });
 
       expect(
-        rootElement.querySelector("[data-workspace-layout-v2]")?.getAttribute("data-mobile-pane"),
+        rootElement
+          .querySelector('[data-workspace-layout-part="viewport"]')
+          ?.getAttribute("data-mobile-pane"),
       ).toBe("main");
       expect(getMainPane().style.width).toBe("390px");
       expect(
-        rootElement.querySelector('[data-testid="workspace-layout-v2-left-resize"]'),
+        rootElement.querySelector(
+          '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
+        ),
       ).toBeNull();
       expect(
-        rootElement.querySelector('[data-testid="workspace-layout-v2-right-resize"]'),
+        rootElement.querySelector(
+          '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
+        ),
       ).toBeNull();
     } finally {
       vi.useRealTimers();
     }
-  });
-
-  it("keeps the desktop-only shared header row hidden by CSS when mobile omits header content", () => {
-    const mountedRoot = root;
-    if (mountedRoot === null || rootElement === null) {
-      throw new Error("Expected mounted root");
-    }
-
-    act(() => {
-      mountedRoot.render(renderMobileLayout({}));
-    });
-
-    const headerRow = getRequiredElement(
-      rootElement,
-      '[data-testid="workspace-layout-v2-main-header-row"]',
-    );
-    expect(headerRow.classList.contains("hidden")).toBe(true);
-    expect(headerRow.classList.contains("md:block")).toBe(true);
-    expect(
-      getRequiredElement(rootElement, '[aria-label="Toggle Left Sidebar"]').classList.contains(
-        "hidden",
-      ),
-    ).toBe(true);
-    expect(
-      getRequiredElement(rootElement, '[aria-label="Toggle Right Sidebar"]').classList.contains(
-        "hidden",
-      ),
-    ).toBe(true);
-  });
-
-  it("treats omitted and null main headers the same on mobile", () => {
-    const mountedRoot = root;
-    if (mountedRoot === null || rootElement === null) {
-      throw new Error("Expected mounted root");
-    }
-
-    act(() => {
-      mountedRoot.render(renderMobileLayout({ mainHeader: null }));
-    });
-
-    const headerRow = getRequiredElement(
-      rootElement,
-      '[data-testid="workspace-layout-v2-main-header-row"]',
-    );
-    expect(headerRow.classList.contains("hidden")).toBe(true);
-    expect(headerRow.classList.contains("md:block")).toBe(true);
-    expect(
-      getRequiredElement(rootElement, '[aria-label="Toggle Left Sidebar"]').classList.contains(
-        "hidden",
-      ),
-    ).toBe(true);
-    expect(
-      getRequiredElement(rootElement, '[aria-label="Toggle Right Sidebar"]').classList.contains(
-        "hidden",
-      ),
-    ).toBe(true);
-  });
-
-  it("keeps the shared header row on mobile when the route provides content", () => {
-    const mountedRoot = root;
-    if (mountedRoot === null || rootElement === null) {
-      throw new Error("Expected mounted root");
-    }
-
-    act(() => {
-      mountedRoot.render(
-        renderMobileLayout({
-          mainHeader: <div data-testid="main-header-actions">/logo</div>,
-        }),
-      );
-    });
-
-    expect(
-      rootElement.querySelector('[data-testid="workspace-layout-v2-main-header-row"]'),
-    ).not.toBeNull();
-    expect(rootElement.querySelector('[data-testid="main-header-actions"]')?.textContent).toBe(
-      "/logo",
-    );
   });
 });
 

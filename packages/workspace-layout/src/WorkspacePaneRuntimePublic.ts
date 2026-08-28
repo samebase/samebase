@@ -7,6 +7,7 @@ import {
 } from "./WorkspacePaneRuntime.tsx";
 import {
   getWorkspaceLayoutPresentation,
+  useWorkspaceLayoutDisplayedMobileState,
   type WorkspaceLayoutPresentation,
 } from "./WorkspaceLayoutPresentation.ts";
 import type { WorkspaceMobilePane } from "./WorkspaceLayoutV2State.ts";
@@ -24,25 +25,24 @@ export type {
 } from "./WorkspaceLayoutV2State.ts";
 
 export type WorkspacePaneActions = {
-  openRightPane: () => void;
   setMobilePane: Dispatch<SetStateAction<WorkspaceMobilePane>>;
   toggleLeftPane: () => void;
   toggleRightPane: () => void;
 };
 
 export function useWorkspacePaneActions(): WorkspacePaneActions {
-  const { openRightPane, setMobilePane, toggleLeftPane, toggleRightPane } =
-    useWorkspacePaneActionsInternal();
+  const { setMobilePane, toggleLeftPane, toggleRightPane } = useWorkspacePaneActionsInternal();
 
   return useMemo(
-    () => ({ openRightPane, setMobilePane, toggleLeftPane, toggleRightPane }),
-    [openRightPane, setMobilePane, toggleLeftPane, toggleRightPane],
+    () => ({ setMobilePane, toggleLeftPane, toggleRightPane }),
+    [setMobilePane, toggleLeftPane, toggleRightPane],
   );
 }
 
 export function useWorkspaceLayoutPresentation(): WorkspaceLayoutPresentation {
+  const displayedMobileState = useWorkspaceLayoutDisplayedMobileState();
   const paneState = useWorkspacePaneState();
   const localState = useWorkspaceLayoutV2Selector((state) => state);
 
-  return getWorkspaceLayoutPresentation({ localState, paneState });
+  return getWorkspaceLayoutPresentation({ displayedMobileState, localState, paneState });
 }

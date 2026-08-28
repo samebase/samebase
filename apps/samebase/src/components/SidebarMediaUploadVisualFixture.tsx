@@ -92,7 +92,6 @@ export function SidebarMediaUploadVisualFixture() {
     <div data-sidebar-media-upload-visual-fixture-font className="contents">
       <style>{SIDEBAR_MEDIA_UPLOAD_VISUAL_FIXTURE_FONT_RULES}</style>
       <WorkspaceLayoutV2FixtureFrame
-        dataTestId="sidebar-media-upload-visual-fixture"
         left={{
           header: sidebarHeader,
           content: sidebarContent,

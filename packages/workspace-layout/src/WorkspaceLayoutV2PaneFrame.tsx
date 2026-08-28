@@ -4,7 +4,6 @@ export type WorkspaceLayoutV2PaneFrameProps = {
   header?: ReactNode;
   content?: ReactNode;
   footer?: ReactNode;
-  headerTestId?: string;
   headerVisibility?: "all" | "desktop";
   scrollRestorationId?: string;
 };
@@ -17,18 +16,13 @@ export function WorkspaceLayoutV2PaneFrame({
   header,
   content,
   footer,
-  headerTestId,
   headerVisibility = "all",
   scrollRestorationId,
 }: WorkspaceLayoutV2PaneFrameProps) {
   return (
     <section data-workspace-layout-part="pane-frame">
       {header ? (
-        <div
-          data-header-visibility={headerVisibility}
-          data-testid={headerTestId}
-          data-workspace-layout-part="pane-header"
-        >
+        <div data-header-visibility={headerVisibility} data-workspace-layout-part="pane-header">
           {header}
         </div>
       ) : null}

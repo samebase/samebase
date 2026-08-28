@@ -19,10 +19,12 @@ type WorkspaceLayoutV2ViewportProps = WorkspaceLayoutV2ResolvedPaneContent & {
   desktopRightWidthPx: number;
   enableDesktopPaneTransitions: boolean;
   hasMeasuredViewport: boolean;
+  leftPaneId: string;
   leftWidthPx: number;
   lockCarouselScroll: boolean;
   paneWidthPx: number;
   rightWidthPx: number;
+  rightPaneId: string;
   showLeftPane: boolean;
   showRightPane: boolean;
 };
@@ -35,11 +37,13 @@ export function WorkspaceLayoutV2Viewport({
   enableDesktopPaneTransitions,
   hasMeasuredViewport,
   leftContent,
+  leftPaneId,
   leftWidthPx,
   lockCarouselScroll,
   mainContent,
   paneWidthPx,
   rightContent,
+  rightPaneId,
   rightWidthPx,
   showLeftPane,
   showRightPane,
@@ -53,7 +57,7 @@ export function WorkspaceLayoutV2Viewport({
     : "var(--workspace-layout-v2-left-mobile-width, 0px)";
   const mainPaneWidth = hasMeasuredViewport
     ? `${paneWidthPx}px`
-    : "var(--workspace-layout-v2-main-mobile-width, 100vw)";
+    : "var(--workspace-layout-v2-main-mobile-width, 100%)";
   const rightPaneWidth = hasMeasuredViewport
     ? `${rightWidthPx}px`
     : "var(--workspace-layout-v2-right-mobile-width, 0px)";
@@ -62,11 +66,10 @@ export function WorkspaceLayoutV2Viewport({
     <div
       ref={carouselRef}
       data-carousel-scroll-locked={lockCarouselScroll ? "" : undefined}
-      data-testid="workspace-layout-v2-pane-main"
       data-viewport-measured={hasMeasuredViewport ? "" : undefined}
       data-workspace-layout-part="carousel"
-      data-workspace-layout-v2-measured={hasMeasuredViewport ? "" : undefined}
       style={viewportStyle}
+      suppressHydrationWarning
     >
       {showLeftPane ? (
         <div
@@ -75,29 +78,15 @@ export function WorkspaceLayoutV2Viewport({
           data-pane-side="left"
           data-transition-enabled={enableDesktopPaneTransitions ? "" : undefined}
           data-workspace-layout-part="pane"
-          data-workspace-layout-v2-mobile-pane="left"
-          data-workspace-layout-v2-mobile-separator-pane="left"
-          data-testid="workspace-layout-v2-pane-left"
+          id={leftPaneId}
           style={{ width: leftPaneWidth }}
         >
           {leftContent}
         </div>
       ) : null}
 
-      <div
-        data-pane-side="main"
-        data-workspace-layout-part="pane"
-        data-workspace-layout-v2-mobile-main-pane
-        data-workspace-layout-v2-mobile-pane="main"
-        style={{ width: mainPaneWidth }}
-      >
-        <div
-          data-workspace-layout-part="pane-surface"
-          data-workspace-layout-v2-mobile-main-pane-surface
-          data-workspace-layout-v2-mobile-separator-pane="main"
-        >
-          {mainContent}
-        </div>
+      <div data-pane-side="main" data-workspace-layout-part="pane" style={{ width: mainPaneWidth }}>
+        <div data-workspace-layout-part="pane-surface">{mainContent}</div>
       </div>
 
       {showRightPane ? (
@@ -107,9 +96,7 @@ export function WorkspaceLayoutV2Viewport({
           data-pane-side="right"
           data-transition-enabled={enableDesktopPaneTransitions ? "" : undefined}
           data-workspace-layout-part="pane"
-          data-workspace-layout-v2-mobile-pane="right"
-          data-workspace-layout-v2-mobile-separator-pane="right"
-          data-testid="workspace-layout-v2-pane-right"
+          id={rightPaneId}
           style={{ width: rightPaneWidth }}
         >
           {rightContent}

@@ -253,6 +253,9 @@ importers:
       '@samebase/sure':
         specifier: workspace:*
         version: link:../../packages/sure
+      '@samebase/workspace-layout':
+        specifier: workspace:*
+        version: link:../../packages/workspace-layout
       '@tanstack/react-pacer':
         specifier: ^0.22.1
         version: 0.22.1(react-dom@19.2.6(react@19.2.6))(react@19.2.6)

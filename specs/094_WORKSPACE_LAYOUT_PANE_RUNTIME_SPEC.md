@@ -17,7 +17,7 @@
   - `apps/samebase/src/lib/appWorkspaceSidebarPrehydration.ts`
   - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`
   - `apps/samebase/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
-  - `apps/samebase/src/lib/workspaceSidebarStateController.ts`
+  - `packages/workspace-layout/src/WorkspaceLayoutV2State.ts`
   - `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
   - `specs/097_WORKSPACE_MOBILE_MERGE_STATE_PERSISTENCE_SPEC.md`
 
@@ -82,8 +82,8 @@ a product shortcut toggles.
 ### Static First Paint
 
 The package owns the data attributes, CSS variables, responsive boundary, and geometry rules used
-for prehydration. Samebase owns the persisted-state reader and the decision to install a generated
-prehydration script in the document head.
+for prehydration. Samebase owns the persisted-state reader and renders the generated desktop and
+mobile prehydration scripts immediately after the matching layout markup.
 
 The app prehydration adapter must pass validated state into the package contract. It must not copy
 the package selectors or geometry math. `@samebase/workspace-layout/structure.css` must load before

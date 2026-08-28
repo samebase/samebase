@@ -9,7 +9,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { VaultSyncStatusContent } from "@/components/VaultSyncStatus";
 import { CodeMirrorFileSurface } from "@/components/CodeMirrorFileSurface";
 import { linkStyle } from "@/components/styles";
-import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
+import type { WorkspaceLayoutV2PaneFrameProps } from "@samebase/workspace-layout/pane-frame";
 import type { FolderExpansionState } from "@/lib/fileTreeState";
 import { isKeyOf } from "@samebase/dependent";
 
@@ -318,7 +318,6 @@ export function FileViewProsemarkHeightVisualFixture(_props: {
 
   return (
     <WorkspaceLayoutV2FixtureFrame
-      dataTestId="fileview-prosemark-height-fixture-frame"
       shortcutPaneSide="left"
       left={activeSidebar}
       main={{

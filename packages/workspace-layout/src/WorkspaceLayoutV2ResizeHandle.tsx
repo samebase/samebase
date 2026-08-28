@@ -45,10 +45,10 @@ function getPointerDeltaPx(args: {
 }
 
 type WorkspaceLayoutV2ResizeHandleProps = {
+  ariaControls: string;
   ariaLabel: string;
   ariaValueText?: string;
   currentSizePx: number;
-  dataTestId: string;
   maxSizePx: number;
   minSizePx: number;
   onBlur?: () => void;
@@ -63,10 +63,10 @@ type WorkspaceLayoutV2ResizeHandleProps = {
 };
 
 export function WorkspaceLayoutV2ResizeHandle({
+  ariaControls,
   ariaLabel,
   ariaValueText,
   currentSizePx,
-  dataTestId,
   maxSizePx,
   minSizePx,
   onBlur,
@@ -84,8 +84,40 @@ export function WorkspaceLayoutV2ResizeHandle({
     startSizePx: number;
   } | null>(null);
   const keyboardResizeTimeoutRef = useRef<number | null>(null);
+  const resizeSessionActiveRef = useRef(false);
+  const resizeSessionEndRef = useRef<(() => void) | undefined>(undefined);
   const [isResizing, setIsResizing] = useState(false);
   const [isPointerResizing, setIsPointerResizing] = useState(false);
+
+  const startResizing = useCallback(() => {
+    if (resizeSessionActiveRef.current) {
+      return;
+    }
+
+    resizeSessionActiveRef.current = true;
+    resizeSessionEndRef.current = onResizeEnd;
+    onResizeStart?.();
+  }, [onResizeEnd, onResizeStart]);
+
+  const finishResizing = useCallback((updateLocalState = true) => {
+    if (keyboardResizeTimeoutRef.current !== null) {
+      window.clearTimeout(keyboardResizeTimeoutRef.current);
+      keyboardResizeTimeoutRef.current = null;
+    }
+    if (!resizeSessionActiveRef.current) {
+      return;
+    }
+
+    resizeSessionActiveRef.current = false;
+    const endResizeSession = resizeSessionEndRef.current;
+    resizeSessionEndRef.current = undefined;
+    dragStateRef.current = null;
+    if (updateLocalState) {
+      setIsPointerResizing(false);
+      setIsResizing(false);
+    }
+    endResizeSession?.();
+  }, []);
 
   useEffect(() => {
     if (!isPointerResizing) {
@@ -97,11 +129,9 @@ export function WorkspaceLayoutV2ResizeHandle({
 
   useEffect(() => {
     return () => {
-      if (keyboardResizeTimeoutRef.current !== null) {
-        window.clearTimeout(keyboardResizeTimeoutRef.current);
-      }
+      finishResizing(false);
     };
-  }, []);
+  }, [finishResizing]);
 
   const commitSizeChange = useCallback(
     (nextSizePx: number) => {
@@ -110,13 +140,6 @@ export function WorkspaceLayoutV2ResizeHandle({
     },
     [maxSizePx, minSizePx, onRawSizeChange, onSizeChange],
   );
-
-  const stopResizing = useCallback(() => {
-    dragStateRef.current = null;
-    setIsPointerResizing(false);
-    setIsResizing(false);
-    onResizeEnd?.();
-  }, [onResizeEnd]);
 
   const handlePointerDown = useCallback(
     (event: PointerEvent<HTMLDivElement>) => {
@@ -130,12 +153,12 @@ export function WorkspaceLayoutV2ResizeHandle({
         startClientPx: event.clientX,
         startSizePx: currentSizePx,
       };
+      startResizing();
       setIsPointerResizing(true);
       setIsResizing(true);
-      onResizeStart?.();
       event.currentTarget.setPointerCapture(event.pointerId);
     },
-    [currentSizePx, onResizeStart],
+    [currentSizePx, startResizing],
   );
 
   const handlePointerMove = useCallback(
@@ -163,9 +186,9 @@ export function WorkspaceLayoutV2ResizeHandle({
         event.currentTarget.releasePointerCapture(event.pointerId);
         return;
       }
-      stopResizing();
+      finishResizing();
     },
-    [stopResizing],
+    [finishResizing],
   );
 
   const handleKeyDown = useCallback(
@@ -176,22 +199,21 @@ export function WorkspaceLayoutV2ResizeHandle({
       }
 
       event.preventDefault();
+      startResizing();
       setIsResizing(true);
-      onResizeStart?.();
       commitSizeChange(currentSizePx + deltaPx);
       if (keyboardResizeTimeoutRef.current !== null) {
         window.clearTimeout(keyboardResizeTimeoutRef.current);
       }
       keyboardResizeTimeoutRef.current = window.setTimeout(() => {
-        setIsResizing(false);
-        keyboardResizeTimeoutRef.current = null;
-        onResizeEnd?.();
+        finishResizing();
       }, KEYBOARD_RESIZE_TIMEOUT_MS);
     },
-    [commitSizeChange, currentSizePx, onResizeEnd, onResizeStart, resizeFrom],
+    [commitSizeChange, currentSizePx, finishResizing, resizeFrom, startResizing],
   );
 
   const interactiveProps = {
+    "aria-controls": ariaControls,
     "aria-label": ariaLabel,
     "aria-orientation": "vertical" as const,
     "aria-valuemax": maxSizePx,
@@ -201,12 +223,11 @@ export function WorkspaceLayoutV2ResizeHandle({
     "data-resize-mode": pointerTarget,
     "data-resize-side": resizeFrom,
     "data-resizing": isResizing ? "" : undefined,
-    "data-testid": dataTestId,
     "data-workspace-layout-part": "resize-handle",
     onBlur,
     onFocus,
     onKeyDown: handleKeyDown,
-    onLostPointerCapture: stopResizing,
+    onLostPointerCapture: () => finishResizing(),
     onPointerCancel: handlePointerEnd,
     onPointerDown: handlePointerDown,
     onPointerMove: handlePointerMove,
@@ -224,11 +245,7 @@ export function WorkspaceLayoutV2ResizeHandle({
         style={handlePositionStyle}
       >
         <div {...interactiveProps}>
-          <div
-            aria-hidden="true"
-            data-workspace-layout-part="resize-grip-indicator"
-            data-workspace-layout-v2-resize-grip-dots
-          />
+          <div aria-hidden="true" data-workspace-layout-part="resize-grip-indicator" />
         </div>
       </div>
     );

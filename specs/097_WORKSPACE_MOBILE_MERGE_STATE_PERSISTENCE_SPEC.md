@@ -19,7 +19,7 @@
   - `packages/workspace-layout/src/WorkspaceLayoutV2Prehydration.ts`
   - `packages/workspace-layout/src/WorkspacePaneRuntime.tsx`
   - `packages/workspace-layout/src/useWorkspaceLayoutV2MobileResize.ts`
-  - `packages/workspace-layout/src/WorkspaceLayoutV2.mobile.test.tsx`
+  - `packages/workspace-layout/test/layoutMobile.test.tsx`
   - `apps/samebase/src/hooks/useLocalStorageWorkspaceSidebarState.ts`
   - `apps/samebase/src/hooks/usePersistedWorkspaceSidebarState.ts`
   - `apps/samebase/e2e/workspace-layout-v2.live.spec.ts`
@@ -106,10 +106,10 @@ viewport measurements remain transient layout state.
 
 The current contract has these test owners:
 
-- `WorkspaceLayoutV2.mobile.test.tsx` verifies that a route without the saved left pane displays the
-  main pane and does not change the saved pane or merge state.
-- `WorkspaceLayoutV2.mobile.test.tsx` verifies that a saved merge uses the current mobile viewport
-  without changing the saved merge.
+- `layoutMobile.test.tsx` verifies that a route without the saved left pane displays the main pane
+  and does not change the saved pane or merge state.
+- `layoutMobile.test.tsx` verifies that a saved merge uses the current mobile viewport without
+  changing the saved merge.
 - `workspace-layout-v2.live.spec.ts` verifies that a signed-in merge stays active across different
   mobile viewport widths and is not cleared by a route without the saved pane.
 - `workspace-sidebar-drag.spec.ts` verifies that a mobile merge survives a local storage reload.

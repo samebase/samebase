@@ -4,105 +4,126 @@ import {
   clearWorkspaceLayoutV2DesktopPrehydrationStyle,
   type WorkspaceLayoutV2PrehydrationArgs,
   type WorkspaceLayoutV2PrehydrationState,
-} from "@/components/workspace-layout-v2/WorkspaceLayoutV2Prehydration";
-import {
-  APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-  APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
-} from "@/lib/appWorkspaceSidebarPreferences";
+} from "@samebase/workspace-layout/prehydration";
 
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID =
   "samebase-app-workspace-sidebar-prehydration";
 
 const appWorkspaceSidebarPrehydrationArgs = {
   desktopStyleElementId: APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID,
-  storageKey: APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
-  storageVersion: APP_WORKSPACE_SIDEBAR_STORAGE_VERSION,
 } satisfies WorkspaceLayoutV2PrehydrationArgs;
 
-function getWorkspaceSidebarState(value: unknown): WorkspaceLayoutV2PrehydrationState | null {
-  function getMobilePane(value: unknown): WorkspaceLayoutV2PrehydrationState["mobilePane"] | null {
-    if (value === "left" || value === "main" || value === "right") {
-      return value;
+/**
+ * The package serializes this function into the prehydration script. Keep it
+ * self-contained, including the app-owned storage key, envelope version, and
+ * validation.
+ */
+function readAppWorkspaceSidebarPrehydrationState(): WorkspaceLayoutV2PrehydrationState | null {
+  function getWorkspaceSidebarState(value: unknown): WorkspaceLayoutV2PrehydrationState | null {
+    function getMobilePane(
+      value: unknown,
+    ): WorkspaceLayoutV2PrehydrationState["mobilePane"] | null {
+      if (value === "left" || value === "main" || value === "right") {
+        return value;
+      }
+
+      return null;
     }
 
-    return null;
-  }
+    function getMobileSurface(
+      value: unknown,
+    ): WorkspaceLayoutV2PrehydrationState["mobileSurface"] | null {
+      if (value === null || typeof value !== "object" || !("kind" in value)) return null;
 
-  function getMobileSurface(
-    value: unknown,
-  ): WorkspaceLayoutV2PrehydrationState["mobileSurface"] | null {
-    if (value === null || typeof value !== "object" || !("kind" in value)) return null;
+      if (value.kind === "unmerged") {
+        return { kind: "unmerged" };
+      }
 
-    if (value.kind === "unmerged") {
-      return { kind: "unmerged" };
+      if (
+        value.kind === "merged" &&
+        "side" in value &&
+        "mainWidthPx" in value &&
+        (value.side === "left" || value.side === "right") &&
+        typeof value.mainWidthPx === "number" &&
+        Number.isFinite(value.mainWidthPx)
+      ) {
+        return {
+          kind: "merged",
+          mainWidthPx: value.mainWidthPx,
+          side: value.side,
+        };
+      }
+
+      return null;
     }
+
+    function getFiniteNumber(value: unknown) {
+      return typeof value === "number" && Number.isFinite(value) ? value : null;
+    }
+
+    if (value === null || typeof value !== "object") return null;
+    if (!("leftDesktopOpen" in value) || !("leftDesktopWidthPx" in value)) return null;
+    if (!("leftMobileWidthPx" in value) || !("mobilePane" in value)) return null;
+    if (!("mobileSurface" in value)) return null;
+    if (!("rightDesktopOpen" in value) || !("rightDesktopWidthPx" in value)) return null;
+    if (!("rightMobileWidthPx" in value)) return null;
+
+    const leftDesktopWidthPx = getFiniteNumber(value.leftDesktopWidthPx);
+    const leftMobileWidthPx = getFiniteNumber(value.leftMobileWidthPx);
+    const mobilePane = getMobilePane(value.mobilePane);
+    const mobileSurface = getMobileSurface(value.mobileSurface);
+    const rightDesktopWidthPx = getFiniteNumber(value.rightDesktopWidthPx);
+    const rightMobileWidthPx = getFiniteNumber(value.rightMobileWidthPx);
 
     if (
-      value.kind === "merged" &&
-      "side" in value &&
-      "mainWidthPx" in value &&
-      (value.side === "left" || value.side === "right") &&
-      typeof value.mainWidthPx === "number" &&
-      Number.isFinite(value.mainWidthPx)
+      typeof value.leftDesktopOpen !== "boolean" ||
+      leftDesktopWidthPx === null ||
+      leftMobileWidthPx === null ||
+      mobilePane === null ||
+      mobileSurface === null ||
+      typeof value.rightDesktopOpen !== "boolean" ||
+      rightDesktopWidthPx === null ||
+      rightMobileWidthPx === null
     ) {
-      return {
-        kind: "merged",
-        mainWidthPx: value.mainWidthPx,
-        side: value.side,
-      };
+      return null;
     }
 
-    return null;
+    return {
+      leftDesktopOpen: value.leftDesktopOpen,
+      leftDesktopWidthPx,
+      leftMobileWidthPx,
+      mobilePane,
+      mobileSurface,
+      rightDesktopOpen: value.rightDesktopOpen,
+      rightDesktopWidthPx,
+      rightMobileWidthPx,
+    };
   }
 
-  if (value === null || typeof value !== "object") return null;
-  if (!("leftDesktopOpen" in value) || !("leftDesktopWidthPx" in value)) return null;
-  if (!("leftMobileWidthPx" in value) || !("mobilePane" in value)) return null;
-  if (!("mobileSurface" in value)) return null;
-  if (!("rightDesktopOpen" in value) || !("rightDesktopWidthPx" in value)) return null;
-  if (!("rightMobileWidthPx" in value)) return null;
+  try {
+    const serializedState = window.localStorage.getItem("samebase_app_workspace_sidebar_state");
+    if (serializedState === null) return null;
 
-  const mobilePane = getMobilePane(value.mobilePane);
-  const mobileSurface = getMobileSurface(value.mobileSurface);
+    const storedState: unknown = JSON.parse(serializedState);
+    if (storedState === null || typeof storedState !== "object") return null;
+    if (!("version" in storedState) || storedState.version !== 2) return null;
+    if (!("state" in storedState)) return null;
 
-  if (
-    typeof value.leftDesktopOpen !== "boolean" ||
-    typeof value.leftDesktopWidthPx !== "number" ||
-    !Number.isFinite(value.leftDesktopWidthPx) ||
-    typeof value.leftMobileWidthPx !== "number" ||
-    !Number.isFinite(value.leftMobileWidthPx) ||
-    mobilePane === null ||
-    mobileSurface === null ||
-    typeof value.rightDesktopOpen !== "boolean" ||
-    typeof value.rightDesktopWidthPx !== "number" ||
-    !Number.isFinite(value.rightDesktopWidthPx) ||
-    typeof value.rightMobileWidthPx !== "number" ||
-    !Number.isFinite(value.rightMobileWidthPx)
-  ) {
+    return getWorkspaceSidebarState(storedState.state);
+  } catch {
     return null;
   }
-
-  return {
-    leftDesktopOpen: value.leftDesktopOpen,
-    leftDesktopWidthPx: value.leftDesktopWidthPx,
-    leftMobileWidthPx: value.leftMobileWidthPx,
-    mobilePane,
-    mobileSurface,
-    rightDesktopOpen: value.rightDesktopOpen,
-    rightDesktopWidthPx: value.rightDesktopWidthPx,
-    rightMobileWidthPx: value.rightMobileWidthPx,
-  };
 }
 
 export const appWorkspaceSidebarPrehydrationScript =
   buildWorkspaceLayoutV2DesktopPrehydrationScript(
     appWorkspaceSidebarPrehydrationArgs,
-    getWorkspaceSidebarState,
+    readAppWorkspaceSidebarPrehydrationState,
   );
 export const appWorkspaceMobilePanePrehydrationScript =
   buildWorkspaceLayoutV2MobilePanePrehydrationScript(
     appWorkspaceSidebarPrehydrationArgs,
-    getWorkspaceSidebarState,
+    readAppWorkspaceSidebarPrehydrationState,
   );
 
 export function clearAppWorkspaceSidebarDesktopPrehydrationStyle() {

@@ -3,17 +3,7 @@ import { PublicLandingAuthControls } from "@/components/PublicLandingAuthControl
 import { LandingHeroMenger } from "@/components/logo/LandingHeroMenger";
 import { PublicLandingLogo } from "@/components/logo/PublicLandingLogo";
 import { LOGO_IDENTITY_VIEW_CONTRACTS } from "@/components/logo/logoStaticSvgContract";
-import {
-  useWorkspaceLayoutV2Selector,
-  useWorkspacePaneState,
-} from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
-import {
-  WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX,
-  WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
-  getMobileSidebarMaxWidthPx,
-  getMobileSidebarMinWidthPx,
-} from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
-import { clampNumber } from "@/lib/clampNumber";
+import { useWorkspaceLayoutPresentation } from "@samebase/workspace-layout/runtime";
 import { isLandingDevModeEnabled } from "@/lib/landingDevMode";
 import {
   PUBLIC_LANDING_COPY_TEST_ID,
@@ -41,35 +31,10 @@ function LandingPageLogo({
   rootRouteSearch: ReturnType<typeof useRootRouteSearch>;
 }) {
   const navigate = useNavigate();
-  const { isMobile, mobileSurface, rightMobileWidthPx } = useWorkspacePaneState();
-  const mobilePaneScrollProgress = useWorkspaceLayoutV2Selector(
-    (state) => state.mobile.paneScrollProgress,
-  );
-  const mobileGrip = useWorkspaceLayoutV2Selector((state) => state.mobile.grip);
-  const viewportWidthPx = useWorkspaceLayoutV2Selector((state) => state.viewportSize.widthPx);
-  const mobileSidebarMaxWidthPx = getMobileSidebarMaxWidthPx(viewportWidthPx);
-  const mobileMergeCommitWidthPx =
-    getMobileSidebarMinWidthPx({
-      configuredMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX,
-      maxWidthPx: mobileSidebarMaxWidthPx,
-      viewportWidthPx,
-    }) + WORKSPACE_LAYOUT_V2_MOBILE_MERGE_INTENT_WIDTH_PX;
-  let presentationTiltNeutralProgress: number | undefined;
-  if (isMobile && mobileGrip.kind === "dragging" && mobileGrip.side === "right") {
-    presentationTiltNeutralProgress =
-      mobileGrip.startSideWidthPx > mobileMergeCommitWidthPx
-        ? clampNumber(
-            (mobileGrip.startSideWidthPx - rightMobileWidthPx) /
-              (mobileGrip.startSideWidthPx - mobileMergeCommitWidthPx),
-            0,
-            1,
-          )
-        : rightMobileWidthPx <= mobileMergeCommitWidthPx
-          ? 1
-          : undefined;
-  } else if (isMobile && mobileSurface.kind === "merged" && mobileSurface.side === "right") {
-    presentationTiltNeutralProgress = 1;
-  }
+  const { isMobile, mobileMergeProgress, mobilePaneScrollProgress } =
+    useWorkspaceLayoutPresentation();
+  const presentationTiltNeutralProgress =
+    mobileMergeProgress?.side === "right" ? mobileMergeProgress.progress : undefined;
 
   return (
     <PublicLandingLogo

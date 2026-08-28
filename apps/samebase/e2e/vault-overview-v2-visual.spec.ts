@@ -44,7 +44,12 @@ async function openVaultOverviewV2(
   });
   await page.waitForLoadState("networkidle");
 
-  const fixture = page.getByTestId(mode);
+  const fixture =
+    mode === "vault-overview-v2-convex-schema"
+      ? page.getByTestId(mode)
+      : mode.includes("-dialog") || mode === "vault-overview-v2-cloudflare-builds-repair"
+        ? page.getByRole("dialog")
+        : page.locator('[data-workspace-layout-part="root"]');
   await expect(fixture).toBeVisible();
   return fixture;
 }

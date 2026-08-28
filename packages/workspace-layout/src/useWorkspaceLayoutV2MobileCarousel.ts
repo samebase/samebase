@@ -15,9 +15,7 @@ import {
   type MobilePane,
   type WorkspaceLayoutV2MobileMergedSide,
 } from "./WorkspaceLayoutV2Geometry.ts";
-import { useWorkspaceLayoutV2Actions, type WorkspaceMobilePane } from "./WorkspacePaneRuntime.tsx";
-
-const REDUCED_MOTION_MEDIA_QUERY = "(prefers-reduced-motion: reduce)";
+import { useWorkspaceLayoutV2Actions } from "./WorkspacePaneRuntime.tsx";
 
 export function useWorkspaceLayoutV2MobileCarouselController({
   activeGripResizeSideRef,
@@ -29,7 +27,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
   mainWidthPx,
   mergedSurfaceSide,
   mobilePane,
-  mobilePaneNavigationRequest,
   rightWidthPx,
   setMobilePane,
   viewportWidthPx,
@@ -43,25 +40,18 @@ export function useWorkspaceLayoutV2MobileCarouselController({
   mainWidthPx: number;
   mergedSurfaceSide: WorkspaceLayoutV2MobileMergedSide | null;
   mobilePane: MobilePane;
-  mobilePaneNavigationRequest: WorkspaceMobilePane | null;
   rightWidthPx: number;
   setMobilePane: Dispatch<SetStateAction<MobilePane>>;
   viewportWidthPx: number;
 }) {
   const hasAlignedInitialMobilePaneRef = useRef(false);
-  const handledMobilePaneNavigationRequestRef = useRef<WorkspaceMobilePane | null>(null);
   const scrollDerivedMobilePaneRef = useRef<MobilePane | null>(null);
-  const { setIsMobilePaneSettled, setMobilePaneNavigationRequest, setMobilePaneScrollProgress } =
-    useWorkspaceLayoutV2Actions();
+  const { setIsMobilePaneSettled, setMobilePaneScrollProgress } = useWorkspaceLayoutV2Actions();
   const setIsMobilePaneSettledEffect = useEffectEvent((isSettled: boolean) => {
     setIsMobilePaneSettled(isSettled);
   });
   const setMobilePaneScrollProgressEffect = useEffectEvent((progress: number) => {
     setMobilePaneScrollProgress(progress);
-  });
-  const finishMobilePaneNavigationRequestEffect = useEffectEvent(() => {
-    handledMobilePaneNavigationRequestRef.current = null;
-    setMobilePaneNavigationRequest(null);
   });
   const canSyncScroll = isMobile && viewportWidthPx > 0 && mainWidthPx > 0;
   const syncPaneFromScroll = useEffectEvent((carouselNode: HTMLDivElement) => {
@@ -103,10 +93,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
       viewportWidthPx,
     });
     setIsMobilePaneSettled(isScrollSettled);
-    if (isScrollSettled && mobilePaneNavigationRequest === nextPane) {
-      handledMobilePaneNavigationRequestRef.current = null;
-      setMobilePaneNavigationRequest(null);
-    }
     if (mergedSurfaceSide !== null && !isScrollSettled) {
       return;
     }
@@ -130,7 +116,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
     }
 
     hasAlignedInitialMobilePaneRef.current = false;
-    handledMobilePaneNavigationRequestRef.current = null;
     scrollDerivedMobilePaneRef.current = null;
     setIsMobilePaneSettledEffect(true);
   }, [isMobile]);
@@ -167,54 +152,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
       return;
     }
 
-    if (
-      mobilePaneNavigationRequest !== null &&
-      handledMobilePaneNavigationRequestRef.current !== mobilePaneNavigationRequest
-    ) {
-      handledMobilePaneNavigationRequestRef.current = mobilePaneNavigationRequest;
-      const requestedPaneIsAvailable =
-        mobilePaneNavigationRequest === "main" ||
-        (mobilePaneNavigationRequest === "left" && hasLeftPane) ||
-        (mobilePaneNavigationRequest === "right" && hasRightPane);
-      if (!requestedPaneIsAvailable) {
-        handledMobilePaneNavigationRequestRef.current = null;
-        setMobilePaneNavigationRequest(null);
-        return;
-      }
-
-      const requestedScrollLeftPx = getMobilePaneScrollLeftPx(mobilePaneNavigationRequest, {
-        hasLeftPane,
-        hasRightPane,
-        leftWidthPx,
-        mainWidthPx,
-        mergedSurfaceSide,
-        rightWidthPx,
-        viewportWidthPx,
-      });
-      if (
-        window.matchMedia(REDUCED_MOTION_MEDIA_QUERY).matches ||
-        Math.abs(carouselNode.scrollLeft - requestedScrollLeftPx) < 1
-      ) {
-        carouselNode.scrollLeft = requestedScrollLeftPx;
-        setMobilePane(mobilePaneNavigationRequest);
-        setIsMobilePaneSettledEffect(true);
-        handledMobilePaneNavigationRequestRef.current = null;
-        setMobilePaneNavigationRequest(null);
-        return;
-      }
-
-      setIsMobilePaneSettledEffect(false);
-      carouselNode.scrollTo({
-        behavior: "smooth",
-        left: requestedScrollLeftPx,
-      });
-      return;
-    }
-
-    if (mobilePaneNavigationRequest !== null) {
-      return;
-    }
-
     if (scrollDerivedMobilePaneRef.current === mobilePane) {
       scrollDerivedMobilePaneRef.current = null;
       return;
@@ -232,10 +169,7 @@ export function useWorkspaceLayoutV2MobileCarouselController({
     mainWidthPx,
     mergedSurfaceSide,
     mobilePane,
-    mobilePaneNavigationRequest,
     rightWidthPx,
-    setMobilePane,
-    setMobilePaneNavigationRequest,
     viewportWidthPx,
   ]);
 
@@ -262,7 +196,6 @@ export function useWorkspaceLayoutV2MobileCarouselController({
       }
       settleTimeoutId = window.setTimeout(() => {
         syncCurrentPaneFromScroll();
-        finishMobilePaneNavigationRequestEffect();
       }, 80);
     };
 

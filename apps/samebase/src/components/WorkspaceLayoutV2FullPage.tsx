@@ -1,16 +1,20 @@
-import { type ReactNode } from "react";
-import { Button } from "@/components/ui/button";
-import { PanelLeft, PanelRight } from "lucide-react";
+import {
+  WorkspaceLayoutV2,
+  type WorkspaceLayoutV2ResizeHandleLabels,
+  type WorkspaceLayoutV2ResizeHandleValueTextFormatter,
+} from "@samebase/workspace-layout";
+import type { WorkspaceLayoutV2MobileMinResizeBehavior } from "@samebase/workspace-layout/geometry";
 import {
   WorkspaceLayoutV2PaneFrame,
   type WorkspaceLayoutV2PaneFrameProps,
-} from "./WorkspaceLayoutV2PaneFrame";
-import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "./WorkspaceLayoutV2Geometry";
-import { WorkspaceLayoutV2 } from "./WorkspaceLayoutV2";
-import { useWorkspacePaneActions } from "./WorkspacePaneRuntime";
+} from "@samebase/workspace-layout/pane-frame";
+import { useWorkspacePaneActions } from "@samebase/workspace-layout/runtime";
+import { PanelLeft, PanelRight } from "lucide-react";
+import { type ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 
 /**
- * all = shows sidebar toggle on mobile an desktop
+ * all = shows sidebar toggle on mobile and desktop
  *
  * desktop = shows sidebar toggle on desktop only
  *
@@ -22,7 +26,12 @@ const TOGGLE_BUTTON_CLASS_NAMES = {
   all: "h-8 w-8 rounded-none",
   desktop: "hidden h-8 w-8 md:inline-flex",
 } as const satisfies Record<Exclude<WorkspaceLayoutV2ToggleVisibility, "hidden">, string>;
-const WORKSPACE_LAYOUT_V2_MAIN_PANE_HEADER_TEST_ID = "workspace-layout-v2-main-pane-header";
+const WORKSPACE_LAYOUT_V2_RESIZE_HANDLE_LABELS = {
+  left: "Resize left sidebar",
+  right: "Resize right sidebar",
+} satisfies WorkspaceLayoutV2ResizeHandleLabels;
+const formatWorkspaceLayoutV2ResizeHandleValueText: WorkspaceLayoutV2ResizeHandleValueTextFormatter =
+  ({ widthPx }) => `${widthPx} pixels wide`;
 
 function WorkspaceLayoutV2MainPaneHeader({
   children,
@@ -76,7 +85,6 @@ function WorkspaceLayoutV2MainPaneHeader({
 
 export function WorkspaceLayoutV2FullPage({
   addressChrome,
-  dataTestId,
   left,
   main,
   mobileMinResizeBehavior = "min_resize_to_merge",
@@ -85,7 +93,6 @@ export function WorkspaceLayoutV2FullPage({
   rightToggleVisibility = "desktop",
 }: {
   addressChrome: ReactNode;
-  dataTestId?: string;
   left?: WorkspaceLayoutV2PaneFrameProps;
   main: WorkspaceLayoutV2PaneFrameProps;
   mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
@@ -106,11 +113,11 @@ export function WorkspaceLayoutV2FullPage({
   return (
     <WorkspaceLayoutV2
       addressChrome={addressChrome}
+      formatResizeHandleValueText={formatWorkspaceLayoutV2ResizeHandleValueText}
       left={left ? <WorkspaceLayoutV2PaneFrame {...left} /> : undefined}
       main={
         <WorkspaceLayoutV2PaneFrame
           {...main}
-          headerTestId={main.headerTestId ?? WORKSPACE_LAYOUT_V2_MAIN_PANE_HEADER_TEST_ID}
           headerVisibility={main.headerVisibility ?? mainHeaderVisibility}
           scrollRestorationId="workspace-layout-v2-main"
           header={
@@ -126,8 +133,8 @@ export function WorkspaceLayoutV2FullPage({
         />
       }
       mobileMinResizeBehavior={mobileMinResizeBehavior}
+      resizeHandleLabels={WORKSPACE_LAYOUT_V2_RESIZE_HANDLE_LABELS}
       right={right ? <WorkspaceLayoutV2PaneFrame {...right} /> : undefined}
-      dataTestId={dataTestId}
     />
   );
 }

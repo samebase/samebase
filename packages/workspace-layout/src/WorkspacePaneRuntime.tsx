@@ -32,7 +32,6 @@ export type WorkspacePaneState = WorkspaceSidebarState & {
 };
 
 export type WorkspacePaneActions = {
-  openRightPane: () => void;
   setLeftDesktopOpen: Dispatch<SetStateAction<boolean>>;
   setLeftDesktopWidthPx: Dispatch<SetStateAction<number>>;
   setLeftMobileWidthPx: Dispatch<SetStateAction<number>>;
@@ -55,7 +54,6 @@ export type WorkspaceLayoutV2LocalStoreState = {
   mobile: {
     grip: WorkspaceLayoutV2MobileGrip;
     isPaneSettled: boolean;
-    paneNavigationRequest: WorkspaceMobilePane | null;
     paneScrollProgress: number;
   };
   viewportSize: {
@@ -69,7 +67,6 @@ const WORKSPACE_LAYOUT_V2_LOCAL_STORE_INITIAL_STATE: WorkspaceLayoutV2LocalStore
   mobile: {
     grip: WORKSPACE_LAYOUT_V2_IDLE_MOBILE_GRIP,
     isPaneSettled: true,
-    paneNavigationRequest: null,
     paneScrollProgress: 0,
   },
   viewportSize: {
@@ -125,16 +122,6 @@ function useCreateWorkspaceLayoutV2Store() {
           : {
               ...state,
               mobile: { ...state.mobile, paneScrollProgress },
-            },
-      );
-    },
-    setMobilePaneNavigationRequest: (paneNavigationRequest: WorkspaceMobilePane | null) => {
-      setState((state) =>
-        state.mobile.paneNavigationRequest === paneNavigationRequest
-          ? state
-          : {
-              ...state,
-              mobile: { ...state.mobile, paneNavigationRequest },
             },
       );
     },
@@ -221,7 +208,6 @@ export function WorkspacePaneRuntimeProvider({
 }: WorkspacePaneRuntimeProviderProps) {
   const isMobile = useIsMobileWorkspaceLayout();
   const workspaceLayoutStore = useCreateWorkspaceLayoutV2Store();
-  const { setMobilePaneNavigationRequest } = workspaceLayoutStore.actions;
 
   const updatePaneState = useCallback(
     <Key extends keyof WorkspaceSidebarState>(
@@ -384,15 +370,6 @@ export function WorkspacePaneRuntimeProvider({
 
     setRightDesktopOpen((currentOpen) => !currentOpen);
   }, [isMobile, setMobilePane, setRightDesktopOpen]);
-  const openRightPane = useCallback(() => {
-    if (isMobile) {
-      setMobilePaneNavigationRequest("right");
-      return;
-    }
-
-    setRightDesktopOpen(true);
-  }, [isMobile, setMobilePaneNavigationRequest, setRightDesktopOpen]);
-
   const workspacePaneState = useMemo<WorkspacePaneState>(
     () => ({
       isMobile,
@@ -419,7 +396,6 @@ export function WorkspacePaneRuntimeProvider({
   );
   const workspacePaneActions = useMemo<WorkspacePaneActions>(
     () => ({
-      openRightPane,
       setLeftDesktopOpen,
       setLeftDesktopWidthPx,
       setLeftMobileWidthPx,
@@ -433,7 +409,6 @@ export function WorkspacePaneRuntimeProvider({
       toggleRightPane,
     }),
     [
-      openRightPane,
       setLeftDesktopOpen,
       setLeftDesktopWidthPx,
       setLeftMobileWidthPx,

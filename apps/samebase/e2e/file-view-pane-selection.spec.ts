@@ -30,10 +30,10 @@ test("file selections keep the mobile left pane open", async ({ page }, testInfo
   await seedVisualFixtureWorkspaceSidebarState(page, { mobilePane: "left" });
   await page.goto(route, { waitUntil: "domcontentloaded" });
 
-  const workspace = page.locator("[data-workspace-layout-v2]");
+  const workspace = page.locator('[data-workspace-layout-part="viewport"]');
   await expect(workspace).toHaveAttribute("data-mobile-pane", "left");
   await page
-    .getByTestId("workspace-layout-v2-pane-left")
+    .locator('[data-workspace-layout-part="pane"][data-pane-side="left"]')
     .getByText("README.md", { exact: true })
     .click();
 

@@ -22,7 +22,7 @@ function getLegalShellScreenshotOptions(page: Page) {
 
 async function expectPublicRouteRightSidebarAccount(page: Page) {
   const accountSection = page
-    .getByTestId("workspace-layout-v2-pane-right")
+    .locator('[data-workspace-layout-part="pane"][data-pane-side="right"]')
     .getByTestId(PUBLIC_LANDING_ACCOUNT_SECTION_TEST_ID);
 
   await expect(accountSection).toBeVisible();
@@ -40,9 +40,8 @@ async function readTermsRouteState(page: Page) {
 
   return await page.evaluate(() => ({
     hasWorkspaceLeft:
-      document.querySelector('[data-testid="workspace-layout-v2-pane-left"]') !== null,
-    hasWorkspaceMain:
-      document.querySelector('[data-testid="workspace-layout-v2-pane-main"]') !== null,
+      document.querySelector('[data-workspace-layout-part="pane"][data-pane-side="left"]') !== null,
+    hasWorkspaceMain: document.querySelector('[data-workspace-layout-part="carousel"]') !== null,
     headingClassName: document.querySelector("h1")?.getAttribute("class") ?? null,
     title: document.title,
   }));
@@ -58,7 +57,7 @@ test("direct terms loads use the same routed app surface as client navigation", 
   await expect(page).toHaveURL(/\/terms$/);
   const clientNavigationState = await readTermsRouteState(page);
   await expectPublicRouteRightSidebarAccount(page);
-  await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
+  await expect(page.locator('[data-workspace-layout-part="carousel"]')).toHaveScreenshot(
     "terms-shell.png",
     getLegalShellScreenshotOptions(page),
   );
@@ -66,7 +65,7 @@ test("direct terms loads use the same routed app surface as client navigation", 
   await page.goto("/terms", { waitUntil: "networkidle" });
   const directLoadState = await readTermsRouteState(page);
   await expectPublicRouteRightSidebarAccount(page);
-  await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
+  await expect(page.locator('[data-workspace-layout-part="carousel"]')).toHaveScreenshot(
     "terms-shell.png",
     getLegalShellScreenshotOptions(page),
   );
@@ -81,7 +80,9 @@ test("public legal routes share the public account right sidebar", async ({ page
   await page.setViewportSize({ width: 1280, height: 900 });
 
   await page.goto("/terms", { waitUntil: "networkidle" });
-  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+  await expect(
+    page.locator('[data-workspace-layout-part="pane"][data-pane-side="left"]'),
+  ).toHaveCount(0);
   const accountSection = await expectPublicRouteRightSidebarAccount(page);
   await expect(accountSection).toHaveScreenshot("public-route-right-sidebar-account.png", {
     ...legalShellScreenshotOptions,
@@ -90,9 +91,11 @@ test("public legal routes share the public account right sidebar", async ({ page
 
   await page.goto("/privacy", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "Privacy Policy" })).toBeVisible();
-  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+  await expect(
+    page.locator('[data-workspace-layout-part="pane"][data-pane-side="left"]'),
+  ).toHaveCount(0);
   await expectPublicRouteRightSidebarAccount(page);
-  await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
+  await expect(page.locator('[data-workspace-layout-part="carousel"]')).toHaveScreenshot(
     "privacy-shell.png",
     getLegalShellScreenshotOptions(page),
   );

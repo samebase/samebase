@@ -25,7 +25,6 @@ import {
   prosemarkHiddenCursorTheme,
   prosemarkSurfaceTheme,
 } from "@/components/prosemarkSurface";
-import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
 import {
   getCodeMirrorFileLanguageKind,
   getInitialCodeMirrorLanguageExtension,
@@ -40,7 +39,6 @@ type ProsemarkReadOnlyProps = {
   filePath: string;
   highlightedLineNumbers?: number[];
   lineHighlightTone?: "add" | "remove";
-  mobilePaneDragEnabled?: boolean;
   onChange?: (value: string) => void;
 };
 
@@ -123,7 +121,6 @@ export function ProsemarkReadOnly({
   filePath,
   highlightedLineNumbers = [],
   lineHighlightTone = "add",
-  mobilePaneDragEnabled = false,
   onChange,
 }: ProsemarkReadOnlyProps) {
   const { theme, systemTheme } = useTheme();
@@ -131,7 +128,6 @@ export function ProsemarkReadOnly({
   const isDark = effectiveTheme === "dark";
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const mobilePaneDrag = useWorkspaceLayoutV2DragSurface(mobilePaneDragEnabled);
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const lastValueRef = useRef(value);
@@ -384,11 +380,7 @@ export function ProsemarkReadOnly({
   }, [value, resizeToContent]);
 
   return (
-    <div
-      ref={containerRef}
-      className={cn("min-h-[1rem]", className)}
-      {...mobilePaneDrag.containerProps}
-    >
+    <div ref={containerRef} className={cn("min-h-[1rem]", className)}>
       <div ref={hostRef} />
     </div>
   );

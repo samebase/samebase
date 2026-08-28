@@ -7,7 +7,6 @@ import { keymap } from "@codemirror/view";
 import { useTheme } from "next-themes";
 import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { printTree } from "@lezer-unofficial/printer";
-import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
 import {
   blurOnOutsidePointerDownExtension,
   collapseSelectionOnBlurExtension,
@@ -68,7 +67,6 @@ export function CodeMirrorFileSurface({
   const initialValueRef = useRef(initialValue);
   const themeRef = useRef(theme);
   const systemThemeRef = useRef(systemTheme);
-  const mobilePaneDrag = useWorkspaceLayoutV2DragSurface(true);
   const languageKind = getCodeMirrorFileLanguageKind(filePath);
   const isAutoHeightSurface = languageKind !== "code";
 
@@ -188,7 +186,6 @@ export function CodeMirrorFileSurface({
       ref={containerRef}
       data-testid={dataTestId}
       className={isAutoHeightSurface ? "relative w-full" : "relative h-full min-h-0 w-full"}
-      {...mobilePaneDrag.containerProps}
     >
       <div
         ref={editorRef}

@@ -37,7 +37,6 @@ export function FileViewMonacoDragVisualFixture({ mode }: { mode: FileViewMonaco
   if (mode === "fileview-monaco-flex-height") {
     return (
       <WorkspaceLayoutV2FixtureFrame
-        dataTestId="fileview-monaco-height-fixture-frame"
         left={{
           header: null,
           content: (
@@ -113,7 +112,6 @@ export function FileViewMonacoDragVisualFixture({ mode }: { mode: FileViewMonaco
 
   return (
     <WorkspaceLayoutV2FixtureFrame
-      dataTestId="fileview-monaco-drag-fixture-frame"
       left={{
         header: null,
         content: (

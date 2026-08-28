@@ -6,7 +6,7 @@ import type {
 
 export const WORKSPACE_LAYOUT_V2_DESKTOP_MIN_WIDTH_PX = 768;
 export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX = 160;
-const DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
+export const WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MAX_WIDTH_RATIO = 0.45;
 export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_PX = 175;
 export const WORKSPACE_LAYOUT_V2_MOBILE_SIDEBAR_MIN_WIDTH_RATIO = 1 / 3;
 export const WORKSPACE_LAYOUT_V2_MOBILE_MAIN_PEEK_WIDTH_PX = 40;
@@ -59,7 +59,7 @@ export function clampNumber(value: number, min: number, max: number) {
 export function getDesktopSidebarMaxWidthPx(viewportWidthPx: number) {
   return Math.max(
     WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
-    Math.round(viewportWidthPx * DESKTOP_SIDEBAR_MAX_WIDTH_RATIO),
+    Math.round(viewportWidthPx * WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MAX_WIDTH_RATIO),
   );
 }
 

@@ -151,10 +151,7 @@ export default defineConfig({
         },
       },
       {
-        files: [
-          "apps/samebase/src/components/workspace-layout-v2/**/*.{ts,tsx}",
-          "packages/workspace-layout/src/**/*.{ts,tsx}",
-        ],
+        files: ["packages/workspace-layout/src/**/*.{ts,tsx}"],
         rules: {
           "react-refresh/only-export-components": "off",
         },

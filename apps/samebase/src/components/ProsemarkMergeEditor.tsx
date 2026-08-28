@@ -18,7 +18,6 @@ import {
   prosemarkHiddenCursorTheme,
   prosemarkSurfaceTheme,
 } from "@/components/prosemarkSurface";
-import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
 import {
   getCodeMirrorFileLanguageKind,
   getInitialCodeMirrorLanguageExtension,
@@ -37,7 +36,6 @@ type ProsemarkMergeEditorProps = {
   className?: string;
   editable?: boolean;
   filePath: string;
-  mobilePaneDragEnabled?: boolean;
   options: ProsemarkMergeEditorOptions;
   onChange?: (value: string) => void;
 };
@@ -111,7 +109,6 @@ export function ProsemarkMergeEditor({
   className,
   editable = false,
   filePath,
-  mobilePaneDragEnabled = false,
   options,
   onChange,
 }: ProsemarkMergeEditorProps) {
@@ -120,7 +117,6 @@ export function ProsemarkMergeEditor({
   const isDark = effectiveTheme === "dark";
   const { allowInlineDiffs, syntaxHighlightDeletions } = options;
   const containerRef = useRef<HTMLDivElement>(null);
-  const mobilePaneDrag = useWorkspaceLayoutV2DragSurface(mobilePaneDragEnabled);
   const hostRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const lastValueRef = useRef(value);
@@ -383,11 +379,7 @@ export function ProsemarkMergeEditor({
   }, [resizeToContent, value]);
 
   return (
-    <div
-      ref={containerRef}
-      className={cn("min-h-[1rem]", className)}
-      {...mobilePaneDrag.containerProps}
-    >
+    <div ref={containerRef} className={cn("min-h-[1rem]", className)}>
       <div ref={hostRef} />
     </div>
   );

@@ -6,7 +6,6 @@ import {
 
 export type WorkspaceLayoutV2ResizeHandleConfig = {
   currentWidthPx: number;
-  dataTestId: string;
   maxWidthPx: number;
   minWidthPx: number;
   onWidthChange: (nextWidthPx: number) => void;
@@ -34,7 +33,6 @@ export function getWorkspaceLayoutV2DesktopResizeHandles(args: {
     args.hasLeftPane && args.leftDesktopOpen
       ? {
           currentWidthPx: args.desktopLeftWidthPx,
-          dataTestId: "workspace-layout-v2-left-resize",
           maxWidthPx: args.desktopSidebarMaxWidthPx,
           minWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
           onWidthChange: (nextWidthPx: number) => {
@@ -53,7 +51,6 @@ export function getWorkspaceLayoutV2DesktopResizeHandles(args: {
     args.hasRightPane && args.rightDesktopOpen
       ? {
           currentWidthPx: args.desktopRightWidthPx,
-          dataTestId: "workspace-layout-v2-right-resize",
           maxWidthPx: args.desktopSidebarMaxWidthPx,
           minWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
           onWidthChange: (nextWidthPx: number) => {
@@ -93,7 +90,6 @@ export function getWorkspaceLayoutV2MobileResizeHandles(args: {
     args.hasLeftPane && args.mobilePane === "left"
       ? {
           currentWidthPx: args.mobileLeftWidthPx,
-          dataTestId: "workspace-layout-v2-left-resize",
           maxWidthPx: args.mobileSidebarMaxWidthPx,
           minWidthPx: args.mobileSidebarMinWidthPx,
           onWidthChange: (nextWidthPx: number) => {
@@ -112,7 +108,6 @@ export function getWorkspaceLayoutV2MobileResizeHandles(args: {
     args.hasRightPane && args.mobilePane === "right"
       ? {
           currentWidthPx: args.mobileRightWidthPx,
-          dataTestId: "workspace-layout-v2-right-resize",
           maxWidthPx: args.mobileSidebarMaxWidthPx,
           minWidthPx: args.mobileSidebarMinWidthPx,
           onWidthChange: (nextWidthPx: number) => {

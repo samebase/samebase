@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { type ViewerOrganization } from "@/lib/organizationContext";
-import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
+import { type WorkspaceLayoutV2PaneFrameProps } from "@samebase/workspace-layout/pane-frame";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { ConvexError } from "convex/values";
 import { createRoot, type Root } from "react-dom/client";

@@ -2,7 +2,7 @@ import { onCleanup, onMount, type JSX } from "solid-js";
 import { MonacoSurface } from "@/components/MonacoSurface";
 import { ProsemarkSurface } from "@/components/ProsemarkSurface";
 import solidLabGuideRaw from "../../../../AGENTS.md?raw";
-import workspaceLayoutSourceRaw from "../../../noter/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx?raw";
+import workspaceLayoutSourceRaw from "../../../../packages/workspace-layout/src/WorkspaceLayoutV2.tsx?raw";
 
 const MOBILE_BREAKPOINT_PX = 768;
 const MOBILE_PANE_PEEK_PX = 32;

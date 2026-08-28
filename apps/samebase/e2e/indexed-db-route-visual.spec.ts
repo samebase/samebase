@@ -78,10 +78,10 @@ test("indexedDB route shows database store keys and formatted values @opt-in", a
 
   await page.goto(INDEXED_DB_ROUTE, { waitUntil: "networkidle" });
 
-  await expect(page.getByTestId("app-workspace")).toBeVisible();
+  await expect(page.locator('[data-workspace-layout-part="root"]')).toBeVisible();
   await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveText(INDEXED_DB_ROUTE);
   await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText(LOCAL_STORAGE_ROUTE);
-  const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
+  const rightSidebar = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
   const accountSection = rightSidebar.getByTestId(AUTHENTICATED_APP_ACCOUNT_SECTION_TEST_ID);
   await expect(accountSection).toBeVisible();
   await expect(
@@ -111,7 +111,7 @@ test("indexedDB route shows database store keys and formatted values @opt-in", a
     `"nested": {\n    "count": 2\n  }`,
   );
   await expect(notesRow.getByTestId("indexed-db-entry-value")).toContainText("line one\nline two");
-  await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
+  await expect(page.locator('[data-workspace-layout-part="carousel"]')).toHaveScreenshot(
     "indexed-db-workspace.png",
     indexedDbRouteScreenshotOptions,
   );

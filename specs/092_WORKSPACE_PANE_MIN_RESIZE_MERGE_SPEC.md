@@ -10,7 +10,7 @@
   - `packages/workspace-layout/src/WorkspaceLayoutV2Geometry.ts`
   - `packages/workspace-layout/src/WorkspaceLayoutV2ResizeHandle.tsx`
   - `packages/workspace-layout/src/useWorkspaceLayoutV2MobileResize.ts`
-  - `packages/workspace-layout/src/WorkspaceLayoutV2.mobile.test.tsx`
+  - `packages/workspace-layout/test/layoutMobile.test.tsx`
   - `apps/samebase/e2e/workspace-sidebar-drag.spec.ts`
   - `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
   - `specs/097_WORKSPACE_MOBILE_MERGE_STATE_PERSISTENCE_SPEC.md`

@@ -34,8 +34,8 @@ const STABLE_WORKSPACE_PREHYDRATION_VISUAL_MASK_STYLE = `
   visibility: hidden !important;
 }
 
-[data-testid="workspace-layout-v2-left-resize"],
-[data-testid="workspace-layout-v2-right-resize"] {
+[data-workspace-layout-part="resize-handle"][data-resize-side="left"],
+[data-workspace-layout-part="resize-handle"][data-resize-side="right"] {
   visibility: hidden !important;
 }
 `;
@@ -152,29 +152,32 @@ async function blockHydrationScripts(page: Page) {
 }
 
 async function getHorizontalSeparatorStyles(page: Page) {
-  return page.locator("[data-workspace-layout-v2-mobile-main-pane-surface]").evaluate((element) => {
-    const readSeparatorStyle = (pseudoElement: "::before" | "::after") => {
-      const styles = window.getComputedStyle(element, pseudoElement);
+  return page
+    .locator('[data-workspace-layout-part="pane"][data-pane-side="main"]')
+    .evaluate((element) => {
+      const readSeparatorStyle = (pseudoElement: "::before" | "::after") => {
+        const styles = window.getComputedStyle(element, pseudoElement);
 
-      if (styles.content === "none") {
-        return null;
-      }
+        if (styles.content === "none") {
+          return null;
+        }
+
+        return {
+          backgroundIsVisible:
+            styles.backgroundColor !== "rgba(0, 0, 0, 0)" &&
+            styles.backgroundColor !== "transparent",
+          heightIsPositive: Number.parseFloat(styles.height) > 0,
+          touchesExpectedEdge:
+            pseudoElement === "::before" ? styles.left === "0px" : styles.right === "0px",
+          width: styles.width,
+        };
+      };
 
       return {
-        backgroundIsVisible:
-          styles.backgroundColor !== "rgba(0, 0, 0, 0)" && styles.backgroundColor !== "transparent",
-        heightIsPositive: Number.parseFloat(styles.height) > 0,
-        touchesExpectedEdge:
-          pseudoElement === "::before" ? styles.left === "0px" : styles.right === "0px",
-        width: styles.width,
+        left: readSeparatorStyle("::before"),
+        right: readSeparatorStyle("::after"),
       };
-    };
-
-    return {
-      left: readSeparatorStyle("::before"),
-      right: readSeparatorStyle("::after"),
-    };
-  });
+    });
 }
 
 async function waitForFonts(page: Page) {
@@ -211,13 +214,13 @@ async function openMobileWorkspacePage({
   });
   await maskHydrationOnlyVisualDifferences(page);
   await waitForFonts(page);
-  await expect(page.locator('[data-workspace-layout-v2="responsive"]').first()).toHaveAttribute(
+  await expect(page.locator('[data-workspace-layout-part="viewport"]').first()).toHaveAttribute(
     "data-mobile-pane",
     scenario.mobilePane,
   );
   if (hydrate) {
-    await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveAttribute(
-      "data-workspace-layout-v2-measured",
+    await expect(page.locator('[data-workspace-layout-part="carousel"]')).toHaveAttribute(
+      "data-viewport-measured",
       "",
     );
   }
@@ -226,7 +229,9 @@ async function openMobileWorkspacePage({
 }
 
 async function getSidebarEdgeX(page: Page, edgePane: "left" | "right") {
-  const paneBox = await page.getByTestId(`workspace-layout-v2-pane-${edgePane}`).boundingBox();
+  const paneBox = await page
+    .locator(`[data-workspace-layout-part="pane"][data-pane-side="${edgePane}"]`)
+    .boundingBox();
   if (paneBox === null) {
     throw new Error(`Expected the ${edgePane} workspace pane to have a bounding box.`);
   }
@@ -337,7 +342,7 @@ for (const scenario of CROSS_SIDE_MERGED_PREHYDRATION_SCENARIOS) {
       waitUntil: "domcontentloaded",
     });
 
-    const layout = page.locator('[data-workspace-layout-v2="responsive"]').first();
+    const layout = page.locator('[data-workspace-layout-part="viewport"]').first();
     await expect(layout).toHaveAttribute("data-mobile-pane", scenario.mobilePane);
     await expect(layout).toHaveAttribute(
       "data-workspace-layout-v2-mobile-merged-side",
@@ -358,7 +363,7 @@ for (const scenario of CROSS_SIDE_MERGED_PREHYDRATION_SCENARIOS) {
       );
 
     const mainPaneBox = await page
-      .locator("[data-workspace-layout-v2-mobile-main-pane-surface]")
+      .locator('[data-workspace-layout-part="pane"][data-pane-side="main"]')
       .boundingBox();
     if (mainPaneBox === null) {
       throw new Error("Expected the prehydrated main pane to have a bounding box.");

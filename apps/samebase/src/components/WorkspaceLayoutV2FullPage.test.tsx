@@ -1,12 +1,10 @@
 import { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
-import { DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX } from "@/lib/workspacePaneSizes";
+import { WorkspaceLayoutV2MemorySidebarProvider } from "@samebase/workspace-layout/testing";
 import { WorkspaceLayoutV2FullPage } from "./WorkspaceLayoutV2FullPage";
-import { WorkspaceLayoutV2MemorySidebarProvider } from "./WorkspaceLayoutV2MemorySidebarProvider";
-import { WorkspaceLayoutV2PaneFrame } from "./WorkspaceLayoutV2PaneFrame";
-import { WorkspaceLayoutV2ResizeHandle } from "./WorkspaceLayoutV2ResizeHandle";
 
+const TEST_SIDEBAR_WIDTH_PX = 256;
 const OMIT_HEADER = Symbol("omit-header");
 const TEST_ADDRESS_CHROME = <div data-testid="test-address-chrome">/test</div>;
 
@@ -21,13 +19,13 @@ function WorkspaceLayoutV2TestSidebarProvider({
     <WorkspaceLayoutV2MemorySidebarProvider
       initialState={{
         leftDesktopOpen: true,
-        leftDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-        leftMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+        leftDesktopWidthPx: TEST_SIDEBAR_WIDTH_PX,
+        leftMobileWidthPx: TEST_SIDEBAR_WIDTH_PX,
         mobilePane: "main",
         mobileSurface: { kind: "unmerged" },
         rightDesktopOpen: rightOpen,
-        rightDesktopWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
-        rightMobileWidthPx: DEFAULT_WORKSPACE_SIDEBAR_WIDTH_PX,
+        rightDesktopWidthPx: TEST_SIDEBAR_WIDTH_PX,
+        rightMobileWidthPx: TEST_SIDEBAR_WIDTH_PX,
       }}
     >
       {children}
@@ -47,12 +45,10 @@ function renderFullPageMarkup({
   const mainProps =
     mainHeader === OMIT_HEADER
       ? {
-          headerTestId: "main-header-row",
           content: <div>main pane</div>,
         }
       : {
           header: mainHeader,
-          headerTestId: "main-header-row",
           content: <div>main pane</div>,
         };
 
@@ -81,25 +77,13 @@ function renderFullPageMarkup({
 }
 
 describe("WorkspaceLayoutV2FullPage", () => {
-  it("server-renders one responsive pane tree instead of mobile and desktop branches", () => {
+  it("maps app pane content into the package layout", () => {
     const markup = renderFullPageMarkup({});
 
-    expect(markup).toContain('data-workspace-layout-v2="responsive"');
-    expect(markup).not.toContain('data-workspace-layout-v2="mobile"');
-    expect(markup).not.toContain('data-workspace-layout-v2="desktop"');
-    expect((markup.match(/data-testid="workspace-layout-v2-pane-left"/g) ?? []).length).toBe(1);
-    expect((markup.match(/data-testid="workspace-layout-v2-pane-main"/g) ?? []).length).toBe(1);
-    expect((markup.match(/data-testid="workspace-layout-v2-pane-right"/g) ?? []).length).toBe(1);
-    expect(markup).toContain("workspace-layout-v2-responsive-viewport");
-    expect(markup).toContain("workspace-layout-v2-responsive-left-pane");
-    expect(markup).toContain("workspace-layout-v2-responsive-main-pane");
-    expect(markup).toContain("workspace-layout-v2-responsive-right-pane");
-    expect(markup).toContain('style="width:var(--workspace-layout-v2-left-mobile-width, 0px)"');
-    expect(markup).toContain('style="width:var(--workspace-layout-v2-main-mobile-width, 100vw)"');
-    expect(markup).toContain('style="width:var(--workspace-layout-v2-right-mobile-width, 0px)"');
-    expect(markup).toContain('data-workspace-layout-v2-mobile-separator-pane="left"');
-    expect(markup).toContain('data-workspace-layout-v2-mobile-separator-pane="main"');
-    expect(markup).toContain('data-workspace-layout-v2-mobile-separator-pane="right"');
+    expect(markup).toContain('data-workspace-layout-part="viewport"');
+    expect(markup).toContain("left pane");
+    expect(markup).toContain("main pane");
+    expect(markup).toContain("right pane");
   });
 
   it("keeps main header content rendered while sidebar toggles stay desktop-only", () => {
@@ -123,8 +107,29 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
     expect(markup).toContain('data-testid="main-header-actions"');
     expect(markup).toContain("/logo");
+    expect(markup).toContain('data-header-visibility="all"');
     expect(markup).not.toContain("hidden justify-between md:flex");
     expect((markup.match(/hidden h-8 w-8 md:inline-flex/g) ?? []).length).toBe(2);
+  });
+
+  it("makes both pane toggles available at every viewport only when requested", () => {
+    const markup = renderToStaticMarkup(
+      <WorkspaceLayoutV2TestSidebarProvider>
+        <WorkspaceLayoutV2FullPage
+          addressChrome={TEST_ADDRESS_CHROME}
+          left={{ content: <div>left pane</div> }}
+          leftToggleVisibility="all"
+          main={{ content: <div>main pane</div> }}
+          right={{ content: <div>right pane</div> }}
+          rightToggleVisibility="all"
+        />
+      </WorkspaceLayoutV2TestSidebarProvider>,
+    );
+
+    expect(markup).toContain('aria-label="Toggle sidebar"');
+    expect(markup).toContain('aria-label="Toggle Right Sidebar"');
+    expect((markup.match(/h-8 w-8 rounded-none/g) ?? []).length).toBe(2);
+    expect(markup).toContain('data-header-visibility="all"');
   });
 
   it("renders address chrome above the pane viewport", () => {
@@ -139,8 +144,8 @@ describe("WorkspaceLayoutV2FullPage", () => {
       </WorkspaceLayoutV2TestSidebarProvider>,
     );
 
-    const addressIndex = markup.indexOf('data-testid="workspace-layout-v2-address-chrome"');
-    const viewportIndex = markup.indexOf('data-workspace-layout-v2="responsive"');
+    const addressIndex = markup.indexOf('data-workspace-layout-part="address-chrome"');
+    const viewportIndex = markup.indexOf('data-workspace-layout-part="viewport"');
 
     expect(addressIndex).toBeGreaterThanOrEqual(0);
     expect(markup).toContain('data-testid="address-chrome-content"');
@@ -165,7 +170,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
     expect(markup).toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).not.toContain("right pane");
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(markup).not.toContain('data-pane-side="right"');
     expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
     expect((markup.match(/hidden h-8 w-8 md:inline-flex/g) ?? []).length).toBe(1);
   });
@@ -176,7 +181,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain("main pane");
     expect(markup).toContain("right pane");
     expect(markup).not.toContain("left pane");
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
+    expect(markup).not.toContain('data-pane-side="left"');
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).toContain('aria-label="Toggle Right Sidebar"');
   });
@@ -187,7 +192,8 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain("main pane");
     expect(markup).toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).toContain('aria-label="Toggle Right Sidebar"');
-    expect(markup).toContain('data-testid="main-header-row"');
+    expect(markup).toContain('data-workspace-layout-part="pane-header"');
+    expect(markup).toContain('data-header-visibility="desktop"');
   });
 
   it("can hide the left toggle and collapse an otherwise empty header row", () => {
@@ -208,7 +214,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
 
     expect(markup).toContain("main pane");
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-main-pane-header"');
+    expect(markup).not.toContain('data-workspace-layout-part="pane-header"');
   });
 
   it("can hide the right toggle and collapse an otherwise empty header row", () => {
@@ -234,7 +240,7 @@ describe("WorkspaceLayoutV2FullPage", () => {
     expect(markup).toContain("right pane");
     expect(markup).not.toContain('aria-label="Toggle Left Sidebar"');
     expect(markup).not.toContain('aria-label="Toggle Right Sidebar"');
-    expect(markup).not.toContain('data-testid="workspace-layout-v2-main-pane-header"');
+    expect(markup).not.toContain('data-workspace-layout-part="pane-header"');
   });
 
   it("treats omitted and null main headers the same outside mobile mode", () => {
@@ -242,74 +248,5 @@ describe("WorkspaceLayoutV2FullPage", () => {
     const nullHeaderMarkup = renderFullPageMarkup({ mainHeader: null });
 
     expect(omittedHeaderMarkup).toBe(nullHeaderMarkup);
-  });
-
-  it("can skip the reserved header row when a pane intentionally has no header", () => {
-    const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2PaneFrame
-        content={<div>public pane</div>}
-        headerTestId="public-pane-header"
-      />,
-    );
-
-    expect(markup).toContain("public pane");
-    expect(markup).not.toContain('data-testid="public-pane-header"');
-  });
-
-  it("keeps idle grip handles visually unobtrusive", () => {
-    const markup = renderToStaticMarkup(
-      <WorkspaceLayoutV2ResizeHandle
-        currentSizePx={280}
-        dataTestId="workspace-layout-v2-left-resize"
-        maxSizePx={480}
-        minSizePx={160}
-        onSizeChange={() => {}}
-        pointerTarget="grip"
-        positionPx={280}
-        resizeFrom="left"
-      />,
-    );
-
-    expect(markup).toContain('data-testid="workspace-layout-v2-left-resize"');
-    expect(markup).toContain("h-16 w-8");
-    expect(markup).toContain("data-workspace-layout-v2-resize-grip-dots");
-    expect(markup).toContain("text-foreground/70");
-    expect(markup).toContain("h-[3px] w-[3px]");
-    expect(markup).not.toContain("border-border");
-    expect(markup).not.toContain("bg-background");
-  });
-
-  it("keeps mobile sidebar grip tracks and dots centered", () => {
-    const leftMarkup = renderToStaticMarkup(
-      <WorkspaceLayoutV2ResizeHandle
-        currentSizePx={280}
-        dataTestId="workspace-layout-v2-left-resize"
-        maxSizePx={480}
-        minSizePx={160}
-        onSizeChange={() => {}}
-        pointerTarget="grip"
-        positionPx={280}
-        resizeFrom="left"
-      />,
-    );
-    const rightMarkup = renderToStaticMarkup(
-      <WorkspaceLayoutV2ResizeHandle
-        currentSizePx={280}
-        dataTestId="workspace-layout-v2-right-resize"
-        maxSizePx={480}
-        minSizePx={160}
-        onSizeChange={() => {}}
-        pointerTarget="grip"
-        positionPx={120}
-        resizeFrom="right"
-      />,
-    );
-
-    expect(leftMarkup).toContain("inset-y-0 w-8 -translate-x-1/2");
-    expect(leftMarkup).not.toContain("translate-x-0.5");
-    expect(leftMarkup).not.toContain("-translate-x-0.5");
-    expect(rightMarkup).toContain("inset-y-0 w-8 -translate-x-1/2");
-    expect(rightMarkup).not.toContain("translate-x-0.5");
-    expect(rightMarkup).not.toContain("-translate-x-0.5");
   });
 });

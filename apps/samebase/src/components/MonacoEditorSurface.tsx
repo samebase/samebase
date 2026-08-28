@@ -4,7 +4,6 @@ import type { OnMount } from "@monaco-editor/react";
 import { useTheme } from "next-themes";
 import { useTouchFirstCoarsePointer } from "@/hooks/pointerCapabilities";
 import { buildMonacoFileUri } from "@/lib/monacoFileUri";
-import { useWorkspaceLayoutV2DragSurface } from "@/components/workspace-layout-v2/useWorkspaceLayoutV2DragSurface";
 import {
   CODE_SURFACE_FONT_FAMILY,
   CODE_SURFACE_FONT_SIZE_PX,
@@ -33,11 +32,9 @@ deliberately narrow pane keeps its columns for code.
 const NARROW_PANE_MAX_WIDTH_PX = 448;
 
 /**
- * Shared Monaco wrapper that owns mobile pane drag, pointer-capability chrome
- * (scrollbars, overview ruler), and narrow-pane gutter shedding. The
- * collaborative editor uses it directly, and visual fixtures reuse the same
- * surface so mobile drag coverage exercises the shipped shell handoff instead
- * of a test-only stand-in.
+ * Shared Monaco wrapper that owns pointer-capability chrome (scrollbars and
+ * overview ruler) and narrow-pane gutter shedding. The collaborative editor
+ * and visual fixtures use the same surface.
  */
 export function MonacoEditorSurface({
   branch,
@@ -60,7 +57,6 @@ export function MonacoEditorSurface({
   // is an explicit consumer override past both hide reasons.
   const isCoarsePointer = useTouchFirstCoarsePointer();
   const containerRef = useRef<HTMLDivElement>(null);
-  const mobilePaneDrag = useWorkspaceLayoutV2DragSurface(true);
   const [editorHeightPx, setEditorHeightPx] = useState(MIN_EDITOR_HEIGHT_PX);
   const [isNarrowPane, setIsNarrowPane] = useState(false);
   const showLineNumbers =
@@ -117,7 +113,6 @@ export function MonacoEditorSurface({
         height: "100%",
         minHeight: MIN_EDITOR_HEIGHT_PX,
       }}
-      {...mobilePaneDrag.containerProps}
     >
       <Editor
         height={`${editorHeightPx}px`}

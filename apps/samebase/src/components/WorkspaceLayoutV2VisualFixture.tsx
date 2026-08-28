@@ -9,7 +9,6 @@ const FIXTURE_VAULT_KEY = "workspace-layout-v2-fixture-vault";
 export function WorkspaceLayoutV2VisualFixture() {
   return (
     <WorkspaceLayoutV2FixtureFrame
-      dataTestId="workspace-layout-v2-visual-fixture"
       left={{
         content: (
           <CodeMirrorFileSurface

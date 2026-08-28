@@ -1,6 +1,7 @@
 import type { WorkspaceSidebarState } from "./WorkspaceLayoutV2State.ts";
 import {
   WORKSPACE_LAYOUT_V2_DESKTOP_MIN_WIDTH_PX,
+  WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MAX_WIDTH_RATIO,
   WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
   WORKSPACE_LAYOUT_V2_MOBILE_MAIN_PEEK_WIDTH_PX,
@@ -26,6 +27,7 @@ export type WorkspaceLayoutV2PrehydrationArgs = {
 
 type WorkspaceLayoutV2PrehydrationInlineArgs = WorkspaceLayoutV2PrehydrationArgs & {
   desktopMinWidthPx: number;
+  desktopSidebarMaxWidthRatio: number;
   desktopSidebarMinWidthPx: number;
   mobileMainReachableWidthPx: number;
   mobileMainMinWidthPx: number;
@@ -42,6 +44,7 @@ function getWorkspaceLayoutV2PrehydrationInlineArgs(
   return {
     ...args,
     desktopMinWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_MIN_WIDTH_PX,
+    desktopSidebarMaxWidthRatio: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MAX_WIDTH_RATIO,
     desktopSidebarMinWidthPx: WORKSPACE_LAYOUT_V2_DESKTOP_SIDEBAR_MIN_WIDTH_PX,
     mobileMainReachableWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_PEEK_WIDTH_PX,
     mobileMainMinWidthPx: WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX,
@@ -51,17 +54,17 @@ function getWorkspaceLayoutV2PrehydrationInlineArgs(
 }
 
 /**
-This function is serialized with Function#toString and emitted as a classic
-inline head script before React hydration. Keep the body self-contained: it can
-only reference browser globals, values passed through args, and helper functions
-serialized into the call site.
+This function is serialized with Function#toString and rendered after the
+workspace layout markup. Keep the body self-contained: it can only reference
+browser globals, values passed through args, and helper functions serialized
+into the call site.
 
 The script exists because static server markup cannot read consumer pane state.
 The initial markup therefore uses default widths and separator state. This
-script reads the consumer state before hydration and applies a temporary
-stylesheet for the first desktop paint. A closed prehydrated pane must have zero
-layout width and no structural separator, so the pane controls do not move when
-React takes ownership.
+script reads the consumer state before hydration, measures the rendered
+carousel, and applies a temporary stylesheet for the first desktop paint. A
+closed prehydrated pane must have zero layout width and no structural separator,
+so the pane controls do not move when React takes ownership.
 
 The stylesheet targets the server-rendered pane elements directly instead of
 writing custom properties on documentElement. The viewport markup has its own
@@ -72,73 +75,124 @@ The temporary rules use important widths because the server markup contains
 inline mobile widths. The measured marker stops these rules as soon as React
 owns the rendered geometry.
 
-The selector must include the measured-viewport guard. React adds
-data-viewport-measured after ResizeObserver reports the viewport size. Once
-that attribute is present, the temporary stylesheet no longer
-matches, and the panes use React's live inline widths for resizing and normal
-layout updates.
+The script gives its carousel a private scope value so several layouts can use
+different consumer state in one document. The selector must also include the
+measured-viewport guard. React adds data-viewport-measured after ResizeObserver
+reports the viewport size. Once that attribute is present, the temporary
+stylesheet no longer matches, and the panes use React's live inline widths for
+resizing and normal layout updates.
 */
 function InlineScript_prehydrateWorkspaceLayoutV2DesktopSidebar(
   args: WorkspaceLayoutV2PrehydrationInlineArgs,
   readState: WorkspaceLayoutV2PrehydrationStateReader,
 ) {
   function installPrehydrationStyle({
+    carouselNode,
     left,
     right,
   }: {
+    carouselNode: Element;
     left: { width: string; open: boolean };
     right: { width: string; open: boolean };
   }) {
-    // This attribute is the ownership boundary: before measurement, the head
+    const carouselScopeAttribute = "data-workspace-layout-desktop-prehydration-scope";
+    const styleScopeAttribute = "data-workspace-layout-desktop-prehydration-style-scope";
+    const scopeValue = `workspace-${encodeURIComponent(args.desktopStyleElementId)}`;
+    carouselNode.setAttribute(carouselScopeAttribute, scopeValue);
+    // This attribute is the ownership boundary: before measurement, the inline
     // script may correct the first paint; after measurement, React controls the
     // pane widths.
-    const viewportSelector =
-      '[data-workspace-layout-part="carousel"]:not([data-viewport-measured])';
-    const leftDesktopSeparatorRule = left.open
-      ? ""
-      : `${viewportSelector} [data-workspace-layout-part="pane"][data-pane-side="left"]::after {
-      content: none !important;
-    }`;
-    const rightDesktopSeparatorRule = right.open
-      ? ""
-      : `${viewportSelector} [data-workspace-layout-part="pane"][data-pane-side="right"]::before {
-      content: none !important;
-    }`;
+    const viewportSelector = `[data-workspace-layout-part="carousel"][${carouselScopeAttribute}="${scopeValue}"]:not([data-viewport-measured])`;
     const cssText = `
 @media (min-width: ${args.desktopMinWidthPx}px) {
   ${viewportSelector} [data-workspace-layout-part="pane"][data-pane-side="left"] {
+      border-inline-end-width: ${left.open ? 1 : 0}px !important;
       width: ${left.width} !important;
     }
 
   ${viewportSelector} [data-workspace-layout-part="pane"][data-pane-side="right"] {
+      border-inline-start-width: ${right.open ? 1 : 0}px !important;
       width: ${right.width} !important;
     }
-
-  ${leftDesktopSeparatorRule}
-  ${rightDesktopSeparatorRule}
 }
 `;
 
     const styleElement = document.createElement("style");
     styleElement.id = args.desktopStyleElementId;
+    styleElement.setAttribute(styleScopeAttribute, scopeValue);
     styleElement.textContent = cssText;
     document.head.append(styleElement);
   }
 
-  function readDesktopWidth(open: boolean, width: number) {
+  function findWorkspaceLayoutCarousel(scriptElement: HTMLScriptElement) {
+    let layoutElement = scriptElement.previousElementSibling;
+    while (layoutElement !== null) {
+      if (layoutElement instanceof window.HTMLElement) {
+        if (layoutElement.matches('[data-workspace-layout-part="carousel"]')) {
+          return layoutElement;
+        }
+
+        const carouselNode = layoutElement.querySelector('[data-workspace-layout-part="carousel"]');
+        if (carouselNode instanceof window.HTMLElement) {
+          return carouselNode;
+        }
+      }
+
+      layoutElement = layoutElement.previousElementSibling;
+    }
+
+    return null;
+  }
+
+  function getViewportWidth(carouselNode: Element) {
+    const width = Math.round(carouselNode.getBoundingClientRect().width);
+
+    return Number.isFinite(width) && width > 0 ? width : Math.max(1, Math.round(window.innerWidth));
+  }
+
+  function readDesktopWidth(open: boolean, width: number, viewportWidthPx: number) {
     if (!open) return "0px";
 
-    return Math.max(args.desktopSidebarMinWidthPx, Math.round(width)) + "px";
+    const maxWidthPx = Math.max(
+      args.desktopSidebarMinWidthPx,
+      Math.round(viewportWidthPx * args.desktopSidebarMaxWidthRatio),
+    );
+
+    return Math.min(Math.max(args.desktopSidebarMinWidthPx, Math.round(width)), maxWidthPx) + "px";
   }
 
   try {
+    if (window.innerWidth < args.desktopMinWidthPx) return;
+
+    const scriptElement = document.currentScript;
+    if (!(scriptElement instanceof window.HTMLScriptElement)) return;
+
+    const carouselNode = findWorkspaceLayoutCarousel(scriptElement);
+    if (carouselNode === null) return;
+
     const state = readState();
     if (state === null) return;
+    if (
+      state.mobileSurface.kind === "merged" &&
+      state.mobileSurface.mainWidthPx < args.mobileMainMinWidthPx
+    ) {
+      return;
+    }
 
-    const leftDesktopWidth = readDesktopWidth(state.leftDesktopOpen, state.leftDesktopWidthPx);
-    const rightDesktopWidth = readDesktopWidth(state.rightDesktopOpen, state.rightDesktopWidthPx);
+    const viewportWidthPx = getViewportWidth(carouselNode);
+    const leftDesktopWidth = readDesktopWidth(
+      state.leftDesktopOpen,
+      state.leftDesktopWidthPx,
+      viewportWidthPx,
+    );
+    const rightDesktopWidth = readDesktopWidth(
+      state.rightDesktopOpen,
+      state.rightDesktopWidthPx,
+      viewportWidthPx,
+    );
 
     installPrehydrationStyle({
+      carouselNode,
       left: { width: leftDesktopWidth, open: state.leftDesktopOpen },
       right: { width: rightDesktopWidth, open: state.rightDesktopOpen },
     });
@@ -150,12 +204,11 @@ This function is serialized with Function#toString and rendered after the
 workspace layout markup. It runs before TanStack's client scripts, when the
 carousel DOM exists but React has not hydrated it yet.
 
-Desktop prehydration can live in the document head because it only installs CSS
-for future elements. Mobile pane selection must run after the workspace layout
-markup because it scrolls the native carousel that already exists in the SSG
-HTML. Static output can include framework scripts between the layout root and
-this script, so the script walks preceding siblings until it finds the workspace
-carousel.
+Both prehydration scripts run after the workspace layout markup. Desktop
+prehydration measures and scopes its exact carousel. Mobile pane selection
+scrolls that native carousel before hydration. Static output can include
+framework scripts between the layout root and this script, so the script walks
+preceding siblings until it finds the workspace carousel.
 
 Mobile merged and unmerged states share the same pane DOM. Merged state changes
 the measured widths, the selected scroll offset, and one root marker attribute;
@@ -228,6 +281,7 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
   }
 
   function getMergedMobileSurface({
+    canDisplayMergedSurface,
     hasLeftPane,
     hasRightPane,
     leftWidthPx,
@@ -236,6 +290,7 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     state,
     viewportWidthPx,
   }: {
+    canDisplayMergedSurface: boolean;
     hasLeftPane: boolean;
     hasRightPane: boolean;
     leftWidthPx: number;
@@ -244,7 +299,13 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
     state: WorkspaceLayoutV2PrehydrationState;
     viewportWidthPx: number;
   }) {
-    if (state.mobileSurface.kind !== "merged" || mobilePane === "main") return null;
+    if (
+      !canDisplayMergedSurface ||
+      state.mobileSurface.kind !== "merged" ||
+      mobilePane === "main"
+    ) {
+      return null;
+    }
 
     const mergedSurfaceSide = state.mobileSurface.side;
     const hasMergedPane =
@@ -331,6 +392,12 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
 
     const state = readState();
     if (state === null) return;
+    if (
+      state.mobileSurface.kind === "merged" &&
+      state.mobileSurface.mainWidthPx < args.mobileMainMinWidthPx
+    ) {
+      return;
+    }
 
     const hasLeftPane =
       carouselNode.querySelector('[data-workspace-layout-part="pane"][data-pane-side="left"]') !==
@@ -356,6 +423,8 @@ function InlineScript_prehydrateWorkspaceLayoutV2MobilePane(
       ? getSidebarWidth(state.rightMobileWidthPx, sidebarMaxWidthPx, viewportWidthPx)
       : 0;
     const mergedSurface = getMergedMobileSurface({
+      canDisplayMergedSurface:
+        layoutRoot.getAttribute("data-mobile-min-resize-behavior") === "min_resize_to_merge",
       hasLeftPane,
       hasRightPane,
       leftWidthPx,
@@ -402,5 +471,17 @@ export function buildWorkspaceLayoutV2MobilePanePrehydrationScript(
 export function clearWorkspaceLayoutV2DesktopPrehydrationStyle(
   args: WorkspaceLayoutV2PrehydrationArgs,
 ) {
-  document.getElementById(args.desktopStyleElementId)?.remove();
+  const carouselScopeAttribute = "data-workspace-layout-desktop-prehydration-scope";
+  const styleScopeAttribute = "data-workspace-layout-desktop-prehydration-style-scope";
+  const styleElement = document.getElementById(args.desktopStyleElementId);
+  const scopeValue = styleElement?.getAttribute(styleScopeAttribute);
+  if (scopeValue) {
+    for (const carouselNode of document.querySelectorAll(`[${carouselScopeAttribute}]`)) {
+      if (carouselNode.getAttribute(carouselScopeAttribute) === scopeValue) {
+        carouselNode.removeAttribute(carouselScopeAttribute);
+      }
+    }
+  }
+
+  styleElement?.remove();
 }

@@ -60,7 +60,7 @@ test("localStorage route shows raw strings and formatted JSON values @opt-in", a
 
   await page.goto(LOCAL_STORAGE_ROUTE, { waitUntil: "networkidle" });
 
-  await expect(page.getByTestId("app-workspace")).toBeVisible();
+  await expect(page.locator('[data-workspace-layout-part="root"]')).toBeVisible();
   await expect(page.getByTestId("local-storage-sidebar-file")).toHaveText(LOCAL_STORAGE_ROUTE);
   await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveText(INDEXED_DB_ROUTE);
   await expect(page.getByTestId("indexed-db-sidebar-file")).toHaveAttribute(
@@ -82,7 +82,7 @@ test("localStorage route shows raw strings and formatted JSON values @opt-in", a
       hasText: "line one\nline two\nline three",
     }),
   ).toBeVisible();
-  await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
+  await expect(page.locator('[data-workspace-layout-part="carousel"]')).toHaveScreenshot(
     "local-storage-workspace.png",
     localStorageRouteScreenshotOptions,
   );
@@ -95,7 +95,7 @@ test("storage sidebar links navigate through the same styled link surface @opt-i
   await signInForLocalStorageRoute(page);
   await page.goto(LOCAL_STORAGE_ROUTE, { waitUntil: "networkidle" });
   const origin = new URL(page.url()).origin;
-  const rightSidebar = page.getByTestId("workspace-layout-v2-pane-right");
+  const rightSidebar = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
   const storageRouteLink = page.getByTestId("indexed-db-sidebar-file");
   const rightSidebarLink = rightSidebar
     .getByTestId(APP_BUILD_STATUS_BAR_TEST_ID)

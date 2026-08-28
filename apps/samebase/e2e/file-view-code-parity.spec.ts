@@ -108,8 +108,8 @@ test("file view code parity fixture keeps ProseMark close to Monaco", async ({
     waitUntil: "domcontentloaded",
   });
 
-  const fixture = page.getByTestId("file-view-code-parity-visual-fixture");
   const editorPanels = page.getByTestId("file-view-code-parity-editor-panels");
+  const fixture = page.locator('[data-workspace-layout-part="root"]').filter({ has: editorPanels });
   const monacoSurface = page.getByTestId("file-view-code-parity-monaco");
   const monacoCapture = page.getByTestId("file-view-code-parity-monaco-capture");
   const prosemarkSurface = page.getByTestId("file-view-code-parity-prosemark");

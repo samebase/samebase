@@ -19,7 +19,9 @@ for (const scenario of SCENARIOS) {
     });
     await page.waitForLoadState("networkidle");
 
-    const fixture = page.getByTestId("file-view-developer-tools-visual-fixture");
+    const fixture = page.locator('[data-workspace-layout-part="root"]').filter({
+      has: page.getByRole("button", { name: "Developer tools", exact: true }),
+    });
     await expect(fixture).toHaveScreenshot(scenario.snapshotName, {
       animations: "disabled",
       caret: "hide",

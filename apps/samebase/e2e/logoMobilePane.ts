@@ -2,11 +2,13 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { dispatchHumanTouchSwipe } from "./touchGestures";
 
 export async function exposeMobileMainPane(page: Page): Promise<void> {
-  const workspaceLayout = page.locator("[data-workspace-layout-v2]");
+  const workspaceLayout = page.locator('[data-workspace-layout-part="viewport"]');
 
   await expect(async () => {
-    await page.getByTestId("workspace-layout-v2-pane-main").evaluate(async (carousel) => {
-      const mainPane = carousel.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
+    await page.locator('[data-workspace-layout-part="carousel"]').evaluate(async (carousel) => {
+      const mainPane = carousel.querySelector(
+        '[data-workspace-layout-part="pane"][data-pane-side="main"]',
+      );
       if (!(mainPane instanceof HTMLElement)) {
         throw new Error("Expected the mobile main pane.");
       }
@@ -30,9 +32,11 @@ export async function exposeMobileMainPane(page: Page): Promise<void> {
       timeout: 1_000,
     });
     const distanceFromMainPane = await page
-      .getByTestId("workspace-layout-v2-pane-main")
+      .locator('[data-workspace-layout-part="carousel"]')
       .evaluate((carousel) => {
-        const mainPane = carousel.querySelector("[data-workspace-layout-v2-mobile-main-pane]");
+        const mainPane = carousel.querySelector(
+          '[data-workspace-layout-part="pane"][data-pane-side="main"]',
+        );
         if (!(mainPane instanceof HTMLElement)) {
           throw new Error("Expected the mobile main pane.");
         }
@@ -85,7 +89,7 @@ export async function expectLogoMobilePaneEscapeLanes(
       { delayMs: 24, xOffset: 360, yOffset: 0 },
     ],
   });
-  await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+  await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
     "data-mobile-pane",
     "left",
     { timeout: 15_000 },
@@ -101,7 +105,7 @@ export async function expectLogoMobilePaneEscapeLanes(
       { delayMs: 24, xOffset: -360, yOffset: 0 },
     ],
   });
-  await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+  await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
     "data-mobile-pane",
     "right",
     { timeout: 15_000 },

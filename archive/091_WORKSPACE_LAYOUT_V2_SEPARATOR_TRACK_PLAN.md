@@ -8,7 +8,7 @@
 - Related specs:
   - `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
   - `specs/092_WORKSPACE_PANE_MIN_RESIZE_MERGE_SPEC.md`
-  - `specs/093_WORKSPACE_LAYOUT_V2_MODULE_SPLIT_SPEC.md`
+  - `archive/093_WORKSPACE_LAYOUT_V2_MODULE_SPLIT_SPEC.md`
   - `specs/097_WORKSPACE_MOBILE_MERGE_STATE_PERSISTENCE_SPEC.md`
 - Related files:
   - `apps/samebase/src/components/workspace-layout-v2/WorkspaceLayoutV2.tsx`

@@ -1,12 +1,11 @@
 import { type ReactNode } from "react";
 import { AppWorkspaceRouteChrome } from "@/components/AppWorkspaceShell";
-import { type WorkspacePaneSide } from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
-import type { WorkspaceLayoutV2MobileMinResizeBehavior } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
-import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
+import type { WorkspaceLayoutV2MobileMinResizeBehavior } from "@samebase/workspace-layout/geometry";
+import type { WorkspaceLayoutV2PaneFrameProps } from "@samebase/workspace-layout/pane-frame";
+import { type WorkspacePaneSide } from "@samebase/workspace-layout/runtime";
 
 type WorkspaceLayoutV2FixtureFrameProps = {
   children?: ReactNode;
-  dataTestId: string;
   left?: WorkspaceLayoutV2PaneFrameProps;
   main: {
     content: ReactNode;
@@ -22,7 +21,6 @@ type WorkspaceLayoutV2FixtureFrameProps = {
  */
 export function WorkspaceLayoutV2FixtureFrame({
   children,
-  dataTestId,
   left,
   main,
   mobileMinResizeBehavior,
@@ -31,7 +29,6 @@ export function WorkspaceLayoutV2FixtureFrame({
 }: WorkspaceLayoutV2FixtureFrameProps) {
   return (
     <AppWorkspaceRouteChrome
-      dataTestId={dataTestId}
       headerAccessory={main.headerAccessory}
       left={left ?? null}
       mobileMinResizeBehavior={mobileMinResizeBehavior}

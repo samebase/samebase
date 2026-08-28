@@ -58,10 +58,10 @@ value.
 Keep a visible action that returns to the main pane on mobile. Put it in persistent chrome or in
 each side pane so it stays reachable when a side pane covers the main pane.
 
-`useWorkspacePaneActions` exposes only `openRightPane`, `setMobilePane`, `toggleLeftPane`, and
-`toggleRightPane`. `useWorkspaceLayoutPresentation` provides read-only presentation state:
-`isMobile`, `mobilePane`, `mobilePaneScrollProgress`, and `mobileMergeProgress`. Merge progress is
-available during a resize and after a merge settles.
+`useWorkspacePaneActions` exposes only `setMobilePane`, `toggleLeftPane`, and `toggleRightPane`.
+`useWorkspaceLayoutPresentation` provides read-only presentation state: `isMobile`, `mobilePane`,
+`mobilePaneScrollProgress`, and `mobileMergeProgress`. Merge progress is available during a resize
+and after a merge settles.
 
 ## Load the structural CSS
 
@@ -73,8 +73,9 @@ order, overflow, scroll snap, separator position, and resize hit areas.
 
 ## Style parts and states
 
-The structural stylesheet contains no colors, shadows, radii, typography, focus-ring theme, or
-resize-grip artwork. Style those items with the part and state attributes.
+The structural stylesheet contains no consumer theme colors, shadows, radii, typography, or
+resize-grip artwork. It uses the system `Highlight` color only as a keyboard-focus fallback. Style
+the package with its parts, states, and focus-outline variable.
 
 ```css
 [data-workspace-layout-part="root"],
@@ -84,15 +85,18 @@ resize-grip artwork. Style those items with the part and state attributes.
   background: var(--app-background);
 }
 
-[data-workspace-layout-part="pane"][data-pane-side="left"]::after,
-[data-workspace-layout-part="pane"][data-pane-side="right"]::before,
-[data-workspace-layout-v2-mobile-separator-pane]::before,
-[data-workspace-layout-v2-mobile-separator-pane]::after {
-  background: var(--app-border);
+[data-workspace-layout-part="root"] {
+  --workspace-layout-v2-focus-outline: 1px solid var(--app-focus-ring);
 }
 
-[data-workspace-layout-part="resize-handle"]:focus-visible {
-  outline: 1px solid var(--app-focus-ring);
+[data-workspace-layout-part="pane"][data-pane-side="left"],
+[data-workspace-layout-part="pane"][data-pane-side="right"] {
+  border-color: var(--app-border);
+}
+
+[data-workspace-layout-part="pane"]::before,
+[data-workspace-layout-part="pane"]::after {
+  background: var(--app-border);
 }
 
 [data-workspace-layout-part="resize-grip-indicator"] {
@@ -121,9 +125,13 @@ Stable parts are `root`, `address-chrome`, `viewport`, `carousel`, `pane`, `pane
 `resize-track`, `resize-handle`, `resize-grip-indicator`, `pane-frame`, `pane-header`,
 `pane-scrollport`, `pane-content`, and `pane-footer`.
 
-Stable state attributes are `data-mobile-pane`, `data-workspace-layout-v2-mobile-merged-side`,
-`data-pane-side`, `data-desktop-open`, `data-active-resize`, `data-transition-enabled`,
-`data-resize-side`, `data-resize-mode`, `data-resizing`, and `data-viewport-measured`.
+Stable state attributes are `data-mobile-pane`, `data-mobile-min-resize-behavior`,
+`data-workspace-layout-v2-mobile-merged-side`, `data-pane-side`, `data-desktop-open`,
+`data-active-resize`, `data-transition-enabled`, `data-resize-side`, `data-resize-mode`,
+`data-resizing`, `data-viewport-measured`, and `data-carousel-scroll-locked`.
+
+The package uses `2px solid Highlight` as the default resize-handle focus outline. Consumers can
+theme it with `--workspace-layout-v2-focus-outline` on the layout root.
 
 The runtime writes these read-only geometry variables:
 
@@ -144,3 +152,8 @@ Prehydration builders accept a self-contained
 function into the generated script. The function must not close over module variables. It can read
 and validate the consumer's selected storage format. The package does not know the storage key,
 envelope, or version.
+
+Render the desktop script and then the mobile script immediately after the matching layout markup.
+Give each concurrently rendered layout a unique `desktopStyleElementId`. The desktop script measures
+and scopes that layout only. Call `clearWorkspaceLayoutV2DesktopPrehydrationStyle` after the client
+state takes ownership.

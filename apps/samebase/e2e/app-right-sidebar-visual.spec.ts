@@ -66,11 +66,11 @@ async function waitForFonts(page: Page) {
 }
 
 function getRightSidebar(page: Page) {
-  return page.locator('[data-workspace-layout-v2-mobile-pane="right"]');
+  return page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
 }
 
 function getRightPane(page: Page) {
-  return page.getByTestId("workspace-layout-v2-pane-right");
+  return page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
 }
 
 function getAccountSection(page: Page) {
@@ -224,7 +224,7 @@ test("signed-in app right sidebar keeps the account row inside the minimum mobil
     });
     await openSignedInApp(page);
 
-    await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+    await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",
     );

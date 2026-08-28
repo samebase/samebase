@@ -3,7 +3,7 @@
 import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
-import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
+import type { WorkspaceSidebarStateController } from "@samebase/workspace-layout/state";
 import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
 
 let mockedQueryState: WorkspaceSidebarState | null | undefined = undefined;
@@ -54,7 +54,9 @@ function SidebarStateProbe() {
     onPersistedStateApplied: null,
     workspaceKey: "app",
   });
-  latestSidebarStateController = sidebarState;
+  React.useEffect(() => {
+    latestSidebarStateController = sidebarState;
+  }, [sidebarState]);
 
   return (
     <div
