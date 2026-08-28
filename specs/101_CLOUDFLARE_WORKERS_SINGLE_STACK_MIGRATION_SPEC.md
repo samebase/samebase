@@ -5,7 +5,7 @@
 - Status: Accepted implementation plan
 - Owner: Samebase hosting, generated app provisioning, and public template stack
 - Created: 2026-05-15
-- Last updated: 2026-08-15
+- Last updated: 2026-08-28
 - Related:
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
   - `research/2026-05-15-samebase-workers-provisioning-migration.md`
@@ -172,6 +172,26 @@ Requirements:
 9. documents manual self-deploy without Samebase
 10. preserves its existing teaching history and uses append-only updates
 11. avoids generator leftovers such as `.cta.json` and `.cursorrules`
+12. includes an explicit catch-all child route for unknown Cloudflare SPA fallback URLs. The child
+    keeps TanStack's client-only route boundary active during hydration.
+13. redirects each generated prerender file URL to its canonical route before it serves the
+    prerender file through an exact alias
+
+#### Template SPA Hydration Contract
+
+The built `/index.html` is the SPA shell. It contains the shared navigation, but it does not contain
+a route page. Cloudflare returns this file for a browser URL when no prerender file or exact alias
+matches, such as an unknown path. It does not change the URL in the browser.
+
+Before the explicit catch-all route, an unknown path did not have a client-only child route. The
+root route added `Not Found` during the first browser render, even though `/index.html` had no page
+content. The explicit `/$` route keeps `Not Found` out of that first render. React first attaches to
+the matching shell HTML, and TanStack then adds `Not Found`.
+
+Prerender file names are not page URLs. For example, `/about/index.html` contains the HTML for
+`/about`, but the browser would match `/about/index.html` as an unknown route. Cloudflare must first
+redirect `/about/index.html` to `/about`. It must also redirect `/_landing.html` to `/`. The normal
+route URLs can then serve those files through exact `200` aliases.
 
 ### Samebase Production Target
 
@@ -356,6 +376,8 @@ Template validation:
 3. Cloudflare Workers non-production preview deploy succeeds
 4. todo flow works after reload against Convex
 5. README self-deploy instructions work from clean provider state
+6. an unknown direct URL renders `Not Found` without React hydration recovery
+7. direct prerender file URLs redirect to their canonical route URLs
 
 Samebase production validation:
 
