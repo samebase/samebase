@@ -362,6 +362,7 @@ export function SidebarLayout({
             desktopRightWidthPx={desktopRightWidthPx}
             enableDesktopPaneTransitions={enableDesktopPaneTransitions}
             hasMeasuredViewport={hasMeasuredViewport}
+            inertClosedDesktopPanes={hasMeasuredViewport && !isMobile}
             leftContent={left}
             leftPaneId={leftPaneId}
             leftWidthPx={mobileLeftWidthPx}

@@ -7,6 +7,15 @@ prehydration. The consumer owns visible styling, text, and durable state storage
 The public API follows Base UI conventions. Components render canonical DOM with stable part and
 state attributes. The package does not depend on Base UI.
 
+## Integration example
+
+The [sidebars example app](../../apps/sidebars-example/README.md) uses only public production
+entrypoints from this package. It shows app-owned styling, localStorage state, prehydration, and
+routes with zero, one, and two sidebars.
+
+The example intentionally exercises optional localStorage prehydration. An SSR app does not need
+prehydration when it can render the initial sidebar state on the server.
+
 ## Use the layout
 
 ```tsx
@@ -60,8 +69,9 @@ each side pane so it stays reachable when a side pane covers the main pane.
 
 `useSidebarActions` exposes only `setMobilePane`, `toggleLeftPane`, and `toggleRightPane`.
 `useSidebarLayoutPresentation` provides read-only presentation state: `isMobile`, `mobilePane`,
-`mobilePaneScrollProgress`, and `mobileMergeProgress`. Merge progress is available during a resize
-and after a merge settles.
+`leftDesktopOpen`, `rightDesktopOpen`, `mobilePaneScrollProgress`, and `mobileMergeProgress`. Merge
+progress is available during a resize and after a merge settles. The desktop open fields let
+consumer-owned toggle buttons expose their current state.
 
 ## Load the structural CSS
 

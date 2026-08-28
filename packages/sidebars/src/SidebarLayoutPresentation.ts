@@ -16,9 +16,11 @@ export type SidebarLayoutMobileMergeProgress = {
 
 export type SidebarLayoutPresentation = {
   isMobile: boolean;
+  leftDesktopOpen: boolean;
   mobileMergeProgress: SidebarLayoutMobileMergeProgress | null;
   mobilePane: MobilePane;
   mobilePaneScrollProgress: number;
+  rightDesktopOpen: boolean;
 };
 
 export type SidebarLayoutDisplayedMobileState = {
@@ -102,8 +104,10 @@ export function getSidebarLayoutPresentation({
 }): SidebarLayoutPresentation {
   return {
     isMobile: paneState.isMobile,
+    leftDesktopOpen: paneState.leftDesktopOpen,
     mobileMergeProgress: getMobileMergeProgress({ displayedMobileState, localState, paneState }),
     mobilePane: displayedMobileState.mobilePane,
     mobilePaneScrollProgress: localState.mobile.paneScrollProgress,
+    rightDesktopOpen: paneState.rightDesktopOpen,
   };
 }
