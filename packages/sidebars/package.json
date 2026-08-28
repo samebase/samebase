@@ -1,9 +1,20 @@
 {
   "name": "@samebase/sidebars",
-  "version": "0.0.0",
-  "private": true,
+  "version": "0.1.0-canary.0",
   "description": "Unstyled responsive sidebar layout for React",
-  "license": "UNLICENSED",
+  "keywords": [
+    "layout",
+    "pane",
+    "react",
+    "responsive",
+    "sidebar",
+    "sidebars"
+  ],
+  "homepage": "https://github.com/samebase/sidebars#readme",
+  "bugs": {
+    "url": "https://github.com/samebase/sidebars/issues"
+  },
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/samebase/sidebars.git"
@@ -61,6 +72,10 @@
       "default": "./dist/structure.css"
     }
   },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
   "scripts": {
     "build": "vp pack",
     "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:package",
@@ -90,10 +105,6 @@
   "peerDependencies": {
     "react": ">=19.2.0 <20",
     "react-dom": ">=19.2.0 <20"
-  },
-  "engines": {
-    "node": ">=24.11.0",
-    "pnpm": ">=11.18.0"
   },
   "packageManager": "pnpm@11.18.0"
 }

@@ -1,20 +1,23 @@
 # @samebase/sidebars
 
-This package provides an unstyled React sidebar layout with optional left and right panes. It owns
-pane geometry, mobile scroll snapping, resizing, merge state, accessibility, SSR markup, and
-prehydration. The consumer owns visible styling, text, and durable state storage.
+`@samebase/sidebars` is the unstyled React sidebar layout that [samebase.com](https://samebase.com)
+uses for its workspace layout. It supports optional left and right panes and owns pane geometry,
+mobile scroll snapping, resizing, merge state, accessibility, SSR markup, and prehydration. The
+consumer owns visible styling, text, and durable state storage.
+
+> This repository is an automated export of `packages/sidebars` from the Samebase monorepo. The
+> monorepo is the source of truth. Do not edit exported files directly. Use
+> [GitHub Issues](https://github.com/samebase/sidebars/issues) to report a problem or request a
+> change.
 
 The public API follows Base UI conventions. Components render canonical DOM with stable part and
 state attributes. The package does not depend on Base UI.
 
-## Integration example
+## Install
 
-The [sidebars example app](https://github.com/samebase/samebase/tree/main/apps/sidebars-example)
-uses only public production entrypoints from this package. It shows app-owned styling, localStorage
-state, prehydration, and routes with zero, one, and two sidebars.
-
-The example intentionally exercises optional localStorage prehydration. An SSR app does not need
-prehydration when it can render the initial sidebar state on the server.
+```sh
+pnpm add @samebase/sidebars
+```
 
 ## Use the layout
 
