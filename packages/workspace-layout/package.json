@@ -1,0 +1,44 @@
+{
+  "name": "@samebase/workspace-layout",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Unstyled responsive workspace layout for React",
+  "files": [
+    "src",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": "./src/WorkspaceLayoutV2.tsx",
+    "./geometry": "./src/WorkspaceLayoutV2GeometryPublic.ts",
+    "./pane-frame": "./src/WorkspaceLayoutV2PaneFrame.tsx",
+    "./prehydration": "./src/WorkspaceLayoutV2Prehydration.ts",
+    "./runtime": "./src/WorkspacePaneRuntimePublic.ts",
+    "./state": "./src/WorkspaceLayoutV2State.ts",
+    "./structure.css": "./src/structure.css",
+    "./testing": "./src/WorkspaceLayoutV2Testing.tsx"
+  },
+  "scripts": {
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/workspace-layout/tsconfig.json --report-unused-disable-directives packages/workspace-layout/src packages/workspace-layout/test",
+    "test": "pnpm --dir ../.. exec vp test packages/workspace-layout/test",
+    "typecheck": "pnpm --dir ../.. exec tsgo -p packages/workspace-layout/tsconfig.json --pretty false"
+  },
+  "dependencies": {
+    "@tanstack/react-store": "^0.11.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.32",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6"
+  },
+  "peerDependencies": {
+    "react": ">=19.2.0 <20",
+    "react-dom": ">=19.2.0 <20"
+  },
+  "engines": {
+    "node": ">=24.11.0"
+  }
+}
