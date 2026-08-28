@@ -488,7 +488,7 @@ describe("page metadata", () => {
       rootHead.scripts.some((script) =>
         script.children.includes("samebase_app_workspace_sidebar_state"),
       ),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       rootHead.scripts.some((script) =>
         script.children.includes("data-public-landing-logo-static-fallback-hidden"),
