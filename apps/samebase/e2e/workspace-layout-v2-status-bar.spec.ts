@@ -11,11 +11,13 @@ async function openWorkspaceLayoutStatusBarFixture(page: Page) {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await gotoWorkspaceLayoutStatusBarFixture(page);
 
-  const fixture = page.getByTestId("workspace-layout-v2-visual-fixture");
   const leftSurface = page.getByTestId("workspace-layout-v2-prosemark-surface");
   const mainSurface = page.getByTestId("workspace-layout-v2-main-editor-surface");
+  const fixture = page.locator('[data-workspace-layout-part="root"]').filter({ has: mainSurface });
   const rightSurface = page.getByTestId("workspace-layout-v2-right-editor-surface");
-  const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
+  const mainHeader = page.locator(
+    '[data-workspace-layout-part="pane"][data-pane-side="main"] [data-workspace-layout-part="pane-header"]',
+  );
 
   await expect(fixture).toBeVisible();
   await expect(mainHeader).toBeVisible();
@@ -98,8 +100,10 @@ test.describe("workspace layout v2 touch-first phone", () => {
     await gotoWorkspaceLayoutStatusBarFixture(page);
     await expectTouchFirstViewport(page, 390);
 
-    const fixture = page.getByTestId("workspace-layout-v2-visual-fixture");
-    const mainPane = page.locator("[data-workspace-layout-v2-mobile-main-pane-surface]");
+    const fixture = page
+      .locator('[data-workspace-layout-part="root"]')
+      .filter({ has: page.getByTestId("workspace-layout-v2-main-editor-surface") });
+    const mainPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="main"]');
 
     await expect(fixture).toBeVisible();
     await expect
@@ -125,8 +129,10 @@ test.describe("workspace layout v2 touch-first tablet", () => {
     await gotoWorkspaceLayoutStatusBarFixture(page);
     await expectTouchFirstViewport(page, 1024);
 
-    const fixture = page.getByTestId("workspace-layout-v2-visual-fixture");
     const mainSurface = page.getByTestId("workspace-layout-v2-main-editor-surface");
+    const fixture = page.locator('[data-workspace-layout-part="root"]').filter({
+      has: mainSurface,
+    });
 
     await expect(fixture).toBeVisible();
     await expect(mainSurface.locator(".view-lines").first()).toBeVisible();

@@ -1,14 +1,14 @@
 import { guard, isRecord } from "@samebase/dependent";
-import * as React from "react";
-import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
-import { WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
-import { APP_WORKSPACE_SIDEBAR_STORAGE_VERSION } from "@/lib/appWorkspaceSidebarPreferences";
-import { notifyBrowserLocalStorageChanged } from "@/lib/localStorageSnapshot";
+import { WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/workspace-layout/geometry";
 import type {
+  WorkspaceSidebarState,
   WorkspaceSidebarStateController,
   WorkspaceSidebarStatePersistenceMode,
   WorkspaceSidebarStateUpdate,
-} from "@/lib/workspaceSidebarStateController";
+} from "@samebase/workspace-layout/state";
+import * as React from "react";
+import { APP_WORKSPACE_SIDEBAR_STORAGE_VERSION } from "@/lib/appWorkspaceSidebarPreferences";
+import { notifyBrowserLocalStorageChanged } from "@/lib/localStorageSnapshot";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 

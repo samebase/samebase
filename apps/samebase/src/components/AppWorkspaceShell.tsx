@@ -3,6 +3,7 @@ import {
   memo,
   useCallback,
   useContext,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -15,17 +16,20 @@ import { useAppRightSidebarPane } from "@/components/useAppRightSidebarPane";
 import { OrganizationContextProvider } from "@/components/OrganizationContext";
 import { useOrganizationContext } from "@/lib/organizationContext";
 import { RouteUrlEditorNext } from "@/components/RouteUrlEditor/RouteUrlEditorNext";
-import { WorkspaceLayoutV2FullPage } from "@/components/workspace-layout-v2/WorkspaceLayoutV2FullPage";
+import { WorkspaceLayoutV2FullPage } from "@/components/WorkspaceLayoutV2FullPage";
 import {
   WorkspacePaneRuntimeProvider,
   type WorkspacePaneSide,
-} from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
-import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "@/components/workspace-layout-v2/WorkspaceLayoutV2Geometry";
-import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
+  useWorkspacePaneActions,
+} from "@samebase/workspace-layout/runtime";
+import { type WorkspaceLayoutV2MobileMinResizeBehavior } from "@samebase/workspace-layout/geometry";
+import { type WorkspaceLayoutV2PaneFrameProps } from "@samebase/workspace-layout/pane-frame";
+import type { WorkspaceSidebarState } from "@samebase/workspace-layout/state";
 import { useLocalStorageWorkspaceSidebarState } from "@/hooks/useLocalStorageWorkspaceSidebarState";
 import { usePersistedWorkspaceSidebarState } from "@/hooks/usePersistedWorkspaceSidebarState";
 import {
   appWorkspaceMobilePanePrehydrationScript,
+  appWorkspaceSidebarPrehydrationScript,
   clearAppWorkspaceSidebarDesktopPrehydrationStyle,
 } from "@/lib/appWorkspaceSidebarPrehydration";
 import {
@@ -34,13 +38,11 @@ import {
   APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
 } from "@/lib/appWorkspaceSidebarPreferences";
 import type { AppWorkspaceRouteChromeStaticData } from "@/routing/permissions";
-import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
 
 type AppWorkspaceShellToggleVisibility = "all" | "desktop" | "hidden";
 type AppWorkspaceRouteChromePane = WorkspaceLayoutV2PaneFrameProps | null;
 
 type AppWorkspaceRouteChromeConfig = {
-  dataTestId?: string;
   headerAccessory?: ReactNode;
   left?: AppWorkspaceRouteChromePane;
   leftToggleVisibility?: AppWorkspaceShellToggleVisibility;
@@ -81,7 +83,6 @@ type AppWorkspaceRouteWithStaticData = {
   };
 };
 
-const APP_WORKSPACE_DATA_TEST_ID = "app-workspace";
 const VISUAL_FIXTURE_PATHNAME = "/visual-fixture";
 
 const APP_WORKSPACE_SIDEBAR_DEFAULT_STATE = {
@@ -206,6 +207,46 @@ const AppWorkspaceMainContent = memo(function AppWorkspaceMainContent({
   return <div className="relative flex h-full min-h-0 flex-col">{children}</div>;
 });
 
+function isAppWorkspacePaneShortcutEditableTarget(target: EventTarget | null) {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+
+  return (
+    target.closest(
+      'input, textarea, select, [contenteditable=""], [contenteditable="true"], [contenteditable="plaintext-only"], [role="textbox"], .monaco-editor, .cm-editor',
+    ) !== null
+  );
+}
+
+function AppWorkspacePaneShortcut({ side }: { side: WorkspacePaneSide }) {
+  const { toggleLeftPane, toggleRightPane } = useWorkspacePaneActions();
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.key !== "b" ||
+        (!event.metaKey && !event.ctrlKey) ||
+        isAppWorkspacePaneShortcutEditableTarget(event.target)
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      if (side === "right") {
+        toggleRightPane();
+        return;
+      }
+      toggleLeftPane();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [side, toggleLeftPane, toggleRightPane]);
+
+  return null;
+}
+
 function useAppWorkspaceSidebarState() {
   const pathname = useLocation({
     select: (location) => location.pathname,
@@ -283,21 +324,20 @@ function AppWorkspaceShellFrame({
     (surface.kind === "allVaults" || surface.kind === "organization" ? "all" : "desktop");
 
   return (
-    <WorkspacePaneRuntimeProvider
-      controller={sidebarState}
-      shortcutPaneSide={chrome?.shortcutPaneSide ?? "right"}
-    >
+    <WorkspacePaneRuntimeProvider controller={sidebarState}>
+      <AppWorkspacePaneShortcut side={chrome?.shortcutPaneSide ?? "right"} />
       <WorkspaceLayoutV2FullPage
         addressChrome={<RouteUrlEditorNext />}
-        dataTestId={
-          chrome?.dataTestId ?? staticRouteChrome?.dataTestId ?? APP_WORKSPACE_DATA_TEST_ID
-        }
         left={leftPane}
         leftToggleVisibility={leftToggleVisibility}
         main={mainPane}
         mobileMinResizeBehavior={chrome?.mobileMinResizeBehavior}
         right={rightPane}
         rightToggleVisibility={rightToggleVisibility}
+      />
+      <script
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: appWorkspaceSidebarPrehydrationScript }}
       />
       <script
         suppressHydrationWarning
@@ -334,7 +374,6 @@ export function AppWorkspaceShell({ children }: { children?: ReactNode }) {
 
 export function AppWorkspaceRouteChrome({
   children,
-  dataTestId,
   headerAccessory,
   left,
   leftToggleVisibility,
@@ -367,7 +406,6 @@ export function AppWorkspaceRouteChrome({
   );
   const chrome = useMemo(
     () => ({
-      dataTestId,
       headerAccessory,
       left,
       leftToggleVisibility,
@@ -378,7 +416,6 @@ export function AppWorkspaceRouteChrome({
       shortcutPaneSide,
     }),
     [
-      dataTestId,
       headerAccessory,
       left,
       leftToggleVisibility,

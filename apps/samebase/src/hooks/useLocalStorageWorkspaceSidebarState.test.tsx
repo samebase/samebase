@@ -4,7 +4,7 @@ import * as React from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
-import type { WorkspaceSidebarStateController } from "@/lib/workspaceSidebarStateController";
+import type { WorkspaceSidebarStateController } from "@samebase/workspace-layout/state";
 import { useLocalStorageWorkspaceSidebarState } from "./useLocalStorageWorkspaceSidebarState";
 
 const { act } = React;
@@ -66,7 +66,9 @@ function SidebarStateProbe({
     reset,
     storageKey: STORAGE_KEY,
   });
-  latestSidebarStateController = sidebarState;
+  React.useEffect(() => {
+    latestSidebarStateController = sidebarState;
+  }, [sidebarState]);
 
   return (
     <div

@@ -16,8 +16,12 @@ async function openWorkspaceLayoutV2Fixture(
   await page.goto(`${WORKSPACE_LAYOUT_V2_STATUS_BAR_FIXTURE_URL}${options?.dev ? "&dev" : ""}`, {
     waitUntil: "domcontentloaded",
   });
-  await expect(page.getByTestId("workspace-layout-v2-visual-fixture")).toBeVisible();
-  await expect(page.locator("[data-workspace-layout-v2]")).toHaveCount(1);
+  await expect(
+    page
+      .locator('[data-workspace-layout-part="root"]')
+      .filter({ has: page.getByTestId("workspace-layout-v2-main-editor-surface") }),
+  ).toBeVisible();
+  await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveCount(1);
 }
 
 async function getRoundedBoundingBox(locator: Locator) {
@@ -50,8 +54,10 @@ async function getMainEditorVisibleText(page: Page) {
 }
 
 async function scrollWorkspaceCarouselToPane(page: Page, pane: "left" | "main" | "right") {
-  await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element, nextPane) => {
-    const mainPane = element.querySelector(".snap-center");
+  await page.locator('[data-workspace-layout-part="carousel"]').evaluate((element, nextPane) => {
+    const mainPane = element.querySelector(
+      '[data-workspace-layout-part="pane"][data-pane-side="main"]',
+    );
     if (!(mainPane instanceof HTMLElement)) {
       throw new Error("Expected mobile carousel main pane.");
     }
@@ -66,7 +72,7 @@ async function scrollWorkspaceCarouselToPane(page: Page, pane: "left" | "main" |
     element.dispatchEvent(new Event("scroll", { bubbles: true }));
   }, pane);
 
-  await expect(page.locator("[data-workspace-layout-v2]")).toHaveAttribute(
+  await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
     "data-mobile-pane",
     pane,
   );
@@ -130,7 +136,9 @@ test("desktop v2 fixture keeps sidebar triggers inside the main header", async (
   const rightButton = page.getByRole("button", {
     name: "Toggle Right Sidebar",
   });
-  const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
+  const mainHeader = page.locator(
+    '[data-workspace-layout-part="pane"][data-pane-side="main"] [data-workspace-layout-part="pane-header"]',
+  );
 
   await expect(leftButton).toBeVisible();
   await expect(rightButton).toBeVisible();
@@ -161,7 +169,9 @@ test("desktop v2 fixture keeps the main header fixed while the editor body scrol
   await openWorkspaceLayoutV2Fixture(page);
   await waitForMonacoSurfaceReady(page.getByTestId("workspace-layout-v2-main-editor-surface"));
 
-  const mainHeader = page.getByTestId("workspace-layout-v2-main-pane-header");
+  const mainHeader = page.locator(
+    '[data-workspace-layout-part="pane"][data-pane-side="main"] [data-workspace-layout-part="pane-header"]',
+  );
   const mainHeaderBefore = await getRoundedBoundingBox(mainHeader);
   const initialMainVisibleText = await getMainEditorVisibleText(page);
 
@@ -180,17 +190,23 @@ test("mobile v2 fixture uses the carousel to move between panes", async ({ page 
 
   await openWorkspaceLayoutV2Fixture(page);
 
-  const layout = page.locator("[data-workspace-layout-v2]");
+  const layout = page.locator('[data-workspace-layout-part="viewport"]');
   await expect(layout).toHaveAttribute("data-mobile-pane", "main");
 
   await scrollWorkspaceCarouselToPane(page, "left");
-  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(1);
+  await expect(
+    page.locator('[data-workspace-layout-part="resize-handle"][data-resize-side="left"]'),
+  ).toHaveCount(1);
 
   await scrollWorkspaceCarouselToPane(page, "main");
-  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(0);
+  await expect(
+    page.locator('[data-workspace-layout-part="resize-handle"][data-resize-side="left"]'),
+  ).toHaveCount(0);
 
   await scrollWorkspaceCarouselToPane(page, "right");
-  await expect(page.getByTestId("workspace-layout-v2-right-resize")).toHaveCount(1);
+  await expect(
+    page.locator('[data-workspace-layout-part="resize-handle"][data-resize-side="right"]'),
+  ).toHaveCount(1);
 });
 
 test("mobile v2 fixture keeps grip targets centered while rendering dots outside the active sidebar", async ({
@@ -201,16 +217,18 @@ test("mobile v2 fixture keeps grip targets centered while rendering dots outside
 
   await openWorkspaceLayoutV2Fixture(page, { dev: true });
 
-  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
-  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  const leftPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="left"]');
+  const rightPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
 
   await scrollWorkspaceCarouselToPane(page, "left");
-  const leftGrip = page.getByTestId("workspace-layout-v2-left-resize");
+  const leftGrip = page.locator(
+    '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
+  );
   await expect(leftGrip).toBeVisible();
   const leftPaneBox = await getRoundedBoundingBox(leftPane);
   const leftGripBox = await getRoundedBoundingBox(leftGrip);
   const leftDotsBox = await getRoundedBoundingBox(
-    leftGrip.locator("[data-workspace-layout-v2-resize-grip-dots]"),
+    leftGrip.locator('[data-workspace-layout-part="resize-grip-indicator"]'),
   );
   const leftPaneRightEdge = leftPaneBox.x + leftPaneBox.width;
   expect(leftGripBox.x).toBeLessThan(leftPaneRightEdge);
@@ -218,12 +236,14 @@ test("mobile v2 fixture keeps grip targets centered while rendering dots outside
   expect(leftDotsBox.x).toBeGreaterThanOrEqual(leftPaneRightEdge);
 
   await scrollWorkspaceCarouselToPane(page, "right");
-  const rightGrip = page.getByTestId("workspace-layout-v2-right-resize");
+  const rightGrip = page.locator(
+    '[data-workspace-layout-part="resize-handle"][data-resize-side="right"]',
+  );
   await expect(rightGrip).toBeVisible();
   const rightPaneBox = await getRoundedBoundingBox(rightPane);
   const rightGripBox = await getRoundedBoundingBox(rightGrip);
   const rightDotsBox = await getRoundedBoundingBox(
-    rightGrip.locator("[data-workspace-layout-v2-resize-grip-dots]"),
+    rightGrip.locator('[data-workspace-layout-part="resize-grip-indicator"]'),
   );
   expect(rightGripBox.x).toBeLessThan(rightPaneBox.x);
   expect(rightGripBox.x + rightGripBox.width).toBeGreaterThan(rightPaneBox.x);
@@ -238,12 +258,14 @@ test("mobile v2 fixture renders sidebar grip targets on the active sidebar", asy
   await scrollWorkspaceCarouselToPane(page, "left");
   await expect(
     page
-      .getByTestId("workspace-layout-v2-left-resize")
-      .locator("[data-workspace-layout-v2-resize-grip-dots]"),
+      .locator('[data-workspace-layout-part="resize-handle"][data-resize-side="left"]')
+      .locator('[data-workspace-layout-part="resize-grip-indicator"]'),
   ).toHaveCount(1);
 
   await scrollWorkspaceCarouselToPane(page, "main");
-  await expect(page.getByTestId("workspace-layout-v2-left-resize")).toHaveCount(0);
+  await expect(
+    page.locator('[data-workspace-layout-part="resize-handle"][data-resize-side="left"]'),
+  ).toHaveCount(0);
 });
 
 test("mobile v2 fixture vertical main-editor scrolling reveals later Monaco content", async ({
@@ -283,16 +305,18 @@ test("signed-in logo keeps the merged left surface across mobile viewports and r
   await scrollWorkspaceCarouselToPane(narrowerPage, "left");
   await scrollWorkspaceCarouselToPane(page, "left");
 
-  const layout = page.locator("[data-workspace-layout-v2]");
-  const narrowerLayout = narrowerPage.locator("[data-workspace-layout-v2]");
-  const mainPane = page.getByTestId("workspace-layout-v2-pane-main");
+  const layout = page.locator('[data-workspace-layout-part="viewport"]');
+  const narrowerLayout = narrowerPage.locator('[data-workspace-layout-part="viewport"]');
+  const mainPane = page.locator('[data-workspace-layout-part="carousel"]');
   const viewportWidthPx = await mainPane.evaluate((element) => element.clientWidth);
   const narrowerViewportWidthPx = await narrowerLayout.evaluate((element) => element.clientWidth);
   const mobileSidebarMinWidthPx = getExpectedMobileSidebarMinWidthPx(viewportWidthPx);
   const narrowerMobileSidebarMinWidthPx =
     getExpectedMobileSidebarMinWidthPx(narrowerViewportWidthPx);
-  const leftResizeHandle = page.getByTestId("workspace-layout-v2-left-resize");
-  const leftPane = page.getByTestId("workspace-layout-v2-pane-left");
+  const leftResizeHandle = page.locator(
+    '[data-workspace-layout-part="resize-handle"][data-resize-side="left"]',
+  );
+  const leftPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="left"]');
   const initialLeftPaneWidthPx = (await getRoundedBoundingBox(leftPane)).width;
 
   await touchDragHandleByPx(page, leftResizeHandle, 192 - initialLeftPaneWidthPx);
@@ -307,8 +331,11 @@ test("signed-in logo keeps the merged left surface across mobile viewports and r
   await expect
     .poll(async () =>
       Math.round(
-        (await mainPane.locator("[data-workspace-layout-v2-mobile-main-pane]").boundingBox())
-          ?.width ?? 0,
+        (
+          await mainPane
+            .locator('[data-workspace-layout-part="pane"][data-pane-side="main"]')
+            .boundingBox()
+        )?.width ?? 0,
       ),
     )
     .toBe(viewportWidthPx - mobileSidebarMinWidthPx);
@@ -321,8 +348,8 @@ test("signed-in logo keeps the merged left surface across mobile viewports and r
       Math.round(
         (
           await narrowerPage
-            .getByTestId("workspace-layout-v2-pane-main")
-            .locator("[data-workspace-layout-v2-mobile-main-pane]")
+            .locator('[data-workspace-layout-part="carousel"]')
+            .locator('[data-workspace-layout-part="pane"][data-pane-side="main"]')
             .boundingBox()
         )?.width ?? 0,
       ),
@@ -338,8 +365,11 @@ test("signed-in logo keeps the merged left surface across mobile viewports and r
   await expect
     .poll(async () =>
       Math.round(
-        (await mainPane.locator("[data-workspace-layout-v2-mobile-main-pane]").boundingBox())
-          ?.width ?? 0,
+        (
+          await mainPane
+            .locator('[data-workspace-layout-part="pane"][data-pane-side="main"]')
+            .boundingBox()
+        )?.width ?? 0,
       ),
     )
     .toBe(viewportWidthPx - mobileSidebarMinWidthPx);

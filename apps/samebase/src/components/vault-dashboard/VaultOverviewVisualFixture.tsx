@@ -1122,7 +1122,6 @@ function VaultOverviewProvisioningFixture({ mode }: { mode: VaultOverviewProvisi
   return (
     <TestRouterProvider initialEntries={[`/vault/${vault.repositoryFullName}`]}>
       <WorkspaceLayoutV2FixtureFrame
-        dataTestId={mode}
         left={{
           header: <VaultOverviewVaultListHeader />,
           content: (
@@ -1289,7 +1288,6 @@ function VaultOverviewProviderSettingsFixture({
       initialEntries={["/vault/nicu-chiciuc/tmp-f149-vault-loading-states/settings"]}
     >
       <WorkspaceLayoutV2FixtureFrame
-        dataTestId={mode}
         left={{
           header: <VaultOverviewVaultListHeader />,
           content: (
@@ -1376,7 +1374,6 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
     return (
       <TestRouterProvider initialEntries={["/vault"]}>
         <WorkspaceLayoutV2FixtureFrame
-          dataTestId="vault-overview-v2-root"
           main={{
             content: (
               <VaultOverviewVaultPickerPane
@@ -1409,7 +1406,6 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
     return (
       <TestRouterProvider initialEntries={["/vault/samebase/samebase"]}>
         <WorkspaceLayoutV2FixtureFrame
-          dataTestId={mode}
           left={{
             header: <VaultOverviewVaultListHeader />,
             content: <VaultOverviewSidebarLoading />,
@@ -1466,7 +1462,6 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
 
   return (
     <WorkspaceLayoutV2FixtureFrame
-      dataTestId={mode}
       left={{
         header: <VaultOverviewVaultListHeader />,
         content: (

@@ -655,7 +655,6 @@ export function FileViewCodeParityVisualFixture({
 
   return (
     <WorkspaceLayoutV2FixtureFrame
-      dataTestId="file-view-code-parity-visual-fixture"
       left={{
         header: null,
         content: (

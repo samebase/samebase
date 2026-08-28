@@ -65,10 +65,14 @@ async function readLandingRightSidebarCopyMetrics(page: Page): Promise<{
   shellWidth: number;
 }> {
   return await page.evaluate(() => {
-    const shell = document.querySelector('[data-workspace-layout-v2="responsive"]');
-    const carousel = document.querySelector('[data-testid="workspace-layout-v2-pane-main"]');
-    const rightPane = document.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
-    const mainPane = carousel?.querySelector(".snap-center > div");
+    const shell = document.querySelector('[data-workspace-layout-part="viewport"]');
+    const carousel = document.querySelector('[data-workspace-layout-part="carousel"]');
+    const rightPane = document.querySelector(
+      '[data-workspace-layout-part="pane"][data-pane-side="right"]',
+    );
+    const mainPane = carousel?.querySelector(
+      '[data-workspace-layout-part="pane"][data-pane-side="main"] > [data-workspace-layout-part="pane-surface"]',
+    );
     const article = document.querySelector('[data-testid="landing-preview-article"]');
     const heading = article?.querySelector("h1");
 
@@ -133,9 +137,11 @@ async function readLandingRightSidebarSeparatorPaint(page: Page): Promise<{
   separatorX: number;
 }> {
   const geometry = await page.evaluate(() => {
-    const shell = document.querySelector('[data-workspace-layout-v2="responsive"]');
-    const carousel = document.querySelector('[data-testid="workspace-layout-v2-pane-main"]');
-    const mainPane = carousel?.querySelector(".snap-center > div");
+    const shell = document.querySelector('[data-workspace-layout-part="viewport"]');
+    const carousel = document.querySelector('[data-workspace-layout-part="carousel"]');
+    const mainPane = carousel?.querySelector(
+      '[data-workspace-layout-part="pane"][data-pane-side="main"] > [data-workspace-layout-part="pane-surface"]',
+    );
 
     if (!(shell instanceof HTMLElement)) {
       throw new Error("Expected mobile landing shell");
@@ -246,7 +252,7 @@ async function expectStatusBarInRightSidebar(
   page: Parameters<typeof test>[0]["page"],
   statusBar: Locator,
 ) {
-  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  const rightPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
   const rightPaneBox = await rightPane.boundingBox();
   const statusBarBox = await statusBar.boundingBox();
 
@@ -268,7 +274,7 @@ async function expectStatusBarInRightSidebar(
 }
 
 async function openMobileRightSidebar(page: Page) {
-  await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element) => {
+  await page.locator('[data-workspace-layout-part="carousel"]').evaluate((element) => {
     element.scrollLeft = element.scrollWidth;
     element.dispatchEvent(new Event("scroll", { bubbles: true }));
   });
@@ -283,7 +289,9 @@ async function expectBuildVersionFitsVisibleViewport(page: Page) {
     .poll(async () =>
       page.evaluate((versionTestId) => {
         const version = document.querySelector(`[data-testid="${versionTestId}"]`);
-        const rightPane = document.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
+        const rightPane = document.querySelector(
+          '[data-workspace-layout-part="pane"][data-pane-side="right"]',
+        );
         const scrollingElement = document.scrollingElement;
 
         if (
@@ -332,8 +340,10 @@ test("public landing renders the routed landing UI directly", async ({ page }) =
   await expect(accountSection.getByRole("button", { name: "Continue with Google" })).toHaveCount(0);
   await expect(accountSection.getByRole("button", { name: "Continue with GitHub" })).toBeVisible();
 
-  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
-  const rightPane = page.getByTestId("workspace-layout-v2-pane-right");
+  await expect(
+    page.locator('[data-workspace-layout-part="pane"][data-pane-side="left"]'),
+  ).toHaveCount(0);
+  const rightPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
   await expect(rightPane).toBeVisible();
   const statusBar = rightPane.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
   await expect(statusBar.getByRole("link", { name: "/terms", exact: true })).toBeVisible();
@@ -367,7 +377,9 @@ test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page 
 
   const statusBar = page.getByTestId(APP_BUILD_STATUS_BAR_TEST_ID);
 
-  await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+  await expect(
+    page.locator('[data-workspace-layout-part="pane"][data-pane-side="left"]'),
+  ).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Toggle Left Sidebar" })).toHaveCount(0);
   await expectLegalLinksUseRightSidebarInnerEdge(statusBar);
   await expectStatusBarInRightSidebar(page, statusBar);
@@ -384,7 +396,7 @@ test("mcp consent sign-in keeps legal links in the sidebar rail", async ({ page 
       name: "Continue with GitHub",
     }),
   ).toBeVisible();
-  await expect(page.getByTestId("workspace-layout-v2-pane-main")).toHaveScreenshot(
+  await expect(page.locator('[data-workspace-layout-part="carousel"]')).toHaveScreenshot(
     "mcp-consent-sign-in-no-left-sidebar.png",
     {
       ...strictScreenshotOptions,
@@ -413,13 +425,17 @@ test.describe("iPhone SE landing sidebar", () => {
   }) => {
     await page.goto("/", { waitUntil: "networkidle" });
 
-    await expect(page.getByTestId("workspace-layout-v2-pane-left")).toHaveCount(0);
+    await expect(
+      page.locator('[data-workspace-layout-part="pane"][data-pane-side="left"]'),
+    ).toHaveCount(0);
 
     const beforeSlideMetrics = await readLandingRightSidebarCopyMetrics(page);
 
-    await page.getByTestId("workspace-layout-v2-pane-main").evaluate((element) => {
+    await page.locator('[data-workspace-layout-part="carousel"]').evaluate((element) => {
       // The regression happened when pane ownership changed mid-gesture.
-      const rightPane = document.querySelector('[data-testid="workspace-layout-v2-pane-right"]');
+      const rightPane = document.querySelector(
+        '[data-workspace-layout-part="pane"][data-pane-side="right"]',
+      );
       if (!(rightPane instanceof HTMLElement)) {
         throw new Error("Expected landing right pane");
       }
@@ -430,7 +446,7 @@ test.describe("iPhone SE landing sidebar", () => {
       element.dispatchEvent(new Event("scroll", { bubbles: true }));
     });
 
-    await expect(page.locator('[data-workspace-layout-v2="responsive"]')).toHaveAttribute(
+    await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
       "data-mobile-pane",
       "right",
     );

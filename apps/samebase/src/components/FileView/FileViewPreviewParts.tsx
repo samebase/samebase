@@ -156,7 +156,6 @@ export function FileViewSplitPreview({
           filePath={beforeFilePath}
           highlightedLineNumbers={oldHighlightedLineNumbers}
           lineHighlightTone="remove"
-          mobilePaneDragEnabled
           className="text-sm leading-6"
         />
       </div>
@@ -169,7 +168,6 @@ export function FileViewSplitPreview({
           filePath={afterFilePath}
           highlightedLineNumbers={newHighlightedLineNumbers}
           lineHighlightTone="add"
-          mobilePaneDragEnabled
           className="text-sm leading-6"
         />
       </div>

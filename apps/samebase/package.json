@@ -76,6 +76,7 @@
     "@samebase/dependent": "workspace:*",
     "@samebase/logo-model": "workspace:*",
     "@samebase/sure": "workspace:*",
+    "@samebase/workspace-layout": "workspace:*",
     "@tanstack/react-pacer": "^0.22.1",
     "@tanstack/react-query": "^5.83.0",
     "@tanstack/react-query-devtools": "^5.83.0",

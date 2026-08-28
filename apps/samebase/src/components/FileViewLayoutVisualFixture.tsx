@@ -2,7 +2,7 @@ import { useState } from "react";
 import { FileViewMainHeader } from "@/components/FileView/FileViewMainHeader";
 import { Button } from "@/components/ui/button";
 import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import type { WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
+import type { WorkspaceLayoutV2PaneFrameProps } from "@samebase/workspace-layout/pane-frame";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 export type FileViewLayoutVisualMode =
@@ -76,7 +76,6 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
   return (
     <TestRouterProvider>
       <WorkspaceLayoutV2FixtureFrame
-        dataTestId="fileview-layout-visual-fixture"
         mobileMinResizeBehavior={
           mode === "fileview-layout-slide" ? "min_resize_to_slide" : undefined
         }

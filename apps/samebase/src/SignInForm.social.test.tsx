@@ -1,10 +1,7 @@
 import { type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
-import type {
-  WorkspaceLayoutV2LocalStoreState,
-  WorkspacePaneState,
-} from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
+import type { WorkspaceLayoutPresentation } from "@samebase/workspace-layout/runtime";
 
 vi.mock("@/components/LandingCopy", () => ({
   LandingCopy: () => <div>Landing copy</div>,
@@ -18,28 +15,12 @@ vi.mock("@/components/logo/PublicLandingLogo", () => ({
   PublicLandingLogo: () => <div>Logo</div>,
 }));
 
-vi.mock("@/components/workspace-layout-v2/WorkspacePaneRuntime", () => ({
-  useWorkspaceLayoutV2Selector: (selector: (state: WorkspaceLayoutV2LocalStoreState) => unknown) =>
-    selector({
-      activeResizeSide: null,
-      mobile: {
-        grip: { kind: "idle" },
-        isPaneSettled: true,
-        paneNavigationRequest: null,
-        paneScrollProgress: 0,
-      },
-      viewportSize: { heightPx: 0, widthPx: 0 },
-    }),
-  useWorkspacePaneState: (): WorkspacePaneState => ({
+vi.mock("@samebase/workspace-layout/runtime", () => ({
+  useWorkspaceLayoutPresentation: (): WorkspaceLayoutPresentation => ({
     isMobile: false,
-    leftDesktopOpen: false,
-    leftDesktopWidthPx: 240,
-    leftMobileWidthPx: 240,
+    mobileMergeProgress: null,
     mobilePane: "main",
-    mobileSurface: { kind: "unmerged" },
-    rightDesktopOpen: true,
-    rightDesktopWidthPx: 288,
-    rightMobileWidthPx: 288,
+    mobilePaneScrollProgress: 0,
   }),
 }));
 

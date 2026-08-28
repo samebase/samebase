@@ -1,18 +1,25 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 
-async function getBox(page: Page, testId: string) {
-  const locator = page.getByTestId(testId);
+function getWorkspaceLayoutPane(page: Page, side: "left" | "right") {
+  return page.locator(`[data-workspace-layout-part="pane"][data-pane-side="${side}"]`);
+}
+
+function getWorkspaceLayoutResizeHandle(page: Page, side: "left" | "right") {
+  return page.locator(`[data-workspace-layout-part="resize-handle"][data-resize-side="${side}"]`);
+}
+
+async function getBox(locator: Locator) {
   const box = await locator.boundingBox();
 
   if (box === null) {
-    throw new Error(`Expected ${testId} to have a bounding box.`);
+    throw new Error("Expected workspace layout element to have a bounding box.");
   }
 
   return box;
 }
 
-async function dragHorizontalHandle(page: Page, testId: string, deltaXPx: number) {
-  const handleBox = await getBox(page, testId);
+async function dragHorizontalHandle(page: Page, handle: Locator, deltaXPx: number) {
+  const handleBox = await getBox(handle);
   const startX = handleBox.x + handleBox.width / 2;
   const startY = handleBox.y + handleBox.height / 2;
 
@@ -31,7 +38,9 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
   });
   await page.waitForLoadState("networkidle");
 
-  const fixture = page.getByTestId("fileview-layout-visual-fixture");
+  const fixture = page
+    .locator('[data-workspace-layout-part="root"]')
+    .filter({ has: page.getByTestId("fileview-layout-header") });
   const header = page.getByTestId("fileview-layout-header");
   const counterButton = page.getByTestId("fileview-layout-counter-button");
   const scrollContainer = page.getByTestId("fileview-layout-sidebar-scroll");
@@ -47,7 +56,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
 
   await page.getByRole("button", { name: "Toggle Left Sidebar" }).press("Enter");
   await expect
-    .poll(async () => Math.round((await getBox(page, "workspace-layout-v2-pane-left")).width))
+    .poll(async () => Math.round((await getBox(getWorkspaceLayoutPane(page, "left"))).width))
     .toBe(0);
 
   await page.getByRole("button", { name: "Toggle Left Sidebar" }).press("Enter");
@@ -66,7 +75,7 @@ test("fileview sidebar keeps local state across collapse", async ({ page }) => {
   await expect(counterButton).toBeVisible();
 
   await expect
-    .poll(async () => Math.round((await getBox(page, "workspace-layout-v2-pane-left")).width))
+    .poll(async () => Math.round((await getBox(getWorkspaceLayoutPane(page, "left"))).width))
     .toBeGreaterThan(100);
 
   await expect(page.getByTestId("fileview-layout-counter-value")).toHaveText("1");
@@ -82,25 +91,25 @@ test("fileview desktop left sidebar resize persists across collapse", async ({ p
   });
   await page.waitForLoadState("networkidle");
 
-  const leftSidebar = page.getByTestId("workspace-layout-v2-pane-left");
-  const handle = page.getByTestId("workspace-layout-v2-left-resize");
-  const initialWidthPx = (await getBox(page, "workspace-layout-v2-pane-left")).width;
+  const leftSidebar = getWorkspaceLayoutPane(page, "left");
+  const handle = getWorkspaceLayoutResizeHandle(page, "left");
+  const initialWidthPx = (await getBox(getWorkspaceLayoutPane(page, "left"))).width;
 
   await expect(handle).toBeVisible();
-  await dragHorizontalHandle(page, "workspace-layout-v2-left-resize", 96);
+  await dragHorizontalHandle(page, getWorkspaceLayoutResizeHandle(page, "left"), 96);
   await expect
-    .poll(async () => (await getBox(page, "workspace-layout-v2-pane-left")).width)
+    .poll(async () => (await getBox(getWorkspaceLayoutPane(page, "left"))).width)
     .toBeGreaterThan(initialWidthPx + 48);
 
-  const resizedWidthPx = (await getBox(page, "workspace-layout-v2-pane-left")).width;
+  const resizedWidthPx = (await getBox(getWorkspaceLayoutPane(page, "left"))).width;
   await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
   await expect
-    .poll(async () => Math.round((await getBox(page, "workspace-layout-v2-pane-left")).width))
+    .poll(async () => Math.round((await getBox(getWorkspaceLayoutPane(page, "left"))).width))
     .toBe(0);
 
   await page.getByRole("button", { name: "Toggle Left Sidebar" }).click();
   await expect(leftSidebar).toBeVisible();
   await expect
-    .poll(async () => (await getBox(page, "workspace-layout-v2-pane-left")).width)
+    .poll(async () => (await getBox(getWorkspaceLayoutPane(page, "left"))).width)
     .toBeGreaterThanOrEqual(resizedWidthPx - 1);
 });

@@ -21,10 +21,10 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import {
+  useWorkspaceLayoutPresentation,
   useWorkspacePaneActions,
-  useWorkspacePaneState,
   type WorkspaceMobilePane,
-} from "@/components/workspace-layout-v2/WorkspacePaneRuntime";
+} from "@samebase/workspace-layout/runtime";
 import {
   DOCS_CLOUDFLARE_SETUP_ROUTE,
   DOCS_DO_IT_YOURSELF_ROUTE,
@@ -88,7 +88,7 @@ function LandingPreviewPaneUrlSync() {
     select: (location) => location.searchStr,
   });
   const { setMobilePane } = useWorkspacePaneActions();
-  const { mobilePane } = useWorkspacePaneState();
+  const { mobilePane } = useWorkspaceLayoutPresentation();
 
   useLayoutEffect(() => {
     const nextMobilePane = getLandingPreviewUrlMobilePane(window.location.search);

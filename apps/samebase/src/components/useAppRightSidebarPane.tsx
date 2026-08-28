@@ -1,5 +1,5 @@
 import { AppRightSidebarContent } from "@/components/AppRightSidebar";
-import { type WorkspaceLayoutV2PaneFrameProps } from "@/components/workspace-layout-v2/WorkspaceLayoutV2PaneFrame";
+import { type WorkspaceLayoutV2PaneFrameProps } from "@samebase/workspace-layout/pane-frame";
 
 export function useAppRightSidebarPane(): WorkspaceLayoutV2PaneFrameProps {
   return {

@@ -158,9 +158,6 @@ export const ROUTE_ACCESS_METADATA_BY_PATH = {
   },
   "/visual-fixture": {
     access: "access_public",
-    appWorkspaceRouteChrome: {
-      dataTestId: "visual-fixture-shell",
-    },
     availableEnvironments: ["local"],
   },
 } as const satisfies Record<RoutePath, RouteMetadata>;

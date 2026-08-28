@@ -2520,7 +2520,6 @@ function FileViewInner({
                                 filePath={selectedFile}
                                 options={inlinePreviewOptions}
                                 editable={inlinePreviewEditable}
-                                mobilePaneDragEnabled
                                 onChange={handleInlinePreviewChange}
                                 className="text-sm leading-6"
                               />
@@ -2618,7 +2617,6 @@ function FileViewInner({
                 filePath={selectedFile}
                 options={inlinePreviewOptions}
                 editable={false}
-                mobilePaneDragEnabled
                 className="text-sm leading-6"
               />
             )}

@@ -93,7 +93,6 @@ export type RouteSearchParamValueSuggestion<Key extends string = string> = Extra
 >;
 
 export type AppWorkspaceRouteChromeStaticData = {
-  dataTestId?: string;
   leftPane?: "none";
   // Routes always keep the standard right sidebar for navigation. Add an option
   // here only when a concrete product requirement needs to remove it.

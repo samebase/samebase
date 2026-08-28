@@ -55,7 +55,6 @@ function VisualFixtureRouteComponent() {
 
   return (
     <AppWorkspaceRouteChrome
-      dataTestId="visual-fixture-shell"
       left={null}
       leftToggleVisibility="hidden"
       right={null}

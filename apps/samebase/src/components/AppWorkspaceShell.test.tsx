@@ -5,8 +5,9 @@ import { renderToStaticMarkup } from "react-dom/server";
 import * as React from "react";
 import { createRoot, hydrateRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import type { WorkspaceLayoutV2MobileMinResizeBehavior } from "@samebase/workspace-layout/geometry";
+import type { WorkspaceSidebarState } from "@samebase/workspace-layout/state";
 import { AppWorkspaceRouteChrome, AppWorkspaceShell } from "./AppWorkspaceShell";
-import type { WorkspaceSidebarState } from "../../convex/userPreferenceModel";
 import {
   appWorkspaceMobilePanePrehydrationScript,
   appWorkspaceSidebarPrehydrationScript,
@@ -16,10 +17,27 @@ import { APP_WORKSPACE_SIDEBAR_STORAGE_KEY } from "@/lib/appWorkspaceSidebarPref
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 const { act, useState } = React;
-const { useConvexAuthMock, useQueryMock } = vi.hoisted(() => ({
-  useConvexAuthMock: vi.fn(),
-  useQueryMock: vi.fn(),
-}));
+const { toggleLeftPaneMock, toggleRightPaneMock, useConvexAuthMock, useQueryMock } = vi.hoisted(
+  () => ({
+    toggleLeftPaneMock: vi.fn(),
+    toggleRightPaneMock: vi.fn(),
+    useConvexAuthMock: vi.fn(),
+    useQueryMock: vi.fn(),
+  }),
+);
+
+vi.mock("@samebase/workspace-layout/runtime", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@samebase/workspace-layout/runtime")>();
+
+  return {
+    ...actual,
+    useWorkspacePaneActions: () => ({
+      ...actual.useWorkspacePaneActions(),
+      toggleLeftPane: toggleLeftPaneMock,
+      toggleRightPane: toggleRightPaneMock,
+    }),
+  };
+});
 
 vi.mock("@/components/useAppRightSidebarPane", () => ({
   useAppRightSidebarPane: () => ({
@@ -51,8 +69,8 @@ const LOCAL_SIDEBAR_STATE = {
 
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR =
   "style#samebase-app-workspace-sidebar-prehydration";
-const APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR =
-  ".workspace-layout-v2-responsive-viewport:not([data-workspace-layout-v2-measured])";
+const APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE =
+  "data-workspace-layout-desktop-prehydration-scope";
 
 const SERVER_SIDEBAR_STATE = {
   leftDesktopOpen: true,
@@ -74,6 +92,8 @@ describe("AppWorkspaceShell", () => {
   let rootElement: HTMLDivElement | null = null;
 
   beforeEach(() => {
+    toggleLeftPaneMock.mockReset();
+    toggleRightPaneMock.mockReset();
     useConvexAuthMock.mockReturnValue({
       isAuthenticated: false,
       isLoading: false,
@@ -150,6 +170,24 @@ describe("AppWorkspaceShell", () => {
     );
   }
 
+  function ShortcutPaneSideRouteChromeProbe() {
+    const [useLeftPaneShortcut, setUseLeftPaneShortcut] = useState(false);
+
+    return (
+      <AppWorkspaceRouteChrome shortcutPaneSide={useLeftPaneShortcut ? "left" : undefined}>
+        <button
+          data-testid="use-left-pane-shortcut"
+          type="button"
+          onClick={() => {
+            setUseLeftPaneShortcut(true);
+          }}
+        >
+          Use left pane shortcut
+        </button>
+      </AppWorkspaceRouteChrome>
+    );
+  }
+
   function renderClientShell() {
     rootElement = document.createElement("div");
     document.body.append(rootElement);
@@ -166,19 +204,24 @@ describe("AppWorkspaceShell", () => {
     });
   }
 
-  function runAppWorkspaceSidebarPrehydrationScript(
-    contextOverrides: Record<string, unknown> = {},
-  ) {
-    new Script(appWorkspaceSidebarPrehydrationScript).runInContext(
-      createContext({
-        document,
-        JSON,
-        Math,
-        Number,
-        window,
-        ...contextOverrides,
-      }),
-    );
+  function runAppWorkspaceSidebarPrehydrationScript(scriptElement: HTMLScriptElement) {
+    const currentScriptSpy = vi
+      .spyOn(document, "currentScript", "get")
+      .mockReturnValue(scriptElement);
+    try {
+      new Script(appWorkspaceSidebarPrehydrationScript).runInContext(
+        createContext({
+          document,
+          encodeURIComponent,
+          JSON,
+          Math,
+          Number,
+          window,
+        }),
+      );
+    } finally {
+      currentScriptSpy.mockRestore();
+    }
   }
 
   function runAppWorkspaceMobilePanePrehydrationScript(scriptElement: HTMLScriptElement) {
@@ -215,12 +258,14 @@ describe("AppWorkspaceShell", () => {
     }
   }
 
-  function appendMobilePrehydrationCarousel({
+  function appendPrehydrationCarousel({
     includeLeftPane = true,
     includeRightPane = true,
+    mobileMinResizeBehavior = "min_resize_to_merge",
   }: {
     includeLeftPane?: boolean;
     includeRightPane?: boolean;
+    mobileMinResizeBehavior?: WorkspaceLayoutV2MobileMinResizeBehavior;
   }) {
     const container = document.createElement("div");
     rootElement = container;
@@ -228,35 +273,30 @@ describe("AppWorkspaceShell", () => {
     const carousel = document.createElement("div");
     const frameworkScriptElement = document.createElement("script");
     const scriptElement = document.createElement("script");
-    carousel.className = "workspace-layout-v2-responsive-viewport";
+    carousel.setAttribute("data-workspace-layout-part", "carousel");
     layoutRoot.setAttribute("data-mobile-pane", "main");
-    layoutRoot.setAttribute("data-workspace-layout-v2", "responsive");
+    layoutRoot.setAttribute("data-mobile-min-resize-behavior", mobileMinResizeBehavior);
+    layoutRoot.setAttribute("data-workspace-layout-part", "viewport");
 
     if (includeLeftPane) {
       const leftPane = document.createElement("div");
-      leftPane.className = "workspace-layout-v2-responsive-left-pane";
-      leftPane.setAttribute("data-workspace-layout-v2-mobile-pane", "left");
-      leftPane.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "left");
-      leftPane.setAttribute("data-testid", "workspace-layout-v2-pane-left");
+      leftPane.setAttribute("data-pane-side", "left");
+      leftPane.setAttribute("data-workspace-layout-part", "pane");
       carousel.append(leftPane);
     }
 
     const mainPane = document.createElement("div");
     const mainPaneSurface = document.createElement("div");
-    mainPane.className = "workspace-layout-v2-responsive-main-pane snap-center snap-always";
-    mainPane.setAttribute("data-workspace-layout-v2-mobile-main-pane", "");
-    mainPane.setAttribute("data-workspace-layout-v2-mobile-pane", "main");
-    mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-main-pane-surface", "");
-    mainPaneSurface.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "main");
+    mainPane.setAttribute("data-pane-side", "main");
+    mainPane.setAttribute("data-workspace-layout-part", "pane");
+    mainPaneSurface.setAttribute("data-workspace-layout-part", "pane-surface");
     mainPane.append(mainPaneSurface);
     carousel.append(mainPane);
 
     if (includeRightPane) {
       const rightPane = document.createElement("div");
-      rightPane.className = "workspace-layout-v2-responsive-right-pane";
-      rightPane.setAttribute("data-workspace-layout-v2-mobile-pane", "right");
-      rightPane.setAttribute("data-workspace-layout-v2-mobile-separator-pane", "right");
-      rightPane.setAttribute("data-testid", "workspace-layout-v2-pane-right");
+      rightPane.setAttribute("data-pane-side", "right");
+      rightPane.setAttribute("data-workspace-layout-part", "pane");
       carousel.append(rightPane);
     }
 
@@ -272,7 +312,13 @@ describe("AppWorkspaceShell", () => {
     };
   }
 
-  async function hydrateClientShellFromServerMarkup(initialEntry = "/logo") {
+  async function hydrateClientShellFromServerMarkup({
+    initialEntry = "/logo",
+    inspectPrehydratedMarkup,
+  }: {
+    initialEntry?: string;
+    inspectPrehydratedMarkup?: (carousel: HTMLElement) => void;
+  } = {}) {
     const recoverableErrors: unknown[] = [];
     const container = document.createElement("div");
     rootElement = container;
@@ -284,6 +330,11 @@ describe("AppWorkspaceShell", () => {
         </AppWorkspaceShell>
       </TestRouterProvider>,
     );
+    const carousel = getRequiredElement('[data-workspace-layout-part="carousel"]');
+    runAppWorkspaceSidebarPrehydrationScript(
+      getRequiredInlineScriptElement(appWorkspaceSidebarPrehydrationScript),
+    );
+    inspectPrehydratedMarkup?.(carousel);
 
     await act(async () => {
       root = hydrateRoot(
@@ -322,9 +373,26 @@ describe("AppWorkspaceShell", () => {
     return element;
   }
 
+  function getRequiredInlineScriptElement(source: string) {
+    for (const scriptElement of rootElement?.querySelectorAll("script") ?? []) {
+      if (scriptElement.textContent === source) return scriptElement;
+    }
+
+    throw new Error("Expected the inline workspace prehydration script.");
+  }
+
   function getRequiredPrehydrationStyleText() {
     return getRequiredDocumentElement(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)
       .textContent;
+  }
+
+  function getPrehydrationViewportSelector(carousel: HTMLElement) {
+    const scopeValue = carousel.getAttribute(APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE);
+    if (scopeValue === null) {
+      throw new Error("Expected the desktop prehydration scope.");
+    }
+
+    return `[data-workspace-layout-part="carousel"][${APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE}="${scopeValue}"]:not([data-viewport-measured])`;
   }
 
   type ExpectedPrehydrationGeometry = {
@@ -335,37 +403,38 @@ describe("AppWorkspaceShell", () => {
   };
 
   function expectPrehydrationStyleText({
+    carousel,
     leftDesktopOpen,
     leftDesktopWidth,
     rightDesktopOpen,
     rightDesktopWidth,
     styleText,
-  }: ExpectedPrehydrationGeometry & { styleText: string }) {
-    expect(styleText).toContain("@layer utilities");
+  }: ExpectedPrehydrationGeometry & { carousel: HTMLElement; styleText: string }) {
+    const viewportSelector = getPrehydrationViewportSelector(carousel);
     expect(styleText).toContain("@media (min-width: 768px)");
     expect(styleText).toContain(
-      `${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-left-pane`,
+      `${viewportSelector} [data-workspace-layout-part="pane"][data-pane-side="left"]`,
+    );
+    expect(styleText).toContain(
+      `border-inline-end-width: ${leftDesktopOpen ? 1 : 0}px !important;`,
     );
     expect(styleText).toContain(`width: ${leftDesktopWidth} !important;`);
-    if (leftDesktopOpen) {
-      expect(styleText).not.toContain("border-right-width: 0 !important;");
-    } else {
-      expect(styleText).toContain("border-right-width: 0 !important;");
-    }
     expect(styleText).toContain(
-      `${APP_WORKSPACE_SIDEBAR_PREHYDRATION_UNMEASURED_SELECTOR} .workspace-layout-v2-responsive-right-pane`,
+      `${viewportSelector} [data-workspace-layout-part="pane"][data-pane-side="right"]`,
+    );
+    expect(styleText).toContain(
+      `border-inline-start-width: ${rightDesktopOpen ? 1 : 0}px !important;`,
     );
     expect(styleText).toContain(`width: ${rightDesktopWidth} !important;`);
-    if (rightDesktopOpen) {
-      expect(styleText).not.toContain("border-left-width: 0 !important;");
-    } else {
-      expect(styleText).toContain("border-left-width: 0 !important;");
-    }
   }
 
-  function expectPrehydrationStyle(expectedGeometry: ExpectedPrehydrationGeometry) {
+  function expectPrehydrationStyle(
+    expectedGeometry: ExpectedPrehydrationGeometry,
+    carousel: HTMLElement,
+  ) {
     expectPrehydrationStyleText({
       ...expectedGeometry,
+      carousel,
       styleText: getRequiredPrehydrationStyleText(),
     });
   }
@@ -388,12 +457,12 @@ describe("AppWorkspaceShell", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('data-workspace-layout-v2="responsive"');
-    expect(markup).toContain('data-testid="app-workspace"');
-    expect(markup).toContain('data-testid="workspace-layout-v2-address-chrome"');
+    expect(markup).toContain('data-workspace-layout-part="viewport"');
+    expect(markup).toContain('data-workspace-layout-part="root"');
+    expect(markup).toContain('data-workspace-layout-part="address-chrome"');
     expect(markup).toContain('data-testid="route-url-editor"');
-    expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
-    expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(markup).toContain('data-pane-side="left"');
+    expect(markup).toContain('data-pane-side="right"');
     expect(markup).toContain("workspace route content");
   });
 
@@ -406,12 +475,12 @@ describe("AppWorkspaceShell", () => {
       </TestRouterProvider>,
     );
 
-    expect(markup).toContain('data-testid="visual-fixture-shell"');
+    expect(markup).toContain('data-workspace-layout-part="root"');
     expect(markup).toContain("visual fixture content");
-    expect(markup).toContain('data-testid="workspace-layout-v2-address-chrome"');
+    expect(markup).toContain('data-workspace-layout-part="address-chrome"');
     expect(markup).toContain('data-testid="route-url-editor"');
-    expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
-    expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
+    expect(markup).toContain('data-pane-side="left"');
+    expect(markup).toContain('data-pane-side="right"');
     expect(markup).toContain("flex h-full min-h-0 flex-col");
     expect(markup).not.toContain("min-h-dvh");
   });
@@ -452,12 +521,16 @@ describe("AppWorkspaceShell", () => {
         </TestRouterProvider>,
       );
 
-      expect(markup).toContain('data-testid="app-workspace"');
-      expect(markup).toContain('data-testid="workspace-layout-v2-address-chrome"');
+      expect(markup).toContain('data-workspace-layout-part="root"');
+      expect(markup).toContain('data-workspace-layout-part="address-chrome"');
       expect(markup).toContain('data-testid="route-url-editor"');
-      expect(markup).toContain('data-testid="workspace-layout-v2-pane-right"');
+      expect(markup).toContain('data-pane-side="right"');
       expect(markup).toContain("workspace route content");
-      expect(markup).not.toContain('data-testid="workspace-layout-v2-pane-left"');
+      const markupContainer = document.createElement("div");
+      markupContainer.innerHTML = markup;
+      expect(
+        markupContainer.querySelector('[data-workspace-layout-part="pane"][data-pane-side="left"]'),
+      ).toBeNull();
     }
   });
 
@@ -475,8 +548,8 @@ describe("AppWorkspaceShell", () => {
         </TestRouterProvider>,
       );
 
-      expect(markup).toContain('data-testid="workspace-layout-v2-address-chrome"');
-      expect(markup).toContain('data-testid="workspace-layout-v2-pane-left"');
+      expect(markup).toContain('data-workspace-layout-part="address-chrome"');
+      expect(markup).toContain('data-pane-side="left"');
       expect(markup).toContain("workspace route content");
     }
   });
@@ -499,7 +572,9 @@ describe("AppWorkspaceShell", () => {
     expect(getRequiredElement('[data-testid="route-chrome-left-probe"]').textContent).toBe(
       "Route content",
     );
-    expect(rootElement.querySelector('[data-testid="workspace-layout-v2-pane-left"]')).toBeNull();
+    expect(
+      rootElement.querySelector('[data-workspace-layout-part="pane"][data-pane-side="left"]'),
+    ).toBeNull();
     expect(rootElement.textContent).not.toContain("route left pane");
   });
 
@@ -532,6 +607,98 @@ describe("AppWorkspaceShell", () => {
     expect(getRequiredElement('[data-testid="route-chrome-accessory"]').textContent).toBe(
       "Updated route chrome",
     );
+  });
+
+  it("applies the route-selected pane policy to the global workspace shortcut", () => {
+    rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    root = createRoot(rootElement);
+
+    act(() => {
+      root?.render(
+        <TestRouterProvider initialEntries={["/logo"]}>
+          <AppWorkspaceShell>
+            <ShortcutPaneSideRouteChromeProbe />
+          </AppWorkspaceShell>
+        </TestRouterProvider>,
+      );
+    });
+
+    const defaultShortcutEvent = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      ctrlKey: true,
+      key: "b",
+    });
+    act(() => {
+      window.dispatchEvent(defaultShortcutEvent);
+    });
+
+    expect(defaultShortcutEvent.defaultPrevented).toBe(true);
+    expect(toggleRightPaneMock).toHaveBeenCalledOnce();
+    expect(toggleLeftPaneMock).not.toHaveBeenCalled();
+
+    act(() => {
+      getRequiredElement('[data-testid="use-left-pane-shortcut"]').click();
+    });
+    toggleLeftPaneMock.mockClear();
+    toggleRightPaneMock.mockClear();
+
+    const leftShortcutEvent = new KeyboardEvent("keydown", {
+      bubbles: true,
+      cancelable: true,
+      key: "b",
+      metaKey: true,
+    });
+    act(() => {
+      window.dispatchEvent(leftShortcutEvent);
+    });
+
+    expect(leftShortcutEvent.defaultPrevented).toBe(true);
+    expect(toggleLeftPaneMock).toHaveBeenCalledOnce();
+    expect(toggleRightPaneMock).not.toHaveBeenCalled();
+  });
+
+  it("leaves Ctrl+B and Command+B available to editable targets", () => {
+    renderClientShell();
+    const editableTargetMarkup = [
+      '<input data-shortcut-target="">',
+      '<textarea data-shortcut-target=""></textarea>',
+      '<select data-shortcut-target=""><option>Option</option></select>',
+      '<div contenteditable="true"><span data-shortcut-target="" tabindex="0"></span></div>',
+      '<div role="textbox"><span data-shortcut-target="" tabindex="0"></span></div>',
+      '<div class="monaco-editor"><span data-shortcut-target="" tabindex="0"></span></div>',
+      '<div class="cm-editor"><span data-shortcut-target="" tabindex="0"></span></div>',
+    ];
+
+    for (const markup of editableTargetMarkup) {
+      const host = document.createElement("div");
+      host.innerHTML = markup;
+      document.body.append(host);
+      const target = host.querySelector("[data-shortcut-target]");
+      if (!(target instanceof HTMLElement)) {
+        throw new Error("Expected an editable shortcut target.");
+      }
+
+      target.focus();
+      for (const modifier of [{ ctrlKey: true }, { metaKey: true }]) {
+        const event = new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "b",
+          ...modifier,
+        });
+        act(() => {
+          target.dispatchEvent(event);
+        });
+
+        expect(event.defaultPrevented).toBe(false);
+      }
+      host.remove();
+    }
+
+    expect(toggleLeftPaneMock).not.toHaveBeenCalled();
+    expect(toggleRightPaneMock).not.toHaveBeenCalled();
   });
 
   it("lets route chrome expose both sidebar toggles on mobile", () => {
@@ -571,7 +738,9 @@ describe("AppWorkspaceShell", () => {
       );
     });
 
-    const mainHeader = getRequiredElement('[data-testid="workspace-layout-v2-main-pane-header"]');
+    const mainHeader = getRequiredElement(
+      '[data-workspace-layout-part="pane"][data-pane-side="main"] [data-workspace-layout-part="pane-header"]',
+    );
     const rightToggle = getRequiredElement('button[aria-label="Toggle Right Sidebar"]');
 
     expect(mainHeader.textContent).not.toContain("samebase");
@@ -633,18 +802,21 @@ describe("AppWorkspaceShell", () => {
       }),
     );
 
-    runAppWorkspaceSidebarPrehydrationScript();
-
-    expectPrehydrationStyle({
-      leftDesktopOpen: true,
-      leftDesktopWidth: "360px",
-      rightDesktopOpen: true,
-      rightDesktopWidth: "420px",
+    const recoverableErrors = await hydrateClientShellFromServerMarkup({
+      inspectPrehydratedMarkup: (carousel) => {
+        expectPrehydrationStyle(
+          {
+            leftDesktopOpen: true,
+            leftDesktopWidth: "360px",
+            rightDesktopOpen: true,
+            rightDesktopWidth: "420px",
+          },
+          carousel,
+        );
+      },
     });
 
-    const recoverableErrors = await hydrateClientShellFromServerMarkup();
-
-    const viewport = getRequiredElement('[data-testid="workspace-layout-v2-pane-main"]');
+    const viewport = getRequiredElement('[data-workspace-layout-part="carousel"]');
     expect(viewport.getAttribute("style")).toContain(
       "--workspace-layout-v2-left-desktop-width: 360px",
     );
@@ -669,15 +841,17 @@ describe("AppWorkspaceShell", () => {
       }),
     );
 
-    runAppWorkspaceSidebarPrehydrationScript();
+    const recoverableErrors = await hydrateClientShellFromServerMarkup({
+      initialEntry: "/terms",
+    });
 
-    const recoverableErrors = await hydrateClientShellFromServerMarkup("/terms");
-
-    expect(rootElement?.querySelector('[data-testid="workspace-layout-v2-pane-left"]')).toBeNull();
-    expect(getRequiredElement('[data-testid="workspace-layout-v2-pane-main"]')).toBeInstanceOf(
+    expect(
+      rootElement?.querySelector('[data-workspace-layout-part="pane"][data-pane-side="left"]'),
+    ).toBeNull();
+    expect(getRequiredElement('[data-workspace-layout-part="carousel"]')).toBeInstanceOf(
       HTMLElement,
     );
-    expect(getRequiredElement('[data-testid="workspace-layout-v2-address-chrome"]')).toBeInstanceOf(
+    expect(getRequiredElement('[data-workspace-layout-part="address-chrome"]')).toBeInstanceOf(
       HTMLElement,
     );
     expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
@@ -693,18 +867,23 @@ describe("AppWorkspaceShell", () => {
       }),
     );
 
-    runAppWorkspaceSidebarPrehydrationScript();
+    const { carousel, scriptElement } = appendPrehydrationCarousel({});
+    runAppWorkspaceSidebarPrehydrationScript(scriptElement);
 
-    expectPrehydrationStyle({
-      leftDesktopOpen: false,
-      leftDesktopWidth: "0px",
-      rightDesktopOpen: true,
-      rightDesktopWidth: "340px",
-    });
+    expectPrehydrationStyle(
+      {
+        leftDesktopOpen: false,
+        leftDesktopWidth: "0px",
+        rightDesktopOpen: true,
+        rightDesktopWidth: "340px",
+      },
+      carousel,
+    );
 
     clearAppWorkspaceSidebarDesktopPrehydrationStyle();
 
     expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
+    expect(carousel.hasAttribute(APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE)).toBe(false);
   });
 
   it("does not prehydrate invalid local sidebar widths", () => {
@@ -720,9 +899,43 @@ describe("AppWorkspaceShell", () => {
       }),
     );
 
-    runAppWorkspaceSidebarPrehydrationScript();
+    const { carousel, scriptElement } = appendPrehydrationCarousel({});
+    runAppWorkspaceSidebarPrehydrationScript(scriptElement);
 
     expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
+    expect(carousel.hasAttribute(APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE)).toBe(false);
+  });
+
+  it("does not prehydrate a merged surface below the runtime main-width minimum", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          mobilePane: "right",
+          mobileSurface: {
+            kind: "merged",
+            mainWidthPx: 0,
+            side: "right",
+          },
+        },
+        version: 2,
+      }),
+    );
+
+    const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({});
+    runAppWorkspaceSidebarPrehydrationScript(scriptElement);
+    expect(document.querySelector(APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_SELECTOR)).toBeNull();
+    expect(carousel.hasAttribute(APP_WORKSPACE_SIDEBAR_PREHYDRATION_SCOPE_ATTRIBUTE)).toBe(false);
+
+    withMobileViewportWidth(390, () => {
+      runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
+    });
+
+    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("main");
+    expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
+    expect(layoutRoot.style.length).toBe(0);
+    expect(carousel.scrollLeft).toBe(0);
   });
 
   it("prehydrates closed local sidebars as zero width", () => {
@@ -738,14 +951,18 @@ describe("AppWorkspaceShell", () => {
       }),
     );
 
-    runAppWorkspaceSidebarPrehydrationScript();
+    const { carousel, scriptElement } = appendPrehydrationCarousel({});
+    runAppWorkspaceSidebarPrehydrationScript(scriptElement);
 
-    expectPrehydrationStyle({
-      leftDesktopOpen: false,
-      leftDesktopWidth: "0px",
-      rightDesktopOpen: false,
-      rightDesktopWidth: "0px",
-    });
+    expectPrehydrationStyle(
+      {
+        leftDesktopOpen: false,
+        leftDesktopWidth: "0px",
+        rightDesktopOpen: false,
+        rightDesktopWidth: "0px",
+      },
+      carousel,
+    );
   });
 
   it("prehydrates the unmerged mobile pane before hydration", () => {
@@ -762,7 +979,7 @@ describe("AppWorkspaceShell", () => {
         version: 2,
       }),
     );
-    const { carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({});
+    const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({});
 
     withMobileViewportWidth(390, () => {
       runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
@@ -785,9 +1002,9 @@ describe("AppWorkspaceShell", () => {
     expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
     expect(
       carousel
-        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
-        ?.classList.contains("snap-center"),
-    ).toBe(true);
+        .querySelector('[data-workspace-layout-part="pane"][data-pane-side="main"]')
+        ?.getAttribute("data-workspace-layout-part"),
+    ).toBe("pane");
   });
 
   it("fits a persisted merged mobile pane to the current viewport before hydration", () => {
@@ -808,7 +1025,7 @@ describe("AppWorkspaceShell", () => {
         version: 2,
       }),
     );
-    const { carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({});
+    const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({});
 
     withMobileViewportWidth(390, () => {
       runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
@@ -828,14 +1045,43 @@ describe("AppWorkspaceShell", () => {
     expect(layoutRoot.getAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe("right");
     expect(
       carousel
-        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
-        ?.classList.contains("snap-center"),
-    ).toBe(true);
-    expect(
-      carousel
-        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
-        ?.classList.contains("snap-none"),
-    ).toBe(false);
+        .querySelector('[data-workspace-layout-part="pane"][data-pane-side="main"]')
+        ?.getAttribute("data-workspace-layout-part"),
+    ).toBe("pane");
+  });
+
+  it("prehydrates a persisted merge as unmerged geometry for slide behavior", () => {
+    window.localStorage.setItem(
+      APP_WORKSPACE_SIDEBAR_STORAGE_KEY,
+      JSON.stringify({
+        state: {
+          ...LOCAL_SIDEBAR_STATE,
+          leftMobileWidthPx: 260,
+          mobilePane: "right",
+          mobileSurface: {
+            kind: "merged",
+            mainWidthPx: 260,
+            side: "right",
+          },
+          rightMobileWidthPx: 130,
+        },
+        version: 2,
+      }),
+    );
+    const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({
+      mobileMinResizeBehavior: "min_resize_to_slide",
+    });
+
+    withMobileViewportWidth(390, () => {
+      runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
+    });
+
+    expect(layoutRoot.style.getPropertyValue("--workspace-layout-v2-main-mobile-width")).toBe(
+      "390px",
+    );
+    expect(carousel.scrollLeft).toBe(390);
+    expect(layoutRoot.getAttribute("data-mobile-pane")).toBe("right");
+    expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
   });
 
   it("prehydrates invalid merged mobile pane state as unmerged geometry", () => {
@@ -856,7 +1102,7 @@ describe("AppWorkspaceShell", () => {
         version: 2,
       }),
     );
-    const { carousel, layoutRoot, scriptElement } = appendMobilePrehydrationCarousel({});
+    const { carousel, layoutRoot, scriptElement } = appendPrehydrationCarousel({});
 
     withMobileViewportWidth(390, () => {
       runAppWorkspaceMobilePanePrehydrationScript(scriptElement);
@@ -875,9 +1121,9 @@ describe("AppWorkspaceShell", () => {
     expect(layoutRoot.hasAttribute("data-workspace-layout-v2-mobile-merged-side")).toBe(false);
     expect(
       carousel
-        .querySelector("[data-workspace-layout-v2-mobile-main-pane]")
-        ?.classList.contains("snap-center"),
-    ).toBe(true);
+        .querySelector('[data-workspace-layout-part="pane"][data-pane-side="main"]')
+        ?.getAttribute("data-workspace-layout-part"),
+    ).toBe("pane");
   });
 
   it("uses default sidebar width fallbacks in server markup", () => {

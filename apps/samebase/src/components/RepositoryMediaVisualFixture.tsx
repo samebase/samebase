@@ -120,7 +120,6 @@ export function RepositoryMediaVisualFixture({ mode }: { mode: RepositoryMediaVi
 
   return (
     <WorkspaceLayoutV2FixtureFrame
-      dataTestId="repository-media-visual-fixture"
       left={{
         header: sidebarHeader,
         content: sidebarContent,

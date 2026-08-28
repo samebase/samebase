@@ -1,5 +1,4 @@
 import { COMPACT_IDENTITY_SVG_URL } from "@/components/compactIdentitySvgAsset";
-import { appWorkspaceSidebarPrehydrationScript } from "@/lib/appWorkspaceSidebarPrehydration";
 import { agentBrowserHandoffPrehydrationScript } from "@/lib/agentBrowserHandoffPrehydration";
 import { appAuthPresentationPrehydrationScript } from "@/lib/appAuthPresentationPrehydration";
 import { publicLandingLogoPrehydrationScript } from "@/lib/publicLandingLogoPrehydration";
@@ -225,9 +224,6 @@ export function buildRootHead({
       },
       {
         children: appAuthPresentationPrehydrationScript,
-      },
-      {
-        children: appWorkspaceSidebarPrehydrationScript,
       },
     ],
   };
