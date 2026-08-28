@@ -311,9 +311,9 @@ UI code:
 - Keep app-owned styling APIs closed. Change a component standard instead of adding pass-through
   classes. Standardize shared chrome without speculative content slots.
 - No dynamically built Tailwind/CSS class names; map state to full literal strings.
-- Make workspace content respond to the container from `WorkspaceLayoutV2PaneFrame`. Use container
-  variants and `cqw`, not viewport breakpoints or `vw`; use viewport units only for true viewport
-  concerns such as scroll-end space.
+- Make workspace content respond to the container from `PaneFrame`. Use container variants and
+  `cqw`, not viewport breakpoints or `vw`; use viewport units only for true viewport concerns such
+  as scroll-end space.
 - App-internal navigation goes through TanStack Router `Link`/`navigate`; plain anchors only for
   external URLs, downloads, or deliberate reloads; href-bearing internal actions still SPA-route
   ordinary left-clicks.

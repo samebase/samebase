@@ -8,7 +8,7 @@ import {
 import { seedVisualFixtureWorkspaceSidebarState } from "./visualFixtureTest";
 
 const MAIN_HEADER_SELECTOR =
-  '[data-workspace-layout-part="pane"][data-pane-side="main"] [data-workspace-layout-part="pane-header"]';
+  '[data-sidebar-layout-part="pane"][data-pane-side="main"] [data-sidebar-layout-part="pane-header"]';
 const screenshotOptions = {
   animations: "disabled",
   caret: "hide",
@@ -68,7 +68,7 @@ test("shows the explicit zero-membership global inventory", async ({ page }, tes
   });
 
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
-  const rightPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
+  const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   const contextControl = rightPane.getByTestId("organization-context-control");
   await expect(contextControl.getByText("No organization selected", { exact: true })).toBeVisible();
   await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
@@ -116,7 +116,7 @@ test("groups the global inventory and exposes every organization context", async
   await expect(page.getByRole("link", { name: /org-context-zeta\/web-app,/u })).toBeVisible();
 
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
-  const rightPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
+  const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   await expect(rightPane).toBeVisible();
   await rightPane.getByRole("button", { name: "Switch organization" }).click();
   const contextMenu = page.getByRole("menu");
@@ -167,7 +167,7 @@ test("persists one user's collapsed organization across vault routes", async ({
   await openRoute(page, `/vault/${ownerLogin}/inventory-app`);
   await expect(
     page
-      .locator('[data-workspace-layout-part="pane"][data-pane-side="left"]')
+      .locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]')
       .getByRole("button", { name: ownerLogin, exact: true }),
   ).toHaveAttribute("aria-expanded", "false");
 
@@ -196,7 +196,7 @@ test("keeps one organization switchable across settings, providers, and billing"
   await expect(header.getByText("org-context-solo", { exact: true })).toHaveCount(0);
   await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
-  const rightPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
+  const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   const organizationContext = rightPane.getByTestId("organization-context-control");
   await expect(organizationContext.getByText("org-context-solo", { exact: true })).toBeVisible();
   await expect(
@@ -313,17 +313,15 @@ test("keeps organization scope across direct links and browser history", async (
   await openRoute(page, "/org/org-context-history-alpha/settings?dev");
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
   await page
-    .locator('[data-workspace-layout-part="pane"][data-pane-side="right"]')
+    .locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]')
     .getByRole("button", { name: "Switch organization" })
     .click();
   await page.getByRole("menuitem", { name: "org-context-history-beta" }).click();
   await expect(page).toHaveURL(/\/org\/org-context-history-beta\/settings\?dev$/u);
   await expect(
-    page
-      .locator('[data-workspace-layout-part="pane"][data-pane-side="right"]')
-      .getByRole("button", {
-        name: "Switch organization, current context org-context-history-beta",
-      }),
+    page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]').getByRole("button", {
+      name: "Switch organization, current context org-context-history-beta",
+    }),
   ).toBeVisible();
 
   await page.goBack();
@@ -359,7 +357,7 @@ test("keeps a lost organization route unavailable before its root redirect", asy
   });
 
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
-  const rightPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
+  const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   await expect(
     rightPane
       .getByTestId("organization-context-control")
@@ -392,7 +390,7 @@ test("shows explicit lost access for a retained vault route", async ({ page }, t
   });
 
   await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
-  const rightPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
+  const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
   await expect(
     rightPane
       .getByTestId("organization-context-control")
@@ -423,11 +421,11 @@ async function signInFromDirectRoute(args: {
     await expect(page).toHaveURL(args.route);
     await expect(
       page
-        .locator('[data-workspace-layout-part="carousel"]')
+        .locator('[data-sidebar-layout-part="carousel"]')
         .getByRole("heading", { name: args.mainHeading }),
     ).toBeVisible();
 
-    const rightPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
+    const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
     if (!(await rightPane.isVisible())) {
       await page.getByRole("button", { name: "Toggle Right Sidebar" }).click();
     }
@@ -525,18 +523,18 @@ test.describe("small screen organization context", () => {
       await expect(header.getByText("org-context-mobile-alpha", { exact: true })).toHaveCount(0);
       await expect(header.getByRole("button", { name: "Switch organization" })).toHaveCount(0);
       await expect(
-        page.locator('[data-workspace-layout-part="carousel"]').getByRole("heading", {
+        page.locator('[data-sidebar-layout-part="carousel"]').getByRole("heading", {
           name: "mobile-app",
         }),
       ).toBeVisible();
       const rightToggle = header.getByRole("button", { name: "Toggle Right Sidebar" });
       await expect(rightToggle).toBeVisible();
       await rightToggle.click();
-      await expect(page.locator('[data-workspace-layout-part="viewport"]')).toHaveAttribute(
+      await expect(page.locator('[data-sidebar-layout-part="viewport"]')).toHaveAttribute(
         "data-mobile-pane",
         "right",
       );
-      const rightPane = page.locator('[data-workspace-layout-part="pane"][data-pane-side="right"]');
+      const rightPane = page.locator('[data-sidebar-layout-part="pane"][data-pane-side="right"]');
       await expect(rightPane).toHaveCSS("width", "130px");
       await expect
         .poll(() => rightPane.evaluate((element) => element.scrollWidth <= element.clientWidth))

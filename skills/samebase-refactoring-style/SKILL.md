@@ -242,20 +242,20 @@ The same rule applies to shared top bars and status bars:
   container spacing
 - a slot filler like `AppBuildStatusBar` should return only the content inside that shell
 - otherwise every route or fixture that uses the slot can drift when the shared shell changes
-- this example covers app-level top/status bars; the accepted `WorkspaceLayoutV2` address chrome
-  region is different because it belongs inside the canonical workspace frame, and the Samebase app
-  shell always supplies the route URL editor as its content
+- this example covers app-level top/status bars; the accepted `SidebarLayout` address chrome region
+  is different because it belongs inside the canonical workspace frame, and the Samebase app shell
+  always supplies the route URL editor as its content
 
 ### Example 2: Stop passing a prop first, then delete the prop
 
 Before:
 
 ```tsx
-export function WorkspaceLayoutV2FullPage({ topBar, main }: { topBar?: ReactNode; main: Pane }) {
+export function AppSidebarLayout({ topBar, main }: { topBar?: ReactNode; main: Pane }) {
   return (
     <>
       {topBar}
-      <WorkspaceLayoutV2 main={main} />
+      <SidebarLayout main={main} />
     </>
   );
 }
@@ -269,7 +269,7 @@ Pass 1:
 
 ```tsx
 <AppPageFrame topBar={<AppBuildStatusBar />}>
-  <WorkspaceLayoutV2FullPage main={main} />
+  <AppSidebarLayout main={main} />
 </AppPageFrame>
 ```
 
@@ -310,10 +310,10 @@ Pass 2:
 
 These patterns match the intended direction:
 
-- Moving dashboard scene composition onto a shared workspace-layout-v2 page primitive instead of
-  keeping a dedicated dashboard frame.
-- Simplifying the workspace-layout-v2 visual fixture so it consumes the same standard page/pane API
-  rather than manually rebuilding providers and wrappers.
+- Moving dashboard scene composition onto the shared `SidebarLayout` component instead of keeping a
+  dedicated dashboard frame.
+- Simplifying the `workspace-layout-v2-solid` visual fixture so it consumes the same standard
+  page/pane API rather than manually rebuilding providers and wrappers.
 - Exporting pane-frame props so pane definitions can be passed as data instead of assembled through
   custom wrapper components.
 

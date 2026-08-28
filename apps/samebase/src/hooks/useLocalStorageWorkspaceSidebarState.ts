@@ -1,11 +1,11 @@
 import { guard, isRecord } from "@samebase/dependent";
-import { WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/workspace-layout/geometry";
+import { SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX } from "@samebase/sidebars/geometry";
 import type {
-  WorkspaceSidebarState,
-  WorkspaceSidebarStateController,
-  WorkspaceSidebarStatePersistenceMode,
-  WorkspaceSidebarStateUpdate,
-} from "@samebase/workspace-layout/state";
+  SidebarLayoutState,
+  SidebarLayoutStateController,
+  SidebarLayoutStatePersistenceMode,
+  SidebarLayoutStateUpdate,
+} from "@samebase/sidebars/state";
 import * as React from "react";
 import { APP_WORKSPACE_SIDEBAR_STORAGE_VERSION } from "@/lib/appWorkspaceSidebarPreferences";
 import { notifyBrowserLocalStorageChanged } from "@/lib/localStorageSnapshot";
@@ -13,18 +13,18 @@ import { notifyBrowserLocalStorageChanged } from "@/lib/localStorageSnapshot";
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 
 type UseLocalStorageWorkspaceSidebarStateArgs = {
-  defaults: WorkspaceSidebarState;
+  defaults: SidebarLayoutState;
   reset: boolean;
   storageKey: string;
 };
 
 type LocalStorageWorkspaceSidebarStateReadArgs = {
-  defaults: WorkspaceSidebarState;
+  defaults: SidebarLayoutState;
   reset: boolean;
   storageKey: string;
 };
 
-function serializeWorkspaceMobileSurface(surface: WorkspaceSidebarState["mobileSurface"]) {
+function serializeWorkspaceMobileSurface(surface: SidebarLayoutState["mobileSurface"]) {
   if (surface.kind === "unmerged") {
     return "unmerged";
   }
@@ -32,7 +32,7 @@ function serializeWorkspaceMobileSurface(surface: WorkspaceSidebarState["mobileS
   return `merged:${surface.side}:${surface.mainWidthPx}`;
 }
 
-function serializeWorkspaceSidebarState(state: WorkspaceSidebarState): string {
+function serializeWorkspaceSidebarState(state: SidebarLayoutState): string {
   return [
     state.leftDesktopOpen ? "1" : "0",
     `${state.leftDesktopWidthPx}`,
@@ -45,11 +45,11 @@ function serializeWorkspaceSidebarState(state: WorkspaceSidebarState): string {
   ].join("|");
 }
 
-function areWorkspaceSidebarStatesEqual(left: WorkspaceSidebarState, right: WorkspaceSidebarState) {
+function areWorkspaceSidebarStatesEqual(left: SidebarLayoutState, right: SidebarLayoutState) {
   return serializeWorkspaceSidebarState(left) === serializeWorkspaceSidebarState(right);
 }
 
-function parseMobilePane(value: unknown): WorkspaceSidebarState["mobilePane"] | null {
+function parseMobilePane(value: unknown): SidebarLayoutState["mobilePane"] | null {
   if (value === "left" || value === "main" || value === "right") {
     return value;
   }
@@ -61,7 +61,7 @@ const isFiniteNumber = guard<unknown, number>((value) =>
   typeof value === "number" && Number.isFinite(value) ? value : null,
 );
 
-function parseMobileSurface(value: unknown): WorkspaceSidebarState["mobileSurface"] | null {
+function parseMobileSurface(value: unknown): SidebarLayoutState["mobileSurface"] | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -74,7 +74,7 @@ function parseMobileSurface(value: unknown): WorkspaceSidebarState["mobileSurfac
     value["kind"] === "merged" &&
     (value["side"] === "left" || value["side"] === "right") &&
     isFiniteNumber(value["mainWidthPx"]) &&
-    value["mainWidthPx"] >= WORKSPACE_LAYOUT_V2_MOBILE_MAIN_MIN_WIDTH_PX
+    value["mainWidthPx"] >= SIDEBAR_LAYOUT_MOBILE_MAIN_MIN_WIDTH_PX
   ) {
     return {
       kind: "merged",
@@ -86,7 +86,7 @@ function parseMobileSurface(value: unknown): WorkspaceSidebarState["mobileSurfac
   return null;
 }
 
-function parseWorkspaceSidebarState(value: unknown): WorkspaceSidebarState | null {
+function parseWorkspaceSidebarState(value: unknown): SidebarLayoutState | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -118,7 +118,7 @@ function parseWorkspaceSidebarState(value: unknown): WorkspaceSidebarState | nul
   };
 }
 
-function parseStoredWorkspaceSidebarState(value: unknown): WorkspaceSidebarState | null {
+function parseStoredWorkspaceSidebarState(value: unknown): SidebarLayoutState | null {
   if (!isRecord(value)) {
     return null;
   }
@@ -134,7 +134,7 @@ function readLocalStorageWorkspaceSidebarState({
   defaults,
   reset,
   storageKey,
-}: LocalStorageWorkspaceSidebarStateReadArgs): WorkspaceSidebarState {
+}: LocalStorageWorkspaceSidebarStateReadArgs): SidebarLayoutState {
   if (typeof window === "undefined") {
     return defaults;
   }
@@ -165,7 +165,7 @@ function writeLocalStorageWorkspaceSidebarState({
   state,
   storageKey,
 }: {
-  state: WorkspaceSidebarState;
+  state: SidebarLayoutState;
   storageKey: string;
 }) {
   if (typeof window === "undefined") {
@@ -207,11 +207,11 @@ export function useLocalStorageWorkspaceSidebarState({
   defaults,
   reset,
   storageKey,
-}: UseLocalStorageWorkspaceSidebarStateArgs): WorkspaceSidebarStateController {
+}: UseLocalStorageWorkspaceSidebarStateArgs): SidebarLayoutStateController {
   const [sidebarState, setSidebarState] = React.useState(defaults);
   const latestSidebarStateRef = React.useRef(sidebarState);
   const pendingWidthPersistTimeoutRef = React.useRef<number | null>(null);
-  const pendingWidthPersistStateRef = React.useRef<WorkspaceSidebarState | null>(null);
+  const pendingWidthPersistStateRef = React.useRef<SidebarLayoutState | null>(null);
 
   const clearPendingWidthPersist = React.useCallback(() => {
     if (pendingWidthPersistTimeoutRef.current !== null) {
@@ -236,7 +236,7 @@ export function useLocalStorageWorkspaceSidebarState({
   }, [clearPendingWidthPersist, storageKey]);
 
   const persistSidebarState = React.useCallback(
-    (nextState: WorkspaceSidebarState) => {
+    (nextState: SidebarLayoutState) => {
       clearPendingWidthPersist();
       writeLocalStorageWorkspaceSidebarState({
         state: nextState,
@@ -247,7 +247,7 @@ export function useLocalStorageWorkspaceSidebarState({
   );
 
   const scheduleWidthPersist = React.useCallback(
-    (nextState: WorkspaceSidebarState) => {
+    (nextState: SidebarLayoutState) => {
       clearPendingWidthPersist();
       pendingWidthPersistStateRef.current = nextState;
       pendingWidthPersistTimeoutRef.current = window.setTimeout(() => {
@@ -263,10 +263,7 @@ export function useLocalStorageWorkspaceSidebarState({
   );
 
   const applySidebarState = React.useCallback(
-    (
-      updateState: WorkspaceSidebarStateUpdate,
-      persistenceMode: WorkspaceSidebarStatePersistenceMode,
-    ) => {
+    (updateState: SidebarLayoutStateUpdate, persistenceMode: SidebarLayoutStatePersistenceMode) => {
       const currentState = latestSidebarStateRef.current;
       const nextState = updateState(currentState);
 

@@ -5,7 +5,7 @@ import {
   RepositoryMediaPreviewPanel,
   type RepositoryMediaAsset,
 } from "@/components/RepositoryMediaViewer";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
 
 export type RepositoryMediaVisualMode = "media-png" | "media-svg" | "media-vox";
 
@@ -119,7 +119,7 @@ export function RepositoryMediaVisualFixture({ mode }: { mode: RepositoryMediaVi
   );
 
   return (
-    <WorkspaceLayoutV2FixtureFrame
+    <SidebarLayoutFixtureFrame
       left={{
         header: sidebarHeader,
         content: sidebarContent,

@@ -13,7 +13,7 @@ test("app workspace address chrome exposes the route URL editor", async ({ page 
 
   const pageUrl = new URL(page.url());
   const origin = pageUrl.origin;
-  const addressChrome = page.locator('[data-workspace-layout-part="address-chrome"]');
+  const addressChrome = page.locator('[data-sidebar-layout-part="address-chrome"]');
   const routeUrlDisplay = addressChrome.getByTestId("route-url-editor-display");
   await expect(addressChrome).toBeVisible();
   await expect(routeUrlDisplay).toHaveValue("/privacy?dev");
@@ -126,7 +126,7 @@ test("app workspace route URL editor stays compact for long URLs", async ({ page
   const origin = pageUrl.origin;
   const routeAddress = `${pageUrl.pathname}${pageUrl.search}${pageUrl.hash}`;
   const routeTitleAddress = `${pageUrl.pathname}${pageUrl.search}`;
-  const addressChrome = page.locator('[data-workspace-layout-part="address-chrome"]');
+  const addressChrome = page.locator('[data-sidebar-layout-part="address-chrome"]');
   const routeUrlEditor = addressChrome.getByTestId("route-url-editor");
   const routeUrlDisplay = addressChrome.getByTestId("route-url-editor-display");
   await expect(addressChrome).toBeVisible();

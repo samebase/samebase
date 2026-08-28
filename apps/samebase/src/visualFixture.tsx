@@ -51,9 +51,9 @@ import {
   type AppBootFailureStateVisualMode,
 } from "@/components/AppBootFailureStateVisualFixture";
 import {
-  WorkspaceLayoutV2VisualFixture,
-  type WorkspaceLayoutV2VisualMode,
-} from "@/components/WorkspaceLayoutV2VisualFixture";
+  SidebarLayoutVisualFixture,
+  type SidebarLayoutVisualMode,
+} from "@/components/SidebarLayoutVisualFixture";
 import {
   VaultSyncStatusVisualFixture,
   type VaultSyncStatusVisualMode,
@@ -106,7 +106,7 @@ type VisualFixtureMode =
   | SidebarMediaUploadVisualMode
   | VaultOverviewVisualMode
   | VaultSyncStatusVisualMode
-  | WorkspaceLayoutV2VisualMode
+  | SidebarLayoutVisualMode
   | ProviderConnectionsPageVisualMode
   | RouteUrlEditorVisualMode
   | "public-account-checking-login"
@@ -226,9 +226,9 @@ const FILE_VIEW_MONACO_DRAG_VISUAL_MODES = [
   "fileview-monaco-flex-height",
 ] as const satisfies readonly FileViewMonacoDragVisualMode[];
 
-const WORKSPACE_LAYOUT_V2_VISUAL_MODES = [
-  "workspace-layout-v2-status-bar",
-] as const satisfies readonly WorkspaceLayoutV2VisualMode[];
+const SIDEBAR_LAYOUT_VISUAL_MODES = [
+  "sidebar-layout-status-bar",
+] as const satisfies readonly SidebarLayoutVisualMode[];
 const ROUTE_URL_EDITOR_VISUAL_MODES = [
   "route-url-editor",
 ] as const satisfies readonly RouteUrlEditorVisualMode[];
@@ -260,7 +260,7 @@ const MISC_VISUAL_MODES = [
   "account-deletion-running",
   "account-deletion-attention",
   "public-account-checking-login",
-  ...WORKSPACE_LAYOUT_V2_VISUAL_MODES,
+  ...SIDEBAR_LAYOUT_VISUAL_MODES,
   "button",
   "app-boot-failure-stale",
   "app-boot-failure-generic",
@@ -439,8 +439,8 @@ function renderVisualFixture(mode: VisualFixtureMode) {
     );
   }
 
-  if (mode === "workspace-layout-v2-status-bar") {
-    return <WorkspaceLayoutV2VisualFixture />;
+  if (mode === "sidebar-layout-status-bar") {
+    return <SidebarLayoutVisualFixture />;
   }
 
   if (mode === "route-url-editor") {

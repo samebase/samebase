@@ -92,14 +92,14 @@ vi.mock("@tanstack/react-router", () => ({
   }),
 }));
 
-vi.mock("@samebase/workspace-layout/runtime", () => ({
-  useWorkspaceLayoutPresentation: () => ({
+vi.mock("@samebase/sidebars/runtime", () => ({
+  useSidebarLayoutPresentation: () => ({
     isMobile: false,
     mobileMergeProgress: null,
     mobilePane: "main",
     mobilePaneScrollProgress: 0,
   }),
-  useWorkspacePaneActions: () => ({
+  useSidebarActions: () => ({
     setMobilePane: () => {},
   }),
 }));

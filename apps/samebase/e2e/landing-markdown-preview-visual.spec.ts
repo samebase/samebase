@@ -380,7 +380,7 @@ test.describe("mobile landing preview", () => {
       await document.fonts.ready;
     });
 
-    const workspace = page.locator('[data-workspace-layout-part="viewport"]');
+    const workspace = page.locator('[data-sidebar-layout-part="viewport"]');
     const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
     const heroVideo = article.getByTestId("landing-preview-hero-video");
     await expect(workspace).toHaveAttribute("data-mobile-pane", "main");
@@ -455,7 +455,7 @@ test.describe("mobile landing preview", () => {
       waitUntil: "domcontentloaded",
     });
 
-    const workspace = page.locator('[data-workspace-layout-part="viewport"]');
+    const workspace = page.locator('[data-sidebar-layout-part="viewport"]');
     const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
     const doItYourselfLink = article.getByRole("link", { name: "do-it-yourself recipe" });
     await expect(doItYourselfLink).toBeVisible();
@@ -592,11 +592,11 @@ test("docs index renders the docs navigation in the main pane", async ({ page })
     waitUntil: "networkidle",
   });
 
-  const mainPane = page.locator('[data-workspace-layout-part="carousel"]');
+  const mainPane = page.locator('[data-sidebar-layout-part="carousel"]');
   const docsNavigation = mainPane.getByTestId(DOCS_SIDEBAR_TEST_ID);
 
   await expect(
-    page.locator('[data-workspace-layout-part="pane"][data-pane-side="left"]'),
+    page.locator('[data-sidebar-layout-part="pane"][data-pane-side="left"]'),
   ).toHaveCount(0);
   await expect(docsNavigation).toBeVisible();
   await expectSidebarFiles(docsNavigation);

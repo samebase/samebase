@@ -2,7 +2,7 @@ import { GitHubLogoIcon } from "@/lib/radixIcons";
 import { FileTree } from "@/components/FileTree";
 import { MediaUploadDialog } from "@/components/MediaUploadDialog";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
 
 const SIDEBAR_MEDIA_UPLOAD_VISUAL_FIXTURE_FONT_RULES = `
   [data-sidebar-media-upload-visual-fixture-font],
@@ -91,7 +91,7 @@ export function SidebarMediaUploadVisualFixture() {
   return (
     <div data-sidebar-media-upload-visual-fixture-font className="contents">
       <style>{SIDEBAR_MEDIA_UPLOAD_VISUAL_FIXTURE_FONT_RULES}</style>
-      <WorkspaceLayoutV2FixtureFrame
+      <SidebarLayoutFixtureFrame
         left={{
           header: sidebarHeader,
           content: sidebarContent,

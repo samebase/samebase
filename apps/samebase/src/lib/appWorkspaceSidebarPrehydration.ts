@@ -1,28 +1,26 @@
 import {
-  buildWorkspaceLayoutV2DesktopPrehydrationScript,
-  buildWorkspaceLayoutV2MobilePanePrehydrationScript,
-  clearWorkspaceLayoutV2DesktopPrehydrationStyle,
-  type WorkspaceLayoutV2PrehydrationArgs,
-  type WorkspaceLayoutV2PrehydrationState,
-} from "@samebase/workspace-layout/prehydration";
+  buildSidebarLayoutDesktopPrehydrationScript,
+  buildSidebarLayoutMobilePanePrehydrationScript,
+  clearSidebarLayoutDesktopPrehydrationStyle,
+  type SidebarLayoutPrehydrationArgs,
+  type SidebarLayoutPrehydrationState,
+} from "@samebase/sidebars/prehydration";
 
 const APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID =
   "samebase-app-workspace-sidebar-prehydration";
 
 const appWorkspaceSidebarPrehydrationArgs = {
   desktopStyleElementId: APP_WORKSPACE_SIDEBAR_PREHYDRATION_STYLE_ELEMENT_ID,
-} satisfies WorkspaceLayoutV2PrehydrationArgs;
+} satisfies SidebarLayoutPrehydrationArgs;
 
 /**
  * The package serializes this function into the prehydration script. Keep it
  * self-contained, including the app-owned storage key, envelope version, and
  * validation.
  */
-function readAppWorkspaceSidebarPrehydrationState(): WorkspaceLayoutV2PrehydrationState | null {
-  function getWorkspaceSidebarState(value: unknown): WorkspaceLayoutV2PrehydrationState | null {
-    function getMobilePane(
-      value: unknown,
-    ): WorkspaceLayoutV2PrehydrationState["mobilePane"] | null {
+function readAppWorkspaceSidebarPrehydrationState(): SidebarLayoutPrehydrationState | null {
+  function getWorkspaceSidebarState(value: unknown): SidebarLayoutPrehydrationState | null {
+    function getMobilePane(value: unknown): SidebarLayoutPrehydrationState["mobilePane"] | null {
       if (value === "left" || value === "main" || value === "right") {
         return value;
       }
@@ -32,7 +30,7 @@ function readAppWorkspaceSidebarPrehydrationState(): WorkspaceLayoutV2Prehydrati
 
     function getMobileSurface(
       value: unknown,
-    ): WorkspaceLayoutV2PrehydrationState["mobileSurface"] | null {
+    ): SidebarLayoutPrehydrationState["mobileSurface"] | null {
       if (value === null || typeof value !== "object" || !("kind" in value)) return null;
 
       if (value.kind === "unmerged") {
@@ -115,17 +113,16 @@ function readAppWorkspaceSidebarPrehydrationState(): WorkspaceLayoutV2Prehydrati
   }
 }
 
-export const appWorkspaceSidebarPrehydrationScript =
-  buildWorkspaceLayoutV2DesktopPrehydrationScript(
-    appWorkspaceSidebarPrehydrationArgs,
-    readAppWorkspaceSidebarPrehydrationState,
-  );
+export const appWorkspaceSidebarPrehydrationScript = buildSidebarLayoutDesktopPrehydrationScript(
+  appWorkspaceSidebarPrehydrationArgs,
+  readAppWorkspaceSidebarPrehydrationState,
+);
 export const appWorkspaceMobilePanePrehydrationScript =
-  buildWorkspaceLayoutV2MobilePanePrehydrationScript(
+  buildSidebarLayoutMobilePanePrehydrationScript(
     appWorkspaceSidebarPrehydrationArgs,
     readAppWorkspaceSidebarPrehydrationState,
   );
 
 export function clearAppWorkspaceSidebarDesktopPrehydrationStyle() {
-  clearWorkspaceLayoutV2DesktopPrehydrationStyle(appWorkspaceSidebarPrehydrationArgs);
+  clearSidebarLayoutDesktopPrehydrationStyle(appWorkspaceSidebarPrehydrationArgs);
 }

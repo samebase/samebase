@@ -2,16 +2,16 @@ import { useMutation, useQuery } from "convex/react";
 import * as React from "react";
 import { api } from "../../convex/_generated/api";
 import type {
-  WorkspaceSidebarState,
-  WorkspaceSidebarStateController,
-  WorkspaceSidebarStatePersistenceMode,
-  WorkspaceSidebarStateUpdate,
-} from "@samebase/workspace-layout/state";
+  SidebarLayoutState,
+  SidebarLayoutStateController,
+  SidebarLayoutStatePersistenceMode,
+  SidebarLayoutStateUpdate,
+} from "@samebase/sidebars/state";
 import type { WorkspaceSidebarStateKey } from "../../convex/userPreferenceModel";
 
 const SIDEBAR_WIDTH_PERSIST_DELAY_MS = 160;
 
-function serializeWorkspaceMobileSurface(surface: WorkspaceSidebarState["mobileSurface"]) {
+function serializeWorkspaceMobileSurface(surface: SidebarLayoutState["mobileSurface"]) {
   if (surface.kind === "unmerged") {
     return "unmerged";
   }
@@ -19,7 +19,7 @@ function serializeWorkspaceMobileSurface(surface: WorkspaceSidebarState["mobileS
   return `merged:${surface.side}:${surface.mainWidthPx}`;
 }
 
-function serializeWorkspaceSidebarState(state: WorkspaceSidebarState): string {
+function serializeWorkspaceSidebarState(state: SidebarLayoutState): string {
   return [
     state.leftDesktopOpen ? "1" : "0",
     `${state.leftDesktopWidthPx}`,
@@ -32,13 +32,13 @@ function serializeWorkspaceSidebarState(state: WorkspaceSidebarState): string {
   ].join("|");
 }
 
-function areWorkspaceSidebarStatesEqual(left: WorkspaceSidebarState, right: WorkspaceSidebarState) {
+function areWorkspaceSidebarStatesEqual(left: SidebarLayoutState, right: SidebarLayoutState) {
   return serializeWorkspaceSidebarState(left) === serializeWorkspaceSidebarState(right);
 }
 
 type UsePersistedWorkspaceSidebarStateArgs = {
-  defaults: WorkspaceSidebarState;
-  onPersistedStateApplied: ((state: WorkspaceSidebarState) => void) | null;
+  defaults: SidebarLayoutState;
+  onPersistedStateApplied: ((state: SidebarLayoutState) => void) | null;
   workspaceKey: WorkspaceSidebarStateKey;
 };
 
@@ -50,7 +50,7 @@ export function usePersistedWorkspaceSidebarState({
   defaults,
   onPersistedStateApplied,
   workspaceKey,
-}: UsePersistedWorkspaceSidebarStateArgs): WorkspaceSidebarStateController {
+}: UsePersistedWorkspaceSidebarStateArgs): SidebarLayoutStateController {
   const persistedState = useQuery(api.workspaceSidebarState.getWorkspaceSidebarState, {
     workspaceKey,
   });
@@ -81,7 +81,7 @@ export function usePersistedWorkspaceSidebarState({
   }, []);
 
   const persistSidebarState = React.useCallback(
-    (nextState: WorkspaceSidebarState) => {
+    (nextState: SidebarLayoutState) => {
       clearPendingWidthPersist();
       const attemptedSignature = serializeWorkspaceSidebarState(nextState);
       pendingPersistSignatureRef.current = attemptedSignature;
@@ -106,7 +106,7 @@ export function usePersistedWorkspaceSidebarState({
   );
 
   const scheduleWidthPersist = React.useCallback(
-    (nextState: WorkspaceSidebarState) => {
+    (nextState: SidebarLayoutState) => {
       clearPendingWidthPersist();
       pendingQueuedSignatureRef.current = serializeWorkspaceSidebarState(nextState);
       pendingWidthPersistTimeoutRef.current = window.setTimeout(() => {
@@ -119,10 +119,7 @@ export function usePersistedWorkspaceSidebarState({
   );
 
   const applySidebarState = React.useCallback(
-    (
-      updateState: WorkspaceSidebarStateUpdate,
-      persistenceMode: WorkspaceSidebarStatePersistenceMode,
-    ) => {
+    (updateState: SidebarLayoutStateUpdate, persistenceMode: SidebarLayoutStatePersistenceMode) => {
       const currentState = latestSidebarStateRef.current;
       const nextState = updateState(currentState);
 

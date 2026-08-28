@@ -6,13 +6,13 @@
 - Owner: Samebase frontend/workspace shell
 - Last updated: 2026-08-28
 - Related files:
-  - `packages/workspace-layout/src/WorkspaceLayoutV2.tsx`
-  - `packages/workspace-layout/src/WorkspaceLayoutV2Geometry.ts`
-  - `packages/workspace-layout/src/WorkspaceLayoutV2ResizeHandle.tsx`
-  - `packages/workspace-layout/src/useWorkspaceLayoutV2MobileResize.ts`
-  - `packages/workspace-layout/test/layoutMobile.test.tsx`
+  - `packages/sidebars/src/SidebarLayout.tsx`
+  - `packages/sidebars/src/SidebarLayoutGeometry.ts`
+  - `packages/sidebars/src/SidebarLayoutResizeHandle.tsx`
+  - `packages/sidebars/src/useSidebarLayoutMobileResize.ts`
+  - `packages/sidebars/test/layoutMobile.test.tsx`
   - `apps/samebase/e2e/workspace-sidebar-drag.spec.ts`
-  - `specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
+  - `specs/087_SIDEBAR_LAYOUT_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`
   - `specs/097_WORKSPACE_MOBILE_MERGE_STATE_PERSISTENCE_SPEC.md`
   - `research/2026-05-04-mobile-sidebar-min-resize-merge.md`
 
@@ -35,7 +35,7 @@ constraints from consumer theme CSS.
 
 ### Resize Behaviors
 
-`WorkspaceLayoutV2` supports these minimum-resize behaviors:
+`SidebarLayout` supports these minimum-resize behaviors:
 
 ```ts
 type MobileMinResizeBehavior = "min_resize_to_slide" | "min_resize_to_merge";

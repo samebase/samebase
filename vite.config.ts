@@ -151,7 +151,7 @@ export default defineConfig({
         },
       },
       {
-        files: ["packages/workspace-layout/src/**/*.{ts,tsx}"],
+        files: ["packages/sidebars/src/**/*.{ts,tsx}"],
         rules: {
           "react-refresh/only-export-components": "off",
         },

@@ -142,7 +142,7 @@ SSR; changing it to client-only mutation would risk hydration or layout movement
 
 Do not replace this with copied static shell markup. Public, legal, static, or prerendered output
 must come from the canonical React route tree, as specified in
-`specs/087_WORKSPACE_LAYOUT_V2_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`.
+`specs/087_SIDEBAR_LAYOUT_SINGLE_LAYOUT_AND_PRERENDER_SPEC.md`.
 
 ### SSR And Data Boundaries
 

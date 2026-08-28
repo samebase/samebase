@@ -19,7 +19,7 @@ for (const scenario of SCENARIOS) {
     });
     await page.waitForLoadState("networkidle");
 
-    const fixture = page.locator('[data-workspace-layout-part="root"]').filter({
+    const fixture = page.locator('[data-sidebar-layout-part="root"]').filter({
       has: page.getByRole("button", { name: "Developer tools", exact: true }),
     });
     await expect(fixture).toHaveScreenshot(scenario.snapshotName, {

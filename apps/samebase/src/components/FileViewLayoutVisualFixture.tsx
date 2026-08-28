@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { FileViewMainHeader } from "@/components/FileView/FileViewMainHeader";
 import { Button } from "@/components/ui/button";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
-import type { WorkspaceLayoutV2PaneFrameProps } from "@samebase/workspace-layout/pane-frame";
+import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
+import type { PaneFrameProps } from "@samebase/sidebars/pane-frame";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 
 export type FileViewLayoutVisualMode =
@@ -52,12 +52,12 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
       Upload area
     </div>
   );
-  const activeSidebar: WorkspaceLayoutV2PaneFrameProps = {
+  const activeSidebar: PaneFrameProps = {
     header: null,
     content: sidebarContent,
     footer: sidebarFooter,
   };
-  const rightSidebar: WorkspaceLayoutV2PaneFrameProps = {
+  const rightSidebar: PaneFrameProps = {
     content: (
       <div
         data-testid="fileview-layout-right-pane-body"
@@ -75,7 +75,7 @@ export function FileViewLayoutVisualFixture({ mode }: { mode: FileViewLayoutVisu
 
   return (
     <TestRouterProvider>
-      <WorkspaceLayoutV2FixtureFrame
+      <SidebarLayoutFixtureFrame
         mobileMinResizeBehavior={
           mode === "fileview-layout-slide" ? "min_resize_to_slide" : undefined
         }

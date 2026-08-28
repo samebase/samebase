@@ -14,21 +14,21 @@ boundaries.
 
 ## App Route Model
 
-All app routes go through `AppRootClient -> AppWorkspaceShell -> WorkspaceLayoutV2`.
+All app routes go through `AppRootClient -> AppWorkspaceShell -> SidebarLayout`.
 
 Path changes such as `/privacy -> /terms -> /logo -> /indexDB` swap route content and route chrome,
 not the shared workspace shell. The editor may therefore preview path changes when the target route
 is ready to load.
 
 `AppWorkspaceShell` always supplies `RouteUrlEditorNext` as Samebase's address editor for the
-`WorkspaceLayoutV2` address chrome region. The region is part of the canonical workspace layout, not
-a separate app shell above it and not a pane header inside the mobile carousel.
+`SidebarLayout` address chrome region. The region is part of the canonical workspace layout, not a
+separate app shell above it and not a pane header inside the mobile carousel.
 
-`WorkspaceLayoutV2` owns the address chrome region's placement, functional containment, and
-relationship to the pane viewport. Samebase owns its background and separator appearance. Samebase
-also owns the editor's control height and route intelligence: TanStack router integration, route
-readiness, access-aware path suggestions, query-param suggestions, hash suggestions, and
-preview/commit/restore behavior.
+`SidebarLayout` owns the address chrome region's placement, functional containment, and relationship
+to the pane viewport. Samebase owns its background and separator appearance. Samebase also owns the
+editor's control height and route intelligence: TanStack router integration, route readiness,
+access-aware path suggestions, query-param suggestions, hash suggestions, and preview/commit/restore
+behavior.
 
 ## Requirements
 

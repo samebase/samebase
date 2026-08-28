@@ -6,7 +6,7 @@ import { prosemarkBaseThemeSetup, prosemarkBasicSetup } from "@prosemark/core";
 import { useTheme } from "next-themes";
 import { MonacoEditorSurface } from "@/components/MonacoEditorSurface";
 import { RepositoryWorkspacePaneHeader } from "@/components/RepositoryWorkspacePaneHeader";
-import { WorkspaceLayoutV2FixtureFrame } from "@/components/WorkspaceLayoutV2FixtureFrame";
+import { SidebarLayoutFixtureFrame } from "@/components/SidebarLayoutFixtureFrame";
 import { Input } from "@/components/ui/input";
 import { getProsemarkFileThemeExtensions } from "@/components/prosemarkSurface";
 import {
@@ -654,7 +654,7 @@ export function FileViewCodeParityVisualFixture({
   }, [editorResolutionScale, liveDiffRefreshKey, monacoReady, prosemarkReady]);
 
   return (
-    <WorkspaceLayoutV2FixtureFrame
+    <SidebarLayoutFixtureFrame
       left={{
         header: null,
         content: (

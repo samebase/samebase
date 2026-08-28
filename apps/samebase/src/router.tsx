@@ -7,11 +7,12 @@ import {
 } from "@tanstack/router-core";
 import { routeTree } from "./routeTree.gen";
 import { createAppQueryClients } from "@/lib/appQueryClient";
+import { APP_WORKSPACE_MAIN_SCROLL_RESTORATION_ID } from "@/lib/appWorkspaceSidebarPreferences";
 import { AppRouteErrorPage } from "@/components/AppRouteErrorPage";
 import { parseTanStackSearch, stringifyTanStackSearch } from "@/lib/tanstackSearchParams";
 import type { Id } from "../convex/_generated/dataModel";
 
-const workspaceMainScrollSelector = '[data-scroll-restoration-id="workspace-layout-v2-main"]';
+const workspaceMainScrollSelector = `[data-scroll-restoration-id="${APP_WORKSPACE_MAIN_SCROLL_RESTORATION_ID}"]`;
 
 export function getRouter() {
   return createAppRouter();

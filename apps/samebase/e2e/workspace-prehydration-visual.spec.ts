@@ -34,8 +34,8 @@ const STABLE_WORKSPACE_PREHYDRATION_VISUAL_MASK_STYLE = `
   visibility: hidden !important;
 }
 
-[data-workspace-layout-part="resize-handle"][data-resize-side="left"],
-[data-workspace-layout-part="resize-handle"][data-resize-side="right"] {
+[data-sidebar-layout-part="resize-handle"][data-resize-side="left"],
+[data-sidebar-layout-part="resize-handle"][data-resize-side="right"] {
   visibility: hidden !important;
 }
 `;
@@ -153,7 +153,7 @@ async function blockHydrationScripts(page: Page) {
 
 async function getHorizontalSeparatorStyles(page: Page) {
   return page
-    .locator('[data-workspace-layout-part="pane"][data-pane-side="main"]')
+    .locator('[data-sidebar-layout-part="pane"][data-pane-side="main"]')
     .evaluate((element) => {
       const readSeparatorStyle = (pseudoElement: "::before" | "::after") => {
         const styles = window.getComputedStyle(element, pseudoElement);
@@ -214,12 +214,12 @@ async function openMobileWorkspacePage({
   });
   await maskHydrationOnlyVisualDifferences(page);
   await waitForFonts(page);
-  await expect(page.locator('[data-workspace-layout-part="viewport"]').first()).toHaveAttribute(
+  await expect(page.locator('[data-sidebar-layout-part="viewport"]').first()).toHaveAttribute(
     "data-mobile-pane",
     scenario.mobilePane,
   );
   if (hydrate) {
-    await expect(page.locator('[data-workspace-layout-part="carousel"]')).toHaveAttribute(
+    await expect(page.locator('[data-sidebar-layout-part="carousel"]')).toHaveAttribute(
       "data-viewport-measured",
       "",
     );
@@ -230,7 +230,7 @@ async function openMobileWorkspacePage({
 
 async function getSidebarEdgeX(page: Page, edgePane: "left" | "right") {
   const paneBox = await page
-    .locator(`[data-workspace-layout-part="pane"][data-pane-side="${edgePane}"]`)
+    .locator(`[data-sidebar-layout-part="pane"][data-pane-side="${edgePane}"]`)
     .boundingBox();
   if (paneBox === null) {
     throw new Error(`Expected the ${edgePane} workspace pane to have a bounding box.`);
@@ -342,10 +342,10 @@ for (const scenario of CROSS_SIDE_MERGED_PREHYDRATION_SCENARIOS) {
       waitUntil: "domcontentloaded",
     });
 
-    const layout = page.locator('[data-workspace-layout-part="viewport"]').first();
+    const layout = page.locator('[data-sidebar-layout-part="viewport"]').first();
     await expect(layout).toHaveAttribute("data-mobile-pane", scenario.mobilePane);
     await expect(layout).toHaveAttribute(
-      "data-workspace-layout-v2-mobile-merged-side",
+      "data-sidebar-layout-mobile-merged-side",
       scenario.mergedSide,
     );
     await expect
@@ -363,7 +363,7 @@ for (const scenario of CROSS_SIDE_MERGED_PREHYDRATION_SCENARIOS) {
       );
 
     const mainPaneBox = await page
-      .locator('[data-workspace-layout-part="pane"][data-pane-side="main"]')
+      .locator('[data-sidebar-layout-part="pane"][data-pane-side="main"]')
       .boundingBox();
     if (mainPaneBox === null) {
       throw new Error("Expected the prehydrated main pane to have a bounding box.");
