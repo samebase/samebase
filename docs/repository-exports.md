@@ -80,10 +80,15 @@ owns a nested workspace and lockfile. The `sidebars package check` job starts fr
 does not install root workspace dependencies, and runs the package build, checks, and packed-package
 consumer test before publication.
 
-The exported private repository remains registry-neutral in this pull request. The planned first npm
-release is public. This pull request does not select a registry version, add registry credentials,
-or add automatic registry publication. The package keeps `private: true` and version `0.0.0` only to
-block an accidental publish before the release pull request.
+Package changes and version increases start in the monorepo. npm publication runs only from the
+exported `samebase/sidebars` repository, so the verified external repository commit and npm tarball
+have the same source tree.
+
+The first public npm release uses version `0.1.0-canary.0`, the `canary` tag, and the MIT License. A
+maintainer publishes its verified tarball manually from the exported repository because npm cannot
+configure a trusted publisher before the package exists. After that bootstrap release,
+`samebase/sidebars` owns the npm trusted-publishing workflow. A later monorepo release pull request
+publishes `latest` only when it increases the committed package version to a stable release.
 
 ## Agent plugin versions
 
