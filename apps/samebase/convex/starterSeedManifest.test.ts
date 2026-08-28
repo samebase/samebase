@@ -2,14 +2,19 @@ import { describe, expect, it } from "vite-plus/test";
 import { starterTemplateManifest } from "./starterSeedManifest.generated";
 
 describe("starterSeedManifest", () => {
-  it("contains a single template snapshot contract", () => {
-    expect(starterTemplateManifest.contentHash).toMatch(/^[0-9a-f]{64}$/);
+  it("identifies the v1983 template snapshot", () => {
+    expect({
+      contentHash: starterTemplateManifest.contentHash,
+      commitMessage: starterTemplateManifest.commitMessage,
+    }).toEqual({
+      contentHash: "d73ed9f645146b6bcb438f7dd0c81edb5bef2560438e6c905f42bd39c14b1a95",
+      commitMessage: "Initialize app from Samebase starter build v1983",
+    });
     expect(starterTemplateManifest.version).toBe(
       `samebase-app-${starterTemplateManifest.contentHash.slice(0, 12)}`,
     );
     expect(starterTemplateManifest.sourcePath).toBe("templates/app");
     expect(starterTemplateManifest.publishedRepo).toBe("https://github.com/samebase/app.git");
-    expect(starterTemplateManifest.commitMessage).toBe("Initialize Samebase app");
   });
 
   it("includes required runnable starter files", () => {
