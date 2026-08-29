@@ -113,20 +113,23 @@ describe("LandingPage", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
 
     expect(markup).toContain(`src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}"`);
-    // Hero: the stack opinion stated directly.
-    expect(markup).toContain("The correct way to build web apps.");
-    expect(markup).toContain(">BETA</span>");
-    expect(markup).toContain("-rotate-3");
-    expect(markup).toContain("border-0");
-    expect(markup).toContain("bg-blue-600");
-    expect(markup).toContain("rounded-none");
-    expect(markup).toContain(" Convex</span>");
-    expect(markup).toContain(
-      'src="/landing-preview/logos/cloudflare.svg" width="28"/> Cloudflare Workers</span> is all you need to ship a production app.</p>',
+    // The first view sends the visitor to their agent without provider jargon.
+    const heroMarkup = markup.slice(
+      0,
+      markup.indexOf('data-testid="landing-preview-hero-video-frame"'),
     );
-    expect(markup).toContain(
-      'src="/brand/logo/v1-side-primary-duotone-inline-80.svg" width="20"/> Samebase</span> gives you one place to manage that stack across all your apps.</p>',
+    expect(heroMarkup).toContain("Don&#x27;t trust us. Ask your agent.");
+    expect(heroMarkup).toContain(
+      "Paste this into your coding agent. Every claim on this site links to a",
     );
+    expect(heroMarkup).toContain(">dated receipt</a> it can check.");
+    expect(heroMarkup).toContain(
+      "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.",
+    );
+    expect(heroMarkup).toContain("Copy</button>");
+    expect(heroMarkup).not.toContain("BETA");
+    expect(heroMarkup).not.toContain("Convex +");
+    expect(heroMarkup).not.toContain("Cloudflare Workers");
     expect(markup).toContain('class="mb-3 flex justify-end text-lg"');
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
     expect(markup).not.toContain("Idle apps cost $0/month.");
@@ -187,17 +190,12 @@ describe("LandingPage", () => {
     expect(markup).toContain("apps/admin");
     expect(markup).toContain("services/events");
 
-    // Ask your agent.
-    expect(markup).toContain("Don&#x27;t trust us, ask your agent.");
-    expect(markup).toContain(
-      "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.",
-    );
-    expect(markup).toContain("Copy</button>");
-
-    const askAgentIndex = markup.indexOf("Don&#x27;t trust us, ask your agent.");
+    const askAgentIndex = markup.indexOf("Don&#x27;t trust us. Ask your agent.");
+    const providerGridIndex = markup.indexOf('data-testid="landing-preview-provider-grid"');
     const platformDetailsIndex = markup.indexOf('data-testid="landing-preview-platform-details"');
     const fourClaimsIndex = markup.indexOf('aria-label="Four claims"');
-    expect(platformDetailsIndex).toBeGreaterThan(askAgentIndex);
+    expect(providerGridIndex).toBeGreaterThan(askAgentIndex);
+    expect(platformDetailsIndex).toBeGreaterThan(providerGridIndex);
     expect(fourClaimsIndex).toBeGreaterThan(platformDetailsIndex);
 
     // The four claims.

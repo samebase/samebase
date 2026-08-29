@@ -240,7 +240,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
   await expect(
     article.getByRole("heading", {
-      name: /The correct way to build web apps/,
+      name: /Don't trust us\. Ask your agent\./,
     }),
   ).toBeVisible();
   const monorepo = article.getByRole("region", { name: "Monorepo" });

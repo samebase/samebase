@@ -19,7 +19,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
 import {
   useSidebarLayoutPresentation,
   useSidebarActions,
@@ -358,67 +357,31 @@ function LandingPreviewOverview() {
         <section>
           <div className="@3xl:grid @3xl:grid-cols-2 @3xl:gap-4">
             <div className="pb-4 @3xl:pt-4">
-              <p className="flex items-center gap-4">
-                <span className="flex items-center gap-1.5">
-                  <img
-                    alt=""
-                    className="h-9 w-9 dark:invert"
-                    height="36"
-                    src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
-                    width="36"
-                  />
-                  <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
-                </span>
-                <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
-                  BETA
-                </Badge>
+              <p className="flex items-center gap-1.5">
+                <img
+                  alt=""
+                  className="h-9 w-9 dark:invert"
+                  height="36"
+                  src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
+                  width="36"
+                />
+                <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
               </p>
               <h1 className="mt-10 max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
-                The correct way to build web apps.
+                Don't trust us. Ask your agent.
               </h1>
-              <div className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                <p>
-                  <span className="whitespace-nowrap font-bold text-foreground">
-                    <img
-                      alt=""
-                      className="inline-block h-5 w-5 align-[-0.125em]"
-                      height="20"
-                      src="/landing-preview/logos/convex-mark.svg"
-                      width="20"
-                    />
-                    {"\u00a0"}
-                    Convex
-                  </span>
-                  <strong className="text-foreground"> + </strong>
-                  <span className="whitespace-nowrap font-bold text-foreground">
-                    <img
-                      alt=""
-                      className="inline-block h-5 w-7 object-cover align-[-0.125em]"
-                      height="20"
-                      src="/landing-preview/logos/cloudflare.svg"
-                      width="28"
-                    />
-                    {"\u00a0"}
-                    Cloudflare Workers
-                  </span>{" "}
-                  is all you need to ship a production app.
+              <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
+                Paste this into your coding agent. Every claim on this site links to a{" "}
+                <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>dated receipt</LandingInlineLink> it can
+                check.
+              </p>
+              <div className="mt-7 border border-border @2xl:flex @2xl:items-stretch">
+                <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
+                  {LANDING_AGENT_PROMPT}
                 </p>
-                <p>
-                  <span className="whitespace-nowrap font-bold text-foreground">
-                    <img
-                      alt=""
-                      className="inline-block h-5 w-5 align-[-0.125em] dark:invert"
-                      height="20"
-                      src="/brand/logo/v1-side-primary-duotone-inline-80.svg"
-                      width="20"
-                    />
-                    {"\u00a0"}
-                    Samebase
-                  </span>{" "}
-                  gives you one place to manage that stack across all your apps.
-                </p>
+                <LandingCopyPromptButton />
               </div>
-              <div className="mt-9">
+              <div className="mt-7">
                 <PublicLandingPrimaryAction />
               </div>
             </div>
@@ -514,30 +477,8 @@ function LandingPreviewOverview() {
         </section>
 
         <LandingSection>
-          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_460px] @5xl:items-start @5xl:gap-x-14">
-            <div>
-              <LandingSectionIntro
-                heading="Don't trust us, ask your agent."
-                sub={
-                  <>
-                    Paste this into the agent you already run. Every claim on this page links a{" "}
-                    <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>dated receipt</LandingInlineLink>,
-                    so it can verify us instead of trusting us.
-                  </>
-                }
-              />
-            </div>
-            <div className="mt-8 @5xl:mt-1.5">
-              <div className="border border-border @2xl:flex @2xl:items-stretch">
-                <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
-                  {LANDING_AGENT_PROMPT}
-                </p>
-                <LandingCopyPromptButton />
-              </div>
-            </div>
-          </div>
           <div
-            className="mt-8 border-t border-border py-6"
+            className="border-t border-border py-6"
             data-testid={LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID}
           >
             <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
