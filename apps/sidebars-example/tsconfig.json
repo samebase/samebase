@@ -1,5 +1,4 @@
 {
-  "extends": "../../tsconfig.strict.json",
   "compilerOptions": {
     "target": "ES2023",
     "module": "ESNext",
@@ -10,9 +9,22 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
+    "strict": true,
+    "customConditions": ["samebase-source"],
+    "exactOptionalPropertyTypes": false,
+    "erasableSyntaxOnly": true,
     "noEmit": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": false,
+    "noUncheckedSideEffectImports": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "forceConsistentCasingInFileNames": true,
     "skipLibCheck": true,
     "paths": {
       "@/*": ["./src/*"]

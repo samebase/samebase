@@ -5,6 +5,8 @@ stack without Convex. The app imports the package through its public production 
 its visible styles, saves layout state in localStorage, and applies that state before React
 hydrates.
 
+[Open the live example](https://samebase-sidebars-example.pfp.workers.dev/?prod-ui).
+
 ## Routes
 
 | Route        | Sidebars | Purpose                                                   |
@@ -19,16 +21,16 @@ and mobile merge become available again.
 
 ## Run the app
 
-From the monorepo root:
+Install the dependencies, then start the development server:
 
 ```sh
-pnpm run dev:sidebars-example
-pnpm run typecheck:examples
-pnpm run build:sidebars-example
-pnpm run check:examples
+pnpm install
+pnpm run dev
 ```
 
-From this directory:
+The development server prints its local URL. The app needs no backend or environment variables.
+
+Use these commands for validation and deployment:
 
 ```sh
 pnpm run dev
@@ -43,15 +45,12 @@ pnpm run preview
 pnpm run typecheck
 ```
 
-The development server prints its local URL. The app needs no backend or environment variables.
-
 ## Cloudflare deployment
 
-Cloudflare Workers Builds uses `apps/sidebars-example` as the root directory. It runs
-`pnpm run build`, then `pnpm run deploy` for `main` or `pnpm run deploy:preview` for other branches.
-The deploy script uses the connected Worker name that Cloudflare supplies and does not repeat the
-build during Workers Builds. Build watch paths must include `packages/sidebars/*` so package-only
-changes start an example build.
+Use the repository root as the Cloudflare Workers Builds root directory. Run `pnpm run build`, then
+`pnpm run deploy` for `main` or `pnpm run deploy:preview` for other branches. The deploy script uses
+the connected Worker name that Cloudflare supplies and does not repeat the build during Workers
+Builds.
 
 For a local upload check, set `CLOUDFLARE_WORKER_NAME` to `samebase-sidebars-example`, then run one
 of the dry-run commands above. `wrangler.jsonc` publishes `dist/client` with the standard Samebase

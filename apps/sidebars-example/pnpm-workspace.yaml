@@ -1,0 +1,36 @@
+packages:
+  - "."
+
+minimumReleaseAge: 10080
+minimumReleaseAgeExclude:
+  # TODO(2026-09-05): Remove after Sidebars 0.1.1 completes the normal
+  # 7-day cooling period.
+  - "@samebase/sidebars@0.1.1"
+  # TODO(2026-08-31): Remove after Vite+ 0.3.0 completes the normal
+  # 7-day cooling period.
+  - "@voidzero-dev/vite-plus-core@0.3.0"
+  - "@voidzero-dev/vite-plus-darwin-arm64@0.3.0"
+  - "@voidzero-dev/vite-plus-darwin-x64@0.3.0"
+  - "@voidzero-dev/vite-plus-linux-arm64-gnu@0.3.0"
+  - "@voidzero-dev/vite-plus-linux-arm64-musl@0.3.0"
+  - "@voidzero-dev/vite-plus-linux-x64-gnu@0.3.0"
+  - "@voidzero-dev/vite-plus-linux-x64-musl@0.3.0"
+  - "@voidzero-dev/vite-plus-win32-arm64-msvc@0.3.0"
+  - "@voidzero-dev/vite-plus-win32-x64-msvc@0.3.0"
+  - "vite-plus@0.3.0"
+minimumReleaseAgeStrict: true
+minimumReleaseAgeIgnoreMissingTime: false
+blockExoticSubdeps: true
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  # TODO(2026-07-10): Recheck once upstream dependencies no longer resolve
+  # this trust-downgraded version.
+  - "undici-types@6.21.0"
+overrides:
+  esbuild: 0.28.1
+  "semver@6": 7.7.4
+allowBuilds:
+  esbuild: true
+  msw: false
+  sharp: false
+  workerd: true

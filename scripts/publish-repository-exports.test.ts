@@ -101,6 +101,14 @@ describe("repository exports", () => {
     });
   });
 
+  it("publishes the Sidebars example to samebase/sidebars-example", () => {
+    expect(repositoryExports).toContainEqual({
+      sourceRoot: "apps/sidebars-example",
+      targetBranch: "main",
+      targetRepository: "sidebars-example",
+    });
+  });
+
   it("publishes the exact source tree as a direct external child and then becomes a no-op", () => {
     const fixture = createRepositoryExportFixture();
     const gitEnvironment = { ...process.env, GIT_TERMINAL_PROMPT: "0" };
@@ -221,7 +229,9 @@ describe("repository exports", () => {
           stdio: ["ignore", "pipe", "pipe"],
         },
       );
-      expect(readFileSync(outputPath, "utf8")).toBe("repositories=plugin,app,sidebars\n");
+      expect(readFileSync(outputPath, "utf8")).toBe(
+        "repositories=plugin,app,sidebars,sidebars-example\n",
+      );
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });
     }
