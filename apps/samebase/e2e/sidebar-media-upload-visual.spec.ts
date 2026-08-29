@@ -24,9 +24,10 @@ for (const scenario of SCENARIOS) {
       waitUntil: "domcontentloaded",
     });
 
+    const fixtureContent = page.locator("[data-sidebar-media-upload-visual-fixture-font]");
     const fixture = page
-      .locator("[data-sidebar-media-upload-visual-fixture-font]")
-      .locator('[data-sidebar-layout-part="root"]');
+      .locator('[data-sidebar-layout-part="root"]')
+      .filter({ has: fixtureContent });
     const footerTrigger = page.getByText("Drop file or click");
 
     await expect(fixture).toBeVisible();
