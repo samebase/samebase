@@ -1765,6 +1765,9 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid team name or deployment region"
+          },
           "403": {
             "description": "Caller is not authorized to create teams"
           }
