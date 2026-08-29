@@ -14,7 +14,9 @@ that belong in the external repository in the source directory.
 An export can use the root workspace or remain a standalone package manager boundary. The plugin
 uses root tooling and includes a small dependency-free public check. The app template must work as
 an independent repository, so `templates/app` owns its own `package.json`, `pnpm-workspace.yaml`,
-`pnpm-lock.yaml`, and public workflow. It is intentionally outside the root workspace globs.
+`pnpm-lock.yaml`, and public workflow. It is intentionally outside the root workspace globs. The
+Sidebars example also owns these files because its directory is both a root workspace member and a
+standalone export boundary.
 
 The monorepo must run the checks that protect each export before publication. Run standalone export
 checks in a fresh job so root dependencies cannot hide an undeclared dependency.
@@ -22,9 +24,9 @@ checks in a fresh job so root dependencies cannot hide an undeclared dependency.
 ## Automatic workflow
 
 The publisher runs only for a push to `main`, after the standard checks and unit tests succeed.
-Supply-chain validation runs before those checks. The app and Sidebars exports also require their
-isolated checks. Playwright and Windows smoke tests continue in parallel, but they do not block
-repository exports because exported packages do not depend on Samebase browser behavior.
+Supply-chain validation runs before those checks. The app, Sidebars package, and Sidebars example
+exports also require their isolated checks. Playwright and Windows smoke tests continue in parallel,
+but they do not block repository exports.
 
 For each configured export, it:
 
@@ -75,7 +77,7 @@ fresh job.
 
 ## Sidebars package export
 
-`packages/sidebars` publishes to the private `samebase/sidebars` repository on `main`. The package
+`packages/sidebars` publishes to the public `samebase/sidebars` repository on `main`. The package
 owns a nested workspace and lockfile. The `sidebars package check` job starts from a fresh checkout,
 does not install root workspace dependencies, and runs the package build, checks, and packed-package
 consumer test before publication.
@@ -94,6 +96,17 @@ committed version, skips a version that already exists, and refuses to move `lat
 version. It publishes a new version under `latest`. Release pull requests increase the committed
 version in the monorepo before the exporter sends the verified tree to `samebase/sidebars`.
 
+## Sidebars example export
+
+`apps/sidebars-example` publishes to the public `samebase/sidebars-example` repository on `main`.
+The exported repository is a normal standalone application. It owns its package manager version,
+workspace policy, lockfile, license, and public CI workflow.
+
+The public application installs `@samebase/sidebars` from npm. The root workspace overrides that
+dependency with the local workspace package, so package changes still run against the example before
+publication. A fresh isolated CI job installs only the exported tree and proves that the public
+repository does not depend on monorepo files.
+
 ## Agent plugin versions
 
 Every change under `packages/plugin` must increase its numeric `major.minor.patch` version. Pull
@@ -110,7 +123,9 @@ gate and will not publish a duplicate or missing version increase.
 
 ## GitHub App
 
-Use a dedicated GitHub App installed only on the target repositories.
+Use the dedicated Samebase Repository Publisher GitHub App. Its Samebase organization installation
+selects all repositories, so newly created organization repositories are available to the publisher
+automatically.
 
 Grant these repository permissions:
 
@@ -138,8 +153,9 @@ Add one entry to `repositoryExports` in `scripts/publish-repository-exports.ts`.
 Make the source directory satisfy the source directory contract above. Add its checks to the normal
 monorepo validation path.
 
-Install the publisher GitHub App on the new target repository. The workflow derives its target
-repository list from the same configuration, so the workflow file does not need a second list.
+Verify that the publisher GitHub App can access the new target repository. The workflow derives its
+target repository list from the same configuration, so the workflow file does not need a second
+list.
 
 The target branch must exist before the first publish. Protect it from manual writes and allow the
 publisher App to update it.

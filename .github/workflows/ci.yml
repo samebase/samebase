@@ -183,6 +183,77 @@ jobs:
       - name: Run package checks
         run: pnpm check
 
+  sidebars_example_supply_chain:
+    name: sidebars example supply-chain
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 10
+
+    defaults:
+      run:
+        working-directory: apps/sidebars-example
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          package_json_file: apps/sidebars-example/package.json
+          version: 11.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: apps/sidebars-example/.node-version
+          cache: "pnpm"
+          cache-dependency-path: apps/sidebars-example/pnpm-lock.yaml
+
+      - name: Install dependencies without lifecycle scripts
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Audit package signatures
+        run: pnpm audit signatures
+
+      - name: Audit production dependencies
+        run: pnpm audit --prod
+
+      - name: Reject critical development-tool vulnerabilities
+        run: pnpm audit --dev --audit-level=critical
+
+  sidebars_example_check:
+    name: sidebars example check
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    timeout-minutes: 15
+    needs: sidebars_example_supply_chain
+
+    defaults:
+      run:
+        working-directory: apps/sidebars-example
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6
+        with:
+          package_json_file: apps/sidebars-example/package.json
+          version: 11.18.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: apps/sidebars-example/.node-version
+          cache: "pnpm"
+          cache-dependency-path: apps/sidebars-example/pnpm-lock.yaml
+
+      - name: Install example dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run example checks
+        run: pnpm check
+
   checks:
     name: checks
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -377,6 +448,8 @@ jobs:
         supply_chain,
         sidebars_package_supply_chain,
         sidebars_package_check,
+        sidebars_example_supply_chain,
+        sidebars_example_check,
         starter_template_supply_chain,
         starter_template_check,
         checks,
@@ -402,6 +475,16 @@ jobs:
 
           if [ "${{ needs.sidebars_package_check.result }}" != "success" ]; then
             echo "sidebars package check: ${{ needs.sidebars_package_check.result }}"
+            exit 1
+          fi
+
+          if [ "${{ needs.sidebars_example_supply_chain.result }}" != "success" ]; then
+            echo "sidebars example supply-chain: ${{ needs.sidebars_example_supply_chain.result }}"
+            exit 1
+          fi
+
+          if [ "${{ needs.sidebars_example_check.result }}" != "success" ]; then
+            echo "sidebars example check: ${{ needs.sidebars_example_check.result }}"
             exit 1
           fi
 
@@ -437,7 +520,15 @@ jobs:
 
   publish_repository_exports:
     name: publish repository exports
-    needs: [checks, sidebars_package_supply_chain, sidebars_package_check, starter_template_check]
+    needs:
+      [
+        checks,
+        sidebars_package_supply_chain,
+        sidebars_package_check,
+        sidebars_example_supply_chain,
+        sidebars_example_check,
+        starter_template_check,
+      ]
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

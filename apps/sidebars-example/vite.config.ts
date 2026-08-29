@@ -74,6 +74,9 @@ export default defineConfig({
     conditions: ["samebase-source", ...defaultClientConditions],
     tsconfigPaths: true,
   },
+  ssr: {
+    noExternal: ["@samebase/sidebars"],
+  },
   staged: {
     "*": "vp check --fix",
   },
