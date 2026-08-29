@@ -84,6 +84,50 @@ through `@samebase/sidebars/structure.css`.
 Do not replace the structural rules. Runtime geometry and prehydration depend on the canonical pane
 order, overflow, scroll snap, separator position, and resize hit areas.
 
+## Make pane content responsive
+
+`PaneFrame` makes its header and content scrollport anonymous inline-size query containers. Make
+content inside these regions respond to the pane width. Opening or resizing a sidebar can change the
+pane width without changing the window width.
+
+Use native container queries and container-relative width units:
+
+```css
+.product-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.product-title {
+  font-size: clamp(1.5rem, 5cqw, 3rem);
+}
+
+@container (min-width: 42rem) {
+  .product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+```
+
+If the consumer uses Tailwind CSS, its container variants read the same pane container:
+
+```tsx
+<div className="grid gap-4 @2xl:grid-cols-2">...</div>
+```
+
+Do not use viewport variants such as `sm:` or `md:`, or viewport width units such as `vw`, for a
+pane-content layout decision. Keep viewport rules for behavior that depends on the browser viewport.
+For example, `useSidebarLayoutPresentation().isMobile` reports the mobile or desktop shell mode. It
+does not report the available width of one pane.
+
+If a component needs an internal query container, name that container and target it by name. An
+anonymous nested container becomes the nearest container for unnamed descendant queries. If
+JavaScript must match a pane-width rule, observe a pane-filling element with `ResizeObserver`. Do
+not use a window media query for that decision.
+
+This query-container contract covers the `PaneFrame` header and content. It does not cover
+`addressChrome` or the `PaneFrame` footer.
+
 ## Style parts and states
 
 The structural stylesheet contains no consumer theme colors, shadows, radii, typography, or
