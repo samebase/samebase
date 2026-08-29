@@ -28,6 +28,9 @@ Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.de
 
 ## Cross-platform automation
 
+- Treat `scripts/` as starter infrastructure. Prefer application changes in `src/` and `convex/`.
+  Change a script only when the app needs different development, build, or deployment behavior.
+  Keep `Samebase source build` lines unchanged for local edits.
 - The core workflow must run natively on macOS, Linux, and Windows.
 - Put non-trivial repository automation in erasable TypeScript under `scripts/` and run it with the
   Node 24 runtime pinned by `.node-version`.

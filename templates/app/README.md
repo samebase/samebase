@@ -105,6 +105,10 @@ and deploy behavior. Use the
 - `convex/_generated/ai/`, `.agents/skills/`, `skills-lock.json`, and the marked Convex sections in
   `AGENTS.md` and `CLAUDE.md` are managed by `npx convex ai-files install`.
 - The marked Vite+ section in `AGENTS.md` is managed by `vp config`.
+- Files in `scripts/` contain starter development, build, and deployment infrastructure. Application
+  work should normally stay in `src/` and `convex/`. Change a script only when the app needs
+  different infrastructure behavior. Keep a `Samebase source build` line unchanged for local edits
+  so later starter changes can be compared with that source build.
 - `scripts/generate-cloudflare-redirects.ts` owns only the marked generated block in
   `public/_redirects`. Custom redirect rules can stay outside that block.
 
