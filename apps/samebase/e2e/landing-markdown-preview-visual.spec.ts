@@ -564,15 +564,21 @@ test("pricing route renders the public pricing page", async ({ page }) => {
   await expect(article).toContainText("Start free. Upgrade when you need more connections.");
   await expect(article.getByRole("heading", { exact: true, name: "Free" })).toBeVisible();
   await expect(
-    article.getByRole("heading", { exact: true, name: "Personal account" }),
+    article.getByRole("heading", { exact: true, name: "12 connections and 1 member" }),
   ).toBeVisible();
-  await expect(article).toContainText("12 connections and 1 member.");
+  await expect(article).toContainText("Personal account");
   await expect(
-    article.getByRole("heading", { exact: true, name: "GitHub organization" }),
+    article.getByRole("heading", { exact: true, name: "6 connections and 2 members" }),
   ).toBeVisible();
-  await expect(article).toContainText("6 connections and 2 members.");
+  await expect(article).toContainText("GitHub organization");
   await expect(article.getByRole("heading", { exact: true, name: "Pro" })).toBeVisible();
-  await expect(article).toContainText("120 connections and 2 included members.");
+  await expect(
+    article.getByRole("heading", {
+      exact: true,
+      name: "120 connections and 2 included members",
+    }),
+  ).toBeVisible();
+  await expect(article).toContainText("Any owner.");
   await expect(article).not.toContainText("FileView");
 
   await expect(page).toHaveScreenshot("docs-pricing-desktop.png", {

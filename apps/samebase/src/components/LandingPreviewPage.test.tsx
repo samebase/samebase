@@ -367,12 +367,13 @@ describe("LandingPage", () => {
 
     expect(markup).toContain("Start free. Upgrade when you need more connections.");
     expect(markup).toContain("## Free");
-    expect(markup).toContain("### Personal account");
-    expect(markup).toContain("12 connections and 1 member.");
-    expect(markup).toContain("### GitHub organization");
-    expect(markup).toContain("6 connections and 2 members.");
+    expect(markup).toContain("### 12 connections and 1 member");
+    expect(markup).toContain("Personal account");
+    expect(markup).toContain("### 6 connections and 2 members");
+    expect(markup).toContain("GitHub organization");
     expect(markup).toContain("## Pro");
-    expect(markup).toContain("120 connections and 2 included members.");
+    expect(markup).toContain("### 120 connections and 2 included members");
+    expect(markup).toContain("Any owner.");
     expect(markup).toContain("one connected Cloudflare Worker");
     expect(markup).toContain("Samebase does not disconnect or delete existing resources.");
     expect(markup).not.toContain("FileView");
