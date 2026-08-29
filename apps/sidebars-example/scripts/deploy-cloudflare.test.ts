@@ -1,8 +1,23 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vite-plus/test";
 
 import { selectCloudflareDeployPlan } from "./deploy-cloudflare.ts";
 
 describe("deploy-cloudflare", () => {
+  it("keeps the template, Sidebars, and Samebase deploy sources identical", () => {
+    const templateSource = readFileSync(
+      new URL("../../../templates/app/scripts/deploy-cloudflare.ts", import.meta.url),
+      "utf8",
+    );
+
+    expect(readFileSync(new URL("./deploy-cloudflare.ts", import.meta.url), "utf8")).toBe(
+      templateSource,
+    );
+    expect(
+      readFileSync(new URL("../../samebase/scripts/deploy-cloudflare.ts", import.meta.url), "utf8"),
+    ).toBe(templateSource);
+  });
+
   it("uses the application-only build for a local dry-run", () => {
     expect(
       selectCloudflareDeployPlan(["deploy", "--dry-run"], {

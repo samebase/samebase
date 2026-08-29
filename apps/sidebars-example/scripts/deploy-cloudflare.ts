@@ -44,7 +44,12 @@ function run(command: string, args: readonly string[]) {
     });
 
     child.on("error", reject);
-    child.on("close", (code) => {
+    child.on("close", (code, signal) => {
+      if (signal) {
+        reject(new Error(`${command} ${args.join(" ")} exited with signal ${signal}`));
+        return;
+      }
+
       if (code === 0) {
         resolve();
         return;
