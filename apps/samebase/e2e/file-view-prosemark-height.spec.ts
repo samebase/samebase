@@ -18,7 +18,7 @@ async function scrollWorkspaceFixtureToMainPane(page: Page) {
       throw new Error("Expected mobile workspace frame.");
     }
 
-    const carousel = frame.querySelector(".overflow-x-auto");
+    const carousel = frame.querySelector('[data-sidebar-layout-part="carousel"]');
     if (!(carousel instanceof HTMLElement)) {
       throw new Error("Expected mobile workspace carousel.");
     }
@@ -60,7 +60,7 @@ async function readScrollMetrics(locator: Locator): Promise<ScrollMetrics> {
 }
 
 function workspaceScrollContainer(surface: Locator) {
-  return surface.locator("xpath=ancestor::div[contains(@class, 'overflow-y-auto')][1]");
+  return surface.locator('xpath=ancestor::*[@data-sidebar-layout-part="pane-scrollport"][1]');
 }
 
 async function wheelSurface(page: Page, surface: Locator) {
