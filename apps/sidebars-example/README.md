@@ -1,23 +1,11 @@
 # Sidebars example
 
-This app is a small, real consumer of `@samebase/sidebars`. It uses the standard Samebase frontend
-stack without Convex. The app imports the package through its public production entrypoints, owns
-its visible styles, saves layout state in localStorage, and applies that state before React
-hydrates.
+This single-page app is a small, real consumer of `@samebase/sidebars`. It renders a left sidebar, a
+main pane, and a right sidebar. The app imports the package through its public production
+entrypoints, owns its visible styles, saves layout state in localStorage, and applies that state
+before React hydrates.
 
 [Open the live example](https://samebase-sidebars-example.pfp.workers.dev/?prod-ui).
-
-## Routes
-
-| Route        | Sidebars | Purpose                                                   |
-| ------------ | -------- | --------------------------------------------------------- |
-| `/`          | None     | Shows the main-pane fallback when no sidebar is available |
-| `/docs`      | Left     | Shows the package with one sidebar                        |
-| `/workbench` | Two      | Shows the package with left and right sidebars            |
-
-All routes use one root sidebar state controller. A route can omit a saved sidebar without deleting
-its state. When a later route includes that sidebar again, its saved width, open state, mobile pane,
-and mobile merge become available again.
 
 ## Run the app
 
@@ -54,22 +42,25 @@ Builds.
 
 For a local upload check, set `CLOUDFLARE_WORKER_NAME` to `samebase-sidebars-example`, then run one
 of the dry-run commands above. `wrangler.jsonc` publishes `dist/client` with the standard Samebase
-observability and SPA settings. `public/_redirects` maps the public routes to their prerendered HTML
-files while `index.html` remains the SPA fallback.
+observability and SPA settings. `public/_redirects` maps `/` to its prerendered HTML file while
+`index.html` remains the SPA fallback.
 
 ## Architecture
 
-The TanStack root route owns the state controller and keeps it mounted during client navigation. The
-controller validates the localStorage value, uses defaults for invalid or missing data, and defers
-repeated width writes. It flushes the last width when the controller unmounts.
+The root route always provides all three panes to `SidebarLayout`. The left sidebar links to the
+package and example repositories. The main pane explains the controls. The right sidebar lists the
+layout behavior.
 
-Each route declares the sidebars that it provides and renders the canonical `SidebarLayout`. The
-desktop and mobile prehydration scripts render immediately after that layout. They read the same
+The TanStack root route owns the state controller. The controller validates the localStorage value,
+uses defaults for invalid or missing data, and defers repeated width writes. It flushes the last
+width when the controller unmounts.
+
+The desktop and mobile prehydration scripts render immediately after the layout. They read the same
 validated storage value before hydration. React removes the temporary desktop prehydration style
 after the runtime state takes control.
 
-The package supplies structural CSS. The app stylesheet uses the package part and state attributes
-for color, borders, spacing, and resize-grip appearance.
+The package supplies structural CSS. The app uses a small plain CSS stylesheet for color, borders,
+spacing, and resize-grip appearance. It follows the system light or dark theme.
 
 The app uses these public package entrypoints:
 
@@ -87,20 +78,9 @@ application code.
 
 ## Manual flow
 
-### Saved desktop widths
-
-1. Open `/workbench` in a desktop viewport.
-2. Resize both sidebars.
-3. Go to `/docs`, then `/`, and then return to `/workbench`.
-4. Confirm that both sidebars use the saved widths.
-5. Reload `/workbench` and confirm that the widths remain.
-
-### Missing-pane mobile merge
-
-1. Open `/docs` in a mobile-emulated browser context.
-2. Show the left sidebar and resize it to the minimum until the left and main panes merge.
-3. Use the persistent route navigation to go to `/`.
-4. Confirm that the route shows the main pane without a merge because it has no left sidebar.
-5. Return to `/docs` and confirm that the saved left merge appears again.
-6. Reload `/docs` and confirm that the merge remains.
-7. Use the visible mobile action to return to the main pane.
+1. Open `/` in a desktop viewport.
+2. Resize both sidebars and hide either one from the top rail.
+3. Reload the page and confirm that both sidebars keep their saved widths and open states.
+4. Open `/` in a mobile viewport and use the top rail to move between the left, main, and right
+   panes.
+5. Resize a mobile sidebar to the minimum and confirm that it merges with the main pane.

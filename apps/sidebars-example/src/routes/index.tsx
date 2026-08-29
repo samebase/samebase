@@ -1,70 +1,79 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, Boxes, PanelLeft, PanelRight } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { createFileRoute } from "@tanstack/react-router";
 import { ExampleSidebarLayout } from "@/sidebars/ExampleSidebarLayout";
 
-function OverviewPage() {
+const EXAMPLE_LINKS = [
+  {
+    href: "https://github.com/samebase/sidebars",
+    label: "Package source",
+  },
+  {
+    href: "https://github.com/samebase/sidebars-example",
+    label: "Example source",
+  },
+];
+
+const LAYOUT_DETAILS = [
+  { label: "Desktop", value: "Drag to resize" },
+  { label: "Mobile", value: "Swipe between panes" },
+  { label: "State", value: "Saved locally" },
+];
+
+function ExampleLinks() {
+  return (
+    <nav aria-label="Project links" className="example-links">
+      {EXAMPLE_LINKS.map(({ href, label }) => (
+        <a href={href} key={href} rel="noreferrer" target="_blank">
+          {label}
+        </a>
+      ))}
+    </nav>
+  );
+}
+
+function ExampleMain() {
+  return (
+    <main className="example-main-content">
+      <code>@samebase/sidebars</code>
+      <h1>Two sidebars.</h1>
+      <p>Drag the dividers. Use the top-right buttons to show or hide either sidebar.</p>
+    </main>
+  );
+}
+
+function LayoutDetails() {
+  return (
+    <dl className="example-details">
+      {LAYOUT_DETAILS.map(({ label, value }) => (
+        <div key={label}>
+          <dt>{label}</dt>
+          <dd>{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function ExamplePage() {
   return (
     <ExampleSidebarLayout
+      left={{
+        content: <ExampleLinks />,
+        header: <div className="example-pane-header">Links</div>,
+        scrollRestorationId: "example-links",
+      }}
       main={{
-        content: (
-          <main className="example-main-content example-overview">
-            <div className="example-eyebrow">
-              <Badge variant="secondary">main only</Badge>
-              <span>Route /</span>
-            </div>
-            <div className="example-hero-copy">
-              <h1>One layout, zero to two sidebars.</h1>
-              <p>
-                This app uses the public package API, app-owned styling, and local storage. Change
-                the sidebars on another route, return here, and then go back. The saved layout stays
-                intact even when this route has no sidebars to show.
-              </p>
-            </div>
-
-            <div className="example-shape-grid">
-              <article>
-                <Boxes />
-                <div>
-                  <h2>Main only</h2>
-                  <p>This route proves that a consumer can use the layout without a sidebar.</p>
-                </div>
-              </article>
-              <article>
-                <PanelLeft />
-                <div>
-                  <h2>One sidebar</h2>
-                  <p>Docs adds route-owned navigation on the left.</p>
-                </div>
-              </article>
-              <article>
-                <PanelRight />
-                <div>
-                  <h2>Two sidebars</h2>
-                  <p>Workbench adds both navigation and an inspector.</p>
-                </div>
-              </article>
-            </div>
-
-            <div className="example-callout">
-              <div>
-                <h2>Start with the one-sidebar case</h2>
-                <p>Resize it on desktop, or swipe to it and resize it on mobile.</p>
-              </div>
-              <Button nativeButton={false} render={<Link to="/docs" />}>
-                Open docs
-                <ArrowRight data-icon="inline-end" />
-              </Button>
-            </div>
-          </main>
-        ),
-        scrollRestorationId: "overview-main",
+        content: <ExampleMain />,
+        scrollRestorationId: "example-main",
+      }}
+      right={{
+        content: <LayoutDetails />,
+        header: <div className="example-pane-header">Behavior</div>,
+        scrollRestorationId: "example-behavior",
       }}
     />
   );
 }
 
 export const Route = createFileRoute("/")({
-  component: OverviewPage,
+  component: ExamplePage,
 });

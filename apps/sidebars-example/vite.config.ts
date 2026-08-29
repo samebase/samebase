@@ -1,4 +1,3 @@
-import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import react from "@vitejs/plugin-react";
 import { defaultClientConditions, defaultServerConditions } from "vite";
@@ -10,18 +9,6 @@ const prerenderPages = [
     prerender: {
       enabled: true,
       outputPath: "/_home.html",
-    },
-  },
-  {
-    path: "/docs",
-    prerender: {
-      enabled: true,
-    },
-  },
-  {
-    path: "/workbench",
-    prerender: {
-      enabled: true,
     },
   },
 ];
@@ -38,11 +25,10 @@ export default defineConfig({
     ignorePatterns: ["src/routeTree.gen.ts"],
   },
   lint: {
-    ignorePatterns: ["src/components/ui/**", "src/routeTree.gen.ts"],
+    ignorePatterns: ["src/routeTree.gen.ts"],
     options: { typeAware: true },
   },
   plugins: [
-    tailwindcss(),
     tanstackStart({
       pages: prerenderPages,
       prerender: {

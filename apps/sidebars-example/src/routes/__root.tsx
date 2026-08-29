@@ -36,7 +36,7 @@ export const Route = createRootRoute({
       { content: "width=device-width, initial-scale=1", name: "viewport" },
       { title: "Samebase Sidebars Example" },
       {
-        content: "A complete React example for the @samebase/sidebars package.",
+        content: "A single-page React example with two resizable sidebars.",
         name: "description",
       },
     ],
