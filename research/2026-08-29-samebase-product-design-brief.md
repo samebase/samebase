@@ -211,41 +211,45 @@ The right pane now contains five different scopes:
 4. administrator routes
 5. public, legal, social, and build links
 
-The global route makes this harder to understand. The pane shows both `All vaults` and
-`No organization selected`. These labels describe one state as both a destination and an absence.
-The global state is not an error or a missing selection. It is the all-organizations inventory.
+`All vaults` and `No organization selected` have different meanings. `All vaults` is a route link.
+`No organization selected` is the current value of a separate organization selector. The current
+global inventory is useful, but it is also provisional. A single list across many organizations may
+stop being practical as the product grows.
 
-The organization section also mixes destinations with commands. `Vaults`, `Providers`, `Members`,
-and `Organization settings` are places. `New app` and `Connect repository` start work. This makes
-the right pane longer and less stable, especially on mobile.
+Every item in the organization section is a route destination. This includes `New app` and
+`Connect repository`. Samebase relies on routes as durable product state, including query parameters
+for modal state. An action-oriented page is not less valid as a navigation destination.
 
 The right pane problem is therefore an information hierarchy problem. It does not require a new pane
 profile, a second persistence model, or different public and signed-in shells.
 
-### Recommended right-pane contract
+### Right-pane prototype direction
 
-Keep the same zone order on all signed-in routes:
+Use this zone order for the next visual prototype:
 
 1. account
-2. current context selector
-3. navigation for the current context
-4. operator or administrator tools when available
-5. public and build links
+2. organization selector
+3. organization route links when an organization is selected
+4. the current global vault route as a secondary escape
+5. operator or administrator tools when available
+6. public and build links
 
-Make `All vaults` a real option in the context selector. Remove the separate `All vaults` link and
-the `No organization selected` label. The selector then contains `All vaults`, each organization,
-and `Connect organization`.
+Keep the organization selector and `All vaults` route separate in this prototype. Their behavior is
+different. Placing the organization block first avoids making the global aggregate the permanent
+center of the product. If the global inventory later becomes infeasible, this layout can remove the
+secondary route without changing the organization structure.
 
-For an organization, keep only destinations in the context navigation:
+For an organization, keep the existing route destinations together:
 
 - Vaults
+- New app
+- Connect repository
 - Providers
 - Members
-- Settings
+- Organization settings
 
-Move `New app` and `Connect repository` to the organization vault page as direct actions near the
-vault list heading. Do not hide them in a menu. This keeps frequent work easy to find and removes
-commands from persistent navigation.
+The placement is a prototype, not an accepted product contract. Keep route and query-parameter
+behavior intact while testing the hierarchy.
 
 Keep the slash-prefixed public links and build identifier at the bottom. Apply consistent spacing
 and grouping, but do not replace them with generic icon chrome. The route-like presentation is part
@@ -295,30 +299,17 @@ and plan in one matrix. The product decision is simpler than the table:
 
 Present this decision first. Keep the exact ownership limits below it.
 
-At a 390 pixel viewport, the docs pane remained beside the pricing content and the comparison was
-cut off. This is a shipped responsive problem. Fix the pane and content containment first, then
-replace the wide comparison with stacked rows at narrow container widths. Do not create a separate
+Desktop viewport compression exposed that the table depends on horizontal scrolling. This did not
+prove that the mobile pane merge is broken. Replace the wide comparison with a vertical structure,
+then verify both a narrow desktop pane and the real mobile pane behavior. Do not create a separate
 mobile pricing route.
 
-### Creation and connection diagnosis
+### Creation, connection, and provider pages
 
-The new-app page has one repository-name field and two provider connection statements. It does not
-show the result that the command will create. Add one compact result description: GitHub repository,
-Convex project, and Cloudflare Worker. Keep the form small.
-
-The repository connection page has a good base: search, repository identity, last update, and one
-direct action. Add clear states for already connected, not available, and ready to connect. Keep the
-list as the main surface.
-
-### Provider diagnosis
-
-The provider page exposes useful engineering evidence, including account ownership, scopes,
-permissions, and API checks. It shows all of this evidence at once, so connection health and
-recovery are difficult to scan.
-
-Show one summary row for each provider first: provider, connected account, health, and action. Open
-permissions and API checks on demand. This preserves the diagnostic data and makes a failed
-connection easier to find.
+The initial audit did not inspect enough real success, pending, error, and recovery states to
+justify a redesign of these routes. Do not change them from this note alone. A later pass must first
+trace the current route states and provider transitions, then identify a specific user-visible
+failure.
 
 ### Mobbin evidence
 

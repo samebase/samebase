@@ -113,20 +113,17 @@ describe("LandingPage", () => {
     const markup = renderToStaticMarkup(<LandingPage />);
 
     expect(markup).toContain(`src="${LANDING_INLINE_80_PERCENT_MARK_SVG_URL}"`);
-    // Hero: the stack opinion stated directly.
-    expect(markup).toContain("The correct way to build web apps.");
-    expect(markup).toContain(">BETA</span>");
-    expect(markup).toContain("-rotate-3");
-    expect(markup).toContain("border-0");
-    expect(markup).toContain("bg-blue-600");
-    expect(markup).toContain("rounded-none");
-    expect(markup).toContain(" Convex</span>");
+    // Hero: a direct product explanation and a verifiable first action.
+    expect(markup).toContain("Don&#x27;t trust us. Ask your agent.");
     expect(markup).toContain(
-      'src="/landing-preview/logos/cloudflare.svg" width="28"/> Cloudflare Workers</span> is all you need to ship a production app.</p>',
+      "Samebase gives your coding agent one place to create and inspect every app you build.",
     );
+    expect(markup).not.toContain(">BETA</span>");
+    expect(markup).toContain(">dated receipt</a>");
     expect(markup).toContain(
-      'src="/brand/logo/v1-side-primary-duotone-inline-80.svg" width="20"/> Samebase</span> gives you one place to manage that stack across all your apps.</p>',
+      "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.",
     );
+    expect(markup).toContain("Copy</button>");
     expect(markup).toContain('class="mb-3 flex justify-end text-lg"');
     expect(markup.split(">Continue with GitHub</span></button>").length - 1).toBe(2);
     expect(markup).not.toContain("Idle apps cost $0/month.");
@@ -140,21 +137,23 @@ describe("LandingPage", () => {
     expect(markup).toContain('height="930"');
     expect(markup).toContain('preload="none"');
     expect(markup).toContain('data-testid="landing-preview-hero-video-frame"');
-    expect(markup).toContain("border-radius:1.104% / 1.664%");
+    expect(markup).toContain('class="overflow-hidden border border-border"');
     expect(markup).toContain(
       'href="https://youtu.be/UfxE8rvprqc" rel="noreferrer" target="_blank"',
     );
     expect(markup).toContain(">Watch on <span");
     expect(markup).toContain(">YouTube</span></a>");
 
-    // The opinion and provider roles stay concise.
+    // The product model comes before the provider names.
+    expect(markup).toContain("One base for every app. Normal accounts underneath.");
     expect(markup).toContain(
-      "GitHub + Convex + Cloudflare is the best way we&#x27;ve found to build an app.",
-    );
-    expect(markup).toContain(
-      "Samebase repeats it, so you can focus on your ideas instead of your tech stack.",
+      "Create the complete stack in about a minute, or connect the parts you already have.",
     );
     expect(markup).toContain("deploys + domains + edge");
+    expect(markup).toContain("Provision a repository, backend, and Worker in accounts you own.");
+    expect(markup).toContain(
+      "See apps, pull requests, checks, and provider connections in one place.",
+    );
     expect(markup).not.toContain("owner: ");
     expect(markup).toContain('data-testid="landing-preview-platform-details"');
     expect(markup).toContain("local workflow");
@@ -187,20 +186,16 @@ describe("LandingPage", () => {
     expect(markup).toContain("apps/admin");
     expect(markup).toContain("services/events");
 
-    // Ask your agent.
-    expect(markup).toContain("Don&#x27;t trust us, ask your agent.");
-    expect(markup).toContain(
-      "Research https://samebase.com. Should I use Samebase with you for my next app? Check if its claims are true before you answer.",
-    );
-    expect(markup).toContain("Copy</button>");
-
-    const askAgentIndex = markup.indexOf("Don&#x27;t trust us, ask your agent.");
+    const askAgentIndex = markup.indexOf("Don&#x27;t trust us. Ask your agent.");
+    const productModelIndex = markup.indexOf("One base for every app.");
     const platformDetailsIndex = markup.indexOf('data-testid="landing-preview-platform-details"');
     const fourClaimsIndex = markup.indexOf('aria-label="Four claims"');
+    expect(productModelIndex).toBeGreaterThan(askAgentIndex);
     expect(platformDetailsIndex).toBeGreaterThan(askAgentIndex);
     expect(fourClaimsIndex).toBeGreaterThan(platformDetailsIndex);
 
     // The four claims.
+    expect(markup).toContain("Built to leave you in control.");
     expect(markup).toContain("Delete your Samebase account. Your app doesn&#x27;t notice.");
     expect(markup).toContain(
       "The &quot;builder left my database open&quot; breach class can&#x27;t be expressed here.",
@@ -212,49 +207,40 @@ describe("LandingPage", () => {
     expect(markup).toContain("We resell nothing. Not tokens, not hosting.");
     expect(markup).toContain("adds margin, not capability");
 
-    // Onboarding walkthrough.
-    expect(markup).toContain(
-      "Watch the complete Samebase onboarding, including first-time Cloudflare setup.",
-    );
-    expect(markup).toContain('aria-label="Onboarding walkthrough"');
-    expect(markup).toContain(
-      'src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y" title="Samebase onboarding: Complete setup from scratch"',
-    );
-    expect(markup).toContain('loading="lazy"');
-    expect(markup).toContain('allowFullScreen=""');
+    // The full onboarding remains available without a second large embed.
+    expect(markup).toContain("Want to see the complete first-app setup?");
+    expect(markup).toContain('href="https://youtu.be/8-ZEGPpqi9Y"');
+    expect(markup).not.toContain("youtube-nocookie.com/embed/8-ZEGPpqi9Y");
 
     // Cost and the closing argument.
-    expect(markup).toContain("cost follows real usage");
+    expect(markup).toContain("Start free. Upgrade when your app inventory grows.");
+    expect(markup).toContain("Samebase Pro is $4 per owner each month.");
+    expect(markup).toContain("provider usage");
     expect(markup).toContain("an idle idea");
 
     // FAQ answers the direct-agent objection before the closing question.
     expect(markup).toContain('aria-label="Frequently asked questions"');
     expect(markup).toContain(">FAQ</h2>");
-    expect(markup).toContain("Codex already writes Convex well. Why do I need Samebase?");
+    expect(markup).toContain("What does Samebase add if my agent already writes the code?");
     expect(markup).toContain("Ok, but can&#x27;t I just get your template and not use Samebase?");
     expect(markup).toContain("Existing apps do not change unless you update them.");
-    expect(markup).toContain("I can just ask Codex to update my own apps. Why do I need Samebase?");
-    expect(markup).toContain("The bet is that you will build tens of apps.");
-    expect(markup).toContain("Wait, so all Samebase is, is a template and a list?");
+    expect(markup).toContain("So Samebase is a template and a list?");
     expect(markup).toContain("Kinda.");
-    expect(markup.split('data-slot="accordion-trigger"').length - 1).toBe(4);
-    expect(markup.split('data-slot="accordion-content"').length - 1).toBe(4);
+    expect(markup.split('data-slot="accordion-trigger"').length - 1).toBe(3);
+    expect(markup.split('data-slot="accordion-content"').length - 1).toBe(3);
 
-    const costIndex = markup.indexOf("cost follows real usage");
+    const costIndex = markup.indexOf("Start free. Upgrade when your app inventory grows.");
     const faqIndex = markup.indexOf('aria-label="Frequently asked questions"');
-    const onboardingVideoIndex = markup.indexOf(
-      'src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"',
-    );
     const closingQuestionIndex = markup.indexOf(
       "If your app builder is so good, why is it not building itself?",
     );
     expect(faqIndex).toBeGreaterThan(costIndex);
-    expect(onboardingVideoIndex).toBeGreaterThan(faqIndex);
-    expect(closingQuestionIndex).toBeGreaterThan(onboardingVideoIndex);
+    expect(closingQuestionIndex).toBeGreaterThan(faqIndex);
 
     expect(markup).toContain("If your app builder is so good, why is it not building itself?");
 
     // Footnote receipts.
+    expect(markup).toContain("Receipts, not promises.");
     expect(markup).toContain("$0/month, receipted.");
     expect(markup).toContain("Samebase adds no floor of its own.");
     expect(markup).toContain("Not hypothetical.");
@@ -380,9 +366,13 @@ describe("LandingPage", () => {
     const markup = renderToStaticMarkup(<DocsPricingPage />);
 
     expect(markup).toContain("Start free. Upgrade when you need more connections.");
-    expect(markup).toContain("Personal account    | Free");
-    expect(markup).toContain("Any owner           | Pro");
-    expect(markup).toContain("Members above the included limit require Pro and an available seat.");
+    expect(markup).toContain("## Free");
+    expect(markup).toContain("### Personal account");
+    expect(markup).toContain("12 connections and 1 member.");
+    expect(markup).toContain("### GitHub organization");
+    expect(markup).toContain("6 connections and 2 members.");
+    expect(markup).toContain("## Pro");
+    expect(markup).toContain("120 connections and 2 included members.");
     expect(markup).toContain("one connected Cloudflare Worker");
     expect(markup).toContain("Samebase does not disconnect or delete existing resources.");
     expect(markup).not.toContain("FileView");

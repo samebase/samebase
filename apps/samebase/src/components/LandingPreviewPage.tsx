@@ -19,7 +19,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
 import {
   useSidebarLayoutPresentation,
   useSidebarActions,
@@ -152,11 +151,26 @@ const LANDING_COST_ROWS = [
   },
 ] as const;
 
+const LANDING_PRODUCT_STEPS = [
+  {
+    detail: "Provision a repository, backend, and Worker in accounts you own.",
+    label: "Create",
+  },
+  {
+    detail: "Bring an existing repository, Convex project, or Cloudflare Worker.",
+    label: "Connect",
+  },
+  {
+    detail: "See apps, pull requests, checks, and provider connections in one place.",
+    label: "Operate",
+  },
+] as const;
+
 const LANDING_FAQS = [
   {
     answer:
-      "You do not need Samebase to make Codex write Convex. Our basic template and skills cover the parts around the code: how to manage separate Convex previews and which hosting setup to use.",
-    question: "Codex already writes Convex well. Why do I need Samebase?",
+      "You do not need Samebase to make an agent write Convex. Samebase provisions the stack, keeps one inventory across many apps, and gives your agent one setup and repair model. For one or two healthy apps, direct provider tools may be enough.",
+    question: "What does Samebase add if my agent already writes the code?",
   },
   {
     answer:
@@ -165,12 +179,8 @@ const LANDING_FAQS = [
   },
   {
     answer:
-      "For one or two apps, you may not need Samebase. The bet is that you will build tens of apps. Samebase gives you one place to see them, check their setup, and fix problems.",
-    question: "I can just ask Codex to update my own apps. Why do I need Samebase?",
-  },
-  {
-    answer: "Kinda.",
-    question: "Wait, so all Samebase is, is a template and a list?",
+      "Kinda. The template makes a normal app. The list becomes useful when you have many apps, previews, and provider connections to inspect. Samebase also automates the joins that each provider does not know about.",
+    question: "So Samebase is a template and a list?",
   },
 ] as const;
 
@@ -358,73 +368,41 @@ function LandingPreviewOverview() {
         <section>
           <div className="@3xl:grid @3xl:grid-cols-2 @3xl:gap-4">
             <div className="pb-4 @3xl:pt-4">
-              <p className="flex items-center gap-4">
-                <span className="flex items-center gap-1.5">
-                  <img
-                    alt=""
-                    className="h-9 w-9 dark:invert"
-                    height="36"
-                    src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
-                    width="36"
-                  />
-                  <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
-                </span>
-                <Badge className="h-7 -rotate-3 rounded-none border-0 bg-blue-600 px-3 py-0 text-sm font-semibold text-white">
-                  BETA
-                </Badge>
+              <p className="flex items-center gap-1.5">
+                <img
+                  alt=""
+                  className="h-9 w-9 dark:invert"
+                  height="36"
+                  src={LANDING_INLINE_80_PERCENT_MARK_SVG_URL}
+                  width="36"
+                />
+                <span className="text-2xl font-semibold tracking-[-0.01em]">Samebase</span>
               </p>
               <h1 className="mt-10 max-w-[24ch] text-[clamp(34px,4.6cqw,56px)] font-bold leading-[1.06] tracking-[-0.035em]">
-                The correct way to build web apps.
+                Don't trust us. Ask your agent.
               </h1>
-              <div className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
-                <p>
-                  <span className="whitespace-nowrap font-bold text-foreground">
-                    <img
-                      alt=""
-                      className="inline-block h-5 w-5 align-[-0.125em]"
-                      height="20"
-                      src="/landing-preview/logos/convex-mark.svg"
-                      width="20"
-                    />
-                    {"\u00a0"}
-                    Convex
-                  </span>
-                  <strong className="text-foreground"> + </strong>
-                  <span className="whitespace-nowrap font-bold text-foreground">
-                    <img
-                      alt=""
-                      className="inline-block h-5 w-7 object-cover align-[-0.125em]"
-                      height="20"
-                      src="/landing-preview/logos/cloudflare.svg"
-                      width="28"
-                    />
-                    {"\u00a0"}
-                    Cloudflare Workers
-                  </span>{" "}
-                  is all you need to ship a production app.
+              <p className="mt-7 max-w-[46ch] text-lg leading-relaxed text-primary">
+                Samebase gives your coding agent one place to create and inspect every app you
+                build. Paste this prompt and let the agent verify every claim before you sign in.
+              </p>
+              <div className="mt-7 border border-border @2xl:flex @2xl:items-stretch">
+                <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
+                  {LANDING_AGENT_PROMPT}
                 </p>
-                <p>
-                  <span className="whitespace-nowrap font-bold text-foreground">
-                    <img
-                      alt=""
-                      className="inline-block h-5 w-5 align-[-0.125em] dark:invert"
-                      height="20"
-                      src="/brand/logo/v1-side-primary-duotone-inline-80.svg"
-                      width="20"
-                    />
-                    {"\u00a0"}
-                    Samebase
-                  </span>{" "}
-                  gives you one place to manage that stack across all your apps.
-                </p>
+                <LandingCopyPromptButton />
               </div>
-              <div className="mt-9">
+              <p className="mt-4 max-w-[46ch] text-sm leading-relaxed text-muted-foreground">
+                Every claim links to a{" "}
+                <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>dated receipt</LandingInlineLink> that
+                your agent can check.
+              </p>
+              <div className="mt-7">
                 <PublicLandingPrimaryAction />
               </div>
             </div>
             <LandingHeroMenger placement="preview" />
           </div>
-          <div className="relative" style={{ containerType: "inline-size" }}>
+          <div className="relative">
             <p className="mb-3 flex justify-end text-lg">
               <a
                 className="group font-semibold text-foreground underline decoration-red-600 underline-offset-4 hover:decoration-red-700"
@@ -436,13 +414,8 @@ function LandingPreviewOverview() {
               </a>
             </p>
             <div
-              className="overflow-hidden"
+              className="overflow-hidden border border-border"
               data-testid="landing-preview-hero-video-frame"
-              style={{
-                borderRadius: "1.104% / 1.664%",
-                boxShadow:
-                  "0 0.11cqw 0.44cqw rgb(0 0 0 / 22%), 0 1.325cqw 3.31cqw rgb(0 0 0 / 30%)",
-              }}
             >
               <video
                 aria-label="Founder demo: Building an app with Samebase and Codex"
@@ -462,8 +435,8 @@ function LandingPreviewOverview() {
 
         <section className="mt-10 pt-8 @3xl:mt-16 @3xl:pt-12">
           <LandingSectionIntro
-            heading="GitHub + Convex + Cloudflare is the best way we've found to build an app."
-            sub="Simplest, cheapest, hardest to mess up. Samebase repeats it, so you can focus on your ideas instead of your tech stack."
+            heading="One base for every app. Normal accounts underneath."
+            sub="Create the complete stack in about a minute, or connect the parts you already have. Your code and infrastructure stay with their providers."
           />
           <div
             className="mt-8 grid gap-8 @2xl:grid-cols-3"
@@ -511,33 +484,24 @@ function LandingPreviewOverview() {
               role="deploys + domains + edge"
             />
           </div>
+          <div className="mt-10 border-t border-border">
+            {LANDING_PRODUCT_STEPS.map((step) => (
+              <div
+                className="grid gap-2 border-b border-border py-4 @2xl:grid-cols-[8rem_minmax(0,1fr)] @2xl:gap-6"
+                key={step.label}
+              >
+                <p className="font-mono text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {step.label}
+                </p>
+                <p className="max-w-[54ch] text-base leading-relaxed text-primary">{step.detail}</p>
+              </div>
+            ))}
+          </div>
         </section>
 
         <LandingSection>
-          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_460px] @5xl:items-start @5xl:gap-x-14">
-            <div>
-              <LandingSectionIntro
-                heading="Don't trust us, ask your agent."
-                sub={
-                  <>
-                    Paste this into the agent you already run. Every claim on this page links a{" "}
-                    <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>dated receipt</LandingInlineLink>,
-                    so it can verify us instead of trusting us.
-                  </>
-                }
-              />
-            </div>
-            <div className="mt-8 @5xl:mt-1.5">
-              <div className="border border-border @2xl:flex @2xl:items-stretch">
-                <p className="flex-1 bg-muted/50 px-4 py-3.5 font-mono text-[13px] leading-relaxed">
-                  {LANDING_AGENT_PROMPT}
-                </p>
-                <LandingCopyPromptButton />
-              </div>
-            </div>
-          </div>
           <div
-            className="mt-8 border-t border-border py-6"
+            className="border-t border-border py-6"
             data-testid={LANDING_PREVIEW_PLATFORM_DETAILS_TEST_ID}
           >
             <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
@@ -567,7 +531,11 @@ function LandingPreviewOverview() {
         </LandingSection>
 
         <LandingSection ariaLabel="Four claims">
-          <div className="grid gap-x-14 gap-y-10 @3xl:grid-cols-2">
+          <LandingSectionIntro
+            heading="Built to leave you in control."
+            sub="Samebase coordinates normal repositories and provider resources. It does not become the place your app must run."
+          />
+          <div className="mt-8 grid gap-x-14 gap-y-10 @3xl:grid-cols-2">
             <LandingClaim heading="Delete your Samebase account. Your app doesn't notice.">
               It was always on your GitHub, your Convex, your Cloudflare. We even publish the full{" "}
               <LandingInlineLink to={DOCS_DO_IT_YOURSELF_ROUTE}>
@@ -620,36 +588,47 @@ function LandingPreviewOverview() {
           <LandingRepositoryTree />
         </LandingSection>
 
-        <LandingSection>
-          <div className="max-w-[760px]">
-            <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
-              cost follows real usage
-            </p>
-            <div className="mt-4">
-              {LANDING_COST_ROWS.map((row) => (
-                <div
-                  className="flex items-baseline justify-between gap-6 border-t border-border py-3"
-                  key={row.profile}
-                >
-                  <p className="text-base">{row.profile}</p>
-                  <p
-                    className={
-                      row.zeroCost
-                        ? "text-right font-mono text-sm font-semibold text-secondary"
-                        : "text-right font-mono text-sm"
-                    }
+        <LandingSection ariaLabel="Pricing">
+          <div className="grid gap-10 @5xl:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] @5xl:gap-14">
+            <div>
+              <LandingSectionIntro
+                heading="Start free. Upgrade when your app inventory grows."
+                sub="Samebase Pro is $4 per owner each month. Cloudflare and Convex continue to bill their own usage directly."
+              />
+              <p className="mt-5">
+                <LandingInlineLink to={DOCS_PRICING_ROUTE}>See exact limits</LandingInlineLink>
+              </p>
+            </div>
+            <div>
+              <p className="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                provider usage
+              </p>
+              <div className="mt-4">
+                {LANDING_COST_ROWS.map((row) => (
+                  <div
+                    className="flex items-baseline justify-between gap-6 border-t border-border py-3"
+                    key={row.profile}
                   >
-                    {row.value}
-                    {row.zeroCost ? (
-                      <LandingFootnoteMark
-                        fragment="landing-note-zero"
-                        label="footnote: zero"
-                        marker="‡"
-                      />
-                    ) : null}
-                  </p>
-                </div>
-              ))}
+                    <p className="text-base">{row.profile}</p>
+                    <p
+                      className={
+                        row.zeroCost
+                          ? "text-right font-mono text-sm font-semibold text-secondary"
+                          : "text-right font-mono text-sm"
+                      }
+                    >
+                      {row.value}
+                      {row.zeroCost ? (
+                        <LandingFootnoteMark
+                          fragment="landing-note-zero"
+                          label="footnote: zero"
+                          marker="‡"
+                        />
+                      ) : null}
+                    </p>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </LandingSection>
@@ -672,25 +651,13 @@ function LandingPreviewOverview() {
               </AccordionItem>
             ))}
           </Accordion>
-        </LandingSection>
-
-        <LandingSection ariaLabel="Onboarding walkthrough">
-          <div className="@5xl:grid @5xl:grid-cols-[minmax(0,1fr)_440px] @5xl:gap-x-14">
-            <div className="@5xl:col-start-1 @5xl:row-start-1">
-              <LandingSectionIntro heading="Watch the complete Samebase onboarding, including first-time Cloudflare setup." />
-            </div>
-            <div className="mt-8 @5xl:col-start-2 @5xl:row-start-1 @5xl:mt-1.5">
-              <iframe
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                allowFullScreen
-                className="aspect-[48/31] w-full border-0"
-                loading="lazy"
-                referrerPolicy="strict-origin-when-cross-origin"
-                src="https://www.youtube-nocookie.com/embed/8-ZEGPpqi9Y"
-                title="Samebase onboarding: Complete setup from scratch"
-              />
-            </div>
-          </div>
+          <p className="mt-6 text-sm leading-relaxed text-muted-foreground">
+            Want to see the complete first-app setup?{" "}
+            <LandingReceiptLink href="https://youtu.be/8-ZEGPpqi9Y">
+              Watch the onboarding
+            </LandingReceiptLink>
+            .
+          </p>
         </LandingSection>
 
         <section className="mt-16 @3xl:mt-24">
@@ -700,7 +667,16 @@ function LandingPreviewOverview() {
         </section>
 
         <LandingSection ariaLabel="Footnotes">
-          <div className="grid gap-8 @3xl:grid-cols-2 @3xl:gap-x-14">
+          <LandingSectionIntro
+            heading="Receipts, not promises."
+            sub={
+              <>
+                Check the source here, or open the complete{" "}
+                <LandingInlineLink to={DOCS_RECEIPTS_ROUTE}>receipts page</LandingInlineLink>.
+              </>
+            }
+          />
+          <div className="mt-8 grid gap-8 @3xl:grid-cols-2 @3xl:gap-x-14">
             <LandingFootnote fragment="landing-note-zero" heading="$0/month, receipted." marker="‡">
               <p className="mt-2 max-w-[58ch] text-[15px] leading-relaxed text-primary">
                 GitHub Free: unlimited private repos.{" "}

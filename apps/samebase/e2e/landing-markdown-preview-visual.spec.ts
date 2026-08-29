@@ -135,20 +135,17 @@ test("landing preview FAQ answers the direct-agent questions", async ({ page }) 
   const faq = page
     .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
     .getByRole("region", { name: "Frequently asked questions" });
-  await expect(faq).toContainText("Codex already writes Convex well. Why do I need Samebase?");
+  await expect(faq).toContainText("What does Samebase add if my agent already writes the code?");
   await expect(faq).toContainText("Ok, but can't I just get your template and not use Samebase?");
-  await expect(faq).toContainText(
-    "I can just ask Codex to update my own apps. Why do I need Samebase?",
-  );
-  await expect(faq).toContainText("Wait, so all Samebase is, is a template and a list?");
+  await expect(faq).toContainText("So Samebase is a template and a list?");
 
   const firstQuestion = faq.getByRole("button", {
-    name: "Codex already writes Convex well. Why do I need Samebase?",
+    name: "What does Samebase add if my agent already writes the code?",
   });
   const secondQuestion = faq.getByRole("button", {
     name: "Ok, but can't I just get your template and not use Samebase?",
   });
-  const firstAnswer = faq.getByText("You do not need Samebase to make Codex write Convex.", {
+  const firstAnswer = faq.getByText("You do not need Samebase to make an agent write Convex.", {
     exact: false,
   });
   const secondAnswer = faq.getByText("You can. The template and skills are public.", {
@@ -212,7 +209,7 @@ test("landing preview FAQ stays responsive while the closing logo is off screen"
   const scriptDurationBefore = await readScriptDuration();
   await faq
     .getByRole("button", {
-      name: "Codex already writes Convex well. Why do I need Samebase?",
+      name: "What does Samebase add if my agent already writes the code?",
     })
     .click();
   await page.waitForTimeout(450);
@@ -240,7 +237,7 @@ test("landing preview overview adapts to a narrow pane", async ({ page }) => {
   const article = page.getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID);
   await expect(
     article.getByRole("heading", {
-      name: /The correct way to build web apps/,
+      name: /Don't trust us. Ask your agent/,
     }),
   ).toBeVisible();
   const monorepo = article.getByRole("region", { name: "Monorepo" });
@@ -419,28 +416,23 @@ test.describe("mobile landing preview", () => {
     const faq = page
       .getByTestId(LANDING_PREVIEW_ARTICLE_TEST_ID)
       .getByRole("region", { name: "Frequently asked questions" });
-    await expect(faq).toContainText("Codex already writes Convex well. Why do I need Samebase?");
+    await expect(faq).toContainText("What does Samebase add if my agent already writes the code?");
     await expect(faq).toContainText("Ok, but can't I just get your template and not use Samebase?");
-    await expect(faq).toContainText(
-      "I can just ask Codex to update my own apps. Why do I need Samebase?",
-    );
-    await expect(faq).toContainText("Wait, so all Samebase is, is a template and a list?");
+    await expect(faq).toContainText("So Samebase is a template and a list?");
     const thirdQuestion = faq.getByRole("button", {
-      name: "I can just ask Codex to update my own apps. Why do I need Samebase?",
+      name: "So Samebase is a template and a list?",
     });
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "false");
     await thirdQuestion.click();
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "true");
-    await expect(
-      faq.getByText("The bet is that you will build tens of apps.", { exact: false }),
-    ).toBeVisible();
-    const fourthQuestion = faq.getByRole("button", {
-      name: "Wait, so all Samebase is, is a template and a list?",
+    await expect(faq.getByText("The template makes a normal app.", { exact: false })).toBeVisible();
+    const firstQuestion = faq.getByRole("button", {
+      name: "What does Samebase add if my agent already writes the code?",
     });
-    await fourthQuestion.click();
-    await expect(fourthQuestion).toHaveAttribute("aria-expanded", "true");
+    await firstQuestion.click();
+    await expect(firstQuestion).toHaveAttribute("aria-expanded", "true");
     await expect(thirdQuestion).toHaveAttribute("aria-expanded", "false");
-    await expect(faq.getByText("Kinda.", { exact: true })).toBeVisible();
+    await expect(faq.getByText("Samebase provisions the stack", { exact: false })).toBeVisible();
     await expect(faq).toHaveScreenshot("landing-preview-faq-mobile.png", {
       animations: "disabled",
       caret: "hide",
@@ -570,15 +562,31 @@ test("pricing route renders the public pricing page", async ({ page }) => {
   await expectSidebarFiles(sidebar);
   await expect(article.getByRole("heading", { exact: true, name: "Pricing" })).toBeVisible();
   await expect(article).toContainText("Start free. Upgrade when you need more connections.");
-  await expect(article.getByRole("row", { name: "Personal account Free $0 12 1" })).toBeVisible();
-  await expect(article.getByRole("row", { name: "GitHub organization Free $0 6 2" })).toBeVisible();
-  await expect(article.getByRole("row", { name: "Any owner Pro $4 120 2" })).toBeVisible();
-  await expect(article).toContainText(
-    "Members above the included limit require Pro and an available seat.",
-  );
+  await expect(article.getByRole("heading", { exact: true, name: "Free" })).toBeVisible();
+  await expect(
+    article.getByRole("heading", { exact: true, name: "Personal account" }),
+  ).toBeVisible();
+  await expect(article).toContainText("12 connections and 1 member.");
+  await expect(
+    article.getByRole("heading", { exact: true, name: "GitHub organization" }),
+  ).toBeVisible();
+  await expect(article).toContainText("6 connections and 2 members.");
+  await expect(article.getByRole("heading", { exact: true, name: "Pro" })).toBeVisible();
+  await expect(article).toContainText("120 connections and 2 included members.");
   await expect(article).not.toContainText("FileView");
 
   await expect(page).toHaveScreenshot("docs-pricing-desktop.png", {
+    animations: "disabled",
+    caret: "hide",
+    maxDiffPixelRatio: 0.02,
+    scale: "css",
+  });
+
+  await page.setViewportSize({ width: 800, height: 900 });
+  await expect
+    .poll(() => article.evaluate((element) => element.scrollWidth <= element.clientWidth))
+    .toBe(true);
+  await expect(page).toHaveScreenshot("docs-pricing-narrow-pane.png", {
     animations: "disabled",
     caret: "hide",
     maxDiffPixelRatio: 0.02,

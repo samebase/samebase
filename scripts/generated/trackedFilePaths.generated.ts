@@ -519,6 +519,7 @@ export const trackedFilePaths = [
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/docs-cloudflare-setup-onboarding-video.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/docs-index-desktop.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/docs-pricing-desktop.png",
+  "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/docs-pricing-narrow-pane.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/docs-receipts-desktop.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-markdown-preview-mobile.png",
   "apps/samebase/e2e/landing-markdown-preview-visual.spec.ts-snapshots/landing-preview-faq-desktop.png",

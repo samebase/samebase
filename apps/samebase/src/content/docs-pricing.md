@@ -2,14 +2,24 @@
 
 Start free. Upgrade when you need more connections.
 
-| GitHub owner        | Plan | Monthly base | Connections | Included members |
-| ------------------- | ---- | -----------: | ----------: | ---------------: |
-| Personal account    | Free |           $0 |          12 |                1 |
-| GitHub organization | Free |           $0 |           6 |                2 |
-| Any owner           | Pro  |           $4 |         120 |                2 |
+## Free
 
-Members above the included limit require Pro and an available seat. Each purchased seat above the
-two included seats costs $2 per month. A pending invitation does not use a seat.
+**$0 per month**
+
+### Personal account
+
+12 connections and 1 member.
+
+### GitHub organization
+
+6 connections and 2 members.
+
+## Pro
+
+**$4 per owner, per month**
+
+120 connections and 2 included members. Each additional member seat costs $2 per month. A pending
+invitation does not use a seat.
 
 ## What counts
 
