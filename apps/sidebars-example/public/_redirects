@@ -1,0 +1,12 @@
+# Cloudflare Workers _redirects apply before asset serving. Keep these routes
+# aligned with the prerender pages in vite.config.ts.
+/_home.html / 301
+/ /_home.html 200
+
+/docs/index.html /docs 301
+/docs /docs/index.html 200
+/docs/ /docs/index.html 200
+
+/workbench/index.html /workbench 301
+/workbench /workbench/index.html 200
+/workbench/ /workbench/index.html 200

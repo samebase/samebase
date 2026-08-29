@@ -4,8 +4,14 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "vp build",
-    "check": "vp check && vp run typecheck && vp run build",
+    "build": "vp run build:cloudflare",
+    "build:app": "vp build",
+    "build:cloudflare": "vp run build:app",
+    "check": "vp check && vp run typecheck && vp test && vp run build:app",
+    "deploy": "node ./scripts/deploy-cloudflare.ts deploy",
+    "deploy:preview": "node ./scripts/deploy-cloudflare.ts preview",
+    "deploy:dry-run": "node ./scripts/deploy-cloudflare.ts deploy --dry-run",
+    "deploy:preview:dry-run": "node ./scripts/deploy-cloudflare.ts preview --dry-run",
     "dev": "vp dev",
     "format": "vp fmt",
     "format:check": "vp fmt --check",
@@ -38,6 +44,7 @@
     "tailwindcss": "^4.2.2",
     "typescript": "5.9.2",
     "vite": "catalog:",
-    "vite-plus": "catalog:"
+    "vite-plus": "catalog:",
+    "wrangler": "4.92.0"
   }
 }
