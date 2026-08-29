@@ -50,7 +50,8 @@ The development server prints its local URL. The app needs no backend or environ
 Cloudflare Workers Builds uses `apps/sidebars-example` as the root directory. It runs
 `pnpm run build`, then `pnpm run deploy` for `main` or `pnpm run deploy:preview` for other branches.
 The deploy script uses the connected Worker name that Cloudflare supplies and does not repeat the
-build during Workers Builds.
+build during Workers Builds. Build watch paths must include `packages/sidebars/*` so package-only
+changes start an example build.
 
 For a local upload check, set `CLOUDFLARE_WORKER_NAME` to `samebase-sidebars-example`, then run one
 of the dry-run commands above. `wrangler.jsonc` publishes `dist/client` with the standard Samebase
