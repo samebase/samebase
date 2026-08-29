@@ -27,6 +27,13 @@ describe("sidebar layout structural CSS", () => {
     );
   });
 
+  it("keeps pane headers and content scrollports as inline-size query containers", () => {
+    expect(structureCss).toContain(`:where([data-sidebar-layout-part="pane-header"]) {
+  container-type: inline-size;`);
+    expect(structureCss).toContain(`:where([data-sidebar-layout-part="pane-scrollport"]) {
+  container-type: inline-size;`);
+  });
+
   it("keeps a themeable visible focus fallback on resize handles", () => {
     expect(structureCss).toContain(
       ':where([data-sidebar-layout-part="resize-handle"]:focus-visible)',
