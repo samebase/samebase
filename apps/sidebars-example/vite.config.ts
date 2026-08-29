@@ -12,18 +12,6 @@ const prerenderPages = [
       outputPath: "/_home.html",
     },
   },
-  {
-    path: "/docs",
-    prerender: {
-      enabled: true,
-    },
-  },
-  {
-    path: "/workbench",
-    prerender: {
-      enabled: true,
-    },
-  },
 ];
 
 export default defineConfig({

@@ -2,7 +2,7 @@
   "name": "@samebase/sidebars-example",
   "version": "0.0.0",
   "private": true,
-  "description": "Standalone example for @samebase/sidebars",
+  "description": "Single-page @samebase/sidebars example with two sidebar panes",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -5,7 +5,6 @@ import {
 } from "@samebase/sidebars/SidebarLayout";
 import { PaneFrame, type PaneFrameProps } from "@samebase/sidebars/PaneFrame";
 import { useSidebarActions, useSidebarLayoutPresentation } from "@samebase/sidebars/SidebarRuntime";
-import { Link } from "@tanstack/react-router";
 import { PanelLeft, PanelRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,7 +22,7 @@ const RESIZE_HANDLE_LABELS = {
 const formatResizeHandleValueText: SidebarLayoutResizeHandleValueTextFormatter = ({ widthPx }) =>
   `${widthPx} pixels wide`;
 
-function ExampleAddressChrome({ hasLeft, hasRight }: { hasLeft: boolean; hasRight: boolean }) {
+function ExampleAddressChrome() {
   const { setMobilePane, toggleLeftPane, toggleRightPane } = useSidebarActions();
   const {
     isMobile,
@@ -43,21 +42,7 @@ function ExampleAddressChrome({ hasLeft, hasRight }: { hasLeft: boolean; hasRigh
 
   return (
     <div className="example-address-chrome">
-      <Link className="example-wordmark" to="/">
-        sidebars
-      </Link>
-
-      <nav aria-label="Example routes" className="example-route-nav">
-        <Link activeProps={{ "data-active": "" }} to="/">
-          Overview
-        </Link>
-        <Link activeProps={{ "data-active": "" }} to="/docs">
-          Docs
-        </Link>
-        <Link activeProps={{ "data-active": "" }} to="/workbench">
-          Workbench
-        </Link>
-      </nav>
+      <span className="example-wordmark">sidebars</span>
 
       <div aria-label="Live sidebar state" className="example-layout-status">
         <Badge variant="outline">{isMobile ? mobileStatus : "desktop"}</Badge>
@@ -73,30 +58,26 @@ function ExampleAddressChrome({ hasLeft, hasRight }: { hasLeft: boolean; hasRigh
       </div>
 
       <div className="example-sidebar-actions">
-        {hasLeft ? (
-          <Button
-            aria-label="Navigation sidebar"
-            aria-pressed={leftShown}
-            onClick={isMobile && leftShown ? () => setMobilePane("main") : toggleLeftPane}
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          >
-            <PanelLeft />
-          </Button>
-        ) : null}
-        {hasRight ? (
-          <Button
-            aria-label="Inspector sidebar"
-            aria-pressed={rightShown}
-            onClick={isMobile && rightShown ? () => setMobilePane("main") : toggleRightPane}
-            size="icon-sm"
-            type="button"
-            variant="ghost"
-          >
-            <PanelRight />
-          </Button>
-        ) : null}
+        <Button
+          aria-label="Navigation sidebar"
+          aria-pressed={leftShown}
+          onClick={isMobile && leftShown ? () => setMobilePane("main") : toggleLeftPane}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <PanelLeft />
+        </Button>
+        <Button
+          aria-label="Inspector sidebar"
+          aria-pressed={rightShown}
+          onClick={isMobile && rightShown ? () => setMobilePane("main") : toggleRightPane}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <PanelRight />
+        </Button>
       </div>
     </div>
   );
@@ -107,22 +88,20 @@ export function ExampleSidebarLayout({
   main,
   right,
 }: {
-  left?: PaneFrameProps;
+  left: PaneFrameProps;
   main: PaneFrameProps;
-  right?: PaneFrameProps;
+  right: PaneFrameProps;
 }) {
   return (
     <>
       <SidebarLayout
-        addressChrome={
-          <ExampleAddressChrome hasLeft={left !== undefined} hasRight={right !== undefined} />
-        }
+        addressChrome={<ExampleAddressChrome />}
         formatResizeHandleValueText={formatResizeHandleValueText}
-        left={left ? <PaneFrame {...left} /> : undefined}
+        left={<PaneFrame {...left} />}
         main={<PaneFrame {...main} />}
         mobileMinResizeBehavior="min_resize_to_merge"
         resizeHandleLabels={RESIZE_HANDLE_LABELS}
-        right={right ? <PaneFrame {...right} /> : undefined}
+        right={<PaneFrame {...right} />}
       />
       <script
         suppressHydrationWarning
