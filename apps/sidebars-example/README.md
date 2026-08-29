@@ -47,9 +47,9 @@ observability and SPA settings. `public/_redirects` maps `/` to its prerendered 
 
 ## Architecture
 
-The root route always provides all three panes to `SidebarLayout`. The left sidebar contains file
-navigation. The main pane contains a small checklist. The right sidebar controls the main pane's
-content density.
+The root route always provides all three panes to `SidebarLayout`. The left sidebar links to the
+package and example repositories. The main pane explains the controls. The right sidebar lists the
+layout behavior.
 
 The TanStack root route owns the state controller. The controller validates the localStorage value,
 uses defaults for invalid or missing data, and defers repeated width writes. It flushes the last
@@ -59,8 +59,8 @@ The desktop and mobile prehydration scripts render immediately after the layout.
 validated storage value before hydration. React removes the temporary desktop prehydration style
 after the runtime state takes control.
 
-The package supplies structural CSS. The app stylesheet uses the package part and state attributes
-for color, borders, spacing, and resize-grip appearance.
+The package supplies structural CSS. The app uses a small plain CSS stylesheet for color, borders,
+spacing, and resize-grip appearance. It follows the system light or dark theme.
 
 The app uses these public package entrypoints:
 
