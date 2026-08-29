@@ -10,10 +10,9 @@ origin hint, not the version of the user's app. New apps record this build in th
 message. Inspect only entries with a higher build number. If that message has no starter build,
 inspect all entries.
 
-Some shared starter files contain a `Samebase source build: v<N>` line. This line identifies the
-starter build that supplied the file. It stays unchanged after an app-specific edit, so it does not
-prove that the file still matches the starter. Use it only to select the starter source to compare
-with the app.
+For a marked file, use its `Samebase source build: v<N>` value as the source for comparison. When
+you apply a change from a newer starter build to a marked file, replace that file's line with the
+newer build number.
 
 The user owns all app code. Inspect the current app before you use this list. The app code is the
 source of truth. Skip an entry when the app already has its result. Apply only changes that are

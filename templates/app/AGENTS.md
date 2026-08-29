@@ -26,14 +26,10 @@ Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.de
 - Vite+ stays in `package.json` and supplies the dev, format, lint, test, and build tools behind the
   package scripts.
 
-## Shared starter infrastructure
+## Samebase starter source
 
-- Files in `scripts/` are shared starter infrastructure. Application work should normally stay in
-  `src/` and `convex/`.
-- Change a script when the app needs different infrastructure behavior.
-- If a script change could help other Samebase apps, mention that in the final response. Do not
-  block the app change on an upstream issue.
-- Keep the `Samebase source build` line unchanged for an app-specific change.
+A `Samebase source build: v<N>` line records the Samebase starter build used for that file. Do not
+remove the line when you edit the file.
 
 ## Cross-platform automation
 

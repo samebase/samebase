@@ -1,5 +1,4 @@
 // Samebase source build: v1989
-// Shared starter infrastructure. Read AGENTS.md before changing this file.
 import { describe, expect, it } from "vite-plus/test";
 
 import { selectCloudflareDeployPlan } from "./deploy-cloudflare.ts";

@@ -1,5 +1,4 @@
 // Samebase source build: v1989
-// Shared starter infrastructure. Read AGENTS.md before changing this file.
 /// <reference types="node" />
 import { spawn } from "node:child_process";
 import process from "node:process";
