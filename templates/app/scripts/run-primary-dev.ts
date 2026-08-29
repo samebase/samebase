@@ -1,4 +1,6 @@
-// Samebase starter dev launcher sha256:2c909750c45a3206e5d72c5b2559c22fb55a969ad906f93d46ef21e7f1420dad
+// Samebase starter dev launcher sha256:14d3bb06df585e94d2112a747d3bed088952e3da8a951f63750057d4034d9788
+// Samebase source build: v1989
+// Shared starter infrastructure. Read AGENTS.md before changing this file.
 /// <reference types="node" />
 import { spawn } from "node:child_process";
 import process from "node:process";

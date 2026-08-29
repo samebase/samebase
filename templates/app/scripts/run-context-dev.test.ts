@@ -1,3 +1,5 @@
+// Samebase source build: v1989
+// Shared starter infrastructure. Read AGENTS.md before changing this file.
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
