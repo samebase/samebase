@@ -30,11 +30,10 @@ Docs are local at `node_modules/vite-plus/docs` or online at https://viteplus.de
 
 - Files in `scripts/` are shared starter infrastructure. Application work should normally stay in
   `src/` and `convex/`.
-- If you find a problem in a script or need a change that applies to more than one Samebase app,
-  confirm that the [Samebase issue tracker](https://github.com/samebase/app/issues) records it before
-  you change the script. Ask the user before you create a new issue.
-- App-specific script changes do not need a Samebase issue. Keep the `Samebase source build` line
-  unchanged for an app-specific change.
+- Change a script when the app needs different infrastructure behavior.
+- If a script change could help other Samebase apps, mention that in the final response. Do not
+  block the app change on an upstream issue.
+- Keep the `Samebase source build` line unchanged for an app-specific change.
 
 ## Cross-platform automation
 
