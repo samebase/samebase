@@ -121,7 +121,8 @@ test("groups the global inventory and exposes every organization context", async
   await rightPane.getByRole("button", { name: "Switch organization" }).click();
   const contextMenu = page.getByRole("menu");
   await expect(contextMenu.getByRole("menuitem", { name: "All vaults" })).toHaveCount(0);
-  await expect(rightPane.getByRole("link", { name: "All vaults" })).toBeVisible();
+  const allVaultsLink = rightPane.getByRole("link", { name: "All vaults" });
+  await expect(allVaultsLink).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-alpha" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-beta" })).toBeVisible();
   await expect(contextMenu.getByRole("menuitem", { name: "org-context-zeta" })).toBeVisible();
@@ -136,6 +137,16 @@ test("groups the global inventory and exposes every organization context", async
     mask: [page.locator('iframe[title="Samebase onboarding: Complete setup from scratch"]')],
     maskColor: "#d1d5db",
   });
+
+  const allVaultsTop = await allVaultsLink.evaluate(
+    (element) => element.getBoundingClientRect().top,
+  );
+  await contextMenu.getByRole("menuitem", { name: "org-context-alpha" }).click();
+  await expect(page).toHaveURL(/\/org\/org-context-alpha\/vaults$/u);
+  await expect(rightPane.getByRole("navigation", { name: "Organization" })).toBeVisible();
+  expect(await allVaultsLink.evaluate((element) => element.getBoundingClientRect().top)).toBe(
+    allVaultsTop,
+  );
 });
 
 test("persists one user's collapsed organization across vault routes", async ({

@@ -245,14 +245,10 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
 function GlobalAppRightSidebarLinks() {
   return (
     <nav
-      aria-label="Global"
+      aria-label="Account"
       className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
     >
-      <Link
-        activeOptions={{ exact: true }}
-        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-        to={DASHBOARD_ROUTE}
-      >
+      <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to={DASHBOARD_ROUTE}>
         All vaults
       </Link>
     </nav>
@@ -265,18 +261,10 @@ function AdminAppRightSidebarLinks() {
       aria-label="Admin"
       className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
     >
-      <Link
-        activeOptions={{ exact: true }}
-        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-        to="/admin/users"
-      >
+      <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to="/admin/users">
         Users
       </Link>
-      <Link
-        activeOptions={{ exact: true }}
-        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-        to="/admin/account-deletions"
-      >
+      <Link className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME} to="/admin/account-deletions">
         Account deletions
       </Link>
     </nav>
@@ -291,7 +279,6 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
       className="vault-dashboard-sidebar-inset flex flex-col items-start gap-3 border-b border-border/50 py-3"
     >
       <Link
-        activeOptions={{ exact: true }}
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
         to={ORGANIZATION_VAULTS_ROUTE}
@@ -299,23 +286,6 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
         Vaults
       </Link>
       <Link
-        activeOptions={{ exact: true }}
-        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-        params={params}
-        to={ORGANIZATION_NEW_APP_ROUTE}
-      >
-        New app
-      </Link>
-      <Link
-        activeOptions={{ exact: true }}
-        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
-        params={params}
-        to={ORGANIZATION_CONNECT_REPO_ROUTE}
-      >
-        Connect repository
-      </Link>
-      <Link
-        activeOptions={{ exact: true }}
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
         to={ORGANIZATION_PROVIDERS_ROUTE}
@@ -323,7 +293,20 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
         Providers
       </Link>
       <Link
-        activeOptions={{ exact: true }}
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_NEW_APP_ROUTE}
+      >
+        New app
+      </Link>
+      <Link
+        className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
+        params={params}
+        to={ORGANIZATION_CONNECT_REPO_ROUTE}
+      >
+        Connect repository
+      </Link>
+      <Link
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
         to={ORGANIZATION_MEMBERS_ROUTE}
@@ -331,7 +314,6 @@ function OrganizationAppRightSidebarLinks({ organization }: { organization: View
         Members
       </Link>
       <Link
-        activeOptions={{ exact: true }}
         className={APP_SIDEBAR_NAVIGATION_LINK_CLASS_NAME}
         params={params}
         to={ORGANIZATION_SETTINGS_ROUTE}
@@ -365,12 +347,12 @@ function AuthenticatedAppRightSidebarContent({
   return (
     <VaultDashboardSidebarContent>
       <AppRightSidebarSignedInAccountSection profile={profile} user={user} />
+      <GlobalAppRightSidebarLinks />
       <OrganizationContextControl />
+      {showAdminNavigation ? <AdminAppRightSidebarLinks /> : null}
       {organizationContextPending || routedOrganization === null ? null : (
         <OrganizationAppRightSidebarLinks organization={routedOrganization} />
       )}
-      <GlobalAppRightSidebarLinks />
-      {showAdminNavigation ? <AdminAppRightSidebarLinks /> : null}
       <AppRightSidebarFooter
         showOnboardingVideo={showOnboardingVideo}
         showSessionRecordingConsent={sessionRecordingConsent?.state === "not_decided"}

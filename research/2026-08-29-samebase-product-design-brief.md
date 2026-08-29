@@ -223,21 +223,22 @@ for modal state. An action-oriented page is not less valid as a navigation desti
 The right pane problem is therefore an information hierarchy problem. It does not require a new pane
 profile, a second persistence model, or different public and signed-in shells.
 
-### Right-pane prototype direction
+### Right-pane stability
 
-Use this zone order for the next visual prototype:
+The controls that are available in every organization state must not move when an organization is
+selected. Keep this stable zone order:
 
 1. account
-2. organization selector
-3. organization route links when an organization is selected
-4. the current global vault route as a secondary escape
-5. operator or administrator tools when available
+2. the current global vault route
+3. organization selector
+4. operator or administrator tools when available
+5. organization route links when an organization is selected
 6. public and build links
 
-Keep the organization selector and `All vaults` route separate in this prototype. Their behavior is
-different. Placing the organization block first avoids making the global aggregate the permanent
-center of the product. If the global inventory later becomes infeasible, this layout can remove the
-secondary route without changing the organization structure.
+Keep the organization selector and `All vaults` route separate because their behavior is different.
+Put the variable organization links after the stable controls. This keeps `All vaults` in one place
+when the organization links appear or disappear. The global inventory can still be removed later if
+it becomes impractical. Its current position does not make it a permanent product model.
 
 For an organization, keep the existing route destinations together:
 
@@ -248,8 +249,8 @@ For an organization, keep the existing route destinations together:
 - Members
 - Organization settings
 
-The placement is a prototype, not an accepted product contract. Keep route and query-parameter
-behavior intact while testing the hierarchy.
+Keep route and query-parameter behavior intact. Do not trade control stability for a cleaner
+conceptual grouping.
 
 Keep the slash-prefixed public links and build identifier at the bottom. Apply consistent spacing
 and grouping, but do not replace them with generic icon chrome. The route-like presentation is part
