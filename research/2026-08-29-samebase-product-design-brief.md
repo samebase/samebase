@@ -39,6 +39,7 @@ a design requirement, not an implementation detail.
 4. Explain the product in plain language before relying on provider names or logos.
 5. Keep the interface quiet. Do not add decorative chrome, filler copy, or generic SaaS styling.
 6. Make global, organization, and vault context clear at every route.
+7. Keep the right pane structurally stable while its context-specific links change.
 
 ## Visual language to preserve
 
@@ -70,6 +71,9 @@ components before it changes the product standard.
   route as the source of context.
 - Mobile usability is a product strength. Desktop simplification must not weaken touch, focus,
   resizing, or pane selection behavior.
+- The right pane must keep a stable order for account, context, navigation, and public links. A
+  route can change the contents of the context section, but it must not turn the pane into a
+  different product surface.
 
 ## Highest-value design questions
 
@@ -179,6 +183,183 @@ performance constraints remain the filter.
 Mobbin cannot decide Samebase's product hierarchy, validate its domain model, or replace testing
 with users. It is a reference library, not the design process.
 
+## Live product audit
+
+The 2026-08-29 audit used the production account that can access four GitHub owners. It covered the
+global vault inventory, one organization, one vault, providers, new app, repository connection,
+members, organization settings, account settings, landing, pricing, and the mobile pane states.
+
+### What already works
+
+- The global vault inventory is a useful engineering surface. Organization groups, folders, check
+  status, provider counts, and pull request counts support quick scanning.
+- The organization vault list is quiet and direct. Its empty space is not a problem that needs cards
+  or filler.
+- The mobile pane selector makes the main view and right pane easy to reach.
+- The route editor, pane resizing, saved widths, and one shared pane state support the product
+  model. They are not the cause of the organization navigation problem.
+- Account, member, and billing pages use direct headings and controls. They need hierarchy and
+  responsive checks, not a new visual style.
+
+### Navigation diagnosis
+
+The right pane now contains five different scopes:
+
+1. account identity and account settings
+2. a global all-vaults route
+3. the organization selector and organization routes
+4. administrator routes
+5. public, legal, social, and build links
+
+The global route makes this harder to understand. The pane shows both `All vaults` and
+`No organization selected`. These labels describe one state as both a destination and an absence.
+The global state is not an error or a missing selection. It is the all-organizations inventory.
+
+The organization section also mixes destinations with commands. `Vaults`, `Providers`, `Members`,
+and `Organization settings` are places. `New app` and `Connect repository` start work. This makes
+the right pane longer and less stable, especially on mobile.
+
+The right pane problem is therefore an information hierarchy problem. It does not require a new pane
+profile, a second persistence model, or different public and signed-in shells.
+
+### Recommended right-pane contract
+
+Keep the same zone order on all signed-in routes:
+
+1. account
+2. current context selector
+3. navigation for the current context
+4. operator or administrator tools when available
+5. public and build links
+
+Make `All vaults` a real option in the context selector. Remove the separate `All vaults` link and
+the `No organization selected` label. The selector then contains `All vaults`, each organization,
+and `Connect organization`.
+
+For an organization, keep only destinations in the context navigation:
+
+- Vaults
+- Providers
+- Members
+- Settings
+
+Move `New app` and `Connect repository` to the organization vault page as direct actions near the
+vault list heading. Do not hide them in a menu. This keeps frequent work easy to find and removes
+commands from persistent navigation.
+
+Keep the slash-prefixed public links and build identifier at the bottom. Apply consistent spacing
+and grouping, but do not replace them with generic icon chrome. The route-like presentation is part
+of the product character.
+
+The first prototype must cover these states before implementation:
+
+- all vaults with four organizations
+- one organization
+- one vault in that organization
+- account settings
+- a narrow mobile right pane
+- an organization that has no vaults
+
+### Landing page diagnosis
+
+The landing page contains strong material, but its order makes a new visitor work too hard. The
+opening assumes knowledge of Convex and Cloudflare. The page then presents a founder video, a stack
+argument, an agent prompt, two product traits, four claims, monorepo support, provider usage costs,
+four similar FAQ questions, a second video, long receipts, and a final call to action.
+
+The problem is not only the hero. The complete narrative needs one sequence:
+
+1. State the user outcome without provider knowledge.
+2. Show what Samebase creates and connects.
+3. Show the working product.
+4. Explain ownership, isolation, and the provider stack.
+5. Show Samebase pricing and separate it from provider usage.
+6. Give one next action and links to detailed receipts.
+
+Remove `BETA` and provider logos from the opening claim. Provider names can appear in the stack
+explanation. Keep one video in the main story and link to the full onboarding video. Combine the
+repeated `Why do I need Samebase?` FAQ items. Keep the dated evidence, but move long evidence into
+the receipts pages instead of making it part of the main reading path.
+
+The agent-prompt idea can remain a strong proof and acquisition mechanism. It must support the
+product explanation, not replace it.
+
+### Pricing diagnosis
+
+The desktop pricing table contains the required facts, but it asks the reader to compare owner type
+and plan in one matrix. The product decision is simpler than the table:
+
+- Free costs $0. A personal owner gets 12 connections. An organization gets 6 connections.
+- Pro costs $4 per month for any owner and provides 120 connections.
+- Pro includes two members. Each additional seat costs $2 per month.
+
+Present this decision first. Keep the exact ownership limits below it.
+
+At a 390 pixel viewport, the docs pane remained beside the pricing content and the comparison was
+cut off. This is a shipped responsive problem. Fix the pane and content containment first, then
+replace the wide comparison with stacked rows at narrow container widths. Do not create a separate
+mobile pricing route.
+
+### Creation and connection diagnosis
+
+The new-app page has one repository-name field and two provider connection statements. It does not
+show the result that the command will create. Add one compact result description: GitHub repository,
+Convex project, and Cloudflare Worker. Keep the form small.
+
+The repository connection page has a good base: search, repository identity, last update, and one
+direct action. Add clear states for already connected, not available, and ready to connect. Keep the
+list as the main surface.
+
+### Provider diagnosis
+
+The provider page exposes useful engineering evidence, including account ownership, scopes,
+permissions, and API checks. It shows all of this evidence at once, so connection health and
+recovery are difficult to scan.
+
+Show one summary row for each provider first: provider, connected account, health, and action. Open
+permissions and API checks on demand. This preserves the diagnostic data and makes a failed
+connection easier to find.
+
+### Mobbin evidence
+
+The references support interaction patterns, not a visual restyle:
+
+- The
+  [OpenAI Platform organization switch flow](https://mobbin.com/flows/9c66c1d5-05e0-4726-8d9a-8681b7ac31a8)
+  keeps the main navigation stable and changes the organization from one compact control.
+- The [TheyDo workspace switch flow](https://mobbin.com/flows/327b1961-a5ec-4d82-9347-498ef01650c1)
+  uses the same pattern and keeps workspace creation inside the switcher.
+- The [Webflow workspace screen](https://mobbin.com/screens/e6ef30e7-d8d2-450f-b039-1fd1ccc0bdd3)
+  separates workspace navigation from the account menu.
+- The
+  [GitHub account settings screen](https://mobbin.com/screens/898e0f92-482b-498a-ac7f-337ee639abb8)
+  and
+  [PlanetScale account settings screen](https://mobbin.com/screens/5652063d-d3c8-4a29-b30a-985b8b5cb76a)
+  make personal and organization settings separate choices.
+- The [Replit integrations screen](https://mobbin.com/screens/718e8393-29d9-474c-8a40-c798cc577ea9)
+  puts provider description, status, and action in a scan-friendly list.
+- The
+  [Cloudflare infrastructure section](https://mobbin.com/sites/sections/3f43d4a8-c70c-4f82-a216-52bd0a30a932)
+  uses one diagram to explain a complex runtime system.
+- The
+  [Cloudflare pricing section](https://mobbin.com/sites/sections/4c85f5d2-31fc-4cc9-957b-9cd9ed872086)
+  states the Free and Paid decision before the detailed limits.
+
+These examples do not have Samebase's pane behavior or route model. Use only the repeated hierarchy
+patterns.
+
+## Proposed work sequence
+
+1. Prototype the right-pane contract on global, organization, and vault routes. Test desktop and
+   mobile without changing pane persistence.
+2. Restructure the complete landing narrative and pricing presentation as one public-product pass.
+3. Improve new app, repository connection, and provider recovery as one operational-flow pass.
+4. Review members, organization settings, and account settings after the navigation contract is
+   stable.
+
+Do not combine this sequence with a `Vault` vocabulary migration, database migration, notch
+experiment, or file-view redesign.
+
 ## Success criteria
 
 - A new visitor can explain what Samebase does without prior knowledge of Convex or Cloudflare.
@@ -191,8 +372,8 @@ with users. It is a reference library, not the design process.
 
 ## Open decisions
 
-- Whether the agent prompt becomes the landing hero
+- Where the agent prompt belongs in the complete landing narrative
 - How the complete landing-page narrative should change
-- How the right pane should separate global and organization navigation
+- Whether the proposed right-pane contract should proceed to an interactive prototype
 - Whether notched corners can become a reliable shared component standard
 - Whether "Vault" remains the user-facing domain name
