@@ -838,13 +838,13 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).toContain("All vaults");
     expect(hydratedMarkup).toContain("Account settings");
     const accountIndex = hydratedMarkup.indexOf(APP_RIGHT_SIDEBAR_ACCOUNT_SECTION_TEST_ID);
-    const allVaultsIndex = hydratedMarkup.indexOf('href="/vault"');
     const contextIndex = hydratedMarkup.indexOf('data-testid="organization-context-control"');
     const organizationNavigationIndex = hydratedMarkup.indexOf('aria-label="Organization"');
+    const allVaultsIndex = hydratedMarkup.indexOf('href="/vault"');
     expect(accountIndex).toBeGreaterThanOrEqual(0);
-    expect(allVaultsIndex).toBeGreaterThan(accountIndex);
-    expect(contextIndex).toBeGreaterThan(allVaultsIndex);
+    expect(contextIndex).toBeGreaterThan(accountIndex);
     expect(organizationNavigationIndex).toBeGreaterThan(contextIndex);
+    expect(allVaultsIndex).toBeGreaterThan(organizationNavigationIndex);
   });
 
   it("keeps All vaults visible while organization memberships load", async () => {
