@@ -1,17 +1,17 @@
-# Prompt: Regenerate samebase/app-Style Artifact
+# Prompt: Regenerate samebase/base-style artifact
 
 Use this prompt when asking an agent to recreate a clean public artifact history.
 
 ```text
-You are regenerating a samebase/app-style public teaching artifact.
+You are regenerating a samebase/base-style public teaching artifact.
 
 Important: the generated app repository is an artifact. Do not put prompt files,
 research notes, or regeneration instructions inside it. Keep those in the Samebase
-source repo under docs/artifacts/samebase-app/.
+source repo under docs/artifacts/samebase-base/.
 
 Before writing code:
-1. Read docs/artifacts/samebase-app/README.md in the Samebase repo.
-2. Inspect the current samebase/app main branch:
+1. Read docs/artifacts/samebase-base/README.md in the Samebase repo.
+2. Inspect the current samebase/base main branch:
    - git log --oneline --reverse main
    - REPO_HISTORY.md
    - README.md
@@ -23,7 +23,7 @@ Before writing code:
    - scripts
    - docs/logos
 3. Run the complete toolchain comparison in the Toolchain Alignment section of
-   docs/artifacts/samebase-app/README.md. Classify every difference between Samebase,
+   docs/artifacts/samebase-base/README.md. Classify every difference between Samebase,
    the generated artifact, and the target before implementation.
 4. Produce a feature-parity checklist for the final app. Include small visible
    details like the QR share block.
@@ -43,7 +43,7 @@ When implementing:
 7. Prefer exact command blocks in REPO_HISTORY.md when a step is created by a
    CLI. The command shown must be the command that actually ran.
 8. Prefer CLI commands over hand-written scaffolding whenever a clean CLI exists.
-9. For step 1, use the Vite+ app command, like samebase/app:
+9. For step 1, use the Vite+ app command, like samebase/base:
 
    vp create vite:application \
      --directory <target-directory> \
@@ -74,7 +74,7 @@ For a Workers/TanStack Start version:
 - Keep Convex as the backend.
 - Preserve the current app behavior, including the QR share block.
 - Deploy with Cloudflare Workers Static Assets using wrangler.jsonc.
-- Read docs/artifacts/samebase-app/cloudflare-workers-install.md before writing
+- Read docs/artifacts/samebase-base/cloudflare-workers-install.md before writing
   Workers setup docs. Make `package.json` `build` match the Cloudflare
   dashboard default and delegate to the Cloudflare-aware build path. Do not
   hard-code the Worker `name` in `wrangler.jsonc`; use repo-owned deploy scripts

@@ -1,6 +1,6 @@
-# samebase/app Artifact Regeneration
+# samebase/base artifact regeneration
 
-`templates/app` is the maintained source for the public `samebase/app` teaching artifact. Routine
+`templates/base` is the maintained source for the public `samebase/base` teaching artifact. Routine
 changes belong in the template and publish through the repository exporter. Keep major edition
 instructions, prompts, and decision notes here.
 
@@ -16,14 +16,14 @@ artifact should look deliberately built.
 
 - Use a separate edition branch when a major stack change needs a newly curated teaching sequence.
 - Do not rewrite public `main`. It is append-only.
-- Use numbered commit subjects after that, matching the `samebase/app` style: `1. initialize ...`,
+- Use numbered commit subjects after that, matching the `samebase/base` style: `1. initialize ...`,
   `2. add ...`, and so on.
 - Create or update `REPO_HISTORY.md` inside each numbered commit. It is part of the teaching
   artifact, not a report reconstructed at the end.
-- Treat the current `templates/app` state as the feature-parity source before changing the stack.
+- Treat the current `templates/base` state as the feature-parity source before changing the stack.
   Inventory small visible details, including the QR share block, shadcn primitives, Convex todo
   backend, local workflow, Convex AI files, docs, and logos.
-- After the edition is accepted, copy its final tree into `templates/app`. Let the normal publisher
+- After the edition is accepted, copy its final tree into `templates/base`. Let the normal publisher
   append that accepted state to public `main`.
 - Do not put regeneration prompt files inside generated artifact repos. Put them here, or in another
   durable Samebase repo document.
@@ -32,7 +32,7 @@ artifact should look deliberately built.
 
 Prefer CLI commands whenever a clean CLI exists.
 
-For the first step, use Vite+ the same way `samebase/app` does:
+For the first step, use Vite+ the same way `samebase/base` does:
 
 ```sh
 vp create vite:application \
@@ -197,7 +197,7 @@ Workers research can happen in disposable repos first. Once the shape is known, 
 artifact history from scratch.
 
 The current Cloudflare Workers Git install trace lives in
-`docs/artifacts/samebase-app/cloudflare-workers-install.md`.
+`docs/artifacts/samebase-base/cloudflare-workers-install.md`.
 
 ## Toolchain Alignment
 

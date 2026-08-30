@@ -19,10 +19,10 @@ TanStack Start/Vite on the frontend and Convex on the backend.
 
 - Auto infra provisioning is triggered only for newly created samebase-managed vaults.
 - Connecting an existing GitHub repository does not auto-provision infra.
-- Starter source of truth is `templates/app`, an independent pnpm workspace with its own lockfile.
+- Starter source of truth is `templates/base`, an independent pnpm workspace with its own lockfile.
   `pnpm run template:export` stores its runtime seed in
   `apps/samebase/convex/starterSeedManifest.generated.ts`, and successful main builds publish the
-  same template tree to `samebase/app`.
+  same template tree to `samebase/base`.
 
 ## Tech Stack
 

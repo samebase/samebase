@@ -85,7 +85,7 @@ Use:
 - rfcs/089_MCP_CONVEX_FUNCTION_EXPOSURE_SPEC.md
 - samebase/plugin context from prior work
 - the recent public-docs/export discussion
-- docs/artifacts/samebase-app/\*
+- docs/artifacts/samebase-base/\*
 - archive/090_PROVISIONING_BUILDING_BLOCKS_PLAN.md
 
 Task: design the minimum durable action-contract system.

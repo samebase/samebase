@@ -1,6 +1,6 @@
 # Cloudflare Workers Install Trace
 
-Use this note when regenerating or auditing the `samebase/app` teaching artifact. It records the
+Use this note when regenerating or auditing the `samebase/base` teaching artifact. It records the
 current Cloudflare Workers Git setup shape so a future agent can repeat the browser walkthrough and
 spot dashboard changes.
 

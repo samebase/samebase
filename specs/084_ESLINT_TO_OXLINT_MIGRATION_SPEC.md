@@ -254,7 +254,7 @@ When a rule cannot move cleanly, this document must record:
 
 - Problem: Oxlint and ESLint do not lint exactly the same default file surface. Earlier
   starter-template-specific hidden-folder handling is obsolete because the monorepo-local starter
-  app was removed in favor of exporting `samebase/app`.
+  app was removed in favor of exporting `samebase/base`.
 
 - Problem: standardization mattered more than perfect historical parity for this migration. Tried:
   removed `baseUrl` from app tsconfigs, moved app scripts onto Oxlint-only flows, and deleted the

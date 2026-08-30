@@ -5,13 +5,13 @@
 - Status: Accepted implementation plan
 - Owner: Samebase hosting, generated app provisioning, and public template stack
 - Created: 2026-05-15
-- Last updated: 2026-08-28
+- Last updated: 2026-08-31
 - Related:
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
   - `research/2026-05-15-samebase-workers-provisioning-migration.md`
-  - `docs/artifacts/samebase-app/README.md`
-  - `docs/artifacts/samebase-app/cloudflare-workers-install.md`
-  - `docs/artifacts/samebase-app/regeneration-prompt.md`
+  - `docs/artifacts/samebase-base/README.md`
+  - `docs/artifacts/samebase-base/cloudflare-workers-install.md`
+  - `docs/artifacts/samebase-base/regeneration-prompt.md`
   - `specs/005_STARTER_TEMPLATE_STRATEGY_SPEC.md`
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
@@ -21,7 +21,7 @@
 
 Move Samebase to one Cloudflare Workers-based stack:
 
-1. the public `samebase/app` teaching template
+1. the public `samebase/base` teaching template
 2. Samebase-generated user apps
 3. the Samebase production app itself
 
@@ -78,7 +78,7 @@ Implementation rules:
 
 ## Goals
 
-1. Make `samebase/app` a Cloudflare Workers Static Assets template.
+1. Make `samebase/base` a Cloudflare Workers Static Assets template.
 2. Make Samebase production deploy through Workers.
 3. Make new Samebase-generated apps provision through Workers Builds.
 4. Preserve Convex as the backend and keep production/preview Convex deployments connected to
@@ -105,9 +105,9 @@ should update or remove these facts as the code catches up.
 
 ### Template
 
-`templates/app` is the maintained Workers template. Required Samebase checks generate its stored
+`templates/base` is the maintained Workers template. Required Samebase checks generate its stored
 seed manifest, audit its independent lockfile, and build it before the repository exporter publishes
-the accepted tree to `samebase/app@main`.
+the accepted tree to `samebase/base@main`.
 
 The template has this shape:
 
@@ -122,13 +122,13 @@ Runtime app creation uses the committed seed manifest and does not depend on the
 
 ### Generated App Seeding
 
-Runtime app creation does not clone `samebase/app`. It seeds one generated commit from
+Runtime app creation does not clone `samebase/base`. It seeds one generated commit from
 `starterSeedManifest.generated.ts`.
 
 This preserves runtime reliability but means the public template history and the generated user
 repository history intentionally have different jobs:
 
-1. `samebase/app` preserves its original teaching sequence in its append-only public history.
+1. `samebase/base` preserves its original teaching sequence in its append-only public history.
 2. generated user repositories start from one clean snapshot commit.
 
 ### Pre-Migration Provisioning
@@ -154,8 +154,8 @@ single-stack guarantee, not follow-up cleanup.
 
 ### Template Target
 
-`templates/app` is the maintained Workers teaching source. The repository exporter publishes each
-accepted tree to `samebase/app` main without rewriting its earlier teaching history.
+`templates/base` is the maintained Workers teaching source. The repository exporter publishes each
+accepted tree to `samebase/base` main without rewriting its earlier teaching history.
 
 Requirements:
 
@@ -228,7 +228,7 @@ New Samebase-managed app creation should:
 
 ### Phase 1: Maintain Workers Template Source
 
-1. Use `templates/app` as the implementation source.
+1. Use `templates/base` as the implementation source.
 2. Verify local commands:
    - `pnpm install --frozen-lockfile`
    - `vp run check`
@@ -244,14 +244,14 @@ Template history polish remains valuable, but it should not block Samebase auto-
 After changing the Workers template source, refresh the generated starter manifest:
 
 ```bash
-git add templates/app
+git add templates/base
 pnpm run template:export
 git add apps/samebase/convex/starterSeedManifest.generated.ts
 ```
 
 Update tests that assert starter files. Required checks reject a stale manifest, unsafe nested
 lockfile, or failed standalone build. A successful main build publishes the exact committed
-`templates/app` tree to `samebase/app`.
+`templates/base` tree to `samebase/base`.
 
 ### Phase 3: Replace Pages Provisioning With Workers Provisioning
 

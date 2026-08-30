@@ -2,19 +2,19 @@ import { describe, expect, it } from "vite-plus/test";
 import { starterTemplateManifest } from "./starterSeedManifest.generated";
 
 describe("starterSeedManifest", () => {
-  it("identifies the v1989 template snapshot", () => {
+  it("identifies the v1997 template snapshot", () => {
     expect({
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "77835a271d4ad65cc58bb803b46b275fd265a273e3a29973532484b2e7319843",
-      commitMessage: "Initialize app from Samebase starter build v1989",
+      contentHash: "3566eb1c1fa73f204f39f11676a0f3c5e7874beffa5f4876dabdd484d39954eb",
+      commitMessage: "Initialize app from Samebase starter build v1997",
     });
     expect(starterTemplateManifest.version).toBe(
-      `samebase-app-${starterTemplateManifest.contentHash.slice(0, 12)}`,
+      `samebase-base-${starterTemplateManifest.contentHash.slice(0, 12)}`,
     );
-    expect(starterTemplateManifest.sourcePath).toBe("templates/app");
-    expect(starterTemplateManifest.publishedRepo).toBe("https://github.com/samebase/app.git");
+    expect(starterTemplateManifest.sourcePath).toBe("templates/base");
+    expect(starterTemplateManifest.publishedRepo).toBe("https://github.com/samebase/base.git");
   });
 
   it("includes required runnable starter files", () => {
@@ -62,6 +62,7 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.files[".node-version"]).toBe("24\n");
     expect(packageJson).toEqual(
       expect.objectContaining({
+        name: "samebase-base",
         type: "module",
         scripts: expect.objectContaining({
           check:
@@ -130,7 +131,7 @@ describe("starterSeedManifest", () => {
       "Cloudflare SPA mode owns app-route fallback through /index.html.",
     );
     expect(starterTemplateManifest.files["public/_redirects"]).toContain(
-      "# @samebase/app-prerender-redirects:start",
+      "# @samebase/base-prerender-redirects:start",
     );
     expect(starterTemplateManifest.files["public/_redirects"]).toContain("/ /_landing.html 200");
     expect(starterTemplateManifest.files["prerender.config.ts"]).toContain(

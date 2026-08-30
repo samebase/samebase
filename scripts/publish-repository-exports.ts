@@ -11,7 +11,7 @@ export type RepositoryExport = {
   targetRepository: string;
 };
 
-export const appTemplateSourceRoot = "templates/app";
+export const baseTemplateSourceRoot = "templates/base";
 
 export const repositoryExports = [
   {
@@ -20,9 +20,9 @@ export const repositoryExports = [
     targetRepository: "plugin",
   },
   {
-    sourceRoot: appTemplateSourceRoot,
+    sourceRoot: baseTemplateSourceRoot,
     targetBranch: "main",
-    targetRepository: "app",
+    targetRepository: "base",
   },
   {
     sourceRoot: "packages/sidebars",

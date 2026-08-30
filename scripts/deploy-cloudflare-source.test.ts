@@ -9,7 +9,7 @@ describe("Cloudflare deploy source", () => {
   it("keeps the template, Samebase, and Sidebars copies identical", () => {
     const repoRoot = resolveRepoRoot();
     const templateSource = readFileSync(
-      path.join(repoRoot, trackedFilePath("templates/app/scripts/deploy-cloudflare.ts")),
+      path.join(repoRoot, trackedFilePath("templates/base/scripts/deploy-cloudflare.ts")),
       "utf8",
     );
 

@@ -282,7 +282,7 @@ an app.
 
 ## 2: Copy the app code to your GitHub account
 
-Visit https://github.com/samebase/app
+Visit https://github.com/samebase/base
 
 - [ ] click big green "Use this template"
 - [ ] make it private or leave it public
@@ -292,7 +292,7 @@ Visit https://github.com/samebase/app
 <details>
 <summary>"Fork" if you want to preserver the git history</summary>
 
-Check the full Git History here: https://github.com/samebase/app/commits/main/
+Check the full Git History here: https://github.com/samebase/base/commits/main/
 
 It is manually made so it's as small, clear and simple as possible.
 
@@ -559,7 +559,7 @@ an app.
 
 ## 2: Copy the app code to your GitHub account
 
-Visit https://github.com/samebase/app
+Visit https://github.com/samebase/base
 
 - [ ] click big green "Use this template"
 - [ ] make it private or leave it public
@@ -569,7 +569,7 @@ Visit https://github.com/samebase/app
 <details>
 <summary>"Fork" if you want to preserver the git history</summary>
 
-Check the full Git History here: https://github.com/samebase/app/commits/main/
+Check the full Git History here: https://github.com/samebase/base/commits/main/
 
 It is manually made so it's as small, clear and simple as possible.
 

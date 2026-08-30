@@ -85,11 +85,11 @@ function createRepositoryExportFixture(): {
 }
 
 describe("repository exports", () => {
-  it("publishes the standalone app template to samebase/app", () => {
+  it("publishes the standalone base to samebase/base", () => {
     expect(repositoryExports).toContainEqual({
-      sourceRoot: "templates/app",
+      sourceRoot: "templates/base",
       targetBranch: "main",
-      targetRepository: "app",
+      targetRepository: "base",
     });
   });
 
@@ -230,7 +230,7 @@ describe("repository exports", () => {
         },
       );
       expect(readFileSync(outputPath, "utf8")).toBe(
-        "repositories=plugin,app,sidebars,sidebars-example\n",
+        "repositories=plugin,base,sidebars,sidebars-example\n",
       );
     } finally {
       rmSync(temporaryRoot, { recursive: true, force: true });

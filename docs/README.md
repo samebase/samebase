@@ -16,7 +16,7 @@ Current key docs:
 - `docs/agent-workflows.md` for deeper git/PR/worktree workflow rules
 - `docs/repo-documentation-standard.md` for deciding whether material belongs in `specs/`, `rfcs/`,
   `research/`, `docs/`, `skills/`, `archive/`, or a PR body
-- `docs/artifacts/samebase-app/` for regenerating the public `samebase/app` artifact history
+- `docs/artifacts/samebase-base/` for regenerating the public `samebase/base` artifact history
 - `docs/playwright-visual-testing.md` for Linux-canonical visual test workflow
 - `docs/existing-app-cloudflare-workers-migration.md` for moving an adopted application from an old
   host to Cloudflare Workers with branch validation, cutover, monitoring, and rollback

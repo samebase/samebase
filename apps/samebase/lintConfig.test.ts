@@ -330,9 +330,9 @@ describe("lint config", () => {
     const lintConfig = readRootLintConfig();
     const fmtConfig = readRootFmtConfig();
 
-    expect(lintConfig.ignorePatterns).toContain("templates/app/**");
+    expect(lintConfig.ignorePatterns).toContain("templates/base/**");
     expect(
       readStringArray(fmtConfig.ignorePatterns, "vite.config.ts.fmt.ignorePatterns"),
-    ).toContain("templates/app/**");
+    ).toContain("templates/base/**");
   });
 });

@@ -12,8 +12,8 @@ The exported repository root is the exact Git tree at that source directory. Put
 that belong in the external repository in the source directory.
 
 An export can use the root workspace or remain a standalone package manager boundary. The plugin
-uses root tooling and includes a small dependency-free public check. The app template must work as
-an independent repository, so `templates/app` owns its own `package.json`, `pnpm-workspace.yaml`,
+uses root tooling and includes a small dependency-free public check. The base template must work as
+an independent repository, so `templates/base` owns its own `package.json`, `pnpm-workspace.yaml`,
 `pnpm-lock.yaml`, and public workflow. It is intentionally outside the root workspace globs. The
 Sidebars example also owns these files because its directory is both a root workspace member and a
 standalone export boundary.
@@ -24,7 +24,7 @@ checks in a fresh job so root dependencies cannot hide an undeclared dependency.
 ## Automatic workflow
 
 The publisher runs only for a push to `main`, after the standard checks and unit tests succeed.
-Supply-chain validation runs before those checks. The app, Sidebars package, and Sidebars example
+Supply-chain validation runs before those checks. The base, Sidebars package, and Sidebars example
 exports also require their isolated checks. Playwright and Windows smoke tests continue in parallel,
 but they do not block repository exports.
 
@@ -53,14 +53,14 @@ The subject identifies the current `main` snapshot that publishes the files. If 
 commit replaces an older successful run, the older run stops. The newer snapshot then publishes with
 its own subject, even when that commit did not change the source directory.
 
-## Starter app export
+## Starter base export
 
-`templates/app` is the maintained starter source. A template change has three outputs in one pull
+`templates/base` is the maintained starter source. A template change has three outputs in one pull
 request:
 
-1. the standalone app tree and its lockfile under `templates/app`
+1. the standalone base tree and its lockfile under `templates/base`
 2. the committed `starterSeedManifest.generated.ts` used by runtime app creation
-3. the public `samebase/app` tree published after merge
+3. the public `samebase/base` tree published after merge
 
 Stage template changes before running `pnpm run template:export`, then stage the generated manifest.
 The generator reads the staged Git blobs so the seed bytes match the future public export exactly.

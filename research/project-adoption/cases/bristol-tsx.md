@@ -84,7 +84,7 @@ TypeScript bootstrap, and uses Vite+ after installation.
 | Bristol      | Data functions require authentication, sign-out clears private caches, and the TanStack Worker path has synthetic SSR and browser tests.                                                         |
 | Bristol      | Public scripts describe operator actions. Unused aliases and spike scripts were removed after the runtime decision.                                                                              |
 | Bristol      | One promotion pull request contained the reviewed stack, so the default branch received one production cutover.                                                                                  |
-| Samebase app | [samebase/app pull request 23](https://github.com/samebase/app/pull/23) added Node automation type checks to normal checks and the real Cloudflare build.                                        |
+| Samebase app | [samebase/base pull request 23](https://github.com/samebase/base/pull/23) added Node automation type checks to normal checks and the real Cloudflare build.                                      |
 | Samebase     | [Samebase pull request 1317](https://github.com/samebase/samebase/pull/1317) made TypeScript source and the Vite+ and Oxlint toolchain explicit, and moved Remotion checks to the root contract. |
 | Shared       | The manager preflight now covers package manager, source model, scripts, tool ownership, framework, providers, validation, and version pins.                                                     |
 
