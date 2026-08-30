@@ -1,5 +1,9 @@
 # samebase/app Workers Provisioning Migration Research
 
+Current names as of 2026-08-31 are `samebase/base`, `templates/base`, and
+`scripts/export-starter-manifest.ts`. Older names below record the system at the time of this
+research.
+
 ## Document Control
 
 - Status: Research with implementation follow-up
@@ -7,9 +11,9 @@
 - Created: 2026-05-15
 - Related:
   - `research/2026-05-05-cloudflare-pages-workers-direction.md`
-  - `docs/artifacts/samebase-app/README.md`
-  - `docs/artifacts/samebase-app/cloudflare-workers-install.md`
-  - `docs/artifacts/samebase-app/regeneration-prompt.md`
+  - `docs/artifacts/samebase-base/README.md`
+  - `docs/artifacts/samebase-base/cloudflare-workers-install.md`
+  - `docs/artifacts/samebase-base/regeneration-prompt.md`
   - `specs/005_STARTER_TEMPLATE_STRATEGY_SPEC.md`
   - `archive/090_CREATE_APP_WORKFLOW_PROVISIONING_SPEC.md`
 
@@ -49,7 +53,7 @@ behavior.
 
 Before the Workers implementation, the generated starter manifest pointed at `samebase/app@main`:
 
-- `sourceRepo`: `https://github.com/samebase/app.git`
+- `sourceRepo`: `https://github.com/samebase/base.git`
 - `sourceBranch`: `main`
 - `sourceCommit`: `49d0faa1ba17b73138d0a1c4f709c750720b0e9d`
 - `version`: `samebase-app-49d0faa1ba17`

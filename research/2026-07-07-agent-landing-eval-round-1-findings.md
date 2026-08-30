@@ -34,7 +34,7 @@ the "stranger's agent" rule.
 ## Corpus fixes landed in this branch
 
 - Replaced the stale `/docs/do-it-yourself.md` guide. It previously sent agents through a Cloudflare
-  Pages path and a private `github.com/samebase/app` template link while the current corpus and
+  Pages path and a private `github.com/samebase/base` template link while the current corpus and
   action catalog are Workers-based. The new guide describes the provider-direct GitHub + Convex +
   Cloudflare Workers path, says the Samebase starter is not public yet, and keeps the
   account/deletion story aligned with `llms.txt`.

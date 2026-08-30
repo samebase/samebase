@@ -64,7 +64,7 @@
     "check:examples": "vp run --filter @samebase/sidebars-example check",
     "lint:samebase": "pnpm run check:samebase",
     "lint:remotion-studio": "vp lint --tsconfig apps/remotion-studio/tsconfig.json --report-unused-disable-directives apps/remotion-studio/src",
-    "template:export": "node scripts/export-samebase-app-manifest.ts",
+    "template:export": "node scripts/export-starter-manifest.ts",
     "verify:template-export": "pnpm run template:export && git diff --exit-code -- apps/samebase/convex/starterSeedManifest.generated.ts",
     "prepare": "vp config --hooks-dir .vite-hooks",
     "fixtures:update": "node ./scripts/update-simple-view-fixtures.ts",

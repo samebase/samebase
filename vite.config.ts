@@ -26,7 +26,7 @@ export default defineConfig({
       "apps/samebase/CLAUDE.md",
       "apps/samebase/src/routeTree.gen.ts",
       "apps/sidebars-example/src/routeTree.gen.ts",
-      "templates/app/**",
+      "templates/base/**",
     ],
     printWidth: 100,
     proseWrap: "always",
@@ -47,7 +47,7 @@ export default defineConfig({
       "apps/sidebars-example/src/routeTree.gen.ts",
       // This fixture is linted after its packed Sidebars dependency is installed.
       "packages/sidebars/fixtures/packed-consumer/**",
-      "templates/app/**",
+      "templates/base/**",
     ],
     jsPlugins: [
       {

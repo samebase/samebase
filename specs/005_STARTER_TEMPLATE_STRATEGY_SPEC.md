@@ -2,15 +2,15 @@
 
 ## Document Control
 
-- Status: Accepted, amended 2026-08-15.
+- Status: Accepted, amended 2026-08-31.
 - Owner: Samebase backend/frontend
 - Date: 2026-02-13
 - Related specs:
 - Related files:
   - `apps/samebase/convex/vault/actions.ts`
   - `apps/samebase/convex/starterSeed.ts` (or replacement)
-  - `templates/app`
-  - `scripts/export-samebase-app-manifest.ts`
+  - `templates/base`
+  - `scripts/export-starter-manifest.ts`
   - `scripts/publish-repository-exports.ts`
   - `apps/samebase/convex/starterSeedManifest.generated.ts`
 
@@ -30,6 +30,10 @@ The 2026-04-29 amendment adopted `samebase/app` as the starter source. The 2026-
 moves the maintained source to `templates/app` in this monorepo and makes the public `samebase/app`
 repository an automatic repository export. Samebase still seeds generated user repositories as one
 commit from a stored generated manifest.
+
+The 2026-08-31 amendment renames the maintained source to `templates/base`, the public repository to
+`samebase/base`, and the private package to `samebase-base`. Product actions and generated user
+repositories continue to use app language.
 
 ## Problem Statement
 
@@ -162,19 +166,20 @@ Operational cost:
   - exact commands run (Vite, Convex, Tailwind, shadcn setup),
   - regeneration guidance for future updates.
 
-## Current Decision (Amended 2026-08-15)
+## Current Decision (Amended 2026-08-31)
 
-- Use `templates/app` as the starter source of truth.
-- Keep `templates/app` outside the root pnpm workspace. It owns its own `package.json`,
+- Use `templates/base` as the starter source of truth.
+- Keep `templates/base` outside the root pnpm workspace. It owns its own `package.json`,
   `pnpm-workspace.yaml`, and `pnpm-lock.yaml`.
-- Publish the committed `templates/app` tree to `samebase/app` after required checks pass.
+- Name the private root package `samebase-base`.
+- Publish the committed `templates/base` tree to `samebase/base` after required checks pass.
 - Keep the single-commit seeding behavior.
 - Store the generated manifest in the Samebase deployment bundle. Runtime app creation reads this
-  stored manifest and does not read `templates/app` or fetch `samebase/app`.
+  stored manifest and does not read `templates/base` or fetch `samebase/base`.
 - Stage template changes, refresh the generated manifest, and stage the manifest with:
 
 ```bash
-git add templates/app
+git add templates/base
 pnpm run template:export
 git add apps/samebase/convex/starterSeedManifest.generated.ts
 ```
@@ -183,8 +188,9 @@ git add apps/samebase/convex/starterSeedManifest.generated.ts
   - `sourcePath`
   - `publishedRepo`
   - `contentHash`
-- Derive the template version from `contentHash`. Do not store a source commit because the monorepo
-  commit and public export commit do not exist until after the manifest is generated.
+- Derive the `samebase-base-<hash>` template version from `contentHash`. Do not store a source
+  commit because the monorepo commit and public export commit do not exist until after the manifest
+  is generated.
 - Require manifest freshness, standalone supply-chain checks, and a standalone build before the
   public export can run.
 
@@ -204,15 +210,15 @@ Behavioral contract for Iteration 1:
 
 ## Technical Contract for Iteration 1
 
-- Authoring source: `templates/app`.
-- Source of seeded content: committed generated manifest exported from `templates/app`.
+- Authoring source: `templates/base`.
+- Source of seeded content: committed generated manifest exported from `templates/base`.
 - Seeding outcome in target repository:
   - one commit containing full runnable starter app content.
 - Reliability-first requirement:
   - no dependency on live external template fetch during repo creation.
 - Publication requirement:
-  - `samebase/app` receives the exact committed `templates/app` Git tree only after required checks
-    pass.
+  - `samebase/base` receives the exact committed `templates/base` Git tree only after required
+    checks pass.
 
 ## Important Changes / Additions to Interfaces and Types
 
@@ -241,30 +247,30 @@ Out of scope for Iteration 1:
 - Spec explicitly defines Iteration 1 scope and deferred topics.
 - Spec states exact single-commit seeding rule.
 - Spec requires local source and public repository provenance in the generated manifest.
-- Starter manifest includes exactly the Git-visible `templates/app` files.
+- Starter manifest includes exactly the Git-visible `templates/base` files.
 - Required CI rejects a stale manifest, an unsafe standalone lockfile, or a failed standalone build.
-- Repository publication exports the exact committed `templates/app` tree to `samebase/app`.
+- Repository publication exports the exact committed `templates/base` tree to `samebase/base`.
 
 ## Test Cases and Scenarios
 
 1. Creating a new samebase-managed vault yields exactly one starter-seeding commit.
-2. Seeded repository builds and runs with the current `templates/app` stack.
+2. Seeded repository builds and runs with the current `templates/base` stack.
 3. Infra provisioning still triggers and reaches ready state.
-4. `pnpm run template:export` refreshes the manifest from staged Git blobs under `templates/app`.
+4. `pnpm run template:export` refreshes the manifest from staged Git blobs under `templates/base`.
 5. Ignored local files do not enter the manifest.
 6. A clean standalone install, supply-chain audit, and build pass with the nested lockfile.
-7. A successful main push publishes the template tree to `samebase/app` without rewriting its
+7. A successful main push publishes the template tree to `samebase/base` without rewriting its
    existing history.
 
 ## Assumptions and Defaults
 
 - Reliability is prioritized over runtime freshness for Iteration 1.
 - Manifest freshness is automatic in required CI.
-- `samebase/app` is public generated output and its `main` branch is append-only.
+- `samebase/base` is public generated output and its `main` branch is append-only.
 
 ## Deferred / Future Iterations
 
-- Consider preserving more of `samebase/app` history if generated repos need it after the v1
+- Consider preserving more of `samebase/base` history if generated repos need it after the v1
   single-commit flow.
 - Evaluate preserving staged pedagogical commit history in generated repos.
 - Use manual edition branches only when the public teaching artifact needs major stack re-curation.

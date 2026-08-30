@@ -55,7 +55,7 @@ the platform does not force every root into the same shape.
 
 ## The proof
 
-The template lives in the public [samebase/app repository](https://github.com/samebase/app). The
+The template lives in the public [samebase/base repository](https://github.com/samebase/base). The
 early commits were each crafted by hand to keep it as simple as it claims: you can read the template
 like a story, one small decision at a time.
 

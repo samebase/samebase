@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-import { collectTemplateFiles } from "./export-samebase-app-manifest.ts";
+import { collectTemplateFiles } from "./export-starter-manifest.ts";
 
 function git(cwd: string, args: readonly string[]): void {
   execFileSync("git", args, {
@@ -13,17 +13,17 @@ function git(cwd: string, args: readonly string[]): void {
   });
 }
 
-describe("samebase app manifest export", () => {
+describe("starter manifest export", () => {
   it("reads staged Git blob bytes without ignored local files", async () => {
-    const temporaryRoot = mkdtempSync(path.join(tmpdir(), "samebase-app-manifest-test-"));
-    const templateRoot = path.join(temporaryRoot, "templates", "app");
+    const temporaryRoot = mkdtempSync(path.join(tmpdir(), "samebase-base-manifest-test-"));
+    const templateRoot = path.join(temporaryRoot, "templates", "base");
 
     try {
       mkdirSync(templateRoot, { recursive: true });
       git(temporaryRoot, ["init"]);
       writeFileSync(
         path.join(temporaryRoot, ".gitattributes"),
-        "templates/app/crlf.txt text eol=crlf\n",
+        "templates/base/crlf.txt text eol=crlf\n",
         "utf8",
       );
       writeFileSync(path.join(templateRoot, ".gitignore"), ".env*\nnode_modules\n", "utf8");
@@ -33,8 +33,8 @@ describe("samebase app manifest export", () => {
       writeFileSync(path.join(templateRoot, "draft.ts"), "export {};\n", "utf8");
       writeFileSync(path.join(templateRoot, "run.sh"), "#!/bin/sh\n", "utf8");
       chmodSync(path.join(templateRoot, "run.sh"), 0o755);
-      git(temporaryRoot, ["add", ".gitattributes", "templates/app"]);
-      git(temporaryRoot, ["update-index", "--chmod=+x", "templates/app/run.sh"]);
+      git(temporaryRoot, ["add", ".gitattributes", "templates/base"]);
+      git(temporaryRoot, ["update-index", "--chmod=+x", "templates/base/run.sh"]);
 
       writeFileSync(path.join(templateRoot, ".env.local"), "SECRET=hidden\n", "utf8");
       mkdirSync(path.join(templateRoot, "node_modules"));
@@ -74,12 +74,12 @@ describe("samebase app manifest export", () => {
 
       writeFileSync(path.join(templateRoot, "new.ts"), "export {};\n", "utf8");
       await expect(collectTemplateFiles(temporaryRoot)).rejects.toThrow(
-        "Stage new files under templates/app before export",
+        "Stage new files under templates/base before export",
       );
       rmSync(path.join(templateRoot, "new.ts"));
       writeFileSync(path.join(templateRoot, "README.md"), "changed\n", "utf8");
       await expect(collectTemplateFiles(temporaryRoot)).rejects.toThrow(
-        "Stage tracked changes under templates/app before export",
+        "Stage tracked changes under templates/base before export",
       );
     } finally {
       rmSync(temporaryRoot, { force: true, recursive: true });

@@ -2,6 +2,9 @@
 
 Date: 2026-07-08
 
+Current names as of 2026-08-31 are `samebase/base`, `templates/base`, and
+`scripts/export-starter-manifest.ts`. Older names below record the system when this plan ran.
+
 Question: how should the `samebase/app` starter template repo be maintained, given that its curated
 commit-by-commit teaching history was the founding idea, the discipline degraded over time, the
 stale `main` still shows the notermd/Cloudflare-Pages era, and the live line is
