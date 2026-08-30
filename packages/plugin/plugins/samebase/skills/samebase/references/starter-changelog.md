@@ -1,6 +1,7 @@
 # Samebase starter changelog
 
-Read this only when the user asks to review or apply improvements from a newer Samebase starter.
+Read this only when the user asks to review or apply improvements from a newer Samebase starter to
+one or more apps.
 
 This changelog lists starter changes that can be useful to existing apps. It is not a complete
 history and does not define update state.
@@ -17,6 +18,9 @@ newer build number.
 The user owns all app code. Inspect the current app before you use this list. The app code is the
 source of truth. Skip an entry when the app already has its result. Apply only changes that are
 relevant, and preserve unrelated user changes.
+
+For a review of several apps, compare each repository independently. Do not reuse one app's starter
+build or relevance result for another app.
 
 ## v1996: Upgrade Convex to 1.45.0
 
