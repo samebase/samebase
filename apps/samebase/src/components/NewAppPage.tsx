@@ -29,6 +29,11 @@ import {
 } from "@/components/vault-dashboard/VaultDashboardLogos";
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import type { Id } from "../../convex/_generated/dataModel";
+import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";
+import {
+  useConvexDeploymentRegions,
+  useConvexDeploymentRegionSelection,
+} from "@/components/useConvexDeploymentRegions";
 
 type CreateResourceNameMode = "auto" | "manual";
 type CreateResourceNameCheckResult =
@@ -342,6 +347,7 @@ export function NewAppCreateFormFields({
   cloudflareWorkerNameSupport,
   convexProjectName,
   convexProjectNameSupport,
+  convexDeploymentRegionField,
   githubRepositoryNameSupport,
   hasRequiredCreateConnections,
   isCreating,
@@ -358,6 +364,7 @@ export function NewAppCreateFormFields({
   cloudflareWorkerNameSupport: ReactNode;
   convexProjectName: string;
   convexProjectNameSupport: ReactNode;
+  convexDeploymentRegionField: ReactNode;
   githubRepositoryNameSupport: ReactNode;
   hasRequiredCreateConnections: boolean;
   isCreating: boolean;
@@ -399,6 +406,7 @@ export function NewAppCreateFormFields({
           disabled={providerResourceNameInputDisabled}
         />
         <CreateControlMessageSlot>{convexProjectNameSupport}</CreateControlMessageSlot>
+        {convexDeploymentRegionField}
         {showCloudflareWorkerName ? (
           <>
             <CreateProviderNameInput
@@ -524,6 +532,10 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
     organizationId,
   });
+  const convexDeploymentRegionsQuery = useConvexDeploymentRegions({
+    enabled: convexConnection?.state === "connected",
+    organizationId,
+  });
   const [newRepositoryName, setNewRepositoryNameState] = useState("");
   const [convexProjectName, setConvexProjectNameState] = useState("");
   const [convexProjectNameMode, setConvexProjectNameMode] =
@@ -552,6 +564,14 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     tokens: cloudflareBuildTokensQuery.data?.tokens ?? null,
   });
   const cloudflareBuildTokenUuid = cloudflareBuildTokenSelection.selectedUuid;
+  const convexDeploymentRegionSelection = useConvexDeploymentRegionSelection({
+    defaultRegion: convexDeploymentRegionsQuery.data?.defaultRegion ?? null,
+    error: Boolean(convexDeploymentRegionsQuery.error),
+    isFetching: convexDeploymentRegionsQuery.isFetching,
+    regions: convexDeploymentRegionsQuery.data?.regions ?? null,
+    selectionKey: organizationId,
+  });
+  const convexDeploymentRegion = convexDeploymentRegionSelection.selectedRegion;
   const cloudflareBuildTokensConfirmedEmpty = Boolean(
     cloudflareBuildTokensQuery.data &&
     !cloudflareBuildTokensQuery.isFetching &&
@@ -651,6 +671,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     isCreating ||
     createRepositoryName.length === 0 ||
     !canCreateRepo ||
+    !convexDeploymentRegionSelection.canWrite ||
     (!cloudflareBuildTokenSelection.canWrite && !cloudflareBuildTokensConfirmedEmpty) ||
     hasBlockingCreateResourceName;
 
@@ -899,6 +920,28 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           setConvexProjectName(suggestion, "manual");
         },
       })}
+      convexDeploymentRegionField={
+        convexConnected ? (
+          <ConvexDeploymentRegionField
+            disabled={isCreating}
+            error={Boolean(convexDeploymentRegionsQuery.error)}
+            id="new-app-convex-production-region"
+            isLoading={
+              convexDeploymentRegionsQuery.isPending || convexDeploymentRegionsQuery.isFetching
+            }
+            onReload={() => {
+              void convexDeploymentRegionsQuery.refetch();
+            }}
+            onValueChange={(region) => {
+              setCreateError(null);
+              convexDeploymentRegionSelection.setRequestedRegion(region);
+            }}
+            regions={convexDeploymentRegionsQuery.data?.regions ?? []}
+            selectionUnavailable={convexDeploymentRegionSelection.selectionUnavailable}
+            value={convexDeploymentRegion}
+          />
+        ) : null
+      }
       githubRepositoryNameSupport={renderGitHubRepositoryNameSupport()}
       hasRequiredCreateConnections={hasRequiredCreateConnections}
       isCreating={isCreating}
@@ -946,6 +989,10 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       setCreateError(convexProjectNameValidation.message);
       return;
     }
+    if (!convexDeploymentRegion) {
+      setCreateError("Choose a Convex production region.");
+      return;
+    }
     let submittedCloudflareWorkerName = defaultCloudflareWorkerName;
     if (!cloudflareBuildTokensConfirmedEmpty) {
       if (!cloudflareWorkerNameValidation.valid) {
@@ -989,6 +1036,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         organizationId,
         name: repoName,
         convexProjectName: convexProjectNameValidation.value,
+        convexDeploymentRegion,
         cloudflareWorkerName: submittedCloudflareWorkerName,
         cloudflareBuildTokenUuid: cloudflareBuildTokenUuid || null,
         private: true,
@@ -996,6 +1044,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       setNewRepositoryNameState("");
       setConvexProjectNameState("");
       setConvexProjectNameMode("auto");
+      convexDeploymentRegionSelection.setRequestedRegion(null);
       setCloudflareWorkerNameState("");
       setCloudflareWorkerNameMode("auto");
       cloudflareBuildTokenSelection.setRequestedUuid(null);

@@ -6,10 +6,10 @@ MCP tool `vault_actions_createRepository` · scope `access_app_create` · write
 
 Creates a Samebase app in one action. It always creates a GitHub repository under the selected
 organization's verified GitHub owner, seeds the starter template, and creates a Convex project with
-development and production deployments. When cloudflareBuildTokenUuid is a current token UUID, it
-also creates a Cloudflare Worker and configures Workers Builds for the repository (pushes to the
-default branch deploy, and pull requests get preview deploys) with Convex deploy keys in the build
-triggers.
+one production deployment in the required convexDeploymentRegion. When cloudflareBuildTokenUuid is a
+current token UUID, it also creates a Cloudflare Worker and configures Workers Builds for the
+repository (pushes to the default branch deploy, and pull requests get preview deploys) with Convex
+deploy keys in the build triggers.
 
 Pass null only after cloudflare_listWorkersBuildTokens returns an empty current list. In that case,
 the run creates no Cloudflare Worker and stops after GitHub and Convex are ready. Cloudflare setup
@@ -25,10 +25,11 @@ token is null. A relevant name collision fails the call immediately before any v
 created, so pick a different name and call again; failures after provisioning starts surface through
 `get_user_vaults` instead.
 
-What it writes: one repository (private by default) and one Convex project. When
-`cloudflareBuildTokenUuid` is not null, it also writes one Worker and two Workers Builds triggers
-that carry `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` variables. All resources live in the
-organization's provider accounts. Deleting the Samebase account does not remove or stop any of them.
+What it writes: one repository (private by default) and one Convex project with one production
+deployment in the selected region. When `cloudflareBuildTokenUuid` is not null, it also writes one
+Worker and two Workers Builds triggers that carry `CONVEX_DEPLOY_KEY` and
+`PREVIEW_CONVEX_DEPLOY_KEY` variables. All resources live in the organization's provider accounts.
+Deleting the Samebase account does not remove or stop any of them.
 
 Progress and failure are readable through `get_user_vaults`: while running, `providerSetup` carries
 the current step; on failure it carries the failed step and a message. Repair it with
@@ -42,6 +43,8 @@ created resources run on the providers' free tiers; an idle app costs $0/month.
 - `githubOwnerLogin` (string, required): GitHub owner login that will own the new repository.
 - `name` (string, required): Name for the new app and GitHub repository.
 - `convexProjectName` (string, required): Convex project name to provision for the app.
+- `convexDeploymentRegion` (value, required): Production deployment region returned by
+  convex_listDeploymentRegions.
 - `cloudflareWorkerName` (string, required): Cloudflare Worker name for automatic Cloudflare
   provisioning. This required field is ignored when cloudflareBuildTokenUuid is null.
 - `cloudflareBuildTokenUuid` (value, required): Exact Workers Builds token UUID returned by

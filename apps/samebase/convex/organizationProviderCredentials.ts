@@ -309,7 +309,8 @@ export const loadConvexForOrganizationTeam = internalQuery({
       return null;
     }
     return {
-      ...configuration.convexTeam,
+      teamId: configuration.convexTeam.teamId,
+      ...(configuration.convexTeam.teamSlug ? { teamSlug: configuration.convexTeam.teamSlug } : {}),
       ...(configuration.convexCredential ? { credential: configuration.convexCredential } : {}),
     };
   },

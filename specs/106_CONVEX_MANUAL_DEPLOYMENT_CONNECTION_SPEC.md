@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-08-07
+- Last updated: 2026-08-30
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/103_CONVEX_API_VALIDATION_SPEC.md`
@@ -40,8 +40,8 @@ explicit `convexConfigPath`, or a default-layout `convexDirectoryPath`. Several 
 intentionally select the same code location. Convex `_creationTime` records when the attachment was
 created.
 
-Project names, slugs, deployments, URLs, deploy keys, current team, and current repository file
-existence remain live provider observations.
+Project names, slugs, deployments, deployment regions, URLs, deploy keys, current team, and current
+repository file existence remain live provider observations.
 
 ### Source discovery
 
@@ -62,9 +62,12 @@ The code location selector is closed over discovered evidence. There is no free-
 ### Existing project flow
 
 1. Samebase loads the organization's current Convex credential and lists projects from the vault's
-   exact `convexTeamId`. A missing or mismatched credential fails closed.
+   exact `convexTeamId`. It also reads one paginated list of the team's default production
+   deployments and joins them to projects by project ID. A missing or mismatched credential fails
+   closed.
 2. Projects named by discovered Workers' readable `SAMEBASE_CONVEX_PROJECT` markers sort first and
-   show that evidence. Observation alone never selects a project.
+   show that evidence. Each project also shows its actual default production deployment region or
+   `No production deployment`. Observation alone never selects a project.
 3. The user may select several projects.
 4. The user selects one discovered code location for every selected project. Several projects may
    select the same location.
@@ -75,10 +78,23 @@ The code location selector is closed over discovered evidence. There is no free-
 
 ### Create project flow
 
-The user chooses one discovered code location and a project name. Samebase re-verifies the source,
-creates the project in the vault's exact `convexTeamId` with a production deployment, reads the
-project back, and attaches it at that location. If the provider create succeeds but attachment
-fails, Samebase reports the ambiguous external state and does not delete the project automatically.
+The user chooses one discovered code location, a project name, and one available Convex production
+region. Samebase reads current region options for the vault's exact `convexTeamId`. An available
+organization saved default initializes the region field. The user can select another region for this
+project, and that choice never changes the saved default.
+
+When the user selects EU, the dialog states:
+`EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`
+The disclosure links to Convex pricing.
+
+Samebase re-verifies the source, checks that the selected region is still available, and creates the
+project in the vault's exact team. The provider request sends the region as `deploymentRegion` with
+`deploymentType: "prod"`. Samebase then reads the project back and attaches it at that location. The
+manual path has no durable provisioning plan. It does not add a post-create region check, read
+retry, or new diagnostic.
+
+If the provider create succeeds but attachment fails, Samebase reports the ambiguous external state
+and does not delete the project automatically.
 
 ### Identity, transfer, and writes
 
@@ -118,6 +134,10 @@ Convex attachment mutations use the shared exclusion check in spec 003. Convex p
 the claim, expiry, no-replay, and freshness rules in spec 003. Creating a Convex project affects
 only Convex observations.
 
+After attachment, the live default production deployment observation supplies the actual region for
+Settings and production deployment rows. The stable attachment does not copy this value. Preview
+deployment region is outside this contract.
+
 After a failed or silent create, Samebase gets a fresh Convex observation. If the project was
 created but its attachment was not recorded, normal discovery shows it as an existing project. The
 user can attach it with the normal existing-project action. Samebase does not adopt it
@@ -131,6 +151,8 @@ automatically. If the project does not exist, the user can use the normal create
 - Changing the organization's Convex team in a vault flow.
 - Automatically reconciling a transferred project to a different team.
 - Automatically removing inaccessible projects.
+- Selecting or displaying preview deployment regions.
+- Adding post-create region verification, read retries, or region diagnostics.
 
 ## Validation
 
@@ -141,9 +163,11 @@ automatically. If the project does not exist, the user can use the normal create
   uniqueness, shared code locations, idempotency, origin upgrade, and code-location
   compare-and-swap.
 - Provider tests cover transfers, destination mismatch, inaccessible projects, stale markers, and
-  writes that fail closed.
+  writes that fail closed. They also cover paginated default production deployment discovery,
+  current region availability, and the selected region in the create request.
 - Operation tests cover the Convex-only action mapping and normal existing-project attachment after
   a failed or silent create.
 - UI and route tests cover multi-selection, Worker-reference ordering without automatic selection,
-  closed code-location selectors, moved code, shared roots, transferred-team failure, explicit
-  removal, and attachment-ID Data and Schema routes.
+  closed code-location selectors, production region display, organization default initialization,
+  one-project override without a default write, EU pricing disclosure, moved code, shared roots,
+  transferred-team failure, explicit removal, and attachment-ID Data and Schema routes.

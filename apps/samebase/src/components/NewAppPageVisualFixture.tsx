@@ -1,6 +1,7 @@
 import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenField";
 import { NewAppCreateFormFields, NewAppProviderReadiness } from "@/components/NewAppPage";
 import { Button } from "@/components/ui/button";
+import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";
 
 export type NewAppPageVisualMode = "new-app-build-token" | "new-app-provider-blocked";
 
@@ -37,6 +38,30 @@ export function NewAppPageVisualFixture({ mode }: { mode: NewAppPageVisualMode }
               cloudflareWorkerNameSupport={null}
               convexProjectName="acme-notes"
               convexProjectNameSupport={null}
+              convexDeploymentRegionField={
+                <ConvexDeploymentRegionField
+                  disabled={false}
+                  error={false}
+                  id="visual-convex-production-region"
+                  isLoading={false}
+                  onReload={() => {}}
+                  onValueChange={() => {}}
+                  regions={[
+                    {
+                      name: "aws-us-east-1",
+                      displayName: "US East (N. Virginia)",
+                      available: true,
+                    },
+                    {
+                      name: "aws-eu-west-1",
+                      displayName: "EU West (Ireland)",
+                      available: true,
+                    },
+                  ]}
+                  selectionUnavailable={false}
+                  value="aws-eu-west-1"
+                />
+              }
               githubRepositoryNameSupport={null}
               hasRequiredCreateConnections
               isCreating={false}

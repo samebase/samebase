@@ -160,6 +160,11 @@ function DestinationResource({
           May be from an earlier commit
         </span>
       ) : null}
+      {resource.detail ? (
+        <span className="ml-[1.875rem] text-xs leading-5 text-muted-foreground">
+          {resource.detail}
+        </span>
+      ) : null}
     </div>
   );
 }

@@ -20,6 +20,18 @@
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
+    "convex_listDeploymentRegions": {
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": true,
+        "destructiveHint": false
+      },
+      "justifications": {
+        "read_only_justification": "Lists the current Convex production deployment regions and the optional saved form default for the selected Samebase organization. Request authentication and connection refresh bookkeeping can update private Samebase records.",
+        "open_world_justification": "Reads the Convex API; it does not create, publish, or modify Convex resources or public internet state.",
+        "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
+      }
+    },
     "cloudflare_listWorkersBuildTokens": {
       "annotations": {
         "readOnlyHint": true,
@@ -39,8 +51,8 @@
         "destructiveHint": false
       },
       "justifications": {
-        "read_only_justification": "Starts a managed app provisioning workflow that creates a GitHub repository and Convex project, records Samebase state, and creates Cloudflare resources only when a current Workers Builds token UUID is supplied.",
-        "open_world_justification": "Creates resources in GitHub and Convex, can create a public GitHub repository when requested, and creates Cloudflare resources only when a current Workers Builds token UUID is supplied. A confirmed empty token list creates no Cloudflare Worker.",
+        "read_only_justification": "Starts a managed app provisioning workflow that creates a GitHub repository and a Convex project with the selected production region, records Samebase state, and creates Cloudflare resources only when a current Workers Builds token UUID is supplied.",
+        "open_world_justification": "Creates resources in GitHub and Convex, including one Convex production deployment in the selected region. It can create a public GitHub repository when requested and creates Cloudflare resources only when a current Workers Builds token UUID is supplied. A confirmed empty token list creates no Cloudflare Worker.",
         "destructive_justification": "Does not delete, overwrite, revoke access, or perform irreversible destructive actions."
       }
     },
@@ -216,10 +228,10 @@
     },
     {
       "description": "Create one private app with the reviewer account's prepared noter-guest GitHub, Convex, and Cloudflare connections.",
-      "user_prompt": "Create a private Samebase app under noter-guest with a unique name that starts with tmp-plugin-review-. Wait until it is ready.",
+      "user_prompt": "Create a private Samebase app under noter-guest in US East (N. Virginia) with a unique name that starts with tmp-plugin-review-. Wait until it is ready.",
       "file_attachment_urls": null,
-      "tools_triggered": "vault_dashboard_getUserVaults, cloudflare_listWorkersBuildTokens, vault_actions_createRepository",
-      "expected_output": "Reads inventory and the connected Cloudflare account's current Workers Builds token records. If that list is confirmed empty, it passes explicit null in the required cloudflareBuildTokenUuid field. The managed run then creates the GitHub repository and Convex project but no Cloudflare Worker. It polls only inventory until source and provider setup reach ready or failed. A ready provider setup in this case means only that the requested GitHub and Convex work finished. It reports Cloudflare setup as pending and links to https://samebase.com/docs/cloudflare-setup. Otherwise, it uses an available lastUsedBuildTokenUuid without asking, uses the only listed token, or asks the user to choose when several tokens are listed, then passes that exact UUID. It never treats the initial run IDs as completion.",
+      "tools_triggered": "vault_dashboard_getUserVaults, convex_listDeploymentRegions, cloudflare_listWorkersBuildTokens, vault_actions_createRepository",
+      "expected_output": "Reads inventory, confirms that US East (N. Virginia) is currently available to the connected Convex team, and passes aws-us-east-1 in the required convexDeploymentRegion field without changing the saved organization default. It also reads the connected Cloudflare account's current Workers Builds token records. If that list is confirmed empty, it passes explicit null in the required cloudflareBuildTokenUuid field. The managed run then creates the GitHub repository and Convex project but no Cloudflare Worker. It polls only inventory until source and provider setup reach ready or failed. A ready provider setup in this case means only that the requested GitHub and Convex work finished. It reports Cloudflare setup as pending and links to https://samebase.com/docs/cloudflare-setup. Otherwise, it uses an available lastUsedBuildTokenUuid without asking, uses the only listed token, or asks the user to choose when several tokens are listed, then passes that exact UUID. It never treats the initial run IDs as completion.",
       "expected_output_url": null
     },
     {

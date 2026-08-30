@@ -467,7 +467,13 @@ async function ensureOrganizationContextAcceptanceOrganization(
       existingOrganization.cloudflareAccount?.accountId !== cloudflareAccount.accountId ||
       existingOrganization.cloudflareAccount.accountName !== cloudflareAccount.accountName
     ) {
-      await ctx.db.patch(organizationId, { cloudflareAccount, convexTeam });
+      await ctx.db.patch(organizationId, {
+        cloudflareAccount,
+        convexTeam: {
+          ...existingOrganization.convexTeam,
+          ...convexTeam,
+        },
+      });
     }
   }
 

@@ -2,6 +2,7 @@ import { v, type Infer } from "convex/values";
 
 import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
+import { vConvexDeploymentRegion } from "../../convexDeploymentRegionModel";
 
 const { boolean, id, object, optional, string, union } = v;
 
@@ -13,6 +14,7 @@ const vCreateRepositoryResult = object({
 const createRepositoryFields = {
   name: string(),
   convexProjectName: string(),
+  convexDeploymentRegion: vConvexDeploymentRegion,
   cloudflareWorkerName: string(),
   cloudflareBuildTokenUuid: union(string(), v.null()),
   description: optional(string()),
@@ -47,6 +49,8 @@ export const createRepositoryContract = {
       githubOwnerLogin: "GitHub owner login that will own the new repository.",
       name: "Name for the new app and GitHub repository.",
       convexProjectName: "Convex project name to provision for the app.",
+      convexDeploymentRegion:
+        "Production deployment region returned by convex_listDeploymentRegions.",
       cloudflareWorkerName:
         "Cloudflare Worker name for automatic Cloudflare provisioning. This required field is ignored when cloudflareBuildTokenUuid is null.",
       cloudflareBuildTokenUuid:
@@ -57,7 +61,8 @@ export const createRepositoryContract = {
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Creates a Samebase app in one action. It always creates a GitHub repository under the
 selected organization's verified GitHub owner, seeds the starter template, and creates a Convex
-project with development and production deployments. When cloudflareBuildTokenUuid is a current
+project with one production deployment in the required convexDeploymentRegion. When
+cloudflareBuildTokenUuid is a current
 token UUID, it also creates a Cloudflare Worker and configures Workers Builds for the repository
 (pushes to the default branch deploy, and pull requests get preview deploys) with Convex deploy keys
 in the build triggers.
@@ -76,7 +81,8 @@ cloudflareWorkerName is ignored when the token is null. A relevant name collisio
 immediately before any vault or run is created, so pick a different name and call again; failures
 after provisioning starts surface through \`get_user_vaults\` instead.
 
-What it writes: one repository (private by default) and one Convex project. When
+What it writes: one repository (private by default) and one Convex project with one production
+deployment in the selected region. When
 \`cloudflareBuildTokenUuid\` is not null, it also writes one Worker and two Workers Builds triggers
 that carry \`CONVEX_DEPLOY_KEY\` and \`PREVIEW_CONVEX_DEPLOY_KEY\` variables. All resources live in
 the organization's provider accounts. Deleting the Samebase account does not remove or stop any of

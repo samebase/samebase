@@ -170,6 +170,7 @@ describe("preview personal repository authorization", () => {
       organizationId,
       name: "preview-personal-app",
       convexProjectName: "preview-personal-app",
+      convexDeploymentRegion: "aws-us-east-1",
       cloudflareWorkerName: "preview-personal-app",
       cloudflareBuildTokenUuid: null,
     });
@@ -217,6 +218,7 @@ describe("preview personal repository authorization", () => {
         organizationId,
         name: "preview-personal-app",
         convexProjectName: "preview-personal-app",
+        convexDeploymentRegion: "aws-us-east-1",
         cloudflareWorkerName: "preview-personal-app",
         cloudflareBuildTokenUuid: null,
       }),
@@ -233,6 +235,7 @@ describe("create repository Workers Builds token admission", () => {
       organizationId,
       name: "new-app",
       convexProjectName: "new-app",
+      convexDeploymentRegion: "aws-eu-west-1",
       cloudflareWorkerName: "not a valid Worker name",
       cloudflareBuildTokenUuid: null,
     });
@@ -245,6 +248,11 @@ describe("create repository Workers Builds token admission", () => {
           .unique();
       }),
     ).resolves.toMatchObject({
+      convex: {
+        state: "planned",
+        projectName: "new-app",
+        deploymentRegion: "aws-eu-west-1",
+      },
       cloudflare: {
         state: "planned",
         workerName: "new-app",

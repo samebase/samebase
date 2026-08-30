@@ -53,15 +53,24 @@ description:
 ## Protect app identity
 
 - Read app inventory before a Samebase write when a repository can already be connected.
-- Managed app creation always uses all four steps:
+- Managed app creation always uses these steps:
   1. Read inventory.
-  2. List the selected organization's current Workers Builds tokens, then select exactly:
+  2. List the selected organization's current Convex production regions.
+     - If the user requested an available region, use it.
+     - Otherwise, if the saved default is available, use it.
+     - Otherwise, ask the user to choose one available region by display name.
+     - If the selected region is EU, state,
+       `EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`
+       Link to [Convex pricing](https://www.convex.dev/pricing).
+     - Pass the exact selected region ID. A one-app choice does not change the saved organization
+       default.
+  3. List the selected organization's current Workers Builds tokens, then select exactly:
      - If the last-used token is current, use it.
      - Otherwise, if one token exists, use it.
      - Otherwise, if several tokens exist, stop and ask the user to choose by name and UUID.
      - Otherwise, the list is empty, so pass null.
-  3. Call the create action once.
-  4. Poll only inventory until both source and provider setup reach `ready` or `failed`. Stop and
+  4. Call the create action once with the exact region ID and token UUID or null.
+  5. Poll only inventory until both source and provider setup reach `ready` or `failed`. Stop and
      report a failed state. With a null token, report Cloudflare setup as pending after the other
      setup reaches `ready`.
 - Reuse returned app, repository, provider account, and attachment identifiers without changing
@@ -71,9 +80,10 @@ description:
 
 ## Approve provider writes
 
-- A direct request to create a Samebase app approves one managed creation sequence after inventory
-  and token selection. State the resolved repository, provider account, and effects before the
-  create call, but do not ask again unless the target, effects, or scope changes.
+- A direct request to create a Samebase app approves one managed creation sequence after inventory,
+  production region selection, and token selection. State the resolved repository, Convex team and
+  production region, Cloudflare account, and effects before the create call. Do not ask again unless
+  the target, effects, or scope changes.
 - Before a Samebase sequence can create or change provider resources or start a production build,
   state the repository, provider account, expected changes, and whether Samebase will attach an
   existing resource or create a new one. Get explicit approval.

@@ -17,6 +17,7 @@ import { cloudflareRotateConvexDeployKeysForWorkersBuildsContract } from "../vau
 import { retryInfrastructureProvisioningContract } from "../vault/contracts/retryInfrastructureProvisioning";
 import { createBrowserHandoffContract } from "../agentBrowserHandoff/contracts/createBrowserHandoff";
 import { cloudflareListWorkersBuildTokensContract } from "../vault/contracts/cloudflareBuildTokens";
+import { convexListDeploymentRegionsContract } from "../vault/contracts/convexDeploymentRegions";
 
 /**
 The one base for operational actions (rfcs/093): every entry is a contract module colocated with
@@ -31,6 +32,7 @@ is last because it is a diagnostic action, not a preflight.
 */
 export const actionContracts = [
   getUserVaultsContract,
+  convexListDeploymentRegionsContract,
   cloudflareListWorkersBuildTokensContract,
   createRepositoryContract,
   connectRepositoryContract,

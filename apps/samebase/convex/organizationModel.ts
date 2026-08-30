@@ -1,6 +1,8 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import { vConvexDeploymentRegion } from "./convexDeploymentRegionModel";
+
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
 export const vOrganizationConvexTeam = object({
@@ -9,6 +11,7 @@ export const vOrganizationConvexTeam = object({
   // team lookup. An empty team has no project response from which Samebase can
   // learn the slug. Samebase fills it when a project response becomes available.
   teamSlug: optional(string()),
+  defaultDeploymentRegion: optional(vConvexDeploymentRegion),
 });
 
 export const vOrganizationCloudflareAccount = object({

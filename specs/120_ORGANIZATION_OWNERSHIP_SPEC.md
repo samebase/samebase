@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-18
+- Last updated: 2026-08-30
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -157,6 +157,7 @@ The non-secret deployment destinations are optional fields on `organizations`:
 convexTeam?: {
   teamId: string
   teamSlug?: string
+  defaultDeploymentRegion?: "aws-us-east-1" | "aws-eu-west-1"
 }
 cloudflareAccount?: {
   accountId: string
@@ -171,6 +172,24 @@ when Convex provides the slug through token details or a team lookup. Cloudflare
 requires a non-empty provider-supplied `accountName`. `lastUsedBuildTokenUuid` is an
 organization-shared, non-secret default for the current Cloudflare account. A real account change
 clears it. An account-name refresh preserves it.
+
+`defaultDeploymentRegion` is an optional organization-shared form default for new Convex production
+deployments. An owner can save or clear it, and a member can read it. Samebase selects it only when
+the current Convex team reports it as available. If it is missing or unavailable, a create form
+starts without a region. A creator can select another available region for one project. That
+one-project choice never writes the saved default. The default does not change an existing plan,
+project, deployment, or the Convex team's own default.
+
+A same-team credential reauthorization, disconnect, or slug refresh preserves the saved default. If
+Samebase adds a Convex team-replacement flow, that flow must clear the default. Existing
+organizations keep it unset. Samebase does not backfill US and does not add a personal region
+default.
+
+The focused region-list action accepts `organizationId` from the web app and `githubOwnerLogin` from
+MCP. It returns the current provider options with `name`, `displayName`, and `available`, plus the
+saved default or `null`. Any member can read this result. The save action requires an owner and
+checks current availability before it writes a non-null default. Clearing the default does not need
+a provider read.
 
 Every `organizationProviderCredentials` document has a required `organizationId`, one Convex
 credential slot, and one Cloudflare credential slot. At least one credential slot is present. One
@@ -214,6 +233,17 @@ Cloudflare setup is complete when the selected token was null.
 Manual Worker creation and Workers Builds configuration require one exact UUID from the current
 non-empty list. The MCP and agent plugin stop those manual actions when the list is empty. They use
 current inventory to select the next action.
+
+Both Samebase Convex project-create paths require one exact production region from the current team
+list. The managed New App path saves it in every Convex provisioning plan state before provider
+writes. A managed retry uses the plan value and never reads the organization default again. The
+manual path has no plan. Both paths check current availability immediately before a new provider
+create call and send `deploymentRegion` with `deploymentType: "prod"`. Neither path changes the
+organization saved default.
+
+When a creator selects EU, the web app and agent instructions state:
+`EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`
+The disclosure links to Convex pricing.
 
 For a tokenless managed app with no Worker, the user follows
 https://samebase.com/docs/cloudflare-setup, creates the first account token, and deletes the
@@ -474,6 +504,11 @@ The rollout is ready only when focused tests and real manual checks prove:
 - Convex and Cloudflare deployment destinations and credentials are organization-owned. Each
   organization has at most one destination and one current credential for each provider. The
   credential records the connecting user and never reaches a client.
+- An owner can save or clear the optional Convex production region form default. A member can read
+  it. A one-project choice never writes it.
+- Both managed and manual Convex project creation require a currently available production region.
+  Managed retry uses its durable plan value. Live provider observation supplies the actual displayed
+  region after attachment.
 - Each organization has zero or one `organizationProviderCredentials` document with its required
   `organizationId` and at least one credential slot. The organization stores no credential document
   ID.

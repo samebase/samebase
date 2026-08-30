@@ -31,6 +31,7 @@ import {
   requireBillingResourceCapacity,
   requireBillingResourceCapacityForAuthority,
 } from "../billingResourceQuotas";
+import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
 
 const nullValidator = v.null();
 const { array, id, object, optional, string, union } = v;
@@ -580,6 +581,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
     visibility: vGitHubRepositoryVisibility,
     description: union(string(), nullValidator),
     convexProjectName: string(),
+    convexDeploymentRegion: vConvexDeploymentRegion,
     convexTeamId: string(),
     cloudflareAccountId: string(),
     cloudflareWorkerName: string(),
@@ -691,6 +693,7 @@ export const createInitializingSamebaseManagedVaultForUser = internalMutation({
       convex: {
         state: "planned",
         projectName: args.convexProjectName,
+        deploymentRegion: args.convexDeploymentRegion,
       },
       cloudflare: {
         state: "planned",

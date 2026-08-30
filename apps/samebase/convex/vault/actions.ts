@@ -801,6 +801,7 @@ export async function createAppForUser(
       visibility,
       description: args.description ?? null,
       convexProjectName: convexNameValidation.value,
+      convexDeploymentRegion: args.convexDeploymentRegion,
       convexTeamId: convexConnection.convexTeamId,
       cloudflareAccountId: cloudflareConnection.cloudflareAccountId,
       cloudflareWorkerName: cloudflareNameValidation?.valid
@@ -825,6 +826,7 @@ export const createRepository = action({
       target: { kind: "organization", organizationId: args.organizationId },
       name: args.name,
       convexProjectName: args.convexProjectName,
+      convexDeploymentRegion: args.convexDeploymentRegion,
       cloudflareWorkerName: args.cloudflareWorkerName,
       cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
       ...(args.description !== undefined ? { description: args.description } : {}),

@@ -44,6 +44,8 @@ import type * as cloudflareProviderAccess from "../cloudflareProviderAccess.js";
 import type * as cloudflareResources from "../cloudflareResources.js";
 import type * as collaborative from "../collaborative.js";
 import type * as common from "../common.js";
+import type * as convexDeploymentRegionModel from "../convexDeploymentRegionModel.js";
+import type * as convexDeploymentRegions from "../convexDeploymentRegions.js";
 import type * as convexManagementApi_client from "../convexManagementApi/client.js";
 import type * as convexManagementApi_errors from "../convexManagementApi/errors.js";
 import type * as convexManagementApi_oauthToken from "../convexManagementApi/oauthToken.js";
@@ -136,6 +138,7 @@ import type * as vault_contracts_cloudflareConfigureWorkersBuildsForGitHub from 
 import type * as vault_contracts_cloudflareRotateConvexDeployKeysForWorkersBuilds from "../vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds.js";
 import type * as vault_contracts_connectRepository from "../vault/contracts/connectRepository.js";
 import type * as vault_contracts_convexAttachments from "../vault/contracts/convexAttachments.js";
+import type * as vault_contracts_convexDeploymentRegions from "../vault/contracts/convexDeploymentRegions.js";
 import type * as vault_contracts_createRepository from "../vault/contracts/createRepository.js";
 import type * as vault_contracts_getUserVaults from "../vault/contracts/getUserVaults.js";
 import type * as vault_contracts_retryInfrastructureProvisioning from "../vault/contracts/retryInfrastructureProvisioning.js";
@@ -220,6 +223,8 @@ declare const fullApi: ApiFromModules<{
   cloudflareResources: typeof cloudflareResources;
   collaborative: typeof collaborative;
   common: typeof common;
+  convexDeploymentRegionModel: typeof convexDeploymentRegionModel;
+  convexDeploymentRegions: typeof convexDeploymentRegions;
   "convexManagementApi/client": typeof convexManagementApi_client;
   "convexManagementApi/errors": typeof convexManagementApi_errors;
   "convexManagementApi/oauthToken": typeof convexManagementApi_oauthToken;
@@ -312,6 +317,7 @@ declare const fullApi: ApiFromModules<{
   "vault/contracts/cloudflareRotateConvexDeployKeysForWorkersBuilds": typeof vault_contracts_cloudflareRotateConvexDeployKeysForWorkersBuilds;
   "vault/contracts/connectRepository": typeof vault_contracts_connectRepository;
   "vault/contracts/convexAttachments": typeof vault_contracts_convexAttachments;
+  "vault/contracts/convexDeploymentRegions": typeof vault_contracts_convexDeploymentRegions;
   "vault/contracts/createRepository": typeof vault_contracts_createRepository;
   "vault/contracts/getUserVaults": typeof vault_contracts_getUserVaults;
   "vault/contracts/retryInfrastructureProvisioning": typeof vault_contracts_retryInfrastructureProvisioning;

@@ -764,6 +764,7 @@ export const trackedFilePaths = [
   "apps/samebase/public/docs/actions/discover_convex_projects.md",
   "apps/samebase/public/docs/actions/get_authentication_status.md",
   "apps/samebase/public/docs/actions/get_user_vaults.md",
+  "apps/samebase/public/docs/actions/list_convex_deployment_regions.md",
   "apps/samebase/public/docs/actions/list_workers_build_tokens.md",
   "apps/samebase/public/docs/actions/retry_infrastructure_provisioning.md",
   "apps/samebase/public/docs/actions/rotate_convex_deploy_keys_for_workers_builds.md",

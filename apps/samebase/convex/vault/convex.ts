@@ -9,13 +9,19 @@ import { ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX } from "../billingErrors";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import { discoverCloudflareWorkersForRepository } from "../cloudflareResources";
 import {
+  isConvexCloudDeployment,
+  listConvexManagementDefaultProductionDeployments,
   listConvexManagementProjects,
+  requireAvailableConvexDeploymentRegion,
   requestConvexManagementApiOrThrow,
+  type ConvexCloudDeployment,
 } from "../convexManagementApi/client";
 import type { ProjectResponse } from "../convexManagementApi/types.generated";
+import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
 import { action } from "../functions";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { resolveConvexProvisioningConnectionForVaultWorkflow } from "../infraProvisioning";
+import type { ConvexDeploymentRegion } from "../../shared/convexDeploymentRegions";
 import {
   fetchGitHubConvexCodeLocationDiscovery,
   type GitHubConvexCodeLocationDiscovery,
@@ -238,6 +244,7 @@ function compareConvexAttachmentProject(
 function toConvexAttachmentProject(
   project: ProjectResponse,
   workerReferences: ConvexWorkerReference[],
+  productionDeployment: ConvexCloudDeployment | undefined,
 ): ConvexAttachmentProject {
   return {
     teamId: project.teamId,
@@ -245,6 +252,9 @@ function toConvexAttachmentProject(
     projectName: project.name,
     projectSlug: project.slug,
     teamSlug: project.teamSlug,
+    productionDeployment: productionDeployment
+      ? { state: "available", region: productionDeployment.region }
+      : { state: "missing" },
     workerReferences,
   };
 }
@@ -392,16 +402,40 @@ export async function discoverProjectsForUser(
     organizationId: sourceDiscovery.context.organizationId,
     teamId: requireConvexTeamId(sourceDiscovery.context),
   });
-  const [providerProjects, workerReferences] = await Promise.all([
+  const [providerProjects, productionDeployments, workerReferences] = await Promise.all([
     listProjectsForConnection(connection),
+    listConvexManagementDefaultProductionDeployments({
+      token: connection.token,
+      teamId: connection.teamId,
+    }),
     readConvexWorkerReferences(ctx, {
       userId: args.userId,
       context: sourceDiscovery.context,
       defaultBranch: sourceDiscovery.source.defaultBranch,
     }),
   ]);
+  const productionDeploymentByProjectId = new Map<string, ConvexCloudDeployment>();
+  for (const deployment of productionDeployments) {
+    if (
+      !isConvexCloudDeployment(deployment) ||
+      deployment.deploymentType !== "prod" ||
+      !deployment.isDefault
+    ) {
+      throw new Error("Convex returned an inconsistent default production deployment.");
+    }
+    if (productionDeploymentByProjectId.has(deployment.projectId)) {
+      throw new Error("Convex returned several default production deployments for one project.");
+    }
+    productionDeploymentByProjectId.set(deployment.projectId, deployment);
+  }
   const projects = providerProjects
-    .map((project) => toConvexAttachmentProject(project, workerReferences.get(project.id) ?? []))
+    .map((project) =>
+      toConvexAttachmentProject(
+        project,
+        workerReferences.get(project.id) ?? [],
+        productionDeploymentByProjectId.get(project.id),
+      ),
+    )
     .sort(compareConvexAttachmentProject);
   return { source: sourceDiscovery.source, projects };
 }
@@ -467,6 +501,7 @@ async function createProjectForUser(
     vaultId: Id<"vaults">;
     userId: Id<"users">;
     projectName: string;
+    deploymentRegion: ConvexDeploymentRegion;
     codeLocation: ConvexCodeLocationSelection;
   },
 ): Promise<Id<"vaultConvexProjects">> {
@@ -513,6 +548,12 @@ async function createProjectForUser(
       },
     );
     requireManualProviderActionDeadline(claim.deadlineAt);
+    await requireAvailableConvexDeploymentRegion({
+      token: connection.token,
+      teamId: connection.teamId,
+      region: args.deploymentRegion,
+    });
+    requireManualProviderActionDeadline(claim.deadlineAt);
     providerCreateStarted = true;
     const created = await requestConvexManagementApiOrThrow(
       connection.token,
@@ -520,7 +561,11 @@ async function createProjectForUser(
       "/teams/{team_id}/create_project",
       {
         params: { path: { team_id: connection.teamId } },
-        body: { projectName: validation.value, deploymentType: "prod" },
+        body: {
+          projectName: validation.value,
+          deploymentType: "prod",
+          deploymentRegion: args.deploymentRegion,
+        },
       },
     );
     const convexProjectId = await ctx.runMutation(
@@ -574,6 +619,7 @@ async function createProjectForManagedWorkflow(
     userId: Id<"users">;
     convexConfigPath: string;
     projectName: string;
+    deploymentRegion: ConvexDeploymentRegion;
   },
 ): Promise<Id<"vaultConvexProjects">> {
   const validation = validateAppResourceName(args.projectName, "convex");
@@ -601,6 +647,7 @@ async function createProjectForManagedWorkflow(
       runId: args.runId,
       userId: args.userId,
       projectName: validation.value,
+      deploymentRegion: args.deploymentRegion,
       teamId: connection.teamId,
     },
   );
@@ -632,12 +679,18 @@ async function createProjectForManagedWorkflow(
         userId: args.userId,
       },
     );
+    await requireAvailableConvexDeploymentRegion({
+      token: connection.token,
+      teamId: connection.teamId,
+      region: args.deploymentRegion,
+    });
     if (checkpoint.state === "planned") {
       await ctx.runMutation(internal.vault.convexMutations.beginManagedProjectCreate, {
         vaultId: args.vaultId,
         runId: args.runId,
         userId: args.userId,
         projectName: validation.value,
+        deploymentRegion: args.deploymentRegion,
         teamId: connection.teamId,
       });
     }
@@ -647,7 +700,11 @@ async function createProjectForManagedWorkflow(
       "/teams/{team_id}/create_project",
       {
         params: { path: { team_id: connection.teamId } },
-        body: { projectName: validation.value, deploymentType: "prod" },
+        body: {
+          projectName: validation.value,
+          deploymentType: "prod",
+          deploymentRegion: args.deploymentRegion,
+        },
       },
     );
     projectId = created.id;
@@ -669,6 +726,7 @@ async function createProjectForManagedWorkflow(
       userId: args.userId,
       convexConfigPath: args.convexConfigPath,
       projectName: validation.value,
+      deploymentRegion: args.deploymentRegion,
       teamId: connection.teamId,
       projectId,
     });
@@ -774,11 +832,12 @@ export const ensureConvexProjectConnection = internalAction({
     userId: id("users"),
     convexConfigPath: v.string(),
     projectName: v.string(),
+    deploymentRegion: vConvexDeploymentRegion,
   },
   returns: id("vaultConvexProjects"),
   handler: async (
     ctx,
-    { vaultId, runId, userId, convexConfigPath, projectName },
+    { vaultId, runId, userId, convexConfigPath, projectName, deploymentRegion },
   ): Promise<Id<"vaultConvexProjects">> =>
     await createProjectForManagedWorkflow(ctx, {
       vaultId,
@@ -786,5 +845,6 @@ export const ensureConvexProjectConnection = internalAction({
       userId,
       convexConfigPath,
       projectName,
+      deploymentRegion,
     }),
 });

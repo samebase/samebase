@@ -30,6 +30,7 @@ import {
   buildConvexDeploymentDashboardUrl,
 } from "./providerDashboardUrls";
 import type { VaultProviderObservationContext } from "./providerObservationQueries";
+import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
 
 const { array, id, literal, object, string, union } = v;
 
@@ -157,6 +158,7 @@ const vConvexProductionDeploymentObservation = union(
     state: literal("available"),
     deploymentName: string(),
     dashboardUrl: string(),
+    region: vConvexDeploymentRegion,
   }),
   object({ state: literal("missing") }),
 );
@@ -727,6 +729,7 @@ export const observeConvexProjects = action({
                       projectSlug: details.slug,
                       deploymentName: deployment.name,
                     }),
+                    region: deployment.region,
                   }
                 : { state: "missing" },
             };

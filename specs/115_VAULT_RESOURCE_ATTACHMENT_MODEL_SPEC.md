@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase
-- Last updated: 2026-08-18
+- Last updated: 2026-08-30
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/105_CLOUDFLARE_MANUAL_WORKER_CONNECTION_SPEC.md`
@@ -85,7 +85,8 @@ Provider observations are current evidence, not attachment identity:
   repository and normalized root directory. Samebase compares both values with the approved
   attachment coordinates.
 - `SAMEBASE_CONVEX_PROJECT` supplies the Worker's current declared Convex project coordinates.
-- Convex supplies the project's current team and accessibility under the connected credential.
+- Convex supplies the project's current team, accessibility, and default production deployment. An
+  available production deployment observation includes its actual region.
 
 The managed provider plan, durable attachments, and provider observations stay separate. Settings
 uses this precedence for one resource row:
@@ -100,6 +101,11 @@ uses this precedence for one resource row:
 An attachment replaces its plan item. A canceled run does not keep a plan-only row visible. A plan
 row uses the readable planned project or Worker name. It has no provider link or manual repair
 action. An observation must not create a resource row.
+
+A Convex plan-only row can show the requested production region from the durable plan. After the
+attachment replaces that row, the live default production deployment observation supplies the actual
+region. The attachment does not copy either value. A missing production deployment stays an explicit
+live state.
 
 Each provider observation query includes its provider-specific `lastWriteAt` value in the query key.
 If that value is newer than the displayed observation, Settings shows `Checking` until one new read
@@ -147,16 +153,20 @@ evidence. It also discovers the default layout when a regular `package.json` blo
 `convex/` tree exist. Neither form reads or validates file contents. It supports selecting several
 projects and requires one discovered code location for each selected project. Projects referenced by
 discovered Worker markers sort first and show that evidence, but remain unselected until the user
-expresses attachment intent. Confirmation re-verifies every selected Git evidence set and project
-before one atomic attachment mutation.
+expresses attachment intent. Each project shows the actual region of its default production
+deployment, or `No production deployment`. Discovery gets these values from one paginated team
+deployment list and does not make one provider request per project. Confirmation re-verifies every
+selected Git evidence set and project before one atomic attachment mutation.
 
 Creating a Worker asks for a repository root because the same operation writes that value to
 Cloudflare Workers Builds. Samebase records the created provider identity, approved root, and
 `provisioned` attachment together before later configuration can fail, so cleanup ownership is never
 lost. The Worker stays under that stored root and shows `Needs attention` until Builds verifies the
 configuration. Creating a Convex project requires a discovered Convex code location; Samebase
-verifies the source before provider creation and records the returned project checkpoint and
-attachment together.
+verifies the source and one currently available production region before provider creation. The
+create request sends that region to Convex. Samebase records the returned project checkpoint and
+attachment together. The optional organization saved default only initializes the create field. A
+one-project choice does not update it.
 
 Configuring Builds for an attached Worker uses its stored approved root. A later verified provider
 root change does not replace that value. The user must first accept the provider coordinate through
@@ -203,9 +213,11 @@ several projects share one code location.
 
 ### Managed provisioning
 
-The create-app workflow stores the exact `convexConfigPath` and Cloudflare root in its immutable
-provisioning plan. Successful attachment writes copy each approved source coordinate to its matching
-resource attachment. These are independent resource coordinates, not a reusable domain entity.
+The create-app workflow stores the exact `convexConfigPath`, selected Convex production region, and
+Cloudflare root in its immutable provisioning plan. Every Convex plan state keeps that region. Retry
+uses the plan value and does not read the organization saved default again. Successful attachment
+writes copy each approved source coordinate to its matching resource attachment. They do not copy
+the deployment region. These are independent resource coordinates, not a reusable domain entity.
 Checkpoints resolve exact provider identities and never use the root tree as identity authority.
 
 The plan is retry input and a temporary dashboard projection source. It is not an attachment,
@@ -219,6 +231,8 @@ provider observation, or active operation.
 - Treating current provider observations as organization attachment intent.
 - Automatically accepting a changed Worker name or root.
 - Persisting Worker domains, URLs, triggers, build status, token data, or Convex build markers.
+- Persisting a Convex production deployment region on `vaultConvexProjects`.
+- Selecting or displaying preview deployment regions.
 - Reconstructing or preserving rows from the removed app-root model.
 - Rejecting unusual repository layouts because they do not contain an expected sibling file.
 
@@ -233,14 +247,15 @@ provider observation, or active operation.
   ambiguous roots, name and root drift, explicit coordinate updates, missing Workers, and marker
   disagreement.
 - Convex tests cover project continuity by `projectId`, destination mismatches, concurrent changes,
-  and inaccessible projects that fail closed.
+  inaccessible projects that fail closed, current region availability, and the actual production
+  region in live observations.
 - Route and UI tests cover bare provider flags, multi-selection, closed code-location selectors,
   read-only observed Worker roots, default Worker selection, Worker-referenced Convex ordering,
   exact build access targets, stored root grouping, Settings drift warnings and update actions,
   `Needs attention`, and project-attachment Data and Schema routes.
 - Projection tests cover plan-only rows, manual supersession of a managed failure, attachment
-  replacement, observation decoration, canceled plans, readable labels, empty states, and the rule
-  that observations never create rows.
+  replacement, requested plan region, actual observed production region, observation decoration,
+  canceled plans, readable labels, empty states, and the rule that observations never create rows.
 - Freshness tests cover a client that missed the active write, an observation that finishes during a
   write, independent provider times, `Checking`, and a failed fresh read.
 

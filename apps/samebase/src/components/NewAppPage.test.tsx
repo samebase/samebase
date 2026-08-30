@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { CONVEX_US_EAST_REGION } from "../../shared/convexDeploymentRegions";
 import { NewAppPage } from "./NewAppPage";
 
 const cloudflareBuildTokenTestState = vi.hoisted(() => ({
@@ -68,6 +69,34 @@ vi.mock("@/components/useCloudflareBuildTokens", () => ({
     };
   },
 }));
+
+vi.mock("@/components/useConvexDeploymentRegions", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/components/useConvexDeploymentRegions")>();
+  return {
+    ...actual,
+    useConvexDeploymentRegions: () => ({
+      data: {
+        defaultRegion: "aws-us-east-1" as const,
+        regions: [
+          {
+            available: true,
+            displayName: "US East (N. Virginia)",
+            name: "aws-us-east-1" as const,
+          },
+          {
+            available: true,
+            displayName: "EU West (Ireland)",
+            name: "aws-eu-west-1" as const,
+          },
+        ],
+      },
+      error: null,
+      isFetching: false,
+      isPending: false,
+      refetch: vi.fn(async () => undefined),
+    }),
+  };
+});
 
 function fakeOrganizationId(value: string): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this test only needs
@@ -266,6 +295,39 @@ describe("NewAppPage", () => {
     expect(createButton?.disabled).toBe(false);
   });
 
+  it("starts from the saved region and keeps a one-time EU selection local to the app", async () => {
+    const setDefaultRegion = vi.fn(async () => undefined);
+    testState.actions.set(
+      getFunctionName(api.convexDeploymentRegions.setDefault),
+      setDefaultRegion,
+    );
+    const container = await mountPage();
+    const label = [...container.querySelectorAll("label")].find(
+      (candidate) => candidate.textContent === "Convex production region",
+    );
+    const regionSelect = label ? document.getElementById(label.htmlFor) : null;
+    if (!(regionSelect instanceof HTMLButtonElement)) {
+      throw new Error("Convex production region selector was not rendered.");
+    }
+
+    expect(regionSelect.textContent).toContain("US East (N. Virginia)");
+    await act(async () => regionSelect.click());
+    const euOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+      (option) => option.textContent === "EU West (Ireland)",
+    );
+    if (!euOption) {
+      throw new Error("EU West region option was not rendered.");
+    }
+    await act(async () => {
+      euOption.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    });
+    await act(async () => euOption.click());
+
+    expect(regionSelect.textContent).toContain("EU West (Ireland)");
+    expect(container.textContent).toContain("EU usage costs 1.3 times US usage.");
+    expect(setDefaultRegion).not.toHaveBeenCalled();
+  });
+
   it("hides the Worker field and creates an app after an empty token list is confirmed", async () => {
     vi.useFakeTimers();
     cloudflareBuildTokenTestState.state = "empty";
@@ -308,6 +370,7 @@ describe("NewAppPage", () => {
         organizationId: organization.organizationId,
         name: "no-token-app",
         convexProjectName: "no-token-app",
+        convexDeploymentRegion: CONVEX_US_EAST_REGION,
         cloudflareWorkerName: "no-token-app",
         cloudflareBuildTokenUuid: null,
         private: true,

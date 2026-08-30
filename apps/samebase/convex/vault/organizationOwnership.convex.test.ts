@@ -191,6 +191,7 @@ describe("organization-owned vaults", () => {
         organizationId: organization.organizationId,
         name: "member-app",
         convexProjectName: "member-app",
+        convexDeploymentRegion: "aws-us-east-1",
         cloudflareWorkerName: "member-app",
         cloudflareBuildTokenUuid: "build-token",
         private: true,
@@ -671,6 +672,7 @@ describe("organization-owned vaults", () => {
         visibility: "private",
         description: null,
         convexProjectName: "managed-app",
+        convexDeploymentRegion: "aws-us-east-1",
         convexTeamId: expectedDestinations.convexTeamId,
         cloudflareAccountId: expectedDestinations.cloudflareAccountId,
         cloudflareWorkerName: "managed-app",
@@ -690,6 +692,9 @@ describe("organization-owned vaults", () => {
     expect(initialManagedState.existingRun).toMatchObject({ organizationId });
     expect(initialManagedState.managedRun).toMatchObject({ organizationId });
     expect(initialManagedState.vault).toMatchObject(expectedDestinations);
+    expect(initialManagedState.plan?.convex).toMatchObject({
+      deploymentRegion: "aws-us-east-1",
+    });
     expect(initialManagedState.plan?.convex).not.toHaveProperty("teamId");
     expect(initialManagedState.plan?.cloudflare).toMatchObject({ buildTokenUuid: "build-token" });
     expect(initialManagedState.plan?.cloudflare).not.toHaveProperty("accountId");
@@ -745,6 +750,7 @@ describe("organization-owned vaults", () => {
         visibility: "private",
         description: null,
         convexProjectName: "managed-failure",
+        convexDeploymentRegion: "aws-us-east-1",
         convexTeamId: expectedDestinations.convexTeamId,
         cloudflareAccountId: expectedDestinations.cloudflareAccountId,
         cloudflareWorkerName: "managed-failure",

@@ -64,6 +64,7 @@ const CONVEX_PROJECTS = [
     projectId: "portal-project",
     projectName: "Portal",
     projectSlug: "portal",
+    productionDeployment: { state: "available" as const, region: "aws-eu-west-1" as const },
     teamSlug: "samebase",
     workerReferences: [
       {
@@ -81,6 +82,7 @@ const CONVEX_PROJECTS = [
     projectId: "backend-project",
     projectName: "Backend",
     projectSlug: "backend",
+    productionDeployment: { state: "missing" as const },
     teamSlug: "samebase",
     workerReferences: [],
   },
@@ -151,6 +153,8 @@ function ConvexDialogFixture({
       <VaultConvexDialogContent
         codeLocations={isLoading ? [] : CONVEX_CODE_LOCATIONS}
         createCodeLocationKey="config:apps/portal/convex.json"
+        createDeploymentRegion={null}
+        convexDeploymentRegionField={null}
         createProjectName=""
         projects={isLoading ? [] : CONVEX_PROJECTS}
         error={error}

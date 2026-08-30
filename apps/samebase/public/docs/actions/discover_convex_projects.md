@@ -128,6 +128,40 @@ JSON Schema for the tool's `structuredContent`:
           "teamSlug": {
             "type": "string"
           },
+          "productionDeployment": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "available"
+                  },
+                  "region": {
+                    "anyOf": [
+                      {
+                        "const": "aws-us-east-1"
+                      },
+                      {
+                        "const": "aws-eu-west-1"
+                      }
+                    ]
+                  }
+                },
+                "required": ["state", "region"],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "state": {
+                    "const": "missing"
+                  }
+                },
+                "required": ["state"],
+                "additionalProperties": false
+              }
+            ]
+          },
           "workerReferences": {
             "type": "array",
             "items": {
@@ -177,6 +211,7 @@ JSON Schema for the tool's `structuredContent`:
           "projectName",
           "projectSlug",
           "teamSlug",
+          "productionDeployment",
           "workerReferences"
         ],
         "additionalProperties": false

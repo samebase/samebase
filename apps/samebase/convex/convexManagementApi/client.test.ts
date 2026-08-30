@@ -2,12 +2,16 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import type { Client, ClientPathsWithMethod } from "openapi-fetch";
 
 import {
+  listConvexManagementDefaultProductionDeployments,
+  listConvexManagementDeploymentRegions,
   listConvexManagementProjects,
   requestConvexManagementApi,
   requestConvexManagementApiOrThrow,
+  requireAvailableConvexDeploymentRegion,
 } from "./client";
 import type {
   CustomRoleResponse,
+  DeploymentRegionMetadata,
   operations,
   paths,
   PlatformDeploymentResponse,
@@ -48,6 +52,20 @@ function assertConvexManagementRequestTypes(): void {
   );
   expectType<Promise<ProjectResponse[]>>()(
     listConvexManagementProjects({ token: "team-token", teamId: LARGE_CONVEX_ID }),
+    true,
+  );
+  expectType<Promise<DeploymentRegionMetadata[]>>()(
+    listConvexManagementDeploymentRegions({
+      token: "team-token",
+      teamId: LARGE_CONVEX_ID,
+    }),
+    true,
+  );
+  expectType<Promise<PlatformDeploymentResponse[]>>()(
+    listConvexManagementDefaultProductionDeployments({
+      token: "team-token",
+      teamId: LARGE_CONVEX_ID,
+    }),
     true,
   );
   expectType<Promise<PlatformDeploymentResponse[]>>()(
@@ -325,6 +343,136 @@ describe("Convex Management API request helpers", () => {
     await expect(
       listConvexManagementProjects({ token: "team-token", teamId: "10" }),
     ).rejects.toThrow("Convex project pagination indicated more results without a cursor.");
+  });
+
+  it("lists Convex deployment regions in the product order", async () => {
+    const requests: Request[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        requests.push(input);
+        return Response.json({
+          items: [
+            { name: "aws-eu-west-1", displayName: "EU West (Ireland)", available: true },
+            { name: "aws-us-east-1", displayName: "US East (N. Virginia)", available: false },
+          ],
+        });
+      }),
+    );
+
+    await expect(
+      listConvexManagementDeploymentRegions({ token: "team-token", teamId: "10" }),
+    ).resolves.toEqual([
+      { name: "aws-us-east-1", displayName: "US East (N. Virginia)", available: false },
+      { name: "aws-eu-west-1", displayName: "EU West (Ireland)", available: true },
+    ]);
+    expect(requests.map(readRequest)).toEqual([
+      {
+        authorization: "Bearer team-token",
+        contentType: null,
+        method: "GET",
+        url: "https://api.convex.dev/v1/teams/10/list_deployment_regions",
+      },
+    ]);
+  });
+
+  it("rejects a production region that the team cannot use", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          items: [
+            { name: "aws-us-east-1", displayName: "US East (N. Virginia)", available: false },
+            { name: "aws-eu-west-1", displayName: "EU West (Ireland)", available: true },
+          ],
+        }),
+      ),
+    );
+
+    await expect(
+      requireAvailableConvexDeploymentRegion({
+        token: "team-token",
+        teamId: "10",
+        region: "aws-us-east-1",
+      }),
+    ).rejects.toThrow(
+      "Convex production region US East (N. Virginia) is not available for this team. Choose another region.",
+    );
+  });
+
+  it("follows every default production deployment page with provider filters", async () => {
+    const requests: Request[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: Request) => {
+        requests.push(input);
+        const cursor = new URL(input.url).searchParams.get("cursor");
+        return Response.json({
+          items: [
+            {
+              class: "s16",
+              createTime: cursor ? 2 : 1,
+              creator: "20",
+              deploymentType: "prod",
+              deploymentUrl: `https://${cursor ? "beta" : "alpha"}.convex.cloud`,
+              id: cursor ? "2" : "1",
+              isDefault: true,
+              kind: "cloud",
+              name: cursor ? "beta-prod" : "alpha-prod",
+              projectId: cursor ? "200" : "100",
+              reference: "prod",
+              region: cursor ? "aws-eu-west-1" : "aws-us-east-1",
+            },
+          ],
+          pagination: cursor ? { hasMore: false } : { hasMore: true, nextCursor: "second-page" },
+        });
+      }),
+    );
+
+    await expect(
+      listConvexManagementDefaultProductionDeployments({ token: "team-token", teamId: "10" }),
+    ).resolves.toMatchObject([
+      { id: "1", projectId: "100", region: "aws-us-east-1" },
+      { id: "2", projectId: "200", region: "aws-eu-west-1" },
+    ]);
+    expect(
+      requests.map((request) => {
+        const url = new URL(request.url);
+        return {
+          path: url.pathname,
+          cursor: url.searchParams.get("cursor"),
+          limit: url.searchParams.get("limit"),
+          deploymentType: url.searchParams.get("deploymentType"),
+          isDefault: url.searchParams.get("isDefault"),
+        };
+      }),
+    ).toEqual([
+      {
+        path: "/v1/teams/10/list_deployments",
+        cursor: null,
+        limit: "100",
+        deploymentType: "prod",
+        isDefault: "true",
+      },
+      {
+        path: "/v1/teams/10/list_deployments",
+        cursor: "second-page",
+        limit: "100",
+        deploymentType: "prod",
+        isDefault: "true",
+      },
+    ]);
+  });
+
+  it("rejects incomplete default production deployment pagination metadata", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ items: [], pagination: { hasMore: true } })),
+    );
+
+    await expect(
+      listConvexManagementDefaultProductionDeployments({ token: "team-token", teamId: "10" }),
+    ).rejects.toThrow("Convex deployment pagination indicated more results without a cursor.");
   });
 
   it("preserves Convex deployment and member IDs from responses as decimal strings", async () => {

@@ -569,6 +569,7 @@ describe("user lifecycle authorization", () => {
         convex: {
           state: "creating",
           projectName: "repository",
+          deploymentRegion: "aws-us-east-1",
         },
         cloudflare: {
           state: "creating",
@@ -631,6 +632,7 @@ describe("user lifecycle authorization", () => {
         vaultId,
         convexConfigPath: "convex.json",
         projectName: "repository",
+        deploymentRegion: "aws-us-east-1",
         teamId: "convex-team",
         projectId: "convex-project",
       }),
@@ -666,6 +668,7 @@ describe("user lifecycle authorization", () => {
         vaultId,
         convexConfigPath: "convex.json",
         projectName: "repository",
+        deploymentRegion: "aws-us-east-1",
         teamId: "convex-team",
         projectId: "convex-project",
       }),
