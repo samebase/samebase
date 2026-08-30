@@ -32,8 +32,15 @@ import {
 } from "../shared/accountPresentation";
 const { boolean, id, literal, number, object, optional, string, union } = v;
 export const CURRENT_TERMS_VERSION = "2026-08-12";
+const CURRENT_PRODUCT_UPDATE_EMAIL_CONSENT_VERSION = "2026-08-30";
 const CURRENT_SESSION_RECORDING_CONSENT_VERSION = "2026-08-20";
 
+const vProductUpdateEmailConsentDecision = union(literal("granted"), literal("denied"));
+const vProductUpdateEmailConsentStatus = union(
+  object({ state: literal("not_decided") }),
+  object({ state: literal("granted") }),
+  object({ state: literal("denied") }),
+);
 const vSessionRecordingConsentDecision = union(literal("granted"), literal("denied"));
 const vSessionRecordingConsentStatus = union(
   object({ state: literal("not_decided") }),
@@ -364,6 +371,24 @@ export const getSessionRecordingConsent = query({
   },
 });
 
+export const getProductUpdateEmailConsent = query({
+  access: "access_user_preferences",
+  args: {},
+  returns: vProductUpdateEmailConsentStatus,
+  handler: async (ctx) => {
+    const consent = ctx.viewer.user.productUpdateEmailConsent;
+    if (
+      consent === undefined ||
+      consent.email !== normalizeAccountEmail(ctx.viewer.user.email) ||
+      consent.policyVersion !== CURRENT_PRODUCT_UPDATE_EMAIL_CONSENT_VERSION
+    ) {
+      return { state: "not_decided" } as const;
+    }
+
+    return { state: consent.decision } as const;
+  },
+});
+
 export const beginAuthAccountLink = mutation({
   access: "access_user_preferences",
   args: {
@@ -449,11 +474,44 @@ export const setSessionRecordingConsent = mutation({
   },
 });
 
+export const setProductUpdateEmailConsent = mutation({
+  access: "access_user_preferences",
+  args: {
+    decision: vProductUpdateEmailConsentDecision,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const current = ctx.viewer.user.productUpdateEmailConsent;
+    const email = normalizeAccountEmail(ctx.viewer.user.email);
+    if (
+      current?.decision === args.decision &&
+      current.email === email &&
+      current.policyVersion === CURRENT_PRODUCT_UPDATE_EMAIL_CONSENT_VERSION
+    ) {
+      return null;
+    }
+
+    await ctx.db.patch("users", ctx.viewer.userId, {
+      productUpdateEmailConsent: {
+        decision: args.decision,
+        email,
+        policyVersion: CURRENT_PRODUCT_UPDATE_EMAIL_CONSENT_VERSION,
+        decidedAt: Date.now(),
+        source: "account_settings",
+      },
+    });
+    return null;
+  },
+});
+
 export const acceptCurrentTerms = mutation({
   access: "access_account_settings",
-  args: {},
+  args: {
+    termsAccepted: literal(true),
+    productUpdateEmailConsent: vProductUpdateEmailConsentDecision,
+  },
   returns: v.null(),
-  handler: async (ctx) => {
+  handler: async (ctx, args) => {
     const user = ctx.viewer.user;
     if (user.state !== "active") {
       throw new Error("An active Samebase account is required.");
@@ -465,9 +523,17 @@ export const acceptCurrentTerms = mutation({
       throw new Error("An approved Samebase account is required.");
     }
 
+    const decidedAt = Date.now();
     await ctx.db.patch("users", ctx.viewer.userId, {
       termsVersion: CURRENT_TERMS_VERSION,
-      termsAcceptedAt: Date.now(),
+      termsAcceptedAt: decidedAt,
+      productUpdateEmailConsent: {
+        decision: args.productUpdateEmailConsent,
+        email: normalizeAccountEmail(user.email),
+        policyVersion: CURRENT_PRODUCT_UPDATE_EMAIL_CONSENT_VERSION,
+        decidedAt,
+        source: "terms_acceptance",
+      },
     });
     return null;
   },

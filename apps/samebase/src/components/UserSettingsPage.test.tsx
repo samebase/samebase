@@ -126,6 +126,9 @@ function setDefaultQueries() {
   testState.queries.set(getFunctionName(api.users.getSessionRecordingConsent), {
     state: "denied",
   });
+  testState.queries.set(getFunctionName(api.users.getProductUpdateEmailConsent), {
+    state: "denied",
+  });
 }
 
 let root: Root | null = null;
@@ -344,8 +347,11 @@ describe("UserSettingsPage", () => {
     const checkbox = container.querySelector<HTMLButtonElement>("#settings-session-recording");
 
     expect(container.textContent).toContain("Privacy");
-    expect(container.textContent).toContain("Inputs and code editors are masked.");
-    expect(container.querySelector('a[href="/privacy"]')?.textContent).toBe("Privacy details");
+    expect(container.textContent).toContain("Help improve Samebase");
+    expect(container.textContent).toContain(
+      "Share recordings of how you use Samebase. Inputs and code stay hidden.",
+    );
+    expect(container.querySelector('a[href="/privacy"]')?.textContent).toBe("What gets recorded");
 
     await act(async () => {
       checkbox?.click();
@@ -353,6 +359,30 @@ describe("UserSettingsPage", () => {
     });
 
     expect(setSessionRecordingConsent).toHaveBeenCalledWith({ decision: "denied" });
+  });
+
+  it("changes the saved product-update email choice", async () => {
+    testState.queries.set(getFunctionName(api.users.getProductUpdateEmailConsent), {
+      state: "granted",
+    });
+    const setProductUpdateEmailConsent = vi.fn(async () => null);
+    testState.mutations.set(
+      getFunctionName(api.users.setProductUpdateEmailConsent),
+      setProductUpdateEmailConsent,
+    );
+    const container = await mountSettingsPage();
+    const checkbox = container.querySelector<HTMLButtonElement>("#settings-product-update-emails");
+
+    expect(container.textContent).toContain("Email");
+    expect(container.textContent).toContain("Product updates");
+    expect(container.textContent).not.toContain("Receive occasional Samebase product updates");
+
+    await act(async () => {
+      checkbox?.click();
+      await Promise.resolve();
+    });
+
+    expect(setProductUpdateEmailConsent).toHaveBeenCalledWith({ decision: "denied" });
   });
 
   it("saves the profile and refreshes the session", async () => {

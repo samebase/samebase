@@ -12,7 +12,7 @@ test("Terms acceptance", async ({ page }) => {
   await page.goto("/visual-fixture?mode=terms-acceptance", { waitUntil: "networkidle" });
 
   const acceptance = page.getByTestId("terms-acceptance");
-  await expect(acceptance.getByRole("button", { name: "Agree and continue" })).toBeVisible();
+  await expect(acceptance.getByRole("button", { name: "Continue" })).toBeVisible();
   await expect(acceptance).toHaveScreenshot("terms-acceptance-desktop.png", screenshotOptions);
 });
 
@@ -30,7 +30,7 @@ test("Terms acceptance on mobile", async ({ browser }, testInfo) => {
   try {
     await page.goto("/visual-fixture?mode=terms-acceptance", { waitUntil: "networkidle" });
     const acceptance = page.getByTestId("terms-acceptance");
-    await expect(acceptance.getByRole("button", { name: "Agree and continue" })).toBeVisible();
+    await expect(acceptance.getByRole("button", { name: "Continue" })).toBeVisible();
     await expect(acceptance).toHaveScreenshot("terms-acceptance-mobile.png", screenshotOptions);
   } finally {
     await context.close();

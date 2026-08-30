@@ -655,6 +655,10 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain("/admin/account-deletions");
     expect(hydratedMarkup).not.toContain("youtube-nocookie.com");
     expect(hydratedMarkup).toContain("Help improve Samebase");
+    expect(hydratedMarkup).toContain(
+      "Share recordings of how you use Samebase. Inputs and code stay hidden.",
+    );
+    expect(hydratedMarkup).toContain("What gets recorded");
     expect(hydratedMarkup).toContain(">Allow</button>");
     expect(hydratedMarkup).toContain("No thanks");
     expect(hydratedMarkup).toContain('href="/privacy"');

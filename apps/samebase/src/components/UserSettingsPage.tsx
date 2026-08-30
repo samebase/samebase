@@ -60,7 +60,12 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
     api.users.getSessionRecordingConsent,
     viewerAccess === undefined || exitActionsOnly ? "skip" : {},
   );
+  const productUpdateEmailConsent = useQuery(
+    api.users.getProductUpdateEmailConsent,
+    viewerAccess === undefined || exitActionsOnly ? "skip" : {},
+  );
   const setDisplayName = useMutation(api.users.setDisplayName);
+  const setProductUpdateEmailConsent = useMutation(api.users.setProductUpdateEmailConsent);
   const setSessionRecordingConsent = useMutation(api.users.setSessionRecordingConsent);
   const beginAuthAccountLink = useMutation(api.users.beginAuthAccountLink);
   const { signOut } = useAppAuthActions();
@@ -77,6 +82,10 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
   const [sessionRecordingConsentError, setSessionRecordingConsentError] = useState<string | null>(
     null,
   );
+  const [isSavingProductUpdateEmailConsent, setIsSavingProductUpdateEmailConsent] = useState(false);
+  const [productUpdateEmailConsentError, setProductUpdateEmailConsentError] = useState<
+    string | null
+  >(null);
   const isDeleteDialogOpen = search[DELETE_ACCOUNT_QUERY_PARAM];
 
   useEffect(() => {
@@ -236,6 +245,22 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
       setSessionRecordingConsentError("Could not save this choice.");
     } finally {
       setIsSavingSessionRecordingConsent(false);
+    }
+  };
+
+  const saveProductUpdateEmailConsent = async (decision: "granted" | "denied") => {
+    if (isSavingProductUpdateEmailConsent) {
+      return;
+    }
+
+    setIsSavingProductUpdateEmailConsent(true);
+    setProductUpdateEmailConsentError(null);
+    try {
+      await setProductUpdateEmailConsent({ decision });
+    } catch {
+      setProductUpdateEmailConsentError("Could not save this email choice.");
+    } finally {
+      setIsSavingProductUpdateEmailConsent(false);
     }
   };
 
@@ -452,22 +477,43 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
             }
           />
           <div>
-            <Label htmlFor="settings-session-recording">Session replay</Label>
+            <Label htmlFor="settings-session-recording">Help improve Samebase</Label>
             <p
               className="mt-1 text-sm leading-6 text-muted-foreground"
               id="settings-session-recording-description"
             >
-              Allow session replay to help us find bugs and improve onboarding. Inputs and code
-              editors are masked.
+              Share recordings of how you use Samebase. Inputs and code stay hidden.
             </p>
             <Link className="mt-2 inline-block text-sm underline" to="/privacy">
-              Privacy details
+              What gets recorded
             </Link>
           </div>
         </div>
         {sessionRecordingConsentError === null ? null : (
           <p className="mt-2 text-sm text-destructive" role="alert">
             {sessionRecordingConsentError}
+          </p>
+        )}
+      </section>
+
+      <section className="mt-8 border-t pt-6" aria-labelledby="settings-email-heading">
+        <h2 id="settings-email-heading" className="text-base font-semibold">
+          Email
+        </h2>
+        <div className="mt-4 flex max-w-lg items-start gap-3">
+          <Checkbox
+            checked={productUpdateEmailConsent?.state === "granted"}
+            disabled={productUpdateEmailConsent === undefined || isSavingProductUpdateEmailConsent}
+            id="settings-product-update-emails"
+            onCheckedChange={(checked) =>
+              void saveProductUpdateEmailConsent(checked === true ? "granted" : "denied")
+            }
+          />
+          <Label htmlFor="settings-product-update-emails">Product updates</Label>
+        </div>
+        {productUpdateEmailConsentError === null ? null : (
+          <p className="mt-2 text-sm text-destructive" role="alert">
+            {productUpdateEmailConsentError}
           </p>
         )}
       </section>

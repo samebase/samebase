@@ -254,7 +254,12 @@ describe("user lifecycle authorization", () => {
       "Access denied",
     );
 
-    await expect(viewer.mutation(api.users.acceptCurrentTerms, {})).resolves.toBeNull();
+    await expect(
+      viewer.mutation(api.users.acceptCurrentTerms, {
+        termsAccepted: true,
+        productUpdateEmailConsent: "denied",
+      }),
+    ).resolves.toBeNull();
 
     await expect(viewer.query(api.users.currentViewerAccess, {})).resolves.toMatchObject({
       role: "role_member",
@@ -302,7 +307,10 @@ describe("user lifecycle authorization", () => {
     await expect(viewer.query(api.users.getSessionRecordingConsent, {})).rejects.toThrow(
       "Access denied",
     );
-    await viewer.mutation(api.users.acceptCurrentTerms, {});
+    await viewer.mutation(api.users.acceptCurrentTerms, {
+      termsAccepted: true,
+      productUpdateEmailConsent: "denied",
+    });
     await expect(viewer.query(api.users.getSessionRecordingConsent, {})).resolves.toEqual({
       state: "not_decided",
     });
@@ -339,6 +347,70 @@ describe("user lifecycle authorization", () => {
     await expect(viewer.query(api.users.getSessionRecordingConsent, {})).resolves.toEqual({
       state: "denied",
     });
+  });
+
+  it("stores product-update email consent during Terms acceptance and in Account settings", async () => {
+    const { t, userId } = await seedLifecycleUser({
+      state: "active",
+      email: "product-updates@example.test",
+      isApproved: true,
+      termsAccepted: false,
+    });
+    const viewer = asUser(t, userId);
+
+    await viewer.mutation(api.users.acceptCurrentTerms, {
+      termsAccepted: true,
+      productUpdateEmailConsent: "granted",
+    });
+    await expect(viewer.query(api.users.getProductUpdateEmailConsent, {})).resolves.toEqual({
+      state: "granted",
+    });
+    await expect(
+      t.run(async (ctx) => {
+        const user = await ctx.db.get(userId);
+        return user?.state === "deleted" ? undefined : user?.productUpdateEmailConsent;
+      }),
+    ).resolves.toEqual({
+      decision: "granted",
+      email: "product-updates@example.test",
+      policyVersion: "2026-08-30",
+      decidedAt: expect.any(Number),
+      source: "terms_acceptance",
+    });
+
+    await viewer.mutation(api.users.setProductUpdateEmailConsent, { decision: "denied" });
+    await expect(viewer.query(api.users.getProductUpdateEmailConsent, {})).resolves.toEqual({
+      state: "denied",
+    });
+    await expect(
+      t.run(async (ctx) => {
+        const user = await ctx.db.get(userId);
+        return user?.state === "deleted" ? undefined : user?.productUpdateEmailConsent;
+      }),
+    ).resolves.toMatchObject({
+      decision: "denied",
+      source: "account_settings",
+    });
+  });
+
+  it("keeps existing accounts unsubscribed until they choose product-update emails", async () => {
+    const { t, userId } = await seedLifecycleUser({
+      state: "active",
+      email: "existing-account@example.test",
+      isApproved: true,
+      termsAccepted: true,
+    });
+    const viewer = asUser(t, userId);
+
+    await expect(viewer.query(api.users.getProductUpdateEmailConsent, {})).resolves.toEqual({
+      state: "not_decided",
+    });
+    await expect(
+      t.run(async (ctx) => {
+        const user = await ctx.db.get(userId);
+        return user?.state !== "deleted" && user?.productUpdateEmailConsent === undefined;
+      }),
+    ).resolves.toBe(true);
   });
 
   it("rejects stale authenticated identities for deleted and missing users", async () => {

@@ -16,6 +16,14 @@ const vSessionRecordingConsent = object({
   decidedAt: number(),
 });
 
+const vProductUpdateEmailConsent = object({
+  decision: union(literal("granted"), literal("denied")),
+  email: string(),
+  policyVersion: string(),
+  decidedAt: number(),
+  source: union(literal("terms_acceptance"), literal("account_settings")),
+});
+
 const userProfileFields = {
   name: optional(string()),
   displayName: optional(string()),
@@ -25,6 +33,7 @@ const userProfileFields = {
   isApproved: optional(boolean()),
   termsVersion: optional(string()),
   termsAcceptedAt: optional(number()),
+  productUpdateEmailConsent: optional(vProductUpdateEmailConsent),
   sessionRecordingConsent: optional(vSessionRecordingConsent),
 };
 
@@ -95,6 +104,7 @@ export function readUserProfile(user: NonDeletedUserLifecycleDoc): UserProfile {
     isApproved: user.isApproved,
     termsVersion: user.termsVersion,
     termsAcceptedAt: user.termsAcceptedAt,
+    productUpdateEmailConsent: user.productUpdateEmailConsent,
     sessionRecordingConsent: user.sessionRecordingConsent,
   });
 }

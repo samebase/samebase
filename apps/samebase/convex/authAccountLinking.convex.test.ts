@@ -212,7 +212,12 @@ describe("Samebase OAuth account linking", () => {
       termsAccepted: false,
     });
 
-    await expect(asNewUser.mutation(api.users.acceptCurrentTerms, {})).resolves.toBeNull();
+    await expect(
+      asNewUser.mutation(api.users.acceptCurrentTerms, {
+        termsAccepted: true,
+        productUpdateEmailConsent: "denied",
+      }),
+    ).resolves.toBeNull();
     const acceptedUser = await t.run(async (ctx) => await ctx.db.get(userId));
     expect(acceptedUser).toMatchObject({
       termsVersion: "2026-08-12",
@@ -224,7 +229,12 @@ describe("Samebase OAuth account linking", () => {
     });
 
     const firstAcceptedAt = acceptedUser?.state === "active" ? acceptedUser.termsAcceptedAt : null;
-    await expect(asNewUser.mutation(api.users.acceptCurrentTerms, {})).resolves.toBeNull();
+    await expect(
+      asNewUser.mutation(api.users.acceptCurrentTerms, {
+        termsAccepted: true,
+        productUpdateEmailConsent: "denied",
+      }),
+    ).resolves.toBeNull();
     await expect(t.run(async (ctx) => await ctx.db.get(userId))).resolves.toMatchObject({
       termsAcceptedAt: firstAcceptedAt,
     });
@@ -256,7 +266,12 @@ describe("Samebase OAuth account linking", () => {
       subject: `${userId}|google-session`,
       tokenIdentifier: `test:${userId}`,
     });
-    await expect(asPendingUser.mutation(api.users.acceptCurrentTerms, {})).rejects.toThrow();
+    await expect(
+      asPendingUser.mutation(api.users.acceptCurrentTerms, {
+        termsAccepted: true,
+        productUpdateEmailConsent: "denied",
+      }),
+    ).rejects.toThrow();
     const pendingUser = await t.run(async (ctx) => await ctx.db.get(userId));
     expect(pendingUser).not.toHaveProperty("termsVersion");
     expect(pendingUser).not.toHaveProperty("termsAcceptedAt");
