@@ -382,7 +382,10 @@ describe("UserSettingsPage", () => {
       await Promise.resolve();
     });
 
-    expect(setProductUpdateEmailConsent).toHaveBeenCalledWith({ decision: "denied" });
+    expect(setProductUpdateEmailConsent).toHaveBeenCalledWith({
+      decision: "denied",
+      source: "account_settings",
+    });
   });
 
   it("saves the profile and refreshes the session", async () => {

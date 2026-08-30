@@ -21,7 +21,7 @@ const vProductUpdateEmailConsent = object({
   email: string(),
   policyVersion: string(),
   decidedAt: number(),
-  source: union(literal("terms_acceptance"), literal("account_settings")),
+  source: union(literal("terms_acceptance"), literal("account_settings"), literal("right_sidebar")),
 });
 
 const userProfileFields = {

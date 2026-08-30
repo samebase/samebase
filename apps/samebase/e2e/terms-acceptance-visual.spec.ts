@@ -12,6 +12,12 @@ test("Terms acceptance", async ({ page }) => {
   await page.goto("/visual-fixture?mode=terms-acceptance", { waitUntil: "networkidle" });
 
   const acceptance = page.getByTestId("terms-acceptance");
+  const termsCheckbox = acceptance.getByRole("checkbox", {
+    name: "I agree to the Terms of Service and have read the Privacy Policy.",
+  });
+  await termsCheckbox.press("Space");
+  await expect(termsCheckbox).toBeFocused();
+  await expect(termsCheckbox).toBeChecked();
   await expect(acceptance.getByRole("button", { name: "Continue" })).toBeVisible();
   await expect(acceptance).toHaveScreenshot("terms-acceptance-desktop.png", screenshotOptions);
 });
@@ -30,6 +36,12 @@ test("Terms acceptance on mobile", async ({ browser }, testInfo) => {
   try {
     await page.goto("/visual-fixture?mode=terms-acceptance", { waitUntil: "networkidle" });
     const acceptance = page.getByTestId("terms-acceptance");
+    const termsCheckbox = acceptance.getByRole("checkbox", {
+      name: "I agree to the Terms of Service and have read the Privacy Policy.",
+    });
+    await termsCheckbox.press("Space");
+    await expect(termsCheckbox).toBeFocused();
+    await expect(termsCheckbox).toBeChecked();
     await expect(acceptance.getByRole("button", { name: "Continue" })).toBeVisible();
     await expect(acceptance).toHaveScreenshot("terms-acceptance-mobile.png", screenshotOptions);
   } finally {

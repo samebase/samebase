@@ -9,6 +9,10 @@ import {
   PUBLIC_LANDING_PRIMARY_ACTION_TEST_ID,
 } from "../src/lib/publicLanding";
 import { signInIfNeeded } from "./liveHelpers";
+import {
+  applyOrganizationContextAcceptanceFixture,
+  createOrganizationContextAcceptanceAccount,
+} from "./organizationContextAcceptance";
 import { expectScreenshotsToMatch } from "./visualDiff";
 
 const STORED_APP_WORKSPACE_SIDEBAR_STATE_VERSION = 2;
@@ -198,6 +202,61 @@ test("signed-in app right sidebar keeps the account row inside a narrow desktop 
     {
       ...appRightSidebarScreenshotOptions,
     },
+  );
+});
+
+test("signed-in app right sidebar shows the product-update email choice", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await seedAppWorkspaceSidebarState(page, APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE);
+  await openSignedInApp(page);
+
+  const rightPane = getRightPane(page);
+  const consentSection = rightPane.getByRole("heading", { name: "Product updates" }).locator("..");
+  await expect(
+    consentSection.getByText("Hear about new Samebase features by email."),
+  ).toBeVisible();
+  await expect(consentSection.getByRole("button", { name: "Email me" })).toBeVisible();
+  await expect(consentSection.getByRole("button", { name: "No thanks" })).toBeVisible();
+  await expect(rightPane.getByRole("heading", { name: "Help improve Samebase" })).toHaveCount(0);
+  await expectNoHorizontalOverflow(consentSection);
+  await expect(consentSection).toHaveScreenshot(
+    "app-right-sidebar-product-update-email-consent.png",
+    appRightSidebarScreenshotOptions,
+  );
+});
+
+test("signed-in app right sidebar shows the session-recording choice", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await seedAppWorkspaceSidebarState(page, APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE);
+  const email = `app-right-sidebar-recording-${testInfo.workerIndex}-${Date.now()}@example.test`;
+  await createOrganizationContextAcceptanceAccount(page, email);
+  await applyOrganizationContextAcceptanceFixture({ email, organizations: [] });
+  await page.reload({ waitUntil: "domcontentloaded" });
+
+  const rightPane = getRightPane(page);
+  const productUpdateSection = rightPane
+    .getByRole("heading", { name: "Product updates" })
+    .locator("..");
+  await productUpdateSection.getByRole("button", { name: "No thanks" }).click();
+
+  const consentSection = rightPane
+    .getByRole("heading", { name: "Help improve Samebase" })
+    .locator("..");
+  const allowButton = consentSection.getByRole("button", { name: "Allow" });
+  await expect(
+    consentSection.getByText(
+      "Share recordings of how you use Samebase. Inputs and code stay hidden.",
+    ),
+  ).toBeVisible();
+  await expect(allowButton).toHaveClass(/bg-primary/u);
+  await expect(consentSection.getByRole("button", { name: "No thanks" })).toBeVisible();
+  await expect(consentSection.getByRole("link", { name: "What gets recorded" })).toHaveCount(0);
+  await expectNoHorizontalOverflow(consentSection);
+  await expect(consentSection).toHaveScreenshot(
+    "app-right-sidebar-session-recording-consent.png",
+    appRightSidebarScreenshotOptions,
   );
 });
 
