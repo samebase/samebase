@@ -154,10 +154,10 @@ never support several provider teams or accounts.
 The non-secret deployment destinations are optional fields on `organizations`:
 
 ```text
+defaultConvexDeploymentRegion?: "aws-us-east-1" | "aws-eu-west-1"
 convexTeam?: {
   teamId: string
   teamSlug?: string
-  defaultDeploymentRegion?: "aws-us-east-1" | "aws-eu-west-1"
 }
 cloudflareAccount?: {
   accountId: string
@@ -173,24 +173,26 @@ requires a non-empty provider-supplied `accountName`. `lastUsedBuildTokenUuid` i
 organization-shared, non-secret default for the current Cloudflare account. A real account change
 clears it. An account-name refresh preserves it.
 
-`defaultDeploymentRegion` is an optional organization-shared form default for new Convex production
-deployments. An owner can save US East or EU West, and a member can read the effective value. When
-the field is missing, Samebase uses US East as the effective default. Samebase selects the effective
-default only when the current Convex team reports it as available. If it is unavailable, a create
-form starts without a region. A creator can select another available region for one project. That
-one-project choice never writes the saved default. The default does not change an existing plan,
-project, deployment, or the Convex team's own default.
+`defaultConvexDeploymentRegion` is an optional organization-shared form default for new Convex
+production deployments. An owner can save US East or EU West without a Convex connection, and a
+member can read the effective value. When the field is missing, Samebase uses US East as the
+effective default. A create form selects the effective default only when the connected Convex team
+reports it as available. If it is unavailable, the form starts without a region. A creator can
+select another available region for one project. That one-project choice never writes the saved
+default. The default does not change an existing plan, project, deployment, or the Convex team's own
+default.
 
-A same-team credential reauthorization, disconnect, or slug refresh preserves the saved default. If
-Samebase adds a Convex team-replacement flow, that flow must clear the default. Existing
-organizations can keep it unset. Samebase does not backfill US because the shared business rule
-resolves an unset value to US East. Samebase does not add a personal region default.
+Convex connection, disconnection, reauthorization, team replacement, and slug refresh do not change
+the saved default. Existing organizations can keep it unset. Samebase does not backfill US because
+the shared business rule resolves an unset value to US East. Samebase does not add a personal region
+default.
 
 The focused region-list action accepts `organizationId` from the web app and `githubOwnerLogin` from
 MCP. It returns the current provider options with `name`, `displayName`, and `available`, plus the
 effective default. The effective default is US East when no value is stored. Any member can read
-this result. The save action requires an owner and checks current availability before it writes US
-East or EU West.
+this result. The save mutation requires an owner and writes the closed US East or EU West value
+without calling Convex. Project creation checks current provider availability before it uses the
+saved default.
 
 Every `organizationProviderCredentials` document has a required `organizationId`, one Convex
 credential slot, and one Cloudflare credential slot. At least one credential slot is present. One

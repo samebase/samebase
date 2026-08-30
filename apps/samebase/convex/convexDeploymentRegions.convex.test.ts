@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const providerMocks = vi.hoisted(() => ({
   listConvexManagementDeploymentRegions: vi.fn(),
-  requireAvailableConvexDeploymentRegion: vi.fn(),
 }));
 
 vi.mock("./convexManagementApi/client", async (importOriginal) => {
@@ -10,14 +9,19 @@ vi.mock("./convexManagementApi/client", async (importOriginal) => {
   return {
     ...actual,
     listConvexManagementDeploymentRegions: providerMocks.listConvexManagementDeploymentRegions,
-    requireAvailableConvexDeploymentRegion: providerMocks.requireAvailableConvexDeploymentRegion,
   };
 });
 
 import { api } from "./_generated/api";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "./test.setup";
 
-async function createRegionDefaultFixture(initialRegion?: "aws-us-east-1") {
+async function createRegionDefaultFixture({
+  connected = true,
+  initialRegion,
+}: {
+  connected?: boolean;
+  initialRegion?: "aws-us-east-1";
+} = {}) {
   const t = makeConvexTest();
   const ids = await t.run(async (ctx) => {
     const ownerUserId = await ctx.db.insert("users", {
@@ -40,11 +44,8 @@ async function createRegionDefaultFixture(initialRegion?: "aws-us-east-1") {
       githubOwnerLogin: "region-owner",
       githubOwnerLoginNormalized: "region-owner",
       githubInstallationId: "region-installation",
-      convexTeam: {
-        teamId: "convex-team",
-        teamSlug: "convex-team",
-        ...(initialRegion ? { defaultDeploymentRegion: initialRegion } : {}),
-      },
+      ...(initialRegion ? { defaultConvexDeploymentRegion: initialRegion } : {}),
+      ...(connected ? { convexTeam: { teamId: "convex-team", teamSlug: "convex-team" } } : {}),
     });
     await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", {
@@ -57,14 +58,16 @@ async function createRegionDefaultFixture(initialRegion?: "aws-us-east-1") {
       userId: memberUserId,
       role: "member",
     });
-    await ctx.db.insert("organizationProviderCredentials", {
-      organizationId,
-      convex: {
-        auth: { method: "api_key", credential: "convex-token" },
-        connectedByUserId: ownerUserId,
-        updatedAt: 1,
-      },
-    });
+    if (connected) {
+      await ctx.db.insert("organizationProviderCredentials", {
+        organizationId,
+        convex: {
+          auth: { method: "api_key", credential: "convex-token" },
+          connectedByUserId: ownerUserId,
+          updatedAt: 1,
+        },
+      });
+    }
     return { memberUserId, organizationId, ownerUserId };
   });
 
@@ -84,41 +87,35 @@ async function createRegionDefaultFixture(initialRegion?: "aws-us-east-1") {
 
 beforeEach(() => {
   providerMocks.listConvexManagementDeploymentRegions.mockReset();
-  providerMocks.requireAvailableConvexDeploymentRegion.mockReset();
-  providerMocks.requireAvailableConvexDeploymentRegion.mockResolvedValue(undefined);
 });
 
 describe("organization Convex deployment region defaults", () => {
   it("uses US when no value is saved and lets only an owner change the default", async () => {
-    const { asMember, asOwner, organizationId, t } = await createRegionDefaultFixture();
+    const { asMember, asOwner, organizationId, t } = await createRegionDefaultFixture({
+      connected: false,
+    });
 
     await expect(
       asMember.query(api.convexDeploymentRegions.getDefault, { organizationId }),
     ).resolves.toBe("aws-us-east-1");
     await expect(
-      t.run(async (ctx) => (await ctx.db.get(organizationId))?.convexTeam),
-    ).resolves.toEqual({
-      teamId: "convex-team",
-      teamSlug: "convex-team",
-    });
+      t.run(
+        async (ctx) => (await ctx.db.get(organizationId))?.defaultConvexDeploymentRegion ?? null,
+      ),
+    ).resolves.toBeNull();
 
     await expect(
-      asOwner.action(api.convexDeploymentRegions.setDefault, {
+      asOwner.mutation(api.convexDeploymentRegions.setDefault, {
         organizationId,
         deploymentRegion: "aws-eu-west-1",
       }),
     ).resolves.toBeNull();
-    expect(providerMocks.requireAvailableConvexDeploymentRegion).toHaveBeenCalledWith({
-      token: "convex-token",
-      teamId: "convex-team",
-      region: "aws-eu-west-1",
-    });
     await expect(
       asMember.query(api.convexDeploymentRegions.getDefault, { organizationId }),
     ).resolves.toBe("aws-eu-west-1");
 
     await expect(
-      asMember.action(api.convexDeploymentRegions.setDefault, {
+      asMember.mutation(api.convexDeploymentRegions.setDefault, {
         organizationId,
         deploymentRegion: "aws-us-east-1",
       }),
@@ -128,7 +125,7 @@ describe("organization Convex deployment region defaults", () => {
     ).resolves.toBe("aws-eu-west-1");
 
     await expect(
-      asOwner.action(api.convexDeploymentRegions.setDefault, {
+      asOwner.mutation(api.convexDeploymentRegions.setDefault, {
         organizationId,
         deploymentRegion: "aws-us-east-1",
       }),
@@ -137,31 +134,9 @@ describe("organization Convex deployment region defaults", () => {
       asMember.query(api.convexDeploymentRegions.getDefault, { organizationId }),
     ).resolves.toBe("aws-us-east-1");
     await expect(
-      t.run(async (ctx) => (await ctx.db.get(organizationId))?.convexTeam),
-    ).resolves.toEqual({
-      defaultDeploymentRegion: "aws-us-east-1",
-      teamId: "convex-team",
-      teamSlug: "convex-team",
-    });
-  });
-
-  it("keeps the saved default when Convex reports the new region as unavailable", async () => {
-    const { asOwner, organizationId } = await createRegionDefaultFixture("aws-us-east-1");
-    providerMocks.requireAvailableConvexDeploymentRegion.mockRejectedValueOnce(
-      new Error(
-        "Convex production region EU West (Ireland) is not available for this team. Choose another region.",
-      ),
-    );
-
-    await expect(
-      asOwner.action(api.convexDeploymentRegions.setDefault, {
-        organizationId,
-        deploymentRegion: "aws-eu-west-1",
-      }),
-    ).rejects.toThrow("EU West (Ireland) is not available for this team");
-    await expect(
-      asOwner.query(api.convexDeploymentRegions.getDefault, { organizationId }),
+      t.run(async (ctx) => (await ctx.db.get(organizationId))?.defaultConvexDeploymentRegion),
     ).resolves.toBe("aws-us-east-1");
+    expect(providerMocks.listConvexManagementDeploymentRegions).not.toHaveBeenCalled();
   });
 
   it("lists the effective US default and provider availability only for organization members", async () => {

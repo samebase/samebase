@@ -153,10 +153,8 @@ async function createManualRegionFixture() {
       githubOwnerLogin: "manual-region-owner",
       githubOwnerLoginNormalized: "manual-region-owner",
       githubInstallationId: "manual-region-installation",
-      convexTeam: {
-        teamId: "convex-team",
-        defaultDeploymentRegion: "aws-us-east-1",
-      },
+      defaultConvexDeploymentRegion: "aws-us-east-1",
+      convexTeam: { teamId: "convex-team" },
     });
     await insertTestOrganizationBillingAccount(ctx.db, organizationId);
     await ctx.db.insert("organizationMemberships", {
@@ -375,7 +373,7 @@ describe("managed Convex project region provisioning", () => {
           .withIndex("by_vault", (query) => query.eq("vaultId", vaultId))
           .collect();
         return {
-          defaultDeploymentRegion: organization?.convexTeam?.defaultDeploymentRegion,
+          defaultDeploymentRegion: organization?.defaultConvexDeploymentRegion,
           projects,
         };
       }),

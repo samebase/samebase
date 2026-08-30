@@ -35,10 +35,12 @@ import {
   vVaultProviderWorkflowAuthority,
 } from "./vaultWorkflowAuthority";
 import { MAX_ORGANIZATION_CONNECTIONS } from "./billingResourceQuotas";
+import { vConvexDeploymentRegion } from "./convexDeploymentRegionModel";
 
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
 const vOrganizationProviderConfiguration = object({
+  defaultConvexDeploymentRegion: optional(vConvexDeploymentRegion),
   convexTeam: optional(vOrganizationConvexTeam),
   cloudflareAccount: optional(vOrganizationCloudflareAccount),
   convexCredential: optional(vConvexProviderCredential),
@@ -119,6 +121,9 @@ export async function getOrganizationProviderConfiguration(
   }
   const credentials = await getOrganizationProviderCredentials(db, organizationId);
   return {
+    ...(organization.defaultConvexDeploymentRegion
+      ? { defaultConvexDeploymentRegion: organization.defaultConvexDeploymentRegion }
+      : {}),
     ...(organization.convexTeam ? { convexTeam: organization.convexTeam } : {}),
     ...(organization.cloudflareAccount
       ? { cloudflareAccount: organization.cloudflareAccount }

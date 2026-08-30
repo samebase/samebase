@@ -116,6 +116,8 @@ const organization = {
 const testState = vi.hoisted(() => ({
   actions: new Map<string, (args: unknown) => Promise<unknown>>(),
   fallbackAction: vi.fn(async () => undefined),
+  fallbackMutation: vi.fn(async () => undefined),
+  mutations: new Map<string, (args: unknown) => Promise<unknown>>(),
 }));
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -124,6 +126,8 @@ vi.mock("convex/react", async (importOriginal) => {
     ...actual,
     useAction: (reference: Parameters<typeof actual.useAction>[0]) =>
       testState.actions.get(getFunctionName(reference)) ?? testState.fallbackAction,
+    useMutation: (reference: Parameters<typeof actual.useMutation>[0]) =>
+      testState.mutations.get(getFunctionName(reference)) ?? testState.fallbackMutation,
     useQuery: (reference: Parameters<typeof actual.useQuery>[0]) => {
       const name = getFunctionName(reference);
       if (name === getFunctionName(api.users.getConvexConnectionStatus)) {
@@ -182,6 +186,9 @@ describe("NewAppPage", () => {
     testState.actions.clear();
     testState.fallbackAction.mockReset();
     testState.fallbackAction.mockResolvedValue(undefined);
+    testState.fallbackMutation.mockReset();
+    testState.fallbackMutation.mockResolvedValue(undefined);
+    testState.mutations.clear();
     mountedElement = null;
     mountedRoot = null;
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -297,7 +304,7 @@ describe("NewAppPage", () => {
 
   it("starts from the saved region and keeps a one-time EU selection local to the app", async () => {
     const setDefaultRegion = vi.fn(async () => undefined);
-    testState.actions.set(
+    testState.mutations.set(
       getFunctionName(api.convexDeploymentRegions.setDefault),
       setDefaultRegion,
     );

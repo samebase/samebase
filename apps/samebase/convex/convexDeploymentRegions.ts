@@ -2,12 +2,9 @@ import { Infer, v } from "convex/values";
 
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { internalMutation, type ActionCtx } from "./_generated/server";
-import { action, query } from "./functions";
-import {
-  listConvexManagementDeploymentRegions,
-  requireAvailableConvexDeploymentRegion,
-} from "./convexManagementApi/client";
+import type { ActionCtx } from "./_generated/server";
+import { action, mutation, query } from "./functions";
+import { listConvexManagementDeploymentRegions } from "./convexManagementApi/client";
 import { vConvexDeploymentRegion } from "./convexDeploymentRegionModel";
 import { resolveDefaultConvexDeploymentRegion } from "../shared/convexDeploymentRegions";
 import {
@@ -41,7 +38,9 @@ export async function listConvexDeploymentRegionsForUser(
   }
 
   return {
-    defaultRegion: resolveDefaultConvexDeploymentRegion(team.defaultDeploymentRegion),
+    defaultRegion: resolveDefaultConvexDeploymentRegion(
+      configuration.defaultConvexDeploymentRegion,
+    ),
     regions: await listConvexManagementDeploymentRegions({ token, teamId }),
   };
 }
@@ -74,83 +73,24 @@ export const getDefault = query({
     if (organization === null) {
       throw new Error("Organization not found.");
     }
-    return resolveDefaultConvexDeploymentRegion(organization.convexTeam?.defaultDeploymentRegion);
+    return resolveDefaultConvexDeploymentRegion(organization.defaultConvexDeploymentRegion);
   },
 });
 
-export const setDefaultForOrganization = internalMutation({
+export const setDefault = mutation({
+  access: "access_dashboard",
   args: {
-    userId: v.id("users"),
     organizationId: v.id("organizations"),
     deploymentRegion: vConvexDeploymentRegion,
-    expectedTeamId: v.string(),
   },
   returns: v.null(),
   handler: async (ctx, args): Promise<null> => {
     await requireOrganizationOwnerAccessContext(ctx.db, {
-      userId: args.userId,
-      organizationId: args.organizationId,
-    });
-    const organization = await ctx.db.get(args.organizationId);
-    if (organization === null) {
-      throw new Error("Organization not found.");
-    }
-    const team = organization.convexTeam;
-    if (team === undefined) {
-      throw new Error("Configure a Convex team before saving a default production region.");
-    }
-    if (team.teamId !== args.expectedTeamId) {
-      throw new Error("The Convex team changed before the default production region was saved.");
-    }
-
-    await ctx.db.patch(organization._id, {
-      convexTeam: {
-        teamId: team.teamId,
-        ...(team.teamSlug ? { teamSlug: team.teamSlug } : {}),
-        defaultDeploymentRegion: args.deploymentRegion,
-      },
-    });
-    return null;
-  },
-});
-
-export const setDefault = action({
-  access: "access_provider_connections",
-  args: {
-    organizationId: v.id("organizations"),
-    deploymentRegion: vConvexDeploymentRegion,
-  },
-  returns: v.null(),
-  handler: async (ctx, args): Promise<null> => {
-    await ctx.runQuery(internal.organizationAccess.requireOrganizationOwnerIdForUser, {
       userId: ctx.viewer.userId,
       organizationId: args.organizationId,
     });
-    const configuration = await ctx.runQuery(
-      internal.organizationProviderCredentials.loadForOrganization,
-      {
-        userId: ctx.viewer.userId,
-        organizationId: args.organizationId,
-      },
-    );
-    const team = configuration.convexTeam;
-    const credential = configuration.convexCredential;
-    const token = credential?.auth.credential.trim();
-    const teamId = team?.teamId.trim();
-    if (!team || !credential || !token || !teamId) {
-      throw new Error("Connect Convex before saving a default production region.");
-    }
-    await requireAvailableConvexDeploymentRegion({
-      token,
-      teamId,
-      region: args.deploymentRegion,
-    });
-
-    await ctx.runMutation(internal.convexDeploymentRegions.setDefaultForOrganization, {
-      userId: ctx.viewer.userId,
-      organizationId: args.organizationId,
-      deploymentRegion: args.deploymentRegion,
-      expectedTeamId: teamId,
+    await ctx.db.patch(args.organizationId, {
+      defaultConvexDeploymentRegion: args.deploymentRegion,
     });
     return null;
   },

@@ -1,20 +1,19 @@
 import { useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "@tanstack/react-router";
-import { useAction, useQuery as useConvexQuery } from "convex/react";
+import { useNavigate } from "@tanstack/react-router";
+import { useAction, useMutation, useQuery as useConvexQuery } from "convex/react";
 
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import { OrganizationBillingSection } from "@/components/OrganizationBillingSection";
 import { OrganizationDeletionDialog } from "@/components/OrganizationDeletionDialog";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/use-toast";
-import { linkStyle } from "@/components/styles";
 import {
   organizationGitHubIdentityQueryKey,
   type OrganizationGitHubIdentityObservation,
   useOrganizationGitHubIdentities,
 } from "@/hooks/useOrganizationGitHubIdentity";
-import { buildOrganizationRoutePath, ORGANIZATION_PROVIDERS_ROUTE } from "@/lib/organizationRoutes";
+import { buildOrganizationRoutePath } from "@/lib/organizationRoutes";
 import type { OrganizationBillingSearch } from "@/routeSearch/organizationBilling";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
@@ -22,14 +21,29 @@ import {
   ConvexDeploymentRegionField,
   type ConvexDeploymentRegionOption,
 } from "@/components/ConvexDeploymentRegionField";
-import { useConvexDeploymentRegions } from "@/components/useConvexDeploymentRegions";
 import {
+  CONVEX_EU_WEST_REGION,
+  CONVEX_US_EAST_REGION,
+  formatConvexDeploymentRegion,
   formatConvexDeploymentRegionLabel,
   resolveDefaultConvexDeploymentRegion,
   type ConvexDeploymentRegion,
 } from "../../shared/convexDeploymentRegions";
 
 type OrganizationIdentity = OrganizationGitHubIdentityObservation["owner"];
+
+const organizationDefaultConvexDeploymentRegions = [
+  {
+    available: true,
+    displayName: formatConvexDeploymentRegion(CONVEX_US_EAST_REGION),
+    name: CONVEX_US_EAST_REGION,
+  },
+  {
+    available: true,
+    displayName: formatConvexDeploymentRegion(CONVEX_EU_WEST_REGION),
+    name: CONVEX_EU_WEST_REGION,
+  },
+] satisfies readonly ConvexDeploymentRegionOption[];
 
 function OrganizationIdentityNotice({
   identity,
@@ -90,69 +104,33 @@ function ConvexDeploymentRegionSaveError({ message }: { message: string | null }
   ) : null;
 }
 
-function DisconnectedConvexDeploymentRegionSetting({
-  defaultRegion,
-  githubOwnerLogin,
-}: {
-  defaultRegion: ConvexDeploymentRegion;
-  githubOwnerLogin: string;
-}) {
-  return (
-    <div className="grid gap-2">
-      <ConvexDeploymentRegionValue value={defaultRegion} />
-      <div className="text-xs text-muted-foreground">
-        <Link
-          className={linkStyle}
-          params={{ owner: githubOwnerLogin }}
-          to={ORGANIZATION_PROVIDERS_ROUTE}
-        >
-          Connect Convex
-        </Link>{" "}
-        to change it.
-      </div>
-    </div>
-  );
-}
-
-function ConnectedConvexDeploymentRegionSetting({
+function EditableConvexDeploymentRegionSetting({
   changed,
-  error,
-  isFetching,
-  isLoading,
   isSaving,
-  onReload,
   onSave,
   onValueChange,
-  regions,
   saveError,
-  selectionUnavailable,
   value,
 }: {
   changed: boolean;
-  error: boolean;
-  isFetching: boolean;
-  isLoading: boolean;
   isSaving: boolean;
-  onReload: () => void;
   onSave: () => void;
   onValueChange: (region: ConvexDeploymentRegion) => void;
-  regions: readonly ConvexDeploymentRegionOption[];
   saveError: string | null;
-  selectionUnavailable: boolean;
-  value: ConvexDeploymentRegion | null;
+  value: ConvexDeploymentRegion;
 }) {
   return (
     <div className="grid gap-3">
       <ConvexDeploymentRegionField
         disabled={isSaving}
-        error={error}
+        error={false}
         id="organization-default-convex-production-region"
-        isLoading={isLoading || isFetching}
+        isLoading={false}
         label="Default production region"
-        onReload={onReload}
+        onReload={() => undefined}
         onValueChange={onValueChange}
-        regions={regions}
-        selectionUnavailable={selectionUnavailable}
+        regions={organizationDefaultConvexDeploymentRegions}
+        selectionUnavailable={false}
         value={value}
       />
       <ConvexDeploymentRegionSaveError message={saveError} />
@@ -174,15 +152,8 @@ function OrganizationConvexDeploymentRegionSetting({
 }: {
   organization: ViewerOrganization;
 }) {
-  const setDefaultConvexDeploymentRegion = useAction(api.convexDeploymentRegions.setDefault);
+  const setDefaultConvexDeploymentRegion = useMutation(api.convexDeploymentRegions.setDefault);
   const defaultConvexDeploymentRegion = useConvexQuery(api.convexDeploymentRegions.getDefault, {
-    organizationId: organization.organizationId,
-  });
-  const convexConnection = useConvexQuery(api.users.getConvexConnectionStatus, {
-    organizationId: organization.organizationId,
-  });
-  const convexDeploymentRegionsQuery = useConvexDeploymentRegions({
-    enabled: organization.role === "owner" && convexConnection?.state === "connected",
     organizationId: organization.organizationId,
   });
   const [draft, setDraft] = useState<{
@@ -196,12 +167,6 @@ function OrganizationConvexDeploymentRegionSetting({
   const selectedRegion =
     draftRegion ?? resolveDefaultConvexDeploymentRegion(defaultConvexDeploymentRegion);
   const changed = draftRegion !== undefined && draftRegion !== defaultConvexDeploymentRegion;
-  const selectionUnavailable = Boolean(
-    convexDeploymentRegionsQuery.data &&
-    !convexDeploymentRegionsQuery.data.regions.some(
-      (region) => region.name === selectedRegion && region.available,
-    ),
-  );
 
   const writeDefault = async (deploymentRegion: ConvexDeploymentRegion) => {
     if (isSaving || organization.role !== "owner") {
@@ -227,30 +192,17 @@ function OrganizationConvexDeploymentRegionSetting({
   let content: ReactNode;
   if (organization.role !== "owner") {
     content = <ConvexDeploymentRegionValue value={defaultConvexDeploymentRegion} />;
-  } else if (convexConnection === undefined || defaultConvexDeploymentRegion === undefined) {
+  } else if (defaultConvexDeploymentRegion === undefined) {
     content = (
       <div className="text-sm text-muted-foreground" role="status">
         Loading...
       </div>
     );
-  } else if (convexConnection.state !== "connected") {
-    content = (
-      <DisconnectedConvexDeploymentRegionSetting
-        defaultRegion={defaultConvexDeploymentRegion}
-        githubOwnerLogin={organization.githubOwnerLogin}
-      />
-    );
   } else {
     content = (
-      <ConnectedConvexDeploymentRegionSetting
+      <EditableConvexDeploymentRegionSetting
         changed={changed}
-        error={Boolean(convexDeploymentRegionsQuery.error)}
-        isFetching={convexDeploymentRegionsQuery.isFetching}
-        isLoading={convexDeploymentRegionsQuery.isPending}
         isSaving={isSaving}
-        onReload={() => {
-          void convexDeploymentRegionsQuery.refetch();
-        }}
         onSave={() => {
           void writeDefault(selectedRegion);
         }}
@@ -258,9 +210,7 @@ function OrganizationConvexDeploymentRegionSetting({
           setSaveError(null);
           setDraft({ organizationId: organization.organizationId, region });
         }}
-        regions={convexDeploymentRegionsQuery.data?.regions ?? []}
         saveError={saveError}
-        selectionUnavailable={selectionUnavailable}
         value={selectedRegion}
       />
     );

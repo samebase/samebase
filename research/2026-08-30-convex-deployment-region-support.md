@@ -77,13 +77,14 @@ region needs an explicit Samebase product and type update.
 Add this optional field:
 
 ```text
-organizations.convexTeam.defaultDeploymentRegion?: ConvexDeploymentRegion
+organizations.defaultConvexDeploymentRegion?: ConvexDeploymentRegion
 ```
 
 The effective default is an organization-shared form preference. It is not a data-residency policy.
 
 - An organization owner can save US East or EU West.
 - An organization member can read it.
+- Saving it does not require a Convex connection.
 - A create form selects it only when Convex still reports it as available.
 - If no value is stored, the effective default is US East.
 - If the effective default is unavailable, the form starts without a selection.
@@ -91,9 +92,7 @@ The effective default is an organization-shared form preference. It is not a dat
 - A one-project selection never writes the saved default.
 - A changed default affects only forms opened for later creates.
 - A changed default does not change a plan, project, deployment, or Convex team default.
-- A same-team credential reconnect or slug refresh preserves it.
-- If Samebase adds a Convex team-replacement flow, that flow must clear it.
-- Disconnect preserves it because disconnect preserves the organization team binding.
+- Convex connection, disconnection, reauthorization, team replacement, and slug refresh preserve it.
 
 Existing organizations can keep the field unset. Do not backfill US. The shared business rule
 resolves an unset value to US East. The public team-token API does not give Samebase a reliable read
@@ -205,7 +204,7 @@ The one-project MCP choice never changes the organization saved default.
 | Area                     | Required change                                                                                                  |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | Shared region model      | Add the two provider IDs, display formatting, parsing, and one shared validator.                                 |
-| Organization model       | Add optional `convexTeam.defaultDeploymentRegion` and resolve an unset value to US East.                         |
+| Organization model       | Add optional `defaultConvexDeploymentRegion` and resolve an unset value to US East.                              |
 | Region read              | Return live team options plus the effective default to web and MCP callers.                                      |
 | Organization Settings    | Let owners save US East or EU West. Show the effective value as read-only text to members.                       |
 | New App                  | Require an available region, initialize from the saved default, and show the EU disclosure.                      |

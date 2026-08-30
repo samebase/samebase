@@ -17,25 +17,7 @@ import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
 const useOrganizationGitHubIdentitiesMock = vi.hoisted(() => vi.fn());
 const regionTestState = vi.hoisted(() => {
   let defaultRegion: "aws-us-east-1" | "aws-eu-west-1" = "aws-us-east-1";
-  let connectionState: "connected" | "disconnected" = "connected";
   return {
-    get convexConnection() {
-      return connectionState === "connected"
-        ? {
-            state: "connected" as const,
-            teamId: "convex-team",
-            teamSlug: "samebase",
-            authMethod: "oauth" as const,
-          }
-        : {
-            state: "disconnected" as const,
-            teamId: "convex-team",
-            teamSlug: "samebase",
-          };
-    },
-    set connectionState(value: "connected" | "disconnected") {
-      connectionState = value;
-    },
     get defaultRegion() {
       return defaultRegion;
     },
@@ -54,30 +36,6 @@ vi.mock("@/hooks/useOrganizationGitHubIdentity", async (importOriginal) => {
   };
 });
 
-vi.mock("@/components/useConvexDeploymentRegions", () => ({
-  useConvexDeploymentRegions: () => ({
-    data: {
-      defaultRegion: regionTestState.defaultRegion,
-      regions: [
-        {
-          available: true,
-          displayName: "US East (N. Virginia)",
-          name: "aws-us-east-1" as const,
-        },
-        {
-          available: true,
-          displayName: "EU West (Ireland)",
-          name: "aws-eu-west-1" as const,
-        },
-      ],
-    },
-    error: null,
-    isFetching: false,
-    isPending: false,
-    refetch: vi.fn(async () => undefined),
-  }),
-}));
-
 function fakeOrganizationId(value: string): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this test only needs
   // a stable value for component arguments.
@@ -88,7 +46,8 @@ vi.mock("convex/react", async (importOriginal) => {
   const actual = await importOriginal<typeof import("convex/react")>();
   return {
     ...actual,
-    useAction: (reference: Parameters<typeof actual.useAction>[0]) =>
+    useAction: () => vi.fn(async () => undefined),
+    useMutation: (reference: Parameters<typeof actual.useMutation>[0]) =>
       getFunctionName(reference) === getFunctionName(api.convexDeploymentRegions.setDefault)
         ? regionTestState.setDefault
         : vi.fn(async () => undefined),
@@ -96,9 +55,6 @@ vi.mock("convex/react", async (importOriginal) => {
       const functionName = getFunctionName(reference);
       if (functionName === getFunctionName(api.convexDeploymentRegions.getDefault)) {
         return regionTestState.defaultRegion;
-      }
-      if (functionName === getFunctionName(api.users.getConvexConnectionStatus)) {
-        return regionTestState.convexConnection;
       }
       if (functionName === getFunctionName(api.billing.getViewerBillingStatus)) {
         return {
@@ -168,7 +124,6 @@ describe("OrganizationSettingsPage", () => {
   let mountedQueryClient: QueryClient | null;
 
   beforeEach(() => {
-    regionTestState.connectionState = "connected";
     regionTestState.defaultRegion = CONVEX_US_EAST_REGION;
     regionTestState.setDefault.mockReset();
     regionTestState.setDefault.mockResolvedValue(undefined);
@@ -272,14 +227,13 @@ describe("OrganizationSettingsPage", () => {
     );
   });
 
-  it("shows a disconnected owner the default and one connection action", async () => {
-    regionTestState.connectionState = "disconnected";
+  it("lets an owner edit the default without a Convex connection", async () => {
     regionTestState.defaultRegion = CONVEX_EU_WEST_REGION;
     const container = await mountOrganizationSettings(organization);
 
     expect(container.textContent).toContain("🇪🇺 EU West (Ireland)");
-    expect(container.textContent).toContain("Connect Convex to change it.");
-    expect(container.textContent).not.toContain("Clear default");
+    expect(container.querySelector('[role="combobox"]')).not.toBeNull();
+    expect(container.textContent).not.toContain("Connect Convex");
     expect(regionTestState.setDefault).not.toHaveBeenCalled();
   });
 

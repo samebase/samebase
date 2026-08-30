@@ -208,6 +208,11 @@ test("keeps one organization switchable across settings, providers, and billing"
   ).toBeVisible();
   await expect(organizationSettings.getByText("org-context-solo", { exact: true })).toBeVisible();
   await expect(organizationSettings.getByText("Owner", { exact: true })).toBeVisible();
+  await expect(
+    organizationSettings.getByRole("combobox", { name: "Default production region" }),
+  ).toBeVisible();
+  await expect(organizationSettings.getByText("Connect Convex", { exact: true })).toHaveCount(0);
+  await expect(organizationSettings.getByTestId("organization-billing-section")).toBeVisible();
   await expect(page).toHaveScreenshot("organization-context-one-organization-settings.png", {
     ...screenshotOptions,
     fullPage: true,
