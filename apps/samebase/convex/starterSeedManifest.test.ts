@@ -2,13 +2,13 @@ import { describe, expect, it } from "vite-plus/test";
 import { starterTemplateManifest } from "./starterSeedManifest.generated";
 
 describe("starterSeedManifest", () => {
-  it("identifies the v1997 template snapshot", () => {
+  it("identifies the v1999 template snapshot", () => {
     expect({
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "3566eb1c1fa73f204f39f11676a0f3c5e7874beffa5f4876dabdd484d39954eb",
-      commitMessage: "Initialize app from Samebase starter build v1997",
+      contentHash: "c913ce37109212957dc14e4fe2b0edbb7eecbd7ee6ddfaa80673baef78dea3bf",
+      commitMessage: "Initialize app from Samebase starter build v1999",
     });
     expect(starterTemplateManifest.version).toBe(
       `samebase-base-${starterTemplateManifest.contentHash.slice(0, 12)}`,
@@ -73,6 +73,7 @@ describe("starterSeedManifest", () => {
           format: "vp fmt",
           "format:check": "vp fmt --check",
           lint: "vp lint --report-unused-disable-directives",
+          prepare: "vp config --no-agent",
           test: "vp test",
           typecheck: "tsc && vp run typecheck:node && tsc --project convex/tsconfig.json",
           "typecheck:node": "tsc --project tsconfig.node.json",
