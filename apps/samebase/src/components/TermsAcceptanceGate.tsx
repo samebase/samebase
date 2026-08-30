@@ -37,7 +37,7 @@ export function TermsAcceptanceView({
           <div className="flex items-start gap-3">
             <Checkbox
               checked={termsAccepted}
-              className="focus-visible:ring-inset"
+              className="mt-1 focus-visible:ring-inset"
               disabled={accepting}
               id="terms-acceptance-required"
               onCheckedChange={(checked) => onTermsAcceptedChange(checked === true)}
@@ -71,7 +71,7 @@ export function TermsAcceptanceView({
             <Checkbox
               aria-describedby="product-update-emails-description"
               checked={productUpdateEmails}
-              className="focus-visible:ring-inset"
+              className="mt-1 focus-visible:ring-inset"
               disabled={accepting}
               id="product-update-emails"
               onCheckedChange={(checked) => onProductUpdateEmailsChange(checked === true)}
