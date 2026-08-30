@@ -36,6 +36,10 @@ const CURRENT_PRODUCT_UPDATE_EMAIL_CONSENT_VERSION = "2026-08-30";
 const CURRENT_SESSION_RECORDING_CONSENT_VERSION = "2026-08-20";
 
 const vProductUpdateEmailConsentDecision = union(literal("granted"), literal("denied"));
+const vProductUpdateEmailConsentSource = union(
+  literal("account_settings"),
+  literal("right_sidebar"),
+);
 const vProductUpdateEmailConsentStatus = union(
   object({ state: literal("not_decided") }),
   object({ state: literal("granted") }),
@@ -478,6 +482,7 @@ export const setProductUpdateEmailConsent = mutation({
   access: "access_user_preferences",
   args: {
     decision: vProductUpdateEmailConsentDecision,
+    source: vProductUpdateEmailConsentSource,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -497,7 +502,7 @@ export const setProductUpdateEmailConsent = mutation({
         email,
         policyVersion: CURRENT_PRODUCT_UPDATE_EMAIL_CONSENT_VERSION,
         decidedAt: Date.now(),
-        source: "account_settings",
+        source: args.source,
       },
     });
     return null;

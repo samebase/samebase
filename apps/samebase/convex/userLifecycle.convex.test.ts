@@ -378,7 +378,10 @@ describe("user lifecycle authorization", () => {
       source: "terms_acceptance",
     });
 
-    await viewer.mutation(api.users.setProductUpdateEmailConsent, { decision: "denied" });
+    await viewer.mutation(api.users.setProductUpdateEmailConsent, {
+      decision: "denied",
+      source: "account_settings",
+    });
     await expect(viewer.query(api.users.getProductUpdateEmailConsent, {})).resolves.toEqual({
       state: "denied",
     });
@@ -390,6 +393,20 @@ describe("user lifecycle authorization", () => {
     ).resolves.toMatchObject({
       decision: "denied",
       source: "account_settings",
+    });
+
+    await viewer.mutation(api.users.setProductUpdateEmailConsent, {
+      decision: "granted",
+      source: "right_sidebar",
+    });
+    await expect(
+      t.run(async (ctx) => {
+        const user = await ctx.db.get(userId);
+        return user?.state === "deleted" ? undefined : user?.productUpdateEmailConsent;
+      }),
+    ).resolves.toMatchObject({
+      decision: "granted",
+      source: "right_sidebar",
     });
   });
 

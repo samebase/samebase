@@ -256,7 +256,7 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
     setIsSavingProductUpdateEmailConsent(true);
     setProductUpdateEmailConsentError(null);
     try {
-      await setProductUpdateEmailConsent({ decision });
+      await setProductUpdateEmailConsent({ decision, source: "account_settings" });
     } catch {
       setProductUpdateEmailConsentError("Could not save this email choice.");
     } finally {

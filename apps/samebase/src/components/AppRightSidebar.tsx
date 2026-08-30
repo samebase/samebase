@@ -136,16 +136,80 @@ function AppRightSidebarSessionRecordingConsent() {
   );
 }
 
+function AppRightSidebarProductUpdateEmailConsent() {
+  const setProductUpdateEmailConsent = useMutation(api.users.setProductUpdateEmailConsent);
+  const [pendingDecision, setPendingDecision] = useState<"granted" | "denied" | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const saveDecision = async (decision: "granted" | "denied") => {
+    if (pendingDecision !== null) {
+      return;
+    }
+
+    setPendingDecision(decision);
+    setError(null);
+    try {
+      await setProductUpdateEmailConsent({ decision, source: "right_sidebar" });
+    } catch {
+      setError("Could not save this choice.");
+    } finally {
+      setPendingDecision(null);
+    }
+  };
+
+  return (
+    <section
+      aria-labelledby="product-update-email-consent-heading"
+      className="vault-dashboard-sidebar-inset pb-3 pt-6"
+    >
+      <h2 id="product-update-email-consent-heading" className="text-base font-semibold">
+        Product updates
+      </h2>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        Hear about new Samebase features by email.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <Button
+          disabled={pendingDecision !== null}
+          onClick={() => void saveDecision("granted")}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          {pendingDecision === "granted" ? "Saving..." : "Email me"}
+        </Button>
+        <Button
+          disabled={pendingDecision !== null}
+          onClick={() => void saveDecision("denied")}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          {pendingDecision === "denied" ? "Saving..." : "No thanks"}
+        </Button>
+      </div>
+      {error === null ? null : (
+        <p className="mt-2 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      )}
+    </section>
+  );
+}
+
 function AppRightSidebarFooter({
+  consentPrompt,
   showOnboardingVideo,
-  showSessionRecordingConsent,
 }: {
+  consentPrompt: "product_update_email" | "session_recording" | null;
   showOnboardingVideo: boolean;
-  showSessionRecordingConsent: boolean;
 }) {
   return (
     <div className="mt-auto">
-      {showSessionRecordingConsent ? <AppRightSidebarSessionRecordingConsent /> : null}
+      {consentPrompt === "product_update_email" ? (
+        <AppRightSidebarProductUpdateEmailConsent />
+      ) : null}
+      {consentPrompt === "session_recording" ? <AppRightSidebarSessionRecordingConsent /> : null}
       {showOnboardingVideo ? <AppRightSidebarOnboardingVideo /> : null}
       <AppSidebarMetaSection linkAlignment="left" />
     </div>
@@ -156,7 +220,7 @@ function PublicAppRightSidebarContent({ accountPending }: { accountPending: bool
   return (
     <VaultDashboardSidebarContent>
       {accountPending ? <AppRightSidebarAccountLoadingSection /> : <PublicLandingAccountSection />}
-      <AppRightSidebarFooter showOnboardingVideo={false} showSessionRecordingConsent={false} />
+      <AppRightSidebarFooter consentPrompt={null} showOnboardingVideo={false} />
     </VaultDashboardSidebarContent>
   );
 }
@@ -191,7 +255,7 @@ function TemporaryAuthenticatedAppRightSidebarContent({
     <VaultDashboardSidebarContent>
       <AppRightSidebarSignedInAccountSection profile={profile} />
       <GlobalAppRightSidebarLinks />
-      <AppRightSidebarFooter showOnboardingVideo={false} showSessionRecordingConsent={false} />
+      <AppRightSidebarFooter consentPrompt={null} showOnboardingVideo={false} />
     </VaultDashboardSidebarContent>
   );
 }
@@ -236,7 +300,7 @@ function AccountOnlyAuthenticatedAppRightSidebarContent({
           </p>
         </section>
       ) : null}
-      <AppRightSidebarFooter showOnboardingVideo showSessionRecordingConsent={false} />
+      <AppRightSidebarFooter consentPrompt={null} showOnboardingVideo />
     </VaultDashboardSidebarContent>
   );
 }
@@ -332,6 +396,7 @@ function AuthenticatedAppRightSidebarContent({
 }) {
   const user = useConvexQuery(api.users.viewer);
   const vaults = useConvexQuery(api.vault.dashboard.getUserVaults);
+  const productUpdateEmailConsent = useConvexQuery(api.users.getProductUpdateEmailConsent);
   const sessionRecordingConsent = useConvexQuery(api.users.getSessionRecordingConsent);
   const { organizations, surface } = useOrganizationContext();
   const routedOrganization =
@@ -342,6 +407,12 @@ function AuthenticatedAppRightSidebarContent({
   const showOnboardingVideo =
     vaults !== undefined &&
     !vaults.some((vault) => vault.hasConvexProvision && vault.hasCloudflareProvision);
+  const consentPrompt =
+    productUpdateEmailConsent?.state === "not_decided"
+      ? "product_update_email"
+      : productUpdateEmailConsent !== undefined && sessionRecordingConsent?.state === "not_decided"
+        ? "session_recording"
+        : null;
 
   return (
     <VaultDashboardSidebarContent>
@@ -353,8 +424,8 @@ function AuthenticatedAppRightSidebarContent({
         <OrganizationAppRightSidebarLinks organization={routedOrganization} />
       )}
       <AppRightSidebarFooter
+        consentPrompt={consentPrompt}
         showOnboardingVideo={showOnboardingVideo}
-        showSessionRecordingConsent={sessionRecordingConsent?.state === "not_decided"}
       />
     </VaultDashboardSidebarContent>
   );

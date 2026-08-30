@@ -201,6 +201,26 @@ test("signed-in app right sidebar keeps the account row inside a narrow desktop 
   );
 });
 
+test("signed-in app right sidebar shows the product-update email choice", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await seedAppWorkspaceSidebarState(page, APP_RIGHT_SIDEBAR_VISUAL_SIDEBAR_STATE);
+  await openSignedInApp(page);
+
+  const rightPane = getRightPane(page);
+  const consentSection = rightPane.getByRole("heading", { name: "Product updates" }).locator("..");
+  await expect(
+    consentSection.getByText("Hear about new Samebase features by email."),
+  ).toBeVisible();
+  await expect(consentSection.getByRole("button", { name: "Email me" })).toBeVisible();
+  await expect(consentSection.getByRole("button", { name: "No thanks" })).toBeVisible();
+  await expect(rightPane.getByRole("heading", { name: "Help improve Samebase" })).toHaveCount(0);
+  await expectNoHorizontalOverflow(consentSection);
+  await expect(consentSection).toHaveScreenshot(
+    "app-right-sidebar-product-update-email-consent.png",
+    appRightSidebarScreenshotOptions,
+  );
+});
+
 test("signed-in app right sidebar keeps the account row inside the minimum mobile right pane", async ({
   browser,
 }, testInfo) => {

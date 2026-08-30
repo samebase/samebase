@@ -621,6 +621,7 @@ describe("AppRightSidebarContent", () => {
         ],
         [getFunctionName(api.users.getConvexConnectionStatus), { connected: false }],
         [getFunctionName(api.users.getCloudflareConnectionStatus), { connected: false }],
+        [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "not_decided" }],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
         [
           getFunctionName(api.vault.dashboard.getUserVaults),
@@ -654,14 +655,12 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup).not.toContain("/admin/users");
     expect(hydratedMarkup).not.toContain("/admin/account-deletions");
     expect(hydratedMarkup).not.toContain("youtube-nocookie.com");
-    expect(hydratedMarkup).toContain("Help improve Samebase");
-    expect(hydratedMarkup).toContain(
-      "Share recordings of how you use Samebase. Inputs and code stay hidden.",
-    );
-    expect(hydratedMarkup).toContain("What gets recorded");
-    expect(hydratedMarkup).toContain(">Allow</button>");
+    expect(hydratedMarkup).toContain("Product updates");
+    expect(hydratedMarkup).toContain("Hear about new Samebase features by email.");
+    expect(hydratedMarkup).toContain("Email me");
     expect(hydratedMarkup).toContain("No thanks");
-    expect(hydratedMarkup).toContain('href="/privacy"');
+    expect(hydratedMarkup).not.toContain("Help improve Samebase");
+    expect(hydratedMarkup).not.toContain("What gets recorded");
     expect(hydratedMarkup).toContain("First time using Samebase?");
     expect(hydratedMarkup).toContain("Watch the complete onboarding on ");
     expect(hydratedMarkup).toContain('class="text-red-600">YouTube</span>');
@@ -677,7 +676,7 @@ describe("AppRightSidebarContent", () => {
     expect(hydratedMarkup.indexOf("Watch the complete onboarding on ")).toBeLessThan(
       hydratedMarkup.indexOf('href="/terms"'),
     );
-    expect(hydratedMarkup.indexOf("Help improve Samebase")).toBeLessThan(
+    expect(hydratedMarkup.indexOf("Product updates")).toBeLessThan(
       hydratedMarkup.indexOf("First time using Samebase?"),
     );
     expectProviderStatusQueriesNotSeen();
@@ -698,6 +697,7 @@ describe("AppRightSidebarContent", () => {
             accessKeys: ["access_public", "access_provider_connections"],
           },
         ],
+        [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "granted" }],
         [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
         [getFunctionName(api.vault.dashboard.getUserVaults), []],
         [
@@ -724,6 +724,59 @@ describe("AppRightSidebarContent", () => {
       });
 
       expect(setSessionRecordingConsent).toHaveBeenCalledWith({ decision: "denied" });
+    } finally {
+      await act(async () => root.unmount());
+      rootElement.remove();
+    }
+  });
+
+  it("saves a denied product-update email choice from the sidebar", async () => {
+    const setProductUpdateEmailConsent = vi.fn(async () => null);
+    mutationState.set(
+      getFunctionName(api.users.setProductUpdateEmailConsent),
+      setProductUpdateEmailConsent,
+    );
+    prepareRightSidebarNamed(
+      new Map([
+        [
+          getFunctionName(api.users.currentViewerAccess),
+          {
+            role: "role_member",
+            accessKeys: ["access_public", "access_provider_connections"],
+          },
+        ],
+        [getFunctionName(api.users.getProductUpdateEmailConsent), { state: "not_decided" }],
+        [getFunctionName(api.users.getSessionRecordingConsent), { state: "not_decided" }],
+        [getFunctionName(api.vault.dashboard.getUserVaults), []],
+        [
+          getFunctionName(api.users.viewer),
+          {
+            _id: "user_123",
+            accountPresentation: { kind: "email", label: "nicu@samebase.md" },
+          },
+        ],
+      ]),
+    );
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => root.render(createRightSidebarElement()));
+      expect(rootElement.textContent).toContain("Product updates");
+      expect(rootElement.textContent).not.toContain("Help improve Samebase");
+      const denyButton = Array.from(rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "No thanks",
+      );
+      await act(async () => {
+        denyButton?.click();
+        await Promise.resolve();
+      });
+
+      expect(setProductUpdateEmailConsent).toHaveBeenCalledWith({
+        decision: "denied",
+        source: "right_sidebar",
+      });
     } finally {
       await act(async () => root.unmount());
       rootElement.remove();
