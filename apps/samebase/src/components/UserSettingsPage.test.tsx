@@ -347,8 +347,11 @@ describe("UserSettingsPage", () => {
     const checkbox = container.querySelector<HTMLButtonElement>("#settings-session-recording");
 
     expect(container.textContent).toContain("Privacy");
-    expect(container.textContent).toContain("Inputs and code editors are masked.");
-    expect(container.querySelector('a[href="/privacy"]')?.textContent).toBe("Privacy details");
+    expect(container.textContent).toContain("Help improve Samebase");
+    expect(container.textContent).toContain(
+      "Share recordings of how you use Samebase. Inputs and code stay hidden.",
+    );
+    expect(container.querySelector('a[href="/privacy"]')?.textContent).toBe("What gets recorded");
 
     await act(async () => {
       checkbox?.click();
@@ -372,9 +375,7 @@ describe("UserSettingsPage", () => {
 
     expect(container.textContent).toContain("Email");
     expect(container.textContent).toContain("Product updates");
-    expect(container.textContent).toContain(
-      "Account, security, billing, and service emails are not affected.",
-    );
+    expect(container.textContent).not.toContain("Receive occasional Samebase product updates");
 
     await act(async () => {
       checkbox?.click();

@@ -477,16 +477,15 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
             }
           />
           <div>
-            <Label htmlFor="settings-session-recording">Session replay</Label>
+            <Label htmlFor="settings-session-recording">Help improve Samebase</Label>
             <p
               className="mt-1 text-sm leading-6 text-muted-foreground"
               id="settings-session-recording-description"
             >
-              Allow session replay to help us find bugs and improve onboarding. Inputs and code
-              editors are masked.
+              Share recordings of how you use Samebase. Inputs and code stay hidden.
             </p>
             <Link className="mt-2 inline-block text-sm underline" to="/privacy">
-              Privacy details
+              What gets recorded
             </Link>
           </div>
         </div>
@@ -503,7 +502,6 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
         </h2>
         <div className="mt-4 flex max-w-lg items-start gap-3">
           <Checkbox
-            aria-describedby="settings-product-update-emails-description"
             checked={productUpdateEmailConsent?.state === "granted"}
             disabled={productUpdateEmailConsent === undefined || isSavingProductUpdateEmailConsent}
             id="settings-product-update-emails"
@@ -511,16 +509,7 @@ export function UserSettingsPage({ authorizationNotice }: { authorizationNotice:
               void saveProductUpdateEmailConsent(checked === true ? "granted" : "denied")
             }
           />
-          <div>
-            <Label htmlFor="settings-product-update-emails">Product updates</Label>
-            <p
-              className="mt-1 text-sm leading-6 text-muted-foreground"
-              id="settings-product-update-emails-description"
-            >
-              Receive occasional Samebase product updates and announcements. Account, security,
-              billing, and service emails are not affected.
-            </p>
-          </div>
+          <Label htmlFor="settings-product-update-emails">Product updates</Label>
         </div>
         {productUpdateEmailConsentError === null ? null : (
           <p className="mt-2 text-sm text-destructive" role="alert">

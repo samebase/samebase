@@ -102,8 +102,7 @@ function AppRightSidebarSessionRecordingConsent() {
         Help improve Samebase
       </h2>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        Allow session replay to help us find bugs and improve onboarding. Inputs and code editors
-        are masked.
+        Share recordings of how you use Samebase. Inputs and code stay hidden.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         <Button
@@ -126,7 +125,7 @@ function AppRightSidebarSessionRecordingConsent() {
         </Button>
       </div>
       <Link className="mt-3 inline-block text-sm underline" to="/privacy">
-        Privacy details
+        What gets recorded
       </Link>
       {error === null ? null : (
         <p className="mt-2 text-sm text-destructive" role="alert">

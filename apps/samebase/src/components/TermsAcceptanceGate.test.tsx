@@ -37,9 +37,15 @@ describe("TermsAcceptanceGate", () => {
         <div>Route child</div>
       </TermsAcceptanceGate>,
     );
+    const content = document.createElement("div");
+    content.innerHTML = markup;
 
     expect(markup).toContain("Terms of Service");
-    expect(markup).toContain("Send me occasional Samebase product updates and announcements.");
+    expect(content.textContent).toContain(
+      "I agree to the Terms of Service and have read the Privacy Policy.",
+    );
+    expect(markup).toContain("Email me about Samebase updates.");
+    expect(markup).toContain("Unsubscribe any time in Account settings.");
     expect(markup).toContain("Continue");
     expect(markup).toContain('href="/terms"');
     expect(markup).toContain('href="/privacy"');
@@ -55,7 +61,7 @@ describe("TermsAcceptanceGate", () => {
     );
 
     expect(markup).toContain("Route child");
-    expect(markup).not.toContain("Send me occasional Samebase product updates");
+    expect(markup).not.toContain("Email me about Samebase updates.");
   });
 
   it("renders the route before account approval", () => {
@@ -66,7 +72,7 @@ describe("TermsAcceptanceGate", () => {
     );
 
     expect(markup).toContain("Route child");
-    expect(markup).not.toContain("Send me occasional Samebase product updates");
+    expect(markup).not.toContain("Email me about Samebase updates.");
   });
 
   it("records acceptance from the primary action", async () => {

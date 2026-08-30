@@ -54,7 +54,7 @@ export function TermsAcceptanceView({
               >
                 Terms of Service
               </Link>
-              {" and acknowledge the "}
+              {" and have read the "}
               <Link
                 className="underline underline-offset-4"
                 rel="noreferrer"
@@ -76,13 +76,13 @@ export function TermsAcceptanceView({
             />
             <div>
               <Label className="text-sm font-normal leading-6" htmlFor="product-update-emails">
-                Send me occasional Samebase product updates and announcements.
+                Email me about Samebase updates.
               </Label>
               <p
                 className="mt-1 text-sm leading-6 text-muted-foreground"
                 id="product-update-emails-description"
               >
-                Optional. You can unsubscribe at any time in Account settings.
+                Unsubscribe any time in Account settings.
               </p>
             </div>
           </div>
