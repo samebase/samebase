@@ -4,7 +4,10 @@ import { useState } from "react";
 
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import type { ConvexDeploymentRegion } from "../../shared/convexDeploymentRegions";
+import {
+  resolveDefaultConvexDeploymentRegion,
+  type ConvexDeploymentRegion,
+} from "../../shared/convexDeploymentRegions";
 
 export function useConvexDeploymentRegions({
   enabled,
@@ -43,17 +46,17 @@ export function useConvexDeploymentRegionSelection({
     region: ConvexDeploymentRegion | null;
   } | null>(null);
   const requestedRegion = request?.selectionKey === selectionKey ? request.region : null;
-  const candidateRegion = requestedRegion ?? defaultRegion;
-  const selectedRegion =
-    candidateRegion &&
-    regions?.some((region) => region.name === candidateRegion && region.available)
-      ? candidateRegion
-      : null;
+  const candidateRegion = requestedRegion ?? resolveDefaultConvexDeploymentRegion(defaultRegion);
+  const selectedRegion = regions?.some(
+    (region) => region.name === candidateRegion && region.available,
+  )
+    ? candidateRegion
+    : null;
 
   return {
     canWrite: Boolean(selectedRegion && !isFetching && !error),
     selectedRegion,
-    selectionUnavailable: Boolean(candidateRegion && regions !== null && !selectedRegion),
+    selectionUnavailable: regions !== null && selectedRegion === null,
     setRequestedRegion: (region: ConvexDeploymentRegion | null) => {
       setRequest({ selectionKey, region });
     },

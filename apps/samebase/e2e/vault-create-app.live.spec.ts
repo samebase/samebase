@@ -353,7 +353,7 @@ async function createConvexProjectFromSettings(
   await expect(dialog).toBeVisible({ timeout: 30_000 });
   await dialog.getByRole("button", { name: "Create" }).click();
   await dialog.getByRole("combobox", { name: "Convex production region" }).click();
-  await page.getByRole("option", { exact: true, name: "US East (N. Virginia)" }).click();
+  await page.getByRole("option", { exact: true, name: "🇺🇸 US East (N. Virginia)" }).click();
   await dialog.getByPlaceholder("Project name").fill(projectName);
   await expect(dialog.getByPlaceholder("Project name")).toHaveValue(projectName, {
     timeout: 30_000,
@@ -993,7 +993,7 @@ test.describe("vault create app live flow", () => {
     });
     await expect(convexRegion).toBeVisible({ timeout: 30_000 });
     await convexRegion.click();
-    await newAppPage.getByRole("option", { exact: true, name: "US East (N. Virginia)" }).click();
+    await newAppPage.getByRole("option", { exact: true, name: "🇺🇸 US East (N. Virginia)" }).click();
     const repositoryNameInput = newAppPage.getByPlaceholder("GitHub repo name");
     const createButton = newAppPage.getByRole("button", { exact: true, name: "New App" });
     await expect

@@ -428,12 +428,13 @@ For Samebase-managed repository creation:
 9. let the dashboard derive its summaries and controls from source setup, the managed provider plan,
    attachments, live observations, and provider-write state
 
-The organization can save an optional Convex production region default. An available saved value
-only initializes the New App field. The submitted one-project choice never writes that default. The
-admission transaction stores the selected region in every Convex plan state before external writes.
-A retry uses the plan value and does not read the organization default again. The Convex block
-checks current availability before a new provider create call and sends the selected value to
-Convex. The later live production deployment observation supplies the actual displayed region.
+The organization can save a Convex production region default. If no value is stored, Samebase uses
+US East as the effective default. An available effective default only initializes the New App field.
+The submitted one-project choice never writes that default. The admission transaction stores the
+selected region in every Convex plan state before external writes. A retry uses the plan value and
+does not read the organization default again. The Convex block checks current availability before a
+new provider create call and sends the selected value to Convex. The later live production
+deployment observation supplies the actual displayed region.
 
 External provider validation happens after the vault exists so failures have a visible dashboard
 target. Local input validation can happen before insert when it does not require provider calls. The
@@ -646,9 +647,9 @@ Frontend:
 11. stale affected observations show `Checking` before they can show attention or repair
 12. conflicting provider controls and direct-dialog confirm actions stay disabled from subscription
     state while navigation remains available
-13. New App initializes the Convex production region from an available organization saved default,
-    permits a one-project override without writing the default, and discloses EU pricing and
-    included-usage treatment
+13. New App initializes the Convex production region from the available organization default, uses
+    US East when no value is stored, permits a one-project override without writing the default, and
+    discloses EU pricing and included-usage treatment
 
 ## Acceptance Criteria
 

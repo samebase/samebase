@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 import { vConvexDeploymentRegion } from "../../convexDeploymentRegionModel";
 
-const { array, boolean, id, object, string, union } = v;
+const { array, boolean, id, object, string } = v;
 
 export const vConvexDeploymentRegionOption = object({
   name: vConvexDeploymentRegion,
@@ -12,7 +12,7 @@ export const vConvexDeploymentRegionOption = object({
 });
 
 const vConvexDeploymentRegionsResult = object({
-  defaultRegion: union(vConvexDeploymentRegion, v.null()),
+  defaultRegion: vConvexDeploymentRegion,
   regions: array(vConvexDeploymentRegionOption),
 });
 
@@ -31,7 +31,7 @@ export const convexListDeploymentRegionsContract = {
     title: "List Convex deployment regions",
     name: "convex_listDeploymentRegions",
     description:
-      "List the production deployment regions currently available to an organization's connected Convex team and its saved default.",
+      "List the production deployment regions currently available to an organization's connected Convex team and the default for new projects.",
     safety: "read_only",
     annotations: {
       readOnlyHint: true,
@@ -43,8 +43,8 @@ export const convexListDeploymentRegionsContract = {
     },
   } as const satisfies AppFunctionMcpMetadata,
   doc: `Lists the production deployment regions currently available to the selected organization's
-connected Convex team. The result also returns the organization's saved default, or null when no
-default is saved. Availability is live Convex data. The saved default only starts a new project
-form. Selecting another region for one project does not change it. This action does not modify
-Samebase or Convex.`,
+connected Convex team. The result also returns the organization's default for new projects. It is
+US East when the organization has no saved value. Availability is live Convex data. Selecting
+another region for one project does not change the organization default. This action does not
+modify Samebase or Convex.`,
 } as const;

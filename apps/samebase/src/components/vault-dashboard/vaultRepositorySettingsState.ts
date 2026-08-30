@@ -5,7 +5,7 @@ import {
   getConvexCodeRootDirectory,
 } from "../../../shared/convexCodeLocation";
 import {
-  formatConvexDeploymentRegion,
+  formatConvexDeploymentRegionLabel,
   type ConvexDeploymentRegion,
 } from "../../../shared/convexDeploymentRegions";
 import type {
@@ -834,7 +834,7 @@ function buildConvexRow({
     return {
       ...base,
       state: "setting_up",
-      description: `Setting up in ${formatConvexDeploymentRegion(settingUp.deploymentRegion)}`,
+      description: `Setting up in ${formatConvexDeploymentRegionLabel(settingUp.deploymentRegion)}`,
       href: currentProvider ? buildConvexProjectSettingsUrl(currentProvider) : undefined,
       name: settingUp.name,
       owner: currentProvider?.teamSlug ?? settingUp.owner ?? base.owner,
@@ -918,7 +918,7 @@ function buildConvexRow({
           sourceDescription,
           observation.provider.productionDeployment.state === "missing"
             ? "No production deployment."
-            : `Production: ${formatConvexDeploymentRegion(observation.provider.productionDeployment.region)}`,
+            : `Production: ${formatConvexDeploymentRegionLabel(observation.provider.productionDeployment.region)}`,
         ),
         href: buildConvexProjectSettingsUrl(observation.provider),
         name: observation.provider.projectSlug,
@@ -985,7 +985,7 @@ function buildPlannedConvexRow({
   return {
     description:
       failedMessage ??
-      `Setting up in ${formatConvexDeploymentRegion(plan.convex.deploymentRegion)}`,
+      `Setting up in ${formatConvexDeploymentRegionLabel(plan.convex.deploymentRegion)}`,
     name: plan.convex.projectName,
     owner: plan.convex.teamId,
     provider: "convex",

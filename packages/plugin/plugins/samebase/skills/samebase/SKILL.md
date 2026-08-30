@@ -57,13 +57,13 @@ description:
   1. Read inventory.
   2. List the selected organization's current Convex production regions.
      - If the user requested an available region, use it.
-     - Otherwise, if the saved default is available, use it.
+     - Otherwise, if the organization default is available, use it. It is US East when no value is
+       saved.
      - Otherwise, ask the user to choose one available region by display name.
      - If the selected region is EU, state,
        `EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`
        Link to [Convex pricing](https://www.convex.dev/pricing).
-     - Pass the exact selected region ID. A one-app choice does not change the saved organization
-       default.
+     - Pass the exact selected region ID. A one-app choice does not change the organization default.
   3. List the selected organization's current Workers Builds tokens, then select exactly:
      - If the last-used token is current, use it.
      - Otherwise, if one token exists, use it.

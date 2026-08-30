@@ -5,11 +5,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   CONVEX_EU_WEST_REGION,
+  getConvexDeploymentRegionIcon,
   parseConvexDeploymentRegion,
   type ConvexDeploymentRegion,
 } from "../../shared/convexDeploymentRegions";
-
-const NO_SAVED_DEFAULT_VALUE = "no-saved-default";
 
 export type ConvexDeploymentRegionOption = {
   name: ConvexDeploymentRegion;
@@ -18,8 +17,6 @@ export type ConvexDeploymentRegionOption = {
 };
 
 export function ConvexDeploymentRegionField({
-  allowNoSavedDefault = false,
-  description,
   disabled,
   error,
   id,
@@ -31,23 +28,20 @@ export function ConvexDeploymentRegionField({
   selectionUnavailable,
   value,
 }: {
-  allowNoSavedDefault?: boolean;
-  description?: string;
   disabled: boolean;
   error: boolean;
   id: string;
   isLoading: boolean;
   label?: string;
   onReload: () => void;
-  onValueChange: (value: ConvexDeploymentRegion | null) => void;
+  onValueChange: (value: ConvexDeploymentRegion) => void;
   regions: readonly ConvexDeploymentRegionOption[];
   selectionUnavailable: boolean;
   value: ConvexDeploymentRegion | null;
 }) {
-  const descriptionId = description ? `${id}-description` : undefined;
   const unavailableId = selectionUnavailable ? `${id}-unavailable` : undefined;
   const euPriceId = value === CONVEX_EU_WEST_REGION ? `${id}-eu-price` : undefined;
-  const describedBy = [descriptionId, unavailableId, euPriceId].filter(Boolean).join(" ");
+  const describedBy = [unavailableId, euPriceId].filter(Boolean).join(" ");
 
   if (isLoading) {
     return (
@@ -75,7 +69,6 @@ export function ConvexDeploymentRegionField({
   }
 
   const selectedRegion = regions.find((region) => region.name === value);
-  const selectValue = value ?? (allowNoSavedDefault ? NO_SAVED_DEFAULT_VALUE : "");
 
   return (
     <div className="grid gap-1.5">
@@ -83,16 +76,12 @@ export function ConvexDeploymentRegionField({
       <Select
         disabled={disabled}
         onValueChange={(nextValue) => {
-          if (allowNoSavedDefault && nextValue === NO_SAVED_DEFAULT_VALUE) {
-            onValueChange(null);
-            return;
-          }
           const region = parseConvexDeploymentRegion(nextValue);
           if (region) {
             onValueChange(region);
           }
         }}
-        value={selectValue}
+        value={value ?? ""}
       >
         <SelectTrigger
           aria-describedby={describedBy || undefined}
@@ -101,29 +90,19 @@ export function ConvexDeploymentRegionField({
         >
           <SelectValue placeholder="Choose a region">
             {selectedRegion
-              ? selectedRegion.displayName
-              : allowNoSavedDefault && value === null
-                ? "No saved default"
-                : "Choose a region"}
+              ? `${getConvexDeploymentRegionIcon(selectedRegion.name)} ${selectedRegion.displayName}`
+              : "Choose a region"}
           </SelectValue>
         </SelectTrigger>
         <AppSelectContent>
-          {allowNoSavedDefault ? (
-            <AppSelectItem value={NO_SAVED_DEFAULT_VALUE}>No saved default</AppSelectItem>
-          ) : null}
           {regions.map((region) => (
             <AppSelectItem disabled={!region.available} key={region.name} value={region.name}>
-              {region.displayName}
+              {getConvexDeploymentRegionIcon(region.name)} {region.displayName}
               {!region.available ? " (Unavailable)" : ""}
             </AppSelectItem>
           ))}
         </AppSelectContent>
       </Select>
-      {description ? (
-        <div className="text-xs text-muted-foreground" id={descriptionId}>
-          {description}
-        </div>
-      ) : null}
       {selectionUnavailable ? (
         <div className="text-xs text-red-600" id={unavailableId} role="alert">
           The saved region is not available. Choose another region.

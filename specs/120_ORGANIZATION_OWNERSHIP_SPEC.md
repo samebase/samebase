@@ -174,22 +174,23 @@ organization-shared, non-secret default for the current Cloudflare account. A re
 clears it. An account-name refresh preserves it.
 
 `defaultDeploymentRegion` is an optional organization-shared form default for new Convex production
-deployments. An owner can save or clear it, and a member can read it. Samebase selects it only when
-the current Convex team reports it as available. If it is missing or unavailable, a create form
-starts without a region. A creator can select another available region for one project. That
+deployments. An owner can save US East or EU West, and a member can read the effective value. When
+the field is missing, Samebase uses US East as the effective default. Samebase selects the effective
+default only when the current Convex team reports it as available. If it is unavailable, a create
+form starts without a region. A creator can select another available region for one project. That
 one-project choice never writes the saved default. The default does not change an existing plan,
 project, deployment, or the Convex team's own default.
 
 A same-team credential reauthorization, disconnect, or slug refresh preserves the saved default. If
 Samebase adds a Convex team-replacement flow, that flow must clear the default. Existing
-organizations keep it unset. Samebase does not backfill US and does not add a personal region
-default.
+organizations can keep it unset. Samebase does not backfill US because the shared business rule
+resolves an unset value to US East. Samebase does not add a personal region default.
 
 The focused region-list action accepts `organizationId` from the web app and `githubOwnerLogin` from
 MCP. It returns the current provider options with `name`, `displayName`, and `available`, plus the
-saved default or `null`. Any member can read this result. The save action requires an owner and
-checks current availability before it writes a non-null default. Clearing the default does not need
-a provider read.
+effective default. The effective default is US East when no value is stored. Any member can read
+this result. The save action requires an owner and checks current availability before it writes US
+East or EU West.
 
 Every `organizationProviderCredentials` document has a required `organizationId`, one Convex
 credential slot, and one Cloudflare credential slot. At least one credential slot is present. One
@@ -504,8 +505,9 @@ The rollout is ready only when focused tests and real manual checks prove:
 - Convex and Cloudflare deployment destinations and credentials are organization-owned. Each
   organization has at most one destination and one current credential for each provider. The
   credential records the connecting user and never reaches a client.
-- An owner can save or clear the optional Convex production region form default. A member can read
-  it. A one-project choice never writes it.
+- An owner can save US East or EU West as the Convex production region form default. A member can
+  read the effective value. An unset database field resolves to US East. A one-project choice never
+  writes the default.
 - Both managed and manual Convex project creation require a currently available production region.
   Managed retry uses its durable plan value. Live provider observation supplies the actual displayed
   region after attachment.

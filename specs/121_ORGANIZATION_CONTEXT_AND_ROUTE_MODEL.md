@@ -130,15 +130,14 @@ User settings own profile data, sign-in methods, personal preferences, sign-out,
 and MCP grants. User settings contain no organization selector, personal repository authorization,
 or organization billing.
 
-Organization settings own the GitHub owner identity, Samebase role, the optional saved deployment
-default, billing, and member administration. Convex and Cloudflare connections use the organization
-providers route.
+Organization settings own the GitHub owner identity, Samebase role, the deployment default, billing,
+and member administration. Convex and Cloudflare connections use the organization providers route.
 
-The optional Convex production region default appears in Organization Settings. An owner can save or
-clear it. A member sees the saved value as read-only text. The value only initializes New App and
-manual Convex project-create forms when the current team still reports it as available. A
-one-project choice never changes it. This setting does not change an existing deployment or the
-Convex team's own default.
+The Convex production region default appears in Organization Settings. An owner can save US East or
+EU West. A member sees the effective value as read-only text. An unset database field resolves to US
+East. The value only initializes New App and manual Convex project-create forms when the current
+team still reports it as available. A one-project choice never changes it. This setting does not
+change an existing deployment or the Convex team's own default.
 
 The providers route shows `Personal repository creation` only when the selected organization has
 `githubOwnerType: "user"`. Its management and revoke control owns the same user-owned GitHub
@@ -260,7 +259,7 @@ Focused route, backend, and UI tests must prove:
 - reload, direct-link, Back, and Forward behavior
 - small-screen access to the shared organization context
 - scoped provider OAuth, checkout, and billing-portal returns
-- owner edit and member read-only behavior for the optional Convex production region default
+- owner edit and member read-only behavior for the Convex production region default
 - create forms that initialize from an available organization default without saving a one-project
   override
 - user-owned sign-in methods and MCP clients in user settings

@@ -3,6 +3,24 @@ export const CONVEX_EU_WEST_REGION = "aws-eu-west-1";
 
 export type ConvexDeploymentRegion = typeof CONVEX_US_EAST_REGION | typeof CONVEX_EU_WEST_REGION;
 
+export function resolveDefaultConvexDeploymentRegion(
+  savedDefault: ConvexDeploymentRegion | null | undefined,
+): ConvexDeploymentRegion {
+  return savedDefault ?? CONVEX_US_EAST_REGION;
+}
+
+export function getConvexDeploymentRegionIcon(region: ConvexDeploymentRegion): string {
+  switch (region) {
+    case CONVEX_US_EAST_REGION:
+      return "🇺🇸";
+    case CONVEX_EU_WEST_REGION:
+      return "🇪🇺";
+    default:
+      region satisfies never;
+      throw new Error("Unknown Convex deployment region.");
+  }
+}
+
 export function formatConvexDeploymentRegion(region: ConvexDeploymentRegion): string {
   switch (region) {
     case CONVEX_US_EAST_REGION:
@@ -13,6 +31,10 @@ export function formatConvexDeploymentRegion(region: ConvexDeploymentRegion): st
       region satisfies never;
       throw new Error("Unknown Convex deployment region.");
   }
+}
+
+export function formatConvexDeploymentRegionLabel(region: ConvexDeploymentRegion): string {
+  return `${getConvexDeploymentRegionIcon(region)} ${formatConvexDeploymentRegion(region)}`;
 }
 
 export function compareConvexDeploymentRegions(

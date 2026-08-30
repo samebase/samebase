@@ -421,7 +421,7 @@ describe("buildProductionEnvironmentRoots", () => {
                 label: "Schema",
               },
             ],
-            detail: "EU West (Ireland)",
+            detail: "🇪🇺 EU West (Ireland)",
             href: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
             label: "calm-swan-123",
             provider: "convex",
@@ -432,7 +432,7 @@ describe("buildProductionEnvironmentRoots", () => {
       },
     ]);
     expect(renderToStaticMarkup(<VaultEnvironmentTree roots={roots} />)).toContain(
-      "EU West (Ireland)",
+      "🇪🇺 EU West (Ireland)",
     );
   });
 
@@ -758,7 +758,7 @@ describe("vault environment roots", () => {
                 label: "Data",
               },
             ],
-            detail: "EU West (Ireland)",
+            detail: "🇪🇺 EU West (Ireland)",
             href: dashboardUrl,
             label: "calm-swan-123",
             provider: "convex",
@@ -2037,7 +2037,7 @@ describe("VaultConvexDialogContent", () => {
     expect(markup).toContain("Add Convex to ada/demo");
     expect(markup).toContain("Web");
     expect(markup).toContain("API");
-    expect(markup).toContain("Production: EU West (Ireland)");
+    expect(markup).toContain("Production: 🇪🇺 EU West (Ireland)");
     expect(markup).toContain("No production deployment");
     expect(markup).toContain("Used by web-worker");
     expect(markup).toContain("Add 2 projects");
@@ -2955,7 +2955,7 @@ describe("buildVaultRepositorySettingsState", () => {
     expect(state.roots).toHaveLength(1);
     expect(state.roots[0]?.resources).toMatchObject([
       {
-        description: "Setting up in EU West (Ireland)",
+        description: "Setting up in 🇪🇺 EU West (Ireland)",
         name: "demo-convex",
         owner: "team-1",
         provider: "convex",
@@ -3388,7 +3388,7 @@ describe("buildVaultRepositorySettingsState", () => {
     expect(detachCloudflareWorker).toHaveBeenCalledWith(readyWorkerId);
     const convexResource = getRepositorySettingsResource(state, "packages/api", "convex");
     expect(convexResource).toMatchObject({
-      description: expect.stringContaining("Production: EU West (Ireland)"),
+      description: expect.stringContaining("Production: 🇪🇺 EU West (Ireland)"),
       owner: "ada",
       state: "available",
       name: "api",

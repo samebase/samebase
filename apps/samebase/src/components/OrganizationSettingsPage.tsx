@@ -24,7 +24,8 @@ import {
 } from "@/components/ConvexDeploymentRegionField";
 import { useConvexDeploymentRegions } from "@/components/useConvexDeploymentRegions";
 import {
-  formatConvexDeploymentRegion,
+  formatConvexDeploymentRegionLabel,
+  resolveDefaultConvexDeploymentRegion,
   type ConvexDeploymentRegion,
 } from "../../shared/convexDeploymentRegions";
 
@@ -70,23 +71,12 @@ function OrganizationIdentityNotice({
   );
 }
 
-function ConvexDeploymentRegionValue({
-  value,
-}: {
-  value: ConvexDeploymentRegion | null | undefined;
-}) {
+function ConvexDeploymentRegionValue({ value }: { value: ConvexDeploymentRegion | undefined }) {
   return (
     <dl className="space-y-1">
-      <dt className="text-sm font-medium">Default production region for new Convex projects</dt>
+      <dt className="text-sm font-medium">Default production region</dt>
       <dd className="text-sm text-muted-foreground">
-        {value === undefined
-          ? "Loading..."
-          : value
-            ? formatConvexDeploymentRegion(value)
-            : "No saved default"}
-      </dd>
-      <dd className="text-xs text-muted-foreground">
-        Used as the starting region when you create a Convex project.
+        {value === undefined ? "Loading..." : formatConvexDeploymentRegionLabel(value)}
       </dd>
     </dl>
   );
@@ -103,43 +93,23 @@ function ConvexDeploymentRegionSaveError({ message }: { message: string | null }
 function DisconnectedConvexDeploymentRegionSetting({
   defaultRegion,
   githubOwnerLogin,
-  isSaving,
-  onClear,
-  saveError,
 }: {
-  defaultRegion: ConvexDeploymentRegion | null;
+  defaultRegion: ConvexDeploymentRegion;
   githubOwnerLogin: string;
-  isSaving: boolean;
-  onClear: () => void;
-  saveError: string | null;
 }) {
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-2">
       <ConvexDeploymentRegionValue value={defaultRegion} />
       <div className="text-xs text-muted-foreground">
-        Connect Convex in{" "}
         <Link
           className={linkStyle}
           params={{ owner: githubOwnerLogin }}
           to={ORGANIZATION_PROVIDERS_ROUTE}
         >
-          Providers
+          Connect Convex
         </Link>{" "}
-        to choose a default.
+        to change it.
       </div>
-      <ConvexDeploymentRegionSaveError message={saveError} />
-      {defaultRegion ? (
-        <Button
-          className="justify-self-start"
-          disabled={isSaving}
-          onClick={onClear}
-          size="sm"
-          type="button"
-          variant="outline"
-        >
-          {isSaving ? "Clearing..." : "Clear default"}
-        </Button>
-      ) : null}
     </div>
   );
 }
@@ -165,7 +135,7 @@ function ConnectedConvexDeploymentRegionSetting({
   isSaving: boolean;
   onReload: () => void;
   onSave: () => void;
-  onValueChange: (region: ConvexDeploymentRegion | null) => void;
+  onValueChange: (region: ConvexDeploymentRegion) => void;
   regions: readonly ConvexDeploymentRegionOption[];
   saveError: string | null;
   selectionUnavailable: boolean;
@@ -174,13 +144,11 @@ function ConnectedConvexDeploymentRegionSetting({
   return (
     <div className="grid gap-3">
       <ConvexDeploymentRegionField
-        allowNoSavedDefault
-        description="Used as the starting region when you create a Convex project."
         disabled={isSaving}
         error={error}
         id="organization-default-convex-production-region"
         isLoading={isLoading || isFetching}
-        label="Default production region for new Convex projects"
+        label="Default production region"
         onReload={onReload}
         onValueChange={onValueChange}
         regions={regions}
@@ -195,7 +163,7 @@ function ConnectedConvexDeploymentRegionSetting({
         size="sm"
         type="button"
       >
-        {isSaving ? "Saving..." : "Save default"}
+        {isSaving ? "Saving..." : "Save"}
       </Button>
     </div>
   );
@@ -219,24 +187,23 @@ function OrganizationConvexDeploymentRegionSetting({
   });
   const [draft, setDraft] = useState<{
     organizationId: Id<"organizations">;
-    region: ConvexDeploymentRegion | null;
+    region: ConvexDeploymentRegion;
   } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const draftRegion =
     draft?.organizationId === organization.organizationId ? draft.region : undefined;
   const selectedRegion =
-    draftRegion === undefined ? (defaultConvexDeploymentRegion ?? null) : draftRegion;
+    draftRegion ?? resolveDefaultConvexDeploymentRegion(defaultConvexDeploymentRegion);
   const changed = draftRegion !== undefined && draftRegion !== defaultConvexDeploymentRegion;
   const selectionUnavailable = Boolean(
-    selectedRegion &&
     convexDeploymentRegionsQuery.data &&
     !convexDeploymentRegionsQuery.data.regions.some(
       (region) => region.name === selectedRegion && region.available,
     ),
   );
 
-  const writeDefault = async (deploymentRegion: ConvexDeploymentRegion | null) => {
+  const writeDefault = async (deploymentRegion: ConvexDeploymentRegion) => {
     if (isSaving || organization.role !== "owner") {
       return;
     }
@@ -271,11 +238,6 @@ function OrganizationConvexDeploymentRegionSetting({
       <DisconnectedConvexDeploymentRegionSetting
         defaultRegion={defaultConvexDeploymentRegion}
         githubOwnerLogin={organization.githubOwnerLogin}
-        isSaving={isSaving}
-        onClear={() => {
-          void writeDefault(null);
-        }}
-        saveError={saveError}
       />
     );
   } else {
@@ -307,7 +269,7 @@ function OrganizationConvexDeploymentRegionSetting({
   return (
     <section className="mt-8 border-t pt-6" aria-labelledby="organization-deployment-heading">
       <h2 id="organization-deployment-heading" className="text-base font-semibold">
-        Deployment
+        Convex
       </h2>
       <div className="mt-4">{content}</div>
     </section>

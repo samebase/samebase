@@ -11,9 +11,10 @@ Scope: Convex production deployments that Samebase creates or observes
 Samebase must require a production region when it creates a Convex project. This rule applies to the
 managed New App path, including MCP, and to the manual Create Convex project path.
 
-An organization can have one optional saved default. The default only initializes a create form. The
-creator can select another region for one project, and that choice never changes the saved default.
-Samebase does not change the Convex team's own default.
+An organization can save one default. When no value is stored, Samebase uses US East as the
+effective default. The default only initializes a create form. The creator can select another region
+for one project, and that choice never changes the organization default. Samebase does not change
+the Convex team's own default.
 
 The managed create path stores the selected region in its existing durable provisioning plan before
 the provider write. The manual create path has no plan. Both paths check current availability and
@@ -79,12 +80,13 @@ Add this optional field:
 organizations.convexTeam.defaultDeploymentRegion?: ConvexDeploymentRegion
 ```
 
-The saved default is an organization-shared form preference. It is not a data-residency policy.
+The effective default is an organization-shared form preference. It is not a data-residency policy.
 
-- An organization owner can save or clear it.
+- An organization owner can save US East or EU West.
 - An organization member can read it.
 - A create form selects it only when Convex still reports it as available.
-- If no available default exists, the form starts without a selection.
+- If no value is stored, the effective default is US East.
+- If the effective default is unavailable, the form starts without a selection.
 - A creator can select another available region for one project.
 - A one-project selection never writes the saved default.
 - A changed default affects only forms opened for later creates.
@@ -93,8 +95,9 @@ The saved default is an organization-shared form preference. It is not a data-re
 - If Samebase adds a Convex team-replacement flow, that flow must clear it.
 - Disconnect preserves it because disconnect preserves the organization team binding.
 
-Existing organizations keep the field unset. Do not backfill US. The public team-token API does not
-give Samebase a reliable read for the Convex team's saved default.
+Existing organizations can keep the field unset. Do not backfill US. The shared business rule
+resolves an unset value to US East. The public team-token API does not give Samebase a reliable read
+for the Convex team's saved default.
 
 Do not add a user-by-organization preference. The location and price affect a shared organization
 resource, and the organization owns the saved form default.
@@ -109,14 +112,12 @@ Use these field values on New App and in the manual Convex create dialog:
   `EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`
 
 Link the EU disclosure to [Convex pricing](https://www.convex.dev/pricing). Use the display names
-from Convex. Do not use a flag, abbreviation, or color as the only region signal.
+from Convex. A US or EU flag can support the text, but it cannot replace the region name.
 
-Organization Settings uses the same region field and adds `No saved default`. Its description is:
-
-`Used as the starting region when you create a Convex project.`
-
-Members see the saved value as read-only text. Owners can save or clear it. An unavailable saved
-value stays visible in Organization Settings, but it is not selected in a create form.
+Organization Settings labels the control `Default production region`. It does not show an unset
+choice or explanatory helper text. Members see the effective default as read-only text. Owners can
+save US East or EU West. An unavailable saved value stays visible in Organization Settings, but it
+is not selected in a create form.
 
 Each selector has a visible label. The EU disclosure is part of the selector description and is
 announced when it appears. A load or save error uses alert semantics. The selector trigger renders
@@ -126,8 +127,8 @@ at 16 CSS pixels or more on touch devices.
 
 The New App web and MCP flows use this sequence:
 
-1. Read the current production regions and the optional organization saved default.
-2. Initialize the choice from the saved default only when that value is available.
+1. Read the current production regions and the effective organization default.
+2. Initialize the choice from the effective default only when that value is available.
 3. Require one exact available region from the creator or agent.
 4. Pass it as required `convexDeploymentRegion` input to `create_repository`.
 5. Save it in every Convex variant of `workflow_vaultProvisioning_plans` in the admission
@@ -148,8 +149,8 @@ The existing project read and attachment checkpoint behavior remain unchanged.
 
 The manual Create Convex project dialog uses this sequence:
 
-1. Read current production regions and the optional organization saved default.
-2. Initialize the choice from the saved default only when it is available.
+1. Read current production regions and the effective organization default.
+2. Initialize the choice from the effective default only when it is available.
 3. Require one exact available region.
 4. Recheck availability before the provider create call.
 5. Send `deploymentRegion` with `deploymentType: "prod"`.
@@ -182,16 +183,16 @@ the starter preview command, pull request provider contract, or preview UI for t
 ## MCP contract
 
 Add `convex_listDeploymentRegions` as a read tool. Its public input is the human `githubOwnerLogin`,
-not an opaque Samebase organization ID. It returns the current region options and the organization
-saved default.
+not an opaque Samebase organization ID. It returns the current region options and the effective
+organization default. The returned default is US East when no value is stored.
 
 Managed app creation uses this closed sequence:
 
 1. Read app inventory.
 2. List Convex production regions and Cloudflare Workers Builds tokens for the selected
    organization.
-3. Use an available region that the user requested. Otherwise, use an available saved region
-   default. If neither exists, ask the user to select one available display name.
+3. Use an available region that the user requested. Otherwise, use the available organization
+   default. If it is unavailable, ask the user to select one available display name.
 4. If the selected region is EU, disclose the Convex price and included-usage facts before create.
 5. Pass the exact provider ID as required `convexDeploymentRegion`.
 6. Use the current token-selection rules and call `create_repository` once.
@@ -204,9 +205,9 @@ The one-project MCP choice never changes the organization saved default.
 | Area                     | Required change                                                                                                  |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------- |
 | Shared region model      | Add the two provider IDs, display formatting, parsing, and one shared validator.                                 |
-| Organization model       | Add optional `convexTeam.defaultDeploymentRegion` and preserve or clear it by the team rules above.              |
-| Region read              | Return live team options plus the saved default to web and MCP callers.                                          |
-| Organization Settings    | Let owners save or clear the default. Show it as read-only text to members.                                      |
+| Organization model       | Add optional `convexTeam.defaultDeploymentRegion` and resolve an unset value to US East.                         |
+| Region read              | Return live team options plus the effective default to web and MCP callers.                                      |
+| Organization Settings    | Let owners save US East or EU West. Show the effective value as read-only text to members.                       |
 | New App                  | Require an available region, initialize from the saved default, and show the EU disclosure.                      |
 | Managed plan             | Save the selected region in all Convex plan states before any provider write.                                    |
 | Managed provider call    | Recheck availability and send `deploymentRegion` with `deploymentType: "prod"`.                                  |
@@ -244,7 +245,7 @@ Backend and contract checks cover:
 
 - exact IDs, display names, sorting, and unknown values
 - region-list authorization by organization and GitHub owner login
-- owner save and clear, member read, and member write denial
+- US fallback, owner save, member read, and member write denial
 - same-team preservation
 - create input and provider payload in both project-create paths
 - current availability checks at each provider-write boundary
@@ -255,9 +256,9 @@ Backend and contract checks cover:
 
 Frontend checks cover:
 
-- unset, available, and unavailable saved defaults
+- unset US fallback, available defaults, and unavailable defaults
 - explicit one-project overrides on both create forms
-- owner edit and clear, member read-only value, and load or save failures
+- owner edit, member read-only value, and load or save failures
 - actual production region and missing production deployment displays
 - selector accessible names, descriptions, alerts, and touch text size
 
@@ -299,7 +300,7 @@ Do not put a disabled or incomplete move control in this release.
 ## Acceptance criteria
 
 - Both Samebase Convex project-create paths require one currently available production region.
-- The organization saved default only initializes forms.
+- The effective organization default is the saved value or US East, and it only initializes forms.
 - A one-project selection never changes the organization saved default.
 - The managed plan stores the selected region before provider creation and retry reuses it.
 - Both provider create calls send the selected region.

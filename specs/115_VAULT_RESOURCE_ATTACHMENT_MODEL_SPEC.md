@@ -165,8 +165,8 @@ lost. The Worker stays under that stored root and shows `Needs attention` until 
 configuration. Creating a Convex project requires a discovered Convex code location; Samebase
 verifies the source and one currently available production region before provider creation. The
 create request sends that region to Convex. Samebase records the returned project checkpoint and
-attachment together. The optional organization saved default only initializes the create field. A
-one-project choice does not update it.
+attachment together. The effective organization default only initializes the create field. It is US
+East when no value is stored. A one-project choice does not update it.
 
 Configuring Builds for an attached Worker uses its stored approved root. A later verified provider
 root change does not replace that value. The user must first accept the provider coordinate through

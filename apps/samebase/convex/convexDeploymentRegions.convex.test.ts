@@ -89,8 +89,18 @@ beforeEach(() => {
 });
 
 describe("organization Convex deployment region defaults", () => {
-  it("lets an owner save and clear a default while a member can only read it", async () => {
+  it("uses US when no value is saved and lets only an owner change the default", async () => {
     const { asMember, asOwner, organizationId, t } = await createRegionDefaultFixture();
+
+    await expect(
+      asMember.query(api.convexDeploymentRegions.getDefault, { organizationId }),
+    ).resolves.toBe("aws-us-east-1");
+    await expect(
+      t.run(async (ctx) => (await ctx.db.get(organizationId))?.convexTeam),
+    ).resolves.toEqual({
+      teamId: "convex-team",
+      teamSlug: "convex-team",
+    });
 
     await expect(
       asOwner.action(api.convexDeploymentRegions.setDefault, {
@@ -120,15 +130,16 @@ describe("organization Convex deployment region defaults", () => {
     await expect(
       asOwner.action(api.convexDeploymentRegions.setDefault, {
         organizationId,
-        deploymentRegion: null,
+        deploymentRegion: "aws-us-east-1",
       }),
     ).resolves.toBeNull();
     await expect(
       asMember.query(api.convexDeploymentRegions.getDefault, { organizationId }),
-    ).resolves.toBeNull();
+    ).resolves.toBe("aws-us-east-1");
     await expect(
       t.run(async (ctx) => (await ctx.db.get(organizationId))?.convexTeam),
     ).resolves.toEqual({
+      defaultDeploymentRegion: "aws-us-east-1",
       teamId: "convex-team",
       teamSlug: "convex-team",
     });
@@ -153,8 +164,8 @@ describe("organization Convex deployment region defaults", () => {
     ).resolves.toBe("aws-us-east-1");
   });
 
-  it("lists the saved default and provider region availability only for organization members", async () => {
-    const { asMember, organizationId, t } = await createRegionDefaultFixture("aws-us-east-1");
+  it("lists the effective US default and provider availability only for organization members", async () => {
+    const { asMember, organizationId, t } = await createRegionDefaultFixture();
     const otherOrganizationId = await t.run(async (ctx) => {
       const id = await ctx.db.insert("organizations", {
         githubOwnerId: "other-region-owner",

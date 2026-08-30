@@ -42,18 +42,19 @@ installs keys for one selected attached Convex project and starts the production
 
 - `api.vault.actions.createRepository` (new samebase-managed repo) requires a selected GitHub
   user/org owner and one currently available Convex production region. The New App page or MCP
-  caller lists the team's production regions before admission. An available organization saved
-  default initializes the choice. A one-project choice never changes that default. A Workers Builds
-  token is either one selected UUID or `null` when the current account has no listed token. The New
-  App page or MCP caller lists the tokens before admission and sends `null` only for an empty list.
-  Samebase verifies a selected UUID. It does not repeat the provider read for `null`, which causes
-  no Cloudflare write. One admission transaction inserts the initializing vault, the create run, the
-  active managed provider lock, and the provisioning plan with the selected region, then starts the
-  Workflow and stores its ID. A Workflow start failure rolls back all admission writes. The Workflow
-  validates the organization's provider credentials against the vault destinations and starts
-  provider provisioning after source setup succeeds. The Convex block checks that the plan region is
-  still available immediately before a new project create. The Workers Builds block verifies a
-  selected UUID again before it writes provider state.
+  caller lists the team's production regions before admission. The available organization default
+  initializes the choice. It is the saved value or US East when no value is stored. A one-project
+  choice never changes that default. A Workers Builds token is either one selected UUID or `null`
+  when the current account has no listed token. The New App page or MCP caller lists the tokens
+  before admission and sends `null` only for an empty list. Samebase verifies a selected UUID. It
+  does not repeat the provider read for `null`, which causes no Cloudflare write. One admission
+  transaction inserts the initializing vault, the create run, the active managed provider lock, and
+  the provisioning plan with the selected region, then starts the Workflow and stores its ID. A
+  Workflow start failure rolls back all admission writes. The Workflow validates the organization's
+  provider credentials against the vault destinations and starts provider provisioning after source
+  setup succeeds. The Convex block checks that the plan region is still available immediately before
+  a new project create. The Workers Builds block verifies a selected UUID again before it writes
+  provider state.
 - `api.vault.actions.connectRepository` (existing GitHub repo connection) does **not**
   auto-provision infra. Its `connect_existing_repository` run is source-only and never owns the
   provider lock.
@@ -347,7 +348,8 @@ Repository default branch:
 1. `api.vault.actions.createRepository`
 
 - Args include required `convexDeploymentRegion`. The web client and MCP caller get current options
-  and the optional organization saved default from the focused region-list action before admission.
+  and the effective organization default from the focused region-list action before admission. The
+  effective default is US East when no value is stored.
 - Returns: `{ vaultId: Id<"vaults">, runId: Id<"workflow_vaultProvisioning_runs"> }`
 - Side effect: starts async infra provisioning through Convex Workflow
 
@@ -552,8 +554,9 @@ In `VaultDashboard`:
 
 In `NewAppPage`:
 
-- New App requires one available Convex production region. An available organization saved default
-  initializes the field, but the submitted one-project choice does not update that default.
+- New App requires one available Convex production region. The available organization default
+  initializes the field. It is US East when no value is stored. The submitted one-project choice
+  does not update that default.
 - Selecting EU shows this disclosure:
   `EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`
   The disclosure links to Convex pricing.

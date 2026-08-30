@@ -313,7 +313,7 @@ describe("NewAppPage", () => {
     expect(regionSelect.textContent).toContain("US East (N. Virginia)");
     await act(async () => regionSelect.click());
     const euOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
-      (option) => option.textContent === "EU West (Ireland)",
+      (option) => option.textContent === "🇪🇺 EU West (Ireland)",
     );
     if (!euOption) {
       throw new Error("EU West region option was not rendered.");

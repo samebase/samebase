@@ -5,9 +5,10 @@
 MCP tool `convex_listDeploymentRegions` · scope `access_provider_connections` · read_only
 
 Lists the production deployment regions currently available to the selected organization's connected
-Convex team. The result also returns the organization's saved default, or null when no default is
-saved. Availability is live Convex data. The saved default only starts a new project form. Selecting
-another region for one project does not change it. This action does not modify Samebase or Convex.
+Convex team. The result also returns the organization's default for new projects. It is US East when
+the organization has no saved value. Availability is live Convex data. Selecting another region for
+one project does not change the organization default. This action does not modify Samebase or
+Convex.
 
 ## Arguments
 
@@ -24,17 +25,10 @@ JSON Schema for the tool's `structuredContent`:
     "defaultRegion": {
       "anyOf": [
         {
-          "anyOf": [
-            {
-              "const": "aws-us-east-1"
-            },
-            {
-              "const": "aws-eu-west-1"
-            }
-          ]
+          "const": "aws-us-east-1"
         },
         {
-          "type": "null"
+          "const": "aws-eu-west-1"
         }
       ]
     },

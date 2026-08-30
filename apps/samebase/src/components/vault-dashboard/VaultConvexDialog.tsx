@@ -33,7 +33,7 @@ import {
   useConvexDeploymentRegionSelection,
 } from "@/components/useConvexDeploymentRegions";
 import {
-  formatConvexDeploymentRegion,
+  formatConvexDeploymentRegionLabel,
   type ConvexDeploymentRegion,
 } from "../../../shared/convexDeploymentRegions";
 
@@ -263,7 +263,7 @@ export function VaultConvexDialogContent({
                               </span>
                               <span className="truncate text-xs text-muted-foreground">
                                 {project.productionDeployment.state === "available"
-                                  ? `Production: ${formatConvexDeploymentRegion(project.productionDeployment.region)}`
+                                  ? `Production: ${formatConvexDeploymentRegionLabel(project.productionDeployment.region)}`
                                   : "No production deployment"}
                               </span>
                               {project.workerReferences.length > 0 ? (

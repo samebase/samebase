@@ -39,7 +39,7 @@ export const toolJustifications = {
   },
   convex_listDeploymentRegions: {
     read_only_justification:
-      "Lists the current Convex production deployment regions and the optional saved form default for the selected Samebase organization. Request authentication and connection refresh bookkeeping can update private Samebase records.",
+      "Lists the current Convex production deployment regions and the effective form default for the selected Samebase organization. The effective default is US East when no value is stored. Request authentication and connection refresh bookkeeping can update private Samebase records.",
     open_world_justification:
       "Reads the Convex API; it does not create, publish, or modify Convex resources or public internet state.",
     destructive_justification: noDestructiveActions,

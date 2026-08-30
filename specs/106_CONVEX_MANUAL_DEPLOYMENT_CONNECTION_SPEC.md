@@ -79,9 +79,9 @@ The code location selector is closed over discovered evidence. There is no free-
 ### Create project flow
 
 The user chooses one discovered code location, a project name, and one available Convex production
-region. Samebase reads current region options for the vault's exact `convexTeamId`. An available
-organization saved default initializes the region field. The user can select another region for this
-project, and that choice never changes the saved default.
+region. Samebase reads current region options for the vault's exact `convexTeamId`. The available
+organization default initializes the region field. It is US East when no value is stored. The user
+can select another region for this project, and that choice never changes the saved default.
 
 When the user selects EU, the dialog states:
 `EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`

@@ -16,7 +16,7 @@ import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
 
 const useOrganizationGitHubIdentitiesMock = vi.hoisted(() => vi.fn());
 const regionTestState = vi.hoisted(() => {
-  let defaultRegion: "aws-us-east-1" | "aws-eu-west-1" | null = "aws-us-east-1";
+  let defaultRegion: "aws-us-east-1" | "aws-eu-west-1" = "aws-us-east-1";
   let connectionState: "connected" | "disconnected" = "connected";
   return {
     get convexConnection() {
@@ -39,7 +39,7 @@ const regionTestState = vi.hoisted(() => {
     get defaultRegion() {
       return defaultRegion;
     },
-    set defaultRegion(value: "aws-us-east-1" | "aws-eu-west-1" | null) {
+    set defaultRegion(value: "aws-us-east-1" | "aws-eu-west-1") {
       defaultRegion = value;
     },
     setDefault: vi.fn(async () => undefined),
@@ -215,7 +215,7 @@ describe("OrganizationSettingsPage", () => {
 
   async function chooseRegion(container: HTMLElement, optionLabel: string): Promise<void> {
     const label = [...container.querySelectorAll("label")].find(
-      (candidate) => candidate.textContent === "Default production region for new Convex projects",
+      (candidate) => candidate.textContent === "Default production region",
     );
     const selector = label ? document.getElementById(label.htmlFor) : null;
     if (!(selector instanceof HTMLButtonElement)) {
@@ -256,10 +256,10 @@ describe("OrganizationSettingsPage", () => {
   it("lets an owner save a different default production region", async () => {
     const container = await mountOrganizationSettings(organization);
 
-    expect(container.textContent).toContain("US East (N. Virginia)");
-    await chooseRegion(container, "EU West (Ireland)");
+    expect(container.textContent).toContain("🇺🇸 US East (N. Virginia)");
+    await chooseRegion(container, "🇪🇺 EU West (Ireland)");
     const saveButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Save default",
+      (button) => button.textContent === "Save",
     );
     expect(saveButton?.disabled).toBe(false);
     await act(async () => saveButton?.click());
@@ -272,52 +272,34 @@ describe("OrganizationSettingsPage", () => {
     );
   });
 
-  it("lets an owner clear the saved default production region", async () => {
-    regionTestState.defaultRegion = CONVEX_EU_WEST_REGION;
-    const container = await mountOrganizationSettings(organization);
-
-    await chooseRegion(container, "No saved default");
-    const saveButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Save default",
-    );
-    await act(async () => saveButton?.click());
-
-    await vi.waitFor(() =>
-      expect(regionTestState.setDefault).toHaveBeenCalledWith({
-        deploymentRegion: null,
-        organizationId: organization.organizationId,
-      }),
-    );
-  });
-
-  it("lets a disconnected owner clear the saved default without a provider read", async () => {
+  it("shows a disconnected owner the default and one connection action", async () => {
     regionTestState.connectionState = "disconnected";
     regionTestState.defaultRegion = CONVEX_EU_WEST_REGION;
     const container = await mountOrganizationSettings(organization);
 
-    expect(container.textContent).toContain("EU West (Ireland)");
-    expect(container.textContent).toContain("Connect Convex in Providers to choose a default.");
-    const clearButton = [...container.querySelectorAll("button")].find(
-      (button) => button.textContent === "Clear default",
-    );
-    await act(async () => clearButton?.click());
-
-    await vi.waitFor(() =>
-      expect(regionTestState.setDefault).toHaveBeenCalledWith({
-        deploymentRegion: null,
-        organizationId: organization.organizationId,
-      }),
-    );
+    expect(container.textContent).toContain("🇪🇺 EU West (Ireland)");
+    expect(container.textContent).toContain("Connect Convex to change it.");
+    expect(container.textContent).not.toContain("Clear default");
+    expect(regionTestState.setDefault).not.toHaveBeenCalled();
   });
 
   it("shows a member the saved default without an edit control", () => {
     regionTestState.defaultRegion = CONVEX_EU_WEST_REGION;
     const markup = renderOrganizationSettings({ ...organization, role: "member" });
 
-    expect(markup).toContain("EU West (Ireland)");
-    expect(markup).not.toContain("Save default");
+    expect(markup).toContain("🇪🇺 EU West (Ireland)");
+    expect(markup).not.toContain(">Save<");
     expect(markup).not.toContain('role="combobox"');
     expect(regionTestState.setDefault).not.toHaveBeenCalled();
+  });
+
+  it("keeps the setting copy compact", () => {
+    const markup = renderOrganizationSettings(organization);
+
+    expect(markup).toContain("Default production region");
+    expect(markup).not.toContain("Default production region for new Convex projects");
+    expect(markup).not.toContain("Used as the starting region");
+    expect(markup).not.toContain("No saved default");
   });
 
   it("offers an owner the verified GitHub owner name update", () => {
