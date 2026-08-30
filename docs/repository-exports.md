@@ -75,6 +75,16 @@ app from the last accepted snapshot.
 Root CI installs and audits the template through its nested lockfile, then builds it in a separate
 fresh job.
 
+### Existing-app sweep
+
+The
+[starter changelog](../packages/plugin/plugins/samebase/skills/samebase/references/starter-changelog.md)
+exists to drive updates to existing apps. After any change to that changelog, list every app
+available through Samebase. Inspect each connected repository against the changed entries and the
+older entries selected by the changelog's starter-build rules. Report each app as `update needed`,
+`already current`, `not relevant`, or `unavailable`. Put app changes in separate repository pull
+requests. The changelog work is not complete until the sweep is recorded.
+
 ## Sidebars package export
 
 `packages/sidebars` publishes to the public `samebase/sidebars` repository on `main`. The package

@@ -18,6 +18,20 @@ The user owns all app code. Inspect the current app before you use this list. Th
 source of truth. Skip an entry when the app already has its result. Apply only changes that are
 relevant, and preserve unrelated user changes.
 
+## v1996: Upgrade Convex to 1.45.0
+
+The starter now uses Convex 1.45.0. This release upgrades local deployments in place and adds
+service-token generation for the upcoming Convex AI gateway.
+
+Relevant when an app uses an older Convex client. Upgrade `convex` to `^1.45.0`. When the app uses
+`convex-test`, upgrade it to 0.0.56 in the same change. Keep unrelated runtime, package manager,
+test runner, and lint updates separate.
+
+Run the app's normal checks and verify its preview deployment.
+
+Source:
+[samebase/app v1996](https://github.com/samebase/app/commit/166e1c9dd2357ceefd74e6311a48f1b30c4c0327)
+
 ## v1983: Use one public-page configuration
 
 The root `prerender.config.ts` file defines the public pages for both TanStack Start and the
