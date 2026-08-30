@@ -92,7 +92,7 @@
     "@remotion/eslint-plugin": "4.0.489",
     "@samebase/dependent": "workspace:*",
     "@typescript/native-preview": "7.0.0-dev.20260413.1",
-    "convex-test": "^0.0.53",
+    "convex-test": "^0.0.56",
     "eslint-plugin-react-refresh": "^0.4.7",
     "execa": "9.6.1",
     "typescript": "5.9.2",
