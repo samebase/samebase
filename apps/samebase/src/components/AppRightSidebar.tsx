@@ -110,7 +110,6 @@ function AppRightSidebarSessionRecordingConsent() {
           onClick={() => void saveDecision("granted")}
           size="sm"
           type="button"
-          variant="outline"
         >
           {pendingDecision === "granted" ? "Saving..." : "Allow"}
         </Button>
@@ -124,9 +123,6 @@ function AppRightSidebarSessionRecordingConsent() {
           {pendingDecision === "denied" ? "Saving..." : "No thanks"}
         </Button>
       </div>
-      <Link className="mt-3 inline-block text-sm underline" to="/privacy">
-        What gets recorded
-      </Link>
       {error === null ? null : (
         <p className="mt-2 text-sm text-destructive" role="alert">
           {error}

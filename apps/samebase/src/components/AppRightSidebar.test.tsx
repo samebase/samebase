@@ -715,9 +715,20 @@ describe("AppRightSidebarContent", () => {
 
     try {
       await act(async () => root.render(createRightSidebarElement()));
+      const consentSection = Array.from(rootElement.querySelectorAll("h2"))
+        .find((heading) => heading.textContent === "Help improve Samebase")
+        ?.closest("section");
+      if (consentSection === null || consentSection === undefined) {
+        throw new Error("Expected the session-recording consent section.");
+      }
+      const allowButton = Array.from(rootElement.querySelectorAll("button")).find(
+        (button) => button.textContent === "Allow",
+      );
       const denyButton = Array.from(rootElement.querySelectorAll("button")).find(
         (button) => button.textContent === "No thanks",
       );
+      expect(allowButton?.classList.contains("bg-primary")).toBe(true);
+      expect(consentSection.querySelector('a[href="/privacy"]')).toBeNull();
       await act(async () => {
         denyButton?.click();
         await Promise.resolve();
