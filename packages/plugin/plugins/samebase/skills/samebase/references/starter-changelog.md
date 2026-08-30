@@ -34,7 +34,7 @@ test runner, and lint updates separate.
 Run the app's normal checks and verify its preview deployment.
 
 Source:
-[samebase/app v1996](https://github.com/samebase/app/commit/166e1c9dd2357ceefd74e6311a48f1b30c4c0327)
+[samebase/base v1996](https://github.com/samebase/base/commit/166e1c9dd2357ceefd74e6311a48f1b30c4c0327)
 
 ## v1983: Use one public-page configuration
 
