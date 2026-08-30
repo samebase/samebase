@@ -39,7 +39,8 @@ describe("TermsAcceptanceGate", () => {
     );
 
     expect(markup).toContain("Terms of Service");
-    expect(markup).toContain("Agree and continue");
+    expect(markup).toContain("Send me occasional Samebase product updates and announcements.");
+    expect(markup).toContain("Continue");
     expect(markup).toContain('href="/terms"');
     expect(markup).toContain('href="/privacy"');
     expect(markup).not.toContain("Sign out");
@@ -54,7 +55,7 @@ describe("TermsAcceptanceGate", () => {
     );
 
     expect(markup).toContain("Route child");
-    expect(markup).not.toContain("Agree and continue");
+    expect(markup).not.toContain("Send me occasional Samebase product updates");
   });
 
   it("renders the route before account approval", () => {
@@ -65,7 +66,7 @@ describe("TermsAcceptanceGate", () => {
     );
 
     expect(markup).toContain("Route child");
-    expect(markup).not.toContain("Agree and continue");
+    expect(markup).not.toContain("Send me occasional Samebase product updates");
   });
 
   it("records acceptance from the primary action", async () => {
@@ -82,17 +83,30 @@ describe("TermsAcceptanceGate", () => {
       root.render(<TermsAcceptanceScreen />);
     });
     const acceptButton = [...rootElement.querySelectorAll("button")].find(
-      (button) => button.textContent === "Agree and continue",
+      (button) => button.textContent === "Continue",
     );
     if (acceptButton === undefined) {
       throw new Error("The Terms acceptance action is missing.");
     }
+    const termsCheckbox = rootElement.querySelector<HTMLElement>("#terms-acceptance-required");
+    if (termsCheckbox === null) {
+      throw new Error("The Terms acceptance checkbox is missing.");
+    }
+
+    expect(acceptButton.disabled).toBe(true);
+    await act(async () => {
+      termsCheckbox.click();
+    });
+    expect(acceptButton.disabled).toBe(false);
 
     await act(async () => {
       acceptButton.click();
     });
 
-    expect(testState.acceptCurrentTerms).toHaveBeenCalledWith({});
+    expect(testState.acceptCurrentTerms).toHaveBeenCalledWith({
+      termsAccepted: true,
+      productUpdateEmailConsent: "denied",
+    });
     expect(acceptButton.disabled).toBe(true);
     expect(acceptButton.textContent).toBe("Continuing...");
 
@@ -101,6 +115,47 @@ describe("TermsAcceptanceGate", () => {
       await acceptance;
     });
     expect(acceptButton.disabled).toBe(false);
+
+    await act(async () => {
+      root.unmount();
+    });
+    rootElement.remove();
+  });
+
+  it("records the optional product-update email choice", async () => {
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    await act(async () => {
+      root.render(<TermsAcceptanceScreen />);
+    });
+    const acceptButton = [...rootElement.querySelectorAll("button")].find(
+      (button) => button.textContent === "Continue",
+    );
+    const termsCheckbox = rootElement.querySelector<HTMLElement>("#terms-acceptance-required");
+    const productUpdateEmailsCheckbox =
+      rootElement.querySelector<HTMLElement>("#product-update-emails");
+    if (
+      acceptButton === undefined ||
+      termsCheckbox === null ||
+      productUpdateEmailsCheckbox === null
+    ) {
+      throw new Error("The Terms choices are missing.");
+    }
+
+    await act(async () => {
+      termsCheckbox.click();
+      productUpdateEmailsCheckbox.click();
+    });
+    await act(async () => {
+      acceptButton.click();
+    });
+
+    expect(testState.acceptCurrentTerms).toHaveBeenCalledWith({
+      termsAccepted: true,
+      productUpdateEmailConsent: "granted",
+    });
 
     await act(async () => {
       root.unmount();

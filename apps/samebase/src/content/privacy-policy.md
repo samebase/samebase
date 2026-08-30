@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective: August 22, 2026
+Effective: August 30, 2026
 
 This Privacy Policy explains how Samebase handles personal information when you use samebase.com,
 the Samebase web app, the Samebase remote MCP server, or a published Samebase agent plugin.
@@ -45,12 +45,16 @@ review access, secure the service, prevent abuse, find errors, provide support, 
 improve reliability. The legal basis is Samebase's legitimate interest in operating a safe and
 reliable service.
 
+Samebase uses account information to send account, security, billing, and service communications.
+Samebase sends optional product updates and announcements by email only when you consent. You can
+withdraw this consent at any time in Account settings.
+
 Samebase uses session replay only with your consent. Samebase can also handle information when
 needed to meet a legal obligation or to establish, exercise, or defend legal claims.
 
 Account and sign-in information is required to use a Samebase account. Connected-service and billing
 information is required only when you connect a service or use a paid plan. Feedback and session
-replay are optional.
+replay are optional. Product-update emails are optional.
 
 This Policy is a notice. Samebase does not treat your acceptance of this Policy as consent when the
 law requires a separate choice.
@@ -89,8 +93,8 @@ Samebase keeps account information until you delete your account. It keeps organ
 and connection information while the related organization, workspace, or connection remains active.
 It keeps billing information while the related organization or subscription exists and afterward as
 needed for disputes or legal obligations. It keeps communications, feedback, logs, security records,
-and limited deletion records while needed for the service, security, support, dispute resolution, or
-legal obligations.
+records of communication choices, and limited deletion records while needed for the service,
+security, support, dispute resolution, or legal obligations.
 
 You can delete your account from Settings after you complete any required organization cleanup.
 Samebase disables the account immediately and starts permanent deletion seven days later.
@@ -115,6 +119,8 @@ Depending on the law where you live, you can request access, correction, deletio
 portable copy of your personal information. You can object to processing based on legitimate
 interests. You can withdraw consent at any time. Withdrawal does not affect processing that was
 lawful before the withdrawal.
+
+You can change your product-update email and session replay choices in Account settings.
 
 Email contact@samebase.com to make a request or complaint, including a deletion request when account
 closure is not available in Settings. Samebase can ask for information needed to verify your

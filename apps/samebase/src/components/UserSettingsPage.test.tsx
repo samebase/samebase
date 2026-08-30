@@ -126,6 +126,9 @@ function setDefaultQueries() {
   testState.queries.set(getFunctionName(api.users.getSessionRecordingConsent), {
     state: "denied",
   });
+  testState.queries.set(getFunctionName(api.users.getProductUpdateEmailConsent), {
+    state: "denied",
+  });
 }
 
 let root: Root | null = null;
@@ -353,6 +356,32 @@ describe("UserSettingsPage", () => {
     });
 
     expect(setSessionRecordingConsent).toHaveBeenCalledWith({ decision: "denied" });
+  });
+
+  it("changes the saved product-update email choice", async () => {
+    testState.queries.set(getFunctionName(api.users.getProductUpdateEmailConsent), {
+      state: "granted",
+    });
+    const setProductUpdateEmailConsent = vi.fn(async () => null);
+    testState.mutations.set(
+      getFunctionName(api.users.setProductUpdateEmailConsent),
+      setProductUpdateEmailConsent,
+    );
+    const container = await mountSettingsPage();
+    const checkbox = container.querySelector<HTMLButtonElement>("#settings-product-update-emails");
+
+    expect(container.textContent).toContain("Email");
+    expect(container.textContent).toContain("Product updates");
+    expect(container.textContent).toContain(
+      "Account, security, billing, and service emails are not affected.",
+    );
+
+    await act(async () => {
+      checkbox?.click();
+      await Promise.resolve();
+    });
+
+    expect(setProductUpdateEmailConsent).toHaveBeenCalledWith({ decision: "denied" });
   });
 
   it("saves the profile and refreshes the session", async () => {

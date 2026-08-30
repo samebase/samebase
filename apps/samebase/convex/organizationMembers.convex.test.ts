@@ -538,7 +538,12 @@ describe("organization member lifecycle", () => {
     await expect(
       asInvitee.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
     ).rejects.toThrow("Access denied");
-    await expect(asInvitee.mutation(api.users.acceptCurrentTerms, {})).resolves.toBeNull();
+    await expect(
+      asInvitee.mutation(api.users.acceptCurrentTerms, {
+        termsAccepted: true,
+        productUpdateEmailConsent: "denied",
+      }),
+    ).resolves.toBeNull();
     await expect(
       asInvitee.mutation(api.organizationMembers.acceptInvitation, { code: created.code }),
     ).resolves.toEqual({
