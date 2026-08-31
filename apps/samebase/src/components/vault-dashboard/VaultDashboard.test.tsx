@@ -2773,7 +2773,7 @@ describe("VaultCloudflareDialogContent", () => {
         hasSelectedBuildToken={false}
         createRootDirectory="apps/web"
         createWorkerNameConflict={null}
-        createWorkerName="samebase_app"
+        createWorkerName="samebase-app"
         didAddWorker={false}
         error={null}
         folderSuggestions={[]}
@@ -2814,7 +2814,7 @@ describe("VaultCloudflareDialogContent", () => {
         hasSelectedBuildToken
         createRootDirectory="apps/web"
         createWorkerNameConflict={null}
-        createWorkerName="samebase app"
+        createWorkerName="samebase_app"
         didAddWorker={false}
         error={null}
         folderSuggestions={[]}
@@ -2840,7 +2840,7 @@ describe("VaultCloudflareDialogContent", () => {
     const createButton = markup.match(/<button[^>]*>Create Worker<\/button>/)?.[0];
 
     expect(markup).toContain(
-      "Cloudflare Worker name can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.",
+      "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and cannot start or end with a dash.",
     );
     expect(markup).toContain('aria-invalid="true"');
     expect(markup).toContain('aria-describedby="cloudflare-worker-name-error"');

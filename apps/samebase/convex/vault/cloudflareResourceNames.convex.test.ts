@@ -4,7 +4,7 @@ import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
 const invalidWorkerNameMessage =
-  "Cloudflare Worker name can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.";
+  "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and cannot start or end with a dash.";
 
 async function createValidationFixture() {
   const t = makeConvexTest();
@@ -73,7 +73,7 @@ describe("Cloudflare Worker name validation", () => {
       asUser.action(api.vault.cloudflare.createWorker, {
         vaultId,
         accountId: "00000000000000000000000000000001",
-        workerName: "samebase app",
+        workerName: "samebase_app",
         rootDirectory: "/",
         buildTokenUuid: "build-token",
       }),
@@ -95,7 +95,7 @@ describe("Cloudflare Worker name validation", () => {
         runId,
         userId,
         accountId: "00000000000000000000000000000001",
-        workerName: "samebase app",
+        workerName: "samebase_app",
       }),
     ).rejects.toThrow(invalidWorkerNameMessage);
     expect(fetchMock).not.toHaveBeenCalled();

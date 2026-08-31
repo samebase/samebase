@@ -49,22 +49,24 @@ describe("app resource names", () => {
     expect(validateAppResourceName("a".repeat(80), "convex").valid).toBe(true);
   });
 
-  it("accepts observed valid Cloudflare Worker name shapes", () => {
-    expect(validateAppResourceName("samebase_app", "cloudflare")).toEqual({
+  it("accepts Cloudflare Worker names that support preview URLs", () => {
+    expect(validateAppResourceName("samebase-app", "cloudflare")).toEqual({
       valid: true,
-      value: "samebase_app",
+      value: "samebase-app",
     });
-    expect(validateAppResourceName("_samebase", "cloudflare").valid).toBe(true);
-    expect(validateAppResourceName("samebase-", "cloudflare").valid).toBe(true);
+    expect(validateAppResourceName("samebase1", "cloudflare").valid).toBe(true);
   });
 
-  it("rejects the name from an observed Cloudflare 10016 response", () => {
-    expect(validateAppResourceName("samebase app", "cloudflare")).toEqual({
+  it("enforces documented Cloudflare Worker name characters", () => {
+    expect(validateAppResourceName("samebase_app", "cloudflare")).toEqual({
       valid: false,
       message:
-        "Cloudflare Worker name can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.",
+        "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and cannot start or end with a dash.",
       suggestion: "samebase-app",
     });
+    for (const invalidName of ["Samebase", "-samebase", "samebase-"]) {
+      expect(validateAppResourceName(invalidName, "cloudflare").valid).toBe(false);
+    }
   });
 
   it("enforces the Cloudflare preview URL name limit", () => {

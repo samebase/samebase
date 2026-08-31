@@ -71,10 +71,10 @@ export function validateAppResourceName(
         suggestion: suggestion || null,
       };
     }
-    if (!/^[a-z0-9_][a-z0-9_-]*$/.test(value)) {
+    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(value)) {
       return {
         valid: false,
-        message: `${label} can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.`,
+        message: `${label} can use lowercase letters, numbers, and dashes, and cannot start or end with a dash.`,
         suggestion: suggestion || null,
       };
     }

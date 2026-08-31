@@ -224,7 +224,7 @@ function CloudflareDialogFixture({
         hasSelectedBuildToken
         createRootDirectory={repair ? "apps/portal" : "/"}
         createWorkerNameConflict={null}
-        createWorkerName={invalidName ? "samebase app" : ""}
+        createWorkerName={invalidName ? "samebase_app" : ""}
         didAddWorker={false}
         error={null}
         folderSuggestions={["apps", "apps/admin", "apps/portal", "apps/web", "packages/backend"]}
