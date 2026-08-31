@@ -179,6 +179,7 @@ async function createFixture() {
       convex: {
         state: "created",
         projectName: "app",
+        deploymentRegion: "aws-us-east-1",
         projectId: "convex-project",
       },
       cloudflare: {

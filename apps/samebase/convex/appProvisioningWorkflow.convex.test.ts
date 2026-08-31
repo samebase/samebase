@@ -74,6 +74,7 @@ async function createComposedVault(buildTokenUuid: string | null = "build-token"
       convex: {
         state: "planned",
         projectName: "composed-app",
+        deploymentRegion: "aws-eu-west-1",
       },
       cloudflare: {
         state: "planned",
@@ -108,6 +109,7 @@ async function attachComposedResources({
       convex: {
         state: "created",
         projectName: "composed-app",
+        deploymentRegion: "aws-eu-west-1",
         projectId: "convex-project",
       },
       cloudflare: {
@@ -184,6 +186,7 @@ describe("app provisioning workflow composition", () => {
         convex: {
           state: "created",
           projectName: "composed-app",
+          deploymentRegion: "aws-eu-west-1",
           projectId: "convex-project",
         },
       });

@@ -5,7 +5,7 @@
 - Status: Accepted and implemented
 - Owner: Samebase app creation, existing repository onboarding, and vault model
 - Created: 2026-05-07
-- Last updated: 2026-08-15
+- Last updated: 2026-08-30
 - Related docs:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/115_VAULT_RESOURCE_ATTACHMENT_MODEL_SPEC.md`
@@ -414,7 +414,8 @@ optional validators are errors.
 
 For Samebase-managed repository creation:
 
-1. validate local input shape, including the selected GitHub-backed organization
+1. validate local input shape, including the selected GitHub-backed organization, and resolve one
+   exact Convex production region
 2. in one mutation, insert the vault, insert the provisioning run with required `vaultId`, then
    patch the vault to `state: "provisioning", githubMode: "create_repository", runId, name`
 3. start the create-app Workflow
@@ -426,6 +427,10 @@ For Samebase-managed repository creation:
 8. attach Convex and Cloudflare resources directly to the vault
 9. let the dashboard derive its summaries and controls from source setup, the managed provider plan,
    attachments, live observations, and provider-write state
+
+New App initializes its required Convex production region from the organization default. The user
+can choose US or EU for this app without changing that default. Spec 003 owns the plan and provider
+create behavior.
 
 External provider validation happens after the vault exists so failures have a visible dashboard
 target. Local input validation can happen before insert when it does not require provider calls. The

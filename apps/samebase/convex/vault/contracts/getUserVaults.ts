@@ -4,6 +4,7 @@ import { vVaultDeletionStep } from "../deletion/model";
 import type { AppFunctionMcpMetadata } from "../../../shared/convexFunctionPolicyTypes";
 import { vConvexCodeLocation } from "./convexAttachments";
 import { vVaultProviderWriteTimes } from "../../appProvisioningModel";
+import { vConvexDeploymentRegion } from "../../convexDeploymentRegionModel";
 
 const { array, boolean, id, literal, number, object, optional, string, union } = v;
 
@@ -83,16 +84,19 @@ export const vManagedProviderPlan = union(
       object({
         state: literal("planned"),
         projectName: string(),
+        deploymentRegion: vConvexDeploymentRegion,
         teamId: string(),
       }),
       object({
         state: literal("creating"),
         projectName: string(),
+        deploymentRegion: vConvexDeploymentRegion,
         teamId: string(),
       }),
       object({
         state: literal("created"),
         projectName: string(),
+        deploymentRegion: vConvexDeploymentRegion,
         teamId: string(),
         projectId: string(),
       }),

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAction } from "convex/react";
 import { ConvexError } from "convex/values";
@@ -27,6 +27,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VaultProviderDiscoveryLoadingState } from "./VaultProviderDiscoveryLoadingState";
+import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";
+import { useConvexDeploymentRegion } from "@/components/useConvexDeploymentRegions";
+import {
+  formatConvexDeploymentRegionLabel,
+  type ConvexDeploymentRegion,
+} from "../../../shared/convexDeploymentRegions";
 
 type ConvexProjectOption =
   (typeof api.vault.convex.discoverProjects)["_returnType"]["projects"][number];
@@ -91,6 +97,8 @@ export function VaultConvexDialogContent({
   blockedReason,
   codeLocations,
   createCodeLocationKey,
+  createDeploymentRegion,
+  convexDeploymentRegionField,
   createProjectName,
   projects,
   error,
@@ -112,6 +120,8 @@ export function VaultConvexDialogContent({
   blockedReason?: string | null;
   codeLocations: readonly ConvexCodeLocationOption[];
   createCodeLocationKey: string;
+  createDeploymentRegion: ConvexDeploymentRegion | null;
+  convexDeploymentRegionField: ReactNode;
   createProjectName: string;
   projects: readonly ConvexProjectOption[];
   error: string | null;
@@ -146,7 +156,7 @@ export function VaultConvexDialogContent({
       : mode === "existing"
         ? selectedProjectCount === 0 ||
           Object.values(selectedProjectCodeLocationKeys).some((key) => !key)
-        : !createProjectName.trim() || !createCodeLocationKey);
+        : !createProjectName.trim() || !createDeploymentRegion || !createCodeLocationKey);
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -248,6 +258,11 @@ export function VaultConvexDialogContent({
                               <span className="truncate text-xs text-muted-foreground">
                                 {project.teamSlug}/{project.projectSlug}
                               </span>
+                              <span className="truncate text-xs text-muted-foreground">
+                                {project.productionDeployment.state === "available"
+                                  ? `Production: ${formatConvexDeploymentRegionLabel(project.productionDeployment.region)}`
+                                  : "No production deployment"}
+                              </span>
                               {project.workerReferences.length > 0 ? (
                                 <span className="truncate text-xs text-muted-foreground">
                                   Used by{" "}
@@ -295,6 +310,7 @@ export function VaultConvexDialogContent({
                     disabled={isSubmitting}
                     placeholder="Project name"
                   />
+                  {convexDeploymentRegionField}
                   <Select
                     modal={false}
                     value={createCodeLocationKey}
@@ -374,6 +390,11 @@ export function VaultConvexDialog({
   const changeProjectCodeLocation = useAction(api.vault.convex.changeProjectCodeLocation);
   const createProject = useAction(api.vault.convex.createProject);
   const [mode, setMode] = useState<ConvexProjectConnectMode>("existing");
+  const convexDeploymentRegionSelection = useConvexDeploymentRegion({
+    enabled: repairProjectId === null && mode === "create",
+    organizationId: vault.organizationId,
+    selectionKey: vault._id,
+  });
   const [selectedCreateCodeLocationKey, setSelectedCreateCodeLocationKey] = useState("");
   const [createProjectName, setCreateProjectName] = useState(() =>
     buildDefaultAppResourceName({
@@ -386,6 +407,7 @@ export function VaultConvexDialog({
   >({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const createDeploymentRegion = convexDeploymentRegionSelection.selectedRegion;
 
   const resourcesQuery = useQuery({
     queryKey: [
@@ -464,9 +486,13 @@ export function VaultConvexDialog({
         if (!codeLocation) {
           throw new Error("Choose a discovered Convex code location.");
         }
+        if (!createDeploymentRegion) {
+          throw new Error("Choose a Convex production region.");
+        }
         await createProject({
           vaultId: vault._id,
           projectName: createProjectName,
+          deploymentRegion: createDeploymentRegion,
           codeLocation: getConvexCodeLocationSelection(codeLocation),
         });
       }
@@ -488,6 +514,16 @@ export function VaultConvexDialog({
       blockedReason={blockedReason}
       codeLocations={codeLocations}
       createCodeLocationKey={createCodeLocationKey}
+      createDeploymentRegion={createDeploymentRegion}
+      convexDeploymentRegionField={
+        <ConvexDeploymentRegionField
+          disabled={isSubmitting}
+          id="vault-convex-production-region"
+          onValueChange={convexDeploymentRegionSelection.setRequestedRegion}
+          showEuPricing
+          value={createDeploymentRegion}
+        />
+      }
       createProjectName={createProjectName}
       projects={projects}
       error={submitError ?? resourceError}

@@ -1,6 +1,8 @@
 import { defineTable } from "convex/server";
 import { v } from "convex/values";
 
+import { vConvexDeploymentRegion } from "./convexDeploymentRegionModel";
+
 const { boolean, id, literal, number, object, optional, string, union } = v;
 
 export const vOrganizationConvexTeam = object({
@@ -62,6 +64,7 @@ export const organizationTables = {
     githubOwnerLogin: string(),
     githubOwnerLoginNormalized: string(),
     githubInstallationId: string(),
+    defaultConvexDeploymentRegion: optional(vConvexDeploymentRegion),
     convexTeam: optional(vOrganizationConvexTeam),
     cloudflareAccount: optional(vOrganizationCloudflareAccount),
   })

@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase product
-- Last updated: 2026-08-12
+- Last updated: 2026-08-30
 - Depends on: `specs/120_ORGANIZATION_OWNERSHIP_SPEC.md`
 - Related: `specs/123_ORGANIZATION_MEMBERSHIP_ADMINISTRATION_SPEC.md`
 - Supersedes: `archive/118_VAULT_FOLDER_SPEC.md`
@@ -43,7 +43,7 @@ Organization-owned pages use these routes:
 | `/org/:owner/new-app`          | Create a repository and provider resources in this organization.                                                             |
 | `/org/:owner/connect-repo`     | Connect a repository owned by this GitHub owner.                                                                             |
 | `/org/:owner/settings/members` | List and administer Samebase membership and show live GitHub relationship information.                                       |
-| `/org/:owner/settings`         | Show identity, role, billing, usage, quota, and plan controls.                                                               |
+| `/org/:owner/settings`         | Show identity, role, the Convex production region default, billing, usage, quota, and plan controls.                         |
 
 The public invitation route is `/invite/:code`. Its opaque code identifies one invitation, but the
 exact linked GitHub identity and explicit recipient action authorize acceptance. Spec 123 owns this
@@ -130,9 +130,12 @@ User settings own profile data, sign-in methods, personal preferences, sign-out,
 and MCP grants. User settings contain no organization selector, personal repository authorization,
 or organization billing.
 
-Organization settings own the GitHub owner identity, Samebase role, GitHub App installation health,
-billing, and member administration. Convex and Cloudflare connections use the organization providers
-route.
+Organization settings own the GitHub owner identity, Samebase role, the Convex production region
+default, billing, and member administration. Convex and Cloudflare connections use the organization
+providers route.
+
+An owner can edit the region default. A member sees it as read-only text. Spec 120 owns its storage
+and fallback behavior.
 
 The providers route shows `Personal repository creation` only when the selected organization has
 `githubOwnerType: "user"`. Its management and revoke control owns the same user-owned GitHub

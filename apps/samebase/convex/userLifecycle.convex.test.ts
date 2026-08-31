@@ -569,6 +569,7 @@ describe("user lifecycle authorization", () => {
         convex: {
           state: "creating",
           projectName: "repository",
+          deploymentRegion: "aws-us-east-1",
         },
         cloudflare: {
           state: "creating",

@@ -4,7 +4,7 @@
 
 - Status: Accepted
 - Owner: Samebase provider resources, vault dashboard
-- Last updated: 2026-08-07
+- Last updated: 2026-08-30
 - Related:
   - `specs/003_VAULT_INFRA_PROVISIONING_SPEC.md`
   - `specs/103_CONVEX_API_VALIDATION_SPEC.md`
@@ -40,8 +40,8 @@ explicit `convexConfigPath`, or a default-layout `convexDirectoryPath`. Several 
 intentionally select the same code location. Convex `_creationTime` records when the attachment was
 created.
 
-Project names, slugs, deployments, URLs, deploy keys, current team, and current repository file
-existence remain live provider observations.
+Project names, slugs, deployments, deployment regions, URLs, deploy keys, current team, and current
+repository file existence remain live provider observations.
 
 ### Source discovery
 
@@ -62,9 +62,12 @@ The code location selector is closed over discovered evidence. There is no free-
 ### Existing project flow
 
 1. Samebase loads the organization's current Convex credential and lists projects from the vault's
-   exact `convexTeamId`. A missing or mismatched credential fails closed.
+   exact `convexTeamId`. It also reads one paginated list of the team's default production
+   deployments and joins them to projects by project ID. A missing or mismatched credential fails
+   closed.
 2. Projects named by discovered Workers' readable `SAMEBASE_CONVEX_PROJECT` markers sort first and
-   show that evidence. Observation alone never selects a project.
+   show that evidence. Each project also shows its actual default production deployment region or
+   `No production deployment`. Observation alone never selects a project.
 3. The user may select several projects.
 4. The user selects one discovered code location for every selected project. Several projects may
    select the same location.
@@ -75,10 +78,20 @@ The code location selector is closed over discovered evidence. There is no free-
 
 ### Create project flow
 
-The user chooses one discovered code location and a project name. Samebase re-verifies the source,
-creates the project in the vault's exact `convexTeamId` with a production deployment, reads the
-project back, and attaches it at that location. If the provider create succeeds but attachment
-fails, Samebase reports the ambiguous external state and does not delete the project automatically.
+The user chooses one discovered code location, a project name, and US or EU for the production
+deployment. The organization default initializes the region field. It is US when no value is saved.
+A choice for this project does not change the organization default.
+
+When the user selects EU, the dialog states:
+`EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`
+The disclosure links to Convex pricing.
+
+Samebase re-verifies the source and creates the project in the vault's exact team. The provider
+request sends the region as `deploymentRegion` with `deploymentType: "prod"`. Samebase then reads
+the project back and attaches it at that location.
+
+If the provider create succeeds but attachment fails, Samebase reports the ambiguous external state
+and does not delete the project automatically.
 
 ### Identity, transfer, and writes
 
@@ -141,9 +154,11 @@ automatically. If the project does not exist, the user can use the normal create
   uniqueness, shared code locations, idempotency, origin upgrade, and code-location
   compare-and-swap.
 - Provider tests cover transfers, destination mismatch, inaccessible projects, stale markers, and
-  writes that fail closed.
+  writes that fail closed. They also cover production deployment discovery and the selected region
+  in the create request.
 - Operation tests cover the Convex-only action mapping and normal existing-project attachment after
   a failed or silent create.
 - UI and route tests cover multi-selection, Worker-reference ordering without automatic selection,
-  closed code-location selectors, moved code, shared roots, transferred-team failure, explicit
-  removal, and attachment-ID Data and Schema routes.
+  closed code-location selectors, production region display, organization default initialization,
+  one-project override without a default write, EU pricing disclosure, moved code, shared roots,
+  transferred-team failure, explicit removal, and attachment-ID Data and Schema routes.

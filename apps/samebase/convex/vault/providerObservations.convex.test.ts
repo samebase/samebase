@@ -5,6 +5,11 @@ const cloudflareMocks = vi.hoisted(() => ({
   requestCloudflareApiOrThrow: vi.fn(),
 }));
 
+const convexMocks = vi.hoisted(() => ({
+  requestConvexManagementApi: vi.fn(),
+  requestConvexManagementApiOrThrow: vi.fn(),
+}));
+
 const githubMocks = vi.hoisted(() => ({
   createRepositoryOctokit: vi.fn(),
   getRepository: vi.fn(),
@@ -16,6 +21,15 @@ vi.mock("../cloudflareApi/client", async (importOriginal) => {
     ...actual,
     requestCloudflareApi: cloudflareMocks.requestCloudflareApi,
     requestCloudflareApiOrThrow: cloudflareMocks.requestCloudflareApiOrThrow,
+  };
+});
+
+vi.mock("../convexManagementApi/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../convexManagementApi/client")>();
+  return {
+    ...actual,
+    requestConvexManagementApi: convexMocks.requestConvexManagementApi,
+    requestConvexManagementApiOrThrow: convexMocks.requestConvexManagementApiOrThrow,
   };
 });
 
@@ -38,6 +52,8 @@ afterEach(() => {
 beforeEach(() => {
   cloudflareMocks.requestCloudflareApi.mockReset();
   cloudflareMocks.requestCloudflareApiOrThrow.mockReset();
+  convexMocks.requestConvexManagementApi.mockReset();
+  convexMocks.requestConvexManagementApiOrThrow.mockReset();
   githubMocks.getRepository.mockReset();
   githubMocks.createRepositoryOctokit.mockReset();
   githubMocks.getRepository.mockResolvedValue({
@@ -53,7 +69,7 @@ beforeEach(() => {
 });
 
 describe("vault provider observations", () => {
-  it("shares one refresh and uses current Worker names for observations", async () => {
+  it("observes current Worker names and the Convex production region", async () => {
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
 
@@ -86,6 +102,11 @@ describe("vault provider observations", () => {
       await insertTestOrganizationBillingAccount(ctx.db, organizationId);
       await ctx.db.insert("organizationProviderCredentials", {
         organizationId,
+        convex: {
+          auth: { method: "api_key", credential: "convex-token" },
+          connectedByUserId: userId,
+          updatedAt: 1,
+        },
         cloudflare: {
           auth: {
             method: "oauth",
@@ -149,7 +170,15 @@ describe("vault provider observations", () => {
         rootDirectory: "apps/live",
         origin: "selected_existing",
       });
-      return { firstWorkerId, secondWorkerId, userId, vaultId };
+      const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
+        vaultId,
+        organizationId,
+        teamId: "convex-team",
+        projectId: "convex-project",
+        convexConfigPath: "convex.json",
+        origin: "selected_existing",
+      });
+      return { convexProjectId, firstWorkerId, secondWorkerId, userId, vaultId };
     });
     const refresh = vi.fn(async (input: string | URL | Request) => {
       const url = input instanceof Request ? input.url : String(input);
@@ -251,6 +280,31 @@ describe("vault provider observations", () => {
         ];
       },
     );
+    convexMocks.requestConvexManagementApi.mockResolvedValue([
+      true,
+      {
+        createTime: 1,
+        id: "convex-project",
+        name: "Samebase",
+        slug: "samebase",
+        teamId: "convex-team",
+        teamSlug: "samebase-team",
+      },
+    ]);
+    convexMocks.requestConvexManagementApiOrThrow.mockResolvedValue({
+      class: "s16",
+      createTime: 1,
+      creator: "convex-member",
+      deploymentType: "prod",
+      deploymentUrl: "https://samebase.convex.cloud",
+      id: "convex-deployment",
+      isDefault: true,
+      kind: "cloud",
+      name: "samebase-prod",
+      projectId: "convex-project",
+      reference: "prod",
+      region: "aws-eu-west-1",
+    });
     const viewer = t.withIdentity({
       subject: `${ids.userId}|test-session`,
       tokenIdentifier: `test:${ids.userId}`,
@@ -298,5 +352,18 @@ describe("vault provider observations", () => {
         },
       },
     });
+    await expect(
+      viewer.action(api.vault.providerObservations.observeConvexProjects, {
+        vaultId: ids.vaultId,
+      }),
+    ).resolves.toMatchObject([
+      {
+        convexProjectId: ids.convexProjectId,
+        provider: {
+          state: "current",
+          productionDeployment: { state: "available", region: "aws-eu-west-1" },
+        },
+      },
+    ]);
   });
 });

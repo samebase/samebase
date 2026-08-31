@@ -9,13 +9,17 @@ import { ORGANIZATION_CONNECTION_LIMIT_ERROR_PREFIX } from "../billingErrors";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import { discoverCloudflareWorkersForRepository } from "../cloudflareResources";
 import {
+  isConvexCloudDeployment,
+  listConvexManagementDefaultProductionDeployments,
   listConvexManagementProjects,
   requestConvexManagementApiOrThrow,
+  type ConvexCloudDeployment,
 } from "../convexManagementApi/client";
 import type { ProjectResponse } from "../convexManagementApi/types.generated";
 import { action } from "../functions";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { resolveConvexProvisioningConnectionForVaultWorkflow } from "../infraProvisioning";
+import type { ConvexDeploymentRegion } from "../../shared/convexDeploymentRegions";
 import {
   fetchGitHubConvexCodeLocationDiscovery,
   type GitHubConvexCodeLocationDiscovery,
@@ -238,6 +242,7 @@ function compareConvexAttachmentProject(
 function toConvexAttachmentProject(
   project: ProjectResponse,
   workerReferences: ConvexWorkerReference[],
+  productionDeployment: ConvexCloudDeployment | undefined,
 ): ConvexAttachmentProject {
   return {
     teamId: project.teamId,
@@ -245,6 +250,9 @@ function toConvexAttachmentProject(
     projectName: project.name,
     projectSlug: project.slug,
     teamSlug: project.teamSlug,
+    productionDeployment: productionDeployment
+      ? { state: "available", region: productionDeployment.region }
+      : { state: "missing" },
     workerReferences,
   };
 }
@@ -392,16 +400,32 @@ export async function discoverProjectsForUser(
     organizationId: sourceDiscovery.context.organizationId,
     teamId: requireConvexTeamId(sourceDiscovery.context),
   });
-  const [providerProjects, workerReferences] = await Promise.all([
+  const [providerProjects, productionDeployments, workerReferences] = await Promise.all([
     listProjectsForConnection(connection),
+    listConvexManagementDefaultProductionDeployments({
+      token: connection.token,
+      teamId: connection.teamId,
+    }),
     readConvexWorkerReferences(ctx, {
       userId: args.userId,
       context: sourceDiscovery.context,
       defaultBranch: sourceDiscovery.source.defaultBranch,
     }),
   ]);
+  const productionDeploymentByProjectId = new Map<string, ConvexCloudDeployment>();
+  for (const deployment of productionDeployments) {
+    if (isConvexCloudDeployment(deployment)) {
+      productionDeploymentByProjectId.set(deployment.projectId, deployment);
+    }
+  }
   const projects = providerProjects
-    .map((project) => toConvexAttachmentProject(project, workerReferences.get(project.id) ?? []))
+    .map((project) =>
+      toConvexAttachmentProject(
+        project,
+        workerReferences.get(project.id) ?? [],
+        productionDeploymentByProjectId.get(project.id),
+      ),
+    )
     .sort(compareConvexAttachmentProject);
   return { source: sourceDiscovery.source, projects };
 }
@@ -467,6 +491,7 @@ async function createProjectForUser(
     vaultId: Id<"vaults">;
     userId: Id<"users">;
     projectName: string;
+    deploymentRegion: ConvexDeploymentRegion;
     codeLocation: ConvexCodeLocationSelection;
   },
 ): Promise<Id<"vaultConvexProjects">> {
@@ -520,7 +545,11 @@ async function createProjectForUser(
       "/teams/{team_id}/create_project",
       {
         params: { path: { team_id: connection.teamId } },
-        body: { projectName: validation.value, deploymentType: "prod" },
+        body: {
+          projectName: validation.value,
+          deploymentType: "prod",
+          deploymentRegion: args.deploymentRegion,
+        },
       },
     );
     const convexProjectId = await ctx.runMutation(
@@ -647,7 +676,11 @@ async function createProjectForManagedWorkflow(
       "/teams/{team_id}/create_project",
       {
         params: { path: { team_id: connection.teamId } },
-        body: { projectName: validation.value, deploymentType: "prod" },
+        body: {
+          projectName: validation.value,
+          deploymentType: "prod",
+          deploymentRegion: checkpoint.deploymentRegion,
+        },
       },
     );
     projectId = created.id;

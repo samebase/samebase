@@ -4,6 +4,10 @@ import {
   getConvexCodeLocationPath,
   getConvexCodeRootDirectory,
 } from "../../../shared/convexCodeLocation";
+import {
+  formatConvexDeploymentRegionLabel,
+  type ConvexDeploymentRegion,
+} from "../../../shared/convexDeploymentRegions";
 import type {
   VaultCloudflareProviderObservationState,
   VaultCloudflareWorkerObservation,
@@ -810,7 +814,7 @@ function buildConvexRow({
   observationState: VaultProviderObservationState<VaultConvexProjectObservation>;
   pendingAction: VaultRepositorySettingsPendingAction | null;
   project: VaultDashboardConvexProject;
-  settingUp: { name: string; owner?: string } | null;
+  settingUp: { deploymentRegion: ConvexDeploymentRegion; name: string; owner?: string } | null;
 }): VaultRepositorySettingsResource {
   const base = {
     name: project.projectId,
@@ -830,7 +834,7 @@ function buildConvexRow({
     return {
       ...base,
       state: "setting_up",
-      description: "Setting up",
+      description: `Setting up in ${formatConvexDeploymentRegionLabel(settingUp.deploymentRegion)}`,
       href: currentProvider ? buildConvexProjectSettingsUrl(currentProvider) : undefined,
       name: settingUp.name,
       owner: currentProvider?.teamSlug ?? settingUp.owner ?? base.owner,
@@ -914,7 +918,7 @@ function buildConvexRow({
           sourceDescription,
           observation.provider.productionDeployment.state === "missing"
             ? "No production deployment."
-            : undefined,
+            : `Production: ${formatConvexDeploymentRegionLabel(observation.provider.productionDeployment.region)}`,
         ),
         href: buildConvexProjectSettingsUrl(observation.provider),
         name: observation.provider.projectSlug,
@@ -979,7 +983,9 @@ function buildPlannedConvexRow({
   plan: VaultManagedProviderPlan;
 }): VaultRepositorySettingsResource {
   return {
-    description: failedMessage ?? "Setting up",
+    description:
+      failedMessage ??
+      `Setting up in ${formatConvexDeploymentRegionLabel(plan.convex.deploymentRegion)}`,
     name: plan.convex.projectName,
     owner: plan.convex.teamId,
     provider: "convex",
@@ -1118,6 +1124,7 @@ export function buildVaultRepositorySettingsState({
       managedSetupActive &&
       isPlannedConvexAttachment(applicablePlan.convex, project)
         ? {
+            deploymentRegion: applicablePlan.convex.deploymentRegion,
             name: applicablePlan.convex.projectName,
             owner: applicablePlan.convex.teamId,
           }

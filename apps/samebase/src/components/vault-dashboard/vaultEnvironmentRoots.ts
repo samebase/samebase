@@ -5,6 +5,7 @@ import type {
   PullRequestWorkerResource,
 } from "../../../convex/vault/pullRequestResources";
 import { getConvexCodeRootDirectory } from "../../../shared/convexCodeLocation";
+import type { ConvexDeploymentRegion } from "../../../shared/convexDeploymentRegions";
 import { buildVaultDatabaseRoute, buildVaultSchemaRoute } from "@/lib/vaultRoutes";
 import type {
   VaultCloudflareProviderObservationState,
@@ -56,6 +57,7 @@ export type VaultEnvironmentResource =
       label: string;
       provider: "convex";
       provenance: "production" | "pull_request_branch";
+      region?: ConvexDeploymentRegion;
       title: string;
     }
   | {
@@ -305,6 +307,7 @@ export function buildProductionEnvironmentRoots({
                 label: deployment.deploymentName,
                 provider: "convex",
                 provenance: "production",
+                region: deployment.region,
                 title: `Open production Convex deployment ${deployment.deploymentName}`,
               },
             },

@@ -264,6 +264,7 @@ describe("pooled organization connection quotas", () => {
         visibility: "private",
         description: null,
         convexProjectName: "managed-blocked",
+        convexDeploymentRegion: "aws-us-east-1",
         convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
         cloudflareWorkerName: "managed-blocked",
@@ -308,6 +309,7 @@ describe("pooled organization connection quotas", () => {
         visibility: "private",
         description: null,
         convexProjectName: "managed-race",
+        convexDeploymentRegion: "aws-us-east-1",
         convexTeamId: "convex-team",
         cloudflareAccountId: "cloudflare-account",
         cloudflareWorkerName: "managed-race",
@@ -415,7 +417,12 @@ describe("pooled organization connection quotas", () => {
         await ctx.db.insert("workflow_vaultProvisioning_plans", {
           vaultId: ids.vaultId,
           convexConfigPath: "convex.json",
-          convex: { state: "created", projectName: "quota-project", projectId: "quota-project" },
+          convex: {
+            state: "created",
+            projectName: "quota-project",
+            deploymentRegion: "aws-us-east-1",
+            projectId: "quota-project",
+          },
           cloudflare: {
             state: "created",
             workerName: "quota-worker",

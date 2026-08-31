@@ -4,7 +4,7 @@
 
 - Status: Implemented for MVP
 - Owner: Samebase backend/frontend
-- Last updated: 2026-08-20
+- Last updated: 2026-08-30
 - Related plan: `archive/002_VAULT_INFRA_AUTO_PROVISIONING_AND_AI_PROD_ACCESS_PLAN.md`
 - Related vault-first cleanup: `specs/096_INITIALIZING_VAULT_GITHUB_PROVISIONING_SPEC.md`
 - Related deletion contract: `specs/098_VAULT_DELETION_WORKFLOW_SPEC.md`
@@ -41,15 +41,16 @@ installs keys for one selected attached Convex project and starts the production
 ## Important Behavior
 
 - `api.vault.actions.createRepository` (new samebase-managed repo) requires a selected GitHub
-  user/org owner. A Workers Builds token is either one selected UUID or `null` when the current
-  account has no listed token. The New App page or MCP caller lists the tokens before admission and
-  sends `null` only for an empty list. Samebase verifies a selected UUID. It does not repeat the
-  provider read for `null`, which causes no Cloudflare write. One admission transaction inserts the
-  initializing vault, the create run, the active managed provider lock, and the provisioning plan,
-  then starts the Workflow and stores its ID. A Workflow start failure rolls back all admission
-  writes. The Workflow validates the organization's provider credentials against the vault
-  destinations and starts provider provisioning after source setup succeeds. The Workers Builds
-  block verifies a selected UUID again before it writes provider state.
+  user/org owner. It resolves the Convex production region from an optional create override or the
+  organization default, with US as the fallback. A Workers Builds token is either one selected UUID
+  or `null` when the current account has no listed token. The New App page or MCP caller lists the
+  tokens before admission and sends `null` only for an empty list. Samebase verifies a selected
+  UUID. It does not repeat the provider read for `null`, which causes no Cloudflare write. One
+  admission transaction inserts the initializing vault, the create run, the active managed provider
+  lock, and the provisioning plan, then starts the Workflow and stores its ID. A Workflow start
+  failure rolls back all admission writes. The Workflow validates the organization's provider
+  credentials against the vault destinations and starts provider provisioning after source setup
+  succeeds. The Workers Builds block verifies a selected UUID again before it writes provider state.
 - `api.vault.actions.connectRepository` (existing GitHub repo connection) does **not**
   auto-provision infra. Its `connect_existing_repository` run is source-only and never owns the
   provider lock.
@@ -91,8 +92,9 @@ must match that destination.
 
 - `vaultId`
 - `convexConfigPath`
-- `convex`: `{ state: "planned", projectName }`, `{ state: "creating", projectName }`, or
-  `{ state: "created", projectName, projectId }`
+- `convex`: `{ state: "planned", projectName, deploymentRegion }`,
+  `{ state: "creating", projectName, deploymentRegion }`, or
+  `{ state: "created", projectName, deploymentRegion, projectId }`
 - `cloudflare`: `{ state: "planned", workerName, rootDirectory, buildTokenUuid: string | null }`,
   `{ state: "creating", workerName, rootDirectory, buildTokenUuid: string }`, or
   `{ state: "created", workerName, workerTag, rootDirectory, buildTokenUuid: string }`
@@ -111,6 +113,10 @@ checkpoint used by retry. Samebase writes that checkpoint and its stable `provis
 attachment in one database transaction. Checkbox-controlled cleanup derives ownership only from the
 stable attachment, never from an unattached checkpoint. Current connected resource identities live
 in the durable resource tables used by the dashboard.
+
+`deploymentRegion` is the Convex production region selected for this managed create. A retry uses
+the region in the plan. The provider create request sends it as `deploymentRegion` with
+`deploymentType: "prod"`.
 
 `buildTokenUuid` is an explicit non-secret Workers Builds token choice. The `planned` state accepts
 a selected token UUID or `null`. The `creating` and `created` states require a selected token UUID.
@@ -247,6 +253,9 @@ may cache those results in the browser for a short bounded interval, but the act
 them to Convex tables. Stable attachment rows remain unchanged when a provider resource changes or
 disappears.
 
+The Convex production deployment observation supplies the displayed region after attachment.
+`vaultConvexProjects` does not copy it.
+
 Each provider observation query uses the matching `lastWriteAt` value in its query key. When that
 value changes, the dashboard makes one new read and shows `Checking` until the read returns. An
 older result must not create attention or repair UI during this check. The first new result becomes
@@ -329,6 +338,7 @@ Repository default branch:
 
 1. `api.vault.actions.createRepository`
 
+- Args can include `convexDeploymentRegion` as a create-only override.
 - Returns: `{ vaultId: Id<"vaults">, runId: Id<"workflow_vaultProvisioning_runs"> }`
 - Side effect: starts async infra provisioning through Convex Workflow
 
@@ -371,7 +381,8 @@ Repository default branch:
 7. `api.vault.providerObservations.observeConvexProjects`
 
 - Args: `{ vaultId: Id<"vaults"> }`
-- Returns: live source-placement and provider-continuity observations for every attached project
+- Returns: live source-placement and provider-continuity observations for every attached project,
+  including the actual region when its default production deployment is available
 
 8. `api.vault.cloudflare.discoverWorkers` and `api.vault.cloudflare.attachWorkers`
 
@@ -425,11 +436,11 @@ sequenceDiagram
   participant CFL as "Cloudflare Workers API"
   participant DB as "Convex DB"
 
-  VA->>DB: add initializing vault, create run, and managed provider lock
+  VA->>DB: add vault, run, lock, and plan with production region
   VA->>WF: start create-app workflow
   WF->>DB: create/fetch repo, connect vault, seed starter, sync tree
   WF->>CVXB: attach_convex child run
-  CVXB->>CVX: create/read project + production deployment
+  CVXB->>CVX: create/read project in selected region
   CVXB->>DB: write vaultConvexProjects
   alt selected Workers Builds token
     WF->>CFB: attach_worker child run
@@ -453,6 +464,7 @@ sequenceDiagram
 
 - `vaultConvexProjects` exists when `attach_convex` has attached the plan's exact project and config
   path.
+- Every Convex plan state keeps the selected production region. Retry uses that value.
 - `vaultCloudflareWorkers` exists when `attach_worker` has attached the plan's exact Worker.
 - `configure_workers_builds_for_github` and `rotate_convex_deploy_keys_for_workers_builds` do not
   change either attachment row. Their provider writes are observed live when a caller next requests
@@ -526,6 +538,10 @@ In `VaultDashboard`:
 
 In `NewAppPage`:
 
+- New App requires a Convex production region and initializes it from the organization default.
+- Selecting EU shows this disclosure:
+  `EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`
+  The disclosure links to Convex pricing.
 - A confirmed empty Workers Builds token list is a non-error notice and does not block New App after
   the repository and Convex project names are valid. Samebase does not validate the generated Worker
   name or read its availability in this mode because the managed workflow will not create a Worker.
@@ -554,6 +570,8 @@ Dashboard external links:
   service row, because the production deployment follows that branch.
 - The production Convex link uses the observed team slug, project slug, and deployment name:
   `https://dashboard.convex.dev/t/<teamSlug>/<projectSlug>/<deploymentName>`.
+- Project and production deployment rows show the live observed production region. A plan-only row
+  can show the requested region until the attachment and live observation replace it.
 - Service links are mobile-friendly text links with service icons. Labels should stay concise; the
   default-branch Convex deployment link uses `Production: <deploymentName>`.
 
@@ -596,6 +614,7 @@ Dashboard external links:
 ## Acceptance Checklist
 
 - [x] New samebase-managed vault creation schedules infra provisioning automatically.
+- [x] Every Convex plan state stores the selected region, and the create request uses it.
 - [x] A confirmed empty Workers Builds token list admits New App with explicit `null` input.
 - [x] The public create action accepts explicit `null` without a second Cloudflare provider read.
 - [x] A no-token managed run attaches source and Convex, creates no Worker attachment, skips all

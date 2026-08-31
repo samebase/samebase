@@ -181,11 +181,16 @@ describe("preview personal repository authorization", () => {
     await expect(
       t.run(async (ctx) => ({
         authorizationCount: (await ctx.db.query("githubUserAuthorizations").collect()).length,
+        plan: await ctx.db
+          .query("workflow_vaultProvisioning_plans")
+          .withIndex("by_vault", (query) => query.eq("vaultId", result.vaultId))
+          .unique(),
         run: await ctx.db.get(result.runId),
         vault: await ctx.db.get(result.vaultId),
       })),
     ).resolves.toMatchObject({
       authorizationCount: 0,
+      plan: { convex: { deploymentRegion: "aws-us-east-1" } },
       run: { organizationId, trigger: "create" },
       vault: { organizationId, githubMode: "create_repository" },
     });
@@ -226,8 +231,11 @@ describe("preview personal repository authorization", () => {
 });
 
 describe("create repository Workers Builds token admission", () => {
-  it("accepts null without another Cloudflare token-list request", async () => {
+  it("uses the saved EU default and accepts null without another provider-list request", async () => {
     const { organizationId, t, viewer } = await createRepositoryFixture();
+    await t.run(async (ctx) => {
+      await ctx.db.patch(organizationId, { defaultConvexDeploymentRegion: "aws-eu-west-1" });
+    });
 
     const result = await viewer.action(api.vault.actions.createRepository, {
       organizationId,
@@ -245,6 +253,11 @@ describe("create repository Workers Builds token admission", () => {
           .unique();
       }),
     ).resolves.toMatchObject({
+      convex: {
+        state: "planned",
+        projectName: "new-app",
+        deploymentRegion: "aws-eu-west-1",
+      },
       cloudflare: {
         state: "planned",
         workerName: "new-app",

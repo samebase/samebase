@@ -691,7 +691,10 @@ test("shows stable provider setup states in Settings", async ({ page }) => {
     .getByRole("heading", { name: "Connections" })
     .locator("..")
     .locator("..");
-  await expect(activeConnections.getByText("Setting up", { exact: true })).toHaveCount(2);
+  await expect(activeConnections.getByText("Setting up", { exact: true })).toHaveCount(1);
+  await expect(
+    activeConnections.getByText("Setting up in 🇪🇺 EU West (Ireland)", { exact: true }),
+  ).toBeVisible();
   await expect(activeFixture.getByText("38516/", { exact: true })).toBeVisible();
   await expect(activeFixture.getByText("Attention required")).toHaveCount(0);
   await expect(activeFixture.getByText("A provider operation is in progress.")).toBeVisible();

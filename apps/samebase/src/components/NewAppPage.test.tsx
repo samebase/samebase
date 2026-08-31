@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
+import { CONVEX_EU_WEST_REGION, CONVEX_US_EAST_REGION } from "../../shared/convexDeploymentRegions";
 import { NewAppPage } from "./NewAppPage";
 
 const cloudflareBuildTokenTestState = vi.hoisted(() => ({
@@ -69,6 +70,19 @@ vi.mock("@/components/useCloudflareBuildTokens", () => ({
   },
 }));
 
+const convexRegionTestState = vi.hoisted(() => {
+  let defaultRegion: "aws-us-east-1" | "aws-eu-west-1" = "aws-us-east-1";
+
+  return {
+    get defaultRegion() {
+      return defaultRegion;
+    },
+    set defaultRegion(value: "aws-us-east-1" | "aws-eu-west-1") {
+      defaultRegion = value;
+    },
+  };
+});
+
 function fakeOrganizationId(value: string): Id<"organizations"> {
   // @ts-expect-error Convex ids are strings at runtime; this test only needs
   // a stable value for component arguments.
@@ -113,6 +127,9 @@ vi.mock("convex/react", async (importOriginal) => {
           state: "connected",
         };
       }
+      if (name === getFunctionName(api.convexDeploymentRegions.getDefault)) {
+        return convexRegionTestState.defaultRegion;
+      }
       return undefined;
     },
   };
@@ -150,12 +167,15 @@ describe("NewAppPage", () => {
     cloudflareBuildTokenTestState.refetch.mockReset();
     cloudflareBuildTokenTestState.refetch.mockResolvedValue(undefined);
     cloudflareBuildTokenTestState.state = "loaded";
+    convexRegionTestState.defaultRegion = CONVEX_US_EAST_REGION;
     testState.actions.clear();
     testState.fallbackAction.mockReset();
     testState.fallbackAction.mockResolvedValue(undefined);
     mountedElement = null;
     mountedRoot = null;
-    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 60 * 1000 } },
+    });
   });
 
   afterEach(async () => {
@@ -266,6 +286,39 @@ describe("NewAppPage", () => {
     expect(createButton?.disabled).toBe(false);
   });
 
+  it("starts from the saved EU region and lets the creator choose US", async () => {
+    convexRegionTestState.defaultRegion = CONVEX_EU_WEST_REGION;
+    const container = await mountPage();
+    await vi.waitFor(() =>
+      expect(document.getElementById("new-app-convex-production-region")).toBeInstanceOf(
+        HTMLButtonElement,
+      ),
+    );
+    const label = [...container.querySelectorAll("label")].find(
+      (candidate) => candidate.textContent === "Convex production region",
+    );
+    const regionSelect = label ? document.getElementById(label.htmlFor) : null;
+    if (!(regionSelect instanceof HTMLButtonElement)) {
+      throw new Error("Convex production region selector was not rendered.");
+    }
+
+    expect(regionSelect.textContent).toContain("EU West (Ireland)");
+    expect(container.textContent).toContain("EU usage costs 1.3 times US usage.");
+    await act(async () => regionSelect.click());
+    const usOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+      (option) => option.textContent === "🇺🇸 US East (N. Virginia)",
+    );
+    if (!usOption) {
+      throw new Error("US East region option was not rendered.");
+    }
+    await act(async () => {
+      usOption.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    });
+    await act(async () => usOption.click());
+
+    expect(regionSelect.textContent).toContain("US East (N. Virginia)");
+  });
+
   it("hides the Worker field and creates an app after an empty token list is confirmed", async () => {
     vi.useFakeTimers();
     cloudflareBuildTokenTestState.state = "empty";
@@ -308,6 +361,7 @@ describe("NewAppPage", () => {
         organizationId: organization.organizationId,
         name: "no-token-app",
         convexProjectName: "no-token-app",
+        convexDeploymentRegion: CONVEX_US_EAST_REGION,
         cloudflareWorkerName: "no-token-app",
         cloudflareBuildTokenUuid: null,
         private: true,

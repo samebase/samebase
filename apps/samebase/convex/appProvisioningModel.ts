@@ -1,6 +1,8 @@
 import { defineTable } from "convex/server";
 import { Infer, v } from "convex/values";
 
+import { vConvexDeploymentRegion } from "./convexDeploymentRegionModel";
+
 const { id, literal, number, object, optional, string, union } = v;
 
 export const vAppProvisioningEventLevel = union(literal("info"), literal("warn"), literal("error"));
@@ -127,14 +129,17 @@ export const vaultProvisioningTables = {
       object({
         state: literal("planned"),
         projectName: string(),
+        deploymentRegion: vConvexDeploymentRegion,
       }),
       object({
         state: literal("creating"),
         projectName: string(),
+        deploymentRegion: vConvexDeploymentRegion,
       }),
       object({
         state: literal("created"),
         projectName: string(),
+        deploymentRegion: vConvexDeploymentRegion,
         projectId: string(),
       }),
     ),

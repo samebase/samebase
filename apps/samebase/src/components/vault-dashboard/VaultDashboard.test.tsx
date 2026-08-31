@@ -22,7 +22,7 @@ import { type VaultFolderCallbacks, VaultOverviewSidebar } from "./VaultOverview
 import { PullRequestsSection } from "./VaultPullRequestsSection";
 import { RepositorySettings } from "./VaultRepositorySettings";
 import { VaultCloudflareDialog, VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
-import { VaultConvexDialogContent } from "./VaultConvexDialog";
+import { VaultConvexDialog, VaultConvexDialogContent } from "./VaultConvexDialog";
 import { VaultDeleteDialogContent } from "./VaultDeleteDialog";
 import { PullRequestResources, VaultEnvironmentTree } from "./VaultEnvironmentTree";
 import {
@@ -40,6 +40,7 @@ import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 
 const useOrganizationGitHubIdentitiesMock = vi.hoisted(() => vi.fn(() => new Map()));
 const useActionMock = vi.hoisted(() => vi.fn());
+const useQueryMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/hooks/useOrganizationGitHubIdentity", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/useOrganizationGitHubIdentity")>();
@@ -56,7 +57,7 @@ vi.mock("convex/react", async (importOriginal) => {
     ...actual,
     useAction: useActionMock,
     useMutation: vi.fn(),
-    useQuery: vi.fn(),
+    useQuery: useQueryMock,
   };
 });
 vi.mock("@/components/ui/dialog", () => ({
@@ -360,6 +361,7 @@ describe("buildProductionEnvironmentRoots", () => {
                 state: "available",
                 deploymentName: "calm-swan-123",
                 dashboardUrl: "https://dashboard.convex.dev/t/ada/demo/calm-swan-123",
+                region: "aws-eu-west-1",
               },
             },
           },
@@ -424,6 +426,7 @@ describe("buildProductionEnvironmentRoots", () => {
             label: "calm-swan-123",
             provider: "convex",
             provenance: "production",
+            region: "aws-eu-west-1",
             title: "Open production Convex deployment calm-swan-123",
           },
         ],
@@ -728,6 +731,7 @@ describe("vault environment roots", () => {
                   state: "available",
                   deploymentName: "calm-swan-123",
                   dashboardUrl,
+                  region: "aws-eu-west-1",
                 },
               },
             },
@@ -756,6 +760,7 @@ describe("vault environment roots", () => {
             label: "calm-swan-123",
             provider: "convex",
             provenance: "production",
+            region: "aws-eu-west-1",
             title: "Open production Convex deployment calm-swan-123",
           },
         ],
@@ -1593,6 +1598,7 @@ describe("VaultOverviewPage", () => {
         convexConfigPath: "convex.json",
         convex: {
           state: "created",
+          deploymentRegion: "aws-us-east-1",
           projectName: "demo-convex",
           projectId: "demo-project-id",
           teamId: "team-1",
@@ -1931,6 +1937,121 @@ describe("VaultDeleteDialogContent", () => {
   });
 });
 
+describe("VaultConvexDialog", () => {
+  it("submits the live organization default when creating a project for an existing vault", async () => {
+    const discoverProjects = vi.fn(async () => ({
+      source: {
+        completeness: "complete" as const,
+        defaultBranch: "main",
+        commitSha: "commit-root",
+        treeSha: "tree-root",
+        locations: [
+          {
+            kind: "config" as const,
+            convexConfigPath: "convex.json",
+            rootDirectory: "/",
+            blobSha: "blob-root",
+          },
+        ],
+      },
+      projects: [],
+    }));
+    const createProject = vi.fn(async () => fakeConvexProjectId());
+    const onSaved = vi.fn();
+    useActionMock.mockImplementation((action: FunctionReference<"action">) => {
+      const actionName = getFunctionName(action);
+      if (actionName === getFunctionName(api.vault.convex.discoverProjects)) {
+        return discoverProjects;
+      }
+      if (actionName === getFunctionName(api.vault.convex.createProject)) {
+        return createProject;
+      }
+      return vi.fn();
+    });
+    useQueryMock.mockImplementation((query: FunctionReference<"query">, args: unknown) =>
+      getFunctionName(query) === getFunctionName(api.convexDeploymentRegions.getDefault) &&
+      args !== "skip"
+        ? "aws-eu-west-1"
+        : undefined,
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 60 * 1000 } },
+    });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <VaultConvexDialog
+              blockedReason={null}
+              onClose={() => {}}
+              onSaved={onSaved}
+              repairProjectId={null}
+              vault={makeRepositorySettingsBuilderVault({})}
+            />
+          </QueryClientProvider>,
+        );
+      });
+
+      const createButton = await act(() =>
+        vi.waitFor(() => {
+          const button = [...rootElement.querySelectorAll("button")].find(
+            (candidate) => candidate.textContent === "Create",
+          );
+          if (!button) {
+            throw new Error("Expected the Create project mode button.");
+          }
+          return button;
+        }),
+      );
+      await act(async () => createButton.click());
+      await act(() =>
+        vi.waitFor(() =>
+          expect(document.getElementById("vault-convex-production-region")).toBeInstanceOf(
+            HTMLButtonElement,
+          ),
+        ),
+      );
+      const regionSelect = document.getElementById("vault-convex-production-region");
+      if (!(regionSelect instanceof HTMLButtonElement)) {
+        throw new Error("Expected the Convex production region selector.");
+      }
+
+      expect(regionSelect.textContent).toContain("EU West (Ireland)");
+      const submitButton = [...rootElement.querySelectorAll("button")].find(
+        (candidate) => candidate.textContent === "Create project",
+      );
+      if (!submitButton) {
+        throw new Error("Expected the Create project button.");
+      }
+      await act(async () => submitButton.click());
+
+      await vi.waitFor(() =>
+        expect(createProject).toHaveBeenCalledWith({
+          vaultId: fakeVaultId(),
+          projectName: "demo",
+          deploymentRegion: "aws-eu-west-1",
+          codeLocation: {
+            kind: "config",
+            convexConfigPath: "convex.json",
+            blobSha: "blob-root",
+          },
+        }),
+      );
+      expect(onSaved).toHaveBeenCalledTimes(1);
+    } finally {
+      await act(async () => root.unmount());
+      queryClient.clear();
+      rootElement.remove();
+      useActionMock.mockReset();
+      useQueryMock.mockReset();
+    }
+  });
+});
+
 describe("VaultConvexDialogContent", () => {
   type ConvexDialogProps = Parameters<typeof VaultConvexDialogContent>[0];
 
@@ -1972,6 +2093,7 @@ describe("VaultConvexDialogContent", () => {
       projectId: "project-1",
       projectName: "Web",
       projectSlug: "web",
+      productionDeployment: { state: "available" as const, region: "aws-eu-west-1" as const },
       teamSlug: "ada",
       workerReferences: [
         {
@@ -1989,6 +2111,7 @@ describe("VaultConvexDialogContent", () => {
       projectId: "project-2",
       projectName: "API",
       projectSlug: "api",
+      productionDeployment: { state: "missing" as const },
       teamSlug: "ada",
       workerReferences: [],
     },
@@ -1999,6 +2122,8 @@ describe("VaultConvexDialogContent", () => {
       <VaultConvexDialogContent
         codeLocations={codeLocations}
         createCodeLocationKey="config:convex.json"
+        createDeploymentRegion={null}
+        convexDeploymentRegionField={null}
         createProjectName=""
         projects={[projects[1], projects[0]]}
         error={null}
@@ -2025,6 +2150,8 @@ describe("VaultConvexDialogContent", () => {
     expect(markup).toContain("Add Convex to ada/demo");
     expect(markup).toContain("Web");
     expect(markup).toContain("API");
+    expect(markup).toContain("Production: 🇪🇺 EU West (Ireland)");
+    expect(markup).toContain("No production deployment");
     expect(markup).toContain("Used by web-worker");
     expect(markup).toContain("Add 2 projects");
     expect(markup.indexOf(">Web<")).toBeLessThan(markup.indexOf(">API<"));
@@ -2036,6 +2163,8 @@ describe("VaultConvexDialogContent", () => {
       <VaultConvexDialogContent
         codeLocations={codeLocations}
         createCodeLocationKey="config:convex.json"
+        createDeploymentRegion={null}
+        convexDeploymentRegionField={null}
         createProjectName=""
         projects={projects}
         error="Could not attach the selected Convex project."
@@ -2069,6 +2198,8 @@ describe("VaultConvexDialogContent", () => {
         blockedReason="A provider operation is in progress."
         codeLocations={codeLocations}
         createCodeLocationKey="config:apps/web/convex.json"
+        createDeploymentRegion={null}
+        convexDeploymentRegionField={null}
         createProjectName=""
         projects={projects}
         error={null}
@@ -2103,6 +2234,8 @@ describe("VaultConvexDialogContent", () => {
         blockedReason="Samebase could not confirm Convex project creation."
         codeLocations={codeLocations}
         createCodeLocationKey="config:apps/web/convex.json"
+        createDeploymentRegion={null}
+        convexDeploymentRegionField={null}
         createProjectName=""
         projects={projects}
         error={null}
@@ -2141,6 +2274,8 @@ describe("VaultConvexDialogContent", () => {
         <VaultConvexDialogContent
           codeLocations={codeLocations}
           createCodeLocationKey=""
+          createDeploymentRegion={null}
+          convexDeploymentRegionField={null}
           createProjectName=""
           projects={[]}
           error={error}
@@ -2212,6 +2347,8 @@ describe("VaultConvexDialogContent", () => {
       <VaultConvexDialogContent
         codeLocations={codeLocations}
         createCodeLocationKey="config:apps/web/convex.json"
+        createDeploymentRegion={null}
+        convexDeploymentRegionField={null}
         createProjectName=""
         projects={projects}
         error={null}
@@ -2247,6 +2384,8 @@ describe("VaultConvexDialogContent", () => {
       <VaultConvexDialogContent
         codeLocations={[]}
         createCodeLocationKey=""
+        createDeploymentRegion={null}
+        convexDeploymentRegionField={null}
         createProjectName=""
         projects={[]}
         error={null}
@@ -2899,6 +3038,7 @@ describe("buildVaultRepositorySettingsState", () => {
           convexConfigPath: "convex.json",
           convex: {
             state: "planned",
+            deploymentRegion: "aws-eu-west-1",
             projectName: "demo-convex",
             teamId: "team-1",
           },
@@ -2928,7 +3068,7 @@ describe("buildVaultRepositorySettingsState", () => {
     expect(state.roots).toHaveLength(1);
     expect(state.roots[0]?.resources).toMatchObject([
       {
-        description: "Setting up",
+        description: "Setting up in 🇪🇺 EU West (Ireland)",
         name: "demo-convex",
         owner: "team-1",
         provider: "convex",
@@ -2970,6 +3110,7 @@ describe("buildVaultRepositorySettingsState", () => {
           convexConfigPath: "apps/web/convex.json",
           convex: {
             state: "planned",
+            deploymentRegion: "aws-eu-west-1",
             projectName: "demo-convex",
             teamId: "team-1",
           },
@@ -3063,6 +3204,7 @@ describe("buildVaultRepositorySettingsState", () => {
           convexConfigPath: "convex.json",
           convex: {
             state: "created",
+            deploymentRegion: "aws-us-east-1",
             projectName: "readable-convex-name",
             teamId: rawTeamId,
             projectId: rawProjectId,
@@ -3298,7 +3440,12 @@ describe("buildVaultRepositorySettingsState", () => {
               state: "current",
               projectSlug: "api",
               teamSlug: "ada",
-              productionDeployment: { state: "missing" },
+              productionDeployment: {
+                state: "available",
+                deploymentName: "calm-mink-456",
+                dashboardUrl: "https://dashboard.convex.dev/t/ada/api/calm-mink-456",
+                region: "aws-eu-west-1",
+              },
             },
           },
         ],
@@ -3354,6 +3501,7 @@ describe("buildVaultRepositorySettingsState", () => {
     expect(detachCloudflareWorker).toHaveBeenCalledWith(readyWorkerId);
     const convexResource = getRepositorySettingsResource(state, "packages/api", "convex");
     expect(convexResource).toMatchObject({
+      description: expect.stringContaining("Production: 🇪🇺 EU West (Ireland)"),
       owner: "ada",
       state: "available",
       name: "api",

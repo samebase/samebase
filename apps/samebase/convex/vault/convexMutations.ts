@@ -14,6 +14,7 @@ import {
   type ConvexCodeLocation,
 } from "../../shared/convexCodeLocation";
 import { normalizeConvexConfigPath } from "../../shared/convexConfigPath";
+import { vConvexDeploymentRegion } from "../convexDeploymentRegionModel";
 import { vConvexCodeLocation } from "./contracts/convexAttachments";
 import {
   requireBillingResourceCapacityForAuthority,
@@ -230,9 +231,13 @@ export const readManagedProjectCreateCheckpoint = internalQuery({
     teamId: string(),
   },
   returns: union(
-    object({ state: literal("planned") }),
-    object({ state: literal("creating") }),
-    object({ state: literal("created"), projectId: string() }),
+    object({ state: literal("planned"), deploymentRegion: vConvexDeploymentRegion }),
+    object({ state: literal("creating"), deploymentRegion: vConvexDeploymentRegion }),
+    object({
+      state: literal("created"),
+      deploymentRegion: vConvexDeploymentRegion,
+      projectId: string(),
+    }),
   ),
   handler: async (ctx, args) => {
     const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
@@ -244,12 +249,13 @@ export const readManagedProjectCreateCheckpoint = internalQuery({
     }
     switch (plan.convex.state) {
       case "planned":
-        return { state: "planned" as const };
+        return { state: "planned" as const, deploymentRegion: plan.convex.deploymentRegion };
       case "creating":
-        return { state: "creating" as const };
+        return { state: "creating" as const, deploymentRegion: plan.convex.deploymentRegion };
       case "created":
         return {
           state: "created" as const,
+          deploymentRegion: plan.convex.deploymentRegion,
           projectId: plan.convex.projectId,
         };
     }
@@ -280,6 +286,7 @@ export const beginManagedProjectCreate = internalMutation({
       convex: {
         state: "creating",
         projectName: args.projectName,
+        deploymentRegion: plan.convex.deploymentRegion,
       },
       updatedAt: Date.now(),
     });
@@ -333,6 +340,7 @@ export const recordManagedProjectCreated = internalMutation({
         convex: {
           state: "created",
           projectName: args.projectName,
+          deploymentRegion: plan.convex.deploymentRegion,
           projectId: args.projectId,
         },
         updatedAt: Date.now(),

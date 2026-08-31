@@ -27,6 +27,7 @@ import { buildGitHubBranchTreeUrl } from "@/lib/githubUrls";
 import { buildVaultFileRoute } from "@/lib/vaultRoutes";
 import { applyVaultDashboardProviderAddSearch } from "@/routeSearch/root";
 import { Link } from "@tanstack/react-router";
+import { formatConvexDeploymentRegionLabel } from "../../../shared/convexDeploymentRegions";
 import {
   CircleCheck,
   CircleDashed,
@@ -158,6 +159,11 @@ function DestinationResource({
       {resource.provenance === "pull_request_branch" ? (
         <span className="ml-[1.875rem] text-xs leading-5 text-muted-foreground">
           May be from an earlier commit
+        </span>
+      ) : null}
+      {resource.region ? (
+        <span className="ml-[1.875rem] text-xs leading-5 text-muted-foreground">
+          {formatConvexDeploymentRegionLabel(resource.region)}
         </span>
       ) : null}
     </div>

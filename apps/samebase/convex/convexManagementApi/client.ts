@@ -178,6 +178,42 @@ export async function listConvexManagementProjects(args: {
   }
 }
 
+export async function listConvexManagementDefaultProductionDeployments(args: {
+  token: string;
+  teamId: string;
+}): Promise<PlatformDeploymentResponse[]> {
+  const deployments: PlatformDeploymentResponse[] = [];
+  let cursor: string | undefined;
+
+  for (;;) {
+    const page = await requestConvexManagementApiOrThrow(
+      args.token,
+      "GET",
+      "/teams/{team_id}/list_deployments",
+      {
+        params: {
+          path: { team_id: args.teamId },
+          query: {
+            cursor,
+            limit: 100,
+            deploymentType: "prod",
+            isDefault: true,
+          },
+        },
+      },
+    );
+    deployments.push(...page.items);
+
+    if (!page.pagination.hasMore) {
+      return deployments;
+    }
+    if (!page.pagination.nextCursor) {
+      throw new Error("Convex deployment pagination indicated more results without a cursor.");
+    }
+    cursor = page.pagination.nextCursor;
+  }
+}
+
 function formatConvexManagementApiEndpoint(args: {
   path: string;
   params?: ConvexManagementRequestParams;

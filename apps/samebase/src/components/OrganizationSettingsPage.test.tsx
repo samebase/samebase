@@ -1,17 +1,32 @@
 // @vitest-environment jsdom
 
 import { getFunctionName } from "convex/server";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vite-plus/test";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import type { OrganizationGitHubIdentityObservation } from "@/hooks/useOrganizationGitHubIdentity";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import type { ViewerOrganization } from "@/lib/organizationContext";
+import { CONVEX_EU_WEST_REGION, CONVEX_US_EAST_REGION } from "../../shared/convexDeploymentRegions";
 import { OrganizationSettingsPage } from "./OrganizationSettingsPage";
 
 const useOrganizationGitHubIdentitiesMock = vi.hoisted(() => vi.fn());
+const regionTestState = vi.hoisted(() => {
+  let defaultRegion: "aws-us-east-1" | "aws-eu-west-1" = "aws-us-east-1";
+  return {
+    get defaultRegion() {
+      return defaultRegion;
+    },
+    set defaultRegion(value: "aws-us-east-1" | "aws-eu-west-1") {
+      defaultRegion = value;
+    },
+    setDefault: vi.fn(async () => undefined),
+  };
+});
 
 vi.mock("@/hooks/useOrganizationGitHubIdentity", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/useOrganizationGitHubIdentity")>();
@@ -32,8 +47,15 @@ vi.mock("convex/react", async (importOriginal) => {
   return {
     ...actual,
     useAction: () => vi.fn(async () => undefined),
+    useMutation: (reference: Parameters<typeof actual.useMutation>[0]) =>
+      getFunctionName(reference) === getFunctionName(api.convexDeploymentRegions.setDefault)
+        ? regionTestState.setDefault
+        : vi.fn(async () => undefined),
     useQuery: (reference: Parameters<typeof actual.useQuery>[0]) => {
       const functionName = getFunctionName(reference);
+      if (functionName === getFunctionName(api.convexDeploymentRegions.getDefault)) {
+        return regionTestState.defaultRegion;
+      }
       if (functionName === getFunctionName(api.billing.getViewerBillingStatus)) {
         return {
           billingLimited: false,
@@ -97,6 +119,76 @@ function renderOrganizationSettings(
 }
 
 describe("OrganizationSettingsPage", () => {
+  let mountedElement: HTMLDivElement | null;
+  let mountedRoot: Root | null;
+  let mountedQueryClient: QueryClient | null;
+
+  beforeEach(() => {
+    regionTestState.defaultRegion = CONVEX_US_EAST_REGION;
+    regionTestState.setDefault.mockReset();
+    regionTestState.setDefault.mockResolvedValue(undefined);
+    mountedElement = null;
+    mountedRoot = null;
+    mountedQueryClient = null;
+  });
+
+  afterEach(async () => {
+    if (mountedRoot) {
+      await act(async () => mountedRoot?.unmount());
+    }
+    mountedQueryClient?.clear();
+    mountedElement?.remove();
+  });
+
+  async function mountOrganizationSettings(
+    selectedOrganization: ViewerOrganization,
+  ): Promise<HTMLDivElement> {
+    useOrganizationGitHubIdentitiesMock.mockReturnValue(
+      new Map([
+        [
+          selectedOrganization.organizationId,
+          { owner: { status: "current" as const }, vaults: [] },
+        ],
+      ]),
+    );
+    mountedElement = document.createElement("div");
+    document.body.append(mountedElement);
+    mountedRoot = createRoot(mountedElement);
+    const queryClient = new QueryClient();
+    mountedQueryClient = queryClient;
+    await act(async () => {
+      mountedRoot?.render(
+        <QueryClientProvider client={queryClient}>
+          <TestRouterProvider initialEntries={["/org/samebase/settings"]}>
+            <OrganizationSettingsPage organization={selectedOrganization} search={{}} />
+          </TestRouterProvider>
+        </QueryClientProvider>,
+      );
+    });
+    return mountedElement;
+  }
+
+  async function chooseRegion(container: HTMLElement, optionLabel: string): Promise<void> {
+    const label = [...container.querySelectorAll("label")].find(
+      (candidate) => candidate.textContent === "Default production region",
+    );
+    const selector = label ? document.getElementById(label.htmlFor) : null;
+    if (!(selector instanceof HTMLButtonElement)) {
+      throw new Error("Convex production region selector was not rendered.");
+    }
+    await act(async () => selector.click());
+    const option = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+      (candidate) => candidate.textContent === optionLabel,
+    );
+    if (!option) {
+      throw new Error(`Region option ${optionLabel} was not rendered.`);
+    }
+    await act(async () => {
+      option.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    });
+    await act(async () => option.click());
+  }
+
   it("shows organization billing in organization settings", () => {
     const markup = renderOrganizationSettings(organization);
 
@@ -110,10 +202,36 @@ describe("OrganizationSettingsPage", () => {
     expect(markup).toContain("Delete organization");
   });
 
-  it("does not offer organization deletion to a member", () => {
+  it("shows a member the saved region without edit or deletion controls", () => {
+    regionTestState.defaultRegion = CONVEX_EU_WEST_REGION;
     const markup = renderOrganizationSettings({ ...organization, role: "member" });
 
+    expect(markup).toContain("🇪🇺 EU West (Ireland)");
+    expect(markup).not.toContain(">Save<");
+    expect(markup).not.toContain('role="combobox"');
     expect(markup).not.toContain("Delete organization");
+  });
+
+  it("lets an owner save a compact default without a Convex connection", async () => {
+    const container = await mountOrganizationSettings(organization);
+
+    expect(container.textContent).toContain("🇺🇸 US East (N. Virginia)");
+    await chooseRegion(container, "🇪🇺 EU West (Ireland)");
+    expect(container.textContent).not.toContain("EU usage costs");
+    expect(container.querySelector('a[href="https://www.convex.dev/pricing"]')).toBeNull();
+    expect(container.textContent).not.toContain("Connect Convex");
+    const saveButton = [...container.querySelectorAll("button")].find(
+      (button) => button.textContent === "Save",
+    );
+    expect(saveButton?.disabled).toBe(false);
+    await act(async () => saveButton?.click());
+
+    await vi.waitFor(() =>
+      expect(regionTestState.setDefault).toHaveBeenCalledWith({
+        deploymentRegion: CONVEX_EU_WEST_REGION,
+        organizationId: organization.organizationId,
+      }),
+    );
   });
 
   it("offers an owner the verified GitHub owner name update", () => {

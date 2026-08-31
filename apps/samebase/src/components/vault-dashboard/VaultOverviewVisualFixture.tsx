@@ -258,6 +258,7 @@ const LIST_SPACING_CONVEX_OBSERVATIONS = {
           state: "available",
           deploymentName: "calm-swan-123",
           dashboardUrl: "https://dashboard.convex.dev/t/samebase/samebase/calm-swan-123",
+          region: "aws-us-east-1",
         },
       },
     },
@@ -680,6 +681,7 @@ const PROVISIONING_CONVEX_OBSERVATIONS = {
           deploymentName: "dazzling-pheasant-894",
           dashboardUrl:
             "https://dashboard.convex.dev/t/nicu/tmp-f149-vault-loading-states/dazzling-pheasant-894",
+          region: "aws-eu-west-1",
         },
       },
     },
@@ -739,6 +741,7 @@ const PROVISIONING_PLANNED_PROVIDER_PLAN = {
   convex: {
     state: "planned",
     projectName: "tmp-f149-vault-loading-states",
+    deploymentRegion: "aws-eu-west-1",
     teamId: "38516",
   },
   cloudflare: {
@@ -755,6 +758,7 @@ const PROVISIONING_CREATED_PROVIDER_PLAN = {
   convex: {
     state: "created",
     projectName: "tmp-f149-vault-loading-states",
+    deploymentRegion: "aws-eu-west-1",
     teamId: "38516",
     projectId: "2653471",
   },

@@ -333,11 +333,21 @@ JSON Schema for the tool's `structuredContent`:
                           "projectName": {
                             "type": "string"
                           },
+                          "deploymentRegion": {
+                            "anyOf": [
+                              {
+                                "const": "aws-us-east-1"
+                              },
+                              {
+                                "const": "aws-eu-west-1"
+                              }
+                            ]
+                          },
                           "teamId": {
                             "type": "string"
                           }
                         },
-                        "required": ["state", "projectName", "teamId"],
+                        "required": ["state", "projectName", "deploymentRegion", "teamId"],
                         "additionalProperties": false
                       },
                       {
@@ -349,11 +359,21 @@ JSON Schema for the tool's `structuredContent`:
                           "projectName": {
                             "type": "string"
                           },
+                          "deploymentRegion": {
+                            "anyOf": [
+                              {
+                                "const": "aws-us-east-1"
+                              },
+                              {
+                                "const": "aws-eu-west-1"
+                              }
+                            ]
+                          },
                           "teamId": {
                             "type": "string"
                           }
                         },
-                        "required": ["state", "projectName", "teamId"],
+                        "required": ["state", "projectName", "deploymentRegion", "teamId"],
                         "additionalProperties": false
                       },
                       {
@@ -365,6 +385,16 @@ JSON Schema for the tool's `structuredContent`:
                           "projectName": {
                             "type": "string"
                           },
+                          "deploymentRegion": {
+                            "anyOf": [
+                              {
+                                "const": "aws-us-east-1"
+                              },
+                              {
+                                "const": "aws-eu-west-1"
+                              }
+                            ]
+                          },
                           "teamId": {
                             "type": "string"
                           },
@@ -372,7 +402,13 @@ JSON Schema for the tool's `structuredContent`:
                             "type": "string"
                           }
                         },
-                        "required": ["state", "projectName", "teamId", "projectId"],
+                        "required": [
+                          "state",
+                          "projectName",
+                          "deploymentRegion",
+                          "teamId",
+                          "projectId"
+                        ],
                         "additionalProperties": false
                       }
                     ]

@@ -4,7 +4,7 @@
 
 - Status: Accepted rollout contract
 - Owner: Samebase backend
-- Last updated: 2026-08-18
+- Last updated: 2026-08-30
 - Active rollout: `rfcs/120_ORGANIZATION_OWNERSHIP_ROLLOUT.md`
 - Related:
   - `specs/113_ACCOUNT_DELETION_SPEC.md`
@@ -154,6 +154,7 @@ never support several provider teams or accounts.
 The non-secret deployment destinations are optional fields on `organizations`:
 
 ```text
+defaultConvexDeploymentRegion?: "aws-us-east-1" | "aws-eu-west-1"
 convexTeam?: {
   teamId: string
   teamSlug?: string
@@ -171,6 +172,14 @@ when Convex provides the slug through token details or a team lookup. Cloudflare
 requires a non-empty provider-supplied `accountName`. `lastUsedBuildTokenUuid` is an
 organization-shared, non-secret default for the current Cloudflare account. A real account change
 clears it. An account-name refresh preserves it.
+
+`defaultConvexDeploymentRegion` is an optional organization setting for new Convex production
+deployments. An owner can save US or EU without a Convex connection, and a member can read the
+effective value. The shared business function returns US when the field is missing. A create form
+starts from the effective default, but a different choice for one project does not update it.
+
+Provider connection changes preserve the setting. Existing organizations need no backfill. The
+setting query returns the effective default. Saving the default does not call Convex.
 
 Every `organizationProviderCredentials` document has a required `organizationId`, one Convex
 credential slot, and one Cloudflare credential slot. At least one credential slot is present. One
@@ -474,6 +483,9 @@ The rollout is ready only when focused tests and real manual checks prove:
 - Convex and Cloudflare deployment destinations and credentials are organization-owned. Each
   organization has at most one destination and one current credential for each provider. The
   credential records the connecting user and never reaches a client.
+- An owner can save US East or EU West as the Convex production region form default. A member can
+  read the effective value. An unset database field resolves to US East. A one-project choice never
+  writes the default.
 - Each organization has zero or one `organizationProviderCredentials` document with its required
   `organizationId` and at least one credential slot. The organization stores no credential document
   ID.
