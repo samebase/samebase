@@ -1,6 +1,6 @@
 "use node";
 
-import { v, type Infer } from "convex/values";
+import { ConvexError, v, type Infer } from "convex/values";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
@@ -28,6 +28,8 @@ import {
   requireCloudflareBuildTokenUuid,
 } from "../cloudflareResources";
 import {
+  AppResourceNameConflictError,
+  buildAvailableAppResourceNameSuggestion,
   buildNumberedAppResourceNameSuggestion,
   validateAppResourceName,
   type AppResourceNameProvider,
@@ -126,24 +128,6 @@ function validateCreateResourceName(
       suggestion: validation.suggestion,
     }),
   };
-}
-
-function buildNumberedSuggestionFromUnavailableNames(args: {
-  provider: AppResourceNameProvider;
-  baseName: string;
-  unavailableNames: ReadonlySet<string>;
-}): string | null {
-  for (let number = 2; number <= 20; number += 1) {
-    const candidate = buildNumberedAppResourceNameSuggestion({
-      provider: args.provider,
-      baseName: args.baseName,
-      number,
-    });
-    if (!args.unavailableNames.has(candidate)) {
-      return candidate;
-    }
-  }
-  return null;
 }
 
 async function isGitHubRepositoryNameAvailable(args: {
@@ -434,7 +418,7 @@ async function checkConvexProjectNameAvailabilityForConnection(args: {
 
     return buildTakenResult({
       providerLabel: "Convex project",
-      suggestion: buildNumberedSuggestionFromUnavailableNames({
+      suggestion: buildAvailableAppResourceNameSuggestion({
         provider: "convex",
         baseName: projectName,
         unavailableNames,
@@ -781,8 +765,20 @@ export async function createAppForUser(
         : buildNotRequiredResult(),
     ]);
   assertResourceNameAvailable("GitHub repository name", githubNameAvailability);
+  if (convexNameAvailability.status === "taken") {
+    throw new AppResourceNameConflictError({
+      provider: "convex",
+      name: convexNameValidation.value,
+    });
+  }
   assertResourceNameAvailable("Convex project name", convexNameAvailability);
   if (cloudflareNameAvailability.status !== "not_required") {
+    if (cloudflareNameAvailability.status === "taken" && cloudflareNameValidation?.valid) {
+      throw new AppResourceNameConflictError({
+        provider: "cloudflare",
+        name: cloudflareNameValidation.value,
+      });
+    }
     assertResourceNameAvailable("Cloudflare Worker name", cloudflareNameAvailability);
   }
   if (args.cloudflareBuildTokenUuid !== null) {
@@ -827,17 +823,24 @@ export const createRepository = action({
   returns: createRepositoryContract.returns,
   mcp: createRepositoryContract.mcp,
   handler: async (ctx, args): Promise<CreateRepositoryResult> => {
-    return await createAppForUser(ctx, {
-      userId: ctx.viewer.userId,
-      target: { kind: "organization", organizationId: args.organizationId },
-      name: args.name,
-      convexProjectName: args.convexProjectName,
-      convexDeploymentRegion: args.convexDeploymentRegion,
-      cloudflareWorkerName: args.cloudflareWorkerName,
-      cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
-      ...(args.description !== undefined ? { description: args.description } : {}),
-      ...(args.private !== undefined ? { private: args.private } : {}),
-    });
+    try {
+      return await createAppForUser(ctx, {
+        userId: ctx.viewer.userId,
+        target: { kind: "organization", organizationId: args.organizationId },
+        name: args.name,
+        convexProjectName: args.convexProjectName,
+        convexDeploymentRegion: args.convexDeploymentRegion,
+        cloudflareWorkerName: args.cloudflareWorkerName,
+        cloudflareBuildTokenUuid: args.cloudflareBuildTokenUuid,
+        ...(args.description !== undefined ? { description: args.description } : {}),
+        ...(args.private !== undefined ? { private: args.private } : {}),
+      });
+    } catch (error) {
+      if (error instanceof AppResourceNameConflictError) {
+        throw new ConvexError(error.message);
+      }
+      throw error;
+    }
   },
 });
 

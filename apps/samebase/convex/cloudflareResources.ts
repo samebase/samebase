@@ -4,6 +4,7 @@ import { ConvexError } from "convex/values";
 import { z } from "zod";
 
 import { createUrlSearchParams, readUrlSearchParamsRecord } from "../shared/urlSearchParams";
+import { AppResourceNameConflictError } from "../shared/appResourceNames";
 import {
   requestCloudflareApi,
   requestCloudflareApiOrThrow,
@@ -98,6 +99,15 @@ export function isCloudflareWorkerNotFoundError(error: unknown): boolean {
   }
 
   return false;
+}
+
+function isCloudflareWorkerCreateConflictError(error: unknown): boolean {
+  return (
+    error instanceof CloudflareApiError &&
+    error.method === "POST" &&
+    error.path.endsWith("/workers/workers") &&
+    error.details.some((detail) => detail.code === "10040")
+  );
 }
 
 export function isCloudflareBuildTriggerNotFoundError(error: unknown): boolean {
@@ -802,18 +812,6 @@ export async function createCloudflareWorker(args: {
   transport: CloudflareApiTransport;
   beforeProviderWrite?: () => void | Promise<void>;
 }): Promise<CloudflareWorkerIdentity> {
-  const existing = await readWorker({
-    token: args.token,
-    accountId: args.accountId,
-    workerIdentifier: args.workerName,
-    transport: args.transport,
-  });
-  if (existing) {
-    throw new Error(
-      `Cloudflare Worker name ${args.workerName} already exists. Choose another Worker name and try again.`,
-    );
-  }
-
   await args.beforeProviderWrite?.();
   const createdRaw = await requestCloudflareApiOrThrow({
     token: args.token,
@@ -826,6 +824,14 @@ export async function createCloudflareWorker(args: {
       },
     },
     body: buildCloudflareWorkerCreateBody(args.workerName),
+  }).catch((error: unknown) => {
+    if (isCloudflareWorkerCreateConflictError(error)) {
+      throw new AppResourceNameConflictError({
+        provider: "cloudflare",
+        name: args.workerName,
+      });
+    }
+    throw error;
   });
   const created = requireCloudflareResult(
     createdRaw,

@@ -5,10 +5,10 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getFunctionName, type FunctionReference } from "convex/server";
+import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../../../convex/_generated/api";
-import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
 import type { VaultPullRequest, VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { OrganizationContext } from "@/lib/organizationContext";
@@ -1826,25 +1826,6 @@ describe("VaultOverviewPage", () => {
   });
 });
 
-describe("GitHubRepositoryNameSlashPreview", () => {
-  it("shows the exact repository name slash replacement", () => {
-    const markup = renderToStaticMarkup(<GitHubRepositoryNameSlashPreview rawName="field/notes" />);
-
-    expect(markup).toContain("GitHub repo name:");
-    expect(markup).toContain("<code");
-    expect(markup).toContain("font-mono");
-    expect(markup).toContain(">field-notes</code>");
-    expect(markup).not.toContain("will be replaced");
-    expect(markup).not.toContain("&quot;field-notes&quot;");
-  });
-
-  it("stays empty when the name has no slash replacement", () => {
-    const markup = renderToStaticMarkup(<GitHubRepositoryNameSlashPreview rawName="field-notes" />);
-
-    expect(markup).toBe("");
-  });
-});
-
 describe("formatVaultSourceSetupStep", () => {
   it("uses dashboard labels for create-app setup steps", () => {
     expect(formatVaultSourceSetupStep("connect_github")).toBe("Connecting GitHub repository");
@@ -1938,7 +1919,7 @@ describe("VaultDeleteDialogContent", () => {
 });
 
 describe("VaultConvexDialog", () => {
-  it("submits the live organization default when creating a project for an existing vault", async () => {
+  it("uses the live region and resolves a public project name conflict", async () => {
     const discoverProjects = vi.fn(async () => ({
       source: {
         completeness: "complete" as const,
@@ -1957,6 +1938,9 @@ describe("VaultConvexDialog", () => {
       projects: [],
     }));
     const createProject = vi.fn(async () => fakeConvexProjectId());
+    createProject.mockRejectedValueOnce(
+      new ConvexError("A Convex project named demo already exists."),
+    );
     const onSaved = vi.fn();
     useActionMock.mockImplementation((action: FunctionReference<"action">) => {
       const actionName = getFunctionName(action);
@@ -2033,6 +2017,38 @@ describe("VaultConvexDialog", () => {
         expect(createProject).toHaveBeenCalledWith({
           vaultId: fakeVaultId(),
           projectName: "demo",
+          deploymentRegion: "aws-eu-west-1",
+          codeLocation: {
+            kind: "config",
+            convexConfigPath: "convex.json",
+            blobSha: "blob-root",
+          },
+        }),
+      );
+      await vi.waitFor(() =>
+        expect(rootElement.textContent).toContain(
+          "A Convex project named demo already exists. Choose another name.",
+        ),
+      );
+      expect(onSaved).not.toHaveBeenCalled();
+      expect(submitButton.disabled).toBe(true);
+      const useSuggestionButton = [...rootElement.querySelectorAll("button")].find(
+        (candidate) => candidate.textContent === "Use demo-2",
+      );
+      if (!useSuggestionButton) {
+        throw new Error("Expected the Convex project name suggestion.");
+      }
+      await act(async () => useSuggestionButton.click());
+      const projectNameInput = rootElement.querySelector<HTMLInputElement>(
+        "input[placeholder='Project name']",
+      );
+      expect(projectNameInput?.value).toBe("demo-2");
+      expect(submitButton.disabled).toBe(false);
+      await act(async () => submitButton.click());
+      await vi.waitFor(() =>
+        expect(createProject).toHaveBeenLastCalledWith({
+          vaultId: fakeVaultId(),
+          projectName: "demo-2",
           deploymentRegion: "aws-eu-west-1",
           codeLocation: {
             kind: "config",
@@ -2124,6 +2140,7 @@ describe("VaultConvexDialogContent", () => {
         createCodeLocationKey="config:convex.json"
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={[projects[1], projects[0]]}
         error={null}
@@ -2165,6 +2182,7 @@ describe("VaultConvexDialogContent", () => {
         createCodeLocationKey="config:convex.json"
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={projects}
         error="Could not attach the selected Convex project."
@@ -2200,6 +2218,7 @@ describe("VaultConvexDialogContent", () => {
         createCodeLocationKey="config:apps/web/convex.json"
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={projects}
         error={null}
@@ -2236,6 +2255,7 @@ describe("VaultConvexDialogContent", () => {
         createCodeLocationKey="config:apps/web/convex.json"
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={projects}
         error={null}
@@ -2276,6 +2296,7 @@ describe("VaultConvexDialogContent", () => {
           createCodeLocationKey=""
           createDeploymentRegion={null}
           convexDeploymentRegionField={null}
+          createProjectNameConflict={null}
           createProjectName=""
           projects={[]}
           error={error}
@@ -2349,6 +2370,7 @@ describe("VaultConvexDialogContent", () => {
         createCodeLocationKey="config:apps/web/convex.json"
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={projects}
         error={null}
@@ -2386,6 +2408,7 @@ describe("VaultConvexDialogContent", () => {
         createCodeLocationKey=""
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={[]}
         error={null}
@@ -2514,6 +2537,7 @@ describe("VaultCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
         createRootDirectory="/"
+        createWorkerNameConflict={null}
         createWorkerName=""
         didAddWorker={false}
         error={null}
@@ -2551,6 +2575,7 @@ describe("VaultCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
         createRootDirectory="/"
+        createWorkerNameConflict={null}
         createWorkerName=""
         didAddWorker
         error={null}
@@ -2727,7 +2752,8 @@ describe("VaultCloudflareDialogContent", () => {
         cloudflareBuildTokenField={<div>API token</div>}
         hasSelectedBuildToken={false}
         createRootDirectory="apps/web"
-        createWorkerName="samebase_app"
+        createWorkerNameConflict={null}
+        createWorkerName="samebase-app"
         didAddWorker={false}
         error={null}
         folderSuggestions={[]}
@@ -2761,13 +2787,14 @@ describe("VaultCloudflareDialogContent", () => {
     expect(markup).not.toContain("cloudflare-worker-name-error");
   });
 
-  it("rejects an invalid Worker name inline before submission", () => {
+  it("shows a normalized Worker name without blocking submission", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
         createRootDirectory="apps/web"
-        createWorkerName="samebase app"
+        createWorkerNameConflict={null}
+        createWorkerName="samebase_app"
         didAddWorker={false}
         error={null}
         folderSuggestions={[]}
@@ -2792,14 +2819,14 @@ describe("VaultCloudflareDialogContent", () => {
     );
     const createButton = markup.match(/<button[^>]*>Create Worker<\/button>/)?.[0];
 
-    expect(markup).toContain(
-      "Cloudflare Worker name can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.",
-    );
-    expect(markup).toContain('aria-invalid="true"');
-    expect(markup).toContain('aria-describedby="cloudflare-worker-name-error"');
-    expect(markup).toContain('id="cloudflare-worker-name-error" role="alert"');
+    expect(markup).toContain("Samebase will use");
+    expect(markup).toContain('aria-label="Use samebase-app"');
+    expect(markup).toContain(">samebase-app</code>");
+    expect(markup).not.toContain('aria-invalid="true"');
+    expect(markup).toContain('aria-describedby="cloudflare-worker-name-notice"');
+    expect(markup).toContain('id="cloudflare-worker-name-notice" role="status"');
     expect(createButton).toBeDefined();
-    expect(createButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+    expect(createButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
   });
 
   it("shows the operation block reason and disables confirmation", () => {
@@ -2809,6 +2836,7 @@ describe("VaultCloudflareDialogContent", () => {
         hasSelectedBuildToken
         blockedReason="A provider operation is in progress."
         createRootDirectory="apps/web"
+        createWorkerNameConflict={null}
         createWorkerName="web-worker"
         didAddWorker={false}
         error={null}
@@ -2846,6 +2874,7 @@ describe("VaultCloudflareDialogContent", () => {
         hasSelectedBuildToken
         blockedReason="Samebase could not confirm the Cloudflare Worker connection."
         createRootDirectory="apps/web"
+        createWorkerNameConflict={null}
         createWorkerName=""
         didAddWorker={false}
         error={null}
@@ -2882,6 +2911,7 @@ describe("VaultCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
         createRootDirectory="/"
+        createWorkerNameConflict={null}
         createWorkerName=""
         didAddWorker={false}
         error={null}

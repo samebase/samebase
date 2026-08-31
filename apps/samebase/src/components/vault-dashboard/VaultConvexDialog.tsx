@@ -7,13 +7,22 @@ import { Loader2 } from "lucide-react";
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
-import { buildDefaultAppResourceName } from "../../../shared/appResourceNames";
+import {
+  buildAvailableAppResourceNameSuggestion,
+  buildDefaultAppResourceName,
+  formatAppResourceNameConflictMessage,
+  validateAppResourceName,
+} from "../../../shared/appResourceNames";
 import {
   getConvexCodeLocationKey,
   getConvexCodeLocationPath,
   type ConvexCodeLocation,
 } from "../../../shared/convexCodeLocation";
 import { AppDialogContent } from "@/components/AppDialogContent";
+import {
+  AppResourceNameFeedback,
+  AppResourceNameNotice,
+} from "@/components/AppResourceNameFeedback";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -99,6 +108,7 @@ export function VaultConvexDialogContent({
   createCodeLocationKey,
   createDeploymentRegion,
   convexDeploymentRegionField,
+  createProjectNameConflict,
   createProjectName,
   projects,
   error,
@@ -122,6 +132,7 @@ export function VaultConvexDialogContent({
   createCodeLocationKey: string;
   createDeploymentRegion: ConvexDeploymentRegion | null;
   convexDeploymentRegionField: ReactNode;
+  createProjectNameConflict: { message: string; suggestion: string | null } | null;
   createProjectName: string;
   projects: readonly ConvexProjectOption[];
   error: string | null;
@@ -146,6 +157,16 @@ export function VaultConvexDialogContent({
   }));
   const sortedProjects = [...projects].sort(compareConvexProjectOption);
   const selectedProjectCount = Object.keys(selectedProjectCodeLocationKeys).length;
+  const createProjectNameValidation = validateAppResourceName(createProjectName, "convex");
+  const createProjectNameError = createProjectNameValidation.valid
+    ? createProjectNameConflict
+    : createProjectNameValidation;
+  const createProjectNameNotice =
+    createProjectNameValidation.valid &&
+    createProjectNameValidation.changed &&
+    !createProjectNameConflict
+      ? createProjectNameValidation.value
+      : null;
   const submitDisabled =
     Boolean(blockedReason) ||
     isLoading ||
@@ -156,7 +177,10 @@ export function VaultConvexDialogContent({
       : mode === "existing"
         ? selectedProjectCount === 0 ||
           Object.values(selectedProjectCodeLocationKeys).some((key) => !key)
-        : !createProjectName.trim() || !createDeploymentRegion || !createCodeLocationKey);
+        : !createProjectNameValidation.valid ||
+          Boolean(createProjectNameConflict) ||
+          !createDeploymentRegion ||
+          !createCodeLocationKey);
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
@@ -304,12 +328,36 @@ export function VaultConvexDialogContent({
                 )
               ) : (
                 <div className="grid gap-3">
-                  <Input
-                    value={createProjectName}
-                    onChange={(event) => onCreateProjectNameChange(event.target.value)}
-                    disabled={isSubmitting}
-                    placeholder="Project name"
-                  />
+                  <div className="grid gap-1.5">
+                    <Input
+                      value={createProjectName}
+                      onChange={(event) => onCreateProjectNameChange(event.target.value)}
+                      disabled={isSubmitting}
+                      placeholder="Project name"
+                      aria-invalid={Boolean(createProjectNameError) || undefined}
+                      aria-describedby={
+                        createProjectNameError
+                          ? "convex-project-name-error"
+                          : createProjectNameNotice
+                            ? "convex-project-name-notice"
+                            : undefined
+                      }
+                    />
+                    {createProjectNameError ? (
+                      <AppResourceNameFeedback
+                        id="convex-project-name-error"
+                        message={createProjectNameError.message}
+                        suggestion={createProjectNameError.suggestion}
+                        onUseSuggestion={onCreateProjectNameChange}
+                      />
+                    ) : createProjectNameNotice ? (
+                      <AppResourceNameNotice
+                        id="convex-project-name-notice"
+                        name={createProjectNameNotice}
+                        onUseName={onCreateProjectNameChange}
+                      />
+                    ) : null}
+                  </div>
                   {convexDeploymentRegionField}
                   <Select
                     modal={false}
@@ -406,6 +454,7 @@ export function VaultConvexDialog({
     Record<string, string | undefined>
   >({});
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [createProjectConflictName, setCreateProjectConflictName] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const createDeploymentRegion = convexDeploymentRegionSelection.selectedRegion;
 
@@ -428,14 +477,28 @@ export function VaultConvexDialog({
     selectedCreateCodeLocationKey ||
     (codeLocations[0] ? getConvexCodeLocationOptionKey(codeLocations[0]) : "");
   const attachedProjectIds = new Set(vault.convexProjects.map((project) => project.projectId));
-  const projects = (resourcesQuery.data?.projects ?? []).filter(
-    (project) => !attachedProjectIds.has(project.projectId),
+  const allProjects = resourcesQuery.data?.projects ?? [];
+  const unavailableProjectNames = new Set(
+    allProjects.flatMap((project) => [project.projectName, project.projectSlug]),
   );
-  const resourceError = resourcesQuery.error
-    ? resourcesQuery.error instanceof Error
-      ? resourcesQuery.error.message
-      : "Could not discover Convex projects."
-    : null;
+  if (createProjectConflictName) {
+    unavailableProjectNames.add(createProjectConflictName);
+  }
+  const createProjectNameValidation = validateAppResourceName(createProjectName, "convex");
+  const createProjectNameConflict =
+    createProjectNameValidation.valid &&
+    unavailableProjectNames.has(createProjectNameValidation.value)
+      ? {
+          message: `${formatAppResourceNameConflictMessage({ provider: "convex", name: createProjectNameValidation.value })} Choose another name.`,
+          suggestion: buildAvailableAppResourceNameSuggestion({
+            provider: "convex",
+            baseName: createProjectNameValidation.value,
+            unavailableNames: unavailableProjectNames,
+          }),
+        }
+      : null;
+  const projects = allProjects.filter((project) => !attachedProjectIds.has(project.projectId));
+  const resourceError = resourcesQuery.error ? "Could not discover Convex projects." : null;
 
   const handleSubmit = async () => {
     if (blockedReason || !resourcesQuery.data || isSubmitting) {
@@ -498,13 +561,23 @@ export function VaultConvexDialog({
       }
       onSaved();
     } catch (error) {
-      setSubmitError(
-        error instanceof ConvexError && typeof error.data === "string"
-          ? error.data
-          : error instanceof Error
-            ? error.message
-            : "Could not add Convex projects.",
-      );
+      const publicMessage =
+        error instanceof ConvexError && typeof error.data === "string" ? error.data : null;
+      const submittedName = validateAppResourceName(createProjectName, "convex");
+      if (
+        mode === "create" &&
+        submittedName.valid &&
+        publicMessage ===
+          formatAppResourceNameConflictMessage({
+            provider: "convex",
+            name: submittedName.value,
+          })
+      ) {
+        setCreateProjectConflictName(submittedName.value);
+        setSubmitError(null);
+      } else {
+        setSubmitError(publicMessage ?? "Could not add Convex projects.");
+      }
       setIsSubmitting(false);
     }
   };
@@ -524,6 +597,7 @@ export function VaultConvexDialog({
           value={createDeploymentRegion}
         />
       }
+      createProjectNameConflict={createProjectNameConflict}
       createProjectName={createProjectName}
       projects={projects}
       error={submitError ?? resourceError}
@@ -531,8 +605,16 @@ export function VaultConvexDialog({
       isSubmitting={isSubmitting}
       mode={mode}
       onCreateCodeLocationKeyChange={setSelectedCreateCodeLocationKey}
-      onCreateProjectNameChange={setCreateProjectName}
-      onModeChange={setMode}
+      onCreateProjectNameChange={(projectName) => {
+        setCreateProjectName(projectName);
+        setCreateProjectConflictName(null);
+        setSubmitError(null);
+      }}
+      onModeChange={(nextMode) => {
+        setMode(nextMode);
+        setCreateProjectConflictName(null);
+        setSubmitError(null);
+      }}
       onOpenChange={(isOpen) => {
         if (!isOpen && (!isSubmitting || blockedReason)) {
           onClose();

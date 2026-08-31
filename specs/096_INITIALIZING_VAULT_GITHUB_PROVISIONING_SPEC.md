@@ -432,6 +432,16 @@ New App initializes its required Convex production region from the organization 
 can choose US or EU for this app without changing that default. Spec 003 owns the plan and provider
 create behavior.
 
+New App checks provider names before submit. If the create action then finds a Convex project or
+Cloudflare Worker name conflict, New App shows it under the affected name field and gives a numbered
+name suggestion.
+
+Name inputs show the final name that Samebase will use when repository or provider rules change the
+entered text. This information does not block creation. Samebase checks and submits the displayed
+final name. The displayed final name is an action. Selecting it replaces the entered text with the
+final name and removes the information. A name blocks creation only when Samebase cannot produce a
+valid name or the final name is not available.
+
 External provider validation happens after the vault exists so failures have a visible dashboard
 target. Local input validation can happen before insert when it does not require provider calls. The
 selected organization provides the GitHub owner. The create action should not call GitHub only to

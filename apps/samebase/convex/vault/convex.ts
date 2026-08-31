@@ -15,6 +15,7 @@ import {
   requestConvexManagementApiOrThrow,
   type ConvexCloudDeployment,
 } from "../convexManagementApi/client";
+import { ConvexManagementApiError } from "../convexManagementApi/errors";
 import type { ProjectResponse } from "../convexManagementApi/types.generated";
 import { action } from "../functions";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
@@ -25,7 +26,10 @@ import {
   type GitHubConvexCodeLocationDiscovery,
 } from "../githubRepoApi";
 import { toErrorMessage } from "../jsonUtils";
-import { validateAppResourceName } from "../../shared/appResourceNames";
+import {
+  AppResourceNameConflictError,
+  validateAppResourceName,
+} from "../../shared/appResourceNames";
 import {
   getConvexCodeLocationPath,
   normalizeConvexDirectoryPath,
@@ -266,6 +270,54 @@ async function listProjectsForConnection(
   });
 }
 
+async function isConvexProjectNameInUse(
+  connection: ConvexActionConnection,
+  projectName: string,
+): Promise<boolean> {
+  const projects = await listProjectsForConnection(connection);
+  return projects.some((project) => project.name === projectName || project.slug === projectName);
+}
+
+async function createConvexProjectForConnection(args: {
+  connection: ConvexActionConnection;
+  projectName: string;
+  deploymentRegion: ConvexDeploymentRegion;
+}) {
+  try {
+    return await requestConvexManagementApiOrThrow(
+      args.connection.token,
+      "POST",
+      "/teams/{team_id}/create_project",
+      {
+        params: { path: { team_id: args.connection.teamId } },
+        body: {
+          projectName: args.projectName,
+          deploymentType: "prod",
+          deploymentRegion: args.deploymentRegion,
+        },
+      },
+    );
+  } catch (error) {
+    if (!(error instanceof ConvexManagementApiError)) {
+      throw error;
+    }
+
+    let projectNameInUse: boolean;
+    try {
+      projectNameInUse = await isConvexProjectNameInUse(args.connection, args.projectName);
+    } catch {
+      throw error;
+    }
+    if (projectNameInUse) {
+      throw new AppResourceNameConflictError({
+        provider: "convex",
+        name: args.projectName,
+      });
+    }
+    throw error;
+  }
+}
+
 async function readConvexProject(args: {
   connection: ConvexActionConnection;
   projectId: string;
@@ -497,7 +549,7 @@ async function createProjectForUser(
 ): Promise<Id<"vaultConvexProjects">> {
   const validation = validateAppResourceName(args.projectName, "convex");
   if (!validation.valid) {
-    throw new Error(validation.message);
+    throw new ConvexError(validation.message);
   }
   const codeLocation = normalizeConvexCodeLocationSelection(args.codeLocation);
   const actionId = crypto.randomUUID();
@@ -520,15 +572,11 @@ async function createProjectForUser(
       teamId: requireConvexTeamId(sourceDiscovery.context),
     });
     requireVerifiedConvexCodeLocation(sourceDiscovery.source, codeLocation);
-    const projects = await listProjectsForConnection(connection);
-    if (
-      projects.some(
-        (project) => project.name === validation.value || project.slug === validation.value,
-      )
-    ) {
-      throw new Error(
-        `Convex project name ${validation.value} already exists. Attach that project or choose another name.`,
-      );
+    if (await isConvexProjectNameInUse(connection, validation.value)) {
+      throw new AppResourceNameConflictError({
+        provider: "convex",
+        name: validation.value,
+      });
     }
     await ctx.runQuery(
       internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
@@ -539,19 +587,11 @@ async function createProjectForUser(
     );
     requireManualProviderActionDeadline(claim.deadlineAt);
     providerCreateStarted = true;
-    const created = await requestConvexManagementApiOrThrow(
-      connection.token,
-      "POST",
-      "/teams/{team_id}/create_project",
-      {
-        params: { path: { team_id: connection.teamId } },
-        body: {
-          projectName: validation.value,
-          deploymentType: "prod",
-          deploymentRegion: args.deploymentRegion,
-        },
-      },
-    );
+    const created = await createConvexProjectForConnection({
+      connection,
+      projectName: validation.value,
+      deploymentRegion: args.deploymentRegion,
+    });
     const convexProjectId = await ctx.runMutation(
       internal.vault.convexMutations.recordManualProjectCreated,
       {
@@ -582,11 +622,13 @@ async function createProjectForUser(
     return convexProjectId;
   } catch (error) {
     const reportedError =
-      providerCreateStarted && !projectRecorded
-        ? new ConvexError(
-            `The Convex project ${validation.value} can exist, but Samebase could not attach it. If it exists, delete it in the Convex dashboard, then retry.`,
-          )
-        : error;
+      error instanceof AppResourceNameConflictError
+        ? new ConvexError(error.message)
+        : providerCreateStarted && !projectRecorded
+          ? new ConvexError(
+              `The Convex project ${validation.value} can exist, but Samebase could not attach it. If it exists, delete it in the Convex dashboard, then retry.`,
+            )
+          : error;
     await attemptManualProviderWriteFailureRecord(ctx, {
       vaultId: args.vaultId,
       actionId,
@@ -638,12 +680,7 @@ async function createProjectForManagedWorkflow(
   if (checkpoint.state === "created") {
     projectId = checkpoint.projectId;
   } else {
-    const projects = await listProjectsForConnection(connection);
-    if (
-      projects.some(
-        (project) => project.name === validation.value || project.slug === validation.value,
-      )
-    ) {
+    if (await isConvexProjectNameInUse(connection, validation.value)) {
       if (checkpoint.state === "creating") {
         throw new Error(
           `Convex project ${validation.value} exists after an interrupted create. Delete it in the Convex dashboard, then retry.`,
@@ -670,21 +707,22 @@ async function createProjectForManagedWorkflow(
         teamId: connection.teamId,
       });
     }
-    const created = await requestConvexManagementApiOrThrow(
-      connection.token,
-      "POST",
-      "/teams/{team_id}/create_project",
-      {
-        params: { path: { team_id: connection.teamId } },
-        body: {
-          projectName: validation.value,
-          deploymentType: "prod",
-          deploymentRegion: checkpoint.deploymentRegion,
-        },
-      },
-    );
-    projectId = created.id;
-    projectCreated = true;
+    try {
+      const created = await createConvexProjectForConnection({
+        connection,
+        projectName: validation.value,
+        deploymentRegion: checkpoint.deploymentRegion,
+      });
+      projectId = created.id;
+      projectCreated = true;
+    } catch (error) {
+      if (error instanceof AppResourceNameConflictError) {
+        throw new Error(
+          `Convex project ${validation.value} exists after an interrupted create. Delete it in the Convex dashboard, then retry.`,
+        );
+      }
+      throw error;
+    }
   }
 
   const project = await readConvexProject({ connection, projectId });

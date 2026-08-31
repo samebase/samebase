@@ -2,6 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getFunctionName } from "convex/server";
+import { ConvexError } from "convex/values";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -284,6 +285,152 @@ describe("NewAppPage", () => {
       (button) => button.textContent === "New App",
     );
     expect(createButton?.disabled).toBe(false);
+  });
+
+  it("shows the final GitHub and Cloudflare names without blocking creation", async () => {
+    vi.useFakeTimers();
+    const checkNames = vi.fn(async () => availableNames());
+    testState.actions.set(
+      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
+      checkNames,
+    );
+    const container = await mountPage();
+    const repositoryInput = container.querySelector<HTMLInputElement>(
+      "[aria-label='GitHub repo name']",
+    );
+    const workerInput = container.querySelector<HTMLInputElement>(
+      "[aria-label='Cloudflare Worker name']",
+    );
+    if (!repositoryInput || !workerInput) {
+      throw new Error("Expected the New App name inputs.");
+    }
+
+    setInputValue(repositoryInput, " Field/Notes ");
+    await act(async () => repositoryInput.dispatchEvent(new Event("input", { bubbles: true })));
+    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await flushQueryUpdates();
+    await vi.waitFor(() =>
+      expect(
+        [...container.querySelectorAll("code")].map((element) => element.textContent),
+      ).toContain("Field-Notes"),
+    );
+    const useRepositoryName = container.querySelector<HTMLButtonElement>(
+      "[aria-label='Use Field-Notes']",
+    );
+    if (!useRepositoryName) {
+      throw new Error("Expected the final GitHub repository name action.");
+    }
+    await act(async () =>
+      useRepositoryName.dispatchEvent(new MouseEvent("click", { bubbles: true })),
+    );
+    expect(repositoryInput.value).toBe("Field-Notes");
+    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await flushQueryUpdates();
+    await vi.waitFor(() =>
+      expect(container.querySelector("[aria-label='Use Field-Notes']")).toBeNull(),
+    );
+
+    setInputValue(workerInput, "Worker_Name");
+    await act(async () => workerInput.dispatchEvent(new Event("input", { bubbles: true })));
+    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await flushQueryUpdates();
+    await vi.waitFor(() =>
+      expect(
+        [...container.querySelectorAll("code")].map((element) => element.textContent),
+      ).toContain("worker-name"),
+    );
+    const useWorkerName = container.querySelector<HTMLButtonElement>(
+      "[aria-label='Use worker-name']",
+    );
+    if (!useWorkerName) {
+      throw new Error("Expected the final Cloudflare Worker name action.");
+    }
+    await act(async () => useWorkerName.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(workerInput.value).toBe("worker-name");
+    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await flushQueryUpdates();
+    await vi.waitFor(() =>
+      expect(container.querySelector("[aria-label='Use worker-name']")).toBeNull(),
+    );
+
+    expect(checkNames).toHaveBeenLastCalledWith({
+      organizationId: organization.organizationId,
+      githubRepositoryName: "Field-Notes",
+      convexProjectName: "field-notes",
+      cloudflareWorkerName: "worker-name",
+      cloudflareBuildTokenUuid: "build-token-1",
+    });
+    const createButton = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent === "New App",
+    );
+    expect(createButton?.disabled).toBe(false);
+  });
+
+  it("moves a provider create race into the affected name field", async () => {
+    vi.useFakeTimers();
+    const checkNames = vi.fn(async () => ({
+      ...availableNames(),
+      convex: {
+        status: "taken" as const,
+        message: "Convex project name already exists.",
+        suggestion: "race-app-2",
+      },
+    }));
+    const createRepository = vi.fn(async () => {
+      throw new ConvexError("A Convex project named race-app-2 already exists.");
+    });
+    testState.actions.set(
+      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
+      checkNames,
+    );
+    testState.actions.set(getFunctionName(api.vault.actions.createRepository), createRepository);
+    const container = await mountPage();
+    const repositoryInput = container.querySelector<HTMLInputElement>(
+      "[aria-label='GitHub repo name']",
+    );
+    if (!repositoryInput) {
+      throw new Error("GitHub repository name input was not rendered.");
+    }
+
+    setInputValue(repositoryInput, "race-app");
+    await act(async () => repositoryInput.dispatchEvent(new Event("input", { bubbles: true })));
+    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await flushQueryUpdates();
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain("GitHub repository name is available."),
+    );
+    expect(container.textContent).toContain("race-app already exists; using race-app-2.");
+
+    const createButton = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent === "New App",
+    );
+    expect(createButton?.disabled).toBe(false);
+    await act(async () => createButton?.click());
+
+    await vi.waitFor(() =>
+      expect(container.textContent).toContain(
+        "A Convex project named race-app-2 already exists. Choose another name.",
+      ),
+    );
+    expect(createRepository).toHaveBeenCalledWith(
+      expect.objectContaining({ convexProjectName: "race-app-2" }),
+    );
+    expect(createButton?.disabled).toBe(true);
+    const useSuggestionButton = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent === "Use race-app-3",
+    );
+    if (!useSuggestionButton) {
+      throw new Error("Convex project name suggestion was not rendered.");
+    }
+    await act(async () => useSuggestionButton.click());
+
+    const convexProjectInput = container.querySelector<HTMLInputElement>(
+      "[aria-label='Convex project name']",
+    );
+    expect(convexProjectInput?.value).toBe("race-app-3");
+    expect(container.textContent).not.toContain(
+      "A Convex project named race-app-2 already exists. Choose another name.",
+    );
   });
 
   it("starts from the saved EU region and lets the creator choose US", async () => {

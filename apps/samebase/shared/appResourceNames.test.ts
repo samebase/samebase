@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  buildAvailableAppResourceNameSuggestion,
   buildDefaultAppResourceName,
   buildNumberedAppResourceNameSuggestion,
+  formatAppResourceNameConflictMessage,
   sanitizeAppResourceName,
   validateAppResourceName,
   type AppResourceNameProvider,
@@ -43,34 +45,49 @@ describe("app resource names", () => {
     expect(validateAppResourceName("  Samebase App_1  ", "convex")).toEqual({
       valid: true,
       value: "Samebase App_1",
+      changed: true,
     });
     expect(validateAppResourceName("a".repeat(80), "convex").valid).toBe(true);
   });
 
-  it("accepts observed valid Cloudflare Worker name shapes", () => {
+  it("accepts Cloudflare Worker names that support preview URLs", () => {
+    expect(validateAppResourceName("samebase-app", "cloudflare")).toEqual({
+      valid: true,
+      value: "samebase-app",
+      changed: false,
+    });
+    expect(validateAppResourceName("samebase1", "cloudflare").valid).toBe(true);
+  });
+
+  it("normalizes unsupported Cloudflare Worker name characters", () => {
     expect(validateAppResourceName("samebase_app", "cloudflare")).toEqual({
       valid: true,
-      value: "samebase_app",
+      value: "samebase-app",
+      changed: true,
     });
-    expect(validateAppResourceName("_samebase", "cloudflare").valid).toBe(true);
-    expect(validateAppResourceName("samebase-", "cloudflare").valid).toBe(true);
-  });
-
-  it("rejects the name from an observed Cloudflare 10016 response", () => {
-    expect(validateAppResourceName("samebase app", "cloudflare")).toEqual({
+    expect(validateAppResourceName("Samebase", "cloudflare")).toMatchObject({
+      valid: true,
+      value: "samebase",
+      changed: true,
+    });
+    expect(validateAppResourceName("-samebase-", "cloudflare")).toMatchObject({
+      valid: true,
+      value: "samebase",
+      changed: true,
+    });
+    expect(validateAppResourceName("___", "cloudflare")).toEqual({
       valid: false,
-      message:
-        "Cloudflare Worker name can use lowercase letters, numbers, underscores, and dashes, and cannot start with a dash.",
-      suggestion: "samebase-app",
+      message: "Cloudflare Worker name must include a letter or number.",
+      suggestion: null,
     });
   });
 
-  it("enforces the Cloudflare preview URL name limit", () => {
+  it("normalizes to the Cloudflare preview URL name limit", () => {
     expect(validateAppResourceName("a".repeat(54), "cloudflare").valid).toBe(true);
     expect(validateAppResourceName("a".repeat(55), "cloudflare")).toEqual({
-      valid: false,
-      message: "Cloudflare Worker name must be 54 characters or fewer.",
-      suggestion: "a".repeat(54),
+      valid: true,
+      value: "a".repeat(54),
+      changed: true,
     });
   });
 
@@ -82,6 +99,30 @@ describe("app resource names", () => {
         number: 12,
       }),
     ).toBe("a-very-long-generated-app-name-that-w-12");
+
+    expect(
+      buildAvailableAppResourceNameSuggestion({
+        provider: "convex",
+        baseName: "samebase-app",
+        unavailableNames: new Set(["samebase-app", "samebase-app-2"]),
+      }),
+    ).toBe("samebase-app-3");
+    expect(
+      buildAvailableAppResourceNameSuggestion({
+        provider: "convex",
+        baseName: "samebase-app-2",
+        unavailableNames: new Set(["samebase-app-2"]),
+      }),
+    ).toBe("samebase-app-3");
+  });
+
+  it("formats provider name conflicts for public UI", () => {
+    expect(formatAppResourceNameConflictMessage({ provider: "convex", name: "samebase-app" })).toBe(
+      "A Convex project named samebase-app already exists.",
+    );
+    expect(
+      formatAppResourceNameConflictMessage({ provider: "cloudflare", name: "samebase-app" }),
+    ).toBe("A Cloudflare Worker named samebase-app already exists.");
   });
 
   it("enumerates generated provider name state axes", () => {

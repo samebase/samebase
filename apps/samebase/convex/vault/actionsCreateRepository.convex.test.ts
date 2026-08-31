@@ -231,6 +231,34 @@ describe("preview personal repository authorization", () => {
 });
 
 describe("create repository Workers Builds token admission", () => {
+  it("returns a public provider name conflict before it creates the vault", async () => {
+    const { organizationId, t, viewer } = await createRepositoryFixture();
+    providerMocks.listConvexManagementProjects.mockResolvedValue([
+      {
+        createTime: 1,
+        id: "existing-project",
+        name: "new-app",
+        slug: "new-app",
+        teamId: "convex-team",
+        teamSlug: "convex-team",
+      },
+    ]);
+
+    await expect(
+      viewer.action(api.vault.actions.createRepository, {
+        organizationId,
+        name: "new-app",
+        convexProjectName: "new-app",
+        cloudflareWorkerName: "new-app",
+        cloudflareBuildTokenUuid: null,
+      }),
+    ).rejects.toMatchObject({
+      name: "ConvexError",
+      data: "A Convex project named new-app already exists.",
+    });
+    await expect(t.run(async (ctx) => await ctx.db.query("vaults").collect())).resolves.toEqual([]);
+  });
+
   it("uses the saved EU default and accepts null without another provider-list request", async () => {
     const { organizationId, t, viewer } = await createRepositoryFixture();
     await t.run(async (ctx) => {

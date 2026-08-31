@@ -11,6 +11,10 @@ import { clsx } from "clsx";
 import { linkStyle } from "@/components/styles";
 import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenField";
 import {
+  AppResourceNameFeedback,
+  AppResourceNameNotice,
+} from "@/components/AppResourceNameFeedback";
+import {
   useCloudflareBuildTokenSelection,
   useCloudflareBuildTokens,
 } from "@/components/useCloudflareBuildTokens";
@@ -18,8 +22,11 @@ import { buildPathWithTanStackSearch } from "@/lib/tanstackSearchParams";
 import { buildVaultDashboardRoute } from "@/lib/vaultRoutes";
 import { ORGANIZATION_PROVIDERS_ROUTE } from "@/lib/organizationRoutes";
 import {
+  buildAvailableAppResourceNameSuggestion,
   buildDefaultAppResourceName,
+  formatAppResourceNameConflictMessage,
   validateAppResourceName,
+  type AppResourceNameProvider,
 } from "../../shared/appResourceNames";
 import { toSafeRepoName } from "../../shared/repoName";
 import {
@@ -33,6 +40,7 @@ import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegion
 import { useConvexDeploymentRegion } from "@/components/useConvexDeploymentRegions";
 
 type CreateResourceNameMode = "auto" | "manual";
+type CreateProviderNameConflict = { provider: AppResourceNameProvider; name: string };
 type CreateResourceNameCheckResult =
   (typeof api.vault.actions.checkCreateRepositoryResourceNames)["_returnType"];
 type CreateResourceNameAvailability = CreateResourceNameCheckResult["convex"];
@@ -177,42 +185,12 @@ function useCreateResourceNameAvailability(args: {
   };
 }
 
-function CreateResourceNameFeedback({
-  children,
-  message,
-  suggestion,
-  onUseSuggestion,
-}: {
-  children?: ReactNode;
-  message: string;
-  suggestion: string | null;
-  onUseSuggestion: (suggestion: string) => void;
-}) {
-  return (
-    <div className="text-xs text-red-600">
-      <span>{message}</span>
-      {suggestion && (
-        <button
-          type="button"
-          className={clsx("ml-1 text-left text-blue-600 underline underline-offset-2", linkStyle)}
-          onClick={() => {
-            onUseSuggestion(suggestion);
-          }}
-        >
-          Use {suggestion}
-        </button>
-      )}
-      {children}
-    </div>
-  );
-}
-
 function CreateResourceNameStatus({
   children,
   kind,
 }: {
   children: ReactNode;
-  kind: "available" | "checking" | "info";
+  kind: "available" | "checking";
 }) {
   return (
     <div
@@ -220,41 +198,16 @@ function CreateResourceNameStatus({
         "flex min-w-0 items-start text-xs",
         kind === "available" && "gap-1.5 text-green-600",
         kind === "checking" && "gap-1.5 text-muted-foreground",
-        kind === "info" && "text-muted-foreground",
       )}
       role="status"
     >
       {kind === "available" ? (
         <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      ) : kind === "checking" ? (
+      ) : (
         <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
-      ) : null}
+      )}
       <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
     </div>
-  );
-}
-
-// Use toSafeRepoName here so the slash preview matches repository provisioning.
-function buildGitHubRepositoryNameSlashReplacement(rawName: string): string | null {
-  const repositoryName = toSafeRepoName(rawName);
-  if (!rawName.includes("/") || !repositoryName) {
-    return null;
-  }
-  return repositoryName;
-}
-
-export function GitHubRepositoryNameSlashPreview({ rawName }: { rawName: string }) {
-  const repositoryName = buildGitHubRepositoryNameSlashReplacement(rawName);
-  if (!repositoryName) {
-    return null;
-  }
-  return (
-    <CreateResourceNameStatus kind="info">
-      GitHub repo name:{" "}
-      <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] text-foreground">
-        {repositoryName}
-      </code>
-    </CreateResourceNameStatus>
   );
 }
 
@@ -541,6 +494,8 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const [cloudflareWorkerName, setCloudflareWorkerNameState] = useState("");
   const [cloudflareWorkerNameMode, setCloudflareWorkerNameMode] =
     useState<CreateResourceNameMode>("auto");
+  const [createProviderNameConflict, setCreateProviderNameConflict] =
+    useState<CreateProviderNameConflict | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const convexConnected = convexConnection?.state === "connected";
@@ -578,6 +533,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const canCreateRepositoryForOrganization = organization.canCreateRepository;
   const canCreateRepo = hasRequiredCreateConnections && canCreateRepositoryForOrganization;
   const createRepositoryName = newRepositoryName.trim();
+  const normalizedGitHubRepositoryName = toSafeRepoName(newRepositoryName);
   const defaultConvexProjectName = buildDefaultAppResourceName({
     repositoryName: newRepositoryName,
     provider: "convex",
@@ -630,6 +586,18 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     resolvedCloudflareWorkerName,
     "cloudflare",
   );
+  const convexCreateConflict =
+    createProviderNameConflict?.provider === "convex" &&
+    convexProjectNameValidation.valid &&
+    createProviderNameConflict.name === convexProjectNameValidation.value
+      ? createProviderNameConflict
+      : null;
+  const cloudflareCreateConflict =
+    createProviderNameConflict?.provider === "cloudflare" &&
+    cloudflareWorkerNameValidation.valid &&
+    createProviderNameConflict.name === cloudflareWorkerNameValidation.value
+      ? createProviderNameConflict
+      : null;
   const isConvexProjectNameAvailabilityBlocking = isCreateResourceNameAvailabilityBlocking(
     convexProjectNameMode,
     convexProjectNameAvailability,
@@ -651,6 +619,8 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       (!cloudflareBuildTokensConfirmedEmpty && !cloudflareWorkerNameValidation.valid) ||
       createResourceNameCheckError ||
       isCreateResourceNameCheckPending ||
+      convexCreateConflict ||
+      (!cloudflareBuildTokensConfirmedEmpty && cloudflareCreateConflict) ||
       isConvexProjectNameAvailabilityBlocking ||
       (!cloudflareBuildTokensConfirmedEmpty && isCloudflareWorkerNameAvailabilityBlocking)),
   );
@@ -668,15 +638,18 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
 
   const setNewRepositoryName = useCallback((value: string) => {
     setCreateError(null);
+    setCreateProviderNameConflict(null);
     setNewRepositoryNameState(value);
   }, []);
   const setConvexProjectName = useCallback((value: string, mode: CreateResourceNameMode) => {
     setCreateError(null);
+    setCreateProviderNameConflict(null);
     setConvexProjectNameState(value);
     setConvexProjectNameMode(mode);
   }, []);
   const setCloudflareWorkerName = useCallback((value: string, mode: CreateResourceNameMode) => {
     setCreateError(null);
+    setCreateProviderNameConflict(null);
     setCloudflareWorkerNameState(value);
     setCloudflareWorkerNameMode(mode);
   }, []);
@@ -686,6 +659,8 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     label,
     mode,
     onUseGeneratedName,
+    provider,
+    submitConflictMessage,
     validation,
     onUseSuggestion,
   }: {
@@ -694,6 +669,8 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     label: string;
     mode: CreateResourceNameMode;
     onUseGeneratedName: () => void;
+    provider: AppResourceNameProvider;
+    submitConflictMessage: string | null;
     validation: ReturnType<typeof validateAppResourceName>;
     onUseSuggestion: (suggestion: string) => void;
   }) => {
@@ -711,7 +688,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
 
     if (createRepositoryName && !validation.valid) {
       return (
-        <CreateResourceNameFeedback
+        <AppResourceNameFeedback
           message={validation.message}
           suggestion={validation.suggestion}
           onUseSuggestion={onUseSuggestion}
@@ -719,13 +696,35 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           {manualResetContent && (
             <span className="ml-1 text-muted-foreground">{manualResetContent}</span>
           )}
-        </CreateResourceNameFeedback>
+        </AppResourceNameFeedback>
+      );
+    }
+
+    if (submitConflictMessage && validation.valid) {
+      const unavailableNames = new Set([validation.value]);
+      if (availability?.suggestion) {
+        unavailableNames.add(availability.suggestion);
+      }
+      return (
+        <AppResourceNameFeedback
+          message={`${submitConflictMessage} Choose another name.`}
+          suggestion={buildAvailableAppResourceNameSuggestion({
+            provider,
+            baseName: mode === "auto" ? checkedName : validation.value,
+            unavailableNames,
+          })}
+          onUseSuggestion={onUseSuggestion}
+        >
+          {manualResetContent && (
+            <span className="ml-1 text-muted-foreground">{manualResetContent}</span>
+          )}
+        </AppResourceNameFeedback>
       );
     }
 
     if (createResourceNameCheckError) {
       return (
-        <CreateResourceNameFeedback
+        <AppResourceNameFeedback
           message={createResourceNameCheckError}
           suggestion={null}
           onUseSuggestion={onUseSuggestion}
@@ -733,7 +732,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
           {manualResetContent && (
             <span className="ml-1 text-muted-foreground">{manualResetContent}</span>
           )}
-        </CreateResourceNameFeedback>
+        </AppResourceNameFeedback>
       );
     }
 
@@ -752,6 +751,13 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     }
 
     if (availability.status === "available") {
+      if (validation.valid && validation.changed) {
+        return (
+          <AppResourceNameNotice name={validation.value} onUseName={onUseSuggestion}>
+            {manualResetContent && <span className="ml-1">{manualResetContent}</span>}
+          </AppResourceNameNotice>
+        );
+      }
       return (
         <CreateResourceNameStatus kind="available">
           {label} is available.
@@ -771,7 +777,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     }
 
     return (
-      <CreateResourceNameFeedback
+      <AppResourceNameFeedback
         message={availability.message ?? "Name is not available."}
         suggestion={availability.suggestion}
         onUseSuggestion={onUseSuggestion}
@@ -779,7 +785,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         {manualResetContent && (
           <span className="ml-1 text-muted-foreground">{manualResetContent}</span>
         )}
-      </CreateResourceNameFeedback>
+      </AppResourceNameFeedback>
     );
   };
   const renderGitHubRepositoryNameSupport = () => {
@@ -789,7 +795,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
 
     if (createResourceNameCheckError) {
       return (
-        <CreateResourceNameFeedback
+        <AppResourceNameFeedback
           message={createResourceNameCheckError}
           suggestion={null}
           onUseSuggestion={setNewRepositoryName}
@@ -802,7 +808,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       githubRepositoryNameAvailability.status !== "available"
     ) {
       return (
-        <CreateResourceNameFeedback
+        <AppResourceNameFeedback
           message={
             githubRepositoryNameAvailability.message ?? "GitHub repository name is not available."
           }
@@ -812,15 +818,20 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       );
     }
 
-    if (createRepositoryName.includes("/")) {
-      return <GitHubRepositoryNameSlashPreview rawName={createRepositoryName} />;
-    }
-
     if (isCreateResourceNameCheckPending) {
       return (
         <CreateResourceNameStatus kind="checking">
           Checking GitHub repository...
         </CreateResourceNameStatus>
+      );
+    }
+
+    if (normalizedGitHubRepositoryName && normalizedGitHubRepositoryName !== newRepositoryName) {
+      return (
+        <AppResourceNameNotice
+          name={normalizedGitHubRepositoryName}
+          onUseName={setNewRepositoryName}
+        />
       );
     }
 
@@ -893,6 +904,10 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         onUseGeneratedName: () => {
           setCloudflareWorkerName("", "auto");
         },
+        provider: "cloudflare",
+        submitConflictMessage: cloudflareCreateConflict
+          ? formatAppResourceNameConflictMessage(cloudflareCreateConflict)
+          : null,
         onUseSuggestion: (suggestion) => {
           setCloudflareWorkerName(suggestion, "manual");
         },
@@ -907,6 +922,10 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         onUseGeneratedName: () => {
           setConvexProjectName("", "auto");
         },
+        provider: "convex",
+        submitConflictMessage: convexCreateConflict
+          ? formatAppResourceNameConflictMessage(convexCreateConflict)
+          : null,
         onUseSuggestion: (suggestion) => {
           setConvexProjectName(suggestion, "manual");
         },
@@ -953,7 +972,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const handleCreateRepository = async () => {
     const repoName = newRepositoryName.trim();
     if (!repoName || isCreating) return;
-    const routeRepoName = toSafeRepoName(repoName);
+    const routeRepoName = normalizedGitHubRepositoryName;
     if (!routeRepoName) {
       setCreateError("Repository name is required.");
       return;
@@ -1013,6 +1032,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
 
     setIsCreating(true);
     setCreateError(null);
+    setCreateProviderNameConflict(null);
 
     try {
       await createRepository({
@@ -1041,13 +1061,29 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         }),
       });
     } catch (error) {
-      const message =
-        error instanceof ConvexError && typeof error.data === "string"
-          ? error.data
-          : error instanceof Error
-            ? error.message
-            : "Failed to create app";
-      setCreateError(message);
+      const publicMessage =
+        error instanceof ConvexError && typeof error.data === "string" ? error.data : null;
+      const convexConflictMessage = formatAppResourceNameConflictMessage({
+        provider: "convex",
+        name: convexProjectNameValidation.value,
+      });
+      const cloudflareConflictMessage = formatAppResourceNameConflictMessage({
+        provider: "cloudflare",
+        name: submittedCloudflareWorkerName,
+      });
+      if (publicMessage === convexConflictMessage) {
+        setCreateProviderNameConflict({
+          provider: "convex",
+          name: convexProjectNameValidation.value,
+        });
+      } else if (publicMessage === cloudflareConflictMessage) {
+        setCreateProviderNameConflict({
+          provider: "cloudflare",
+          name: submittedCloudflareWorkerName,
+        });
+      } else {
+        setCreateError(publicMessage ?? "Could not create app.");
+      }
     } finally {
       setIsCreating(false);
     }

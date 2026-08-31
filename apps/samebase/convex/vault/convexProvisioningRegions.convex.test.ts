@@ -39,6 +39,7 @@ vi.mock("../githubRepoApi", async (importOriginal) => {
 });
 
 import { api, internal } from "../_generated/api";
+import { ConvexManagementApiError } from "../convexManagementApi/errors";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
 async function createRegionOrganization(t: ReturnType<typeof makeConvexTest>) {
@@ -333,6 +334,57 @@ describe("Convex project regions", () => {
         },
       ],
     });
+  });
+
+  it("returns a public name conflict when the provider create loses a race", async () => {
+    const { t, vaultId, viewer } = await createManualRegionFixture();
+    providerMocks.listConvexManagementProjects.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        createTime: 1,
+        id: "racing-project",
+        name: "race-app",
+        slug: "race-app",
+        teamId: "convex-team",
+        teamSlug: "convex-team",
+      },
+    ]);
+    providerMocks.requestConvexManagementApiOrThrow.mockImplementation(
+      async (_token: string, method: string, path: string) => {
+        if (method === "POST" && path === "/teams/{team_id}/create_project") {
+          throw new ConvexManagementApiError({
+            status: 409,
+            path,
+            responseBodySummary: "Raw Convex request 123 failed.",
+          });
+        }
+        throw new Error(`Unexpected Convex request: ${method} ${path}`);
+      },
+    );
+
+    await expect(
+      viewer.action(api.vault.convex.createProject, {
+        vaultId,
+        projectName: "race-app",
+        deploymentRegion: "aws-us-east-1",
+        codeLocation: {
+          kind: "config",
+          convexConfigPath: "convex.json",
+          blobSha: "convex-json-sha",
+        },
+      }),
+    ).rejects.toMatchObject({
+      name: "ConvexError",
+      data: "A Convex project named race-app already exists.",
+    });
+    await expect(
+      t.run(
+        async (ctx) =>
+          await ctx.db
+            .query("vaultConvexProjects")
+            .withIndex("by_vault", (query) => query.eq("vaultId", vaultId))
+            .collect(),
+      ),
+    ).resolves.toEqual([]);
   });
 
   it("joins each discovered project to its production deployment region", async () => {

@@ -1348,7 +1348,7 @@ export function VaultOverviewVisualFixture({ mode }: { mode: VaultOverviewVisual
   switch (mode) {
     case "vault-overview-v2-cloudflare-builds-repair":
     case "vault-overview-v2-cloudflare-dialog":
-    case "vault-overview-v2-cloudflare-dialog-invalid-name":
+    case "vault-overview-v2-cloudflare-dialog-normalized-name":
     case "vault-overview-v2-cloudflare-dialog-loading":
     case "vault-overview-v2-convex-dialog":
     case "vault-overview-v2-convex-dialog-error":
