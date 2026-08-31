@@ -14,7 +14,10 @@ import {
   validateAppResourceName,
 } from "../../../shared/appResourceNames";
 import { AppDialogContent } from "@/components/AppDialogContent";
-import { AppResourceNameFeedback } from "@/components/AppResourceNameFeedback";
+import {
+  AppResourceNameFeedback,
+  AppResourceNameNotice,
+} from "@/components/AppResourceNameFeedback";
 import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenField";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import {
@@ -144,9 +147,15 @@ export function VaultCloudflareDialogContent({
         left.workerTag.localeCompare(right.workerTag),
     );
   const createWorkerNameValidation = validateAppResourceName(createWorkerName, "cloudflare");
-  const createWorkerNameFeedback = createWorkerNameValidation.valid
+  const createWorkerNameError = createWorkerNameValidation.valid
     ? createWorkerNameConflict
     : createWorkerNameValidation;
+  const createWorkerNameNotice =
+    createWorkerNameValidation.valid &&
+    createWorkerNameValidation.changed &&
+    !createWorkerNameConflict
+      ? createWorkerNameValidation.value
+      : null;
   const submitDisabled =
     Boolean(blockedReason) ||
     isSubmitting ||
@@ -314,17 +323,26 @@ export function VaultCloudflareDialogContent({
                       onChange={(event) => onCreateWorkerNameChange(event.target.value)}
                       disabled={isSubmitting}
                       placeholder="Worker name"
-                      aria-invalid={Boolean(createWorkerNameFeedback) || undefined}
+                      aria-invalid={Boolean(createWorkerNameError) || undefined}
                       aria-describedby={
-                        createWorkerNameFeedback ? "cloudflare-worker-name-error" : undefined
+                        createWorkerNameError
+                          ? "cloudflare-worker-name-error"
+                          : createWorkerNameNotice
+                            ? "cloudflare-worker-name-notice"
+                            : undefined
                       }
                     />
-                    {createWorkerNameFeedback ? (
+                    {createWorkerNameError ? (
                       <AppResourceNameFeedback
                         id="cloudflare-worker-name-error"
-                        message={createWorkerNameFeedback.message}
-                        suggestion={createWorkerNameFeedback.suggestion}
+                        message={createWorkerNameError.message}
+                        suggestion={createWorkerNameError.suggestion}
                         onUseSuggestion={onCreateWorkerNameChange}
+                      />
+                    ) : createWorkerNameNotice ? (
+                      <AppResourceNameNotice
+                        id="cloudflare-worker-name-notice"
+                        name={createWorkerNameNotice}
                       />
                     ) : null}
                   </div>

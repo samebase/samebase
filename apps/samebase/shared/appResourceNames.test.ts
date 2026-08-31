@@ -45,6 +45,7 @@ describe("app resource names", () => {
     expect(validateAppResourceName("  Samebase App_1  ", "convex")).toEqual({
       valid: true,
       value: "Samebase App_1",
+      changed: true,
     });
     expect(validateAppResourceName("a".repeat(80), "convex").valid).toBe(true);
   });
@@ -53,28 +54,40 @@ describe("app resource names", () => {
     expect(validateAppResourceName("samebase-app", "cloudflare")).toEqual({
       valid: true,
       value: "samebase-app",
+      changed: false,
     });
     expect(validateAppResourceName("samebase1", "cloudflare").valid).toBe(true);
   });
 
-  it("enforces documented Cloudflare Worker name characters", () => {
+  it("normalizes unsupported Cloudflare Worker name characters", () => {
     expect(validateAppResourceName("samebase_app", "cloudflare")).toEqual({
-      valid: false,
-      message:
-        "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and cannot start or end with a dash.",
-      suggestion: "samebase-app",
+      valid: true,
+      value: "samebase-app",
+      changed: true,
     });
-    for (const invalidName of ["Samebase", "-samebase", "samebase-"]) {
-      expect(validateAppResourceName(invalidName, "cloudflare").valid).toBe(false);
-    }
+    expect(validateAppResourceName("Samebase", "cloudflare")).toMatchObject({
+      valid: true,
+      value: "samebase",
+      changed: true,
+    });
+    expect(validateAppResourceName("-samebase-", "cloudflare")).toMatchObject({
+      valid: true,
+      value: "samebase",
+      changed: true,
+    });
+    expect(validateAppResourceName("___", "cloudflare")).toEqual({
+      valid: false,
+      message: "Cloudflare Worker name must include a letter or number.",
+      suggestion: null,
+    });
   });
 
-  it("enforces the Cloudflare preview URL name limit", () => {
+  it("normalizes to the Cloudflare preview URL name limit", () => {
     expect(validateAppResourceName("a".repeat(54), "cloudflare").valid).toBe(true);
     expect(validateAppResourceName("a".repeat(55), "cloudflare")).toEqual({
-      valid: false,
-      message: "Cloudflare Worker name must be 54 characters or fewer.",
-      suggestion: "a".repeat(54),
+      valid: true,
+      value: "a".repeat(54),
+      changed: true,
     });
   });
 

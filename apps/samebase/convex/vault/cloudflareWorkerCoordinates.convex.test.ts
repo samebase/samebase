@@ -247,7 +247,7 @@ describe("Cloudflare Worker stored coordinates", () => {
       fixture.owner.action(api.vault.cloudflare.createWorker, {
         vaultId: fixture.ids.vaultId,
         accountId: "cloudflare-account",
-        workerName: "tmp-some-new-app",
+        workerName: "tmp_some_new_app",
         rootDirectory: "/",
         buildTokenUuid: "build-token",
       }),
@@ -289,7 +289,7 @@ describe("Cloudflare Worker stored coordinates", () => {
       fixture.owner.action(api.vault.cloudflare.createWorker, {
         vaultId: fixture.ids.vaultId,
         accountId: "cloudflare-account",
-        workerName: "tmp-race-app",
+        workerName: "tmp_race_app",
         rootDirectory: "/",
         buildTokenUuid: "build-token",
       }),

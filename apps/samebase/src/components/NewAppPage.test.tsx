@@ -287,6 +287,57 @@ describe("NewAppPage", () => {
     expect(createButton?.disabled).toBe(false);
   });
 
+  it("shows the final GitHub and Cloudflare names without blocking creation", async () => {
+    vi.useFakeTimers();
+    const checkNames = vi.fn(async () => availableNames());
+    testState.actions.set(
+      getFunctionName(api.vault.actions.checkCreateRepositoryResourceNames),
+      checkNames,
+    );
+    const container = await mountPage();
+    const repositoryInput = container.querySelector<HTMLInputElement>(
+      "[aria-label='GitHub repo name']",
+    );
+    const workerInput = container.querySelector<HTMLInputElement>(
+      "[aria-label='Cloudflare Worker name']",
+    );
+    if (!repositoryInput || !workerInput) {
+      throw new Error("Expected the New App name inputs.");
+    }
+
+    setInputValue(repositoryInput, " Field/Notes ");
+    await act(async () => repositoryInput.dispatchEvent(new Event("input", { bubbles: true })));
+    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await flushQueryUpdates();
+    await vi.waitFor(() =>
+      expect(
+        [...container.querySelectorAll("code")].map((element) => element.textContent),
+      ).toContain("Field-Notes"),
+    );
+
+    setInputValue(workerInput, "Worker_Name");
+    await act(async () => workerInput.dispatchEvent(new Event("input", { bubbles: true })));
+    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await flushQueryUpdates();
+    await vi.waitFor(() =>
+      expect(
+        [...container.querySelectorAll("code")].map((element) => element.textContent),
+      ).toContain("worker-name"),
+    );
+
+    expect(checkNames).toHaveBeenLastCalledWith({
+      organizationId: organization.organizationId,
+      githubRepositoryName: "Field/Notes",
+      convexProjectName: "field-notes",
+      cloudflareWorkerName: "Worker_Name",
+      cloudflareBuildTokenUuid: "build-token-1",
+    });
+    const createButton = [...container.querySelectorAll<HTMLButtonElement>("button")].find(
+      (button) => button.textContent === "New App",
+    );
+    expect(createButton?.disabled).toBe(false);
+  });
+
   it("moves a provider create race into the affected name field", async () => {
     vi.useFakeTimers();
     const checkNames = vi.fn(async () => ({

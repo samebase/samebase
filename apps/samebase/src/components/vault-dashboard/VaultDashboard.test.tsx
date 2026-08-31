@@ -9,7 +9,6 @@ import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../../../convex/_generated/api";
-import { GitHubRepositoryNameSlashPreview } from "@/components/NewAppPage";
 import type { VaultPullRequest, VaultPullRequestsState } from "@/hooks/useVaultPullRequests";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
 import { OrganizationContext } from "@/lib/organizationContext";
@@ -1827,25 +1826,6 @@ describe("VaultOverviewPage", () => {
   });
 });
 
-describe("GitHubRepositoryNameSlashPreview", () => {
-  it("shows the exact repository name slash replacement", () => {
-    const markup = renderToStaticMarkup(<GitHubRepositoryNameSlashPreview rawName="field/notes" />);
-
-    expect(markup).toContain("GitHub repo name:");
-    expect(markup).toContain("<code");
-    expect(markup).toContain("font-mono");
-    expect(markup).toContain(">field-notes</code>");
-    expect(markup).not.toContain("will be replaced");
-    expect(markup).not.toContain("&quot;field-notes&quot;");
-  });
-
-  it("stays empty when the name has no slash replacement", () => {
-    const markup = renderToStaticMarkup(<GitHubRepositoryNameSlashPreview rawName="field-notes" />);
-
-    expect(markup).toBe("");
-  });
-});
-
 describe("formatVaultSourceSetupStep", () => {
   it("uses dashboard labels for create-app setup steps", () => {
     expect(formatVaultSourceSetupStep("connect_github")).toBe("Connecting GitHub repository");
@@ -2807,7 +2787,7 @@ describe("VaultCloudflareDialogContent", () => {
     expect(markup).not.toContain("cloudflare-worker-name-error");
   });
 
-  it("rejects an invalid Worker name inline before submission", () => {
+  it("shows a normalized Worker name without blocking submission", () => {
     const markup = renderToStaticMarkup(
       <VaultCloudflareDialogContent
         cloudflareBuildTokenField={null}
@@ -2839,14 +2819,13 @@ describe("VaultCloudflareDialogContent", () => {
     );
     const createButton = markup.match(/<button[^>]*>Create Worker<\/button>/)?.[0];
 
-    expect(markup).toContain(
-      "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and cannot start or end with a dash.",
-    );
-    expect(markup).toContain('aria-invalid="true"');
-    expect(markup).toContain('aria-describedby="cloudflare-worker-name-error"');
-    expect(markup).toContain('id="cloudflare-worker-name-error" role="alert"');
+    expect(markup).toContain("Samebase will use");
+    expect(markup).toContain(">samebase-app</code>");
+    expect(markup).not.toContain('aria-invalid="true"');
+    expect(markup).toContain('aria-describedby="cloudflare-worker-name-notice"');
+    expect(markup).toContain('id="cloudflare-worker-name-notice" role="status"');
     expect(createButton).toBeDefined();
-    expect(createButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+    expect(createButton).not.toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
   });
 
   it("shows the operation block reason and disables confirmation", () => {

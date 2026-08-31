@@ -182,7 +182,7 @@ apps/samebase/e2e/terms-acceptance-visual.spec.ts-snapshots/terms-acceptance-des
 apps/samebase/e2e/terms-acceptance-visual.spec.ts-snapshots/terms-acceptance-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-build-status-unavailable-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-builds-repair-mobile.png
-apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-invalid-name-mobile.png
+apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-normalized-name-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-loading-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-dialog-mobile.png
 apps/samebase/e2e/vault-overview-v2-visual.spec.ts-snapshots/vault-overview-v2-cloudflare-github-authorization-failed.png

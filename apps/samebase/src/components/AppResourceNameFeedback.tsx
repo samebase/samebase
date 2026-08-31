@@ -34,3 +34,23 @@ export function AppResourceNameFeedback({
     </div>
   );
 }
+
+export function AppResourceNameNotice({
+  children,
+  id,
+  name,
+}: {
+  children?: ReactNode;
+  id?: string;
+  name: string;
+}) {
+  return (
+    <div id={id} role="status" className="text-xs text-muted-foreground">
+      <span>
+        Samebase will use <code className="font-mono text-[11px] text-foreground">{name}</code>
+        {"."}
+      </span>
+      {children}
+    </div>
+  );
+}

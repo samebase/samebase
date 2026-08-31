@@ -3,8 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 import { api, internal } from "../_generated/api";
 import { makeConvexTest } from "../test.setup";
 
-const invalidWorkerNameMessage =
-  "Cloudflare Worker name can use lowercase letters, numbers, and dashes, and cannot start or end with a dash.";
+const invalidWorkerNameMessage = "Cloudflare Worker name must include a letter or number.";
 
 async function createValidationFixture() {
   const t = makeConvexTest();
@@ -64,7 +63,7 @@ describe("Cloudflare Worker name validation", () => {
     vi.unstubAllGlobals();
   });
 
-  it("rejects an invalid manual name before a provider request", async () => {
+  it("rejects an unusable manual name before a provider request", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const { asUser, vaultId } = await createValidationFixture();
@@ -73,7 +72,7 @@ describe("Cloudflare Worker name validation", () => {
       asUser.action(api.vault.cloudflare.createWorker, {
         vaultId,
         accountId: "00000000000000000000000000000001",
-        workerName: "samebase_app",
+        workerName: "___",
         rootDirectory: "/",
         buildTokenUuid: "build-token",
       }),
@@ -84,7 +83,7 @@ describe("Cloudflare Worker name validation", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it("rejects an invalid managed name before a provider request", async () => {
+  it("rejects an unusable managed name before a provider request", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     const { runId, t, userId, vaultId } = await createValidationFixture();
@@ -95,7 +94,7 @@ describe("Cloudflare Worker name validation", () => {
         runId,
         userId,
         accountId: "00000000000000000000000000000001",
-        workerName: "samebase_app",
+        workerName: "___",
       }),
     ).rejects.toThrow(invalidWorkerNameMessage);
     expect(fetchMock).not.toHaveBeenCalled();

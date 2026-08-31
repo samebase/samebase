@@ -4,6 +4,7 @@ type AppResourceNameValidationResult =
   | {
       valid: true;
       value: string;
+      changed: boolean;
     }
   | {
       valid: false;
@@ -52,37 +53,30 @@ export function validateAppResourceName(
   provider: AppResourceNameProvider,
 ): AppResourceNameValidationResult {
   const label = `${getAppResourceNameLabel(provider)} name`;
-  const value = rawName.trim();
-  const suggestion = sanitizeAppResourceName(value, provider);
+  const enteredValue = rawName.trim();
 
-  if (!value) {
+  if (!enteredValue) {
     return {
       valid: false,
       message: `${label} is required.`,
-      suggestion: suggestion || null,
+      suggestion: null,
     };
   }
-  if (provider === "cloudflare") {
-    const maxLength = generatedNameMaxLengths.cloudflare;
-    if (value.length > maxLength) {
-      return {
-        valid: false,
-        message: `${label} must be ${maxLength} characters or fewer.`,
-        suggestion: suggestion || null,
-      };
-    }
-    if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(value)) {
-      return {
-        valid: false,
-        message: `${label} can use lowercase letters, numbers, and dashes, and cannot start or end with a dash.`,
-        suggestion: suggestion || null,
-      };
-    }
+
+  const value =
+    provider === "cloudflare" ? sanitizeAppResourceName(enteredValue, provider) : enteredValue;
+  if (!value) {
+    return {
+      valid: false,
+      message: `${label} must include a letter or number.`,
+      suggestion: null,
+    };
   }
 
   return {
     valid: true,
     value,
+    changed: rawName !== value,
   };
 }
 

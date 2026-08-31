@@ -19,7 +19,10 @@ import {
   type ConvexCodeLocation,
 } from "../../../shared/convexCodeLocation";
 import { AppDialogContent } from "@/components/AppDialogContent";
-import { AppResourceNameFeedback } from "@/components/AppResourceNameFeedback";
+import {
+  AppResourceNameFeedback,
+  AppResourceNameNotice,
+} from "@/components/AppResourceNameFeedback";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -155,9 +158,15 @@ export function VaultConvexDialogContent({
   const sortedProjects = [...projects].sort(compareConvexProjectOption);
   const selectedProjectCount = Object.keys(selectedProjectCodeLocationKeys).length;
   const createProjectNameValidation = validateAppResourceName(createProjectName, "convex");
-  const createProjectNameFeedback = createProjectNameValidation.valid
+  const createProjectNameError = createProjectNameValidation.valid
     ? createProjectNameConflict
     : createProjectNameValidation;
+  const createProjectNameNotice =
+    createProjectNameValidation.valid &&
+    createProjectNameValidation.changed &&
+    !createProjectNameConflict
+      ? createProjectNameValidation.value
+      : null;
   const submitDisabled =
     Boolean(blockedReason) ||
     isLoading ||
@@ -325,17 +334,26 @@ export function VaultConvexDialogContent({
                       onChange={(event) => onCreateProjectNameChange(event.target.value)}
                       disabled={isSubmitting}
                       placeholder="Project name"
-                      aria-invalid={Boolean(createProjectNameFeedback) || undefined}
+                      aria-invalid={Boolean(createProjectNameError) || undefined}
                       aria-describedby={
-                        createProjectNameFeedback ? "convex-project-name-error" : undefined
+                        createProjectNameError
+                          ? "convex-project-name-error"
+                          : createProjectNameNotice
+                            ? "convex-project-name-notice"
+                            : undefined
                       }
                     />
-                    {createProjectNameFeedback ? (
+                    {createProjectNameError ? (
                       <AppResourceNameFeedback
                         id="convex-project-name-error"
-                        message={createProjectNameFeedback.message}
-                        suggestion={createProjectNameFeedback.suggestion}
+                        message={createProjectNameError.message}
+                        suggestion={createProjectNameError.suggestion}
                         onUseSuggestion={onCreateProjectNameChange}
+                      />
+                    ) : createProjectNameNotice ? (
+                      <AppResourceNameNotice
+                        id="convex-project-name-notice"
+                        name={createProjectNameNotice}
                       />
                     ) : null}
                   </div>

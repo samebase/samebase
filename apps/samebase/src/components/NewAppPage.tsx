@@ -10,7 +10,10 @@ import { Input } from "@/components/ui/input";
 import { clsx } from "clsx";
 import { linkStyle } from "@/components/styles";
 import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenField";
-import { AppResourceNameFeedback } from "@/components/AppResourceNameFeedback";
+import {
+  AppResourceNameFeedback,
+  AppResourceNameNotice,
+} from "@/components/AppResourceNameFeedback";
 import {
   useCloudflareBuildTokenSelection,
   useCloudflareBuildTokens,
@@ -187,7 +190,7 @@ function CreateResourceNameStatus({
   kind,
 }: {
   children: ReactNode;
-  kind: "available" | "checking" | "info";
+  kind: "available" | "checking";
 }) {
   return (
     <div
@@ -195,41 +198,16 @@ function CreateResourceNameStatus({
         "flex min-w-0 items-start text-xs",
         kind === "available" && "gap-1.5 text-green-600",
         kind === "checking" && "gap-1.5 text-muted-foreground",
-        kind === "info" && "text-muted-foreground",
       )}
       role="status"
     >
       {kind === "available" ? (
         <CheckIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-      ) : kind === "checking" ? (
+      ) : (
         <Loader2 className="mt-0.5 h-3.5 w-3.5 shrink-0 animate-spin" />
-      ) : null}
+      )}
       <span className="min-w-0 [overflow-wrap:anywhere]">{children}</span>
     </div>
-  );
-}
-
-// Use toSafeRepoName here so the slash preview matches repository provisioning.
-function buildGitHubRepositoryNameSlashReplacement(rawName: string): string | null {
-  const repositoryName = toSafeRepoName(rawName);
-  if (!rawName.includes("/") || !repositoryName) {
-    return null;
-  }
-  return repositoryName;
-}
-
-export function GitHubRepositoryNameSlashPreview({ rawName }: { rawName: string }) {
-  const repositoryName = buildGitHubRepositoryNameSlashReplacement(rawName);
-  if (!repositoryName) {
-    return null;
-  }
-  return (
-    <CreateResourceNameStatus kind="info">
-      GitHub repo name:{" "}
-      <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px] text-foreground">
-        {repositoryName}
-      </code>
-    </CreateResourceNameStatus>
   );
 }
 
@@ -555,6 +533,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const canCreateRepositoryForOrganization = organization.canCreateRepository;
   const canCreateRepo = hasRequiredCreateConnections && canCreateRepositoryForOrganization;
   const createRepositoryName = newRepositoryName.trim();
+  const normalizedGitHubRepositoryName = toSafeRepoName(newRepositoryName);
   const defaultConvexProjectName = buildDefaultAppResourceName({
     repositoryName: newRepositoryName,
     provider: "convex",
@@ -772,6 +751,13 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     }
 
     if (availability.status === "available") {
+      if (validation.valid && validation.changed) {
+        return (
+          <AppResourceNameNotice name={validation.value}>
+            {manualResetContent && <span className="ml-1">{manualResetContent}</span>}
+          </AppResourceNameNotice>
+        );
+      }
       return (
         <CreateResourceNameStatus kind="available">
           {label} is available.
@@ -832,16 +818,16 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
       );
     }
 
-    if (createRepositoryName.includes("/")) {
-      return <GitHubRepositoryNameSlashPreview rawName={createRepositoryName} />;
-    }
-
     if (isCreateResourceNameCheckPending) {
       return (
         <CreateResourceNameStatus kind="checking">
           Checking GitHub repository...
         </CreateResourceNameStatus>
       );
+    }
+
+    if (normalizedGitHubRepositoryName && normalizedGitHubRepositoryName !== newRepositoryName) {
+      return <AppResourceNameNotice name={normalizedGitHubRepositoryName} />;
     }
 
     if (githubRepositoryNameAvailability?.status === "available") {
@@ -981,7 +967,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const handleCreateRepository = async () => {
     const repoName = newRepositoryName.trim();
     if (!repoName || isCreating) return;
-    const routeRepoName = toSafeRepoName(repoName);
+    const routeRepoName = normalizedGitHubRepositoryName;
     if (!routeRepoName) {
       setCreateError("Repository name is required.");
       return;
