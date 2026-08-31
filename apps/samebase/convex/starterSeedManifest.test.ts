@@ -7,7 +7,7 @@ describe("starterSeedManifest", () => {
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "4c4eff83cd4151a099cdaf8110b5683c0565b6aae71dce13269db3ead1884210",
+      contentHash: "3d333fbe80ee49347ac19dea6372d4950409b19d2a61b1d0545a786295a45971",
       commitMessage: "Initialize app from Samebase starter build v2002",
     });
     expect(starterTemplateManifest.version).toBe(
