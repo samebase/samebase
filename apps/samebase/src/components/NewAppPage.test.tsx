@@ -314,6 +314,21 @@ describe("NewAppPage", () => {
         [...container.querySelectorAll("code")].map((element) => element.textContent),
       ).toContain("Field-Notes"),
     );
+    const useRepositoryName = container.querySelector<HTMLButtonElement>(
+      "[aria-label='Use Field-Notes']",
+    );
+    if (!useRepositoryName) {
+      throw new Error("Expected the final GitHub repository name action.");
+    }
+    await act(async () =>
+      useRepositoryName.dispatchEvent(new MouseEvent("click", { bubbles: true })),
+    );
+    expect(repositoryInput.value).toBe("Field-Notes");
+    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await flushQueryUpdates();
+    await vi.waitFor(() =>
+      expect(container.querySelector("[aria-label='Use Field-Notes']")).toBeNull(),
+    );
 
     setInputValue(workerInput, "Worker_Name");
     await act(async () => workerInput.dispatchEvent(new Event("input", { bubbles: true })));
@@ -324,12 +339,25 @@ describe("NewAppPage", () => {
         [...container.querySelectorAll("code")].map((element) => element.textContent),
       ).toContain("worker-name"),
     );
+    const useWorkerName = container.querySelector<HTMLButtonElement>(
+      "[aria-label='Use worker-name']",
+    );
+    if (!useWorkerName) {
+      throw new Error("Expected the final Cloudflare Worker name action.");
+    }
+    await act(async () => useWorkerName.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+    expect(workerInput.value).toBe("worker-name");
+    await act(async () => vi.advanceTimersByTimeAsync(350));
+    await flushQueryUpdates();
+    await vi.waitFor(() =>
+      expect(container.querySelector("[aria-label='Use worker-name']")).toBeNull(),
+    );
 
     expect(checkNames).toHaveBeenLastCalledWith({
       organizationId: organization.organizationId,
-      githubRepositoryName: "Field/Notes",
+      githubRepositoryName: "Field-Notes",
       convexProjectName: "field-notes",
-      cloudflareWorkerName: "Worker_Name",
+      cloudflareWorkerName: "worker-name",
       cloudflareBuildTokenUuid: "build-token-1",
     });
     const createButton = [...container.querySelectorAll<HTMLButtonElement>("button")].find(

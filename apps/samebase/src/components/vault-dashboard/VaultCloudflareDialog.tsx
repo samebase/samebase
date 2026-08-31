@@ -343,6 +343,7 @@ export function VaultCloudflareDialogContent({
                       <AppResourceNameNotice
                         id="cloudflare-worker-name-notice"
                         name={createWorkerNameNotice}
+                        onUseName={onCreateWorkerNameChange}
                       />
                     ) : null}
                   </div>

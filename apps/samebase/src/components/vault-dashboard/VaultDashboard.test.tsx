@@ -2820,6 +2820,7 @@ describe("VaultCloudflareDialogContent", () => {
     const createButton = markup.match(/<button[^>]*>Create Worker<\/button>/)?.[0];
 
     expect(markup).toContain("Samebase will use");
+    expect(markup).toContain('aria-label="Use samebase-app"');
     expect(markup).toContain(">samebase-app</code>");
     expect(markup).not.toContain('aria-invalid="true"');
     expect(markup).toContain('aria-describedby="cloudflare-worker-name-notice"');

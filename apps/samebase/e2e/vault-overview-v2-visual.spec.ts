@@ -427,6 +427,7 @@ test("covers Cloudflare connection and Builds repair states", async ({ page }) =
     await expect(dialog).toBeVisible();
     if (mode === "vault-overview-v2-cloudflare-dialog-normalized-name") {
       await expect(dialog.getByRole("status")).toContainText("Samebase will use samebase-app.");
+      await expect(dialog.getByRole("button", { name: "Use samebase-app" })).toBeVisible();
       await expect(dialog.getByRole("button", { name: "Create Worker" })).toBeEnabled();
     }
     if (

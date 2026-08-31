@@ -101,7 +101,8 @@ name suggestion.
 
 If Samebase changes the entered text to meet Cloudflare Worker name rules, the dialog shows the
 final name as information and keeps Create Worker available. The create request uses that final
-name. The dialog blocks only when no valid Worker name can be produced or the final name conflicts.
+name. Selecting the displayed name replaces the entered text and removes the information. The dialog
+blocks only when no valid Worker name can be produced or the final name conflicts.
 
 Create Worker configures Builds without requiring or changing a Convex attachment. It changes only
 Cloudflare freshness. A tokenless managed app uses this same action after the user completes

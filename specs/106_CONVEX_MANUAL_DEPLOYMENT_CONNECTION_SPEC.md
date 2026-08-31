@@ -95,7 +95,8 @@ a name race, the dialog shows the same conflict in the project name field and gi
 suggestion.
 
 If Samebase changes the entered text before submission, the dialog shows the final project name as
-information and keeps Create project available. The provider request uses that final name.
+information and keeps Create project available. Selecting the displayed name replaces the entered
+text and removes the information. The provider request uses that final name.
 
 If the provider create succeeds but attachment fails, Samebase reports the ambiguous external state
 and does not delete the project automatically.

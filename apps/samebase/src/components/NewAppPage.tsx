@@ -753,7 +753,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     if (availability.status === "available") {
       if (validation.valid && validation.changed) {
         return (
-          <AppResourceNameNotice name={validation.value}>
+          <AppResourceNameNotice name={validation.value} onUseName={onUseSuggestion}>
             {manualResetContent && <span className="ml-1">{manualResetContent}</span>}
           </AppResourceNameNotice>
         );
@@ -827,7 +827,12 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     }
 
     if (normalizedGitHubRepositoryName && normalizedGitHubRepositoryName !== newRepositoryName) {
-      return <AppResourceNameNotice name={normalizedGitHubRepositoryName} />;
+      return (
+        <AppResourceNameNotice
+          name={normalizedGitHubRepositoryName}
+          onUseName={setNewRepositoryName}
+        />
+      );
     }
 
     if (githubRepositoryNameAvailability?.status === "available") {

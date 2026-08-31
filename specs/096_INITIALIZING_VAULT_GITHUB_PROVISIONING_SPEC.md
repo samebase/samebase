@@ -438,8 +438,9 @@ name suggestion.
 
 Name inputs show the final name that Samebase will use when repository or provider rules change the
 entered text. This information does not block creation. Samebase checks and submits the displayed
-final name. A name blocks creation only when Samebase cannot produce a valid name or the final name
-is not available.
+final name. The displayed final name is an action. Selecting it replaces the entered text with the
+final name and removes the information. A name blocks creation only when Samebase cannot produce a
+valid name or the final name is not available.
 
 External provider validation happens after the vault exists so failures have a visible dashboard
 target. Local input validation can happen before insert when it does not require provider calls. The

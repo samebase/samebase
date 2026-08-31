@@ -39,15 +39,27 @@ export function AppResourceNameNotice({
   children,
   id,
   name,
+  onUseName,
 }: {
   children?: ReactNode;
   id?: string;
   name: string;
+  onUseName: (name: string) => void;
 }) {
   return (
     <div id={id} role="status" className="text-xs text-muted-foreground">
       <span>
-        Samebase will use <code className="font-mono text-[11px] text-foreground">{name}</code>
+        Samebase will use{" "}
+        <button
+          type="button"
+          aria-label={`Use ${name}`}
+          className={clsx("text-left text-blue-600 underline underline-offset-2", linkStyle)}
+          onClick={() => {
+            onUseName(name);
+          }}
+        >
+          <code className="font-mono text-[11px]">{name}</code>
+        </button>
         {"."}
       </span>
       {children}

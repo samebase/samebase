@@ -354,6 +354,7 @@ export function VaultConvexDialogContent({
                       <AppResourceNameNotice
                         id="convex-project-name-notice"
                         name={createProjectNameNotice}
+                        onUseName={onCreateProjectNameChange}
                       />
                     ) : null}
                   </div>
