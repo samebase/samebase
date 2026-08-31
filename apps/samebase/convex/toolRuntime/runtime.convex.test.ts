@@ -336,7 +336,7 @@ describe("MCP tool runtime boundaries", () => {
       grantedScopes: ["access_provider_connections"],
       vaultId,
       accountId: "account_1",
-      workerName: "invalid worker name",
+      workerName: "___",
       rootDirectory: "/",
       buildTokenUuid: "build-token",
     });
