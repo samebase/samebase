@@ -44,14 +44,17 @@ describe("build-cloudflare", () => {
     ]);
   });
 
-  it("requires the preview key for non-main branches with the production key present", () => {
-    expect(() =>
+  it("uses the scoped preview key for non-main branches", () => {
+    expect(
       selectConvexDeployPlan({
-        CONVEX_DEPLOY_KEY: "prod-key",
+        CONVEX_DEPLOY_KEY: "preview-key",
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "feature-branch",
       }),
-    ).toThrow("Use a Convex project Preview deploy key.");
+    ).toMatchObject({
+      kind: "previewDeploy",
+      deployKey: "preview-key",
+    });
   });
 
   it("requires the Workers branch during Workers builds", () => {
@@ -105,7 +108,6 @@ describe("build-cloudflare", () => {
       }),
     ).toEqual({
       kind: "deploy",
-      deployKeyName: "CONVEX_DEPLOY_KEY",
       deployKey: "prod-key",
       postHogProjectToken: "phc_prod",
       routeEnvironment: "production",
@@ -144,7 +146,6 @@ describe("build-cloudflare", () => {
       }),
     ).toEqual({
       kind: "previewDeploy",
-      deployKeyName: "PREVIEW_CONVEX_DEPLOY_KEY",
       deployKey: "preview-key",
       routeEnvironment: "preview",
       args: [

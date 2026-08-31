@@ -2,13 +2,13 @@ import { describe, expect, it } from "vite-plus/test";
 import { starterTemplateManifest } from "./starterSeedManifest.generated";
 
 describe("starterSeedManifest", () => {
-  it("identifies the v2035 template snapshot", () => {
+  it("identifies the v2002 template snapshot", () => {
     expect({
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "eba76094884a1f8e957045a79c37888d84e0197150e15f01b039c2c5f1c0781c",
-      commitMessage: "Initialize app from Samebase starter build v2035",
+      contentHash: "4c4eff83cd4151a099cdaf8110b5683c0565b6aae71dce13269db3ead1884210",
+      commitMessage: "Initialize app from Samebase starter build v2002",
     });
     expect(starterTemplateManifest.version).toBe(
       `samebase-base-${starterTemplateManifest.contentHash.slice(0, 12)}`,
@@ -150,7 +150,7 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.files["src/style.css"]).toContain("ui-sans-serif");
   });
 
-  it("documents Convex deploy-key permissions for Workers builds", () => {
+  it("documents scoped Convex deploy keys and the Worker Previews beta boundary", () => {
     expect(starterTemplateManifest.files["README.md"]).toContain("`CONVEX_DEPLOY_KEY`");
     expect(starterTemplateManifest.files["README.md"]).not.toContain("`PROD_CONVEX_DEPLOY_KEY`");
     expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
@@ -163,7 +163,7 @@ describe("starterSeedManifest", () => {
       "PROD_CONVEX_DEPLOY_KEY",
     );
     expect(starterTemplateManifest.files["scripts/build-cloudflare.test.ts"]).toContain(
-      'deployKeyName: "CONVEX_DEPLOY_KEY"',
+      'CONVEX_DEPLOY_KEY: "preview-key"',
     );
     expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
       '"--preview-name"',
@@ -172,10 +172,14 @@ describe("starterSeedManifest", () => {
       '"--preview-create"',
     );
     expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).toContain(
-      "write the same two secrets to both\ntriggers",
+      "Use one key name with a different value on each Workers Builds trigger",
     );
-    expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).not.toContain(
-      "store `CONVEX_DEPLOY_KEY` on\nthe production trigger and `PREVIEW_CONVEX_DEPLOY_KEY` on the preview trigger",
+    expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).toContain(
+      "Do not add a Convex deploy key under **Settings > Variables and secrets > Previews Base**",
+    );
+    expect(starterTemplateManifest.files["package.json"]).toContain('"deploy:worker-preview"');
+    expect(starterTemplateManifest.files["scripts/deploy-cloudflare.ts"]).toContain(
+      '["preview", "--worker-name", workerName',
     );
   });
 

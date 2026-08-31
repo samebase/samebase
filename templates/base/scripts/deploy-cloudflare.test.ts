@@ -1,4 +1,4 @@
-// Samebase source build: v1989
+// Samebase source build: v2002
 import { describe, expect, it } from "vite-plus/test";
 
 import { selectCloudflareDeployPlan } from "./deploy-cloudflare.ts";
@@ -37,7 +37,7 @@ describe("deploy-cloudflare", () => {
     });
   });
 
-  it("uses the complete Cloudflare build before a local deploy", () => {
+  it("uses the complete Cloudflare build before a local version preview", () => {
     expect(
       selectCloudflareDeployPlan(["preview"], {
         CLOUDFLARE_WORKER_NAME: "example-app",
@@ -45,6 +45,35 @@ describe("deploy-cloudflare", () => {
     ).toEqual({
       buildArgs: ["run", "build:cloudflare"],
       wranglerArgs: ["versions", "upload", "--name", "example-app"],
+    });
+  });
+
+  it("targets Worker Previews without using the Preview name as the Worker name", () => {
+    expect(
+      selectCloudflareDeployPlan(["worker-preview", "--name", "feature-branch"], {
+        CLOUDFLARE_WORKER_NAME: "example-app",
+      }),
+    ).toEqual({
+      buildArgs: ["run", "build:cloudflare"],
+      wranglerArgs: [
+        "preview",
+        "--worker-name",
+        "example-app",
+        "--name",
+        "feature-branch",
+      ],
+    });
+  });
+
+  it("lets Wrangler use the branch as the Preview name during Workers Builds", () => {
+    expect(
+      selectCloudflareDeployPlan(["worker-preview"], {
+        WORKERS_CI: "1",
+        WRANGLER_CI_OVERRIDE_NAME: "connected-worker",
+      }),
+    ).toEqual({
+      buildArgs: null,
+      wranglerArgs: ["preview", "--worker-name", "connected-worker"],
     });
   });
 
@@ -60,18 +89,31 @@ describe("deploy-cloudflare", () => {
     });
   });
 
-  it("rejects Wrangler flags that can replace the connected Worker name", () => {
+  it("rejects Wrangler flags that can replace the connected Worker target", () => {
     const env = { CLOUDFLARE_WORKER_NAME: "example-app" };
 
     expect(() => selectCloudflareDeployPlan(["deploy", "--name", "other"], env)).toThrow(
-      "Do not pass Wrangler --name/-n manually",
+      "Do not pass the Wrangler Worker target manually",
     );
     expect(() => selectCloudflareDeployPlan(["deploy", "--name=other"], env)).toThrow(
-      "Do not pass Wrangler --name/-n manually",
+      "Do not pass the Wrangler Worker target manually",
     );
     expect(() => selectCloudflareDeployPlan(["deploy", "-n", "other"], env)).toThrow(
-      "Do not pass Wrangler --name/-n manually",
+      "Do not pass the Wrangler Worker target manually",
     );
+    expect(() =>
+      selectCloudflareDeployPlan(["worker-preview", "--worker-name", "other"], env),
+    ).toThrow(
+      "Do not pass the Wrangler Worker target manually",
+    );
+  });
+
+  it("rejects a Preview dry-run because Wrangler would publish or fail", () => {
+    expect(() =>
+      selectCloudflareDeployPlan(["worker-preview", "--dry-run"], {
+        CLOUDFLARE_WORKER_NAME: "example-app",
+      }),
+    ).toThrow("Wrangler Preview does not support --dry-run");
   });
 
   it("rejects an option terminator that can hide a later dry-run flag", () => {

@@ -1,15 +1,14 @@
-// Samebase source build: v1989
+// Samebase source build: v2002
 /// <reference types="node" />
 import { spawn } from "node:child_process";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 
-const modes = {
-  deploy: ["deploy"],
-  preview: ["versions", "upload"],
-} as const;
+function isWorkerTargetFlag(value: string) {
+  return value === "--worker-name" || value.startsWith("--worker-name=");
+}
 
-function isReservedWranglerFlag(value: string) {
+function isProductionWorkerNameFlag(value: string) {
   return value === "--name" || value.startsWith("--name=") || value === "-n";
 }
 
@@ -72,13 +71,18 @@ export function selectCloudflareDeployPlan(
 ): CloudflareDeployPlan {
   const [modeArg, ...extraArgs] = args;
 
-  if (modeArg !== "deploy" && modeArg !== "preview") {
-    throw new Error("Usage: node ./scripts/deploy-cloudflare.ts <deploy|preview> [wrangler flags]");
+  if (modeArg !== "deploy" && modeArg !== "preview" && modeArg !== "worker-preview") {
+    throw new Error(
+      "Usage: node ./scripts/deploy-cloudflare.ts <deploy|preview|worker-preview> [wrangler flags]",
+    );
   }
 
-  if (extraArgs.some(isReservedWranglerFlag)) {
+  if (
+    extraArgs.some(isWorkerTargetFlag) ||
+    (modeArg !== "worker-preview" && extraArgs.some(isProductionWorkerNameFlag))
+  ) {
     throw new Error(
-      "Do not pass Wrangler --name/-n manually. Set CLOUDFLARE_WORKER_NAME or let Workers Builds provide WRANGLER_CI_OVERRIDE_NAME.",
+      "Do not pass the Wrangler Worker target manually. Set CLOUDFLARE_WORKER_NAME or let Workers Builds provide WRANGLER_CI_OVERRIDE_NAME.",
     );
   }
 
@@ -88,13 +92,24 @@ export function selectCloudflareDeployPlan(
     );
   }
 
+  if (modeArg === "worker-preview" && extraArgs.some(isDryRunFlag)) {
+    throw new Error(
+      "Wrangler Preview does not support --dry-run. Use the production deploy dry-run to validate the Worker package without publishing.",
+    );
+  }
+
   const workerName = readWorkerName(env);
   const isWorkersBuild = env["WORKERS_CI"] === "1" || env["WORKERS_CI"] === "true";
   const isDryRun = extraArgs.some(isDryRunFlag);
 
   return {
     buildArgs: isWorkersBuild ? null : ["run", isDryRun ? "build:app" : "build:cloudflare"],
-    wranglerArgs: [...modes[modeArg], "--name", workerName, ...extraArgs],
+    wranglerArgs:
+      modeArg === "deploy"
+        ? ["deploy", "--name", workerName, ...extraArgs]
+        : modeArg === "preview"
+          ? ["versions", "upload", "--name", workerName, ...extraArgs]
+          : ["preview", "--worker-name", workerName, ...extraArgs],
   };
 }
 

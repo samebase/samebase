@@ -28,6 +28,7 @@ pnpm run build
 pnpm run check
 pnpm run deploy:dry-run
 pnpm run deploy:preview:dry-run
+pnpm run deploy:worker-preview
 pnpm run format
 pnpm run format:check
 pnpm run lint
@@ -41,6 +42,9 @@ Use the repository root as the Cloudflare Workers Builds root directory. Run `pn
 `pnpm run deploy` for `main` or `pnpm run deploy:preview` for other branches. The deploy script uses
 the connected Worker name that Cloudflare supplies and does not repeat the build during Workers
 Builds.
+
+Accounts with Cloudflare Worker Previews private-beta access can use
+`pnpm run deploy:worker-preview`. The normal preview command continues to upload a Worker version.
 
 For a local upload check, set `CLOUDFLARE_WORKER_NAME` to `samebase-sidebars-example`, then run one
 of the dry-run commands above. `wrangler.jsonc` publishes `dist/client` with the standard Samebase

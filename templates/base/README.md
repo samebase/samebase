@@ -54,6 +54,7 @@ The core workflow runs on macOS, Linux, and Windows. See
 | `pnpm run build`                  | Run the complete Cloudflare build path                         |
 | `pnpm run deploy:dry-run`         | Validate a production upload without publishing it             |
 | `pnpm run deploy:preview:dry-run` | Validate a preview upload without publishing it                |
+| `pnpm run deploy:worker-preview`  | Deploy a Worker Preview when the account has private-beta access |
 
 The dry-run commands need `CLOUDFLARE_WORKER_NAME`.
 
@@ -73,15 +74,24 @@ $env:CLOUDFLARE_WORKER_NAME = "my-worker"
 
 Cloudflare Workers Builds runs `pnpm run build` for all branches. It then uses:
 
-| Branch type             | Deploy command            | Convex key                  |
-| ----------------------- | ------------------------- | --------------------------- |
-| `main`                  | `pnpm run deploy`         | `CONVEX_DEPLOY_KEY`         |
-| Non-production branches | `pnpm run deploy:preview` | `PREVIEW_CONVEX_DEPLOY_KEY` |
+| Branch type             | Deploy command            | Builds trigger key       |
+| ----------------------- | ------------------------- | ------------------------ |
+| `main`                  | `pnpm run deploy`         | `CONVEX_DEPLOY_KEY`      |
+| Non-production branches | `pnpm run deploy:preview` | `CONVEX_DEPLOY_KEY`      |
 
-`scripts/build-cloudflare.ts` selects the Convex key from `WORKERS_CI_BRANCH` and fails closed when
-the branch identity is missing. `scripts/verify-current-branch-head.ts` prevents an older concurrent
-build from deploying backend code after a newer commit reaches the same branch. `convex deploy
---cmd` supplies `VITE_CONVEX_URL` to the frontend build, so it is not a Cloudflare build variable.
+The production and preview Workers Builds triggers store different values under the same key name.
+The production trigger stores the Convex production deploy key. The preview trigger stores the
+Convex project Preview deploy key. `scripts/build-cloudflare.ts` keeps
+`PREVIEW_CONVEX_DEPLOY_KEY` as a temporary fallback for an old shared dashboard configuration.
+
+The script fails closed when the branch identity is missing.
+`scripts/verify-current-branch-head.ts` prevents an older concurrent build from deploying backend
+code after a newer commit reaches the same branch. `convex deploy --cmd` supplies
+`VITE_CONVEX_URL` to the frontend build, so it is not a Cloudflare build variable.
+
+Cloudflare Worker Previews is a separate private-beta deploy path. An entitled account can set the
+preview command to `pnpm run deploy:worker-preview`. Do not put a Convex deploy key in Worker
+runtime Previews Base settings.
 
 See [`docs/cloudflare-workers-builds.md`](./docs/cloudflare-workers-builds.md) for the detailed build
 and deploy behavior. Use the

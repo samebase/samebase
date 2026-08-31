@@ -17,7 +17,6 @@ type ConvexDeployPlan =
   | {
       kind: "deploy";
       deployKey: string;
-      deployKeyName: typeof CONVEX_DEPLOY_KEY;
       postHogProjectToken: string | null;
       routeEnvironment: BuildRouteEnvironment;
       args: readonly string[];
@@ -25,7 +24,6 @@ type ConvexDeployPlan =
   | {
       kind: "previewDeploy";
       deployKey: string;
-      deployKeyName: typeof PREVIEW_CONVEX_DEPLOY_KEY;
       routeEnvironment: BuildRouteEnvironment;
       args: readonly string[];
       seedArgs: readonly string[];
@@ -71,24 +69,23 @@ function isWorkersBuild(env: NodeJS.ProcessEnv) {
   return isEnabled(env.WORKERS_CI);
 }
 
-function readDeployKey(args: {
-  env: NodeJS.ProcessEnv;
-  branch: string;
-  deployKeyName: typeof CONVEX_DEPLOY_KEY | typeof PREVIEW_CONVEX_DEPLOY_KEY;
-}) {
-  const deployKey = args.env[args.deployKeyName];
+function readDeployKey(env: NodeJS.ProcessEnv, branch: string) {
+  const deployKey =
+    branch === "main"
+      ? env[CONVEX_DEPLOY_KEY]
+      : (env[PREVIEW_CONVEX_DEPLOY_KEY] ?? env[CONVEX_DEPLOY_KEY]);
   if (deployKey) {
     return deployKey;
   }
 
-  if (args.deployKeyName === CONVEX_DEPLOY_KEY) {
+  if (branch === "main") {
     throw new Error(
-      `Set ${CONVEX_DEPLOY_KEY} in Cloudflare Workers build variables for ${args.branch}. Use a Convex production deploy key with exactly deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view.`,
+      `Set ${CONVEX_DEPLOY_KEY} in Cloudflare Workers Builds Production variables for ${branch}. Use a Convex production deploy key with exactly deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view.`,
     );
   }
 
   throw new Error(
-    `Set ${PREVIEW_CONVEX_DEPLOY_KEY} in Cloudflare Workers build variables for ${args.branch}. Use a Convex project Preview deploy key.`,
+    `Set ${CONVEX_DEPLOY_KEY} on the preview Workers Builds trigger for ${branch}. If the dashboard shows one shared build-variable table, keep ${PREVIEW_CONVEX_DEPLOY_KEY} there during migration. Use a Convex project Preview deploy key.`,
   );
 }
 
@@ -131,12 +128,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
   if (branch !== "main") {
     return {
       kind: "previewDeploy",
-      deployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
-      deployKey: readDeployKey({
-        env,
-        branch,
-        deployKeyName: PREVIEW_CONVEX_DEPLOY_KEY,
-      }),
+      deployKey: readDeployKey(env, branch),
       routeEnvironment: "preview",
       args: ["exec", "convex", "deploy", "--preview-name", branch, "--cmd", WORKERS_BUILD_COMMAND],
       seedArgs: ["exec", "convex", "run", "devAuth:seedPasswordAccount", "--preview-name", branch],
@@ -145,12 +137,7 @@ export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan
 
   return {
     kind: "deploy",
-    deployKeyName: CONVEX_DEPLOY_KEY,
-    deployKey: readDeployKey({
-      env,
-      branch,
-      deployKeyName: CONVEX_DEPLOY_KEY,
-    }),
+    deployKey: readDeployKey(env, branch),
     postHogProjectToken: env[PROD_POSTHOG_PROJECT_TOKEN] ?? null,
     routeEnvironment: "production",
     args: ["exec", "convex", "deploy", "--cmd", WORKERS_BUILD_COMMAND],
@@ -175,9 +162,8 @@ export async function main(env: NodeJS.ProcessEnv = process.env, runCommand = ru
     ...env,
     CONVEX_DEPLOY_KEY: plan.deployKey,
     [VITE_SAMEBASE_ROUTE_ENVIRONMENT]: plan.routeEnvironment,
-    // Cloudflare Workers build variables are shared across branch types. Keep
-    // the app-facing Vite env out of previews by deriving it only after the
-    // script has selected the production deploy plan.
+    // Keep the app-facing Vite env out of previews by deriving it only after
+    // the script has selected the production deploy plan.
     ...(plan.kind === "deploy" && plan.postHogProjectToken
       ? {
           [VITE_PUBLIC_POSTHOG_HOST]: PRODUCTION_POSTHOG_PROXY_HOST,
