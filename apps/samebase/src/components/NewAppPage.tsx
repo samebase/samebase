@@ -532,7 +532,10 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
     organizationId,
   });
-  const convexDeploymentRegionsQuery = useConvexDeploymentRegions({
+  const {
+    defaultRegion: defaultConvexDeploymentRegion,
+    regionsQuery: convexDeploymentRegionsQuery,
+  } = useConvexDeploymentRegions({
     enabled: convexConnection?.state === "connected",
     organizationId,
   });
@@ -565,10 +568,11 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   });
   const cloudflareBuildTokenUuid = cloudflareBuildTokenSelection.selectedUuid;
   const convexDeploymentRegionSelection = useConvexDeploymentRegionSelection({
-    defaultRegion: convexDeploymentRegionsQuery.data?.defaultRegion ?? null,
+    defaultRegion: defaultConvexDeploymentRegion ?? null,
     error: Boolean(convexDeploymentRegionsQuery.error),
-    isFetching: convexDeploymentRegionsQuery.isFetching,
-    regions: convexDeploymentRegionsQuery.data?.regions ?? null,
+    isFetching:
+      convexDeploymentRegionsQuery.isFetching || defaultConvexDeploymentRegion === undefined,
+    regions: convexDeploymentRegionsQuery.data ?? null,
     selectionKey: organizationId,
   });
   const convexDeploymentRegion = convexDeploymentRegionSelection.selectedRegion;
@@ -927,7 +931,9 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
             error={Boolean(convexDeploymentRegionsQuery.error)}
             id="new-app-convex-production-region"
             isLoading={
-              convexDeploymentRegionsQuery.isPending || convexDeploymentRegionsQuery.isFetching
+              convexDeploymentRegionsQuery.isPending ||
+              convexDeploymentRegionsQuery.isFetching ||
+              defaultConvexDeploymentRegion === undefined
             }
             onReload={() => {
               void convexDeploymentRegionsQuery.refetch();
@@ -936,7 +942,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
               setCreateError(null);
               convexDeploymentRegionSelection.setRequestedRegion(region);
             }}
-            regions={convexDeploymentRegionsQuery.data?.regions ?? []}
+            regions={convexDeploymentRegionsQuery.data ?? []}
             selectionUnavailable={convexDeploymentRegionSelection.selectionUnavailable}
             value={convexDeploymentRegion}
           />

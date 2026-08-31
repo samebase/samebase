@@ -1,13 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
-import { useAction } from "convex/react";
+import { useQuery as useTanStackQuery } from "@tanstack/react-query";
+import { useAction, useQuery as useConvexQuery } from "convex/react";
 import { useState } from "react";
 
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
-import {
-  resolveDefaultConvexDeploymentRegion,
-  type ConvexDeploymentRegion,
-} from "../../shared/convexDeploymentRegions";
+import type { ConvexDeploymentRegion } from "../../shared/convexDeploymentRegions";
 
 export function useConvexDeploymentRegions({
   enabled,
@@ -17,15 +14,21 @@ export function useConvexDeploymentRegions({
   organizationId: Id<"organizations">;
 }) {
   const listDeploymentRegions = useAction(api.convexDeploymentRegions.list);
-
-  return useQuery({
+  const defaultRegion = useConvexQuery(
+    api.convexDeploymentRegions.getDefault,
+    enabled ? { organizationId } : "skip",
+  );
+  const regionsQuery = useTanStackQuery({
     enabled,
     queryFn: async () => await listDeploymentRegions({ organizationId }),
     queryKey: ["convex-deployment-regions", organizationId],
     refetchOnReconnect: false,
     refetchOnWindowFocus: false,
     retry: false,
+    select: ({ regions }) => regions,
   });
+
+  return { defaultRegion, regionsQuery };
 }
 
 export function useConvexDeploymentRegionSelection({
@@ -46,7 +49,7 @@ export function useConvexDeploymentRegionSelection({
     region: ConvexDeploymentRegion | null;
   } | null>(null);
   const requestedRegion = request?.selectionKey === selectionKey ? request.region : null;
-  const candidateRegion = requestedRegion ?? resolveDefaultConvexDeploymentRegion(defaultRegion);
+  const candidateRegion = requestedRegion ?? defaultRegion;
   const selectedRegion = regions?.some(
     (region) => region.name === candidateRegion && region.available,
   )

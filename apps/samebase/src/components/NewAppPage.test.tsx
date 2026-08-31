@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test"
 import { api } from "../../convex/_generated/api";
 import type { Id } from "../../convex/_generated/dataModel";
 import { TestRouterProvider } from "@/test/TestRouterProvider";
-import { CONVEX_US_EAST_REGION } from "../../shared/convexDeploymentRegions";
+import { CONVEX_EU_WEST_REGION, CONVEX_US_EAST_REGION } from "../../shared/convexDeploymentRegions";
 import { NewAppPage } from "./NewAppPage";
 
 const cloudflareBuildTokenTestState = vi.hoisted(() => ({
@@ -70,31 +70,31 @@ vi.mock("@/components/useCloudflareBuildTokens", () => ({
   },
 }));
 
-vi.mock("@/components/useConvexDeploymentRegions", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/components/useConvexDeploymentRegions")>();
+const convexRegionTestState = vi.hoisted(() => {
+  let defaultRegion: "aws-us-east-1" | "aws-eu-west-1" = "aws-us-east-1";
+
   return {
-    ...actual,
-    useConvexDeploymentRegions: () => ({
-      data: {
-        defaultRegion: "aws-us-east-1" as const,
-        regions: [
-          {
-            available: true,
-            displayName: "US East (N. Virginia)",
-            name: "aws-us-east-1" as const,
-          },
-          {
-            available: true,
-            displayName: "EU West (Ireland)",
-            name: "aws-eu-west-1" as const,
-          },
-        ],
-      },
-      error: null,
-      isFetching: false,
-      isPending: false,
-      refetch: vi.fn(async () => undefined),
-    }),
+    get defaultRegion() {
+      return defaultRegion;
+    },
+    set defaultRegion(value: "aws-us-east-1" | "aws-eu-west-1") {
+      defaultRegion = value;
+    },
+    listRegions: vi.fn(async () => ({
+      defaultRegion: "aws-us-east-1" as const,
+      regions: [
+        {
+          available: true,
+          displayName: "US East (N. Virginia)",
+          name: "aws-us-east-1" as const,
+        },
+        {
+          available: true,
+          displayName: "EU West (Ireland)",
+          name: "aws-eu-west-1" as const,
+        },
+      ],
+    })),
   };
 });
 
@@ -146,6 +146,9 @@ vi.mock("convex/react", async (importOriginal) => {
           state: "connected",
         };
       }
+      if (name === getFunctionName(api.convexDeploymentRegions.getDefault)) {
+        return convexRegionTestState.defaultRegion;
+      }
       return undefined;
     },
   };
@@ -183,7 +186,28 @@ describe("NewAppPage", () => {
     cloudflareBuildTokenTestState.refetch.mockReset();
     cloudflareBuildTokenTestState.refetch.mockResolvedValue(undefined);
     cloudflareBuildTokenTestState.state = "loaded";
+    convexRegionTestState.defaultRegion = CONVEX_US_EAST_REGION;
+    convexRegionTestState.listRegions.mockReset();
+    convexRegionTestState.listRegions.mockResolvedValue({
+      defaultRegion: CONVEX_US_EAST_REGION,
+      regions: [
+        {
+          available: true,
+          displayName: "US East (N. Virginia)",
+          name: CONVEX_US_EAST_REGION,
+        },
+        {
+          available: true,
+          displayName: "EU West (Ireland)",
+          name: CONVEX_EU_WEST_REGION,
+        },
+      ],
+    });
     testState.actions.clear();
+    testState.actions.set(
+      getFunctionName(api.convexDeploymentRegions.list),
+      convexRegionTestState.listRegions,
+    );
     testState.fallbackAction.mockReset();
     testState.fallbackAction.mockResolvedValue(undefined);
     testState.fallbackMutation.mockReset();
@@ -191,7 +215,9 @@ describe("NewAppPage", () => {
     testState.mutations.clear();
     mountedElement = null;
     mountedRoot = null;
-    queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 60 * 1000 } },
+    });
   });
 
   afterEach(async () => {
@@ -302,13 +328,19 @@ describe("NewAppPage", () => {
     expect(createButton?.disabled).toBe(false);
   });
 
-  it("starts from the saved region and keeps a one-time EU selection local to the app", async () => {
+  it("starts from the saved EU region and keeps a one-time US selection local to the app", async () => {
+    convexRegionTestState.defaultRegion = CONVEX_EU_WEST_REGION;
     const setDefaultRegion = vi.fn(async () => undefined);
     testState.mutations.set(
       getFunctionName(api.convexDeploymentRegions.setDefault),
       setDefaultRegion,
     );
     const container = await mountPage();
+    await vi.waitFor(() =>
+      expect(document.getElementById("new-app-convex-production-region")).toBeInstanceOf(
+        HTMLButtonElement,
+      ),
+    );
     const label = [...container.querySelectorAll("label")].find(
       (candidate) => candidate.textContent === "Convex production region",
     );
@@ -317,21 +349,21 @@ describe("NewAppPage", () => {
       throw new Error("Convex production region selector was not rendered.");
     }
 
-    expect(regionSelect.textContent).toContain("US East (N. Virginia)");
-    await act(async () => regionSelect.click());
-    const euOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
-      (option) => option.textContent === "🇪🇺 EU West (Ireland)",
-    );
-    if (!euOption) {
-      throw new Error("EU West region option was not rendered.");
-    }
-    await act(async () => {
-      euOption.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
-    });
-    await act(async () => euOption.click());
-
     expect(regionSelect.textContent).toContain("EU West (Ireland)");
     expect(container.textContent).toContain("EU usage costs 1.3 times US usage.");
+    await act(async () => regionSelect.click());
+    const usOption = [...document.querySelectorAll<HTMLElement>('[role="option"]')].find(
+      (option) => option.textContent === "🇺🇸 US East (N. Virginia)",
+    );
+    if (!usOption) {
+      throw new Error("US East region option was not rendered.");
+    }
+    await act(async () => {
+      usOption.dispatchEvent(new MouseEvent("mousemove", { bubbles: true }));
+    });
+    await act(async () => usOption.click());
+
+    expect(regionSelect.textContent).toContain("US East (N. Virginia)");
     expect(setDefaultRegion).not.toHaveBeenCalled();
   });
 

@@ -393,7 +393,10 @@ export function VaultConvexDialog({
   const changeProjectCodeLocation = useAction(api.vault.convex.changeProjectCodeLocation);
   const createProject = useAction(api.vault.convex.createProject);
   const [mode, setMode] = useState<ConvexProjectConnectMode>("existing");
-  const convexDeploymentRegionsQuery = useConvexDeploymentRegions({
+  const {
+    defaultRegion: defaultConvexDeploymentRegion,
+    regionsQuery: convexDeploymentRegionsQuery,
+  } = useConvexDeploymentRegions({
     enabled: repairProjectId === null && mode === "create",
     organizationId: vault.organizationId,
   });
@@ -410,10 +413,11 @@ export function VaultConvexDialog({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const convexDeploymentRegionSelection = useConvexDeploymentRegionSelection({
-    defaultRegion: convexDeploymentRegionsQuery.data?.defaultRegion ?? null,
+    defaultRegion: defaultConvexDeploymentRegion ?? null,
     error: Boolean(convexDeploymentRegionsQuery.error),
-    isFetching: convexDeploymentRegionsQuery.isFetching,
-    regions: convexDeploymentRegionsQuery.data?.regions ?? null,
+    isFetching:
+      convexDeploymentRegionsQuery.isFetching || defaultConvexDeploymentRegion === undefined,
+    regions: convexDeploymentRegionsQuery.data ?? null,
     selectionKey: vault._id,
   });
   const createDeploymentRegion = convexDeploymentRegionSelection.selectedRegion;
@@ -530,13 +534,15 @@ export function VaultConvexDialog({
           error={Boolean(convexDeploymentRegionsQuery.error)}
           id="vault-convex-production-region"
           isLoading={
-            convexDeploymentRegionsQuery.isPending || convexDeploymentRegionsQuery.isFetching
+            convexDeploymentRegionsQuery.isPending ||
+            convexDeploymentRegionsQuery.isFetching ||
+            defaultConvexDeploymentRegion === undefined
           }
           onReload={() => {
             void convexDeploymentRegionsQuery.refetch();
           }}
           onValueChange={convexDeploymentRegionSelection.setRequestedRegion}
-          regions={convexDeploymentRegionsQuery.data?.regions ?? []}
+          regions={convexDeploymentRegionsQuery.data ?? []}
           selectionUnavailable={convexDeploymentRegionSelection.selectionUnavailable}
           value={createDeploymentRegion}
         />
