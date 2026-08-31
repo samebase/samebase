@@ -10,6 +10,7 @@ import type {
   ReturnValueForOptionalValidator,
 } from "convex/server";
 import type { GenericValidator, PropertyValidators } from "convex/values";
+import type { HandlerMcpMetadata } from "@samebase/handlers";
 
 import type { AuthenticatedAccessKey, PublicAccessKey } from "./accessModel";
 
@@ -38,18 +39,7 @@ type AppViewerForAccess<
   AuthenticatedViewer,
 > = Access extends PublicAccessKey ? PublicViewer : AuthenticatedViewer;
 
-export type AppFunctionMcpMetadata = {
-  title: string;
-  name: string;
-  description: string;
-  safety: "read_only" | "write" | "destructive" | "proposal_only";
-  annotations: {
-    readOnlyHint: boolean;
-    openWorldHint: boolean;
-    destructiveHint: boolean;
-  };
-  inputDescriptions: Record<string, string>;
-};
+export type AppFunctionMcpMetadata = HandlerMcpMetadata;
 
 type AppFunctionCtx<
   InputCtx,

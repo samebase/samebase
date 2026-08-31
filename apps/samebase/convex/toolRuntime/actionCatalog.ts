@@ -1,3 +1,5 @@
+import { defineHandlerCatalog } from "@samebase/handlers";
+
 import { getAuthenticationStatusContract } from "../mcp/contracts/getAuthenticationStatus";
 import { submitFeedbackContract } from "../mcp/contracts/submitFeedback";
 import { createRepositoryContract } from "../vault/contracts/createRepository";
@@ -29,7 +31,7 @@ Order is the presentation order in generated docs: app inventory first, then cre
 discovery reads, attach, and repairs. Browser handoff stays near the end, and authentication status
 is last because it is a diagnostic action, not a preflight.
 */
-export const actionContracts = [
+export const actionContracts = defineHandlerCatalog([
   getUserVaultsContract,
   cloudflareListWorkersBuildTokensContract,
   createRepositoryContract,
@@ -45,7 +47,7 @@ export const actionContracts = [
   submitFeedbackContract,
   createBrowserHandoffContract,
   getAuthenticationStatusContract,
-] as const;
+] as const);
 
 export type ActionContract = (typeof actionContracts)[number];
 export type ActionContractId = ActionContract["id"];

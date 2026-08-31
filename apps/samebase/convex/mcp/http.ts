@@ -1,4 +1,5 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { projectHandlerMcpTools } from "@samebase/handlers";
 import type { FunctionReference } from "convex/server";
 import type { Value } from "convex/values";
 import type { JsonRecord } from "../jsonUtils";
@@ -10,10 +11,6 @@ import {
 } from "../../shared/accountPresentation";
 import { httpAction, type ActionCtx } from "../_generated/server";
 import { randomToken } from "../oauthUtils";
-import {
-  convexArgsToToolInputSchema,
-  convexValidatorToToolOutputSchema,
-} from "../toolRuntime/convexSchemas";
 import {
   logMcpHttpUsageContext,
   type SamebaseUsageMcpMethod,
@@ -246,21 +243,15 @@ const mcpToolCalls: Record<ActionContractMcpName, McpToolCall> = {
   [getAuthenticationStatusContract.mcp.name]: callGetAuthenticationStatusMcpTool,
 };
 
-const mcpToolCatalog = actionContracts.map((contract) => ({
-  access: contract.access,
-  title: contract.mcp.title,
-  name: contract.mcp.name,
-  description: contract.mcp.description,
-  annotations: contract.mcp.annotations,
-  inputSchema: convexArgsToToolInputSchema(
-    "mcpArgs" in contract ? contract.mcpArgs : contract.args,
-    contract.mcp.inputDescriptions,
-  ),
-  outputSchema:
-    "structuredContent" in contract
-      ? convexValidatorToToolOutputSchema(contract.structuredContent)
-      : undefined,
-  call: mcpToolCalls[contract.mcp.name],
+const mcpToolCatalog = projectHandlerMcpTools(actionContracts).map((tool) => ({
+  access: tool.access,
+  title: tool.title,
+  name: tool.name,
+  description: tool.description,
+  annotations: tool.annotations,
+  inputSchema: tool.inputSchema,
+  outputSchema: tool.outputSchema,
+  call: mcpToolCalls[tool.name],
 }));
 
 export function listMcpToolsForAccess(args: {

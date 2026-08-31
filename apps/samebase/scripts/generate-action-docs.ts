@@ -77,22 +77,20 @@ async function loadCatalog(): Promise<LoadedCatalog> {
 
   try {
     const catalogModule = await server.ssrLoadModule(`/${actionCatalogPath}`);
-    const schemasModule = await server.ssrLoadModule(
-      `/${samebaseAppFilePath("convex/toolRuntime/convexSchemas.ts")}`,
-    );
+    const handlersModule = await server.ssrLoadModule("@samebase/handlers");
     const [contractsAreValid, contracts] = array(actionContractSchema)(
       catalogModule.actionContracts,
     );
     if (!contractsAreValid) {
       throw new Error("actionCatalog.ts did not export the expected contract shapes.");
     }
-    const convertArgs = schemasModule.convexArgsToToolInputSchema;
+    const convertArgs = handlersModule.convexArgsToJsonSchema;
     if (typeof convertArgs !== "function") {
-      throw new Error("convexSchemas.ts did not export convexArgsToToolInputSchema.");
+      throw new Error("@samebase/handlers did not export convexArgsToJsonSchema.");
     }
-    const convertOutput = schemasModule.convexValidatorToToolOutputSchema;
+    const convertOutput = handlersModule.convexValidatorToJsonSchema;
     if (typeof convertOutput !== "function") {
-      throw new Error("convexSchemas.ts did not export convexValidatorToToolOutputSchema.");
+      throw new Error("@samebase/handlers did not export convexValidatorToJsonSchema.");
     }
 
     const rawContracts = catalogModule.actionContracts;

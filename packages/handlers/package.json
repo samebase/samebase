@@ -1,0 +1,64 @@
+{
+  "name": "@samebase/handlers",
+  "version": "0.1.0-canary.0",
+  "description": "Typed Convex handler contracts with MCP schema projection",
+  "keywords": [
+    "convex",
+    "handler",
+    "mcp",
+    "model-context-protocol"
+  ],
+  "homepage": "https://github.com/samebase/samebase/tree/main/packages/handlers#readme",
+  "bugs": {
+    "url": "https://github.com/samebase/samebase/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/samebase/samebase.git",
+    "directory": "packages/handlers"
+  },
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "convex": "./src/index.ts",
+      "samebase-source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run test:package",
+    "format": "vp fmt .",
+    "format:check": "vp fmt . --check",
+    "lint": "pnpm --dir ../.. exec vp lint --tsconfig packages/handlers/tsconfig.json --report-unused-disable-directives packages/handlers/scripts packages/handlers/src packages/handlers/test packages/handlers/vite.config.ts",
+    "prepack": "pnpm run build",
+    "test": "pnpm --dir ../.. exec vp test packages/handlers/test",
+    "test:package": "pnpm run build && node ./scripts/check-packed-consumer.ts",
+    "typecheck": "pnpm --dir ../.. exec tsgo -p packages/handlers/tsconfig.json --pretty false"
+  },
+  "devDependencies": {
+    "@types/node": "20.19.32",
+    "@typescript/native-preview": "7.0.0-dev.20260413.1",
+    "convex": "1.45.0",
+    "vite-plus": "0.3.0"
+  },
+  "peerDependencies": {
+    "convex": ">=1.45.0 <2"
+  },
+  "engines": {
+    "node": ">=24.11.0"
+  },
+  "packageManager": "pnpm@11.18.0"
+}

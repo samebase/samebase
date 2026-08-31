@@ -1,3 +1,4 @@
+import { defineHandlerContract } from "@samebase/handlers";
 import { v, type Infer } from "convex/values";
 
 import { ACCESS_APP_CREATE } from "../../../shared/accessModel";
@@ -21,7 +22,7 @@ const createRepositoryFields = {
   private: optional(boolean()),
 };
 
-export const createRepositoryContract = {
+export const createRepositoryContract = defineHandlerContract({
   id: "create_repository",
   access: ACCESS_APP_CREATE,
   args: {
@@ -94,7 +95,7 @@ carries the current step; on failure it carries the failed step and a message. R
 means that the requested GitHub and Convex work finished. It does not mean Cloudflare is complete.
 This expected pending state is not a failure and must not be repaired with the retry action. Cost:
 the created resources run on the providers' free tiers; an idle app costs $0/month.`,
-} as const;
+} as const);
 
 const createRepositoryArgsValidator = object(createRepositoryContract.args);
 

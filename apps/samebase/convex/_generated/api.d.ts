@@ -118,7 +118,6 @@ import type * as stagingChanges from "../stagingChanges.js";
 import type * as stagingRebase from "../stagingRebase.js";
 import type * as starterSeed from "../starterSeed.js";
 import type * as toolRuntime_actionCatalog from "../toolRuntime/actionCatalog.js";
-import type * as toolRuntime_convexSchemas from "../toolRuntime/convexSchemas.js";
 import type * as toolRuntime_mcpScopes from "../toolRuntime/mcpScopes.js";
 import type * as toolRuntime_runtime from "../toolRuntime/runtime.js";
 import type * as usageAttribution from "../usageAttribution.js";
@@ -296,7 +295,6 @@ declare const fullApi: ApiFromModules<{
   stagingRebase: typeof stagingRebase;
   starterSeed: typeof starterSeed;
   "toolRuntime/actionCatalog": typeof toolRuntime_actionCatalog;
-  "toolRuntime/convexSchemas": typeof toolRuntime_convexSchemas;
   "toolRuntime/mcpScopes": typeof toolRuntime_mcpScopes;
   "toolRuntime/runtime": typeof toolRuntime_runtime;
   usageAttribution: typeof usageAttribution;
