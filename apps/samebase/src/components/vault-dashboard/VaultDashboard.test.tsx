@@ -22,7 +22,7 @@ import { type VaultFolderCallbacks, VaultOverviewSidebar } from "./VaultOverview
 import { PullRequestsSection } from "./VaultPullRequestsSection";
 import { RepositorySettings } from "./VaultRepositorySettings";
 import { VaultCloudflareDialog, VaultCloudflareDialogContent } from "./VaultCloudflareDialog";
-import { VaultConvexDialogContent } from "./VaultConvexDialog";
+import { VaultConvexDialog, VaultConvexDialogContent } from "./VaultConvexDialog";
 import { VaultDeleteDialogContent } from "./VaultDeleteDialog";
 import { PullRequestResources, VaultEnvironmentTree } from "./VaultEnvironmentTree";
 import {
@@ -40,6 +40,7 @@ import { formatVaultSourceSetupStep } from "./vaultSourceSetup";
 
 const useOrganizationGitHubIdentitiesMock = vi.hoisted(() => vi.fn(() => new Map()));
 const useActionMock = vi.hoisted(() => vi.fn());
+const useQueryMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/hooks/useOrganizationGitHubIdentity", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/useOrganizationGitHubIdentity")>();
@@ -56,7 +57,7 @@ vi.mock("convex/react", async (importOriginal) => {
     ...actual,
     useAction: useActionMock,
     useMutation: vi.fn(),
-    useQuery: vi.fn(),
+    useQuery: useQueryMock,
   };
 });
 vi.mock("@/components/ui/dialog", () => ({
@@ -1936,6 +1937,114 @@ describe("VaultDeleteDialogContent", () => {
     expect(markup).toContain("Vault setup is still running.");
     expect(removeButton).toBeDefined();
     expect(removeButton).toMatch(/\sdisabled(?:=""|(?=[\s>]))/);
+  });
+});
+
+describe("VaultConvexDialog", () => {
+  it("uses the live organization default when creating a project for an existing vault", async () => {
+    const discoverProjects = vi.fn(async () => ({
+      source: {
+        completeness: "complete" as const,
+        defaultBranch: "main",
+        commitSha: "commit-root",
+        treeSha: "tree-root",
+        locations: [
+          {
+            kind: "config" as const,
+            convexConfigPath: "convex.json",
+            rootDirectory: "/",
+            blobSha: "blob-root",
+          },
+        ],
+      },
+      projects: [],
+    }));
+    const listRegions = vi.fn(async () => ({
+      defaultRegion: "aws-us-east-1" as const,
+      regions: [
+        {
+          available: true,
+          displayName: "US East (N. Virginia)",
+          name: "aws-us-east-1" as const,
+        },
+        {
+          available: true,
+          displayName: "EU West (Ireland)",
+          name: "aws-eu-west-1" as const,
+        },
+      ],
+    }));
+    useActionMock.mockImplementation((action: FunctionReference<"action">) => {
+      const actionName = getFunctionName(action);
+      if (actionName === getFunctionName(api.vault.convex.discoverProjects)) {
+        return discoverProjects;
+      }
+      if (actionName === getFunctionName(api.convexDeploymentRegions.list)) {
+        return listRegions;
+      }
+      return vi.fn();
+    });
+    useQueryMock.mockImplementation((query: FunctionReference<"query">, args: unknown) =>
+      getFunctionName(query) === getFunctionName(api.convexDeploymentRegions.getDefault) &&
+      args !== "skip"
+        ? "aws-eu-west-1"
+        : undefined,
+    );
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: 60 * 1000 } },
+    });
+    const rootElement = document.createElement("div");
+    document.body.append(rootElement);
+    const root = createRoot(rootElement);
+
+    try {
+      await act(async () => {
+        root.render(
+          <QueryClientProvider client={queryClient}>
+            <VaultConvexDialog
+              blockedReason={null}
+              onClose={() => {}}
+              onSaved={() => {}}
+              repairProjectId={null}
+              vault={makeRepositorySettingsBuilderVault({})}
+            />
+          </QueryClientProvider>,
+        );
+      });
+
+      const createButton = await act(() =>
+        vi.waitFor(() => {
+          const button = [...rootElement.querySelectorAll("button")].find(
+            (candidate) => candidate.textContent === "Create",
+          );
+          if (!button) {
+            throw new Error("Expected the Create project mode button.");
+          }
+          return button;
+        }),
+      );
+      await act(async () => createButton.click());
+      await act(() =>
+        vi.waitFor(() =>
+          expect(document.getElementById("vault-convex-production-region")).toBeInstanceOf(
+            HTMLButtonElement,
+          ),
+        ),
+      );
+      const regionSelect = document.getElementById("vault-convex-production-region");
+      if (!(regionSelect instanceof HTMLButtonElement)) {
+        throw new Error("Expected the Convex production region selector.");
+      }
+
+      expect(regionSelect.textContent).toContain("EU West (Ireland)");
+      expect(listRegions).toHaveBeenCalledTimes(1);
+    } finally {
+      await act(async () => root.unmount());
+      queryClient.clear();
+      rootElement.remove();
+      useActionMock.mockReset();
+      useQueryMock.mockReset();
+    }
   });
 });
 
