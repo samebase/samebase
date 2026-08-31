@@ -30,7 +30,8 @@ full history and send changes back to it.
 1. Open the [Convex dashboard](https://dashboard.convex.dev/) and create a project.
 2. Open its production deployment, then open **Settings** and **General**.
 3. Under **Deploy keys**, generate a key named `Cloudflare production`.
-4. Enable only the `deployment:deploy` permission. Copy the key when Convex shows it.
+4. Enable only `deployment:deploy`, `deployment:env:view`, `deployment:env:write`, and
+   `deployment:data:view`. Copy the key when Convex shows it.
 5. Open the project settings and generate a preview deploy key named `Cloudflare previews`. Copy
    this key too.
 
@@ -62,7 +63,13 @@ Create a Worker, not a Pages project. The starter deploys its frontend and Worke
    | `CONVEX_DEPLOY_KEY`         | the production key from step 3 |
    | `PREVIEW_CONVEX_DEPLOY_KEY` | the preview key from step 3    |
 
-Do not add `VITE_CONVEX_URL`. The starter gets the correct URL from Convex during each build.
+Do not add `VITE_CONVEX_URL`. The starter gets the correct URL from Convex during each build. Do not
+put either deploy key under **Variables and secrets > Previews Base**. Previews Base supplies
+runtime values to Worker code. It does not supply build variables.
+
+The two-name layout is for the dashboard path that shows one shared build-variable table. Samebase
+automation uses the Builds API instead. It stores the production and preview values under the same
+`CONVEX_DEPLOY_KEY` name on their separate triggers.
 
 Enable builds for non-production branches under **Settings**, **Build**, and **Branch control**.
 Then save the configuration and start the first deployment.
@@ -75,6 +82,12 @@ should see the starter todo app.
 Create a branch and open a pull request to check the preview path. Cloudflare runs
 `pnpm run deploy:preview` and gives the branch a preview URL. The preview key gives that branch its
 own Convex deployment and data.
+
+If Cloudflare enabled Worker Previews for your account, configure safe runtime values and bindings
+in Previews Base. Then change the preview deploy command to `pnpm run deploy:worker-preview`. Worker
+Previews is a private beta. Keep `pnpm run deploy:preview` when the account does not have access. A
+new Worker Preview copies the Base settings once. Later Base changes do not update an existing
+Preview.
 
 After setup:
 

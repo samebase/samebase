@@ -4,6 +4,9 @@
 
 - Date: 2026-05-16
 - Owner: Noter production hosting and generated app hosting
+- Superseded for Samebase-managed API configuration by
+  [the Worker Previews contract audit](./2026-08-31-cloudflare-worker-previews-contract.md). Keep
+  this record as the reason for the legacy fallback in a shared dashboard build-variable table.
 - Outcome: Use the conventional `CONVEX_DEPLOY_KEY` for production builds and
   `PREVIEW_CONVEX_DEPLOY_KEY` for preview builds; Samebase-managed Workers Builds setup writes both
   names onto every trigger so the Cloudflare dashboard's visible build-variable table shows the full

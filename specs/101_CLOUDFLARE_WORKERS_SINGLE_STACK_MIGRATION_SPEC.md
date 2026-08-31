@@ -37,14 +37,15 @@ Cloudflare Pages is legacy after this migration. Samebase should not keep a perm
 provider matrix unless implementation proves that a short-lived Pages helper is cheaper than
 deleting it.
 
-The Convex deploy-key naming contract is part of the stack. Manual template users,
-Samebase-provisioned generated apps, and Samebase production should all select `CONVEX_DEPLOY_KEY`
-for the production branch and `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches. Preview
-builds must require the preview key instead of falling back to the production key.
+The Convex deploy-key naming contract is part of the stack. Samebase-managed production and preview
+Builds triggers both use `CONVEX_DEPLOY_KEY`. The production trigger stores the production key. The
+preview trigger stores the project Preview key. A build script can keep `PREVIEW_CONVEX_DEPLOY_KEY`
+as a temporary fallback for a manual dashboard setup that still shows one shared build-variable
+table. A preview build must not use the production key.
 
 Samebase-managed wiring also sets the non-secret
 `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker on both triggers.
-App build scripts consume only the two deploy-key secrets. The marker lets Samebase read which
+App build scripts consume only the selected deploy-key secret. The marker lets Samebase read which
 Convex project the Cloudflare configuration declares without copying that relationship into its
 database.
 
@@ -265,8 +266,8 @@ Required Workers operations:
 4. require the selected token UUID and verify that Cloudflare still lists it for the exact account
 5. create or patch the production build trigger with that UUID
 6. create or patch the preview/non-production build trigger with the same UUID
-7. set Convex deploy-key secrets in Workers Builds: both `CONVEX_DEPLOY_KEY` and
-   `PREVIEW_CONVEX_DEPLOY_KEY` on the production and preview triggers
+7. set `CONVEX_DEPLOY_KEY` to the production key on the production trigger and to the project
+   Preview key on the preview trigger; delete the obsolete `PREVIEW_CONVEX_DEPLOY_KEY` variable
 8. set the same non-secret `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>`
    marker on both triggers
 9. do not set `VITE_CONVEX_URL` in Workers Builds; Convex deploy supplies it to the child build
@@ -279,6 +280,10 @@ For generated single-repository apps, use these Workers Builds commands:
 1. build command: `pnpm run build`
 2. production deploy command: `pnpm run deploy`
 3. preview deploy command: `pnpm run deploy:preview`
+
+Keep the version-upload preview command as the general default. Accounts with Worker Previews
+private-beta access can opt in to `pnpm run deploy:worker-preview`. Runtime Previews Base settings
+do not supply Workers Builds secrets.
 
 For older monorepo-shaped Samebase-generated apps, a temporary fallback can use `apps/samebase` as
 the root with direct Wrangler commands while the template surface converges.

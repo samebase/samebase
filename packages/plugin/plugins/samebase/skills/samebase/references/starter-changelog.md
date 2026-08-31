@@ -22,6 +22,30 @@ relevant, and preserve unrelated user changes.
 For a review of several apps, compare each repository independently. Do not reuse one app's starter
 build or relevance result for another app.
 
+## v2002: Scope Convex deploy keys by Workers trigger
+
+Workers Builds production and preview triggers can use the same `CONVEX_DEPLOY_KEY` name with a
+different value on each trigger. This removes the old need for two secret names in Samebase-managed
+configuration.
+
+Relevant when an app has `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` on both triggers, or
+when the Cloudflare account has Worker Previews private-beta access.
+
+Update `scripts/build-cloudflare.ts` first. A preview build must prefer the legacy preview key when
+it exists and otherwise read the canonical key. Then set the production key as `CONVEX_DEPLOY_KEY`
+on the production trigger, set the project Preview key under the same name on the preview trigger,
+and delete `PREVIEW_CONVEX_DEPLOY_KEY` from both triggers. Do not put a Convex deploy key in Worker
+runtime Previews Base settings.
+
+Keep `deploy:preview` on `wrangler versions upload` for the general path. An entitled account can
+add `deploy:worker-preview` with `wrangler preview --worker-name <worker>` and use it as the preview
+command. Wrangler `--name` names the Preview and Worker Previews has no dry-run option.
+
+Verify that each trigger has one secret named `CONVEX_DEPLOY_KEY`, no legacy key, and the same
+readable `SAMEBASE_CONVEX_PROJECT` marker. Run the build-script and deploy-wrapper tests.
+
+Source: [samebase/samebase v2002](https://github.com/samebase/samebase/pull/1562)
+
 ## v1996: Upgrade Convex to 1.45.0
 
 The starter now uses Convex 1.45.0. This release upgrades local deployments in place and adds

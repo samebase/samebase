@@ -6,15 +6,15 @@ MCP tool `repository_cloudflare_rotateConvexDeployKeysForWorkersBuilds` · scope
 `access_provider_connections` · write
 
 The repair for builds that cannot deploy the backend: mints production and preview deploy keys on
-the selected Convex project's production and preview scopes. It writes `CONVEX_DEPLOY_KEY`,
-`PREVIEW_CONVEX_DEPLOY_KEY`, and the non-secret
-`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker to both Workers
-Builds triggers, reads the variables back, and verifies the marker value, secrecy flags, and
-required variable names before starting the production build.
+the selected Convex project's production and preview scopes. It writes the production key as
+`CONVEX_DEPLOY_KEY` on the production Workers Builds trigger and the project Preview key under the
+same name on the preview trigger. It writes the non-secret
+`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker to both triggers.
 
-Cloudflare currently shows one shared build-variable table. Both triggers intentionally carry both
-deploy keys so the production and preview keys stay visible in that UI. Keep this shared layout
-until Cloudflare exposes separate production and preview build-variable views.
+The operation removes the obsolete `PREVIEW_CONVEX_DEPLOY_KEY` variable from both triggers. It then
+reads the variables back and verifies the marker value, secrecy flags, canonical key name, and
+legacy-key removal before it starts the production build. Worker runtime Previews Base variables do
+not provide these build secrets.
 
 The Worker and project must both be attached to the repository. Their selection is input to this one
 operation, not a persisted dependency. Rerunning the operation rotates the Samebase-named keys.

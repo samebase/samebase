@@ -85,6 +85,28 @@ Use separate build triggers and credentials:
 Do not use the word `preview` for all provider states. Name the exact state: branch build, Worker
 version upload, public version URL, or Convex preview deployment.
 
+## Migrate the Convex Build Key Layout
+
+Older Samebase apps can have both `CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` on both
+Workers Builds triggers. Migrate them in this order:
+
+1. Update `scripts/build-cloudflare.ts`. A preview build must prefer `PREVIEW_CONVEX_DEPLOY_KEY`
+   when it exists and otherwise read `CONVEX_DEPLOY_KEY`.
+2. On the production trigger, set `CONVEX_DEPLOY_KEY` to the Convex production deploy key.
+3. On the preview trigger, set `CONVEX_DEPLOY_KEY` to the Convex project Preview deploy key.
+4. Keep the same readable `SAMEBASE_CONVEX_PROJECT` marker on both triggers.
+5. Delete `PREVIEW_CONVEX_DEPLOY_KEY` from both triggers.
+6. Read both trigger variable maps. Confirm that the canonical secret exists, the legacy variable is
+   absent, and both marker values match before you start a production build.
+
+The Builds variables endpoint uses `PATCH` as an upsert. The patch does not remove the legacy
+variable. Use the single-variable `DELETE` endpoint for that step.
+
+Do not put the Convex deploy key in Worker runtime Previews Base settings. The build command needs
+the key before the Worker runs. An account with Worker Previews private-beta access can separately
+change its preview deploy command from `pnpm run deploy:preview` to
+`pnpm run deploy:worker-preview`.
+
 ## Validate and Cut Over
 
 Before merge:
@@ -123,6 +145,8 @@ later task with its own approval.
 
 - [Cloudflare framework guides](https://developers.cloudflare.com/workers/framework-guides/)
 - [Cloudflare Workers Builds](https://developers.cloudflare.com/workers/ci-cd/builds/)
+- [Cloudflare Workers Builds API reference](https://developers.cloudflare.com/workers/ci-cd/builds/api-reference/)
+- [Cloudflare Worker Previews documentation pull request](https://github.com/cloudflare/cloudflare-docs/pull/31775)
 - [Cloudflare Workers versions and deployments](https://developers.cloudflare.com/workers/versions-and-deployments/)
 - [Cloudflare Workers Custom Domains](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)
 - [Convex deployment documentation](https://docs.convex.dev/production/multiple-deployments)

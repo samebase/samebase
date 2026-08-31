@@ -4,7 +4,8 @@ Use this note when regenerating or auditing the `samebase/base` teaching artifac
 current Cloudflare Workers Git setup shape so a future agent can repeat the browser walkthrough and
 spot dashboard changes.
 
-Observed on 2026-05-14 in the Cloudflare Workers dashboard.
+Observed on 2026-05-14 in the Cloudflare Workers dashboard. Rechecked on 2026-08-31 against the
+Worker Previews private-beta documentation and current Wrangler command surface.
 
 ## Current Dashboard Flow
 
@@ -59,6 +60,10 @@ repository and deploys the Worker using `wrangler.jsonc`.
 For non-production branches, the default command is `npx wrangler versions upload`. It uploads a
 Worker version and preview URL without promoting it to the active production deployment.
 
+An account with Worker Previews access can use `npx wrangler preview` instead. That command creates
+or updates a named Preview resource. New Worker Previews copy their runtime values, secrets, and
+bindings from Previews Base.
+
 If `wrangler.jsonc` contains `name`, Cloudflare requires that value to match the Worker name in the
 dashboard. For a reusable artifact template, do not hard-code `name` in `wrangler.jsonc`; let
 Samebase automation own the Worker name and pass it to Wrangler from a deploy script.
@@ -66,26 +71,28 @@ Samebase automation own the Worker name and pass it to Wrangler from a deploy sc
 The `Path` field is the repository root used for build and deploy commands. It should stay `/` while
 the app lives at the repository root.
 
-Build variables and secrets are available only during the Workers build. The template needs
-`CONVEX_DEPLOY_KEY` and `PREVIEW_CONVEX_DEPLOY_KEY` as build secrets so Cloudflare can deploy the
-matching Convex deployment before producing static assets. Samebase-managed setup also writes
+Build variables and secrets are available only during the Workers build. The template needs a Convex
+deploy key before it can produce static assets. Samebase-managed setup stores the production and
+preview values under the same `CONVEX_DEPLOY_KEY` name on their separate triggers. It also writes
 `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` as a readable build
 variable. The app does not consume that marker. Samebase reads it from Cloudflare to identify the
 project declared by the two Builds triggers without storing a separate Worker-to-project
 relationship.
 
 Cloudflare Workers Builds has two build triggers under the hood: one for the production branch and
-one for preview branches. The Builds API can set build variables per trigger, but the dashboard
-setup path does not expose a Pages-style production/preview environment selector in the build
-variables UI. Treat that as a Workers dashboard limitation when migrating from Pages.
+one for preview branches. The stable Builds API sets build variables per trigger. The production
+trigger stores the production deploy key as `CONVEX_DEPLOY_KEY`. The preview trigger stores the
+project Preview deploy key under the same name.
 
-The template works around that UI limitation by storing the production and preview build secrets in
-the same dashboard table. `scripts/build-cloudflare.ts` reads `WORKERS_CI_BRANCH`, selects
-`CONVEX_DEPLOY_KEY` for `main` or `PREVIEW_CONVEX_DEPLOY_KEY` for other branches, and passes only
-the selected value to the deploy subprocess. Preview builds fail closed when
-`PREVIEW_CONVEX_DEPLOY_KEY` is missing, even if the production `CONVEX_DEPLOY_KEY` exists.
-Samebase-managed setup mirrors the dashboard table by writing both build secrets and the same
-`SAMEBASE_CONVEX_PROJECT` marker onto every Workers Builds trigger.
+Some manual dashboard paths still show one shared build-variable table. The compatibility layout
+stores the production key as `CONVEX_DEPLOY_KEY` and the project Preview key as
+`PREVIEW_CONVEX_DEPLOY_KEY`. `scripts/build-cloudflare.ts` reads `WORKERS_CI_BRANCH`. A preview
+build prefers the legacy key and then reads the canonical key. Samebase-managed setup uses only the
+canonical name and deletes the legacy variable from both triggers.
+
+Previews Base is not a Builds scope. It supplies runtime configuration to Worker code. Do not put a
+Convex deploy key there. The value would not reach the build command and would expose a deploy
+credential to the Worker runtime.
 
 `CONVEX_DEPLOY_KEY` must contain a Convex production deploy key with exactly these permissions:
 
@@ -95,9 +102,9 @@ Samebase-managed setup mirrors the dashboard table by writing both build secrets
 - `deployment:data:view`
 
 Do not grant `deployment:data:write`, function-run permissions, logs, backups, or integrations to
-this key. `PREVIEW_CONVEX_DEPLOY_KEY` must contain Convex's project-level Preview deploy key from
-project settings; preview deploy keys use their own flow and do not take the production permission
-list.
+this key. The preview trigger value, or the compatibility `PREVIEW_CONVEX_DEPLOY_KEY`, must contain
+Convex's project-level Preview deploy key from project settings. Preview deploy keys use their own
+flow and do not take the production permission list.
 
 ## Template Decision
 
@@ -116,6 +123,7 @@ Use repo-owned deploy commands:
 ```sh
 pnpm run deploy
 pnpm run deploy:preview
+pnpm run deploy:worker-preview
 ```
 
 `pnpm run deploy` should wrap `wrangler deploy --name <worker>`, which uploads a new version and
@@ -125,6 +133,10 @@ Builds, the wrapper can read `WRANGLER_CI_OVERRIDE_NAME`; locally, it can requir
 `CLOUDFLARE_WORKER_NAME`. For local checks, the deploy wrapper can run the Cloudflare build path
 before Wrangler. During Workers Builds, it should skip that internal build because the dashboard
 `Build command` has already run.
+
+`pnpm run deploy:worker-preview` should remain an explicit private-beta option. It wraps
+`wrangler preview --worker-name <worker>`. The `--name` option names the Preview. Wrangler Preview
+does not support `--dry-run`.
 
 Keep helper scripts runnable by plain `node` in the Workers Builds image. Cloudflare defaults
 Workers Builds to Node 22.16.0, which does not run `.ts` files through `node` by default. If the
@@ -149,6 +161,10 @@ Recommended dashboard values for the artifact:
 - Build variable: add `SAMEBASE_CONVEX_PROJECT` with
   `version=1&teamId=<teamId>&projectId=<projectId>`. Do not encrypt it.
 
+For Samebase-managed setup, write only `CONVEX_DEPLOY_KEY` and the marker to each trigger. Use the
+matching deploy-key value for that trigger. Delete `PREVIEW_CONVEX_DEPLOY_KEY` after the app script
+supports the canonical preview key.
+
 ## Sources
 
 - Cloudflare Workers Builds configuration:
@@ -160,3 +176,5 @@ Recommended dashboard values for the artifact:
   <https://developers.cloudflare.com/workers/wrangler/custom-builds/>
 - Cloudflare Workers Preview URLs:
   <https://developers.cloudflare.com/workers/configuration/previews/>
+- Cloudflare Worker Previews private-beta documentation:
+  <https://github.com/cloudflare/cloudflare-docs/pull/31775>

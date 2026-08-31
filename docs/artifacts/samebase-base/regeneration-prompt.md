@@ -87,26 +87,24 @@ For a Workers/TanStack Start version:
   inline environment assignment, shell parameter expansion, or required
   Unix-only utilities; use Node process APIs and handle Windows `.cmd` entry
   points explicitly when needed.
-- Use the Convex deploy-key contract: `CONVEX_DEPLOY_KEY` for the production
-  branch and `PREVIEW_CONVEX_DEPLOY_KEY` for non-production branches.
+- Use `CONVEX_DEPLOY_KEY` on both Workers Builds triggers. Store the production
+  deploy key on the production trigger and the project Preview deploy key on the
+  preview trigger. Keep `PREVIEW_CONVEX_DEPLOY_KEY` only as a temporary fallback
+  for old shared dashboard setup.
 - Treat `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` as Samebase's
   readable
   Cloudflare Builds marker. Write the same marker to both triggers during
   Samebase-managed setup. The generated app must not consume it.
-- In the generated template docs, explain the Cloudflare Workers Builds UI
-  limitation that motivates the separate preview key: the API supports per-trigger
-  build variables for production and preview triggers, but the dashboard setup
-  path does not expose a Pages-style production/preview selector for build
-  variables. Explain that the build script reads `WORKERS_CI_BRANCH`, picks the
-  right secret, and keeps preview builds from falling back to the production key.
-- For Samebase-managed setup, write both deploy-key secrets and the readable
-  project marker onto every Workers Builds trigger so Cloudflare contains the
-  complete declared configuration.
+- Explain that Samebase-managed setup writes the canonical key separately through
+  the Builds trigger API and deletes `PREVIEW_CONVEX_DEPLOY_KEY`. Explain that
+  runtime Previews Base does not supply build secrets.
+- Keep `deploy:worker-preview` as an explicit private-beta command. The normal
+  preview command must continue to use `wrangler versions upload`.
 - Document the current Convex permission split: production `CONVEX_DEPLOY_KEY`
   is a production deploy key with exactly `deployment:deploy`, `deployment:env:view`,
   `deployment:env:write`, and `deployment:data:view`; `deployment:data:write`,
-  function-run permissions, logs, backups, and integrations are not needed. `PREVIEW_CONVEX_DEPLOY_KEY`
-  is the separate project-level Preview deploy key.
+  function-run permissions, logs, backups, and integrations are not needed. The
+  preview trigger value is the separate project-level Preview deploy key.
 - Do not add server functions, Worker request handlers, SSR complexity, extra
   adapters, or demo routes unless the first app truly needs them.
 
