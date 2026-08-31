@@ -1941,7 +1941,7 @@ describe("VaultDeleteDialogContent", () => {
 });
 
 describe("VaultConvexDialog", () => {
-  it("uses the live organization default when creating a project for an existing vault", async () => {
+  it("submits the live organization default when creating a project for an existing vault", async () => {
     const discoverProjects = vi.fn(async () => ({
       source: {
         completeness: "complete" as const,
@@ -1974,6 +1974,8 @@ describe("VaultConvexDialog", () => {
         },
       ],
     }));
+    const createProject = vi.fn(async () => fakeConvexProjectId());
+    const onSaved = vi.fn();
     useActionMock.mockImplementation((action: FunctionReference<"action">) => {
       const actionName = getFunctionName(action);
       if (actionName === getFunctionName(api.vault.convex.discoverProjects)) {
@@ -1981,6 +1983,9 @@ describe("VaultConvexDialog", () => {
       }
       if (actionName === getFunctionName(api.convexDeploymentRegions.list)) {
         return listRegions;
+      }
+      if (actionName === getFunctionName(api.vault.convex.createProject)) {
+        return createProject;
       }
       return vi.fn();
     });
@@ -2004,7 +2009,7 @@ describe("VaultConvexDialog", () => {
             <VaultConvexDialog
               blockedReason={null}
               onClose={() => {}}
-              onSaved={() => {}}
+              onSaved={onSaved}
               repairProjectId={null}
               vault={makeRepositorySettingsBuilderVault({})}
             />
@@ -2038,6 +2043,27 @@ describe("VaultConvexDialog", () => {
 
       expect(regionSelect.textContent).toContain("EU West (Ireland)");
       expect(listRegions).toHaveBeenCalledTimes(1);
+      const submitButton = [...rootElement.querySelectorAll("button")].find(
+        (candidate) => candidate.textContent === "Create project",
+      );
+      if (!submitButton) {
+        throw new Error("Expected the Create project button.");
+      }
+      await act(async () => submitButton.click());
+
+      await vi.waitFor(() =>
+        expect(createProject).toHaveBeenCalledWith({
+          vaultId: fakeVaultId(),
+          projectName: "demo",
+          deploymentRegion: "aws-eu-west-1",
+          codeLocation: {
+            kind: "config",
+            convexConfigPath: "convex.json",
+            blobSha: "blob-root",
+          },
+        }),
+      );
+      expect(onSaved).toHaveBeenCalledTimes(1);
     } finally {
       await act(async () => root.unmount());
       queryClient.clear();
