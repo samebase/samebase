@@ -55,13 +55,7 @@ describe("deploy-cloudflare", () => {
       }),
     ).toEqual({
       buildArgs: ["run", "build:cloudflare"],
-      wranglerArgs: [
-        "preview",
-        "--worker-name",
-        "example-app",
-        "--name",
-        "feature-branch",
-      ],
+      wranglerArgs: ["preview", "--worker-name", "example-app", "--name", "feature-branch"],
     });
   });
 
@@ -103,9 +97,7 @@ describe("deploy-cloudflare", () => {
     );
     expect(() =>
       selectCloudflareDeployPlan(["worker-preview", "--worker-name", "other"], env),
-    ).toThrow(
-      "Do not pass the Wrangler Worker target manually",
-    );
+    ).toThrow("Do not pass the Wrangler Worker target manually");
   });
 
   it("rejects a Preview dry-run because Wrangler would publish or fail", () => {

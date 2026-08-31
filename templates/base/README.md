@@ -48,12 +48,12 @@ The core workflow runs on macOS, Linux, and Windows. See
 
 ## Checks and builds
 
-| Command                           | Purpose                                                        |
-| --------------------------------- | -------------------------------------------------------------- |
-| `pnpm run check`                  | Format, lint, type-check, test, and verify generated redirects |
-| `pnpm run build`                  | Run the complete Cloudflare build path                         |
-| `pnpm run deploy:dry-run`         | Validate a production upload without publishing it             |
-| `pnpm run deploy:preview:dry-run` | Validate a preview upload without publishing it                |
+| Command                           | Purpose                                                          |
+| --------------------------------- | ---------------------------------------------------------------- |
+| `pnpm run check`                  | Format, lint, type-check, test, and verify generated redirects   |
+| `pnpm run build`                  | Run the complete Cloudflare build path                           |
+| `pnpm run deploy:dry-run`         | Validate a production upload without publishing it               |
+| `pnpm run deploy:preview:dry-run` | Validate a preview upload without publishing it                  |
 | `pnpm run deploy:worker-preview`  | Deploy a Worker Preview when the account has private-beta access |
 
 The dry-run commands need `CLOUDFLARE_WORKER_NAME`.
@@ -74,10 +74,10 @@ $env:CLOUDFLARE_WORKER_NAME = "my-worker"
 
 Cloudflare Workers Builds runs `pnpm run build` for all branches. It then uses:
 
-| Branch type             | Deploy command            | Builds trigger key       |
-| ----------------------- | ------------------------- | ------------------------ |
-| `main`                  | `pnpm run deploy`         | `CONVEX_DEPLOY_KEY`      |
-| Non-production branches | `pnpm run deploy:preview` | `CONVEX_DEPLOY_KEY`      |
+| Branch type             | Deploy command            | Builds trigger key  |
+| ----------------------- | ------------------------- | ------------------- |
+| `main`                  | `pnpm run deploy`         | `CONVEX_DEPLOY_KEY` |
+| Non-production branches | `pnpm run deploy:preview` | `CONVEX_DEPLOY_KEY` |
 
 The production and preview Workers Builds triggers store different values under the same key name.
 The production trigger stores the Convex production deploy key. The preview trigger stores the

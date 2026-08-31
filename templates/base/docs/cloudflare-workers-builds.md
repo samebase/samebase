@@ -9,10 +9,10 @@ This app deploys through Cloudflare Workers Builds. The Cloudflare dashboard run
 `CONVEX_DEPLOY_KEY` is a build secret. The Convex CLI needs it before Wrangler uploads the Worker.
 Use one key name with a different value on each Workers Builds trigger:
 
-| Workers Builds trigger | Secret name | Secret value |
-| --- | --- | --- |
-| Production | `CONVEX_DEPLOY_KEY` | Convex production deploy key |
-| Preview | `CONVEX_DEPLOY_KEY` | Convex project Preview deploy key |
+| Workers Builds trigger | Secret name         | Secret value                      |
+| ---------------------- | ------------------- | --------------------------------- |
+| Production             | `CONVEX_DEPLOY_KEY` | Convex production deploy key      |
+| Preview                | `CONVEX_DEPLOY_KEY` | Convex project Preview deploy key |
 
 Samebase-managed setup writes the secret through the trigger API. It also writes the same readable
 `SAMEBASE_CONVEX_PROJECT` marker to both triggers.
