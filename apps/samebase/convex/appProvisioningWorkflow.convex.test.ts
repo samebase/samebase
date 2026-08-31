@@ -156,7 +156,6 @@ describe("app provisioning workflow composition", () => {
       convex: {
         state: "missing",
         projectName: "composed-app",
-        deploymentRegion: "aws-eu-west-1",
       },
       cloudflare: {
         state: "missing",
@@ -247,75 +246,6 @@ describe("app provisioning workflow composition", () => {
     } finally {
       vi.useRealTimers();
     }
-  });
-
-  it("keeps the selected Convex region through managed create checkpoints and retries", async () => {
-    const { ids, t } = await createComposedVault();
-
-    await expect(
-      t.query(internal.vault.convexMutations.readManagedProjectCreateCheckpoint, {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        userId: ids.userId,
-        projectName: "composed-app",
-        deploymentRegion: "aws-eu-west-1",
-        teamId: "convex-team",
-      }),
-    ).resolves.toEqual({ state: "planned" });
-    await expect(
-      t.mutation(internal.vault.convexMutations.beginManagedProjectCreate, {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        userId: ids.userId,
-        projectName: "composed-app",
-        deploymentRegion: "aws-eu-west-1",
-        teamId: "convex-team",
-      }),
-    ).resolves.toBeNull();
-    await expect(t.run(async (ctx) => (await ctx.db.get(ids.planId))?.convex)).resolves.toEqual({
-      state: "creating",
-      projectName: "composed-app",
-      deploymentRegion: "aws-eu-west-1",
-    });
-
-    await expect(
-      t.mutation(internal.vault.convexMutations.recordManagedProjectCreated, {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        userId: ids.userId,
-        convexConfigPath: "convex.json",
-        projectName: "composed-app",
-        deploymentRegion: "aws-eu-west-1",
-        teamId: "convex-team",
-        projectId: "convex-project",
-      }),
-    ).resolves.toBeDefined();
-    await expect(t.run(async (ctx) => (await ctx.db.get(ids.planId))?.convex)).resolves.toEqual({
-      state: "created",
-      projectName: "composed-app",
-      deploymentRegion: "aws-eu-west-1",
-      projectId: "convex-project",
-    });
-    await expect(
-      t.query(internal.vault.convexMutations.readManagedProjectCreateCheckpoint, {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        userId: ids.userId,
-        projectName: "composed-app",
-        deploymentRegion: "aws-eu-west-1",
-        teamId: "convex-team",
-      }),
-    ).resolves.toEqual({ state: "created", projectId: "convex-project" });
-    await expect(
-      t.query(internal.vault.convexMutations.readManagedProjectCreateCheckpoint, {
-        vaultId: ids.vaultId,
-        runId: ids.runId,
-        userId: ids.userId,
-        projectName: "composed-app",
-        deploymentRegion: "aws-us-east-1",
-        teamId: "convex-team",
-      }),
-    ).rejects.toThrow("Managed Convex region does not match the provisioning plan.");
   });
 
   it("keeps managed provider freshness when infrastructure ownership completes", async () => {

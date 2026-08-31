@@ -202,17 +202,24 @@ describe("OrganizationSettingsPage", () => {
     expect(markup).toContain("Delete organization");
   });
 
-  it("does not offer organization deletion to a member", () => {
+  it("shows a member the saved region without edit or deletion controls", () => {
+    regionTestState.defaultRegion = CONVEX_EU_WEST_REGION;
     const markup = renderOrganizationSettings({ ...organization, role: "member" });
 
+    expect(markup).toContain("🇪🇺 EU West (Ireland)");
+    expect(markup).not.toContain(">Save<");
+    expect(markup).not.toContain('role="combobox"');
     expect(markup).not.toContain("Delete organization");
   });
 
-  it("lets an owner save a different default production region", async () => {
+  it("lets an owner save a compact default without a Convex connection", async () => {
     const container = await mountOrganizationSettings(organization);
 
     expect(container.textContent).toContain("🇺🇸 US East (N. Virginia)");
     await chooseRegion(container, "🇪🇺 EU West (Ireland)");
+    expect(container.textContent).not.toContain("EU usage costs");
+    expect(container.querySelector('a[href="https://www.convex.dev/pricing"]')).toBeNull();
+    expect(container.textContent).not.toContain("Connect Convex");
     const saveButton = [...container.querySelectorAll("button")].find(
       (button) => button.textContent === "Save",
     );
@@ -225,35 +232,6 @@ describe("OrganizationSettingsPage", () => {
         organizationId: organization.organizationId,
       }),
     );
-  });
-
-  it("lets an owner edit the default without a Convex connection", async () => {
-    regionTestState.defaultRegion = CONVEX_EU_WEST_REGION;
-    const container = await mountOrganizationSettings(organization);
-
-    expect(container.textContent).toContain("🇪🇺 EU West (Ireland)");
-    expect(container.querySelector('[role="combobox"]')).not.toBeNull();
-    expect(container.textContent).not.toContain("Connect Convex");
-    expect(regionTestState.setDefault).not.toHaveBeenCalled();
-  });
-
-  it("shows a member the saved default without an edit control", () => {
-    regionTestState.defaultRegion = CONVEX_EU_WEST_REGION;
-    const markup = renderOrganizationSettings({ ...organization, role: "member" });
-
-    expect(markup).toContain("🇪🇺 EU West (Ireland)");
-    expect(markup).not.toContain(">Save<");
-    expect(markup).not.toContain('role="combobox"');
-    expect(regionTestState.setDefault).not.toHaveBeenCalled();
-  });
-
-  it("keeps the setting copy compact", () => {
-    const markup = renderOrganizationSettings(organization);
-
-    expect(markup).toContain("Default production region");
-    expect(markup).not.toContain("Default production region for new Convex projects");
-    expect(markup).not.toContain("Used as the starting region");
-    expect(markup).not.toContain("No saved default");
   });
 
   it("offers an owner the verified GitHub owner name update", () => {

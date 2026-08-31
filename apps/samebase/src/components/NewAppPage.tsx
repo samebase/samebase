@@ -30,10 +30,7 @@ import {
 import type { ViewerOrganization } from "@/lib/organizationContext";
 import type { Id } from "../../convex/_generated/dataModel";
 import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";
-import {
-  useConvexDeploymentRegions,
-  useConvexDeploymentRegionSelection,
-} from "@/components/useConvexDeploymentRegions";
+import { useConvexDeploymentRegion } from "@/components/useConvexDeploymentRegions";
 
 type CreateResourceNameMode = "auto" | "manual";
 type CreateResourceNameCheckResult =
@@ -532,12 +529,10 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
   const cloudflareConnection = useConvexQuery(api.users.getCloudflareConnectionStatus, {
     organizationId,
   });
-  const {
-    defaultRegion: defaultConvexDeploymentRegion,
-    regionsQuery: convexDeploymentRegionsQuery,
-  } = useConvexDeploymentRegions({
+  const convexDeploymentRegionSelection = useConvexDeploymentRegion({
     enabled: convexConnection?.state === "connected",
     organizationId,
+    selectionKey: organizationId,
   });
   const [newRepositoryName, setNewRepositoryNameState] = useState("");
   const [convexProjectName, setConvexProjectNameState] = useState("");
@@ -567,14 +562,6 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     tokens: cloudflareBuildTokensQuery.data?.tokens ?? null,
   });
   const cloudflareBuildTokenUuid = cloudflareBuildTokenSelection.selectedUuid;
-  const convexDeploymentRegionSelection = useConvexDeploymentRegionSelection({
-    defaultRegion: defaultConvexDeploymentRegion ?? null,
-    error: Boolean(convexDeploymentRegionsQuery.error),
-    isFetching:
-      convexDeploymentRegionsQuery.isFetching || defaultConvexDeploymentRegion === undefined,
-    regions: convexDeploymentRegionsQuery.data ?? null,
-    selectionKey: organizationId,
-  });
   const convexDeploymentRegion = convexDeploymentRegionSelection.selectedRegion;
   const cloudflareBuildTokensConfirmedEmpty = Boolean(
     cloudflareBuildTokensQuery.data &&
@@ -675,7 +662,7 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
     isCreating ||
     createRepositoryName.length === 0 ||
     !canCreateRepo ||
-    !convexDeploymentRegionSelection.canWrite ||
+    !convexDeploymentRegion ||
     (!cloudflareBuildTokenSelection.canWrite && !cloudflareBuildTokensConfirmedEmpty) ||
     hasBlockingCreateResourceName;
 
@@ -928,22 +915,12 @@ export function NewAppPage({ organization }: { organization: ViewerOrganization 
         convexConnected ? (
           <ConvexDeploymentRegionField
             disabled={isCreating}
-            error={Boolean(convexDeploymentRegionsQuery.error)}
             id="new-app-convex-production-region"
-            isLoading={
-              convexDeploymentRegionsQuery.isPending ||
-              convexDeploymentRegionsQuery.isFetching ||
-              defaultConvexDeploymentRegion === undefined
-            }
-            onReload={() => {
-              void convexDeploymentRegionsQuery.refetch();
-            }}
             onValueChange={(region) => {
               setCreateError(null);
               convexDeploymentRegionSelection.setRequestedRegion(region);
             }}
-            regions={convexDeploymentRegionsQuery.data ?? []}
-            selectionUnavailable={convexDeploymentRegionSelection.selectionUnavailable}
+            showEuPricing
             value={convexDeploymentRegion}
           />
         ) : null

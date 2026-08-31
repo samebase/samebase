@@ -80,21 +80,6 @@ const convexRegionTestState = vi.hoisted(() => {
     set defaultRegion(value: "aws-us-east-1" | "aws-eu-west-1") {
       defaultRegion = value;
     },
-    listRegions: vi.fn(async () => ({
-      defaultRegion: "aws-us-east-1" as const,
-      regions: [
-        {
-          available: true,
-          displayName: "US East (N. Virginia)",
-          name: "aws-us-east-1" as const,
-        },
-        {
-          available: true,
-          displayName: "EU West (Ireland)",
-          name: "aws-eu-west-1" as const,
-        },
-      ],
-    })),
   };
 });
 
@@ -116,8 +101,6 @@ const organization = {
 const testState = vi.hoisted(() => ({
   actions: new Map<string, (args: unknown) => Promise<unknown>>(),
   fallbackAction: vi.fn(async () => undefined),
-  fallbackMutation: vi.fn(async () => undefined),
-  mutations: new Map<string, (args: unknown) => Promise<unknown>>(),
 }));
 
 vi.mock("convex/react", async (importOriginal) => {
@@ -126,8 +109,6 @@ vi.mock("convex/react", async (importOriginal) => {
     ...actual,
     useAction: (reference: Parameters<typeof actual.useAction>[0]) =>
       testState.actions.get(getFunctionName(reference)) ?? testState.fallbackAction,
-    useMutation: (reference: Parameters<typeof actual.useMutation>[0]) =>
-      testState.mutations.get(getFunctionName(reference)) ?? testState.fallbackMutation,
     useQuery: (reference: Parameters<typeof actual.useQuery>[0]) => {
       const name = getFunctionName(reference);
       if (name === getFunctionName(api.users.getConvexConnectionStatus)) {
@@ -187,32 +168,9 @@ describe("NewAppPage", () => {
     cloudflareBuildTokenTestState.refetch.mockResolvedValue(undefined);
     cloudflareBuildTokenTestState.state = "loaded";
     convexRegionTestState.defaultRegion = CONVEX_US_EAST_REGION;
-    convexRegionTestState.listRegions.mockReset();
-    convexRegionTestState.listRegions.mockResolvedValue({
-      defaultRegion: CONVEX_US_EAST_REGION,
-      regions: [
-        {
-          available: true,
-          displayName: "US East (N. Virginia)",
-          name: CONVEX_US_EAST_REGION,
-        },
-        {
-          available: true,
-          displayName: "EU West (Ireland)",
-          name: CONVEX_EU_WEST_REGION,
-        },
-      ],
-    });
     testState.actions.clear();
-    testState.actions.set(
-      getFunctionName(api.convexDeploymentRegions.list),
-      convexRegionTestState.listRegions,
-    );
     testState.fallbackAction.mockReset();
     testState.fallbackAction.mockResolvedValue(undefined);
-    testState.fallbackMutation.mockReset();
-    testState.fallbackMutation.mockResolvedValue(undefined);
-    testState.mutations.clear();
     mountedElement = null;
     mountedRoot = null;
     queryClient = new QueryClient({
@@ -328,13 +286,8 @@ describe("NewAppPage", () => {
     expect(createButton?.disabled).toBe(false);
   });
 
-  it("starts from the saved EU region and keeps a one-time US selection local to the app", async () => {
+  it("starts from the saved EU region and lets the creator choose US", async () => {
     convexRegionTestState.defaultRegion = CONVEX_EU_WEST_REGION;
-    const setDefaultRegion = vi.fn(async () => undefined);
-    testState.mutations.set(
-      getFunctionName(api.convexDeploymentRegions.setDefault),
-      setDefaultRegion,
-    );
     const container = await mountPage();
     await vi.waitFor(() =>
       expect(document.getElementById("new-app-convex-production-region")).toBeInstanceOf(
@@ -364,7 +317,6 @@ describe("NewAppPage", () => {
     await act(async () => usOption.click());
 
     expect(regionSelect.textContent).toContain("US East (N. Virginia)");
-    expect(setDefaultRegion).not.toHaveBeenCalled();
   });
 
   it("hides the Worker field and creates an app after an empty token list is confirmed", async () => {

@@ -432,9 +432,6 @@ describe("buildProductionEnvironmentRoots", () => {
         ],
       },
     ]);
-    expect(renderToStaticMarkup(<VaultEnvironmentTree roots={roots} />)).toContain(
-      "🇪🇺 EU West (Ireland)",
-    );
   });
 
   it("keeps custom domains visible when workers.dev is disabled", () => {
@@ -1959,30 +1956,12 @@ describe("VaultConvexDialog", () => {
       },
       projects: [],
     }));
-    const listRegions = vi.fn(async () => ({
-      defaultRegion: "aws-us-east-1" as const,
-      regions: [
-        {
-          available: true,
-          displayName: "US East (N. Virginia)",
-          name: "aws-us-east-1" as const,
-        },
-        {
-          available: true,
-          displayName: "EU West (Ireland)",
-          name: "aws-eu-west-1" as const,
-        },
-      ],
-    }));
     const createProject = vi.fn(async () => fakeConvexProjectId());
     const onSaved = vi.fn();
     useActionMock.mockImplementation((action: FunctionReference<"action">) => {
       const actionName = getFunctionName(action);
       if (actionName === getFunctionName(api.vault.convex.discoverProjects)) {
         return discoverProjects;
-      }
-      if (actionName === getFunctionName(api.convexDeploymentRegions.list)) {
-        return listRegions;
       }
       if (actionName === getFunctionName(api.vault.convex.createProject)) {
         return createProject;
@@ -2042,7 +2021,6 @@ describe("VaultConvexDialog", () => {
       }
 
       expect(regionSelect.textContent).toContain("EU West (Ireland)");
-      expect(listRegions).toHaveBeenCalledTimes(1);
       const submitButton = [...rootElement.querySelectorAll("button")].find(
         (candidate) => candidate.textContent === "Create project",
       );

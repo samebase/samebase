@@ -41,24 +41,9 @@ export function NewAppPageVisualFixture({ mode }: { mode: NewAppPageVisualMode }
               convexDeploymentRegionField={
                 <ConvexDeploymentRegionField
                   disabled={false}
-                  error={false}
                   id="visual-convex-production-region"
-                  isLoading={false}
-                  onReload={() => {}}
                   onValueChange={() => {}}
-                  regions={[
-                    {
-                      name: "aws-us-east-1",
-                      displayName: "US East (N. Virginia)",
-                      available: true,
-                    },
-                    {
-                      name: "aws-eu-west-1",
-                      displayName: "EU West (Ireland)",
-                      available: true,
-                    },
-                  ]}
-                  selectionUnavailable={false}
+                  showEuPricing
                   value="aws-eu-west-1"
                 />
               }

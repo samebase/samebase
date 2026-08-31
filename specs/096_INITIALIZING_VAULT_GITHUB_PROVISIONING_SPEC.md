@@ -414,8 +414,8 @@ optional validators are errors.
 
 For Samebase-managed repository creation:
 
-1. validate local input shape, including the selected GitHub-backed organization and one exact
-   Convex production region
+1. validate local input shape, including the selected GitHub-backed organization, and resolve one
+   exact Convex production region
 2. in one mutation, insert the vault, insert the provisioning run with required `vaultId`, then
    patch the vault to `state: "provisioning", githubMode: "create_repository", runId, name`
 3. start the create-app Workflow
@@ -428,13 +428,9 @@ For Samebase-managed repository creation:
 9. let the dashboard derive its summaries and controls from source setup, the managed provider plan,
    attachments, live observations, and provider-write state
 
-The organization can save a Convex production region default. If no value is stored, Samebase uses
-US East as the effective default. An available effective default only initializes the New App field.
-The submitted one-project choice never writes that default. The admission transaction stores the
-selected region in every Convex plan state before external writes. A retry uses the plan value and
-does not read the organization default again. The Convex block checks current availability before a
-new provider create call and sends the selected value to Convex. The later live production
-deployment observation supplies the actual displayed region.
+New App initializes its required Convex production region from the organization default. The user
+can choose US or EU for this app without changing that default. Spec 003 owns the plan and provider
+create behavior.
 
 External provider validation happens after the vault exists so failures have a visible dashboard
 target. Local input validation can happen before insert when it does not require provider calls. The
@@ -510,10 +506,6 @@ immediately, before their attachment rows exist. It uses the planned project and
 primary labels. While the managed provider run is active, each target shows `Setting up` and does
 not show an empty, attention, or manual repair state. Spec 115 defines the exact plan, attachment,
 and observation row precedence.
-
-The planned Convex row can also show its requested production region. After attachment, Settings
-uses the actual region from the live default production deployment observation. It does not copy the
-actual region into the stable attachment.
 
 The transaction that creates a new-app or managed retry run also creates its active managed provider
 lock. The lock covers source setup and provider setup. A source setup failure marks the matching
@@ -622,10 +614,6 @@ Backend:
 21. create and managed retry runs own the provider lock from their creation transaction
 22. `connect_existing_repository` runs never own the provider lock
 23. source setup failure ends the matching managed lock without changing provider freshness
-24. the admission transaction stores the selected Convex production region in every Convex plan
-    state before provider work
-25. managed retry reuses the plan region and cannot read or apply a changed organization default
-26. the Convex provider create receives the selected region after a current availability check
 
 Frontend:
 
@@ -647,9 +635,6 @@ Frontend:
 11. stale affected observations show `Checking` before they can show attention or repair
 12. conflicting provider controls and direct-dialog confirm actions stay disabled from subscription
     state while navigation remains available
-13. New App initializes the Convex production region from the available organization default, uses
-    US East when no value is stored, permits a one-project override without writing the default, and
-    discloses EU pricing and included-usage treatment
 
 ## Acceptance Criteria
 
@@ -671,7 +656,3 @@ Frontend:
 14. Managed retries create new runs rather than mutating previous terminal runs.
 15. New App Settings shows planned provider targets before attachments exist.
 16. Overview and Settings remain available during provider setup.
-17. Managed New App creation requires and persists one available Convex production region before
-    provider work.
-18. The requested plan region gives way to the actual live production deployment region after
-    attachment. Preview deployment region remains outside this contract.

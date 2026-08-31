@@ -19,6 +19,7 @@ import { resolveGitHubUserOctokit } from "../githubUserAuthorizations";
 import { isLiveConnectedVault, isSamebaseManagedVault } from "./state";
 import { toSafeRepoName } from "../../shared/repoName";
 import { canAccess } from "../../shared/accessModel";
+import { resolveDefaultConvexDeploymentRegion } from "../../shared/convexDeploymentRegions";
 import { listConvexManagementProjects } from "../convexManagementApi/client";
 import { resolveCloudflareApiTransport } from "../cloudflareApi/client";
 import {
@@ -361,6 +362,9 @@ async function resolveOrganizationConvexProvisioningConnection(
     convexToken,
     convexAuthMethod: credential.auth.method,
     convexTeamId,
+    defaultConvexDeploymentRegion: resolveDefaultConvexDeploymentRegion(
+      configuration.defaultConvexDeploymentRegion,
+    ),
   };
 }
 
@@ -791,6 +795,8 @@ export async function createAppForUser(
   }
 
   const visibility = args.private === false ? "public" : "private";
+  const convexDeploymentRegion =
+    args.convexDeploymentRegion ?? convexConnection.defaultConvexDeploymentRegion;
   const { vaultId, runId } = await ctx.runMutation(
     internal.vault.records.createInitializingSamebaseManagedVaultForUser,
     {
@@ -801,7 +807,7 @@ export async function createAppForUser(
       visibility,
       description: args.description ?? null,
       convexProjectName: convexNameValidation.value,
-      convexDeploymentRegion: args.convexDeploymentRegion,
+      convexDeploymentRegion,
       convexTeamId: convexConnection.convexTeamId,
       cloudflareAccountId: cloudflareConnection.cloudflareAccountId,
       cloudflareWorkerName: cloudflareNameValidation?.valid

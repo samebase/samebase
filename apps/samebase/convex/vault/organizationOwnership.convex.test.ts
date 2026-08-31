@@ -692,9 +692,6 @@ describe("organization-owned vaults", () => {
     expect(initialManagedState.existingRun).toMatchObject({ organizationId });
     expect(initialManagedState.managedRun).toMatchObject({ organizationId });
     expect(initialManagedState.vault).toMatchObject(expectedDestinations);
-    expect(initialManagedState.plan?.convex).toMatchObject({
-      deploymentRegion: "aws-us-east-1",
-    });
     expect(initialManagedState.plan?.convex).not.toHaveProperty("teamId");
     expect(initialManagedState.plan?.cloudflare).toMatchObject({ buildTokenUuid: "build-token" });
     expect(initialManagedState.plan?.cloudflare).not.toHaveProperty("accountId");

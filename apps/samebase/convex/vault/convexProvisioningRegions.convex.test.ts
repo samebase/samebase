@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 const providerMocks = vi.hoisted(() => ({
+  listConvexManagementDefaultProductionDeployments: vi.fn(),
   listConvexManagementProjects: vi.fn(),
   requestConvexManagementApiOrThrow: vi.fn(),
-  requireAvailableConvexDeploymentRegion: vi.fn(),
 }));
 
 const githubMocks = vi.hoisted(() => ({
@@ -15,9 +15,10 @@ vi.mock("../convexManagementApi/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../convexManagementApi/client")>();
   return {
     ...actual,
+    listConvexManagementDefaultProductionDeployments:
+      providerMocks.listConvexManagementDefaultProductionDeployments,
     listConvexManagementProjects: providerMocks.listConvexManagementProjects,
     requestConvexManagementApiOrThrow: providerMocks.requestConvexManagementApiOrThrow,
-    requireAvailableConvexDeploymentRegion: providerMocks.requireAvailableConvexDeploymentRegion,
   };
 });
 
@@ -40,22 +41,22 @@ vi.mock("../githubRepoApi", async (importOriginal) => {
 import { api, internal } from "../_generated/api";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
-async function createManagedRegionFixture() {
-  const t = makeConvexTest();
-  const ids = await t.run(async (ctx) => {
+async function createRegionOrganization(t: ReturnType<typeof makeConvexTest>) {
+  return await t.run(async (ctx) => {
     const userId = await ctx.db.insert("users", {
       state: "active",
-      email: "managed-region@example.test",
+      email: "region-owner@example.test",
       isApproved: true,
       termsVersion: "2026-08-12",
       termsAcceptedAt: 1,
     });
     const organizationId = await ctx.db.insert("organizations", {
-      githubOwnerId: "managed-region-owner",
+      githubOwnerId: "region-owner",
       githubOwnerType: "organization",
-      githubOwnerLogin: "managed-region-owner",
-      githubOwnerLoginNormalized: "managed-region-owner",
-      githubInstallationId: "managed-region-installation",
+      githubOwnerLogin: "region-owner",
+      githubOwnerLoginNormalized: "region-owner",
+      githubInstallationId: "region-installation",
+      defaultConvexDeploymentRegion: "aws-us-east-1",
       convexTeam: { teamId: "convex-team" },
       cloudflareAccount: {
         accountId: "cloudflare-account",
@@ -76,6 +77,14 @@ async function createManagedRegionFixture() {
         updatedAt: 1,
       },
     });
+    return { organizationId, userId };
+  });
+}
+
+async function createManagedRegionFixture() {
+  const t = makeConvexTest();
+  const { organizationId, userId } = await createRegionOrganization(t);
+  const ids = await t.run(async (ctx) => {
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       convexTeamId: "convex-team",
@@ -87,7 +96,7 @@ async function createManagedRegionFixture() {
       organizationId,
       userId,
       vaultId,
-      repositoryFullName: "managed-region-owner/region-app",
+      repositoryFullName: "region-owner/region-app",
       trigger: "create",
       state: "running",
       currentStep: "attach_convex",
@@ -115,7 +124,7 @@ async function createManagedRegionFixture() {
       lastWriteAt: {},
       updatedAt: 1,
     });
-    const planId = await ctx.db.insert("workflow_vaultProvisioning_plans", {
+    await ctx.db.insert("workflow_vaultProvisioning_plans", {
       vaultId,
       convexConfigPath: "convex.json",
       convex: {
@@ -132,44 +141,15 @@ async function createManagedRegionFixture() {
       createdAt: 1,
       updatedAt: 1,
     });
-    return { planId, runId, userId, vaultId };
+    return { runId, userId, vaultId };
   });
   return { ...ids, t };
 }
 
 async function createManualRegionFixture() {
   const t = makeConvexTest();
+  const { organizationId, userId } = await createRegionOrganization(t);
   const ids = await t.run(async (ctx) => {
-    const userId = await ctx.db.insert("users", {
-      state: "active",
-      email: "manual-region@example.test",
-      isApproved: true,
-      termsVersion: "2026-08-12",
-      termsAcceptedAt: 1,
-    });
-    const organizationId = await ctx.db.insert("organizations", {
-      githubOwnerId: "manual-region-owner",
-      githubOwnerType: "organization",
-      githubOwnerLogin: "manual-region-owner",
-      githubOwnerLoginNormalized: "manual-region-owner",
-      githubInstallationId: "manual-region-installation",
-      defaultConvexDeploymentRegion: "aws-us-east-1",
-      convexTeam: { teamId: "convex-team" },
-    });
-    await insertTestOrganizationBillingAccount(ctx.db, organizationId);
-    await ctx.db.insert("organizationMemberships", {
-      organizationId,
-      userId,
-      role: "owner",
-    });
-    await ctx.db.insert("organizationProviderCredentials", {
-      organizationId,
-      convex: {
-        auth: { method: "api_key", credential: "convex-token" },
-        connectedByUserId: userId,
-        updatedAt: 1,
-      },
-    });
     const vaultId = await ctx.db.insert("vaults", {
       organizationId,
       convexTeamId: "convex-team",
@@ -180,7 +160,7 @@ async function createManualRegionFixture() {
       organizationId,
       userId,
       vaultId,
-      repositoryFullName: "manual-region-owner/manual-region-app",
+      repositoryFullName: "region-owner/manual-region-app",
       trigger: "connect_existing_repository",
       state: "succeeded",
       currentStep: "finish",
@@ -230,8 +210,8 @@ beforeEach(() => {
       },
     ],
   });
+  providerMocks.listConvexManagementDefaultProductionDeployments.mockResolvedValue([]);
   providerMocks.listConvexManagementProjects.mockResolvedValue([]);
-  providerMocks.requireAvailableConvexDeploymentRegion.mockResolvedValue(undefined);
   providerMocks.requestConvexManagementApiOrThrow.mockImplementation(
     async (_token: string, method: string, path: string) => {
       if (method === "POST" && path === "/teams/{team_id}/create_project") {
@@ -258,9 +238,9 @@ beforeEach(() => {
   );
 });
 
-describe("managed Convex project region provisioning", () => {
+describe("Convex project regions", () => {
   it("sends the planned region on create and reuses the checkpoint on retry", async () => {
-    const { planId, runId, t, userId, vaultId } = await createManagedRegionFixture();
+    const { runId, t, userId, vaultId } = await createManagedRegionFixture();
 
     const firstProjectId = await t.action(internal.vault.convex.ensureConvexProjectConnection, {
       vaultId,
@@ -268,14 +248,8 @@ describe("managed Convex project region provisioning", () => {
       userId,
       convexConfigPath: "convex.json",
       projectName: "region-app",
-      deploymentRegion: "aws-eu-west-1",
     });
 
-    expect(providerMocks.requireAvailableConvexDeploymentRegion).toHaveBeenCalledWith({
-      token: "convex-token",
-      teamId: "convex-team",
-      region: "aws-eu-west-1",
-    });
     expect(providerMocks.requestConvexManagementApiOrThrow).toHaveBeenCalledWith(
       "convex-token",
       "POST",
@@ -289,13 +263,6 @@ describe("managed Convex project region provisioning", () => {
         },
       },
     );
-    await expect(t.run(async (ctx) => (await ctx.db.get(planId))?.convex)).resolves.toEqual({
-      state: "created",
-      projectName: "region-app",
-      deploymentRegion: "aws-eu-west-1",
-      projectId: "convex-project",
-    });
-
     vi.clearAllMocks();
     const retriedProjectId = await t.action(internal.vault.convex.ensureConvexProjectConnection, {
       vaultId,
@@ -303,11 +270,9 @@ describe("managed Convex project region provisioning", () => {
       userId,
       convexConfigPath: "convex.json",
       projectName: "region-app",
-      deploymentRegion: "aws-eu-west-1",
     });
     expect(retriedProjectId).toBe(firstProjectId);
     expect(providerMocks.listConvexManagementProjects).not.toHaveBeenCalled();
-    expect(providerMocks.requireAvailableConvexDeploymentRegion).not.toHaveBeenCalled();
     expect(providerMocks.requestConvexManagementApiOrThrow).toHaveBeenCalledOnce();
     expect(providerMocks.requestConvexManagementApiOrThrow).toHaveBeenCalledWith(
       "convex-token",
@@ -315,21 +280,6 @@ describe("managed Convex project region provisioning", () => {
       "/projects/{project_id}",
       { params: { path: { project_id: "convex-project" } } },
     );
-
-    vi.clearAllMocks();
-    await expect(
-      t.action(internal.vault.convex.ensureConvexProjectConnection, {
-        vaultId,
-        runId,
-        userId,
-        convexConfigPath: "convex.json",
-        projectName: "region-app",
-        deploymentRegion: "aws-us-east-1",
-      }),
-    ).rejects.toThrow("Managed Convex region does not match the provisioning plan.");
-    expect(providerMocks.listConvexManagementProjects).not.toHaveBeenCalled();
-    expect(providerMocks.requireAvailableConvexDeploymentRegion).not.toHaveBeenCalled();
-    expect(providerMocks.requestConvexManagementApiOrThrow).not.toHaveBeenCalled();
   });
 
   it("sends a manual region without changing the organization default", async () => {
@@ -347,11 +297,6 @@ describe("managed Convex project region provisioning", () => {
         },
       }),
     ).resolves.toBeDefined();
-    expect(providerMocks.requireAvailableConvexDeploymentRegion).toHaveBeenCalledWith({
-      token: "convex-token",
-      teamId: "convex-team",
-      region: "aws-eu-west-1",
-    });
     expect(providerMocks.requestConvexManagementApiOrThrow).toHaveBeenCalledWith(
       "convex-token",
       "POST",
@@ -385,6 +330,47 @@ describe("managed Convex project region provisioning", () => {
           projectId: "convex-project",
           convexConfigPath: "convex.json",
           origin: "provisioned",
+        },
+      ],
+    });
+  });
+
+  it("joins each discovered project to its production deployment region", async () => {
+    const { vaultId, viewer } = await createManualRegionFixture();
+    providerMocks.listConvexManagementProjects.mockResolvedValue([
+      {
+        createTime: 1,
+        id: "convex-project",
+        name: "Manual region app",
+        slug: "manual-region-app",
+        teamId: "convex-team",
+        teamSlug: "manual-region-owner",
+      },
+    ]);
+    providerMocks.listConvexManagementDefaultProductionDeployments.mockResolvedValue([
+      {
+        class: "s16",
+        createTime: 1,
+        creator: "convex-member",
+        deploymentType: "prod",
+        deploymentUrl: "https://manual-region-app.convex.cloud",
+        id: "convex-deployment",
+        isDefault: true,
+        kind: "cloud",
+        name: "manual-region-app-prod",
+        projectId: "convex-project",
+        reference: "prod",
+        region: "aws-eu-west-1",
+      },
+    ]);
+
+    await expect(
+      viewer.action(api.vault.convex.discoverProjects, { vaultId }),
+    ).resolves.toMatchObject({
+      projects: [
+        {
+          projectId: "convex-project",
+          productionDeployment: { state: "available", region: "aws-eu-west-1" },
         },
       ],
     });

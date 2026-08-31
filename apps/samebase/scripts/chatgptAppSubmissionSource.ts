@@ -37,13 +37,6 @@ export const toolJustifications = {
       "Does not create, publish, or modify public internet state or third-party systems.",
     destructive_justification: noDestructiveActions,
   },
-  convex_listDeploymentRegions: {
-    read_only_justification:
-      "Lists the current Convex production deployment regions and the effective form default for the selected Samebase organization. The effective default is US East when no value is stored. Request authentication and connection refresh bookkeeping can update private Samebase records.",
-    open_world_justification:
-      "Reads the Convex API; it does not create, publish, or modify Convex resources or public internet state.",
-    destructive_justification: noDestructiveActions,
-  },
   cloudflare_listWorkersBuildTokens: {
     read_only_justification:
       "Lists non-secret Workers Builds token names and UUIDs from the Cloudflare account connected to the selected Samebase organization. Request authentication and connection refresh bookkeeping can update private Samebase records.",
@@ -210,12 +203,11 @@ export const testCases = [
     file_attachment_urls: null,
     tools_triggered: [
       "vault_dashboard_getUserVaults",
-      "convex_listDeploymentRegions",
       "cloudflare_listWorkersBuildTokens",
       "vault_actions_createRepository",
     ],
     expected_output:
-      "Reads inventory, confirms that US East (N. Virginia) is currently available to the connected Convex team, and passes aws-us-east-1 in the required convexDeploymentRegion field without changing the saved organization default. It also reads the connected Cloudflare account's current Workers Builds token records. If that list is confirmed empty, it passes explicit null in the required cloudflareBuildTokenUuid field. The managed run then creates the GitHub repository and Convex project but no Cloudflare Worker. It polls only inventory until source and provider setup reach ready or failed. A ready provider setup in this case means only that the requested GitHub and Convex work finished. It reports Cloudflare setup as pending and links to https://samebase.com/docs/cloudflare-setup. Otherwise, it uses an available lastUsedBuildTokenUuid without asking, uses the only listed token, or asks the user to choose when several tokens are listed, then passes that exact UUID. It never treats the initial run IDs as completion.",
+      "Reads inventory and passes aws-us-east-1 as the requested Convex production region without changing the saved organization default. It also reads the connected Cloudflare account's current Workers Builds token records. If that list is confirmed empty, it passes explicit null in the required cloudflareBuildTokenUuid field. The managed run then creates the GitHub repository and Convex project but no Cloudflare Worker. It polls only inventory until source and provider setup reach ready or failed. A ready provider setup in this case means only that the requested GitHub and Convex work finished. It reports Cloudflare setup as pending and links to https://samebase.com/docs/cloudflare-setup. Otherwise, it uses an available lastUsedBuildTokenUuid without asking, uses the only listed token, or asks the user to choose when several tokens are listed, then passes that exact UUID. It never treats the initial run IDs as completion.",
     expected_output_url: null,
   },
   {

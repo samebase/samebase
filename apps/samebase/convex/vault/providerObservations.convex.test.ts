@@ -69,7 +69,7 @@ beforeEach(() => {
 });
 
 describe("vault provider observations", () => {
-  it("shares one refresh and uses current Worker names for observations", async () => {
+  it("observes current Worker names and the Convex production region", async () => {
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_ID", "cloudflare-client");
     vi.stubEnv("PROVIDER_CLOUDFLARE_OAUTH_CLIENT_SECRET", "cloudflare-secret");
 
@@ -102,6 +102,11 @@ describe("vault provider observations", () => {
       await insertTestOrganizationBillingAccount(ctx.db, organizationId);
       await ctx.db.insert("organizationProviderCredentials", {
         organizationId,
+        convex: {
+          auth: { method: "api_key", credential: "convex-token" },
+          connectedByUserId: userId,
+          updatedAt: 1,
+        },
         cloudflare: {
           auth: {
             method: "oauth",
@@ -165,7 +170,15 @@ describe("vault provider observations", () => {
         rootDirectory: "apps/live",
         origin: "selected_existing",
       });
-      return { firstWorkerId, secondWorkerId, userId, vaultId };
+      const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
+        vaultId,
+        organizationId,
+        teamId: "convex-team",
+        projectId: "convex-project",
+        convexConfigPath: "convex.json",
+        origin: "selected_existing",
+      });
+      return { convexProjectId, firstWorkerId, secondWorkerId, userId, vaultId };
     });
     const refresh = vi.fn(async (input: string | URL | Request) => {
       const url = input instanceof Request ? input.url : String(input);
@@ -267,6 +280,31 @@ describe("vault provider observations", () => {
         ];
       },
     );
+    convexMocks.requestConvexManagementApi.mockResolvedValue([
+      true,
+      {
+        createTime: 1,
+        id: "convex-project",
+        name: "Samebase",
+        slug: "samebase",
+        teamId: "convex-team",
+        teamSlug: "samebase-team",
+      },
+    ]);
+    convexMocks.requestConvexManagementApiOrThrow.mockResolvedValue({
+      class: "s16",
+      createTime: 1,
+      creator: "convex-member",
+      deploymentType: "prod",
+      deploymentUrl: "https://samebase.convex.cloud",
+      id: "convex-deployment",
+      isDefault: true,
+      kind: "cloud",
+      name: "samebase-prod",
+      projectId: "convex-project",
+      reference: "prod",
+      region: "aws-eu-west-1",
+    });
     const viewer = t.withIdentity({
       subject: `${ids.userId}|test-session`,
       tokenIdentifier: `test:${ids.userId}`,
@@ -314,144 +352,18 @@ describe("vault provider observations", () => {
         },
       },
     });
-  });
-
-  it("includes the production deployment region in Convex project observations", async () => {
-    const t = makeConvexTest();
-    const ids = await t.run(async (ctx) => {
-      const userId = await ctx.db.insert("users", {
-        state: "active",
-        email: "convex-region-observation@example.test",
-        isApproved: true,
-        termsVersion: "2026-08-12",
-        termsAcceptedAt: 1,
-      });
-      const organizationId = await ctx.db.insert("organizations", {
-        githubOwnerId: "convex-region-owner",
-        githubOwnerType: "organization",
-        githubOwnerLogin: "samebase",
-        githubOwnerLoginNormalized: "samebase",
-        githubInstallationId: "convex-region-installation",
-        convexTeam: { teamId: "convex-team" },
-      });
-      await ctx.db.insert("organizationMemberships", {
-        organizationId,
-        userId,
-        role: "owner",
-      });
-      await insertTestOrganizationBillingAccount(ctx.db, organizationId);
-      await ctx.db.insert("organizationProviderCredentials", {
-        organizationId,
-        convex: {
-          auth: { method: "api_key", credential: "convex-token" },
-          connectedByUserId: userId,
-          updatedAt: 1,
-        },
-      });
-      const vaultId = await ctx.db.insert("vaults", {
-        state: "not_connected",
-        organizationId,
-        convexTeamId: "convex-team",
-        deletion: { state: "not_deleting" },
-      });
-      const runId = await ctx.db.insert("workflow_vaultProvisioning_runs", {
-        organizationId,
-        userId,
-        vaultId,
-        repositoryFullName: "samebase/samebase",
-        trigger: "connect_existing_repository",
-        state: "succeeded",
-        currentStep: "finish",
-        createdAt: 1,
-        updatedAt: 1,
-        completedAt: 1,
-      });
-      await ctx.db.replace(vaultId, {
-        state: "connected",
-        githubMode: "connect_existing_repository",
-        organizationId,
-        convexTeamId: "convex-team",
-        deletion: { state: "not_deleting" },
-        runId,
-        ghRepoId: "github-repository",
-        defaultBranch: "main",
-        connectedAt: 1,
-        name: "samebase",
-        visibility: "private",
-      });
-      const convexProjectId = await ctx.db.insert("vaultConvexProjects", {
-        vaultId,
-        organizationId,
-        teamId: "convex-team",
-        projectId: "convex-project",
-        convexConfigPath: "convex.json",
-        origin: "selected_existing",
-      });
-      return { convexProjectId, userId, vaultId };
-    });
-    convexMocks.requestConvexManagementApi.mockResolvedValue([
-      true,
-      {
-        createTime: 1,
-        id: "convex-project",
-        name: "Samebase",
-        slug: "samebase",
-        teamId: "convex-team",
-        teamSlug: "samebase-team",
-      },
-    ]);
-    convexMocks.requestConvexManagementApiOrThrow.mockResolvedValue({
-      class: "s16",
-      createTime: 1,
-      creator: "convex-member",
-      deploymentType: "prod",
-      deploymentUrl: "https://samebase.convex.cloud",
-      id: "convex-deployment",
-      isDefault: true,
-      kind: "cloud",
-      name: "samebase-prod",
-      projectId: "convex-project",
-      reference: "prod",
-      region: "aws-eu-west-1",
-    });
-    const viewer = t.withIdentity({
-      subject: `${ids.userId}|test-session`,
-      tokenIdentifier: `test:${ids.userId}`,
-    });
-
     await expect(
       viewer.action(api.vault.providerObservations.observeConvexProjects, {
         vaultId: ids.vaultId,
       }),
-    ).resolves.toEqual([
+    ).resolves.toMatchObject([
       {
         convexProjectId: ids.convexProjectId,
-        projectId: "convex-project",
-        codeLocation: { kind: "config", convexConfigPath: "convex.json" },
-        source: { state: "unavailable", reason: "request_failed" },
         provider: {
           state: "current",
-          projectSlug: "samebase",
-          teamSlug: "samebase-team",
-          productionDeployment: {
-            state: "available",
-            deploymentName: "samebase-prod",
-            dashboardUrl: "https://dashboard.convex.dev/t/samebase-team/samebase/samebase-prod",
-            region: "aws-eu-west-1",
-          },
+          productionDeployment: { state: "available", region: "aws-eu-west-1" },
         },
       },
     ]);
-    expect(convexMocks.requestConvexManagementApiOrThrow).toHaveBeenCalledWith(
-      "convex-token",
-      "GET",
-      "/projects/{project_id}/deployment",
-      {
-        params: {
-          path: { project_id: "convex-project" },
-          query: { defaultProd: true },
-        },
-      },
-    );
   });
 });

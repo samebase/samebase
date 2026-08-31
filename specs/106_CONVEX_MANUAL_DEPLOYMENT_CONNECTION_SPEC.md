@@ -78,20 +78,17 @@ The code location selector is closed over discovered evidence. There is no free-
 
 ### Create project flow
 
-The user chooses one discovered code location, a project name, and one available Convex production
-region. Samebase reads current region options for the vault's exact `convexTeamId`. The available
-organization default initializes the region field. It is US East when no value is stored. The user
-can select another region for this project, and that choice never changes the saved default.
+The user chooses one discovered code location, a project name, and US or EU for the production
+deployment. The organization default initializes the region field. It is US when no value is saved.
+A choice for this project does not change the organization default.
 
 When the user selects EU, the dialog states:
 `EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`
 The disclosure links to Convex pricing.
 
-Samebase re-verifies the source, checks that the selected region is still available, and creates the
-project in the vault's exact team. The provider request sends the region as `deploymentRegion` with
-`deploymentType: "prod"`. Samebase then reads the project back and attaches it at that location. The
-manual path has no durable provisioning plan. It does not add a post-create region check, read
-retry, or new diagnostic.
+Samebase re-verifies the source and creates the project in the vault's exact team. The provider
+request sends the region as `deploymentRegion` with `deploymentType: "prod"`. Samebase then reads
+the project back and attaches it at that location.
 
 If the provider create succeeds but attachment fails, Samebase reports the ambiguous external state
 and does not delete the project automatically.
@@ -134,10 +131,6 @@ Convex attachment mutations use the shared exclusion check in spec 003. Convex p
 the claim, expiry, no-replay, and freshness rules in spec 003. Creating a Convex project affects
 only Convex observations.
 
-After attachment, the live default production deployment observation supplies the actual region for
-Settings and production deployment rows. The stable attachment does not copy this value. Preview
-deployment region is outside this contract.
-
 After a failed or silent create, Samebase gets a fresh Convex observation. If the project was
 created but its attachment was not recorded, normal discovery shows it as an existing project. The
 user can attach it with the normal existing-project action. Samebase does not adopt it
@@ -151,8 +144,6 @@ automatically. If the project does not exist, the user can use the normal create
 - Changing the organization's Convex team in a vault flow.
 - Automatically reconciling a transferred project to a different team.
 - Automatically removing inaccessible projects.
-- Selecting or displaying preview deployment regions.
-- Adding post-create region verification, read retries, or region diagnostics.
 
 ## Validation
 
@@ -163,8 +154,8 @@ automatically. If the project does not exist, the user can use the normal create
   uniqueness, shared code locations, idempotency, origin upgrade, and code-location
   compare-and-swap.
 - Provider tests cover transfers, destination mismatch, inaccessible projects, stale markers, and
-  writes that fail closed. They also cover paginated default production deployment discovery,
-  current region availability, and the selected region in the create request.
+  writes that fail closed. They also cover production deployment discovery and the selected region
+  in the create request.
 - Operation tests cover the Convex-only action mapping and normal existing-project attachment after
   a failed or silent create.
 - UI and route tests cover multi-selection, Worker-reference ordering without automatic selection,

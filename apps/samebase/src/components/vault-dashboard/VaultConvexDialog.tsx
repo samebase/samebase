@@ -28,10 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { VaultProviderDiscoveryLoadingState } from "./VaultProviderDiscoveryLoadingState";
 import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";
-import {
-  useConvexDeploymentRegions,
-  useConvexDeploymentRegionSelection,
-} from "@/components/useConvexDeploymentRegions";
+import { useConvexDeploymentRegion } from "@/components/useConvexDeploymentRegions";
 import {
   formatConvexDeploymentRegionLabel,
   type ConvexDeploymentRegion,
@@ -393,12 +390,10 @@ export function VaultConvexDialog({
   const changeProjectCodeLocation = useAction(api.vault.convex.changeProjectCodeLocation);
   const createProject = useAction(api.vault.convex.createProject);
   const [mode, setMode] = useState<ConvexProjectConnectMode>("existing");
-  const {
-    defaultRegion: defaultConvexDeploymentRegion,
-    regionsQuery: convexDeploymentRegionsQuery,
-  } = useConvexDeploymentRegions({
+  const convexDeploymentRegionSelection = useConvexDeploymentRegion({
     enabled: repairProjectId === null && mode === "create",
     organizationId: vault.organizationId,
+    selectionKey: vault._id,
   });
   const [selectedCreateCodeLocationKey, setSelectedCreateCodeLocationKey] = useState("");
   const [createProjectName, setCreateProjectName] = useState(() =>
@@ -412,14 +407,6 @@ export function VaultConvexDialog({
   >({});
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const convexDeploymentRegionSelection = useConvexDeploymentRegionSelection({
-    defaultRegion: defaultConvexDeploymentRegion ?? null,
-    error: Boolean(convexDeploymentRegionsQuery.error),
-    isFetching:
-      convexDeploymentRegionsQuery.isFetching || defaultConvexDeploymentRegion === undefined,
-    regions: convexDeploymentRegionsQuery.data ?? null,
-    selectionKey: vault._id,
-  });
   const createDeploymentRegion = convexDeploymentRegionSelection.selectedRegion;
 
   const resourcesQuery = useQuery({
@@ -531,19 +518,9 @@ export function VaultConvexDialog({
       convexDeploymentRegionField={
         <ConvexDeploymentRegionField
           disabled={isSubmitting}
-          error={Boolean(convexDeploymentRegionsQuery.error)}
           id="vault-convex-production-region"
-          isLoading={
-            convexDeploymentRegionsQuery.isPending ||
-            convexDeploymentRegionsQuery.isFetching ||
-            defaultConvexDeploymentRegion === undefined
-          }
-          onReload={() => {
-            void convexDeploymentRegionsQuery.refetch();
-          }}
           onValueChange={convexDeploymentRegionSelection.setRequestedRegion}
-          regions={convexDeploymentRegionsQuery.data ?? []}
-          selectionUnavailable={convexDeploymentRegionSelection.selectionUnavailable}
+          showEuPricing
           value={createDeploymentRegion}
         />
       }

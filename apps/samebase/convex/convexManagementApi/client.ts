@@ -11,12 +11,7 @@ import {
 import { isLosslessNumber, isSafeNumber, parse } from "lossless-json";
 import { guard } from "@samebase/dependent/main";
 import { bad, good, pure, type Unsure } from "@samebase/sure";
-import type {
-  DeploymentRegionMetadata,
-  paths,
-  PlatformDeploymentResponse,
-  ProjectResponse,
-} from "./types.generated";
+import type { paths, PlatformDeploymentResponse, ProjectResponse } from "./types.generated";
 import {
   convexManagementResponseDecimalPaths,
   convexManagementResponseValidators,
@@ -31,11 +26,6 @@ import {
   logProviderResponseParseFailure,
   logProviderResponseValidationFailure,
 } from "../providerResponseValidation";
-import {
-  compareConvexDeploymentRegions,
-  formatConvexDeploymentRegion,
-  type ConvexDeploymentRegion,
-} from "../../shared/convexDeploymentRegions";
 
 const CONVEX_MANAGEMENT_BASE_URL = "https://api.convex.dev/v1";
 const CONVEX_MANAGEMENT_TIMEOUT_MS = 10_000;
@@ -185,38 +175,6 @@ export async function listConvexManagementProjects(args: {
       throw new Error("Convex project pagination indicated more results without a cursor.");
     }
     cursor = page.pagination.nextCursor;
-  }
-}
-
-export async function listConvexManagementDeploymentRegions(args: {
-  token: string;
-  teamId: string;
-}): Promise<DeploymentRegionMetadata[]> {
-  const response = await requestConvexManagementApiOrThrow(
-    args.token,
-    "GET",
-    "/teams/{team_id}/list_deployment_regions",
-    {
-      params: { path: { team_id: args.teamId } },
-    },
-  );
-
-  return [...response.items].sort((left, right) =>
-    compareConvexDeploymentRegions(left.name, right.name),
-  );
-}
-
-export async function requireAvailableConvexDeploymentRegion(args: {
-  token: string;
-  teamId: string;
-  region: ConvexDeploymentRegion;
-}): Promise<void> {
-  const regions = await listConvexManagementDeploymentRegions(args);
-  const selectedRegion = regions.find((region) => region.name === args.region);
-  if (!selectedRegion?.available) {
-    throw new Error(
-      `Convex production region ${formatConvexDeploymentRegion(args.region)} is not available for this team. Choose another region.`,
-    );
   }
 }
 

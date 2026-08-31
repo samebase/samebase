@@ -41,20 +41,16 @@ installs keys for one selected attached Convex project and starts the production
 ## Important Behavior
 
 - `api.vault.actions.createRepository` (new samebase-managed repo) requires a selected GitHub
-  user/org owner and one currently available Convex production region. The New App page or MCP
-  caller lists the team's production regions before admission. The available organization default
-  initializes the choice. It is the saved value or US East when no value is stored. A one-project
-  choice never changes that default. A Workers Builds token is either one selected UUID or `null`
-  when the current account has no listed token. The New App page or MCP caller lists the tokens
-  before admission and sends `null` only for an empty list. Samebase verifies a selected UUID. It
-  does not repeat the provider read for `null`, which causes no Cloudflare write. One admission
-  transaction inserts the initializing vault, the create run, the active managed provider lock, and
-  the provisioning plan with the selected region, then starts the Workflow and stores its ID. A
-  Workflow start failure rolls back all admission writes. The Workflow validates the organization's
-  provider credentials against the vault destinations and starts provider provisioning after source
-  setup succeeds. The Convex block checks that the plan region is still available immediately before
-  a new project create. The Workers Builds block verifies a selected UUID again before it writes
-  provider state.
+  user/org owner. It resolves the Convex production region from an optional create override or the
+  organization default, with US as the fallback. A Workers Builds token is either one selected UUID
+  or `null` when the current account has no listed token. The New App page or MCP caller lists the
+  tokens before admission and sends `null` only for an empty list. Samebase verifies a selected
+  UUID. It does not repeat the provider read for `null`, which causes no Cloudflare write. One
+  admission transaction inserts the initializing vault, the create run, the active managed provider
+  lock, and the provisioning plan, then starts the Workflow and stores its ID. A Workflow start
+  failure rolls back all admission writes. The Workflow validates the organization's provider
+  credentials against the vault destinations and starts provider provisioning after source setup
+  succeeds. The Workers Builds block verifies a selected UUID again before it writes provider state.
 - `api.vault.actions.connectRepository` (existing GitHub repo connection) does **not**
   auto-provision infra. Its `connect_existing_repository` run is source-only and never owns the
   provider lock.
@@ -118,12 +114,9 @@ attachment in one database transaction. Checkbox-controlled cleanup derives owne
 stable attachment, never from an unattached checkpoint. Current connected resource identities live
 in the durable resource tables used by the dashboard.
 
-`deploymentRegion` is the exact Convex production region selected for this managed create. The
-organization saved default can initialize the New App form, but it is not plan input after
-admission. A retry uses the region in the plan and never reads the organization default again.
-Before a new provider create call, Samebase requires Convex to list the saved region as available.
-The create request sends it as `deploymentRegion` with `deploymentType: "prod"`. The external create
-step remains non-retrying because Convex project creation is not idempotent.
+`deploymentRegion` is the Convex production region selected for this managed create. A retry uses
+the region in the plan. The provider create request sends it as `deploymentRegion` with
+`deploymentType: "prod"`.
 
 `buildTokenUuid` is an explicit non-secret Workers Builds token choice. The `planned` state accepts
 a selected token UUID or `null`. The `creating` and `created` states require a selected token UUID.
@@ -260,10 +253,8 @@ may cache those results in the browser for a short bounded interval, but the act
 them to Convex tables. Stable attachment rows remain unchanged when a provider resource changes or
 disappears.
 
-An available Convex production deployment observation also returns the provider's current region.
-This live value is the actual displayed region after attachment. The provisioning plan can show the
-requested region before attachment, but `vaultConvexProjects` never copies deployment region state.
-Preview deployment region is outside this contract.
+The Convex production deployment observation supplies the displayed region after attachment.
+`vaultConvexProjects` does not copy it.
 
 Each provider observation query uses the matching `lastWriteAt` value in its query key. When that
 value changes, the dashboard makes one new read and shows `Checking` until the read returns. An
@@ -347,9 +338,7 @@ Repository default branch:
 
 1. `api.vault.actions.createRepository`
 
-- Args include required `convexDeploymentRegion`. The web client and MCP caller get current options
-  and the effective organization default from the focused region-list action before admission. The
-  effective default is US East when no value is stored.
+- Args can include `convexDeploymentRegion` as a create-only override.
 - Returns: `{ vaultId: Id<"vaults">, runId: Id<"workflow_vaultProvisioning_runs"> }`
 - Side effect: starts async infra provisioning through Convex Workflow
 
@@ -412,16 +401,12 @@ Repository default branch:
 10. `api.vault.convex.discoverProjects` and `api.vault.convex.attachProjects`
 
 - Discover returns provider projects plus exact discovered `convex.json` or default-layout
-  `package.json` and sibling `convex/` candidates. It joins one paginated list of default production
-  deployments by project ID and returns each available production region without one provider read
-  per project.
+  `package.json` and sibling `convex/` candidates.
 - Attach requires one verified code location per selected project and commits the batch atomically.
 
 11. `api.vault.convex.createProject` and `api.vault.convex.detachProject`
 
-- Create requires one currently available production region, sends it to Convex, and records the
-  provider checkpoint and provisioned attachment before metadata refresh. The organization saved
-  default only initializes the dialog. A one-project choice does not change it.
+- Create records the provider checkpoint and provisioned attachment before metadata refresh.
 - Detach changes only the organization's attachment intent.
 
 12. `api.vault.convex.changeProjectCodeLocation`
@@ -455,7 +440,7 @@ sequenceDiagram
   VA->>WF: start create-app workflow
   WF->>DB: create/fetch repo, connect vault, seed starter, sync tree
   WF->>CVXB: attach_convex child run
-  CVXB->>CVX: check region availability and create/read project
+  CVXB->>CVX: create/read project in selected region
   CVXB->>DB: write vaultConvexProjects
   alt selected Workers Builds token
     WF->>CFB: attach_worker child run
@@ -479,8 +464,7 @@ sequenceDiagram
 
 - `vaultConvexProjects` exists when `attach_convex` has attached the plan's exact project and config
   path.
-- Every Convex plan state keeps the selected production region. Retry uses that value. The
-  organization saved default cannot change it after admission.
+- Every Convex plan state keeps the selected production region. Retry uses that value.
 - `vaultCloudflareWorkers` exists when `attach_worker` has attached the plan's exact Worker.
 - `configure_workers_builds_for_github` and `rotate_convex_deploy_keys_for_workers_builds` do not
   change either attachment row. Their provider writes are observed live when a caller next requests
@@ -554,9 +538,7 @@ In `VaultDashboard`:
 
 In `NewAppPage`:
 
-- New App requires one available Convex production region. The available organization default
-  initializes the field. It is US East when no value is stored. The submitted one-project choice
-  does not update that default.
+- New App requires a Convex production region and initializes it from the organization default.
 - Selecting EU shows this disclosure:
   `EU usage costs 1.3 times US usage. Included usage for Starter and Professional plans does not apply to EU deployments.`
   The disclosure links to Convex pricing.
@@ -632,13 +614,7 @@ Dashboard external links:
 ## Acceptance Checklist
 
 - [x] New samebase-managed vault creation schedules infra provisioning automatically.
-- [x] New App and MCP require one currently available Convex production region.
-- [x] Every Convex plan state stores the selected region before the provider create, and retry uses
-      the plan value.
-- [x] The managed create request sends the selected region and does not add a post-create region
-      check, read retry, or diagnostic.
-- [x] Live Convex production observations supply the actual displayed region. Preview deployments
-      remain outside this region contract.
+- [x] Every Convex plan state stores the selected region, and the create request uses it.
 - [x] A confirmed empty Workers Builds token list admits New App with explicit `null` input.
 - [x] The public create action accepts explicit `null` without a second Cloudflare provider read.
 - [x] A no-token managed run attaches source and Convex, creates no Worker attachment, skips all

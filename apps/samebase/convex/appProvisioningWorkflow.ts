@@ -8,7 +8,6 @@ import { toErrorMessage } from "./jsonUtils";
 import type { AppProvisioningStep } from "./appProvisioningModel";
 import { isLiveConnectedVault } from "./vault/state";
 import { requireActiveVaultProvisioningAuthority } from "./vaultWorkflowAuthority";
-import { vConvexDeploymentRegion } from "./convexDeploymentRegionModel";
 
 const workflow = new WorkflowManager(components.workflow);
 const { boolean, id, literal, object, string, union } = v;
@@ -28,12 +27,10 @@ const composedInfrastructureState = object({
     object({
       state: literal("missing"),
       projectName: string(),
-      deploymentRegion: vConvexDeploymentRegion,
     }),
     object({
       state: literal("attached"),
       projectName: string(),
-      deploymentRegion: vConvexDeploymentRegion,
       convexProjectId: id("vaultConvexProjects"),
     }),
   ),
@@ -211,13 +208,11 @@ export const readComposedInfrastructureState = internalQuery({
         ? {
             state: "attached",
             projectName: plan.convex.projectName,
-            deploymentRegion: plan.convex.deploymentRegion,
             convexProjectId: convexProject._id,
           }
         : {
             state: "missing",
             projectName: plan.convex.projectName,
-            deploymentRegion: plan.convex.deploymentRegion,
           },
       cloudflare: worker
         ? {
@@ -443,7 +438,6 @@ async function runComposedConvexAttachment(
         userId: args.userId,
         convexConfigPath: args.state.convexConfigPath,
         projectName: args.state.convex.projectName,
-        deploymentRegion: args.state.convex.deploymentRegion,
       },
       { name: "attach_convex", retry: false },
     );

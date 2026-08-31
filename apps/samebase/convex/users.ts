@@ -588,13 +588,7 @@ export const getConvexConnectionStatus = query({
       return { state: "not_configured" };
     }
     if (configuration.convexCredential === undefined) {
-      return {
-        state: "disconnected",
-        teamId: configuration.convexTeam.teamId,
-        ...(configuration.convexTeam.teamSlug
-          ? { teamSlug: configuration.convexTeam.teamSlug }
-          : {}),
-      };
+      return { state: "disconnected", ...configuration.convexTeam };
     }
     const connectedBy =
       membership.role === "owner" && configuration.convexCredential.auth.method === "oauth"
@@ -606,8 +600,7 @@ export const getConvexConnectionStatus = query({
         : undefined;
     return {
       state: "connected",
-      teamId: configuration.convexTeam.teamId,
-      ...(configuration.convexTeam.teamSlug ? { teamSlug: configuration.convexTeam.teamSlug } : {}),
+      ...configuration.convexTeam,
       authMethod: configuration.convexCredential.auth.method,
       ...(connectedBy ? { connectedBy } : {}),
     };

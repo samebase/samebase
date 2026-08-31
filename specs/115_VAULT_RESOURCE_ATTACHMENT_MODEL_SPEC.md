@@ -163,10 +163,8 @@ Cloudflare Workers Builds. Samebase records the created provider identity, appro
 `provisioned` attachment together before later configuration can fail, so cleanup ownership is never
 lost. The Worker stays under that stored root and shows `Needs attention` until Builds verifies the
 configuration. Creating a Convex project requires a discovered Convex code location; Samebase
-verifies the source and one currently available production region before provider creation. The
-create request sends that region to Convex. Samebase records the returned project checkpoint and
-attachment together. The effective organization default only initializes the create field. It is US
-East when no value is stored. A one-project choice does not update it.
+verifies the source before provider creation and records the returned project checkpoint and
+attachment together.
 
 Configuring Builds for an attached Worker uses its stored approved root. A later verified provider
 root change does not replace that value. The user must first accept the provider coordinate through
@@ -213,11 +211,9 @@ several projects share one code location.
 
 ### Managed provisioning
 
-The create-app workflow stores the exact `convexConfigPath`, selected Convex production region, and
-Cloudflare root in its immutable provisioning plan. Every Convex plan state keeps that region. Retry
-uses the plan value and does not read the organization saved default again. Successful attachment
-writes copy each approved source coordinate to its matching resource attachment. They do not copy
-the deployment region. These are independent resource coordinates, not a reusable domain entity.
+The create-app workflow stores the exact `convexConfigPath` and Cloudflare root in its immutable
+provisioning plan. Successful attachment writes copy each approved source coordinate to its matching
+resource attachment. These are independent resource coordinates, not a reusable domain entity.
 Checkpoints resolve exact provider identities and never use the root tree as identity authority.
 
 The plan is retry input and a temporary dashboard projection source. It is not an attachment,
@@ -232,7 +228,6 @@ provider observation, or active operation.
 - Automatically accepting a changed Worker name or root.
 - Persisting Worker domains, URLs, triggers, build status, token data, or Convex build markers.
 - Persisting a Convex production deployment region on `vaultConvexProjects`.
-- Selecting or displaying preview deployment regions.
 - Reconstructing or preserving rows from the removed app-root model.
 - Rejecting unusual repository layouts because they do not contain an expected sibling file.
 
@@ -247,8 +242,7 @@ provider observation, or active operation.
   ambiguous roots, name and root drift, explicit coordinate updates, missing Workers, and marker
   disagreement.
 - Convex tests cover project continuity by `projectId`, destination mismatches, concurrent changes,
-  inaccessible projects that fail closed, current region availability, and the actual production
-  region in live observations.
+  inaccessible projects that fail closed, and the actual production region in live observations.
 - Route and UI tests cover bare provider flags, multi-selection, closed code-location selectors,
   read-only observed Worker roots, default Worker selection, Worker-referenced Convex ordering,
   exact build access targets, stored root grouping, Settings drift warnings and update actions,

@@ -228,33 +228,34 @@ export const readManagedProjectCreateCheckpoint = internalQuery({
     userId: id("users"),
     runId: id("workflow_vaultProvisioning_runs"),
     projectName: string(),
-    deploymentRegion: vConvexDeploymentRegion,
     teamId: string(),
   },
   returns: union(
-    object({ state: literal("planned") }),
-    object({ state: literal("creating") }),
-    object({ state: literal("created"), projectId: string() }),
+    object({ state: literal("planned"), deploymentRegion: vConvexDeploymentRegion }),
+    object({ state: literal("creating"), deploymentRegion: vConvexDeploymentRegion }),
+    object({
+      state: literal("created"),
+      deploymentRegion: vConvexDeploymentRegion,
+      projectId: string(),
+    }),
   ),
   handler: async (ctx, args) => {
     const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
     if (plan.convex.projectName !== args.projectName) {
       throw new Error("Managed Convex project does not match the provisioning plan.");
     }
-    if (plan.convex.deploymentRegion !== args.deploymentRegion) {
-      throw new Error("Managed Convex region does not match the provisioning plan.");
-    }
     if (vault.convexTeamId !== args.teamId) {
       throw new Error("Connected Convex team does not match the vault destination.");
     }
     switch (plan.convex.state) {
       case "planned":
-        return { state: "planned" as const };
+        return { state: "planned" as const, deploymentRegion: plan.convex.deploymentRegion };
       case "creating":
-        return { state: "creating" as const };
+        return { state: "creating" as const, deploymentRegion: plan.convex.deploymentRegion };
       case "created":
         return {
           state: "created" as const,
+          deploymentRegion: plan.convex.deploymentRegion,
           projectId: plan.convex.projectId,
         };
     }
@@ -267,7 +268,6 @@ export const beginManagedProjectCreate = internalMutation({
     userId: id("users"),
     runId: id("workflow_vaultProvisioning_runs"),
     projectName: string(),
-    deploymentRegion: vConvexDeploymentRegion,
     teamId: string(),
   },
   returns: v.null(),
@@ -275,9 +275,6 @@ export const beginManagedProjectCreate = internalMutation({
     const { plan, vault } = await requireActiveManagedProvisioning(ctx, args);
     if (plan.convex.projectName !== args.projectName) {
       throw new Error("Managed Convex project does not match the provisioning plan.");
-    }
-    if (plan.convex.deploymentRegion !== args.deploymentRegion) {
-      throw new Error("Managed Convex region does not match the provisioning plan.");
     }
     if (vault.convexTeamId !== args.teamId) {
       throw new Error("Connected Convex team does not match the vault destination.");
@@ -289,7 +286,7 @@ export const beginManagedProjectCreate = internalMutation({
       convex: {
         state: "creating",
         projectName: args.projectName,
-        deploymentRegion: args.deploymentRegion,
+        deploymentRegion: plan.convex.deploymentRegion,
       },
       updatedAt: Date.now(),
     });
@@ -304,7 +301,6 @@ export const recordManagedProjectCreated = internalMutation({
     runId: id("workflow_vaultProvisioning_runs"),
     convexConfigPath: string(),
     projectName: string(),
-    deploymentRegion: vConvexDeploymentRegion,
     teamId: string(),
     projectId: string(),
   },
@@ -317,9 +313,6 @@ export const recordManagedProjectCreated = internalMutation({
     }
     if (plan.convex.projectName !== args.projectName) {
       throw new Error("Managed Convex project does not match the provisioning plan.");
-    }
-    if (plan.convex.deploymentRegion !== args.deploymentRegion) {
-      throw new Error("Managed Convex region does not match the provisioning plan.");
     }
     let convexProjectId: Id<"vaultConvexProjects">;
     if (plan.convex.state === "created") {
@@ -347,7 +340,7 @@ export const recordManagedProjectCreated = internalMutation({
         convex: {
           state: "created",
           projectName: args.projectName,
-          deploymentRegion: args.deploymentRegion,
+          deploymentRegion: plan.convex.deploymentRegion,
           projectId: args.projectId,
         },
         updatedAt: Date.now(),

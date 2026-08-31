@@ -16,34 +16,14 @@ import {
 import { buildOrganizationRoutePath } from "@/lib/organizationRoutes";
 import type { OrganizationBillingSearch } from "@/routeSearch/organizationBilling";
 import { api } from "../../convex/_generated/api";
-import type { Id } from "../../convex/_generated/dataModel";
+import { ConvexDeploymentRegionField } from "@/components/ConvexDeploymentRegionField";
 import {
-  ConvexDeploymentRegionField,
-  type ConvexDeploymentRegionOption,
-} from "@/components/ConvexDeploymentRegionField";
-import {
-  CONVEX_EU_WEST_REGION,
-  CONVEX_US_EAST_REGION,
-  formatConvexDeploymentRegion,
   formatConvexDeploymentRegionLabel,
   resolveDefaultConvexDeploymentRegion,
   type ConvexDeploymentRegion,
 } from "../../shared/convexDeploymentRegions";
 
 type OrganizationIdentity = OrganizationGitHubIdentityObservation["owner"];
-
-const organizationDefaultConvexDeploymentRegions = [
-  {
-    available: true,
-    displayName: formatConvexDeploymentRegion(CONVEX_US_EAST_REGION),
-    name: CONVEX_US_EAST_REGION,
-  },
-  {
-    available: true,
-    displayName: formatConvexDeploymentRegion(CONVEX_EU_WEST_REGION),
-    name: CONVEX_EU_WEST_REGION,
-  },
-] satisfies readonly ConvexDeploymentRegionOption[];
 
 function OrganizationIdentityNotice({
   identity,
@@ -85,68 +65,6 @@ function OrganizationIdentityNotice({
   );
 }
 
-function ConvexDeploymentRegionValue({ value }: { value: ConvexDeploymentRegion | undefined }) {
-  return (
-    <dl className="space-y-1">
-      <dt className="text-sm font-medium">Default production region</dt>
-      <dd className="text-sm text-muted-foreground">
-        {value === undefined ? "Loading..." : formatConvexDeploymentRegionLabel(value)}
-      </dd>
-    </dl>
-  );
-}
-
-function ConvexDeploymentRegionSaveError({ message }: { message: string | null }) {
-  return message ? (
-    <div className="text-sm text-red-600" role="alert">
-      {message}
-    </div>
-  ) : null;
-}
-
-function EditableConvexDeploymentRegionSetting({
-  changed,
-  isSaving,
-  onSave,
-  onValueChange,
-  saveError,
-  value,
-}: {
-  changed: boolean;
-  isSaving: boolean;
-  onSave: () => void;
-  onValueChange: (region: ConvexDeploymentRegion) => void;
-  saveError: string | null;
-  value: ConvexDeploymentRegion;
-}) {
-  return (
-    <div className="grid gap-3">
-      <ConvexDeploymentRegionField
-        disabled={isSaving}
-        error={false}
-        id="organization-default-convex-production-region"
-        isLoading={false}
-        label="Default production region"
-        onReload={() => undefined}
-        onValueChange={onValueChange}
-        regions={organizationDefaultConvexDeploymentRegions}
-        selectionUnavailable={false}
-        value={value}
-      />
-      <ConvexDeploymentRegionSaveError message={saveError} />
-      <Button
-        className="justify-self-start"
-        disabled={!changed || isSaving}
-        onClick={onSave}
-        size="sm"
-        type="button"
-      >
-        {isSaving ? "Saving..." : "Save"}
-      </Button>
-    </div>
-  );
-}
-
 function OrganizationConvexDeploymentRegionSetting({
   organization,
 }: {
@@ -156,20 +74,15 @@ function OrganizationConvexDeploymentRegionSetting({
   const defaultConvexDeploymentRegion = useConvexQuery(api.convexDeploymentRegions.getDefault, {
     organizationId: organization.organizationId,
   });
-  const [draft, setDraft] = useState<{
-    organizationId: Id<"organizations">;
-    region: ConvexDeploymentRegion;
-  } | null>(null);
+  const [draftRegion, setDraftRegion] = useState<ConvexDeploymentRegion | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const draftRegion =
-    draft?.organizationId === organization.organizationId ? draft.region : undefined;
   const selectedRegion =
     draftRegion ?? resolveDefaultConvexDeploymentRegion(defaultConvexDeploymentRegion);
-  const changed = draftRegion !== undefined && draftRegion !== defaultConvexDeploymentRegion;
+  const changed = draftRegion !== null && draftRegion !== defaultConvexDeploymentRegion;
 
   const writeDefault = async (deploymentRegion: ConvexDeploymentRegion) => {
-    if (isSaving || organization.role !== "owner") {
+    if (isSaving) {
       return;
     }
     setIsSaving(true);
@@ -179,7 +92,7 @@ function OrganizationConvexDeploymentRegionSetting({
         organizationId: organization.organizationId,
         deploymentRegion,
       });
-      setDraft(null);
+      setDraftRegion(null);
     } catch (error) {
       setSaveError(
         error instanceof Error ? error.message : "Could not save the default production region.",
@@ -191,7 +104,16 @@ function OrganizationConvexDeploymentRegionSetting({
 
   let content: ReactNode;
   if (organization.role !== "owner") {
-    content = <ConvexDeploymentRegionValue value={defaultConvexDeploymentRegion} />;
+    content = (
+      <dl className="space-y-1">
+        <dt className="text-sm font-medium">Default production region</dt>
+        <dd className="text-sm text-muted-foreground">
+          {defaultConvexDeploymentRegion === undefined
+            ? "Loading..."
+            : formatConvexDeploymentRegionLabel(defaultConvexDeploymentRegion)}
+        </dd>
+      </dl>
+    );
   } else if (defaultConvexDeploymentRegion === undefined) {
     content = (
       <div className="text-sm text-muted-foreground" role="status">
@@ -200,19 +122,35 @@ function OrganizationConvexDeploymentRegionSetting({
     );
   } else {
     content = (
-      <EditableConvexDeploymentRegionSetting
-        changed={changed}
-        isSaving={isSaving}
-        onSave={() => {
-          void writeDefault(selectedRegion);
-        }}
-        onValueChange={(region) => {
-          setSaveError(null);
-          setDraft({ organizationId: organization.organizationId, region });
-        }}
-        saveError={saveError}
-        value={selectedRegion}
-      />
+      <div className="grid gap-3">
+        <ConvexDeploymentRegionField
+          disabled={isSaving}
+          id="organization-default-convex-production-region"
+          label="Default production region"
+          onValueChange={(region) => {
+            setSaveError(null);
+            setDraftRegion(region);
+          }}
+          showEuPricing={false}
+          value={selectedRegion}
+        />
+        {saveError ? (
+          <div className="text-sm text-red-600" role="alert">
+            {saveError}
+          </div>
+        ) : null}
+        <Button
+          className="justify-self-start"
+          disabled={!changed || isSaving}
+          onClick={() => {
+            void writeDefault(selectedRegion);
+          }}
+          size="sm"
+          type="button"
+        >
+          {isSaving ? "Saving..." : "Save"}
+        </Button>
+      </div>
     );
   }
 
@@ -311,7 +249,10 @@ export function OrganizationSettingsPage({
           }}
         />
       </section>
-      <OrganizationConvexDeploymentRegionSetting organization={organization} />
+      <OrganizationConvexDeploymentRegionSetting
+        key={organization.organizationId}
+        organization={organization}
+      />
       <OrganizationBillingSection organization={organization} search={search} />
       {organization.role === "owner" ? (
         <section className="mt-8 border-t pt-6" aria-label="Delete organization">

@@ -55,7 +55,6 @@ Every operational action has one contract, and these are the same actions the da
 Choose an explicit action whose contract matches the required stable IDs, then reread inventory.
 
 - [List Samebase vaults](https://samebase.com/docs/actions/get_user_vaults.md): List the Samebase vaults available to the authenticated user, including attached provider resources.
-- [List Convex deployment regions](https://samebase.com/docs/actions/list_convex_deployment_regions.md): List the production deployment regions currently available to an organization's connected Convex team and the default for new projects.
 - [List Cloudflare Workers Builds tokens](https://samebase.com/docs/actions/list_workers_build_tokens.md): List the non-secret Workers Builds token names and UUIDs in the Cloudflare account connected to a Samebase organization, with its available last-used UUID.
 - [Create Samebase app](https://samebase.com/docs/actions/create_repository.md): Create a new Samebase app. A current Workers Builds token provisions GitHub, Convex, and Cloudflare; a confirmed empty token list provisions GitHub and Convex and leaves Cloudflare pending.
 - [Connect existing repository](https://samebase.com/docs/actions/connect_existing_repository.md): Connect an existing GitHub repository as a Samebase vault and sync its repository tree; Convex and Cloudflare stay unconfigured until explicitly attached.

@@ -43,7 +43,7 @@ Organization-owned pages use these routes:
 | `/org/:owner/new-app`          | Create a repository and provider resources in this organization.                                                             |
 | `/org/:owner/connect-repo`     | Connect a repository owned by this GitHub owner.                                                                             |
 | `/org/:owner/settings/members` | List and administer Samebase membership and show live GitHub relationship information.                                       |
-| `/org/:owner/settings`         | Show identity, role, the saved deployment default, billing, usage, quota, and plan controls.                                 |
+| `/org/:owner/settings`         | Show identity, role, the Convex production region default, billing, usage, quota, and plan controls.                         |
 
 The public invitation route is `/invite/:code`. Its opaque code identifies one invitation, but the
 exact linked GitHub identity and explicit recipient action authorize acceptance. Spec 123 owns this
@@ -130,14 +130,12 @@ User settings own profile data, sign-in methods, personal preferences, sign-out,
 and MCP grants. User settings contain no organization selector, personal repository authorization,
 or organization billing.
 
-Organization settings own the GitHub owner identity, Samebase role, the deployment default, billing,
-and member administration. Convex and Cloudflare connections use the organization providers route.
+Organization settings own the GitHub owner identity, Samebase role, the Convex production region
+default, billing, and member administration. Convex and Cloudflare connections use the organization
+providers route.
 
-The Convex production region default appears in Organization Settings. An owner can save US East or
-EU West. A member sees the effective value as read-only text. An unset database field resolves to US
-East. The value only initializes New App and manual Convex project-create forms when the current
-team still reports it as available. A one-project choice never changes it. This setting does not
-change an existing deployment or the Convex team's own default.
+An owner can edit the region default. A member sees it as read-only text. Spec 120 owns its storage
+and fallback behavior.
 
 The providers route shows `Personal repository creation` only when the selected organization has
 `githubOwnerType: "user"`. Its management and revoke control owns the same user-owned GitHub
@@ -259,9 +257,6 @@ Focused route, backend, and UI tests must prove:
 - reload, direct-link, Back, and Forward behavior
 - small-screen access to the shared organization context
 - scoped provider OAuth, checkout, and billing-portal returns
-- owner edit and member read-only behavior for the Convex production region default
-- create forms that initialize from an available organization default without saving a one-project
-  override
 - user-owned sign-in methods and MCP clients in user settings
 - the GitHub user-authorization management and revoke control only on a personal owner's
   organization providers route, with authorization recovery on `/connect-organization`

@@ -25,7 +25,6 @@ import {
   submitFeedbackContract,
 } from "../mcp/contracts/submitFeedback";
 import { cloudflareListWorkersBuildTokensContract } from "../vault/contracts/cloudflareBuildTokens";
-import { convexListDeploymentRegionsContract } from "../vault/contracts/convexDeploymentRegions";
 import { buildAgentBrowserHandoffUrl } from "../../shared/agentBrowserHandoff";
 import type { AccessKey } from "../../shared/accessModel";
 import {
@@ -50,7 +49,6 @@ import { internal } from "../_generated/api";
 import { mcpScopeAllowsAccess } from "./mcpScopes";
 import { resolveGitHubAppAccess } from "../githubAppAccess";
 import { listWorkersBuildTokensForUser } from "../cloudflareBuildTokens";
-import { listConvexDeploymentRegionsForUser } from "../convexDeploymentRegions";
 import { sendEmail } from "../email";
 
 const { array, id, literal, object, string, union } = v;
@@ -171,28 +169,6 @@ export const cloudflareListWorkersBuildTokensTool = defineMcpTool({
     });
     return {
       text: `Found ${structuredContent.tokens.length} Workers Builds ${structuredContent.tokens.length === 1 ? "token" : "tokens"}.`,
-      structuredContent,
-    };
-  },
-});
-
-export const convexListDeploymentRegionsTool = defineMcpTool({
-  contract: convexListDeploymentRegionsContract,
-  args: convexListDeploymentRegionsContract.mcpArgs,
-  successFields: {
-    structuredContent: convexListDeploymentRegionsContract.structuredContent,
-  },
-  run: async (ctx, args) => {
-    const githubAccess = await resolveGitHubAppAccess(ctx, {
-      userId: args.userId,
-      target: { kind: "owner", githubOwnerLogin: args.githubOwnerLogin },
-    });
-    const structuredContent = await listConvexDeploymentRegionsForUser(ctx, {
-      userId: args.userId,
-      organizationId: githubAccess.organizationId,
-    });
-    return {
-      text: `Found ${structuredContent.regions.length} Convex production ${structuredContent.regions.length === 1 ? "region" : "regions"}.`,
       structuredContent,
     };
   },
