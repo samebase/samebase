@@ -44,7 +44,10 @@ import {
 import { action } from "../functions";
 import { toErrorMessage } from "../jsonUtils";
 import type { McpTokenHealth } from "../mcpTokenHealth";
-import { validateAppResourceName } from "../../shared/appResourceNames";
+import {
+  AppResourceNameConflictError,
+  validateAppResourceName,
+} from "../../shared/appResourceNames";
 import { buildVaultCloudflareBuildConfigForRootDirectory } from "./model";
 import { buildWorkersBuildsConvexDeployKeyNames } from "./workersBuildsConvexDeployKeyNames";
 import type {
@@ -566,13 +569,22 @@ async function createWorkerForManagedWorkflow(
         workerName: validation.value,
       });
     }
-    worker = await createCloudflareWorker({
-      token: connection.token,
-      transport: connection.transport,
-      accountId: account.accountId,
-      workerName: validation.value,
-    });
-    workerCreated = true;
+    try {
+      worker = await createCloudflareWorker({
+        token: connection.token,
+        transport: connection.transport,
+        accountId: account.accountId,
+        workerName: validation.value,
+      });
+      workerCreated = true;
+    } catch (error) {
+      if (error instanceof AppResourceNameConflictError) {
+        throw new Error(
+          `Cloudflare Worker ${validation.value} exists after an interrupted create. Delete it in the Cloudflare dashboard, then retry.`,
+        );
+      }
+      throw error;
+    }
   }
 
   try {
@@ -1415,9 +1427,10 @@ export async function createWorkerForUser(
       workerName: validation.value,
     });
     if (existing) {
-      throw new ConvexError(
-        `Cloudflare Worker name ${validation.value} already exists. Attach that Worker or choose another name.`,
-      );
+      throw new AppResourceNameConflictError({
+        provider: "cloudflare",
+        name: validation.value,
+      });
     }
     await ctx.runQuery(
       internal.billingResourceQuotas.requireBillingResourceCapacityForProviderCreate,
@@ -1478,11 +1491,13 @@ export async function createWorkerForUser(
     return workerId;
   } catch (error) {
     const reportedError =
-      providerCreate.started && !workerRecorded
-        ? new ConvexError(
-            `The Cloudflare Worker ${validation.value} can exist, but Samebase could not record it. If it exists, delete it in the Cloudflare dashboard, then retry.`,
-          )
-        : error;
+      error instanceof AppResourceNameConflictError
+        ? new ConvexError(error.message)
+        : providerCreate.started && !workerRecorded
+          ? new ConvexError(
+              `The Cloudflare Worker ${validation.value} can exist, but Samebase could not record it. If it exists, delete it in the Cloudflare dashboard, then retry.`,
+            )
+          : error;
     await attemptManualProviderWriteFailureRecord(ctx, {
       vaultId: args.vaultId,
       actionId,

@@ -155,6 +155,7 @@ function ConvexDialogFixture({
         createCodeLocationKey="config:apps/portal/convex.json"
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={isLoading ? [] : CONVEX_PROJECTS}
         error={error}
@@ -222,6 +223,7 @@ function CloudflareDialogFixture({
         }
         hasSelectedBuildToken
         createRootDirectory={repair ? "apps/portal" : "/"}
+        createWorkerNameConflict={null}
         createWorkerName={invalidName ? "samebase app" : ""}
         didAddWorker={false}
         error={null}

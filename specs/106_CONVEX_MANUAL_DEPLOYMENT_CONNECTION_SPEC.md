@@ -90,6 +90,10 @@ Samebase re-verifies the source and creates the project in the vault's exact tea
 request sends the region as `deploymentRegion` with `deploymentType: "prod"`. Samebase then reads
 the project back and attaches it at that location.
 
+The dialog blocks a name that appears in the current team project list. If the create request loses
+a name race, the dialog shows the same conflict in the project name field and gives a numbered name
+suggestion.
+
 If the provider create succeeds but attachment fails, Samebase reports the ambiguous external state
 and does not delete the project automatically.
 

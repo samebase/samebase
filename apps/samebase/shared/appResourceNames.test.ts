@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 
 import {
+  buildAvailableAppResourceNameSuggestion,
   buildDefaultAppResourceName,
   buildNumberedAppResourceNameSuggestion,
+  formatAppResourceNameConflictMessage,
   sanitizeAppResourceName,
   validateAppResourceName,
   type AppResourceNameProvider,
@@ -82,6 +84,30 @@ describe("app resource names", () => {
         number: 12,
       }),
     ).toBe("a-very-long-generated-app-name-that-w-12");
+
+    expect(
+      buildAvailableAppResourceNameSuggestion({
+        provider: "convex",
+        baseName: "samebase-app",
+        unavailableNames: new Set(["samebase-app", "samebase-app-2"]),
+      }),
+    ).toBe("samebase-app-3");
+    expect(
+      buildAvailableAppResourceNameSuggestion({
+        provider: "convex",
+        baseName: "samebase-app-2",
+        unavailableNames: new Set(["samebase-app-2"]),
+      }),
+    ).toBe("samebase-app-3");
+  });
+
+  it("formats provider name conflicts for public UI", () => {
+    expect(formatAppResourceNameConflictMessage({ provider: "convex", name: "samebase-app" })).toBe(
+      "A Convex project named samebase-app already exists.",
+    );
+    expect(
+      formatAppResourceNameConflictMessage({ provider: "cloudflare", name: "samebase-app" }),
+    ).toBe("A Cloudflare Worker named samebase-app already exists.");
   });
 
   it("enumerates generated provider name state axes", () => {

@@ -95,6 +95,10 @@ Cloudflare Workers Builds. Samebase creates the Worker and records its exact pro
 approved root, and `provisioned` attachment together before configuring Builds. It then writes the
 GitHub Builds configuration and re-reads the resulting repository and root evidence.
 
+The dialog blocks a name that appears in the current account Worker list. If the create request
+loses a name race, the dialog shows the same conflict in the Worker name field and gives a numbered
+name suggestion.
+
 Create Worker configures Builds without requiring or changing a Convex attachment. It changes only
 Cloudflare freshness. A tokenless managed app uses this same action after the user completes
 first-time token setup. The separate `Use <project> for Workers Builds` action then installs the

@@ -8,10 +8,13 @@ import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { UserVaultResult } from "../../../convex/vault/contracts/getUserVaults";
 import {
+  buildAvailableAppResourceNameSuggestion,
   buildDefaultAppResourceName,
+  formatAppResourceNameConflictMessage,
   validateAppResourceName,
 } from "../../../shared/appResourceNames";
 import { AppDialogContent } from "@/components/AppDialogContent";
+import { AppResourceNameFeedback } from "@/components/AppResourceNameFeedback";
 import { CloudflareBuildTokenField } from "@/components/CloudflareBuildTokenField";
 import { AppSelectContent, AppSelectItem } from "@/components/AppSelect";
 import {
@@ -48,6 +51,7 @@ export function VaultCloudflareDialogContent({
   blockedReason,
   cloudflareBuildTokenField,
   createRootDirectory,
+  createWorkerNameConflict,
   createWorkerName,
   didAddWorker,
   error,
@@ -74,6 +78,7 @@ export function VaultCloudflareDialogContent({
   blockedReason?: string | null;
   cloudflareBuildTokenField: ReactNode;
   createRootDirectory: string;
+  createWorkerNameConflict: { message: string; suggestion: string | null } | null;
   createWorkerName: string;
   didAddWorker: boolean;
   error: string | null;
@@ -139,6 +144,9 @@ export function VaultCloudflareDialogContent({
         left.workerTag.localeCompare(right.workerTag),
     );
   const createWorkerNameValidation = validateAppResourceName(createWorkerName, "cloudflare");
+  const createWorkerNameFeedback = createWorkerNameValidation.valid
+    ? createWorkerNameConflict
+    : createWorkerNameValidation;
   const submitDisabled =
     Boolean(blockedReason) ||
     isSubmitting ||
@@ -150,6 +158,7 @@ export function VaultCloudflareDialogContent({
           : mode === "connect"
             ? !workerToConnect || !createRootDirectory.trim() || !hasSelectedBuildToken
             : !createWorkerNameValidation.valid ||
+              Boolean(createWorkerNameConflict) ||
               !createRootDirectory.trim() ||
               !hasSelectedBuildToken));
 
@@ -305,21 +314,18 @@ export function VaultCloudflareDialogContent({
                       onChange={(event) => onCreateWorkerNameChange(event.target.value)}
                       disabled={isSubmitting}
                       placeholder="Worker name"
-                      aria-invalid={!createWorkerNameValidation.valid || undefined}
+                      aria-invalid={Boolean(createWorkerNameFeedback) || undefined}
                       aria-describedby={
-                        createWorkerNameValidation.valid
-                          ? undefined
-                          : "cloudflare-worker-name-error"
+                        createWorkerNameFeedback ? "cloudflare-worker-name-error" : undefined
                       }
                     />
-                    {!createWorkerNameValidation.valid ? (
-                      <p
+                    {createWorkerNameFeedback ? (
+                      <AppResourceNameFeedback
                         id="cloudflare-worker-name-error"
-                        role="alert"
-                        className="text-xs text-red-600"
-                      >
-                        {createWorkerNameValidation.message}
-                      </p>
+                        message={createWorkerNameFeedback.message}
+                        suggestion={createWorkerNameFeedback.suggestion}
+                        onUseSuggestion={onCreateWorkerNameChange}
+                      />
                     ) : null}
                   </div>
                   <VaultRepositoryRootInput
@@ -436,6 +442,7 @@ export function VaultCloudflareDialog({
   );
   const [connectedWorkerTags, setConnectedWorkerTags] = useState<readonly string[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [createWorkerConflictName, setCreateWorkerConflictName] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cloudflareAccountId = vault.cloudflareAccountId;
   const cloudflareBlockedReason =
@@ -483,9 +490,24 @@ export function VaultCloudflareDialog({
     retry: false,
   });
   const unavailableWorkerTags = new Set([...attachedWorkerTags, ...connectedWorkerTags]);
-  const workers = (workersQuery.data?.workers ?? []).filter(
-    (worker) => !unavailableWorkerTags.has(worker.workerTag),
-  );
+  const allWorkers = workersQuery.data?.workers ?? [];
+  const unavailableWorkerNames = new Set(allWorkers.map((worker) => worker.workerName));
+  if (createWorkerConflictName) {
+    unavailableWorkerNames.add(createWorkerConflictName);
+  }
+  const createWorkerNameValidation = validateAppResourceName(createWorkerName, "cloudflare");
+  const createWorkerNameConflict =
+    createWorkerNameValidation.valid && unavailableWorkerNames.has(createWorkerNameValidation.value)
+      ? {
+          message: `${formatAppResourceNameConflictMessage({ provider: "cloudflare", name: createWorkerNameValidation.value })} Choose another name.`,
+          suggestion: buildAvailableAppResourceNameSuggestion({
+            provider: "cloudflare",
+            baseName: createWorkerNameValidation.value,
+            unavailableNames: unavailableWorkerNames,
+          }),
+        }
+      : null;
+  const workers = allWorkers.filter((worker) => !unavailableWorkerTags.has(worker.workerTag));
   const defaultSelectedWorkerTags = workers
     .filter((worker) => worker.repository.state === "ready")
     .map((worker) => worker.workerTag);
@@ -568,10 +590,18 @@ export function VaultCloudflareDialog({
       }
       onClose();
     } catch (error) {
-      const message =
-        error instanceof ConvexError && typeof error.data === "string"
-          ? error.data
-          : "Could not add Cloudflare Workers.";
+      const publicMessage =
+        error instanceof ConvexError && typeof error.data === "string" ? error.data : null;
+      const submittedName = validateAppResourceName(createWorkerName, "cloudflare");
+      const isNameConflict =
+        mode === "create" &&
+        submittedName.valid &&
+        publicMessage ===
+          formatAppResourceNameConflictMessage({
+            provider: "cloudflare",
+            name: submittedName.value,
+          });
+      const message = publicMessage ?? "Could not add Cloudflare Workers.";
       if (
         message.startsWith(
           "The selected Cloudflare Workers Builds token is not in Cloudflare's current list",
@@ -579,7 +609,12 @@ export function VaultCloudflareDialog({
       ) {
         await buildTokensQuery.refetch();
       }
-      setSubmitError(message);
+      if (isNameConflict) {
+        setCreateWorkerConflictName(submittedName.value);
+        setSubmitError(null);
+      } else {
+        setSubmitError(message);
+      }
       setIsSubmitting(false);
     }
   };
@@ -610,6 +645,7 @@ export function VaultCloudflareDialog({
         ) : null
       }
       createRootDirectory={createRootDirectory}
+      createWorkerNameConflict={createWorkerNameConflict}
       createWorkerName={createWorkerName}
       didAddWorker={connectedWorkerTags.length > 0}
       error={submitError ?? resourceError}
@@ -620,7 +656,11 @@ export function VaultCloudflareDialog({
       inventoryState={inventoryState}
       mode={mode}
       onCreateRootDirectoryChange={setCreateRootDirectory}
-      onCreateWorkerNameChange={setCreateWorkerName}
+      onCreateWorkerNameChange={(workerName) => {
+        setCreateWorkerName(workerName);
+        setCreateWorkerConflictName(null);
+        setSubmitError(null);
+      }}
       onConnectWorker={(worker) => {
         setWorkerToConnect(worker);
         setCreateRootDirectory("/");
@@ -633,6 +673,7 @@ export function VaultCloudflareDialog({
       onModeChange={(nextMode) => {
         setMode(nextMode);
         setWorkerToConnect(null);
+        setCreateWorkerConflictName(null);
         setSubmitError(null);
         if (nextMode === "connect") {
           setCreateRootDirectory("/");

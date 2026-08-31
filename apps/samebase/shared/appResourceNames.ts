@@ -17,6 +17,10 @@ const generatedNameMaxLengths = {
   cloudflare: 54,
 } satisfies Record<AppResourceNameProvider, number>;
 
+function getAppResourceNameLabel(provider: AppResourceNameProvider): string {
+  return provider === "convex" ? "Convex project" : "Cloudflare Worker";
+}
+
 function trimDashes(value: string): string {
   return value.replace(/^-+|-+$/g, "");
 }
@@ -47,7 +51,7 @@ export function validateAppResourceName(
   rawName: string,
   provider: AppResourceNameProvider,
 ): AppResourceNameValidationResult {
-  const label = provider === "convex" ? "Convex project name" : "Cloudflare Worker name";
+  const label = `${getAppResourceNameLabel(provider)} name`;
   const value = rawName.trim();
   const suggestion = sanitizeAppResourceName(value, provider);
 
@@ -102,4 +106,44 @@ export function buildNumberedAppResourceNameSuggestion(args: {
     return `${stem}${suffix}`;
   }
   return `app${suffix}`;
+}
+
+export function buildAvailableAppResourceNameSuggestion(args: {
+  provider: AppResourceNameProvider;
+  baseName: string;
+  unavailableNames: ReadonlySet<string>;
+}): string | null {
+  const numberedBaseMatch = /^(.*)-(\d+)$/.exec(args.baseName);
+  const numberedBaseStem = numberedBaseMatch?.[1] ?? "";
+  const numberedBase = Number(numberedBaseMatch?.[2]);
+  const canIncrementNumberedBase =
+    numberedBaseStem.length > 0 && Number.isSafeInteger(numberedBase) && numberedBase >= 2;
+  const baseName = canIncrementNumberedBase ? numberedBaseStem : args.baseName;
+  const startingNumber = canIncrementNumberedBase ? numberedBase + 1 : 2;
+
+  for (let number = startingNumber; number < startingNumber + 19; number += 1) {
+    const candidate = buildNumberedAppResourceNameSuggestion({
+      provider: args.provider,
+      baseName,
+      number,
+    });
+    if (!args.unavailableNames.has(candidate)) {
+      return candidate;
+    }
+  }
+  return null;
+}
+
+export function formatAppResourceNameConflictMessage(args: {
+  provider: AppResourceNameProvider;
+  name: string;
+}): string {
+  return `A ${getAppResourceNameLabel(args.provider)} named ${args.name} already exists.`;
+}
+
+export class AppResourceNameConflictError extends Error {
+  constructor(args: { provider: AppResourceNameProvider; name: string }) {
+    super(formatAppResourceNameConflictMessage(args));
+    this.name = "AppResourceNameConflictError";
+  }
 }

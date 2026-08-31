@@ -23,6 +23,7 @@ vi.mock("../githubApp", async (importOriginal) => {
 });
 
 import { api, internal } from "../_generated/api";
+import { CloudflareApiError } from "../cloudflareApi/client";
 import { insertTestOrganizationBillingAccount, makeConvexTest } from "../test.setup";
 
 function workerResponse(args: { workerName: string; workerTag?: string }) {
@@ -252,8 +253,59 @@ describe("Cloudflare Worker stored coordinates", () => {
       }),
     ).rejects.toMatchObject({
       name: "ConvexError",
-      data: "Cloudflare Worker name tmp-some-new-app already exists. Attach that Worker or choose another name.",
+      data: "A Cloudflare Worker named tmp-some-new-app already exists.",
     });
+  });
+
+  it("returns a public name conflict when Worker creation loses a race", async () => {
+    const fixture = await createFixture();
+    providerMocks.requestCloudflareApiOrThrow.mockImplementation(
+      async (request: CloudflareTestRequest) => {
+        if (request.path === "/accounts") {
+          return [{ id: "cloudflare-account", name: "Cloudflare account" }];
+        }
+        if (request.path === "/accounts/{account_id}/builds/tokens") {
+          return [{ build_token_uuid: "build-token", build_token_name: "Build token" }];
+        }
+        if (request.path === "/accounts/{account_id}/workers/workers/{worker_id}") {
+          throw new CloudflareApiError({
+            method: "GET",
+            path: request.path,
+            details: [{ code: "10007", message: "Worker not found" }],
+          });
+        }
+        if (request.path === "/accounts/{account_id}/workers/workers") {
+          throw new CloudflareApiError({
+            method: "POST",
+            path: "/accounts/cloudflare-account/workers/workers",
+            details: [{ code: "10040", message: "Raw provider conflict detail." }],
+          });
+        }
+        throw new Error(`Unexpected Cloudflare request: ${request.method} ${request.path}`);
+      },
+    );
+
+    await expect(
+      fixture.owner.action(api.vault.cloudflare.createWorker, {
+        vaultId: fixture.ids.vaultId,
+        accountId: "cloudflare-account",
+        workerName: "tmp-race-app",
+        rootDirectory: "/",
+        buildTokenUuid: "build-token",
+      }),
+    ).rejects.toMatchObject({
+      name: "ConvexError",
+      data: "A Cloudflare Worker named tmp-race-app already exists.",
+    });
+    await expect(
+      fixture.t.run(async (ctx) => {
+        const workers = await ctx.db
+          .query("vaultCloudflareWorkers")
+          .withIndex("by_vault", (query) => query.eq("vaultId", fixture.ids.vaultId))
+          .collect();
+        return workers.some((worker) => worker.workerName === "tmp-race-app");
+      }),
+    ).resolves.toBe(false);
   });
 
   it("updates a Worker name through the public action after a stable-tag reread", async () => {

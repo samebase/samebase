@@ -5,6 +5,7 @@ import { createRoot } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getFunctionName, type FunctionReference } from "convex/server";
+import { ConvexError } from "convex/values";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import { api } from "../../../convex/_generated/api";
@@ -1938,7 +1939,7 @@ describe("VaultDeleteDialogContent", () => {
 });
 
 describe("VaultConvexDialog", () => {
-  it("submits the live organization default when creating a project for an existing vault", async () => {
+  it("uses the live region and resolves a public project name conflict", async () => {
     const discoverProjects = vi.fn(async () => ({
       source: {
         completeness: "complete" as const,
@@ -1957,6 +1958,9 @@ describe("VaultConvexDialog", () => {
       projects: [],
     }));
     const createProject = vi.fn(async () => fakeConvexProjectId());
+    createProject.mockRejectedValueOnce(
+      new ConvexError("A Convex project named demo already exists."),
+    );
     const onSaved = vi.fn();
     useActionMock.mockImplementation((action: FunctionReference<"action">) => {
       const actionName = getFunctionName(action);
@@ -2033,6 +2037,38 @@ describe("VaultConvexDialog", () => {
         expect(createProject).toHaveBeenCalledWith({
           vaultId: fakeVaultId(),
           projectName: "demo",
+          deploymentRegion: "aws-eu-west-1",
+          codeLocation: {
+            kind: "config",
+            convexConfigPath: "convex.json",
+            blobSha: "blob-root",
+          },
+        }),
+      );
+      await vi.waitFor(() =>
+        expect(rootElement.textContent).toContain(
+          "A Convex project named demo already exists. Choose another name.",
+        ),
+      );
+      expect(onSaved).not.toHaveBeenCalled();
+      expect(submitButton.disabled).toBe(true);
+      const useSuggestionButton = [...rootElement.querySelectorAll("button")].find(
+        (candidate) => candidate.textContent === "Use demo-2",
+      );
+      if (!useSuggestionButton) {
+        throw new Error("Expected the Convex project name suggestion.");
+      }
+      await act(async () => useSuggestionButton.click());
+      const projectNameInput = rootElement.querySelector<HTMLInputElement>(
+        "input[placeholder='Project name']",
+      );
+      expect(projectNameInput?.value).toBe("demo-2");
+      expect(submitButton.disabled).toBe(false);
+      await act(async () => submitButton.click());
+      await vi.waitFor(() =>
+        expect(createProject).toHaveBeenLastCalledWith({
+          vaultId: fakeVaultId(),
+          projectName: "demo-2",
           deploymentRegion: "aws-eu-west-1",
           codeLocation: {
             kind: "config",
@@ -2124,6 +2160,7 @@ describe("VaultConvexDialogContent", () => {
         createCodeLocationKey="config:convex.json"
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={[projects[1], projects[0]]}
         error={null}
@@ -2165,6 +2202,7 @@ describe("VaultConvexDialogContent", () => {
         createCodeLocationKey="config:convex.json"
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={projects}
         error="Could not attach the selected Convex project."
@@ -2200,6 +2238,7 @@ describe("VaultConvexDialogContent", () => {
         createCodeLocationKey="config:apps/web/convex.json"
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={projects}
         error={null}
@@ -2236,6 +2275,7 @@ describe("VaultConvexDialogContent", () => {
         createCodeLocationKey="config:apps/web/convex.json"
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={projects}
         error={null}
@@ -2276,6 +2316,7 @@ describe("VaultConvexDialogContent", () => {
           createCodeLocationKey=""
           createDeploymentRegion={null}
           convexDeploymentRegionField={null}
+          createProjectNameConflict={null}
           createProjectName=""
           projects={[]}
           error={error}
@@ -2349,6 +2390,7 @@ describe("VaultConvexDialogContent", () => {
         createCodeLocationKey="config:apps/web/convex.json"
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={projects}
         error={null}
@@ -2386,6 +2428,7 @@ describe("VaultConvexDialogContent", () => {
         createCodeLocationKey=""
         createDeploymentRegion={null}
         convexDeploymentRegionField={null}
+        createProjectNameConflict={null}
         createProjectName=""
         projects={[]}
         error={null}
@@ -2514,6 +2557,7 @@ describe("VaultCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
         createRootDirectory="/"
+        createWorkerNameConflict={null}
         createWorkerName=""
         didAddWorker={false}
         error={null}
@@ -2551,6 +2595,7 @@ describe("VaultCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
         createRootDirectory="/"
+        createWorkerNameConflict={null}
         createWorkerName=""
         didAddWorker
         error={null}
@@ -2727,6 +2772,7 @@ describe("VaultCloudflareDialogContent", () => {
         cloudflareBuildTokenField={<div>API token</div>}
         hasSelectedBuildToken={false}
         createRootDirectory="apps/web"
+        createWorkerNameConflict={null}
         createWorkerName="samebase_app"
         didAddWorker={false}
         error={null}
@@ -2767,6 +2813,7 @@ describe("VaultCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
         createRootDirectory="apps/web"
+        createWorkerNameConflict={null}
         createWorkerName="samebase app"
         didAddWorker={false}
         error={null}
@@ -2809,6 +2856,7 @@ describe("VaultCloudflareDialogContent", () => {
         hasSelectedBuildToken
         blockedReason="A provider operation is in progress."
         createRootDirectory="apps/web"
+        createWorkerNameConflict={null}
         createWorkerName="web-worker"
         didAddWorker={false}
         error={null}
@@ -2846,6 +2894,7 @@ describe("VaultCloudflareDialogContent", () => {
         hasSelectedBuildToken
         blockedReason="Samebase could not confirm the Cloudflare Worker connection."
         createRootDirectory="apps/web"
+        createWorkerNameConflict={null}
         createWorkerName=""
         didAddWorker={false}
         error={null}
@@ -2882,6 +2931,7 @@ describe("VaultCloudflareDialogContent", () => {
         cloudflareBuildTokenField={null}
         hasSelectedBuildToken
         createRootDirectory="/"
+        createWorkerNameConflict={null}
         createWorkerName=""
         didAddWorker={false}
         error={null}

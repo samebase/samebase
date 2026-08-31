@@ -432,6 +432,10 @@ New App initializes its required Convex production region from the organization 
 can choose US or EU for this app without changing that default. Spec 003 owns the plan and provider
 create behavior.
 
+New App checks provider names before submit. If the create action then finds a Convex project or
+Cloudflare Worker name conflict, New App shows it under the affected name field and gives a numbered
+name suggestion.
+
 External provider validation happens after the vault exists so failures have a visible dashboard
 target. Local input validation can happen before insert when it does not require provider calls. The
 selected organization provides the GitHub owner. The create action should not call GitHub only to
