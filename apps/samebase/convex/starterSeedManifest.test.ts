@@ -2,13 +2,13 @@ import { describe, expect, it } from "vite-plus/test";
 import { starterTemplateManifest } from "./starterSeedManifest.generated";
 
 describe("starterSeedManifest", () => {
-  it("identifies the v2002 template snapshot", () => {
+  it("identifies the v2006 template snapshot", () => {
     expect({
       contentHash: starterTemplateManifest.contentHash,
       commitMessage: starterTemplateManifest.commitMessage,
     }).toEqual({
-      contentHash: "3d333fbe80ee49347ac19dea6372d4950409b19d2a61b1d0545a786295a45971",
-      commitMessage: "Initialize app from Samebase starter build v2002",
+      contentHash: "161f785530424ac82bffcfe7f99947c6d2074576b5a439f1ff924c896165c2a9",
+      commitMessage: "Initialize app from Samebase starter build v2006",
     });
     expect(starterTemplateManifest.version).toBe(
       `samebase-base-${starterTemplateManifest.contentHash.slice(0, 12)}`,
@@ -30,7 +30,7 @@ describe("starterSeedManifest", () => {
     expect(filePaths).toContain("wrangler.jsonc");
     expect(filePaths).toContain("scripts/build-cloudflare.ts");
     expect(filePaths).toContain("prerender.config.ts");
-    expect(filePaths).toContain("scripts/deploy-cloudflare.ts");
+    expect(filePaths).toContain("scripts/deploy-worker-preview.ts");
     expect(filePaths).toContain("scripts/ensure-convex-auth.ts");
     expect(filePaths).toContain("scripts/generate-cloudflare-redirects.ts");
     expect(filePaths).toContain("tsconfig.node.json");
@@ -67,9 +67,10 @@ describe("starterSeedManifest", () => {
         scripts: expect.objectContaining({
           check:
             "vp check && vp run typecheck && vp test && vp run verify:cloudflare-redirects && vp run verify:dev-launcher-version",
-          build: "vp run build:cloudflare",
+          build: "node ./scripts/build-cloudflare.ts",
           "build:app": "vp run check && vp build",
-          "build:cloudflare": "node ./scripts/build-cloudflare.ts",
+          deploy: "wrangler deploy",
+          "deploy:preview": "node ./scripts/deploy-worker-preview.ts",
           format: "vp fmt",
           "format:check": "vp fmt --check",
           lint: "vp lint --report-unused-disable-directives",
@@ -94,9 +95,11 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.files["package.json"]).not.toContain('"eslint"');
     expect(starterTemplateManifest.files["package.json"]).not.toContain('"prettier"');
     expect(buildCloudflareScript).toContain(
-      'const WORKERS_BUILD_COMMAND = "vp run build:app && node ./scripts/verify-current-branch-head.ts";',
+      'const WORKERS_BUILD_COMMAND = "pnpm run build:app && node ./scripts/verify-current-branch-head.ts";',
     );
-    expect(buildCloudflareScript).toContain('await run("vp", ["run", "build:app"]);');
+    expect(buildCloudflareScript).toContain(
+      "await runNode(vitePlusEntrypoint, plan.buildArgs, env);",
+    );
     expect(nodeTypeScriptConfig).toEqual({
       compilerOptions: {
         target: "ESNext",
@@ -150,17 +153,14 @@ describe("starterSeedManifest", () => {
     expect(starterTemplateManifest.files["src/style.css"]).toContain("ui-sans-serif");
   });
 
-  it("documents scoped Convex deploy keys and the Worker Previews beta boundary", () => {
+  it("uses scoped Convex deploy keys and the Worker Previews command", () => {
     expect(starterTemplateManifest.files["README.md"]).toContain("`CONVEX_DEPLOY_KEY`");
     expect(starterTemplateManifest.files["README.md"]).not.toContain("`PROD_CONVEX_DEPLOY_KEY`");
     expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
       "deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view",
     );
-    expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).toContain(
-      "const CONVEX_DEPLOY_KEY =",
-    );
     expect(starterTemplateManifest.files["scripts/build-cloudflare.ts"]).not.toContain(
-      "PROD_CONVEX_DEPLOY_KEY",
+      "PREVIEW_CONVEX_DEPLOY_KEY",
     );
     expect(starterTemplateManifest.files["scripts/build-cloudflare.test.ts"]).toContain(
       'CONVEX_DEPLOY_KEY: "preview-key"',
@@ -175,11 +175,12 @@ describe("starterSeedManifest", () => {
       "Use one key name with a different value on each Workers Builds trigger",
     );
     expect(starterTemplateManifest.files["docs/cloudflare-workers-builds.md"]).toContain(
-      "Do not add a Convex deploy key under **Settings > Variables and secrets > Previews Base**",
+      "**Settings > Builds > Previews Base**",
     );
-    expect(starterTemplateManifest.files["package.json"]).toContain('"deploy:worker-preview"');
-    expect(starterTemplateManifest.files["scripts/deploy-cloudflare.ts"]).toContain(
-      '["preview", "--worker-name", workerName',
+    expect(starterTemplateManifest.files["package.json"]).toContain('"deploy:preview"');
+    expect(starterTemplateManifest.files["package.json"]).not.toContain('"deploy:worker-preview"');
+    expect(starterTemplateManifest.files["scripts/deploy-worker-preview.ts"]).toContain(
+      '["preview", "--worker-name", readWorkerName(env)]',
     );
   });
 

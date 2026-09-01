@@ -1,102 +1,91 @@
-// Samebase source build: v2002
+// Samebase source build: v2006
 import { describe, expect, it } from "vite-plus/test";
 
-import { selectConvexDeployPlan } from "./build-cloudflare.ts";
+import { selectCloudflareBuildPlan } from "./build-cloudflare.ts";
 
 describe("build-cloudflare", () => {
-  it("requires the scoped preview key for non-main branches", () => {
+  it("runs only the application build outside Workers Builds", () => {
+    expect(
+      selectCloudflareBuildPlan({
+        CONVEX_DEPLOY_KEY: "ignored-local-key",
+        WORKERS_CI_BRANCH: "feature-branch",
+      }),
+    ).toEqual({
+      kind: "app",
+      buildArgs: ["run", "build:app"],
+    });
+  });
+
+  it("requires the branch during Workers Builds", () => {
     expect(() =>
-      selectConvexDeployPlan({
+      selectCloudflareBuildPlan({
+        CONVEX_DEPLOY_KEY: "production-key",
+        WORKERS_CI: "1",
+      }),
+    ).toThrow("WORKERS_CI_BRANCH");
+  });
+
+  it("does not accept the legacy key during Workers Builds", () => {
+    expect(() =>
+      selectCloudflareBuildPlan({
+        PREVIEW_CONVEX_DEPLOY_KEY: "legacy-key",
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "feature-branch",
       }),
-    ).toThrow("preview Workers Builds trigger");
+    ).toThrow("Set CONVEX_DEPLOY_KEY");
   });
 
-  it("requires the Workers branch during Workers builds", () => {
+  it("requires the least-privilege production key", () => {
     expect(() =>
-      selectConvexDeployPlan({
-        WORKERS_CI: "1",
-      }),
-    ).toThrow("Set WORKERS_CI_BRANCH");
-  });
-
-  it("selects the production key for the main branch", () => {
-    expect(
-      selectConvexDeployPlan({
-        CONVEX_DEPLOY_KEY: "prod-key",
+      selectCloudflareBuildPlan({
         WORKERS_CI: "1",
         WORKERS_CI_BRANCH: "main",
       }),
+    ).toThrow(
+      "deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view",
+    );
+  });
+
+  it("deploys production Convex before the application build", () => {
+    expect(
+      selectCloudflareBuildPlan({
+        CONVEX_DEPLOY_KEY: "production-key",
+        WORKERS_CI: "true",
+        WORKERS_CI_BRANCH: "main",
+      }),
     ).toEqual({
-      kind: "deploy",
-      deployKey: "prod-key",
-      args: [
+      kind: "production",
+      deployArgs: [
         "exec",
         "convex",
         "deploy",
         "--cmd",
-        "vp run build:app && node ./scripts/verify-current-branch-head.ts",
+        "pnpm run build:app && node ./scripts/verify-current-branch-head.ts",
       ],
+      authArgs: [],
     });
   });
 
-  it("selects the preview key for non-main branches", () => {
+  it("uses the branch name for the Convex Preview and auth setup", () => {
     expect(
-      selectConvexDeployPlan({
+      selectCloudflareBuildPlan({
         CONVEX_DEPLOY_KEY: "preview-key",
-        WORKERS_CI: "1",
+        WORKERS_CI: "true",
         WORKERS_CI_BRANCH: "feature-branch",
       }),
     ).toEqual({
-      kind: "previewDeploy",
-      deployKey: "preview-key",
-      args: [
+      kind: "preview",
+      previewName: "feature-branch",
+      deployArgs: [
         "exec",
         "convex",
         "deploy",
         "--preview-name",
         "feature-branch",
         "--cmd",
-        "vp run build:app && node ./scripts/verify-current-branch-head.ts",
+        "pnpm run build:app && node ./scripts/verify-current-branch-head.ts",
       ],
+      authArgs: ["--preview-name", "feature-branch"],
     });
-  });
-
-  it("prefers the legacy preview key while an existing app migrates its build variables", () => {
-    expect(
-      selectConvexDeployPlan({
-        CONVEX_DEPLOY_KEY: "prod-key",
-        PREVIEW_CONVEX_DEPLOY_KEY: "preview-key",
-        WORKERS_CI: "1",
-        WORKERS_CI_BRANCH: "feature-branch",
-      }),
-    ).toMatchObject({
-      kind: "previewDeploy",
-      deployKey: "preview-key",
-    });
-  });
-
-  it("requires the production key with the current least-privilege permission set", () => {
-    expect(() =>
-      selectConvexDeployPlan({
-        WORKERS_CI: "1",
-        WORKERS_CI_BRANCH: "main",
-      }),
-    ).toThrow(
-      "Use a Convex production deploy key with exactly deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view.",
-    );
-  });
-
-  it("skips Convex deploys for local builds without deploy keys", () => {
-    expect(selectConvexDeployPlan({})).toEqual({ kind: "frontendOnly" });
-  });
-
-  it("requires an explicit branch when Convex deploy keys are present locally", () => {
-    expect(() =>
-      selectConvexDeployPlan({
-        CONVEX_DEPLOY_KEY: "prod-key",
-      }),
-    ).toThrow("Set WORKERS_CI_BRANCH");
   });
 });

@@ -48,15 +48,16 @@ The core workflow runs on macOS, Linux, and Windows. See
 
 ## Checks and builds
 
-| Command                           | Purpose                                                          |
-| --------------------------------- | ---------------------------------------------------------------- |
-| `pnpm run check`                  | Format, lint, type-check, test, and verify generated redirects   |
-| `pnpm run build`                  | Run the complete Cloudflare build path                           |
-| `pnpm run deploy:dry-run`         | Validate a production upload without publishing it               |
-| `pnpm run deploy:preview:dry-run` | Validate a preview upload without publishing it                  |
-| `pnpm run deploy:worker-preview`  | Deploy a Worker Preview when the account has private-beta access |
+| Command                   | Purpose                                                              |
+| ------------------------- | -------------------------------------------------------------------- |
+| `pnpm run check`          | Format, lint, type-check, test, and verify generated redirects       |
+| `pnpm run build`          | Build the app locally or run the complete Workers Builds build stage |
+| `pnpm run deploy`         | Deploy the production Worker                                         |
+| `pnpm run deploy:preview` | Create or update the current branch's Worker Preview                 |
+| `pnpm run deploy:dry-run` | Build the app and validate a production upload without publishing it |
 
-The dry-run commands need `CLOUDFLARE_WORKER_NAME`.
+For a local Worker Preview, set `CLOUDFLARE_WORKER_NAME` before you run
+`pnpm run deploy:preview`.
 
 On macOS or Linux:
 
@@ -81,17 +82,21 @@ Cloudflare Workers Builds runs `pnpm run build` for all branches. It then uses:
 
 The production and preview Workers Builds triggers store different values under the same key name.
 The production trigger stores the Convex production deploy key. The preview trigger stores the
-Convex project Preview deploy key. `scripts/build-cloudflare.ts` keeps
-`PREVIEW_CONVEX_DEPLOY_KEY` as a temporary fallback for an old shared dashboard configuration.
+Convex project Preview deploy key. The production trigger also stores the readable
+`SAMEBASE_CONVEX_PROJECT` marker. The preview trigger does not need that marker.
 
 The script fails closed when the branch identity is missing.
 `scripts/verify-current-branch-head.ts` prevents an older concurrent build from deploying backend
 code after a newer commit reaches the same branch. `convex deploy --cmd` supplies
 `VITE_CONVEX_URL` to the frontend build, so it is not a Cloudflare build variable.
 
-Cloudflare Worker Previews is a separate private-beta deploy path. An entitled account can set the
-preview command to `pnpm run deploy:worker-preview`. Do not put a Convex deploy key in Worker
-runtime Previews Base settings.
+`pnpm run build`, `pnpm run deploy`, and `pnpm run deploy:preview` are the stable repository
+interface that Samebase configures in Workers Builds. The repository owns the implementation under
+those names. Outside Workers Builds, `pnpm run build` runs only the app build.
+
+`pnpm run deploy:preview` uses Cloudflare Worker Previews. Worker Previews is a private beta, and
+the Cloudflare account must have access. Put the preview key under **Builds > Previews Base**, not
+under **Runtime variables and secrets**.
 
 See [`docs/cloudflare-workers-builds.md`](./docs/cloudflare-workers-builds.md) for the detailed build
 and deploy behavior. Use the
@@ -104,7 +109,7 @@ and deploy behavior. Use the
 - `vite.config.ts` defines the TanStack Start SPA and prerender behavior.
 - `wrangler.jsonc` defines Cloudflare static assets, SPA fallback, and preview URLs.
 - `scripts/build-cloudflare.ts` owns the Cloudflare build and Convex deployment selection.
-- `scripts/deploy-cloudflare.ts` owns production, preview, and dry-run uploads.
+- `scripts/deploy-worker-preview.ts` passes the connected Worker name to `wrangler preview`.
 - `convex/` contains the backend, schema, authentication, and generated Convex bindings.
 - `src/` contains the React application and routes.
 

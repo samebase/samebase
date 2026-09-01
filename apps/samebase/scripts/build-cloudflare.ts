@@ -1,9 +1,8 @@
 import { spawn } from "node:child_process";
 import process from "node:process";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const CONVEX_DEPLOY_KEY = "CONVEX_DEPLOY_KEY";
-const PREVIEW_CONVEX_DEPLOY_KEY = "PREVIEW_CONVEX_DEPLOY_KEY";
+const vitePlusEntrypoint = fileURLToPath(import.meta.resolve("vite-plus/bin"));
 const PROD_POSTHOG_PROJECT_TOKEN = "PROD_POSTHOG_PROJECT_TOKEN";
 const PRODUCTION_POSTHOG_PROXY_HOST = "https://e.samebase.com";
 const VITE_PUBLIC_POSTHOG_HOST = "VITE_PUBLIC_POSTHOG_HOST";
@@ -13,29 +12,35 @@ const WORKERS_BUILD_COMMAND = "pnpm run build:ci && node ./scripts/verify-curren
 
 type BuildRouteEnvironment = "local" | "preview" | "production";
 
-type ConvexDeployPlan =
+type CloudflareBuildPlan =
   | {
-      kind: "deploy";
-      deployKey: string;
+      kind: "app";
+      buildArgs: readonly string[];
+      routeEnvironment: BuildRouteEnvironment;
+    }
+  | {
+      kind: "production";
+      deployArgs: readonly string[];
       postHogProjectToken: string | null;
       routeEnvironment: BuildRouteEnvironment;
-      args: readonly string[];
     }
   | {
-      kind: "previewDeploy";
-      deployKey: string;
+      kind: "preview";
+      deployArgs: readonly string[];
+      previewName: string;
       routeEnvironment: BuildRouteEnvironment;
-      args: readonly string[];
       seedArgs: readonly string[];
-    }
-  | {
-      kind: "frontendOnly";
-      routeEnvironment: BuildRouteEnvironment;
     };
 
-function run(command: string, args: readonly string[], env?: NodeJS.ProcessEnv) {
+type RunNode = (
+  entrypoint: string,
+  args: readonly string[],
+  env: NodeJS.ProcessEnv,
+) => Promise<void>;
+
+function runNode(entrypoint: string, args: readonly string[], env: NodeJS.ProcessEnv) {
   return new Promise<void>((resolve, reject) => {
-    const child = spawn(command, [...args], {
+    const child = spawn(process.execPath, [entrypoint, ...args], {
       env,
       stdio: "inherit",
     });
@@ -43,7 +48,7 @@ function run(command: string, args: readonly string[], env?: NodeJS.ProcessEnv) 
     child.on("error", reject);
     child.on("exit", (code, signal) => {
       if (signal) {
-        reject(new Error(`${command} ${args.join(" ")} exited with ${signal}`));
+        reject(new Error(`${entrypoint} exited with ${signal}`));
         return;
       }
 
@@ -52,7 +57,7 @@ function run(command: string, args: readonly string[], env?: NodeJS.ProcessEnv) 
         return;
       }
 
-      reject(new Error(`${command} ${args.join(" ")} exited with ${code}`));
+      reject(new Error(`${entrypoint} exited with ${code ?? 1}`));
     });
   });
 }
@@ -62,96 +67,101 @@ function isEnabled(value: string | undefined) {
 }
 
 function isPagesBuild(env: NodeJS.ProcessEnv) {
-  return isEnabled(env.CF_PAGES) || Boolean(env.CF_PAGES_BRANCH);
+  return isEnabled(env["CF_PAGES"]) || Boolean(env["CF_PAGES_BRANCH"]);
 }
 
 function isWorkersBuild(env: NodeJS.ProcessEnv) {
-  return isEnabled(env.WORKERS_CI);
+  return isEnabled(env["WORKERS_CI"]);
 }
 
-function readDeployKey(env: NodeJS.ProcessEnv, branch: string) {
-  const deployKey =
-    branch === "main"
-      ? env[CONVEX_DEPLOY_KEY]
-      : (env[PREVIEW_CONVEX_DEPLOY_KEY] ?? env[CONVEX_DEPLOY_KEY]);
-  if (deployKey) {
-    return deployKey;
+function readWorkersBuildBranch(env: NodeJS.ProcessEnv) {
+  const branch = env["WORKERS_CI_BRANCH"];
+  if (!branch) {
+    throw new Error("Workers Builds must provide WORKERS_CI_BRANCH before Convex deploys.");
+  }
+  return branch;
+}
+
+function requireConvexDeployKey(env: NodeJS.ProcessEnv, branch: string) {
+  if (env["CONVEX_DEPLOY_KEY"]) {
+    return;
   }
 
   if (branch === "main") {
     throw new Error(
-      `Set ${CONVEX_DEPLOY_KEY} in Cloudflare Workers Builds Production variables for ${branch}. Use a Convex production deploy key with exactly deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view.`,
+      "Set CONVEX_DEPLOY_KEY in the Cloudflare build settings for main. Use a Convex production deploy key with exactly deployment:deploy, deployment:env:view, deployment:env:write, and deployment:data:view.",
     );
   }
 
   throw new Error(
-    `Set ${CONVEX_DEPLOY_KEY} on the preview Workers Builds trigger for ${branch}. If the dashboard shows one shared build-variable table, keep ${PREVIEW_CONVEX_DEPLOY_KEY} there during migration. Use a Convex project Preview deploy key.`,
+    `Set CONVEX_DEPLOY_KEY in the Cloudflare build settings for ${branch}. Use a Convex project Preview deploy key.`,
   );
 }
 
-export function selectConvexDeployPlan(env: NodeJS.ProcessEnv): ConvexDeployPlan {
+export function selectCloudflareBuildPlan(env: NodeJS.ProcessEnv): CloudflareBuildPlan {
   if (isPagesBuild(env)) {
     throw new Error(
       "Cloudflare Pages builds are disabled for Samebase production during the Workers cutover. Keep the last good Pages deployment active until the Worker is public.",
     );
   }
 
-  if (isWorkersBuild(env) && env[VITE_PUBLIC_POSTHOG_PROJECT_TOKEN]) {
+  if (!isWorkersBuild(env)) {
+    return {
+      kind: "app",
+      buildArgs: ["run", "build:app"],
+      routeEnvironment: "local",
+    };
+  }
+
+  if (env[VITE_PUBLIC_POSTHOG_PROJECT_TOKEN]) {
     throw new Error(
       `Do not set ${VITE_PUBLIC_POSTHOG_PROJECT_TOKEN} in Cloudflare Workers build variables. Set ${PROD_POSTHOG_PROJECT_TOKEN}; this script exposes it to Vite only for main.`,
     );
   }
 
-  if (isWorkersBuild(env) && env[VITE_PUBLIC_POSTHOG_HOST]) {
+  if (env[VITE_PUBLIC_POSTHOG_HOST]) {
     throw new Error(
       `Do not set ${VITE_PUBLIC_POSTHOG_HOST} in Cloudflare Workers build variables. Samebase production builds derive the first-party PostHog proxy host from source control.`,
     );
   }
 
-  const branch = env.WORKERS_CI_BRANCH;
-  if (!branch) {
-    if (isWorkersBuild(env)) {
-      throw new Error(
-        "Set WORKERS_CI_BRANCH in Cloudflare Workers build variables to prevent unintended production Convex deploys.",
-      );
-    }
+  const branch = readWorkersBuildBranch(env);
+  requireConvexDeployKey(env, branch);
 
-    if (env[CONVEX_DEPLOY_KEY] || env[PREVIEW_CONVEX_DEPLOY_KEY]) {
-      throw new Error(
-        `Set WORKERS_CI_BRANCH to choose ${CONVEX_DEPLOY_KEY} or ${PREVIEW_CONVEX_DEPLOY_KEY}, or unset both keys for a frontend-only local build.`,
-      );
-    }
-
-    return { kind: "frontendOnly", routeEnvironment: "local" };
-  }
-
-  if (branch !== "main") {
+  if (branch === "main") {
     return {
-      kind: "previewDeploy",
-      deployKey: readDeployKey(env, branch),
-      routeEnvironment: "preview",
-      args: ["exec", "convex", "deploy", "--preview-name", branch, "--cmd", WORKERS_BUILD_COMMAND],
-      seedArgs: ["exec", "convex", "run", "devAuth:seedPasswordAccount", "--preview-name", branch],
+      kind: "production",
+      deployArgs: ["exec", "convex", "deploy", "--cmd", WORKERS_BUILD_COMMAND],
+      postHogProjectToken: env[PROD_POSTHOG_PROJECT_TOKEN] ?? null,
+      routeEnvironment: "production",
     };
   }
 
   return {
-    kind: "deploy",
-    deployKey: readDeployKey(env, branch),
-    postHogProjectToken: env[PROD_POSTHOG_PROJECT_TOKEN] ?? null,
-    routeEnvironment: "production",
-    args: ["exec", "convex", "deploy", "--cmd", WORKERS_BUILD_COMMAND],
+    kind: "preview",
+    deployArgs: [
+      "exec",
+      "convex",
+      "deploy",
+      "--preview-name",
+      branch,
+      "--cmd",
+      WORKERS_BUILD_COMMAND,
+    ],
+    previewName: branch,
+    routeEnvironment: "preview",
+    seedArgs: ["exec", "convex", "run", "devAuth:seedPasswordAccount", "--preview-name", branch],
   };
 }
 
-export async function main(env: NodeJS.ProcessEnv = process.env, runCommand = run) {
-  const plan = selectConvexDeployPlan(env);
+export async function main(
+  env: NodeJS.ProcessEnv = process.env,
+  runNodeCommand: RunNode = runNode,
+) {
+  const plan = selectCloudflareBuildPlan(env);
 
-  if (plan.kind === "frontendOnly") {
-    console.warn(
-      `${CONVEX_DEPLOY_KEY} and ${PREVIEW_CONVEX_DEPLOY_KEY} are not set; building static assets without deploying Convex.`,
-    );
-    await runCommand("pnpm", ["run", "build:app"], {
+  if (plan.kind === "app") {
+    await runNodeCommand(vitePlusEntrypoint, plan.buildArgs, {
       ...env,
       [VITE_SAMEBASE_ROUTE_ENVIRONMENT]: plan.routeEnvironment,
     });
@@ -160,22 +170,21 @@ export async function main(env: NodeJS.ProcessEnv = process.env, runCommand = ru
 
   const convexEnv = {
     ...env,
-    CONVEX_DEPLOY_KEY: plan.deployKey,
     [VITE_SAMEBASE_ROUTE_ENVIRONMENT]: plan.routeEnvironment,
     // Keep the app-facing Vite env out of previews by deriving it only after
     // the script has selected the production deploy plan.
-    ...(plan.kind === "deploy" && plan.postHogProjectToken
+    ...(plan.kind === "production" && plan.postHogProjectToken
       ? {
           [VITE_PUBLIC_POSTHOG_HOST]: PRODUCTION_POSTHOG_PROXY_HOST,
           [VITE_PUBLIC_POSTHOG_PROJECT_TOKEN]: plan.postHogProjectToken,
         }
       : {}),
-    ...(plan.kind === "deploy" ? { SAMEBASE_PRERENDER_ORIGIN: "https://samebase.com" } : {}),
+    ...(plan.kind === "production" ? { SAMEBASE_PRERENDER_ORIGIN: "https://samebase.com" } : {}),
   };
 
-  await runCommand("pnpm", plan.args, convexEnv);
-  if (plan.kind === "previewDeploy") {
-    await runCommand("pnpm", plan.seedArgs, convexEnv);
+  await runNodeCommand(vitePlusEntrypoint, plan.deployArgs, convexEnv);
+  if (plan.kind === "preview") {
+    await runNodeCommand(vitePlusEntrypoint, plan.seedArgs, convexEnv);
   }
 }
 

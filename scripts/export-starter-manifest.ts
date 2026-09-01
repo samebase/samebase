@@ -286,7 +286,7 @@ export async function writeStarterSeedManifest(repoRoot: string): Promise<void> 
     sourcePath: baseTemplateSourceRoot,
     publishedRepo,
     contentHash,
-    commitMessage: "Initialize app from Samebase starter build v2002",
+    commitMessage: "Initialize app from Samebase starter build v2006",
     files: textFiles,
     binaryFiles,
     fileModes,
