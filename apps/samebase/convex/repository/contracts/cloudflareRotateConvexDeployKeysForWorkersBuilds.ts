@@ -35,12 +35,12 @@ export const cloudflareRotateConvexDeployKeysForWorkersBuildsContract = {
 keys on the selected Convex project's production and preview scopes. It writes the production key
 as \`CONVEX_DEPLOY_KEY\` on the production Workers Builds trigger and the project Preview key under
 the same name on the preview trigger. It writes the non-secret
-\`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>\` marker to both triggers.
+\`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>\` marker only to the
+production trigger.
 
-The operation removes the obsolete \`PREVIEW_CONVEX_DEPLOY_KEY\` variable from both triggers. It
-then reads the variables back and verifies the marker value, secrecy flags, canonical key name, and
-legacy-key removal before it starts the production build. Worker runtime Previews Base variables do
-not provide these build secrets.
+The operation reads the variables back and verifies the production marker value, secrecy flags, and
+canonical key name before it starts the production build. The preview key belongs under
+**Builds > Previews Base**, not under **Runtime variables and secrets**.
 
 The Worker and project must both be attached to the repository. Their selection is input to this one
 operation, not a persisted dependency. Rerunning the operation rotates the Samebase-named keys.

@@ -30,10 +30,9 @@ created, so pick a different name and call again; failures after provisioning st
 What it writes: one repository (private by default) and one Convex project with one production
 deployment in the resolved region. When `cloudflareBuildTokenUuid` is not null, it also writes one
 Worker and two Workers Builds triggers that each carry a scoped `CONVEX_DEPLOY_KEY` variable. The
-production trigger receives the production deploy key. The preview trigger receives the project
-Preview deploy key. Both triggers receive the readable `SAMEBASE_CONVEX_PROJECT` marker. All
-resources live in the organization's provider accounts. Deleting the Samebase account does not
-remove or stop any of them.
+production trigger receives the production deploy key and the readable `SAMEBASE_CONVEX_PROJECT`
+marker. The preview trigger receives the project Preview deploy key. All resources live in the
+organization's provider accounts. Deleting the Samebase account does not remove or stop any of them.
 
 Progress and failure are readable through `repository_dashboard_getUserRepositories`: while running,
 `providerSetup` carries the current step; on failure it carries the failed step and a message.

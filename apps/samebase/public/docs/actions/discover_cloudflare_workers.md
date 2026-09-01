@@ -237,16 +237,6 @@ JSON Schema for the tool's `structuredContent`:
                 "type": "object",
                 "properties": {
                   "state": {
-                    "const": "inconsistent"
-                  }
-                },
-                "required": ["state"],
-                "additionalProperties": false
-              },
-              {
-                "type": "object",
-                "properties": {
-                  "state": {
                     "const": "invalid"
                   }
                 },

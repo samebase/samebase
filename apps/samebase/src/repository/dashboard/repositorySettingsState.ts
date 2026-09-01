@@ -376,11 +376,6 @@ function formatCloudflareConvexBuildAccessState({
         actions,
         description: "Convex deploy keys exist, but their project is unknown.",
       };
-    case "inconsistent":
-      return {
-        actions,
-        description: "Production and preview Builds target different Convex projects.",
-      };
     case "invalid":
       return { actions, description: "The Convex project marker is invalid." };
   }

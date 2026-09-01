@@ -15,7 +15,6 @@ export const vCloudflareConvexBuildAccess = union(
   object({ state: literal("configured"), convexProject: vCloudflareConvexProjectReference }),
   object({ state: literal("incomplete"), convexProject: vCloudflareConvexProjectReference }),
   object({ state: literal("target_unknown") }),
-  object({ state: literal("inconsistent") }),
   object({ state: literal("invalid") }),
   object({ state: literal("unavailable") }),
 );

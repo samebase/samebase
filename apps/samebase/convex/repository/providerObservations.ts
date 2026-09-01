@@ -86,7 +86,6 @@ const vCloudflareConvexBuildAccess = union(
   object({ state: literal("configured"), convexProject: vObservedConvexProject }),
   object({ state: literal("incomplete"), convexProject: vObservedConvexProject }),
   object({ state: literal("target_unknown") }),
-  object({ state: literal("inconsistent") }),
   object({ state: literal("invalid") }),
 );
 const vCloudflareBuildsObservation = union(
@@ -236,7 +235,6 @@ function resolveObservedConvexBuildAccess(
     }
     case "not_configured":
     case "target_unknown":
-    case "inconsistent":
     case "invalid":
       return observation;
   }
