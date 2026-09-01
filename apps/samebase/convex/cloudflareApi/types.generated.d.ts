@@ -8581,11 +8581,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": unknown;
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Delete Worker response. */
       200: {
@@ -11665,6 +11661,26 @@ export interface operations {
           };
         };
       };
+      /** @description Gateway timeout */
+      504: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Gateway timeout";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
     };
   };
   "telemetry.live-tail.post": {
@@ -12219,6 +12235,26 @@ export interface operations {
           };
         };
       };
+      /** @description Gateway timeout */
+      504: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Gateway timeout";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
     };
   };
   "telemetry.values.list": {
@@ -12407,6 +12443,26 @@ export interface operations {
           };
         };
       };
+      /** @description Gateway timeout */
+      504: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Gateway timeout";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
     };
   };
   "usage.get": {
@@ -12551,6 +12607,26 @@ export interface operations {
               detail?: string;
               /** @enum {string} */
               message: "Internal error";
+            }[];
+            messages: {
+              message: string;
+            }[];
+            /** @enum {boolean} */
+            success: false;
+          };
+        };
+      };
+      /** @description Gateway timeout */
+      504: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": {
+            errors: {
+              detail?: string;
+              /** @enum {string} */
+              message: "Gateway timeout";
             }[];
             messages: {
               message: string;
@@ -12782,11 +12858,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": unknown;
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Delete Worker response. */
       200: {
@@ -13671,11 +13743,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": unknown;
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Start Tail response. */
       200: {
@@ -13710,11 +13778,7 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody: {
-      content: {
-        "application/json": unknown;
-      };
-    };
+    requestBody?: never;
     responses: {
       /** @description Delete Tail response. */
       200: {

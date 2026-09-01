@@ -9175,6 +9175,7 @@ const schema123 = {
           "deployment:usageLimits:view",
           "deployment:usageLimits:write",
           "deployment:usage:view",
+          "deployment:aiGateway:use",
         ],
       },
     },
@@ -9692,7 +9693,8 @@ function validate55(
               data9 === "deployment:auditLog:view" ||
               data9 === "deployment:usageLimits:view" ||
               data9 === "deployment:usageLimits:write" ||
-              data9 === "deployment:usage:view"
+              data9 === "deployment:usage:view" ||
+              data9 === "deployment:aiGateway:use"
             )
           ) {
             const err23 = {

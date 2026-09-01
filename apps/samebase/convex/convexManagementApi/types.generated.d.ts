@@ -1304,6 +1304,7 @@ export interface components {
         | "deployment:usageLimits:view"
         | "deployment:usageLimits:write"
         | "deployment:usage:view"
+        | "deployment:aiGateway:use"
       )[];
       /**
        * Format: int64
@@ -1495,6 +1496,7 @@ export interface components {
         | "deployment:usageLimits:view"
         | "deployment:usageLimits:write"
         | "deployment:usage:view"
+        | "deployment:aiGateway:use"
       )[];
     };
     PlatformDeploymentResponse:
