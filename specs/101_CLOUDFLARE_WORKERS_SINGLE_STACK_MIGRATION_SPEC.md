@@ -282,7 +282,9 @@ For generated single-repository apps, use these Workers Builds commands:
 These names are the stable Samebase repository interface. The repository owns their implementation.
 `pnpm run deploy:preview` uses `wrangler preview --worker-name <connected-worker-name>`. Worker
 Previews is a private beta, and the Cloudflare account must have access. Runtime variables do not
-supply Workers Builds secrets.
+supply Workers Builds secrets. Preview builds must be enabled for non-production branches. A
+dashboard banner that offers the literal `npx wrangler preview` command does not replace the stable
+repository command when its adapter already runs Wrangler Preview.
 
 For older monorepo-shaped Samebase-generated apps, a temporary fallback can use `apps/samebase` as
 the root with direct Wrangler commands while the template surface converges.

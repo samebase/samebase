@@ -96,7 +96,8 @@ those names. Outside Workers Builds, `pnpm run build` runs only the app build.
 
 `pnpm run deploy:preview` uses Cloudflare Worker Previews. Worker Previews is a private beta, and
 the Cloudflare account must have access. Put the preview key under **Builds > Previews Base**, not
-under **Runtime variables and secrets**.
+under **Runtime variables and secrets**. Enable Preview builds for non-production branches, but
+keep the Preview command set to `pnpm run deploy:preview`.
 
 See [`docs/cloudflare-workers-builds.md`](./docs/cloudflare-workers-builds.md) for the detailed build
 and deploy behavior. Use the

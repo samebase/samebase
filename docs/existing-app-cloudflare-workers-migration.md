@@ -94,15 +94,21 @@ Workers Builds triggers. Migrate them in this order:
    key.
 2. Under **Settings > Builds > Previews Base**, set `CONVEX_DEPLOY_KEY` to the Convex project
    Preview deploy key.
-3. Update the repository scripts. Keep `pnpm run build`, `pnpm run deploy`, and
+3. Turn on Preview builds for non-production branches. If Cloudflare shows **Enable Worker
+   Previews**, inspect the Preview command before you use the button. Cloudflare documents the
+   button as a command change, not as a separate Builds API flag.
+4. Update the repository scripts. Keep `pnpm run build`, `pnpm run deploy`, and
    `pnpm run deploy:preview` as the public interface.
-4. Make `pnpm run deploy` use `wrangler deploy`. Make `pnpm run deploy:preview` use
+5. Make `pnpm run deploy` use `wrangler deploy`. Make `pnpm run deploy:preview` use
    `wrangler preview --worker-name <connected-worker-name>` through a cross-platform adapter.
-5. Make every preview `convex env get` and `convex env set` call use the same
+6. Set the production command to `pnpm run deploy` and the Preview command to
+   `pnpm run deploy:preview`. The banner can remain visible because Cloudflare cannot inspect the
+   package script.
+7. Make every preview `convex env get` and `convex env set` call use the same
    `--preview-name <WORKERS_CI_BRANCH>` value as the Convex deploy.
-6. Push the repository change. Confirm a successful production build and branch preview build.
-7. Delete `PREVIEW_CONVEX_DEPLOY_KEY` from both Builds scopes.
-8. Delete `SAMEBASE_CONVEX_PROJECT` from **Previews Base**. Keep that marker under **Production**.
+8. Push the repository change. Confirm a successful production build and branch preview build.
+9. Delete `PREVIEW_CONVEX_DEPLOY_KEY` from both Builds scopes.
+10. Delete `SAMEBASE_CONVEX_PROJECT` from **Previews Base**. Keep that marker under **Production**.
 
 The Builds variables endpoint uses `PATCH` as an upsert. The patch does not remove the legacy
 variable. Existing apps delete old values as migration work. Samebase does not delete them during

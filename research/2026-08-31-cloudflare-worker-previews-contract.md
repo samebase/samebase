@@ -43,6 +43,12 @@ A fresh import of `samebase/base-preview@4f4899a` inferred `pnpm run build` from
 `npx wrangler preview`. It left **Enable Preview builds** off. Samebase must set the two stable
 package deploy commands and enable Preview builds.
 
+The live dashboard showed an **Enable Worker Previews** banner for Workers whose Preview command was
+`pnpm run deploy:preview`. Cloudflare documents that button as a command migration from the old
+deploy command to `npx wrangler preview`. The Builds trigger API has no separate Worker Previews
+flag. Samebase treats the configured Preview command as the source of truth and keeps the stable
+package script when it already runs `wrangler preview`.
+
 ## Worker Previews Contract
 
 `wrangler preview` creates or updates a named Preview resource. This is different from
@@ -87,20 +93,24 @@ For an existing app:
 
 1. Put the production key under `CONVEX_DEPLOY_KEY` in **Builds > Production**.
 2. Put the project Preview key under `CONVEX_DEPLOY_KEY` in **Builds > Previews Base**.
-3. Update the repository scripts. Keep `build`, `deploy`, and `deploy:preview` as their stable
+3. Enable Preview builds for non-production branches.
+4. Update the repository scripts. Keep `build`, `deploy`, and `deploy:preview` as their stable
    names.
-4. Make `deploy:preview` run `wrangler preview --worker-name <connected-worker-name>` through the
+5. Make `deploy:preview` run `wrangler preview --worker-name <connected-worker-name>` through the
    cross-platform adapter.
-5. Push the change and verify both build paths.
-6. Delete `PREVIEW_CONVEX_DEPLOY_KEY` from both scopes. Delete the preview `SAMEBASE_CONVEX_PROJECT`
+6. Keep the Cloudflare Preview command set to `pnpm run deploy:preview`, even if the dashboard
+   banner offers the literal `npx wrangler preview` command.
+7. Push the change and verify both build paths.
+8. Delete `PREVIEW_CONVEX_DEPLOY_KEY` from both scopes. Delete the preview `SAMEBASE_CONVEX_PROJECT`
    marker.
-7. Configure safe runtime values and bindings before sharing a Worker Preview URL.
-8. Recreate or edit existing Preview resources when they must receive a later runtime Base change.
+9. Configure safe runtime values and bindings before sharing a Worker Preview URL.
+10. Recreate or edit existing Preview resources when they must receive a later runtime Base change.
 
 ## Sources
 
 - [Cloudflare Workers Builds configuration](https://developers.cloudflare.com/workers/ci-cd/builds/configuration/)
 - [Cloudflare Worker Previews documentation pull request](https://github.com/cloudflare/cloudflare-docs/pull/31775)
+- [Draft Worker Previews setup guide](https://github.com/cloudflare/cloudflare-docs/blob/c25b0b9df9ae1885a4592f5f51bb9c54217d582a/src/content/docs/workers/previews/get-started.mdx)
 - [Draft Worker Previews configuration](https://github.com/cloudflare/cloudflare-docs/blob/c25b0b9df9ae1885a4592f5f51bb9c54217d582a/src/content/docs/workers/previews/configuration.mdx)
 - [Wrangler Worker Previews implementation](https://github.com/cloudflare/workers-sdk/tree/f8085545bcaa2c639f171c25e4424685036a0e10/packages/deploy-helpers/src/preview)
 - [Wrangler private-beta command](https://github.com/cloudflare/workers-sdk/blob/f8085545bcaa2c639f171c25e4424685036a0e10/packages/wrangler/src/preview/preview.ts#L13-L59)

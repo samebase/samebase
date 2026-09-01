@@ -61,6 +61,12 @@ repository and deploys the Worker using `wrangler.jsonc`.
 For non-production branches, `npx wrangler preview` creates or updates a named Preview resource.
 Worker Previews is a private beta, and the account must have access.
 
+For an existing Worker, Cloudflare can show an **Enable Worker Previews** banner. Cloudflare
+documents this button as a change from the old Preview command to `npx wrangler preview`. The Builds
+trigger API has no separate Worker Previews flag. When the repository uses the stable
+`pnpm run deploy:preview` wrapper, keep that command because the wrapper already runs
+`wrangler preview`.
+
 Cloudflare inferred `pnpm run build` only after it read the exact `build` script from the pushed
 default branch. It did not infer the package's `deploy` or `deploy:preview` script names. Samebase
 must set those two fields explicitly.
@@ -144,6 +150,7 @@ from `wrangler.jsonc`; the dashboard `Build command` is a real setting in Worker
 Recommended dashboard values for the artifact:
 
 - Project name: any valid Worker name.
+- Preview builds: enabled for non-production branches.
 - Build command: keep `pnpm run build`.
 - Deploy command: `pnpm run deploy`.
 - Non-production branch deploy command: `pnpm run deploy:preview`.

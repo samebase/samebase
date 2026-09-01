@@ -35,13 +35,20 @@ Migrate in this order:
 
 1. Set the production trigger's `CONVEX_DEPLOY_KEY` to the production deploy key.
 2. Set the preview trigger's `CONVEX_DEPLOY_KEY` to the project Preview deploy key.
-3. Update the repository. Keep `build`, `deploy`, and `deploy:preview` as the public scripts. Make
+3. Turn on Preview builds for non-production branches. If Cloudflare shows **Enable Worker
+   Previews**, inspect the current Preview command before you use it. The banner changes the command
+   to `npx wrangler preview`; it is not a separate Builds API flag.
+4. Update the repository. Keep `build`, `deploy`, and `deploy:preview` as the public scripts. Make
    `deploy` run `wrangler deploy`. Make `deploy:preview` run
    `wrangler preview --worker-name <connected-worker-name>` through a small cross-platform adapter.
-4. Make every preview `convex env get` and `convex env set` command use
+5. Set the Cloudflare production command to `pnpm run deploy` and the Preview command to
+   `pnpm run deploy:preview`. The Worker Previews banner can remain visible because Cloudflare
+   cannot inspect the package script. Do not replace the stable Preview command when its script
+   already runs `wrangler preview`.
+6. Make every preview `convex env get` and `convex env set` command use
    `--preview-name <WORKERS_CI_BRANCH>`.
-5. Push the repository change and confirm both a production build and a branch preview build.
-6. Delete `PREVIEW_CONVEX_DEPLOY_KEY` from both triggers. Delete `SAMEBASE_CONVEX_PROJECT` from the
+7. Push the repository change and confirm both a production build and a branch preview build.
+8. Delete `PREVIEW_CONVEX_DEPLOY_KEY` from both triggers. Delete `SAMEBASE_CONVEX_PROJECT` from the
    preview trigger. Keep the marker on the production trigger.
 
 Do not add a compatibility read or provider cleanup action. The old values are migration work for
