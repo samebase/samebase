@@ -34,6 +34,7 @@ overrides:
   picomatch@2: 2.3.2
   picomatch@4.0.3: 4.0.4
   postcss: 8.5.23
+  postcss-selector-parser: 7.1.5
   protobufjs: 7.6.3
   qs: 6.15.2
   sharp: 0.35.3
@@ -5698,8 +5699,8 @@ packages:
     peerDependencies:
       postcss: 8.5.23
 
-  postcss-selector-parser@7.1.1:
-    resolution: {integrity: sha512-orRsuYpJVw8LdAwqqLykBj9ecS5/cRHlI5+nvTo8LcCKmzDmqVORXtOIYEEQuL9D4BxtA1lm5isAqzQZCoQ6Eg==}
+  postcss-selector-parser@7.1.5:
+    resolution: {integrity: sha512-KvvtD7SrlBP7dlgkBghEE3r84CABm5SmV2aNcG4oCA+qDnJ/tvKonFVvwWAyyWUEwxuNawdfEAZKP9zM3oZ2Uw==}
     engines: {node: '>=4'}
 
   postcss-value-parser@4.2.0:
@@ -12264,20 +12265,20 @@ snapshots:
     dependencies:
       icss-utils: 5.1.0(postcss@8.5.23)
       postcss: 8.5.23
-      postcss-selector-parser: 7.1.1
+      postcss-selector-parser: 7.1.5
       postcss-value-parser: 4.2.0
 
   postcss-modules-scope@3.2.1(postcss@8.5.23):
     dependencies:
       postcss: 8.5.23
-      postcss-selector-parser: 7.1.1
+      postcss-selector-parser: 7.1.5
 
   postcss-modules-values@4.0.0(postcss@8.5.23):
     dependencies:
       icss-utils: 5.1.0(postcss@8.5.23)
       postcss: 8.5.23
 
-  postcss-selector-parser@7.1.1:
+  postcss-selector-parser@7.1.5:
     dependencies:
       cssesc: 3.0.0
       util-deprecate: 1.0.2
@@ -12593,7 +12594,7 @@ snapshots:
       open: 11.0.0
       ora: 8.2.0
       postcss: 8.5.23
-      postcss-selector-parser: 7.1.1
+      postcss-selector-parser: 7.1.5
       prompts: 2.4.2
       recast: 0.23.11
       stringify-object: 5.0.0

@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Effective: August 30, 2026
+Effective: September 1, 2026
 
 This Privacy Policy explains how Samebase handles personal information when you use samebase.com,
 the Samebase web app, the Samebase remote MCP server, or a published Samebase agent plugin.
@@ -97,7 +97,8 @@ records of communication choices, and limited deletion records while needed for 
 security, support, dispute resolution, or legal obligations.
 
 You can delete your account from Settings after you complete any required organization cleanup.
-Samebase disables the account immediately and starts permanent deletion seven days later.
+Samebase disables the account immediately. Before you confirm, Samebase tells you when permanent
+deletion will start.
 
 Permanent deletion removes information tied only to your account. Limited records, backups,
 organization information and subscriptions, external resources, and copies held by other members or

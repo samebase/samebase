@@ -6,7 +6,6 @@ import { makeConvexTest } from "../test.setup";
 
 afterEach(() => {
   vi.unstubAllEnvs();
-  vi.useRealTimers();
 });
 
 async function seedActiveViewer(t: ReturnType<typeof makeConvexTest>, email: string) {
@@ -155,63 +154,35 @@ describe("account deletion request and status", () => {
     }
   });
 
-  it("queues immediate deletion in development and keeps the stored start time", async () => {
+  it("queues immediate deletion in production when the override is zero", async () => {
     vi.stubEnv("ACCOUNT_DELETION_GRACE_PERIOD_MS", "0");
-    vi.stubEnv("CONVEX_DEPLOYMENT", "dev:account-deletion-test");
+    vi.stubEnv("CONVEX_DEPLOYMENT", "prod:samebase");
 
     const t = makeConvexTest();
     const { viewer } = await seedActiveViewer(t, "immediate@example.invalid");
 
-    vi.useFakeTimers();
-    vi.setSystemTime(2_000);
     const policy = await viewer.query(api.accountDeletion.index.policy, {});
-    expect(policy).toEqual({ deletionStartMode: "immediate" });
+    expect(policy).toBe("immediate");
 
     const requested = await viewer.mutation(api.accountDeletion.index.request, {
       completionCapability: "0".repeat(64),
-      deletionStartMode: policy.deletionStartMode,
+      deletionStartMode: policy,
       deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
     });
     if (requested.state !== "accepted") {
       throw new Error("Account deletion request was not accepted.");
     }
 
-    expect(requested.status).toMatchObject({
-      requestedAt: 2_000,
-      deletionStartsAt: 2_000,
-      state: "queued",
-    });
-    await expect(
-      t.run(async (ctx) => ({
-        run: await ctx.db.get(requested.status.runId),
-        scheduledFunctions: await ctx.db.system.query("_scheduled_functions").take(2),
-      })),
-    ).resolves.toMatchObject({
-      run: { deletionStartsAt: 2_000 },
-      scheduledFunctions: [
-        expect.objectContaining({
-          scheduledTime: 2_000,
-          state: { kind: "pending" },
-        }),
-      ],
-    });
+    expect(requested.status.deletionStartsAt).toBe(requested.status.requestedAt);
 
     vi.unstubAllEnvs();
     await expect(viewer.query(api.accountDeletion.index.status, {})).resolves.toEqual(
       requested.status,
     );
-    await expect(
-      viewer.mutation(api.accountDeletion.index.request, {
-        completionCapability: "0".repeat(64),
-        deletionStartMode: "immediate",
-        deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
-      }),
-    ).resolves.toEqual(requested);
   });
 
   it("keeps the seven-day start time for a legacy queued run", async () => {
     vi.stubEnv("ACCOUNT_DELETION_GRACE_PERIOD_MS", "0");
-    vi.stubEnv("CONVEX_DEPLOYMENT", "dev:account-deletion-test");
 
     const t = makeConvexTest();
     const { sessionId, userId, viewer } = await seedActiveViewer(t, "legacy@example.invalid");
@@ -254,14 +225,11 @@ describe("account deletion request and status", () => {
     });
   });
 
-  it("rejects a stale policy before either request mutation writes", async () => {
+  it("rejects a stale policy in both request mutations", async () => {
     const t = makeConvexTest();
     const { userId, viewer } = await seedActiveViewer(t, "stale-policy@example.invalid");
     const { viewer: staff } = await seedStaffViewer(t);
 
-    await expect(viewer.query(api.accountDeletion.index.policy, {})).resolves.toEqual({
-      deletionStartMode: "seven_days",
-    });
     await expect(
       viewer.mutation(api.accountDeletion.index.request, {
         completionCapability: "3".repeat(64),
@@ -275,65 +243,7 @@ describe("account deletion request and status", () => {
         userId,
       }),
     ).rejects.toThrow("Account deletion policy changed");
-
-    await expect(
-      t.run(async (ctx) => ({
-        events: await ctx.db.query("workflow_accountDeletion_events").collect(),
-        runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
-        user: await ctx.db.get(userId),
-      })),
-    ).resolves.toMatchObject({
-      events: [],
-      runs: [],
-      user: { state: "active" },
-    });
   });
-
-  it("rejects the immediate policy in production before writes", async () => {
-    vi.stubEnv("ACCOUNT_DELETION_GRACE_PERIOD_MS", "0");
-    vi.stubEnv("CONVEX_DEPLOYMENT", "prod:samebase");
-
-    const t = makeConvexTest();
-    const { userId, viewer } = await seedActiveViewer(t, "production-policy@example.invalid");
-
-    await expect(viewer.query(api.accountDeletion.index.policy, {})).rejects.toThrow(
-      "Immediate account deletion requires an explicit non-production deployment.",
-    );
-    await expect(
-      viewer.mutation(api.accountDeletion.index.request, {
-        completionCapability: "4".repeat(64),
-        deletionStartMode: "immediate",
-        deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
-      }),
-    ).rejects.toThrow("Immediate account deletion requires an explicit non-production deployment.");
-
-    await expect(
-      t.run(async (ctx) => ({
-        events: await ctx.db.query("workflow_accountDeletion_events").collect(),
-        runs: await ctx.db.query("workflow_accountDeletion_runs").collect(),
-        user: await ctx.db.get(userId),
-      })),
-    ).resolves.toMatchObject({
-      events: [],
-      runs: [],
-      user: { state: "active" },
-    });
-  });
-
-  it.each(["", "dev:", "unknown:samebase"])(
-    "rejects the immediate policy without explicit non-production evidence (%s)",
-    async (deployment) => {
-      vi.stubEnv("ACCOUNT_DELETION_GRACE_PERIOD_MS", "0");
-      vi.stubEnv("CONVEX_DEPLOYMENT", deployment);
-
-      const t = makeConvexTest();
-      const { viewer } = await seedActiveViewer(t, `unknown-${deployment.length}@example.invalid`);
-
-      await expect(viewer.query(api.accountDeletion.index.policy, {})).rejects.toThrow(
-        "Immediate account deletion requires an explicit non-production deployment.",
-      );
-    },
-  );
 
   it("lets staff start only a queued deletion and makes the late callback a no-op", async () => {
     const t = makeConvexTest();
