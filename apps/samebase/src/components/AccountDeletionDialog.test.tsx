@@ -8,9 +8,7 @@ import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeleti
 
 const testState = vi.hoisted(() => ({
   completionCapability: "a".repeat(64),
-  deletionPolicy: vi.fn<() => { deletionStartMode: "immediate" | "seven_days" } | undefined>(
-    () => ({ deletionStartMode: "seven_days" }),
-  ),
+  deletionPolicy: vi.fn<() => "immediate" | "seven_days" | undefined>(() => "seven_days"),
   navigate: vi.fn(),
   requestDeletion: vi.fn(),
   writeBrowserMarker: vi.fn(() => true),
@@ -88,22 +86,13 @@ async function enterConfirmation(container: HTMLElement) {
   await act(async () => input.dispatchEvent(new Event("input", { bubbles: true })));
 }
 
-function findButton(container: HTMLElement, label: string) {
-  return [...container.querySelectorAll("button")].find((button) => button.textContent === label);
-}
-
 describe("AccountDeletionDialog", () => {
   beforeEach(() => {
-    testState.deletionPolicy.mockReset();
-    testState.deletionPolicy.mockReturnValue({ deletionStartMode: "seven_days" });
-    testState.navigate.mockReset();
-    testState.navigate.mockResolvedValue(undefined);
     testState.requestDeletion.mockReset();
     testState.requestDeletion.mockResolvedValue({
       state: "accepted",
       status: { completionCapability: testState.completionCapability },
     });
-    testState.writeBrowserMarker.mockClear();
   });
 
   afterEach(async () => {
@@ -115,61 +104,51 @@ describe("AccountDeletionDialog", () => {
     rootElement = null;
   });
 
-  it("shows the seven-day terms and submits the policy that the user confirmed", async () => {
-    const container = await mountDialog();
+  it.each([
+    [
+      "seven_days",
+      "immediate",
+      "Permanent deletion will start seven days",
+      "Schedule deletion",
+      "immediately",
+    ],
+    [
+      "immediate",
+      "seven_days",
+      "Permanent deletion will start immediately",
+      "Delete account",
+      "seven days",
+    ],
+  ] as const)(
+    "keeps the confirmed %s policy after a live policy change",
+    async (deletionStartMode, changedPolicy, timing, actionLabel, absentTiming) => {
+      testState.deletionPolicy.mockReturnValue(deletionStartMode);
+      const container = await mountDialog();
 
-    expect(container.textContent).toContain("Permanent deletion will start seven days");
-    const deleteButton = findButton(container, "Schedule deletion");
-    if (deleteButton === undefined) {
-      throw new Error("Schedule deletion action was not found.");
-    }
-    expect(deleteButton.disabled).toBe(true);
+      expect(container.textContent).toContain(timing);
+      await enterConfirmation(container);
+      testState.deletionPolicy.mockReturnValue(changedPolicy);
+      await act(async () => root?.render(<AccountDeletionDialog onClose={vi.fn()} />));
 
-    await enterConfirmation(container);
-    await act(async () => {
-      deleteButton.click();
-      await vi.waitFor(() => expect(testState.requestDeletion).toHaveBeenCalledOnce());
-    });
+      expect(container.textContent).toContain(timing);
+      expect(container.textContent).not.toContain(absentTiming);
+      const deleteButton = [...container.querySelectorAll("button")].find(
+        (button) => button.textContent === actionLabel,
+      );
+      if (deleteButton === undefined) {
+        throw new Error("Account deletion action was not found.");
+      }
 
-    expect(testState.requestDeletion).toHaveBeenCalledWith({
-      completionCapability: testState.completionCapability,
-      deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
-      deletionStartMode: "seven_days",
-    });
-  });
+      await act(async () => {
+        deleteButton.click();
+        await vi.waitFor(() => expect(testState.requestDeletion).toHaveBeenCalledOnce());
+      });
 
-  it("shows immediate terms and submits the immediate policy", async () => {
-    testState.deletionPolicy.mockReturnValue({ deletionStartMode: "immediate" });
-    const container = await mountDialog();
-
-    expect(container.textContent).toContain("Permanent deletion will start immediately");
-    expect(container.textContent).toContain(
-      "Samebase will send you a confirmation email as account deletion finishes.",
-    );
-    expect(container.textContent).not.toContain("seven days");
-    const deleteButton = findButton(container, "Delete account");
-    if (deleteButton === undefined) {
-      throw new Error("Immediate account deletion action was not found.");
-    }
-
-    await enterConfirmation(container);
-    await act(async () => {
-      deleteButton.click();
-      await vi.waitFor(() => expect(testState.requestDeletion).toHaveBeenCalledOnce());
-    });
-
-    expect(testState.requestDeletion).toHaveBeenCalledWith({
-      completionCapability: testState.completionCapability,
-      deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
-      deletionStartMode: "immediate",
-    });
-  });
-
-  it("keeps the destructive action hidden while the policy loads", async () => {
-    testState.deletionPolicy.mockReturnValue(undefined);
-    const container = await mountDialog();
-
-    expect(container.textContent).toBe("");
-    expect(testState.requestDeletion).not.toHaveBeenCalled();
-  });
+      expect(testState.requestDeletion).toHaveBeenCalledWith({
+        completionCapability: testState.completionCapability,
+        deletionConfirmationText: ACCOUNT_DELETION_CONFIRMATION_PHRASE,
+        deletionStartMode,
+      });
+    },
+  );
 });

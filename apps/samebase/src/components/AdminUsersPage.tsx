@@ -23,18 +23,10 @@ const adminUsersRouteApi = getRouteApi("/admin/users");
 const INCLUDE_SCRUBBED_CHECKBOX_ID = "admin-users-include-scrubbed";
 
 type DeleteTarget = {
+  deletionStartMode: FunctionReturnType<typeof api.accountDeletion.index.policy>;
   email: string;
   userId: Id<"users">;
 };
-
-type AccountDeletionStartMode = FunctionReturnType<
-  typeof api.accountDeletion.index.policy
->["deletionStartMode"];
-
-const ACCOUNT_DELETION_START_COPY = {
-  immediate: "Permanent deletion starts immediately.",
-  seven_days: "Permanent deletion starts in seven days.",
-} satisfies Record<AccountDeletionStartMode, string>;
 
 export function AdminUsersPage() {
   const navigate = adminUsersRouteApi.useNavigate();
@@ -52,7 +44,7 @@ export function AdminUsersPage() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleDelete = async () => {
-    if (deleteTarget === null || pendingUserId !== null || policy === undefined) {
+    if (deleteTarget === null || pendingUserId !== null) {
       return;
     }
 
@@ -60,7 +52,7 @@ export function AdminUsersPage() {
     setDeleteError(null);
     try {
       await queueUserDeletion({
-        deletionStartMode: policy.deletionStartMode,
+        deletionStartMode: deleteTarget.deletionStartMode,
         userId: deleteTarget.userId,
       });
       setDeleteTarget(null);
@@ -137,10 +129,14 @@ export function AdminUsersPage() {
                         policy === undefined || pendingUserId !== null || user.state !== "active"
                       }
                       onClick={() => {
-                        if (user.email === undefined) {
+                        if (policy === undefined || user.email === undefined) {
                           return;
                         }
-                        setDeleteTarget({ email: user.email, userId: user.userId });
+                        setDeleteTarget({
+                          deletionStartMode: policy,
+                          email: user.email,
+                          userId: user.userId,
+                        });
                         setDeleteError(null);
                       }}
                     >
@@ -173,7 +169,7 @@ export function AdminUsersPage() {
       ) : null}
 
       <Dialog
-        open={deleteTarget !== null && policy !== undefined}
+        open={deleteTarget !== null}
         onOpenChange={(open) => {
           if (!open && pendingUserId === null) {
             setDeleteTarget(null);
@@ -186,7 +182,9 @@ export function AdminUsersPage() {
             <DialogTitle>Delete account?</DialogTitle>
             <DialogDescription>
               This disables {deleteTarget?.email} now.{" "}
-              {policy === undefined ? null : ACCOUNT_DELETION_START_COPY[policy.deletionStartMode]}
+              {deleteTarget?.deletionStartMode === "immediate"
+                ? "Permanent deletion starts immediately."
+                : "Permanent deletion starts in seven days."}
             </DialogDescription>
           </DialogHeader>
           {deleteError === null ? null : (

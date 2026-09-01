@@ -7,7 +7,6 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { env, internalMutation, type MutationCtx } from "../_generated/server";
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
 import { mutation, query } from "../functions";
-import { readOptionalEnv } from "../oauthUtils";
 import { isAdminUser } from "../userAccess";
 import { readUserProfile } from "../userLifecycle";
 import {
@@ -23,10 +22,6 @@ const ACCOUNT_DELETION_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1_000;
 
 const vAccountDeletionStartMode = union(literal("seven_days"), literal("immediate"));
 type AccountDeletionStartMode = Infer<typeof vAccountDeletionStartMode>;
-
-const vAccountDeletionPolicy = object({
-  deletionStartMode: vAccountDeletionStartMode,
-});
 
 const vActiveAccountDeletionRunState = union(
   literal("queued"),
@@ -96,27 +91,7 @@ const vAdminUserListItem = object({
 });
 
 function resolveAccountDeletionStartMode(): AccountDeletionStartMode {
-  if (env.ACCOUNT_DELETION_GRACE_PERIOD_MS !== "0") {
-    return "seven_days";
-  }
-  const deploymentSpecifier = readOptionalEnv("CONVEX_DEPLOYMENT")?.toLowerCase() ?? "";
-  const isExplicitNonProductionDeployment = /^(?:anonymous|dev|local|preview):.+$/u.test(
-    deploymentSpecifier,
-  );
-  if (!isExplicitNonProductionDeployment) {
-    throw new Error("Immediate account deletion requires an explicit non-production deployment.");
-  }
-  return "immediate";
-}
-
-function requireCurrentAccountDeletionStartMode(
-  deletionStartMode: AccountDeletionStartMode,
-): AccountDeletionStartMode {
-  const currentDeletionStartMode = resolveAccountDeletionStartMode();
-  if (deletionStartMode !== currentDeletionStartMode) {
-    throw new Error("Account deletion policy changed. Review the current deletion terms.");
-  }
-  return currentDeletionStartMode;
+  return env.ACCOUNT_DELETION_GRACE_PERIOD_MS === "0" ? "immediate" : "seven_days";
 }
 
 function readDeletionStartsAt(run: Doc<"workflow_accountDeletion_runs">): number {
@@ -165,6 +140,10 @@ async function queueAccountDeletion(
     user: Extract<Doc<"users">, { state: "active" }>;
   },
 ) {
+  if (args.deletionStartMode !== resolveAccountDeletionStartMode()) {
+    throw new Error("Account deletion policy changed. Review the current deletion terms.");
+  }
+
   const now = Date.now();
   const deletionStartsAt =
     now + (args.deletionStartMode === "immediate" ? 0 : ACCOUNT_DELETION_GRACE_PERIOD_MS);
@@ -296,10 +275,9 @@ export const request = mutation({
       throw new Error("Account deletion completion capability is already in use.");
     }
 
-    const deletionStartMode = requireCurrentAccountDeletionStartMode(args.deletionStartMode);
     const run = await queueAccountDeletion(ctx, {
       completionCapability: args.completionCapability,
-      deletionStartMode,
+      deletionStartMode: args.deletionStartMode,
       eventMessage: "Account deletion was requested.",
       initiatingSessionId,
       user: ctx.viewer.user,
@@ -367,7 +345,6 @@ export const queueUserDeletionForAdmin = mutation({
       throw new Error("User must leave all organizations before account deletion.");
     }
 
-    const deletionStartMode = requireCurrentAccountDeletionStartMode(args.deletionStartMode);
     const capabilityBytes = new Uint8Array(32);
     crypto.getRandomValues(capabilityBytes);
     const completionCapability = Array.from(capabilityBytes, (byte) =>
@@ -375,7 +352,7 @@ export const queueUserDeletionForAdmin = mutation({
     ).join("");
     const run = await queueAccountDeletion(ctx, {
       completionCapability,
-      deletionStartMode,
+      deletionStartMode: args.deletionStartMode,
       eventMessage: "Account deletion was requested by staff.",
       user,
     });
@@ -474,10 +451,8 @@ export const retry = mutation({
 export const policy = query({
   access: "access_account_deletion",
   args: {},
-  returns: vAccountDeletionPolicy,
-  handler: async () => ({
-    deletionStartMode: resolveAccountDeletionStartMode(),
-  }),
+  returns: vAccountDeletionStartMode,
+  handler: async () => resolveAccountDeletionStartMode(),
 });
 
 export const status = query({

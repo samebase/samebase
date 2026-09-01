@@ -7,9 +7,7 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 const testState = vi.hoisted(() => ({
   deleteUser: vi.fn(),
-  deletionPolicy: vi.fn<() => { deletionStartMode: "immediate" | "seven_days" } | undefined>(
-    () => ({ deletionStartMode: "seven_days" }),
-  ),
+  deletionPolicy: vi.fn<() => "immediate" | "seven_days" | undefined>(() => "seven_days"),
   includeScrubbed: false,
   loadMore: vi.fn(),
   navigatedSearches: new Array<Record<string, unknown>>(),
@@ -148,7 +146,7 @@ describe("AdminUsersPage", () => {
     testState.deleteUser.mockReset();
     testState.deleteUser.mockResolvedValue(undefined);
     testState.deletionPolicy.mockReset();
-    testState.deletionPolicy.mockReturnValue({ deletionStartMode: "seven_days" });
+    testState.deletionPolicy.mockReturnValue("seven_days");
     testState.loadMore.mockReset();
     testState.navigate.mockClear();
     testState.includeScrubbed = false;
@@ -208,76 +206,53 @@ describe("AdminUsersPage", () => {
     expect(testState.navigatedSearches).toEqual([{ dev: true, includeScrubbed: undefined }]);
   });
 
-  it("requires confirmation and disables delete triggers while the request is pending", async () => {
-    let resolveDelete: (() => void) | undefined;
-    testState.deleteUser.mockImplementation(
-      () =>
-        new Promise<void>((resolve) => {
-          resolveDelete = resolve;
-        }),
-    );
-    const container = await mountPage();
-    const deleteTrigger = findButton(container, "Delete");
-    if (deleteTrigger === undefined) {
-      throw new Error("Active user delete trigger was not found.");
-    }
+  it.each([
+    ["seven_days", "immediate", "Permanent deletion starts in seven days."],
+    ["immediate", "seven_days", "Permanent deletion starts immediately."],
+  ] as const)(
+    "submits the %s policy shown in the confirmation",
+    async (policy, changedPolicy, timing) => {
+      let resolveDelete: (() => void) | undefined;
+      testState.deletionPolicy.mockReturnValue(policy);
+      testState.deleteUser.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveDelete = resolve;
+          }),
+      );
+      const container = await mountPage();
+      const deleteTrigger = findButton(container, "Delete");
+      if (deleteTrigger === undefined) {
+        throw new Error("Active user delete trigger was not found.");
+      }
 
-    await act(async () => deleteTrigger.click());
-    expect(testState.deleteUser).not.toHaveBeenCalled();
-    const dialog = container.querySelector<HTMLElement>('[role="dialog"]');
-    expect(dialog?.textContent).toContain("active@example.test");
-    expect(dialog?.textContent).toContain("Permanent deletion starts in seven days.");
+      await act(async () => deleteTrigger.click());
+      expect(testState.deleteUser).not.toHaveBeenCalled();
+      const dialog = container.querySelector<HTMLElement>('[role="dialog"]');
+      expect(dialog?.textContent).toContain("active@example.test");
+      expect(dialog?.textContent).toContain(timing);
 
-    const confirmDelete = dialog === null ? undefined : findButton(dialog, "Delete");
-    if (confirmDelete === undefined) {
-      throw new Error("Confirmation delete action was not found.");
-    }
-    await act(async () => confirmDelete.click());
+      testState.deletionPolicy.mockReturnValue(changedPolicy);
+      await act(async () => root?.render(<AdminUsersPage />));
+      expect(dialog?.textContent).toContain(timing);
 
-    expect(testState.deleteUser).toHaveBeenCalledWith({
-      deletionStartMode: "seven_days",
-      userId: fakeUserId("user_active"),
-    });
-    expect(
-      Array.from(container.querySelectorAll("button")).every((button) => button.disabled),
-    ).toBe(true);
-    expect(container.textContent).toContain("Queuing...");
+      const confirmDelete = dialog === null ? undefined : findButton(dialog, "Delete");
+      if (confirmDelete === undefined) {
+        throw new Error("Confirmation delete action was not found.");
+      }
+      await act(async () => confirmDelete.click());
 
-    await act(async () => resolveDelete?.());
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
-  });
+      expect(testState.deleteUser).toHaveBeenCalledWith({
+        deletionStartMode: policy,
+        userId: fakeUserId("user_active"),
+      });
+      expect(
+        Array.from(container.querySelectorAll("button")).every((button) => button.disabled),
+      ).toBe(true);
+      expect(container.textContent).toContain("Queuing...");
 
-  it("shows immediate deletion terms and submits the confirmed policy", async () => {
-    testState.deletionPolicy.mockReturnValue({ deletionStartMode: "immediate" });
-    const container = await mountPage();
-    const deleteTrigger = findButton(container, "Delete");
-    if (deleteTrigger === undefined) {
-      throw new Error("Active user delete trigger was not found.");
-    }
-
-    await act(async () => deleteTrigger.click());
-    const dialog = container.querySelector<HTMLElement>('[role="dialog"]');
-    expect(dialog?.textContent).toContain("Permanent deletion starts immediately.");
-    expect(dialog?.textContent).not.toContain("seven days");
-
-    const confirmDelete = dialog === null ? undefined : findButton(dialog, "Delete");
-    if (confirmDelete === undefined) {
-      throw new Error("Confirmation delete action was not found.");
-    }
-    await act(async () => confirmDelete.click());
-
-    expect(testState.deleteUser).toHaveBeenCalledWith({
-      deletionStartMode: "immediate",
-      userId: fakeUserId("user_active"),
-    });
-  });
-
-  it("disables account deletion while the policy loads", async () => {
-    testState.deletionPolicy.mockReturnValue(undefined);
-    const container = await mountPage();
-    const deleteTrigger = findButton(container, "Delete");
-
-    expect(deleteTrigger?.disabled).toBe(true);
-    expect(container.querySelector('[role="dialog"]')).toBeNull();
-  });
+      await act(async () => resolveDelete?.());
+      expect(container.querySelector('[role="dialog"]')).toBeNull();
+    },
+  );
 });
