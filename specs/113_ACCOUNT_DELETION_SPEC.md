@@ -31,7 +31,7 @@ The override requires clear non-production deployment evidence. Production and u
 reject it. The run stores its exact deletion start time when it accepts the request, so a later
 environment change affects only new requests. While a run is queued, the status page shows that time
 and directs the user to email `contact@samebase.com` to restore the account or for other inquiries.
-The dialog and status page use the exact confirmation text
+The dialog and queued status page use the exact confirmation text
 `Samebase will send you a confirmation email as account deletion finishes.` Repeated requests return
 the same active run without rechecking the phrase.
 

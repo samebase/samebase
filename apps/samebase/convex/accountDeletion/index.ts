@@ -6,7 +6,6 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import { env, internalMutation, type MutationCtx } from "../_generated/server";
 import { ACCOUNT_DELETION_CONFIRMATION_PHRASE } from "../../shared/accountDeletionPhrase";
-import { resolveDeploymentProfile } from "../deploymentProfile";
 import { mutation, query } from "../functions";
 import { readOptionalEnv } from "../oauthUtils";
 import { isAdminUser } from "../userAccess";
@@ -100,14 +99,11 @@ function resolveAccountDeletionStartMode(): AccountDeletionStartMode {
   if (env.ACCOUNT_DELETION_GRACE_PERIOD_MS !== "0") {
     return "seven_days";
   }
-  const deploymentProfile = resolveDeploymentProfile();
   const deploymentSpecifier = readOptionalEnv("CONVEX_DEPLOYMENT")?.toLowerCase() ?? "";
-  const isExplicitNonProductionDeployment =
-    deploymentSpecifier.startsWith("anonymous:") ||
-    deploymentSpecifier.startsWith("dev:") ||
-    deploymentSpecifier.startsWith("local:") ||
-    deploymentSpecifier.startsWith("preview:");
-  if (deploymentProfile.kind === "production" || !isExplicitNonProductionDeployment) {
+  const isExplicitNonProductionDeployment = /^(?:anonymous|dev|local|preview):.+$/u.test(
+    deploymentSpecifier,
+  );
+  if (!isExplicitNonProductionDeployment) {
     throw new Error("Immediate account deletion requires an explicit non-production deployment.");
   }
   return "immediate";

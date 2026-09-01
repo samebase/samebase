@@ -320,17 +320,11 @@ describe("account deletion request and status", () => {
     });
   });
 
-  it.each(["", "unknown:samebase"])(
+  it.each(["", "dev:", "unknown:samebase"])(
     "rejects the immediate policy without explicit non-production evidence (%s)",
     async (deployment) => {
       vi.stubEnv("ACCOUNT_DELETION_GRACE_PERIOD_MS", "0");
-      vi.stubEnv("CONVEX_AGENT_MODE", "");
-      vi.stubEnv("CONVEX_CLOUD_URL", "https://unknown.convex.cloud");
       vi.stubEnv("CONVEX_DEPLOYMENT", deployment);
-      vi.stubEnv("CONVEX_SITE_URL", "https://unknown.convex.site");
-      vi.stubEnv("DEV_SEED_AUTH_EMAIL", "");
-      vi.stubEnv("DEV_SEED_AUTH_PASSWORD", "");
-      vi.stubEnv("SITE_URL", "https://samebase.com");
 
       const t = makeConvexTest();
       const { viewer } = await seedActiveViewer(t, `unknown-${deployment.length}@example.invalid`);
@@ -524,6 +518,7 @@ describe("account deletion request and status", () => {
       if (started?.state !== "running") {
         throw new Error("Account deletion did not start.");
       }
+      expect(started.deletionStartsAt).toBe(604_805_000);
       await expect(
         t.mutation(internal.accountDeletion.authCleanup.deleteOtherSessionBatch, {
           runId: status.runId,

@@ -96,6 +96,7 @@ async function seedRunningDeletion() {
       completionCapability: "b".repeat(64),
       currentStep: "request_accepted",
       requestedAt: 1,
+      deletionStartsAt: 1,
       updatedAt: 1,
       initiatingSessionId,
       retryCount: 0,
@@ -789,6 +790,7 @@ describe("account deletion organization boundary", () => {
     expect(snapshot.run).toMatchObject({
       state: "succeeded",
       identity: { state: "scrubbed" },
+      deletionStartsAt: 1,
       outcomes: {
         providerRevocation: {
           state: "completed",
@@ -1111,6 +1113,7 @@ describe("account deletion organization boundary", () => {
     });
     expect(failed.run).toMatchObject({
       state: "needs_attention",
+      deletionStartsAt: 1,
       latestSafeError: "Account deletion needs staff attention.",
     });
     expect(failed.events.at(-1)).toMatchObject({
@@ -1138,6 +1141,7 @@ describe("account deletion organization boundary", () => {
     });
     await expect(t.run(async (ctx) => await ctx.db.get(ids.runId))).resolves.toMatchObject({
       state: "running",
+      deletionStartsAt: 1,
       retryCount: 1,
       workflow: { attempt: 2 },
     });
