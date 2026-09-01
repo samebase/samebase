@@ -173,6 +173,10 @@ pnpm test
 3. Configure the GitHub App deployment settings and the Convex and Cloudflare connection OAuth/API
    keys.
 
+For immediate account-deletion tests, set `ACCOUNT_DELETION_GRACE_PERIOD_MS=0` on the exact
+non-production Convex deployment. Production and unknown deployments reject this override. An unset
+value keeps the seven-day wait.
+
 ## Contributing
 
 This project uses:

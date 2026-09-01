@@ -63,6 +63,8 @@ const activeAccountDeletionRunFields = {
   completionCapability: string(),
   currentStep: vAccountDeletionStep,
   requestedAt: number(),
+  /** Legacy runs without this field keep their original seven-day start time. */
+  deletionStartsAt: optional(number()),
   updatedAt: number(),
   /** Present for self-service requests. Staff requests delete every target session. */
   initiatingSessionId: optional(id("authSessions")),
@@ -108,6 +110,7 @@ export const accountDeletionTables = {
         completionCapability: string(),
         currentStep: literal("finish"),
         requestedAt: number(),
+        deletionStartsAt: optional(number()),
         updatedAt: number(),
         retryCount: number(),
         completedAt: number(),

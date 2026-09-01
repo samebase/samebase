@@ -342,6 +342,7 @@ export const finishIdentityDeletion = internalMutation({
       state: "succeeded",
       currentStep: "finish",
       requestedAt: run.requestedAt,
+      ...(run.deletionStartsAt === undefined ? {} : { deletionStartsAt: run.deletionStartsAt }),
       updatedAt: completedAt,
       retryCount: run.retryCount,
       completedAt,

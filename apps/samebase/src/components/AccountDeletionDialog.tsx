@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "@tanstack/react-router";
 
@@ -23,15 +24,41 @@ import {
   writeAccountDeletionBrowserMarker,
 } from "@/lib/accountDeletionBrowserState";
 
+type AccountDeletionStartMode = FunctionReturnType<
+  typeof api.accountDeletion.index.policy
+>["deletionStartMode"];
+
+const ACCOUNT_DELETION_DIALOG_COPY = {
+  immediate: {
+    action: "Delete account",
+    pendingAction: "Deleting...",
+    timing:
+      "Your account will be disabled now. Permanent deletion will start immediately after you continue.",
+    timingDetails: "Samebase will send you a confirmation email as account deletion finishes.",
+  },
+  seven_days: {
+    action: "Schedule deletion",
+    pendingAction: "Scheduling...",
+    timing:
+      "Your account will be disabled now. Permanent deletion will start seven days after you continue.",
+    timingDetails:
+      "During those seven days, email contact@samebase.com to restore your account or for other inquiries. Samebase will send you a confirmation email as account deletion finishes.",
+  },
+} satisfies Record<
+  AccountDeletionStartMode,
+  { action: string; pendingAction: string; timing: string; timingDetails: string }
+>;
+
 export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
   const router = useRouter();
+  const policy = useQuery(api.accountDeletion.index.policy);
   const requestAccountDeletion = useMutation(api.accountDeletion.index.request);
   const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const [confirmationInput, setConfirmationInput] = useState("");
 
   const handleDeleteAccount = async () => {
-    if (isRequestingDeletion) {
+    if (isRequestingDeletion || policy === undefined) {
       return;
     }
 
@@ -51,6 +78,7 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
     try {
       const result = await requestAccountDeletion({
         completionCapability,
+        deletionStartMode: policy.deletionStartMode,
         deletionConfirmationText: confirmationInput,
       });
       if (result.state === "confirmation_mismatch") {
@@ -73,6 +101,12 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
     }
   };
 
+  if (policy === undefined) {
+    return null;
+  }
+
+  const copy = ACCOUNT_DELETION_DIALOG_COPY[policy.deletionStartMode];
+
   return (
     <Dialog
       open
@@ -86,15 +120,8 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
         <DialogHeader>
           <DialogTitle>Delete account?</DialogTitle>
           <DialogDescription className="space-y-2 text-foreground">
-            <span className="block font-medium">
-              Your account will be disabled now. Permanent deletion will start seven days after you
-              continue.
-            </span>
-            <span className="block text-muted-foreground">
-              During those seven days, email contact@samebase.com to restore your account or for
-              other inquiries. Samebase will send you a confirmation email as account deletion
-              finishes.
-            </span>
+            <span className="block font-medium">{copy.timing}</span>
+            <span className="block text-muted-foreground">{copy.timingDetails}</span>
             <span className="block text-muted-foreground">
               First, leave or delete every organization. GitHub repositories, Convex projects,
               Cloudflare Workers, and domains are not deleted.
@@ -136,10 +163,10 @@ export function AccountDeletionDialog({ onClose }: { onClose: () => void }) {
             {isRequestingDeletion ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Scheduling...
+                {copy.pendingAction}
               </>
             ) : (
-              "Schedule deletion"
+              copy.action
             )}
           </Button>
         </DialogFooter>

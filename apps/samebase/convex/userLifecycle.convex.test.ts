@@ -230,6 +230,7 @@ describe("user lifecycle authorization", () => {
       viewer.mutation(api.accountDeletion.index.request, {
         completionCapability: "a".repeat(64),
         deletionConfirmationText: "keep my account",
+        deletionStartMode: "seven_days",
       }),
     ).resolves.toEqual({ state: "confirmation_mismatch" });
 
