@@ -12,7 +12,8 @@ import { Label } from "@/components/ui/label";
 import { INCLUDE_SCRUBBED_QUERY_PARAM } from "@/routeSearch/adminUsers";
 import { applySearchPatch } from "@/routing/searchFlags";
 import { getRouteApi, Link } from "@tanstack/react-router";
-import { useMutation, usePaginatedQuery } from "convex/react";
+import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
+import type { FunctionReturnType } from "convex/server";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { api } from "../../convex/_generated/api";
@@ -26,6 +27,15 @@ type DeleteTarget = {
   userId: Id<"users">;
 };
 
+type AccountDeletionStartMode = FunctionReturnType<
+  typeof api.accountDeletion.index.policy
+>["deletionStartMode"];
+
+const ACCOUNT_DELETION_START_COPY = {
+  immediate: "Permanent deletion starts immediately.",
+  seven_days: "Permanent deletion starts in seven days.",
+} satisfies Record<AccountDeletionStartMode, string>;
+
 export function AdminUsersPage() {
   const navigate = adminUsersRouteApi.useNavigate();
   const search = adminUsersRouteApi.useSearch();
@@ -35,20 +45,24 @@ export function AdminUsersPage() {
     { includeScrubbed },
     { initialNumItems: 25 },
   );
+  const policy = useQuery(api.accountDeletion.index.policy);
   const queueUserDeletion = useMutation(api.accountDeletion.index.queueUserDeletionForAdmin);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [pendingUserId, setPendingUserId] = useState<Id<"users"> | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleDelete = async () => {
-    if (deleteTarget === null || pendingUserId !== null) {
+    if (deleteTarget === null || pendingUserId !== null || policy === undefined) {
       return;
     }
 
     setPendingUserId(deleteTarget.userId);
     setDeleteError(null);
     try {
-      await queueUserDeletion({ userId: deleteTarget.userId });
+      await queueUserDeletion({
+        deletionStartMode: policy.deletionStartMode,
+        userId: deleteTarget.userId,
+      });
       setDeleteTarget(null);
     } catch {
       setDeleteError("Could not queue account deletion. Please try again.");
@@ -119,7 +133,9 @@ export function AdminUsersPage() {
                       type="button"
                       variant="destructive"
                       size="sm"
-                      disabled={pendingUserId !== null || user.state !== "active"}
+                      disabled={
+                        policy === undefined || pendingUserId !== null || user.state !== "active"
+                      }
                       onClick={() => {
                         if (user.email === undefined) {
                           return;
@@ -157,7 +173,7 @@ export function AdminUsersPage() {
       ) : null}
 
       <Dialog
-        open={deleteTarget !== null}
+        open={deleteTarget !== null && policy !== undefined}
         onOpenChange={(open) => {
           if (!open && pendingUserId === null) {
             setDeleteTarget(null);
@@ -169,7 +185,8 @@ export function AdminUsersPage() {
           <DialogHeader>
             <DialogTitle>Delete account?</DialogTitle>
             <DialogDescription>
-              This disables {deleteTarget?.email} now. Permanent deletion starts in seven days.
+              This disables {deleteTarget?.email} now.{" "}
+              {policy === undefined ? null : ACCOUNT_DELETION_START_COPY[policy.deletionStartMode]}
             </DialogDescription>
           </DialogHeader>
           {deleteError === null ? null : (

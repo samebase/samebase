@@ -25,9 +25,13 @@ Acceptance creates one durable queued deletion run, marks the user as deleting, 
 initiating session to `/account-deletion`. Other signed-in sessions on protected app routes redirect
 to `/account-deletion`. Public routes remain available, and the user can sign out from the account
 deletion page. The account is disabled immediately. The permanent deletion workflow starts exactly
-seven days after the request. The status page shows that time and directs the user to email
-`contact@samebase.com` to restore the account or for other inquiries. The dialog and status page use
-the exact confirmation text
+seven days after the request in production. A non-production deployment can set
+`ACCOUNT_DELETION_GRACE_PERIOD_MS=0` to start the workflow immediately after the request commits.
+The override requires clear non-production deployment evidence. Production and unknown deployments
+reject it. The run stores its exact deletion start time when it accepts the request, so a later
+environment change affects only new requests. While a run is queued, the status page shows that time
+and directs the user to email `contact@samebase.com` to restore the account or for other inquiries.
+The dialog and status page use the exact confirmation text
 `Samebase will send you a confirmation email as account deletion finishes.` Repeated requests return
 the same active run without rechecking the phrase.
 
@@ -192,8 +196,12 @@ hard-deleted IDs cannot be restored.
 ## Required Validation
 
 - A request is idempotent and capability retries keep observing the same run.
-- A request disables the account immediately, stays queued for seven days, and exposes the exact
-  permanent deletion start time.
+- In production, a request disables the account immediately, stays queued for seven days, and
+  exposes the exact permanent deletion start time.
+- An unset non-production deletion override keeps seven days. A `0` override with clear
+  non-production deployment evidence starts deletion after the request commits. Production and
+  unknown deployments reject the override. A queued run keeps its stored start time after an
+  environment change.
 - Staff can restore or start only a queued run. Restoration removes the run and returns the same
   user to active. A later scheduled callback is a no-op.
 - A request with any organization membership is rejected without creating a deletion run.

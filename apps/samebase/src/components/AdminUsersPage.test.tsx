@@ -7,6 +7,9 @@ import type { Id } from "../../convex/_generated/dataModel";
 
 const testState = vi.hoisted(() => ({
   deleteUser: vi.fn(),
+  deletionPolicy: vi.fn<() => { deletionStartMode: "immediate" | "seven_days" } | undefined>(
+    () => ({ deletionStartMode: "seven_days" }),
+  ),
   includeScrubbed: false,
   loadMore: vi.fn(),
   navigatedSearches: new Array<Record<string, unknown>>(),
@@ -74,6 +77,7 @@ vi.mock("convex/react", () => ({
       status: testState.status,
     };
   },
+  useQuery: () => testState.deletionPolicy(),
 }));
 
 vi.mock("@tanstack/react-router", async (importOriginal) => {
@@ -143,6 +147,8 @@ describe("AdminUsersPage", () => {
   beforeEach(() => {
     testState.deleteUser.mockReset();
     testState.deleteUser.mockResolvedValue(undefined);
+    testState.deletionPolicy.mockReset();
+    testState.deletionPolicy.mockReturnValue({ deletionStartMode: "seven_days" });
     testState.loadMore.mockReset();
     testState.navigate.mockClear();
     testState.includeScrubbed = false;
@@ -228,13 +234,50 @@ describe("AdminUsersPage", () => {
     }
     await act(async () => confirmDelete.click());
 
-    expect(testState.deleteUser).toHaveBeenCalledWith({ userId: fakeUserId("user_active") });
+    expect(testState.deleteUser).toHaveBeenCalledWith({
+      deletionStartMode: "seven_days",
+      userId: fakeUserId("user_active"),
+    });
     expect(
       Array.from(container.querySelectorAll("button")).every((button) => button.disabled),
     ).toBe(true);
     expect(container.textContent).toContain("Queuing...");
 
     await act(async () => resolveDelete?.());
+    expect(container.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  it("shows immediate deletion terms and submits the confirmed policy", async () => {
+    testState.deletionPolicy.mockReturnValue({ deletionStartMode: "immediate" });
+    const container = await mountPage();
+    const deleteTrigger = findButton(container, "Delete");
+    if (deleteTrigger === undefined) {
+      throw new Error("Active user delete trigger was not found.");
+    }
+
+    await act(async () => deleteTrigger.click());
+    const dialog = container.querySelector<HTMLElement>('[role="dialog"]');
+    expect(dialog?.textContent).toContain("Permanent deletion starts immediately.");
+    expect(dialog?.textContent).not.toContain("seven days");
+
+    const confirmDelete = dialog === null ? undefined : findButton(dialog, "Delete");
+    if (confirmDelete === undefined) {
+      throw new Error("Confirmation delete action was not found.");
+    }
+    await act(async () => confirmDelete.click());
+
+    expect(testState.deleteUser).toHaveBeenCalledWith({
+      deletionStartMode: "immediate",
+      userId: fakeUserId("user_active"),
+    });
+  });
+
+  it("disables account deletion while the policy loads", async () => {
+    testState.deletionPolicy.mockReturnValue(undefined);
+    const container = await mountPage();
+    const deleteTrigger = findButton(container, "Delete");
+
+    expect(deleteTrigger?.disabled).toBe(true);
     expect(container.querySelector('[role="dialog"]')).toBeNull();
   });
 });

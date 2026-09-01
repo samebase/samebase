@@ -525,6 +525,7 @@ export const handleWorkflowComplete = internalMutation({
       workflow: run.workflow,
       currentStep: run.currentStep,
       requestedAt: run.requestedAt,
+      ...(run.deletionStartsAt === undefined ? {} : { deletionStartsAt: run.deletionStartsAt }),
       ...(run.initiatingSessionId === undefined
         ? {}
         : { initiatingSessionId: run.initiatingSessionId }),

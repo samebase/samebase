@@ -30,6 +30,7 @@ import type { DataModel } from "./dataModel.js";
 type Env = {
   readonly CONVEX_CLOUD_URL: string;
   readonly CONVEX_SITE_URL: string;
+  readonly ACCOUNT_DELETION_GRACE_PERIOD_MS: "0" | undefined;
   readonly AUTH_GITHUB_ID: string | undefined;
   readonly AUTH_GITHUB_SECRET: string | undefined;
   readonly AUTH_GOOGLE_ID: string | undefined;
