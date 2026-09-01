@@ -7,6 +7,8 @@ before React hydrates.
 
 [Open the live example](https://samebase-sidebars-example.pfp.workers.dev/?prod-ui).
 
+The `/human-checkpoint` route provides one human continuation step for browser automation.
+
 ## Run the app
 
 Install the dependencies, then start the development server:
