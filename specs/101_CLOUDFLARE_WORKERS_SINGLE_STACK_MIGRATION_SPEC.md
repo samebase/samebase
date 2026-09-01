@@ -39,13 +39,11 @@ deleting it.
 
 The Convex deploy-key naming contract is part of the stack. Samebase-managed production and preview
 Builds triggers both use `CONVEX_DEPLOY_KEY`. The production trigger stores the production key. The
-preview trigger stores the project Preview key. A build script can keep `PREVIEW_CONVEX_DEPLOY_KEY`
-as a temporary fallback for a manual dashboard setup that still shows one shared build-variable
-table. A preview build must not use the production key.
+preview trigger stores the project Preview key. A preview build must not use the production key.
 
 Samebase-managed wiring also sets the non-secret
-`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker on both triggers.
-App build scripts consume only the selected deploy-key secret. The marker lets Samebase read which
+`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker on the production
+trigger. App build scripts consume only the deploy-key secret. The marker lets Samebase read which
 Convex project the Cloudflare configuration declares without copying that relationship into its
 database.
 
@@ -267,9 +265,9 @@ Required Workers operations:
 5. create or patch the production build trigger with that UUID
 6. create or patch the preview/non-production build trigger with the same UUID
 7. set `CONVEX_DEPLOY_KEY` to the production key on the production trigger and to the project
-   Preview key on the preview trigger; delete the obsolete `PREVIEW_CONVEX_DEPLOY_KEY` variable
-8. set the same non-secret `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>`
-   marker on both triggers
+   Preview key on the preview trigger
+8. set the non-secret `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>`
+   marker only on the production trigger
 9. do not set `VITE_CONVEX_URL` in Workers Builds; Convex deploy supplies it to the child build
 10. trigger the first production build
 11. read build status, logs, and production URL directly from Cloudflare when needed
@@ -281,9 +279,10 @@ For generated single-repository apps, use these Workers Builds commands:
 2. production deploy command: `pnpm run deploy`
 3. preview deploy command: `pnpm run deploy:preview`
 
-Keep the version-upload preview command as the general default. Accounts with Worker Previews
-private-beta access can opt in to `pnpm run deploy:worker-preview`. Runtime Previews Base settings
-do not supply Workers Builds secrets.
+These names are the stable Samebase repository interface. The repository owns their implementation.
+`pnpm run deploy:preview` uses `wrangler preview --worker-name <connected-worker-name>`. Worker
+Previews is a private beta, and the Cloudflare account must have access. Runtime variables do not
+supply Workers Builds secrets.
 
 For older monorepo-shaped Samebase-generated apps, a temporary fallback can use `apps/samebase` as
 the root with direct Wrangler commands while the template surface converges.

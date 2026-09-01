@@ -222,30 +222,30 @@ Convex `_creationTime` records when the attachment was created.
 `SAMEBASE_CONVEX_PROJECT` is a non-secret Cloudflare Workers Builds variable with the value
 `version=1&teamId=<teamId>&projectId=<projectId>`.
 
-Samebase writes the same marker to the production and preview Builds triggers. Each trigger has one
-secret variable named `CONVEX_DEPLOY_KEY`. The production trigger stores the production deploy key.
-The preview trigger stores the project Preview deploy key. The current readable marker is the
-authoritative declaration of which Convex project the Worker is configured to deploy. It is
-user-controlled provider configuration, not cryptographic proof that the hidden secret values belong
-to that project. A user who changes the keys directly in Cloudflare must also update or remove the
-marker.
+Samebase writes the marker only to the production Builds trigger. Each trigger has one secret
+variable named `CONVEX_DEPLOY_KEY`. The production trigger stores the production deploy key. The
+preview trigger stores the project Preview deploy key. The production marker is the authoritative
+declaration of which Convex project the Worker is configured to deploy. It is user-controlled
+provider configuration, not cryptographic proof that the hidden secret values belong to that
+project. A user who changes the keys directly in Cloudflare must also update or remove the marker.
 
 Samebase does not persist a Worker-to-project dependency row or attachment field. The selected
 project may exist as active workflow input while an explicit provider operation runs, but completed
 relationship state is read from Cloudflare. Multiple Workers may declare the same Convex project.
-One Worker has one observable target only when its production and preview markers agree.
+The preview secret is a project-level key for the project declared by the production marker.
 
 The live observation reports these states without guessing:
 
-- the same valid marker, the canonical secret name on both triggers, and no legacy secret name:
-  configured for that project
-- matching markers with a missing canonical secret or an obsolete `PREVIEW_CONVEX_DEPLOY_KEY`:
-  incomplete, with repair available
-- secret names with no marker: target unknown
-- different valid markers or a valid marker on only one trigger: inconsistent
-- a malformed marker on either trigger: invalid
+- a valid production marker and the canonical secret name on both triggers: configured for that
+  project
+- a valid production marker with a missing canonical secret: incomplete, with repair available
+- secret names with no production marker: target unknown
+- a malformed production marker: invalid
 - a marker naming a project that is not attached to the repository: externally configured project
 - a provider read failure: unknown, without inferring that configuration is missing
+
+Samebase ignores a preview marker and `PREVIEW_CONVEX_DEPLOY_KEY`. Existing apps remove those values
+through the starter changelog migration.
 
 ### Provider observation boundary
 
@@ -456,7 +456,7 @@ sequenceDiagram
     CFB->>DB: record Workers Builds configuration event
     WF->>CFB: rotate_convex_deploy_keys_for_workers_builds child run
     CFB->>CVX: mint production + project preview deploy keys
-    CFB->>CFL: patch keys + SAMEBASE_CONVEX_PROJECT on both triggers
+    CFB->>CFL: patch both keys + production SAMEBASE_CONVEX_PROJECT
     CFB->>CFL: start first production build
     CFB->>DB: record deploy-key rotation event
   else no listed token
@@ -534,12 +534,12 @@ In `RepositoryDashboard`:
   selected attached Convex project through `Use <project> for Workers Builds`. If the Worker's live
   marker already names an attached project but the access needs repair, the UI offers only
   `Repair keys for <project>`. The action writes the production and preview values as
-  `CONVEX_DEPLOY_KEY` on their matching triggers, deletes `PREVIEW_CONVEX_DEPLOY_KEY`, and writes
-  `SAMEBASE_CONVEX_PROJECT` to both triggers. The selected project is operation input, not a
-  persisted Samebase dependency row.
+  `CONVEX_DEPLOY_KEY` on their matching triggers. It writes `SAMEBASE_CONVEX_PROJECT` only to the
+  production trigger. The selected project is operation input, not a persisted Samebase dependency
+  row.
 - The dashboard derives the current deploy-key configuration state from the two live Cloudflare
-  triggers. Loading, configured, not configured, incomplete, target unknown, inconsistent, invalid,
-  externally configured, and provider-read failure are distinct states.
+  triggers. Loading, configured, not configured, incomplete, target unknown, invalid, externally
+  configured, and provider-read failure are distinct states.
 - Worker, Builds, and Convex build-access observations load independently. A confirmed Worker link
   remains usable while later facts show a quiet loading pulse. Reload actions retry only the failed
   observation axis.

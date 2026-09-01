@@ -159,8 +159,11 @@ For Cloudflare Workers Builds, point the project root directory at `apps/samebas
 
 `wrangler.jsonc` owns the static asset directory and SPA fallback. The build script deploys Convex
 first. Each Workers Builds trigger uses `CONVEX_DEPLOY_KEY`. The production trigger stores the
-Convex production key. The preview trigger stores the project Preview key. The build script also
-accepts `PREVIEW_CONVEX_DEPLOY_KEY` for an old shared dashboard configuration.
+Convex production key. The preview trigger stores the project Preview key.
+
+These three package scripts are the stable Samebase deployment interface. A repository can change
+their implementation without changing the Workers Builds settings. Outside Workers Builds,
+`pnpm run build` runs only the app build.
 
 The production key must be a Convex production deploy key with exactly `deployment:deploy`,
 `deployment:env:view`, `deployment:env:write`, and `deployment:data:view`; the preview key is
@@ -168,12 +171,12 @@ Convex's separate project-level Preview deploy key. Local dry-runs build the app
 deploying Convex and can validate the Worker package with:
 
 ```bash
-CLOUDFLARE_WORKER_NAME=samebase pnpm --filter samebase deploy:dry-run
+pnpm --filter samebase deploy:dry-run
 ```
 
-`pnpm --filter samebase deploy:preview` keeps the general Worker Version path. An account with
-Worker Previews private-beta access can use `pnpm --filter samebase deploy:worker-preview`. Worker
-runtime Previews Base settings do not supply the Convex key to Workers Builds.
+`pnpm --filter samebase deploy:preview` creates or updates a named Worker Preview. Worker Previews
+is a private beta, and the Cloudflare account must have access. Put the preview key under **Builds >
+Previews Base**, not under **Runtime variables and secrets**.
 
 ### Testing
 

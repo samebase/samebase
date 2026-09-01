@@ -4,13 +4,14 @@
 
 - Date: 2026-05-16
 - Owner: Noter production hosting and generated app hosting
-- Superseded for Samebase-managed API configuration by
-  [the Worker Previews contract audit](./2026-08-31-cloudflare-worker-previews-contract.md). Keep
-  this record as the reason for the legacy fallback in a shared dashboard build-variable table.
-- Outcome: Use the conventional `CONVEX_DEPLOY_KEY` for production builds and
+- Superseded on 2026-09-01 by
+  [the Worker Previews contract audit](./2026-08-31-cloudflare-worker-previews-contract.md).
+- Historical outcome: Use the conventional `CONVEX_DEPLOY_KEY` for production builds and
   `PREVIEW_CONVEX_DEPLOY_KEY` for preview builds; Samebase-managed Workers Builds setup writes both
   names onto every trigger so the Cloudflare dashboard's visible build-variable table shows the full
   pair.
+- Current outcome: The dashboard exposes separate **Builds > Production** and **Builds > Previews
+  Base** tabs. Both triggers use `CONVEX_DEPLOY_KEY` with their scoped values.
 
 ## Finding
 
@@ -24,7 +25,7 @@ Build variables drawer. The drawer showed variable name, value, and encryption c
 Because the same dashboard table feeds both production and non-production builds, a single
 `CONVEX_DEPLOY_KEY` secret in the dashboard can be accidentally used by the wrong branch path.
 
-## Decision
+## Historical decision
 
 For dashboard-managed Samebase production builds, user-managed template builds, and
 Samebase-provisioned generated app builds, store the production deploy key under the conventional
@@ -47,13 +48,9 @@ secret from `WORKERS_CI_BRANCH`.
 
 ## Monitoring
 
-Recheck this when Cloudflare changes Workers Builds dashboard settings. The specific UI change to
-look for is a production/preview, branch, or trigger selector inside Worker Settings > Build >
-Variables and secrets.
-
-If Cloudflare adds that dashboard selector, the API-managed per-trigger layout can become the
-dashboard-managed setup path too. Until then, preserving one contract across all three setup paths
-is more valuable than using generic per-trigger names in API-managed triggers.
+The 2026-09-01 dashboard check found the expected split under **Worker Settings > Builds**. The
+**Production** tab has the production build command and variables. The **Previews Base** tab has the
+preview build command and variables. Samebase removed the legacy fallback from active code.
 
 ## Sources
 

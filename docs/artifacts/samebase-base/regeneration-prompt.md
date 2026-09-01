@@ -89,17 +89,19 @@ For a Workers/TanStack Start version:
   points explicitly when needed.
 - Use `CONVEX_DEPLOY_KEY` on both Workers Builds triggers. Store the production
   deploy key on the production trigger and the project Preview deploy key on the
-  preview trigger. Keep `PREVIEW_CONVEX_DEPLOY_KEY` only as a temporary fallback
-  for old shared dashboard setup.
+  preview trigger. Do not read `PREVIEW_CONVEX_DEPLOY_KEY` in active code.
 - Treat `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` as Samebase's
   readable
-  Cloudflare Builds marker. Write the same marker to both triggers during
+  Cloudflare Builds marker. Write the marker only to the production trigger during
   Samebase-managed setup. The generated app must not consume it.
 - Explain that Samebase-managed setup writes the canonical key separately through
-  the Builds trigger API and deletes `PREVIEW_CONVEX_DEPLOY_KEY`. Explain that
-  runtime Previews Base does not supply build secrets.
-- Keep `deploy:worker-preview` as an explicit private-beta command. The normal
-  preview command must continue to use `wrangler versions upload`.
+  the Builds trigger API. Existing apps delete `PREVIEW_CONVEX_DEPLOY_KEY` through
+  the starter changelog migration. Put the preview key under
+  **Builds > Previews Base > Variables and secrets**, not under
+  **Runtime variables and secrets**.
+- Keep `build`, `deploy`, and `deploy:preview` as the stable Samebase repository
+  interface. Make `deploy:preview` use `wrangler preview --worker-name` through a
+  cross-platform adapter. Worker Previews has no dry-run mode.
 - Document the current Convex permission split: production `CONVEX_DEPLOY_KEY`
   is a production deploy key with exactly `deployment:deploy`, `deployment:env:view`,
   `deployment:env:write`, and `deployment:data:view`; `deployment:data:write`,

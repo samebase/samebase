@@ -56,23 +56,24 @@ Create a Worker, not a Pages project. The starter deploys its frontend and Worke
    | Non-production branch deploy command | `pnpm run deploy:preview` |
    | Root directory                       | `/`                       |
 
-7. Add both keys under **Build variables and secrets**:
+7. Open **Settings > Builds > Production > Variables and secrets**. Add the production key:
 
-   | Name                        | Value                          |
-   | --------------------------- | ------------------------------ |
-   | `CONVEX_DEPLOY_KEY`         | the production key from step 3 |
-   | `PREVIEW_CONVEX_DEPLOY_KEY` | the preview key from step 3    |
+   | Name                | Value                          |
+   | ------------------- | ------------------------------ |
+   | `CONVEX_DEPLOY_KEY` | the production key from step 3 |
+
+8. Select **Previews Base** in the **Builds** section. Add the preview key under the same name:
+
+   | Name                | Value                       |
+   | ------------------- | --------------------------- |
+   | `CONVEX_DEPLOY_KEY` | the preview key from step 3 |
 
 Do not add `VITE_CONVEX_URL`. The starter gets the correct URL from Convex during each build. Do not
-put either deploy key under **Variables and secrets > Previews Base**. Previews Base supplies
-runtime values to Worker code. It does not supply build variables.
+put either deploy key under **Runtime variables and secrets**. That section supplies values to
+Worker code. It does not supply build variables.
 
-The two-name layout is for the dashboard path that shows one shared build-variable table. Samebase
-automation uses the Builds API instead. It stores the production and preview values under the same
-`CONVEX_DEPLOY_KEY` name on their separate triggers.
-
-Enable builds for non-production branches under **Settings**, **Build**, and **Branch control**.
-Then save the configuration and start the first deployment.
+Enable **Builds for Preview branches** under **Settings > Builds > Previews Base**. Then save the
+configuration and start the first deployment.
 
 ## 5. Check the first deployment
 
@@ -83,11 +84,10 @@ Create a branch and open a pull request to check the preview path. Cloudflare ru
 `pnpm run deploy:preview` and gives the branch a preview URL. The preview key gives that branch its
 own Convex deployment and data.
 
-If Cloudflare enabled Worker Previews for your account, configure safe runtime values and bindings
-in Previews Base. Then change the preview deploy command to `pnpm run deploy:worker-preview`. Worker
-Previews is a private beta. Keep `pnpm run deploy:preview` when the account does not have access. A
-new Worker Preview copies the Base settings once. Later Base changes do not update an existing
-Preview.
+`pnpm run deploy:preview` uses Cloudflare Worker Previews. Worker Previews is a private beta, and
+the Cloudflare account must have access. Configure safe runtime values and bindings before you share
+a Preview URL. A new Worker Preview copies its runtime Base settings once. Later Base changes do not
+update an existing Preview.
 
 After setup:
 

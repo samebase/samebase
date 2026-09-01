@@ -158,11 +158,13 @@ For a Workers version of the artifact:
 - Keep `wrangler.jsonc` as the deploy contract for the static asset directory, SPA fallback, preview
   URL preference, and local Wrangler deploy/dry-run behavior. Do not hard-code `name` in the
   reusable artifact template.
-- Make `package.json` `deploy` and `deploy:preview` repo-owned wrappers around `wrangler deploy` and
-  `wrangler versions upload` so the real Worker name can come from Cloudflare's connected-build
-  environment or Samebase automation.
-- Keep `deploy:worker-preview` as an explicit private-beta wrapper around `wrangler preview`. Pass
-  the Worker name with `--worker-name`. Do not add a dry-run command for Worker Previews.
+- Make `package.json` `deploy` use `wrangler deploy`. Wrangler reads the connected Worker name from
+  Cloudflare's build environment.
+- Make `package.json` `deploy:preview` use a small cross-platform adapter around `wrangler preview`.
+  Pass the connected Worker name with `--worker-name`. Do not add a dry-run command for Worker
+  Previews.
+- Keep `build`, `deploy`, and `deploy:preview` as the stable Samebase repository interface. A target
+  repository can change the implementation under those names.
 - Keep repository automation in erasable TypeScript runnable by plain `node` in Cloudflare's Workers
   Builds image, and pin Node 24 with `.node-version` or `NODE_VERSION`.
 - Keep the core workflow native on macOS, Linux, and Windows. Do not add Bash scripts, POSIX-only
@@ -175,14 +177,14 @@ For a Workers version of the artifact:
   own dashboard build command and currently does not honor Wrangler custom build settings there.
 - Explain that the Builds API stores variables per trigger. Samebase-managed production and preview
   triggers use the same `CONVEX_DEPLOY_KEY` name with different values.
-- Keep `PREVIEW_CONVEX_DEPLOY_KEY` only as a temporary fallback for a dashboard path that still
-  shows one shared build-variable table.
-- Samebase automation should write one scoped deploy-key build secret and the non-secret
-  `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker onto every
-  Workers Builds trigger. The generated app consumes only the deploy keys. Samebase reads the marker
-  from Cloudflare instead of persisting a Worker-to-project relationship.
-- Explain that runtime Previews Base does not provide build variables. Never place a Convex deploy
-  key in Worker runtime configuration.
+- Do not read `PREVIEW_CONVEX_DEPLOY_KEY` in active code. Existing apps remove that variable through
+  the starter changelog migration.
+- Samebase automation writes one scoped deploy-key build secret to each Workers Builds trigger. It
+  writes the non-secret `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>`
+  marker only to the production trigger. The generated app consumes only the deploy keys. Samebase
+  reads the marker from Cloudflare instead of persisting a Worker-to-project relationship.
+- Explain that the preview deploy key belongs under **Builds > Previews Base > Variables and
+  secrets**. Never place a Convex deploy key in **Runtime variables and secrets**.
 - Document Convex deploy-key permissions with the current least-privilege split: production
   `CONVEX_DEPLOY_KEY` is a production deployment key with exactly `deployment:deploy`,
   `deployment:env:view`, `deployment:env:write`, and `deployment:data:view`; do not add data write,

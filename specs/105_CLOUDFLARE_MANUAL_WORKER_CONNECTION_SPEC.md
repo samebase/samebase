@@ -170,10 +170,11 @@ available destination explicitly. When a Worker's marker already names an attach
 keys are incomplete or its team coordinate is stale, `Repair keys for <project>` offers only that
 project. A healthy attached target offers no write action.
 
-After the user chooses the exact attached Convex project, Samebase writes the two secret deploy keys
-and the readable `SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker to
-the production and preview triggers. That live Cloudflare configuration is the relationship.
-Samebase does not persist a Worker-to-project edge.
+After the user chooses the exact attached Convex project, Samebase writes one secret deploy key to
+each trigger. It writes the readable
+`SAMEBASE_CONVEX_PROJECT=version=1&teamId=<teamId>&projectId=<projectId>` marker only to the
+production trigger. That live Cloudflare configuration is the relationship. Samebase does not
+persist a Worker-to-project edge.
 
 ### Operation safety
 

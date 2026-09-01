@@ -83,17 +83,16 @@ separate repository-wide cleanup, but it is not part of the hosting cutover.
 
 Workers Builds injects `WORKERS_CI`, `WORKERS_CI_COMMIT_SHA`, and `WORKERS_CI_BRANCH`. The app build
 script uses `WORKERS_CI_BRANCH` to choose the production or preview deployment. Each Builds trigger
-provides its scoped value as `CONVEX_DEPLOY_KEY`. The script keeps `PREVIEW_CONVEX_DEPLOY_KEY` as a
-temporary fallback for an old shared dashboard configuration. Preview builds must require a
-preview-scoped key. The Workers Builds variable table does not store `VITE_CONVEX_URL`;
-`convex deploy --cmd` supplies the selected production or preview deployment URL to the child build
-command. After building the app and immediately before Convex pushes functions, the command compares
-`WORKERS_CI_COMMIT_SHA` with the current remote head of `WORKERS_CI_BRANCH`. A stale build must fail
-without deploying Convex. This protects both production and named branch previews from an older
-concurrent Workers Build finishing after a newer one. The guard adds one authenticated
-`git ls-remote` request per provider build. It is not an atomic compare-and-swap: a branch can still
-advance in the short interval between the Git check and Convex's internal push. Eliminating that
-residual race requires provider-side serialization or a Convex source-commit concurrency primitive.
+provides its scoped value as `CONVEX_DEPLOY_KEY`. Preview builds must require a preview-scoped key.
+The Workers Builds variable table does not store `VITE_CONVEX_URL`; `convex deploy --cmd` supplies
+the selected production or preview deployment URL to the child build command. After building the app
+and immediately before Convex pushes functions, the command compares `WORKERS_CI_COMMIT_SHA` with
+the current remote head of `WORKERS_CI_BRANCH`. A stale build must fail without deploying Convex.
+This protects both production and named branch previews from an older concurrent Workers Build
+finishing after a newer one. The guard adds one authenticated `git ls-remote` request per provider
+build. It is not an atomic compare-and-swap: a branch can still advance in the short interval
+between the Git check and Convex's internal push. Eliminating that residual race requires
+provider-side serialization or a Convex source-commit concurrency primitive.
 
 ### Static Page Prerendering And SPA Shell
 
@@ -270,8 +269,6 @@ Samebase production itself.
    - deploys Convex production from `CONVEX_DEPLOY_KEY` when `WORKERS_CI_BRANCH` is `main`
    - creates or reuses a named Convex preview deployment from the preview trigger's
      `CONVEX_DEPLOY_KEY` when `WORKERS_CI_BRANCH` is a non-production branch
-   - accepts `PREVIEW_CONVEX_DEPLOY_KEY` first as a temporary compatibility source on a
-     non-production branch
    - runs the idempotent `devAuth:seedPasswordAccount` action after every successful preview deploy,
      including preview reuse, without relying on preview creation
    - uses `DEV_SEED_GITHUB_API_KEY` only in preview deployments to discover the matching GitHub user
@@ -292,12 +289,15 @@ Samebase production itself.
      provide `DEV_SEED_SAMEBASE_CONVEX_MANAGEMENT_API_KEY`, `DEV_SEED_SAMEBASE_CONVEX_TEAM_ID`,
      `DEV_SEED_SAMEBASE_CLOUDFLARE_API_KEY`, and `DEV_SEED_SAMEBASE_CLOUDFLARE_ACCOUNT_ID`
    - creates no repositories during seeding
-   - rejects non-production builds that are missing the preview trigger's `CONVEX_DEPLOY_KEY`
+   - uses the preview trigger's `CONVEX_DEPLOY_KEY` on a non-production branch and fails if it is
+     missing
+   - passes `--preview-name <WORKERS_CI_BRANCH>` to each preview Convex Auth environment command
    - fails before the Convex push when `WORKERS_CI_COMMIT_SHA` is no longer the remote branch head
    - falls back to a frontend-only build for local dry runs without a deploy key
-4. Add production deploy and preview upload scripts around Wrangler.
-5. Use the Worker name supplied by Workers Builds when available, with one local override for
-   dry-run validation.
+4. Use direct `wrangler deploy` for production.
+5. Add a small cross-platform Worker Preview adapter that passes the connected Worker name to
+   `wrangler preview --worker-name`.
+6. Use one local Worker-name override for dry-run validation.
 
 ### Documentation
 
@@ -305,8 +305,8 @@ Samebase production itself.
 2. Document the exact build and deploy commands:
    - build command: `pnpm run build`
    - production deploy command: `pnpm run deploy`
-   - non-production deploy command: `pnpm run deploy:preview`
-   - Worker Previews private-beta command: `pnpm run deploy:worker-preview`
+   - non-production deploy command: `pnpm run deploy:preview` These names are the stable Samebase
+     repository interface.
 3. Document the cutover window and validation checklist.
 
 ## Rollout Plan
@@ -328,21 +328,18 @@ Add Workers config and deploy scripts.
 
 Validation:
 
-1. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter samebase deploy:dry-run`
-2. `CLOUDFLARE_WORKER_NAME=noter-next pnpm --filter samebase deploy:preview:dry-run`
-3. inspect generated `dist/client/index.html`, `dist/client/_landing.html`,
+1. `pnpm --filter samebase deploy:dry-run`
+2. inspect generated `dist/client/index.html`, `dist/client/_landing.html`,
    `dist/client/logo/index.html`, `dist/client/terms/index.html`, `dist/client/privacy/index.html`,
    and `dist/client/_redirects`
-4. confirm public prerendered HTML contains no `modulepreload` references and
+3. confirm public prerendered HTML contains no `modulepreload` references and
    `dist/client/index.html` remains the SPA fallback shell
 
 Current implementation result:
 
 1. `pnpm --filter samebase build:ci` passes.
-2. `CLOUDFLARE_WORKER_NAME=noter-workers-migration-test pnpm --filter samebase deploy:dry-run`
-   passes locally.
-3. `CLOUDFLARE_WORKER_NAME=noter-workers-migration-test WORKERS_CI=1 pnpm --filter samebase deploy:preview:dry-run`
-   passes locally.
+2. `pnpm --filter samebase deploy:dry-run` passes locally.
+3. The Worker Preview adapter tests prove the `--worker-name` argument without publishing a Preview.
 4. Wrangler reads `apps/samebase/dist/client` as the Worker Static Assets upload directory.
 
 ### Phase 3: Shadow Worker

@@ -4,14 +4,16 @@
 
 - Date: 2026-08-31
 - Owner: Samebase Cloudflare provisioning and starter app
-- Outcome: Use one `CONVEX_DEPLOY_KEY` name in the production and preview Builds scopes. Keep Worker
-  Previews as an explicit private-beta option. Let Wrangler own the private Preview API.
+- Updated: 2026-09-01 after a live dashboard and Wrangler 4.118.0 check.
+- Outcome: Use one `CONVEX_DEPLOY_KEY` name in the production and preview Builds scopes. Use Worker
+  Previews under the stable `pnpm run deploy:preview` repository command. Let Wrangler own the
+  private Preview API.
 
 ## Build Secret Contract
 
 The Convex deploy key is a build secret. It must be available to the build command before Wrangler
-uploads the Worker. Do not put this key in the runtime **Variables and secrets > Previews Base**
-section.
+uploads the Worker. Put the preview key in **Settings > Builds > Previews Base > Variables and
+secrets**. Do not put it in **Runtime variables and secrets**.
 
 Cloudflare Workers Builds has one production trigger and one preview trigger. Its documented API
 sets build variables on each trigger. Use this layout:
@@ -21,18 +23,25 @@ sets build variables on each trigger. Use this layout:
 | Production      | `CONVEX_DEPLOY_KEY`       | Convex production deploy key      |
 | Production      | `SAMEBASE_CONVEX_PROJECT` | Samebase project marker           |
 | Preview trigger | `CONVEX_DEPLOY_KEY`       | Convex project Preview deploy key |
-| Preview trigger | `SAMEBASE_CONVEX_PROJECT` | Samebase project marker           |
 
-`PATCH /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables` is an upsert. It
-does not remove an old variable. Migration must also call
-`DELETE /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables/PREVIEW_CONVEX_DEPLOY_KEY`
-for each trigger that still has the old name. Both endpoints require Workers Builds Configuration
-Edit, which the API schema calls Workers CI Write.
+`PATCH /accounts/{account_id}/builds/triggers/{trigger_uuid}/environment_variables` is an upsert.
+Samebase uses this stable API for current values. It does not delete old values during key rotation.
+An app agent removes `PREVIEW_CONVEX_DEPLOY_KEY` and the old preview marker during repository
+migration.
 
 The build script still reads `WORKERS_CI_BRANCH`. It uses the branch to choose `convex deploy` for
-`main` or `convex deploy --preview-name <branch>` for another branch. A preview build prefers the
-legacy name when it exists, then reads the canonical name. This keeps the old shared dashboard
-layout safe while an app migrates.
+`main` or `convex deploy --preview-name <branch>` for another branch. It reads only the canonical
+key. Each preview Convex Auth environment command receives the same explicit preview name.
+
+The dashboard now exposes these settings under **Settings > Builds**. The **Production** tab owns
+the production trigger. The **Previews Base** tab owns the preview trigger, including its build
+command, Preview command, token, and variables and secrets. This Builds tab is separate from
+**Runtime variables and secrets**.
+
+A fresh import of `samebase/base-preview@4f4899a` inferred `pnpm run build` from the exact
+`package.json` script. It defaulted the other fields to `npx wrangler deploy` and
+`npx wrangler preview`. It left **Enable Preview builds** off. Samebase must set the two stable
+package deploy commands and enable Preview builds.
 
 ## Worker Previews Contract
 
@@ -41,12 +50,10 @@ layout safe while an app migrates.
 
 Worker Previews is still a private beta. The command is present in Wrangler, but the server checks
 account access. Cloudflare has not published an entitlement endpoint or a stable error code for an
-account without access. Samebase cannot safely enable this command for every account.
+account without access. The current Samebase template requires access for branch preview builds.
 
-The starter therefore keeps two explicit commands:
-
-- `pnpm run deploy:preview` uses `wrangler versions upload` for the general path.
-- `pnpm run deploy:worker-preview` uses `wrangler preview` for an entitled account.
+The starter uses `pnpm run deploy:preview` for `wrangler preview`. It does not keep a separate
+Worker Version command.
 
 For Worker Previews, `--name` names the Preview. It does not name the Worker. The Samebase wrapper
 passes the Worker through `--worker-name` and lets Wrangler use the Git branch as the Preview name.
@@ -56,10 +63,10 @@ The project pins Wrangler 4.118.0. Its command help uses `--ignore-defaults` for
 skips dashboard Preview settings. This beta surface has changed names during development. Samebase
 does not wrap this option.
 
-## Runtime Previews Base
+## Runtime Preview settings
 
-Runtime Previews Base is separate from Workers Builds variables. A new Preview copies the dashboard
-Base configuration when Wrangler creates it. The Preview then owns its copy. A later Base change
+Runtime Preview defaults are separate from **Builds > Previews Base**. A new Preview copies the
+runtime defaults when Wrangler creates it. The Preview then owns its copy. A later default change
 does not update an existing Preview.
 
 Production variables, secrets, and bindings do not automatically become Preview settings. Add safe
@@ -72,23 +79,23 @@ Cloudflare's current Wrangler client uses private Preview endpoints under
 schema does not contain these paths. Current Wrangler source also contains both `preview_defaults`
 and `previews_base_config`. Samebase must not create a direct long-term client for this private API.
 
-The only new direct API operation in this change is the stable Builds variable `DELETE`. Samebase
-continues to use Wrangler for Worker Preview creation and updates.
+Samebase continues to use Wrangler for Worker Preview creation and updates.
 
 ## Migration
 
 For an existing app:
 
-1. Update `scripts/build-cloudflare.ts` to accept the scoped `CONVEX_DEPLOY_KEY` on preview builds.
-   Keep the old `PREVIEW_CONVEX_DEPLOY_KEY` preference during the layout transition so a build
-   cannot use the production key before the provider settings change.
-2. Put the production key under `CONVEX_DEPLOY_KEY` in the production Builds scope.
-3. Put the project Preview key under `CONVEX_DEPLOY_KEY` in the preview Builds scope.
-4. Delete `PREVIEW_CONVEX_DEPLOY_KEY` from both scopes.
-5. If the account has Worker Previews access, change the Preview command to
-   `pnpm run deploy:worker-preview`. Otherwise, keep `pnpm run deploy:preview`.
-6. Configure runtime Previews Base values and safe bindings before sharing a Worker Preview URL.
-7. Recreate or edit existing Preview resources when they must receive a later Base change.
+1. Put the production key under `CONVEX_DEPLOY_KEY` in **Builds > Production**.
+2. Put the project Preview key under `CONVEX_DEPLOY_KEY` in **Builds > Previews Base**.
+3. Update the repository scripts. Keep `build`, `deploy`, and `deploy:preview` as their stable
+   names.
+4. Make `deploy:preview` run `wrangler preview --worker-name <connected-worker-name>` through the
+   cross-platform adapter.
+5. Push the change and verify both build paths.
+6. Delete `PREVIEW_CONVEX_DEPLOY_KEY` from both scopes. Delete the preview `SAMEBASE_CONVEX_PROJECT`
+   marker.
+7. Configure safe runtime values and bindings before sharing a Worker Preview URL.
+8. Recreate or edit existing Preview resources when they must receive a later runtime Base change.
 
 ## Sources
 

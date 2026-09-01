@@ -339,8 +339,9 @@ describe("LandingPage", () => {
     expect(markup).toContain("Do it yourself: deploy the Samebase stack for $0/month");
     expect(markup).toContain('href="/docs/receipts"');
     expect(markup).toContain("pnpm run deploy:preview");
-    expect(markup).toContain("pnpm run deploy:worker-preview");
-    expect(markup).toContain("It does not supply build variables");
+    expect(markup).toContain("Settings &gt; Builds &gt; Previews Base");
+    expect(markup).toContain("Runtime variables and secrets");
+    expect(markup).not.toContain("pnpm run deploy:worker-preview");
     expect(markup).toContain("What Samebase adds");
     expect(markup).not.toContain(".mp4");
   });
